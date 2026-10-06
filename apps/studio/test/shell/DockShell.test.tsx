@@ -149,7 +149,8 @@ class FakeApi {
   };
 }
 
-vi.mock('dockview-react', () => ({
+vi.mock('dockview-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('dockview-react')>()),
   DockviewReact(props: {
     components: Record<string, unknown>;
     defaultTabComponent?: unknown;

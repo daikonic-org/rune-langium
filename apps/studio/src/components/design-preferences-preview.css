@@ -98,3 +98,22 @@
 :root[data-design-preview-details='true'] .studio-app .dv-tabs-and-actions-container {
   padding-inline: var(--space-2);
 }
+/* Keep the selected declaration visible when its qualified path is too long. */
+.studio-explore-location {
+  min-width: 0;
+  overflow: hidden;
+  direction: rtl;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+.studio-explore-location ol,
+.studio-explore-location li {
+  display: inline;
+}
+
+.studio-explore-location li[aria-current] {
+  color: var(--foreground);
+}

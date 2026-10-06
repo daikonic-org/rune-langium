@@ -59,10 +59,8 @@ describe('auxiliary edge panels', () => {
     const edge = api.getEdgeGroup('right')!;
     expect(model.api.location.type).toBe('grid');
     expect(form.api.location).toEqual({ type: 'edge', position: 'right' });
-    expect(edge.isCollapsed()).toBe(true);
-    form.api.setActive();
+    expect(controller.isPinned(edge.id)).toBe(true);
     expect(edge.isCollapsed()).toBe(false);
-    controller.togglePin(edge.id);
     model.api.setActive();
     expect(edge.isCollapsed()).toBe(false);
     controller.togglePin(edge.id);
@@ -71,6 +69,10 @@ describe('auxiliary edge panels', () => {
     expect(edge.isCollapsed()).toBe(false);
     model.api.setActive();
     expect(edge.isCollapsed()).toBe(true);
+    controller.togglePin(edge.id);
+    expect(controller.isPinned(edge.id)).toBe(true);
+    model.api.setActive();
+    expect(edge.isCollapsed()).toBe(false);
     controller.dispose();
     expect(api.getPanel('form')).toBe(form);
     expect(form.group.id).toBe(originalGroup);
@@ -93,9 +95,27 @@ describe('auxiliary edge panels', () => {
       const controller = collapseAuxiliaryPanels(api, perspective);
       expect(primary.api.location.type).toBe('grid');
       expect(supporting.api.location).toEqual({ type: 'edge', position });
-      expect(api.getEdgeGroup(position)?.isCollapsed()).toBe(true);
+      const edge = api.getEdgeGroup(position)!;
+      expect(edge.isCollapsed()).toBe(false);
+      expect(controller.isPinned(edge.id)).toBe(true);
+      // Moving out of a group shared with the main task must not steal its full size.
+      expect(position === 'bottom' ? edge.height : edge.width).toBeLessThan(400);
       controller.dispose();
       expect(supporting.group.id).toBe(primary.group.id);
     }
   );
+
+  it('preserves an existing unpinned, collapsed edge', () => {
+    const api = createWorkbench();
+    const model = api.addPanel({ id: 'model', component: 'workspace.visualPreview' });
+    const form = api.addPanel({ id: 'form', component: 'workspace.formPreview' });
+    const edge = api.addEdgeGroup('right', { id: 'manual', initialSize: 370, collapsed: true });
+    const group = api.groups.find((candidate) => candidate.id === edge.id)!;
+    form.api.moveTo({ group, position: 'center', skipSetActive: true });
+    const controller = collapseAuxiliaryPanels(api, 'explore');
+    model.api.setActive();
+    expect(controller.isPinned(edge.id)).toBe(false);
+    expect(edge.isCollapsed()).toBe(true);
+    controller.dispose();
+  });
 });

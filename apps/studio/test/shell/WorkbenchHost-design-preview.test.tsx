@@ -56,15 +56,18 @@ describe('workbench design comparison', () => {
     save.mockClear();
     act(() => useDesignPreviewStore.getState().setPreference('auxiliary', true));
     const edge = ready.getEdgeGroup('right')!;
-    expect(edge.isCollapsed()).toBe(true);
-    const changed = new Promise<void>((resolve) => {
-      const listener = ready.onDidLayoutChange(() => {
-        listener.dispose();
-        resolve();
+    expect(edge.isCollapsed()).toBe(false);
+    act(() => ready.getPanel('model')!.api.setActive());
+    await act(async () => {
+      const changed = new Promise<void>((resolve) => {
+        const listener = ready.onDidLayoutChange(() => {
+          listener.dispose();
+          resolve();
+        });
       });
+      form.api.setActive();
+      await changed;
     });
-    act(() => form.api.setActive());
-    await changed;
     expect(save).not.toHaveBeenCalled();
     act(() => useDesignPreviewStore.getState().reset());
     expect(ready.getPanel('form')).toBe(form);

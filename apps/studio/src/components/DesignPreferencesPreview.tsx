@@ -15,9 +15,10 @@ export default function DesignPreferencesPreview() {
   const options: Array<{ key: DesignPreviewPreference; label: string }> = [
     { key: 'readable', label: '1 · Clearer navigation text' },
     { key: 'calm', label: '2 · Calmer chrome' },
-    { key: 'auxiliary', label: '3 · Collapse auxiliary panels' },
+    { key: 'auxiliary', label: '3 · Pinnable auxiliary panels' },
     { key: 'header', label: '4 · Uncrowd the top bar' },
-    { key: 'details', label: '5 · Consistent controls' }
+    { key: 'details', label: '5 · Consistent controls' },
+    { key: 'path', label: 'Explore location path' }
   ];
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function DesignPreferencesPreview() {
             </label>
           ))}
           <p className="text-xs text-muted-foreground">
-            Auxiliary panels open from their edge tabs. Pin a panel to keep it open. Turning this off restores your
+            Auxiliary panels start pinned. Unpin to collapse them into edge tabs. Turning this off restores your
             original arrangement.
           </p>
           <label className="flex items-center justify-between gap-3 text-sm">

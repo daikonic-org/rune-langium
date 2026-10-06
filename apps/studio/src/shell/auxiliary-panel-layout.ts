@@ -38,15 +38,22 @@ export const collapseAuxiliaryPanels = withInstrumentation(
       if (edgePanels.some((panel) => policy[panel.api.component] !== position)) continue;
       // Respect already docked edge panels and their chosen expanded size.
       const first = panels[0] ?? edgePanels[0]!;
+      const sharesMainTask = first.group.panels.some((panel) => policy[panel.api.component] !== position);
       const edge =
         existing ??
         api.addEdgeGroup(position, {
           id: `${perspective}.auxiliary.${position}`,
           initialSize:
-            position === 'bottom' ? Math.max(220, first.group.api.height) : Math.max(240, first.group.api.width),
+            position === 'bottom'
+              ? sharesMainTask
+                ? 220
+                : Math.max(220, first.group.api.height)
+              : sharesMainTask
+                ? 280
+                : Math.max(240, first.group.api.width),
           minimumSize: position === 'bottom' ? 120 : 180,
           collapsedSize: 34,
-          collapsed: true
+          collapsed: false
         });
       const group = api.groups.find((candidate) => candidate.id === edge.id);
       if (!group) continue;
@@ -54,7 +61,7 @@ export const collapseAuxiliaryPanels = withInstrumentation(
         created.add(position);
         edge.setHeaderPosition(position === 'bottom' ? 'top' : position);
       }
-      if (existing && !edge.isCollapsed()) pinned.add(edge.id);
+      if (!edge.isCollapsed()) pinned.add(edge.id);
       managed.add(edge.id);
       for (const panel of panels) panel.api.moveTo({ group, position: 'center', skipSetActive: true });
     }
