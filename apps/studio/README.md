@@ -84,6 +84,11 @@ pnpm --filter @rune-langium/studio test
 pnpm --filter @rune-langium/studio run type-check
 ```
 
+For local visual comparisons, add `?design-preview` to the dev-server URL. The
+floating **Design preferences** control compares calmer chrome, clearer navigation
+text, and pane-pill spacing. Changes last only for that page session; reset or
+reload restores the current design. The controls are excluded from production.
+
 ### With external LSP server
 
 For full LSP features via WebSocket:

@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: FSL-1.1-ALv2 */
+/* Copyright (c) 2026 Pradeep Mouli */
+
+:root[data-design-preview-calm='true'] .studio-app :is(.studio-topbar__import, .studio-paneswitch, .studio-chrome-button) {
+  box-shadow: none;
+}
+
+:root[data-design-preview-calm='true'] .studio-app .studio-topbar__import {
+  background: var(--secondary);
+  color: var(--foreground);
+  border: var(--hairline) solid var(--border);
+}
+
+:root[data-design-preview-readable='true'] .studio-app :is(.studio-topbar__tab-name, .studio-type-row > button[data-testid^='ns-type-link-'], .rune-ns-seg-header > button:not([data-slot='button'])) {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+:root[data-design-preview-readable='true'] .studio-app .studio-type-row > button[data-testid^='ns-type-nav-'] {
+  opacity: 0.9;
+}
+
+:root[data-design-preview-gap='compact'] .studio-app .studio-center-stack__bar .studio-paneswitch {
+  gap: 0;
+}
+
+:root[data-design-preview-gap='wide'] .studio-app .studio-center-stack__bar .studio-paneswitch {
+  gap: var(--space-6);
+}
