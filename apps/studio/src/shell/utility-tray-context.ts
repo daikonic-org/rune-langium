@@ -8,6 +8,9 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 /** Minimal slice of a dockview group API needed by the tray toggle. */
 export interface UtilityGroupApi {
   setSize(opts: { height: number }): void;
+  location?: { type: string };
+  collapse?(): void;
+  expand?(): void;
 }
 
 export const UtilityTrayContext = createContext<{

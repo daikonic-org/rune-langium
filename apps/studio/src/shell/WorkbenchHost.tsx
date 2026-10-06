@@ -1,16 +1,50 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockview-react';
+import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps, IDockviewHeaderActionsProps } from 'dockview-react';
+import { Pin, PinOff } from 'lucide-react';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { DockLayout } from '@rune-langium/design-system/ui/dock-layout';
 import { restoreNativeLayout } from './dockview-bridge.js';
 import { StudioDockTab } from './StudioDockTab.js';
 import type { WorkbenchDefinition, WorkbenchHostProps } from './workbench-types.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { useDesignPreviewStore } from '../store/design-preview-store.js';
+import { collapseAuxiliaryPanels, type AuxiliaryPanelLayout } from './auxiliary-panel-layout.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
+
+const HeaderActionsContext = createContext<{
+  auxiliary: AuxiliaryPanelLayout | null;
+  refresh(): void;
+  original?: WorkbenchHostProps['rightHeaderActionsComponent'];
+}>({ auxiliary: null, refresh: () => {} });
+
+function WorkbenchHeaderActions(props: IDockviewHeaderActionsProps) {
+  const { auxiliary, refresh, original: Original } = useContext(HeaderActionsContext);
+  if (!auxiliary?.isManaged(props.group.id)) return Original ? <Original {...props} /> : null;
+  const pinned = auxiliary.isPinned(props.group.id);
+  return (
+    <>
+      {Original ? <Original {...props} /> : null}
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        aria-label={pinned ? 'Unpin auxiliary panel' : 'Pin auxiliary panel'}
+        title={pinned ? 'Unpin auxiliary panel' : 'Pin auxiliary panel'}
+        aria-pressed={pinned}
+        onClick={() => {
+          auxiliary.togglePin(props.group.id);
+          refresh();
+        }}
+      >
+        {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+      </Button>
+    </>
+  );
+}
 
 function PanelBody({ name }: { name: string }): React.ReactElement | null {
   const definition = useContext(WorkbenchDefinitionContext);
@@ -68,6 +102,34 @@ export const WorkbenchHost = withInstrumentation(
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
     const listenerRef = useRef<{ dispose(): void } | null>(null);
+    const apiRef = useRef<DockviewApi | null>(null);
+    const mountedRef = useRef(true);
+    const [auxiliary, setAuxiliary] = useState<AuxiliaryPanelLayout | null>(null);
+    const [, setPinRevision] = useState(0);
+    const collapseAuxiliary = useDesignPreviewStore((state) => state.preferences.auxiliary);
+    const restoringPreviewRef = useRef(false);
+
+    useEffect(() => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
+    }, []);
+
+    useEffect(() => {
+      const api = apiRef.current;
+      if (!api || !collapseAuxiliary) return;
+      const controller = collapseAuxiliaryPanels(api, definitionRef.current.id);
+      setAuxiliary(controller);
+      return () => {
+        restoringPreviewRef.current = true;
+        controller.dispose(mountedRef.current);
+        setAuxiliary(null);
+        queueMicrotask(() => {
+          restoringPreviewRef.current = false;
+        });
+      };
+    }, [collapseAuxiliary]);
 
     const panelNames = Object.keys(definition.panels).sort().join('\u0000');
     const components = useMemo(
@@ -79,6 +141,7 @@ export const WorkbenchHost = withInstrumentation(
     );
 
     const handleReady = useCallback((event: DockviewReadyEvent) => {
+      apiRef.current = event.api;
       listenerRef.current?.dispose();
       const currentDefinition = definitionRef.current;
       try {
@@ -103,6 +166,8 @@ export const WorkbenchHost = withInstrumentation(
 
       listenerRef.current = event.api.onDidLayoutChange(() => {
         if (event.api.panels.length === 0) return;
+        // Comparing designs must not overwrite the workspace's saved arrangement.
+        if (restoringPreviewRef.current || useDesignPreviewStore.getState().preferences.auxiliary) return;
         try {
           onNativeLayoutChangeRef.current(event.api.toJSON());
         } catch (error) {
@@ -122,13 +187,21 @@ export const WorkbenchHost = withInstrumentation(
 
     return (
       <WorkbenchDefinitionContext.Provider value={definition}>
-        <DockLayout
-          components={components}
-          defaultTabComponent={defaultTabComponent ?? StudioDockTab}
-          rightHeaderActionsComponent={rightHeaderActionsComponent}
-          onReady={handleReady}
-          className={className}
-        />
+        <HeaderActionsContext.Provider
+          value={{
+            auxiliary,
+            refresh: () => setPinRevision((revision) => revision + 1),
+            original: rightHeaderActionsComponent
+          }}
+        >
+          <DockLayout
+            components={components}
+            defaultTabComponent={defaultTabComponent ?? StudioDockTab}
+            rightHeaderActionsComponent={WorkbenchHeaderActions}
+            onReady={handleReady}
+            className={className}
+          />
+        </HeaderActionsContext.Provider>
       </WorkbenchDefinitionContext.Provider>
     );
   },

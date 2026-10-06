@@ -1,30 +1,42 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
+import { useDesignPreviewStore, type DesignPreviewPreference } from '../store/design-preview-store.js';
 import './design-preferences-preview.css';
 
 /** Temporary, opt-in comparison controls for the local design review. */
 export default function DesignPreferencesPreview() {
-  const [calm, setCalm] = useState(false);
-  const [readable, setReadable] = useState(false);
-  const [gap, setGap] = useState('current');
+  const { preferences, gap, setPreference, setGap, reset } = useDesignPreviewStore();
+  const options: Array<{ key: DesignPreviewPreference; label: string }> = [
+    { key: 'readable', label: '1 · Clearer navigation text' },
+    { key: 'calm', label: '2 · Calmer chrome' },
+    { key: 'auxiliary', label: '3 · Collapse auxiliary panels' },
+    { key: 'header', label: '4 · Uncrowd the top bar' },
+    { key: 'details', label: '5 · Consistent controls' }
+  ];
 
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.designPreviewCalm = String(calm);
-    root.dataset.designPreviewReadable = String(readable);
+    root.dataset.designPreviewCalm = String(preferences.calm);
+    root.dataset.designPreviewReadable = String(preferences.readable);
+    root.dataset.designPreviewHeader = String(preferences.header);
+    root.dataset.designPreviewDetails = String(preferences.details);
     root.dataset.designPreviewGap = gap;
     return () => {
       delete root.dataset.designPreviewCalm;
       delete root.dataset.designPreviewReadable;
+      delete root.dataset.designPreviewHeader;
+      delete root.dataset.designPreviewDetails;
       delete root.dataset.designPreviewGap;
     };
-  }, [calm, readable, gap]);
+  }, [preferences, gap]);
+
+  useEffect(() => () => reset(), [reset]);
 
   return (
     <div className="fixed bottom-9 right-4 z-[80]">
@@ -38,14 +50,16 @@ export default function DesignPreferencesPreview() {
             <h2 className="text-sm font-semibold">Compare the design</h2>
             <p className="text-xs text-muted-foreground">Changes apply live. Reload to return to the current design.</p>
           </div>
-          <label className="flex items-center gap-3 text-sm">
-            <Checkbox checked={calm} onCheckedChange={setCalm} />
-            Calmer chrome
-          </label>
-          <label className="flex items-center gap-3 text-sm">
-            <Checkbox checked={readable} onCheckedChange={setReadable} />
-            Clearer navigation text
-          </label>
+          {options.map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-3 text-sm">
+              <Checkbox checked={preferences[key]} onCheckedChange={(checked) => setPreference(key, checked)} />
+              {label}
+            </label>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Auxiliary panels open from their edge tabs. Pin a panel to keep it open. Turning this off restores your
+            original arrangement.
+          </p>
           <label className="flex items-center justify-between gap-3 text-sm">
             Pane pill gap
             <select
@@ -58,15 +72,7 @@ export default function DesignPreferencesPreview() {
               <option value="wide">Wider (24px)</option>
             </select>
           </label>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setCalm(false);
-              setReadable(false);
-              setGap('current');
-            }}
-          >
+          <Button variant="secondary" size="sm" onClick={reset}>
             Reset to current design
           </Button>
         </PopoverContent>

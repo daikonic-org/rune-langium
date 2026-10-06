@@ -27,3 +27,74 @@
 :root[data-design-preview-gap='wide'] .studio-app .studio-center-stack__bar .studio-paneswitch {
   gap: var(--space-6);
 }
+
+:root[data-design-preview-header='true'] .studio-app .studio-topbar__center {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+:root[data-design-preview-header='true'] .studio-app .studio-topbar__left,
+:root[data-design-preview-header='true'] .studio-app .studio-topbar__right {
+  flex-shrink: 0;
+}
+
+:root[data-design-preview-header='true'] .studio-app .studio-topbar__ws-name {
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-design-preview-header='true'] .studio-app .studio-topbar__tab-wrapper.is-active {
+  flex-shrink: 0;
+}
+
+@media (width <= 1100px) {
+  :root[data-design-preview-header='true'] .studio-app .studio-topbar__search :is(span, kbd),
+  :root[data-design-preview-header='true'] .studio-app .studio-topbar__ws-sub,
+  :root[data-design-preview-header='true'] .studio-app .studio-brand__name {
+    display: none;
+  }
+
+  :root[data-design-preview-header='true'] .studio-app .studio-topbar__search {
+    min-width: 0;
+    width: auto;
+    padding-inline: var(--space-2);
+  }
+
+  :root[data-design-preview-header='true'] .studio-app .studio-topbar {
+    gap: var(--space-2);
+  }
+
+  :root[data-design-preview-header='true'] .studio-app .studio-topbar__tab-wrapper.is-active {
+    order: -1;
+  }
+}
+
+:root[data-design-preview-details='true'] .studio-app :is(.studio-topbar, .studio-layout-presets, .studio-center-stack__bar) button {
+  min-height: var(--space-7);
+  border-radius: var(--radius-sm);
+}
+
+:root[data-design-preview-details='true'] .studio-app :is(.studio-topbar, .studio-layout-presets, .studio-center-stack__bar) button > svg {
+  width: calc(var(--space-7) / 2);
+  height: calc(var(--space-7) / 2);
+}
+
+:root[data-design-preview-details='true'] .studio-app .studio-paneswitch {
+  height: var(--space-7);
+  border-radius: var(--radius-full);
+}
+
+:root[data-design-preview-details='true'] .studio-app .studio-paneswitch__seg {
+  border-radius: 0;
+}
+
+:root[data-design-preview-details='true'] .studio-app :is(.studio-type-row, .rune-ns-seg-header) :is([data-slot='badge'], [data-slot='number-chiclet']) {
+  border-radius: var(--radius-sm);
+}
+
+:root[data-design-preview-details='true'] .studio-app .dv-tabs-and-actions-container {
+  padding-inline: var(--space-2);
+}

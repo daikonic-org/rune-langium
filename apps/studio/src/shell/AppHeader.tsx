@@ -16,8 +16,9 @@
  * the null-tolerant hooks so it renders without throwing when no workspace
  * is loaded (Settings, or the launcher before a workspace opens).
  */
-import { useCallback, useState } from 'react';
-import { ChevronDown, Plus, LogOut } from 'lucide-react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
+import { ChevronDown, Plus, LogOut, MoreHorizontal } from 'lucide-react';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { GlobalSearch } from './GlobalSearch.js';
 import { Avatar, AvatarFallback } from '@rune-langium/design-system/ui/avatar';
@@ -31,6 +32,16 @@ import { FontScaleButton } from '../components/FontScaleButton.js';
 import { listRecents, type RecentWorkspaceRecord } from '../workspace/persistence.js';
 import { resolveConflict } from '../services/git-sync.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { useDesignPreviewStore } from '../store/design-preview-store.js';
+
+function subscribeHeaderWidth(listener: () => void) {
+  window.addEventListener('resize', listener);
+  return () => window.removeEventListener('resize', listener);
+}
+
+function compactHeaderWidth() {
+  return window.innerWidth <= 1100;
+}
 
 function WorkspaceSwitcherTrigger({
   workspaceName,
@@ -153,6 +164,9 @@ export const AppHeader = withInstrumentation(
     const workspace = useWorkspaceOptional();
     const workspaceActions = useWorkspaceActionsOptional();
     const syncStatus = useExploreFileNavStore((s) => s.syncStatus);
+    const compareHeader = useDesignPreviewStore((state) => state.preferences.header);
+    const narrow = useSyncExternalStore(subscribeHeaderWidth, compactHeaderWidth, () => false);
+    const overflowActions = compareHeader && narrow;
 
     // Degrade rule: hide the switcher when there's no workspace loaded, or the
     // active perspective doesn't need one (Settings) — brand + title + global
@@ -182,9 +196,30 @@ export const AppHeader = withInstrumentation(
         </div>
         {/* Perspective title now lives in the chrome row below (PerspectiveHeading);
             keep an empty center cell so the topbar grid stays balanced. */}
-        {Center ? <Center /> : <div className="studio-topbar__title" aria-hidden="true" />}
+        <div className="studio-topbar__center contents">
+          {Center ? <Center /> : <div className="studio-topbar__title" aria-hidden="true" />}
+        </div>
         <div className="studio-topbar__right">
-          {Actions ? <Actions /> : null}
+          {Actions ? (
+            overflowActions ? (
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <Button variant="ghost" size="icon-sm" aria-label="Workspace actions" title="Workspace actions" />
+                  }
+                >
+                  <MoreHorizontal className="size-3.5" />
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-auto">
+                  <div className="flex items-center gap-2" role="group" aria-label="Workspace actions">
+                    <Actions />
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Actions />
+            )
+          ) : null}
           <GlobalSearch hasWorkspace={hasWorkspace} hasExploreContent={hasExploreContent} />
           {workspace?.workspaceKind === 'git-backed' && syncStatus && (
             <SyncStatusBadge

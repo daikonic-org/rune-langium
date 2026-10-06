@@ -60,6 +60,7 @@ import { useStudioToast } from '../components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { StudioDockTab, type StudioDockTabParams } from './StudioDockTab.js';
+import { useDesignPreviewStore } from '../store/design-preview-store.js';
 
 const UTILITY_PANEL_IDS = new Set(['workspace.problems', 'workspace.activity', 'workspace.output']);
 
@@ -261,6 +262,15 @@ export const DockShell = withInstrumentation(
     const [utilitiesCollapsed, setUtilitiesCollapsedState] = useState<boolean>(() =>
       layout.dockview && layout.dockview.shape === 'factory' ? layout.dockview.bottomGroup.collapsed : false
     );
+    const collapseAuxiliary = useDesignPreviewStore((state) => state.preferences.auxiliary);
+    useEffect(() => {
+      if (!collapseAuxiliary) return;
+      const edge = apiRef.current?.getEdgeGroup('bottom');
+      if (!edge) return;
+      setUtilitiesCollapsedState(edge.isCollapsed());
+      const listener = edge.onDidCollapsedChange((event) => setUtilitiesCollapsedState(event.isCollapsed));
+      return () => listener.dispose();
+    }, [collapseAuxiliary]);
 
     // Refs kept current so stable callbacks always read the latest values
     // without needing them as useCallback deps.
@@ -375,6 +385,11 @@ export const DockShell = withInstrumentation(
       const resolvedGroupApi =
         groupApi ?? apiRef.current?.panels.find((p) => UTILITY_PANEL_IDS.has(p.api.component))?.group.api;
       if (!resolvedGroupApi) {
+        return;
+      }
+      if (resolvedGroupApi.location?.type === 'edge') {
+        if (collapsed) resolvedGroupApi.collapse?.();
+        else resolvedGroupApi.expand?.();
         return;
       }
       const target = collapsed ? COLLAPSED_UTILITY_HEIGHT : DEFAULT_UTILITY_HEIGHT;
