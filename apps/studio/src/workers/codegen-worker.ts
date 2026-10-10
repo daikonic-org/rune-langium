@@ -890,6 +890,31 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
   }
 }
 
+function serializePreviewOutput(value: unknown, seen = new WeakMap<object, unknown>()): unknown {
+  if (
+    value instanceof Temporal.PlainDate ||
+    value instanceof Temporal.PlainTime ||
+    value instanceof Temporal.PlainDateTime ||
+    value instanceof Temporal.ZonedDateTime
+  ) {
+    return value.toJSON();
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value);
+  const result = Array.isArray(value) ? [] : {};
+  if (Array.isArray(result) && Array.isArray(value)) result.length = value.length;
+  seen.set(value, result);
+  for (const [key, entry] of Object.entries(value)) {
+    Object.defineProperty(result, key, {
+      value: serializePreviewOutput(entry, seen),
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+  }
+  return result;
+}
+
 async function executeFunction(funcName: string, inputs: Record<string, unknown>, requestId: string): Promise<void> {
   const scope = self as unknown as DedicatedWorkerGlobalScope;
   const functionFqn = qualifiedNameFromNodeId(funcName);
@@ -989,7 +1014,7 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
       type: 'preview:execute-result',
       requestId,
       funcName,
-      output: output === undefined ? undefined : JSON.parse(JSON.stringify(output))
+      output: serializePreviewOutput(output)
     });
   } catch (e) {
     scope.postMessage({

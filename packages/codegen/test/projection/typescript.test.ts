@@ -3,7 +3,10 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AstUtils, URI } from 'langium';
+import { Temporal } from '@js-temporal/polyfill';
+import ts from 'typescript-classic';
 import {
+  BASICTYPES_ROSETTA,
   createRuneDslServices,
   getNodeSourceRegion,
   isRosettaFunction,
@@ -70,6 +73,57 @@ describe('authoritative TypeScript projections', () => {
       )
     ).toThrow('No generated');
   });
+
+  it('preserves Temporal semantics in function precondition and postcondition bodies', async () => {
+    const { RuneDsl: services } = createRuneDslServices();
+    const factory = services.shared.workspace.LangiumDocumentFactory;
+    const doc = factory.fromString(
+      `namespace typed.calendar
+func Calendar:
+ inputs: left date (1..1) right date (1..1)
+ output: result date (1..1)
+ condition Ordered: left <= right
+ set result: left
+ post-condition Same: left = right
+`,
+      URI.parse('inmemory:///calendar-projections.rosetta')
+    );
+    const builtins = factory.fromString(BASICTYPES_ROSETTA, URI.parse('inmemory:///basictypes.rosetta'));
+    await services.shared.workspace.DocumentBuilder.build([builtins, doc]);
+    expect(doc.parseResult.parserErrors).toEqual([]);
+    const generated = await generate([builtins, doc], { target: 'typescript', strict: true });
+    expect(
+      generated.flatMap((output) => output.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'))
+    ).toEqual([]);
+    const owner = [...AstUtils.streamAst(doc.parseResult.value)].find(isRosettaFunction)!;
+    const regions = getExpressionRegions(owner).filter(
+      ({ kind }) => kind === 'precondition' || kind === 'postcondition'
+    );
+    expect(regions).toHaveLength(2);
+    for (const { kind, region } of regions) {
+      const projected = selectTypeScriptProjection(
+        generated,
+        { uri: doc.uri.toString(), nodeId: owner.name, region },
+        'condition',
+        'body'
+      );
+      const predicate = new Function(
+        'input',
+        'result',
+        'Temporal',
+        ts.transpileModule(`return ${projected.code};`, {
+          compilerOptions: { target: ts.ScriptTarget.ES2022 }
+        }).outputText
+      );
+      const left = Temporal.PlainDate.from('2026-10-10');
+      const right = Temporal.PlainDate.from('2026-10-10');
+      expect(predicate({ left, right }, left, Temporal), kind).toBe(true);
+      const earlier = Temporal.PlainDate.from('2026-10-09');
+      expect(predicate({ left, right: earlier }, left, Temporal), kind).toBe(false);
+      expect(projected.code).toContain(kind === 'precondition' ? 'Temporal.PlainDate.compare(' : '.equals(');
+    }
+  });
+
   it('retains provenance when namespaces are bundled into a single file', async () => {
     const bundled = await generate(documents, {
       target: 'typescript',

@@ -2013,7 +2013,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ctx.onConditionProjection?.(
         condNode,
         throwForm,
-        transpileCondition(condNode, { ...condCtx, emitMode: 'zod-refine' })
+        transpileCondition(condNode, { ...condCtx, emitMode: 'ts-expression' })
       );
       lines.push(throwForm);
     }

@@ -1189,6 +1189,55 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
     });
   });
 
+  it.each([
+    { expression: 'NaN', expected: NaN },
+    { expression: 'Infinity', expected: Infinity },
+    { expression: '-Infinity', expected: -Infinity },
+    { expression: '-0', expected: -0 },
+    {
+      expression: `({
+        dates: [
+          Temporal.PlainDate.from('2026-10-10'),
+          Temporal.PlainTime.from('12:30:00'),
+          Temporal.PlainDateTime.from('2026-10-10T12:30:00'),
+          Temporal.ZonedDateTime.from('2026-10-10T12:30:00+00:00[UTC]')
+        ],
+        numbers: [NaN, Infinity, -Infinity, -0],
+        optional: undefined
+      })`,
+      expected: {
+        dates: ['2026-10-10', '12:30:00', '2026-10-10T12:30:00', '2026-10-10T12:30:00+00:00[UTC]'],
+        numbers: [NaN, Infinity, -Infinity, -0],
+        optional: undefined
+      }
+    }
+  ])('preserves ordinary output values while transporting Temporal: $expression', async ({ expression, expected }) => {
+    generateMock.mockReturnValue([
+      {
+        relativePath: 'alpha.ts',
+        content: `import { Temporal } from '@js-temporal/polyfill';
+          export function Output() { return ${expression}; }`,
+        diagnostics: [],
+        funcs: [{ name: 'Output', fileContents: '' }]
+      }
+    ]);
+    const { scope, dispatch } = await loadWorkerModule();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [{ uri: 'file:///output.rosetta', content: 'namespace "alpha"' }]
+    });
+    await flushWorker();
+    dispatch({ type: 'preview:execute', funcName: 'alpha.Output', inputs: {}, requestId: 'output:1' });
+    await flushWorker();
+    expect(structuredClone(scope.postMessage.mock.lastCall?.[0])).toEqual({
+      type: 'preview:execute-result',
+      requestId: 'output:1',
+      funcName: 'alpha.Output',
+      output: expected
+    });
+  });
+
   it('resolves imports between generated namespace modules', async () => {
     generateMock.mockReturnValue([
       {

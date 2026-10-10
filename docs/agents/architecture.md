@@ -160,9 +160,11 @@ use Temporal in both functions and Data classes. Required calendar arithmetic,
 field access, equality, and ordering use native Temporal operations. Input schemas
 convert ISO wire strings once using the shared Rune formats and Temporal parsing,
 including aliases, recursive fields, choices, and metadata payloads. JSON schemas
-and forms retain strings; Worker results serialize before crossing the message
-boundary. Python retains precision-preserving calendar operations for nanoseconds
-and years outside datetime's supported range.
+and forms retain strings; Worker results convert Temporal values to ISO strings
+before crossing the message boundary, preserving ordinary numeric and optional
+values through structured cloning. Function-condition body projections use the
+same Temporal expression mode as exported functions. Python retains precision-preserving
+calendar operations for nanoseconds and years outside datetime's supported range.
 The shared runtime owns
 pairing, broadcasting, missing values and `all`/`any` behavior. TypeScript, Zod
 and executable previews use the same generated runtime source; Python exposes
