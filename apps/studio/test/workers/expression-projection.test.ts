@@ -28,6 +28,145 @@ async function requestFixture(language: 'typescript' | 'python' = 'typescript') 
 }
 
 describe('linked expression projections', () => {
+  it.each(
+    ['date', 'time', 'dateTime', 'zonedDateTime', 'Kind', 'NumberAlias', 'DateAlias', 'EnumAlias'].flatMap((type) =>
+      ['typescript', 'python'].map((language) => ({ type, language }))
+    )
+  )('uses declared $type values without normalizing a $language function body', async ({ type, language }) => {
+    const fixture = `namespace test\nenum Kind:\n First\n Second\ntypeAlias NumberAlias: number\ntypeAlias DateAlias: date\ntypeAlias EnumAlias: Kind\nfunc Check:\n inputs: left ${type} (1..1)\n         right ${type} (1..1)\n output: result boolean (1..1)\n set result: left = right\n`;
+    const parsed = await parse(fixture);
+    const { scope, dispatch } = await loadRealWorker();
+    const subject = {
+      uri: 'file:///typed.rosetta',
+      nodeId: 'test.Check#RosettaFunction',
+      region: getFunctionImplementationRegion(
+        parsed.value.elements.find((element) => element.name === 'Check')!,
+        fixture
+      )
+    };
+    dispatch({ type: 'preview:setFiles', filesRevision: 1, files: [{ uri: subject.uri, content: fixture }] });
+    dispatch({
+      type: 'projection:generate',
+      requestId: type,
+      language,
+      kind: 'function',
+      source: fixture,
+      subject,
+      filesRevision: 1
+    });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'projection:result', requestId: type })
+      )
+    );
+    const response = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === type);
+    const calendar = ['date', 'time', 'dateTime', 'zonedDateTime', 'DateAlias'].includes(type);
+    expect(response.projection.code).toContain(language === 'typescript' ? (calendar ? '.equals(' : '===') : '==');
+    expect(response.projection.code).not.toMatch(/rune\.|\.from\(|export function|def Check\(/);
+  });
+  it.each([
+    ['date', '2026-10-10', '2026-10-10'],
+    ['time', '12:30:00.123456789', '12:30:00.123456789'],
+    ['dateTime', '2026-10-10T12:30:00.123456789', '2026-10-10T12:30:00.123456789'],
+    ['zonedDateTime', '2026-10-10T12:30:00.123456789+05:30', '2026-10-10T12:30:00.123456789+05:30[+05:30]']
+  ])('converts nested %s form values once and returns cloneable JSON', async (type, value, expected) => {
+    const fixture = `namespace test
+annotation metadata:
+ scheme string (0..1)
+typeAlias Calendar: ${type}
+type Entry:
+ value Calendar (1..1)
+  [metadata scheme]
+ next Entry (0..1)
+func Retain:
+ inputs: entries Entry (0..*)
+ output: result Entry (0..*)
+ set result: entries
+`;
+    const { scope, dispatch } = await loadRealWorker();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [{ uri: 'file:///calendar.rosetta', content: fixture }]
+    });
+    dispatch({
+      type: 'preview:execute',
+      funcName: 'test.Retain',
+      requestId: 'calendar',
+      inputs: { entries: [{ value, next: { value: { value, meta: { scheme: 'kept' } } } }] }
+    });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'preview:execute-result', requestId: 'calendar' })
+      )
+    );
+    const response = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'calendar');
+    expect(response.output).toEqual([
+      { value: { value: expected, meta: {} }, next: { value: { value: expected, meta: { scheme: 'kept' } } } }
+    ]);
+    expect(structuredClone(response)).toEqual(response);
+    dispatch({
+      type: 'preview:execute',
+      funcName: 'test.Retain',
+      requestId: 'invalid-calendar',
+      inputs: { entries: [{ value: 'invalid' }] }
+    });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'preview:execute-error', requestId: 'invalid-calendar' })
+      )
+    );
+  });
+  it.each([false, true])('renders native scalar operators for Abs, serialized=%s', async (serialized) => {
+    const fixture =
+      'namespace test\nfunc Abs:\n inputs: arg number (1..1)\n output: result number (1..1)\n set result: if arg < 0 then -1 * arg else arg\n';
+    const parsed = await parse(fixture);
+    expect(parsed.parserErrors).toEqual([]);
+    const { RuneDsl } = createRuneDslServices();
+    const { scope, dispatch } = await loadRealWorker();
+    const subject = {
+      uri: 'file:///abs.rosetta',
+      nodeId: 'test.Abs#RosettaFunction',
+      region: getFunctionImplementationRegion(parsed.value.elements[0]!, fixture)
+    };
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [
+        {
+          uri: subject.uri,
+          content: fixture,
+          ...(serialized
+            ? { serializedModelJson: serializeRuneModel(RuneDsl.serializer.JsonSerializer, parsed.value) }
+            : {})
+        }
+      ]
+    });
+    dispatch({
+      type: 'projection:generate',
+      requestId: 'abs',
+      language: 'typescript',
+      kind: 'function',
+      source: fixture,
+      subject,
+      filesRevision: 1
+    });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'projection:result', requestId: 'abs' })
+      )
+    );
+    const response = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'abs');
+    expect(response.projection.code).toContain('input.arg < 0');
+    expect(response.projection.code).toContain('-1 * input.arg');
+    expect(response.projection.code).not.toMatch(/rune\.(?:compare|binary|normalize|get)\(/);
+  });
   it.each([
     ['typescript', 'line', false],
     ['typescript', 'block', false],
@@ -81,12 +220,11 @@ describe('linked expression projections', () => {
     const response = scope.postMessage.mock.calls
       .map(([message]) => message)
       .find((message) => message.requestId === 'comments');
-    expect(response.projection.code).toContain(
-      language === 'typescript' ? 'export function Calculate(' : 'def Calculate('
-    );
+    expect(response.projection.code).toContain('return');
+    expect(response.projection.code).not.toMatch(/export function|def Calculate/);
     expect(response.projection.code).not.toContain('Neighbor');
     expect(response.projection.subject).toEqual(subject);
-    expect(response.projection.sourceMap[0]).toMatchObject({ sourceUri: subject.uri, sourceLine: 2 });
+    expect(response.projection.sourceMap[0]).toMatchObject({ sourceUri: subject.uri, sourceLine: 4 });
     dispatch({
       type: 'projection:generate',
       requestId: 'cross-owner',
@@ -130,7 +268,7 @@ describe('linked expression projections', () => {
     expect(response.projection.code).toContain('amount');
   });
   it.each(['typescript', 'python'] as const)(
-    'shows a full typed %s function and rejects outdated source/revisions',
+    'shows a %s function body and rejects outdated source/revisions',
     async (language) => {
       const { scope, dispatch } = await loadRealWorker();
       const request = await requestFixture(language);
@@ -144,10 +282,8 @@ describe('linked expression projections', () => {
       const response = scope.postMessage.mock.calls
         .map(([message]) => message)
         .find((message) => message.requestId === 'first');
-      expect(response.projection.code).toContain(
-        language === 'typescript' ? 'export function Calculate(' : 'def Calculate('
-      );
-      expect(response.projection.code).toContain(language === 'typescript' ? ': number' : '-> float:');
+      expect(response.projection.code).toContain('return');
+      expect(response.projection.code).not.toMatch(/export function|def Calculate/);
       expect(response.projection.code).not.toContain('not renderable');
       dispatch({
         type: 'preview:setFiles',

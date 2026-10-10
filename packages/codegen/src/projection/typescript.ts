@@ -15,7 +15,8 @@ const runtimeNames = [
 export function selectTypeScriptProjection(
   outputs: readonly GeneratorOutput[],
   subject: ProjectionSubject,
-  kind: EmittedProjection['kind']
+  kind: EmittedProjection['kind'],
+  form: 'declaration' | 'body' = 'declaration'
 ): GeneratedProjection {
   const fragment = findProjectionFragment(
     outputs.flatMap((output) => output.projections ?? []),
@@ -26,11 +27,13 @@ export function selectTypeScriptProjection(
     const error = outputs.flatMap((output) => output.diagnostics).find((entry) => entry.severity === 'error');
     throw new Error(error?.message ?? `No generated ${kind} matches the current source region.`);
   }
+  const selected = form === 'body' ? fragment.body : fragment;
+  if (!selected) throw new Error(`No generated ${kind} body matches the current source region.`);
   return {
     language: 'typescript',
     subject,
-    code: fragment.code,
-    sourceMap: fragment.sourceMap,
-    requiredHelpers: runtimeNames.filter((name) => new RegExp(`\\b${name}\\b`).test(fragment.code))
+    code: selected.code,
+    sourceMap: selected.sourceMap,
+    requiredHelpers: runtimeNames.filter((name) => new RegExp(`\\b${name}\\b`).test(selected.code))
   };
 }

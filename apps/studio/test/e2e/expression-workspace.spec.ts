@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
@@ -11,6 +11,29 @@ import {
   expectCenterPaneBounds,
   enlargeDialogText
 } from '../helpers/expression-workspace.js';
+
+function captureLsp(page: Page) {
+  const sent: Array<{ method?: string; params?: { textDocument?: { uri?: string } } }> = [];
+  const errors: Array<{ code: number; message: string }> = [];
+  page.on('websocket', (socket) => {
+    socket.on('framesent', (frame) => {
+      try {
+        sent.push(JSON.parse(frame.payload.toString()));
+      } catch {
+        /* non-JSON control frame */
+      }
+    });
+    socket.on('framereceived', (frame) => {
+      try {
+        const response = JSON.parse(frame.payload.toString());
+        if (response.error) errors.push(response.error);
+      } catch {
+        /* non-JSON control frame */
+      }
+    });
+  });
+  return { sent, errors };
+}
 
 test('lean function projections retain schema validation and shared editor spacing', async ({ page }, testInfo) => {
   await page.goto('./');
@@ -32,11 +55,16 @@ func Run:
   const spacing = await editor.evaluate((element) => ({
     content: getComputedStyle(element.querySelector('.cm-content')!).paddingTop,
     line: getComputedStyle(element.querySelector('.cm-line')!).paddingLeft,
-    gutter: element.querySelector('.cm-gutters')!.getBoundingClientRect().width
+    gutter: element.querySelector('.cm-gutters')?.getBoundingClientRect().width ?? 0
   }));
   expect(spacing.content).toBe('8px');
   expect(spacing.line).toBe('8px');
-  expect(spacing.gutter).toBeLessThan(30);
+  expect(spacing.gutter).toBe(0);
+  const initialHeight = (await editor.boundingBox())!.height;
+  await implementation.getByRole('button', { name: 'Expand editor', exact: true }).click();
+  await expect.poll(async () => (await editor.boundingBox())!.height).toBeGreaterThan(initialHeight);
+  await implementation.getByRole('button', { name: 'Collapse editor', exact: true }).click();
+  await expect.poll(async () => (await editor.boundingBox())!.height).toBe(initialHeight);
   await page.getByTestId('panel-formPreview').getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.locator('.execution-error')).toContainText('amount:');
   await page.getByLabel('Amount', { exact: true }).fill('2');
@@ -47,6 +75,9 @@ func Run:
   await expect(projection).toContainText('return 42;');
   await expect(projection).not.toContainText('input =');
   await expect(projection).not.toContainText('rune.single');
+  await expect(projection).not.toContainText('export function');
+  await expect(implementation.locator('.cm-gutters')).toHaveCount(0);
+  await testInfo.attach('body-only-projection', { body: await page.screenshot(), contentType: 'image/png' });
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
@@ -55,8 +86,40 @@ func Run:
   await testInfo.attach('compact-editor', { body: await page.screenshot(), contentType: 'image/png' });
 });
 
+test('calendar forms adapt ISO dates to native Temporal function bodies', async ({ page }, testInfo) => {
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'calendar.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(`namespace compact
+func Days:
+ inputs: left date (1..1) right date (1..1)
+ output: result int (1..1)
+ set result: left - right
+`)
+  });
+  await page.getByTestId('namespace-search').fill('Days');
+  await typeNavigationButton(page, 'compact.Days', 'RosettaFunction').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  const form = page.getByTestId('panel-formPreview');
+  await expect(form.getByLabel('Left', { exact: true })).toHaveAttribute('type', 'date');
+  await form.getByLabel('Left', { exact: true }).fill('2026-10-10');
+  await form.getByLabel('Right', { exact: true }).fill('2026-10-01');
+  await form.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(page.locator('.execution-result')).toContainText('9');
+  const implementation = page.getByRole('region', { name: 'Function implementation' });
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
+  await expect(projection).toContainText('input.right.until(input.left).days');
+  await expect(projection).not.toContainText('rune.');
+  await expect(projection).not.toContainText('.from(');
+  await expect(projection).not.toContainText('export function');
+  await testInfo.attach('calendar-body', { body: await page.screenshot(), contentType: 'image/png' });
+});
+
 for (const baseFirst of [false, true]) {
-  test(`split-file dispatch edits and projects the base with base first=${baseFirst}`, async ({ page }) => {
+  test(`split-file dispatch edits and projects the base with base first=${baseFirst}`, async ({ page }, testInfo) => {
+    const lsp = captureLsp(page);
     await page.goto('./');
     const base = {
       name: 'base.rosetta',
@@ -113,6 +176,18 @@ func Compute(kind: Kind -> Cash):
     await expect(source).toContainText('func Compute:');
     await expect(source).toContainText('amount + 10');
     await expect(source).not.toContainText('Compute(kind:');
+    if (process.env.PLAYWRIGHT_EXPRESSION_LSP === '1') {
+      await expect
+        .poll(() =>
+          lsp.sent.some(
+            (entry) =>
+              entry.method === 'textDocument/didOpen' && entry.params?.textDocument?.uri?.endsWith('/base.rosetta')
+          )
+        )
+        .toBe(true);
+      expect(lsp.errors.filter((error) => error.code === -32802)).toEqual([]);
+    }
+    await testInfo.attach('split-file-lsp', { body: JSON.stringify(lsp), contentType: 'application/json' });
   });
 }
 
@@ -149,7 +224,9 @@ test('ten-operation CDM function stays one editable implementation with complete
   for (const language of ['TypeScript', 'Python']) {
     await implementation.getByRole('button', { name: language, exact: true }).click();
     const projected = page.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
-    await expect(projected).toContainText('ConvertToAdjustableOrRelativeDate');
+    await expect(projected).not.toContainText(
+      language === 'TypeScript' ? 'export function' : 'def ConvertToAdjustableOrRelativeDate'
+    );
     await projected.press('ControlOrMeta+End');
     await expect(projected).toContainText('periodMultiplier');
     await expect(implementation.getByRole('alert')).toHaveCount(0);
@@ -171,6 +248,9 @@ test('Data conditions have independent active editors and typed projections', as
   await expect(condition).toContainText('periodMultiplier > 0');
   await condition.getByRole('button', { name: 'Python', exact: true }).click();
   await expect(condition.getByRole('textbox', { name: 'Generated python' })).toContainText('periodMultiplier');
+  await expect(condition.getByRole('textbox', { name: 'Generated python' })).not.toContainText('def ');
+  await condition.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(condition.getByRole('textbox', { name: 'Generated typescript' })).not.toContainText('errors.push');
   await page.getByRole('tab', { name: 'TermPeriod', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Condition expression' })).toContainText('PeriodExtendedEnum');
 });
@@ -191,22 +271,13 @@ test('an invalid implementation can be reopened and repaired after changing decl
   await expect(editor).toContainText(original.split('\n').at(-1)!);
   const implementation = page.getByRole('region', { name: 'Function implementation' });
   await implementation.getByRole('button', { name: 'Python', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Generated python' })).toContainText('def Abs');
+  await expect(page.getByRole('textbox', { name: 'Generated python' })).toContainText('return');
   await expect(implementation.getByRole('alert')).toHaveCount(0);
 });
 
 test('Source and Inspector send each edit once through the real network LSP', async ({ page }, testInfo) => {
   test.skip(process.env.PLAYWRIGHT_EXPRESSION_LSP !== '1', 'requires the isolated local LSP Worker');
-  const sent: Array<{ method?: string; params?: { textDocument?: { uri?: string } } }> = [];
-  page.on('websocket', (socket) =>
-    socket.on('framesent', (frame) => {
-      try {
-        sent.push(JSON.parse(frame.payload.toString()));
-      } catch {
-        /* non-JSON control frame */
-      }
-    })
-  );
+  const { sent, errors } = captureLsp(page);
   await loadPinnedFunction(page);
   const isMath = (entry: (typeof sent)[number]) =>
     entry.params?.textDocument?.uri?.endsWith('cdm.base.math--base-math-func.rosetta');
@@ -236,6 +307,7 @@ test('Source and Inspector send each edit once through the real network LSP', as
   await editor.press('Space');
   await expect.poll(() => changes().length).toBe(before + 1);
   expect(sent.filter((entry) => entry.method === 'textDocument/didOpen' && isMath(entry))).toHaveLength(1);
+  expect(errors.filter((error) => error.code === -32802)).toEqual([]);
   await testInfo.attach('lsp-document-ownership', {
     body: JSON.stringify({ opens: 1, edits: changes().length }),
     contentType: 'application/json'
@@ -251,11 +323,11 @@ test('pinned function display, private builder draft, Apply and one undo stay co
   for (const language of ['TypeScript', 'Python']) {
     await implementation.getByRole('button', { name: language, exact: true }).click();
     const generated = page.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
-    await expect(generated).toContainText(
-      language === 'Python'
-        ? 'def Abs(input: Abs_Input) -> float:'
-        : 'export function Abs(input: { arg: number }): number'
-    );
+    await expect(generated).toContainText('return');
+    await expect(generated).not.toContainText(language === 'Python' ? 'def Abs(' : 'export function');
+    await expect(generated).not.toContainText('rune.compare');
+    await expect(generated).not.toContainText('rune.binary');
+    await expect(generated).not.toContainText('rune.normalize');
     await expect(generated).toHaveAttribute('contenteditable', 'false');
     await expect(implementation.getByText(/can't be shown|not renderable/i)).toHaveCount(0);
   }

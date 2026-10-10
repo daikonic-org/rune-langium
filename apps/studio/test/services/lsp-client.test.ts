@@ -117,8 +117,13 @@ describe('createLspClientService', () => {
     const inspector = { dom: document.createElement('div') };
     const configureSource = vi.fn();
     const configureInspector = vi.fn();
-    const releaseSource = service.claimDocumentView('file:///a.rosetta', source as never, configureSource);
-    const releaseInspector = service.claimDocumentView('file:///a.rosetta', inspector as never, configureInspector);
+    service.syncWorkspaceFiles([{ path: 'a.rosetta', content: 'namespace a' }]);
+    const releaseSource = service.claimDocumentView('file:///workspace/a.rosetta', source as never, configureSource);
+    const releaseInspector = service.claimDocumentView(
+      'file:///workspace/a.rosetta',
+      inspector as never,
+      configureInspector
+    );
     expect(configureSource).toHaveBeenLastCalledWith([]);
     expect(configureInspector).not.toHaveBeenCalled();
     inspector.dom.dispatchEvent(new FocusEvent('focusin'));
@@ -189,7 +194,7 @@ describe('createLspClientService', () => {
     expect(service.getPlugin('file:///test.rosetta')).toBeNull();
   });
 
-  it('returns non-null plugin after connect', async () => {
+  it('returns a plugin after connect and opening its source document', async () => {
     const transport = makeFakeTransport();
     const provider = makeFakeProvider(transport);
     mockCreateProvider.mockReturnValue(provider as never);
@@ -197,7 +202,9 @@ describe('createLspClientService', () => {
     const service = createLspClientService();
     await service.connect();
 
-    const plugin = service.getPlugin('file:///test.rosetta');
+    expect(service.getPlugin('file:///workspace/test.rosetta')).toBeNull();
+    service.syncWorkspaceFiles([{ path: 'test.rosetta', content: 'namespace test' }]);
+    const plugin = service.getPlugin('file:///workspace/test.rosetta');
     expect(plugin).not.toBeNull();
   });
 
@@ -544,6 +551,59 @@ describe('syncWorkspaceFiles', () => {
 });
 
 describe('semantic dependency synchronization', () => {
+  it('keeps an already-open editor attached while dependency models synchronize', async () => {
+    const service = createLspClientService({ transportProvider: makeFakeProvider() });
+    await service.connect();
+    service.syncWorkspaceFiles([{ path: 'base.rosetta', content: 'namespace base' }]);
+    const configure = vi.fn();
+    const view = { dom: document.createElement('div') };
+    const releaseView = service.claimDocumentView('file:///workspace/base.rosetta', view as never, configure);
+    expect(configure).toHaveBeenCalledOnce();
+    let release!: (value: null) => void;
+    mockRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        })
+    );
+    const sync = service.syncWorkspaceModels([{ uri: 'file:///dependency.rosetta', modelJson: '{}' }]);
+    await vi.waitFor(() => expect(release).toBeDefined());
+    expect(configure).toHaveBeenCalledOnce();
+    expect(service.getPlugin('file:///workspace/base.rosetta')).not.toBeNull();
+    release(null);
+    await sync;
+    expect(configure).toHaveBeenCalledOnce();
+    releaseView();
+    service.dispose();
+  });
+  it('attaches an editor only after dependencies and didOpen, and detaches before didClose', async () => {
+    const service = createLspClientService({ transportProvider: makeFakeProvider() });
+    await service.connect();
+    let release!: (value: null) => void;
+    mockRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        })
+    );
+    const sync = service.syncWorkspaceModels([{ uri: 'file:///workspace/base.rosetta', modelJson: '{}' }]);
+    await vi.waitFor(() => expect(release).toBeDefined());
+    const configure = vi.fn();
+    const view = { dom: document.createElement('div') };
+    const releaseView = service.claimDocumentView('file:///workspace/base.rosetta', view as never, configure);
+    service.syncWorkspaceFiles([{ path: 'base.rosetta', content: 'namespace base' }]);
+    expect(configure).not.toHaveBeenCalled();
+    expect(service.getPlugin('file:///workspace/base.rosetta')).toBeNull();
+    release(null);
+    await sync;
+    expect(configure).toHaveBeenLastCalledWith([]);
+    expect(mockDidOpen.mock.invocationCallOrder.at(-1)).toBeLessThan(configure.mock.invocationCallOrder.at(-1)!);
+    service.syncWorkspaceFiles([]);
+    expect(configure).toHaveBeenLastCalledWith(null);
+    expect(configure.mock.invocationCallOrder.at(-1)).toBeLessThan(mockDidClose.mock.invocationCallOrder.at(-1)!);
+    releaseView();
+    service.dispose();
+  });
   it('opens only the latest requested source after its closure finishes uploading', async () => {
     const service = createLspClientService({ transportProvider: makeFakeProvider() });
     await service.connect();

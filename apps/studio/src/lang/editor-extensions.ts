@@ -4,17 +4,17 @@
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { Annotation, EditorState, type ChangeSpec, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { basicSetup } from 'codemirror';
+import { basicSetup, minimalSetup } from 'codemirror';
 import { studioEditorExtensions } from './editor-theme.js';
 
 export const externalDocumentChange = Annotation.define<boolean>();
 
 /** Shared chrome and read-only enforcement for source and generated views. */
 export const editorExtensions = withInstrumentation(
-  function editorExtensions(language: Extension, readOnly = false): Extension[] {
+  function editorExtensions(language: Extension, readOnly = false, chrome: 'full' | 'minimal' = 'full'): Extension[] {
     return [
       EditorState.lineSeparator.of('\n'),
-      basicSetup,
+      chrome === 'minimal' ? minimalSetup : basicSetup,
       EditorView.lineWrapping,
       ...studioEditorExtensions,
       language,

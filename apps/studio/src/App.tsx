@@ -19,7 +19,9 @@ import {
   parseWorkspaceFiles,
   mergeModelFiles,
   mergeCuratedRefOnlyFiles,
-  loadCuratedNamespaceSource
+  loadCuratedNamespaceSource,
+  subscribeCuratedCacheRecovery,
+  invalidateCuratedCacheRecovery
 } from './services/workspace.js';
 import { useModelStore } from './store/model-store.js';
 import { usePreviewStore } from './store/preview-store.js';
@@ -284,6 +286,8 @@ function AppContent() {
     []
   );
 
+  useEffect(() => subscribeCuratedCacheRecovery((result) => applyParseResult(result)), [applyParseResult]);
+
   // On-demand curated namespace hydration.
   //
   // When the explorer selects a node in a namespace that hasn't been
@@ -344,6 +348,7 @@ function AppContent() {
   }, [pendingHydration, files, applyParseResult, reportWorkspaceError, showLoadingToast, dismissToast]);
 
   const invalidateWorkspaceParses = useCallback(() => {
+    invalidateCuratedCacheRecovery();
     workspaceEpochRef.current += 1;
     editParseTokenRef.current += 1;
     modelParseTokenRef.current += 1;

@@ -28,7 +28,7 @@ export const ExpressionCodeEditor = withInstrumentation(
         state: EditorState.create({
           doc: code,
           extensions: [
-            ...editorExtensions(language === 'typescript' ? javascript({ typescript: true }) : [], readOnly),
+            ...editorExtensions(language === 'typescript' ? javascript({ typescript: true }) : [], readOnly, 'minimal'),
             EditorView.contentAttributes.of({ 'aria-label': label }),
             EditorView.updateListener.of((update) => {
               if (update.docChanged && !update.transactions.some((tr) => tr.annotation(externalDocumentChange)))
@@ -51,7 +51,12 @@ export const ExpressionCodeEditor = withInstrumentation(
           annotations: externalDocumentChange.of(true)
         });
     }, [code]);
-    return <div ref={parent} className="min-h-32 h-72 resize-y overflow-hidden rounded-sm border border-border" />;
+    return (
+      <div
+        ref={parent}
+        className="min-h-32 h-[var(--expression-editor-height,20rem)] resize-y overflow-hidden rounded-sm border border-border"
+      />
+    );
   },
   { op: 'ExpressionCodeEditor' }
 );

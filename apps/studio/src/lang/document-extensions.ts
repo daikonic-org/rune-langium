@@ -29,7 +29,7 @@ export const protectedRegion = StateField.define<SourceRegion>({
 
 export const documentExtensions = withInstrumentation(
   function documentExtensions(region?: SourceRegion): Extension[] {
-    const extensions = editorExtensions(runeDslLanguage());
+    const extensions = editorExtensions(runeDslLanguage(), false, region ? 'minimal' : 'full');
     if (region) {
       extensions.push(
         protectedRegion.init(() => region),

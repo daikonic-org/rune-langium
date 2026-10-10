@@ -22,9 +22,8 @@ import { sanitizeDownloadFilename } from './export.js';
 import { OperationTimeoutError, withAbortTimeout } from './with-abort-timeout.js';
 import { EmptyFileSystem } from 'langium';
 import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
-import type { CuratedSerializedDocument } from '@rune-langium/curated-schema';
-import { CURATED_MODEL_IDS } from '@rune-langium/curated-schema';
-import type { CachedFile } from '../types/model-types.js';
+import { CURATED_MODEL_IDS, type CuratedSerializedDocument } from '@rune-langium/curated-schema';
+import type { CachedFile, LoadedModel } from '../types/model-types.js';
 import type {
   WorkerRequest,
   ExpressionScopeRequest,
@@ -43,6 +42,7 @@ import { routeTelemetryRecord } from './instrumentation/browser-sink.js';
 import { isTelemetryRecordMessage } from './instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import { pathToUri } from '../utils/uri.js';
+import { curatedArtifactCache } from './curated-artifact-cache.js';
 
 /** Known curated bundle ids — guards deferredExports filePath prefixes so user
  *  files that happen to live under `${bundleId}/...` aren't mis-grouped. */
@@ -54,16 +54,78 @@ type HydrationDocument = HydrateRequest['documents'][number];
 // artifacts here so a delta HTTP response can still supply a full worker set.
 const curatedDocumentCache = new Map<string, HydrationDocument[]>();
 const curatedSourceCache = new Map<string, Map<string, string>>();
+const restoredCuratedKeys = new Set<string>();
 let curatedCacheEpoch = 0;
+let routedParseRevision = 0;
+interface CuratedParseOptions {
+  curatedBundles?: Array<{ id: string; version: string }>;
+  hydrateNamespaces?: string[];
+  requireCuratedHydration?: boolean;
+}
+interface CuratedLinkRecovery {
+  revision: number;
+  epoch: number;
+  files: Array<{ name: string; content: string }>;
+  options: CuratedParseOptions;
+  keys: Set<string>;
+  pending?: Promise<boolean>;
+}
+let curatedLinkRecovery: CuratedLinkRecovery | undefined;
+const curatedRecoveryListeners = new Set<(result: ParseWorkspaceFilesResult) => void>();
+
+export const subscribeCuratedCacheRecovery = withInstrumentation(
+  function subscribeCuratedCacheRecovery(listener: (result: ParseWorkspaceFilesResult) => void): () => void {
+    curatedRecoveryListeners.add(listener);
+    return () => {
+      curatedRecoveryListeners.delete(listener);
+    };
+  },
+  { op: 'subscribeCuratedCacheRecovery' }
+);
+
+function routedWorkspaceResult(response: ParseWorkspaceResponse): ParseWorkspaceFilesResult {
+  return {
+    models: response.models,
+    parsedModels: response.parsedModels,
+    errors: new Map(Object.entries(response.errors)),
+    parseMode: 'router',
+    deferredExports: response.deferredExports,
+    curatedRefOnlyFiles: response.curatedRefOnlyFiles
+  };
+}
+
+/** Cancels workspace-owned recovery while retaining reusable immutable artifacts. */
+export const invalidateCuratedCacheRecovery = withInstrumentation(
+  function invalidateCuratedCacheRecovery(): void {
+    routedParseRevision += 1;
+    curatedLinkRecovery = undefined;
+  },
+  { op: 'invalidateCuratedCacheRecovery' }
+);
 
 export const resetCuratedDocumentCache = withInstrumentation(
   function resetCuratedDocumentCache(): void {
     curatedCacheEpoch += 1;
+    invalidateCuratedCacheRecovery();
     curatedDocumentCache.clear();
     curatedSourceCache.clear();
+    restoredCuratedKeys.clear();
   },
   { op: 'resetCuratedDocumentCache' }
 );
+
+function withCuratedSource(documents: HydrationDocument[], sources: ReadonlyMap<string, string>): HydrationDocument[] {
+  return documents.map((doc) =>
+    sources.has(doc.uri) ? { ...doc, content: sources.get(doc.uri)!, sourceLoaded: true } : doc
+  );
+}
+
+function retainCuratedSource(artifactKey: string, documents: Array<{ uri: string; content: string }>): void {
+  const sources = new Map(documents.map(({ uri, content }) => [uri, content]));
+  curatedSourceCache.set(artifactKey, sources);
+  const cached = curatedDocumentCache.get(artifactKey);
+  if (cached) curatedDocumentCache.set(artifactKey, withCuratedSource(cached, sources));
+}
 
 export const loadCuratedNamespaceSource = withInstrumentation(
   async function loadCuratedNamespaceSource(
@@ -73,6 +135,12 @@ export const loadCuratedNamespaceSource = withInstrumentation(
     expectedArtifactKey?: string
   ): Promise<{ artifactKey: string; documents: Array<{ uri: string; content: string }> }> {
     const cacheEpoch = curatedCacheEpoch;
+    if (expectedArtifactKey && !curatedSourceCache.has(expectedArtifactKey)) {
+      const documents = await curatedArtifactCache.source(expectedArtifactKey);
+      if (documents && cacheEpoch === curatedCacheEpoch) {
+        retainCuratedSource(expectedArtifactKey, documents);
+      }
+    }
     if (expectedArtifactKey && curatedSourceCache.has(expectedArtifactKey)) {
       return {
         artifactKey: expectedArtifactKey,
@@ -107,18 +175,9 @@ export const loadCuratedNamespaceSource = withInstrumentation(
     ) {
       throw new Error('Invalid curated source response');
     }
-    const sources = new Map(result.documents.map(({ uri, content }) => [uri, content]));
     if (cacheEpoch !== curatedCacheEpoch) return result;
-    curatedSourceCache.set(result.artifactKey, sources);
-    const cachedDocuments = curatedDocumentCache.get(result.artifactKey);
-    if (cachedDocuments) {
-      curatedDocumentCache.set(
-        result.artifactKey,
-        cachedDocuments.map((doc) =>
-          sources.has(doc.uri) ? { ...doc, content: sources.get(doc.uri)!, sourceLoaded: true } : doc
-        )
-      );
-    }
+    retainCuratedSource(result.artifactKey, result.documents);
+    await curatedArtifactCache.putSource(result.artifactKey, result.documents);
     return result;
   },
   { op: 'loadCuratedNamespaceSource' }
@@ -596,6 +655,7 @@ export const parseWorkspaceFiles = withInstrumentation(
     files: WorkspaceFile[],
     options: { hydrateNamespaces?: string[]; requireCuratedHydration?: boolean } = {}
   ): Promise<ParseWorkspaceFilesResult> {
+    invalidateCuratedCacheRecovery();
     const capturedFiles = files.map((file) => ({ ...file }));
     const wantsHydration = (options.hydrateNamespaces?.length ?? 0) > 0;
     if (files.length === 0 && !wantsHydration) {
@@ -619,18 +679,7 @@ export const parseWorkspaceFiles = withInstrumentation(
         hydrateNamespaces: options.hydrateNamespaces,
         requireCuratedHydration: options.requireCuratedHydration
       });
-      const errMap = new Map<string, string[]>();
-      for (const [k, v] of Object.entries(response.errors)) {
-        errMap.set(k, v);
-      }
-      return {
-        models: response.models,
-        parsedModels: response.parsedModels,
-        errors: errMap,
-        parseMode: 'router',
-        deferredExports: response.deferredExports,
-        curatedRefOnlyFiles: response.curatedRefOnlyFiles
-      };
+      return routedWorkspaceResult(response);
     } catch (error) {
       // Browser-only parsing cannot supply a requested curated namespace.
       // Let App dequeue the failed hydration instead of marking it hydrated
@@ -701,12 +750,18 @@ export const _resetParserWorkerForTests = withInstrumentation(
 export const parseWorkspaceViaRouter = withInstrumentation(
   async function parseWorkspaceViaRouter(
     files: Array<{ name: string; content: string }>,
-    options: {
-      curatedBundles?: Array<{ id: string; version: string }>;
-      hydrateNamespaces?: string[];
-      requireCuratedHydration?: boolean;
-    } = {}
+    options: CuratedParseOptions = {},
+    retryCachedHydration = true
   ): Promise<ParseWorkspaceResponse> {
+    const cacheEpoch = curatedCacheEpoch;
+    invalidateCuratedCacheRecovery();
+    const revision = routedParseRevision;
+    const assertCurrentRecovery = () => {
+      if (!retryCachedHydration && (revision !== routedParseRevision || cacheEpoch !== curatedCacheEpoch)) {
+        throw new Error('Curated cache recovery was superseded by a newer workspace parse');
+      }
+    };
+    const restoredKeys = new Set<string>();
     const capturedFiles = files.map((file) => ({ ...file }));
     const sourceByPath = new Map(capturedFiles.map((file) => [file.name, file.content]));
     const requestParse = (knownCuratedArtifacts: string[]) =>
@@ -744,7 +799,10 @@ export const parseWorkspaceViaRouter = withInstrumentation(
         return (await requestParse(known)) as typeof data;
       }
     };
-    data = await fetchParse([...curatedDocumentCache.keys()]);
+    const persistentKeys =
+      retryCachedHydration && options.curatedBundles?.length ? await curatedArtifactCache.documentKeys() : [];
+    data = await fetchParse([...new Set([...curatedDocumentCache.keys(), ...persistentKeys])]);
+    assertCurrentRecovery();
 
     if (!data.ok) {
       // Same reason as above: bubble up to the outer fallback with the full
@@ -752,7 +810,7 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       throw new Error('/api/parse returned ok:false');
     }
 
-    const assembleDocuments = (result: typeof data): HydrationDocument[] | null => {
+    const assembleDocuments = async (result: typeof data): Promise<HydrationDocument[] | null> => {
       if (!result.requiredCuratedArtifacts) return result.hydrationState.documents;
       const received = new Map<string, HydrationDocument[]>();
       const userDocuments: HydrationDocument[] = [];
@@ -762,30 +820,49 @@ export const parseWorkspaceViaRouter = withInstrumentation(
           continue;
         }
         const group = received.get(doc.artifactKey) ?? [];
-        const source = curatedSourceCache.get(doc.artifactKey)?.get(doc.uri);
-        group.push(source === undefined ? doc : { ...doc, content: source, sourceLoaded: true });
+        group.push(doc);
         received.set(doc.artifactKey, group);
       }
       const nextCache = new Map(curatedDocumentCache);
       for (const [key, docs] of received) nextCache.set(key, docs);
       const curatedDocuments: HydrationDocument[] = [];
       for (const artifact of result.requiredCuratedArtifacts) {
+        if (retryCachedHydration && !nextCache.has(artifact.key)) {
+          const stored = await curatedArtifactCache.documents(artifact.key);
+          if (
+            stored &&
+            stored.every((doc) => doc.bundleId === artifact.bundleId && doc.namespace === artifact.namespace)
+          ) {
+            nextCache.set(artifact.key, stored);
+            restoredKeys.add(artifact.key);
+            if (cacheEpoch === curatedCacheEpoch) restoredCuratedKeys.add(artifact.key);
+          }
+        }
         const docs = nextCache.get(artifact.key) ?? (artifact.documentCount === 0 ? [] : undefined);
         if (!docs || (artifact.documentCount !== undefined && docs.length !== artifact.documentCount)) return null;
-        if (!nextCache.has(artifact.key)) nextCache.set(artifact.key, docs);
-        curatedDocuments.push(...docs);
+        const sources = curatedSourceCache.get(artifact.key);
+        const loaded = sources ? withCuratedSource(docs, sources) : docs;
+        nextCache.set(artifact.key, loaded);
+        curatedDocuments.push(...loaded);
       }
       for (const artifact of result.requiredCuratedArtifacts) {
-        curatedDocumentCache.set(artifact.key, nextCache.get(artifact.key)!);
+        if (cacheEpoch === curatedCacheEpoch) curatedDocumentCache.set(artifact.key, nextCache.get(artifact.key)!);
+        if (received.has(artifact.key) || artifact.documentCount === 0) {
+          restoredCuratedKeys.delete(artifact.key);
+          await curatedArtifactCache.putDocuments(artifact.key, nextCache.get(artifact.key)!);
+        }
       }
       return [...userDocuments, ...curatedDocuments];
     };
-    let hydrationDocuments = assembleDocuments(data);
+    let hydrationDocuments = await assembleDocuments(data);
+    assertCurrentRecovery();
     if (!hydrationDocuments) {
       // A stale/missing browser receipt must never produce a partly linked graph.
       data = await fetchParse([]);
+      assertCurrentRecovery();
       if (!data.ok) throw new Error('/api/parse returned ok:false');
-      hydrationDocuments = assembleDocuments(data);
+      hydrationDocuments = await assembleDocuments(data);
+      assertCurrentRecovery();
       if (!hydrationDocuments) throw new Error('/api/parse omitted required curated artifacts');
     }
 
@@ -928,6 +1005,7 @@ export const parseWorkspaceViaRouter = withInstrumentation(
     //      state. linkDocument will fail downstream but the graph still
     //      renders from the deserialized models above. Throwing here would
     //      regress test envs that don't ship the parser worker.
+    assertCurrentRecovery();
     try {
       const hydrateResponse = await workerRequest({
         type: 'hydrate',
@@ -940,11 +1018,37 @@ export const parseWorkspaceViaRouter = withInstrumentation(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.startsWith('worker hydration failed')) {
+        if (retryCachedHydration && restoredKeys.size) {
+          for (const key of restoredKeys) {
+            curatedDocumentCache.delete(key);
+            restoredCuratedKeys.delete(key);
+          }
+          await curatedArtifactCache.discardDocuments([...restoredKeys]);
+          return parseWorkspaceViaRouter(capturedFiles, options, false);
+        }
         // Case 1 — worker explicitly rejected. Bubble up.
         throw err;
       }
       // Case 2 — worker unreachable. Log and continue with deserialized models.
       console.warn('[workspace] browser worker unreachable during hydrate; cross-ref resolution may be degraded:', msg);
+    }
+
+    if (revision === routedParseRevision && cacheEpoch === curatedCacheEpoch) {
+      curatedLinkRecovery = {
+        revision,
+        epoch: cacheEpoch,
+        files: capturedFiles,
+        options: {
+          ...options,
+          curatedBundles: options.curatedBundles?.map((bundle) => ({ ...bundle })),
+          hydrateNamespaces: options.hydrateNamespaces?.slice()
+        },
+        keys: new Set(
+          hydrationDocuments.flatMap((doc) =>
+            doc.artifactKey && restoredCuratedKeys.has(doc.artifactKey) ? [doc.artifactKey] : []
+          )
+        )
+      };
     }
 
     return {
@@ -1004,11 +1108,37 @@ export const linkDocument = withInstrumentation(
   async function linkDocument(uri: string): Promise<{ linked: boolean; errors: string[]; newModels: RosettaModel[] }> {
     try {
       const id = String(++requestId);
-      const response = await workerRequest({
+      const recovery = curatedLinkRecovery;
+      let response = await workerRequest({
         type: 'linkDocument',
         id,
         uri
       });
+      if (
+        isLinkDocumentResponse(response) &&
+        response.invalidArtifactKeys?.some((key) => recovery?.keys.has(key)) &&
+        recovery &&
+        (curatedLinkRecovery === recovery || recovery.pending) &&
+        recovery.epoch === curatedCacheEpoch
+      ) {
+        recovery.pending ??= (async () => {
+          const keys = [...recovery.keys];
+          for (const key of keys) {
+            curatedDocumentCache.delete(key);
+            restoredCuratedKeys.delete(key);
+          }
+          await curatedArtifactCache.discardDocuments(keys);
+          if (curatedLinkRecovery !== recovery || recovery.epoch !== curatedCacheEpoch) return false;
+          const refreshed = await parseWorkspaceViaRouter(recovery.files, recovery.options, false);
+          if (routedParseRevision !== recovery.revision + 1 || recovery.epoch !== curatedCacheEpoch) return false;
+          const result = routedWorkspaceResult(refreshed);
+          for (const listener of curatedRecoveryListeners) listener(result);
+          return true;
+        })();
+        if (await recovery.pending) {
+          response = await workerRequest({ type: 'linkDocument', id: String(++requestId), uri });
+        }
+      }
       if (isLinkDocumentResponse(response)) {
         return { linked: response.linked, errors: response.errors, newModels: response.newModels };
       }
@@ -1148,8 +1278,6 @@ export const createBlankWorkspaceFile = withInstrumentation(
 // ---------------------------------------------------------------------------
 // Model file merging (T008) — integrate loaded reference models
 // ---------------------------------------------------------------------------
-
-import type { LoadedModel } from '../types/model-types.js';
 
 /**
  * Merge loaded model files into the workspace as read-only entries.

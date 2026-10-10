@@ -18,7 +18,12 @@ import {
 import { expressionIsMany, expressionType, featureName, typeFeatures } from '../expr/navigation.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { fieldMetadataKind, metadataPropertyPath } from '../expr/metadata-runtime.js';
-import { nativeEqualityOperands, nativeScalarOperands } from '../expr/scalar-operators.js';
+import {
+  nativeEqualityOperands,
+  nativeScalarOperands,
+  nativeTemporalOperands,
+  requiredScalarKind
+} from '../expr/scalar-operators.js';
 import { TEMPORAL_CONVERSION_PATTERNS } from '../expr/temporal-conversions.js';
 import { functionInputs, functionOutput } from '../types/func.js';
 import type { PythonProjectionContext } from './context.js';
@@ -173,6 +178,12 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         return expression.operator === '/'
           ? `rune.divide(${left}, ${right})`
           : `(${left} ${expression.operator} ${right})`;
+      if (requiredScalarKind(expression.left) === 'date') {
+        const rightKind = requiredScalarKind(expression.right);
+        if (rightKind === 'date' && expression.operator === '-')
+          return `(rune.dateDays(${left}) - rune.dateDays(${right}))`;
+        if (rightKind === 'time' && expression.operator === '+') return `rune.dateJoin(${left}, ${right})`;
+      }
       return `rune.binary(${left}, ${right}, lambda a, b: ${operation})`;
     }
     case 'EqualityOperation': {
@@ -185,12 +196,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       );
       if (!expression.cardMod && !many && !optional) {
         if (nativeEqualityOperands(expression.left, expression.right))
-          return pythonComparison(
-            left,
-            right,
-            expression.operator === '=' ? '==' : '!=',
-            nativeScalarOperands(expression.left, expression.right) === 'string'
-          );
+          return pythonComparison(left, right, expression.operator === '=' ? '==' : '!=');
         return `${expression.operator === '<>' ? 'not ' : ''}rune.equals(${left}, ${right})`;
       }
       return `rune.equals(${left}, ${right}, ${pyString(expression.cardMod ?? (expression.operator === '<>' ? 'any' : 'all'))}${expression.operator === '<>' ? ', True' : ''})`;
@@ -201,6 +207,13 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       const scalar = nativeScalarOperands(expression.left, expression.right);
       if (!expression.cardMod && (scalar === 'number' || scalar === 'string'))
         return pythonComparison(left, right, expression.operator, scalar === 'string');
+      const requiredTemporal = nativeTemporalOperands(expression.left, expression.right);
+      if (!expression.cardMod && requiredTemporal)
+        return pythonComparison(
+          `rune.temporalKey(${left}, ${pyString(requiredTemporal)})`,
+          `rune.temporalKey(${right}, ${pyString(requiredTemporal)})`,
+          expression.operator
+        );
       const type = expressionType(expression.left ?? arg)?.name;
       const temporal = type && ['date', 'time', 'dateTime', 'zonedDateTime'].includes(type);
       const compare = pythonComparison(

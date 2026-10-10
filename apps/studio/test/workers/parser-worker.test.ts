@@ -36,6 +36,7 @@ const getDocumentMock = vi.fn((_uri: unknown) => ({
 const registerExportsMock = vi.fn();
 
 vi.mock('@rune-langium/core', () => ({
+  isRosettaModel: (node: { $type?: string }) => node.$type === 'RosettaModel',
   RuneDslIndexManager: class {},
   namespaceFromSource: (text: string) => text.match(/^\s*namespace\s+([\w.]+)/m)?.[1] ?? '',
   preserveCstText: () => {},

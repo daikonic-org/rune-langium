@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { generatedDirectory } from '../helpers/generated-directory.js';
 import { describe, expect, it } from 'vitest';
+import { Temporal } from '@js-temporal/polyfill';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
 import { buildNamespaceIndexes } from '../../src/preview-schema.js';
@@ -252,8 +253,9 @@ func Run:
     const { RUNTIME_HELPER_JS_SOURCE } = await import('../../src/export.js');
     const validator = new Function(
       'z',
+      'Temporal',
       `${RUNTIME_HELPER_JS_SOURCE}\n${await toEvaluableJs(result.code)}\nreturn ${result.schemaName};`
-    )(z);
+    )(z, Temporal);
     expect(validator.safeParse({ child: { amount: 2, eventDate: '2026-10-09' }, kinds: ['A'] }).success).toBe(true);
     for (const invalid of [
       {},

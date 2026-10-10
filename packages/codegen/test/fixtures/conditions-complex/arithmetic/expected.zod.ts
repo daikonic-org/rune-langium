@@ -21,22 +21,30 @@ const runeDateField = <K extends 'year' | 'month' | 'day' | 'date' | 'time' | 't
     : field === 'year' ? parsed.year : field === 'month' ? parsed.month : field === 'day' ? parsed.day : undefined;
   return result as (K extends 'year' | 'month' | 'day' ? number : string) | undefined;
 };
-const runeDateConstruct = (kind: 'date' | 'dateTime' | 'zonedDateTime', fields: { year?: number; month?: number; day?: number; date?: string; time?: string; timezone?: string }): string | undefined => {
-  if (kind === 'date') {
-    if (fields.year == null || fields.month == null || fields.day == null) return undefined;
-    return Temporal.PlainDate.from({ year: fields.year, month: fields.month, day: fields.day }, { overflow: 'reject' }).toString();
-  }
-  if (fields.date == null || fields.time == null) return undefined;
-  const dateTime = Temporal.PlainDate.from(fields.date).toPlainDateTime(Temporal.PlainTime.from(fields.time));
-  if (kind === 'dateTime') return dateTime.toString();
-  if (fields.timezone == null) return undefined;
-  return dateTime.toZonedDateTime(fields.timezone === 'Z' ? 'UTC' : fields.timezone).toString();
+const runeDateConstructTemporal = <K extends 'date' | 'dateTime' | 'zonedDateTime'>(kind: K, fields: { year?: number; month?: number; day?: number; date?: Temporal.PlainDate; time?: Temporal.PlainTime; timezone?: string }): (K extends 'date' ? Temporal.PlainDate : K extends 'dateTime' ? Temporal.PlainDateTime : Temporal.ZonedDateTime) | undefined => {
+  const construct = () => {
+    if (kind === 'date') {
+      if (fields.year == null || fields.month == null || fields.day == null) return undefined;
+      return Temporal.PlainDate.from({ year: fields.year, month: fields.month, day: fields.day }, { overflow: 'reject' });
+    }
+    if (fields.date == null || fields.time == null) return undefined;
+    const dateTime = fields.date.toPlainDateTime(fields.time);
+    if (kind === 'dateTime') return dateTime;
+    if (fields.timezone == null) return undefined;
+    return dateTime.toZonedDateTime(fields.timezone === 'Z' ? 'UTC' : fields.timezone);
+  };
+  return construct() as (K extends 'date' ? Temporal.PlainDate : K extends 'dateTime' ? Temporal.PlainDateTime : Temporal.ZonedDateTime) | undefined;
 };
+const runeDateConstruct = (kind: 'date' | 'dateTime' | 'zonedDateTime', fields: { year?: number; month?: number; day?: number; date?: string; time?: string; timezone?: string }): string | undefined => runeDateConstructTemporal(kind, {
+  ...fields,
+  date: fields.date == null ? undefined : Temporal.PlainDate.from(fields.date),
+  time: fields.time == null ? undefined : Temporal.PlainTime.from(fields.time)
+})?.toString();
 
 type RuneFuncData<T> = T extends readonly (infer I)[]
   ? RuneFuncData<I>[]
   : T extends { readonly [Symbol.toStringTag]: `Temporal.${string}` }
-    ? string
+    ? T
     : T extends (...args: never[]) => unknown
       ? never
       : T extends object
@@ -46,7 +54,7 @@ const runeToFuncData = <T>(input: T): RuneFuncData<T> => {
   const seen = new WeakMap<object, unknown>();
   const convert = (value: unknown): unknown => {
     if (value == null || typeof value !== 'object') return value;
-    if (/^\[object Temporal\./.test(Object.prototype.toString.call(value))) return String(value);
+    if (/^\[object Temporal\./.test(Object.prototype.toString.call(value))) return value;
     if (seen.has(value)) return seen.get(value);
     if (Array.isArray(value)) {
       const result: unknown[] = [];
@@ -168,6 +176,7 @@ const rune = {
   parseZonedDateTime: runeParseZonedDateTime,
   dateField: runeDateField,
   dateConstruct: runeDateConstruct,
+  dateConstructTemporal: runeDateConstructTemporal,
   toFuncData: runeToFuncData,
   checkOneOf: runeCheckOneOf,
   count: runeCount,
@@ -204,7 +213,7 @@ export const NumericCheckSchema = z
         path: ['ValueBelowThreshold']
       });
     }
-    if (!((rune.valueKey(data.value) !== rune.valueKey(0)))) {
+    if (!(((data.value as number | undefined) !== 0))) {
       ctx.addIssue({
         code: 'custom',
         message: 'ValueNotZero: condition failed in NumericCheck',

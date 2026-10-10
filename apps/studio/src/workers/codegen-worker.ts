@@ -864,7 +864,7 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
       scope.postMessage({
         type: 'projection:result',
         requestId: request.requestId,
-        projection: { ...selectPythonProjection(module, subject, request.kind), subject: request.subject }
+        projection: { ...selectPythonProjection(module, subject, request.kind, 'body'), subject: request.subject }
       });
       return;
     }
@@ -876,7 +876,10 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
     );
     if (version !== previewFilesVersion || !current())
       throw new Error('The source changed. Refresh the generated view.');
-    const projection = { ...selectTypeScriptProjection(outputs, subject, request.kind), subject: request.subject };
+    const projection = {
+      ...selectTypeScriptProjection(outputs, subject, request.kind, 'body'),
+      subject: request.subject
+    };
     scope.postMessage({ type: 'projection:result', requestId: request.requestId, projection });
   } catch (error) {
     scope.postMessage({
@@ -885,6 +888,31 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
       error: error instanceof Error ? error.message : String(error)
     });
   }
+}
+
+function serializePreviewOutput(value: unknown, seen = new WeakMap<object, unknown>()): unknown {
+  if (
+    value instanceof Temporal.PlainDate ||
+    value instanceof Temporal.PlainTime ||
+    value instanceof Temporal.PlainDateTime ||
+    value instanceof Temporal.ZonedDateTime
+  ) {
+    return value.toJSON();
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value);
+  const result = Array.isArray(value) ? [] : {};
+  if (Array.isArray(result) && Array.isArray(value)) result.length = value.length;
+  seen.set(value, result);
+  for (const [key, entry] of Object.entries(value)) {
+    Object.defineProperty(result, key, {
+      value: serializePreviewOutput(entry, seen),
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+  }
+  return result;
 }
 
 async function executeFunction(funcName: string, inputs: Record<string, unknown>, requestId: string): Promise<void> {
@@ -986,7 +1014,7 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
       type: 'preview:execute-result',
       requestId,
       funcName,
-      output
+      output: serializePreviewOutput(output)
     });
   } catch (e) {
     scope.postMessage({

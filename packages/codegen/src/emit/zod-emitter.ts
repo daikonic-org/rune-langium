@@ -9,6 +9,7 @@
  * FR-002–FR-009, FR-021 (inline helpers), FR-022 (deterministic output).
  */
 
+import { TEMPORAL_CONVERSION_PATTERNS } from '../expr/temporal-conversions.js';
 import {
   getEnumValues,
   getElementNamespace,
@@ -263,6 +264,18 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     super(model, options, registry);
     this.functionInputs = options.functionInputs ?? false;
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
+    if (this.functionInputs) {
+      const builtinTypeMap = { ...this.ctx.builtinTypeMap };
+      for (const [kind, temporalType] of Object.entries(typescriptProfile.recordTypeMap).concat([
+        ['time', typescriptProfile.basicTypeMap.time!]
+      ])) {
+        const parse = kind === 'zonedDateTime' ? 'rune.parseZonedDateTime' : `${temporalType}.from`;
+        builtinTypeMap[kind] =
+          `z.string().regex(new RegExp(${JSON.stringify(TEMPORAL_CONVERSION_PATTERNS[kind as keyof typeof TEMPORAL_CONVERSION_PATTERNS])}))` +
+          `.transform((value, ctx) => { try { return ${parse}(value); } catch { ctx.addIssue({ code: 'custom', message: 'Invalid ${kind}' }); return z.NEVER; } })`;
+      }
+      this.ctx = { ...this.ctx, builtinTypeMap };
+    }
     this.typeIndex = toTypeIndexLookup(this.ctx);
   }
 
@@ -509,7 +522,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       {
         onPrimitive: (basicTypeName) => {
           const mapped = this.ctx.builtinTypeMap[basicTypeName];
-          if (mapped) return mapped;
+          if (typeof mapped === 'string') return mapped;
           this.ctx.diagnostics.push({
             severity: 'warning',
             code: 'unmapped-builtin',
@@ -969,8 +982,12 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       this.typeIndex,
       {
         onPrimitive: (basicTypeName) => {
-          const mapped = ZOD_TS_TYPE_MAP[basicTypeName];
-          if (mapped) return mapped;
+          const mapped = this.functionInputs
+            ? (typescriptProfile.basicTypeMap[basicTypeName] ??
+              typescriptProfile.recordTypeMap[basicTypeName] ??
+              typescriptProfile.typeAliasMap[basicTypeName])
+            : ZOD_TS_TYPE_MAP[basicTypeName];
+          if (typeof mapped === 'string') return mapped;
           this.ctx.diagnostics.push({
             severity: 'warning',
             code: 'unmapped-builtin',
@@ -1144,7 +1161,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       {
         onPrimitive: (basicTypeName) => {
           const mapped = this.ctx.builtinTypeMap[basicTypeName];
-          if (mapped) return mapped;
+          if (typeof mapped === 'string') return mapped;
           this.ctx.diagnostics.push({
             severity: 'warning',
             code: 'unmapped-builtin',

@@ -246,18 +246,42 @@ export function featureName(feature: Feature): string {
   return choiceOptionFieldName(typeName.split('.').pop()!);
 }
 
-/** Calendar records use ISO strings at runtime, including implicit field reads. */
-export function renderCalendarField(feature: unknown, receiver: () => string, many = false): string | undefined {
+/** Calendar reads use native Temporal fields in TS and ISO adapters at JSON schema boundaries. */
+export function renderCalendarField(
+  feature: unknown,
+  receiver: () => string,
+  many = false,
+  temporal = false,
+  required = false
+): string | undefined {
   if (
     !isRosettaRecordFeature(feature) ||
     !isRosettaRecordType(feature.$container) ||
     !['date', 'dateTime', 'zonedDateTime'].includes(feature.$container.name)
   )
     return undefined;
-  const read = (value: string) =>
-    `rune.dateField(${value}, ${JSON.stringify(feature.$container.name)}, ${JSON.stringify(feature.name)})`;
+  const field =
+    feature.name === 'date'
+      ? 'toPlainDate()'
+      : feature.name === 'time'
+        ? 'toPlainTime()'
+        : feature.name === 'timezone'
+          ? 'timeZoneId'
+          : feature.name;
+  const temporalType =
+    feature.$container.name === 'date'
+      ? 'PlainDate'
+      : feature.$container.name === 'dateTime'
+        ? 'PlainDateTime'
+        : 'ZonedDateTime';
+  const read = (value: string, knownPresent: boolean) =>
+    temporal
+      ? knownPresent
+        ? `${value}.${field}`
+        : `(${value} as Temporal.${temporalType} | undefined)?.${field}`
+      : `rune.dateField(${value}, ${JSON.stringify(feature.$container.name)}, ${JSON.stringify(feature.name)})`;
   const value = receiver();
-  return many ? `rune.list(${value}).flatMap((value) => rune.list(${read('value')}))` : read(value);
+  return many ? `rune.list(${value}).flatMap((value) => rune.list(${read('value', true)}))` : read(value, required);
 }
 
 export function deepFeaturePaths(

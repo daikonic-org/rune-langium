@@ -15,6 +15,8 @@ export interface GeneratedProjection {
   code: string;
   sourceMap: SourceMapEntry[];
   requiredHelpers: readonly string[];
+  /** Emitter-recorded body or predicate for an embedded editor. */
+  body?: { code: string; sourceMap: SourceMapEntry[] };
 }
 /** Provenance recorded during emission, independent of an editor's node-ID format. */
 export interface EmittedProjection {
@@ -22,4 +24,5 @@ export interface EmittedProjection {
   source: { uri: string; region: SourceRegion };
   code: string;
   sourceMap: SourceMapEntry[];
+  body?: { code: string; sourceMap: SourceMapEntry[] };
 }

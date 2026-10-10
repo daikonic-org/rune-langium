@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useId, type CSSProperties } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { isolateHistory } from '@codemirror/commands';
 import type { ExpressionEditorSlotProps, FunctionScope } from '@rune-langium/visual-editor';
@@ -69,6 +69,8 @@ export const ExpressionWorkspace = withInstrumentation(
     const dependenciesRef = useRef(dependencySnapshot);
     dependenciesRef.current = dependencySnapshot;
     const [binding, setBinding] = useState<DocumentBinding | null>(null);
+    const [expanded, setExpanded] = useState(false);
+    const editorId = useId();
     const viewRef = useRef<EditorView | null>(null);
     const [selection, setSelection] = useState<SourceRegion | null>(null);
     const [builder, setBuilder] = useState<{
@@ -209,7 +211,12 @@ export const ExpressionWorkspace = withInstrumentation(
     };
     const returnFocus = () => requestAnimationFrame(() => viewRef.current?.focus());
     return (
-      <section className="flex flex-col gap-1" aria-label={target ? 'Condition expression' : 'Function implementation'}>
+      <section
+        id={editorId}
+        className="flex flex-col gap-1"
+        aria-label={target ? 'Condition expression' : 'Function implementation'}
+        style={{ '--expression-editor-height': expanded ? 'min(70dvh,48rem)' : 'min(45dvh,28rem)' } as CSSProperties}
+      >
         <div className="flex min-h-6 flex-wrap items-center justify-between gap-1">
           <span className="text-xs font-medium text-muted-foreground">{target ? 'Expression' : 'Implementation'}</span>
           <div className="flex flex-wrap items-center gap-1">
@@ -261,6 +268,15 @@ export const ExpressionWorkspace = withInstrumentation(
             </Button>
             <Button variant="ghost" size="xs" onClick={onOpenSource}>
               Open in Source
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-expanded={expanded}
+              aria-controls={editorId}
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? 'Collapse editor' : 'Expand editor'}
             </Button>
           </div>
         </div>

@@ -19,16 +19,55 @@ import {
   isRosettaEnumValue,
   isRosettaEnumeration,
   isRosettaConstructorExpression,
+  isRosettaConditionalExpression,
   isRosettaStringLiteral,
   isRosettaSymbolReference,
   isShortcutDeclaration,
-  type RosettaExpression
+  type RosettaExpression,
+  type TypeCall
 } from '@rune-langium/core';
 import { AstUtils } from 'langium';
 import { expressionIsMany, expressionType, featureIsRequired } from './navigation.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
+import { resolveTypeCallTarget, type TypeIndexLookup } from '../emit/type-ref-resolver.js';
+import { functionOutput } from '../types/func.js';
 
-type ScalarKind = 'number' | 'string' | 'boolean';
+export const temporalScalarTypes = {
+  date: 'PlainDate',
+  time: 'PlainTime',
+  dateTime: 'PlainDateTime',
+  zonedDateTime: 'ZonedDateTime'
+} as const;
+type TemporalKind = keyof typeof temporalScalarTypes;
+type ScalarKind = 'number' | 'string' | 'boolean' | TemporalKind;
+
+const linkedTypes: TypeIndexLookup = {
+  enumByName: new Map(),
+  dataByName: new Map(),
+  choiceByName: new Map(),
+  typeAliasByName: new Map()
+};
+
+function primitiveKind(name: string | undefined): ScalarKind | undefined {
+  if (name && name in temporalScalarTypes) return name as TemporalKind;
+  return name === 'int' || name === 'number' ? 'number' : name === 'string' || name === 'boolean' ? name : undefined;
+}
+
+/** Use the same declared type resolution as function signatures, including built-ins without loaded source. */
+export function declaredScalarKind(call: TypeCall | undefined): ScalarKind | undefined {
+  return resolveTypeCallTarget(
+    call,
+    linkedTypes,
+    {
+      onPrimitive: primitiveKind,
+      onEnum: () => 'string',
+      onData: () => undefined,
+      onChoice: () => undefined,
+      onUnresolved: () => undefined
+    },
+    ''
+  );
+}
 
 function scalarKind(expression: RosettaExpression | undefined): ScalarKind | undefined {
   if (isRosettaBooleanLiteral(expression)) return 'boolean';
@@ -39,9 +78,20 @@ function scalarKind(expression: RosettaExpression | undefined): ScalarKind | und
     return 'string';
   if (isRosettaIntLiteral(expression) || isRosettaNumberLiteral(expression)) return 'number';
   const type = expressionType(expression);
-  const kind = type?.name;
   if (isRosettaEnumeration(type)) return 'string';
-  return kind === 'int' || kind === 'number' ? 'number' : kind === 'string' || kind === 'boolean' ? kind : undefined;
+  const primitive = primitiveKind(type?.name);
+  if (primitive) return primitive;
+  const declaration = isRosettaSymbolReference(expression)
+    ? expression.symbol.ref
+    : isRosettaFeatureCall(expression)
+      ? expression.feature?.ref
+      : undefined;
+  const call = isAttribute(declaration)
+    ? declaration.typeCall
+    : isRosettaFunction(declaration)
+      ? functionOutput(declaration)?.typeCall
+      : undefined;
+  return declaredScalarKind(call);
 }
 
 /** Inputs and the current validated Data record are safe; guarded implicit lookups are not. */
@@ -140,6 +190,10 @@ export function requiredScalarKind(
       const right = requiredScalarKind(expression.right, visiting);
       if (left === right && (left === 'number' || (left === 'string' && expression.operator === '+'))) return left;
     }
+    if (isRosettaConditionalExpression(expression)) {
+      const thenKind = requiredScalarKind(expression.ifthen, visiting);
+      return thenKind && thenKind === requiredScalarKind(expression.elsethen, visiting) ? thenKind : undefined;
+    }
     return undefined;
   } finally {
     visiting.delete(expression);
@@ -154,40 +208,32 @@ export function nativeScalarOperands(
   return kind && kind === requiredScalarKind(right) ? kind : undefined;
 }
 
-/** Optional primitives and enums retain native equality over validated JSON values. */
+/** Primitives, ISO calendar strings and enums retain native equality over validated JSON values. */
 export function scalarEqualityOperands(
   left: RosettaExpression | undefined,
-  right: RosettaExpression
+  right: RosettaExpression,
+  isoDates = true
 ): ScalarKind | undefined {
   if (expressionIsMany(left) || expressionIsMany(right)) return undefined;
   const kind = scalarKind(left);
-  return kind && kind === scalarKind(right) ? kind : undefined;
+  if (!kind || kind !== scalarKind(right)) return undefined;
+  return kind in temporalScalarTypes ? (isoDates ? 'string' : undefined) : kind;
 }
 
-function finiteJsonNumber(expression: RosettaExpression | undefined, visiting = new Set<RosettaExpression>()): boolean {
-  if (!expression || visiting.has(expression)) return false;
-  visiting.add(expression);
-  try {
-    if (isRosettaIntLiteral(expression) || isRosettaNumberLiteral(expression))
-      return Number.isFinite(Number(expression.value));
-    if (isRosettaSymbolReference(expression)) {
-      const declaration = expression.symbol.ref;
-      if (isShortcutDeclaration(declaration)) return finiteJsonNumber(declaration.expression, visiting);
-      return (
-        isAttribute(declaration) &&
-        !(isRosettaFunction(declaration.$container) && declaration.$containerProperty === 'output')
-      );
-    }
-    if (isRosettaFeatureCall(expression)) return finiteJsonNumber(expression.receiver, visiting);
-    return false;
-  } finally {
-    visiting.delete(expression);
-  }
+/** Required calendar operands use native Temporal operations in TypeScript. */
+export function nativeTemporalOperands(
+  left: RosettaExpression | undefined,
+  right: RosettaExpression
+): TemporalKind | undefined {
+  const kind = nativeScalarOperands(left, right);
+  return kind && kind in temporalScalarTypes ? (kind as TemporalKind) : undefined;
 }
 
-/** Computed numbers can be NaN even when their JSON inputs were finite. */
-export function nativeEqualityOperands(left: RosettaExpression | undefined, right: RosettaExpression): boolean {
-  const kind = scalarEqualityOperands(left, right);
-  if (kind !== 'number') return kind !== undefined;
-  return finiteJsonNumber(left) && finiteJsonNumber(right);
+/** Declared scalar computations follow the target language's equality conventions. */
+export function nativeEqualityOperands(
+  left: RosettaExpression | undefined,
+  right: RosettaExpression,
+  isoDates = true
+): boolean {
+  return scalarEqualityOperands(left, right, isoDates) !== undefined;
 }

@@ -29,6 +29,6 @@ export interface PythonProjectionContext {
   functionFacts?: ReadonlyMap<RosettaFunction, RuneFunc>;
   globalNames?: ReadonlySet<string>;
   inputName?(func: RosettaFunction): string;
-  onConditionProjection?(condition: Condition, code: string): void;
+  onConditionProjection?(condition: Condition, code: string, predicate: string): void;
   name(declaration: AstNode): string;
 }

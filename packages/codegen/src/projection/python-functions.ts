@@ -22,6 +22,8 @@ import {
   type RuneFuncAssignment
 } from '../types/func.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
+import { declaredScalarKind, requiredScalarKind } from '../expr/scalar-operators.js';
+import { expressionFitsCardinality } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataPropertyPath } from '../expr/metadata-runtime.js';
 import { typeFeatures, featureName, resolveType, type ExpressionType } from '../expr/navigation.js';
 import { recordedProjection, findProjectionFragment } from './provenance.js';
@@ -128,15 +130,17 @@ function projection(
   node: AstNode,
   context: PythonProjectionContext,
   code: string,
-  kind: EmittedProjection['kind']
+  kind: EmittedProjection['kind'],
+  body?: string
 ): GeneratedProjection {
-  const recorded = recordedProjection(node, code, kind);
+  const recorded = recordedProjection(node, code, kind, body);
   if (!recorded) throw new Error('Python projection requires original source coordinates.');
   return {
     language: 'python',
     subject: context.subject,
     code,
     sourceMap: recorded.sourceMap,
+    body: recorded.body,
     requiredHelpers: pythonHelperDependencies(code)
   };
 }
@@ -152,7 +156,10 @@ function assignmentLines(
   const root = roots.get(assignment.target ?? '');
   if (!root) throw new Error(`Unresolved Python assignment root '${assignment.target ?? ''}'`);
   const bounds = assignment.targetCardinality;
-  const normalized = `rune.assignmentValue(${value}, ${pyString(expressionMetadataKind(expression) ?? 'value')}, ${pyString(assignment.metadataKind ?? 'value')}, ${pyBool(many)})`;
+  const normalized =
+    !many && !assignment.metadataKind && requiredScalarKind(expression)
+      ? value
+      : `rune.assignmentValue(${value}, ${pyString(expressionMetadataKind(expression) ?? 'value')}, ${pyString(assignment.metadataKind ?? 'value')}, ${pyBool(many)})`;
   const path = assignment.path ?? [];
   if (!path.length)
     return [`${root} = ${assignment.kind === 'add' ? `rune.list(${root}) + rune.list(${normalized})` : normalized}`];
@@ -174,6 +181,10 @@ function assignmentLines(
 
 function normalizeInput(inputs: readonly Attribute[], context: PythonProjectionContext): string {
   return `input = rune.normalizeObject(input, {${inputs.map((input) => `${pyString(input.name)}: ${pythonFieldNormalizer(input, context)}`).join(', ')}})`;
+}
+
+function inputsRequiringNormalization(inputs: readonly Attribute[]): Attribute[] {
+  return inputs.filter((input) => !declaredScalarKind(input.typeCall) || fieldMetadataKind(input));
 }
 
 /** Complete implementation; the inverse Python lens retains its narrower expression contract. */
@@ -205,7 +216,12 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   locals.set(output, result);
   roots.set(output.name, result);
   for (const input of inputs) {
-    const read = pythonRead('input', [input.name]);
+    const read =
+      declaredScalarKind(input.typeCall) && !fieldMetadataKind(input)
+        ? input.card.inf > 0
+          ? `input[${pyString(input.name)}]`
+          : `input.get(${pyString(input.name)})`
+        : pythonRead('input', [input.name]);
     locals.set(input, read);
     roots.set(input.name, `input[${pyString(input.name)}]`);
   }
@@ -217,8 +233,29 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     superFunction: func.superFunction?.ref,
     state: { next: 0 }
   };
-  const lines: string[] = [normalizeInput(inputs, context)];
-  for (const input of inputs)
+  const normalizedInputs = inputsRequiringNormalization(inputs);
+  const finish = (lines: string[]) => {
+    const code = `def ${name}(input: ${context.inputName?.(func) ?? name + '_Input'}) -> ${pythonFieldType(output, context)}:\n${lines.map((line) => '    ' + line).join('\n')}\n`;
+    return projection(func, context, code, 'function', lines.join('\n'));
+  };
+  const single = facts.assignments[0];
+  if (
+    !facts.isAbstract &&
+    !normalizedInputs.length &&
+    facts.assignments.length === 1 &&
+    single?.kind === 'set' &&
+    !single.path?.length &&
+    (!single.target || single.target === output.name) &&
+    !fieldMetadataKind(output) &&
+    !func.shortcuts.length &&
+    !func.conditions.length &&
+    !func.postConditions.length &&
+    expressionFitsCardinality(single.exprNode as RosettaExpression, facts.output.cardinality)
+  ) {
+    return finish([`return ${renderPythonExpression(single.exprNode as RosettaExpression, renderContext)}`]);
+  }
+  const lines: string[] = normalizedInputs.length ? [normalizeInput(normalizedInputs, context)] : [];
+  for (const input of normalizedInputs)
     lines.push(
       `input[${pyString(input.name)}] = rune.cardinality(input.get(${pyString(input.name)}), ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
     );
@@ -243,7 +280,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
       `    raise ValueError(${pyString(`Diagnostic: ${condition.name ?? func.name}`)})`
     ];
     lines.push(...guard);
-    context.onConditionProjection?.(condition, guard.join('\n'));
+    context.onConditionProjection?.(condition, guard.join('\n'), predicate);
   };
   func.conditions.forEach(check);
   if (facts.isAbstract) lines.push(`${result} = rune.native(${pyString(qualified(func))}, input)`);
@@ -253,8 +290,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   );
   func.postConditions.forEach(check);
   lines.push(`return ${result}`);
-  const code = `def ${name}(input: ${context.inputName?.(func) ?? name + '_Input'}) -> ${pythonFieldType(output, context)}:\n${lines.map((line) => '    ' + line).join('\n')}\n`;
-  return projection(func, context, code, 'function');
+  return finish(lines);
 }
 
 function pythonDataContext(context: PythonProjectionContext, type: ExpressionType | undefined): PythonRenderContext {
@@ -273,15 +309,18 @@ function pythonDataContext(context: PythonProjectionContext, type: ExpressionTyp
 export function projectPythonCondition(condition: Condition, context: PythonProjectionContext): GeneratedProjection {
   const owner = condition.$container;
   if (isRosettaFunction(owner)) {
-    let guard: string | undefined;
+    let guard: string | undefined, predicate: string | undefined;
     projectPythonFunction(owner, {
       ...context,
-      onConditionProjection(node, code) {
-        if (node === condition) guard = code;
+      onConditionProjection(node, code, expression) {
+        if (node === condition) {
+          guard = code;
+          predicate = expression;
+        }
       }
     });
     if (guard === undefined) throw new Error('Condition is not in its function implementation.');
-    return projection(condition, context, guard, 'condition');
+    return projection(condition, context, guard, 'condition', predicate);
   }
   if (!isData(owner) && !isChoice(owner)) throw new Error(`Unsupported Python condition owner '${owner.$type}'.`);
   const code = renderPythonExpression(condition.expression, pythonDataContext(context, owner));
@@ -290,7 +329,8 @@ export function projectPythonCondition(condition: Condition, context: PythonProj
     condition,
     context,
     `def ${name}(data: ${isData(owner) || isChoice(owner) ? context.name(owner) : 'dict[str, Any]'}) -> bool:\n    return ${code}\n`,
-    'condition'
+    'condition',
+    code
   );
 }
 
@@ -304,12 +344,12 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
   const sections = [PYTHON_RUNTIME_SOURCE, 'from typing import Literal', ...pythonTypeDeclarations(types, context)];
   const projections: EmittedProjection[] = [],
     bindings = new Map<string, string>();
-  context.onConditionProjection = (condition, code) => {
-    const recorded = recordedProjection(condition, code, 'condition');
+  context.onConditionProjection = (condition, code, predicate) => {
+    const recorded = recordedProjection(condition, code, 'condition', predicate);
     if (recorded) projections.push(recorded);
   };
   const record = (node: AstNode, generated: GeneratedProjection, kind: EmittedProjection['kind']) => {
-    const recorded = recordedProjection(node, generated.code, kind);
+    const recorded = recordedProjection(node, generated.code, kind, generated.body?.code);
     if (recorded) projections.push(recorded);
   };
   const funcs = elements.filter(isRosettaFunction),
@@ -324,14 +364,20 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
     bindings.set(key, name);
     sections.push(pythonTypedDict(context.inputName!(base), functionInputs(functionSignature(base, funcs)), context));
     const variants = group.filter((func) => func.dispatchAttribute);
+    const bodies = new Map<RosettaFunction, string>();
     let code: string;
-    if (!variants.length) code = projectPythonFunction(base, context).code;
-    else {
+    if (!variants.length) {
+      const generated = projectPythonFunction(base, context);
+      code = generated.code;
+      bodies.set(base, generated.body!.code);
+    } else {
       const chunks: string[] = [],
         calls: string[] = [];
       for (const [index, func] of group.entries()) {
         const implementation = `_rune_impl_${name}_${index}`;
-        const body = projectPythonFunction(func, context).code.replace(`def ${name}(`, `def ${implementation}(`);
+        const generated = projectPythonFunction(func, context);
+        bodies.set(func, generated.body!.code);
+        const body = generated.code.replace(`def ${name}(`, `def ${implementation}(`);
         chunks.push(body);
         if (func.dispatchAttribute) {
           const parameter = functionInputs(functionSignature(base, funcs)).find(
@@ -341,21 +387,22 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
             `input.get(${pyString(func.dispatchAttribute.ref?.name ?? func.dispatchAttribute.$refText)})`,
             fieldMetadataKind(parameter)
           );
-          calls.push(
-            `    if rune.equals(${selector}, ${pyString(func.dispatchValue?.value.ref?.name ?? func.dispatchValue?.value.$refText ?? '')}):\n        return ${implementation}(input)`
-          );
+          const expected = pyString(func.dispatchValue?.value.ref?.name ?? func.dispatchValue?.value.$refText ?? '');
+          calls.push(`    if ${selector} == ${expected}:\n        return ${implementation}(input)`);
         }
       }
       const baseIndex = group.indexOf(base);
       const output = functionOutput(functionSignature(base, funcs));
       if (!output) throw new Error(`Function '${base.name}' has no output declaration.`);
+      const inputs = inputsRequiringNormalization(functionInputs(functionSignature(base, funcs)));
+      const normalize = inputs.length ? `    ${normalizeInput(inputs, context)}\n` : '';
       chunks.push(
-        `def ${name}(input: ${context.inputName!(base)}) -> ${pythonFieldType(output, context)}:\n    ${normalizeInput(functionInputs(functionSignature(base, funcs)), context)}\n${calls.join('\n')}\n    return _rune_impl_${name}_${baseIndex}(input)\n`
+        `def ${name}(input: ${context.inputName!(base)}) -> ${pythonFieldType(output, context)}:\n${normalize}${calls.join('\n')}\n    return _rune_impl_${name}_${baseIndex}(input)\n`
       );
       code = chunks.join('\n');
     }
     sections.push(code);
-    for (const func of group) record(func, projection(func, context, code, 'function'), 'function');
+    for (const func of group) record(func, projection(func, context, code, 'function', bodies.get(func)), 'function');
   }
   for (const node of elements) {
     if (isData(node))
@@ -378,15 +425,18 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
 export function selectPythonProjection(
   module: PythonModule,
   subject: ProjectionSubject,
-  kind: EmittedProjection['kind']
+  kind: EmittedProjection['kind'],
+  form: 'declaration' | 'body' = 'declaration'
 ): GeneratedProjection {
   const fragment = findProjectionFragment(module.projections, subject, kind);
   if (!fragment) throw new Error(`No generated ${kind} matches the current source region.`);
+  const selected = form === 'body' ? fragment.body : fragment;
+  if (!selected) throw new Error(`No generated ${kind} body matches the current source region.`);
   return {
     language: 'python',
     subject,
-    code: fragment.code,
-    sourceMap: fragment.sourceMap,
-    requiredHelpers: pythonHelperDependencies(fragment.code)
+    code: selected.code,
+    sourceMap: selected.sourceMap,
+    requiredHelpers: pythonHelperDependencies(selected.code)
   };
 }

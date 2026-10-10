@@ -100,7 +100,14 @@ import { renderResolvedFunctionCall } from './function-call.js';
 import { renderCollectionOperation } from './collection-operations.js';
 import { callableExportName, type CallableDeclaration } from '../emit/callable-names.js';
 import type { GeneratorDiagnostic } from '../types.js';
-import { nativeEqualityOperands, nativeScalarOperands, scalarEqualityOperands } from './scalar-operators.js';
+import {
+  nativeEqualityOperands,
+  nativeScalarOperands,
+  scalarEqualityOperands,
+  nativeTemporalOperands,
+  temporalScalarTypes,
+  requiredScalarKind
+} from './scalar-operators.js';
 
 // ---------------------------------------------------------------------------
 // Operator precedence table — copied from expression-node-to-dsl.ts (prior art).
@@ -130,7 +137,7 @@ const PRECEDENCE: Record<string, number> = {
  */
 export interface ExpressionTranspilerContext {
   /** Capture an emitted condition without repeating resolution or rendering. */
-  onConditionProjection?: (condition: Condition, code: string) => void;
+  onConditionProjection?: (condition: Condition, code: string, predicate: string) => void;
   /**
    * The name of the `this` value in the emitted predicate.
    * In superRefine mode: `data` (the `.superRefine((data, ctx) =>` parameter).
@@ -304,7 +311,7 @@ export function emitOneOf(attrNames: string[], ctx: ExpressionTranspilerContext)
   const attrList = attrNames.map((n) => attrAccessExpr(n, ctx)).join(', ');
   const message = `${ctx.conditionName}: exactly one of [${attrNames.join(', ')}] must be present in ${ctx.typeName}`;
 
-  if (ctx.emitMode === 'zod-refine') {
+  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
     return `rune.checkOneOf([${attrList}])`;
   }
 
@@ -334,7 +341,7 @@ export function emitChoice(attrNames: string[], ctx: ExpressionTranspilerContext
   const attrList = attrNames.map((n) => attrAccessExpr(n, ctx)).join(', ');
   const message = `${ctx.conditionName}: exactly one of [${attrNames.join(', ')}] must be present in ${ctx.typeName}`;
 
-  if (ctx.emitMode === 'zod-refine') {
+  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
     return `rune.checkOneOf([${attrList}])`;
   }
 
@@ -366,7 +373,7 @@ export function emitExists(attrName: string, ctx: ExpressionTranspilerContext): 
   const access = attrAccessExpr(attrName, ctx);
   const message = `${ctx.conditionName}: ${attrName} must be present in ${ctx.typeName}`;
 
-  if (ctx.emitMode === 'zod-refine') {
+  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
     return `rune.exists(${access})`;
   }
 
@@ -398,7 +405,7 @@ export function emitIsAbsent(attrName: string, ctx: ExpressionTranspilerContext)
   const access = attrAccessExpr(attrName, ctx);
   const message = `${ctx.conditionName}: ${attrName} must be absent in ${ctx.typeName}`;
 
-  if (ctx.emitMode === 'zod-refine') {
+  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
     return `!rune.exists(${access})`;
   }
 
@@ -434,7 +441,7 @@ export function emitOnlyExists(allowedAttrNames: string[], ctx: ExpressionTransp
 
   const message = `${ctx.conditionName}: only [${allowedAttrNames.join(', ')}] may exist in ${ctx.typeName}`;
 
-  if (ctx.emitMode === 'zod-refine') {
+  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
     if (forbiddenAttrs.length === 0) {
       return 'true';
     }
@@ -739,7 +746,7 @@ function isSimpleFuncCall(expr: string): boolean {
  * T074.
  */
 function wrapBoolExprForMode(boolExpr: string, ctx: ExpressionTranspilerContext): string {
-  if (ctx.emitMode === 'zod-refine') {
+  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
     return boolExpr;
   }
 
@@ -816,7 +823,9 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
     const calendarField = renderCalendarField(
       feature,
       () => transpileExpression(expr.receiver, { ...ctx, preserveMetadata: false }),
-      expressionIsMany(expr.receiver)
+      expressionIsMany(expr.receiver),
+      ctx.emitMode.startsWith('ts-'),
+      requiredScalarKind(expr.receiver) !== undefined
     );
     if (calendarField !== undefined) return calendarField;
     if (ctx.emitMode.startsWith('ts-') && isRosettaEnumValue(feature)) {
@@ -871,13 +880,28 @@ export function transpileArithmetic(expr: RosettaExpression, ctx: ExpressionTran
   const scalar = nativeScalarOperands(expr.left, expr.right);
   if (scalar === 'number' || (scalar === 'string' && expr.operator === '+'))
     return `(${left} ${expr.operator} ${right})`;
+  if (requiredScalarKind(expr.left) === 'date') {
+    const rightKind = requiredScalarKind(expr.right);
+    if (rightKind === 'date' && expr.operator === '-')
+      return ctx.emitMode.startsWith('ts-')
+        ? `${right}.until(${left}).days`
+        : `Temporal.PlainDate.from(${right}).until(${left}).days`;
+    if (rightKind === 'time' && expr.operator === '+')
+      return ctx.emitMode.startsWith('ts-')
+        ? `${left}.toPlainDateTime(${right})`
+        : `Temporal.PlainDate.from(${left}).toPlainDateTime(Temporal.PlainTime.from(${right})).toString()`;
+  }
   const leftType = expressionType(expr.left)?.name;
   const rightType = expressionType(expr.right)?.name;
   const operation =
     leftType === 'date' && rightType === 'date' && expr.operator === '-'
-      ? 'Temporal.PlainDate.from(String(b)).until(Temporal.PlainDate.from(String(a))).days'
+      ? ctx.emitMode.startsWith('ts-')
+        ? 'b.until(a).days'
+        : 'Temporal.PlainDate.from(String(b)).until(Temporal.PlainDate.from(String(a))).days'
       : leftType === 'date' && rightType === 'time' && expr.operator === '+'
-        ? 'Temporal.PlainDate.from(String(a)).toPlainDateTime(Temporal.PlainTime.from(String(b))).toString()'
+        ? ctx.emitMode.startsWith('ts-')
+          ? 'a.toPlainDateTime(b)'
+          : 'Temporal.PlainDate.from(String(a)).toPlainDateTime(Temporal.PlainTime.from(String(b))).toString()'
         : `a ${expr.operator} b`;
   return `rune.binary(${left}, ${right}, (a, b) => ${operation})`;
 }
@@ -892,9 +916,12 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
   if (isEqualityOperation(expr)) {
     const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
     const right = transpileExpression(expr.right, ctx);
-    if (nativeEqualityOperands(expr.left, expr.right)) {
+    if (ctx.emitMode.startsWith('ts-') && nativeTemporalOperands(expr.left, expr.right))
+      return `${expr.operator === '<>' ? '!' : ''}${left}.equals(${right})`;
+    const isoDates = !ctx.emitMode.startsWith('ts-');
+    if (nativeEqualityOperands(expr.left, expr.right, isoDates)) {
       // Widen the proven primitive so nested predicates do not trigger TS2367.
-      const kind = scalarEqualityOperands(expr.left, expr.right)!;
+      const kind = scalarEqualityOperands(expr.left, expr.right, isoDates)!;
       const type = nativeScalarOperands(expr.left, expr.right) ? kind : `${kind} | undefined`;
       return `((${left} as ${type}) ${expr.operator === '<>' ? '!==' : '==='} ${right})`;
     }
@@ -905,17 +932,17 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
     const right = transpileExpression(expr.right, ctx);
     const scalar = nativeScalarOperands(expr.left, expr.right);
     if (scalar === 'number' || scalar === 'string') return `(${left} ${expr.operator} ${right})`;
-    const temporal = {
-      date: 'PlainDate',
-      time: 'PlainTime',
-      dateTime: 'PlainDateTime',
-      zonedDateTime: 'ZonedDateTime'
-    };
+    const nativeTemporal = nativeTemporalOperands(expr.left, expr.right);
+    if (nativeTemporal)
+      return `(Temporal.${nativeTemporal === 'zonedDateTime' && !ctx.emitMode.startsWith('ts-') ? 'Instant' : temporalScalarTypes[nativeTemporal]}.compare(${left}, ${right}) ${expr.operator} 0)`;
     const name = expressionType(expr.left ?? getOperationArgument(expr))?.name;
-    const kind = name && name in temporal ? temporal[name as keyof typeof temporal] : undefined;
+    const kind =
+      name && name in temporalScalarTypes ? temporalScalarTypes[name as keyof typeof temporalScalarTypes] : undefined;
     const parser = kind === 'ZonedDateTime' ? 'rune.parseZonedDateTime' : `Temporal.${kind}.from`;
     const comparison = kind
-      ? `Temporal.${kind}.compare(${parser}(String(a)), ${parser}(String(b))) ${expr.operator} 0`
+      ? ctx.emitMode.startsWith('ts-')
+        ? `Temporal.${kind}.compare(a, b) ${expr.operator} 0`
+        : `Temporal.${kind}.compare(${parser}(String(a)), ${parser}(String(b))) ${expr.operator} 0`
       : `a ${expr.operator} b`;
     return `rune.compare(${left}, ${right}, (a, b) => ${comparison}, ${JSON.stringify(expr.cardMod ?? 'all')})`;
   }
@@ -1072,7 +1099,7 @@ export function transpileConstructor(expr: RosettaExpression, ctx: ExpressionTra
     .join(', ');
   const type = expressionType(expr.typeRef);
   return isRosettaRecordType(type) && ['date', 'dateTime', 'zonedDateTime'].includes(type.name)
-    ? `rune.dateConstruct(${JSON.stringify(type.name)}, rune.toFuncData({ ${pairs} }))`
+    ? `rune.${ctx.emitMode.startsWith('ts-') ? 'dateConstructTemporal' : 'dateConstruct'}(${JSON.stringify(type.name)}, { ${pairs} })`
     : `{ ${pairs} }`;
 }
 
@@ -1190,12 +1217,8 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
 }
 
 /**
- * Temporal runtime representation is `string`
- * (see ts-emitter's `TS_BUILTIN_TYPE_MAP` / `typescriptProfile.recordTypeMap`:
- * date/dateTime/zonedDateTime/time all map to `Temporal.*` TS types but the
- * WIRE representation validated here is the ISO string prior to any
- * Temporal parsing — so these emit shape-validating passthroughs, not
- * Temporal object construction).
+ * TypeScript calendar conversions construct Temporal values; Zod predicates
+ * retain ISO strings to match their JSON schema representation.
  *
  * ToStringOperation / ToNumberOperation / ToIntOperation are undefined-guarded
  * per sibling conventions (see transpileLiteral / transpileAggregation).
@@ -1264,7 +1287,9 @@ export function transpileToDate(expr: RosettaExpression, ctx: ExpressionTranspil
     return diagnosticFallback('Invalid expression: not ToDateOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return `rune.toDate(${arg})`;
+  return ctx.emitMode.startsWith('ts-')
+    ? `((value) => value === undefined ? undefined : Temporal.PlainDate.from(value))(rune.toDate(${arg}))`
+    : `rune.toDate(${arg})`;
 }
 
 export function transpileToTime(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1272,7 +1297,9 @@ export function transpileToTime(expr: RosettaExpression, ctx: ExpressionTranspil
     return diagnosticFallback('Invalid expression: not ToTimeOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return `rune.toTime(${arg})`;
+  return ctx.emitMode.startsWith('ts-')
+    ? `((value) => value === undefined ? undefined : Temporal.PlainTime.from(value))(rune.toTime(${arg}))`
+    : `rune.toTime(${arg})`;
 }
 
 export function transpileToDateTime(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1280,7 +1307,9 @@ export function transpileToDateTime(expr: RosettaExpression, ctx: ExpressionTran
     return diagnosticFallback('Invalid expression: not ToDateTimeOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return `rune.toDateTime(${arg})`;
+  return ctx.emitMode.startsWith('ts-')
+    ? `((value) => value === undefined ? undefined : Temporal.PlainDateTime.from(value))(rune.toDateTime(${arg}))`
+    : `rune.toDateTime(${arg})`;
 }
 
 export function transpileToZonedDateTime(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1288,7 +1317,9 @@ export function transpileToZonedDateTime(expr: RosettaExpression, ctx: Expressio
     return diagnosticFallback('Invalid expression: not ToZonedDateTimeOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return `rune.toZonedDateTime(${arg})`;
+  return ctx.emitMode.startsWith('ts-')
+    ? `((value) => value === undefined ? undefined : rune.parseZonedDateTime(value))(rune.toZonedDateTime(${arg}))`
+    : `rune.toZonedDateTime(${arg})`;
 }
 
 function typedDataGuard(ctx: ExpressionTranspilerContext, kind?: FieldMetadataKind) {
@@ -1359,7 +1390,6 @@ function prepareFunctionArgument(
   ctx: ExpressionTranspilerContext,
   argument?: RosettaExpression
 ): string {
-  if (ctx.emitMode === 'ts-method') value = `rune.toFuncData(${value})`;
   const kind = ctx.emitMode.startsWith('ts-') ? fieldMetadataKind(parameter) : undefined;
   const cardinality = parameter.cardinality ?? (parameter.card ? decodeCardinality(parameter.card) : undefined);
   const many = cardinality?.upper === null || (cardinality?.upper ?? 1) > 1;
@@ -1472,7 +1502,12 @@ export function transpileExpression(
       ? featureName(expr.symbol.ref)
       : (expr.symbol?.$refText ?? expr.symbol?.ref?.name ?? '?');
     const target = expr.symbol?.ref;
-    const calendarField = renderCalendarField(target, () => ctx.selfName, expressionIsMany(expr));
+    const calendarField = renderCalendarField(
+      target,
+      () => ctx.selfName,
+      expressionIsMany(expr),
+      ctx.emitMode.startsWith('ts-')
+    );
     if (calendarField !== undefined) return calendarField;
     // Aliases and parameters shadow model symbols.
     if (ctx.localBindings?.has(name)) {

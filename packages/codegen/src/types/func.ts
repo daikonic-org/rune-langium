@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type { AstNode } from 'langium';
+import { typescriptProfile } from '../emit/typescript-profile.js';
 import { isMetadataFeature, fieldMetadataKind, type FieldMetadataKind } from '../expr/metadata-runtime.js';
 import { expressionIsMany, featureName } from '../expr/navigation.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
@@ -381,26 +382,14 @@ export function topoSortFuncs(funcs: RuneFunc[], callGraph: Map<string, Set<stri
 // ---------------------------------------------------------------------------
 
 /**
- * Maps a Rune built-in type name to a TypeScript type name.
- */
-const TS_FUNC_TYPE_MAP: Record<string, string> = {
-  string: 'string',
-  int: 'number',
-  number: 'number',
-  boolean: 'boolean',
-  date: 'string',
-  dateTime: 'string',
-  zonedDateTime: 'string',
-  time: 'string',
-  productType: 'string',
-  eventType: 'string'
-};
-
-/**
  * Resolve a Rune type name to a TypeScript type name.
  */
 export function resolveFuncTypeTs(typeName: string): string {
-  return TS_FUNC_TYPE_MAP[typeName] ?? typeName;
+  const mapped =
+    typescriptProfile.basicTypeMap[typeName] ??
+    typescriptProfile.recordTypeMap[typeName] ??
+    typescriptProfile.typeAliasMap[typeName];
+  return typeof mapped === 'string' ? mapped : typeName;
 }
 
 /**

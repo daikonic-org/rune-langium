@@ -408,13 +408,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     );
 
     for (const func of sortedFuncs) {
+      const bodies = new Map<RuneFunc, string>();
       const isHoisted = cyclicNames.has(func.name);
       const funcCtx = {
         ...TsNamespaceEmitter.buildFuncBodyContext(func, callGraph, this.ctx.diagnostics),
         callableName: this.callableName,
         typeNameResolver: this.typeName,
-        onConditionProjection: (condition: Condition, code: string) =>
-          this.recordProjection(condition.expression, code, 'condition')
+        onConditionProjection: (condition: Condition, code: string, predicate: string) =>
+          this.recordProjection(condition.expression, code, 'condition', predicate)
       };
       const group = groupsByName.get(func.name)!.map((variant) => ({
         ...variant,
@@ -422,26 +423,38 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       }));
       const funcText =
         group.length === 1
-          ? TsNamespaceEmitter.emitFunc(group[0]!, funcCtx, isHoisted)
+          ? TsNamespaceEmitter.emitFunc(group[0]!, funcCtx, isHoisted, (body) => bodies.set(group[0]!, body))
           : renderFuncDispatchGroup(group, {
               renderSignature: (base) =>
                 `export function ${base.name}(input: ${TsNamespaceEmitter.buildFuncInputType(base)}): ${TsNamespaceEmitter.buildFuncOutputType(base)}`,
               renderSelector: (_base, attribute) => attrAccessExpr(attribute, funcCtx),
-              renderBody: (variant) =>
-                TsNamespaceEmitter.emitFuncBody(variant, {
+              renderBody: (variant) => {
+                const lines = TsNamespaceEmitter.emitFuncBody(variant, {
                   ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, this.ctx.diagnostics),
                   callableName: this.callableName,
                   typeNameResolver: this.typeName,
-                  onConditionProjection: (condition: Condition, code: string) =>
-                    this.recordProjection(condition.expression, code, 'condition')
-                })
+                  onConditionProjection: (condition: Condition, code: string, predicate: string) =>
+                    this.recordProjection(condition.expression, code, 'condition', predicate)
+                });
+                bodies.set(
+                  variant,
+                  lines
+                    .join('\n')
+                    .split('\n')
+                    .map((line) => line.slice(2))
+                    .join('\n')
+                );
+                return lines;
+              }
             });
 
       this.sections.push('');
       const outputLine = this.sections.join('\n').split('\n').length;
       this.sections.push(funcText);
       const sources = group.flatMap((variant) => {
-        const fragment = variant.source ? this.recordProjection(variant.source, funcText, 'function') : undefined;
+        const fragment = variant.source
+          ? this.recordProjection(variant.source, funcText, 'function', bodies.get(variant))
+          : undefined;
         return fragment ? fragment.sourceMap : [];
       });
       this.ctx.sourceMap.push(...sources.map((entry) => ({ ...entry, outputLine: outputLine + entry.outputLine })));
@@ -459,9 +472,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private recordProjection(
     node: AstNode,
     code: string,
-    kind: EmittedProjection['kind']
+    kind: EmittedProjection['kind'],
+    body?: string
   ): EmittedProjection | undefined {
-    const projection = emittedTypeScriptProjection(node, code, kind);
+    const projection = emittedTypeScriptProjection(node, code, kind, body);
     if (projection) this.projections.push(projection);
     return projection;
   }
@@ -1390,7 +1404,16 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         `  }`
       ].join('\n');
 
-      this.recordProjection(cond.expression, method, 'condition');
+      this.recordProjection(
+        cond.expression,
+        method,
+        'condition',
+        transpileCondition(cond, {
+          ...transpilerCtx,
+          selfName: 'data',
+          emitMode: 'ts-expression'
+        })
+      );
       methodBlocks.push(method);
     }
 
@@ -1987,7 +2010,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         .split('\n')
         .map((line) => `  ${line}`)
         .join('\n');
-      ctx.onConditionProjection?.(condNode, throwForm);
+      ctx.onConditionProjection?.(
+        condNode,
+        throwForm,
+        transpileCondition(condNode, { ...condCtx, emitMode: 'ts-expression' })
+      );
       lines.push(throwForm);
     }
     return lines;
@@ -2091,13 +2118,25 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Emit a single func as a TypeScript function declaration.
    * T124, T126, FR-028, FR-030.
    */
-  private static emitFunc(func: RuneFunc, ctx: FuncBodyContext, _isHoisted: boolean): string {
+  private static emitFunc(
+    func: RuneFunc,
+    ctx: FuncBodyContext,
+    _isHoisted: boolean,
+    onBody: (body: string) => void
+  ): string {
     const inputType = TsNamespaceEmitter.buildFuncInputType(func);
     const outputType = TsNamespaceEmitter.buildFuncOutputType(func);
     const signature = `export function ${func.name}(input: ${inputType}): ${outputType}`;
 
     const bodyLines = TsNamespaceEmitter.emitFuncBody(func, ctx);
     const body = bodyLines.join('\n');
+    onBody(
+      bodyLines
+        .join('\n')
+        .split('\n')
+        .map((line) => line.slice(2))
+        .join('\n')
+    );
 
     return `${signature} {\n${body}\n}`;
   }

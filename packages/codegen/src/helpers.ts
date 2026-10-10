@@ -22,6 +22,7 @@ const RUNTIME_NAMESPACE_MEMBERS = {
   parseZonedDateTime: 'runeParseZonedDateTime',
   dateField: 'runeDateField',
   dateConstruct: 'runeDateConstruct',
+  dateConstructTemporal: 'runeDateConstructTemporal',
   toFuncData: 'runeToFuncData',
   checkOneOf: 'runeCheckOneOf',
   count: 'runeCount',

@@ -55,6 +55,53 @@ async function compile(
 }
 
 describe('generated TypeScript function execution', () => {
+  it('uses Temporal values and equality in both functions and Data classes', async () => {
+    const funcs = await compile(`namespace typed.calendar
+recordType date { year int month int day int }
+type Window:
+ start date (1..1)
+ end date (1..1)
+ condition Same: start = end
+func Same:
+ inputs: left date (1..1) right date (1..1)
+ output: result boolean (1..1)
+ set result: left = right
+`);
+    expect(
+      funcs.Same!({ left: Temporal.PlainDate.from('2026-10-10'), right: Temporal.PlainDate.from('2026-10-10') })
+    ).toBe(true);
+    expect(
+      funcs.Same!({ left: Temporal.PlainDate.from('2026-10-10'), right: Temporal.PlainDate.from('2026-10-11') })
+    ).toBe(false);
+    const Window = funcs.Window as unknown as new (data: object) => {
+      validateSame(): { valid: boolean; errors: string[] };
+    };
+    expect(
+      new Window({
+        start: Temporal.PlainDate.from('2026-10-10'),
+        end: Temporal.PlainDate.from('2026-10-10')
+      }).validateSame().valid
+    ).toBe(true);
+    expect(
+      new Window({
+        start: Temporal.PlainDate.from('2026-10-10'),
+        end: Temporal.PlainDate.from('2026-10-11')
+      }).validateSame().valid
+    ).toBe(false);
+  });
+  it('keeps optional calendar navigation compilable in an absence-narrowed branch', async () => {
+    const funcs = await compile([
+      BASICTYPES_ROSETTA,
+      `namespace test.optionalCalendar
+func Read:
+ inputs: value dateTime (0..1)
+ output: result date (0..1)
+ set result: if value exists then value -> date else value -> date
+`
+    ]);
+    expect(funcs.Read!({})).toBeUndefined();
+    expect(String(funcs.Read!({ value: Temporal.PlainDateTime.from('2026-10-10T12:30:00') }))).toBe('2026-10-10');
+  });
   it('operates directly on validated JSON, preserving optional access and structural/collection equality', async () => {
     const declarations = new Map<string, string>();
     const funcs = await compile(
@@ -175,7 +222,7 @@ func EnumValue:
       true
     );
     expect(funcs.Select!({ value: { number: 42 } })).toBe(1);
-    expect(funcs.Select!({ value: { date: '2026-09-12' } })).toBe(2);
+    expect(funcs.Select!({ value: { date: Temporal.PlainDate.from('2026-09-12') } })).toBe(2);
     expect(funcs.Select!({ value: { kind: 'A' } })).toBe(3);
     expect(funcs.Select!({ value: { text: 'text' } })).toBe(4);
     expect(funcs.Select!({ value: { payloadAlias: { amount: 7 } } })).toBe(5);
@@ -223,14 +270,14 @@ func Make:
       '',
       true
     );
-    expect(funcs.Day!({ value: '2026-09-11T12:30:00Z' })).toBe('2026-09-11');
-    expect(funcs.Day!({ value: '2026-01-01T00:30:00+05:30' })).toBe('2026-01-01');
+    expect(String(funcs.Day!({ value: '2026-09-11T12:30:00Z' }))).toBe('2026-09-11');
+    expect(String(funcs.Day!({ value: '2026-01-01T00:30:00+05:30' }))).toBe('2026-01-01');
     expect(funcs.Year!({ value: '2026-01-01T00:30:00+05:30' })).toBe(2026);
     expect(funcs.DateYear!({ value: '2026-09-11' })).toBe(2026);
     expect(funcs.ImplicitYear!({ value: '2026-09-11', year: 1900 })).toBe(2026);
-    expect(funcs.Clock!({ value: '2026-09-11T12:30:00' })).toBe('12:30:00');
+    expect(String(funcs.Clock!({ value: '2026-09-11T12:30:00' }))).toBe('12:30:00');
     expect(funcs.Before!({ left: '2026-01-01T00:30:00+05:30', right: '2025-12-31T20:00:00Z' })).toBe(true);
-    expect(funcs.Make!({ day: '2026-09-11' })).toBe('2026-09-11T12:30:00+00:00[UTC]');
+    expect(String(funcs.Make!({ day: Temporal.PlainDate.from('2026-09-11') }))).toBe('2026-09-11T12:30:00+00:00[UTC]');
   });
 
   it('keeps constructor fields ahead of metadata keywords and converts scalar fields to lists', async () => {
@@ -454,7 +501,7 @@ func Reference:
     expect(funcs.Combine!({ a: [1, 2], b: [3] })).toEqual([1, 2, 3]);
   });
 
-  it('reads and constructs calendar records and converts model Temporal values at calls', async () => {
+  it('reads and constructs typed calendar records without converting model values at calls', async () => {
     const funcs = await compile(`namespace test.calendar
  recordType date { day int month int year int }
  recordType dateTime { date date time time }
@@ -479,13 +526,17 @@ func Reference:
   eventDate date (1..1)
   condition Current: Year(eventDate) = 2026
 `);
-    expect(funcs.Year!({ value: '2024-02-29' })).toBe(2024);
+    expect(funcs.Year!({ value: Temporal.PlainDate.from('2024-02-29') })).toBe(2024);
     expect(funcs.Year!({})).toBeUndefined();
-    expect(funcs.MakeDate!({ year: 2024, month: 2, day: 29 })).toBe('2024-02-29');
+    expect(String(funcs.MakeDate!({ year: 2024, month: 2, day: 29 }))).toBe('2024-02-29');
     expect(() => funcs.MakeDate!({ year: 2023, month: 2, day: 29 })).toThrow();
-    const zoned = funcs.Zoned!({ day: '2026-07-01', clock: '12:00:00', zone: 'America/New_York' });
-    expect(zoned).toBe('2026-07-01T12:00:00-04:00[America/New_York]');
-    expect(funcs.Day!({ value: zoned })).toBe('2026-07-01');
+    const zoned = funcs.Zoned!({
+      day: Temporal.PlainDate.from('2026-07-01'),
+      clock: Temporal.PlainTime.from('12:00:00'),
+      zone: 'America/New_York'
+    });
+    expect(String(zoned)).toBe('2026-07-01T12:00:00-04:00[America/New_York]');
+    expect(String(funcs.Day!({ value: zoned }))).toBe('2026-07-01');
     const event = Reflect.construct(funcs.Event!, [{ eventDate: Temporal.PlainDate.from('2026-01-01') }]);
     expect(event.validateCurrent().valid).toBe(true);
   });
@@ -525,16 +576,27 @@ func Parse:
       ['2026-12-31T23:30:00-04:00', '2026-12-31', '23:30:00', '-04:00'],
       ['2026-07-01T12:00:00-04:00[America/New_York]', '2026-07-01', '12:00:00', 'America/New_York']
     ]) {
-      expect(funcs.Day!({ value })).toBe(date);
-      expect(funcs.Year!({ value })).toBe(2026);
-      expect(funcs.Clock!({ value })).toBe(time);
-      expect(funcs.Zone!({ value })).toBe(zone);
-      expect(funcs.Day!({ value: funcs.Parse!({ value }) })).toBe(date);
+      const temporal = funcs.Parse!({ value });
+      expect(String(funcs.Day!({ value: temporal }))).toBe(date);
+      expect(funcs.Year!({ value: temporal })).toBe(2026);
+      expect(String(funcs.Clock!({ value: temporal }))).toBe(time);
+      expect(funcs.Zone!({ value: temporal })).toBe(zone);
+      expect(String(funcs.Day!({ value: funcs.Parse!({ value }) }))).toBe(date);
     }
     expect(funcs.Day!({})).toBeUndefined();
-    expect(() => funcs.Day!({ value: '2026-02-30T12:00:00Z' })).toThrow();
-    expect(funcs.Before!({ left: '2026-01-01T00:30:00+05:30', right: '2025-12-31T20:00:00Z' })).toBe(true);
-    expect(funcs.Before!({ left: '2026-01-01T00:30:00+05:30', right: '2025-12-31T19:00:00Z' })).toBe(false);
+    expect(() => funcs.Parse!({ value: '2026-02-30T12:00:00Z' })).toThrow();
+    expect(
+      funcs.Before!({
+        left: funcs.Parse!({ value: '2026-01-01T00:30:00+05:30' }),
+        right: funcs.Parse!({ value: '2025-12-31T20:00:00Z' })
+      })
+    ).toBe(true);
+    expect(
+      funcs.Before!({
+        left: funcs.Parse!({ value: '2026-01-01T00:30:00+05:30' }),
+        right: funcs.Parse!({ value: '2025-12-31T19:00:00Z' })
+      })
+    ).toBe(false);
   });
 
   it('compares implicit temporal pipeline operands chronologically', async () => {
@@ -555,11 +617,19 @@ func AnyAfter:
       '',
       true
     );
-    const values = ['2026-01-01T00:30:00+05:30'];
-    expect(funcs.AllBefore!({ values, cutoff: '2025-12-31T20:00:00Z' })).toBe(true);
-    expect(funcs.AllBefore!({ values, cutoff: '2025-12-31T19:00:00Z' })).toBe(false);
-    expect(funcs.AnyAfter!({ values, cutoff: '2025-12-31T18:00:00Z' })).toBe(true);
-    expect(funcs.AnyAfter!({ values, cutoff: '2025-12-31T20:00:00Z' })).toBe(false);
+    const values = [Temporal.ZonedDateTime.from('2026-01-01T00:30:00+05:30[+05:30]')];
+    expect(funcs.AllBefore!({ values, cutoff: Temporal.ZonedDateTime.from('2025-12-31T20:00:00Z' + '[UTC]') })).toBe(
+      true
+    );
+    expect(funcs.AllBefore!({ values, cutoff: Temporal.ZonedDateTime.from('2025-12-31T19:00:00Z' + '[UTC]') })).toBe(
+      false
+    );
+    expect(funcs.AnyAfter!({ values, cutoff: Temporal.ZonedDateTime.from('2025-12-31T18:00:00Z' + '[UTC]') })).toBe(
+      true
+    );
+    expect(funcs.AnyAfter!({ values, cutoff: Temporal.ZonedDateTime.from('2025-12-31T20:00:00Z' + '[UTC]') })).toBe(
+      false
+    );
   });
 
   it('narrows optional values and unwraps metadata collections in validators', async () => {
@@ -935,7 +1005,7 @@ ${
     ['time', '12:30:00', 'to-time'],
     ['dateTime', '2026-09-11T12:30:00', 'to-date-time'],
     ['zonedDateTime', '2026-09-11T12:30:00Z', 'to-zoned-date-time']
-  ])('uses string wire values for %s fields in function data', async (type, value, conversion) => {
+  ])('uses typed Temporal values for %s fields in function data', async (type, value, conversion) => {
     const funcs = await compile(
       `namespace test.temporalWire
 type Event:
@@ -950,13 +1020,15 @@ func Retain:
  inputs: value Envelope (1..1)
  output: result Envelope (1..1)
  set result: value`,
-      `const input: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: ${JSON.stringify(value)}}]}};
-// @ts-expect-error Temporal objects are not wire values.
-const invalid: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: {} as Temporal.${type === 'date' ? 'PlainDate' : type === 'time' ? 'PlainTime' : type === 'dateTime' ? 'PlainDateTime' : 'ZonedDateTime'}}]}};`
+      `const input: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: {} as Temporal.${type === 'date' ? 'PlainDate' : type === 'time' ? 'PlainTime' : type === 'dateTime' ? 'PlainDateTime' : 'ZonedDateTime'}}]}};
+// @ts-expect-error ISO strings belong at the JSON boundary.
+const invalid: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: ${JSON.stringify(value)}}]}};`
     );
-    expect(funcs.Create!({ text: value })).toEqual({ events: [{ eventDate: value }] });
-    const envelope = { events: [{ eventDate: value }] };
-    expect(funcs.Retain!({ value: envelope })).toBe(envelope);
+    const created = funcs.Create!({ text: value }) as { events: { eventDate: unknown }[] };
+    expect(Object.prototype.toString.call(created.events[0]!.eventDate)).toContain('Temporal.');
+    const expected = type === 'zonedDateTime' ? value.replace('Z', '+00:00[UTC]') : value;
+    expect(String(created.events[0]!.eventDate)).toBe(expected);
+    expect(funcs.Retain!({ value: created })).toBe(created);
   });
 
   it.each([

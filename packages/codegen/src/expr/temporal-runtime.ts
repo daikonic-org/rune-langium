@@ -20,15 +20,23 @@ ${prefix}const runeDateField = ${type("<K extends 'year' | 'month' | 'day' | 'da
     : field === 'year' ? parsed.year : field === 'month' ? parsed.month : field === 'day' ? parsed.day : undefined;
   return result${type(" as (K extends 'year' | 'month' | 'day' ? number : string) | undefined")};
 };
-${prefix}const runeDateConstruct = (kind${type(": 'date' | 'dateTime' | 'zonedDateTime'")}, fields${type(': { year?: number; month?: number; day?: number; date?: string; time?: string; timezone?: string }')})${type(': string | undefined')} => {
-  if (kind === 'date') {
-    if (fields.year == null || fields.month == null || fields.day == null) return undefined;
-    return Temporal.PlainDate.from({ year: fields.year, month: fields.month, day: fields.day }, { overflow: 'reject' }).toString();
-  }
-  if (fields.date == null || fields.time == null) return undefined;
-  const dateTime = Temporal.PlainDate.from(fields.date).toPlainDateTime(Temporal.PlainTime.from(fields.time));
-  if (kind === 'dateTime') return dateTime.toString();
-  if (fields.timezone == null) return undefined;
-  return dateTime.toZonedDateTime(fields.timezone === 'Z' ? 'UTC' : fields.timezone).toString();
-};`;
+${prefix}const runeDateConstructTemporal = ${type("<K extends 'date' | 'dateTime' | 'zonedDateTime'>")}(kind${type(': K')}, fields${type(': { year?: number; month?: number; day?: number; date?: Temporal.PlainDate; time?: Temporal.PlainTime; timezone?: string }')})${type(": (K extends 'date' ? Temporal.PlainDate : K extends 'dateTime' ? Temporal.PlainDateTime : Temporal.ZonedDateTime) | undefined")} => {
+  const construct = () => {
+    if (kind === 'date') {
+      if (fields.year == null || fields.month == null || fields.day == null) return undefined;
+      return Temporal.PlainDate.from({ year: fields.year, month: fields.month, day: fields.day }, { overflow: 'reject' });
+    }
+    if (fields.date == null || fields.time == null) return undefined;
+    const dateTime = fields.date.toPlainDateTime(fields.time);
+    if (kind === 'dateTime') return dateTime;
+    if (fields.timezone == null) return undefined;
+    return dateTime.toZonedDateTime(fields.timezone === 'Z' ? 'UTC' : fields.timezone);
+  };
+  return construct()${type(" as (K extends 'date' ? Temporal.PlainDate : K extends 'dateTime' ? Temporal.PlainDateTime : Temporal.ZonedDateTime) | undefined")};
+};
+${prefix}const runeDateConstruct = (kind${type(": 'date' | 'dateTime' | 'zonedDateTime'")}, fields${type(': { year?: number; month?: number; day?: number; date?: string; time?: string; timezone?: string }')})${type(': string | undefined')} => runeDateConstructTemporal(kind, {
+  ...fields,
+  date: fields.date == null ? undefined : Temporal.PlainDate.from(fields.date),
+  time: fields.time == null ? undefined : Temporal.PlainTime.from(fields.time)
+})?.toString();`;
 }

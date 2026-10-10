@@ -14,7 +14,8 @@ import type { EmittedProjection, ProjectionSubject } from './types.js';
 export function recordedProjection(
   node: AstNode,
   code: string,
-  kind: EmittedProjection['kind']
+  kind: EmittedProjection['kind'],
+  body?: string
 ): EmittedProjection | undefined {
   const sourceNode = kind === 'condition' && isCondition(node) ? node.expression : node;
   let document, region;
@@ -35,11 +36,33 @@ export function recordedProjection(
     serialized.$textRegion?.range?.start ??
     document.textDocument.positionAt(region.from);
   const uri = document.uri.toString();
+  const bodyNode = isRosettaFunction(sourceNode)
+    ? [...sourceNode.shortcuts, ...sourceNode.conditions, ...sourceNode.operations, ...sourceNode.postConditions][0]
+    : sourceNode;
+  const bodyStart =
+    bodyNode?.$cstNode?.range.start ??
+    (bodyNode as (AstNode & { $textRegion?: { range?: { start: { line: number; character: number } } } }) | undefined)
+      ?.$textRegion?.range?.start ??
+    document.textDocument.positionAt(
+      isRosettaFunction(sourceNode)
+        ? getFunctionImplementationRegion(sourceNode, document.textDocument.getText()).from
+        : region.from
+    );
   return {
     kind,
     source: { uri, region },
     code,
-    sourceMap: [{ outputLine: 0, sourceUri: uri, sourceLine: start.line + 1, sourceChar: start.character + 1 }]
+    sourceMap: [{ outputLine: 0, sourceUri: uri, sourceLine: start.line + 1, sourceChar: start.character + 1 }],
+    ...(body !== undefined
+      ? {
+          body: {
+            code: body,
+            sourceMap: [
+              { outputLine: 0, sourceUri: uri, sourceLine: bodyStart.line + 1, sourceChar: bodyStart.character + 1 }
+            ]
+          }
+        }
+      : {})
   };
 }
 

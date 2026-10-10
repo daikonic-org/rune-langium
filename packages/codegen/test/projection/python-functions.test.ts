@@ -4,6 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import ts from 'typescript-classic';
+import { functionInputs } from '../helpers/function-inputs.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AstUtils, URI, type LangiumDocument } from 'langium';
 import {
@@ -388,7 +389,7 @@ func FirstValue:
   });
 
   it('projects a year-zero named-zone constructor with its temporal fields', async () => {
-    const { python, exports } = await executableFunctions(`namespace python.proleptic_zone
+    const { python, exports, document } = await executableFunctions(`namespace python.proleptic_zone
 type Result:
  value zonedDateTime (1..1)
  date date (1..1)
@@ -403,7 +404,9 @@ func Build:
  set result: Result {value: stamp, date: stamp -> date, time: stamp -> time}
 `);
     const data = { date: '0000-02-29', time: '12:00:00.123456789', timezone: 'America/New_York' };
-    const expected = JSON.parse(JSON.stringify(exports.Build!(data)));
+    const expected = JSON.parse(
+      JSON.stringify(exports.Build!(functionInputs([document], 'python.proleptic_zone.Build', data)))
+    );
     expect(expected).toEqual({
       value: '0000-02-29T12:00:00.123456789-04:56[America/New_York]',
       date: data.date,

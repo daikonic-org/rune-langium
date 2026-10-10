@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { AstUtils } from 'langium';
+import { functionInputs } from '../helpers/function-inputs.js';
 import { describe, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
 import ts from 'typescript-classic';
@@ -407,7 +409,13 @@ describe('linked Python expressions', () => {
       }).outputText;
       return new Function('Temporal', 'data', RUNTIME_HELPER_JS_SOURCE + '\n' + source + '\nreturn execute(data);')(
         Temporal,
-        cases[index]![3]
+        /\b(date|time|dateTime|zonedDateTime)\b/.test(String(cases[index]![1]))
+          ? functionInputs(
+              [AstUtils.getDocument(func)],
+              `python.linked.${func.name}`,
+              cases[index]![3] as Record<string, unknown>
+            )
+          : cases[index]![3]
       );
     });
     expect(JSON.parse(JSON.stringify(outputs))).toEqual(cases.map(([, , , , value]) => value));

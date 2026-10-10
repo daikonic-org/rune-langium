@@ -217,11 +217,36 @@ export const createLspClientService = withInstrumentation(
     let _pendingRefreshId: ReturnType<typeof setTimeout> | null = null;
 
     const diagnosticHandlers: ((uri: string, diagnostics: LspDiagnostic[]) => void)[] = [];
-    type DocumentView = { view: EditorView; configure: (extension: Extension | null) => void; focus: () => void };
+    type DocumentView = {
+      view: EditorView;
+      configure: (extension: Extension | null) => void;
+      focus: () => void;
+      attached: boolean;
+    };
     const documentViews = new Map<string, { views: DocumentView[]; owner?: DocumentView }>();
     const detachDocumentPlugins = () => {
-      for (const entry of documentViews.values()) entry.owner?.configure(null);
+      for (const entry of documentViews.values()) {
+        if (entry.owner?.attached) entry.owner.configure(null);
+        if (entry.owner) entry.owner.attached = false;
+      }
     };
+
+    function refreshDocumentPlugins(): void {
+      for (const [uri, entry] of documentViews) {
+        const owner = entry.owner;
+        if (!owner) continue;
+        const ready = !!client && initialized && openedUris.has(uri);
+        if (owner.attached === ready) continue;
+        owner.configure(ready ? client!.plugin(uri) : null);
+        owner.attached = ready;
+      }
+    }
+
+    function closeDocument(uri: string): void {
+      openedUris.delete(uri);
+      refreshDocumentPlugins();
+      client?.didClose(uri);
+    }
 
     // Task 7: displayFile handler for cross-file go-to-definition
     let displayFileHandler: DisplayFileHandler | null = null;
@@ -269,6 +294,7 @@ export const createLspClientService = withInstrumentation(
           if (target !== client || generation !== modelGeneration) return;
           modelSyncPending = false;
           if (pendingWorkspaceFiles) service.syncWorkspaceFiles(pendingWorkspaceFiles);
+          else refreshDocumentPlugins();
         })
         .catch((error) => {
           // A failed final retain may leave acknowledged uploads unpublished.
@@ -308,7 +334,6 @@ export const createLspClientService = withInstrumentation(
       openedUris.clear();
       target.connect(transport);
       initialized = true;
-      for (const [uri, entry] of documentViews) entry.owner?.configure(target.plugin(uri));
       sentModels.clear();
       await syncModels();
 
@@ -325,6 +350,7 @@ export const createLspClientService = withInstrumentation(
           getView: () => null
         });
       }
+      refreshDocumentPlugins();
     }
 
     const service: LspClientService = {
@@ -349,8 +375,9 @@ export const createLspClientService = withInstrumentation(
       },
 
       getPlugin(uri: string): Extension | null {
-        if (!client || !initialized) return null;
-        return client.plugin(URI.parse(uri).toString());
+        uri = URI.parse(uri).toString();
+        if (!client || !initialized || !openedUris.has(uri)) return null;
+        return client.plugin(uri);
       },
 
       claimDocumentView(uri, view, configure) {
@@ -361,12 +388,12 @@ export const createLspClientService = withInstrumentation(
           if (entry.owner === next) return;
           // Reconfiguration destroys the old plugin synchronously, flushing it
           // through StudioWorkspace.closeFile before the new owner opens.
-          entry.owner?.configure(null);
+          if (entry.owner?.attached) entry.owner.configure(null);
+          if (entry.owner) entry.owner.attached = false;
           entry.owner = next;
-          const plugin = service.getPlugin(uri);
-          if (next && plugin) next.configure(plugin);
+          refreshDocumentPlugins();
         };
-        const item: DocumentView = { view, configure, focus: () => select(item) };
+        const item: DocumentView = { view, configure, focus: () => select(item), attached: false };
         entry.views.push(item);
         view.dom.addEventListener('focusin', item.focus);
         if (!entry.owner || view.hasFocus) select(item);
@@ -401,7 +428,7 @@ export const createLspClientService = withInstrumentation(
           for (const uri of workspaceSnapshot.keys()) {
             if (desired.has(uri)) continue;
             workspaceSnapshot.delete(uri);
-            if (openedUris.delete(uri)) client?.didClose(uri);
+            if (openedUris.has(uri)) closeDocument(uri);
           }
           return;
         }
@@ -456,11 +483,9 @@ export const createLspClientService = withInstrumentation(
         for (const uri of [...workspaceSnapshot.keys()]) {
           if (nextUris.has(uri)) continue;
           workspaceSnapshot.delete(uri);
-          openedUris.delete(uri);
-          if (client && initialized) {
-            client.didClose(uri);
-          }
+          if (openedUris.has(uri)) closeDocument(uri);
         }
+        refreshDocumentPlugins();
 
         // When many files are newly opened, early-opened files may have been
         // validated before all dependencies were present. Force a no-op content

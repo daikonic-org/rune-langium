@@ -34,7 +34,7 @@ export const RuneRegionEditor = withInstrumentation(
     return (
       <div
         data-testid="implementation-editor"
-        className="min-h-32 h-72 resize-y overflow-hidden rounded-sm border border-border"
+        className="min-h-32 h-[var(--expression-editor-height,20rem)] resize-y overflow-hidden rounded-sm border border-border"
       >
         <SourceEditor
           files={[

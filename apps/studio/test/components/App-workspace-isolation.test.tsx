@@ -17,6 +17,15 @@ import * as persistence from '../../src/workspace/persistence.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import * as workspaceFiles from '../../src/workspace/workspace-files.js';
 import { createOpfsRoot } from '../setup/opfs-mock.js';
+import { deferredCuratedWorker } from '../setup/deferred-curated-worker.js';
+import { curatedArtifactCache } from '../../src/services/curated-artifact-cache.js';
+import {
+  _resetParserWorkerForTests,
+  linkDocument,
+  parseWorkspaceViaRouter,
+  resetCuratedDocumentCache,
+  subscribeCuratedCacheRecovery
+} from '../../src/services/workspace.js';
 
 const { parseMock } = vi.hoisted(() => ({ parseMock: vi.fn() }));
 vi.mock('../../src/services/workspace.js', async (importOriginal) => ({
@@ -266,6 +275,74 @@ describe('workspace isolation', () => {
     expect(screen.queryByRole('button', { name: /Workspace menu/ })).not.toBeInTheDocument();
     expect(useModelStore.getState().models.size).toBe(0);
     expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
+  });
+
+  it('switching to an empty workspace cancels a cached-link recovery without starting another parse', async () => {
+    await openSourceWorkspace();
+    const previous = (await loadWorkspace('ws-a'))!;
+    await saveWorkspace({ ...previous, id: 'ws-empty', name: 'Empty', curatedModels: [] });
+    const artifactKey = JSON.stringify([
+      'cdm',
+      'https://www.daikonic.dev/curated/cdm/artifacts/2026-10-10-aaaaaaaaaaaa/ns/cached.example.json.gz'
+    ]);
+    const document = {
+      uri: 'cdm/example.rosetta',
+      namespace: 'cached.example',
+      bundleId: 'cdm',
+      artifactKey,
+      content: '',
+      sourceLoaded: false,
+      serializedModel: '{broken',
+      exports: []
+    };
+    _resetParserWorkerForTests();
+    resetCuratedDocumentCache();
+    const received = deferredCuratedWorker();
+    await curatedArtifactCache.putDocuments(artifactKey, [document]);
+    const response = (documents: (typeof document)[]) =>
+      Response.json({
+        ok: true,
+        models: [],
+        errors: {},
+        deferredExports: [],
+        hydrationState: { documents },
+        requiredCuratedArtifacts: [
+          { key: artifactKey, bundleId: 'cdm', namespace: document.namespace, documentCount: 1 }
+        ]
+      });
+    const pending = Promise.withResolvers<Response>();
+    const fetch = vi.fn().mockResolvedValueOnce(response([])).mockReturnValueOnce(pending.promise);
+    vi.stubGlobal('fetch', fetch);
+    const recovered = vi.fn();
+    const unsubscribe = subscribeCuratedCacheRecovery(recovered);
+    try {
+      await parseWorkspaceViaRouter([], { curatedBundles: [{ id: 'cdm', version: 'latest' }] });
+      // The parser retains its worker; keep unrelated providers' workers disabled.
+      vi.stubGlobal('Worker', undefined);
+      const linking = linkDocument(document.uri);
+      await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      const parseCalls = parseMock.mock.calls.length;
+      await act(async () => window.__runeStudioTestApi!.switchWorkspace!('ws-empty'));
+      expect(parseMock.mock.calls.length).toBe(parseCalls);
+      await act(async () => {
+        pending.resolve(response([{ ...document, serializedModel: '{"$type":"RosettaModel"}' }]));
+        await linking;
+      });
+      expect(recovered.mock.calls.length).toBe(0);
+      expect(received.filter((request) => request.type === 'hydrate')).toHaveLength(1);
+      expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible();
+      expect(useModelStore.getState().models.size).toBe(0);
+      expect(useEditorStore.getState().nodes).toEqual([]);
+      expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
+    } finally {
+      pending.resolve(response([]));
+      unsubscribe();
+      _resetParserWorkerForTests();
+      resetCuratedDocumentCache();
+      await curatedArtifactCache.discardDocuments([artifactKey]);
+      await curatedArtifactCache.close();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('a superseded restore cannot hide the newer workspace', async () => {

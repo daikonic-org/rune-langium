@@ -57,7 +57,7 @@ fields while excluding class validation methods. Required inputs are required pr
 collection inputs and outputs use arrays. An optional scalar output returns
 `T | undefined`. These types describe values and collection shape; TypeScript
 arrays do not encode every Rune minimum or maximum cardinality. Exported functions
-expect prevalidated JSON inputs and preserve them without copying or coercion.
+expect prevalidated, correctly typed inputs and preserve them without copying or coercion.
 Validate external payloads before calling them; Studio does this once using
 `emitStandaloneZodSchema(documents, targetId, { functionInputs: true })`, which
 reuses the Data schema emitter and dependency closure. This input schema accepts the
@@ -68,10 +68,11 @@ Required metadata assignment fields reject absent values. Metadata helper discov
 follows linked declarations, including imported constructor and assignment fields.
 
 Generated TypeScript imports `Temporal` from `@js-temporal/polyfill`; install that
-package alongside the generated code. Function inputs and outputs use ISO strings,
-while model classes use Temporal instances. Shared helpers convert class arguments
-at function calls, read calendar fields, construct validated calendar values, and
-perform date arithmetic. Studio supplies the same polyfill to executable previews.
+package alongside the generated code. Function inputs, outputs, and model classes
+use Temporal instances for dates and times. The function-input schema converts
+ISO strings to Temporal once, including nested values and aliases. Class-to-function
+calls preserve those instances. Studio serializes results back to ISO strings for
+forms and JSON transport and supplies the same polyfill to executable previews.
 
 Scalar/list adaptation is shared across functions, validators, and previews.
 Assignments and calls use direct values when linked bounds and shapes already fit;

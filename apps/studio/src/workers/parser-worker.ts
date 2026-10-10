@@ -22,6 +22,7 @@ import {
   preserveCstText,
   serializeRuneModel,
   hydrateModelDocument,
+  isRosettaModel,
   type DeferredModelProvider,
   type RosettaModel
 } from '@rune-langium/core';
@@ -74,6 +75,8 @@ export interface LinkDocumentResponse {
   errors: string[];
   /** Corpus models that were lazily deserialized during this link request. */
   newModels: RosettaModel[];
+  /** Immutable artifacts whose deferred models failed to materialize. */
+  invalidArtifactKeys?: string[];
 }
 
 export interface ExpressionScopeRequest {
@@ -174,12 +177,21 @@ export type WorkerResponse =
 // Populated by handleParseWorkspace, consumed lazily by RuneDslLinker.loadAstNode
 // when Langium resolves cross-references during handleLinkDocument.
 const deferredModelJson = new Map<string, string>();
+const deferredArtifactKeys = new Map<string, string>();
+const invalidArtifactKeys = new Set<string>();
 // User models are already published in the routed parse response.
 const publishedUserModelUris = new Set<string>();
 
 // Initialised after createRuneDslServices() below — safe because getModel is only
 // called during build(), which happens inside handleLinkDocument (post-init).
 let serializer: { deserialize<T extends AstNode>(content: string): T };
+const deferredSerializer = {
+  deserialize<T extends AstNode>(content: string): T {
+    const model = serializer.deserialize<T>(content);
+    if (!isRosettaModel(model)) throw new Error('Expected a serialized RosettaModel');
+    return model;
+  }
+};
 
 // Accumulates models deserialized via the deferred provider during a single
 // handleLinkDocument call so they can be returned in LinkDocumentResponse.newModels.
@@ -190,9 +202,15 @@ const deferredProvider: DeferredModelProvider = {
   getModel(uri: string): AstNode | undefined {
     const json = deferredModelJson.get(uri);
     if (json === undefined) return undefined;
-    const model = serializer.deserialize<RosettaModel>(json);
-    if (!publishedUserModelUris.has(uri)) newModelsAccumulator.push(model);
-    return model;
+    try {
+      const model = deferredSerializer.deserialize<RosettaModel>(json);
+      if (!publishedUserModelUris.has(uri)) newModelsAccumulator.push(model);
+      return model;
+    } catch (error) {
+      const key = deferredArtifactKeys.get(uri);
+      if (key) invalidArtifactKeys.add(key);
+      throw error;
+    }
   },
   consume(uri: string): void {
     deferredModelJson.delete(uri);
@@ -324,6 +342,8 @@ async function resetWorkspace(): Promise<void> {
   );
   for (const uri of indexedUris.values()) indexManager.remove(uri);
   deferredModelJson.clear();
+  deferredArtifactKeys.clear();
+  invalidArtifactKeys.clear();
   publishedUserModelUris.clear();
 }
 
@@ -467,15 +487,18 @@ const handleParseWorkspace = withInstrumentation(
 const handleLinkDocument = withInstrumentation(
   async function handleLinkDocument(req: LinkDocumentRequest): Promise<LinkDocumentResponse> {
     newModelsAccumulator = [];
+    invalidArtifactKeys.clear();
+    let targetArtifactKey: string | undefined;
     try {
       const targetUri = URI.parse(req.uri);
+      targetArtifactKey = deferredArtifactKeys.get(targetUri.toString());
       let doc: LangiumDocument<AstNode> | undefined;
 
       // Corpus documents are stored as raw JSON until first link request.
       // Materialize the target document now if it hasn't been deserialized yet.
       if (deferredModelJson.has(targetUri.toString())) {
         const { model, document } = hydrateModelDocument(
-          { RuneDsl, shared: RuneDsl.shared },
+          { RuneDsl: { serializer: { JsonSerializer: deferredSerializer } }, shared: RuneDsl.shared },
           targetUri,
           deferredModelJson.get(targetUri.toString())!,
           { register: 'always' }
@@ -501,6 +524,16 @@ const handleLinkDocument = withInstrumentation(
         // `Diagnostic.message` widened to `string | MarkupContent` in newer LSP types.
         errors.push(typeof diag.message === 'string' ? diag.message : diag.message.value);
       }
+      if (invalidArtifactKeys.size) {
+        return {
+          type: 'linkDocumentResult',
+          id: req.id,
+          linked: false,
+          errors: [...errors, 'A deferred curated model could not be deserialized'],
+          newModels: [],
+          invalidArtifactKeys: [...invalidArtifactKeys]
+        };
+      }
       return {
         type: 'linkDocumentResult',
         id: req.id,
@@ -509,12 +542,14 @@ const handleLinkDocument = withInstrumentation(
         newModels: newModelsAccumulator
       };
     } catch (error) {
+      if (targetArtifactKey) invalidArtifactKeys.add(targetArtifactKey);
       return {
         type: 'linkDocumentResult',
         id: req.id,
         linked: false,
         errors: [(error as Error).message],
-        newModels: []
+        newModels: [],
+        ...(invalidArtifactKeys.size ? { invalidArtifactKeys: [...invalidArtifactKeys] } : {})
       };
     }
     // `req.uri` is a workspace-relative document URI (uri.ts convention) —
@@ -542,6 +577,7 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
       const uri = URI.parse(doc.uri);
       if (!doc.bundleId) publishedUserModelUris.add(uri.toString());
       deferredModelJson.set(uri.toString(), doc.serializedModel);
+      if (doc.artifactKey) deferredArtifactKeys.set(uri.toString(), doc.artifactKey);
       if (doc.exports?.length) {
         const descriptions: AstNodeDescription[] = doc.exports.map((e) => ({
           type: e.type,
