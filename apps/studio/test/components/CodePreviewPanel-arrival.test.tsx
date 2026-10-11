@@ -167,3 +167,76 @@ it('does not reveal imports, prefixes, or references when the selected declarati
   act(() => usePreviewStore.getState().selectTarget('test.Party'));
   expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
 });
+
+it.each([
+  { target: 'typescript', content: 'export class Party {}', expected: 'export class Party {}' },
+  {
+    target: 'zod',
+    content: 'export const PartySchema = z.object({});\nexport type Party = z.infer<typeof PartySchema>;',
+    expected: 'export type Party = z.infer<typeof PartySchema>;'
+  },
+  {
+    target: 'json-schema',
+    content: JSON.stringify({ title: 'test', $defs: { Party: { type: 'object' } } }, null, 2),
+    expected: '    "Party": {'
+  },
+  {
+    target: 'openapi',
+    content: JSON.stringify(
+      { openapi: '3.1.0', info: { title: 'test' }, paths: {}, components: { schemas: { Party: { type: 'object' } } } },
+      null,
+      2
+    ),
+    expected: '      "Party": {'
+  },
+  {
+    target: 'sql',
+    content: '-- SQL DDL generated from namespace test (postgres)\nCREATE TABLE "Party" (\n  "id" BIGINT\n);',
+    expected: 'CREATE TABLE "Party" ('
+  },
+  {
+    target: 'xsd',
+    content:
+      '<?xml version="1.0" encoding="UTF-8"?>\n<xs:schema targetNamespace="urn:rune:test">\n<xs:complexType name="Party"/>\n</xs:schema>',
+    expected: '<xs:complexType name="Party"/>'
+  }
+] as const)('reveals, consumes, and explicitly repeats $target output arrivals', ({ target, content, expected }) => {
+  useCodegenStore.setState({ codePreviewTarget: target, activeTarget: target });
+  const deliver = () =>
+    useCodegenStore
+      .getState()
+      .receiveCodePreviewResult({ target, files: [{ relativePath: 'model', content, sourceMap: [] }] });
+  deliver();
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')?.textContent).toBe(expected);
+  act(() => vi.advanceTimersByTime(1000));
+  act(deliver);
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')?.textContent).toBe(expected);
+});
+
+it('keeps a malformed JSON preview arrival pending until valid declaration output arrives', () => {
+  useCodegenStore.setState({ codePreviewTarget: 'json-schema', activeTarget: 'json-schema' });
+  useCodegenStore.getState().receiveCodePreviewResult({
+    target: 'json-schema',
+    files: [{ relativePath: 'model.schema.json', content: '{', sourceMap: [] }]
+  });
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'json-schema',
+      files: [
+        {
+          relativePath: 'model.schema.json',
+          content: JSON.stringify({ title: 'test', $defs: { Party: { type: 'object' } } }, null, 2),
+          sourceMap: []
+        }
+      ]
+    })
+  );
+  expect(container.querySelector('.cm-source-reveal-line')?.textContent).toBe('    "Party": {');
+});

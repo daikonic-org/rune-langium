@@ -39,6 +39,7 @@ import { usePreviewStore } from '../store/preview-store.js';
 import { useStudioToast } from './StudioToastProvider.js';
 import { CODE_PREVIEW_PANEL_ID, TARGET_LABELS } from './codegen-ui.js';
 import { uriToPath } from '../utils/uri.js';
+import { findGeneratedDeclarationLine } from '../utils/generated-declaration.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 interface SourcePosition {
@@ -285,6 +286,7 @@ export const CodePreviewPanel = withInstrumentation(
     }, [activeFile, activeTarget, target]);
 
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
+    const selectedTarget = usePreviewStore((s) => s.selectedTarget);
     const navigationRequest = usePreviewStore((s) => s.navigationRequest);
     const consumedArrivalRef = useRef<{ view: EditorView; request: typeof navigationRequest } | undefined>(undefined);
     useEffect(() => {
@@ -296,15 +298,12 @@ export const CodePreviewPanel = withInstrumentation(
       if (!navigationRequest || navigationRequest.targetId !== selectedTargetId || !activeFile) return;
       const typeName = nameFromNodeId(selectedTargetId);
       if (!typeName) return;
-      const lineIndex = activeFile.content.split('\n').findIndex((line) => {
-        // Match the declared identifier, never a prefix or a name used in its body.
-        const declaration =
-          /^\s*(?:export\s+)?(?:async\s+)?(?:const|class|interface|type|function|enum)\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)/u.exec(
-            line
-          );
-        return declaration?.[1] === typeName;
-      });
-      if (lineIndex < 0) return;
+      const lineIndex = findGeneratedDeclarationLine(
+        target,
+        activeFile,
+        selectedTarget ?? { name: typeName, namespace: '', kind: '' }
+      );
+      if (lineIndex === undefined) return;
       const lineInfo = view.state.doc.line(lineIndex + 1);
       consumedArrivalRef.current = { view, request: navigationRequest };
       view.dispatch({
@@ -313,7 +312,7 @@ export const CodePreviewPanel = withInstrumentation(
           setSourceReveal.of(lineInfo.from)
         ]
       });
-    }, [selectedTargetId, navigationRequest, activeFile, activeTarget, target]);
+    }, [selectedTargetId, selectedTarget, navigationRequest, activeFile, activeTarget, target]);
 
     const statusMessage =
       snapshot.status === 'stale' || snapshot.status === 'unavailable' ? snapshot.message : undefined;
