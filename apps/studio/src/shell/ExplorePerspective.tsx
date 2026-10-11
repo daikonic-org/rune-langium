@@ -528,10 +528,11 @@ export const ExplorePerspective = withInstrumentation(
       nodeId: string;
       revision: number;
       workspaceId: string | undefined;
+      origin?: 'source';
     } | null>(null);
     const requestNavigationArrival = useCallback(
-      (nodeId: string) => {
-        setNavigationTarget({ nodeId, revision: ++navigationSequenceRef.current, workspaceId });
+      (nodeId: string, origin?: 'source') => {
+        setNavigationTarget({ nodeId, revision: ++navigationSequenceRef.current, workspaceId, origin });
       },
       [workspaceId]
     );
@@ -1221,13 +1222,28 @@ export const ExplorePerspective = withInstrumentation(
         return;
       const request = selectedNodeId ? { nodeId: selectedNodeId, workspaceId, filePath: selectedSourceFilePath } : null;
       sourceRevealIntentRef.current = request;
+      // Source has already placed the cursor (and owns any LSP definition cue).
+      // Synchronize other panes without bouncing back to the declaration start.
+      // Keep the intent so an actual Source remount can restore the destination.
+      if (currentNavigationTarget?.origin === 'source') {
+        pendingRevealRef.current = null;
+        setSourceNavigationPending(null);
+        return;
+      }
       pendingRevealRef.current = request?.filePath ? request : null;
       sourceEditorRef.current?.clearRevealHighlight?.();
       setSourceNavigationPending(pendingRevealRef.current);
       if (request?.filePath) openFileInSource(request.filePath);
       // Hydration may replace a deferred file identity. It must not reclaim a
       // tab after the user explicitly navigated away from this selection.
-    }, [selectedNodeId, selectedSourceFilePath, workspaceId, openFileInSource, navigationRevision]);
+    }, [
+      selectedNodeId,
+      selectedSourceFilePath,
+      workspaceId,
+      openFileInSource,
+      navigationRevision,
+      currentNavigationTarget?.origin
+    ]);
 
     // "+" new-file affordance moved to ExploreCenterSlot (shared-perspective-
     // chrome plan, Task 3) — it re-derives the same logic from useWorkspace().
@@ -1414,7 +1430,7 @@ export const ExplorePerspective = withInstrumentation(
     }, [workspaceId, updateHistoryFlags]);
 
     const navigateToNode = useCallback(
-      (nodeId: string) => {
+      (nodeId: string, origin?: 'source') => {
         const targetNode =
           nodeRepository.byId(nodeId) ??
           nodeRepository.all().find((node) => isTypeNodeId(node.id) && qualifiedNameFromNodeId(node.id) === nodeId);
@@ -1436,7 +1452,8 @@ export const ExplorePerspective = withInstrumentation(
         const targetKind = targetNode?.type as import('@rune-langium/visual-editor').TypeKind;
         if (targetKind && !editor.visibility.visibleNodeKinds.has(targetKind)) editor.toggleNodeKind(targetKind);
         if (sourceRevealIntentRef.current) sourceRevealIntentRef.current.cancelled = false;
-        requestNavigationArrival(resolvedNodeId);
+        if (origin === 'source') pendingRevealRef.current = null;
+        requestNavigationArrival(resolvedNodeId, origin);
         storeSelectNode(resolvedNodeId, { reapplyFocusMode: true });
         if (!focusMode) editor.revealNeighbors(resolvedNodeId);
         const targetMeta = targetNode?.meta;
@@ -1456,6 +1473,11 @@ export const ExplorePerspective = withInstrumentation(
         }
       },
       [focusMode, showToast, shouldCenterNavigationTarget, nodeRepository, storeSelectNode, requestNavigationArrival]
+    );
+
+    const handleSourceNavigateToNode = useCallback(
+      (nodeId: string) => navigateToNode(nodeId, 'source'),
+      [navigateToNode]
     );
 
     useEffect(() => {
@@ -2168,7 +2190,7 @@ export const ExplorePerspective = withInstrumentation(
               lspReady={lspReady}
               onFileSelect={(path) => setActiveEditorFile(path)}
               onContentChange={handleSourceChange}
-              onNavigateToNode={navigateToNode}
+              onNavigateToNode={handleSourceNavigateToNode}
               onEditorViewCreated={handleEditorViewCreated}
               hideTabs
             />
@@ -2182,7 +2204,7 @@ export const ExplorePerspective = withInstrumentation(
       lspClient,
       lspReady,
       handleSourceChange,
-      navigateToNode,
+      handleSourceNavigateToNode,
       handleEditorViewCreated
     ]);
 

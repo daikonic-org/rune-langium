@@ -202,10 +202,12 @@ function stubResizeObserver(): void {
 const { sourceEditorMockState, dockShellMockState, diagnosticsPanelMockState, inspectorMockState } = vi.hoisted(() => ({
   sourceEditorMockState: {
     revealLine: vi.fn(() => true),
+    clearRevealHighlight: vi.fn(),
     showSource: true,
     latestProps: undefined as
       | {
           activeFile?: string;
+          onNavigateToNode?: (nodeId: string) => void;
           onEditorViewCreated?: (filePath: string, view: { id: string }) => void;
         }
       | undefined
@@ -379,6 +381,7 @@ vi.mock('../../src/components/SourceEditor.js', () => ({
     (
       props: {
         activeFile?: string;
+        onNavigateToNode?: (nodeId: string) => void;
         onEditorViewCreated?: (filePath: string, view: { id: string }) => void;
       },
       ref
@@ -386,6 +389,7 @@ vi.mock('../../src/components/SourceEditor.js', () => ({
       sourceEditorMockState.latestProps = props;
       useImperativeHandle(ref, () => ({
         revealLine: sourceEditorMockState.revealLine,
+        clearRevealHighlight: sourceEditorMockState.clearRevealHighlight,
         revealPosition: vi.fn()
       }));
 
@@ -487,31 +491,35 @@ vi.mock('../../src/components/GraphFilterMenu.js', () => ({
   GraphFilterMenu: () => React.createElement('div')
 }));
 
-vi.mock('../../src/shell/DockShell.js', () => ({
-  DockShell: ({
-    panelComponents,
-    focusPanel
-  }: {
-    panelComponents?: Record<string, React.ComponentType>;
-    focusPanel?: { component: string; nonce: number } | null;
-  }) => {
-    dockShellMockState.latestProps = { focusPanel };
-    return React.createElement('div', { 'data-testid': 'dock-shell' }, [
-      panelComponents?.['workspace.fileTree']
-        ? React.createElement(panelComponents['workspace.fileTree'], { key: 'fileTree' })
-        : null,
-      panelComponents?.['workspace.editor']
-        ? React.createElement(panelComponents['workspace.editor'], { key: 'editor' })
-        : null,
-      panelComponents?.['workspace.visualPreview']
-        ? React.createElement(panelComponents['workspace.visualPreview'], { key: 'visual' })
-        : null,
-      panelComponents?.['workspace.problems']
-        ? React.createElement(panelComponents['workspace.problems'], { key: 'problems' })
-        : null
-    ]);
-  }
-}));
+vi.mock('../../src/shell/DockShell.js', () => {
+  // Match WorkbenchHost's stable bridge rather than remounting changing render callbacks.
+  const PanelBody = ({ render }: { render: (props: object) => React.ReactElement | null }) => render({});
+  return {
+    DockShell: ({
+      panelComponents,
+      focusPanel
+    }: {
+      panelComponents?: Record<string, (props: object) => React.ReactElement | null>;
+      focusPanel?: { component: string; nonce: number } | null;
+    }) => {
+      dockShellMockState.latestProps = { focusPanel };
+      return React.createElement('div', { 'data-testid': 'dock-shell' }, [
+        panelComponents?.['workspace.fileTree']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.fileTree'], key: 'fileTree' })
+          : null,
+        panelComponents?.['workspace.editor']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.editor'], key: 'editor' })
+          : null,
+        panelComponents?.['workspace.visualPreview']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.visualPreview'], key: 'visual' })
+          : null,
+        panelComponents?.['workspace.problems']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.problems'], key: 'problems' })
+          : null
+      ]);
+    }
+  };
+});
 
 vi.mock('../../src/shell/panels/CenterStackPanel.js', () => ({
   // Simplified stub: renders all four panes by default so that
@@ -3033,6 +3041,48 @@ describe('EditorPage source reveal lifecycle', () => {
     renderEditorPage(props());
     flushFrames();
     expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('syncs a Source-origin selection to other panes without scrolling or cueing Source itself', () => {
+    select();
+    const other = {
+      id: `${namespace}.Other#Data`,
+      data: { name: 'Other', $type: 'Data' },
+      meta: { namespace, errors: [], hasExternalRefs: false }
+    };
+    editorStoreState.nodes.push(other);
+    renderEditorPage(props());
+    sourceEditorMockState.clearRevealHighlight.mockClear();
+    // A direct source click supersedes even a still-queued external reveal.
+    act(() => sourceEditorMockState.latestProps?.onNavigateToNode?.(other.id));
+    flushFrames();
+    flushFrames();
+    expect(editorStoreState.selectedNodeId).toBe(other.id);
+    expect(structureViewMockState.latestProps?.navigationRevision).toBe(1);
+    expect(sourceEditorMockState.clearRevealHighlight).not.toHaveBeenCalled();
+    expect(usePreviewStore.getState().selectedTarget?.id).toBe(other.id);
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+
+    // A later indirect request to that same target must still reveal Source.
+    act(() => runeTypeGraphMockState.latestCallbacks?.onNavigateToType?.(other.id));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(7, path);
+  });
+
+  it('can restore a Source-origin selection when Source actually remounts', () => {
+    select();
+    const input = props();
+    const view = renderEditorPage(input);
+    act(() => sourceEditorMockState.latestProps?.onNavigateToNode?.(editorStoreState.selectedNodeId!));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    sourceEditorMockState.showSource = false;
+    view.rerenderEditorPage(input);
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
   });
 
   it('restarts a fully loaded source arrival for repeated indirect navigation to the same type', () => {

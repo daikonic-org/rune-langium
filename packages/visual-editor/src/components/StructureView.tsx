@@ -17,7 +17,7 @@
  * @module
  */
 
-import { useNavigationArrival } from '../hooks/useNavigationArrival.js';
+import { useNavigationArrival, type NavigationArrival } from '../hooks/useNavigationArrival.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { indexById } from '@rune-langium/core';
 import { ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react';
@@ -369,6 +369,7 @@ const EMPTY_PENDING_HYDRATION: ReadonlyArray<string> = [];
 const EMPTY_ALL_NODE_IDS: Set<string> = new Set();
 
 interface StructureFlowInnerProps {
+  readonly consumedArrivalRef: React.RefObject<NavigationArrival | undefined>;
   readonly navigationRevision?: number;
   readonly focusedTypeId: string;
   readonly adapterDoc: AdapterDocument;
@@ -386,6 +387,7 @@ interface StructureFlowInnerProps {
  * whole subtree without the empty-state check logic needing to know about it.
  */
 function StructureFlowInner({
+  consumedArrivalRef,
   focusedTypeId,
   navigationRevision,
   adapterDoc,
@@ -598,9 +600,9 @@ function StructureFlowInner({
     };
   }, []);
 
-  const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival();
+  const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival(consumedArrivalRef);
   useEffect(() => {
-    if (navigationRevision !== undefined) emphasizeArrival(focusedTypeId);
+    if (navigationRevision !== undefined) emphasizeArrival(focusedTypeId, navigationRevision);
     return cancelArrival;
   }, [focusedTypeId, navigationRevision, emphasizeArrival, cancelArrival]);
   const arrivalNodes = useMemo(
@@ -729,6 +731,8 @@ export function StructureView({
   structureDiagnostics,
   pendingHydrationNamespaces
 }: StructureViewProps): React.ReactElement {
+  // A temporary data refresh remounts the inner flow without creating a new navigation.
+  const consumedArrivalRef = useRef<NavigationArrival | undefined>(undefined);
   if (!focusedTypeId || !adapterDoc) {
     // e2e-batch fix (#10): distinguish "nothing selected" from "selected an
     // unsupported kind (Function / TypeAlias / Record / Annotation)" so the
@@ -782,6 +786,7 @@ export function StructureView({
   return (
     <ReactFlowProvider>
       <StructureFlowInner
+        consumedArrivalRef={consumedArrivalRef}
         focusedTypeId={focusedTypeId}
         navigationRevision={navigationRevision}
         adapterDoc={adapterDoc}

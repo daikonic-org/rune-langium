@@ -11,6 +11,7 @@
 
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { StructureView } from '../../src/components/StructureView.js';
 import type { AdapterDocument } from '../../src/adapters/structure-graph-adapter.js';
 import { expansionKey } from '../../src/types/structure-view.js';
@@ -580,6 +581,38 @@ describe('StructureView navigation arrivals', () => {
     rerender(<StructureView focusedTypeId="cdm.trade.Economics" adapterDoc={tradeDoc} />);
     act(() => vi.advanceTimersByTime(350));
     expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+  });
+
+  it('preserves an unconsumed arrival through StrictMode and interrupted data loading', () => {
+    const view = (adapterDoc: AdapterDocument | undefined) => (
+      <StrictMode>
+        <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={adapterDoc} navigationRevision={1} />
+      </StrictMode>
+    );
+    const { container, rerender } = render(view(tradeDoc));
+    act(() => vi.advanceTimersByTime(100));
+    rerender(view(undefined));
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    rerender(view(tradeDoc));
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-canonical-id', 'cdm.trade.Trade');
+  });
+
+  it('does not replay a consumed navigation when adapter data temporarily disappears', () => {
+    const { container, rerender } = render(
+      <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={1} />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(1100));
+    rerender(<StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={undefined} navigationRevision={1} />);
+    rerender(<StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={1} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    rerender(<StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={2} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).not.toBeNull();
   });
 
   it('briefly emphasizes the destination and repeats same-target navigation without reacting to expansion', () => {

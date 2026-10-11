@@ -148,3 +148,29 @@ it('waits for a programmatic target to load and cancels superseded arrivals', as
     vi.useRealTimers();
   }
 });
+
+it('does not replay a consumed navigation when its node kind is hidden and restored', async () => {
+  const result = await parse(SIMPLE_INHERITANCE_SOURCE);
+  loadModels(result.value);
+  const targetId = useEditorStore.getState().nodes[0]!.id;
+  vi.useFakeTimers();
+  try {
+    const { container, rerender, unmount } = render(
+      <RuneTypeGraph navigationTarget={{ nodeId: targetId, revision: 1 }} />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', targetId);
+    act(() => vi.advanceTimersByTime(1100));
+    act(() => useEditorStore.getState().toggleNodeKind('data'));
+    act(() => vi.advanceTimersByTime(350));
+    act(() => useEditorStore.getState().toggleNodeKind('data'));
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    rerender(<RuneTypeGraph navigationTarget={{ nodeId: targetId, revision: 2 }} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', targetId);
+    unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});

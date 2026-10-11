@@ -743,7 +743,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
       )?.id
     : undefined;
   useEffect(() => {
-    if (navigationNodeId) emphasizeArrival(navigationNodeId);
+    if (navigationNodeId) emphasizeArrival(navigationNodeId, navigationTarget?.revision);
     return cancelArrival;
   }, [navigationNodeId, navigationTarget?.revision, emphasizeArrival, cancelArrival]);
 

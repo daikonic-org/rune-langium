@@ -1,7 +1,7 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { emphasizeNavigationArrival } from '../../utils/navigation-arrival.js';
 import type { PayloadView } from '../../components/FormPreviewPanel.js';
 import type { FunctionSessionState } from '../../store/function-session-store.js';
@@ -46,26 +46,40 @@ export const InstanceInspectorPanel = withInstrumentation(
     const destinationRef = useRef<HTMLDivElement>(null);
     const schema = useInstanceStore((s) => (record ? s.schemas.get(record.typeFqn) : undefined));
 
+    const arrivalRequest = useMemo(
+      () => ({ instanceId, focusedPayloadPointer, focusRequestId }),
+      [instanceId, focusedPayloadPointer, focusRequestId]
+    );
+    const consumedArrivalRef = useRef<typeof arrivalRequest | undefined>(undefined);
+    const clearArrivalRef = useRef<(() => void) | undefined>(undefined);
+    useEffect(
+      () => () => {
+        clearArrivalRef.current?.();
+        clearArrivalRef.current = undefined;
+      },
+      [arrivalRequest, record?.id]
+    );
+
     useEffect(() => {
-      const fieldPath = focusedPayloadPointer && payloadPointerToFieldPath(focusedPayloadPointer);
+      if (consumedArrivalRef.current === arrivalRequest || !record) return;
+      const fieldPath =
+        arrivalRequest.focusedPayloadPointer && payloadPointerToFieldPath(arrivalRequest.focusedPayloadPointer);
       if (!fieldPath) return;
       patchView({ inspectorTab: 'form' });
-      let clearArrival: (() => void) | undefined;
       const frame = requestAnimationFrame(() => {
         const target = Array.from(
           destinationRef.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? []
         ).find((element) => element.dataset.fieldPath === fieldPath);
+        if (!target) return;
+        consumedArrivalRef.current = arrivalRequest;
         const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-        target?.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
-        if (target) clearArrival = emphasizeNavigationArrival(target);
+        target.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
+        clearArrivalRef.current = emphasizeNavigationArrival(target);
         const input = target?.querySelector<HTMLElement>('input, button, [role="combobox"]');
         (input ?? target)?.focus({ preventScroll: true });
       });
-      return () => {
-        cancelAnimationFrame(frame);
-        clearArrival?.();
-      };
-    }, [instanceId, focusedPayloadPointer, focusRequestId, schema, patchView]);
+      return () => cancelAnimationFrame(frame);
+    }, [arrivalRequest, record?.id, schema, patchView]);
 
     if (!record) return null;
     const functionPayload: PayloadView | undefined =
