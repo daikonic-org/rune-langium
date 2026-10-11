@@ -120,6 +120,37 @@ function ConditionRow({
   renderExpressionEditor
 }: ConditionRowProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const metadata = (
+    <div className="space-y-2">
+      {readOnly ? (
+        condition.name && (
+          <div className="text-xs">
+            <span className="text-muted-foreground">Name: </span>
+            <span className="font-medium">{condition.name}</span>
+          </div>
+        )
+      ) : (
+        <Input
+          value={condition.name ?? ''}
+          onChange={(e) => onUpdate?.(index, { name: e.target.value || undefined })}
+          placeholder="Condition name (optional)"
+          className="text-xs h-7"
+          aria-label="Condition name"
+        />
+      )}
+      {readOnly ? (
+        condition.definition && <p className="text-xs text-muted-foreground italic">{condition.definition}</p>
+      ) : (
+        <Input
+          value={condition.definition ?? ''}
+          onChange={(e) => onUpdate?.(index, { definition: e.target.value || undefined })}
+          placeholder="Description (optional)"
+          className="text-xs h-7"
+          aria-label="Condition description"
+        />
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -183,36 +214,7 @@ function ConditionRow({
       {/* Body */}
       {isExpanded && (
         <div className="p-2 space-y-2">
-          {/* Name */}
-          {readOnly ? (
-            condition.name && (
-              <div className="text-xs">
-                <span className="text-muted-foreground">Name: </span>
-                <span className="font-medium">{condition.name}</span>
-              </div>
-            )
-          ) : (
-            <Input
-              value={condition.name ?? ''}
-              onChange={(e) => onUpdate?.(index, { name: e.target.value || undefined })}
-              placeholder="Condition name (optional)"
-              className="text-xs h-7"
-              aria-label="Condition name"
-            />
-          )}
-
-          {/* Definition */}
-          {readOnly ? (
-            condition.definition && <p className="text-xs text-muted-foreground italic">{condition.definition}</p>
-          ) : (
-            <Input
-              value={condition.definition ?? ''}
-              onChange={(e) => onUpdate?.(index, { definition: e.target.value || undefined })}
-              placeholder="Description (optional)"
-              className="text-xs h-7"
-              aria-label="Condition description"
-            />
-          )}
+          {!target && metadata}
 
           {/* Expression */}
           {readOnly && !target ? (
@@ -239,6 +241,12 @@ function ConditionRow({
               rows={3}
               aria-label="Condition expression"
             />
+          )}
+          {target && (
+            <details className="text-xs">
+              <summary className="cursor-pointer py-1 text-muted-foreground">Condition details</summary>
+              {metadata}
+            </details>
           )}
         </div>
       )}

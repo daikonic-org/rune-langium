@@ -16,14 +16,15 @@ Locate the evidence bundle (default `apps/studio/test/prod-ux/report/`, or the
 path the user gives you):
 
 1. `run-manifest.json` — per-journey verdicts, checkpoints, console/network
-   noise, per-operation timings (with budgets), `typeClosure` records,
+   noise, per-operation timings (with budgets), request `network` records, `typeClosure` records,
    embedded `opLog` streams, soft findings. **This is your index; read it
    first.**
 2. `screenshots/<journey>/…png` — read them; do not review blind.
 3. Playwright HTML/JSON report + traces (`trace.zip` on retried tests).
 4. `axe/J17/attempt<N>/` raw checkpoint results when J17 ran. Read endpoint
    verification output separately. The harness records soft findings in the
-   manifest; it does not maintain a `known-issues.json` ledger.
+   manifest. New runs include `known-issues.json` copied from the harness source;
+   inspect its reasons, expiry dates and issue links. Older bundles may lack it.
 
 If the manifest is missing, fall back to the Playwright report alone and say so
 prominently — the run predates or bypassed the evidence collector.
@@ -55,7 +56,9 @@ For every FAIL/DEGRADED/BLOCKED journey, assign exactly one class:
   manifest. Fix is an `anchors.ts` update, not app code.
 - **known-issue** — the manifest's soft finding names an understood, still
   applicable limitation. Verify its current behavior and any linked GitHub
-  issue; do not infer an expiry date or issue URL from the finding ID alone.
+  issue, and review expired ledger entries. A missing ledger entry does not
+  justify dismissing a finding; do not infer an expiry date or issue URL from
+  the finding ID alone.
 - **flake/infra** — passed on retry, or failure is a timeout with no
   corroborating console/network evidence. Check the trace before concluding
   flake; two consecutive runs flaking the same step is a regression until
@@ -108,6 +111,12 @@ Report anything a user would notice, even under a PASS verdict.
   entry is opLog-sourced, use the journey's `opLog` and the correlated
   Worker-side log line (`x-studio-op-id`) to attribute slowness to
   client vs Worker before speculating.
+- **Network evidence:** compare request header/transfer time, payload bytes and
+  parse document counts with the operation spans. Advertised cache keys alone
+  do not prove reuse; warm responses must actually return zero curated documents. System documents
+  may still be returned and are counted separately.
+  Missing body details are unknown, not zero. `formRender` includes hydration
+  from selection until the preview is ready and is not a pure React render span.
 - **Type-closure mapping (J18):** each `typeClosure` array entry is a
   `TypeClosureRecord` (`rootFqn`, `rootKind: 'curated' | 'scratch'`,
   `visitedCount`, `mappedCount`, `unmapped: string[]`, `hydrationsTriggered`,

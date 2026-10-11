@@ -7,6 +7,7 @@ import type { Page, ConsoleMessage, Request, Response } from '@playwright/test';
 import type { OpLogEntry } from '../../src/services/op-log.js';
 import { waitForEntranceAnimations } from './readiness.js';
 import { buildTimingsRollup, type TimingRecord } from './timings.js';
+import { captureNetworkResponse, type NetworkRecord } from './network-evidence.js';
 
 export interface Checkpoint {
   name: string;
@@ -52,10 +53,11 @@ export interface JourneyRecord {
   previousAttempts?: JourneyRecord[];
   /** Populated only by J18 (data-type closure mapping) — one entry per walked root. */
   typeClosure?: TypeClosureRecord[];
+  network?: NetworkRecord[];
 }
 
 /** Exported so test suites (e.g. fixtures.test.ts) can back up/restore the on-disk manifest around their own writes. */
-export const REPORT_DIR = path.join(process.cwd(), 'test/prod-ux/report');
+export const REPORT_DIR = process.env.PROD_UX_REPORT_DIR || path.join(process.cwd(), 'test/prod-ux/report');
 
 /**
  * Upper bound on how long `finish()` waits for in-flight response-body reads.
@@ -75,6 +77,7 @@ export class EvidenceCollector {
   private readonly failedRequests: string[] = [];
   private readonly checkpoints: Checkpoint[] = [];
   private readonly softFindings: SoftFinding[] = [];
+  private readonly network: NetworkRecord[] = [];
   private typeClosureRecords: TypeClosureRecord[] = [];
   private seq = 0;
   private timingSeq = 0;
@@ -121,6 +124,16 @@ export class EvidenceCollector {
     // refused, aborted) — a first-party request that COMPLETES with a 4xx/5xx
     // status (e.g. a Worker returning 500) never fires it. Catch those here.
     page.on('response', (response: Response) => {
+      const pathname = new URL(response.url()).pathname;
+      if (/^\/api\/(parse|curated-source|codegen)$/.test(pathname) || /^\/curated\/.*\.json$/.test(pathname)) {
+        this.pendingBodyReads.push(
+          captureNetworkResponse(response)
+            .then((record) => {
+              this.network.push(record);
+            })
+            .catch(() => {})
+        );
+      }
       const status = response.status();
       if (status < 400) return;
       let sameOrigin = false;
@@ -326,6 +339,7 @@ export class EvidenceCollector {
       softFindings: this.softFindings,
       retry: this.retry,
       opLog: mergedOpLog,
+      network: this.network,
       typeClosure: this.typeClosureRecords.length > 0 ? this.typeClosureRecords : undefined
     };
   }

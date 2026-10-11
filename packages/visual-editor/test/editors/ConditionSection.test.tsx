@@ -29,6 +29,28 @@ describe('compact data rules', () => {
     expect(screen.getAllByTestId('active-expression')).toHaveLength(1);
   });
 
+  it('keeps metadata collapsed after the expression and preserves metadata editing', () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <ConditionSection
+        nodeId="test.Trade"
+        compact
+        conditions={[first]}
+        onUpdate={onUpdate}
+        renderExpressionEditor={() => <div data-testid="active-expression">x &gt; 0</div>}
+      />
+    );
+    const details = container.querySelector('details')!;
+    expect(details.open).toBe(false);
+    const expression = screen.getByTestId('active-expression');
+    expect(expression.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    details.open = true;
+    fireEvent.change(screen.getByLabelText('Condition name'), { target: { value: 'Renamed' } });
+    expect(onUpdate).toHaveBeenCalledWith(0, { name: 'Renamed' });
+    fireEvent.change(screen.getByLabelText('Condition description'), { target: { value: 'Positive amount' } });
+    expect(onUpdate).toHaveBeenCalledWith(0, { definition: 'Positive amount' });
+  });
+
   it('selects a remaining rule after removing the active one', () => {
     const editor = (props: { value: string }) => <div data-testid="active-expression">{props.value}</div>;
     const props = { nodeId: 'test.Trade', compact: true, renderExpressionEditor: editor, onRemove: vi.fn() };

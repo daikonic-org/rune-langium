@@ -4,6 +4,7 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import { createRuneDslServices, serializeRuneModel } from '@rune-langium/core';
 import { URI } from 'langium';
+import { typeNavigationButton } from '../helpers/type-navigation.js';
 
 const namespace = 'cached.example';
 const bundleId = 'cdm';
@@ -58,7 +59,12 @@ async function load(page: Page) {
   );
 }
 
-async function serveArtifacts(context: BrowserContext, documents: Awaited<ReturnType<typeof fixtures>>) {
+async function serveArtifacts(
+  context: BrowserContext,
+  documents: Awaited<ReturnType<typeof fixtures>>,
+  ui = false,
+  legacy = false
+) {
   const requests: Array<{ known: string[]; returned: number }> = [];
   let sourceRequests = 0;
   await context.route('**/api/parse', async (route) => {
@@ -72,21 +78,44 @@ async function serveArtifacts(context: BrowserContext, documents: Awaited<Return
         ok: true,
         models: [],
         errors: {},
-        deferredExports: [],
-        hydrationState: { documents: selected },
-        requiredCuratedArtifacts: required
-          ? documents.map((doc) => ({ key: doc.artifactKey, bundleId, namespace: doc.namespace, documentCount: 1 }))
-          : []
+        deferredExports:
+          ui && !required && body.curatedBundles?.length
+            ? [{ namespace, filePath: `${bundleId}/${namespace}`, exports: [{ type: 'Data', name: 'Example' }] }]
+            : [],
+        hydrationState: { documents: legacy ? selected.map(({ artifactKey: _key, ...doc }) => doc) : selected },
+        requiredCuratedArtifacts:
+          required && !legacy
+            ? documents.map((doc) => ({ key: doc.artifactKey, bundleId, namespace: doc.namespace, documentCount: 1 }))
+            : []
       }
     });
   });
   await context.route('**/api/curated-source', async (route) => {
     sourceRequests++;
+    if (ui) expect(route.request().postDataJSON().expectedArtifactKey).toBe(legacy ? undefined : key(namespace));
     await route.fulfill({
       json: { artifactKey: key(namespace), documents: [{ uri: 'cdm/example.rosetta', content: source }] }
     });
   });
   return { requests, sourceRequestCount: () => sourceRequests };
+}
+
+async function loadCuratedWorkspace(page: Page) {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await page.getByTestId('rail-workspaces').click();
+  await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
+}
+
+async function openExampleSource(page: Page) {
+  await page.getByTestId('rail-explore').click();
+  await page.getByTestId('namespace-search').fill('Example');
+  await typeNavigationButton(page, `${namespace}.Example`, 'Data').click();
+  const toggle = page.getByRole('button', { name: 'Source', exact: true });
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
+  const sourcePane = page.locator('[data-pane="source"]');
+  await expect(sourcePane.locator('.cm-content')).toContainText('type Example extends Base:');
 }
 
 test('curated JSON and selected source survive reloads and are reusable in another tab', async ({ page, context }) => {
@@ -112,6 +141,29 @@ test('curated JSON and selected source survive reloads and are reusable in anoth
   expect(requests[0]!.known).toEqual([]);
   expect(requests[1]!.known.sort()).toEqual(documents.map((doc) => doc.artifactKey).sort());
   expect(requests[2]!.known.sort()).toEqual(requests[1]!.known);
+  expect(sourceRequestCount()).toBe(1);
+});
+
+test('normal Explorer Source navigation restores cached JSON and source after reload', async ({ page, context }) => {
+  const documents = await fixtures();
+  const { requests, sourceRequestCount } = await serveArtifacts(context, documents, true);
+  await loadCuratedWorkspace(page);
+
+  await openExampleSource(page);
+  expect(sourceRequestCount()).toBe(1);
+  await page.reload();
+  await openExampleSource(page);
+  expect(sourceRequestCount()).toBe(1);
+  expect(requests[0]!.returned).toBe(2);
+  expect(requests.slice(1).every((request) => request.returned === 0)).toBe(true);
+  expect(requests.at(-1)!.known.sort()).toEqual(documents.map((doc) => doc.artifactKey).sort());
+});
+
+test('legacy unversioned curated source opens after hydration', async ({ page, context }) => {
+  const documents = await fixtures();
+  const { sourceRequestCount } = await serveArtifacts(context, documents, true, true);
+  await loadCuratedWorkspace(page);
+  await openExampleSource(page);
   expect(sourceRequestCount()).toBe(1);
 });
 

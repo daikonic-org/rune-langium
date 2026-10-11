@@ -3,6 +3,7 @@
 
 import { checkout as test, expect, authorScratchFunction } from '../fixtures.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
+import { expectBodyProjection, expectEditorExpansion } from '../../helpers/body-projection.js';
 
 const NAMESPACE = 'scratch.j10cond';
 const FUNCTION_NAME = 'ValidateAmount';
@@ -11,7 +12,7 @@ const NODE_ID = `${NAMESPACE}.${FUNCTION_NAME}`;
 test.describe('J10 — Continuous expression editing and generated views', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
 
-  test('J10 displays complete typed TypeScript and Python without changing Rune', async ({ page, evidence }) => {
+  test('J10 displays complete TypeScript and Python bodies without changing Rune', async ({ page, evidence }) => {
     await authorScratchFunction(page, {
       name: FUNCTION_NAME,
       namespace: NAMESPACE,
@@ -28,16 +29,16 @@ test.describe('J10 — Continuous expression editing and generated views', () =>
     await expect(implementation.getByTestId('implementation-editor')).toHaveCount(1);
     await expect(implementation).toContainText('AmountPositive');
     await expect(implementation).toContainText('set result: amount');
+    await expectEditorExpansion(implementation);
     await evidence.checkpoint('continuous-rune-implementation');
 
-    for (const language of ['TypeScript', 'Python']) {
-      await implementation.getByRole('button', { name: language, exact: true }).click();
-      const generated = implementation.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
-      await expect(generated).toContainText(
-        language === 'Python' ? 'def ValidateAmount(' : 'export function ValidateAmount('
+    for (const language of ['TypeScript', 'Python'] as const) {
+      await expectBodyProjection(
+        implementation,
+        language,
+        language === 'TypeScript' ? 'input.amount' : 'input["amount"]',
+        'return result'
       );
-      await expect(generated).toHaveAttribute('contenteditable', 'false');
-      await expect(implementation.getByRole('alert')).toHaveCount(0);
       await evidence.checkpoint(`generated-${language.toLowerCase()}`);
     }
     await implementation.getByRole('button', { name: 'Rune', exact: true }).click();

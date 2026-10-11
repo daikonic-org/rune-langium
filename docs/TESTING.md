@@ -60,20 +60,21 @@ The current smoke flow:
 ### Full checkout harness (`test:prod-ux`)
 
 ```bash
-# Run the full 20-journey (J00-J19) checkout harness against the default deploy.
+# Run the full 22-journey (J00-J21) checkout harness against the default deploy.
 pnpm --filter @rune-langium/studio run test:prod-ux
 
-# Against a preview/staging deployment.
-PLAYWRIGHT_BASE_URL=https://preview.example/rune-studio/studio/ pnpm --filter @rune-langium/studio run test:prod-ux
+# Keep the existing report intact during focused production triage.
+ENABLE_TELEMETRY=1 PROD_UX_REPORT_DIR="$PWD/dist/prod-ux-followups" \
+  pnpm --filter @rune-langium/studio run test:prod-ux --grep "J9|J20|J21" --reporter=list
 ```
 
 This is the superset harness (spec: `docs/superpowers/specs/2026-07-16-prod-ux-checkout-harness.md`)
 that exercises every perspective, dialog, and mutation loop the smoke check
 above does not. It writes an evidence bundle — `run-manifest.json`
 (per-journey verdicts, opLog streams, budget-aware timings), screenshots,
-traces, and axe results — to `apps/studio/test/prod-ux/report/`, meant to be
+request timing/document counts, known issue ledger, traces, and axe results — to `apps/studio/test/prod-ux/report/`, meant to be
 read by the `prod-ux-review` agent skill (`.agents/skills/prod-ux-review/`),
-not by eye.
+with every checkpoint image reviewed.
 
 J19 adds seven expression workspace cases: private Builder drafts, Apply/Undo,
 independent Data conditions, both split-file dispatch orders with trailing
@@ -88,10 +89,30 @@ Local acceptance and production share the editor setup helpers and
 integrity-checked upstream fixtures. Each case has a distinct manifest ID;
 dialog axe results are retained under `report/axe/J19/attempt<N>/`.
 
-J17 retains full axe JSON for each checkpoint under
-`report/axe/J17/attempt<N>/`; the manifest records its verdict and soft
-findings. The harness uses those soft findings directly and has no
-`known-issues.json` ledger.
+J16 holds an on-demand namespace response while closing the workspace, then
+opens a blank replacement and checks that the late response cannot populate it.
+Reload intentionally restores the most recent workspace; the journey verifies
+that this is the blank replacement, without the cancelled curated namespace. J20 checks cold/warm JSON
+and original source reuse through normal Explorer navigation after reload.
+J21 exercises date, time, local timestamp, offset timestamp and enum values
+through the preview validation/execution boundary. Date uses the native date
+picker; the other temporal inputs currently use text controls.
+
+J17 retains full axe JSON under `report/axe/J17/attempt<N>/`. Global setup copies
+`test/prod-ux/known-issues.json` into each bundle; its entries include a reason,
+review expiry and an issue URL where one exists. A known issue does not suppress
+a failed assertion. Review expired entries and do not treat a coverage gap as
+a passing feature.
+
+Each journey's `network` records cover parse, lazy source and codegen responses.
+They retain request-relative time to headers, total/transfer time, payload size,
+operation ID and available Server-Timing, plus advertised receipts and returned
+document counts for parse. These are browser measurements, not Worker CPU
+time. Missing response details remain unknown rather than becoming zero
+documents. `formRender` is the selection-to-preview interval and includes
+namespace hydration; compare it with network and existing operation spans
+before attributing a slow result to rendering. `ENABLE_TELEMETRY=1` opts in via
+Settings before curated loading; no application environment flag is required.
 
 **Nightly automation:** `.github/workflows/prod-ux-nightly.yml` runs this on
 a schedule (04:41 UTC) and uploads `report/` as the `prod-ux-report` build
@@ -102,8 +123,8 @@ for the review procedure); it files a GitHub issue when it finds a genuine
 regression, as distinct from a corpus-drift or known-issue finding.
 
 For focused triage, pass Playwright's `--grep` and `--reporter=list` options
-to `test:prod-ux`. Archive the current report first: each run resets its
-manifest, including a filtered run. Review screenshots and failure snapshots
+to `test:prod-ux`. Use an absolute `PROD_UX_REPORT_DIR` for focused runs or archive the current
+report first: each run resets its manifest, including a filtered run. Review screenshots and failure snapshots
 alongside assertions before attributing a timeout to product behavior.
 
 Pages Function diagnostic spans use the shared instrumentation wrapper and are

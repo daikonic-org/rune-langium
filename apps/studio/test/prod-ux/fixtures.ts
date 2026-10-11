@@ -262,6 +262,7 @@ export async function loadCdm(page: Page, evidence?: EvidenceCollector): Promise
     { name: WORKSPACE_FILE_NAME, mimeType: 'text/plain', buffer: Buffer.from(WORKSPACE_FILE_CONTENT) }
   ]);
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
+  if (process.env.ENABLE_TELEMETRY === '1') await enableCheckoutTelemetry(page);
   await page.getByTestId('rail-workspaces').click();
   await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
 
@@ -271,6 +272,13 @@ export async function loadCdm(page: Page, evidence?: EvidenceCollector): Promise
   await expect(page.getByText('Loaded Models', { exact: false })).toBeVisible({ timeout: 90000 });
   await expect(page.getByRole('button', { name: `Unload ${CDM_BUTTON}` })).toBeVisible({ timeout: 90000 });
   evidence?.recordTiming('modelLoad', 'cdm loaded in UI', Date.now() - startedAt);
+}
+
+export async function enableCheckoutTelemetry(page: Page): Promise<void> {
+  await page.getByTestId('rail-settings').click();
+  const toggle = page.getByTestId('settings-telemetry-toggle');
+  if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
 }
 
 export interface ScratchAttributeSpec {
