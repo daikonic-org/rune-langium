@@ -199,6 +199,8 @@ function stubResizeObserver(): void {
 
 const { sourceEditorMockState, dockShellMockState, diagnosticsPanelMockState, inspectorMockState } = vi.hoisted(() => ({
   sourceEditorMockState: {
+    revealLine: vi.fn(() => true),
+    showSource: true,
     latestProps: undefined as
       | {
           activeFile?: string;
@@ -381,7 +383,7 @@ vi.mock('../../src/components/SourceEditor.js', () => ({
     ) => {
       sourceEditorMockState.latestProps = props;
       useImperativeHandle(ref, () => ({
-        revealLine: vi.fn(),
+        revealLine: sourceEditorMockState.revealLine,
         revealPosition: vi.fn()
       }));
 
@@ -534,7 +536,7 @@ vi.mock('../../src/shell/panels/CenterStackPanel.js', () => ({
       'div',
       { 'data-testid': 'center-stack-mock' },
       showGraph ? (renderGraph?.() ?? null) : null,
-      renderSource?.() ?? null,
+      sourceEditorMockState.showSource ? (renderSource?.() ?? null) : null,
       renderInspector?.() ?? null,
       renderStructure?.() ?? null
     );
@@ -1148,6 +1150,38 @@ describe('EditorPage workspace chrome', () => {
     setRuneStudioTestApi(() => undefined);
     vi.unstubAllGlobals();
     cleanup();
+  });
+
+  it('reveals the selected curated declaration after source arrives without changing the selection', async () => {
+    const path = 'cdm/datetime.rosetta';
+    const name = 'BusinessCenters';
+    const namespace = 'cdm.base.datetime';
+    editorStoreState.nodes = [
+      {
+        id: `${namespace}.${name}#Data`,
+        data: { name, $type: 'Data' },
+        meta: { namespace, errors: [], hasExternalRefs: false, deferred: true }
+      }
+    ];
+    editorStoreState.selectedNodeId = editorStoreState.nodes[0]!.id;
+    const file = {
+      name: 'datetime.rosetta',
+      path,
+      content: '',
+      dirty: false,
+      readOnly: true,
+      refOnly: true,
+      namespace
+    };
+    const deferredExports = [{ namespace, filePath: path, exports: [{ name, type: 'Data' }] }];
+    const props = { files: [file], deferredExports };
+    const { rerenderEditorPage } = renderEditorPage(props);
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+
+    const content = 'namespace cdm.base.datetime\n\ntype BusinessCentersExtra:\n\ntype BusinessCenters:\n';
+    rerenderEditorPage({ ...props, files: [{ ...file, content, sourceLoaded: true }] });
+    await waitFor(() => expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path));
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalledWith(1, path);
   });
 
   it('renders a workspace header and keeps graph controls inside the graph panel', () => {
@@ -2617,5 +2651,238 @@ describe('EditorPage StructureView cell-editor wiring (Phase 5/8 regression guar
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('EditorPage source reveal lifecycle', () => {
+  const namespace = 'cdm.base.datetime';
+  const path = 'cdm/datetime.rosetta';
+  const content = 'namespace cdm.base.datetime\n\ntype BusinessCentersExtra:\n\ntype BusinessCenters:\n\ntype Other:\n';
+  let frames: FrameRequestCallback[];
+
+  function flushFrames() {
+    const queued = frames.splice(0);
+    act(() => queued.forEach((callback) => callback(0)));
+  }
+
+  function select(name = 'BusinessCenters', coordinates = {}) {
+    const node = {
+      id: `${namespace}.${name}#Data`,
+      data: { name, $type: 'Data', ...coordinates },
+      meta: { namespace, errors: [], hasExternalRefs: false }
+    };
+    editorStoreState.nodes = [node];
+    editorStoreState.selectedNodeId = node.id;
+  }
+
+  function props(source = content) {
+    return {
+      workspaceId: 'workspace-a',
+      files: [
+        { name: 'datetime.rosetta', path, content: source, dirty: false, readOnly: true, refOnly: true, namespace }
+      ],
+      deferredExports: [
+        {
+          namespace,
+          filePath: path,
+          exports: [
+            { name: 'BusinessCenters', type: 'Data' },
+            { name: 'Other', type: 'Data' }
+          ]
+        }
+      ]
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('Worker', MockWorker);
+    stubResizeObserver();
+    frames = [];
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+      })
+    );
+    MockWorker.instances = [];
+    usePreviewStore.getState().resetPreviewState();
+    usePerspectiveStore.setState({ activePerspective: 'explore' });
+    useExploreFileNavStore.setState({ activeEditorFile: undefined, requestedSourceFile: undefined, syncStatus: null });
+    editorStoreState.nodes = [];
+    editorStoreState.selectedNodeId = undefined;
+    editorStoreState.hydratedNamespaces = [];
+    editorStoreState.pendingHydrationNamespaces = [];
+    vi.clearAllMocks();
+    sourceEditorMockState.revealLine.mockReturnValue(true);
+    sourceEditorMockState.showSource = true;
+    centerStackMockState.showGraph = true;
+  });
+
+  afterEach(() => {
+    cleanup();
+    sourceEditorMockState.showSource = true;
+    vi.unstubAllGlobals();
+  });
+
+  it('ignores declaration-looking lines inside comments and strings', () => {
+    const source =
+      'namespace cdm.base.datetime\n/*\ntype BusinessCenters:\n*/\n<"\ntype BusinessCenters:\n">\ntype BusinessCenters:\n';
+    select();
+    renderEditorPage(props(source));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(8, path);
+  });
+
+  it('waits for AST coordinates when different declaration kinds share a name', () => {
+    const source = 'namespace cdm.base.datetime\nfunc BusinessCenters:\n\ntype BusinessCenters:\n';
+    select();
+    const input = props(source);
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type BusinessCenters:'), end: source.length } });
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(4, path);
+  });
+
+  it('uses exact declaration identity when Source is already mounted', () => {
+    const input = props();
+    const view = renderEditorPage(input);
+    select();
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('waits for source even when hydrated AST coordinates arrive first', () => {
+    select('BusinessCenters', { $cstRange: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+    const view = renderEditorPage(props(''));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    view.rerenderEditorPage(props());
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('retries when AST coordinates arrive after source without reopening a tab', () => {
+    // A multiline declaration cannot be located by the single-line fallback.
+    const source = 'namespace cdm.base.datetime\n\ntype\n  BusinessCenters:\n';
+    select();
+    const input = props(source);
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type'), end: source.length } });
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(3, path);
+  });
+
+  it.each(['$cstNode', '$textRegion'])('uses %s offsets for hydrated declarations', (key) => {
+    select('BusinessCenters', { [key]: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+    renderEditorPage(props());
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('retains an unacknowledged reveal until the matching view is ready', () => {
+    select();
+    sourceEditorMockState.revealLine.mockReturnValue(false);
+    renderEditorPage(props());
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
+    sourceEditorMockState.revealLine.mockClear().mockReturnValue(true);
+    act(() => sourceEditorMockState.latestProps?.onEditorViewCreated?.(path, { id: path }));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('keeps a hidden-pane reveal and restores the selection after reopening Source', () => {
+    select();
+    sourceEditorMockState.showSource = false;
+    const input = props();
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage({ ...input });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+    sourceEditorMockState.showSource = false;
+    view.rerenderEditorPage({ ...input });
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage({ ...input });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledTimes(2);
+    expect(sourceEditorMockState.revealLine).toHaveBeenLastCalledWith(5, path);
+  });
+
+  it('discards a scheduled reveal after a rapid A to B selection', () => {
+    select();
+    const input = props();
+    const view = renderEditorPage(input);
+    select('Other');
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(7, path);
+  });
+
+  it('discards a scheduled reveal when the workspace changes', () => {
+    select();
+    const view = renderEditorPage(props());
+    editorStoreState.selectedNodeId = undefined;
+    editorStoreState.nodes = [];
+    view.rerenderEditorPage({ workspaceId: 'workspace-b', files: [], deferredExports: [] });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('follows a selected declaration when hydration replaces its deferred file path', () => {
+    select();
+    const input = props('');
+    const other = { name: 'user.rosetta', path: 'user.rosetta', content: 'namespace user', dirty: false };
+    input.files.push(other as (typeof input.files)[number]);
+    const view = renderEditorPage(input);
+    const hydrated = props();
+    hydrated.files[0]!.path = 'cdm/hydrated-datetime.rosetta';
+    hydrated.deferredExports[0]!.filePath = hydrated.files[0]!.path;
+    hydrated.files.push(other as (typeof hydrated.files)[number]);
+    view.rerenderEditorPage(hydrated);
+    flushFrames();
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe(hydrated.files[0]!.path);
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, hydrated.files[0]!.path);
+  });
+
+  it('does not reopen a canceled selection when hydration changes its file path', () => {
+    select();
+    const input = props('');
+    const other = { name: 'user.rosetta', path: 'user.rosetta', content: 'namespace user', dirty: false };
+    input.files.push(other as (typeof input.files)[number]);
+    const view = renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().setActiveEditorFile('user.rosetta'));
+    const hydrated = props();
+    hydrated.files.push(other as (typeof hydrated.files)[number]);
+    hydrated.files[0]!.path = 'cdm/hydrated-datetime.rosetta';
+    hydrated.deferredExports[0]!.filePath = hydrated.files[0]!.path;
+    view.rerenderEditorPage(hydrated);
+    flushFrames();
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe('user.rosetta');
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('does not override explicit tab navigation when source or AST arrives later', () => {
+    select();
+    const other = { name: 'user.rosetta', path: 'user.rosetta', content: 'namespace user', dirty: false };
+    const input = props('');
+    input.files.push(other as (typeof input.files)[number]);
+    const view = renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().setActiveEditorFile(other.path));
+    select('BusinessCenters', { $cstRange: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+    view.rerenderEditorPage({ ...props(), files: [...props().files, other as (typeof input.files)[number]] });
+    flushFrames();
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe(other.path);
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
   });
 });

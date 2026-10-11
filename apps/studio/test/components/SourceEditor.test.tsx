@@ -209,7 +209,7 @@ describe('SourceEditor', () => {
       document.body.append(filter);
       filter.focus();
 
-      ref.current?.revealLine(2);
+      expect(ref.current?.revealLine(2)).toBe(true);
 
       expect(lastEditorView?.dispatch).toHaveBeenCalledWith({
         selection: { anchor: 10 },
@@ -218,6 +218,58 @@ describe('SourceEditor', () => {
       expect(lastEditorView?.contentDOM.focus).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(filter);
       filter.remove();
+    });
+
+    it('does not acknowledge or defer a line reveal when no editor view exists', () => {
+      const ref = React.createRef<import('../../src/components/SourceEditor.js').SourceEditorRef>();
+      const { rerender } = render(<SourceEditor ref={ref} files={[]} />);
+      expect(ref.current?.revealLine(2, sampleFiles[0]!.path)).toBe(false);
+      rerender(<SourceEditor ref={ref} files={sampleFiles} />);
+      expect(mockEditorViewDispatch).not.toHaveBeenCalled();
+    });
+
+    it('rejects a different file without switching tabs or scheduling a reveal', async () => {
+      const ref = React.createRef<import('../../src/components/SourceEditor.js').SourceEditorRef>();
+      const onFileSelect = vi.fn();
+      render(<SourceEditor ref={ref} files={sampleFiles} onFileSelect={onFileSelect} />);
+      let revealed: boolean | undefined;
+      await act(async () => {
+        revealed = ref.current?.revealLine(2, sampleFiles[1]!.path);
+      });
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      expect(revealed).toBe(false);
+      expect(mockEditorViewDispatch).not.toHaveBeenCalled();
+      expect(onFileSelect).not.toHaveBeenCalled();
+      expect(screen.getByText('model.rosetta').closest('button')).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('rejects a line reveal before the selected file has a matching live view', () => {
+      const ref = React.createRef<import('../../src/components/SourceEditor.js').SourceEditorRef>();
+      const results: (boolean | undefined)[] = [];
+      function Harness({ path }: { path: string }) {
+        React.useLayoutEffect(() => {
+          results.push(ref.current?.revealLine(2, path));
+        }, [path]);
+        return <SourceEditor ref={ref} files={sampleFiles} activeFile={path} />;
+      }
+      const { rerender } = render(<Harness path={sampleFiles[0]!.path} />);
+      expect(results).toEqual([false]);
+      rerender(<Harness path={sampleFiles[1]!.path} />);
+      expect(results).toEqual([false, false]);
+      expect(mockEditorViewDispatch).not.toHaveBeenCalled();
+      expect(ref.current?.revealLine(2, sampleFiles[1]!.path)).toBe(true);
+    });
+
+    it('does not apply deferred position navigation to a newer file selection', async () => {
+      const ref = React.createRef<import('../../src/components/SourceEditor.js').SourceEditorRef>();
+      render(<SourceEditor ref={ref} files={sampleFiles} />);
+      await act(async () => {
+        ref.current?.revealPosition({ line: 2, character: 3 }, sampleFiles[1]!.path);
+      });
+      fireEvent.click(screen.getByText('model.rosetta'));
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      expect(mockEditorViewDispatch).not.toHaveBeenCalled();
+      expect(mockContentDomFocus).not.toHaveBeenCalled();
     });
 
     it('switches files before revealing a source position in another tab', async () => {
@@ -307,6 +359,26 @@ describe('SourceEditor', () => {
       render(<SourceEditor files={[readOnlyFile]} activeFile={readOnlyFile.path} onContentChange={onContentChange} />);
       // EditorState.readOnly.of should have been called with true
       expect(EditorState.readOnly.of).toHaveBeenCalledWith(true);
+    });
+
+    it('acknowledges a read-only line reveal without changing content or focus', () => {
+      const ref = React.createRef<import('../../src/components/SourceEditor.js').SourceEditorRef>();
+      const onContentChange = vi.fn();
+      render(
+        <SourceEditor
+          ref={ref}
+          files={[readOnlyFile]}
+          activeFile={readOnlyFile.path}
+          onContentChange={onContentChange}
+        />
+      );
+      expect(ref.current?.revealLine(2, readOnlyFile.path)).toBe(true);
+      expect(mockEditorViewDispatch).toHaveBeenCalledWith({
+        selection: { anchor: 10 },
+        effects: { anchor: 10 }
+      });
+      expect(onContentChange).not.toHaveBeenCalled();
+      expect(mockContentDomFocus).not.toHaveBeenCalled();
     });
 
     it('does NOT register drop handlers for read-only files', async () => {

@@ -68,7 +68,7 @@ import type {
 } from '@rune-langium/visual-editor';
 import { useStructureViewStore } from '../store/structure-view-store.js';
 import type { RosettaModel } from '@rune-langium/core';
-import { namespaceFromModelName } from '@rune-langium/core';
+import { getNodeSourceRegion, namespaceFromModelName, RuneDslTerminals } from '@rune-langium/core';
 import { SourceEditor } from '../components/SourceEditor.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
@@ -350,17 +350,36 @@ function graphNodesToAdapterDocument(
  */
 const STUDIO_VERSION = '0.1.0';
 
-const DECL_KEYWORDS = /^(type|enum|func|choice|annotation|metaType|typeAlias|library\s+function|reporting\s+rule)\s+/;
+const DECLARATION_NAME =
+  /^(?:type|enum|func|choice|annotation|metaType|typeAlias|library\s+function|reporting\s+rule)\s+\^?(\w+)/;
 
-function findDeclarationLine(content: string, name: string): number {
-  const lines = content.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i]!.trimStart();
-    if (DECL_KEYWORDS.test(trimmed) && trimmed.includes(name)) {
-      return i + 1;
-    }
+const SOURCE_NON_CODE = new RegExp(
+  [RuneDslTerminals.STRING, RuneDslTerminals.ML_COMMENT, RuneDslTerminals.SL_COMMENT]
+    .map((pattern) => pattern.source)
+    .join('|'),
+  'g'
+);
+
+type SourceRevealRequest = { nodeId: string; workspaceId: string | undefined; filePath?: string; cancelled?: boolean };
+
+function findDeclarationLine(
+  content: string,
+  node: Parameters<typeof getNodeSourceRegion>[0] & { name?: string }
+): number | undefined {
+  if (!content) return undefined;
+  try {
+    const { from, to } = getNodeSourceRegion(node);
+    if (to <= content.length) return content.slice(0, from).split('\n').length;
+  } catch {
+    // Deferred declarations have only an identity until their AST is hydrated.
   }
-  return 0;
+  if (!node.name) return undefined;
+  const code = content.replace(SOURCE_NON_CODE, (text) => text.replace(/[^\r\n]/g, ' '));
+  const matches = code
+    .split('\n')
+    .flatMap((line, index) => (DECLARATION_NAME.exec(line.trimStart())?.[1] === node.name ? [index + 1] : []));
+  // Same-name declarations of different kinds require hydrated coordinates.
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 function matchesPreviewSourceIdentity(current: FormPreviewTarget, candidate: FormPreviewTarget): boolean {
@@ -474,7 +493,8 @@ export const ExplorePerspective = withInstrumentation(
     const storeOpenFileInSource = useExploreFileNavStore((s) => s.openFileInSource);
     const requestSourceFile = useExploreFileNavStore((s) => s.requestSourceFile);
     const [inspectorFocusNonce, setInspectorFocusNonce] = useState(0);
-    const pendingRevealRef = useRef<{ line: number; filePath: string } | null>(null);
+    const pendingRevealRef = useRef<SourceRevealRequest | null>(null);
+    const sourceRevealIntentRef = useRef<SourceRevealRequest | null>(null);
     const linkDocumentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Accumulates corpus models returned by linkDocument so they can be merged into
     // the graph. Reset when a new workspace is loaded.
@@ -1135,29 +1155,16 @@ export const ExplorePerspective = withInstrumentation(
       setActiveEditorFile(hydratedFile.path);
     }, [files, activeEditorFile, setActiveEditorFile]);
     useEffect(() => {
-      if (!selectedNodeId || !selectedNodeData || !selectedSourceFilePath) return;
-      const filePath = selectedSourceFilePath;
-      openFileInSource(filePath);
-
-      const nodeData = selectedNodeData as unknown as Record<string, unknown>;
-      const cstNode = nodeData['$cstNode'] as
-        | { range?: { start?: { line?: number } }; _rangeCache?: { start?: { line?: number } } }
-        | undefined;
-      const textRegion = nodeData['$textRegion'] as { range?: { start?: { line?: number } } } | undefined;
-      const range = cstNode?._rangeCache ?? cstNode?.range ?? textRegion?.range;
-      if (range?.start?.line !== undefined) {
-        pendingRevealRef.current = { line: range.start.line + 1, filePath };
-      } else {
-        const typeName = (nodeData as { name?: string }).name;
-        const file = files.find((f) => f.path === filePath);
-        const line = typeName && file ? findDeclarationLine(file.content, typeName) : 0;
-        pendingRevealRef.current = { line: line > 0 ? line : 1, filePath };
-      }
-
-      // File availability changes when a selected curated namespace hydrates.
-      // Keep explicit tab navigation intact on unrelated model/data updates.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedNodeId, selectedSourceFilePath, workspaceId]);
+      const previous = sourceRevealIntentRef.current;
+      if (previous && previous.nodeId === selectedNodeId && previous.workspaceId === workspaceId && previous.cancelled)
+        return;
+      const request = selectedNodeId ? { nodeId: selectedNodeId, workspaceId, filePath: selectedSourceFilePath } : null;
+      sourceRevealIntentRef.current = request;
+      pendingRevealRef.current = request?.filePath ? request : null;
+      if (request?.filePath) openFileInSource(request.filePath);
+      // Hydration may replace a deferred file identity. It must not reclaim a
+      // tab after the user explicitly navigated away from this selection.
+    }, [selectedNodeId, selectedSourceFilePath, workspaceId, openFileInSource]);
 
     // "+" new-file affordance moved to ExploreCenterSlot (shared-perspective-
     // chrome plan, Task 3) — it re-derives the same logic from useWorkspace().
@@ -1553,20 +1560,37 @@ export const ExplorePerspective = withInstrumentation(
       };
     }, [lspClient, files, openFileInSource]);
 
-    // Applies a pending reveal request once its target file's CodeMirror
-    // view actually exists — shared by both the mount-triggered consumer
-    // effect below and handleEditorViewCreated (the Source pane may not be
-    // mounted yet, e.g. it starts collapsed by default (DockShell's
-    // activePanes), so no EditorView exists for `filePath` until the user
-    // toggles the pane on and CodeMirror creates one).
-    const applyPendingReveal = useCallback((filePath: string) => {
-      const pending = pendingRevealRef.current;
-      if (!pending || pending.filePath !== filePath) return;
-      pendingRevealRef.current = null;
-      requestAnimationFrame(() => {
-        sourceEditorRef.current?.revealLine(pending.line, pending.filePath);
-      });
-    }, []);
+    const sourceRevealContextRef = useLatestRef({
+      selectedNodeId,
+      selectedNodeData,
+      selectedSourceFilePath,
+      workspaceId,
+      files
+    });
+    const applyPendingReveal = useCallback(
+      (filePath: string) => {
+        const pending = pendingRevealRef.current;
+        if (!pending || pending.cancelled || pending.filePath !== filePath) return;
+        requestAnimationFrame(() => {
+          if (pendingRevealRef.current !== pending) return;
+          const current = sourceRevealContextRef.current;
+          if (
+            current.selectedNodeId !== pending.nodeId ||
+            current.workspaceId !== pending.workspaceId ||
+            current.selectedSourceFilePath !== pending.filePath ||
+            useExploreFileNavStore.getState().activeEditorFile !== pending.filePath
+          )
+            return;
+          const file = current.files.find((candidate) => candidate.path === pending.filePath);
+          if (!file || !current.selectedNodeData) return;
+          const line = findDeclarationLine(file.content, current.selectedNodeData);
+          if (line !== undefined && sourceEditorRef.current?.revealLine(line, pending.filePath)) {
+            pendingRevealRef.current = null;
+          }
+        });
+      },
+      [sourceRevealContextRef]
+    );
 
     const handleEditorViewCreated = useCallback(
       (filePath: string, view: import('@codemirror/view').EditorView) => {
@@ -1575,6 +1599,10 @@ export const ExplorePerspective = withInstrumentation(
           pendingDisplayFileRef.current.delete(filePath);
           resolve(view);
         }
+        // A hidden Source pane destroys its view. Restore the same selection
+        // when it reopens, unless a later file navigation superseded it.
+        const intent = sourceRevealIntentRef.current;
+        if (intent?.filePath === filePath && !intent.cancelled) pendingRevealRef.current = intent;
         applyPendingReveal(filePath);
       },
       [applyPendingReveal]
@@ -1588,18 +1616,34 @@ export const ExplorePerspective = withInstrumentation(
       return resolvedActiveFile ? [resolvedActiveFile] : [];
     }, [activeEditorFile, files]);
 
-    // Only consumes the pending reveal when the Source pane is actually
-    // mounted (sourceEditorRef.current is live) — the Source pane starts
-    // collapsed by default, so selecting a node elsewhere must leave the
-    // reveal request intact (not silently discard it) until the user opens
-    // the pane; handleEditorViewCreated picks it up once that view mounts.
     useEffect(() => {
       const pending = pendingRevealRef.current;
-      if (!pending || !sourceEditorRef.current) return;
-      if (sourceEditorFiles.some((f) => f.path === pending.filePath)) {
+      if (pending?.filePath && sourceEditorFiles.some((file) => file.path === pending.filePath)) {
         applyPendingReveal(pending.filePath);
       }
-    }, [sourceEditorFiles, selectedNodeId, applyPendingReveal]);
+    }, [sourceEditorFiles, selectedNodeId, selectedNodeData, workspaceId, applyPendingReveal]);
+
+    useEffect(() => {
+      // Cancel on explicit file navigation, including a tab switch before the
+      // scheduled frame. Opening the selected file above updates the store first.
+      const unsubscribe = useExploreFileNavStore.subscribe((state, previous) => {
+        const intent = sourceRevealIntentRef.current;
+        if (
+          intent &&
+          state.activeEditorFile !== previous.activeEditorFile &&
+          state.activeEditorFile !== sourceRevealContextRef.current.selectedSourceFilePath &&
+          sourceRevealContextRef.current.files.some((file) => file.path === previous.activeEditorFile)
+        ) {
+          intent.cancelled = true;
+          pendingRevealRef.current = null;
+        }
+      });
+      return () => {
+        unsubscribe();
+        sourceRevealIntentRef.current = null;
+        pendingRevealRef.current = null;
+      };
+    }, [sourceRevealContextRef]);
 
     const getSerializedFiles = useCallback((): Map<string, string> => {
       const rosettaText = graphRef.current?.exportRosetta?.();
