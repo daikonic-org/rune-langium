@@ -20,6 +20,57 @@ function makeRecord(overrides: Partial<JourneyRecord> & Pick<JourneyRecord, 'id'
 }
 
 describe('buildTimingsRollup', () => {
+  it('counts mirrored completions once, without losing identical operations or reload generations', () => {
+    const completion = {
+      op: 'functionExecute',
+      subject: 'EchoDate',
+      level: 'success' as const,
+      message: 'executed',
+      durationMs: 15,
+      ts: 10,
+      panel: 'output' as const,
+      sourceId: 1,
+      opId: 2,
+      navigationGeneration: 0
+    };
+    const record = makeRecord({
+      id: 'J21',
+      title: 'primitives',
+      opLog: [
+        completion,
+        { ...completion, panel: 'activity', sourceId: 5, ts: 10.1 },
+        { ...completion, opId: 3, sourceId: 2 },
+        { ...completion, panel: 'activity', opId: 3, sourceId: 6 },
+        { ...completion, navigationGeneration: 1 },
+        { ...completion, panel: 'activity', navigationGeneration: 1, sourceId: 5 },
+        { ...completion, opId: undefined, sourceId: 7 },
+        { ...completion, opId: undefined, sourceId: 8 }
+      ]
+    });
+    expect(buildTimingsRollup([record])).toHaveLength(5);
+    expect(record.opLog).toHaveLength(8);
+  });
+
+  it('retains six logical attempts, including a failed validation, from twelve mirrored records', () => {
+    const opLog = Array.from({ length: 6 }, (_, index) =>
+      ['output', 'activity'].map((panel) => ({
+        op: 'functionExecute',
+        subject: 'temporal input',
+        level: index === 5 ? ('error' as const) : ('success' as const),
+        message: index === 5 ? 'invalid input' : 'executed',
+        durationMs: 20,
+        ts: index,
+        sourceId: index,
+        opId: index,
+        navigationGeneration: 0,
+        panel: panel as 'output' | 'activity'
+      }))
+    ).flat();
+    expect(buildTimingsRollup([makeRecord({ id: 'J21', title: 'temporal inputs', opLog })])).toHaveLength(6);
+    expect(opLog).toHaveLength(12);
+    expect(opLog.filter((entry) => entry.level === 'error')).toHaveLength(2);
+  });
+
   it('prefers journey completion over an internal registration span', () => {
     const record = makeRecord({
       id: 'J03',

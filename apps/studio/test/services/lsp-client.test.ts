@@ -22,8 +22,10 @@ const {
   mockLspConnect,
   mockPlugin,
   mockGetFile,
-  mockRequest
+  mockRequest,
+  clientOptions
 } = vi.hoisted(() => ({
+  clientOptions: { current: undefined as any },
   mockRequest: vi.fn().mockResolvedValue(null),
   mockDidOpen: vi.fn(),
   mockDidClose: vi.fn(),
@@ -70,6 +72,7 @@ vi.mock('@codemirror/lsp-client', () => {
     plugin = mockPlugin;
     workspace: MockWorkspace;
     constructor(opts: any) {
+      clientOptions.current = opts;
       if (opts?.workspace) {
         this.workspace = opts.workspace(this);
       } else {
@@ -140,6 +143,32 @@ describe('createLspClientService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('rejects stale versions and out-of-bounds unversioned diagnostics before both consumers', async () => {
+    mockCreateProvider.mockReturnValue(makeFakeProvider() as never);
+    const service = createLspClientService();
+    await service.connect();
+    const uri = 'file:///workspace/a.rosetta';
+    service.syncWorkspaceFiles([{ path: 'a.rosetta', content: 'namespace a\n' }]);
+    const report = vi.fn();
+    service.onDiagnostics(report);
+    const handler = clientOptions.current.notificationHandlers['textDocument/publishDiagnostics'];
+    const doc = (await import('@codemirror/state')).Text.of(['namespace a', '']);
+    const client = { workspace: { getFile: () => ({ version: 2, doc, getView: () => null }) } };
+    const diagnostic = {
+      message: 'syntax error',
+      range: { start: { line: 17, character: 0 }, end: { line: 17, character: 1 } }
+    };
+    expect(handler(client, { uri, version: 1, diagnostics: [diagnostic] })).toBe(true);
+    expect(handler(client, { uri, diagnostics: [diagnostic] })).toBe(true);
+    expect(report).not.toHaveBeenCalled();
+    expect(handler(client, { uri, version: 2, diagnostics: [] })).toBe(false);
+    expect(report).toHaveBeenCalledWith(uri, []);
+    const valid = { ...diagnostic, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 9 } } };
+    expect(handler(client, { uri, version: 2, diagnostics: [valid] })).toBe(false);
+    expect(report).toHaveBeenLastCalledWith(uri, [valid]);
+    service.dispose();
   });
 
   it('returns expected API shape', () => {

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type { Route } from '@playwright/test';
-import { checkout as test, expect, loadCdm } from '../fixtures.js';
+import { checkout as test, expect, loadCdm, captureOpLogSnapshot } from '../fixtures.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 
 test.describe('J16 — Resilience & chrome', () => {
@@ -44,6 +44,7 @@ test.describe('J16 — Resilience & chrome', () => {
       await typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data').click();
       await inflight;
       await evidence.checkpoint('namespace-hydration-in-flight');
+      await captureOpLogSnapshot(page, evidence);
       await page.getByRole('button', { name: /Workspace menu/ }).click();
       await page.getByRole('menuitem', { name: /Close .*return to start page/ }).click();
       await expect(page.getByRole('button', { name: 'New blank workspace', exact: true })).toBeVisible();
@@ -57,7 +58,9 @@ test.describe('J16 — Resilience & chrome', () => {
       await expect(typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /Workspace menu.*untitled/ })).toBeVisible();
       await evidence.checkpoint('late-hydration-discarded');
+      await captureOpLogSnapshot(page, evidence);
       await page.reload();
+      evidence.markNavigation();
       await expect(page.getByRole('button', { name: /Workspace menu.*untitled/ })).toBeVisible();
       await page.getByTestId('namespace-search').fill('BusinessCenters');
       await expect(typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data')).toHaveCount(0);
@@ -74,7 +77,9 @@ test.describe('J16 — Resilience & chrome', () => {
       await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
       await evidence.checkpoint('before-reload');
 
+      await captureOpLogSnapshot(page, evidence);
       await page.reload();
+      evidence.markNavigation();
       await page.waitForLoadState('domcontentloaded');
       await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
       await evidence.checkpoint('after-reload');

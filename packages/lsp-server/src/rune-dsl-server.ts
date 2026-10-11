@@ -222,6 +222,14 @@ export function createRuneLspServer(
   const validator = new RuneDslValidator();
   validator.registerChecks(RuneDsl);
 
+  // Langium publishes ranges without a version. Attach the validated document's
+  // revision, never the newer TextDocuments buffer that may be awaiting a build.
+  const publishDiagnostics = connection.sendDiagnostics;
+  connection.sendDiagnostics = (params: { uri: string; diagnostics: unknown[]; version?: number }) => {
+    const document = shared.workspace.LangiumDocuments.getDocument(URI.parse(params.uri));
+    return publishDiagnostics({ ...params, ...(document ? { version: document.textDocument.version } : {}) });
+  };
+
   // 5. Let Langium wire all providers → connection handlers + documents
   startLanguageServer(shared);
 

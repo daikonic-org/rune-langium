@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import type { TemporalWireFormat } from './expr/temporal-conversions.js';
 import type { ExcelOptions } from './options/excel-options.js';
 import type { OpenApiOptions } from './options/openapi-options.js';
 
@@ -276,8 +277,8 @@ export interface PreviewFieldBase {
 
 export interface PreviewScalarField extends PreviewFieldBase {
   kind: 'string' | 'number' | 'boolean';
-  /** ISO calendar date string, kept as YYYY-MM-DD throughout editing. */
-  format?: 'date';
+  /** Canonical ISO wire format; form values remain strings. */
+  format?: TemporalWireFormat;
 }
 
 export interface PreviewEnumField extends PreviewFieldBase {

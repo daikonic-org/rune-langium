@@ -49,7 +49,8 @@ describe('parseWorkspace routing', () => {
               { filePath: document.uri, namespace: document.namespace, exports: [{ type: 'Data', name: 'Number' }] }
             ],
             hydrationState: { documents: [document] },
-            requiredCuratedArtifacts
+            requiredCuratedArtifacts,
+            curatedBundleVersions: { cdm: 'cohort-1', 'rune-dsl': 'cohort-1' }
           })
         )
       )
@@ -62,7 +63,8 @@ describe('parseWorkspace routing', () => {
             dependencyGraph: {},
             deferredExports: [],
             hydrationState: { documents: [] },
-            requiredCuratedArtifacts
+            requiredCuratedArtifacts,
+            curatedBundleVersions: { cdm: 'cohort-1', 'rune-dsl': 'cohort-1' }
           })
         )
       );
@@ -86,6 +88,7 @@ describe('parseWorkspace routing', () => {
       namespace: document.namespace,
       exports: [{ type: 'Data', name: 'Number' }]
     });
+    expect(warm.curatedBundleVersions).toEqual({ cdm: 'cohort-1', 'rune-dsl': 'cohort-1' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

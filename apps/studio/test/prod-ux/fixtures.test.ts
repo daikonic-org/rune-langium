@@ -20,11 +20,12 @@
  * suite ran.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import { computeJourneyId } from './fixtures.js';
-import { appendJourneyRecord, REPORT_DIR, type JourneyRecord } from './evidence.js';
+import { appendJourneyRecord, REPORT_DIR, EvidenceCollector, type JourneyRecord } from './evidence.js';
 
 const MANIFEST_PATH = path.join(REPORT_DIR, 'run-manifest.json');
 
@@ -125,5 +126,30 @@ describe('appendJourneyRecord + computeJourneyId (journey-subid disambiguation)'
     expect(surviving.retry).toBe(1);
     expect(surviving.previousAttempts).toHaveLength(1);
     expect(surviving.previousAttempts?.[0]).toMatchObject({ verdict: 'FAIL', retry: 0 });
+  });
+});
+
+describe('operation evidence across navigation', () => {
+  it('preserves pre-reload errors and distinguishes reused IDs after reload', () => {
+    const page = { on: vi.fn() } as unknown as Page;
+    const evidence = new EvidenceCollector(page, 'J16', 'reload');
+    const entry = {
+      panel: 'output' as const,
+      sourceId: 1,
+      opId: 1,
+      ts: 1,
+      op: 'toast',
+      level: 'error' as const,
+      message: 'cancelled before reload',
+      durationMs: 12
+    };
+    evidence.recordOpLog([entry]);
+    evidence.recordOpLog([entry]);
+    evidence.markNavigation();
+    evidence.recordOpLog([{ ...entry, message: 'cancelled before reload' }]);
+    expect(evidence.opLog).toEqual([
+      { ...entry, navigationGeneration: 0 },
+      { ...entry, navigationGeneration: 1 }
+    ]);
   });
 });

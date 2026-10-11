@@ -39,6 +39,7 @@ test('J20 cached curated JSON and lazy source are reused after reload', async ({
   await captureOpLogSnapshot(page, evidence);
   warm = true;
   await page.reload();
+  evidence.markNavigation();
   await evidence.measure('curatedSourceOpen', 'warm Abs', openSource);
   await Promise.all(reads);
   expect(sourceRequests).toBe(coldSourceRequests);

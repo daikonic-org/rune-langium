@@ -182,7 +182,9 @@ describe('Rune DSL LSP Server', () => {
     await client.sendNotification('textDocument/didOpen', {
       textDocument: { uri, languageId: 'rune-dsl', version: 1, text: 'invalid rune !!!' }
     });
-    expect((await open).diagnostics.some((d) => d.severity === 1)).toBe(true);
+    const opened = await open;
+    expect(opened.version).toBe(1);
+    expect(opened.diagnostics.some((d) => d.severity === 1)).toBe(true);
     const changed = client.waitForNotification('textDocument/publishDiagnostics', {
       timeout: 10_000,
       filter: (p) => p.uri === uri
@@ -191,7 +193,9 @@ describe('Rune DSL LSP Server', () => {
       textDocument: { uri, version: 2 },
       contentChanges: [{ text: SAMPLE_CONTENT }]
     });
-    expect((await changed).diagnostics).toEqual([]);
+    const restored = await changed;
+    expect(restored.version).toBe(2);
+    expect(restored.diagnostics).toEqual([]);
   });
 
   // ── Document Symbols ──────────────────────────────────────────────────

@@ -181,3 +181,5 @@ export { projectPythonExpression } from './projection/python.js';
 export type { PythonModule } from './projection/python-functions.js';
 export type { PythonProjectionContext } from './projection/context.js';
 export type { GeneratedProjection, ProjectionSubject, EmittedProjection } from './projection/types.js';
+
+export type { TemporalWireFormat } from './expr/temporal-conversions.js';

@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import type { ExportSelection, GeneratorDiagnostic, Target } from '@rune-langium/codegen/export';
 import { withInstrumentation } from './instrumentation/core.js';
 import { throwCodegenDownloadError } from './workspace.js';
+import { downloadBlob } from './browser-download.js';
 
 export interface ExportArtifactFile {
   path: string;
@@ -38,15 +39,7 @@ export interface ExportArtifact {
 /** Save the exact immutable ZIP Blob that was decoded for preview. */
 export const downloadExportArtifact = withInstrumentation(
   function downloadExportArtifact(artifact: ExportArtifact): void {
-    const url = URL.createObjectURL(artifact.blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = artifact.filename;
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    downloadBlob(artifact.blob, artifact.filename);
   },
   { op: 'downloadExportArtifact' }
 );

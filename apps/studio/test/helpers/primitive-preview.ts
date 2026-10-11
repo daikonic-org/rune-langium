@@ -7,8 +7,8 @@ import { typeNavigationButton } from './type-navigation.js';
 
 const cases = [
   { name: 'Date', type: 'date', value: '2026-10-10', control: 'date' },
-  { name: 'Time', type: 'time', value: '14:35:12', control: 'text' },
-  { name: 'DateTime', type: 'dateTime', value: '2026-10-10T14:35:12', control: 'text' },
+  { name: 'Time', type: 'time', value: '14:35:12', control: 'time' },
+  { name: 'DateTime', type: 'dateTime', value: '2026-10-10T14:35:12', control: 'datetime-local' },
   { name: 'ZonedDateTime', type: 'zonedDateTime', value: '2026-10-10T14:35:12+05:30', control: 'text' },
   { name: 'Enum', type: 'Kind', value: 'Physical', control: 'select' }
 ] as const;
@@ -43,9 +43,10 @@ ${cases
     } else {
       await expect(field).toHaveAttribute('type', entry.control);
       if (entry.name === 'DateTime') {
+        await form.getByRole('button', { name: 'Edit ISO value' }).click();
         await field.fill(entry.value + 'Z');
         await form.getByRole('button', { name: 'Run', exact: true }).click();
-        await expect(form.locator('.execution-error')).toContainText('value:');
+        await expect(form.locator('.execution-error')).toContainText('without a UTC offset');
         await checkpoint('local-datetime-rejects-offset');
       }
       await field.fill(entry.value);

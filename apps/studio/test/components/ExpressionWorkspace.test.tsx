@@ -43,6 +43,34 @@ async function context() {
 }
 
 describe('source-bound expression workspace', () => {
+  it('retries a failed projection without changing or remounting the source editor', async () => {
+    const { props, writes } = await context();
+    const project = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Preparing preview timed out.'))
+      .mockImplementation(async (language, subject) => ({
+        language,
+        subject,
+        code: 'return 1;',
+        sourceMap: [],
+        requiredHelpers: []
+      }));
+    const factory = () => ({ schema: vi.fn(), execute: vi.fn(), project, dispose: vi.fn() });
+    const host = render(
+      <PreviewSessionContext.Provider value={factory}>
+        <ExpressionWorkspace {...props} />
+      </PreviewSessionContext.Provider>
+    );
+    const editor = await host.findByTestId('implementation-editor');
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
+    fireEvent.click(host.getByRole('button', { name: 'TypeScript' }));
+    await waitFor(() => expect(host.getByRole('alert')).toHaveTextContent('timed out'));
+    fireEvent.click(host.getByRole('button', { name: 'Retry generation' }));
+    await waitFor(() => expect(host.getByTestId('generated-expression')).toHaveTextContent('return 1;'));
+    expect(project).toHaveBeenCalledTimes(2);
+    expect(EditorView.findFromDOM(editor.querySelector('.cm-editor')!)).toBe(view);
+    expect(writes).not.toHaveBeenCalled();
+  });
   it('rejects scope loaded for a superseded dependency snapshot', async () => {
     const { props, sibling, writes } = await context();
     let finish!: (scope: FunctionScope) => void;

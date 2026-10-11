@@ -95,8 +95,7 @@ test.describe('J17 — Accessibility sweep', () => {
     evidence.softFinding(
       'KI-a11y-single-theme-only',
       "Axe sweep ran once under the app's fixed dark theme — no light-theme toggle exists to exercise the " +
-        'spec\'s "both themes" requirement (same root cause as J15\'s KI-layout-reset-unreachable finding: ' +
-        'SettingsPerspective.tsx confirms theme is fixed at dark).'
+        'spec\'s "both themes" requirement. Settings provides font scaling and layout reset, but no theme switch.'
     );
 
     const totalBlocking = results.reduce((sum, r) => sum + r.blocking, 0);

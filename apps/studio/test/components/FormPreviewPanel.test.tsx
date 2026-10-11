@@ -674,6 +674,39 @@ describe('FormPreviewPanel', () => {
       fireEvent.change(screen.getByLabelText('Day'), { target: { value: '' } });
       expect(onValuesChange).toHaveBeenLastCalledWith({ day: '', timestamp: '' });
     });
+    it('uses native time/local pickers, retains seconds and exposes zoned ISO editing', () => {
+      const schema: FormPreviewSchema = {
+        schemaVersion: 1,
+        targetId: 'test.Temporal',
+        title: 'Temporal',
+        status: 'ready',
+        fields: [
+          { path: 'clock', label: 'Clock', kind: 'string', format: 'time', required: true },
+          { path: 'local', label: 'Local', kind: 'string', format: 'dateTime', required: true },
+          { path: 'zoned', label: 'Zoned', kind: 'string', format: 'zonedDateTime', required: false }
+        ]
+      };
+      const onValuesChange = vi.fn();
+      const values = { clock: '', local: '', zoned: '2026-10-11T14:30:12.123456789+05:30[Asia/Kolkata]' };
+      render(
+        <FormPreviewPanel schema={schema} status={{ state: 'ready' }} values={values} onValuesChange={onValuesChange} />
+      );
+      expect(screen.getByLabelText('Clock')).toHaveAttribute('type', 'time');
+      expect(screen.getByLabelText('Local')).toHaveAttribute('type', 'datetime-local');
+      fireEvent.change(screen.getByLabelText('Clock'), { target: { value: '14:30' } });
+      expect(onValuesChange).toHaveBeenLastCalledWith({ ...values, clock: '14:30:00' });
+      fireEvent.change(screen.getByLabelText('Local'), { target: { value: '2026-10-12T14:30' } });
+      expect(onValuesChange).toHaveBeenLastCalledWith({ ...values, local: '2026-10-12T14:30:00' });
+      expect(screen.getByLabelText('Zoned')).toHaveValue(values.zoned);
+      fireEvent.change(screen.getByLabelText('Zoned picker'), { target: { value: '2026-10-12T14:30:12.123' } });
+      expect(onValuesChange).toHaveBeenLastCalledWith({
+        ...values,
+        zoned: '2026-10-12T14:30:12.123456789+05:30[Asia/Kolkata]'
+      });
+      fireEvent.change(screen.getByLabelText('Zoned'), { target: { value: '' } });
+      expect(onValuesChange).toHaveBeenLastCalledWith({ ...values, zoned: '' });
+    });
+
     const recursiveSchema: FormPreviewSchema = {
       schemaVersion: 1,
       targetId: 'test.Node',
@@ -1296,6 +1329,26 @@ describe('FormPreviewPanel', () => {
       status: 'ready',
       fields: []
     };
+
+    it('presents temporal format guidance while retaining the original execution diagnostic', async () => {
+      const schema: FormPreviewSchema = {
+        ...calcTradeSchema,
+        fields: [{ path: 'when', label: 'When', kind: 'string', format: 'dateTime', required: true }]
+      };
+      const raw = 'when: Invalid string: must match pattern /local-date-time/; other: Missing input';
+      render(
+        <FormPreviewPanel schema={schema} status={{ state: 'ready', targetId: schema.targetId }} onExecute={vi.fn()} />
+      );
+      await act(async () => {
+        usePreviewStore.getState().setWorkerRef({ postMessage: vi.fn() } as unknown as Worker);
+        usePreviewStore.getState().dispatchExecute(schema.targetId, { when: 'invalid' });
+        usePreviewStore.getState().receiveExecutionError(schema.targetId, raw);
+      });
+      expect(screen.getByText(/when: Enter a local date and time/)).toHaveTextContent('without a UTC offset');
+      expect(screen.getByText(/when: Enter a local date and time/)).toHaveTextContent('other: Missing input');
+      expect(usePreviewStore.getState().executionResults.get(schema.targetId)?.error).toBe(raw);
+      expect(useOutputStore.getState().lines.some((line) => line.text.includes(raw))).toBe(true);
+    });
 
     it('runs the function using the qualified targetId, not the bare title', async () => {
       const user = userEvent.setup();

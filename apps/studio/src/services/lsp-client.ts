@@ -315,11 +315,40 @@ export const createLspClientService = withInstrumentation(
           return ws;
         },
         notificationHandlers: {
-          'textDocument/publishDiagnostics': (_client, params) => {
-            const { uri, diagnostics } = params as {
+          'textDocument/publishDiagnostics': (target, params) => {
+            const { uri, diagnostics, version } = params as {
               uri: string;
               diagnostics: LspDiagnostic[];
+              version?: number;
             };
+            const file = target.workspace.getFile(uri);
+            const snapshot = workspaceSnapshot.get(uri);
+            const revision = file?.version ?? snapshot?.version;
+            if (version !== undefined && revision !== undefined && version !== revision) return true;
+            const view = file?.getView();
+            const doc =
+              (view && LSPPlugin.get(view)?.syncedDoc) ??
+              file?.doc ??
+              (snapshot ? Text.of(snapshot.content.split('\n')) : undefined);
+            if (
+              doc &&
+              diagnostics.some(({ range }) => {
+                const valid = (position: { line: number; character: number }) =>
+                  Number.isInteger(position.line) &&
+                  position.line >= 0 &&
+                  position.line < doc.lines &&
+                  Number.isInteger(position.character) &&
+                  position.character >= 0 &&
+                  position.character <= doc.line(position.line + 1).length;
+                return (
+                  !valid(range.start) ||
+                  !valid(range.end) ||
+                  range.end.line < range.start.line ||
+                  (range.end.line === range.start.line && range.end.character < range.start.character)
+                );
+              })
+            )
+              return true;
             for (const h of diagnosticHandlers) h(uri, diagnostics);
             return false; // let serverDiagnostics() also handle editor underlines
           }

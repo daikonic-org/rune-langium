@@ -25,6 +25,38 @@ describe('installTelemetryShipper', () => {
     vi.useRealTimers();
   });
 
+  it('flushes buffered spans before page exit and removes the listener on teardown', () => {
+    const emit = vi.fn(async () => {});
+    uninstall = installTelemetryShipper({ emit });
+    useOutputStore.getState().addLine('before reload', 'error', { op: 'clientError' });
+    window.dispatchEvent(new Event('pagehide'));
+    expect(emit).toHaveBeenCalledTimes(1);
+    uninstall();
+    uninstall = undefined;
+    useOutputStore.getState().addLine('after teardown', 'error', { op: 'clientError' });
+    window.dispatchEvent(new Event('pagehide'));
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('splits a large backfill into schema-valid batches without dropping spans', () => {
+    for (let i = 0; i < 105; i++) useOutputStore.getState().addLine('error', 'error', { op: 'clientError' });
+    const emit = vi.fn(async () => {});
+    uninstall = installTelemetryShipper({ emit }, { backfillPreInstall: true });
+    expect(emit.mock.calls.flatMap(([event]) => event.spans)).toHaveLength(105);
+    expect(emit.mock.calls.every(([event]) => event.spans.length <= 50)).toBe(true);
+  });
+
+  it('does not flush buffered spans after consent is withdrawn', () => {
+    const emit = vi.fn(async () => {});
+    uninstall = installTelemetryShipper({ emit });
+    useOutputStore.getState().addLine('before opt-out', 'error', { op: 'clientError' });
+    useTelemetrySettingsStore.setState({ enabled: false });
+    window.dispatchEvent(new Event('pagehide'));
+    uninstall();
+    uninstall = undefined;
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it('ships an error entry at 100% sample rate on the next flush tick', async () => {
     const emit = vi.fn(async () => {});
     uninstall = installTelemetryShipper({ emit });

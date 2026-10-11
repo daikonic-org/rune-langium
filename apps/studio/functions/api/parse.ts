@@ -214,6 +214,7 @@ const instrumentedOnRequestPost = withInstrumentation(
       // precomputed manifest graph (NO deserialize/link). Feeds buildDependencyGraph.
       const curatedDirectDeps = new Map<string, Set<string>>();
       let requiredCuratedArtifacts: Array<{ key: string; bundleId: string; namespace: string }> = [];
+      const curatedBundleVersions: Record<string, string> = {};
       if (Array.isArray(body.curatedBundles) && body.curatedBundles.length > 0) {
         try {
           const knownArtifacts = new Set(
@@ -232,6 +233,7 @@ const instrumentedOnRequestPost = withInstrumentation(
             curatedDirectDeps.set(ns, targets);
           }
           for (const bundle of loaded.bundles) {
+            curatedBundleVersions[bundle.id] = bundle.manifest.cohort ?? bundle.manifest.version;
             for (const doc of bundle.documents) {
               // The parser worker consumes serializedModel and exports only.
               // Original source is fetched separately for the namespace being
@@ -300,6 +302,7 @@ const instrumentedOnRequestPost = withInstrumentation(
           errors,
           hydrationState: { documents: documentsForHydration },
           requiredCuratedArtifacts,
+          curatedBundleVersions,
           dependencyGraph
         }),
         {

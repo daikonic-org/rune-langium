@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { checkout as test, expect } from '../fixtures.js';
+import { checkout as test, expect, captureOpLogSnapshot } from '../fixtures.js';
 
 const WORKSPACE_FILE_NAME = 'starter.rosetta';
 const WORKSPACE_FILE_CONTENT = 'namespace example\n';
@@ -24,7 +24,9 @@ test.describe('J02 — workspace lifecycle & persistence', () => {
     await evidence.checkpoint('workspace-created');
 
     const reloadedAt = Date.now();
+    await captureOpLogSnapshot(page, evidence);
     await page.reload();
+    evidence.markNavigation();
     await page.waitForLoadState('domcontentloaded');
 
     // A reloaded page with a prior workspace lands back in the workbench,

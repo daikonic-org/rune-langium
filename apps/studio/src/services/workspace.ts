@@ -43,6 +43,7 @@ import { isTelemetryRecordMessage } from './instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import { pathToUri } from '../utils/uri.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
+import { downloadBlob } from './browser-download.js';
 
 /** Known curated bundle ids — guards deferredExports filePath prefixes so user
  *  files that happen to live under `${bundleId}/...` aren't mis-grouped. */
@@ -90,7 +91,8 @@ function routedWorkspaceResult(response: ParseWorkspaceResponse): ParseWorkspace
     errors: new Map(Object.entries(response.errors)),
     parseMode: 'router',
     deferredExports: response.deferredExports,
-    curatedRefOnlyFiles: response.curatedRefOnlyFiles
+    curatedRefOnlyFiles: response.curatedRefOnlyFiles,
+    curatedBundleVersions: response.curatedBundleVersions
   };
 }
 
@@ -278,6 +280,7 @@ export interface ParseWorkspaceFilesResult {
    * client-side in that path).
    */
   curatedRefOnlyFiles?: Record<string, CachedFile[]>;
+  curatedBundleVersions?: Record<string, string>;
   deferredExports?: Array<{
     filePath: string;
     namespace: string;
@@ -788,6 +791,7 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       hydrationState: { documents: HydrateRequest['documents'] };
       requiredCuratedArtifacts?: Array<{ key: string; bundleId: string; namespace: string; documentCount?: number }>;
       dependencyGraph?: Record<string, string[]>;
+      curatedBundleVersions?: Record<string, string>;
     };
     const fetchParse = async (known: string[]): Promise<typeof data> => {
       try {
@@ -1058,7 +1062,8 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       parsedModels,
       deferredExports,
       errors: data.errors,
-      curatedRefOnlyFiles
+      curatedRefOnlyFiles,
+      curatedBundleVersions: data.curatedBundleVersions
     };
     // Same raw-content concerns as parseWorkspaceFiles above — only counts.
   },
@@ -1531,17 +1536,6 @@ function parseContentDispositionFilename(header: string | null, fallback: string
  * Trigger a browser save for `blob` using the document API. Creates a
  * temporary anchor with an object URL, clicks it, then revokes the URL.
  */
-function triggerBlobDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = 'none';
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
-}
 
 export const downloadTargetViaRouter = withInstrumentation(
   async function downloadTargetViaRouter(
@@ -1591,7 +1585,7 @@ export const downloadTargetViaRouter = withInstrumentation(
 
     const blob = await response.blob();
     const filename = parseContentDispositionFilename(response.headers.get('Content-Disposition'), `${target}-output`);
-    triggerBlobDownload(blob, filename);
+    downloadBlob(blob, filename);
     // `target` is one of a fixed, app-defined set of codegen language ids
     // (typescript/json-schema/sql/xsd/openapi/...) — safe. `files`/`options`/
     // `namespaces`/`curatedDocs` may carry user model content — never captured.

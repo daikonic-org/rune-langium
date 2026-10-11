@@ -8,7 +8,8 @@ import {
   lastStartedPerfOpId,
   waitForPerfLogStart,
   waitForPerfLogOpId,
-  captureOpLogSnapshot
+  captureOpLogSnapshot,
+  readPerfLog
 } from '../fixtures.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 import type { Page } from '@playwright/test';
@@ -48,6 +49,10 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
       attributes: [{ name: 'quantity', typeName: 'number', cardinality: '(1..1)' }]
     });
     await evidence.checkpoint('type-created');
+    expect(
+      (await readPerfLog(page)).filter((entry) => entry.op === 'workspaceSave').length,
+      'source typing should produce bounded autosaves, not a save per keystroke'
+    ).toBeLessThanOrEqual(8);
 
     // Regression target: fix(core) 282dcebe stamps $cstRange from
     // $textRegion when $cstNode is absent, so a graphical edit on a
@@ -114,6 +119,7 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
     await evidence.checkpoint('cardinality-set');
 
     await waitForPerfLogOpId(page, 'workspaceSave', targetSaveOpId);
+    await expect(page.locator('[data-slot="attribute-row"]')).toHaveCount(2);
     const opIdBeforeRename = await lastStartedPerfOpId(page, 'workspaceSave');
     await nameInput.fill(RENAMED_TYPE_NAME);
     const renameSaveOpId = await waitForPerfLogStart(page, 'workspaceSave', opIdBeforeRename);
@@ -179,6 +185,7 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
     await expect(sourceEditor).toContainText('(0..*)');
 
     const sourceText = (await sourceEditor.textContent()) ?? '';
+    expect(sourceText.match(/\bnotes\b/g)).toHaveLength(1);
     const declarationMatches = sourceText.match(new RegExp(`type ${RENAMED_TYPE_NAME}:`, 'g')) ?? [];
     expect(declarationMatches).toHaveLength(1);
     await evidence.checkpoint('source-sync-verified');

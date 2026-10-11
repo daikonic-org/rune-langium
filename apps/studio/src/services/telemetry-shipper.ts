@@ -179,13 +179,15 @@ export const installTelemetryShipper = withInstrumentation(
         buffer = [];
         return;
       }
-      const spans = buffer.splice(0, buffer.length);
-      // Telemetry must never throw into the app (see module doc) — swallow
-      // any rejection, including a schema-validation throw from client.emit
-      // itself (not just network failures caught inside emit's own try/catch),
-      // so it never surfaces as an unhandled rejection that installTelemetryCapture
-      // (Task 2) would re-capture and re-queue as noise.
-      void client.emit({ event: 'op_spans', spans }).catch(() => {});
+      while (buffer.length > 0) {
+        const spans = buffer.splice(0, MAX_BATCH);
+        // Telemetry must never throw into the app (see module doc) — swallow
+        // any rejection, including a schema-validation throw from client.emit
+        // itself (not just network failures caught inside emit's own try/catch),
+        // so it never surfaces as an unhandled rejection that installTelemetryCapture
+        // (Task 2) would re-capture and re-queue as noise.
+        void client.emit({ event: 'op_spans', spans }).catch(() => {});
+      }
     }
 
     function considerFlush(): void {
@@ -247,11 +249,19 @@ export const installTelemetryShipper = withInstrumentation(
     }
 
     const interval = setInterval(flush, FLUSH_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       unsubOutput();
       unsubActivity();
       clearInterval(interval);
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      flush();
     };
     // `client` is a function-bearing object (not serializable) and the return
     // is a cleanup closure — nothing about this call is safe or useful to
