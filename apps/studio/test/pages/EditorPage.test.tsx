@@ -3044,8 +3044,11 @@ describe('EditorPage source reveal lifecycle', () => {
     flushFrames();
     expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
     expect(structureViewMockState.latestProps?.navigationRevision).toBe(1);
+    const firstPreviewRequest = usePreviewStore.getState().navigationRequest;
+    expect(firstPreviewRequest?.targetId).toBe(editorStoreState.selectedNodeId);
     act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
     expect(structureViewMockState.latestProps?.navigationRevision).toBe(2);
+    expect(usePreviewStore.getState().navigationRequest?.revision).toBe(firstPreviewRequest!.revision + 1);
   });
 
   it('retains an unacknowledged reveal until the matching view is ready', () => {

@@ -285,12 +285,15 @@ export const CodePreviewPanel = withInstrumentation(
     }, [activeFile, activeTarget, target]);
 
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
-    const selectedTarget = usePreviewStore((s) => s.selectedTarget);
+    const navigationRequest = usePreviewStore((s) => s.navigationRequest);
+    const consumedArrivalRef = useRef<{ view: EditorView; request: typeof navigationRequest } | undefined>(undefined);
     useEffect(() => {
       const view = editorViewRef.current;
       if (!view) return;
+      const consumed = consumedArrivalRef.current;
+      if (consumed?.view === view && consumed.request === navigationRequest) return;
       clearSourceReveal(view);
-      if (!selectedTargetId || !activeFile) return;
+      if (!navigationRequest || navigationRequest.targetId !== selectedTargetId || !activeFile) return;
       const typeName = nameFromNodeId(selectedTargetId);
       if (!typeName) return;
       const lines = activeFile.content.split('\n');
@@ -298,6 +301,7 @@ export const CodePreviewPanel = withInstrumentation(
         const trimmed = lines[i]!.trimStart();
         if (trimmed.includes(typeName) && /^(export |const |class |interface |type |function )/.test(trimmed)) {
           const lineInfo = view.state.doc.line(i + 1);
+          consumedArrivalRef.current = { view, request: navigationRequest };
           view.dispatch({
             effects: [
               EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 }),
@@ -307,7 +311,7 @@ export const CodePreviewPanel = withInstrumentation(
           return;
         }
       }
-    }, [selectedTargetId, selectedTarget, activeFile, activeTarget, target]);
+    }, [selectedTargetId, navigationRequest, activeFile, activeTarget, target]);
 
     const statusMessage =
       snapshot.status === 'stale' || snapshot.status === 'unavailable' ? snapshot.message : undefined;

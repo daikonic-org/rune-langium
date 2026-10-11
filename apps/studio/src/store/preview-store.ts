@@ -55,6 +55,8 @@ export interface PreviewSampleState {
 interface PreviewStoreState {
   targets: FormPreviewTarget[];
   selectedTargetId?: string;
+  /** Explicit selection intent, independent of refreshed model/generated data. */
+  navigationRequest?: { targetId: string; revision: number };
   selectedTarget?: FormPreviewTarget;
   lastResolvedTarget?: FormPreviewTarget;
   schemas: Map<string, FormPreviewSchema>;
@@ -103,6 +105,7 @@ const initialState: PreviewStoreState = {
   hydrationRetriesRemaining: {}
 };
 
+let navigationRevision = 0;
 let dispatchExecuteCounter = 0;
 let _lastExecuteRequestId = '';
 let workerRef: Worker | null = null;
@@ -302,6 +305,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       set({
         targets,
         selectedTargetId: renamedTarget.id,
+        navigationRequest: undefined,
         selectedTarget: renamedTarget,
         lastResolvedTarget: renamedTarget,
         schemas,
@@ -319,6 +323,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       set({
         targets,
         selectedTargetId: undefined,
+        navigationRequest: undefined,
         selectedTarget: undefined,
         lastResolvedTarget: renameAnchor,
         schemas,
@@ -338,7 +343,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   selectTarget(targetId) {
     if (!targetId) {
-      set({ selectedTargetId: undefined, selectedTarget: undefined, status: { state: 'waiting' } });
+      set({
+        selectedTargetId: undefined,
+        navigationRequest: undefined,
+        selectedTarget: undefined,
+        status: { state: 'waiting' }
+      });
       return;
     }
     const previousTarget = get().selectedTarget ?? get().lastResolvedTarget;
@@ -350,7 +360,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       return;
     }
     set({
-      selectedTargetId: selectedTarget?.id,
+      selectedTargetId: selectedTarget.id,
+      navigationRequest: { targetId: selectedTarget.id, revision: ++navigationRevision },
       selectedTarget,
       lastResolvedTarget: selectedTarget,
       status: selectedTarget ? { state: 'waiting', targetId } : { state: 'waiting' }
@@ -625,6 +636,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set({
       targets: [],
       selectedTargetId: undefined,
+      navigationRequest: undefined,
       selectedTarget: undefined,
       lastResolvedTarget: undefined,
       schemas: new Map(),

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { EditorView } from '@codemirror/view';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { CodePreviewPanel } from '../../src/components/CodePreviewPanel.js';
@@ -53,4 +54,65 @@ it('populates and cues an already-generated file when reopening its preview', ()
   const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
   act(() => useCodegenStore.getState().setActiveTarget('zod'));
   expect(container.querySelector('.cm-source-reveal-line')).toHaveTextContent('export type Trade = Party;');
+});
+
+it('does not restart a consumed arrival when target metadata or generated output refreshes', () => {
+  const scroll = vi.spyOn(EditorView, 'scrollIntoView');
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Trade'));
+  act(() => vi.advanceTimersByTime(1000));
+  scroll.mockClear();
+  act(() =>
+    usePreviewStore.getState().setAvailableTargets(usePreviewStore.getState().targets.map((target) => ({ ...target })))
+  );
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'zod',
+      files: [{ relativePath: 'model.ts', content: '// Regenerated\nexport type Trade = string;', sourceMap: [] }]
+    })
+  );
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  expect(scroll).not.toHaveBeenCalled();
+});
+
+it('waits for generated output for a pending arrival and consumes it only once', () => {
+  useCodegenStore.setState({ snapshot: { status: 'waiting', target: 'zod' } });
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Trade'));
+  const deliver = () =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'zod',
+      files: [{ relativePath: 'model.ts', content: 'export type Trade = string;', sourceMap: [] }]
+    });
+  act(deliver);
+  expect(container.querySelector('.cm-source-reveal-line')).toHaveTextContent('export type Trade');
+  act(() => vi.advanceTimersByTime(1000));
+  act(deliver);
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+});
+
+it('does not reveal a cancelled pending request when output arrives later', () => {
+  useCodegenStore.setState({ snapshot: { status: 'waiting', target: 'zod' } });
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Trade'));
+  act(() => usePreviewStore.getState().selectTarget(undefined));
+  act(() =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'zod',
+      files: [{ relativePath: 'model.ts', content: 'export type Trade = string;', sourceMap: [] }]
+    })
+  );
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+});
+
+it('cancels an arrival when its target disappears instead of replaying after reintroduction', () => {
+  const targets = usePreviewStore.getState().targets;
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Trade'));
+  expect(container.querySelector('.cm-source-reveal-line')).not.toBeNull();
+  act(() => usePreviewStore.getState().setAvailableTargets([]));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() => usePreviewStore.getState().setAvailableTargets(targets));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
 });

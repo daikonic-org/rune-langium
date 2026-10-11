@@ -867,13 +867,6 @@ export const ExplorePerspective = withInstrumentation(
       if (!selectedNodeId) {
         return;
       }
-      selectPreviewTarget(selectedNodeId);
-    }, [selectedNodeId, selectPreviewTarget]);
-
-    useEffect(() => {
-      if (!selectedNodeId) {
-        return;
-      }
       // Increments a nonce to signal the inspector to re-focus.
       // No external resource is acquired here, so no cleanup is required.
       setInspectorFocusNonce((current) => current + 1);
@@ -1215,6 +1208,10 @@ export const ExplorePerspective = withInstrumentation(
         ? navigationTarget
         : undefined;
     const navigationRevision = currentNavigationTarget?.revision;
+    useEffect(() => {
+      if (!selectedNodeId) return;
+      selectPreviewTarget(selectedNodeId);
+    }, [selectedNodeId, navigationRevision, selectPreviewTarget]);
     useEffect(() => {
       if (navigationTarget && !currentNavigationTarget) setNavigationTarget(null);
     }, [navigationTarget, currentNavigationTarget]);
