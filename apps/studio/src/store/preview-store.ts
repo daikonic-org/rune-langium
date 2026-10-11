@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { create } from 'zustand';
-import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
+import { qualifiedNameFromNodeId, type EditorState } from '@rune-langium/visual-editor';
 import { expandPreviewField } from '@rune-langium/codegen/export';
 import type { FormPreviewSchema, PreviewField, PreviewSourceMapEntry } from '@rune-langium/codegen/export';
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
@@ -69,7 +69,7 @@ interface PreviewStoreState {
 }
 
 interface PreviewStoreActions {
-  setAvailableTargets(targets: FormPreviewTarget[]): void;
+  setAvailableTargets(targets: FormPreviewTarget[], selectionRekey?: EditorState['selectionRekey']): void;
   selectTarget(targetId: string | undefined): void;
   receivePreviewResult(schema: FormPreviewSchema): void;
   receivePreviewStale(input: { targetId?: string; reason: PreviewStaleReason; message: string }): void;
@@ -284,14 +284,20 @@ function retargetStatus(status: PreviewStatus, targetId: string): PreviewStatus 
 export const usePreviewStore = create<PreviewStore>((set, get) => ({
   ...initialState,
 
-  setAvailableTargets(targets) {
+  setAvailableTargets(targets, selectionRekey) {
     const { selectedTargetId, selectedTarget: previousTarget, lastResolvedTarget, status } = get();
     const renameAnchor = previousTarget ?? lastResolvedTarget;
     const selectedTarget = mergeTargetIdentity(
       selectedTargetId ? targets.find((target) => target.id === selectedTargetId) : undefined,
       renameAnchor
     );
-    const renamedTarget = selectedTarget ? undefined : findRenamedTarget(targets, renameAnchor);
+    const explicitRename =
+      renameAnchor &&
+      selectionRekey &&
+      (selectionRekey.from === renameAnchor.id || selectionRekey.intermediateIds?.includes(renameAnchor.id))
+        ? targets.find((target) => target.id === selectionRekey?.to)
+        : undefined;
+    const renamedTarget = selectedTarget ? undefined : (explicitRename ?? findRenamedTarget(targets, renameAnchor));
 
     const previousTargetId = selectedTargetId ?? renameAnchor?.id;
 

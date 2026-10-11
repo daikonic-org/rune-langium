@@ -362,7 +362,13 @@ const SOURCE_NON_CODE = new RegExp(
   'g'
 );
 
-type SourceRevealRequest = { nodeId: string; workspaceId: string | undefined; filePath?: string; cancelled?: boolean };
+type SourceRevealRequest = {
+  nodeId: string;
+  workspaceId: string | undefined;
+  filePath?: string;
+  cancelled?: boolean;
+  editRekey?: boolean;
+};
 
 function findDeclarationLine(
   content: string,
@@ -593,6 +599,8 @@ export const ExplorePerspective = withInstrumentation(
     const storePendingEditPatches = useEditorStore((s) => s.pendingEditPatches);
     const storePendingInversePatches = useEditorStore((s) => s.pendingInversePatches);
     const selectedNodeId = useEditorStore((s) => s.selectedNodeId);
+    const selectionRekey = useEditorStore((s) => s.selectionRekey);
+    const isEditRekey = selectionRekey?.to === selectedNodeId;
     const visibility = useEditorStore((s) => s.visibility);
     const visibleGraphCount = useEditorStore((s) => s.getVisibleNodes().length);
     const expandedNamespaces = visibility.expandedNamespaces;
@@ -848,11 +856,11 @@ export const ExplorePerspective = withInstrumentation(
     }, [resolvedModelFiles, storeNodes]);
 
     useEffect(() => {
-      setPreviewTargets(previewTargets);
-    }, [previewTargets, setPreviewTargets]);
+      setPreviewTargets(previewTargets, selectionRekey);
+    }, [previewTargets, setPreviewTargets, selectionRekey]);
 
     useEffect(() => {
-      if (!previewSelectedTargetId || !previewSelectedTarget) {
+      if (isEditRekey || !previewSelectedTargetId || !previewSelectedTarget) {
         return;
       }
       if (previewTargets.some((target) => target.id === previewSelectedTargetId)) {
@@ -862,7 +870,7 @@ export const ExplorePerspective = withInstrumentation(
         matchesPreviewSourceIdentity(previewSelectedTarget, target)
       );
       selectPreviewTarget(renamedTarget?.id);
-    }, [previewSelectedTarget, previewSelectedTargetId, previewTargets, selectPreviewTarget]);
+    }, [previewSelectedTarget, previewSelectedTargetId, previewTargets, selectPreviewTarget, isEditRekey]);
 
     useEffect(() => {
       if (!selectedNodeId) {
@@ -1210,15 +1218,35 @@ export const ExplorePerspective = withInstrumentation(
         : undefined;
     const navigationRevision = currentNavigationTarget?.revision;
     useEffect(() => {
-      if (!selectedNodeId) return;
+      if (!selectedNodeId || isEditRekey) return;
       selectPreviewTarget(selectedNodeId);
-    }, [selectedNodeId, navigationRevision, selectPreviewTarget]);
+    }, [selectedNodeId, navigationRevision, selectPreviewTarget, isEditRekey]);
     useEffect(() => {
       if (navigationTarget && !currentNavigationTarget) setNavigationTarget(null);
     }, [navigationTarget, currentNavigationTarget]);
     useEffect(() => {
       const previous = sourceRevealIntentRef.current;
-      if (previous && previous.nodeId === selectedNodeId && previous.workspaceId === workspaceId && previous.cancelled)
+      if (isEditRekey && selectedNodeId) {
+        // A rename changes identity, not destination. Retain only the intent
+        // used by a genuine Source remount; do not scroll or queue an arrival.
+        sourceRevealIntentRef.current = {
+          nodeId: selectedNodeId,
+          workspaceId,
+          filePath: selectedSourceFilePath,
+          cancelled: previous?.workspaceId === workspaceId ? previous.cancelled : undefined,
+          editRekey: true
+        };
+        pendingRevealRef.current = null;
+        setSourceNavigationPending(null);
+        return;
+      }
+      if (
+        previous &&
+        previous.nodeId === selectedNodeId &&
+        previous.workspaceId === workspaceId &&
+        previous.cancelled &&
+        !previous.editRekey
+      )
         return;
       const request = selectedNodeId ? { nodeId: selectedNodeId, workspaceId, filePath: selectedSourceFilePath } : null;
       sourceRevealIntentRef.current = request;
@@ -1242,7 +1270,8 @@ export const ExplorePerspective = withInstrumentation(
       workspaceId,
       openFileInSource,
       navigationRevision,
-      currentNavigationTarget?.origin
+      currentNavigationTarget?.origin,
+      isEditRekey
     ]);
 
     // "+" new-file affordance moved to ExploreCenterSlot (shared-perspective-
@@ -1784,7 +1813,8 @@ export const ExplorePerspective = withInstrumentation(
       workspaceId,
       parsedModels,
       applyPendingReveal,
-      navigationRevision
+      navigationRevision,
+      isEditRekey
     ]);
 
     useEffect(() => {

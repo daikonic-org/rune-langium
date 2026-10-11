@@ -177,6 +177,8 @@ export interface EditorState {
 
   // --- UI state ---
   selectedNodeId: string | null;
+  /** Rename-only identity change from the last explicit selection, preserved across model refreshes. */
+  selectionRekey?: { from: string; to: string; intermediateIds?: string[] };
   searchQuery: string;
   searchResults: string[];
   activeFilters: GraphFilters;
@@ -984,7 +986,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             const reconciledNodes = nodesFromMap(reconciledById);
             const reconciledEdges = edgesFromMap(reconciledEdgesById);
 
-            const previousSelection = get().selectedNodeId;
+            const { selectedNodeId: previousSelection, selectionRekey } = get();
             const preservedSelection =
               previousSelection && reconciledNodes.some((n) => n.id === previousSelection) ? previousSelection : null;
 
@@ -995,6 +997,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
               edges: reconciledEdges,
               layoutOptions: opts,
               selectedNodeId: preservedSelection,
+              selectionRekey: selectionRekey?.to === preservedSelection ? selectionRekey : undefined,
               searchQuery: '',
               searchResults: [],
               // PARSE-origin change — bump parseEpoch so useModelSourceSync skips
@@ -1045,11 +1048,19 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
 
           selectNode(nodeId, options) {
             const nextDetailPanelOpen = nodeId !== null;
-            const { selectedNodeId, detailPanelOpen, focusMode, edges, visibility, nodes, focusRelatedExcludedKinds } =
-              get();
+            const {
+              selectedNodeId,
+              selectionRekey,
+              detailPanelOpen,
+              focusMode,
+              edges,
+              visibility,
+              nodes,
+              focusRelatedExcludedKinds
+            } = get();
             const selectionChanged = selectedNodeId !== nodeId;
-            if (selectionChanged || detailPanelOpen !== nextDetailPanelOpen) {
-              set({ selectedNodeId: nodeId, detailPanelOpen: nextDetailPanelOpen });
+            if (selectionChanged || selectionRekey || detailPanelOpen !== nextDetailPanelOpen) {
+              set({ selectedNodeId: nodeId, selectionRekey: undefined, detailPanelOpen: nextDetailPanelOpen });
             }
             if (nodeId === null && focusMode && visibility.hiddenNodeIds.size > 0) {
               get().showAllNodes();
@@ -1148,7 +1159,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
                   if (e.source === nodeId || e.target === nodeId) draft.edges.delete(id);
                 }
               },
-              clearsSelection ? { selectedNodeId: null } : undefined
+              clearsSelection ? { selectedNodeId: null, selectionRekey: undefined } : undefined
             );
           },
 
@@ -1167,6 +1178,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             // before mutating so neither node is lost.
             if (state.nodesById.has(newNodeId)) return;
             const reselect = state.selectedNodeId === nodeId ? newNodeId : state.selectedNodeId;
+            const previousRekey = state.selectionRekey?.to === nodeId ? state.selectionRekey : undefined;
 
             // Read the pre-mutation Maps from the store (un-proxied): mutateGraph
             // applies the recipe result AFTER create() returns, so get() here is the
@@ -1250,7 +1262,18 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
                   });
                 }
               },
-              reselect !== state.selectedNodeId ? { selectedNodeId: reselect } : undefined
+              reselect !== state.selectedNodeId
+                ? {
+                    selectedNodeId: reselect,
+                    selectionRekey: {
+                      from: previousRekey?.from ?? nodeId,
+                      to: newNodeId,
+                      ...(previousRekey
+                        ? { intermediateIds: [...new Set([...(previousRekey.intermediateIds ?? []), nodeId])] }
+                        : {})
+                    }
+                  }
+                : undefined
             );
           },
 

@@ -22,6 +22,33 @@ describe('usePreviewStore', () => {
     usePreviewStore.getState().resetPreviewState();
   });
 
+  it('tracks successive explicit rekeys after an intermediate target has rendered', () => {
+    const target = (id: string) => ({ id, name: id, namespace: 'test', kind: 'data' });
+    const store = usePreviewStore.getState();
+    store.setAvailableTargets([target('A')]);
+    store.selectTarget('A');
+    store.setAvailableTargets([target('B')], { from: 'A', to: 'B' });
+    store.setAvailableTargets([target('C')], { from: 'A', to: 'C', intermediateIds: ['B'] });
+    expect(usePreviewStore.getState().selectedTargetId).toBe('C');
+    expect(usePreviewStore.getState().navigationRequest).toBeUndefined();
+  });
+
+  it('tracks an explicit edit rekey without inventing navigation or losing the sample', () => {
+    const store = usePreviewStore.getState();
+    store.setAvailableTargets([{ id: 'test.Order', name: 'Order', namespace: 'test', kind: 'data' }]);
+    store.selectTarget('test.Order');
+    store.ensureSample('test.Order', { value: 'kept' });
+    store.setAvailableTargets([{ id: 'test.Renamed', name: 'Renamed', namespace: 'test', kind: 'data' }], {
+      from: 'test.Order',
+      to: 'test.Renamed'
+    });
+    expect(usePreviewStore.getState().selectedTargetId).toBe('test.Renamed');
+    expect(usePreviewStore.getState().navigationRequest).toBeUndefined();
+    expect(usePreviewStore.getState().samples.get('test.Renamed')?.values).toEqual({ value: 'kept' });
+    store.selectTarget('test.Renamed');
+    expect(usePreviewStore.getState().navigationRequest?.targetId).toBe('test.Renamed');
+  });
+
   it('reconciles populated recursive records and arrays through their definitions after regeneration', () => {
     const recursive: FormPreviewSchema = {
       ...schema('test.Node'),
