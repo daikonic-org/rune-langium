@@ -94,8 +94,12 @@ export class StudioWorkspace extends Workspace {
   private fileVersions: Record<string, number> = Object.create(null);
   displayFileHandler: DisplayFileHandler | null = null;
 
+  getFileVersion(uri: string): number {
+    return this.fileVersions[uri] ?? 0;
+  }
+
   nextFileVersion(uri: string): number {
-    return (this.fileVersions[uri] = (this.fileVersions[uri] ?? -1) + 1);
+    return (this.fileVersions[uri] = this.getFileVersion(uri) + 1);
   }
 
   syncFiles() {
@@ -145,7 +149,7 @@ export class StudioWorkspace extends Workspace {
     const file: StudioWorkspaceFile = {
       uri,
       languageId,
-      version: this.nextFileVersion(uri),
+      version: this.getFileVersion(uri),
       doc: view.state.doc,
       view,
       getView: () => view
@@ -206,7 +210,7 @@ export const createLspClientService = withInstrumentation(
     let provider: TransportProvider = opts?.transportProvider ?? createTransportProvider(opts?.transportOptions);
     let client: LSPClient | null = null;
     let initialized = false;
-    const workspaceSnapshot = new Map<string, { version: number; content: string }>();
+    const workspaceSnapshot = new Map<string, { content: string }>();
     let modelSnapshot = new Map<string, string>();
     const sentModels = new Map<string, string>();
     const openedUris = new Set<string>();
@@ -323,7 +327,8 @@ export const createLspClientService = withInstrumentation(
             };
             const file = target.workspace.getFile(uri);
             const snapshot = workspaceSnapshot.get(uri);
-            const revision = file?.version ?? snapshot?.version;
+            const revision =
+              file?.version ?? (snapshot ? (target.workspace as StudioWorkspace).getFileVersion(uri) : undefined);
             if (version !== undefined && revision !== undefined && version !== revision) return true;
             const view = file?.getView();
             const doc =
@@ -374,7 +379,7 @@ export const createLspClientService = withInstrumentation(
         target.didOpen({
           uri,
           languageId: 'rosetta',
-          version: entry.version,
+          version: (target.workspace as StudioWorkspace).getFileVersion(uri),
           doc: Text.of(entry.content.split('\n')),
           getView: () => null
         });
@@ -472,7 +477,7 @@ export const createLspClientService = withInstrumentation(
 
           const prev = workspaceSnapshot.get(uri);
           if (!prev) {
-            workspaceSnapshot.set(uri, { version: 0, content: file.content });
+            workspaceSnapshot.set(uri, { content: file.content });
             addedCount++;
             changedUris.add(uri);
             if (client && initialized) {
@@ -480,7 +485,7 @@ export const createLspClientService = withInstrumentation(
               client.didOpen({
                 uri,
                 languageId: 'rosetta',
-                version: 0,
+                version: (client.workspace as StudioWorkspace).getFileVersion(uri),
                 doc: Text.of(file.content.split('\n')),
                 getView: () => null
               });
@@ -489,8 +494,7 @@ export const createLspClientService = withInstrumentation(
           }
 
           if (prev.content !== file.content) {
-            const version = prev.version + 1;
-            workspaceSnapshot.set(uri, { version, content: file.content });
+            workspaceSnapshot.set(uri, { content: file.content });
             changedUris.add(uri);
             // A live editor view for this uri (StudioWorkspace.openFile) owns
             // didChange for it via @codemirror/lsp-client's own autoSync/
@@ -500,6 +504,7 @@ export const createLspClientService = withInstrumentation(
             // full-text replace from here has already superseded, or vice
             // versa). Only send when no live view is tracking this uri.
             if (client && initialized && !client.workspace.getFile(uri)) {
+              const version = (client.workspace as StudioWorkspace).nextFileVersion(uri);
               client.notification('textDocument/didChange', {
                 textDocument: { uri, version },
                 contentChanges: [{ text: file.content }]
@@ -531,8 +536,7 @@ export const createLspClientService = withInstrumentation(
             if (!client || !initialized) return;
             for (const [uri, entry] of workspaceSnapshot) {
               if (urisToSkip.has(uri) || client.workspace.getFile(uri)) continue;
-              const version = entry.version + 1;
-              workspaceSnapshot.set(uri, { version, content: entry.content });
+              const version = (client.workspace as StudioWorkspace).nextFileVersion(uri);
               client.notification('textDocument/didChange', {
                 textDocument: { uri, version },
                 contentChanges: [{ text: entry.content }]

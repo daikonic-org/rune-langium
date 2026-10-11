@@ -78,6 +78,21 @@ describe('StudioWorkspace', () => {
     expect(client.didClose).not.toHaveBeenCalled();
   });
 
+  it('preserves the synchronized version across view-only remounts', () => {
+    const client = makeFakeClient();
+    const ws = new StudioWorkspace(client as unknown as LSPClient);
+    const uri = 'file:///a.rosetta';
+    const first = makeFakeView('namespace a');
+    ws.openFile(uri, 'rosetta', first);
+    const version = ws.getFile(uri)!.version;
+    ws.closeFile(uri, first);
+    ws.openFile(uri, 'rosetta', makeFakeView('namespace a'));
+    ws.openFile(uri, 'rosetta', makeFakeView('namespace a'));
+
+    expect(ws.getFile(uri)!.version).toBe(version);
+    expect(client.notification).not.toHaveBeenCalled();
+  });
+
   it('closing an inactive Source view leaves the Inspector tracked and does not flush stale text', () => {
     const client = makeFakeClient();
     const ws = new StudioWorkspace(client as unknown as LSPClient);
