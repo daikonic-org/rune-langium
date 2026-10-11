@@ -648,7 +648,7 @@ function StructureFlowInner({
     // positions without changing focus/expansion/count, so the refit must
     // follow the applied-measurement identity — but NOT raw `nodes`
     // reference churn (document edits would cause spurious camera moves).
-  }, [focusedTypeId, navigationRevision, expansionSignature, nodes.length, measuredWidths, viewportTick, rf]);
+  }, [focusedTypeId, expansionSignature, nodes.length, measuredWidths, viewportTick, rf]);
 
   const navigationCtx = useMemo(
     () => ({

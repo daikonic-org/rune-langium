@@ -296,21 +296,23 @@ export const CodePreviewPanel = withInstrumentation(
       if (!navigationRequest || navigationRequest.targetId !== selectedTargetId || !activeFile) return;
       const typeName = nameFromNodeId(selectedTargetId);
       if (!typeName) return;
-      const lines = activeFile.content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i]!.trimStart();
-        if (trimmed.includes(typeName) && /^(export |const |class |interface |type |function )/.test(trimmed)) {
-          const lineInfo = view.state.doc.line(i + 1);
-          consumedArrivalRef.current = { view, request: navigationRequest };
-          view.dispatch({
-            effects: [
-              EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 }),
-              setSourceReveal.of(lineInfo.from)
-            ]
-          });
-          return;
-        }
-      }
+      const lineIndex = activeFile.content.split('\n').findIndex((line) => {
+        // Match the declared identifier, never a prefix or a name used in its body.
+        const declaration =
+          /^\s*(?:export\s+)?(?:async\s+)?(?:const|class|interface|type|function|enum)\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)/u.exec(
+            line
+          );
+        return declaration?.[1] === typeName;
+      });
+      if (lineIndex < 0) return;
+      const lineInfo = view.state.doc.line(lineIndex + 1);
+      consumedArrivalRef.current = { view, request: navigationRequest };
+      view.dispatch({
+        effects: [
+          EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 }),
+          setSourceReveal.of(lineInfo.from)
+        ]
+      });
     }, [selectedTargetId, navigationRequest, activeFile, activeTarget, target]);
 
     const statusMessage =

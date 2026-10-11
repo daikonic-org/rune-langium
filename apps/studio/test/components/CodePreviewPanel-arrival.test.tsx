@@ -116,3 +116,54 @@ it('cancels an arrival when its target disappears instead of replaying after rei
   act(() => usePreviewStore.getState().setAvailableTargets(targets));
   expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
 });
+
+it.each([
+  'export type Party = string;',
+  'export interface Party { name: string }',
+  'export class Party {}',
+  'export enum Party { Buyer, Seller }',
+  'export const Party = () => true;',
+  'export async function Party() {}'
+])('reveals the exact declared identifier in %s', (declaration) => {
+  useCodegenStore.getState().receiveCodePreviewResult({
+    target: 'zod',
+    files: [
+      {
+        relativePath: 'model.ts',
+        sourceMap: [],
+        content: [
+          'import { Party } from "./external";',
+          'export { Party as ImportedParty } from "./external";',
+          'export type PartyIdentifier = string;',
+          'export type Other = Party;',
+          'export const PartySchema = z.object({});',
+          '// export class Party {}',
+          'export const note = "export class Party {}";',
+          declaration
+        ].join('\n')
+      }
+    ]
+  });
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(Array.from(container.querySelectorAll('.cm-source-reveal-line'), (node) => node.textContent)).toEqual([
+    declaration
+  ]);
+});
+
+it('does not reveal imports, prefixes, or references when the selected declaration is absent', () => {
+  useCodegenStore.getState().receiveCodePreviewResult({
+    target: 'zod',
+    files: [
+      {
+        relativePath: 'model.ts',
+        sourceMap: [],
+        content:
+          'import { Party } from "./external";\nexport type PartyIdentifier = string;\nexport type Other = Party;'
+      }
+    ]
+  });
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+});

@@ -615,7 +615,7 @@ describe('StructureView navigation arrivals', () => {
     expect(container.querySelector('.rune-navigation-arrival')).not.toBeNull();
   });
 
-  it('briefly emphasizes the destination and repeats same-target navigation without reacting to expansion', () => {
+  it('repeats same-target emphasis without refitting and ignores expansion for arrival cues', () => {
     const { container, rerender } = render(
       <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={1} />
     );
@@ -627,7 +627,7 @@ describe('StructureView navigation arrivals', () => {
     rerender(<StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={2} />);
     act(() => vi.advanceTimersByTime(350));
     expect(container.querySelector('.rune-navigation-arrival')).not.toBeNull();
-    expect(reactFlow.fitView).toHaveBeenCalled();
+    expect(reactFlow.fitView).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1100));
     rerender(
       <StructureView
