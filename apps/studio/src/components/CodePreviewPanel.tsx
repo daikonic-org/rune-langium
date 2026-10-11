@@ -289,22 +289,38 @@ export const CodePreviewPanel = withInstrumentation(
     const selectedTarget = usePreviewStore((s) => s.selectedTarget);
     const navigationRequest = usePreviewStore((s) => s.navigationRequest);
     const consumedArrivalRef = useRef<{ view: EditorView; request: typeof navigationRequest } | undefined>(undefined);
+    const cancelledArrivalRef = useRef<typeof navigationRequest>(undefined);
     useEffect(() => {
       const view = editorViewRef.current;
       if (!view) return;
       const consumed = consumedArrivalRef.current;
       if (consumed?.view === view && consumed.request === navigationRequest) return;
+      if (navigationRequest && cancelledArrivalRef.current === navigationRequest) return;
       clearSourceReveal(view);
-      if (!navigationRequest || navigationRequest.targetId !== selectedTargetId || !activeFile) return;
+      if (
+        !navigationRequest ||
+        navigationRequest.targetId !== selectedTargetId ||
+        activeTarget !== target ||
+        snapshot.target !== target ||
+        !('files' in snapshot)
+      )
+        return;
       const typeName = nameFromNodeId(selectedTargetId);
       if (!typeName) return;
-      const lineIndex = findGeneratedDeclarationLine(
-        target,
-        activeFile,
-        selectedTarget ?? { name: typeName, namespace: '', kind: '' }
-      );
-      if (lineIndex === undefined) return;
-      const lineInfo = view.state.doc.line(lineIndex + 1);
+      const declaration = selectedTarget ?? { name: typeName, namespace: '', kind: '' };
+      const destinations = snapshot.files.flatMap((file) => {
+        const lineIndex = findGeneratedDeclarationLine(target, file, declaration);
+        return lineIndex === undefined ? [] : [{ file, lineIndex }];
+      });
+      if (destinations.length !== 1) return;
+      const destination = destinations[0]!;
+      if (activeFile?.relativePath !== destination.file.relativePath) {
+        setActiveCodePreviewFile(destination.file.relativePath);
+        return;
+      }
+      // The preceding content-sync effect must install this exact file first.
+      if (view.state.doc.toString() !== destination.file.content) return;
+      const lineInfo = view.state.doc.line(destination.lineIndex + 1);
       consumedArrivalRef.current = { view, request: navigationRequest };
       view.dispatch({
         effects: [
@@ -312,7 +328,16 @@ export const CodePreviewPanel = withInstrumentation(
           setSourceReveal.of(lineInfo.from)
         ]
       });
-    }, [selectedTargetId, selectedTarget, navigationRequest, activeFile, activeTarget, target]);
+    }, [
+      selectedTargetId,
+      selectedTarget,
+      navigationRequest,
+      activeFile,
+      activeTarget,
+      target,
+      snapshot,
+      setActiveCodePreviewFile
+    ]);
 
     const statusMessage =
       snapshot.status === 'stale' || snapshot.status === 'unavailable' ? snapshot.message : undefined;
@@ -350,7 +375,14 @@ export const CodePreviewPanel = withInstrumentation(
                 {TARGET_LABELS[activeTarget]}
               </span>
               {selectableFiles && selectableFiles.length > 1 ? (
-                <Select value={activeRelativePath} onValueChange={(value) => setActiveCodePreviewFile(value)}>
+                <Select
+                  value={activeRelativePath}
+                  onValueChange={(value) => {
+                    cancelledArrivalRef.current = navigationRequest;
+                    if (editorViewRef.current) clearSourceReveal(editorViewRef.current);
+                    setActiveCodePreviewFile(value);
+                  }}
+                >
                   <SelectTrigger
                     size="sm"
                     aria-label="Generated file"

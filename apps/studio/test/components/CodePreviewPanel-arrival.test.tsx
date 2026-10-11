@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { EditorView } from '@codemirror/view';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { CodePreviewPanel } from '../../src/components/CodePreviewPanel.js';
 import { useCodegenStore } from '../../src/store/codegen-store.js';
@@ -238,5 +238,149 @@ it('keeps a malformed JSON preview arrival pending until valid declaration outpu
       ]
     })
   );
+  expect(container.querySelector('.cm-source-reveal-line')?.textContent).toBe('    "Party": {');
+});
+
+const namespaceOutputs = [
+  { target: 'typescript', content: (ns: string) => `// Source namespace: ${ns}\nexport class Party {}` },
+  {
+    target: 'zod',
+    content: (ns: string) =>
+      `// Source namespace: ${ns}\nexport const PartySchema = z.object({});\nexport type Party = z.infer<typeof PartySchema>;`
+  },
+  {
+    target: 'json-schema',
+    content: (ns: string) => JSON.stringify({ title: ns, $defs: { Party: { type: 'object' } } }, null, 2)
+  },
+  {
+    target: 'openapi',
+    content: (ns: string) =>
+      JSON.stringify(
+        { openapi: '3.1.0', info: { title: ns }, paths: {}, components: { schemas: { Party: { type: 'object' } } } },
+        null,
+        2
+      )
+  },
+  {
+    target: 'sql',
+    content: (ns: string) =>
+      `-- SQL DDL generated from namespace ${ns} (postgres)\nCREATE TABLE "Party" (\n  "id" BIGINT\n);`
+  },
+  {
+    target: 'xsd',
+    content: (ns: string) =>
+      `<xs:schema targetNamespace="urn:rune:${ns}">\n<xs:complexType name="Party"/>\n</xs:schema>`
+  }
+] as const;
+
+it.each(namespaceOutputs)(
+  'routes $target arrivals to the unique owning namespace file before revealing',
+  ({ target, content }) => {
+    usePreviewStore
+      .getState()
+      .setAvailableTargets(
+        ['a', 'b'].map((namespace) => ({ id: `${namespace}.Party`, name: 'Party', namespace, kind: 'Data' }))
+      );
+    useCodegenStore.setState({ codePreviewTarget: target, activeTarget: target });
+    const deliver = () =>
+      useCodegenStore.getState().receiveCodePreviewResult({
+        target,
+        files: ['a', 'b'].map((namespace) => ({
+          relativePath: `${namespace}.output`,
+          content: content(namespace),
+          sourceMap: []
+        }))
+      });
+    deliver();
+    useCodegenStore.getState().setActiveCodePreviewFile('a.output');
+    const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+    act(() => usePreviewStore.getState().selectTarget('b.Party'));
+    expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'b.output' });
+    expect(container.querySelector('.cm-source-reveal-line')).not.toBeNull();
+    expect(container.querySelector('.cm-content')?.textContent).toContain(content('b').split('\n')[0]);
+    act(() => vi.advanceTimersByTime(1000));
+    act(deliver);
+    expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+    act(() => usePreviewStore.getState().selectTarget('b.Party'));
+    expect(container.querySelector('.cm-source-reveal-line')).not.toBeNull();
+  }
+);
+
+it('does not route an ambiguous declaration across two generated files', () => {
+  useCodegenStore.getState().receiveCodePreviewResult({
+    target: 'zod',
+    files: ['first.ts', 'second.ts'].map((relativePath) => ({
+      relativePath,
+      content: '// Source namespace: test\nexport type Party = string;',
+      sourceMap: []
+    }))
+  });
+  useCodegenStore.getState().setActiveCodePreviewFile('first.ts');
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'first.ts' });
+});
+
+it('lets a manual generated-file choice cancel a pending request through refresh and reopening', () => {
+  usePreviewStore
+    .getState()
+    .setAvailableTargets(
+      ['a', 'b'].map((namespace) => ({ id: `${namespace}.Party`, name: 'Party', namespace, kind: 'Data' }))
+    );
+  const a = { relativePath: 'a.ts', content: '// Source namespace: a\nexport type Party = string;', sourceMap: [] };
+  const b = { relativePath: 'b.ts', content: '// Source namespace: b\nexport type Other = string;', sourceMap: [] };
+  useCodegenStore.getState().receiveCodePreviewResult({ target: 'zod', files: [a, b] });
+  useCodegenStore.getState().setActiveCodePreviewFile('b.ts');
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('b.Party'));
+  fireEvent.click(screen.getByTestId('codegen-file-select'));
+  fireEvent.pointerDown(screen.getByRole('option', { name: 'a.ts' }), { pointerType: 'mouse' });
+  fireEvent.click(screen.getByRole('option', { name: 'a.ts' }));
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'a.ts' });
+  const updatedB = { ...b, content: '// Source namespace: b\nexport type Party = string;' };
+  act(() => useCodegenStore.getState().receiveCodePreviewResult({ target: 'zod', files: [a, updatedB] }));
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'a.ts' });
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() => useCodegenStore.getState().setActiveTarget(undefined));
+  act(() => useCodegenStore.getState().setActiveTarget('zod'));
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'a.ts' });
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() => usePreviewStore.getState().selectTarget('b.Party'));
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'b.ts' });
+  expect(container.querySelector('.cm-source-reveal-line')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('codegen-file-select'));
+  fireEvent.pointerDown(screen.getByRole('option', { name: 'a.ts' }), { pointerType: 'mouse' });
+  fireEvent.click(screen.getByRole('option', { name: 'a.ts' }));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() => useCodegenStore.getState().receiveCodePreviewResult({ target: 'zod', files: [a, updatedB] }));
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'a.ts' });
+});
+
+it('routes only the latest pending request when a replacement format finishes generating', () => {
+  usePreviewStore
+    .getState()
+    .setAvailableTargets(
+      ['a', 'b'].map((namespace) => ({ id: `${namespace}.Party`, name: 'Party', namespace, kind: 'Data' }))
+    );
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => {
+    useCodegenStore.getState().setActiveTarget('json-schema');
+    useCodegenStore.getState().setCodePreviewTarget('json-schema');
+    usePreviewStore.getState().selectTarget('a.Party');
+  });
+  act(() => usePreviewStore.getState().selectTarget('b.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'json-schema',
+      files: ['a', 'b'].map((namespace) => ({
+        relativePath: `${namespace}.schema.json`,
+        content: JSON.stringify({ title: namespace, $defs: { Party: { type: 'object' } } }, null, 2),
+        sourceMap: []
+      }))
+    })
+  );
+  expect(useCodegenStore.getState().snapshot).toMatchObject({ activeRelativePath: 'b.schema.json' });
   expect(container.querySelector('.cm-source-reveal-line')?.textContent).toBe('    "Party": {');
 });
