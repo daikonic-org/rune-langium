@@ -292,7 +292,7 @@ export interface StructureCellComponents {
 }
 
 export interface StructureViewProps {
-  /** Increment for each explicit navigation, including repeated jumps to the same type. */
+  /** Increment for each indirect navigation; omit for direct selection or ordinary mounting. */
   readonly navigationRevision?: number;
   /** Canonical node id of the type to focus (e.g. `'cdm.trade.Trade'`). */
   readonly focusedTypeId: string | undefined;
@@ -600,7 +600,7 @@ function StructureFlowInner({
 
   const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival();
   useEffect(() => {
-    emphasizeArrival(focusedTypeId);
+    if (navigationRevision !== undefined) emphasizeArrival(focusedTypeId);
     return cancelArrival;
   }, [focusedTypeId, navigationRevision, emphasizeArrival, cancelArrival]);
   const arrivalNodes = useMemo(

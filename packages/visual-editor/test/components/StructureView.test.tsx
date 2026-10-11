@@ -549,6 +549,39 @@ describe('StructureView navigation arrivals', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('fits without arrival emphasis on mount, direct selection, and reopening without a navigation request', () => {
+    reactFlow.fitView.mockClear();
+    const { container, rerender, unmount } = render(
+      <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    expect(reactFlow.fitView).toHaveBeenCalled();
+
+    reactFlow.fitView.mockClear();
+    rerender(<StructureView focusedTypeId="cdm.trade.Economics" adapterDoc={tradeDoc} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    expect(reactFlow.fitView).toHaveBeenCalled();
+
+    unmount();
+    reactFlow.fitView.mockClear();
+    const reopened = render(<StructureView focusedTypeId="cdm.trade.Economics" adapterDoc={tradeDoc} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(reopened.container.querySelector('.rune-navigation-arrival')).toBeNull();
+    expect(reactFlow.fitView).toHaveBeenCalled();
+  });
+
+  it('cancels a pending arrival when direct selection clears the navigation request', () => {
+    const { container, rerender } = render(
+      <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={1} />
+    );
+    act(() => vi.advanceTimersByTime(100));
+    rerender(<StructureView focusedTypeId="cdm.trade.Economics" adapterDoc={tradeDoc} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+  });
+
   it('briefly emphasizes the destination and repeats same-target navigation without reacting to expansion', () => {
     const { container, rerender } = render(
       <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={1} />
