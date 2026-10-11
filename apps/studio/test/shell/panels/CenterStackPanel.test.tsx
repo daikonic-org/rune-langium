@@ -15,7 +15,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CenterPanesContext } from '../../../src/shell/center-panes-context.js';
 import type { CenterPanesContextValue } from '../../../src/shell/center-panes-context.js';
@@ -29,7 +29,7 @@ vi.mock('../../../src/components/GraphFilterMenu.js', () => ({
 // lucide-react icons — provide stubs so jsdom doesn't have to handle SVG.
 vi.mock('lucide-react', () => ({
   Network: () => React.createElement('span'),
-  FileCode2: () => React.createElement('span'),
+  FileCode2: (props: React.HTMLAttributes<HTMLSpanElement>) => React.createElement('span', props),
   Info: () => React.createElement('span'),
   Layers: () => React.createElement('span'),
   MoreHorizontal: () => React.createElement('span')
@@ -115,5 +115,49 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
   it('Structure segment is marked active when the pane is in activePanes', () => {
     renderWithPanes(new Set(['graph', 'structure']));
     expect(screen.getByRole('button', { name: /structure/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('Source navigation feedback', () => {
+  it('delays a text-free cue, then clears it on completion', () => {
+    vi.useFakeTimers();
+    try {
+      const request = {};
+      const ctx = makeContextValue(new Set(['graph', 'source']));
+      const panel = (pending: object | null) => (
+        <CenterPanesContext.Provider value={ctx}>
+          <CenterStackPanel
+            renderGraph={() => null}
+            renderSource={() => null}
+            renderInspector={() => null}
+            renderStructure={() => null}
+            sourceNavigationPending={pending}
+          />
+        </CenterPanesContext.Provider>
+      );
+      const view = render(panel(request));
+      const button = screen.getByRole('button', { name: 'Source' });
+      expect(button.querySelector('.studio-navigation-pending')).toBeNull();
+      act(() => vi.advanceTimersByTime(250));
+      expect(button.querySelector('.studio-navigation-pending')).not.toBeNull();
+      expect(button.textContent).toBe('Source');
+      view.rerender(panel(null));
+      expect(button.querySelector('.studio-navigation-pending')).toBeNull();
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not cue a hidden source pane', () => {
+    vi.useFakeTimers();
+    try {
+      const view = renderWithPanes(new Set(['graph']), { sourceNavigationPending: {} });
+      act(() => vi.advanceTimersByTime(500));
+      expect(view.container.querySelector('.studio-navigation-pending')).toBeNull();
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

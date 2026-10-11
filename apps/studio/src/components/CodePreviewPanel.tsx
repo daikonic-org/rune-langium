@@ -15,6 +15,7 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
+import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import type { Target } from '@rune-langium/codegen/export';
@@ -250,6 +251,7 @@ export const CodePreviewPanel = withInstrumentation(
         doc: '',
         extensions: [
           ...editorExtensions(langExtension, true),
+          sourceNavigationHighlight,
           EditorView.domEventHandlers({
             click: (event, view) => {
               const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -280,12 +282,15 @@ export const CodePreviewPanel = withInstrumentation(
         changes: { from: 0, to: current.length, insert: nextContent },
         annotations: externalDocumentChange.of(true)
       });
-    }, [activeFile]);
+    }, [activeFile, activeTarget, target]);
 
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
+    const selectedTarget = usePreviewStore((s) => s.selectedTarget);
     useEffect(() => {
       const view = editorViewRef.current;
-      if (!view || !selectedTargetId || !activeFile) return;
+      if (!view) return;
+      clearSourceReveal(view);
+      if (!selectedTargetId || !activeFile) return;
       const typeName = nameFromNodeId(selectedTargetId);
       if (!typeName) return;
       const lines = activeFile.content.split('\n');
@@ -294,12 +299,15 @@ export const CodePreviewPanel = withInstrumentation(
         if (trimmed.includes(typeName) && /^(export |const |class |interface |type |function )/.test(trimmed)) {
           const lineInfo = view.state.doc.line(i + 1);
           view.dispatch({
-            effects: EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 })
+            effects: [
+              EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 }),
+              setSourceReveal.of(lineInfo.from)
+            ]
           });
           return;
         }
       }
-    }, [selectedTargetId, activeFile]);
+    }, [selectedTargetId, selectedTarget, activeFile, activeTarget, target]);
 
     const statusMessage =
       snapshot.status === 'stale' || snapshot.status === 'unavailable' ? snapshot.message : undefined;

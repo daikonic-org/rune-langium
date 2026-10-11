@@ -89,6 +89,13 @@ vi.mock('../../src/lang/document-extensions.js', () => ({
   setProtectedRegion: { of: () => ({}) }
 }));
 
+// The real decoration lifecycle is exercised in SourceEditor-navigation-highlight.test.tsx.
+vi.mock('../../src/lang/source-navigation-highlight.js', () => ({
+  sourceNavigationHighlight: [],
+  setSourceReveal: { of: (anchor: number) => ({ revealAnchor: anchor }) },
+  clearSourceReveal: vi.fn()
+}));
+
 vi.mock('codemirror', () => ({
   basicSetup: []
 }));
@@ -197,7 +204,7 @@ describe('SourceEditor', () => {
 
       expect(lastEditorView?.dispatch).toHaveBeenCalledWith({
         selection: { anchor: 12 },
-        effects: { anchor: 12 }
+        effects: [{ anchor: 12 }, { revealAnchor: 12 }]
       });
       expect(lastEditorView?.contentDOM.focus).toHaveBeenCalledWith({ preventScroll: true });
     });
@@ -213,7 +220,7 @@ describe('SourceEditor', () => {
 
       expect(lastEditorView?.dispatch).toHaveBeenCalledWith({
         selection: { anchor: 10 },
-        effects: { anchor: 10 }
+        effects: [{ anchor: 10 }, { revealAnchor: 10 }]
       });
       expect(lastEditorView?.contentDOM.focus).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(filter);
@@ -289,7 +296,7 @@ describe('SourceEditor', () => {
       expect(typesTab.getAttribute('aria-selected')).toBe('true');
       expect(lastEditorView?.dispatch).toHaveBeenCalledWith({
         selection: { anchor: 12 },
-        effects: { anchor: 12 }
+        effects: [{ anchor: 12 }, { revealAnchor: 12 }]
       });
       expect(lastEditorView?.contentDOM.focus).toHaveBeenCalledWith({ preventScroll: true });
     });
@@ -311,7 +318,7 @@ describe('SourceEditor', () => {
       expect(typesTab.getAttribute('aria-selected')).toBe('true');
       expect(lastEditorView?.dispatch).toHaveBeenCalledWith({
         selection: { anchor: 12 },
-        effects: { anchor: 12 }
+        effects: [{ anchor: 12 }, { revealAnchor: 12 }]
       });
       expect(lastEditorView?.contentDOM.focus).toHaveBeenCalledWith({ preventScroll: true });
     });
@@ -375,7 +382,7 @@ describe('SourceEditor', () => {
       expect(ref.current?.revealLine(2, readOnlyFile.path)).toBe(true);
       expect(mockEditorViewDispatch).toHaveBeenCalledWith({
         selection: { anchor: 10 },
-        effects: { anchor: 10 }
+        effects: [{ anchor: 10 }, { revealAnchor: 10 }]
       });
       expect(onContentChange).not.toHaveBeenCalled();
       expect(mockContentDomFocus).not.toHaveBeenCalled();

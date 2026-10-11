@@ -108,7 +108,7 @@ vi.mock('@xyflow/react', async (importOriginal) => {
       nodes,
       onlyRenderVisibleElements
     }: {
-      nodes: Array<{ id: string; data: { id?: string } }>;
+      nodes: Array<{ id: string; className?: string; data: { id?: string } }>;
       onlyRenderVisibleElements?: boolean;
     }) => (
       <div
@@ -116,7 +116,13 @@ vi.mock('@xyflow/react', async (importOriginal) => {
         data-only-render-visible={onlyRenderVisibleElements === true ? 'true' : 'false'}
       >
         {nodes.map((n) => (
-          <div key={n.id} data-testid={`rf-node-${n.id}`} data-node-id={n.id} data-canonical-id={n.data?.id ?? n.id} />
+          <div
+            className={n.className}
+            key={n.id}
+            data-testid={`rf-node-${n.id}`}
+            data-node-id={n.id}
+            data-canonical-id={n.data?.id ?? n.id}
+          />
         ))}
       </div>
     ),
@@ -536,5 +542,36 @@ describe('StructureView — fitting after pane resizing', () => {
     act(() => vi.advanceTimersByTime(200));
     expect(reactFlow.fitView).not.toHaveBeenCalled();
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+});
+
+describe('StructureView navigation arrivals', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('briefly emphasizes the destination and repeats same-target navigation without reacting to expansion', () => {
+    const { container, rerender } = render(
+      <StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={1} />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-canonical-id', 'cdm.trade.Trade');
+    act(() => vi.advanceTimersByTime(1100));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    reactFlow.fitView.mockClear();
+    rerender(<StructureView focusedTypeId="cdm.trade.Trade" adapterDoc={tradeDoc} navigationRevision={2} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).not.toBeNull();
+    expect(reactFlow.fitView).toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1100));
+    rerender(
+      <StructureView
+        focusedTypeId="cdm.trade.Trade"
+        adapterDoc={tradeDoc}
+        navigationRevision={2}
+        expansionMap={new Map([[expansionKey('cdm.trade.Trade', 'economics'), true]])}
+      />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
   });
 });

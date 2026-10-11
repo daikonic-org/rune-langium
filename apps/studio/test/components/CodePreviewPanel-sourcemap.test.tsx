@@ -17,6 +17,13 @@ import { render, act, cleanup } from '@testing-library/react';
 // directly — the CodeMirror-based panel no longer has per-line DOM elements.
 const capturedHandlers: { click?: (event: MouseEvent, view: object) => void } = {};
 
+// These tests exercise panel routing/status; real editor cues are covered in CodePreviewPanel-arrival.
+vi.mock('../../src/lang/source-navigation-highlight.js', () => ({
+  sourceNavigationHighlight: [],
+  clearSourceReveal: vi.fn(),
+  setSourceReveal: { of: vi.fn(() => ({})) }
+}));
+
 vi.mock('@codemirror/view', () => ({
   EditorView: class MockEditorView {
     dom = document.createElement('div');

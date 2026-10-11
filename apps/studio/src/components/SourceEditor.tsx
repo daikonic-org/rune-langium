@@ -34,6 +34,7 @@ import {
   minimalDocumentChange,
   setProtectedRegion
 } from '../lang/document-extensions.js';
+import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import type { LspClientService } from '../services/lsp-client.js';
 import { pathToUri } from '../utils/uri.js';
 import { cn } from '@rune-langium/design-system/utils';
@@ -105,6 +106,8 @@ export interface SourceEditorRef {
   revealLine(line: number, filePath?: string): boolean;
   /** Scroll to a source position in the specified (or current) file and place the cursor there. */
   revealPosition(position: { line: number; character: number }, filePath?: string): void;
+  /** Cancel a pending position reveal and remove any transient destination cue. */
+  clearRevealHighlight?(): void;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -202,7 +205,7 @@ function scrollToPosition(
   const selectionAnchor = lineInfo.from + lineOffset;
   view.dispatch({
     selection: { anchor: selectionAnchor },
-    effects: EditorView.scrollIntoView(selectionAnchor, { y: 'center' })
+    effects: [EditorView.scrollIntoView(selectionAnchor, { y: 'center' }), setSourceReveal.of(selectionAnchor)]
   });
   if (focus) view.contentDOM.focus({ preventScroll: true });
 }
@@ -345,6 +348,7 @@ const renderSourceEditor = withInstrumentation(
         const request = ++positionRequestRef.current;
         // If a different file is specified, switch to it first
         if (filePath && filePath !== selectedPath) {
+          if (editorViewRef.current) clearSourceReveal(editorViewRef.current);
           const target = files.find((f) => f.path === filePath || f.name === filePath);
           if (target) {
             setSelectedPath(target.path);
@@ -357,10 +361,12 @@ const renderSourceEditor = withInstrumentation(
                 }
               });
             });
-            return;
           }
+          return;
         }
-        scrollToPosition(editorViewRef.current, position, focus);
+        if (editorViewPathRef.current === selectedPath) {
+          scrollToPosition(editorViewRef.current, position, focus);
+        }
       };
       return {
         revealLine(line: number, filePath?: string) {
@@ -375,6 +381,10 @@ const renderSourceEditor = withInstrumentation(
         },
         revealPosition(position, filePath) {
           revealPosition(position, filePath);
+        },
+        clearRevealHighlight() {
+          ++positionRequestRef.current;
+          if (editorViewRef.current) clearSourceReveal(editorViewRef.current);
         }
       };
     }, [files, selectedPath, onFileSelect]);
@@ -491,6 +501,7 @@ const renderSourceEditor = withInstrumentation(
       (filePath: string, isReadOnly: boolean, lspCompartment: Compartment): Extension[] => {
         const exts: Extension[] = documentExtensions(regionRef.current);
         exts.push(
+          sourceNavigationHighlight,
           EditorView.contentAttributes.of({ 'aria-label': 'Rune source editor' }),
           EditorView.updateListener.of((update) => {
             if (update.selectionSet || update.docChanged) {

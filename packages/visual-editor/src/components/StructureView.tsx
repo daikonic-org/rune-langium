@@ -17,6 +17,7 @@
  * @module
  */
 
+import { useNavigationArrival } from '../hooks/useNavigationArrival.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { indexById } from '@rune-langium/core';
 import { ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react';
@@ -291,6 +292,8 @@ export interface StructureCellComponents {
 }
 
 export interface StructureViewProps {
+  /** Increment for each explicit navigation, including repeated jumps to the same type. */
+  readonly navigationRevision?: number;
   /** Canonical node id of the type to focus (e.g. `'cdm.trade.Trade'`). */
   readonly focusedTypeId: string | undefined;
   /** In-memory document representation produced by the studio's store adapter. */
@@ -366,6 +369,7 @@ const EMPTY_PENDING_HYDRATION: ReadonlyArray<string> = [];
 const EMPTY_ALL_NODE_IDS: Set<string> = new Set();
 
 interface StructureFlowInnerProps {
+  readonly navigationRevision?: number;
   readonly focusedTypeId: string;
   readonly adapterDoc: AdapterDocument;
   readonly expansionMap: ReadonlyMap<string, boolean>;
@@ -383,6 +387,7 @@ interface StructureFlowInnerProps {
  */
 function StructureFlowInner({
   focusedTypeId,
+  navigationRevision,
   adapterDoc,
   expansionMap,
   cellComponents,
@@ -593,6 +598,21 @@ function StructureFlowInner({
     };
   }, []);
 
+  const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival();
+  useEffect(() => {
+    emphasizeArrival(focusedTypeId);
+    return cancelArrival;
+  }, [focusedTypeId, navigationRevision, emphasizeArrival, cancelArrival]);
+  const arrivalNodes = useMemo(
+    () =>
+      nodes.map((node) =>
+        node.id === arrivalNodeId
+          ? { ...node, className: [node.className, 'rune-navigation-arrival'].filter(Boolean).join(' ') }
+          : node
+      ),
+    [nodes, arrivalNodeId]
+  );
+
   // Auto-fit on focus or expansion change. User feedback: when nodes are
   // expanded the structure tree grows past the viewport edge. Re-fitting
   // when the focused type changes OR the expansion content changes keeps
@@ -626,7 +646,7 @@ function StructureFlowInner({
     // positions without changing focus/expansion/count, so the refit must
     // follow the applied-measurement identity — but NOT raw `nodes`
     // reference churn (document edits would cause spurious camera moves).
-  }, [focusedTypeId, expansionSignature, nodes.length, measuredWidths, viewportTick, rf]);
+  }, [focusedTypeId, navigationRevision, expansionSignature, nodes.length, measuredWidths, viewportTick, rf]);
 
   const navigationCtx = useMemo(
     () => ({
@@ -645,7 +665,7 @@ function StructureFlowInner({
         style={{ width: '100%', height: '100%', minHeight: 0, ...STRUCTURE_LAYOUT_CSS_VARS }}
       >
         <ReactFlow
-          nodes={nodes}
+          nodes={arrivalNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
@@ -698,6 +718,7 @@ function StructureFlowInner({
  */
 export function StructureView({
   focusedTypeId,
+  navigationRevision,
   adapterDoc,
   expansionMap,
   cellComponents,
@@ -762,6 +783,7 @@ export function StructureView({
     <ReactFlowProvider>
       <StructureFlowInner
         focusedTypeId={focusedTypeId}
+        navigationRevision={navigationRevision}
         adapterDoc={adapterDoc}
         expansionMap={expansionMap ?? EMPTY_EXPANSION_MAP}
         cellComponents={cellComponents}

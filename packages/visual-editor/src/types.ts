@@ -477,6 +477,8 @@ export interface RuneTypeGraphCallbacks {
  * @see {@link RuneTypeGraphRef}
  */
 export interface RuneTypeGraphProps {
+  /** Explicit navigation arrival, including repeated jumps and asynchronously loaded nodes. */
+  navigationTarget?: { nodeId: string; revision: number };
   config?: RuneTypeGraphConfig;
   callbacks?: RuneTypeGraphCallbacks;
   className?: string;

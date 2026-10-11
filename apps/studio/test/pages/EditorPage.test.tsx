@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { SourceNavigationFeedbackContext } from '../../src/shell/source-navigation-feedback-context.js';
 import React, { useEffect, useImperativeHandle } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, waitFor, screen, act, fireEvent } from '@testing-library/react';
@@ -147,6 +148,7 @@ const {
   const structureViewMockState = {
     latestProps: undefined as
       | {
+          navigationRevision?: number;
           focusedTypeId?: string;
           adapterDoc?: unknown;
           cellComponents?: {
@@ -530,11 +532,12 @@ vi.mock('../../src/shell/panels/CenterStackPanel.js', () => ({
     renderInspector?: () => React.ReactElement | null;
     renderStructure?: () => React.ReactElement | null;
   }) {
+    const sourceNavigationPending = React.useContext(SourceNavigationFeedbackContext);
     const [showGraph, setShowGraph] = React.useState(centerStackMockState.showGraph);
     centerStackMockState.setShowGraph = setShowGraph;
     return React.createElement(
       'div',
-      { 'data-testid': 'center-stack-mock' },
+      { 'data-testid': 'center-stack-mock', 'data-source-pending': Boolean(sourceNavigationPending) },
       showGraph ? (renderGraph?.() ?? null) : null,
       sourceEditorMockState.showSource ? (renderSource?.() ?? null) : null,
       renderInspector?.() ?? null,
@@ -1073,6 +1076,68 @@ describe('EditorPage preview target identity', () => {
         message: 'Preview worker could not start. worker boot failed'
       });
     });
+  });
+
+  it('does not let an older LSP timeout cancel a newer same-file request', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let display: ((uri: string) => Promise<unknown>) | undefined;
+      const input = {
+        models: [],
+        files: [{ path: 'beta.rosetta', name: 'beta.rosetta', content: 'namespace beta', dirty: false }],
+        lspClient: {
+          onDisplayFile: (handler: typeof display) => {
+            display = handler;
+            return () => {};
+          }
+        } as never
+      };
+      sourceEditorMockState.showSource = false;
+      const view = renderEditorPage(input);
+      act(() => {
+        void display?.('file:///beta.rosetta');
+      });
+      act(() => vi.advanceTimersByTime(1000));
+      let newer: Promise<unknown> | undefined;
+      act(() => {
+        newer = display?.('file:///beta.rosetta');
+      });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+      sourceEditorMockState.showSource = true;
+      view.rerenderEditorPage(input);
+      await expect(newer).resolves.toEqual({ id: 'beta.rosetta' });
+    } finally {
+      sourceEditorMockState.showSource = true;
+      vi.useRealTimers();
+    }
+  });
+
+  it('tracks an LSP file navigation until its editor view arrives', async () => {
+    let display: ((uri: string) => Promise<unknown>) | undefined;
+    const input = {
+      models: [],
+      files: [{ path: 'beta.rosetta', name: 'beta.rosetta', content: 'namespace beta', dirty: false }],
+      lspClient: {
+        onDisplayFile: (handler: typeof display) => {
+          display = handler;
+          return () => {};
+        }
+      } as never
+    };
+    sourceEditorMockState.showSource = false;
+    const view = renderEditorPage(input);
+    let result: Promise<unknown> | undefined;
+    act(() => {
+      result = display?.('file:///beta.rosetta');
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage(input);
+    await act(async () => {
+      await result;
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
   });
 
   it('resolves displayFile by opening the matching source file and returning its editor view', async () => {
@@ -2861,6 +2926,126 @@ describe('EditorPage source reveal lifecycle', () => {
     renderEditorPage(props());
     flushFrames();
     expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('exposes reactive navigation feedback only until a matching view acknowledges arrival', () => {
+    select();
+    sourceEditorMockState.revealLine.mockReturnValue(false);
+    renderEditorPage(props());
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+    sourceEditorMockState.revealLine.mockReturnValue(true);
+    act(() => sourceEditorMockState.latestProps?.onEditorViewCreated?.(path, { id: path }));
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('does not replay an Inspector arrival when the selected declaration is edited', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      select();
+      const input = props();
+      const view = renderEditorPage(input);
+      act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
+      flushFrames();
+      flushFrames();
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(1000));
+      editorStoreState.nodes = editorStoreState.nodes.map((node) => ({ ...node, data: { ...node.data } }));
+      view.rerenderEditorPage(input);
+      flushFrames();
+      flushFrames();
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores an old same-path source failure while a newer workspace load remains pending', async () => {
+    select();
+    let rejectOld: (error: Error) => void = () => {};
+    let resolveNew: () => void = () => {};
+    const loadCuratedSource = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectOld = reject;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveNew = resolve;
+          })
+      );
+    const input = { ...props(''), loadCuratedSource };
+    Object.assign(input.files[0]!, { bundleId: 'cdm', bundleVersion: 'latest' });
+    const view = renderEditorPage(input);
+    view.rerenderEditorPage({ ...input, workspaceId: 'workspace-b' });
+    expect(loadCuratedSource).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      rejectOld(new Error('old request'));
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+    expect(screen.queryByText('Source unavailable: old request')).toBeNull();
+    await act(async () => {
+      resolveNew();
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('cancels a queued declaration reveal when file-only navigation targets that same file', () => {
+    select();
+    renderEditorPage(props());
+    act(() => useExploreFileNavStore.getState().requestSourceFile(path));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('cues the destination pane for a loaded cross-file search jump', () => {
+    const input = props();
+    input.files.push({ ...input.files[0]!, name: 'other.rosetta', path: 'other.rosetta', content: 'namespace other' });
+    renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().requestSourceFile('other.rosetta'));
+    expect(screen.getByLabelText('Source file path').parentElement).toHaveClass('navigation-arrival');
+    expect(sourceEditorMockState.latestProps?.activeFile).toBe('other.rosetta');
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('cues the loaded Source pane for file-only search without inventing a line', () => {
+    const input = props();
+    renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().requestSourceFile(path));
+    expect(screen.getByLabelText('Source file path').parentElement).toHaveClass('navigation-arrival');
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('does not report an unavailable source placeholder as actively locating', () => {
+    select();
+    renderEditorPage(props(''));
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('stops feedback when a ready source cannot resolve the destination', () => {
+    select('Missing');
+    renderEditorPage(props());
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('restarts a fully loaded source arrival for repeated indirect navigation to the same type', () => {
+    select();
+    renderEditorPage(props());
+    flushFrames();
+    sourceEditorMockState.revealLine.mockClear();
+    act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
+    expect(structureViewMockState.latestProps?.navigationRevision).toBe(1);
+    act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
+    expect(structureViewMockState.latestProps?.navigationRevision).toBe(2);
   });
 
   it('retains an unacknowledged reveal until the matching view is ready', () => {

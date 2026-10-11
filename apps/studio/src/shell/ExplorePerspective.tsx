@@ -104,6 +104,8 @@ import type { SourceEditorHandle } from '../components/CodePreviewPanel.js';
 import { subscribeToEngine } from '../services/git-sync.js';
 import { usePreviewStore, type FormPreviewTarget } from '../store/preview-store.js';
 import { FormPreviewPanel as FormPreviewPanelShell } from './panels/FormPreviewPanel.js';
+import { emphasizeNavigationArrival } from '../utils/navigation-arrival.js';
+import { SourceNavigationFeedbackContext } from './source-navigation-feedback-context.js';
 import { CenterStackPanel } from './panels/CenterStackPanel.js';
 import '../test-api.js';
 import { useWorkspace } from './providers/workspace-context.js';
@@ -460,9 +462,33 @@ export const ExplorePerspective = withInstrumentation(
     const graphRef = useRef<RuneTypeGraphRef>(null);
     const graphContainerRef = useRef<HTMLDivElement>(null);
     const sourceEditorRef = useRef<SourceEditorRef>(null);
-    const pendingSourceRequestsRef = useRef(new Set<string>());
+    const [pendingFileArrival, setPendingFileArrival] = useState<{
+      filePath: string;
+      workspaceId: string | undefined;
+      fileOnly?: boolean;
+    } | null>(null);
+    const [completedFileArrival, setCompletedFileArrival] = useState<{
+      filePath: string;
+      workspaceId: string | undefined;
+    } | null>(null);
+    const pendingFileArrivalRef = useLatestRef(pendingFileArrival);
+    const sourcePaneRef = useRef<HTMLDivElement>(null);
+    const inspectorArrivalRevisionRef = useRef<number | undefined>(undefined);
+    const inspectorArrivalRef = useRef<HTMLDivElement>(null);
+    const [loadingSourcePaths, setLoadingSourcePaths] = useState<Set<string>>(() => new Set());
+    const sourceLoadTokensRef = useRef(new Map<string, object>());
+    const pendingSourceRequestsRef = useRef(new Map<string, object>());
     const pendingSourceNavigationRef = useRef<{ bundleId: string; namespace: string; path: string } | null>(null);
     const [sourceLoadError, setSourceLoadError] = useState<{ path: string; message: string } | null>(null);
+    useEffect(() => {
+      sourceLoadTokensRef.current.clear();
+      pendingSourceRequestsRef.current.clear();
+      setLoadingSourcePaths(new Set());
+      setSourceLoadError(null);
+      return () => {
+        sourceLoadTokensRef.current.clear();
+      };
+    }, [workspaceId]);
     // Export dialog open-state is shared with the header's Export code/Generate
     // buttons (moving into ExploreActions in Task 3) — lifted to a store rather
     // than local useState (export-dialog-store.ts; shared-perspective-chrome
@@ -497,7 +523,20 @@ export const ExplorePerspective = withInstrumentation(
     const requestSourceFile = useExploreFileNavStore((s) => s.requestSourceFile);
     const [inspectorFocusNonce, setInspectorFocusNonce] = useState(0);
     const pendingRevealRef = useRef<SourceRevealRequest | null>(null);
+    const navigationSequenceRef = useRef(0);
+    const [navigationTarget, setNavigationTarget] = useState<{
+      nodeId: string;
+      revision: number;
+      workspaceId: string | undefined;
+    } | null>(null);
+    const requestNavigationArrival = useCallback(
+      (nodeId: string) => {
+        setNavigationTarget({ nodeId, revision: ++navigationSequenceRef.current, workspaceId });
+      },
+      [workspaceId]
+    );
     const sourceRevealIntentRef = useRef<SourceRevealRequest | null>(null);
+    const [sourceNavigationPending, setSourceNavigationPending] = useState<SourceRevealRequest | null>(null);
     const linkDocumentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Accumulates corpus models returned by linkDocument so they can be merged into
     // the graph. Reset when a new workspace is loaded.
@@ -1124,16 +1163,29 @@ export const ExplorePerspective = withInstrumentation(
         }
         const key = `${file.bundleId}:${file.bundleVersion}:${namespace}:${file.artifactKey ?? ''}`;
         if (pendingSourceRequestsRef.current.has(key)) continue;
-        pendingSourceRequestsRef.current.add(key);
+        const loadToken = {};
+        sourceLoadTokensRef.current.set(file.path, loadToken);
+        pendingSourceRequestsRef.current.set(key, loadToken);
+        setLoadingSourcePaths((paths) => new Set(paths).add(file.path));
         setSourceLoadError(null);
         void loadCuratedSource(file.bundleId, file.bundleVersion, namespace, file.artifactKey)
           .catch((error: unknown) => {
+            if (sourceLoadTokensRef.current.get(file.path) !== loadToken) return;
             setSourceLoadError({
               path: file.path,
               message: error instanceof Error ? error.message : String(error)
             });
           })
-          .finally(() => pendingSourceRequestsRef.current.delete(key));
+          .finally(() => {
+            if (pendingSourceRequestsRef.current.get(key) === loadToken) pendingSourceRequestsRef.current.delete(key);
+            if (sourceLoadTokensRef.current.get(file.path) !== loadToken) return;
+            sourceLoadTokensRef.current.delete(file.path);
+            setLoadingSourcePaths((paths) => {
+              const next = new Set(paths);
+              next.delete(file.path);
+              return next;
+            });
+          });
       }
     }, [
       files,
@@ -1141,6 +1193,7 @@ export const ExplorePerspective = withInstrumentation(
       selectedSourceFilePath,
       selectedNodeMeta?.namespace,
       hydratedNamespaces,
+      workspaceId,
       loadCuratedSource
     ]);
     useEffect(() => {
@@ -1157,6 +1210,14 @@ export const ExplorePerspective = withInstrumentation(
       pendingSourceNavigationRef.current = null;
       setActiveEditorFile(hydratedFile.path);
     }, [files, activeEditorFile, setActiveEditorFile]);
+    const currentNavigationTarget =
+      navigationTarget && navigationTarget.nodeId === selectedNodeId && navigationTarget.workspaceId === workspaceId
+        ? navigationTarget
+        : undefined;
+    const navigationRevision = currentNavigationTarget?.revision;
+    useEffect(() => {
+      if (navigationTarget && !currentNavigationTarget) setNavigationTarget(null);
+    }, [navigationTarget, currentNavigationTarget]);
     useEffect(() => {
       const previous = sourceRevealIntentRef.current;
       if (previous && previous.nodeId === selectedNodeId && previous.workspaceId === workspaceId && previous.cancelled)
@@ -1164,10 +1225,12 @@ export const ExplorePerspective = withInstrumentation(
       const request = selectedNodeId ? { nodeId: selectedNodeId, workspaceId, filePath: selectedSourceFilePath } : null;
       sourceRevealIntentRef.current = request;
       pendingRevealRef.current = request?.filePath ? request : null;
+      sourceEditorRef.current?.clearRevealHighlight?.();
+      setSourceNavigationPending(pendingRevealRef.current);
       if (request?.filePath) openFileInSource(request.filePath);
       // Hydration may replace a deferred file identity. It must not reclaim a
       // tab after the user explicitly navigated away from this selection.
-    }, [selectedNodeId, selectedSourceFilePath, workspaceId, openFileInSource]);
+    }, [selectedNodeId, selectedSourceFilePath, workspaceId, openFileInSource, navigationRevision]);
 
     // "+" new-file affordance moved to ExploreCenterSlot (shared-perspective-
     // chrome plan, Task 3) — it re-derives the same logic from useWorkspace().
@@ -1375,6 +1438,8 @@ export const ExplorePerspective = withInstrumentation(
         const editor = useEditorStore.getState();
         const targetKind = targetNode?.type as import('@rune-langium/visual-editor').TypeKind;
         if (targetKind && !editor.visibility.visibleNodeKinds.has(targetKind)) editor.toggleNodeKind(targetKind);
+        if (sourceRevealIntentRef.current) sourceRevealIntentRef.current.cancelled = false;
+        requestNavigationArrival(resolvedNodeId);
         storeSelectNode(resolvedNodeId, { reapplyFocusMode: true });
         if (!focusMode) editor.revealNeighbors(resolvedNodeId);
         const targetMeta = targetNode?.meta;
@@ -1393,7 +1458,7 @@ export const ExplorePerspective = withInstrumentation(
           graphRef.current?.focusNode(resolvedNodeId);
         }
       },
-      [focusMode, showToast, shouldCenterNavigationTarget, nodeRepository, storeSelectNode]
+      [focusMode, showToast, shouldCenterNavigationTarget, nodeRepository, storeSelectNode, requestNavigationArrival]
     );
 
     useEffect(() => {
@@ -1419,12 +1484,21 @@ export const ExplorePerspective = withInstrumentation(
         navigationForwardRef.current.push(current);
       }
       isHistoryNavigationRef.current = true;
+      requestNavigationArrival(prev);
       storeSelectNode(prev, { reapplyFocusMode: true });
       updateHistoryFlags();
       if (!focusMode && shouldCenterNavigationTarget(prev)) {
         graphRef.current?.focusNode(prev);
       }
-    }, [focusMode, showToast, shouldCenterNavigationTarget, storeSelectNode, storeNodes, updateHistoryFlags]);
+    }, [
+      focusMode,
+      showToast,
+      shouldCenterNavigationTarget,
+      storeSelectNode,
+      storeNodes,
+      updateHistoryFlags,
+      requestNavigationArrival
+    ]);
 
     const navigateForward = useCallback(() => {
       const next = navigationForwardRef.current.pop();
@@ -1445,12 +1519,21 @@ export const ExplorePerspective = withInstrumentation(
         if (navigationHistoryRef.current.length > 100) navigationHistoryRef.current.shift();
       }
       isHistoryNavigationRef.current = true;
+      requestNavigationArrival(next);
       storeSelectNode(next, { reapplyFocusMode: true });
       updateHistoryFlags();
       if (!focusMode && shouldCenterNavigationTarget(next)) {
         graphRef.current?.focusNode(next);
       }
-    }, [focusMode, showToast, shouldCenterNavigationTarget, storeSelectNode, storeNodes, updateHistoryFlags]);
+    }, [
+      focusMode,
+      showToast,
+      shouldCenterNavigationTarget,
+      storeSelectNode,
+      storeNodes,
+      updateHistoryFlags,
+      requestNavigationArrival
+    ]);
 
     const handleEditorPageKeyDown = useCallback(
       (e: KeyboardEvent<HTMLDivElement>) => {
@@ -1535,14 +1618,21 @@ export const ExplorePerspective = withInstrumentation(
           useOutputStore.getState().addLine(fmtLine('editor', `file not found for URI`, fileName), 'warn');
           return null;
         }
+        const arrival = { filePath: file.path, workspaceId };
+        setPendingFileArrival(arrival);
         openFileInSource(file.path);
         return new Promise<import('@codemirror/view').EditorView | null>((resolve) => {
           const existing = pendingDisplayFileRef.current.get(file.path);
           if (existing) existing(null);
-          pendingDisplayFileRef.current.set(file.path, resolve);
+          const resolveView = (view: import('@codemirror/view').EditorView | null) => {
+            setPendingFileArrival((current) => (current === arrival ? null : current));
+            resolve(view);
+          };
+          pendingDisplayFileRef.current.set(file.path, resolveView);
           const timerId = setTimeout(() => {
             displayFileTimersRef.current.delete(timerId);
-            if (pendingDisplayFileRef.current.has(file.path)) {
+            if (pendingDisplayFileRef.current.get(file.path) === resolveView) {
+              pendingDisplayFileRef.current.get(file.path)?.(null);
               pendingDisplayFileRef.current.delete(file.path);
               // eslint-disable-next-line no-console
               console.warn(`[displayFile] Timed out waiting for EditorView: "${file.path}"`);
@@ -1561,7 +1651,7 @@ export const ExplorePerspective = withInstrumentation(
         for (const resolve of pendingDisplayFileRef.current.values()) resolve(null);
         pendingDisplayFileRef.current.clear();
       };
-    }, [lspClient, files, openFileInSource]);
+    }, [lspClient, files, openFileInSource, workspaceId]);
 
     const sourceRevealContextRef = useLatestRef({
       selectedNodeId,
@@ -1587,6 +1677,8 @@ export const ExplorePerspective = withInstrumentation(
             return;
           const file = current.files.find((candidate) => candidate.path === pending.filePath);
           if (!file || !current.selectedNodeData) return;
+          // Empty curated placeholders are still waiting for their original source.
+          if (file.refOnly && !file.sourceLoaded && file.content.length === 0) return;
           const parsed = current.parsedModels?.find((entry) => entry.filePath === file.path);
           // Editable offsets describe the parsed snapshot, not necessarily the live buffer.
           // Curated source and AST share an immutable artifact identity.
@@ -1595,6 +1687,11 @@ export const ExplorePerspective = withInstrumentation(
           const line = findDeclarationLine(file.content, current.selectedNodeData, coordinatesCurrent);
           if (line !== undefined && sourceEditorRef.current?.revealLine(line, pending.filePath)) {
             pendingRevealRef.current = null;
+            setSourceNavigationPending(null);
+          } else if (line === undefined) {
+            // Retain the intent for a later matching parse, but an unresolved
+            // destination is not an active load and must not pulse forever.
+            setSourceNavigationPending(null);
           }
         });
       },
@@ -1608,13 +1705,20 @@ export const ExplorePerspective = withInstrumentation(
           pendingDisplayFileRef.current.delete(filePath);
           resolve(view);
         }
+        const fileArrival = pendingFileArrivalRef.current;
+        if (fileArrival?.fileOnly && fileArrival.filePath === filePath) {
+          setCompletedFileArrival(fileArrival);
+          setPendingFileArrival(null);
+        }
         // A hidden Source pane destroys its view. Restore the same selection
         // when it reopens, unless a later file navigation superseded it.
         const intent = sourceRevealIntentRef.current;
-        if (intent?.filePath === filePath && !intent.cancelled) pendingRevealRef.current = intent;
+        if (intent?.filePath === filePath && !intent.cancelled) {
+          pendingRevealRef.current = intent;
+        }
         applyPendingReveal(filePath);
       },
-      [applyPendingReveal]
+      [applyPendingReveal, pendingFileArrivalRef]
     );
 
     const sourceEditorFiles = useMemo(() => {
@@ -1626,25 +1730,71 @@ export const ExplorePerspective = withInstrumentation(
     }, [activeEditorFile, files]);
 
     useEffect(() => {
+      if (
+        !pendingFileArrival?.fileOnly ||
+        pendingFileArrival.workspaceId !== workspaceId ||
+        pendingFileArrival.filePath !== activeEditorFile ||
+        !sourceEditorRef.current ||
+        !sourcePaneRef.current
+      )
+        return;
+      const file = sourceEditorFiles.find((candidate) => candidate.path === pendingFileArrival.filePath);
+      if (!file || (file.refOnly && !file.sourceLoaded && !file.content.length)) return;
+      setCompletedFileArrival(pendingFileArrival);
+      setPendingFileArrival(null);
+    }, [pendingFileArrival, workspaceId, activeEditorFile, sourceEditorFiles]);
+    useEffect(() => {
+      if (!completedFileArrival || !sourcePaneRef.current) return;
+      return emphasizeNavigationArrival(sourcePaneRef.current);
+    }, [completedFileArrival]);
+    useEffect(() => {
+      setCompletedFileArrival((request) =>
+        request && request.filePath === activeEditorFile && request.workspaceId === workspaceId ? request : null
+      );
+    }, [workspaceId, activeEditorFile]);
+
+    useEffect(() => {
       const pending = pendingRevealRef.current;
       if (pending?.filePath && sourceEditorFiles.some((file) => file.path === pending.filePath)) {
         applyPendingReveal(pending.filePath);
       }
-    }, [sourceEditorFiles, selectedNodeId, selectedNodeData, workspaceId, parsedModels, applyPendingReveal]);
+    }, [
+      sourceEditorFiles,
+      selectedNodeId,
+      selectedNodeData,
+      workspaceId,
+      parsedModels,
+      applyPendingReveal,
+      navigationRevision
+    ]);
 
     useEffect(() => {
       // Cancel on explicit file navigation, including a tab switch before the
       // scheduled frame. Opening the selected file above updates the store first.
       const unsubscribe = useExploreFileNavStore.subscribe((state, previous) => {
+        const fileRequested =
+          state.requestedSourceFile !== undefined && state.requestedSourceFile !== previous.requestedSourceFile;
+        if (fileRequested) {
+          setPendingFileArrival({
+            filePath: state.requestedSourceFile!,
+            workspaceId: sourceRevealContextRef.current.workspaceId,
+            fileOnly: true
+          });
+        } else if (state.activeEditorFile !== previous.activeEditorFile) {
+          setPendingFileArrival((request) => (request?.filePath === state.activeEditorFile ? request : null));
+        }
         const intent = sourceRevealIntentRef.current;
         if (
           intent &&
-          state.activeEditorFile !== previous.activeEditorFile &&
-          state.activeEditorFile !== sourceRevealContextRef.current.selectedSourceFilePath &&
-          sourceRevealContextRef.current.files.some((file) => file.path === previous.activeEditorFile)
+          (fileRequested ||
+            (state.activeEditorFile !== previous.activeEditorFile &&
+              state.activeEditorFile !== sourceRevealContextRef.current.selectedSourceFilePath &&
+              sourceRevealContextRef.current.files.some((file) => file.path === previous.activeEditorFile)))
         ) {
           intent.cancelled = true;
           pendingRevealRef.current = null;
+          setSourceNavigationPending(null);
+          sourceEditorRef.current?.clearRevealHighlight?.();
         }
       });
       return () => {
@@ -1842,12 +1992,12 @@ export const ExplorePerspective = withInstrumentation(
               const file = files.find(
                 (f) => f.path === normPath || f.name === fileName || normPath.endsWith(f.path ?? '')
               );
-              if (file) openFileInSource(file.path ?? file.name);
+              if (file) requestSourceFile(file.path ?? file.name);
             }}
           />
         </div>
       ),
-      [combinedFileDiagnostics, files, openFileInSource]
+      [combinedFileDiagnostics, files, requestSourceFile]
     );
 
     // Stable adapter for CodePreviewPanel cross-file source-map navigation.
@@ -1928,6 +2078,7 @@ export const ExplorePerspective = withInstrumentation(
           <div ref={setGraphContainerRef} className="min-h-0 flex-1 relative studio-graph-canvas">
             <RuneTypeGraph
               ref={graphRef}
+              navigationTarget={currentNavigationTarget}
               config={{
                 // 'LR' is a safe default — the ResizeObserver corrects direction on the first frame
                 // once the container is measured. The container dimensions aren't available yet here.
@@ -1968,6 +2119,7 @@ export const ExplorePerspective = withInstrumentation(
         </section>
       ),
       [
+        currentNavigationTarget,
         visibleGraphCount,
         selectedNodeId,
         nodeRepository,
@@ -1993,7 +2145,7 @@ export const ExplorePerspective = withInstrumentation(
       const lineEnding = activeFile?.content.includes('\r\n') ? 'CRLF' : 'LF';
       const lineCount = activeFile?.content.split('\n').length ?? 0;
       return (
-        <div className="flex flex-col min-h-0 h-full">
+        <div ref={sourcePaneRef} className="flex flex-col min-h-0 h-full">
           <div className="studio-source-meta" aria-label="Source file path">
             {fileExt && <span className="studio-source-meta__pill">{fileExt}</span>}
             <span className="studio-source-meta__path">{activeFile?.path ?? '—'}</span>
@@ -2177,9 +2329,36 @@ export const ExplorePerspective = withInstrumentation(
       ]
     );
 
+    useEffect(() => {
+      if (
+        !navigationRevision ||
+        inspectorArrivalRevisionRef.current === navigationRevision ||
+        !selectedNodeData ||
+        selectedNodeMeta?.deferred ||
+        !inspectorArrivalRef.current
+      )
+        return;
+      let cleanup: (() => void) | undefined;
+      let cancelled = false;
+      let arrivalFrame: number | undefined;
+      const frame = requestAnimationFrame(() => {
+        arrivalFrame = requestAnimationFrame(() => {
+          if (cancelled || !inspectorArrivalRef.current) return;
+          inspectorArrivalRevisionRef.current = navigationRevision;
+          cleanup = emphasizeNavigationArrival(inspectorArrivalRef.current);
+        });
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(frame);
+        if (arrivalFrame !== undefined) cancelAnimationFrame(arrivalFrame);
+        cleanup?.();
+      };
+    }, [navigationRevision, selectedNodeData, selectedNodeMeta?.deferred]);
+
     const renderInspectorPane = useCallback(
       () => (
-        <div className="studio-scroll flex flex-col min-h-0 h-full overflow-auto">
+        <div ref={inspectorArrivalRef} className="studio-scroll flex flex-col min-h-0 h-full overflow-auto">
           <EditorFormPanel
             nodeData={selectedNodeData}
             meta={selectedNodeMeta}
@@ -2312,9 +2491,10 @@ export const ExplorePerspective = withInstrumentation(
     // ---------------------------------------------------------------------------
     const handleStructureNavigateToEnumType = useCallback(
       (typeId: string) => {
+        requestNavigationArrival(typeId);
         storeSelectNode(typeId, { reapplyFocusMode: false });
       },
-      [storeSelectNode]
+      [storeSelectNode, requestNavigationArrival]
     );
 
     // ---------------------------------------------------------------------------
@@ -2410,6 +2590,7 @@ export const ExplorePerspective = withInstrumentation(
       () => (
         <StructureView
           focusedTypeId={structureFocusedTypeId}
+          navigationRevision={navigationRevision}
           adapterDoc={adapterDocument}
           expansionMap={expansionMap}
           cellComponents={structureCellComponents}
@@ -2422,6 +2603,7 @@ export const ExplorePerspective = withInstrumentation(
         />
       ),
       [
+        navigationRevision,
         structureFocusedTypeId,
         adapterDocument,
         expansionMap,
@@ -2504,17 +2686,42 @@ export const ExplorePerspective = withInstrumentation(
         tabIndex={-1}
       >
         <div className="flex flex-1 min-h-0">
-          <DockShell
-            studioVersion={studioVersion}
-            workspaceId={workspaceId}
-            focusPanel={focusPanelRequest}
-            panelComponents={panelComponents}
-            panelTabMeta={panelTabMeta}
-            onNavigateBack={navigateBack}
-            onNavigateForward={navigateForward}
-            canNavigateBack={canGoBack}
-            canNavigateForward={canGoForward}
-          />
+          <SourceNavigationFeedbackContext.Provider
+            value={
+              activeEditorFile &&
+              sourceLoadError?.path !== activeEditorFile &&
+              (loadingSourcePaths.has(activeEditorFile) ||
+                sourceEditorFiles.some(
+                  (file) =>
+                    file.path === activeEditorFile &&
+                    (Boolean(file.namespace && pendingHydrationNamespaces.includes(file.namespace)) ||
+                      !file.refOnly ||
+                      file.sourceLoaded ||
+                      file.content.length > 0)
+                ))
+                ? pendingFileArrival?.filePath === activeEditorFile && pendingFileArrival.workspaceId === workspaceId
+                  ? pendingFileArrival
+                  : sourceNavigationPending &&
+                      sourceNavigationPending.nodeId === selectedNodeId &&
+                      sourceNavigationPending.workspaceId === workspaceId &&
+                      sourceNavigationPending.filePath === activeEditorFile
+                    ? sourceNavigationPending
+                    : null
+                : null
+            }
+          >
+            <DockShell
+              studioVersion={studioVersion}
+              workspaceId={workspaceId}
+              focusPanel={focusPanelRequest}
+              panelComponents={panelComponents}
+              panelTabMeta={panelTabMeta}
+              onNavigateBack={navigateBack}
+              onNavigateForward={navigateForward}
+              canNavigateBack={canGoBack}
+              canNavigateForward={canGoForward}
+            />
+          </SourceNavigationFeedbackContext.Provider>
         </div>
 
         <footer className="glass-statusbar flex items-center gap-4 px-3 py-1 text-xs text-muted-foreground border-t border-border">

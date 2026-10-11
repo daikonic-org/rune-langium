@@ -1,7 +1,8 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { emphasizeNavigationArrival } from '../../utils/navigation-arrival.js';
 import type { PayloadView } from '../../components/FormPreviewPanel.js';
 import type { FunctionSessionState } from '../../store/function-session-store.js';
 import { useInstanceStore } from '../../store/instance-store.js';
@@ -19,6 +20,7 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 export interface InstanceInspectorPanelProps {
   instanceId: string;
   focusedPayloadPointer?: string;
+  focusRequestId?: number;
 }
 
 function saveStatusText(saveState: { state: string; message?: string } | undefined): string {
@@ -28,7 +30,7 @@ function saveStatusText(saveState: { state: string; message?: string } | undefin
 }
 
 export const InstanceInspectorPanel = withInstrumentation(
-  function InstanceInspectorPanel({ instanceId, focusedPayloadPointer }: InstanceInspectorPanelProps) {
+  function InstanceInspectorPanel({ instanceId, focusedPayloadPointer, focusRequestId }: InstanceInspectorPanelProps) {
     const record = useInstanceStore((s) => s.instances[instanceId]);
     const diagnostics = useInstanceStore((s) => s.validationErrors[instanceId]) ?? [];
     const validationStatus = useInstanceStore((s) => s.validationStatus[instanceId]);
@@ -41,20 +43,29 @@ export const InstanceInspectorPanel = withInstrumentation(
     const patchView = usePrototypeViewStore((s) => s.patch);
     const [functionState, setFunctionState] = useState<FunctionSessionState>();
 
+    const destinationRef = useRef<HTMLDivElement>(null);
+    const schema = useInstanceStore((s) => (record ? s.schemas.get(record.typeFqn) : undefined));
+
     useEffect(() => {
       const fieldPath = focusedPayloadPointer && payloadPointerToFieldPath(focusedPayloadPointer);
       if (!fieldPath) return;
       patchView({ inspectorTab: 'form' });
+      let clearArrival: (() => void) | undefined;
       const frame = requestAnimationFrame(() => {
-        const target = Array.from(document.querySelectorAll<HTMLElement>('[data-field-path]')).find(
-          (element) => element.dataset.fieldPath === fieldPath
-        );
-        target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        const target = Array.from(
+          destinationRef.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? []
+        ).find((element) => element.dataset.fieldPath === fieldPath);
+        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        target?.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
+        if (target) clearArrival = emphasizeNavigationArrival(target);
         const input = target?.querySelector<HTMLElement>('input, button, [role="combobox"]');
-        (input ?? target)?.focus();
+        (input ?? target)?.focus({ preventScroll: true });
       });
-      return () => cancelAnimationFrame(frame);
-    }, [focusedPayloadPointer, patchView]);
+      return () => {
+        cancelAnimationFrame(frame);
+        clearArrival?.();
+      };
+    }, [instanceId, focusedPayloadPointer, focusRequestId, schema, patchView]);
 
     if (!record) return null;
     const functionPayload: PayloadView | undefined =
@@ -66,7 +77,7 @@ export const InstanceInspectorPanel = withInstrumentation(
     const payload = functionPayload ?? { kind: 'instance' as const, value: record.data };
 
     return (
-      <div className="flex h-full min-h-0 flex-col text-sm">
+      <div ref={destinationRef} className="flex h-full min-h-0 flex-col text-sm">
         <header className="border-b border-border px-3 py-2">
           <h2 className="truncate text-sm font-semibold">{record.name}</h2>
           <p className="truncate text-xs text-muted-foreground">{record.typeFqn}</p>

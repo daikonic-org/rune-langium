@@ -1682,3 +1682,26 @@ button[data-navigable]:focus-visible {
 [data-slot='type-name-input'][aria-invalid='true'] {
   border-bottom-color: var(--destructive);
 }
+
+/* Programmatic navigation arrival: layout-neutral and separate from selection. */
+.rune-navigation-arrival {
+  outline: 2px solid color-mix(in oklch, var(--primary) 65%, transparent);
+  outline-offset: 3px;
+  animation: rune-navigation-arrival 1s ease-out;
+}
+
+@keyframes rune-navigation-arrival {
+  from {
+    outline-color: var(--primary);
+  }
+
+  to {
+    outline-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rune-navigation-arrival {
+    animation: none;
+  }
+}
