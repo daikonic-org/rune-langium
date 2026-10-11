@@ -2508,3 +2508,26 @@ html {
 .z2f-field + .z2f-field {
   margin-top: var(--space-4);
 }
+
+
+/* Navigation feedback changes only opacity, never layout or code position. */
+@keyframes studio-navigation-pulse {
+  50% { opacity: 0.4; }
+}
+
+.studio-navigation-pending {
+  animation: studio-navigation-pulse 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-navigation-pending {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+
+.navigation-arrival {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent);
+  background-color: color-mix(in srgb, var(--primary) 8%, transparent);
+}

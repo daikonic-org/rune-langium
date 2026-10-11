@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { SourceNavigationFeedbackContext } from '../../src/shell/source-navigation-feedback-context.js';
 import React, { useEffect, useImperativeHandle } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, waitFor, screen, act, fireEvent } from '@testing-library/react';
@@ -147,6 +148,7 @@ const {
   const structureViewMockState = {
     latestProps: undefined as
       | {
+          navigationRevision?: number;
           focusedTypeId?: string;
           adapterDoc?: unknown;
           cellComponents?: {
@@ -199,9 +201,13 @@ function stubResizeObserver(): void {
 
 const { sourceEditorMockState, dockShellMockState, diagnosticsPanelMockState, inspectorMockState } = vi.hoisted(() => ({
   sourceEditorMockState: {
+    revealLine: vi.fn(() => true),
+    clearRevealHighlight: vi.fn(),
+    showSource: true,
     latestProps: undefined as
       | {
           activeFile?: string;
+          onNavigateToNode?: (nodeId: string) => void;
           onEditorViewCreated?: (filePath: string, view: { id: string }) => void;
         }
       | undefined
@@ -375,13 +381,15 @@ vi.mock('../../src/components/SourceEditor.js', () => ({
     (
       props: {
         activeFile?: string;
+        onNavigateToNode?: (nodeId: string) => void;
         onEditorViewCreated?: (filePath: string, view: { id: string }) => void;
       },
       ref
     ) => {
       sourceEditorMockState.latestProps = props;
       useImperativeHandle(ref, () => ({
-        revealLine: vi.fn(),
+        revealLine: sourceEditorMockState.revealLine,
+        clearRevealHighlight: sourceEditorMockState.clearRevealHighlight,
         revealPosition: vi.fn()
       }));
 
@@ -483,31 +491,35 @@ vi.mock('../../src/components/GraphFilterMenu.js', () => ({
   GraphFilterMenu: () => React.createElement('div')
 }));
 
-vi.mock('../../src/shell/DockShell.js', () => ({
-  DockShell: ({
-    panelComponents,
-    focusPanel
-  }: {
-    panelComponents?: Record<string, React.ComponentType>;
-    focusPanel?: { component: string; nonce: number } | null;
-  }) => {
-    dockShellMockState.latestProps = { focusPanel };
-    return React.createElement('div', { 'data-testid': 'dock-shell' }, [
-      panelComponents?.['workspace.fileTree']
-        ? React.createElement(panelComponents['workspace.fileTree'], { key: 'fileTree' })
-        : null,
-      panelComponents?.['workspace.editor']
-        ? React.createElement(panelComponents['workspace.editor'], { key: 'editor' })
-        : null,
-      panelComponents?.['workspace.visualPreview']
-        ? React.createElement(panelComponents['workspace.visualPreview'], { key: 'visual' })
-        : null,
-      panelComponents?.['workspace.problems']
-        ? React.createElement(panelComponents['workspace.problems'], { key: 'problems' })
-        : null
-    ]);
-  }
-}));
+vi.mock('../../src/shell/DockShell.js', () => {
+  // Match WorkbenchHost's stable bridge rather than remounting changing render callbacks.
+  const PanelBody = ({ render }: { render: (props: object) => React.ReactElement | null }) => render({});
+  return {
+    DockShell: ({
+      panelComponents,
+      focusPanel
+    }: {
+      panelComponents?: Record<string, (props: object) => React.ReactElement | null>;
+      focusPanel?: { component: string; nonce: number } | null;
+    }) => {
+      dockShellMockState.latestProps = { focusPanel };
+      return React.createElement('div', { 'data-testid': 'dock-shell' }, [
+        panelComponents?.['workspace.fileTree']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.fileTree'], key: 'fileTree' })
+          : null,
+        panelComponents?.['workspace.editor']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.editor'], key: 'editor' })
+          : null,
+        panelComponents?.['workspace.visualPreview']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.visualPreview'], key: 'visual' })
+          : null,
+        panelComponents?.['workspace.problems']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.problems'], key: 'problems' })
+          : null
+      ]);
+    }
+  };
+});
 
 vi.mock('../../src/shell/panels/CenterStackPanel.js', () => ({
   // Simplified stub: renders all four panes by default so that
@@ -528,13 +540,14 @@ vi.mock('../../src/shell/panels/CenterStackPanel.js', () => ({
     renderInspector?: () => React.ReactElement | null;
     renderStructure?: () => React.ReactElement | null;
   }) {
+    const sourceNavigationPending = React.useContext(SourceNavigationFeedbackContext);
     const [showGraph, setShowGraph] = React.useState(centerStackMockState.showGraph);
     centerStackMockState.setShowGraph = setShowGraph;
     return React.createElement(
       'div',
-      { 'data-testid': 'center-stack-mock' },
+      { 'data-testid': 'center-stack-mock', 'data-source-pending': Boolean(sourceNavigationPending) },
       showGraph ? (renderGraph?.() ?? null) : null,
-      renderSource?.() ?? null,
+      sourceEditorMockState.showSource ? (renderSource?.() ?? null) : null,
       renderInspector?.() ?? null,
       renderStructure?.() ?? null
     );
@@ -1073,6 +1086,68 @@ describe('EditorPage preview target identity', () => {
     });
   });
 
+  it('does not let an older LSP timeout cancel a newer same-file request', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let display: ((uri: string) => Promise<unknown>) | undefined;
+      const input = {
+        models: [],
+        files: [{ path: 'beta.rosetta', name: 'beta.rosetta', content: 'namespace beta', dirty: false }],
+        lspClient: {
+          onDisplayFile: (handler: typeof display) => {
+            display = handler;
+            return () => {};
+          }
+        } as never
+      };
+      sourceEditorMockState.showSource = false;
+      const view = renderEditorPage(input);
+      act(() => {
+        void display?.('file:///beta.rosetta');
+      });
+      act(() => vi.advanceTimersByTime(1000));
+      let newer: Promise<unknown> | undefined;
+      act(() => {
+        newer = display?.('file:///beta.rosetta');
+      });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+      sourceEditorMockState.showSource = true;
+      view.rerenderEditorPage(input);
+      await expect(newer).resolves.toEqual({ id: 'beta.rosetta' });
+    } finally {
+      sourceEditorMockState.showSource = true;
+      vi.useRealTimers();
+    }
+  });
+
+  it('tracks an LSP file navigation until its editor view arrives', async () => {
+    let display: ((uri: string) => Promise<unknown>) | undefined;
+    const input = {
+      models: [],
+      files: [{ path: 'beta.rosetta', name: 'beta.rosetta', content: 'namespace beta', dirty: false }],
+      lspClient: {
+        onDisplayFile: (handler: typeof display) => {
+          display = handler;
+          return () => {};
+        }
+      } as never
+    };
+    sourceEditorMockState.showSource = false;
+    const view = renderEditorPage(input);
+    let result: Promise<unknown> | undefined;
+    act(() => {
+      result = display?.('file:///beta.rosetta');
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage(input);
+    await act(async () => {
+      await result;
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
   it('resolves displayFile by opening the matching source file and returning its editor view', async () => {
     let displayFileHandler: ((uri: string) => Promise<{ id: string } | null>) | undefined;
     const lspClient = {
@@ -1148,6 +1223,38 @@ describe('EditorPage workspace chrome', () => {
     setRuneStudioTestApi(() => undefined);
     vi.unstubAllGlobals();
     cleanup();
+  });
+
+  it('reveals the selected curated declaration after source arrives without changing the selection', async () => {
+    const path = 'cdm/datetime.rosetta';
+    const name = 'BusinessCenters';
+    const namespace = 'cdm.base.datetime';
+    editorStoreState.nodes = [
+      {
+        id: `${namespace}.${name}#Data`,
+        data: { name, $type: 'Data' },
+        meta: { namespace, errors: [], hasExternalRefs: false, deferred: true }
+      }
+    ];
+    editorStoreState.selectedNodeId = editorStoreState.nodes[0]!.id;
+    const file = {
+      name: 'datetime.rosetta',
+      path,
+      content: '',
+      dirty: false,
+      readOnly: true,
+      refOnly: true,
+      namespace
+    };
+    const deferredExports = [{ namespace, filePath: path, exports: [{ name, type: 'Data' }] }];
+    const props = { files: [file], deferredExports };
+    const { rerenderEditorPage } = renderEditorPage(props);
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+
+    const content = 'namespace cdm.base.datetime\n\ntype BusinessCentersExtra:\n\ntype BusinessCenters:\n';
+    rerenderEditorPage({ ...props, files: [{ ...file, content, sourceLoaded: true }] });
+    await waitFor(() => expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path));
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalledWith(1, path);
   });
 
   it('renders a workspace header and keeps graph controls inside the graph panel', () => {
@@ -2617,5 +2724,479 @@ describe('EditorPage StructureView cell-editor wiring (Phase 5/8 regression guar
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('EditorPage source reveal lifecycle', () => {
+  const namespace = 'cdm.base.datetime';
+  const path = 'cdm/datetime.rosetta';
+  const content = 'namespace cdm.base.datetime\n\ntype BusinessCentersExtra:\n\ntype BusinessCenters:\n\ntype Other:\n';
+  let frames: FrameRequestCallback[];
+
+  function flushFrames() {
+    const queued = frames.splice(0);
+    act(() => queued.forEach((callback) => callback(0)));
+  }
+
+  function select(name = 'BusinessCenters', coordinates = {}, kind = 'Data') {
+    const node = {
+      id: `${namespace}.${name}#${kind}`,
+      data: { name, $type: kind, ...coordinates },
+      meta: { namespace, errors: [], hasExternalRefs: false }
+    };
+    editorStoreState.nodes = [node];
+    editorStoreState.selectedNodeId = node.id;
+  }
+
+  function props(source = content) {
+    return {
+      workspaceId: 'workspace-a',
+      files: [
+        {
+          name: 'datetime.rosetta',
+          path,
+          content: source,
+          dirty: false,
+          readOnly: true,
+          refOnly: true,
+          namespace,
+          artifactKey: 'cdm/content-digest/datetime'
+        }
+      ],
+      deferredExports: [
+        {
+          namespace,
+          filePath: path,
+          exports: [
+            { name: 'BusinessCenters', type: 'Data' },
+            { name: 'Other', type: 'Data' }
+          ]
+        }
+      ]
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('Worker', MockWorker);
+    stubResizeObserver();
+    frames = [];
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+      })
+    );
+    MockWorker.instances = [];
+    usePreviewStore.getState().resetPreviewState();
+    usePerspectiveStore.setState({ activePerspective: 'explore' });
+    useExploreFileNavStore.setState({ activeEditorFile: undefined, requestedSourceFile: undefined, syncStatus: null });
+    editorStoreState.nodes = [];
+    editorStoreState.selectedNodeId = undefined;
+    editorStoreState.hydratedNamespaces = [];
+    editorStoreState.pendingHydrationNamespaces = [];
+    vi.clearAllMocks();
+    sourceEditorMockState.revealLine.mockReturnValue(true);
+    sourceEditorMockState.showSource = true;
+    centerStackMockState.showGraph = true;
+  });
+
+  afterEach(() => {
+    cleanup();
+    sourceEditorMockState.showSource = true;
+    vi.unstubAllGlobals();
+  });
+
+  it.each(['basicType', 'recordType'])('finds a coordinate-less %s declaration by exact name', (keyword) => {
+    const kind = keyword === 'basicType' ? 'RosettaBasicType' : 'RosettaRecordType';
+    select('BusinessCenters', {}, kind);
+    const source = `namespace ${namespace}\n${keyword} BusinessCentersExtra\n\n${keyword} ^BusinessCenters\n`;
+    const input = props(source);
+    input.deferredExports[0]!.exports[0]!.type = kind;
+    renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(4, path);
+  });
+
+  function editableProps(source: string, snapshot?: string) {
+    const input = props(source);
+    const model = {
+      $type: 'RosettaModel',
+      name: namespace,
+      imports: [],
+      elements: []
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    return {
+      ...input,
+      files: input.files.map((file) => ({ ...file, readOnly: false, refOnly: false })),
+      parsedModels: [{ filePath: path, model, source: snapshot }]
+    };
+  }
+
+  it.each(['$cstRange', '$cstNode', '$textRegion'])(
+    'ignores stale %s offsets after edits before parsing finishes',
+    (key) => {
+      const edited = `// inserted line\n// another line\n${content}`;
+      select('BusinessCenters', { [key]: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+      renderEditorPage(editableProps(edited, content));
+      flushFrames();
+      expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(7, path);
+    }
+  );
+
+  it('does not trust editable coordinates without a parsed source snapshot', () => {
+    const source = 'namespace cdm.base.datetime\n\ntype\n  BusinessCenters:\n';
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type'), end: source.length } });
+    renderEditorPage(editableProps(source));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('does not trust deferred coordinates without a curated artifact identity', () => {
+    const source = 'namespace cdm.base.datetime\n\ntype\n  BusinessCenters:\n';
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type'), end: source.length } });
+    const input = props(source);
+    renderEditorPage({ ...input, files: input.files.map((file) => ({ ...file, artifactKey: undefined })) });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('keeps an ambiguous reveal pending until its parsed source snapshot becomes current', () => {
+    const snapshot = 'namespace cdm.base.datetime\nfunc BusinessCenters:\n\ntype BusinessCenters:\n';
+    const source = `// edit\n${snapshot}`;
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type BusinessCenters:'), end: source.length } });
+    const input = editableProps(source, snapshot);
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    view.rerenderEditorPage({ ...input, parsedModels: [{ ...input.parsedModels[0]!, source }] });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('ignores declaration-looking lines inside comments and strings', () => {
+    const source =
+      'namespace cdm.base.datetime\n/*\ntype BusinessCenters:\n*/\n<"\ntype BusinessCenters:\n">\ntype BusinessCenters:\n';
+    select();
+    renderEditorPage(props(source));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(8, path);
+  });
+
+  it('waits for AST coordinates when different declaration kinds share a name', () => {
+    const source = 'namespace cdm.base.datetime\nfunc BusinessCenters:\n\ntype BusinessCenters:\n';
+    select();
+    const input = props(source);
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type BusinessCenters:'), end: source.length } });
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(4, path);
+  });
+
+  it('uses exact declaration identity when Source is already mounted', () => {
+    const input = props();
+    const view = renderEditorPage(input);
+    select();
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('waits for source even when hydrated AST coordinates arrive first', () => {
+    select('BusinessCenters', { $cstRange: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+    const view = renderEditorPage(props(''));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    view.rerenderEditorPage(props());
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('retries when AST coordinates arrive after source without reopening a tab', () => {
+    // A multiline declaration cannot be located by the single-line fallback.
+    const source = 'namespace cdm.base.datetime\n\ntype\n  BusinessCenters:\n';
+    select();
+    const input = props(source);
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type'), end: source.length } });
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(3, path);
+  });
+
+  it.each(['$cstNode', '$textRegion'])('uses %s offsets for hydrated declarations', (key) => {
+    select('BusinessCenters', { [key]: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+    renderEditorPage(props());
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('exposes reactive navigation feedback only until a matching view acknowledges arrival', () => {
+    select();
+    sourceEditorMockState.revealLine.mockReturnValue(false);
+    renderEditorPage(props());
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+    sourceEditorMockState.revealLine.mockReturnValue(true);
+    act(() => sourceEditorMockState.latestProps?.onEditorViewCreated?.(path, { id: path }));
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('does not replay an Inspector arrival when the selected declaration is edited', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      select();
+      const input = props();
+      const view = renderEditorPage(input);
+      act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
+      flushFrames();
+      flushFrames();
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(1000));
+      editorStoreState.nodes = editorStoreState.nodes.map((node) => ({ ...node, data: { ...node.data } }));
+      view.rerenderEditorPage(input);
+      flushFrames();
+      flushFrames();
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores an old same-path source failure while a newer workspace load remains pending', async () => {
+    select();
+    let rejectOld: (error: Error) => void = () => {};
+    let resolveNew: () => void = () => {};
+    const loadCuratedSource = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectOld = reject;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveNew = resolve;
+          })
+      );
+    const input = { ...props(''), loadCuratedSource };
+    Object.assign(input.files[0]!, { bundleId: 'cdm', bundleVersion: 'latest' });
+    const view = renderEditorPage(input);
+    view.rerenderEditorPage({ ...input, workspaceId: 'workspace-b' });
+    expect(loadCuratedSource).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      rejectOld(new Error('old request'));
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'true');
+    expect(screen.queryByText('Source unavailable: old request')).toBeNull();
+    await act(async () => {
+      resolveNew();
+    });
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('cancels a queued declaration reveal when file-only navigation targets that same file', () => {
+    select();
+    renderEditorPage(props());
+    act(() => useExploreFileNavStore.getState().requestSourceFile(path));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('cues the destination pane for a loaded cross-file search jump', () => {
+    const input = props();
+    input.files.push({ ...input.files[0]!, name: 'other.rosetta', path: 'other.rosetta', content: 'namespace other' });
+    renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().requestSourceFile('other.rosetta'));
+    expect(screen.getByLabelText('Source file path').parentElement).toHaveClass('navigation-arrival');
+    expect(sourceEditorMockState.latestProps?.activeFile).toBe('other.rosetta');
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('cues the loaded Source pane for file-only search without inventing a line', () => {
+    const input = props();
+    renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().requestSourceFile(path));
+    expect(screen.getByLabelText('Source file path').parentElement).toHaveClass('navigation-arrival');
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('does not report an unavailable source placeholder as actively locating', () => {
+    select();
+    renderEditorPage(props(''));
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('stops feedback when a ready source cannot resolve the destination', () => {
+    select('Missing');
+    renderEditorPage(props());
+    flushFrames();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+  });
+
+  it('syncs a Source-origin selection to other panes without scrolling or cueing Source itself', () => {
+    select();
+    const other = {
+      id: `${namespace}.Other#Data`,
+      data: { name: 'Other', $type: 'Data' },
+      meta: { namespace, errors: [], hasExternalRefs: false }
+    };
+    editorStoreState.nodes.push(other);
+    renderEditorPage(props());
+    sourceEditorMockState.clearRevealHighlight.mockClear();
+    // A direct source click supersedes even a still-queued external reveal.
+    act(() => sourceEditorMockState.latestProps?.onNavigateToNode?.(other.id));
+    flushFrames();
+    flushFrames();
+    expect(editorStoreState.selectedNodeId).toBe(other.id);
+    expect(structureViewMockState.latestProps?.navigationRevision).toBe(1);
+    expect(sourceEditorMockState.clearRevealHighlight).not.toHaveBeenCalled();
+    expect(usePreviewStore.getState().selectedTarget?.id).toBe(other.id);
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    expect(screen.getByTestId('center-stack-mock')).toHaveAttribute('data-source-pending', 'false');
+
+    // A later indirect request to that same target must still reveal Source.
+    act(() => runeTypeGraphMockState.latestCallbacks?.onNavigateToType?.(other.id));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(7, path);
+  });
+
+  it('can restore a Source-origin selection when Source actually remounts', () => {
+    select();
+    const input = props();
+    const view = renderEditorPage(input);
+    act(() => sourceEditorMockState.latestProps?.onNavigateToNode?.(editorStoreState.selectedNodeId!));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    sourceEditorMockState.showSource = false;
+    view.rerenderEditorPage(input);
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
+  });
+
+  it('restarts a fully loaded source arrival for repeated indirect navigation to the same type', () => {
+    select();
+    renderEditorPage(props());
+    flushFrames();
+    sourceEditorMockState.revealLine.mockClear();
+    act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
+    expect(structureViewMockState.latestProps?.navigationRevision).toBe(1);
+    const firstPreviewRequest = usePreviewStore.getState().navigationRequest;
+    expect(firstPreviewRequest?.targetId).toBe(editorStoreState.selectedNodeId);
+    act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
+    expect(structureViewMockState.latestProps?.navigationRevision).toBe(2);
+    expect(usePreviewStore.getState().navigationRequest?.revision).toBe(firstPreviewRequest!.revision + 1);
+  });
+
+  it('retains an unacknowledged reveal until the matching view is ready', () => {
+    select();
+    sourceEditorMockState.revealLine.mockReturnValue(false);
+    renderEditorPage(props());
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledWith(5, path);
+    sourceEditorMockState.revealLine.mockClear().mockReturnValue(true);
+    act(() => sourceEditorMockState.latestProps?.onEditorViewCreated?.(path, { id: path }));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+  });
+
+  it('keeps a hidden-pane reveal and restores the selection after reopening Source', () => {
+    select();
+    sourceEditorMockState.showSource = false;
+    const input = props();
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage({ ...input });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
+    sourceEditorMockState.showSource = false;
+    view.rerenderEditorPage({ ...input });
+    sourceEditorMockState.showSource = true;
+    view.rerenderEditorPage({ ...input });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledTimes(2);
+    expect(sourceEditorMockState.revealLine).toHaveBeenLastCalledWith(5, path);
+  });
+
+  it('discards a scheduled reveal after a rapid A to B selection', () => {
+    select();
+    const input = props();
+    const view = renderEditorPage(input);
+    select('Other');
+    view.rerenderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(7, path);
+  });
+
+  it('discards a scheduled reveal when the workspace changes', () => {
+    select();
+    const view = renderEditorPage(props());
+    editorStoreState.selectedNodeId = undefined;
+    editorStoreState.nodes = [];
+    view.rerenderEditorPage({ workspaceId: 'workspace-b', files: [], deferredExports: [] });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('follows a selected declaration when hydration replaces its deferred file path', () => {
+    select();
+    const input = props('');
+    const other = { name: 'user.rosetta', path: 'user.rosetta', content: 'namespace user', dirty: false };
+    input.files.push(other as (typeof input.files)[number]);
+    const view = renderEditorPage(input);
+    const hydrated = props();
+    hydrated.files[0]!.path = 'cdm/hydrated-datetime.rosetta';
+    hydrated.deferredExports[0]!.filePath = hydrated.files[0]!.path;
+    hydrated.files.push(other as (typeof hydrated.files)[number]);
+    view.rerenderEditorPage(hydrated);
+    flushFrames();
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe(hydrated.files[0]!.path);
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, hydrated.files[0]!.path);
+  });
+
+  it('does not reopen a canceled selection when hydration changes its file path', () => {
+    select();
+    const input = props('');
+    const other = { name: 'user.rosetta', path: 'user.rosetta', content: 'namespace user', dirty: false };
+    input.files.push(other as (typeof input.files)[number]);
+    const view = renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().setActiveEditorFile('user.rosetta'));
+    const hydrated = props();
+    hydrated.files.push(other as (typeof hydrated.files)[number]);
+    hydrated.files[0]!.path = 'cdm/hydrated-datetime.rosetta';
+    hydrated.deferredExports[0]!.filePath = hydrated.files[0]!.path;
+    view.rerenderEditorPage(hydrated);
+    flushFrames();
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe('user.rosetta');
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('does not override explicit tab navigation when source or AST arrives later', () => {
+    select();
+    const other = { name: 'user.rosetta', path: 'user.rosetta', content: 'namespace user', dirty: false };
+    const input = props('');
+    input.files.push(other as (typeof input.files)[number]);
+    const view = renderEditorPage(input);
+    act(() => useExploreFileNavStore.getState().setActiveEditorFile(other.path));
+    select('BusinessCenters', { $cstRange: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+    view.rerenderEditorPage({ ...props(), files: [...props().files, other as (typeof input.files)[number]] });
+    flushFrames();
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe(other.path);
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
   });
 });

@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { Fragment, useCallback, useRef, useState } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { Network, FileCode2, Info, Layers } from 'lucide-react';
 import { GraphFilterMenu } from '../../components/GraphFilterMenu.js';
 import { useCenterPanes, type CenterPane } from '../center-panes-context.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+
+import { SourceNavigationFeedbackContext } from '../source-navigation-feedback-context.js';
 
 const PANE_GROUPS: ReadonlyArray<{ label: string; panes: readonly CenterPane[] }> = [
   { label: 'View', panes: ['graph', 'structure'] },
@@ -29,6 +31,8 @@ const PANE_ICONS: Record<CenterPane, React.FC<React.SVGProps<SVGSVGElement>>> = 
 const MIN_PANE_PX = 120;
 
 interface CenterStackPanelProps {
+  /** Identity changes restart the delayed cue; hidden panes never pulse. */
+  sourceNavigationPending?: object | null;
   renderGraph: () => React.ReactElement | null;
   renderSource: () => React.ReactElement | null;
   renderInspector: () => React.ReactElement | null;
@@ -40,9 +44,21 @@ export const CenterStackPanel = withInstrumentation(
     renderGraph,
     renderSource,
     renderInspector,
-    renderStructure
+    renderStructure,
+    sourceNavigationPending: pendingOverride
   }: CenterStackPanelProps): React.ReactElement {
     const { activePanes, toggle } = useCenterPanes();
+    const pendingContext = useContext(SourceNavigationFeedbackContext);
+    const sourceNavigationPending = pendingOverride === undefined ? pendingContext : pendingOverride;
+    const sourceVisible = activePanes.has('source');
+    const [visibleRequest, setVisibleRequest] = useState<object | null>(null);
+    useEffect(() => {
+      if (!sourceVisible || !sourceNavigationPending) return;
+      const timer = setTimeout(() => setVisibleRequest(sourceNavigationPending), 250);
+      return () => clearTimeout(timer);
+    }, [sourceVisible, sourceNavigationPending]);
+    const sourcePending =
+      sourceVisible && Boolean(sourceNavigationPending) && visibleRequest === sourceNavigationPending;
     const ordered = PANE_ORDER.filter((p) => activePanes.has(p));
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -143,7 +159,12 @@ export const CenterStackPanel = withInstrumentation(
                       className={isActive ? 'studio-paneswitch__seg is-active' : 'studio-paneswitch__seg'}
                       onClick={() => toggle(pane)}
                     >
-                      <Icon className="size-3.5" aria-hidden />
+                      <Icon
+                        className={
+                          pane === 'source' && sourcePending ? 'size-3.5 studio-navigation-pending' : 'size-3.5'
+                        }
+                        aria-hidden
+                      />
                       {PANE_LABELS[pane]}
                     </button>
                   );

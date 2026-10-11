@@ -15,6 +15,7 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
+import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import type { Target } from '@rune-langium/codegen/export';
@@ -38,6 +39,7 @@ import { usePreviewStore } from '../store/preview-store.js';
 import { useStudioToast } from './StudioToastProvider.js';
 import { CODE_PREVIEW_PANEL_ID, TARGET_LABELS } from './codegen-ui.js';
 import { uriToPath } from '../utils/uri.js';
+import { findGeneratedDeclarationLine } from '../utils/generated-declaration.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 interface SourcePosition {
@@ -250,6 +252,7 @@ export const CodePreviewPanel = withInstrumentation(
         doc: '',
         extensions: [
           ...editorExtensions(langExtension, true),
+          sourceNavigationHighlight,
           EditorView.domEventHandlers({
             click: (event, view) => {
               const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -280,26 +283,61 @@ export const CodePreviewPanel = withInstrumentation(
         changes: { from: 0, to: current.length, insert: nextContent },
         annotations: externalDocumentChange.of(true)
       });
-    }, [activeFile]);
+    }, [activeFile, activeTarget, target]);
 
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
+    const selectedTarget = usePreviewStore((s) => s.selectedTarget);
+    const navigationRequest = usePreviewStore((s) => s.navigationRequest);
+    const consumedArrivalRef = useRef<{ view: EditorView; request: typeof navigationRequest } | undefined>(undefined);
+    const cancelledArrivalRef = useRef<typeof navigationRequest>(undefined);
     useEffect(() => {
       const view = editorViewRef.current;
-      if (!view || !selectedTargetId || !activeFile) return;
+      if (!view) return;
+      const consumed = consumedArrivalRef.current;
+      if (consumed?.view === view && consumed.request === navigationRequest) return;
+      if (navigationRequest && cancelledArrivalRef.current === navigationRequest) return;
+      clearSourceReveal(view);
+      if (
+        !navigationRequest ||
+        navigationRequest.targetId !== selectedTargetId ||
+        activeTarget !== target ||
+        snapshot.target !== target ||
+        !('files' in snapshot)
+      )
+        return;
       const typeName = nameFromNodeId(selectedTargetId);
       if (!typeName) return;
-      const lines = activeFile.content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i]!.trimStart();
-        if (trimmed.includes(typeName) && /^(export |const |class |interface |type |function )/.test(trimmed)) {
-          const lineInfo = view.state.doc.line(i + 1);
-          view.dispatch({
-            effects: EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 })
-          });
-          return;
-        }
+      const declaration = selectedTarget ?? { name: typeName, namespace: '', kind: '' };
+      const destinations = snapshot.files.flatMap((file) => {
+        const lineIndex = findGeneratedDeclarationLine(target, file, declaration);
+        return lineIndex === undefined ? [] : [{ file, lineIndex }];
+      });
+      if (destinations.length !== 1) return;
+      const destination = destinations[0]!;
+      if (activeFile?.relativePath !== destination.file.relativePath) {
+        setActiveCodePreviewFile(destination.file.relativePath);
+        return;
       }
-    }, [selectedTargetId, activeFile]);
+      // The preceding content-sync effect must install this exact file first.
+      if (view.state.doc.toString() !== destination.file.content) return;
+      const lineInfo = view.state.doc.line(destination.lineIndex + 1);
+      consumedArrivalRef.current = { view, request: navigationRequest };
+      view.dispatch({
+        effects: [
+          EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 }),
+          setSourceReveal.of(lineInfo.from)
+        ]
+      });
+    }, [
+      selectedTargetId,
+      selectedTarget,
+      navigationRequest,
+      activeFile,
+      activeTarget,
+      target,
+      snapshot,
+      setActiveCodePreviewFile
+    ]);
 
     const statusMessage =
       snapshot.status === 'stale' || snapshot.status === 'unavailable' ? snapshot.message : undefined;
@@ -337,7 +375,14 @@ export const CodePreviewPanel = withInstrumentation(
                 {TARGET_LABELS[activeTarget]}
               </span>
               {selectableFiles && selectableFiles.length > 1 ? (
-                <Select value={activeRelativePath} onValueChange={(value) => setActiveCodePreviewFile(value)}>
+                <Select
+                  value={activeRelativePath}
+                  onValueChange={(value) => {
+                    cancelledArrivalRef.current = navigationRequest;
+                    if (editorViewRef.current) clearSourceReveal(editorViewRef.current);
+                    setActiveCodePreviewFile(value);
+                  }}
+                >
                   <SelectTrigger
                     size="sm"
                     aria-label="Generated file"

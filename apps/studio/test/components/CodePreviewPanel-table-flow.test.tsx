@@ -23,6 +23,13 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 
+// These tests exercise panel routing/status; real editor cues are covered in CodePreviewPanel-arrival.
+vi.mock('../../src/lang/source-navigation-highlight.js', () => ({
+  sourceNavigationHighlight: [],
+  clearSourceReveal: vi.fn(),
+  setSourceReveal: { of: vi.fn(() => ({})) }
+}));
+
 vi.mock('@codemirror/view', () => ({
   EditorView: class MockEditorView {
     dom = document.createElement('div');

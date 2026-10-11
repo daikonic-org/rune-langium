@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { create } from 'zustand';
-import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
+import { qualifiedNameFromNodeId, type EditorState } from '@rune-langium/visual-editor';
 import { expandPreviewField } from '@rune-langium/codegen/export';
 import type { FormPreviewSchema, PreviewField, PreviewSourceMapEntry } from '@rune-langium/codegen/export';
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
@@ -55,6 +55,8 @@ export interface PreviewSampleState {
 interface PreviewStoreState {
   targets: FormPreviewTarget[];
   selectedTargetId?: string;
+  /** Explicit selection intent, independent of refreshed model/generated data. */
+  navigationRequest?: { targetId: string; revision: number };
   selectedTarget?: FormPreviewTarget;
   lastResolvedTarget?: FormPreviewTarget;
   schemas: Map<string, FormPreviewSchema>;
@@ -67,7 +69,7 @@ interface PreviewStoreState {
 }
 
 interface PreviewStoreActions {
-  setAvailableTargets(targets: FormPreviewTarget[]): void;
+  setAvailableTargets(targets: FormPreviewTarget[], selectionRekey?: EditorState['selectionRekey']): void;
   selectTarget(targetId: string | undefined): void;
   receivePreviewResult(schema: FormPreviewSchema): void;
   receivePreviewStale(input: { targetId?: string; reason: PreviewStaleReason; message: string }): void;
@@ -103,6 +105,7 @@ const initialState: PreviewStoreState = {
   hydrationRetriesRemaining: {}
 };
 
+let navigationRevision = 0;
 let dispatchExecuteCounter = 0;
 let _lastExecuteRequestId = '';
 let workerRef: Worker | null = null;
@@ -281,14 +284,20 @@ function retargetStatus(status: PreviewStatus, targetId: string): PreviewStatus 
 export const usePreviewStore = create<PreviewStore>((set, get) => ({
   ...initialState,
 
-  setAvailableTargets(targets) {
+  setAvailableTargets(targets, selectionRekey) {
     const { selectedTargetId, selectedTarget: previousTarget, lastResolvedTarget, status } = get();
     const renameAnchor = previousTarget ?? lastResolvedTarget;
     const selectedTarget = mergeTargetIdentity(
       selectedTargetId ? targets.find((target) => target.id === selectedTargetId) : undefined,
       renameAnchor
     );
-    const renamedTarget = selectedTarget ? undefined : findRenamedTarget(targets, renameAnchor);
+    const explicitRename =
+      renameAnchor &&
+      selectionRekey &&
+      (selectionRekey.from === renameAnchor.id || selectionRekey.intermediateIds?.includes(renameAnchor.id))
+        ? targets.find((target) => target.id === selectionRekey?.to)
+        : undefined;
+    const renamedTarget = selectedTarget ? undefined : (explicitRename ?? findRenamedTarget(targets, renameAnchor));
 
     const previousTargetId = selectedTargetId ?? renameAnchor?.id;
 
@@ -302,6 +311,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       set({
         targets,
         selectedTargetId: renamedTarget.id,
+        navigationRequest: undefined,
         selectedTarget: renamedTarget,
         lastResolvedTarget: renamedTarget,
         schemas,
@@ -319,6 +329,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       set({
         targets,
         selectedTargetId: undefined,
+        navigationRequest: undefined,
         selectedTarget: undefined,
         lastResolvedTarget: renameAnchor,
         schemas,
@@ -338,7 +349,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   selectTarget(targetId) {
     if (!targetId) {
-      set({ selectedTargetId: undefined, selectedTarget: undefined, status: { state: 'waiting' } });
+      set({
+        selectedTargetId: undefined,
+        navigationRequest: undefined,
+        selectedTarget: undefined,
+        status: { state: 'waiting' }
+      });
       return;
     }
     const previousTarget = get().selectedTarget ?? get().lastResolvedTarget;
@@ -350,7 +366,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       return;
     }
     set({
-      selectedTargetId: selectedTarget?.id,
+      selectedTargetId: selectedTarget.id,
+      navigationRequest: { targetId: selectedTarget.id, revision: ++navigationRevision },
       selectedTarget,
       lastResolvedTarget: selectedTarget,
       status: selectedTarget ? { state: 'waiting', targetId } : { state: 'waiting' }
@@ -625,6 +642,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set({
       targets: [],
       selectedTargetId: undefined,
+      navigationRequest: undefined,
       selectedTarget: undefined,
       lastResolvedTarget: undefined,
       schemas: new Map(),

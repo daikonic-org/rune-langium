@@ -34,6 +34,7 @@ import {
   minimalDocumentChange,
   setProtectedRegion
 } from '../lang/document-extensions.js';
+import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import type { LspClientService } from '../services/lsp-client.js';
 import { pathToUri } from '../utils/uri.js';
 import { cn } from '@rune-langium/design-system/utils';
@@ -101,10 +102,12 @@ export interface SourceEditorProps {
 
 /** Imperative handle exposed by SourceEditor for programmatic navigation. */
 export interface SourceEditorRef {
-  /** Scroll to a line in the specified (or current) file and highlight it. */
-  revealLine(line: number, filePath?: string): void;
+  /** Reveal a line without focus; returns true only when applied to the matching live view. */
+  revealLine(line: number, filePath?: string): boolean;
   /** Scroll to a source position in the specified (or current) file and place the cursor there. */
   revealPosition(position: { line: number; character: number }, filePath?: string): void;
+  /** Cancel a pending position reveal and remove any transient destination cue. */
+  clearRevealHighlight?(): void;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -202,7 +205,7 @@ function scrollToPosition(
   const selectionAnchor = lineInfo.from + lineOffset;
   view.dispatch({
     selection: { anchor: selectionAnchor },
-    effects: EditorView.scrollIntoView(selectionAnchor, { y: 'center' })
+    effects: [EditorView.scrollIntoView(selectionAnchor, { y: 'center' }), setSourceReveal.of(selectionAnchor)]
   });
   if (focus) view.contentDOM.focus({ preventScroll: true });
 }
@@ -293,6 +296,8 @@ const renderSourceEditor = withInstrumentation(
     const [selectedPath, setSelectedPath] = useState<string>(activeFile ?? files[0]?.path ?? '');
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<EditorView | null>(null);
+    const editorViewPathRef = useRef<string | null>(null);
+    const positionRequestRef = useRef(0);
     const editorId = useId();
     const tabId = useCallback((path: string) => `${editorId}-${getTabId(path)}`, [editorId]);
     const panelId = `${editorId}-panel`;
@@ -340,8 +345,10 @@ const renderSourceEditor = withInstrumentation(
     // Expose imperative handle for programmatic navigation
     useImperativeHandle(ref, () => {
       const revealPosition = (position: { line: number; character: number }, filePath?: string, focus = true) => {
+        const request = ++positionRequestRef.current;
         // If a different file is specified, switch to it first
         if (filePath && filePath !== selectedPath) {
+          if (editorViewRef.current) clearSourceReveal(editorViewRef.current);
           const target = files.find((f) => f.path === filePath || f.name === filePath);
           if (target) {
             setSelectedPath(target.path);
@@ -349,22 +356,35 @@ const renderSourceEditor = withInstrumentation(
             // Schedule the scroll after the editor is recreated for the new file
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
-                scrollToPosition(editorViewRef.current, position, focus);
+                if (request === positionRequestRef.current && editorViewPathRef.current === target.path) {
+                  scrollToPosition(editorViewRef.current, position, focus);
+                }
               });
             });
-            return;
           }
+          return;
         }
-        scrollToPosition(editorViewRef.current, position, focus);
+        if (editorViewPathRef.current === selectedPath) {
+          scrollToPosition(editorViewRef.current, position, focus);
+        }
       };
       return {
         revealLine(line: number, filePath?: string) {
           // Explorer selection synchronizes source position without moving
           // keyboard focus away from the type filter or another active pane.
-          revealPosition({ line, character: 1 }, filePath, false);
+          const view = editorViewRef.current;
+          const targetPath = filePath ?? selectedPath;
+          if (!view || targetPath !== selectedPath || editorViewPathRef.current !== targetPath) return false;
+          ++positionRequestRef.current;
+          scrollToPosition(view, { line, character: 1 }, false);
+          return true;
         },
         revealPosition(position, filePath) {
           revealPosition(position, filePath);
+        },
+        clearRevealHighlight() {
+          ++positionRequestRef.current;
+          if (editorViewRef.current) clearSourceReveal(editorViewRef.current);
         }
       };
     }, [files, selectedPath, onFileSelect]);
@@ -428,6 +448,7 @@ const renderSourceEditor = withInstrumentation(
 
     const handleFileSelect = useCallback(
       (path: string) => {
+        ++positionRequestRef.current;
         // Save current content before switching
         if (editorViewRef.current && selectedPath) {
           const content = editorViewRef.current.state.doc.toString();
@@ -480,6 +501,7 @@ const renderSourceEditor = withInstrumentation(
       (filePath: string, isReadOnly: boolean, lspCompartment: Compartment): Extension[] => {
         const exts: Extension[] = documentExtensions(regionRef.current);
         exts.push(
+          sourceNavigationHighlight,
           EditorView.contentAttributes.of({ 'aria-label': 'Rune source editor' }),
           EditorView.updateListener.of((update) => {
             if (update.selectionSet || update.docChanged) {
@@ -575,6 +597,7 @@ const renderSourceEditor = withInstrumentation(
       if (editorViewRef.current) {
         editorViewRef.current.destroy();
         editorViewRef.current = null;
+        editorViewPathRef.current = null;
       }
 
       const content = contentMapRef.current.get(currentFile.path) ?? currentFile.content;
@@ -593,6 +616,7 @@ const renderSourceEditor = withInstrumentation(
       });
 
       editorViewRef.current = view;
+      editorViewPathRef.current = currentFile.path;
 
       // Notify host that a new EditorView was created (for cross-file go-to-definition)
       if (currentFile?.path) {
@@ -602,6 +626,7 @@ const renderSourceEditor = withInstrumentation(
       return () => {
         view.destroy();
         editorViewRef.current = null;
+        editorViewPathRef.current = null;
         lspCompartmentRef.current = null;
       };
       // Only recreate editor when file path changes (tab switch).

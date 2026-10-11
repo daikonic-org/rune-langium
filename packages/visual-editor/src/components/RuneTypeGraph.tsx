@@ -45,6 +45,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useCallback, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { useNavigationArrival } from '../hooks/useNavigationArrival.js';
 import {
   ReactFlow,
   MiniMap,
@@ -248,7 +249,7 @@ function buildInheritanceDisplayNodes(nodes: TypeGraphNode[], edges: TypeGraphEd
 // ---------------------------------------------------------------------------
 
 const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(function RuneTypeGraphInner(
-  { config, callbacks, className },
+  { config, callbacks, className, navigationTarget },
   ref
 ) {
   const mergedConfig = useMemo(() => ({ ...DEFAULT_CONFIG, ...config }), [config]);
@@ -735,6 +736,17 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
     [activeLayout.groupByInheritance, edges, graphNodes]
   );
 
+  const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival();
+  const navigationNodeId = navigationTarget
+    ? graphNodes.find(
+        (node) => node.id === navigationTarget.nodeId || qualifiedNameFromNodeId(node.id) === navigationTarget.nodeId
+      )?.id
+    : undefined;
+  useEffect(() => {
+    if (navigationNodeId) emphasizeArrival(navigationNodeId, navigationTarget?.revision);
+    return cancelArrival;
+  }, [navigationNodeId, navigationTarget?.revision, emphasizeArrival, cancelArrival]);
+
   const baseDisplayNodes = inheritanceDisplay.nodes;
 
   const displayNodes = useMemo(
@@ -753,13 +765,14 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
           ...node,
           className: cn(
             'rune-flow-node-shell',
+            arrivalNodeId === node.id && 'rune-navigation-arrival',
             isFocus && 'rune-flow-node-shell--focus',
             isRelated && !isFocus && 'rune-flow-node-shell--related',
             isDimmed && 'rune-flow-node-shell--dimmed'
           )
         };
       }),
-    [baseDisplayNodes, emphasis, focusNodeId]
+    [baseDisplayNodes, emphasis, focusNodeId, arrivalNodeId]
   );
 
   const displayEdges = useMemo(
@@ -855,6 +868,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         // the internal graph key also carries declaration kind.
         const node = graphNodes.find((n) => n.id === nodeId || qualifiedNameFromNodeId(n.id) === nodeId);
         if (node) {
+          emphasizeArrival(node.id);
           runViewportAction({
             focusNodeId: node.id,
             mode: 'center-and-fit-node'
@@ -935,7 +949,17 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         return validateGraph(storeNodes, storeEdges);
       }
     }),
-    [activeLayout, graphNodes, storeNodes, storeNodesById, storeEdges, runViewportAction, setNodes, callbacks]
+    [
+      activeLayout,
+      graphNodes,
+      storeNodes,
+      storeNodesById,
+      storeEdges,
+      runViewportAction,
+      setNodes,
+      callbacks,
+      emphasizeArrival
+    ]
   );
 
   // Context menu state

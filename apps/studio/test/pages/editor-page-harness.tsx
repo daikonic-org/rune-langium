@@ -46,6 +46,7 @@ export interface EditorPageHarnessProps {
   deferredExports?: DeferredExportEntry[];
   parseErrors?: Map<string, string[]>;
   files?: WorkspaceFile[];
+  loadCuratedSource?: WorkspaceActions['loadCuratedSource'];
   onFilesChange?: (files: WorkspaceFile[]) => void;
   lspClient?: LspClientService;
   transportState?: TransportState;
@@ -94,6 +95,7 @@ function EditorPageHarness(props: EditorPageHarnessProps): React.ReactElement {
     onCreateWorkspace: props.onCreateWorkspace ?? noop,
     onDeleteWorkspace: noop,
     onFilesChange: props.onFilesChange ?? noop,
+    loadCuratedSource: props.loadCuratedSource ?? (async () => {}),
     onClose: props.onClose ?? noop,
     onSwitchWorkspace: props.onSwitchWorkspace ?? noop
   };

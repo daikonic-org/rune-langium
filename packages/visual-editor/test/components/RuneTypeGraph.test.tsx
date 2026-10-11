@@ -8,7 +8,9 @@
  * The graph component subscribes to the store — no `models` prop.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { createRef } from 'react';
+import type { RuneTypeGraphRef } from '../../src/types.js';
 import { render } from '@testing-library/react';
 import { act } from '@testing-library/react';
 import { parse } from '@rune-langium/core';
@@ -83,4 +85,92 @@ describe('RuneTypeGraph', () => {
 
     expect(container.querySelector('.rune-type-graph')).toBeTruthy();
   });
+});
+
+it('emphasizes only imperative graph arrivals, restarts them, and preserves keyboard focus', async () => {
+  const result = await parse(SIMPLE_INHERITANCE_SOURCE);
+  loadModels(result.value);
+  vi.useFakeTimers();
+  try {
+    const ref = createRef<RuneTypeGraphRef>();
+    const { container, unmount } = render(
+      <>
+        <button>Keep focus</button>
+        <RuneTypeGraph ref={ref} />
+      </>
+    );
+    const button = container.querySelector('button')!;
+    button.focus();
+    const nodeId = ref.current!.getNodes()[0]!.id;
+    act(() => ref.current!.focusNode(nodeId));
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', nodeId);
+    expect(document.activeElement).toBe(button);
+    act(() => vi.advanceTimersByTime(800));
+    act(() => ref.current!.focusNode(nodeId));
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(1100));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    act(() => ref.current!.fitView());
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('waits for a programmatic target to load and cancels superseded arrivals', async () => {
+  const result = await parse(SIMPLE_INHERITANCE_SOURCE);
+  loadModels(result.value);
+  const targetId = useEditorStore.getState().nodes[0]!.id;
+  loadModels([]);
+  vi.useFakeTimers();
+  try {
+    const { container, rerender, unmount } = render(
+      <RuneTypeGraph navigationTarget={{ nodeId: targetId, revision: 1 }} />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    loadModels(result.value);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', targetId);
+    act(() => vi.advanceTimersByTime(1100));
+    rerender(<RuneTypeGraph navigationTarget={{ nodeId: targetId, revision: 2 }} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', targetId);
+    rerender(<RuneTypeGraph navigationTarget={{ nodeId: 'missing.Target', revision: 3 }} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('does not replay a consumed navigation when its node kind is hidden and restored', async () => {
+  const result = await parse(SIMPLE_INHERITANCE_SOURCE);
+  loadModels(result.value);
+  const targetId = useEditorStore.getState().nodes[0]!.id;
+  vi.useFakeTimers();
+  try {
+    const { container, rerender, unmount } = render(
+      <RuneTypeGraph navigationTarget={{ nodeId: targetId, revision: 1 }} />
+    );
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', targetId);
+    act(() => vi.advanceTimersByTime(1100));
+    act(() => useEditorStore.getState().toggleNodeKind('data'));
+    act(() => vi.advanceTimersByTime(350));
+    act(() => useEditorStore.getState().toggleNodeKind('data'));
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toBeNull();
+    rerender(<RuneTypeGraph navigationTarget={{ nodeId: targetId, revision: 2 }} />);
+    act(() => vi.advanceTimersByTime(350));
+    expect(container.querySelector('.rune-navigation-arrival')).toHaveAttribute('data-id', targetId);
+    unmount();
+  } finally {
+    vi.useRealTimers();
+  }
 });

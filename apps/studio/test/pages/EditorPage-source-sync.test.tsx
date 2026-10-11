@@ -31,17 +31,21 @@
 
 import React, { useImperativeHandle } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, waitFor, act } from '@testing-library/react';
+import { cleanup, waitFor, act, screen } from '@testing-library/react';
 import { parse } from '@rune-langium/core';
 import { setRuneStudioTestApi } from '../../src/test-api.js';
+import { SourceNavigationFeedbackContext } from '../../src/shell/source-navigation-feedback-context.js';
+import { usePreviewStore } from '../../src/store/preview-store.js';
 import { usePerspectiveStore } from '../../src/store/perspective-store.js';
 
 // ---------------------------------------------------------------------------
 // Hoisted shared state
 // ---------------------------------------------------------------------------
 
-const { showToastSpy } = vi.hoisted(() => ({
-  showToastSpy: vi.fn()
+const { showToastSpy, sourceState, inspectorState } = vi.hoisted(() => ({
+  showToastSpy: vi.fn(),
+  sourceState: { revealLine: vi.fn(() => true), show: true },
+  inspectorState: { actions: undefined as { renameType: (nodeId: string, name: string) => void } | undefined }
 }));
 
 // ---------------------------------------------------------------------------
@@ -89,7 +93,10 @@ vi.mock('@rune-langium/visual-editor', async () => {
     }),
     NamespaceExplorerPanel: () => React.createElement('div'),
     StructureView: () => React.createElement('div', { 'data-testid': 'structure-view-mock' }),
-    EditorFormPanel: () => React.createElement('div'),
+    EditorFormPanel: (props: { actions: { renameType: (nodeId: string, name: string) => void } }) => {
+      inspectorState.actions = props.actions;
+      return React.createElement('div');
+    },
     ExpressionBuilder: () => React.createElement('div'),
     NameCell: () => null,
     CardinalityCell: () => null,
@@ -105,10 +112,18 @@ vi.mock('@rune-langium/visual-editor', async () => {
 // ---------------------------------------------------------------------------
 
 vi.mock('../../src/components/SourceEditor.js', () => ({
-  SourceEditor: React.forwardRef((_props: unknown, ref: React.ForwardedRef<unknown>) => {
-    useImperativeHandle(ref, () => ({ revealLine: () => {}, revealPosition: () => {} }));
-    return React.createElement('div', { 'data-testid': 'source-editor-mock' });
-  })
+  SourceEditor: React.forwardRef(
+    (
+      props: { activeFile?: string; onEditorViewCreated?: (path: string, view: object) => void },
+      ref: React.ForwardedRef<unknown>
+    ) => {
+      useImperativeHandle(ref, () => ({ revealLine: sourceState.revealLine, revealPosition: () => {} }));
+      React.useEffect(() => {
+        if (props.activeFile) props.onEditorViewCreated?.(props.activeFile, {});
+      }, [props.activeFile, props.onEditorViewCreated]);
+      return React.createElement('div', { 'data-testid': 'source-editor-mock' });
+    }
+  )
 }));
 
 vi.mock('../../src/components/ConnectionStatus.js', () => ({
@@ -135,14 +150,19 @@ vi.mock('../../src/components/GraphFilterMenu.js', () => ({
   GraphFilterMenu: () => React.createElement('div')
 }));
 
-vi.mock('../../src/shell/DockShell.js', () => ({
-  DockShell: ({ panelComponents }: { panelComponents?: Record<string, React.ComponentType> }) =>
-    React.createElement('div', { 'data-testid': 'dock-shell' }, [
-      panelComponents?.['workspace.visualPreview']
-        ? React.createElement(panelComponents['workspace.visualPreview'], { key: 'visual' })
-        : null
-    ])
-}));
+vi.mock('../../src/shell/DockShell.js', () => {
+  const PanelBody = ({ render }: { render: () => React.ReactElement | null }) => render();
+  return {
+    DockShell: ({ panelComponents }: { panelComponents?: Record<string, () => React.ReactElement | null> }) =>
+      React.createElement(
+        'div',
+        { 'data-testid': 'dock-shell' },
+        panelComponents?.['workspace.visualPreview']
+          ? React.createElement(PanelBody, { render: panelComponents['workspace.visualPreview'] })
+          : null
+      )
+  };
+});
 
 /**
  * CenterStackPanel stub that renders ONLY the Structure pane and NEVER
@@ -154,20 +174,24 @@ vi.mock('../../src/shell/DockShell.js', () => ({
 vi.mock('../../src/shell/panels/CenterStackPanel.js', () => ({
   CenterStackPanel: ({
     renderStructure,
-    renderSource
+    renderSource,
+    renderInspector
   }: {
     renderGraph?: () => React.ReactElement | null;
     renderSource?: () => React.ReactElement | null;
     renderInspector?: () => React.ReactElement | null;
     renderStructure?: () => React.ReactElement | null;
-  }) =>
-    React.createElement(
+  }) => {
+    const pending = React.useContext(SourceNavigationFeedbackContext);
+    return React.createElement(
       'div',
-      { 'data-testid': 'center-stack-no-graph' },
+      { 'data-testid': 'center-stack-no-graph', 'data-source-pending': Boolean(pending) },
       // Deliberately skip renderGraph() — that's the whole point of this test.
-      renderSource?.() ?? null,
+      sourceState.show ? (renderSource?.() ?? null) : null,
+      renderInspector?.() ?? null,
       renderStructure?.() ?? null
-    )
+    );
+  }
 }));
 
 vi.mock('../../src/hooks/useLspDiagnosticsBridge.js', () => ({
@@ -224,6 +248,8 @@ describe('EditorPage — Structure-mode source sync (regression fix/inspector-so
     MockWorker.instances = [];
     setRuneStudioTestApi(() => undefined);
     vi.clearAllMocks();
+    sourceState.show = true;
+    usePreviewStore.getState().resetPreviewState();
     // Reset the real Zustand editor store between tests so nodes from a
     // previous run don't bleed in and confuse the fingerprint / initial-skip.
     act(() => {
@@ -240,6 +266,61 @@ describe('EditorPage — Structure-mode source sync (regression fix/inspector-so
     vi.unstubAllGlobals();
     cleanup();
   });
+
+  it.each(['inspector', 'structure'])(
+    'does not navigate after an actual %s rename, but follows the renamed selection',
+    async (origin) => {
+      const model = (await parse(ROSETTA_SOURCE, `inmemory:///${FILE_PATH}`)).value;
+      const onFilesChange = vi.fn();
+      const input = {
+        models: [model],
+        parsedModels: [{ filePath: FILE_PATH, model, source: ROSETTA_SOURCE }],
+        files: [{ name: FILE_PATH, path: FILE_PATH, content: ROSETTA_SOURCE, dirty: false }],
+        onFilesChange
+      };
+      const view = renderEditorPage(input);
+      const node = useEditorStore.getState().nodes.find((entry) => entry.data.name === 'Order')!;
+      act(() => useEditorStore.getState().selectNode(node.id));
+      await waitFor(() => expect(sourceState.revealLine).toHaveBeenCalled());
+      sourceState.revealLine.mockClear();
+      onFilesChange.mockClear();
+      act(() => {
+        if (origin === 'inspector') inspectorState.actions!.renameType(node.id, 'Renamed');
+        else useEditorStore.getState().renameType(node.id, 'Renamed');
+      });
+      const renamed = useEditorStore.getState().selectedNodeId!;
+      expect(renamed).not.toBe(node.id);
+      expect(usePreviewStore.getState().selectedTargetId).toBe(renamed);
+      expect(usePreviewStore.getState().navigationRequest).toBeUndefined();
+      expect(screen.getByTestId('center-stack-no-graph')).toHaveAttribute('data-source-pending', 'false');
+      await waitFor(() => expect(onFilesChange).toHaveBeenCalled());
+      const updatedFiles = onFilesChange.mock.calls.at(-1)![0];
+      const updatedModel = (await parse(updatedFiles[0].content, `inmemory:///${FILE_PATH}`)).value;
+      const nextInput = {
+        ...input,
+        files: updatedFiles,
+        models: [updatedModel],
+        parsedModels: [{ filePath: FILE_PATH, model: updatedModel, source: updatedFiles[0].content }]
+      };
+      view.rerenderEditorPage(nextInput);
+      await act(async () => {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      });
+      expect(sourceState.revealLine).not.toHaveBeenCalled();
+      expect(usePreviewStore.getState().navigationRequest).toBeUndefined();
+      // A real pane reopen still restores the renamed destination.
+      sourceState.show = false;
+      view.rerenderEditorPage(nextInput);
+      sourceState.show = true;
+      view.rerenderEditorPage(nextInput);
+      await waitFor(() => expect(sourceState.revealLine).toHaveBeenCalled());
+      sourceState.revealLine.mockClear();
+      // A genuine same-target selection after the edit is a new navigation.
+      act(() => useEditorStore.getState().selectNode(renamed));
+      await waitFor(() => expect(sourceState.revealLine).toHaveBeenCalled());
+      expect(usePreviewStore.getState().navigationRequest?.targetId).toBe(renamed);
+    }
+  );
 
   it.each([
     ['readOnly', false],
