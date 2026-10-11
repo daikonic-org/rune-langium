@@ -15,6 +15,7 @@ import {
   enlargeDialogText
 } from '../../helpers/expression-workspace.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
+import { expectBodyProjection, expectEditorExpansion } from '../../helpers/body-projection.js';
 
 test.describe('J19 — Expression workspace production acceptance', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
@@ -58,13 +59,18 @@ test.describe('J19 — Expression workspace production acceptance', () => {
       await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
       await page.getByRole('tab', { name: 'PositivePeriodMultiplier', exact: true }).click();
       const condition = page.getByRole('region', { name: 'Condition expression' });
+      const details = page
+        .locator('details')
+        .filter({ has: page.locator('summary', { hasText: 'Condition details' }) });
+      await expect(details).not.toHaveAttribute('open', '');
+      await expect(page.getByLabel('Condition name', { exact: true })).toBeHidden();
+      await expectEditorExpansion(condition);
       const rune = condition.getByTestId('implementation-editor').locator('.cm-content');
       await expect(rune).toContainText('periodMultiplier > 0');
       await rune.press('ControlOrMeta+a');
       await page.keyboard.insertText('periodMultiplier > 1');
-      for (const language of ['TypeScript', 'Python']) {
-        await condition.getByRole('button', { name: language, exact: true }).click();
-        const generated = condition.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
+      for (const language of ['TypeScript', 'Python'] as const) {
+        const generated = await expectBodyProjection(condition, language, 'periodMultiplier');
         await expect(generated).toContainText('periodMultiplier');
         await expect(generated).toContainText('1');
         await expect(condition.getByRole('alert')).toHaveCount(0);
@@ -173,15 +179,9 @@ func Compute(kind: Kind -> Cash):
       await expect(rune).toHaveCount(1);
       await expect(rune).toContainText('alias relativeDate:');
       await evidence.checkpoint('continuous-cdm-body');
-      for (const language of ['TypeScript', 'Python']) {
+      for (const language of ['TypeScript', 'Python'] as const) {
         await evidence.measure('expressionProjection', `CDM ${language}`, async () => {
-          await implementation.getByRole('button', { name: language, exact: true }).click();
-          const generated = implementation.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
-          await expect(generated).toContainText('ConvertToAdjustableOrRelativeDate');
-          await expect(generated).toHaveAttribute('contenteditable', 'false');
-          await generated.press('ControlOrMeta+End');
-          await expect(generated).toContainText('periodMultiplier');
-          await expect(implementation.getByRole('alert')).toHaveCount(0);
+          await expectBodyProjection(implementation, language, 'relativeDate', 'periodMultiplier');
         });
         await evidence.checkpoint(`complete-cdm-${language.toLowerCase()}`);
       }
@@ -205,11 +205,13 @@ func Compute(kind: Kind -> Cash):
       await rune.press('x');
       await expect(rune).toHaveText(original);
       await expect(implementation.getByRole('button', { name: 'Builder', exact: true })).toBeDisabled();
-      for (const language of ['TypeScript', 'Python']) {
-        await implementation.getByRole('button', { name: language, exact: true }).click();
-        const generated = implementation.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
-        await expect(generated).toContainText(language === 'Python' ? 'def Abs(' : 'export function Abs(');
-        await expect(implementation.getByRole('alert')).toHaveCount(0);
+      for (const language of ['TypeScript', 'Python'] as const) {
+        await expectBodyProjection(
+          implementation,
+          language,
+          language === 'TypeScript' ? 'input.arg' : 'input["arg"]',
+          'return'
+        );
         await evidence.checkpoint(`curated-${language.toLowerCase()}`);
       }
       await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();

@@ -710,6 +710,7 @@ export const ExplorePerspective = withInstrumentation(
     // dispatching the stub into a form with no fields — see EditorFormPanel's
     // `isHydrating` prop.
     const pendingHydrationNamespaces = useEditorStore((s) => s.pendingHydrationNamespaces);
+    const hydratedNamespaces = useEditorStore((s) => s.hydratedNamespaces);
     const selectedNodeIsHydrating = useMemo(
       () => Boolean(selectedNodeMeta?.deferred && pendingHydrationNamespaces.includes(selectedNodeMeta.namespace)),
       [selectedNodeMeta, pendingHydrationNamespaces]
@@ -1091,9 +1092,12 @@ export const ExplorePerspective = withInstrumentation(
         ) {
           continue;
         }
-        if (!file.artifactKey && sourcePath === activeEditorFile) {
-          pendingSourceNavigationRef.current = { bundleId: file.bundleId, namespace, path: file.path };
+        if (!file.artifactKey && !hydratedNamespaces.includes(namespace)) {
+          if (sourcePath === activeEditorFile) {
+            pendingSourceNavigationRef.current = { bundleId: file.bundleId, namespace, path: file.path };
+          }
           useEditorStore.getState().requestNamespaceHydration(namespace);
+          continue;
         }
         const key = `${file.bundleId}:${file.bundleVersion}:${namespace}:${file.artifactKey ?? ''}`;
         if (pendingSourceRequestsRef.current.has(key)) continue;
@@ -1108,7 +1112,14 @@ export const ExplorePerspective = withInstrumentation(
           })
           .finally(() => pendingSourceRequestsRef.current.delete(key));
       }
-    }, [files, activeEditorFile, selectedSourceFilePath, selectedNodeMeta?.namespace, loadCuratedSource]);
+    }, [
+      files,
+      activeEditorFile,
+      selectedSourceFilePath,
+      selectedNodeMeta?.namespace,
+      hydratedNamespaces,
+      loadCuratedSource
+    ]);
     useEffect(() => {
       const pending = pendingSourceNavigationRef.current;
       if (!pending) return;
