@@ -2665,10 +2665,10 @@ describe('EditorPage source reveal lifecycle', () => {
     act(() => queued.forEach((callback) => callback(0)));
   }
 
-  function select(name = 'BusinessCenters', coordinates = {}) {
+  function select(name = 'BusinessCenters', coordinates = {}, kind = 'Data') {
     const node = {
-      id: `${namespace}.${name}#Data`,
-      data: { name, $type: 'Data', ...coordinates },
+      id: `${namespace}.${name}#${kind}`,
+      data: { name, $type: kind, ...coordinates },
       meta: { namespace, errors: [], hasExternalRefs: false }
     };
     editorStoreState.nodes = [node];
@@ -2679,7 +2679,16 @@ describe('EditorPage source reveal lifecycle', () => {
     return {
       workspaceId: 'workspace-a',
       files: [
-        { name: 'datetime.rosetta', path, content: source, dirty: false, readOnly: true, refOnly: true, namespace }
+        {
+          name: 'datetime.rosetta',
+          path,
+          content: source,
+          dirty: false,
+          readOnly: true,
+          refOnly: true,
+          namespace,
+          artifactKey: 'cdm/content-digest/datetime'
+        }
       ],
       deferredExports: [
         {
@@ -2723,6 +2732,73 @@ describe('EditorPage source reveal lifecycle', () => {
     cleanup();
     sourceEditorMockState.showSource = true;
     vi.unstubAllGlobals();
+  });
+
+  it.each(['basicType', 'recordType'])('finds a coordinate-less %s declaration by exact name', (keyword) => {
+    const kind = keyword === 'basicType' ? 'RosettaBasicType' : 'RosettaRecordType';
+    select('BusinessCenters', {}, kind);
+    const source = `namespace ${namespace}\n${keyword} BusinessCentersExtra\n\n${keyword} ^BusinessCenters\n`;
+    const input = props(source);
+    input.deferredExports[0]!.exports[0]!.type = kind;
+    renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(4, path);
+  });
+
+  function editableProps(source: string, snapshot?: string) {
+    const input = props(source);
+    const model = {
+      $type: 'RosettaModel',
+      name: namespace,
+      imports: [],
+      elements: []
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    return {
+      ...input,
+      files: input.files.map((file) => ({ ...file, readOnly: false, refOnly: false })),
+      parsedModels: [{ filePath: path, model, source: snapshot }]
+    };
+  }
+
+  it.each(['$cstRange', '$cstNode', '$textRegion'])(
+    'ignores stale %s offsets after edits before parsing finishes',
+    (key) => {
+      const edited = `// inserted line\n// another line\n${content}`;
+      select('BusinessCenters', { [key]: { offset: content.indexOf('type BusinessCenters:'), end: content.length } });
+      renderEditorPage(editableProps(edited, content));
+      flushFrames();
+      expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(7, path);
+    }
+  );
+
+  it('does not trust editable coordinates without a parsed source snapshot', () => {
+    const source = 'namespace cdm.base.datetime\n\ntype\n  BusinessCenters:\n';
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type'), end: source.length } });
+    renderEditorPage(editableProps(source));
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('does not trust deferred coordinates without a curated artifact identity', () => {
+    const source = 'namespace cdm.base.datetime\n\ntype\n  BusinessCenters:\n';
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type'), end: source.length } });
+    const input = props(source);
+    renderEditorPage({ ...input, files: input.files.map((file) => ({ ...file, artifactKey: undefined })) });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+  });
+
+  it('keeps an ambiguous reveal pending until its parsed source snapshot becomes current', () => {
+    const snapshot = 'namespace cdm.base.datetime\nfunc BusinessCenters:\n\ntype BusinessCenters:\n';
+    const source = `// edit\n${snapshot}`;
+    select('BusinessCenters', { $cstRange: { offset: source.indexOf('type BusinessCenters:'), end: source.length } });
+    const input = editableProps(source, snapshot);
+    const view = renderEditorPage(input);
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).not.toHaveBeenCalled();
+    view.rerenderEditorPage({ ...input, parsedModels: [{ ...input.parsedModels[0]!, source }] });
+    flushFrames();
+    expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, path);
   });
 
   it('ignores declaration-looking lines inside comments and strings', () => {

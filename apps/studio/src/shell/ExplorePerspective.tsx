@@ -351,7 +351,7 @@ function graphNodesToAdapterDocument(
 const STUDIO_VERSION = '0.1.0';
 
 const DECLARATION_NAME =
-  /^(?:type|enum|func|choice|annotation|metaType|typeAlias|library\s+function|reporting\s+rule)\s+\^?(\w+)/;
+  /^(?:type|enum|func|choice|annotation|metaType|typeAlias|basicType|recordType|library\s+function|reporting\s+rule)\s+\^?(\w+)/;
 
 const SOURCE_NON_CODE = new RegExp(
   [RuneDslTerminals.STRING, RuneDslTerminals.ML_COMMENT, RuneDslTerminals.SL_COMMENT]
@@ -364,14 +364,17 @@ type SourceRevealRequest = { nodeId: string; workspaceId: string | undefined; fi
 
 function findDeclarationLine(
   content: string,
-  node: Parameters<typeof getNodeSourceRegion>[0] & { name?: string }
+  node: Parameters<typeof getNodeSourceRegion>[0] & { name?: string },
+  coordinatesCurrent: boolean
 ): number | undefined {
   if (!content) return undefined;
-  try {
-    const { from, to } = getNodeSourceRegion(node);
-    if (to <= content.length) return content.slice(0, from).split('\n').length;
-  } catch {
-    // Deferred declarations have only an identity until their AST is hydrated.
+  if (coordinatesCurrent) {
+    try {
+      const { from, to } = getNodeSourceRegion(node);
+      if (to <= content.length) return content.slice(0, from).split('\n').length;
+    } catch {
+      // Deferred declarations have only an identity until their AST is hydrated.
+    }
   }
   if (!node.name) return undefined;
   const code = content.replace(SOURCE_NON_CODE, (text) => text.replace(/[^\r\n]/g, ' '));
@@ -1565,7 +1568,8 @@ export const ExplorePerspective = withInstrumentation(
       selectedNodeData,
       selectedSourceFilePath,
       workspaceId,
-      files
+      files,
+      parsedModels
     });
     const applyPendingReveal = useCallback(
       (filePath: string) => {
@@ -1583,7 +1587,12 @@ export const ExplorePerspective = withInstrumentation(
             return;
           const file = current.files.find((candidate) => candidate.path === pending.filePath);
           if (!file || !current.selectedNodeData) return;
-          const line = findDeclarationLine(file.content, current.selectedNodeData);
+          const parsed = current.parsedModels?.find((entry) => entry.filePath === file.path);
+          // Editable offsets describe the parsed snapshot, not necessarily the live buffer.
+          // Curated source and AST share an immutable artifact identity.
+          const coordinatesCurrent =
+            parsed?.source === file.content || Boolean(file.readOnly && file.refOnly && file.artifactKey);
+          const line = findDeclarationLine(file.content, current.selectedNodeData, coordinatesCurrent);
           if (line !== undefined && sourceEditorRef.current?.revealLine(line, pending.filePath)) {
             pendingRevealRef.current = null;
           }
@@ -1621,7 +1630,7 @@ export const ExplorePerspective = withInstrumentation(
       if (pending?.filePath && sourceEditorFiles.some((file) => file.path === pending.filePath)) {
         applyPendingReveal(pending.filePath);
       }
-    }, [sourceEditorFiles, selectedNodeId, selectedNodeData, workspaceId, applyPendingReveal]);
+    }, [sourceEditorFiles, selectedNodeId, selectedNodeData, workspaceId, parsedModels, applyPendingReveal]);
 
     useEffect(() => {
       // Cancel on explicit file navigation, including a tab switch before the
