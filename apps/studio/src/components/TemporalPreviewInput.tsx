@@ -31,7 +31,9 @@ export const TemporalPreviewInput = withInstrumentation(
     onChange: (value: string) => void;
     onBlur: () => void;
   }): ReactElement {
-    const [editIso, setEditIso] = useState(false);
+    const [isoFormat, setIsoFormat] = useState<TemporalWireFormat | null>(null);
+    if (isoFormat !== null && isoFormat !== format) setIsoFormat(null);
+    const editIso = isoFormat === format;
     const zoned = format === 'zonedDateTime';
     // Split the presentation without interpreting or replacing the user's offset/zone.
     const zoneStart = zoned ? value.slice(10).search(/[Z+-]/) : -1;
@@ -91,7 +93,7 @@ export const TemporalPreviewInput = withInstrumentation(
             Keep an explicit offset (Z or ±HH:MM); optionally append [Area/City].
           </span>
         ) : format !== 'date' ? (
-          <Button type="button" variant="ghost" size="xs" onClick={() => setEditIso(!editIso)}>
+          <Button type="button" variant="ghost" size="xs" onClick={() => setIsoFormat(editIso ? null : format)}>
             {editIso ? 'Use picker' : 'Edit ISO value'}
           </Button>
         ) : null}

@@ -637,6 +637,63 @@ describe('FormPreviewPanel', () => {
   });
 
   describe('controlled mode (values/onValuesChange props)', () => {
+    it('resets ISO editing across temporal format changes while retaining it for value edits', () => {
+      const schema: FormPreviewSchema = {
+        schemaVersion: 1,
+        targetId: 'test.LocalTimestamp',
+        title: 'Local timestamp',
+        status: 'ready',
+        fields: [{ path: 'value', label: 'Value', kind: 'string', format: 'dateTime', required: true }]
+      };
+      const onValuesChange = vi.fn();
+      const view = render(
+        <FormPreviewPanel
+          schema={schema}
+          status={{ state: 'ready' }}
+          values={{ value: '2026-10-11T14:30:00' }}
+          onValuesChange={onValuesChange}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Edit ISO value' }));
+      expect(screen.getByLabelText('Value')).toHaveAttribute('type', 'text');
+      view.rerender(
+        <FormPreviewPanel
+          schema={schema}
+          status={{ state: 'ready' }}
+          values={{ value: '2026-10-12T14:30:00' }}
+          onValuesChange={onValuesChange}
+        />
+      );
+      expect(screen.getByRole('button', { name: 'Use picker' })).toBeInTheDocument();
+
+      view.rerender(
+        <FormPreviewPanel
+          schema={{
+            ...schema,
+            targetId: 'test.CalendarDate',
+            fields: [{ ...schema.fields[0]!, format: 'date' }]
+          }}
+          status={{ state: 'ready' }}
+          values={{ value: '2026-10-12' }}
+          onValuesChange={onValuesChange}
+        />
+      );
+      expect(screen.getByLabelText('Value')).toHaveAttribute('type', 'date');
+      expect(screen.queryByLabelText('Value picker')).not.toBeInTheDocument();
+
+      view.rerender(
+        <FormPreviewPanel
+          schema={schema}
+          status={{ state: 'ready' }}
+          values={{ value: '2026-10-12T14:30:00' }}
+          onValuesChange={onValuesChange}
+        />
+      );
+      expect(screen.getByLabelText('Value')).toHaveAttribute('type', 'datetime-local');
+      expect(screen.getByRole('button', { name: 'Edit ISO value' })).toBeInTheDocument();
+      expect(onValuesChange).not.toHaveBeenCalled();
+    });
+
     it('uses a date picker and preserves ISO strings when choosing or clearing a day', () => {
       const schema: FormPreviewSchema = {
         schemaVersion: 1,
