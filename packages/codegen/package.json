@@ -62,7 +62,7 @@
     "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.11.2",
     "langium": "^4.4.0",
-    "web-tree-sitter": "^0.27.0",
+    "web-tree-sitter": "^0.27.1",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
