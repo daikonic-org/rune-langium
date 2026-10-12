@@ -164,6 +164,8 @@ export interface ParseWorkspaceResponse {
    * this — workers can't fetch curated bundles directly.
    */
   curatedRefOnlyFiles?: Record<string, import('../types/model-types.js').CachedFile[]>;
+  /** Resolved manifest identities, including implicitly required bundles. */
+  curatedBundleVersions?: Record<string, string>;
 }
 
 export type WorkerResponse =

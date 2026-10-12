@@ -139,7 +139,7 @@ export const createPreviewSessionClient = withInstrumentation(
           source,
           filesRevision
         };
-        return request<GeneratedProjection>(message, signal, 120_000);
+        return request<GeneratedProjection>(message, signal, 30_000);
       },
       dispose() {
         if (disposed) return;

@@ -22,8 +22,10 @@ const {
   mockLspConnect,
   mockPlugin,
   mockGetFile,
-  mockRequest
+  mockRequest,
+  clientOptions
 } = vi.hoisted(() => ({
+  clientOptions: { current: undefined as any, workspace: undefined as any },
   mockRequest: vi.fn().mockResolvedValue(null),
   mockDidOpen: vi.fn(),
   mockDidClose: vi.fn(),
@@ -42,7 +44,7 @@ vi.mock('@codemirror/lsp-client', () => {
       this.client = client;
     }
     getFile(uri: string) {
-      return mockGetFile(uri);
+      return mockGetFile(uri) ?? this.files.find((file: any) => file.uri === uri) ?? null;
     }
     syncFiles() {
       return [];
@@ -70,11 +72,13 @@ vi.mock('@codemirror/lsp-client', () => {
     plugin = mockPlugin;
     workspace: MockWorkspace;
     constructor(opts: any) {
+      clientOptions.current = opts;
       if (opts?.workspace) {
         this.workspace = opts.workspace(this);
       } else {
         this.workspace = new MockWorkspace(this);
       }
+      clientOptions.workspace = this.workspace;
     }
   }
   return {
@@ -140,6 +144,87 @@ describe('createLspClientService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('rejects stale versions and out-of-bounds unversioned diagnostics before both consumers', async () => {
+    mockCreateProvider.mockReturnValue(makeFakeProvider() as never);
+    const service = createLspClientService();
+    await service.connect();
+    const uri = 'file:///workspace/a.rosetta';
+    service.syncWorkspaceFiles([{ path: 'a.rosetta', content: 'namespace a\n' }]);
+    const report = vi.fn();
+    service.onDiagnostics(report);
+    const handler = clientOptions.current.notificationHandlers['textDocument/publishDiagnostics'];
+    const doc = (await import('@codemirror/state')).Text.of(['namespace a', '']);
+    const client = { workspace: { getFile: () => ({ version: 2, doc, getView: () => null }) } };
+    const diagnostic = {
+      message: 'syntax error',
+      range: { start: { line: 17, character: 0 }, end: { line: 17, character: 1 } }
+    };
+    expect(handler(client, { uri, version: 1, diagnostics: [diagnostic] })).toBe(true);
+    expect(handler(client, { uri, diagnostics: [diagnostic] })).toBe(true);
+    expect(report).not.toHaveBeenCalled();
+    expect(handler(client, { uri, version: 2, diagnostics: [] })).toBe(false);
+    expect(report).toHaveBeenCalledWith(uri, []);
+    const valid = { ...diagnostic, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 9 } } };
+    expect(handler(client, { uri, version: 2, diagnostics: [valid] })).toBe(false);
+    expect(report).toHaveBeenLastCalledWith(uri, [valid]);
+    service.dispose();
+  });
+
+  it('accepts current diagnostics after headless edits and Source remounts', async () => {
+    mockCreateProvider.mockReturnValue(makeFakeProvider() as never);
+    mockGetFile.mockReturnValue(null);
+    const service = createLspClientService();
+    await service.connect();
+    const uri = 'file:///workspace/a.rosetta';
+    for (const content of ['namespace a', 'namespace b', 'namespace c']) {
+      service.syncWorkspaceFiles([{ path: 'a.rosetta', content }]);
+    }
+    const workspace = clientOptions.workspace;
+    const doc = (await import('@codemirror/state')).Text.of(['namespace c']);
+    const first = { state: { doc } };
+    workspace.openFile(uri, 'rosetta', first);
+    workspace.closeFile(uri, first);
+    workspace.openFile(uri, 'rosetta', { state: { doc } });
+
+    expect(workspace.getFile(uri).version).toBe(2);
+    const report = vi.fn();
+    service.onDiagnostics(report);
+    const handler = clientOptions.current.notificationHandlers['textDocument/publishDiagnostics'];
+    expect(handler({ workspace }, { uri, version: 2, diagnostics: [] })).toBe(false);
+    expect(report).toHaveBeenCalledWith(uri, []);
+    expect(handler({ workspace }, { uri, version: 1, diagnostics: [] })).toBe(true);
+    service.dispose();
+  });
+
+  it('keeps versions increasing when a live edit flush hands back to headless editing', async () => {
+    mockCreateProvider.mockReturnValue(makeFakeProvider() as never);
+    mockGetFile.mockReturnValue(null);
+    const service = createLspClientService();
+    await service.connect();
+    const uri = 'file:///workspace/a.rosetta';
+    service.syncWorkspaceFiles([{ path: 'a.rosetta', content: 'namespace a' }]);
+    const workspace = clientOptions.workspace;
+    const doc = (await import('@codemirror/state')).Text.of(['namespace b']);
+    const view = { state: { doc } };
+    workspace.openFile(uri, 'rosetta', view);
+    const { LSPPlugin } = await import('@codemirror/lsp-client');
+    vi.mocked(LSPPlugin.get).mockReturnValueOnce({
+      unsyncedChanges: { empty: false },
+      clear: vi.fn()
+    } as never);
+    workspace.closeFile(uri, view);
+    service.syncWorkspaceFiles([{ path: 'a.rosetta', content: 'namespace c' }]);
+
+    const versions = mockNotification.mock.calls
+      .filter(([method]) => method === 'textDocument/didChange')
+      .map(([, params]) => params.textDocument.version);
+    expect(versions).toEqual([1, 2]);
+    const handler = clientOptions.current.notificationHandlers['textDocument/publishDiagnostics'];
+    expect(handler({ workspace }, { uri, version: 2, diagnostics: [] })).toBe(false);
+    expect(handler({ workspace }, { uri, version: 1, diagnostics: [] })).toBe(true);
+    service.dispose();
   });
 
   it('returns expected API shape', () => {

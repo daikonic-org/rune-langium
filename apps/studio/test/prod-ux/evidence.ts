@@ -32,6 +32,11 @@ export interface TypeClosureRecord {
   typeClosureWalkMs: number;
 }
 
+export interface CapturedOpLogEntry extends OpLogEntry {
+  /** Page navigation identity; optional for older evidence bundles. */
+  navigationGeneration?: number;
+}
+
 export interface JourneyRecord {
   id: string;
   title: string;
@@ -44,7 +49,7 @@ export interface JourneyRecord {
   /** Playwright TestInfo.retry — 0 on the first attempt, 1+ on a retry. */
   retry: number;
   /** window.__runeStudioOpLog snapshot captured at journey teardown. */
-  opLog: OpLogEntry[];
+  opLog: CapturedOpLogEntry[];
   /**
    * Earlier, superseded attempt(s) for this same journey id (e.g. a FAIL that
    * was then retried and passed). Never silently discarded — see
@@ -92,7 +97,7 @@ export class EvidenceCollector {
    * both mid-run and again at teardown (e.g. a journey that never
    * reloads) isn't double-counted.
    */
-  private readonly accumulatedOpLog: OpLogEntry[] = [];
+  private readonly accumulatedOpLog: CapturedOpLogEntry[] = [];
   private readonly seenOpLogKeys = new Set<string>();
   /**
    * Bumped by `markNavigation()`, and folded into `recordOpLog`'s dedup
@@ -264,7 +269,7 @@ export class EvidenceCollector {
       const key = `${this.navigationGeneration}:${entry.panel}:${entry.op}:${entry.sourceId}:${entry.ts}:${entry.message}`;
       if (this.seenOpLogKeys.has(key)) continue;
       this.seenOpLogKeys.add(key);
-      this.accumulatedOpLog.push(entry);
+      this.accumulatedOpLog.push({ ...entry, navigationGeneration: this.navigationGeneration });
     }
   }
 
@@ -310,7 +315,7 @@ export class EvidenceCollector {
    * `finish()`'s returned record and the verdict passed into it must
    * agree on the same underlying log.
    */
-  get opLog(): OpLogEntry[] {
+  get opLog(): CapturedOpLogEntry[] {
     return [...this.accumulatedOpLog];
   }
 

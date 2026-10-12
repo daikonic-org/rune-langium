@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { temporalWireFormat } from './expr/temporal-conversions.js';
 import { AstUtils, type LangiumDocument } from 'langium';
 import {
   isChoice,
@@ -1179,12 +1180,13 @@ function scalarField(
   basicTypeName: string,
   required = true
 ): PreviewField {
+  const format = temporalWireFormat(basicTypeName);
   return {
     path: ctx.path,
     label: ctx.label,
     kind,
     required,
-    ...(basicTypeName === 'date' ? { format: 'date' as const } : {})
+    ...(format ? { format } : {})
   };
 }
 

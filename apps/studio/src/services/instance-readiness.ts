@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from './instrumentation/core.js';
+import { OperationTimeoutError, withAbortTimeout } from './with-abort-timeout.js';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
+
+export const PREVIEW_PREPARATION_TIMEOUT_MS = 30_000;
 
 export interface InstanceReadiness {
   ensure(typeFqn: string, signal: AbortSignal): Promise<number>;
@@ -57,15 +60,30 @@ export const createInstanceReadiness = withInstrumentation(
       if (existing) return existing.promise;
 
       const controller = new AbortController();
-      const promise = Promise.resolve()
-        .then(async () => {
-          for (const namespace of namespaces) {
-            await deps.hydrate(namespace, controller.signal);
+      const promise = withAbortTimeout(async (deadline) => {
+        const expire = () => controller.abort(deadline.reason);
+        deadline.addEventListener('abort', expire, { once: true });
+        try {
+          return await awaitWithAbort(
+            (async () => {
+              for (const namespace of namespaces) {
+                if (controller.signal.aborted) throw abortError();
+                await deps.hydrate(namespace, controller.signal);
+              }
+              if (controller.signal.aborted) throw abortError();
+              return deps.waitForWorkerFiles(controller.signal);
+            })(),
+            controller.signal
+          );
+        } finally {
+          deadline.removeEventListener('abort', expire);
+        }
+      }, PREVIEW_PREPARATION_TIMEOUT_MS)
+        .catch((error: unknown) => {
+          if (error instanceof OperationTimeoutError) {
+            throw new Error('Preparing preview timed out. Retry after the workspace finishes loading.');
           }
-          // This is a new dispatch and acknowledgement for this hydrated
-          // workspace snapshot. An earlier hydration nonce or acknowledgement
-          // cannot prove that React's file-sync effect has reached the worker.
-          return deps.waitForWorkerFiles(controller.signal);
+          throw error;
         })
         .finally(() => {
           if (operations.get(key)?.promise === promise) operations.delete(key);

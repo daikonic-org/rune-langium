@@ -21,6 +21,7 @@ import {
   type PreviewSourceMapEntry
 } from '@rune-langium/codegen/export';
 
+import { TemporalPreviewInput, TEMPORAL_INPUT_HELP } from './TemporalPreviewInput.js';
 import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
@@ -584,7 +585,7 @@ export const FormPreviewPanel = withInstrumentation(
                 {executionError ? (
                   <div className="execution-error mt-2 text-xs">
                     <span className="text-xs font-medium text-destructive">Error:</span>{' '}
-                    <span className="text-xs text-destructive">{executionError}</span>
+                    <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
                   </div>
                 ) : null}
                 {executionResult !== undefined ? (
@@ -1064,7 +1065,7 @@ function PreviewFieldControl({
   }
 
   const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
-  const inputType = field.kind === 'number' ? 'number' : field.format === 'date' ? 'date' : 'text';
+  const inputType = field.kind === 'number' ? 'number' : 'text';
 
   if (field.kind === 'boolean') {
     return (
@@ -1087,15 +1088,31 @@ function PreviewFieldControl({
   return (
     <label data-field-path={fieldPath} className="block text-xs font-medium">
       <span>{resolvedFieldLabel(field, arrayIndices)}</span>
-      <Input
-        aria-label={resolvedFieldLabel(field, arrayIndices)}
-        type={inputType}
-        value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
-        className="mt-0.5 h-7 text-xs"
-        onChange={(event) => onFieldChange(field.path, getInputValue(field, event), arrayIndices)}
-        onBlur={onFieldBlur}
-      />
-      {fieldError ? <FieldError message={fieldError} /> : null}
+      {field.format ? (
+        <TemporalPreviewInput
+          format={field.format}
+          label={resolvedFieldLabel(field, arrayIndices)}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(next) => onFieldChange(field.path, next, arrayIndices)}
+          onBlur={onFieldBlur}
+        />
+      ) : (
+        <Input
+          aria-label={resolvedFieldLabel(field, arrayIndices)}
+          type={inputType}
+          value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
+          className="mt-0.5 h-7 text-xs"
+          onChange={(event) => onFieldChange(field.path, getInputValue(field, event), arrayIndices)}
+          onBlur={onFieldBlur}
+        />
+      )}
+      {fieldError ? (
+        <FieldError
+          message={
+            field.format && fieldError.includes('Invalid string:') ? TEMPORAL_INPUT_HELP[field.format] : fieldError
+          }
+        />
+      ) : null}
     </label>
   );
 }
@@ -1311,4 +1328,29 @@ function removeValueAtPath(value: unknown, segments: Array<string | number>): un
   }
   record[head] = removeValueAtPath(record[head], rest);
   return record;
+}
+
+function presentPreviewError(message: string, schema: FormPreviewSchema): string {
+  return message
+    .split('; ')
+    .map((error) => {
+      if (!error.includes('Invalid string:')) return error;
+      const path = error.slice(0, error.indexOf(':')).replace(/\[\d+\]/g, '[]');
+      const find = (fields: PreviewField[]): PreviewField | undefined => {
+        for (const input of fields) {
+          const field = expandPreviewField(input, schema.definitions);
+          if (field.path === path) return field;
+          if ((field.kind === 'array' || field.kind === 'object') && path.startsWith(field.path)) {
+            const nested = find(field.children ?? []);
+            if (nested) return nested;
+          }
+        }
+        return undefined;
+      };
+      const field = find(schema.fields);
+      return field && 'format' in field && field.format
+        ? `${error.slice(0, error.indexOf(':'))}: ${TEMPORAL_INPUT_HELP[field.format]}`
+        : error;
+    })
+    .join('; ');
 }

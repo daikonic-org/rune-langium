@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPreviewSessionClient } from '../../src/services/preview-session-client.js';
 import type { InstanceReadiness } from '../../src/services/instance-readiness.js';
 
@@ -16,10 +16,40 @@ class FakeWorker extends EventTarget {
 }
 
 function readiness(): InstanceReadiness {
-  return { ensure: vi.fn(async () => 1), dispose: vi.fn() };
+  return { ensure: vi.fn(async () => 1), hydrateSchemaDependencies: vi.fn(async () => false), dispose: vi.fn() };
 }
 
+afterEach(() => vi.useRealTimers());
+
 describe('createPreviewSessionClient', () => {
+  it('bounds projection rendering to 30 seconds and permits a correlated retry', async () => {
+    vi.useFakeTimers();
+    const worker = new FakeWorker();
+    const client = createPreviewSessionClient(worker as unknown as Worker, readiness());
+    const subject = {
+      uri: 'file:///test.rosetta',
+      nodeId: 'test.Calculate#RosettaFunction',
+      region: { from: 30, to: 45 }
+    };
+    const pending = expect(
+      client.project('typescript', subject, 'function', 'namespace test', new AbortController().signal)
+    ).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(30_000);
+    await pending;
+    const retry = client.project('typescript', subject, 'function', 'namespace test', new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(worker.posted).toHaveLength(2);
+    const projection = { language: 'typescript', subject, code: 'return true;', sourceMap: [], requiredHelpers: [] };
+    worker.reply({
+      type: 'projection:result',
+      requestId: worker.posted[0]!.requestId,
+      projection: { ...projection, code: 'stale' }
+    });
+    worker.reply({ type: 'projection:result', requestId: worker.posted[1]!.requestId, projection });
+    await expect(retry).resolves.toEqual(projection);
+    client.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('projects from the acknowledged linked source and correlates replies', async () => {
     const worker = new FakeWorker();
     const ready = readiness();

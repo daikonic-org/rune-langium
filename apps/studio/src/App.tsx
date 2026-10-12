@@ -33,6 +33,7 @@ import * as persistence from './workspace/persistence.js';
 import type { CuratedModelBinding, WorkspaceRecord } from './workspace/persistence.js';
 import { LAYOUT_SCHEMA_VERSION } from './shell/layout-factory.js';
 import { deleteWorkspaceFiles, loadWorkspaceFiles, saveWorkspaceFiles } from './workspace/workspace-files.js';
+import { createWorkspaceAutosave } from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from './store/output-store.js';
@@ -199,6 +200,7 @@ function AppContent() {
   // `files` initial state) and is kept in sync via the effect below.
   const filesRef = useRef<WorkspaceFile[]>([]);
   const workspaceEpochRef = useRef(0);
+  const workspaceTransitionRef = useRef(0);
   // Tracks the latest loaded reference models so syncWorkspaceToEditor can
   // preserve them without calling useModelStore.getState() (which is not
   // available in the test mock of useModelStore).
@@ -215,6 +217,30 @@ function AppContent() {
       .addLine(fmtLine('workspace', message, error instanceof Error ? error.message : undefined), 'error');
     useActivityStore.getState().addActivity('workspace', false, message);
   }, []);
+
+  const workspaceAutosave = useMemo(
+    () =>
+      createWorkspaceAutosave(saveWorkspaceFiles, (error) =>
+        reportWorkspaceError('Failed to save workspace changes to browser storage; edits remain in memory', error)
+      ),
+    [reportWorkspaceError]
+  );
+
+  useEffect(() => {
+    const flush = () => {
+      void workspaceAutosave.flush().catch(() => {});
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      flush();
+    };
+  }, [workspaceAutosave]);
 
   useEffect(() => {
     if (!workspaceError) {
@@ -273,7 +299,7 @@ function AppContent() {
             })
           );
           for (const [bundleId, curatedFiles] of Object.entries(curatedFilesWithSource)) {
-            store.setCuratedFiles(bundleId, curatedFiles);
+            store.setCuratedFiles(bundleId, curatedFiles, result.curatedBundleVersions?.[bundleId]);
           }
           const currentModels = useModelStore.getState().models;
           if (currentModels !== previousModels) {
@@ -384,9 +410,17 @@ function AppContent() {
     lastModelMergeRef.current = loadedModelsRef.current;
   }, []);
 
-  const clearWorkspaceState = useCallback(() => {
+  const clearWorkspaceState = useCallback(async (): Promise<number | null> => {
+    const transition = ++workspaceTransitionRef.current;
+    try {
+      await workspaceAutosave.flush();
+    } catch {
+      // Autosave reported the storage failure; keep the current workspace and its retryable draft.
+      return null;
+    }
+    if (transition !== workspaceTransitionRef.current) return null;
     unavailableCuratedBindingsRef.current.clear();
-    invalidateWorkspaceParses();
+    const epoch = invalidateWorkspaceParses();
     filesRef.current = [];
     setFiles([]);
     setModels([]);
@@ -403,7 +437,8 @@ function AppContent() {
     useEditorStore.temporal.getState().clear();
     usePreviewStore.getState().resetPreviewState();
     useCodegenStore.getState().resetCodegenState();
-  }, [invalidateWorkspaceParses]);
+    return epoch;
+  }, [invalidateWorkspaceParses, workspaceAutosave]);
 
   const syncWorkspaceToEditor = useCallback(
     async (workspaceFiles: WorkspaceFile[]) => {
@@ -487,9 +522,11 @@ function AppContent() {
 
   const restoreWorkspace = useCallback(
     async (workspace: WorkspaceRecord): Promise<'restored' | 'empty' | 'superseded'> => {
-      clearWorkspaceState();
-      const activationEpoch = workspaceEpochRef.current;
+      const activationEpoch = await clearWorkspaceState();
+      if (activationEpoch === null) return 'superseded';
+      setBootState('restoring');
       reconcileWorkspaceModels(workspace.curatedModels ?? []);
+      if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
       const restoredFiles = await loadWorkspaceFiles(workspace.id);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
       if (restoredFiles.length === 0 && (workspace.curatedModels?.length ?? 0) === 0) {
@@ -587,7 +624,6 @@ function AppContent() {
           setBootState('start');
           return;
         }
-        setBootState('restoring');
         const restored = await restoreWorkspace(ws);
         if (cancelled || restored === 'superseded') return;
         if (restored === 'empty') {
@@ -641,6 +677,13 @@ function AppContent() {
   useEffect(() => {
     if (!telemetryEnabled) return;
     const uninstallCapture = installTelemetryCapture();
+    const telemetryClient = createTelemetryClient({
+      endpoint: config.telemetryEndpoint,
+      enabled: config.telemetryEnabled && !config.devMode,
+      studioVersion: STUDIO_VERSION,
+      uaClass: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+      isEnabled: () => useTelemetrySettingsStore.getState().enabled
+    });
     const uninstallShipper = installTelemetryShipper(
       // Same deployment configuration model-store.ts's pre-existing client
       // uses (config.telemetryEndpoint/config.telemetryEnabled), not the
@@ -648,12 +691,7 @@ function AppContent() {
       // before — a user's per-user opt-in must still respect the
       // deployment-level VITE_ENABLE_TELEMETRY kill switch and any
       // staging/custom VITE_TELEMETRY_ENDPOINT override, not bypass them.
-      createTelemetryClient({
-        endpoint: config.telemetryEndpoint,
-        enabled: config.telemetryEnabled && !config.devMode,
-        studioVersion: STUDIO_VERSION,
-        uaClass: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'
-      }),
+      telemetryClient,
       // Only backfill spans that predate this install when this transition
       // to enabled came from loading an already-persisted, returning
       // user's consent — never for a fresh explicit Settings-checkbox
@@ -668,6 +706,7 @@ function AppContent() {
     return () => {
       uninstallCapture();
       uninstallShipper();
+      telemetryClient.dispose?.();
     };
   }, [telemetryEnabled]);
 
@@ -760,8 +799,8 @@ function AppContent() {
       // Reference models selected on the launcher seed a new workspace.
       // An active workspace's bindings belong only to that workspace.
       const launcherModels = restoredWorkspaceRef.current ? new Map<string, LoadedModel>() : loadedModelsRef.current;
-      clearWorkspaceState();
-      const activationEpoch = workspaceEpochRef.current;
+      const activationEpoch = await clearWorkspaceState();
+      if (activationEpoch === null) return;
       setBootState('start');
       setLoading(true);
       try {
@@ -813,37 +852,7 @@ function AppContent() {
       // LSP doc-set sync runs in LspProvider on the `files` change it observes.
 
       if (restoredWorkspace) {
-        // Fire-and-forget from this caller's perspective (never awaited), so
-        // its real completion time is otherwise invisible to anything
-        // outside this closure. Fires on every editor transaction (up to
-        // once per keystroke), so this is recorded via perf-log — NOT
-        // useActivityStore.addActivity — to avoid flooding the user-visible
-        // Activity panel's 200-entry ring buffer with a row per keystroke
-        // and evicting the meaningful, infrequent entries it's meant to
-        // hold. See perf-log.ts.
-        const saveOpId = allocateOpId();
-        recordPerfStart('workspaceSave', saveOpId);
-        const saveStartedAt = performance.now();
-        void saveWorkspaceFiles(restoredWorkspace.id, updatedFiles)
-          .then(() => {
-            recordPerf({
-              op: 'workspaceSave',
-              ok: true,
-              durationMs: performance.now() - saveStartedAt,
-              ts: performance.now(),
-              opId: saveOpId
-            });
-          })
-          .catch((err) => {
-            recordPerf({
-              op: 'workspaceSave',
-              ok: false,
-              durationMs: performance.now() - saveStartedAt,
-              ts: performance.now(),
-              opId: saveOpId
-            });
-            reportWorkspaceError('Failed to save workspace changes to browser storage; edits remain in memory', err);
-          });
+        workspaceAutosave.schedule(restoredWorkspace.id, updatedFiles);
       }
 
       // Debounced reparse — wait for typing to settle. Same observability
@@ -900,11 +909,11 @@ function AppContent() {
         }
       }, 500);
     },
-    [applyParseResult, reportWorkspaceError, restoredWorkspace]
+    [applyParseResult, reportWorkspaceError, restoredWorkspace, workspaceAutosave]
   );
 
-  const handleReset = useCallback(() => {
-    clearWorkspaceState();
+  const handleReset = useCallback(async () => {
+    if ((await clearWorkspaceState()) === null) return;
     reconcileWorkspaceModels([]);
     restoredWorkspaceRef.current = null;
     setRestoredWorkspace(null);
@@ -922,7 +931,6 @@ function AppContent() {
           reportWorkspaceError('The selected workspace no longer exists in browser storage', workspaceId);
           return;
         }
-        setBootState('restoring');
         const restored = await restoreWorkspace(ws);
         if (restored === 'superseded') return;
         if (restored === 'empty') {

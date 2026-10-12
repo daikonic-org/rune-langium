@@ -7,6 +7,30 @@ import { loadPinnedFunction } from '../helpers/expression-workspace.js';
 import { expectEditorExpansion } from '../helpers/body-projection.js';
 import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
+import { authorScratchType } from '../prod-ux/fixtures.js';
+import { readFile } from 'node:fs/promises';
+
+test('debug report downloads structural evidence and only includes source after opt-in', async ({ page }) => {
+  await authorScratchType(page, { name: 'DebugType', namespace: 'scratch.debug', attributes: [] });
+  await page.getByText('Output', { exact: true }).click();
+  await page.getByRole('button', { name: 'Export debug info', exact: true }).click();
+  await expect(page.getByRole('checkbox')).not.toBeChecked();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download report' }).click();
+  const artifact = await download;
+  const report = JSON.parse(await readFile((await artifact.path())!, 'utf8'));
+  expect(report.workspace.files.every((file: Record<string, unknown>) => !('content' in file))).toBe(true);
+  expect(report.environment.studioVersion).toBeTruthy();
+  await page.getByRole('button', { name: 'Export debug info', exact: true }).click();
+  await page.getByRole('checkbox').check();
+  const sourceDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download report' }).click();
+  const sourceArtifact = await sourceDownload;
+  const sourceReport = JSON.parse(await readFile((await sourceArtifact.path())!, 'utf8'));
+  expect(
+    sourceReport.workspace.files.some((file: { content: string }) => file.content.includes('type DebugType'))
+  ).toBe(true);
+});
 
 test('temporal and enum preview inputs keep their validated values', async ({ page }, testInfo) => {
   await checkPrimitivePreviews(page, async (name) => {

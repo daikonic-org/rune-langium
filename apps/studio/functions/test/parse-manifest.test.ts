@@ -149,6 +149,7 @@ type ParseResponse = {
     }>;
   };
   requiredCuratedArtifacts?: Array<{ key: string; bundleId: string; namespace: string }>;
+  curatedBundleVersions?: Record<string, string>;
   dependencyGraph: Record<string, string[]>;
   errors: Record<string, string[]>;
 };
@@ -160,6 +161,56 @@ type ParseResponse = {
 describe('POST /api/parse — manifest fast-path (v2), manifest required (no v1 fallback)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('returns the immutable identities of implicit built-in dependencies', async () => {
+    const cohort = `cohort-${'a'.repeat(64)}`;
+    const mod = await import('../../src/services/curated-fetch.js');
+    const cdm = {
+      ...MANIFEST,
+      cohort,
+      dependencies: { 'rune-dsl': cohort },
+      namespaces: {
+        ...MANIFEST.namespaces,
+        'cdm.base.math': { ...MANIFEST.namespaces['cdm.base.math'], deps: ['com.rosetta.model'] }
+      }
+    };
+    const rune = {
+      ...MANIFEST,
+      modelId: 'rune-dsl',
+      cohort,
+      namespaces: {
+        'com.rosetta.model': {
+          deps: [],
+          exports: [{ type: 'RosettaBasicType', name: 'string' }],
+          artifact: `artifacts/${cohort}/ns/com.rosetta.model.json.gz`
+        }
+      }
+    };
+    vi.spyOn(mod, 'fetchCuratedManifest').mockImplementation(async (id) => (id === 'cdm' ? cdm : rune) as never);
+    vi.spyOn(mod, 'fetchCuratedNamespace').mockImplementation(async (id) =>
+      id === 'cdm'
+        ? NS_DOCS['cdm.base.math']!
+        : [
+            {
+              uri: 'rune-dsl/basictypes.rosetta',
+              content: '',
+              serializedModel: makeSM('com.rosetta.model'),
+              exports: []
+            }
+          ]
+    );
+    const response = await onRequestPost({
+      request: makeRequest({
+        files: [],
+        curatedBundles: [{ id: 'cdm', version: cohort }],
+        hydrateNamespaces: ['cdm.base.math']
+      })
+    } as never);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as ParseResponse;
+    expect(body.curatedBundleVersions).toEqual({ cdm: cohort, 'rune-dsl': cohort });
+    expect(body.hydrationState.documents.map((doc) => doc.uri)).toContain('rune-dsl/basictypes.rosetta');
   });
 
   it('Test 1 — manifest fast-path: only closure namespaces fetched; whole-bundle path never taken', async () => {
@@ -380,6 +431,7 @@ describe('POST /api/parse — manifest fast-path (v2), manifest required (no v1 
       } as never);
 
     const first = (await (await request(['cdm.base.math'])).json()) as ParseResponse;
+    expect(first.curatedBundleVersions).toEqual({ cdm: VERSION });
     const mathKey = first.requiredCuratedArtifacts?.[0]?.key;
     expect(mathKey).toBe(JSON.stringify(['cdm', MANIFEST.namespaces['cdm.base.math'].artifact]));
     expect(first.hydrationState.documents.map(({ uri }) => uri)).toEqual(['cdm/base/math.rosetta']);

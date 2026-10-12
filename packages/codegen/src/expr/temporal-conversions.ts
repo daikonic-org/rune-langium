@@ -18,3 +18,12 @@ export function matchesTemporalWireFormat(
 ): value is string {
   return typeof value === 'string' && patterns.get(kind)!.test(value);
 }
+
+export type TemporalWireFormat = keyof typeof TEMPORAL_CONVERSION_PATTERNS;
+
+/** Canonical primitive format metadata shared by schema generation and consumers. */
+export function temporalWireFormat(name: string): TemporalWireFormat | undefined {
+  return Object.prototype.hasOwnProperty.call(TEMPORAL_CONVERSION_PATTERNS, name)
+    ? (name as TemporalWireFormat)
+    : undefined;
+}

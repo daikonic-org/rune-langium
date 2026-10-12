@@ -1,15 +1,44 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { afterEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useContext } from 'react';
 import { useOutputStore } from '../../../src/store/output-store.js';
 import { OutputPanel } from '../../../src/shell/panels/OutputPanel.js';
-import { UtilityHeaderActionsProvider } from '../../../src/shell/utility-header-actions-context.js';
+import {
+  UtilityHeaderActionsProvider,
+  UtilityHeaderActionsContext
+} from '../../../src/shell/utility-header-actions-context.js';
+import { downloadStudioDebugReport } from '../../../src/services/debug-report.js';
+
+vi.mock('../../../src/services/debug-report.js', () => ({ downloadStudioDebugReport: vi.fn() }));
+function HeaderActions() {
+  const { actions } = useContext(UtilityHeaderActionsContext);
+  return <>{actions.get('workspace.output')}</>;
+}
 
 afterEach(() => useOutputStore.setState({ lines: [] }));
 
 describe('OutputPanel', () => {
+  it('offers an explicit local download with source opt-in reset each time', () => {
+    render(
+      <UtilityHeaderActionsProvider>
+        <OutputPanel />
+        <HeaderActions />
+      </UtilityHeaderActionsProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Export debug info' }));
+    const checkbox = screen.getByRole('checkbox');
+    expect(checkbox).not.toBeChecked();
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole('button', { name: 'Download report' }));
+    expect(downloadStudioDebugReport).toHaveBeenCalledWith(null, { includeSource: true });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Export debug info' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Download report' }));
+    expect(downloadStudioDebugReport).toHaveBeenLastCalledWith(null, { includeSource: false });
+  });
   it('shows local diagnostic metadata when hovering an output line', () => {
     useOutputStore.getState().addLine('[preview] Validation failed', 'error', {
       op: 'preview',

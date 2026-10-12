@@ -20,7 +20,8 @@ export const useExpressionProjection = withInstrumentation(
     binding: DocumentBinding | null,
     valid: boolean,
     kind: 'function' | 'condition',
-    dependencySnapshot: unknown
+    dependencySnapshot: unknown,
+    retryRevision = 0
   ): ProjectionState {
     const factory = usePreviewSessionFactory();
     const [client, setClient] = useState<PreviewSessionClient | null>(null);
@@ -99,7 +100,7 @@ export const useExpressionProjection = withInstrumentation(
           }
         );
       return () => controller.abort();
-    }, [language, key, valid, client, dependencySnapshot, factory]);
+    }, [language, key, valid, client, dependencySnapshot, factory, retryRevision]);
     return result.language === language ? result.state : { status: 'loading' };
   },
   { op: 'useExpressionProjection' }

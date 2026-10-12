@@ -71,7 +71,7 @@ choice DateChoice:
     expect(schedule.fields[0]).toMatchObject({ kind: 'string', format: 'date' });
     expect(schedule.fields[1]).toMatchObject({ kind: 'string', format: 'date', required: false });
     expect(schedule.fields[2]).toMatchObject({ kind: 'array', children: [{ kind: 'string', format: 'date' }] });
-    expect(schedule.fields[3]).not.toHaveProperty('format');
+    expect(schedule.fields[3]).toMatchObject({ format: 'dateTime' });
     const nested = expandPreviewField(schedule.fields[4]!, schedule.definitions);
     expect(nested.kind).toBe('object');
     if (nested.kind !== 'object') throw new Error('Expected Schedule object');
@@ -85,6 +85,26 @@ choice DateChoice:
       format: 'date',
       required: false
     });
+  });
+  it('carries all canonical temporal formats into function inputs, aliases and array elements', async () => {
+    const doc = await parseModel(`namespace test.temporal
+ typeAlias LocalStamp: dateTime
+ func Echo:
+  inputs:
+   day date (1..1)
+   clock time (1..1)
+   local LocalStamp (0..1)
+   zoned zonedDateTime (0..*)
+  output: result date (1..1)
+  set result: day
+ `);
+    const schema = generatePreviewSchemas(doc).find((entry) => entry.targetId === 'test.temporal.Echo')!;
+    expect(schema.fields).toMatchObject([
+      { format: 'date' },
+      { format: 'time' },
+      { format: 'dateTime' },
+      { kind: 'array', children: [{ format: 'zonedDateTime' }] }
+    ]);
   });
   it('expands serializable recursive definitions one level at a time without losing siblings', async () => {
     const doc = await parseModel(`namespace test.lazy

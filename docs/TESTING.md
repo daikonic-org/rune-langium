@@ -160,6 +160,23 @@ operation, duration, signature, and correlation ID when present. Cloudflare
 telemetry span logs carry the operation, level, duration, signature, Studio
 version, browser class, and correlation ID; only validated curated model IDs
 may appear as subjects. Raw messages and workspace paths remain local to Studio.
+Output's **Export debug info** action downloads those local logs, current
+diagnostics, exact curated bundle versions, workspace file summaries, and
+whitelisted environment/settings fields. Source contents are excluded unless
+explicitly selected, and unloaded curated files are not fetched. Nothing is
+uploaded by this action; review the report before sharing because logs and
+file names can contain private information.
+Telemetry retries only explicit 429 rejections, at most three attempts, honoring
+Retry-After. The bounded queue is memory-only and is discarded on opt-out or
+teardown. Fetch and response-body reads have a ten-second deadline.
+Visibility/page-hide flushes use keepalive; ambiguous network failures
+are not replayed. This is best-effort delivery, not durable delivery.
+
+Production evidence retains raw Output/Activity lines and stamps their navigation
+generation. Timing rollups count each operation/correlation ID once per journey
+and generation; mirrors remain available as raw evidence. Capture the log before
+reload or workspace teardown, then mark the completed navigation, so cleared
+errors and reused IDs remain attributable.
 
 Inspector hydration checks share `test/prod-ux/readiness.ts` and require a
 populated **Attributes (N)** group. Accessibility sweeps use the same module

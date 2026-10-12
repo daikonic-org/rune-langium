@@ -16,6 +16,7 @@
 import { z } from 'zod';
 import { CuratedModelIdSchema, ErrorCategorySchema } from '@rune-langium/curated-schema';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
+import { withAbortTimeout } from './with-abort-timeout.js';
 
 /**
  * Shared duration ceiling for every `durationMs` field in the wire schema
@@ -86,10 +87,14 @@ export interface TelemetryClientOptions {
   enabled: boolean;
   studioVersion: string;
   uaClass: string;
+  /** Live consent gate, checked again before delayed delivery. */
+  isEnabled?: () => boolean;
 }
 
 export interface TelemetryClient {
   emit(event: TelemetryEvent): Promise<void>;
+  clearPending?(): void;
+  dispose?(): void;
 }
 
 const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
@@ -110,35 +115,114 @@ function isLocalhost(endpoint: string): boolean {
 export const createTelemetryClient = withInstrumentation(
   function createTelemetryClient(options: TelemetryClientOptions): TelemetryClient {
     const localNoOp = isLocalhost(options.endpoint);
+    const queue: Array<{ body: string; attempts: number }> = [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cooldownUntil = 0;
+    let running = false;
+    let disposed = false;
+    let generation = 0;
+    const enabled = () => !disposed && options.enabled && !localNoOp && (options.isEnabled?.() ?? true);
+
+    function clearPending(): void {
+      generation++;
+      queue.length = 0;
+      cooldownUntil = 0;
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+    }
+
+    async function drain(): Promise<void> {
+      if (running || timer !== undefined) return;
+      if (!enabled()) {
+        clearPending();
+        return;
+      }
+      const remaining = cooldownUntil - Date.now();
+      if (remaining > 0) {
+        timer = setTimeout(
+          () => {
+            timer = undefined;
+            void drain();
+          },
+          Math.min(remaining, 2_147_483_647)
+        );
+        return;
+      }
+      running = true;
+      try {
+        while (queue.length > 0 && enabled()) {
+          const item = queue[0]!;
+          const epoch = generation;
+          item.attempts++;
+          try {
+            const { response, header, body } = await withAbortTimeout(async (signal) => {
+              const response = await fetch(options.endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: item.body,
+                credentials: 'omit',
+                keepalive: true,
+                signal
+              });
+              const header = response.headers.get('Retry-After');
+              const body =
+                response.status === 429 && header === null ? await response.json().catch(() => undefined) : undefined;
+              return { response, header, body };
+            }, 10_000);
+            if (epoch !== generation || !enabled()) continue;
+            if (response.status === 429) {
+              // Only an explicit rejection is replayed; network failures may already be accepted.
+              const seconds = header !== null ? Number(header) : body?.retry_after_s;
+              const delay =
+                typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0
+                  ? seconds * 1000
+                  : header !== null
+                    ? Date.parse(header) - Date.now()
+                    : 5000;
+              if (epoch !== generation || !enabled()) continue;
+              if (item.attempts >= 3) queue.shift();
+              cooldownUntil =
+                Date.now() + Math.max(Number.isFinite(delay) ? delay : 5000, 1000 * 2 ** (item.attempts - 1));
+              timer = setTimeout(
+                () => {
+                  timer = undefined;
+                  void drain();
+                },
+                Math.min(cooldownUntil - Date.now(), 2_147_483_647)
+              );
+              return;
+            }
+          } catch {
+            // Best effort: never fail the action or replay an ambiguously accepted request.
+          }
+          if (epoch === generation) queue.shift();
+        }
+        if (!enabled()) clearPending();
+      } finally {
+        running = false;
+      }
+    }
+
     return {
       async emit(event: TelemetryEvent): Promise<void> {
-        // Validate FIRST so caller mistakes show up in dev. The validation
-        // throws — that's intentional; tests assert on it.
         const parsed = TelemetryEventSchema.safeParse(event);
-        if (!parsed.success) {
-          throw new Error(`telemetry: schema violation — ${parsed.error.message}`);
+        if (!parsed.success) throw new Error(`telemetry: schema violation — ${parsed.error.message}`);
+        if (!enabled()) {
+          clearPending();
+          return;
         }
-        // Now apply opt-out / dev-mode gates.
-        if (!options.enabled || localNoOp) return;
-
-        const payload = {
-          ...parsed.data,
-          studio_version: options.studioVersion,
-          ua_class: options.uaClass
-        };
-        try {
-          await fetch(options.endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            // Telemetry must never affect the page's session cookies.
-            credentials: 'omit',
-            // Best-effort; don't keep the page alive waiting on this.
-            keepalive: true
-          });
-        } catch {
-          // Fail silent. Telemetry MUST NEVER block or fail the host action.
-        }
+        // Memory-only and bounded: consent withdrawal or teardown discards pending events.
+        if (queue.length >= 100) return;
+        queue.push({
+          body: JSON.stringify({ ...parsed.data, studio_version: options.studioVersion, ua_class: options.uaClass }),
+          attempts: 0
+        });
+        await drain();
+      },
+      clearPending,
+      dispose() {
+        disposed = true;
+        clearPending();
       }
     };
   },

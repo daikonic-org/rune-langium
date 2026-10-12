@@ -146,12 +146,14 @@ export const ExpressionWorkspace = withInstrumentation(
         ? binding
         : null;
     const [language, setLanguage] = useState<'rune' | 'typescript' | 'python'>('rune');
+    const [projectionRetry, setProjectionRetry] = useState(0);
     const projection = useExpressionProjection(
       language,
       active,
       Boolean(active && file && (readOnly || file.readOnly || (parseCurrent && parsed?.source === file.content))),
       target ? 'condition' : 'function',
-      dependencySnapshot
+      dependencySnapshot,
+      projectionRetry
     );
     const captureTarget = () => {
       if (!active || !file || !parsed || !parseCurrent || readOnly || file.readOnly || active.readOnly) return;
@@ -323,9 +325,19 @@ export const ExpressionWorkspace = withInstrumentation(
               </p>
             )}
             {projection.status === 'error' && (
-              <p role="alert" className="text-xs text-destructive">
-                {projection.error}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p role="alert" className="text-xs text-destructive">
+                  {projection.error}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setProjectionRetry((revision) => revision + 1)}
+                >
+                  Retry generation
+                </Button>
+              </div>
             )}
           </>
         )}

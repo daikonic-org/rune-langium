@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { checkout as test, expect, loadCdm } from '../fixtures.js';
+import { checkout as test, expect, loadCdm, captureOpLogSnapshot } from '../fixtures.js';
 
 test.describe('J15 — Settings perspective', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
@@ -29,7 +29,9 @@ test.describe('J15 — Settings perspective', () => {
     expect(after, 'font scale cycled to a different value').not.toBe(before);
     await evidence.checkpoint('font-scale-cycled');
 
+    await captureOpLogSnapshot(page, evidence);
     await page.reload();
+    evidence.markNavigation();
     await page.waitForLoadState('domcontentloaded');
     await page.getByTestId('rail-settings').click();
     await expect(page.getByTestId('settings-perspective')).toBeVisible({ timeout: 20000 });
@@ -52,7 +54,9 @@ test.describe('J15 — Settings perspective', () => {
     await expect(telemetryToggle).toHaveAttribute('aria-checked', 'true');
     await evidence.checkpoint('telemetry-toggle-checked');
 
+    await captureOpLogSnapshot(page, evidence);
     await page.reload();
+    evidence.markNavigation();
     await page.waitForLoadState('domcontentloaded');
     await page.getByTestId('rail-settings').click();
     await expect(page.getByTestId('settings-perspective')).toBeVisible({ timeout: 20000 });

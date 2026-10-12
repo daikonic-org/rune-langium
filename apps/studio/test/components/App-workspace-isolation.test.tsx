@@ -53,12 +53,25 @@ vi.mock('../../src/shell/ExplorePerspective.js', async () => {
   return {
     ExplorePerspective: () => {
       const { files, deferredExports } = useWorkspace();
-      const { onCreateWorkspace } = useWorkspaceActions();
+      const { onCreateWorkspace, onClose, onFilesChange } = useWorkspaceActions();
       return (
         <div>
           <span data-testid="files">{files.map((file) => file.path).join(',')}</span>
+          <span data-testid="trade-content">{files.find((file) => file.path === 'trade.rosetta')?.content}</span>
           <span data-testid="deferred">{deferredExports.map((entry) => entry.namespace).join(',')}</span>
           <button onClick={onCreateWorkspace}>Create workspace</button>
+          <button onClick={onClose}>Close from test</button>
+          <button
+            onClick={() =>
+              onFilesChange(
+                files.map((file) =>
+                  file.path === 'trade.rosetta' ? { ...file, content: 'namespace project.edited\n', dirty: true } : file
+                )
+              )
+            }
+          >
+            Edit from test
+          </button>
         </div>
       );
     }
@@ -151,6 +164,79 @@ async function openSourceWorkspace() {
 }
 
 describe('workspace isolation', () => {
+  it.each(['close', 'reset', 'switch', 'replace'] as const)(
+    'preserves an unsaved draft when %s fails to flush, then saves it on retry',
+    async (transition) => {
+      const original = (await loadWorkspace('ws-a'))!;
+      await saveWorkspace({ ...original, id: 'ws-b', name: 'Other', lastOpenedAt: '2000-01-01T00:00:00Z' });
+      await saveWorkspaceFiles('ws-b', blankFiles);
+      const write = workspaceFiles.saveWorkspaceFiles;
+      const save = vi.spyOn(workspaceFiles, 'saveWorkspaceFiles');
+      render(<App />);
+      await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+      save.mockRejectedValue(new Error('quota'));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit from test' }));
+      const attempt = async () => {
+        if (transition === 'close' || transition === 'reset') {
+          fireEvent.click(
+            screen.getByRole('button', { name: transition === 'close' ? 'Close from test' : 'Create workspace' })
+          );
+        } else if (transition === 'switch') {
+          await window.__runeStudioTestApi!.switchWorkspace!('ws-b');
+        } else {
+          await window.__runeStudioTestApi!.loadFiles!(blankFiles);
+        }
+      };
+      await act(attempt);
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(screen.getByTestId('trade-content')).toHaveTextContent('namespace project.edited');
+      expect(screen.getByRole('button', { name: 'Workspace menu — Source project' })).toBeVisible();
+      expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
+      expect(await listRecents()).toHaveLength(2);
+
+      save.mockImplementation(write);
+      await act(attempt);
+      if (transition === 'close' || transition === 'reset') {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+      } else {
+        expect(screen.getByTestId('files')).toHaveTextContent('blank.rosetta');
+      }
+      const persisted = await loadWorkspaceFiles('ws-a');
+      expect(persisted.find((file) => file.path === 'trade.rosetta')?.content).toBe('namespace project.edited\n');
+    }
+  );
+
+  it('lets a newer close supersede a workspace switch still waiting for storage', async () => {
+    const original = (await loadWorkspace('ws-a'))!;
+    await saveWorkspace({ ...original, id: 'ws-b', name: 'Other', lastOpenedAt: '2000-01-01T00:00:00Z' });
+    await saveWorkspaceFiles('ws-b', blankFiles);
+    const write = workspaceFiles.saveWorkspaceFiles;
+    const save = vi.spyOn(workspaceFiles, 'saveWorkspaceFiles');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+    const gate = Promise.withResolvers<void>();
+    save.mockImplementationOnce(async (id, files) => {
+      await gate.promise;
+      await write(id, files);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit from test' }));
+    let switching!: Promise<void>;
+    await act(async () => {
+      switching = window.__runeStudioTestApi!.switchWorkspace!('ws-b');
+    });
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(screen.getByTestId('trade-content')).toHaveTextContent('namespace project.edited');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
+    await act(async () => {
+      gate.resolve();
+      await switching;
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    expect((await loadWorkspaceFiles('ws-a')).find((file) => file.path === 'trade.rosetta')?.content).toBe(
+      'namespace project.edited\n'
+    );
+  });
+
   it('carries launcher selections into a pre-created Git-backed target without creating a duplicate', async () => {
     await persistence.deleteWorkspace('ws-a');
     render(<App />);

@@ -65,7 +65,7 @@ interface ModelStoreActions {
    * leaves files empty since the parsed payload only arrives via the routed
    * parse response.
    */
-  setCuratedFiles(sourceId: string, files: CachedFile[]): void;
+  setCuratedFiles(sourceId: string, files: CachedFile[], resolvedVersion?: string): void;
 }
 
 type ModelStore = ModelStoreState & ModelStoreActions;
@@ -101,16 +101,21 @@ export const gatedByUserOptIn = withInstrumentation(
   { op: 'gatedByUserOptIn' }
 );
 
-let deps: ModelStoreDeps = {
-  telemetry: gatedByUserOptIn(
-    createTelemetryClient({
-      endpoint: config.telemetryEndpoint,
-      enabled: config.telemetryEnabled && !config.devMode,
-      studioVersion: '0.1.0',
-      uaClass: 'browser'
-    })
-  )
-};
+const modelTelemetryClient = createTelemetryClient({
+  endpoint: config.telemetryEndpoint,
+  enabled: config.telemetryEnabled && !config.devMode,
+  studioVersion: '0.1.0',
+  uaClass: 'browser',
+  isEnabled: () => useTelemetrySettingsStore.getState().enabled
+});
+const unsubscribeTelemetryConsent = useTelemetrySettingsStore.subscribe((state) => {
+  if (!state.enabled) modelTelemetryClient.clearPending?.();
+});
+import.meta.hot?.dispose(() => {
+  unsubscribeTelemetryConsent();
+  modelTelemetryClient.dispose?.();
+});
+let deps: ModelStoreDeps = { telemetry: gatedByUserOptIn(modelTelemetryClient) };
 
 export const setModelStoreDeps = withInstrumentation(
   function setModelStoreDeps(next: Partial<ModelStoreDeps>): void {
@@ -313,10 +318,17 @@ export const useModelStore = create<ModelStore>((set, get) => ({
     set({ errors: newErrors });
   },
 
-  setCuratedFiles(sourceId: string, files: CachedFile[]) {
+  setCuratedFiles(sourceId: string, files: CachedFile[], resolvedVersion?: string) {
     const { models } = get();
-    const existing = models.get(sourceId);
-    if (!existing) return;
+    const loaded = models.get(sourceId);
+    const source = loaded?.source ?? (resolvedVersion ? getModelSource(sourceId) : undefined);
+    if (!source) return;
+    let existing = loaded;
+    if (!existing) {
+      if (!resolvedVersion) return;
+      existing = { source, commitHash: resolvedVersion, files: [], loadedAt: Date.now() };
+    }
+    const commitHash = resolvedVersion ?? existing.commitHash;
     // Cheap idempotence — skip the set when nothing meaningful changes.
     // parseWorkspaceFiles fires on every debounced edit; without a guard
     // every keystroke would re-publish identical files and re-trigger
@@ -327,6 +339,8 @@ export const useModelStore = create<ModelStore>((set, get) => ({
     // and downstream consumers see fresh exports (Copilot review of
     // PR #163: shallow path-only check let stale exports survive).
     if (
+      loaded &&
+      existing.commitHash === commitHash &&
       existing.files.length === files.length &&
       existing.files.every((f, i) => {
         const next = files[i];
@@ -357,7 +371,7 @@ export const useModelStore = create<ModelStore>((set, get) => ({
       return;
     }
     const updated = new Map(models);
-    updated.set(sourceId, { ...existing, files });
+    updated.set(sourceId, { ...existing, commitHash, files });
     set({ models: updated });
   }
 }));

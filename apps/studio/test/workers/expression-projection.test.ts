@@ -2,6 +2,12 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { URI } from 'langium';
+import { referenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
+import { useModelStore } from '../../src/store/model-store.js';
+import { mergeCuratedRefOnlyFiles } from '../../src/services/workspace.js';
+import { pathToUri } from '../../src/utils/uri.js';
+import type { CachedFile } from '../../src/types/model-types.js';
 import { loadRealWorker } from './helpers/real-codegen-worker.js';
 import {
   parse,
@@ -28,6 +34,95 @@ async function requestFixture(language: 'typescript' | 'python' = 'typescript') 
 }
 
 describe('linked expression projections', () => {
+  it('executes and projects pinned CDM functions with an implicit serialized Rune dependency after restore', async () => {
+    const sources = referenceFiles();
+    const { RuneDsl } = createRuneDslServices();
+    const docs = sources.map((file) => {
+      const name = file.uri.split('/').at(-1)!;
+      const id = name.startsWith('com.rosetta.model--') ? 'rune-dsl' : 'cdm';
+      const path = name.split('--')[1]!;
+      return {
+        id,
+        path,
+        content: file.content,
+        doc: RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+          file.content,
+          URI.parse(pathToUri(`[${id}]/${path}`))
+        )
+      };
+    });
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs.map(({ doc }) => doc));
+    const files: Record<string, CachedFile[]> = {};
+    for (const { id, path, doc } of docs) {
+      const active = path === 'base-math-func.rosetta';
+      (files[id] ??= []).push({
+        path,
+        content: active ? doc.textDocument.getText() : '',
+        sourceLoaded: active,
+        refOnly: true,
+        namespace: doc.parseResult.value.name,
+        serializedModelJson: serializeRuneModel(RuneDsl.serializer.JsonSerializer, doc.parseResult.value)
+      });
+    }
+    const owner = docs.find(({ path }) => path === 'base-math-func.rosetta')!;
+    const fn = owner.doc.parseResult.value.elements.find(
+      (element: { name?: string }) => element.name === 'StringEquals'
+    )!;
+    const subject = {
+      uri: pathToUri(`[${owner.id}]/${owner.path}`),
+      nodeId: 'cdm.base.math.StringEquals#RosettaFunction',
+      region: getFunctionImplementationRegion(fn, owner.content)
+    };
+    const previous = useModelStore.getState().models;
+    const cohort = `cohort-${'a'.repeat(64)}`;
+    try {
+      useModelStore.setState({ models: new Map() });
+      for (const [id, entries] of Object.entries(files)) useModelStore.getState().setCuratedFiles(id, entries, cohort);
+      const snapshot = mergeCuratedRefOnlyFiles([], files, useModelStore.getState().models);
+      expect(snapshot.some((file) => file.bundleId === 'rune-dsl')).toBe(true);
+      expect(snapshot.every((file) => file.bundleVersion === cohort)).toBe(true);
+      // A new worker represents reloading/restoring the pinned workspace.
+      const { scope, dispatch } = await loadRealWorker();
+      dispatch({
+        type: 'preview:setFiles',
+        filesRevision: 1,
+        files: snapshot.map((file) => ({
+          uri: pathToUri(file.path),
+          content: file.content,
+          serializedModelJson: file.serializedModelJson
+        }))
+      });
+      dispatch({
+        type: 'preview:execute',
+        funcName: 'cdm.base.math.StringEquals',
+        requestId: 'execute-before-project',
+        inputs: { s1: 'hello', s2: 'hello' }
+      });
+      await vi.waitFor(() =>
+        expect(scope.postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'preview:execute-result', requestId: 'execute-before-project', output: true })
+        )
+      );
+      for (const language of ['typescript', 'python']) {
+        dispatch({
+          type: 'projection:generate',
+          requestId: language,
+          language,
+          kind: 'function',
+          source: owner.content,
+          subject,
+          filesRevision: 1
+        });
+        await vi.waitFor(() =>
+          expect(scope.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'projection:result', requestId: language })
+          )
+        );
+      }
+    } finally {
+      useModelStore.setState({ models: previous });
+    }
+  });
   it.each(
     ['date', 'time', 'dateTime', 'zonedDateTime', 'Kind', 'NumberAlias', 'DateAlias', 'EnumAlias'].flatMap((type) =>
       ['typescript', 'python'].map((language) => ({ type, language }))

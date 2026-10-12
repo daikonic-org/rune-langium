@@ -342,6 +342,28 @@ describe('useModelStore — setCuratedFiles (refOnly post-/api/parse)', () => {
     expect(useModelStore.getState().models).toBe(stateBefore);
   });
 
+  it('retains a pinned implicit Rune dependency returned by the router', () => {
+    const files = [{ path: 'basictypes.rosetta', content: '', namespace: 'com.rosetta.model', refOnly: true }];
+    useModelStore.getState().setCuratedFiles('rune-dsl', files, 'cohort-rune-1');
+    expect(useModelStore.getState().models.get('rune-dsl')).toMatchObject({
+      source: { id: 'rune-dsl' },
+      commitHash: 'cohort-rune-1',
+      files
+    });
+    const pinned = useModelStore.getState().models;
+    useModelStore.getState().setCuratedFiles('rune-dsl', files, 'cohort-rune-1');
+    expect(useModelStore.getState().models).toBe(pinned);
+    useModelStore.getState().setCuratedFiles('unknown-bundle', files, 'cohort-unknown');
+    expect(useModelStore.getState().models).toBe(pinned);
+  });
+
+  it('updates the resolved cohort even when file contents are unchanged', () => {
+    const files = [{ path: 'sample.rosetta', content: '', namespace: 'cdm.sample', refOnly: true }];
+    useModelStore.getState().setCuratedFiles('cdm', files, 'cohort-cdm-1');
+    useModelStore.getState().setCuratedFiles('cdm', files, 'cohort-cdm-2');
+    expect(useModelStore.getState().models.get('cdm')?.commitHash).toBe('cohort-cdm-2');
+  });
+
   it('is idempotent when paths AND serializedModelJson identity match', () => {
     const json1 = '{"a":1}' as never;
     const files = [{ path: 'a.rosetta', content: '', namespace: 'a', refOnly: true, serializedModelJson: json1 }];

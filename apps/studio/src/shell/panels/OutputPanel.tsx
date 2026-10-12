@@ -3,11 +3,12 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type React from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUtilityHeaderActions } from '../utility-header-actions-context.js';
 import { SEV, useOutputStore } from '../../store/output-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { formatTelemetryEntryDetails } from './telemetry-entry-details.js';
+import { DebugReportDialog } from '../../components/DebugReportDialog.js';
 
 const SEVERITY_CLASS: Record<string, string> = {
   error: 'text-destructive',
@@ -21,6 +22,7 @@ export const OutputPanel = withInstrumentation(
     const lines = useOutputStore((s) => s.lines);
     const clearLines = useOutputStore((s) => s.clearLines);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [debugReportOpen, setDebugReportOpen] = useState(false);
 
     useEffect(() => {
       if (scrollRef.current) {
@@ -32,13 +34,22 @@ export const OutputPanel = withInstrumentation(
     // visible while the utility tray is collapsed to header height.
     const headerActions = useMemo(
       () => (
-        <button
-          type="button"
-          className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
-          onClick={clearLines}
-        >
-          Clear
-        </button>
+        <>
+          <button
+            type="button"
+            className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
+            onClick={() => setDebugReportOpen(true)}
+          >
+            Export debug info
+          </button>
+          <button
+            type="button"
+            className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
+            onClick={clearLines}
+          >
+            Clear
+          </button>
+        </>
       ),
       [clearLines]
     );
@@ -51,6 +62,7 @@ export const OutputPanel = withInstrumentation(
         data-component="workspace.output"
         className="flex h-full min-h-0 flex-col overflow-hidden"
       >
+        {debugReportOpen && <DebugReportDialog onClose={() => setDebugReportOpen(false)} />}
         <div ref={scrollRef} aria-live="polite" className="studio-scroll flex-1 overflow-auto px-3 py-1.5">
           {lines.length === 0 ? (
             <p className="font-mono text-2xs text-muted-foreground/60">No output yet.</p>
