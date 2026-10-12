@@ -42,6 +42,7 @@ import {
   conditionsToDisplay,
   useEditorStore,
   useModelSourceSync,
+  createEditorCommitRegistry,
   useLatestRef,
   makeNodeId,
   nameFromNodeId,
@@ -67,8 +68,10 @@ import type {
   RangeDiagnostic
 } from '@rune-langium/visual-editor';
 import { useStructureViewStore } from '../store/structure-view-store.js';
+import type { WorkspaceFile } from '../services/workspace.js';
 import type { RosettaModel } from '@rune-langium/core';
 import { getNodeSourceRegion, namespaceFromModelName, RuneDslTerminals } from '@rune-langium/core';
+import { createScopedMetadataActions } from './inspector-metadata-actions.js';
 import { SourceEditor } from '../components/SourceEditor.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
@@ -468,7 +471,9 @@ export const ExplorePerspective = withInstrumentation(
     // Workspace actions — formerly props, now from the actions context.
     // onClose/onSwitchWorkspace/onCreateWorkspace moved to AppHeader's
     // WorkspaceSwitcherTrigger (shared-perspective-chrome plan, Task 3).
-    const { onFilesChange, loadCuratedSource } = useWorkspaceActions();
+    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier } = useWorkspaceActions();
+    const inspectorScope = `${workspaceId}:${workspace.workspaceEpoch ?? 0}`;
+    const formCommitRegistry = useMemo(createEditorCommitRegistry, []);
 
     const graphRef = useRef<RuneTypeGraphRef>(null);
     const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -1661,7 +1666,7 @@ export const ExplorePerspective = withInstrumentation(
     // Previously this subscription lived inside RuneTypeGraph, which is only
     // mounted when the Graph pane is active; Structure-pane edits never reached
     // the source pane (2026-05-21, fix/inspector-source-sync).
-    useModelSourceSync(
+    const sourceSync = useModelSourceSync(
       storeNodes,
       storeEdges,
       handleModelChanged,
@@ -1669,6 +1674,22 @@ export const ExplorePerspective = withInstrumentation(
       storePendingEditPatches,
       originalSourceByNamespace,
       storePendingInversePatches
+    );
+
+    useEffect(
+      () =>
+        registerEditorSaveBarrier?.(async () => {
+          formCommitRegistry.flush();
+          const latest = useEditorStore.getState();
+          await sourceSync.flush({
+            nodes: latest.nodes,
+            edges: latest.edges,
+            parseEpoch: latest.parseEpoch,
+            patches: latest.pendingEditPatches,
+            inversePatches: latest.pendingInversePatches
+          });
+        }),
+      [registerEditorSaveBarrier, formCommitRegistry, sourceSync.flush]
     );
 
     useLspDiagnosticsBridge(lspClient);
@@ -2302,11 +2323,30 @@ export const ExplorePerspective = withInstrumentation(
 
     const selectedExpressionFile = files.find((file) => file.path === selectedSourceFilePath);
     const selectedParsedModel = parsedModels?.find((entry) => entry.filePath === selectedSourceFilePath);
-    const selectedParseCurrent = Boolean(
-      selectedExpressionFile &&
-      selectedParsedModel?.source === selectedExpressionFile.content &&
-      !parseErrors.get(selectedExpressionFile.path)?.length
+    const isParsedFileCurrent = useCallback(
+      (file: WorkspaceFile | undefined) => {
+        const parsed = file ? parsedModels?.find((entry) => entry.filePath === file.path) : undefined;
+        return Boolean(file && parsed?.source === file.content && !parseErrors.get(file.path)?.length);
+      },
+      [parsedModels, parseErrors]
     );
+    const selectedParseCurrent = isParsedFileCurrent(selectedExpressionFile);
+    const metadataContext = useLatestRef({
+      scope: inspectorScope,
+      canEdit: (nodeId: string) => {
+        const node = useEditorStore.getState().nodesById.get(nodeId);
+        if (!node || node.meta.isReadOnly) return false;
+        const path = resolveEditorFilePath(resolveNodeFile(node.data, node.meta), files);
+        const file = files.find((candidate) => candidate.path === path);
+        if (!file || file.refOnly || file.readOnly) return false;
+        return isParsedFileCurrent(file);
+      }
+    });
+    const metadataActions = useMemo(
+      () => createScopedMetadataActions(inspectorScope, () => metadataContext.current, useEditorStore.getState()),
+      [inspectorScope, metadataContext]
+    );
+
     const renderFunctionBodyEditor = useCallback(
       (props: FunctionBodyEditorSlotProps) => (
         <ExpressionWorkspace
@@ -2438,7 +2478,7 @@ export const ExplorePerspective = withInstrumentation(
 
     const renderInspectorPane = useCallback(
       () => (
-        <div ref={inspectorArrivalRef} className="studio-scroll flex flex-col min-h-0 h-full overflow-auto">
+        <div ref={inspectorArrivalRef} className="studio-scroll flex flex-col min-h-0 h-full overflow-hidden">
           <EditorFormPanel
             nodeData={selectedNodeData}
             meta={selectedNodeMeta}
@@ -2448,6 +2488,10 @@ export const ExplorePerspective = withInstrumentation(
             availableTypes={availableTypes}
             synonymSourceOptions={synonymSourceOptions}
             actions={editorActions}
+            metadataActions={metadataActions}
+            scopeKey={inspectorScope}
+            parseEpoch={storeParseEpoch}
+            registerCommitFlush={formCommitRegistry.register}
             allNodes={storeNodes}
             nodeRepository={nodeRepository}
             renderExpressionEditor={renderExpressionEditor}
@@ -2467,6 +2511,10 @@ export const ExplorePerspective = withInstrumentation(
         </div>
       ),
       [
+        metadataActions,
+        inspectorScope,
+        storeParseEpoch,
+        formCommitRegistry,
         selectedNodeData,
         selectedNodeMeta,
         selectedNodeId,

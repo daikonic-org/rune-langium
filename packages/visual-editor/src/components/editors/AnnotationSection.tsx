@@ -104,7 +104,7 @@ export function AnnotationSection({
   const effectiveOnAdd = useCallback(
     (name: string) => {
       if (onAdd) return onAdd(name);
-      if (binding) {
+      if (binding?.guarded) {
         const item = createAnnotationDraft(name);
         const result = binding.commit({ kind: 'append', field: 'annotations', value: item });
         if (result.status === 'committed')
@@ -118,7 +118,7 @@ export function AnnotationSection({
   const effectiveOnRemove = useCallback(
     (index: number) => {
       if (onRemove) return onRemove(index);
-      if (binding) {
+      if (binding?.guarded) {
         const expected = getMetadataItems(binding.node, 'annotations')[index];
         if (!expected) return;
         const result = binding.commit({ kind: 'remove', field: 'annotations', index, expected });
@@ -176,7 +176,7 @@ export function AnnotationSection({
         {annotations.map((ann, i) => (
           <Badge key={getKey(ann)} variant="annotation" className="gap-1 text-3xs h-5 pl-1.5 pr-1">
             [{ann.name}]{ann.attribute && <span className="opacity-60">.{ann.attribute}</span>}
-            {binding && !effectiveReadOnly && (
+            {binding?.guarded && !effectiveReadOnly && (
               <button
                 type="button"
                 aria-label={`Edit ${ann.name} annotation`}
@@ -204,7 +204,7 @@ export function AnnotationSection({
         {annotations.length === 0 && <span className="text-3xs text-muted-foreground/60 italic">No annotations</span>}
       </div>
 
-      {editing && binding && !effectiveReadOnly && (
+      {editing && binding?.guarded && !effectiveReadOnly && (
         <AnnotationArgumentsEditor
           key={`${fieldPath}:${editing.index}`}
           prefix={fieldPath}

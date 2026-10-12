@@ -12,6 +12,8 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
  *  workspace; the provider component never remounts. */
 export interface WorkspaceState {
   workspaceId?: string;
+  /** Current App parse/activation epoch; ephemeral, never persisted. */
+  workspaceEpoch?: number;
   workspaceKind?: WorkspaceKind;
   workspaceName?: string;
   fileCount: number;

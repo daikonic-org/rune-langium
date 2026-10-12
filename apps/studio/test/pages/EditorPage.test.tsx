@@ -336,7 +336,9 @@ vi.mock('@rune-langium/visual-editor', async () => ({
       return { name: cond.name ?? undefined, expressionText: '' };
     }),
   useEditorStore,
-  useModelSourceSync: () => {},
+  createEditorCommitRegistry: (await import('../../../../packages/visual-editor/src/hooks/editor-commit-lifecycle.js'))
+    .createEditorCommitRegistry,
+  useModelSourceSync: () => ({ flush: vi.fn().mockResolvedValue(undefined) }),
   // Mirrors the real hook: a ref synced to the latest value via
   // useLayoutEffect, not a render-body write.
   useLatestRef: <T,>(value: T) => {

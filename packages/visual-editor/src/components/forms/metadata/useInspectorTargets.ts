@@ -65,5 +65,5 @@ export function useInspectorTargets({
     actions: guarded,
     readOnly: readOnly || !guarded
   });
-  return { rows, selection, rootBinding: guarded ? rootBinding : null, childBinding };
+  return { rows, selection, rootBinding, childBinding };
 }

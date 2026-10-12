@@ -16,7 +16,7 @@ function messages(errors: FieldErrors): string[] {
 }
 
 /** Display canonical validation and only host-reported save status. */
-export function InspectorFooter({ errors, status }: { errors: ValidationError[]; status?: string }) {
+function FormInspectorFooter({ errors, status }: { errors: ValidationError[]; status?: string }) {
   const form = useFormState();
   const local = [...new Set(messages(form.errors))];
   return (
@@ -36,4 +36,8 @@ export function InspectorFooter({ errors, status }: { errors: ValidationError[];
       <ErrorsSection errors={errors} />
     </div>
   );
+}
+
+export function InspectorFooter(props: { errors: ValidationError[]; status?: string; readOnly?: boolean }) {
+  return props.readOnly ? <ErrorsSection errors={props.errors} /> : <FormInspectorFooter {...props} />;
 }

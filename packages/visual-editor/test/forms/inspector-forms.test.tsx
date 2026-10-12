@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { useEffect } from 'react';
+import { FunctionForm } from '../../src/components/editors/FunctionForm.js';
 import { useStore } from 'zustand';
 import { render, screen, fireEvent, act, within, cleanup } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -162,4 +164,54 @@ it('Choice selects canonical options without registering unsupported metadata', 
   fireEvent.focus(screen.getByRole('listitem', { name: 'Inspect Person' }));
   expect(screen.getByRole('region', { name: 'Details: Person' })).toBeVisible();
   expect(within(screen.getByRole('region', { name: 'Details: Person' })).queryByLabelText('Display name')).toBeNull();
+});
+
+it('Function input/output details share the parent form without remounting the body session', async () => {
+  const { store, getNode } = await loadInspectorFixture();
+  const id = getNode('ResolveEmployee').id;
+  const mount = vi.fn();
+  const dispose = vi.fn();
+  function Body() {
+    useEffect(() => {
+      mount();
+      return dispose;
+    }, []);
+    return <textarea aria-label="Function body" defaultValue="set result: id" />;
+  }
+  function Fixture() {
+    const state = useStore(store);
+    const node = state.nodesById.get(id)!;
+    return (
+      <FunctionForm
+        nodeId={id}
+        data={node.data}
+        meta={node.meta}
+        actions={state}
+        availableTypes={[]}
+        allNodes={state.nodes}
+        renderFunctionBodyEditor={() => <Body />}
+      />
+    );
+  }
+  vi.useFakeTimers();
+  render(<Fixture />);
+  fireEvent.focus(screen.getByLabelText('Attribute name: id'));
+  fireEvent.change(within(screen.getByRole('region', { name: 'Details: id' })).getByLabelText('Definition'), {
+    target: { value: 'Identifier docs' }
+  });
+  await act(async () => vi.advanceTimersByTime(500));
+  expect(store.getState().captureMetadataTarget(id, ['inputs', 0])?.expected).toMatchObject({
+    definition: 'Identifier docs'
+  });
+  fireEvent.focus(screen.getByText('Output Type').closest('fieldset')!);
+  fireEvent.change(within(screen.getByRole('region', { name: 'Details: Output' })).getByLabelText('Definition'), {
+    target: { value: 'Output docs' }
+  });
+  await act(async () => vi.advanceTimersByTime(500));
+  expect(store.getState().captureMetadataTarget(id, ['output'])?.expected).toMatchObject({ definition: 'Output docs' });
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse item details' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Implementation' }));
+  expect(mount).toHaveBeenCalledTimes(1);
+  expect(dispose).not.toHaveBeenCalled();
 });

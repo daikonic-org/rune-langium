@@ -229,3 +229,12 @@ export { InheritanceCell } from './components/editors/structure/InheritanceCell.
 export type { InheritanceCellProps } from './components/editors/structure/InheritanceCell.js';
 
 export { expressionScopeFromEntries } from './adapters/expression-scope.js';
+
+export { createEditorCommitRegistry } from './hooks/editor-commit-lifecycle.js';
+export type { EditorCommitRegistry } from './hooks/editor-commit-lifecycle.js';
+export type { SourceSyncHandle, SourceSyncSnapshot } from './hooks/useModelSourceSync.js';
+
+export { InspectorFrame } from './components/editors/inspector/InspectorFrame.js';
+export type { InspectorFrameProps, InspectorSection } from './components/editors/inspector/InspectorFrame.js';
+export { InspectorDetailsPane } from './components/editors/inspector/InspectorDetailsPane.js';
+export { InspectorInheritanceField } from './components/editors/inspector/InspectorInheritanceField.js';

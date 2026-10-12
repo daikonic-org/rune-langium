@@ -574,9 +574,8 @@ describe('FunctionForm – US3 (Phase 5c) z2f migration contract (FT1–FT4)', (
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');
     expect(descriptionTextarea).not.toBeNull();
-    expect(commentsTextarea).not.toBeNull();
+    expect(commentsTextarea).toBeNull();
     expect((descriptionTextarea as HTMLTextAreaElement).value).toBe('Computes the notional');
-    expect((commentsTextarea as HTMLTextAreaElement).value).toBe('Initial comments');
 
     // Tab order must preserve: name input < expression editor < description
     // textarea < comments textarea (verified by document order).
@@ -585,7 +584,7 @@ describe('FunctionForm – US3 (Phase 5c) z2f migration contract (FT1–FT4)', (
         'input[data-slot="type-name-input"], textarea[data-slot="expression-editor"], textarea[data-slot="metadata-description"], textarea[data-slot="metadata-comments"]'
       )
     ).map((el) => el.getAttribute('data-slot'));
-    expect(slotOrder).toEqual(['type-name-input', 'expression-editor', 'metadata-description', 'metadata-comments']);
+    expect(slotOrder).toEqual(['type-name-input', 'expression-editor', 'metadata-description']);
   });
 
   // FT2 — debounced rename fires exactly once with the new name

@@ -31,12 +31,9 @@ import { InspectorInheritanceField } from './inspector/InspectorInheritanceField
 import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
 import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
 import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
-import { ErrorsSection } from '../ErrorsSection.js';
 import { Plus } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@rune-langium/design-system/ui/tabs';
 import { AttributeRow } from './AttributeRow.js';
 import { InheritedAttributeRow } from './AttributeRow.js';
-import { TypeReferenceField } from './TypeReferenceField.js';
 import { useEffectiveMembers } from '../../hooks/useInheritedMembers.js';
 import { getRefText, parseCardinality } from '../../adapters/model-helpers.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';

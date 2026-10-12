@@ -271,6 +271,7 @@ export interface InheritedEnumValueRowProps extends InspectorRowProps {
   name: string;
   displayName?: string;
   ancestorName: string;
+  metadataInDetails?: boolean;
   onOverride: () => void;
   /** When true, hide the Override button to prevent mutations on locked types. */
   disabled?: boolean;
@@ -281,6 +282,7 @@ function InheritedEnumValueRow({
   displayName,
   ancestorName,
   onOverride,
+  metadataInDetails = false,
   disabled,
   selected,
   onSelect
@@ -302,7 +304,7 @@ function InheritedEnumValueRow({
 
       <span className="flex-1 min-w-0 px-2 py-1 text-sm text-muted-foreground font-mono truncate">{name}</span>
 
-      {displayName && (
+      {!metadataInDetails && displayName && (
         <span className="flex-1 min-w-0 px-2 py-1 text-sm text-muted-foreground italic truncate">{displayName}</span>
       )}
 

@@ -41,10 +41,8 @@ import { InspectorInheritanceField } from './inspector/InspectorInheritanceField
 import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
 import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
 import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
-import { ErrorsSection } from '../ErrorsSection.js';
 import { Plus } from 'lucide-react';
 import { EnumValueRow, InheritedEnumValueRow } from './EnumValueRow.js';
-import { TypeReferenceField } from './TypeReferenceField.js';
 import { useEffectiveMembers } from '../../hooks/useInheritedMembers.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
@@ -472,6 +470,7 @@ function PaginatedEnumValues({
           />
         ) : (
           <InheritedEnumValueRow
+            metadataInDetails
             key={entry.id}
             selected={targets.selection.selectedRow?.key === entry.id}
             onSelect={() => targets.selection.select(entry.id)}

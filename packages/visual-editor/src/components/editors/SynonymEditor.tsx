@@ -203,7 +203,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
     const entry = createSynonymDraft(props.kind, ref, props.kind === 'class' ? undefined : value);
     if (!entry) return;
     if (props.onAdd) props.onAdd(ref, props.kind === 'class' ? undefined : value);
-    else if (binding) {
+    else if (binding?.guarded) {
       const result = binding.commit({ kind: 'append', field: props.field, value: entry });
       if (result.status !== 'committed') {
         setError('This synonym could not be saved.');
@@ -217,7 +217,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
   };
   const deleteItem = (index: number) => {
     if (props.onRemove) props.onRemove(index);
-    else if (binding) {
+    else if (binding?.guarded) {
       const expected = getMetadataItems(binding.node, props.field)[index];
       if (!expected) return;
       const result = binding.commit({ kind: 'remove', field: props.field, index, expected });
@@ -235,7 +235,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
         field={props.field}
         onRemove={props.readOnly ? undefined : deleteItem}
         onEdit={
-          !props.readOnly && binding
+          !props.readOnly && binding?.guarded
             ? (index) => {
                 const expected = getMetadataItems(binding.node, props.field)[index];
                 if (expected) setEditing({ index, expected });

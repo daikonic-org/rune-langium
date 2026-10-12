@@ -53,8 +53,11 @@ export const SCHEMA_BY_TYPE = schemasByType(generated);
 
 // The render gate holds this registry by reference. Refresh its entries without
 // invalidating the source-sync and workspace state that consume it.
-if (import.meta.hot) {
-  import.meta.hot.accept('../generated/zod-schemas.js', (schemas) => {
+// Node/Workers consumers also load this React-free registry; HMR is an optional host extension.
+const hot = (import.meta as ImportMeta & { hot?: { accept(path: string, update: (module: unknown) => void): void } })
+  .hot;
+if (hot) {
+  hot.accept('../generated/zod-schemas.js', (schemas) => {
     if (schemas) Object.assign(SCHEMA_BY_TYPE, schemasByType(schemas as unknown as typeof generated));
   });
 }

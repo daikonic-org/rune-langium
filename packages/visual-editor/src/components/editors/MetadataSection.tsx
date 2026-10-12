@@ -14,6 +14,7 @@ import {
   type MetadataTargetBinding
 } from '../forms/metadata/MetadataTargetContext.js';
 import { SynonymEditor } from './SynonymEditor.js';
+import { getMetadataCapabilities, type MetadataNode } from '../../store/metadata-target.js';
 import type { SourceRefOption } from '../../types.js';
 
 export interface MetadataSectionProps {
@@ -24,6 +25,7 @@ export interface MetadataSectionProps {
   onSynonymRemove?: (index: number) => void;
   synonymSourceOptions?: SourceRefOption[];
   includeComments?: boolean;
+  readonlyNode?: MetadataNode;
   fields?: string[];
 }
 
@@ -84,7 +86,7 @@ export function MetadataScalar({
               onChange={(event) => {
                 field.onChange(event);
                 save(
-                  binding
+                  binding?.guarded
                     ? binding.envelope({ kind: 'display', value: event.target.value || undefined })
                     : event.target.value
                 );
@@ -103,7 +105,9 @@ export function MetadataScalar({
               onChange={(event) => {
                 field.onChange(event);
                 save(
-                  binding ? binding.envelope({ kind: 'definition', value: event.target.value }) : event.target.value
+                  binding?.guarded
+                    ? binding.envelope({ kind: 'definition', value: event.target.value })
+                    : event.target.value
                 );
               }}
               className="w-full resize-y rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
@@ -121,7 +125,7 @@ export function MetadataScalar({
 }
 
 /** Shared schema-bound documentation/display controls and typed synonym binding. */
-export function MetadataSection(props: MetadataSectionProps): React.ReactNode {
+function FormMetadataSection(props: MetadataSectionProps): React.ReactNode {
   const { getValues } = useFormContext();
   const ctx = useEditorActionsContext();
   const binding = useMetadataTarget();
@@ -130,8 +134,6 @@ export function MetadataSection(props: MetadataSectionProps): React.ReactNode {
   const prefix = binding?.formPrefix;
   const path = (field: string) => [prefix, field].filter(Boolean).join('.');
   const caps = binding?.capabilities;
-  const inherited = binding && prefix === undefined;
-  const node = binding?.node;
   const kind = caps?.synonymKind ?? (getValues('$type') === 'RosettaEnumeration' ? 'body' : 'class');
   const sources = props.synonymSourceOptions ?? ctx?.synonymSourceOptions ?? EMPTY_SOURCES;
   return (
@@ -147,48 +149,30 @@ export function MetadataSection(props: MetadataSectionProps): React.ReactNode {
       </button>
       {expanded && (
         <FieldGroup className="mt-2 gap-3">
-          {(!caps || caps.definition) &&
-            (inherited ? (
-              <Field>
-                <FieldLabel>Documentation</FieldLabel>
-                <p className="whitespace-pre-wrap text-sm">
-                  {node && 'definition' in node && typeof node.definition === 'string'
-                    ? node.definition
-                    : 'No documentation'}
-                </p>
-              </Field>
-            ) : (
-              <MetadataScalar
-                name={path('definition')}
-                kind="definition"
-                label="Documentation"
-                slot="metadata-description"
-                readOnly={readOnly}
-                binding={binding}
-                onCommit={
-                  props.onDefinitionCommit ??
-                  (ctx ? (value) => ctx.actions.updateDefinition(ctx.nodeId, value) : undefined)
-                }
-              />
-            ))}
-          {caps?.display &&
-            (inherited ? (
-              <Field>
-                <FieldLabel>Display name</FieldLabel>
-                <p className="text-sm">
-                  {node && 'display' in node && typeof node.display === 'string' ? node.display : 'No display name'}
-                </p>
-              </Field>
-            ) : (
-              <MetadataScalar
-                name={path('display')}
-                kind="display"
-                label="Display name"
-                slot="metadata-display"
-                readOnly={readOnly}
-                binding={binding}
-              />
-            ))}
+          {(!caps || caps.definition) && (
+            <MetadataScalar
+              name={path('definition')}
+              kind="definition"
+              label="Documentation"
+              slot="metadata-description"
+              readOnly={readOnly}
+              binding={binding}
+              onCommit={
+                props.onDefinitionCommit ??
+                (ctx ? (value) => ctx.actions.updateDefinition(ctx.nodeId, value) : undefined)
+              }
+            />
+          )}
+          {caps?.display && (
+            <MetadataScalar
+              name={path('display')}
+              kind="display"
+              label="Display name"
+              slot="metadata-display"
+              readOnly={readOnly}
+              binding={binding}
+            />
+          )}
           {(props.includeComments ?? !(binding || ctx?.sourceCommentsOnly)) && (
             <MetadataScalar
               name="comments"
@@ -209,19 +193,71 @@ export function MetadataSection(props: MetadataSectionProps): React.ReactNode {
               nodeId={ctx?.nodeId}
               sourceOptions={sources}
               readOnly={readOnly}
-              readonlyNode={inherited ? node : undefined}
+
               onAdd={
                 props.onSynonymAdd ??
-                (!binding && ctx ? (source, value) => ctx.actions.addSynonym(ctx.nodeId, source, value) : undefined)
+                (!binding?.guarded && ctx
+                  ? (source, value) => ctx.actions.addSynonym(ctx.nodeId, source, value)
+                  : undefined)
               }
               onRemove={
                 props.onSynonymRemove ??
-                (!binding && ctx ? (index) => ctx.actions.removeSynonym(ctx.nodeId, index) : undefined)
+                (!binding?.guarded && ctx ? (index) => ctx.actions.removeSynonym(ctx.nodeId, index) : undefined)
               }
             />
           )}
         </FieldGroup>
       )}
     </div>
+  );
+}
+
+function ReadonlyMetadataSection({
+  node,
+  sources = EMPTY_SOURCES
+}: {
+  node: MetadataNode;
+  sources?: SourceRefOption[];
+}) {
+  const caps = getMetadataCapabilities(node);
+  return (
+    <div data-slot="metadata-section" className="space-y-3 border-t border-border pt-3">
+      {caps.definition && (
+        <Field>
+          <FieldLabel>Documentation</FieldLabel>
+          <p className="whitespace-pre-wrap text-sm">
+            {'definition' in node && typeof node.definition === 'string' ? node.definition : 'No documentation'}
+          </p>
+        </Field>
+      )}
+      {caps.display && (
+        <Field>
+          <FieldLabel>Display name</FieldLabel>
+          <p className="text-sm">
+            {'display' in node && typeof node.display === 'string' ? node.display : 'No display name'}
+          </p>
+        </Field>
+      )}
+      {caps.synonymField && caps.synonymKind && (
+        <SynonymEditor
+          field={caps.synonymField}
+          kind={caps.synonymKind}
+          sourceOptions={sources}
+          readonlyNode={node}
+          readOnly
+        />
+      )}
+    </div>
+  );
+}
+
+/** Editable and inspection-only targets share the canonical construct capabilities. */
+export function MetadataSection(props: MetadataSectionProps): React.ReactNode {
+  const binding = useMetadataTarget();
+  const readonlyNode = props.readonlyNode ?? (binding?.formPrefix === undefined ? binding?.node : undefined);
+  return readonlyNode ? (
+    <ReadonlyMetadataSection node={readonlyNode} sources={props.synonymSourceOptions} />
+  ) : (
+    <FormMetadataSection {...props} />
   );
 }

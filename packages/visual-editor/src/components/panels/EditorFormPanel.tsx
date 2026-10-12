@@ -30,6 +30,9 @@
  * @module
  */
 
+import type { InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
+import type { InspectorMetadataActions } from '../../store/metadata-target.js';
+
 import { useEffect, useCallback, useRef, useMemo, Component, memo } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
@@ -112,7 +115,8 @@ class FormErrorBoundary extends Component<{ children: ReactNode; nodeId: string 
 // Props
 // ---------------------------------------------------------------------------
 
-export interface EditorFormPanelProps {
+export interface EditorFormPanelProps extends InspectorHostProps {
+  metadataActions?: InspectorMetadataActions;
   /** The selected node's data, or null if nothing is selected. */
   nodeData: AnyGraphNode | null;
   /**
@@ -191,8 +195,24 @@ const EditorFormPanel = memo(function EditorFormPanel({
   structuralEditsDisabled = false,
   compactConditions,
   onClose,
-  onNavigateToNode
+  onNavigateToNode,
+  scopeKey,
+  parseEpoch,
+  saveStatus,
+  registerCommitFlush,
+  metadataActions
 }: EditorFormPanelProps) {
+  const formActions = useMemo(
+    () => (metadataActions ? { ...actions, ...metadataActions } : actions),
+    [actions, metadataActions]
+  );
+  const hostProps = {
+    scopeKey: scopeKey ? `${scopeKey}:${nodeId}` : (nodeId ?? undefined),
+    parseEpoch,
+    saveStatus,
+    registerCommitFlush
+  };
+
   // refOnly entries always force read-only — there's no source text to back
   // form edits — but still render through their kind's own form (with
   // fields disabled) rather than forking to the more limited OtherForm.
@@ -322,13 +342,14 @@ const EditorFormPanel = memo(function EditorFormPanel({
       case 'data':
         return (
           <DataTypeForm
-            key={nodeId}
+            key={scopeKey ? `${scopeKey}:${nodeId}` : nodeId}
+            {...hostProps}
             nodeId={nodeId!}
             data={nodeData!}
             meta={nodeMeta}
             availableTypes={availableTypes}
             synonymSourceOptions={synonymSourceOptions}
-            actions={actions}
+            actions={formActions}
             allNodes={allNodes}
             renderExpressionEditor={renderExpressionEditor}
             compactConditions={compactConditions}
@@ -343,13 +364,14 @@ const EditorFormPanel = memo(function EditorFormPanel({
       case 'enum':
         return (
           <EnumForm
-            key={nodeId}
+            key={scopeKey ? `${scopeKey}:${nodeId}` : nodeId}
+            {...hostProps}
             nodeId={nodeId!}
             data={nodeData!}
             meta={nodeMeta}
             availableTypes={availableTypes}
             synonymSourceOptions={synonymSourceOptions}
-            actions={actions}
+            actions={formActions}
             allNodes={allNodes}
             onNavigateToNode={onNavigateToNode}
             allNodeIds={allNodeIds}
@@ -361,13 +383,15 @@ const EditorFormPanel = memo(function EditorFormPanel({
       case 'choice':
         return (
           <ChoiceForm
-            key={nodeId}
+            allNodes={allNodes}
+            key={scopeKey ? `${scopeKey}:${nodeId}` : nodeId}
+            {...hostProps}
             nodeId={nodeId!}
             data={nodeData!}
             meta={nodeMeta}
             availableTypes={availableTypes}
             synonymSourceOptions={synonymSourceOptions}
-            actions={actions}
+            actions={formActions}
             onNavigateToNode={onNavigateToNode}
             allNodeIds={allNodeIds}
             readOnly={readOnly}
@@ -378,12 +402,14 @@ const EditorFormPanel = memo(function EditorFormPanel({
       case 'func':
         return (
           <FunctionForm
-            key={nodeId}
+            allNodes={allNodes}
+            key={scopeKey ? `${scopeKey}:${nodeId}` : nodeId}
+            {...hostProps}
             nodeId={nodeId!}
             data={nodeData!}
             meta={nodeMeta}
             availableTypes={availableTypes}
-            actions={actions}
+            actions={formActions}
             inheritedGroups={inheritedGroups}
             renderExpressionEditor={renderExpressionEditor}
             renderFunctionBodyEditor={renderFunctionBodyEditor}
@@ -398,12 +424,13 @@ const EditorFormPanel = memo(function EditorFormPanel({
       case 'typeAlias':
         return (
           <TypeAliasForm
-            key={nodeId}
+            key={scopeKey ? `${scopeKey}:${nodeId}` : nodeId}
+            {...hostProps}
             nodeId={nodeId!}
             data={nodeData!}
             meta={nodeMeta}
             availableTypes={availableTypes}
-            actions={actions}
+            actions={formActions}
             renderExpressionEditor={renderExpressionEditor}
             onNavigateToNode={onNavigateToNode}
             allNodeIds={allNodeIds}

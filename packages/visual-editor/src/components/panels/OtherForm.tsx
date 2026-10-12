@@ -11,15 +11,19 @@
  * using shadcn/ui primitives and lucide-react icons.
  */
 
+import { useInspectorSelection } from '../forms/metadata/useInspectorSelection.js';
+import { readAtMetadataPath } from '../../store/metadata-target.js';
+import { MetadataSection } from '../editors/MetadataSection.js';
+import { AnnotationSection } from '../editors/AnnotationSection.js';
+import { getMetadataItems } from '../../store/metadata-ops.js';
+import { InspectorFrame } from '../editors/inspector/InspectorFrame.js';
+import { InspectorFooter } from '../editors/inspector/InspectorFooter.js';
+import { InspectorDetailsPane } from '../editors/inspector/InspectorDetailsPane.js';
+import { InspectorInheritanceField } from '../editors/inspector/InspectorInheritanceField.js';
+import { InspectorMemberSummary } from '../editors/inspector/InspectorMemberSummary.js';
 import { Badge } from '@rune-langium/design-system/ui/badge';
-import { Separator } from '@rune-langium/design-system/ui/separator';
-import { ScrollArea } from '@rune-langium/design-system/ui/scroll-area';
 import { resolveNodeKind, formatCardinality, getTypeRefText, getRefText } from '../../adapters/model-helpers.js';
-import { TypeLink } from '../editors/TypeLink.js';
 import { TypeHeader } from '../TypeHeader.js';
-import { DefinitionField } from '../DefinitionField.js';
-import { ExtendsField } from '../ExtendsField.js';
-import { ErrorsSection } from '../ErrorsSection.js';
 import type { AnyGraphNode, GraphNodeMeta, NavigateToNodeCallback, TypeKind } from '../../types.js';
 
 export interface OtherFormProps {
@@ -84,9 +88,14 @@ function extractMembers(d: any): Array<{ name: string; typeName?: string; cardin
   }
 }
 
-export function OtherForm({ nodeData, meta: nodeMeta, nodeId, onNavigateToNode, allNodeIds, refOnly }: OtherFormProps) {
-  if (!nodeData) return null;
-
+function ReadonlyInspector({
+  nodeData,
+  meta: nodeMeta,
+  nodeId,
+  onNavigateToNode,
+  allNodeIds,
+  refOnly
+}: OtherFormProps & { nodeData: AnyGraphNode }) {
   const d = nodeData as any;
   const kind = resolveNodeKind(d);
   // Parent-name: read the inheritance ref directly off the AST node. The
@@ -102,67 +111,97 @@ export function OtherForm({ nodeData, meta: nodeMeta, nodeId, onNavigateToNode, 
   const parentName = getRefText(d.superType) ?? getRefText(d.parent) ?? getRefText(d.superFunction);
   const members = extractMembers(d);
 
+  const collection =
+    nodeData.$type === 'RosettaEnumeration'
+      ? 'enumValues'
+      : nodeData.$type === 'RosettaFunction'
+        ? 'inputs'
+        : 'attributes';
+  const rows = members.map((member, index) => ({
+    key: `member:${index}`,
+    name: member.name,
+    inherited: true,
+    readonlyNode: readAtMetadataPath(nodeData, [collection, index])
+  }));
+  const selection = useInspectorSelection(nodeId ?? nodeData.name, rows);
+  const selected = selection.selectedRow;
   return (
-    <ScrollArea className="h-full">
-      <div className="flex flex-col gap-3 p-4 pl-[12px] pr-[12px] pt-[12px] pb-[12px]">
-        {/* Header: Namespace + Name + Badge */}
-        <TypeHeader
-          kind={kind as TypeKind}
-          namespace={nodeMeta.namespace}
-          name={d.name}
-          className="-mx-4 -mt-4"
-          onReveal={onNavigateToNode && nodeId ? () => onNavigateToNode(nodeId) : undefined}
-          trailing={
-            refOnly ? (
-              <Badge variant="outline" className="text-xs text-muted-foreground">
-                Reference Only
-              </Badge>
-            ) : undefined
+    <div className="h-full min-h-0 p-4" data-slot="other-form">
+      <InspectorFrame
+        header={
+          <TypeHeader
+            kind={kind as TypeKind}
+            namespace={nodeMeta.namespace}
+            name={d.name}
+            className="-mx-4 -mt-4"
+            onReveal={onNavigateToNode && nodeId ? () => onNavigateToNode(nodeId) : undefined}
+            trailing={
+              refOnly ? (
+                <Badge variant="outline" className="text-xs text-muted-foreground">
+                  Reference Only
+                </Badge>
+              ) : undefined
+            }
+          />
+        }
+        inheritance={
+          parentName ? (
+            <InspectorInheritanceField
+              value={null}
+              displayName={parentName}
+              options={[]}
+              onSelect={() => {}}
+              disabled
+              onNavigateToNode={onNavigateToNode}
+              allNodeIds={allNodeIds}
+            />
+          ) : undefined
+        }
+        sections={[
+          {
+            id: 'members',
+            label: 'Members',
+            members: true,
+            content: (
+              <>
+                <div role="list" className="space-y-1">
+                  {members.map((member, index) => (
+                    <InspectorMemberSummary
+                      key={rows[index]!.key}
+                      name={member.name}
+                      typeName={member.typeName}
+                      cardinality={member.cardinality}
+                      selected={selected?.key === rows[index]!.key}
+                      onSelect={() => selection.select(rows[index]!.key)}
+                      onNavigateToNode={onNavigateToNode}
+                      allNodeIds={allNodeIds}
+                    />
+                  ))}
+                </div>
+                <MetadataSection readonlyNode={nodeData} />
+                <AnnotationSection annotations={[...getMetadataItems(nodeData, 'annotations')]} readOnly />
+              </>
+            )
           }
-        />
-
-        <Separator />
-
-        {/* Definition */}
-        {d.definition && <DefinitionField value={d.definition} />}
-
-        {/* Extends */}
-        {parentName && (
-          <ExtendsField parentName={parentName} onNavigateToNode={onNavigateToNode} allNodeIds={allNodeIds} />
-        )}
-
-        {/* Members */}
-        {members.length > 0 && (
-          <>
-            <Separator />
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Members ({members.length})</span>
-              <div className="flex flex-col gap-1">
-                {members.map((member) => (
-                  <div key={member.name} className="flex items-baseline gap-1 text-sm font-mono">
-                    <span>{member.name}</span>
-                    {member.typeName && (
-                      <span className="text-muted-foreground">
-                        :{' '}
-                        <TypeLink
-                          typeName={member.typeName}
-                          onNavigateToNode={onNavigateToNode}
-                          allNodeIds={allNodeIds}
-                          className="text-muted-foreground"
-                        />
-                      </span>
-                    )}
-                    {member.cardinality && <span className="text-xs text-muted-foreground">{member.cardinality}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Errors */}
-        <ErrorsSection errors={nodeMeta.errors} />
-      </div>
-    </ScrollArea>
+        ]}
+        details={
+          <InspectorDetailsPane targetName={selected?.name} onClear={selection.clear}>
+            {selected?.readonlyNode ? (
+              <>
+                <MetadataSection readonlyNode={selected.readonlyNode} />
+                <AnnotationSection annotations={[...getMetadataItems(selected.readonlyNode, 'annotations')]} readOnly />
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">Structured metadata is unavailable for this member.</p>
+            )}
+          </InspectorDetailsPane>
+        }
+        footer={<InspectorFooter errors={nodeMeta.errors} readOnly />}
+      />
+    </div>
   );
+}
+
+export function OtherForm(props: OtherFormProps) {
+  return props.nodeData ? <ReadonlyInspector {...props} nodeData={props.nodeData} /> : null;
 }

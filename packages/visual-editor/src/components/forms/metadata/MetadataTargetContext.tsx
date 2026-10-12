@@ -23,6 +23,7 @@ export interface MetadataTargetBinding {
   formPrefix?: string;
   readOnly: boolean;
   capabilities: MetadataCapabilities;
+  guarded: boolean;
   envelope(command: MetadataCommand): PendingMetadata;
   commitPending(pending: PendingMetadata): MetadataEditResult;
   commit(command: MetadataCommand): MetadataEditResult;
@@ -81,6 +82,7 @@ export function useMetadataBinding(props: {
   const node = props.row?.node ?? props.row?.readonlyNode ?? props.root;
   return {
     node,
+    guarded: Boolean(props.actions),
     readOnly: Boolean(props.readOnly || props.row?.inherited),
     formPrefix: props.row?.inherited ? undefined : (props.row?.path ?? []).join('.'),
     capabilities: getMetadataCapabilities(node),

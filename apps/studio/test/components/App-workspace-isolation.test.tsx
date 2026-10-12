@@ -48,14 +48,71 @@ vi.mock('../../src/components/StudioToastProvider.js', () => ({
   useStudioToast: () => ({ showToast: vi.fn(), showLoadingToast: vi.fn(() => 'loading'), dismissToast: vi.fn() })
 }));
 vi.mock('../../src/shell/ExplorePerspective.js', async () => {
+  const { useEffect, useMemo } = await import('react');
+  const { DataTypeForm, useModelSourceSync, createEditorCommitRegistry } = await import('@rune-langium/visual-editor');
   const { useWorkspace } = await import('../../src/shell/providers/workspace-context.js');
   const { useWorkspaceActions } = await import('../../src/shell/perspectives/workspace-actions-context.js');
+  function InspectorFlushProbe() {
+    const { files, models } = useWorkspace();
+    useEffect(() => {
+      if (
+        models.some((model) => model.elements?.some((element) => element.$type === 'Data' && element.name === 'Person'))
+      )
+        useEditorStore.getState().loadModels(models);
+    }, [models]);
+    const { onFilesChange, registerEditorSaveBarrier } = useWorkspaceActions();
+    const state = useEditorStore();
+    const node = state.nodes.find((node) => node.data.name === 'Person');
+    const registry = useMemo(createEditorCommitRegistry, []);
+    const baseline = new Map([['project.a', files.find((file) => file.path === 'trade.rosetta')?.content ?? '']]);
+    const source = useModelSourceSync(
+      state.nodes,
+      state.edges,
+      (serialized) => {
+        const content = serialized.get('project.a');
+        if (content !== undefined)
+          onFilesChange(
+            files.map((file) => (file.path === 'trade.rosetta' ? { ...file, content, dirty: true } : file))
+          );
+      },
+      state.parseEpoch,
+      state.pendingEditPatches,
+      baseline,
+      state.pendingInversePatches
+    );
+    useEffect(
+      () =>
+        registerEditorSaveBarrier?.(async () => {
+          registry.flush();
+          const latest = useEditorStore.getState();
+          await source.flush({
+            nodes: latest.nodes,
+            edges: latest.edges,
+            parseEpoch: latest.parseEpoch,
+            patches: latest.pendingEditPatches,
+            inversePatches: latest.pendingInversePatches
+          });
+        }),
+      [registerEditorSaveBarrier, registry, source.flush]
+    );
+    return node ? (
+      <DataTypeForm
+        nodeId={node.id}
+        data={node.data}
+        meta={node.meta}
+        actions={state}
+        availableTypes={[]}
+        registerCommitFlush={registry.register}
+      />
+    ) : null;
+  }
   return {
     ExplorePerspective: () => {
       const { files, deferredExports } = useWorkspace();
       const { onCreateWorkspace, onClose, onFilesChange } = useWorkspaceActions();
       return (
         <div>
+          <InspectorFlushProbe />
           <span data-testid="files">{files.map((file) => file.path).join(',')}</span>
           <span data-testid="trade-content">{files.find((file) => file.path === 'trade.rosetta')?.content}</span>
           <span data-testid="deferred">{deferredExports.map((entry) => entry.namespace).join(',')}</span>
@@ -162,6 +219,48 @@ async function openSourceWorkspace() {
     expect((await loadWorkspace('ws-a'))?.curatedModels?.map((b) => b.modelId)).toEqual(['cdm'])
   );
 }
+
+it.each([false, true])(
+  'flushes pending canonical Inspector metadata before close, with storage failure=%s',
+  async (failStorage) => {
+    const { parse } = await import('@rune-langium/core');
+    const content = 'namespace project.a\nversion "1"\ntype Person:\n  name string (1..1)\n';
+    await saveWorkspaceFiles('ws-a', [{ ...sourceFiles[0]!, content }]);
+    parseMock.mockImplementation(async (files) => {
+      const file = files.find((file: { path: string }) => file.path === 'trade.rosetta');
+      if (!file) return emptyParse();
+      const parsed = await parse(file.content);
+      return {
+        models: [parsed.value],
+        parsedModels: [{ filePath: file.path, model: parsed.value, source: file.content }],
+        errors: new Map(),
+        deferredExports: []
+      };
+    });
+    const write = workspaceFiles.saveWorkspaceFiles;
+    const save = vi.spyOn(workspaceFiles, 'saveWorkspaceFiles');
+    render(<App />);
+    await screen.findByLabelText('Data type name');
+    fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+    fireEvent.change(screen.getByLabelText('Definition'), { target: { value: 'Saved from pending Inspector timer' } });
+    expect(
+      useEditorStore.getState().nodes.find((node) => node.data.name === 'Person')?.data.definition
+    ).toBeUndefined();
+    if (failStorage) save.mockRejectedValue(new Error('quota'));
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
+    if (failStorage) {
+      await waitFor(() => expect(save).toHaveBeenCalled());
+      expect(screen.getByRole('button', { name: 'Workspace menu — Source project' })).toBeVisible();
+      expect((await loadWorkspaceFiles('ws-a'))[0]?.content).toBe(content);
+      save.mockImplementation(write);
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
+    }
+    await screen.findByRole('button', { name: 'New blank workspace' });
+    expect((await loadWorkspaceFiles('ws-a')).find((file) => file.path === 'trade.rosetta')?.content).toContain(
+      'Saved from pending Inspector timer'
+    );
+  }
+);
 
 describe('workspace isolation', () => {
   it.each(['close', 'reset', 'switch', 'replace'] as const)(
