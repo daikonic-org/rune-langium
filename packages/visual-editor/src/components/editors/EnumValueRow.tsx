@@ -3,6 +3,8 @@
 
 /** Inline value basics; optional standalone metadata delegates to shared editors. */
 
+import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+
 import { useCallback } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { EditorController as Controller } from '../forms/EditorFormProvider.js';
@@ -24,7 +26,7 @@ import type { SourceRefOption } from '../../types.js';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface EnumValueRowProps {
+export interface EnumValueRowProps extends InspectorRowProps {
   /** Last-committed value name (used as oldName diff anchor in callbacks). */
   name: string;
   /** Last-committed display name (used as diff anchor in callbacks). */
@@ -71,7 +73,9 @@ function EnumValueRow({
   isOverride = false,
   onRevert,
   synonymSourceOptions = EMPTY_SYNONYM_SOURCE_OPTIONS,
-  metadataInDetails = false
+  metadataInDetails = false,
+  selected,
+  onSelect
 }: EnumValueRowProps) {
   const { control, getValues } = useFormContext();
   const editorCtx = useEditorActionsContext();
@@ -135,6 +139,7 @@ function EnumValueRow({
 
   return (
     <div
+      {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="enum-value-row"
       className="rune-inspector-row border border-transparent px-1 py-1 hover:border-border"
       role="listitem"
@@ -260,7 +265,7 @@ export { EnumValueRow };
 // InheritedEnumValueRow — read-only row for an inherited enum value
 // ---------------------------------------------------------------------------
 
-export interface InheritedEnumValueRowProps {
+export interface InheritedEnumValueRowProps extends InspectorRowProps {
   name: string;
   displayName?: string;
   ancestorName: string;
@@ -269,12 +274,21 @@ export interface InheritedEnumValueRowProps {
   disabled?: boolean;
 }
 
-function InheritedEnumValueRow({ name, displayName, ancestorName, onOverride, disabled }: InheritedEnumValueRowProps) {
+function InheritedEnumValueRow({
+  name,
+  displayName,
+  ancestorName,
+  onOverride,
+  disabled,
+  selected,
+  onSelect
+}: InheritedEnumValueRowProps) {
   const editorCtx = useEditorActionsContext();
   const effectiveDisabled = Boolean(disabled || editorCtx?.readOnly);
 
   return (
     <div
+      {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-enum-value-row"
       data-name={name}
       className="flex items-center gap-1.5 py-1 rounded border border-transparent

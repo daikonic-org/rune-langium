@@ -10,6 +10,8 @@
  * @module
  */
 
+import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+
 import { getKindBadgeClasses } from './TypeSelector.js';
 import { TypeLink } from './TypeLink.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -21,7 +23,7 @@ import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface ChoiceOptionRowProps {
+export interface ChoiceOptionRowProps extends InspectorRowProps {
   /** The type name for this choice option. */
   typeName: string;
   /** Node ID owning this choice. */
@@ -49,7 +51,9 @@ function ChoiceOptionRow({
   onRemove,
   disabled = false,
   onNavigateToNode,
-  allNodeIds
+  allNodeIds,
+  selected,
+  onSelect
 }: ChoiceOptionRowProps) {
   const editorCtx = useEditorActionsContext();
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
@@ -62,6 +66,8 @@ function ChoiceOptionRow({
 
   return (
     <div
+      role="listitem"
+      {...inspectorRowAttributes({ selected, onSelect }, typeName)}
       data-slot="choice-option-row"
       className="rune-inspector-row flex items-center gap-2 border border-transparent px-1 py-1 hover:border-border"
     >

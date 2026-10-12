@@ -32,6 +32,8 @@
  * @module
  */
 
+import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+
 import { useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { EditorController as Controller } from '../forms/EditorFormProvider.js';
@@ -49,7 +51,7 @@ import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface AttributeRowProps {
+export interface AttributeRowProps extends InspectorRowProps {
   /** Index position of this member in the useFieldArray. */
   index: number;
   /**
@@ -110,7 +112,9 @@ function AttributeRow({
   onNavigateToNode,
   allNodeIds,
   isOverride: isOverrideProp,
-  onRevert
+  onRevert,
+  selected,
+  onSelect
 }: AttributeRowProps) {
   const { control, getValues, setValue, watch } = useFormContext();
   const editorCtx = useEditorActionsContext();
@@ -232,6 +236,8 @@ function AttributeRow({
 
   return (
     <div
+      role="listitem"
+      {...inspectorRowAttributes({ selected, onSelect }, committedName)}
       data-slot="attribute-row"
       data-index={index}
       className={`${ATTRIBUTE_ROW_LAYOUT} rune-inspector-row border border-transparent px-1 py-0.5
@@ -353,7 +359,7 @@ export { AttributeRow };
 // InheritedAttributeRow — read-only row for an inherited attribute
 // ---------------------------------------------------------------------------
 
-export interface InheritedAttributeRowProps {
+export interface InheritedAttributeRowProps extends InspectorRowProps {
   name: string;
   typeName: string;
   cardinality: string;
@@ -373,13 +379,17 @@ function InheritedAttributeRow({
   onOverride,
   onNavigateToNode,
   allNodeIds,
-  disabled
+  disabled,
+  selected,
+  onSelect
 }: InheritedAttributeRowProps) {
   const editorCtx = useEditorActionsContext();
   const effectiveDisabled = Boolean(disabled || editorCtx?.readOnly);
 
   return (
     <div
+      role="listitem"
+      {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-attribute-row"
       data-name={name}
       className={`${ATTRIBUTE_ROW_LAYOUT} rounded border border-transparent px-1 py-0.5

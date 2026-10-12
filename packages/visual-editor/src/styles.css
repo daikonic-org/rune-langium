@@ -1705,3 +1705,8 @@ button[data-navigable]:focus-visible {
     animation: none;
   }
 }
+
+[data-slot$="-row"][data-selected] {
+  background: color-mix(in oklab, var(--accent) 65%, transparent);
+  border-color: var(--border);
+}
