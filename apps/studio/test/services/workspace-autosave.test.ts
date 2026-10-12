@@ -9,6 +9,50 @@ const files = (content: string): WorkspaceFile[] => [{ name: 'a.rosetta', path: 
 afterEach(() => vi.useRealTimers());
 
 describe('workspace autosave', () => {
+  it('rejects a failed transition flush and retries the retained snapshot without another edit', async () => {
+    const error = new Error('quota');
+    const save = vi.fn().mockRejectedValueOnce(error).mockResolvedValue(undefined);
+    const autosave = createWorkspaceAutosave(save, vi.fn());
+    autosave.schedule('a', files('unsaved draft'));
+    await expect(autosave.flush()).rejects.toBe(error);
+    await autosave.flush();
+    expect(save.mock.calls).toEqual([
+      ['a', files('unsaved draft')],
+      ['a', files('unsaved draft')]
+    ]);
+  });
+
+  it('retains failed background writes for a rejecting flush and a later retry', async () => {
+    vi.useFakeTimers();
+    const error = new Error('quota');
+    const save = vi.fn().mockRejectedValue(error);
+    const autosave = createWorkspaceAutosave(save, vi.fn());
+    autosave.schedule('a', files('background draft'));
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(autosave.flush()).rejects.toBe(error);
+    save.mockResolvedValue(undefined);
+    await autosave.flush();
+    expect(save).toHaveBeenCalledTimes(3);
+    expect(save).toHaveBeenLastCalledWith('a', files('background draft'));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('flushes a newer edit that arrives while the transition write is in flight', async () => {
+    const first = Promise.withResolvers<void>();
+    const save = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const autosave = createWorkspaceAutosave(save, vi.fn());
+    autosave.schedule('a', files('first'));
+    const flushing = autosave.flush();
+    await Promise.resolve();
+    autosave.schedule('a', files('latest'));
+    first.resolve();
+    await flushing;
+    expect(save.mock.calls).toEqual([
+      ['a', files('first')],
+      ['a', files('latest')]
+    ]);
+  });
+
   it('coalesces keystrokes into the newest snapshot and flushes on a workspace boundary', async () => {
     vi.useFakeTimers();
     const save = vi.fn().mockResolvedValue(undefined);

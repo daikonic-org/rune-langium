@@ -200,6 +200,7 @@ function AppContent() {
   // `files` initial state) and is kept in sync via the effect below.
   const filesRef = useRef<WorkspaceFile[]>([]);
   const workspaceEpochRef = useRef(0);
+  const workspaceTransitionRef = useRef(0);
   // Tracks the latest loaded reference models so syncWorkspaceToEditor can
   // preserve them without calling useModelStore.getState() (which is not
   // available in the test mock of useModelStore).
@@ -227,7 +228,7 @@ function AppContent() {
 
   useEffect(() => {
     const flush = () => {
-      void workspaceAutosave.flush();
+      void workspaceAutosave.flush().catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
@@ -409,10 +410,17 @@ function AppContent() {
     lastModelMergeRef.current = loadedModelsRef.current;
   }, []);
 
-  const clearWorkspaceState = useCallback(() => {
-    void workspaceAutosave.flush();
+  const clearWorkspaceState = useCallback(async (): Promise<number | null> => {
+    const transition = ++workspaceTransitionRef.current;
+    try {
+      await workspaceAutosave.flush();
+    } catch {
+      // Autosave reported the storage failure; keep the current workspace and its retryable draft.
+      return null;
+    }
+    if (transition !== workspaceTransitionRef.current) return null;
     unavailableCuratedBindingsRef.current.clear();
-    invalidateWorkspaceParses();
+    const epoch = invalidateWorkspaceParses();
     filesRef.current = [];
     setFiles([]);
     setModels([]);
@@ -429,6 +437,7 @@ function AppContent() {
     useEditorStore.temporal.getState().clear();
     usePreviewStore.getState().resetPreviewState();
     useCodegenStore.getState().resetCodegenState();
+    return epoch;
   }, [invalidateWorkspaceParses, workspaceAutosave]);
 
   const syncWorkspaceToEditor = useCallback(
@@ -513,10 +522,10 @@ function AppContent() {
 
   const restoreWorkspace = useCallback(
     async (workspace: WorkspaceRecord): Promise<'restored' | 'empty' | 'superseded'> => {
-      clearWorkspaceState();
-      const activationEpoch = workspaceEpochRef.current;
+      const activationEpoch = await clearWorkspaceState();
+      if (activationEpoch === null) return 'superseded';
+      setBootState('restoring');
       reconcileWorkspaceModels(workspace.curatedModels ?? []);
-      await workspaceAutosave.flush();
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
       const restoredFiles = await loadWorkspaceFiles(workspace.id);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
@@ -593,7 +602,7 @@ function AppContent() {
       }
       return restoredWorkspaceRef.current?.id === nextWorkspace.id ? 'restored' : 'superseded';
     },
-    [clearWorkspaceState, reconcileWorkspaceModels, syncWorkspaceToEditor, workspaceAutosave]
+    [clearWorkspaceState, reconcileWorkspaceModels, syncWorkspaceToEditor]
   );
 
   // Restore the most recently opened workspace on mount when its metadata and
@@ -615,7 +624,6 @@ function AppContent() {
           setBootState('start');
           return;
         }
-        setBootState('restoring');
         const restored = await restoreWorkspace(ws);
         if (cancelled || restored === 'superseded') return;
         if (restored === 'empty') {
@@ -791,8 +799,8 @@ function AppContent() {
       // Reference models selected on the launcher seed a new workspace.
       // An active workspace's bindings belong only to that workspace.
       const launcherModels = restoredWorkspaceRef.current ? new Map<string, LoadedModel>() : loadedModelsRef.current;
-      clearWorkspaceState();
-      const activationEpoch = workspaceEpochRef.current;
+      const activationEpoch = await clearWorkspaceState();
+      if (activationEpoch === null) return;
       setBootState('start');
       setLoading(true);
       try {
@@ -904,8 +912,8 @@ function AppContent() {
     [applyParseResult, reportWorkspaceError, restoredWorkspace, workspaceAutosave]
   );
 
-  const handleReset = useCallback(() => {
-    clearWorkspaceState();
+  const handleReset = useCallback(async () => {
+    if ((await clearWorkspaceState()) === null) return;
     reconcileWorkspaceModels([]);
     restoredWorkspaceRef.current = null;
     setRestoredWorkspace(null);
@@ -923,7 +931,6 @@ function AppContent() {
           reportWorkspaceError('The selected workspace no longer exists in browser storage', workspaceId);
           return;
         }
-        setBootState('restoring');
         const restored = await restoreWorkspace(ws);
         if (restored === 'superseded') return;
         if (restored === 'empty') {

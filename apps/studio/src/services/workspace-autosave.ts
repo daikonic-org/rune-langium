@@ -14,33 +14,38 @@ export const createWorkspaceAutosave = withInstrumentation(
     const pending = new Map<
       string,
       {
-        files: readonly WorkspaceFile[];
         trailing: ReturnType<typeof setTimeout>;
         deadline: ReturnType<typeof setTimeout>;
       }
     >();
-    const running = new Set<Promise<void>>();
+    const unsaved = new Map<string, readonly WorkspaceFile[]>();
+    const running = new Map<Promise<void>, string>();
 
     function persist(workspaceId: string): void {
+      const files = unsaved.get(workspaceId);
+      if (!files) return;
       const entry = pending.get(workspaceId);
-      if (!entry) return;
       pending.delete(workspaceId);
-      clearTimeout(entry.trailing);
-      clearTimeout(entry.deadline);
+      if (entry) {
+        clearTimeout(entry.trailing);
+        clearTimeout(entry.deadline);
+      }
       const opId = allocateOpId();
       recordPerfStart('workspaceSave', opId);
       const startedAt = performance.now();
       const operation = Promise.resolve()
-        .then(() => save(workspaceId, entry.files))
+        .then(() => save(workspaceId, files))
         .then(
-          () =>
+          () => {
+            if (unsaved.get(workspaceId) === files) unsaved.delete(workspaceId);
             recordPerf({
               op: 'workspaceSave',
               ok: true,
               durationMs: performance.now() - startedAt,
               ts: performance.now(),
               opId
-            }),
+            });
+          },
           (error) => {
             recordPerf({
               op: 'workspaceSave',
@@ -50,30 +55,38 @@ export const createWorkspaceAutosave = withInstrumentation(
               opId
             });
             onError(error);
+            throw error;
           }
         );
-      running.add(operation);
-      void operation.finally(() => running.delete(operation));
+      running.set(operation, workspaceId);
+      void operation.then(
+        () => running.delete(operation),
+        () => running.delete(operation)
+      );
     }
 
     return {
       schedule(workspaceId: string, files: readonly WorkspaceFile[]): void {
+        unsaved.set(workspaceId, files);
         const existing = pending.get(workspaceId);
         if (existing) {
-          existing.files = files;
           clearTimeout(existing.trailing);
           existing.trailing = setTimeout(() => persist(workspaceId), 500);
         } else {
           pending.set(workspaceId, {
-            files,
             trailing: setTimeout(() => persist(workspaceId), 500),
             deadline: setTimeout(() => persist(workspaceId), 2000)
           });
         }
       },
       async flush(): Promise<void> {
-        for (const workspaceId of pending.keys()) persist(workspaceId);
-        await Promise.all(running);
+        while (unsaved.size > 0 || running.size > 0) {
+          const active = new Set(running.values());
+          for (const workspaceId of unsaved.keys()) {
+            if (pending.has(workspaceId) || !active.has(workspaceId)) persist(workspaceId);
+          }
+          await Promise.all(running.keys());
+        }
       }
     };
   },
