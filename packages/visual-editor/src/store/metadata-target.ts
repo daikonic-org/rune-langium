@@ -16,6 +16,14 @@ import type { DomainNodeData } from '../types.js';
 import type { EditorState } from './editor-store.js';
 import { SCHEMA_BY_TYPE } from '../schemas/schema-by-type.js';
 import { getEditorFieldSchema } from '../schemas/editor-field-schema.js';
+import { getTypeRefText } from '../adapters/model-helpers.js';
+
+/** Authored member identity across reparses: identifier, or ChoiceOption's type reference. */
+export function getMetadataMemberName(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  if ('name' in value && typeof value.name === 'string') return value.name;
+  return 'typeCall' in value ? getTypeRefText(value.typeCall as Parameters<typeof getTypeRefText>[0]) : undefined;
+}
 
 export type MetadataPath =
   | readonly []

@@ -18,7 +18,11 @@
  * @module
  */
 
-import { useCallback, useMemo } from 'react';
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
+import { createAttributeDraft } from '../../store/attribute-drafts.js';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useFieldArray, type Control } from 'react-hook-form';
 import type { GhostRow, GhostRowContext } from '@zod-to-form/core';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
@@ -36,9 +40,10 @@ import { AttributeRow } from './AttributeRow.js';
 import { InheritedAttributeRow } from './AttributeRow.js';
 import { useEffectiveMembers } from '../../hooks/useInheritedMembers.js';
 import { getRefText, parseCardinality } from '../../adapters/model-helpers.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -152,7 +157,7 @@ function DataTypeForm({
   // (object identity is the contract). `keepDirty: true` preserves the
   // pre-migration `keepDirtyValues: true` semantics so in-flight user edits
   // are not stomped by a graph push.
-  useExternalSync(form, data, (d) => formValuesProjection<typeof DataSchema>(d, nodeMeta), { keepDirty: true });
+  useInspectorExternalSync(form, data, (d) => formValuesProjection<typeof DataSchema>(d, nodeMeta), { parseEpoch });
 
   // `DataSchema` is a `z.looseObject`; the inferred `output<>` does not
   // expose `attributes` as a structured array path RHF's overloaded
@@ -175,17 +180,25 @@ function DataTypeForm({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
-      if (structuralEditsDisabled || readOnlyProp || nodeMeta.isReadOnly) return;
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.Data!, 'name')?.safeParse(newName.trim()).success) return;
+      if (structuralEditsDisabled) return false;
+      if (readOnlyProp || nodeMeta.isReadOnly) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly]
+    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
+  useEffect(() => {
+    if (!structuralEditsDisabled) debouncedName.flush();
+  }, [structuralEditsDisabled, debouncedName]);
 
   // ---- Inheritance ---------------------------------------------------------
 
@@ -208,13 +221,8 @@ function DataTypeForm({
   // bespoke <AttributeRow> reads `attributes.${i}.{name,typeCall.type.$refText,card,override}`
   // (R11), so the appended item must be in that shape — no projection.
   const makeAttributeAstItem = useCallback(
-    (name: string, typeName: string, cardinality: string, override = false) => ({
-      $type: 'Attribute' as const,
-      name,
-      typeCall: { $type: 'TypeCall' as const, type: { $refText: typeName } },
-      card: parseCardinality(cardinality),
-      override
-    }),
+    (name: string, typeName: string, cardinality = '(1..1)', override = false) =>
+      createAttributeDraft(name, typeName, parseCardinality(cardinality), override),
     []
   );
 
@@ -368,8 +376,9 @@ function DataTypeForm({
   return (
     <FormProvider
       {...form}
+      canonicalType="Data"
       schema={DataSchema}
-      registerCommitFlush={registerCommitFlush}
+      registerCommitFlush={lifecycle.register}
       additionalCommitFlush={debouncedName.flush}
     >
       <EditorActionsProvider
@@ -495,6 +504,9 @@ function DataTypeForm({
                                 committedName={((data as any).attributes ?? [])[index]?.name ?? ''}
                                 availableTypes={availableTypes}
                                 onUpdate={handleUpdateAttribute}
+                                onRename={
+                                  targets.rootBinding.guarded ? (name) => targets.renameRow(field.id, name) : undefined
+                                }
                                 onRemove={handleRemoveAttribute}
                                 onReorder={handleReorderAttribute}
                                 onNavigateToNode={onNavigateToNode}

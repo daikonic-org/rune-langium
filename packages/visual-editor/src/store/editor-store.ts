@@ -26,6 +26,7 @@
  */
 
 import { create } from 'zustand';
+import { createAttributeDraft } from './attribute-drafts.js';
 import { temporal } from 'zundo';
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import type { NodeChange, EdgeChange } from '@xyflow/react';
@@ -1294,19 +1295,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
           // no 1:1 generated accessor: kind-agnostic (Data+Annotation) + edge-coupled + name-based remove
           addAttribute(nodeId: string, attrName: string, typeName: string, cardinality: string) {
             const card = parseCardinalityString(cardinality);
-            const newAttr = {
-              $type: 'Attribute',
-              name: attrName,
-              override: false,
-              typeCall: {
-                $type: 'TypeCall',
-                type: { $refText: typeName },
-                arguments: []
-              },
-              card: { $type: 'RosettaCardinality', ...card },
-              annotations: [],
-              synonyms: []
-            };
+            const newAttr = createAttributeDraft(attrName, typeName, card);
 
             const { nodes, nodesById } = get();
             const targetNodeId = resolveTargetId(nodesById, nodes, nodeId, typeName);
@@ -1819,19 +1808,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
           // -----------------------------------------------------------------------
 
           addInputParam(nodeId: string, paramName: string, typeName: string) {
-            const newInput = {
-              $type: 'Attribute',
-              name: paramName,
-              override: false,
-              typeCall: {
-                $type: 'TypeCall',
-                type: { $refText: typeName },
-                arguments: []
-              },
-              card: { $type: 'RosettaCardinality', inf: 1, sup: 1, unbounded: false },
-              annotations: [],
-              synonyms: []
-            };
+            const newInput = createAttributeDraft(paramName, typeName, { inf: 1, sup: 1, unbounded: false });
             mutateGraph(set, get, (draft) => {
               const n = draft.nodes.get(nodeId);
               const d = n?.data;
@@ -2185,10 +2162,33 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             if (state.nodesById.get(target.nodeId)?.meta.isReadOnly) return { status: 'readOnly' };
             const rejected = validateMetadataCommand(node, command);
             if (rejected) return rejected;
+            let accepted = command;
+            if (command.kind === 'append' || command.kind === 'replace') {
+              try {
+                const snapshot = structuredClone(command.value);
+                accepted = {
+                  ...command,
+                  value:
+                    command.kind === 'replace'
+                      ? {
+                          ...snapshot,
+                          $cstRange: command.expected.$cstRange
+                            ? structuredClone(command.expected.$cstRange)
+                            : undefined
+                        }
+                      : snapshot
+                };
+              } catch {
+                return {
+                  status: 'invalid',
+                  issues: [{ path: [command.field], message: 'Metadata must contain transferable data.' }]
+                };
+              }
+            }
             mutateGraph(set, get, (draft) => {
               const owner = draft.nodes.get(target.nodeId)?.data;
               const current = owner && readAtMetadataPath(owner, target.path);
-              if (current) applyMetadataRecipe(current, command);
+              if (current) applyMetadataRecipe(current, accepted);
             });
             return { status: 'committed' };
           },

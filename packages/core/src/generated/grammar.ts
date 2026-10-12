@@ -8451,6 +8451,9 @@ export const RuneDslGrammar = (): Grammar =>
     {
       "$type": "ParserRule",
       "name": "RosettaDataReference",
+      "returnType": {
+        "$ref": "#/interfaces@0"
+      },
       "definition": {
         "$type": "Assignment",
         "feature": "data",
@@ -8478,6 +8481,9 @@ export const RuneDslGrammar = (): Grammar =>
     {
       "$type": "ParserRule",
       "name": "RosettaAttributeReference",
+      "returnType": {
+        "$ref": "#/interfaces@1"
+      },
       "definition": {
         "$type": "Group",
         "elements": [
@@ -8493,9 +8499,8 @@ export const RuneDslGrammar = (): Grammar =>
             "elements": [
               {
                 "$type": "Action",
-                "inferredType": {
-                  "$type": "InferredType",
-                  "name": "RosettaAttributeReference"
+                "type": {
+                  "$ref": "#/interfaces@1"
                 },
                 "feature": "receiver",
                 "operator": "="
@@ -11308,6 +11313,73 @@ export const RuneDslGrammar = (): Grammar =>
       }
     }
   ],
-  "imports": [],
-  "interfaces": []
+  "interfaces": [
+    {
+      "$type": "Interface",
+      "name": "RosettaDataReference",
+      "attributes": [
+        {
+          "$type": "TypeAttribute",
+          "name": "data",
+          "type": {
+            "$type": "ReferenceType",
+            "referenceType": {
+              "$type": "SimpleType",
+              "typeRef": {
+                "$ref": "#/types@7"
+              }
+            },
+            "isMulti": false
+          },
+          "isOptional": false
+        }
+      ],
+      "superTypes": []
+    },
+    {
+      "$type": "Interface",
+      "name": "RosettaAttributeReference",
+      "attributes": [
+        {
+          "$type": "TypeAttribute",
+          "name": "receiver",
+          "type": {
+            "$type": "UnionType",
+            "types": [
+              {
+                "$type": "SimpleType",
+                "typeRef": {
+                  "$ref": "#/interfaces@0"
+                }
+              },
+              {
+                "$type": "SimpleType",
+                "typeRef": {
+                  "$ref": "#/interfaces@1"
+                }
+              }
+            ]
+          },
+          "isOptional": false
+        },
+        {
+          "$type": "TypeAttribute",
+          "name": "attribute",
+          "type": {
+            "$type": "ReferenceType",
+            "referenceType": {
+              "$type": "SimpleType",
+              "typeRef": {
+                "$ref": "#/types@8"
+              }
+            },
+            "isMulti": false
+          },
+          "isOptional": false
+        }
+      ],
+      "superTypes": []
+    }
+  ],
+  "imports": []
 }`));

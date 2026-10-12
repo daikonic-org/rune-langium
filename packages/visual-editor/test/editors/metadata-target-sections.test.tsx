@@ -17,6 +17,7 @@ import { EditorActionsProvider } from '../../src/components/forms/sections/Edito
 import { SCHEMA_BY_TYPE } from '../../src/schemas/schema-by-type.js';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
 import type { z } from 'zod';
+import { createEditorCommitRegistry } from '../../src/hooks/editor-commit-lifecycle.js';
 
 afterEach(() => {
   cleanup();
@@ -176,4 +177,108 @@ it('edits rich annotation qualifiers repeatedly without losing untouched argumen
       }
     ]
   });
+});
+
+it('continues a rich item edit after its own source reparse', async () => {
+  const { parse } = await import('@rune-langium/core');
+  const before =
+    'namespace demo.forms\nversion "1"\nannotation marking:\n  scheme string (1..1)\ntype Person:\n  name string (1..1) [marking scheme "scheme"="ISIN"]\n';
+  const { store, getNode } = await loadInspectorFixture(before);
+  const root = getNode('Person');
+  const registry = createEditorCommitRegistry();
+  function Fixture() {
+    const form = useForm({ defaultValues: root.data });
+    const row = {
+      key: 'name',
+      name: 'name',
+      inherited: false,
+      path: ['attributes', 0] as const,
+      node: store.getState().captureMetadataTarget(root.id, ['attributes', 0])!.expected
+    };
+    const selection = useInspectorSelection('reparse', [row]);
+    const binding = useMetadataBinding({
+      scopeKey: 'reparse',
+      nodeId: root.id,
+      root: root.data,
+      row,
+      selection,
+      actions: store.getState()
+    });
+    return (
+      <EditorFormProvider {...form} schema={SCHEMA_BY_TYPE.Data as z.ZodObject} registerCommitFlush={registry.register}>
+        <EditorActionsProvider nodeId={root.id} actions={store.getState()} allNodes={store.getState().nodes}>
+          <MetadataTargetProvider value={binding}>
+            <AnnotationSection />
+          </MetadataTargetProvider>
+        </EditorActionsProvider>
+      </EditorFormProvider>
+    );
+  }
+  render(<Fixture />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit marking annotation' }));
+  const value = screen.getByLabelText('Qualifier 1 value');
+  fireEvent.change(value, { target: { value: 'SEDOL' } });
+  fireEvent.blur(value);
+  const parsed = await parse(before.replace('ISIN', 'SEDOL'));
+  act(() => store.getState().loadModels(parsed.value));
+  fireEvent.change(value, { target: { value: 'CUSIP' } });
+  act(() => registry.flush());
+  expect(store.getState().captureMetadataTarget(root.id, ['attributes', 0])?.expected).toMatchObject({
+    annotations: [{ qualifiers: [{ qualValue: 'CUSIP' }] }]
+  });
+});
+
+it('uses imported linked annotation scope even with a foreign duplicate name', async () => {
+  const { parseWorkspace } = await import('@rune-langium/core');
+  const { createEditorStore } = await import('../../src/store/editor-store.js');
+  const models = await parseWorkspace([
+    {
+      uri: 'memory:///ui-scope-owner.rosetta',
+      content:
+        'namespace ui.owner\nimport ui.selected.*\ntype Owner:\n  name string (1..1) [marking scheme "scheme"="ISIN"]\n'
+    },
+    {
+      uri: 'memory:///ui-scope-selected.rosetta',
+      content: 'namespace ui.selected\nannotation marking:\n  scheme string (1..1)\n'
+    },
+    {
+      uri: 'memory:///ui-scope-other.rosetta',
+      content: 'namespace ui.other\nannotation marking:\n  foreignScheme string (1..1)\n'
+    }
+  ]);
+  const store = createEditorStore();
+  store.getState().loadModels(models.map((model) => model.value));
+  const root = store.getState().nodes.find((node) => node.data.name === 'Owner')!;
+  function Fixture() {
+    const form = useForm({ defaultValues: root.data });
+    const row = {
+      key: 'name',
+      name: 'name',
+      inherited: false,
+      path: ['attributes', 0] as const,
+      node: store.getState().captureMetadataTarget(root.id, ['attributes', 0])!.expected
+    };
+    const selection = useInspectorSelection('scope', [row]);
+    const binding = useMetadataBinding({
+      scopeKey: 'scope',
+      nodeId: root.id,
+      root: root.data,
+      row,
+      selection,
+      actions: store.getState()
+    });
+    return (
+      <EditorFormProvider {...form} schema={SCHEMA_BY_TYPE.Data as z.ZodObject}>
+        <EditorActionsProvider nodeId={root.id} actions={store.getState()} allNodes={store.getState().nodes}>
+          <MetadataTargetProvider value={binding}>
+            <AnnotationSection />
+          </MetadataTargetProvider>
+        </EditorActionsProvider>
+      </EditorFormProvider>
+    );
+  }
+  render(<Fixture />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit marking annotation' }));
+  expect(screen.queryByText('Annotation scope unavailable.')).toBeNull();
+  expect(screen.getByRole('button', { name: 'scheme', exact: true })).toBeEnabled();
 });

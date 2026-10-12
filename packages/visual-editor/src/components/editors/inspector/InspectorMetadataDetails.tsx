@@ -15,7 +15,7 @@ export function InspectorMetadataDetails({ targets }: { targets: ReturnType<type
     >
       {row && (
         <MetadataTargetProvider value={targets.childBinding}>
-          <div key={row.path?.join('.') ?? row.key}>
+          <div key={targets.selection.selectedKey}>
             {row.inherited && <p className="text-xs text-muted-foreground">Inherited member · read only</p>}
             <EditorSections names={['MetadataSection', 'AnnotationSection']} />
           </div>

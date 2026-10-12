@@ -215,3 +215,31 @@ it('Function input/output details share the parent form without remounting the b
   expect(mount).toHaveBeenCalledTimes(1);
   expect(dispose).not.toHaveBeenCalled();
 });
+
+it('flushes pending root metadata before a declaration rename changes its ID', async () => {
+  const { store } = await loadInspectorFixture();
+  function Fixture() {
+    const state = useStore(store);
+    const node = state.nodes.find((node) => node.data.name === 'Person' || node.data.name === 'Renamed')!;
+    return (
+      <DataTypeForm
+        key={node.id}
+        nodeId={node.id}
+        data={node.data}
+        meta={node.meta}
+        actions={state}
+        availableTypes={[]}
+      />
+    );
+  }
+  vi.useFakeTimers();
+  render(<Fixture />);
+  fireEvent.change(screen.getByLabelText('Data type name'), { target: { value: 'Renamed' } });
+  await act(async () => vi.advanceTimersByTime(100));
+  fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+  fireEvent.change(screen.getByLabelText('Definition'), { target: { value: 'Pending declaration docs' } });
+  await act(async () => vi.advanceTimersByTime(400));
+  expect(store.getState().nodes.find((node) => node.data.name === 'Renamed')?.data.definition).toBe(
+    'Pending declaration docs'
+  );
+});

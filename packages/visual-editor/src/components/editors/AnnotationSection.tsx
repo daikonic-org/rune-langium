@@ -19,6 +19,7 @@
  * @module
  */
 
+import { MetadataItemPreview } from '../forms/metadata/MetadataItemPreview.js';
 import { useCallback, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
@@ -204,12 +205,18 @@ export function AnnotationSection({
         {annotations.length === 0 && <span className="text-3xs text-muted-foreground/60 italic">No annotations</span>}
       </div>
 
-      {editing && binding?.guarded && !effectiveReadOnly && (
+      {effectiveReadOnly &&
+        binding &&
+        getMetadataItems(binding.node, 'annotations').map((item, index) => (
+          <MetadataItemPreview key={index} item={item} label={`Annotation ${index + 1} arguments`} />
+        ))}
+      {editing && binding?.guarded && (
         <AnnotationArgumentsEditor
-          key={`${fieldPath}:${editing.index}`}
+          key={editing.index}
           prefix={fieldPath}
           index={editing.index}
           expected={editing.expected}
+          readOnly={effectiveReadOnly}
         />
       )}
 

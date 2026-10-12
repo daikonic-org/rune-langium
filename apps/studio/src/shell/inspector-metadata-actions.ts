@@ -14,9 +14,7 @@ export const createScopedMetadataActions = withInstrumentation(
     return {
       captureMetadataTarget(nodeId, path) {
         const live = current();
-        return live.scope === capturedScope && live.canEdit(nodeId)
-          ? actions.captureMetadataTarget(nodeId, path)
-          : undefined;
+        return live.scope === capturedScope ? actions.captureMetadataTarget(nodeId, path) : undefined;
       },
       applyMetadataCommand(target, command) {
         const live = current();

@@ -166,7 +166,7 @@ describe('schema-driven render gate', () => {
     setSchemaGateDebug(true);
     renderWithEmptySources();
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[cst-reuse] schema validation failed for $type "RosettaSynonym"'),
+      expect.stringContaining('[cst-reuse] schema validation failed for $type "Data"'),
       expect.anything()
     );
   });

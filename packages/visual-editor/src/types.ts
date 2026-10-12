@@ -47,6 +47,8 @@ export interface GraphNodeMeta {
   errors: ValidationError[];
   isReadOnly?: boolean;
   hasExternalRefs: boolean;
+  /** Derived linked scope facts; never part of the authored domain payload. */
+  annotationDefinitions?: Readonly<Record<string, { name: string; namespace: string }>>;
   /** UI-only annotation (not from AST). */
   comments?: string;
   /** True only on deferred-export placeholder nodes (list-only curated types

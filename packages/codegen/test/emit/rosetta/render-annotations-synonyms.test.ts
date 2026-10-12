@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { describe, it, expect } from 'vitest';
+import { parse, parsedAdapter } from '@rune-langium/core';
 import { renderNode, type RenderChild } from '../../../src/emit/rosetta/rosetta-render-core.js';
 const regen: RenderChild = (c) => renderNode(c, regen) ?? '';
 
@@ -74,4 +75,24 @@ describe('renderNode — annotations & synonyms', () => {
     } as never;
     expect(renderNode(a, regen)).toBe('[metadata scheme "k\\"1"="v\\\\2"]');
   });
+});
+
+it('round-trips parsed annotation qualifier paths and empty STRING names', async () => {
+  const source = `namespace demo
+version "1"
+annotation marking:
+  scheme string (1..1)
+type Person:
+  name string (1..1)
+    [marking scheme ""="" "path"=Person -> name]
+`;
+  const result = await parse(source);
+  expect(result.hasErrors).toBe(false);
+  const data = result.value.elements.find((element) => element.$type === 'Data');
+  if (!data || data.$type !== 'Data') throw new Error('Missing fixture type');
+  const annotation = data.attributes[0]!.annotations[0]!;
+  const rendered = regen(parsedAdapter.dehydrate(annotation));
+  expect(rendered).toBe('[marking scheme ""="" "path"=Person -> name]');
+  const reparsed = await parse(source.replace('[marking scheme ""="" "path"=Person -> name]', rendered));
+  expect(reparsed.hasErrors).toBe(false);
 });

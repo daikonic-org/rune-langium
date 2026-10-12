@@ -28,6 +28,9 @@
  * @module
  */
 
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
 import { useFieldArray, type Control } from 'react-hook-form';
 import { useCallback } from 'react';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
@@ -42,9 +45,10 @@ import { ChoiceOptionRow } from './ChoiceOptionRow.js';
 import { TypeSelector } from './TypeSelector.js';
 import { EditorSections } from '../forms/sections/EditorSections.js';
 import { EditorActionsProvider } from '../forms/sections/EditorActionsContext.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -144,20 +148,24 @@ function ChoiceForm({
   // Re-bind pristine field state when the caller swaps to a different node.
   // `keepDirty: true` preserves the prior local-component semantics so
   // in-flight user edits are not stomped by a graph push.
-  useExternalSync(form, data, (n) => formValuesProjection<typeof ChoiceSchema>(n, nodeMeta), { keepDirty: true });
+  useInspectorExternalSync(form, data, (n) => formValuesProjection<typeof ChoiceSchema>(n, nodeMeta), { parseEpoch });
 
   // Track committed data for diffing
   const committedRef = useLatestRef(data);
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.Choice!, 'name')?.safeParse(newName.trim()).success) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions]
+    [nodeId, actions, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
@@ -219,8 +227,9 @@ function ChoiceForm({
   return (
     <FormProvider
       {...form}
+      canonicalType="Choice"
       schema={ChoiceSchema}
-      registerCommitFlush={registerCommitFlush}
+      registerCommitFlush={lifecycle.register}
       additionalCommitFlush={debouncedName.flush}
     >
       <EditorActionsProvider

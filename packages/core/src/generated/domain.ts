@@ -943,12 +943,6 @@ export namespace RegulatoryDocumentReference {
 
 export type RosettaAttributeReference = ast.RosettaAttributeReference;
 export namespace RosettaAttributeReference {
-  export function setReceiver(
-    node: Dehydrated<ast.RosettaAttributeReference>,
-    receiver: Dehydrated<ast.RosettaDataReference>
-  ): void {
-    node.receiver = receiver;
-  }
   export function setAttribute(node: Dehydrated<ast.RosettaAttributeReference>, refText: string): void {
     node.attribute = { $refText: refText };
   }

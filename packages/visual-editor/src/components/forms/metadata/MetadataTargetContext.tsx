@@ -6,6 +6,7 @@ import { useLatestRef } from '../../../hooks/useLatestRef.js';
 import {
   getMetadataCapabilities,
   type MetadataNode,
+  type MetadataTarget,
   type MetadataCapabilities,
   type MetadataCommand,
   type MetadataEditResult,
@@ -28,6 +29,7 @@ export interface MetadataTargetBinding {
   commitPending(pending: PendingMetadata): MetadataEditResult;
   commit(command: MetadataCommand): MetadataEditResult;
   currentNode(): MetadataNode | undefined;
+  currentTarget(): MetadataTarget | undefined;
 }
 const Context = createContext<MetadataTargetBinding | null>(null);
 export function MetadataTargetProvider({
@@ -79,6 +81,12 @@ export function useMetadataBinding(props: {
     rowKey: props.row?.key ?? '$root',
     command
   });
+  const currentTarget = () => {
+    const live = current.current;
+    const row = props.row ? live.selection.resolve(props.row.key, props.scopeKey) : undefined;
+    if (props.scopeKey !== live.scopeKey || (props.row && (!row || row.inherited || !row.path))) return undefined;
+    return live.actions?.captureMetadataTarget(live.nodeId, row?.path ?? []);
+  };
   const node = props.row?.node ?? props.row?.readonlyNode ?? props.root;
   return {
     node,
@@ -88,12 +96,8 @@ export function useMetadataBinding(props: {
     capabilities: getMetadataCapabilities(node),
     envelope,
     commitPending,
-    currentNode: () => {
-      const live = current.current;
-      const row = props.row ? live.selection.resolve(props.row.key, props.scopeKey) : undefined;
-      if (props.scopeKey !== live.scopeKey || (props.row && (!row || row.inherited || !row.path))) return undefined;
-      return live.actions?.captureMetadataTarget(live.nodeId, row?.path ?? [])?.expected;
-    },
+    currentTarget,
+    currentNode: () => currentTarget()?.expected,
     commit: (command) => commitPending(envelope(command))
   };
 }

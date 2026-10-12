@@ -737,3 +737,16 @@ describe('handleTypeRefDrop', () => {
     expect(dispatch).not.toHaveBeenCalled();
   });
 });
+
+it('reconfigures editability without destroying the active editor view', () => {
+  const file = { name: 'session.rosetta', path: 'session.rosetta', content: 'namespace demo', dirty: false };
+  const { rerender } = render(<SourceEditor files={[file]} activeFile={file.path} />);
+  const view = lastEditorView;
+  const destroyed = mockEditorViewDestroy.mock.calls.length;
+  rerender(<SourceEditor files={[{ ...file, readOnly: true }]} activeFile={file.path} />);
+  expect(lastEditorView).toBe(view);
+  expect(mockEditorViewDestroy).toHaveBeenCalledTimes(destroyed);
+  rerender(<SourceEditor files={[file]} activeFile={file.path} />);
+  expect(lastEditorView).toBe(view);
+  expect(mockEditorViewDestroy).toHaveBeenCalledTimes(destroyed);
+});

@@ -5,7 +5,7 @@
 
 import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
 
-import { useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { X } from 'lucide-react';
@@ -37,6 +37,8 @@ export interface EnumValueRowProps extends InspectorRowProps {
   index: number;
   /** Commit value name/displayName changes to the graph. */
   onUpdate: (nodeId: string, oldName: string, newName: string, displayName?: string) => void;
+  /** Optional name-only commit using the host's current canonical member identity. */
+  onRename?: (name: string) => void;
   /** Remove this enum value. */
   onRemove: (nodeId: string, valueName: string) => void;
   /** Reorder (drag) callback; fromIndex → toIndex. */
@@ -63,10 +65,10 @@ const EMPTY_SYNONYM_SOURCE_OPTIONS: SourceRefOption[] = [];
 
 function EnumValueRow({
   name,
-  displayName,
   nodeId,
   index,
   onUpdate,
+  onRename,
   onRemove,
   onReorder,
   disabled = false,
@@ -94,15 +96,18 @@ function EnumValueRow({
   // ---- Name auto-save (debounced) ------------------------------------------
 
   const commitNameChange = useCallback(
-    (newName: string) => {
-      if (validateName && validateName(newName) !== true) return;
-      const currentDisplayName: string | undefined = getValues(`${prefix}.display`);
-      onUpdate(nodeId, name, newName, currentDisplayName || undefined);
+    (draft: { name: string; oldName: string; display?: string }) => {
+      if (validateName && validateName(draft.name) !== true) return;
+      if (effectiveReadOnly) return false;
+      if (onRename) onRename(draft.name);
+      else onUpdate(nodeId, draft.oldName, draft.name, draft.display || undefined);
     },
-    [nodeId, name, displayName, prefix, getValues, onUpdate, validateName]
+    [validateName, effectiveReadOnly, nodeId, onUpdate, onRename]
   );
-
   const debouncedName = useAutoSave(commitNameChange, 500);
+  useEffect(() => {
+    if (!effectiveReadOnly) debouncedName.flush();
+  }, [effectiveReadOnly, debouncedName]);
 
   // ---- Display name auto-save (debounced) ----------------------------------
 
@@ -174,7 +179,7 @@ function EnumValueRow({
                 value={field.value ?? ''}
                 onChange={(e) => {
                   field.onChange(e);
-                  debouncedName(e.target.value);
+                  debouncedName({ name: e.target.value, oldName: name, display: getValues(`${prefix}.display`) });
                 }}
                 onBlur={field.onBlur}
                 disabled={effectiveReadOnly}

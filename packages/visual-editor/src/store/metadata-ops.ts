@@ -2,12 +2,6 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type { AnnotationRef, AnnotationQualifier, Dehydrated } from '@rune-langium/core';
-import {
-  AnnotationRefSchema,
-  RosettaClassSynonymSchema,
-  RosettaSynonymSchema,
-  RosettaEnumSynonymSchema
-} from '../generated/zod-schemas.js';
 import { SCHEMA_BY_TYPE } from '../schemas/schema-by-type.js';
 import { getEditorFieldSchema } from '../schemas/editor-field-schema.js';
 import type { MetadataNode, MetadataItem, MetadataCommand, MetadataEditResult } from './metadata-target.js';
@@ -20,7 +14,7 @@ export function createAnnotationDraft(
   attribute?: string,
   qualifiers: readonly Dehydrated<AnnotationQualifier>[] = []
 ): Dehydrated<AnnotationRef> {
-  return AnnotationRefSchema.parse({
+  return SCHEMA_BY_TYPE.AnnotationRef!.parse({
     $type: 'AnnotationRef',
     annotation: { $refText: name },
     ...(attribute ? { attribute: { $refText: attribute } } : {}),
@@ -38,19 +32,19 @@ export function createSynonymDraft(
   const synonymValue = { $type: 'RosettaSynonymValueBase', name: value };
   switch (kind) {
     case 'class':
-      return RosettaClassSynonymSchema.parse({
+      return SCHEMA_BY_TYPE.RosettaClassSynonym!.parse({
         $type: 'RosettaClassSynonym',
         sources,
         ...(value ? { value: synonymValue } : {})
       }) as MetadataItem;
     case 'enumValue':
-      return RosettaEnumSynonymSchema.parse({
+      return SCHEMA_BY_TYPE.RosettaEnumSynonym!.parse({
         $type: 'RosettaEnumSynonym',
         sources,
         synonymValue: value
       }) as MetadataItem;
     case 'body':
-      return RosettaSynonymSchema.parse({
+      return SCHEMA_BY_TYPE.RosettaSynonym!.parse({
         $type: 'RosettaSynonym',
         sources,
         body: { $type: 'RosettaSynonymBody', hints: [], metaValues: [], values: [synonymValue] }

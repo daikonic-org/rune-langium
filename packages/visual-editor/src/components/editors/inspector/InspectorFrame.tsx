@@ -31,7 +31,7 @@ export function InspectorFrame({
   const [selected, setSelected] = useState(sections[0]?.id);
   const active = sections.find((section) => section.id === selected) ?? sections[0];
   return (
-    <div data-slot="inspector-frame" className="flex h-full min-h-0 flex-col">
+    <div data-slot="inspector-frame" className="flex h-full min-h-0 flex-col overflow-auto">
       <div className="shrink-0">{header}</div>
       {inheritance && <div className="shrink-0 pb-3">{inheritance}</div>}
       {sections.length > 1 ? (
@@ -43,16 +43,16 @@ export function InspectorFrame({
               onSectionChange?.(value);
             }
           }}
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex min-h-fit flex-1 flex-col"
         >
-          <TabsList size="sm" className="shrink-0 overflow-x-auto">
+          <TabsList size="sm" className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start">
             {sections.map((section) => (
               <TabsTrigger key={section.id} value={section.id}>
                 {section.label}
               </TabsTrigger>
             ))}
           </TabsList>
-          <div data-slot="inspector-main" className="flex min-h-0 flex-1 flex-col">
+          <div data-slot="inspector-main" className="flex min-h-24 flex-1 flex-col">
             {sections.map((section) => (
               <TabsContent
                 key={section.id}

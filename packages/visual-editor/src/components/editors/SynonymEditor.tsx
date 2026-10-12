@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useRef, useState } from 'react';
-import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
+import { MetadataItemPreview } from '../forms/metadata/MetadataItemPreview.js';
+import { useState } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { useMetadataItemCommit } from '../forms/metadata/useMetadataItemLease.js';
 import { EditorController } from '../forms/EditorFormProvider.js';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { SourceRefField } from './SourceRefField.js';
@@ -54,9 +56,9 @@ function SynonymList({
         const value =
           readable.value?.name ?? readable.body?.values?.map((value) => value.name).join(', ') ?? readable.synonymValue;
         return (
-          <span
+          <div
             key={`${source}:${index}`}
-            className="inline-flex items-center gap-1 rounded bg-card px-2 py-0.5 text-xs"
+            className="flex flex-wrap items-center gap-1 rounded bg-card px-2 py-0.5 text-xs"
           >
             {value ? `${source} — ${value}` : source}
             {onEdit && (
@@ -79,7 +81,8 @@ function SynonymList({
                 ×
               </button>
             )}
-          </span>
+            {!onEdit && !onRemove && <MetadataItemPreview item={item} label={`Synonym ${index + 1} details`} />}
+          </div>
         );
       })}
     </div>
@@ -99,33 +102,9 @@ function SynonymItemEditor({
   props: SynonymEditorProps;
   onClose: () => void;
 }) {
-  const { control, getValues, setError } = useFormContext();
-  const binding = useMetadataTarget();
-  const lease = useRef(expected);
+  const { control } = useFormContext();
   const path = `${name}.${index}`;
-  const commit = () => {
-    if (!binding) return;
-    const result = binding.commit({
-      kind: 'replace',
-      field: props.field,
-      index,
-      expected: lease.current,
-      value: getValues(path)
-    });
-    if (result.status !== 'committed') {
-      setError(path, {
-        type: 'commit',
-        message:
-          result.status === 'invalid'
-            ? result.issues[0]?.message
-            : 'This synonym changed before the edit could be saved.'
-      });
-      return;
-    }
-    const node = binding.currentNode();
-    const item = node && getMetadataItems(node, props.field)[index];
-    if (item) lease.current = item;
-  };
+  const commit = useMetadataItemCommit(props.field, index, expected, path);
   return (
     <EditorController
       control={control}
@@ -135,7 +114,11 @@ function SynonymItemEditor({
         const item = field.value as MetadataItem;
         const readable = item as SynonymDisplay;
         return (
-          <div className="space-y-1 rounded border border-border p-2" aria-label="Synonym details">
+          <fieldset
+            disabled={props.readOnly}
+            className="space-y-1 rounded border border-border p-2"
+            aria-label="Synonym details"
+          >
             <SourceRefField
               value={readable.sources?.[0]?.$refText ?? null}
               options={props.sourceOptions}
@@ -179,7 +162,7 @@ function SynonymItemEditor({
             >
               Done
             </button>
-          </div>
+          </fieldset>
         );
       }}
     />
@@ -187,17 +170,18 @@ function SynonymItemEditor({
 }
 
 function EditableSynonyms(props: SynonymEditorProps) {
-  const { control, getValues } = useFormContext();
+  const { control, getValues, setValue: setFormValue } = useFormContext();
   const binding = useMetadataTarget();
   const name = [props.formPrefix, props.field].filter(Boolean).join('.');
-  const { append, remove } = useFieldArray({ control, name, shouldUnregister: false });
   const items = useWatch({ control, name, defaultValue: getValues(name) ?? [] }) as MetadataItem[];
   const [editing, setEditing] = useState<{ index: number; expected: MetadataItem }>();
   const [source, setSource] = useState<string | null>(null);
   const [value, setValue] = useState('');
   const [error, setError] = useState<string>();
+  const [showControls, setShowControls] = useState(!props.readOnly);
+  if (!props.readOnly && !showControls) setShowControls(true);
   const add = () => {
-    if (!source) return;
+    if (props.readOnly || !source) return;
     const option = props.sourceOptions.find((option) => option.value === source);
     const ref = resolveSynonymRefText(option, props.nodeId, source);
     const entry = createSynonymDraft(props.kind, ref, props.kind === 'class' ? undefined : value);
@@ -210,7 +194,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
         return;
       }
     }
-    append(entry);
+    setFormValue(name, [...(getValues(name) ?? []), entry], { shouldDirty: true });
     setSource(null);
     setValue('');
     setError(undefined);
@@ -226,7 +210,11 @@ function EditableSynonyms(props: SynonymEditorProps) {
         return;
       }
     }
-    remove(index);
+    setFormValue(
+      name,
+      (getValues(name) ?? []).filter((_item: unknown, itemIndex: number) => itemIndex !== index),
+      { shouldDirty: true }
+    );
   };
   return (
     <div className="space-y-1.5">
@@ -253,8 +241,8 @@ function EditableSynonyms(props: SynonymEditorProps) {
           onClose={() => setEditing(undefined)}
         />
       )}
-      {!props.readOnly && (
-        <div className="flex flex-wrap items-center gap-1">
+      {showControls && (
+        <fieldset disabled={props.readOnly} className="flex flex-wrap items-center gap-1">
           <SourceRefField
             value={source}
             options={props.sourceOptions}
@@ -280,7 +268,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
           >
             Add
           </button>
-        </div>
+        </fieldset>
       )}
       {error && (
         <p role="alert" className="text-xs text-destructive">

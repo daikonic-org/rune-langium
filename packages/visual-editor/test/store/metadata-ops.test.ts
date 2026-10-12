@@ -3,7 +3,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
-import { createAnnotationDraft, createSynonymDraft, updateSynonymDraft } from '../../src/store/metadata-ops.js';
+import {
+  createAnnotationDraft,
+  createSynonymDraft,
+  updateSynonymDraft,
+  getMetadataItems
+} from '../../src/store/metadata-ops.js';
 
 describe('canonical metadata mutations', () => {
   it('commits one child edit with one history entry and preserves undo', async () => {
@@ -81,7 +86,7 @@ describe('canonical metadata mutations', () => {
         kind: 'replace',
         field: 'annotations',
         index: 0,
-        expected: annotation,
+        expected: getMetadataItems(target.expected, 'annotations')[0]!,
         value: edited
       }).status
     ).toBe('committed');
@@ -139,5 +144,22 @@ it('editing one synonym value retains extra sources, mappings and hints', () => 
   expect(edited).toMatchObject({
     sources: [{ $refText: 'three.FpML' }, { $refText: 'two.FpML' }],
     body: { hints: ['retained'], values: [{ name: 'Deal', maps: 3 }, { name: 'Other' }] }
+  });
+});
+
+it('committed metadata owns its payload and cannot be changed through a caller draft', async () => {
+  const { store, getNode } = await loadInspectorFixture();
+  const id = getNode('Person').id;
+  const value = createAnnotationDraft('marking', 'scheme', [
+    { $type: 'AnnotationQualifier', qualName: 'scheme', qualValue: 'ISIN' }
+  ]);
+  store.getState().applyMetadataCommand(store.getState().captureMetadataTarget(id, ['attributes', 0])!, {
+    kind: 'append',
+    field: 'annotations',
+    value
+  });
+  value.qualifiers[0]!.qualValue = 'Uncommitted caller edit';
+  expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).toMatchObject({
+    annotations: [{ qualifiers: [{ qualValue: 'ISIN' }] }]
   });
 });

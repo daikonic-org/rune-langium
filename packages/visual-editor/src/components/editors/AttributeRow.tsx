@@ -34,7 +34,7 @@
 
 import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
 
-import { useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -72,6 +72,8 @@ export interface AttributeRowProps extends InspectorRowProps {
     cardinality: string,
     targetTypeId?: string
   ) => void;
+  /** Optional name-only commit using the host's current canonical member identity. */
+  onRename?: (name: string) => void;
   /** Remove this attribute by index. */
   onRemove: (index: number) => void;
   /** Reorder (drag) callback; fromIndex → toIndex. */
@@ -106,6 +108,7 @@ function AttributeRow({
   committedName,
   availableTypes,
   onUpdate,
+  onRename,
   onRemove,
   onReorder,
   disabled = false,
@@ -145,19 +148,31 @@ function AttributeRow({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  type NameDraft = { name: string; committedName: string; index: number; type: string; card: string };
   const commitName = useCallback(
-    (newName: string) => {
-      if (validateName && validateName(newName) !== true) return;
-      const currentType: string = getValues(`${prefix}.typeCall.type.$refText`) ?? 'string';
-      const currentCard = normaliseCard(
-        getValues(`${prefix}.card`) as { inf: number; sup?: number; unbounded?: boolean } | undefined
-      );
-      onUpdate(index, committedName, newName, currentType, formatCardinality(currentCard) || '(1..1)');
+    (draft: NameDraft) => {
+      if (validateName && validateName(draft.name) !== true) return;
+      if (effectiveReadOnly) return false;
+      if (onRename) onRename(draft.name);
+      else onUpdate(draft.index, draft.committedName, draft.name, draft.type, draft.card);
     },
-    [index, committedName, prefix, getValues, onUpdate, validateName]
+    [validateName, effectiveReadOnly, onUpdate, onRename]
   );
-
   const debouncedName = useAutoSave(commitName, 500);
+  useEffect(() => {
+    if (!effectiveReadOnly) debouncedName.flush();
+  }, [effectiveReadOnly, debouncedName]);
+  const nameDraft = (name: string): NameDraft => ({
+    name,
+    committedName,
+    index,
+    type: getValues(`${prefix}.typeCall.type.$refText`) ?? 'string',
+    card: formatCardinality(normaliseCard(getValues(`${prefix}.card`))) || '(1..1)'
+  });
+  const validCombinedName = useCallback(() => {
+    const name: string = getValues(`${prefix}.name`);
+    return validateName && validateName(name) !== true ? committedName : name;
+  }, [getValues, prefix, validateName, committedName]);
 
   // ---- Type selection (immediate) ------------------------------------------
 
@@ -171,10 +186,10 @@ function AttributeRow({
       // namespaces (mirrors the attribute-type-update path — DRY).
       const targetTypeId = option?.value;
       setValue(`${prefix}.typeCall.type.$refText`, newTypeName, { shouldDirty: true });
-      const name: string = getValues(`${prefix}.name`);
+      const name = validCombinedName();
       onUpdate(index, committedName, name, newTypeName, cardinalityString, targetTypeId);
     },
-    [index, committedName, prefix, availableTypes, getValues, setValue, cardinalityString, onUpdate]
+    [index, committedName, prefix, availableTypes, getValues, setValue, cardinalityString, onUpdate, validCombinedName]
   );
 
   // ---- Cardinality (immediate from picker) ---------------------------------
@@ -186,10 +201,10 @@ function AttributeRow({
       // the action callback (EditorFormActions still take `cardinality: string`
       // — FR-002).
       setValue(`${prefix}.card`, parseCardinality(card), { shouldDirty: true });
-      const name: string = getValues(`${prefix}.name`);
+      const name = validCombinedName();
       onUpdate(index, committedName, name, typeName ?? 'string', card);
     },
-    [index, committedName, prefix, typeName, getValues, setValue, onUpdate]
+    [index, committedName, prefix, typeName, getValues, setValue, onUpdate, validCombinedName]
   );
 
   // ---- Drag reorder ---------------------------------------------------------
@@ -272,7 +287,7 @@ function AttributeRow({
             value={field.value}
             onChange={(e) => {
               field.onChange(e);
-              debouncedName(e.target.value);
+              debouncedName(nameDraft(e.target.value));
             }}
             onBlur={field.onBlur}
             disabled={effectiveReadOnly}

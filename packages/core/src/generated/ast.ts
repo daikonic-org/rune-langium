@@ -2314,9 +2314,9 @@ export function isRosettaAbsentExpression(item: unknown): item is RosettaAbsentE
 
 export interface RosettaAttributeReference extends langium.AstNode {
   readonly $container: AnnotationQualifier | RosettaAttributeReference | RosettaMapRosettaPath;
-  readonly $type: 'RosettaAttributeReference' | 'RosettaDataReference';
+  readonly $type: 'RosettaAttributeReference';
   attribute: langium.Reference<AttributeOrChoiceOption>;
-  receiver: RosettaDataReference;
+  receiver: RosettaAttributeReference | RosettaDataReference;
 }
 
 export const RosettaAttributeReference = {
@@ -2810,7 +2810,7 @@ export function isRosettaCountOperation(item: unknown): item is RosettaCountOper
   return reflection.isInstance(item, RosettaCountOperation.$type);
 }
 
-export interface RosettaDataReference extends RosettaAttributeReference {
+export interface RosettaDataReference extends langium.AstNode {
   readonly $container: RosettaAttributeReference;
   readonly $type: 'RosettaDataReference';
   data: langium.Reference<DataOrChoice>;
@@ -2818,9 +2818,7 @@ export interface RosettaDataReference extends RosettaAttributeReference {
 
 export const RosettaDataReference = {
   $type: 'RosettaDataReference',
-  attribute: 'attribute',
-  data: 'data',
-  receiver: 'receiver'
+  data: 'data'
 } as const;
 
 export function isRosettaDataReference(item: unknown): item is RosettaDataReference {
@@ -7065,19 +7063,12 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
     RosettaDataReference: {
       name: RosettaDataReference.$type,
       properties: {
-        attribute: {
-          name: RosettaDataReference.attribute,
-          referenceType: AttributeOrChoiceOption.$type
-        },
         data: {
           name: RosettaDataReference.data,
           referenceType: DataOrChoice.$type
-        },
-        receiver: {
-          name: RosettaDataReference.receiver
         }
       },
-      superTypes: [RosettaAttributeReference.$type]
+      superTypes: []
     },
     RosettaDeepFeatureCall: {
       name: RosettaDeepFeatureCall.$type,

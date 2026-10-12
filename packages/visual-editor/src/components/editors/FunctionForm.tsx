@@ -34,6 +34,10 @@
  * @module
  */
 
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
+import { createAttributeDraft } from '../../store/attribute-drafts.js';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { renderNode, type DehydratedNode } from '@rune-langium/codegen/rosetta';
 import type { ReactNode } from 'react';
@@ -63,10 +67,11 @@ import {
   parseCardinality,
   getExpressionDisplayText
 } from '../../adapters/model-helpers.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
 import { useStableKey } from '../../hooks/useStableKey.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider, EditorController as Controller } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -80,6 +85,7 @@ import type {
   AnyGraphNode,
   GraphNodeMeta,
   TypeOption,
+  SourceRefOption,
   EditorFormActions,
   ExpressionEditorSlotProps,
   FunctionBodyEditorSlotProps,
@@ -177,6 +183,7 @@ function OperationExpressionEditor({
 
 export interface FunctionFormProps extends InspectorHostProps {
   allNodes?: TypeGraphNode[];
+  synonymSourceOptions?: SourceRefOption[];
   /** Node ID of the Function being edited. */
   nodeId: string;
   /** Data payload for the selected function node (AnyGraphNode with $type='RosettaFunction'). */
@@ -234,6 +241,7 @@ function FunctionForm({
   renderExpressionEditor,
   renderFunctionBodyEditor,
   structuralEditsDisabled = false,
+  synonymSourceOptions,
   onNavigateToNode,
   allNodeIds,
   readOnly: readOnlyProp,
@@ -265,8 +273,8 @@ function FunctionForm({
   // node (object identity is the contract). `keepDirty: true` preserves
   // the pre-migration `keepDirtyValues: true` semantics so in-flight
   // user edits are not stomped by a graph push.
-  useExternalSync(form, data, (n) => formValuesProjection<typeof RosettaFunctionSchema>(n, nodeMeta), {
-    keepDirty: true
+  useInspectorExternalSync(form, data, (n) => formValuesProjection<typeof RosettaFunctionSchema>(n, nodeMeta), {
+    parseEpoch
   });
 
   // ---- useFieldArray for `inputs` (mirrors DataTypeForm's `attributes`) ----
@@ -291,17 +299,25 @@ function FunctionForm({
 
   // ---- Name auto-save (debounced — preserved per R8) ----------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
-      if (structuralEditsDisabled || readOnlyProp || nodeMeta.isReadOnly) return;
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.RosettaFunction!, 'name')?.safeParse(newName.trim()).success) return;
+      if (structuralEditsDisabled) return false;
+      if (readOnlyProp || nodeMeta.isReadOnly) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly]
+    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
+  useEffect(() => {
+    if (!structuralEditsDisabled) debouncedName.flush();
+  }, [structuralEditsDisabled, debouncedName]);
 
   // ---- Expression validation (on blur — preserves bespoke UX, FR-010) -----
 
@@ -393,13 +409,8 @@ function FunctionForm({
   // shape as DataTypeForm.makeAttributeAstItem — function inputs and data
   // attributes share the `Attribute` AST schema.
   const makeInputAstItem = useCallback(
-    (name: string, typeName: string, cardinality = '(1..1)', override = false) => ({
-      $type: 'Attribute' as const,
-      name,
-      typeCall: { $type: 'TypeCall' as const, type: { $refText: typeName }, arguments: [] as never[] },
-      card: parseCardinality(cardinality),
-      override
-    }),
+    (name: string, typeName: string, cardinality = '(1..1)', override = false) =>
+      createAttributeDraft(name, typeName, parseCardinality(cardinality), override),
     []
   );
 
@@ -498,14 +509,16 @@ function FunctionForm({
       actions={actions}
       allNodes={allNodes}
       sourceCommentsOnly
+      synonymSourceOptions={synonymSourceOptions}
       readOnly={isReadOnly}
       renderExpressionEditor={renderExpressionEditor}
       showPostConditionToggle
     >
       <FormProvider
         {...form}
+        canonicalType="RosettaFunction"
         schema={RosettaFunctionSchema}
-        registerCommitFlush={registerCommitFlush}
+        registerCommitFlush={lifecycle.register}
         additionalCommitFlush={debouncedName.flush}
       >
         <div data-slot="function-form" className="h-full min-h-0 p-4">
@@ -584,6 +597,9 @@ function FunctionForm({
                                 committedName={(d.inputs ?? [])[index]?.name ?? ''}
                                 availableTypes={availableTypes}
                                 onUpdate={handleUpdateInput}
+                                onRename={
+                                  targets.rootBinding.guarded ? (name) => targets.renameRow(field.id, name) : undefined
+                                }
                                 onRemove={handleRemoveInputByIndex}
                                 onReorder={handleReorderInput}
                                 onNavigateToNode={onNavigateToNode}

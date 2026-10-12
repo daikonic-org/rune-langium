@@ -102,7 +102,7 @@ export const ExpressionWorkspace = withInstrumentation(
       const owner =
         parsed && parseCurrent
           ? findExpressionOwner(parsed.model, { name: nameFromNodeId(nodeId), kind: kindFromNodeId(nodeId) })
-          : readOnly
+          : readOnly && (file.readOnly || file.refOnly)
             ? sourceOwner
             : undefined;
       if (!owner || (owner.$type !== 'RosettaFunction' && owner.$type !== 'Data')) {
@@ -112,8 +112,10 @@ export const ExpressionWorkspace = withInstrumentation(
           return;
         }
         const recovered = documents.recoverRegion(pathToUri(file.path), nodeId, regionKey);
-        setBinding(recovered);
-        if (recovered) setCoordinateError(undefined);
+        if (recovered) {
+          setBinding(recovered);
+          setCoordinateError(undefined);
+        } else setCoordinateError('Waiting for the changed declaration to parse…');
         return;
       }
       try {
@@ -145,6 +147,7 @@ export const ExpressionWorkspace = withInstrumentation(
       binding.nodeId === nodeId
         ? binding
         : null;
+    const displayed = file && binding?.uri === pathToUri(file.path) && binding.nodeId === nodeId ? binding : null;
     const [language, setLanguage] = useState<'rune' | 'typescript' | 'python'>('rune');
     const [projectionRetry, setProjectionRetry] = useState(0);
     const projection = useExpressionProjection(
@@ -283,12 +286,18 @@ export const ExpressionWorkspace = withInstrumentation(
           </div>
         </div>
         <div hidden={language !== 'rune'}>
-          {active && file ? (
+          {displayed && coordinateError && (
+            <p role="status" className="text-xs text-muted-foreground">
+              {coordinateError}
+            </p>
+          )}
+          {displayed && file ? (
             <RuneRegionEditor
-              binding={{ ...active, readOnly: readOnly || Boolean(file.readOnly) || active.readOnly }}
+              binding={{ ...displayed, readOnly: !active || readOnly || Boolean(file.readOnly) || displayed.readOnly }}
               path={file.path}
               source={file.content}
               onContentChange={(path, source) => {
+                if (!active) return;
                 const region = viewRef.current?.state.field(protectedRegion, false);
                 if (region) documents.retainRegion(active, regionKey, source, region);
                 onContentChange(path, source);

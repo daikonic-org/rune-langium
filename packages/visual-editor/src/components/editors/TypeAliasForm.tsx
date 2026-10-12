@@ -10,7 +10,7 @@
  * - `useZodForm(RosettaTypeAliasSchema, …)` drives validation off the
  *   canonical AST schema (per R1). The graph node is passed straight
  *   into `defaultValues` (per R11) — no projection layer.
- * - `useExternalSync(form, data, (n) => formValuesProjection(n, nodeMeta))`
+ * - `useInspectorExternalSync(form, data, (n) => formValuesProjection(n, nodeMeta))`
  *   re-binds pristine field state when the host swaps to a different node
  *   (per R4). The form consumes the AST shape directly; the projection
  *   only threads the typed gap and seeds the UI-only `comments` field.
@@ -30,6 +30,9 @@
  * @module
  */
 
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
 import { useCallback } from 'react';
 import { useWatch } from 'react-hook-form';
 import { FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
@@ -41,9 +44,10 @@ import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/
 import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
 import { EditorSections } from '../forms/sections/EditorSections.js';
 import { TypeReferenceField } from './TypeReferenceField.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -139,8 +143,8 @@ function TypeAliasForm({
   // (object identity is the contract). `keepDirty: true` preserves the
   // pre-migration `keepDirtyValues: true` semantics so in-flight user
   // edits are not stomped by a graph push.
-  useExternalSync(form, data, (n) => formValuesProjection<typeof RosettaTypeAliasSchema>(n, nodeMeta), {
-    keepDirty: true
+  useInspectorExternalSync(form, data, (n) => formValuesProjection<typeof RosettaTypeAliasSchema>(n, nodeMeta), {
+    parseEpoch
   });
 
   // Track committed (graph-confirmed) data for diffing
@@ -148,13 +152,17 @@ function TypeAliasForm({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.RosettaTypeAlias!, 'name')?.safeParse(newName.trim()).success) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions]
+    [nodeId, actions, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
@@ -224,8 +232,9 @@ function TypeAliasForm({
     <EditorActionsProvider nodeId={nodeId} actions={actions} readOnly={isReadOnly} sourceCommentsOnly>
       <FormProvider
         {...form}
+        canonicalType="RosettaTypeAlias"
         schema={RosettaTypeAliasSchema}
-        registerCommitFlush={registerCommitFlush}
+        registerCommitFlush={lifecycle.register}
         additionalCommitFlush={debouncedName.flush}
       >
         <div data-slot="type-alias-form" className="h-full min-h-0 p-4">

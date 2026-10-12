@@ -87,14 +87,11 @@ export const RosettaDocReferenceSchema = z.looseObject({
   reportedField: z.boolean().optional()
 });
 
-export const RosettaDataReferenceSchema = z.looseObject({
-  $type: z.literal('RosettaDataReference'),
-  data: ReferenceSchema
-});
-
 export const RosettaAttributeReferenceSchema = z.looseObject({
   $type: z.literal('RosettaAttributeReference'),
-  receiver: RosettaDataReferenceSchema,
+  get receiver() {
+    return z.union([RosettaDataReferenceSchema, RosettaAttributeReferenceSchema]);
+  },
   attribute: ReferenceSchema
 });
 
@@ -559,6 +556,11 @@ export const RosettaCountOperationSchema = z.looseObject({
   $type: z.literal('RosettaCountOperation'),
   argument: z.lazy(() => RosettaExpressionSchema).optional(),
   operator: z.literal('count')
+});
+
+export const RosettaDataReferenceSchema = z.looseObject({
+  $type: z.literal('RosettaDataReference'),
+  data: ReferenceSchema
 });
 
 export const RosettaDeepFeatureCallSchema = z.looseObject({
@@ -1160,7 +1162,6 @@ export const AstNodeSchema = z.discriminatedUnion('$type', [
   RegulatoryDocumentReferenceSchema,
   DocumentRationaleSchema,
   RosettaDocReferenceSchema,
-  RosettaDataReferenceSchema,
   RosettaAttributeReferenceSchema,
   AnnotationQualifierSchema,
   AnnotationRefSchema,
@@ -1222,6 +1223,7 @@ export const AstNodeSchema = z.discriminatedUnion('$type', [
   RosettaContainsExpressionSchema,
   RosettaCorpusSchema,
   RosettaCountOperationSchema,
+  RosettaDataReferenceSchema,
   RosettaDeepFeatureCallSchema,
   RosettaDisjointExpressionSchema,
   RosettaEnumSynonymSchema,
@@ -1323,16 +1325,6 @@ export function createRegulatoryDocumentReferenceSchema(refs: RegulatoryDocument
   return RegulatoryDocumentReferenceSchema.safeExtend({
     body: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaBody ?? []) }),
     corpusList: z.array(ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaCorpus ?? []) })).min(1)
-  });
-}
-
-export interface RosettaDataReferenceSchemaRefs {
-  DataOrChoice?: string[];
-}
-
-export function createRosettaDataReferenceSchema(refs: RosettaDataReferenceSchemaRefs = {}) {
-  return RosettaDataReferenceSchema.safeExtend({
-    data: ReferenceSchema.extend({ $refText: zRef(() => refs.DataOrChoice ?? []) })
   });
 }
 
@@ -1495,6 +1487,16 @@ export interface RosettaCorpusSchemaRefs {
 export function createRosettaCorpusSchema(refs: RosettaCorpusSchemaRefs = {}) {
   return RosettaCorpusSchema.safeExtend({
     body: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaBody ?? []) }).optional()
+  });
+}
+
+export interface RosettaDataReferenceSchemaRefs {
+  DataOrChoice?: string[];
+}
+
+export function createRosettaDataReferenceSchema(refs: RosettaDataReferenceSchemaRefs = {}) {
+  return RosettaDataReferenceSchema.safeExtend({
+    data: ReferenceSchema.extend({ $refText: zRef(() => refs.DataOrChoice ?? []) })
   });
 }
 

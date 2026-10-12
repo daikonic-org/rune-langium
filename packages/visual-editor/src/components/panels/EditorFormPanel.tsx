@@ -402,6 +402,7 @@ const EditorFormPanel = memo(function EditorFormPanel({
       case 'func':
         return (
           <FunctionForm
+            synonymSourceOptions={synonymSourceOptions}
             allNodes={allNodes}
             key={scopeKey ? `${scopeKey}:${nodeId}` : nodeId}
             {...hostProps}

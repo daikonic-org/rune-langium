@@ -30,7 +30,10 @@ import { useEditorCommitRegistry } from './editor-commit-lifecycle.js';
  * @param delay - Debounce delay in milliseconds (default 500).
  * @returns A debounced setter function.
  */
-export function useAutoSave<T>(onCommit: (value: T) => void, delay = 500): ((value: T) => void) & { flush(): void } {
+export function useAutoSave<T>(
+  onCommit: (value: T) => void | boolean,
+  delay = 500
+): ((value: T) => void) & { flush(): void | boolean } {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRef = useRef<T | undefined>(undefined);
   const pendingRef = useRef(false);
@@ -43,7 +46,13 @@ export function useAutoSave<T>(onCommit: (value: T) => void, delay = 500): ((val
     timerRef.current = null;
     if (!pendingRef.current) return;
     pendingRef.current = false;
-    commitRef.current(latestRef.current as T);
+    const value = latestRef.current as T;
+    const result = commitRef.current(value);
+    if (result === false && !pendingRef.current) {
+      latestRef.current = value;
+      pendingRef.current = true;
+    }
+    return result;
   }, [commitRef]);
   const debouncedSet = useCallback(
     (value: T) => {
@@ -60,6 +69,11 @@ export function useAutoSave<T>(onCommit: (value: T) => void, delay = 500): ((val
     [delay, flush]
   );
   useEffect(() => registry?.register(flush), [registry, flush]);
-  useEffect(() => () => flush(), [flush]);
+  useEffect(
+    () => () => {
+      flush();
+    },
+    [flush]
+  );
   return Object.assign(debouncedSet, { flush });
 }

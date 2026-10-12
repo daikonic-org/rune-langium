@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useRef } from 'react';
 import { useFormContext, useFieldArray, useWatch } from 'react-hook-form';
 import { EditorController } from '../forms/EditorFormProvider.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
-import { useMetadataTarget } from '../forms/metadata/MetadataTargetContext.js';
 import { useInheritedMembers } from '../../hooks/useInheritedMembers.js';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -14,7 +12,8 @@ import { TypeReferenceField } from './TypeReferenceField.js';
 import { getRefText } from '../../adapters/model-helpers.js';
 import { qualifiedNameFromNodeId } from '../../store/node-projection.js';
 import type { MetadataItem } from '../../store/metadata-target.js';
-import { getMetadataItems } from '../../store/metadata-ops.js';
+import { MetadataItemPreview } from '../forms/metadata/MetadataItemPreview.js';
+import { useMetadataItemCommit } from '../forms/metadata/useMetadataItemLease.js';
 import type { TypeGraphNode, SourceRefOption } from '../../types.js';
 
 const EMPTY_NODES: TypeGraphNode[] = [];
@@ -37,7 +36,7 @@ function QualifierPathField({
   );
   const target = matching.length === 1 ? matching[0] : undefined;
   const inherited = useInheritedMembers(target?.data ?? null, nodes);
-  const own = target?.data.$type === 'Data' ? target.data.attributes : [];
+  const own = target?.data.$type === 'Data' ? (target.data.attributes ?? []) : [];
   const inheritedNames = inherited
     .flatMap((group) => group.members)
     .map((member) =>
@@ -101,88 +100,25 @@ function QualifierPathField({
   );
 }
 
-/** Argument fields remain in the declaration's RHF state; expected item identity guards replacement. */
-export function AnnotationArgumentsEditor({
-  prefix,
-  index,
-  expected
+function AnnotationQualifiers({
+  itemPath,
+  nodes,
+  commit
 }: {
-  prefix: string;
-  index: number;
-  expected: MetadataItem;
+  itemPath: string;
+  nodes: TypeGraphNode[];
+  commit: () => void;
 }) {
-  const { control, getValues, setValue, setError } = useFormContext();
-  const ctx = useEditorActionsContext();
-  const binding = useMetadataTarget();
-  const lease = useRef(expected);
-  const nodes = ctx?.allNodes ?? EMPTY_NODES;
-  const itemPath = `${prefix}.${index}`;
+  const { control, setValue } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
     name: `${itemPath}.qualifiers`,
     shouldUnregister: false
   });
-  const attribute = useWatch({ control, name: `${itemPath}.attribute.$refText` });
   const paths = useWatch({ control, name: `${itemPath}.qualifiers` }) ?? [];
-  const annotationName = expected.$type === 'AnnotationRef' ? expected.annotation.$refText : undefined;
-  const candidates = nodes.filter((node) => node.data.$type === 'Annotation' && node.data.name === annotationName);
-  const definition =
-    candidates.length === 1 && candidates[0]?.data.$type === 'Annotation' ? candidates[0].data : undefined;
-  const attributeOptions =
-    definition?.attributes.map((attribute) => ({ value: attribute.name, label: attribute.name })) ?? [];
-  const commit = () => {
-    if (!binding) return;
-    const value = getValues(itemPath) as MetadataItem;
-    const result = binding.commit({ kind: 'replace', field: 'annotations', index, expected: lease.current, value });
-    if (result.status === 'committed') {
-      const node = binding.currentNode();
-      const item = node && getMetadataItems(node, 'annotations')[index];
-      if (item) lease.current = item;
-    }
-    if (result.status !== 'committed')
-      setError(itemPath, {
-        type: 'commit',
-        message:
-          result.status === 'invalid'
-            ? result.issues[0]?.message
-            : 'This annotation changed before the edit could be saved.'
-      });
-  };
+  const attribute = useWatch({ control, name: `${itemPath}.attribute.$refText` });
   return (
-    <div className="space-y-2 rounded border border-border p-2" aria-label="Annotation arguments">
-      <div role="group" aria-label="Annotation attribute" className="space-y-1">
-        <span className="text-xs text-muted-foreground">Attribute</span>
-        <EditorController
-          control={control}
-          name={`${itemPath}.attribute`}
-          shouldUnregister={false}
-          render={({ field }) => (
-            <SourceRefField
-              value={getRefText(field.value) ?? null}
-              options={attributeOptions}
-              disabled={!definition}
-              placeholder="Choose annotation attribute…"
-              onSelect={(value) => {
-                field.onChange(value ? { $refText: value } : undefined);
-                commit();
-              }}
-            />
-          )}
-        />
-        {!definition && <p className="text-xs text-muted-foreground">Annotation scope unavailable.</p>}
-        {attribute && fields.length === 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setValue(`${itemPath}.attribute`, undefined, { shouldDirty: true });
-              commit();
-            }}
-          >
-            Clear attribute
-          </Button>
-        )}
-      </div>
+    <>
       {fields.map((row, qualifierIndex) => {
         const name = `${itemPath}.qualifiers.${qualifierIndex}`;
         return (
@@ -271,6 +207,85 @@ export function AnnotationArgumentsEditor({
           Add qualifier
         </Button>
       )}
-    </div>
+    </>
+  );
+}
+
+/** Argument fields remain in the declaration's RHF state; expected item identity guards replacement. */
+export function AnnotationArgumentsEditor({
+  prefix,
+  index,
+  expected,
+  readOnly = false
+}: {
+  prefix: string;
+  index: number;
+  expected: MetadataItem;
+  readOnly?: boolean;
+}) {
+  const { control, setValue } = useFormContext();
+  const ctx = useEditorActionsContext();
+  const nodes = ctx?.allNodes ?? EMPTY_NODES;
+  const itemPath = `${prefix}.${index}`;
+  const draft = useWatch({ control, name: itemPath, defaultValue: expected }) as MetadataItem;
+  const commit = useMetadataItemCommit('annotations', index, expected, itemPath);
+  const attribute = useWatch({ control, name: `${itemPath}.attribute.$refText` });
+  const paths = useWatch({ control, name: `${itemPath}.qualifiers` }) ?? [];
+  const annotationName = expected.$type === 'AnnotationRef' ? expected.annotation.$refText : undefined;
+  const available = nodes.filter((node) => node.data.$type === 'Annotation' && node.data.name === annotationName);
+  const namespace = nodes.find((node) => node.id === ctx?.nodeId)?.meta.namespace;
+  const local = available.filter((node) => node.meta.namespace === namespace);
+  const linked = nodes.find((node) => node.id === ctx?.nodeId)?.meta.annotationDefinitions?.[annotationName ?? ''];
+  const candidates = linked
+    ? available.filter((node) => node.meta.namespace === linked.namespace && node.data.name === linked.name)
+    : local.length
+      ? local
+      : available;
+  const definition =
+    candidates.length === 1 && candidates[0]?.data.$type === 'Annotation' ? candidates[0].data : undefined;
+  const attributeOptions =
+    definition?.attributes?.map((attribute) => ({ value: attribute.name, label: attribute.name })) ?? [];
+  return (
+    <fieldset
+      disabled={readOnly}
+      className="space-y-2 rounded border border-border p-2"
+      aria-label="Annotation arguments"
+    >
+      <MetadataItemPreview item={draft} label="Full annotation" />
+      <div role="group" aria-label="Annotation attribute" className="space-y-1">
+        <span className="text-xs text-muted-foreground">Attribute</span>
+        <EditorController
+          control={control}
+          name={`${itemPath}.attribute`}
+          shouldUnregister={false}
+          render={({ field }) => (
+            <SourceRefField
+              value={getRefText(field.value) ?? null}
+              options={attributeOptions}
+              disabled={!definition}
+              placeholder="Choose annotation attribute…"
+              onSelect={(value) => {
+                field.onChange(value ? { $refText: value } : undefined);
+                commit();
+              }}
+            />
+          )}
+        />
+        {!definition && <p className="text-xs text-muted-foreground">Annotation scope unavailable.</p>}
+        {attribute && paths.length === 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setValue(`${itemPath}.attribute`, undefined, { shouldDirty: true });
+              commit();
+            }}
+          >
+            Clear attribute
+          </Button>
+        )}
+      </div>
+      <AnnotationQualifiers key={itemPath} itemPath={itemPath} nodes={nodes} commit={commit} />
+    </fieldset>
   );
 }

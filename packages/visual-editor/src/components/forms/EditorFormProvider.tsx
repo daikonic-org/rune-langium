@@ -4,6 +4,7 @@
 import { createContext, useContext, useMemo, useEffect } from 'react';
 import { createEditorCommitRegistry, EditorCommitProvider } from '../../hooks/editor-commit-lifecycle.js';
 import { z } from 'zod';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
 import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
 import { normalizeFormValues } from '@zod-to-form/core';
 import {
@@ -21,12 +22,14 @@ const ValidationContext = createContext<((name: string) => Validate | undefined)
 /** Supplies L1 rules to bespoke editor controls, including identifier unions. */
 export function EditorFormProvider<T extends FieldValues>({
   schema,
+  canonicalType: suppliedCanonicalType,
   children,
   registerCommitFlush,
   additionalCommitFlush,
   ...form
 }: FormProviderProps<T> & {
   schema: z.ZodObject;
+  canonicalType?: string;
   registerCommitFlush?: (flush: () => void) => () => void;
   additionalCommitFlush?: () => void;
 }) {
@@ -37,6 +40,12 @@ export function EditorFormProvider<T extends FieldValues>({
     [registry, additionalCommitFlush]
   );
   const getValidate = useMemo(() => {
+    const tag = schema.shape.$type;
+    const canonicalType =
+      suppliedCanonicalType ??
+      (tag instanceof z.ZodLiteral && typeof tag.value === 'string' && SCHEMA_BY_TYPE[tag.value] === schema
+        ? tag.value
+        : undefined);
     const validators = new Map<string, Validate | undefined>();
     return (name: string) => {
       const key = name.replace(/\.\d+(?=\.|$)/g, '.0');
@@ -46,7 +55,9 @@ export function EditorFormProvider<T extends FieldValues>({
           key,
           atomic
             ? (value) => {
-                const result = atomic.safeParse(normalizeFormValues(value));
+                const current = canonicalType ? getEditorFieldSchema(SCHEMA_BY_TYPE[canonicalType]!, key) : atomic;
+                if (!current) return 'This field is no longer supported by the current schema.';
+                const result = current.safeParse(normalizeFormValues(value));
                 return result.success || result.error.issues[0]?.message || 'Validation failed';
               }
             : undefined
@@ -54,7 +65,7 @@ export function EditorFormProvider<T extends FieldValues>({
       }
       return validators.get(key);
     };
-  }, [schema]);
+  }, [schema, suppliedCanonicalType]);
   return (
     <ValidationContext.Provider value={getValidate}>
       <EditorCommitProvider registry={registry}>

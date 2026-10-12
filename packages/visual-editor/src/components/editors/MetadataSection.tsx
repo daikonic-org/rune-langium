@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { EditorController } from '../forms/EditorFormProvider.js';
 import { Field, FieldLabel, FieldGroup } from '@rune-langium/design-system/ui/field';
@@ -50,17 +50,22 @@ export function MetadataScalar({
   onCommit?: (value: string) => void;
   inline?: boolean;
 }) {
-  const { control, setError } = useFormContext();
+  const { control, setError, getFieldState } = useFormContext();
   const id = useId();
   const save = useAutoSave<string | PendingMetadata>((pending) => {
     if (typeof pending === 'string') {
+      if (readOnly && !getFieldState(name).invalid) return false;
       if (!readOnly) onCommit?.(pending);
       return;
     }
     const result = binding?.commitPending(pending);
+    if (result?.status === 'readOnly' && !getFieldState(name).invalid) return false;
     if (result?.status !== 'committed')
       setError(name, { type: 'commit', message: 'This item changed before the edit could be saved.' });
   });
+  useEffect(() => {
+    if (!readOnly) save.flush();
+  }, [readOnly, save]);
   return (
     <EditorController
       control={control}

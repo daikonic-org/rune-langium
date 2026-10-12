@@ -26,6 +26,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { Patches } from 'mutative';
+import type { DehydratedNode } from '@rune-langium/codegen/rosetta';
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
 import { astRelevantProjection, nameFromNodeId } from '../store/node-projection.js';
 import { renderNamespace } from '../serialize/cst-reuse-renderer.js';
@@ -179,6 +180,24 @@ export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, str
     (removalsByNs.get(ns) ?? removalsByNs.set(ns, []).get(ns)!).push(r);
   }
 
+  const baselineByNs = new Map<string, DehydratedNode[]>();
+  const owners = new Map(nodes.map((node) => [node.id, node.meta.namespace]));
+  for (const patch of inversePatches) {
+    if (patch.path[0] !== 'nodes' || patch.path.length !== 2) continue;
+    const old = patch.value as { meta?: { namespace?: string } } | undefined;
+    if (old?.meta?.namespace) owners.set(String(patch.path[1]), old.meta.namespace);
+  }
+  for (const patch of inversePatches) {
+    if (patch.path[0] !== 'nodes') continue;
+    const namespace = owners.get(String(patch.path[1]));
+    if (!namespace) continue;
+    const old = patch.value as { $type?: string; data?: DehydratedNode } | undefined;
+    const values = Array.isArray(old) ? old : old?.data ? [old.data] : old?.$type ? [old] : [];
+    (baselineByNs.get(namespace) ?? baselineByNs.set(namespace, []).get(namespace)!).push(
+      ...(values as DehydratedNode[])
+    );
+  }
+
   const byNs = new Map<string, TypeGraphNode[]>();
   for (const n of effectiveNodes) {
     if (n.meta.deferred) continue; // curated placeholders are never source
@@ -203,7 +222,17 @@ export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, str
     // namespaces continue to serialize normally. The previous persisted text for
     // this namespace remains in effect until a successful serialize or reparse.
     try {
-      out.set(ns, renderNamespace({ nodes: nsNodes, originalSource, dirty, forceDirtyNodeIds, removedRanges }));
+      out.set(
+        ns,
+        renderNamespace({
+          nodes: nsNodes,
+          originalSource,
+          dirty,
+          forceDirtyNodeIds,
+          removedRanges,
+          baselineNodes: [...nsNodes.map((node) => node.data), ...(baselineByNs.get(ns) ?? [])]
+        })
+      );
     } catch (err) {
       console.warn(`[cst-reuse] namespace "${ns}" serialization failed — skipping`, err);
     }

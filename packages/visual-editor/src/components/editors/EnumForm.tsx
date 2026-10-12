@@ -29,6 +29,9 @@
  * @module
  */
 
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
 import { useCallback, useMemo, useState } from 'react';
 import { useFieldArray, type Control } from 'react-hook-form';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
@@ -44,9 +47,10 @@ import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.
 import { Plus } from 'lucide-react';
 import { EnumValueRow, InheritedEnumValueRow } from './EnumValueRow.js';
 import { useEffectiveMembers } from '../../hooks/useInheritedMembers.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -152,8 +156,8 @@ function EnumForm({
   // (object identity is the contract). `keepDirty: true` preserves the
   // pre-migration `keepDirtyValues: true` semantics. Identity projection
   // per R11 — the graph node IS already AST-shaped.
-  useExternalSync(form, data, (n) => formValuesProjection<typeof RosettaEnumerationSchema>(n, nodeMeta), {
-    keepDirty: true
+  useInspectorExternalSync(form, data, (n) => formValuesProjection<typeof RosettaEnumerationSchema>(n, nodeMeta), {
+    parseEpoch
   });
 
   // The bespoke <EnumValueRow> reads `enumValues.${index}.{name,display}`
@@ -172,13 +176,17 @@ function EnumForm({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.RosettaEnumeration!, 'name')?.safeParse(newName.trim()).success) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions]
+    [nodeId, actions, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
@@ -281,8 +289,9 @@ function EnumForm({
   return (
     <FormProvider
       {...form}
+      canonicalType="RosettaEnumeration"
       schema={RosettaEnumerationSchema}
-      registerCommitFlush={registerCommitFlush}
+      registerCommitFlush={lifecycle.register}
       additionalCommitFlush={debouncedName.flush}
     >
       <EditorActionsProvider {...editorActionsValue}>
@@ -462,6 +471,7 @@ function PaginatedEnumValues({
             displayName={committedEnumValues[entry.fieldIndex!]?.display ?? ''}
             nodeId={nodeId}
             onUpdate={onUpdate}
+            onRename={targets.rootBinding.guarded ? (name) => targets.renameRow(entry.id, name) : undefined}
             onRemove={() => onRemove(entry.fieldIndex!)}
             onReorder={onReorder}
             isOverride={entry.isOverride}

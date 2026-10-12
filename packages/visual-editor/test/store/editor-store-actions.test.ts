@@ -172,7 +172,7 @@ describe('EditorStore — new actions', () => {
       const syns = (store.getState().nodes.find((n) => n.id === node.id)!.data as any).synonyms;
       expect(syns[0].$type).toBe('RosettaClassSynonym');
       expect(syns[0].sources[0].$refText).toBe('FpML');
-      expect(syns[0].value).toEqual({ name: 'Trade' });
+      expect(syns[0].value).toEqual({ $type: 'RosettaSynonymValueBase', name: 'Trade' });
     });
 
     it('appends to existing synonyms', () => {
