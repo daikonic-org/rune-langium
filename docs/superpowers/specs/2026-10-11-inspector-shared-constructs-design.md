@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-11
 **Issue:** [#562 — Inspector consolidation](https://github.com/pradeepmouli/rune-langium/issues/562)
-**Status:** Conversational design approved; written-spec review pending.
+**Status:** Written spec approved on 2026-10-12; implementation plan pending review.
 **Source snapshot:** `5812283ab9b81563b737291c6860e6db825a9c87`.
 
 ## Intent and success criterion
@@ -71,10 +71,16 @@ condition, input/output and projection surfaces.
 ### Member rows and selection
 
 - Name, type and cardinality stay directly editable in each applicable row,
-  using the existing controls. Enum values and other kinds retain their own
-  applicable basic properties.
+  using the existing controls. Enum rows retain the value name, ordering and
+  existing relevant actions; their display name/label moves to details.
 - Selecting a row displays its documentation, annotations and synonyms below.
   The selected row and details heading make the target explicit.
+- Enum-value details also expose the existing canonical `display` field as
+  Display name. It is presentation metadata, separate from the enum value's
+  identifier; do not invent an additional `labels` property. Changing or
+  clearing it uses the same declaration form, validation and mutation/source
+  path. Renaming/reordering a value preserves its display name, and inherited
+  display names remain inspectable without editing the ancestor.
 - Focusing a row control selects that row without stealing focus or interfering
   with the control. Row navigation keys must not intercept typing, picker
   navigation or CodeMirror input.
@@ -112,6 +118,7 @@ Design-system primitives own presentation; they do not acquire Rune AST logic.
 | Attributes and function inputs | Existing member controls and row interaction                            | Collection/path, current child identity, inherited/override state and callbacks.                |
 | Type/cardinality controls      | Existing selectors and canonical conversion helpers                     | Supported values, schema path and read-only state; no duplicate normalization.                  |
 | Documentation                  | Definition editor and supported documentation controls                  | Target path and canonical schema; preserve unexposed documentation/reference fields.            |
+| Display name/label             | Schema-bound optional display control in selected-item details          | Enum-value `display` capability; no artificial field on other canonical types.                  |
 | Annotations                    | One annotation editing interaction                                      | Canonical annotation shape, arguments/qualifiers where supported, scope and editing capability. |
 | Synonyms                       | Source/value selection and add/remove/edit interactions                 | Class, enumeration and enum-value AST representations and required values.                      |
 | Inheritance/inherited members  | Shared parent selection and provenance presentation                     | Applicable parent kind, effective members and existing override operations.                     |
@@ -240,6 +247,7 @@ or import-count assertions cannot replace public-behavior tests.
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Child ownership     | Edit metadata on one field, rename/reorder it, then edit again; only the intended child changes. Remove the selected child and change declaration/workspace; stale callbacks never edit another owner.                                          |
 | Shared semantics    | Exercise applicable declaration/child documentation and annotations, class/enum/enum-value synonym shapes, Data attributes and function inputs through their real form bindings. Preserve rich payloads and reject unsupported target variants. |
+| Enum display names  | Edit and clear canonical `display` in details; retain it through value rename/reorder, undo/reparse and reload. Keep its editable control out of the row and inherited values read-only until explicitly overridden.                            |
 | Validation/drafts   | Canonical identifier unions, optional fields, invalid metadata drafts and field-array operations retain existing L1 coverage. Switching child selection preserves invalid drafts without committing them.                                       |
 | Source round-trip   | Serialize and reparse actual edited Rune, then reload the workspace. Metadata, references, inherited/override semantics, sibling content, code comments and untouched expressions survive.                                                      |
 | Undo/reconciliation | Undo/redo and reparsing during consecutive child edits preserve the right values and ownership; no edits are dropped or replayed onto a different field.                                                                                        |
