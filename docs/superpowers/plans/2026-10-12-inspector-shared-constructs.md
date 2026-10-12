@@ -10,6 +10,8 @@
 
 **Spec:** [Approved shared-constructs design](../specs/2026-10-11-inspector-shared-constructs-design.md).
 
+**Added issue:** [#595 — wrong curated Source after on-demand hydration](https://github.com/pradeepmouli/rune-langium/issues/595). Task 0 fixes this existing Explore navigation boundary before the Inspector host integration. It is independently testable and can ship in its own commit; Tasks 1–10 retain their original responsibilities.
+
 **Planning baseline:** `da3987a9cecd9e6129e33aa8663ac666707e7e77`, branch `codex/inspector-shared-constructs`, attached checkout `/Users/pmouli/.codex/worktrees/dependency-merge-573/rune-langium`. Execution remains inline as previously requested; a fresh whole-branch review follows implementation. Do not begin until the user reviews this plan.
 
 ## Global Constraints
@@ -17,6 +19,7 @@
 - Each declaration retains one canonical form state and provider.
 - Name, type and cardinality stay directly editable in each applicable row, using the existing controls.
 - Enum-value display names/labels belong in details, bound to canonical `display`; value names stay inline and no new `labels` property is introduced.
+- Curated declaration navigation must select its authoritative source document and reveal the declaration after hydration or cached reload. Preserve lazy active-namespace source loading and existing immutable artifact caches; namespace identity is not a document identity.
 - Authored comments remain editable in the Source editor and existing code-region editors.
 - No new persisted IDs or global child-identity store are required.
 - Existing public standalone section and row callback APIs remain supported as thin bindings to the canonical components.
@@ -32,7 +35,7 @@
 1. A pending debounced edit followed by selection, rename, reorder, delete/name reuse or workspace change must never update the replacement child. Tasks 1, 3 and 9 pin this.
 2. Source reparsing between two metadata edits must retain both edits and correct ownership; array indices cannot become persistent identities. Tasks 2 and 8 pin this.
 3. Rich annotations, cross-namespace synonyms, code comments, CRLF and non-BMP text must survive structural edits and round-trip. Tasks 2, 4 and 8 pin this.
-4. An inherited, curated or unsupported metadata target must remain inspectable without mutating a base declaration or hiding an invalid draft. Tasks 4, 6 and 7 pin this.
+4. An inherited, curated or unsupported metadata target must remain inspectable without mutating a base declaration or hiding an invalid draft. Curated navigation must also keep Source on the selected declaration when several files share a namespace, even after delayed hydration or reload. Tasks 0, 4, 6, 7 and 9 pin this.
 5. Empty selection, large/paginated enums and narrow panels must preserve accessible row editing, useful pane sizes and live function/condition editing sessions. Tasks 5, 6, 7 and 9 pin this.
 
 ## File structure and responsibilities
@@ -55,7 +58,108 @@
 
 Paths beginning `src/` in this table are under `packages/visual-editor/`. Test tasks below use full repository paths. These units form one Inspector change; source fidelity and persistence checks are its acceptance seams, not independent subsystem rewrites.
 
+Task 0 additionally modifies `apps/studio/src/shell/explore-file-nav-store.ts` and existing Explore source/reveal effects to resolve exact curated document identity through current navigation state. It does not add a navigation store or replace source/cache services.
+
 `src/hooks/editor-commit-lifecycle.tsx` collects flush callbacks for existing form timers. The existing useAutoSave, EditorFormProvider, source-sync hook and App save barrier consume those callbacks; no second timer or model store is introduced.
+
+### Task 0: Curated source ownership and declaration reveal (#595)
+
+**Files:** Modify `apps/studio/src/shell/explore-file-nav-store.ts`, `apps/studio/src/shell/ExplorePerspective.tsx`; extend `apps/studio/test/store/explore-file-nav-store.test.ts`, `apps/studio/test/pages/EditorPage.test.tsx`, `apps/studio/test/integration/curated-source-editor.test.tsx`, `apps/studio/test/prod-ux/journeys/j04-explorer-hydration.spec.ts` and `apps/studio/test/prod-ux/journeys/j20-curated-cache.spec.ts`. Update navigation architecture notes in Task 10. Keep source fetching/cache services unchanged unless a regression test proves a gap there.
+
+**Evidence boundary:** Issue #595 reports J04a/J04b/J20 failures on both attempts of nightly run `38206165327`, with deployment freshness recorded at master `a0d0a148`. That is issue-supplied production evidence, not a fresh checkout performed while writing this plan. Direct inspection of this branch confirms the hydration effect ignores `pending.path` when choosing the first matching bundle/namespace/artifact file. Deferred exports can aggregate onto the first namespace document, so an exact-old-path check alone is not a complete fix. J20's declaration reveal symptom must be tested independently rather than presumed to share the file-selection cause.
+
+**Interfaces:** Reuse `resolveEditorFilePath`, `nodeIdToFilePath` from current resolved model ownership, `expressionOwnerFiles` from canonical function dispatch ownership, `resolveNodeFile`, `findDeclarationLine`, `applyPendingReveal`, existing `SourceRevealRequest` and `useExploreFileNavStore`. Add the pure resolver below in `explore-file-nav-store.ts`, rather than a second file or navigation store. Extend the existing ephemeral pending request with current workspace/selection/navigation identity; validate that identity in the existing effect before calling the resolver. No persisted navigation or AST state is added.
+
+```ts
+export interface HydratedSourceRequest {
+  bundleId: string;
+  bundleVersion: string;
+  namespace: string;
+  path: string;
+  nodeId?: string; // Declaration navigation when present; explicit file navigation otherwise.
+  artifactKey?: string;
+}
+
+export function resolveHydratedSourcePath(
+  request: HydratedSourceRequest,
+  files: readonly WorkspaceFile[],
+  hydratedNamespaces: readonly string[],
+  resolvedDeclarationPath?: string
+): string | undefined {
+  const desired = request.nodeId ? resolvedDeclarationPath : request.path;
+  const path = resolveEditorFilePath(desired, files);
+  const file = path ? files.find((candidate) => candidate.path === path) : undefined;
+  if (
+    !file?.refOnly ||
+    file.bundleId !== request.bundleId ||
+    file.bundleVersion !== request.bundleVersion ||
+    file.namespace !== request.namespace ||
+    (request.artifactKey !== undefined && file.artifactKey !== request.artifactKey)
+  )
+    return undefined;
+  return file.artifactKey || hydratedNamespaces.includes(request.namespace) ? file.path : undefined;
+}
+```
+
+`resolvedDeclarationPath` must come from hydrated models/document ownership, not a namespace catalogue fallback. Before authoritative ownership exists, declaration routing waits. Exact file requests resolve only their requested identity. The existing parser/editor alias mapping handles `cdm/models/...` versus `[cdm]/models/...`; same basenames in another bundle are not fallbacks. Legacy hydrated namespaces without artifact keys retain their existing lazy source behavior. Before implementation, refresh `origin/master` and check whether #595 already has an owner fix; retain behavioral tests but do not overwrite a newer correction.
+
+- [ ] Add exact-path regression tests with two files in `cdm.base.datetime`, enum first and type second, both carrying the same namespace artifact key. Include reversed order, explicit file-only navigation, an unresolved declaration, a replacement of the catalogue path by the hydrated owner path, same basenames in two bundles, mismatched version/artifact and hydrated legacy files without keys.
+
+```ts
+const enumFile: WorkspaceFile = {
+  name: 'base-datetime-enum.rosetta',
+  path: '[cdm]/base-datetime-enum.rosetta',
+  content: '',
+  dirty: false,
+  refOnly: true,
+  readOnly: true,
+  sourceLoaded: false,
+  bundleId: 'cdm',
+  bundleVersion: 'latest',
+  namespace: 'cdm.base.datetime',
+  artifactKey: 'cdm/digest/datetime'
+};
+const typeFile: WorkspaceFile = {
+  ...enumFile,
+  name: 'base-datetime-type.rosetta',
+  path: '[cdm]/base-datetime-type.rosetta'
+};
+const request: HydratedSourceRequest = {
+  bundleId: 'cdm',
+  bundleVersion: 'latest',
+  namespace: 'cdm.base.datetime',
+  path: enumFile.path,
+  nodeId: 'cdm.base.datetime.BusinessCenters'
+};
+expect(
+  resolveHydratedSourcePath(request, [enumFile, typeFile], ['cdm.base.datetime'], 'cdm/base-datetime-type.rosetta')
+).toBe(typeFile.path);
+expect(resolveHydratedSourcePath(request, [enumFile, typeFile], ['cdm.base.datetime'])).toBeUndefined();
+expect(
+  resolveHydratedSourcePath(
+    { ...request, nodeId: undefined, path: typeFile.path },
+    [enumFile, typeFile],
+    ['cdm.base.datetime']
+  )
+).toBe(typeFile.path);
+```
+
+- [ ] Run `pnpm --filter @rune-langium/studio test -- test/store/explore-file-nav-store.test.ts test/pages/EditorPage.test.tsx`; new resolver tests fail before implementation. Extend EditorPage's existing hydration/source reveal fixtures to include multiple namespace files and real per-document ownership. Assert cold BusinessCenters/Counterparty selection activates the type file, pending source navigation cannot activate the first enum file, and `revealLine` acknowledges only the matching ready view. Retain existing rapid A→B, explicit tab navigation, same-path source failure, workspace change and deferred-path replacement tests; add delayed hydration variants of each.
+- [ ] Implement the pure resolver and replace the namespace-only hydrated-file selection. Capture declaration identity with the existing pending navigation request when it originates from selection; preserve explicit file intent when it originates from a file request. Re-resolve the current declaration's owner after hydration, including canonical dispatch-base ownership for functions. Cancel superseded request identities before switching active files. Do not treat `deferredExports` catalogue ownership as authoritative after resolved models become available, or silently fall back to another namespace file when ownership is missing/ambiguous.
+- [ ] Extend the curated-source integration fixture from one document to two distinct documents in the same namespace using its existing real parser, serialized artifacts and API handlers. Verify hydrated model/document ownership, lazy source delivery, exact active file content and read-only status together. Add a function far below an enum in its original file. In EditorPage lifecycle tests, delay source until after view creation, delay view until after source, hide/reopen Source and restore cached content; each case reveals the function line using the existing `applyPendingReveal` path. A source download completing is not a reveal acknowledgement, and a namespace artifact key alone is not evidence that offsets belong to the selected document.
+- [ ] Fix only gaps demonstrated by those reveal tests. Keep the full original file and existing CodeMirror `revealLine` behavior; never replace the source with an extracted function, remove the scroll assertion, widen timeouts to hide misrouting, or introduce a second reveal scheduler. Preserve source-origin cursor position and cancellation on explicit file navigation. Run `pnpm --filter @rune-langium/studio test -- test/store/explore-file-nav-store.test.ts test/pages/EditorPage.test.tsx test/integration/curated-source-editor.test.tsx`, `pnpm --filter @rune-langium/studio run type-check`, `pnpm exec oxlint apps/studio/src/shell/explore-file-nav-store.ts apps/studio/src/shell/ExplorePerspective.tsx` and `pnpm exec oxfmt --check apps/studio/src/shell/explore-file-nav-store.ts apps/studio/src/shell/ExplorePerspective.tsx`.
+- [ ] Retain J04a/J04b's exact source-file assertions and strengthen J20 to check the visible declaration and its reveal cue, with cold and warm reload paths. Extend J04 with delayed navigation and a same-namespace enum→type switch so file order cannot mask the failure. Preserve J20's existing no-source-refetch and zero-downloaded-curated-document assertions; use canonical anchor declarations already in the corpus rather than inventing production content.
+
+```ts
+await expect(page.getByLabel('Source file path')).toContainText('base-datetime-type.rosetta');
+await expect(page.locator('[data-pane="source"] .cm-content')).toContainText('type BusinessCenters');
+// In J20's existing openSource helper, after requesting Abs:
+const declaration = page.locator('[data-pane="source"] .cm-source-reveal-line').filter({ hasText: 'func Abs:' });
+await expect(declaration).toBeVisible();
+await expect(declaration).toBeInViewport();
+```
+
+- [ ] Commit `fix: retain curated declaration source identity through hydration`. Record local regression results separately from the original nightly evidence. The existing production journeys run against confirmed-current production after an authorized merge/deployment; until then, #595 remains open and production validation is explicitly pending. A later implementation PR may use `Fixes #595` only when the source selection/reveal fix and required local checks pass; do not close it while merely planning.
 
 ## Shared test fixture and interface contract
 
@@ -646,7 +750,7 @@ test('selected field metadata survives rename and reload', async ({ page }) => {
 - [ ] Start an owned dev server directly with `pnpm --filter @rune-langium/studio exec vite --host 127.0.0.1 --port 5174 --strictPort`; do not run cleanup scripts or reuse the user's primary 5173 server. Run `PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm --filter @rune-langium/studio exec playwright test test/e2e/inspector-details.spec.ts --retries=0` using isolated contexts. Failures before completing integration should describe the missing behavior, not a dead server.
 - [ ] Strengthen persistence integration using existing fake storage/clock harness: make several valid child edits, assert existing debounce coalesces writes, delay the first save while making a newer edit, transition workspace, and reject/retry storage. The latest snapshot must save before activation; stale child callbacks cannot edit identical IDs in another workspace. Do not modify debounce semantics to make tests pass.
 - [ ] Exercise narrow panels with a long annotation/synonym list and at least two enum pages. Run AxeBuilder over the actual Inspector, verify controls stay inside pane bounds and resize observer/console errors are absent. Tests wait for visible readiness and committed source rather than `networkidle` or arbitrary sleeps.
-- [ ] Run the new journeys alongside `expression-workspace.spec.ts` and the existing `pnpm --filter @rune-langium/studio run test:z2f-hmr`. Network LSP cases remain explicit opt-in and skipped coverage is reported; do not claim hosted production proof from local journeys.
+- [ ] Run the new journeys alongside `expression-workspace.spec.ts` and the existing `pnpm --filter @rune-langium/studio run test:z2f-hmr`. Include Task 0's multi-document curated source integration/reveal regressions when verifying the new Inspector frame; inherited/curated details and Open in Source must retain that fixed navigation identity. Network LSP cases remain explicit opt-in and skipped coverage is reported; do not claim hosted production proof from local journeys.
 - [ ] Stop only the owned server. Commit `test: cover selected-item Inspector persistence and accessibility`.
 
 ### Task 10: Qualitative assessment, documentation and final verification
@@ -665,7 +769,7 @@ test('selected field metadata survives rename and reload', async ({ page }) => {
 ```
 
 - [ ] Inspect remaining repeated UI/semantic logic after all migrations. Add rows for attributes/function inputs, annotations, inheritance, header/footer/navigation and conditions/errors. Name exact implementation files and tests; include standalone wrappers and generated/custom config consumers. Resolve parallel editors/factories rather than counting shared hook imports. Record actual remaining exceptions and their reason; do not invent a passing percentage.
-- [ ] Update architecture/workflow guidance for the common frame, form-local selection, guarded target actions, source-only comments and honest save status. Mark the original LOC criterion explicitly superseded by the user's October 11 qualitative decision; retain measured history. Confirm public callback APIs and stored notes coverage are retained.
+- [ ] Update architecture/workflow guidance for the common frame, form-local selection, guarded target actions, source-only comments and honest save status. Document #595's declaration-owned curated routing and request-scoped reveal, retaining active-namespace source laziness and existing cache semantics. Mark the original LOC criterion explicitly superseded by the user's October 11 qualitative decision; retain measured history. Confirm public callback APIs and stored notes coverage are retained.
 - [ ] Run relevant complete visual-editor and Studio test suites, lint/style/format checks, workspace type-check and final browser journeys. If Task 8 changed core/codegen runtime rendering, include full affected package tests and rebuilds before consumer verification. Use these commands from the root:
 
 ```bash
@@ -702,3 +806,5 @@ pnpm --filter @rune-langium/codegen test
 | Qualitative #562 assessment and durable documentation   | 10                |
 
 Expected missing modules/action failures in the test-first steps are future execution expectations, not tests run during planning. Code blocks show the key implementation changes and tests; retain existing fixture teardown/import patterns and use the listed explicit cases with the same public interfaces. No product code is created by writing this document.
+
+Additional scope coverage: #595's exact curated source ownership, cold/warm declaration reveal and navigation cancellation are owned by Tasks 0, 7, 9 and 10.

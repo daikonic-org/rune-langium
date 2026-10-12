@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-11
 **Issue:** [#562 — Inspector consolidation](https://github.com/pradeepmouli/rune-langium/issues/562)
+**Related navigation regression:** [#595 — wrong curated Source after hydration](https://github.com/pradeepmouli/rune-langium/issues/595), added to the plan at the user's request on 2026-10-12.
 **Status:** Written spec approved on 2026-10-12; implementation plan pending review.
 **Source snapshot:** `5812283ab9b81563b737291c6860e6db825a9c87`.
 
@@ -67,6 +68,26 @@ stacked sections within the same frame; do not manufacture empty tabs or impose
 the Data layout on every kind. The shared section configuration owns placement.
 The initial implementation must preserve all existing function implementation,
 condition, input/output and projection surfaces.
+
+### Curated navigation prerequisite (#595)
+
+Explorer, Inspector and Source must remain on the same selected declaration
+through namespace hydration and cached reload. The Source file must come from
+the declaration's authoritative document ownership, not the first file matching
+its bundle and namespace. A deferred catalogue path may be replaced by that
+resolved ownership once hydration finishes; file-only navigation keeps its
+explicit file identity. Newer selection, file navigation or workspace changes
+supersede older requests.
+
+For `BusinessCenters` and `Counterparty`, show their actual type file even when
+the enum file appears first in the hydrated namespace. For `Abs`, retain the
+complete original source file and reveal the function's declaration once source
+and its matching editor view are ready, including after a cached reload. A
+correct Inspector heading does not by itself prove either Source behavior.
+Keep source loading lazy to the active namespace and existing caches intact;
+do not fetch the full source closure or substitute a rendered declaration for
+the original file. The function reveal failure requires separate reproduction:
+the issue's common-cause explanation remains a hypothesis.
 
 ### Member rows and selection
 
@@ -254,6 +275,12 @@ or import-count assertions cannot replace public-behavior tests.
 | Persistence         | Existing trailing debounce and save barriers retain the latest valid child edits across reload and workspace transitions, including storage failure/retry behavior.                                                                             |
 | Read-only           | Inherited and curated children show the same supported detail sections without unauthorized mutations; local override edits retain their existing rules.                                                                                        |
 | UX                  | Keyboard selection/control focus, divider resize/collapse, long lists, empty selection and narrow panels work; details always name the current child. Header/footer remain consistent and expression sessions stay mounted appropriately.       |
+
+For #595, include exact curated type-file selection on cold hydration,
+deferred-path replacement, cancellation on rapid/file/workspace navigation, and
+visible `Abs` declaration reveal after cached reload without source refetch.
+Use the original nightly J04a/J04b/J20 assertions as regression requirements;
+keep issue-reported production evidence separate from new local validation.
 
 Extend existing public-behavior tests at the relevant seams:
 
