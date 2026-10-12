@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useLatestRef } from './useLatestRef.js';
+import { useEditorCommitRegistry } from './editor-commit-lifecycle.js';
 
 /**
  * Returns a debounced callback that auto-saves the latest value after
@@ -29,54 +30,36 @@ import { useLatestRef } from './useLatestRef.js';
  * @param delay - Debounce delay in milliseconds (default 500).
  * @returns A debounced setter function.
  */
-export function useAutoSave<T>(onCommit: (value: T) => void, delay = 500): (value: T) => void {
+export function useAutoSave<T>(onCommit: (value: T) => void, delay = 500): ((value: T) => void) & { flush(): void } {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRef = useRef<T | undefined>(undefined);
   const pendingRef = useRef(false);
   // Keep the commit callback up to date without re-creating the debounced fn.
   const commitRef = useLatestRef(onCommit);
 
+  const registry = useEditorCommitRegistry();
+  const flush = useCallback(() => {
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    if (!pendingRef.current) return;
+    pendingRef.current = false;
+    commitRef.current(latestRef.current as T);
+  }, [commitRef]);
   const debouncedSet = useCallback(
     (value: T) => {
       latestRef.current = value;
       pendingRef.current = true;
-
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        if (pendingRef.current) {
-          commitRef.current(latestRef.current as T);
-          pendingRef.current = false;
-          // Test instrumentation: emit a window event so perf specs can
-          // measure (input → commit) latency without polling.
-          if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
-            window.dispatchEvent(
-              new CustomEvent('__z2fAutoSaveCommit__', {
-                detail: { timestamp: performance.now() }
-              })
-            );
-          }
+        flush();
+        if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('__z2fAutoSaveCommit__', { detail: { timestamp: performance.now() } }));
         }
-        timerRef.current = null;
       }, delay);
     },
-    [delay]
+    [delay, flush]
   );
-
-  // Flush on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-      if (pendingRef.current) {
-        commitRef.current(latestRef.current as T);
-        pendingRef.current = false;
-      }
-    };
-  }, []);
-
-  return debouncedSet;
+  useEffect(() => registry?.register(flush), [registry, flush]);
+  useEffect(() => () => flush(), [flush]);
+  return Object.assign(debouncedSet, { flush });
 }

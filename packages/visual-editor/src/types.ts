@@ -17,6 +17,7 @@
  */
 
 import type { Node, Edge } from '@xyflow/react';
+import type { InspectorMetadataActions } from './store/metadata-target.js';
 import type {
   Data,
   Choice,
@@ -204,7 +205,7 @@ export interface SourceRefOption {
 // ---------------------------------------------------------------------------
 
 /** Actions shared by all type kinds. */
-export interface CommonFormActions {
+export interface CommonFormActions extends Partial<InspectorMetadataActions> {
   renameType(nodeId: string, newName: string): void;
   deleteType(nodeId: string): void;
   updateDefinition(nodeId: string, definition: string): void;

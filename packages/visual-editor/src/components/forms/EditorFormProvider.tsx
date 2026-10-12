@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, useEffect } from 'react';
+import { createEditorCommitRegistry, EditorCommitProvider } from '../../hooks/editor-commit-lifecycle.js';
 import { z } from 'zod';
 import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
 import { normalizeFormValues } from '@zod-to-form/core';
@@ -21,8 +22,20 @@ const ValidationContext = createContext<((name: string) => Validate | undefined)
 export function EditorFormProvider<T extends FieldValues>({
   schema,
   children,
+  registerCommitFlush,
+  additionalCommitFlush,
   ...form
-}: FormProviderProps<T> & { schema: z.ZodObject }) {
+}: FormProviderProps<T> & {
+  schema: z.ZodObject;
+  registerCommitFlush?: (flush: () => void) => () => void;
+  additionalCommitFlush?: () => void;
+}) {
+  const registry = useMemo(createEditorCommitRegistry, []);
+  useEffect(() => registerCommitFlush?.(() => registry.flush()), [registry, registerCommitFlush]);
+  useEffect(
+    () => (additionalCommitFlush ? registry.register(additionalCommitFlush) : undefined),
+    [registry, additionalCommitFlush]
+  );
   const getValidate = useMemo(() => {
     const validators = new Map<string, Validate | undefined>();
     return (name: string) => {
@@ -44,7 +57,9 @@ export function EditorFormProvider<T extends FieldValues>({
   }, [schema]);
   return (
     <ValidationContext.Provider value={getValidate}>
-      <FormProvider {...form}>{children}</FormProvider>
+      <EditorCommitProvider registry={registry}>
+        <FormProvider {...form}>{children}</FormProvider>
+      </EditorCommitProvider>
     </ValidationContext.Provider>
   );
 }

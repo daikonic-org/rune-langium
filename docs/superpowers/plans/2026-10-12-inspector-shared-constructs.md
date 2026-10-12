@@ -20,7 +20,8 @@
 - Task 0 completed locally: the stable-path hydration fixture fails with the original effect and passes with the corrected document routing. Source integration uses two real serialized documents and confirms full-file read-only function reveal. All 94 scoped Studio tests and Studio type checks pass. Production J20 now checks visible declaration reveal; production execution is pending an authorized deployment.
 - Task 1 complete: regenerated projected canonical metadata fields, shared schema lookup and owner/epoch/child guards; 20 metadata/L1/parity tests and visual-editor types pass.
 - Task 2 complete: canonical factories and guarded metadata commands share the existing mutateGraph/undo/reconcile path; root actions delegate. 56 store tests and 33 additional shared-section/reparse checks pass; types/lint pass.
-- Remaining Tasks 3–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
+- Task 3 foundations complete: stable row/locator aliases, captured edit envelopes, existing timer flush and callback registry. 25 selection/debounce/L1 checks pass; actual-form integration remains in Tasks 4/6/7. Root-level timers outside the returned provider use its additionalCommitFlush prop.
+- Remaining Tasks 4–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
 
 ## Global Constraints
 
@@ -375,7 +376,7 @@ return AnnotationRefSchema.parse({
 
 `useAutoSave` keeps its callable setter API and gains `flush(): void` as a property on that setter. The existing timer/pending-value state is the only debounce. `EditorCommitRegistry { register(flush: () => void): () => void; flush(): void }` owns callbacks only; `createEditorCommitRegistry()` and its React context live in `editor-commit-lifecycle.tsx`. EditorFormProvider owns one registry and optionally registers its aggregate flush with the host through `registerCommitFlush?: (flush: () => void) => () => void`. Standalone hosts require no new props.
 
-- [ ] Write a fixture component using the existing `useZodForm`/EditorFormProvider and real store actions. Type into A's definition, select B before 500ms, then run timers. A changes, B does not. Also rename/reorder A, remove A and reuse its name, change scope, and preserve an invalid attribute-name draft when returning to A. The fixture's selection controls have `Select name`/`Select age` labels; real row tests retain the current `Attribute name: value` labels.
+- [x] Write a fixture component using the existing `useZodForm`/EditorFormProvider and real store actions. Type into A's definition, select B before 500ms, then run timers. A changes, B does not. Also rename/reorder A, remove A and reuse its name, change scope, and preserve an invalid attribute-name draft when returning to A. The fixture's selection controls have `Select name`/`Select age` labels; real row tests retain the current `Attribute name: value` labels.
 
 ```ts
 fireEvent.focus(screen.getByLabelText('Select name'));
@@ -388,9 +389,9 @@ expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).
 expect(store.getState().captureMetadataTarget(id, ['attributes', 1])?.expected).not.toHaveProperty('definition');
 ```
 
-- [ ] Run the new selection suite; expect absent selection/context behavior before implementation.
-- [ ] Key selection by RHF `field.id` and active scope, mapping to current full collection paths. Track committed child names/source ranges during own rename/reorder. On external reset/reparse, restore only a unique current child match; reject duplicate names, removed children and ambiguous matches. Inherited bindings are inspection-only and never resolve a writable local path without an existing override.
-- [ ] Use the existing debounce with an explicit envelope; resolve the envelope's row, not the latest selected row. Scope is captured on input. Unmount flushes valid pending work against its original target; deleted/stale/read-only work returns rejection. Lower-pane changes must not unregister fields or create another form.
+- [x] Run the new selection suite; expect absent selection/context behavior before implementation.
+- [x] Key selection by RHF `field.id` and active scope, mapping to current full collection paths. Track committed child names/source ranges during own rename/reorder. On external reset/reparse, restore only a unique current child match; reject duplicate names, removed children and ambiguous matches. Inherited bindings are inspection-only and never resolve a writable local path without an existing override.
+- [x] Use the existing debounce with an explicit envelope; resolve the envelope's row, not the latest selected row. Scope is captured on input. Unmount flushes valid pending work against its original target; deleted/stale/read-only work returns rejection. Lower-pane changes must not unregister fields or create another form.
 
 ```ts
 type PendingMetadata = { scopeKey: string; rowKey: string; command: MetadataCommand };
@@ -402,8 +403,8 @@ const save = useAutoSave<PendingMetadata>((pending) => {
 }, 500);
 ```
 
-- [ ] Capture the owner scope rather than reading a new workspace's current actions through a late callback. New `scopeKey` invalidates old resolver closures. Root bindings use the same envelope guard, with a root key/path. Validate drafts before enqueueing; retain invalid text/errors in parent form state.
-- [ ] Add a fake-clock test enqueuing a value, calling the setter's `flush()` before 500ms, then advancing timers/unmounting. The value commits once. Register existing useAutoSave flush callbacks in the declaration's callback registry; they use exactly the same validation/envelopes as timer/unmount commits.
+- [x] Capture the owner scope rather than reading a new workspace's current actions through a late callback. New `scopeKey` invalidates old resolver closures. Root bindings use the same envelope guard, with a root key/path. Validate drafts before enqueueing; retain invalid text/errors in parent form state.
+- [x] Add a fake-clock test enqueuing a value, calling the setter's `flush()` before 500ms, then advancing timers/unmounting. The value commits once. Register existing useAutoSave flush callbacks in the declaration's callback registry; they use exactly the same validation/envelopes as timer/unmount commits.
 
 ```ts
 const registry = createEditorCommitRegistry();
@@ -415,7 +416,7 @@ expect(commit).toHaveBeenCalledExactlyOnceWith('pending value');
 
 The registry test covers aggregation; useAutoSave tests pin timer cancellation and no duplicate flush. Flush does not save invalid drafts or create a source/storage writer. The host integration in Task 7 invokes these callbacks before clearing graph ownership.
 
-- [ ] Run selection suite, existing `test/hooks/useAutoSave.test.ts` and canonical field tests. Commit `feat: bind Inspector details to stable selected rows`.
+- [x] Run selection suite, existing `test/hooks/useAutoSave.test.ts` and canonical field tests. Commit `feat: bind Inspector details to stable selected rows`.
 
 ### Task 4: Shared documentation, display, annotations and synonym controls
 
