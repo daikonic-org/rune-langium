@@ -1,49 +1,39 @@
 {
   "_comment": [
-    "Form-surface projection config for langium-zod generate --projection.",
-    "Only form-relevant fields are included per type — Langium internals are",
-    "stripped via --strip-internals CLI flag.",
-    "",
-    "Expected conformance assertions (T008 pre-generation spec):",
-    "  RosettaEnumeration → RosettaEnumerationSchema: fields name, parent",
-    "    cross-ref factory: createRosettaEnumerationSchema(refs?) — parent ref field",
-    "  Data              → DataSchema: fields name, superType, attributes",
-    "    cross-ref factory: createDataSchema(refs?) — superType ref field",
-    "  Attribute         → AttributeSchema: fields name, typeCall, card",
-    "    no cross-ref factory (typeCall and card are value types)",
-    "  RosettaFunction   → RosettaFunctionSchema: fields name, inputs, output",
-    "    no cross-ref factory",
-    "  Choice            → ChoiceSchema: fields name, attributes",
-    "    no cross-ref factory",
-    "",
-    "Confirmed field names from grammar (rune-dsl.langium) + ast.ts:",
-    "  RosettaEnumeration.parent  — cross-reference (NOT superEnum)",
-    "  Data.superType             — cross-reference",
-    "  Data.attributes            — Attribute[]",
-    "  Attribute.typeCall         — TypeCallSimple",
-    "  Attribute.card             — RosettaCardinality",
-    "  RosettaFunction.inputs     — Attribute[] (NOT parameters)",
-    "  RosettaFunction.output     — Attribute? (NOT outputType)",
-    "  Choice.attributes          — ChoiceOption[] (NOT options)"
+    "Form-surface projection for canonical generated Inspector schemas.",
+    "Shared root and child metadata fields stay declared for L1 field validation.",
+    "Langium runtime fields are removed by --strip-internals."
   ],
   "defaults": {
     "strip": ["$container", "$document", "$cstNode", "$containerProperty", "$containerIndex"]
   },
   "types": {
     "RosettaEnumeration": {
-      "fields": ["name", "parent", "enumValues"]
+      "fields": ["name", "parent", "enumValues", "definition", "annotations", "synonyms", "references"]
     },
     "Data": {
-      "fields": ["name", "superType", "attributes"]
+      "fields": ["name", "superType", "attributes", "definition", "annotations", "synonyms", "references"]
     },
     "Attribute": {
-      "fields": ["name", "typeCall", "card"]
+      "fields": [
+        "name",
+        "typeCall",
+        "card",
+        "definition",
+        "annotations",
+        "synonyms",
+        "references",
+        "labels",
+        "ruleReferences",
+        "override",
+        "typeCallArgs"
+      ]
     },
     "RosettaFunction": {
-      "fields": ["name", "inputs", "output"]
+      "fields": ["name", "inputs", "output", "definition", "annotations", "references"]
     },
     "Choice": {
-      "fields": ["name", "attributes"]
+      "fields": ["name", "attributes", "definition", "annotations", "synonyms"]
     },
     "RosettaTypeAlias": {
       "fields": ["name", "typeCall", "definition"]

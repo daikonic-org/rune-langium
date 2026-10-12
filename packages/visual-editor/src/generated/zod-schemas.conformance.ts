@@ -176,18 +176,56 @@ type _Fwd_AsOperation = z.infer<typeof AsOperationSchema> extends _Surface<AST.A
 type _Rev_AsOperation = _Surface<AST.AsOperation> extends z.infer<typeof AsOperationSchema> ? true : never;
 
 type _Fwd_Attribute =
-  z.infer<typeof AttributeSchema> extends Pick<_Surface<AST.Attribute>, '$type' | 'name' | 'typeCall' | 'card'>
+  z.infer<typeof AttributeSchema> extends Pick<
+    _Surface<AST.Attribute>,
+    | '$type'
+    | 'name'
+    | 'typeCall'
+    | 'card'
+    | 'definition'
+    | 'annotations'
+    | 'synonyms'
+    | 'references'
+    | 'labels'
+    | 'ruleReferences'
+    | 'override'
+    | 'typeCallArgs'
+  >
     ? true
     : never;
 type _Rev_Attribute =
-  Pick<_Surface<AST.Attribute>, '$type' | 'name' | 'typeCall' | 'card'> extends z.infer<typeof AttributeSchema>
+  Pick<
+    _Surface<AST.Attribute>,
+    | '$type'
+    | 'name'
+    | 'typeCall'
+    | 'card'
+    | 'definition'
+    | 'annotations'
+    | 'synonyms'
+    | 'references'
+    | 'labels'
+    | 'ruleReferences'
+    | 'override'
+    | 'typeCallArgs'
+  > extends z.infer<typeof AttributeSchema>
     ? true
     : never;
 
 type _Fwd_Choice =
-  z.infer<typeof ChoiceSchema> extends Pick<_Surface<AST.Choice>, '$type' | 'name' | 'attributes'> ? true : never;
+  z.infer<typeof ChoiceSchema> extends Pick<
+    _Surface<AST.Choice>,
+    '$type' | 'name' | 'attributes' | 'definition' | 'annotations' | 'synonyms'
+  >
+    ? true
+    : never;
 type _Rev_Choice =
-  Pick<_Surface<AST.Choice>, '$type' | 'name' | 'attributes'> extends z.infer<typeof ChoiceSchema> ? true : never;
+  Pick<
+    _Surface<AST.Choice>,
+    '$type' | 'name' | 'attributes' | 'definition' | 'annotations' | 'synonyms'
+  > extends z.infer<typeof ChoiceSchema>
+    ? true
+    : never;
 
 type _Fwd_ChoiceOperation = z.infer<typeof ChoiceOperationSchema> extends _Surface<AST.ChoiceOperation> ? true : never;
 type _Rev_ChoiceOperation = _Surface<AST.ChoiceOperation> extends z.infer<typeof ChoiceOperationSchema> ? true : never;
@@ -214,11 +252,17 @@ type _Rev_ConstructorKeyValuePair =
   _Surface<AST.ConstructorKeyValuePair> extends z.infer<typeof ConstructorKeyValuePairSchema> ? true : never;
 
 type _Fwd_Data =
-  z.infer<typeof DataSchema> extends Pick<_Surface<AST.Data>, '$type' | 'name' | 'superType' | 'attributes'>
+  z.infer<typeof DataSchema> extends Pick<
+    _Surface<AST.Data>,
+    '$type' | 'name' | 'superType' | 'attributes' | 'definition' | 'annotations' | 'synonyms' | 'references'
+  >
     ? true
     : never;
 type _Rev_Data =
-  Pick<_Surface<AST.Data>, '$type' | 'name' | 'superType' | 'attributes'> extends z.infer<typeof DataSchema>
+  Pick<
+    _Surface<AST.Data>,
+    '$type' | 'name' | 'superType' | 'attributes' | 'definition' | 'annotations' | 'synonyms' | 'references'
+  > extends z.infer<typeof DataSchema>
     ? true
     : never;
 
@@ -383,14 +427,15 @@ type _Rev_RosettaDocReference =
 type _Fwd_RosettaEnumeration =
   z.infer<typeof RosettaEnumerationSchema> extends Pick<
     _Surface<AST.RosettaEnumeration>,
-    '$type' | 'name' | 'parent' | 'enumValues'
+    '$type' | 'name' | 'parent' | 'enumValues' | 'definition' | 'annotations' | 'synonyms' | 'references'
   >
     ? true
     : never;
 type _Rev_RosettaEnumeration =
-  Pick<_Surface<AST.RosettaEnumeration>, '$type' | 'name' | 'parent' | 'enumValues'> extends z.infer<
-    typeof RosettaEnumerationSchema
-  >
+  Pick<
+    _Surface<AST.RosettaEnumeration>,
+    '$type' | 'name' | 'parent' | 'enumValues' | 'definition' | 'annotations' | 'synonyms' | 'references'
+  > extends z.infer<typeof RosettaEnumerationSchema>
     ? true
     : never;
 
@@ -466,14 +511,15 @@ type _Rev_RosettaFeatureCall =
 type _Fwd_RosettaFunction =
   z.infer<typeof RosettaFunctionSchema> extends Pick<
     _Surface<AST.RosettaFunction>,
-    '$type' | 'name' | 'inputs' | 'output'
+    '$type' | 'name' | 'inputs' | 'output' | 'definition' | 'annotations' | 'references'
   >
     ? true
     : never;
 type _Rev_RosettaFunction =
-  Pick<_Surface<AST.RosettaFunction>, '$type' | 'name' | 'inputs' | 'output'> extends z.infer<
-    typeof RosettaFunctionSchema
-  >
+  Pick<
+    _Surface<AST.RosettaFunction>,
+    '$type' | 'name' | 'inputs' | 'output' | 'definition' | 'annotations' | 'references'
+  > extends z.infer<typeof RosettaFunctionSchema>
     ? true
     : never;
 

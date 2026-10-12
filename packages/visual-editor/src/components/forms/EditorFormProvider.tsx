@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useMemo } from 'react';
 import { z } from 'zod';
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
 import { normalizeFormValues } from '@zod-to-form/core';
 import {
   Controller,
@@ -16,25 +17,6 @@ import {
 type Validate = (value: unknown) => true | string;
 const ValidationContext = createContext<((name: string) => Validate | undefined) | null>(null);
 
-/** Resolve an atomic field without reproducing any schema constraints. */
-function fieldSchema(root: z.ZodObject, path: string): z.ZodType | undefined {
-  let schema: z.ZodType | undefined = root;
-  for (const segment of path.split('.')) {
-    while (
-      schema instanceof z.ZodOptional ||
-      schema instanceof z.ZodNullable ||
-      schema instanceof z.ZodDefault ||
-      schema instanceof z.ZodReadonly
-    )
-      schema = schema.unwrap() as z.ZodType;
-    if (schema instanceof z.ZodLazy) schema = schema.unwrap() as z.ZodType;
-    if (schema instanceof z.ZodObject) schema = schema.shape[segment];
-    else if (schema instanceof z.ZodArray && /^\d+$/.test(segment)) schema = schema.element as z.ZodType;
-    else return undefined;
-  }
-  return schema;
-}
-
 /** Supplies L1 rules to bespoke editor controls, including identifier unions. */
 export function EditorFormProvider<T extends FieldValues>({
   schema,
@@ -46,7 +28,7 @@ export function EditorFormProvider<T extends FieldValues>({
     return (name: string) => {
       const key = name.replace(/\.\d+(?=\.|$)/g, '.0');
       if (!validators.has(key)) {
-        const atomic = fieldSchema(schema, key);
+        const atomic = getEditorFieldSchema(schema, key);
         validators.set(
           key,
           atomic

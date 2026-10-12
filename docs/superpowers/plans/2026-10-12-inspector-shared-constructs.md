@@ -18,7 +18,8 @@
 
 - Integrated fresh `origin/master` at `8e09f2d4`; preserved dirty agent documents and `.resources`.
 - Task 0 completed locally: the stable-path hydration fixture fails with the original effect and passes with the corrected document routing. Source integration uses two real serialized documents and confirms full-file read-only function reveal. All 94 scoped Studio tests and Studio type checks pass. Production J20 now checks visible declaration reveal; production execution is pending an authorized deployment.
-- Remaining Tasks 1–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
+- Task 1 complete: regenerated projected canonical metadata fields, shared schema lookup and owner/epoch/child guards; 20 metadata/L1/parity tests and visual-editor types pass.
+- Remaining Tasks 2–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
 
 ## Global Constraints
 
@@ -256,7 +257,7 @@ export interface InspectorMetadataActions {
 
 **Interfaces:** Consumes existing `EditorState`, `DomainNodeData`, `SCHEMA_BY_TYPE`. Produces contracts above plus `captureMetadataTarget(state: EditorState, nodeId: string, path: MetadataPath): MetadataTarget | undefined`, `resolveMetadataTarget(state: EditorState, target: MetadataTarget): MetadataNode | undefined`, `getMetadataCapabilities(node: MetadataNode): MetadataCapabilities`, `getEditorFieldSchema(root: z.ZodType, path: string): z.ZodType | undefined`.
 
-- [ ] Write target tests using the real store; include stale epoch, replacement owner, reordered/deleted child, same-name replacement and unsupported owner/path pairs.
+- [x] Write target tests using the real store; include stale epoch, replacement owner, reordered/deleted child, same-name replacement and unsupported owner/path pairs.
 
 ```ts
 it('rejects a child captured before reordering rather than editing its neighbor', async () => {
@@ -279,9 +280,9 @@ it('does not retarget a deleted child when its old name is reused', async () => 
 });
 ```
 
-- [ ] Write canonical field tests for `attributes.0.name`, `inputs.1.definition`, `enumValues.0.display`, enum metadata, optional arrays, identifier unions and unknown paths. Assert enum display is supported and an invented enum `labels` field is not. Run `pnpm --filter @rune-langium/visual-editor test -- test/store/metadata-target.test.ts test/forms/editor-field-schema.test.ts`; expect missing-module failures before implementation.
-- [ ] Move the existing `fieldSchema` resolver out of `EditorFormProvider` without changing its constraints or identifier-union handling. Export it as `getEditorFieldSchema`; the provider keeps its existing normalized-index validator cache. Use the same function for metadata capabilities/field validation.
-- [ ] Implement the path whitelist and guards; `attributes` must match Data/Annotation/Choice, `inputs`/`output` Function, `enumValues` Enumeration. Bounds must be finite nonnegative integers. Resolve live canonical objects before entering the Mutative draft.
+- [x] Write canonical field tests for `attributes.0.name`, `inputs.1.definition`, `enumValues.0.display`, enum metadata, optional arrays, identifier unions and unknown paths. Assert enum display is supported and an invented enum `labels` field is not. Run `pnpm --filter @rune-langium/visual-editor test -- test/store/metadata-target.test.ts test/forms/editor-field-schema.test.ts`; expect missing-module failures before implementation.
+- [x] Move the existing `fieldSchema` resolver out of `EditorFormProvider` without changing its constraints or identifier-union handling. Export it as `getEditorFieldSchema`; the provider keeps its existing normalized-index validator cache. Use the same function for metadata capabilities/field validation.
+- [x] Implement the path whitelist and guards; `attributes` must match Data/Annotation/Choice, `inputs`/`output` Function, `enumValues` Enumeration. Bounds must be finite nonnegative integers. Resolve live canonical objects before entering the Mutative draft.
 
 ```ts
 function readAtMetadataPath(owner: DomainNodeData, path: MetadataPath): MetadataNode | undefined {
@@ -314,8 +315,8 @@ export function resolveMetadataTarget(state: EditorState, target: MetadataTarget
 }
 ```
 
-- [ ] Derive supported fields, including optional enum-value `display`, from `SCHEMA_BY_TYPE` through `getEditorFieldSchema`. Select synonym variants by canonical `$type`: Data/Choice class, Attribute/ChoiceOption/Enumeration body, EnumValue enumValue. Unsupported types return no synonym capability. Do not infer supported metadata from loose-object unknown properties.
-- [ ] Run both new suites and existing form validation tests, then `pnpm --filter @rune-langium/visual-editor run type-check`. Commit owned paths with `refactor: share canonical Inspector target resolution`.
+- [x] Derive supported fields, including optional enum-value `display`, from `SCHEMA_BY_TYPE` through `getEditorFieldSchema`. Select synonym variants by canonical `$type`: Data/Choice class, Attribute/ChoiceOption/Enumeration body, EnumValue enumValue. Unsupported types return no synonym capability. Do not infer supported metadata from loose-object unknown properties.
+- [x] Run both new suites and existing form validation tests, then `pnpm --filter @rune-langium/visual-editor run type-check`. Commit owned paths with `refactor: share canonical Inspector target resolution`.
 
 ### Task 2: Metadata recipes and additive store actions
 
