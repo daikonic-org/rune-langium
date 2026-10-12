@@ -33,10 +33,10 @@ importers:
     dependencies:
       '@lspeasy/client':
         specifier: ^3.1.10
-        version: 3.1.10(ws@8.21.3)
+        version: 3.1.10(ws@8.22.0)
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.21.3)
+        version: 3.0.1(ws@8.22.0)
       camelcase:
         specifier: ^9.0.0
         version: 9.0.0
@@ -213,7 +213,7 @@ importers:
     dependencies:
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.21.3)
+        version: 3.0.1(ws@8.22.0)
       '@rune-langium/curated-schema':
         specifier: workspace:*
         version: link:../../packages/curated-schema
@@ -280,7 +280,7 @@ importers:
         version: 1.2.5
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.21.3)
+        version: 3.0.1(ws@8.22.0)
       '@marsidev/react-turnstile':
         specifier: ^1.6.1
         version: 1.6.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -519,8 +519,8 @@ importers:
         specifier: ^4.4.0
         version: 4.4.0
       web-tree-sitter:
-        specifier: ^0.27.0
-        version: 0.27.0
+        specifier: ^0.27.1
+        version: 0.27.1
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -683,10 +683,10 @@ importers:
     dependencies:
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.21.3)
+        version: 3.0.1(ws@8.22.0)
       '@lspeasy/server':
         specifier: ^4.2.4
-        version: 4.2.4(ws@8.21.3)
+        version: 4.2.4(ws@8.22.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
@@ -698,11 +698,11 @@ importers:
         version: 10.1.2
       ws:
         specifier: '>=8.21.0'
-        version: 8.21.3
+        version: 8.22.0
     devDependencies:
       '@lspeasy/client':
         specifier: ^3.1.10
-        version: 3.1.10(ws@8.21.3)
+        version: 3.1.10(ws@8.22.0)
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
@@ -824,7 +824,7 @@ importers:
     dependencies:
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.21.3)
+        version: 3.0.1(ws@8.22.0)
       '@rune-langium/lsp-server':
         specifier: workspace:*
         version: link:../../packages/lsp-server
@@ -840,7 +840,7 @@ importers:
         version: 4.149.0(@cloudflare/workers-types@5.20261008.1)(@types/node@26.6.4)
       ws:
         specifier: '>=8.21.0'
-        version: 8.21.3
+        version: 8.22.0
 
 packages:
 
@@ -1066,6 +1066,10 @@ packages:
     engines: {node: '>=6.9.0'}
     peerDependencies:
       '@babel/core': ^7.0.0-0
+
+  '@babel/runtime@7.29.10':
+    resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
+    engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.29.7':
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
@@ -3549,8 +3553,8 @@ packages:
     peerDependencies:
       acorn: ^6.0.0 || ^7.0.0 || ^8.0.0
 
-  acorn@8.18.0:
-    resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
+  acorn@8.19.0:
+    resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -6557,8 +6561,8 @@ packages:
     resolution: {integrity: sha512-4Nsy8K5Tr6SPDH9jhKJOHf7ChDrc1zufZTVSF7x72hwuEXBqxqk9G6cK+K2NRUtB3iELRJqjXb4JPDMBjMTl2Q==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
-  web-tree-sitter@0.27.0:
-    resolution: {integrity: sha512-XK08gj6RwTMQatAG7uVRP8MunqotL/XC19vHgkSPKmELgbGPBj4ECvB8haHOUnyj6ls2B8t42UTro14zxGgAHg==}
+  web-tree-sitter@0.27.1:
+    resolution: {integrity: sha512-qtx0VyUyNRHtL3ze7+v0hCKB/sLcAmY7ZAVp/ZK/bCj0yED8ptvNrr7Vd7DwDyKDWN9baqcUx4uaD2r2ql+6IA==}
 
   webidl-conversions@8.0.1:
     resolution: {integrity: sha512-BMhLD/Sw+GbJC21C/UgyaZX41nPt8bUTg+jWyDeg7e7YN4xOM05YPSIXceACnXVtqyEw/LMClUQMtMZ+PGGpqQ==}
@@ -6635,6 +6639,18 @@ packages:
 
   ws@8.21.3:
     resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -7015,6 +7031,8 @@ snapshots:
       '@babel/plugin-transform-typescript': 7.29.9(@babel/core@7.29.7)
     transitivePeerDependencies:
       - supports-color
+
+  '@babel/runtime@7.29.10': {}
 
   '@babel/runtime@7.29.7': {}
 
@@ -7814,25 +7832,25 @@ snapshots:
     dependencies:
       '@lezer/common': 1.5.2
 
-  '@lspeasy/client@3.1.10(ws@8.21.3)':
+  '@lspeasy/client@3.1.10(ws@8.22.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.21.3)
+      '@lspeasy/core': 3.0.1(ws@8.22.0)
       camelcase: 9.0.0
     optionalDependencies:
       zod: 4.6.5
     transitivePeerDependencies:
       - ws
 
-  '@lspeasy/core@3.0.1(ws@8.21.3)':
+  '@lspeasy/core@3.0.1(ws@8.22.0)':
     dependencies:
       type-fest: 5.10.0
     optionalDependencies:
-      ws: 8.21.3
+      ws: 8.22.0
       zod: 4.6.5
 
-  '@lspeasy/server@4.2.4(ws@8.21.3)':
+  '@lspeasy/server@4.2.4(ws@8.22.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.21.3)
+      '@lspeasy/core': 3.0.1(ws@8.22.0)
       camelcase: 9.0.0
     optionalDependencies:
       zod: 4.6.5
@@ -8572,7 +8590,7 @@ snapshots:
   '@testing-library/dom@10.4.1':
     dependencies:
       '@babel/code-frame': 7.29.7
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       dom-accessibility-api: 0.5.16
@@ -8992,11 +9010,11 @@ snapshots:
       mime-types: 3.0.2
       negotiator: 1.1.0
 
-  acorn-jsx@5.3.2(acorn@8.18.0):
+  acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
-      acorn: 8.18.0
+      acorn: 8.19.0
 
-  acorn@8.18.0: {}
+  acorn@8.19.0: {}
 
   agent-install@0.0.5:
     dependencies:
@@ -9733,8 +9751,8 @@ snapshots:
 
   espree@11.2.0:
     dependencies:
-      acorn: 8.18.0
-      acorn-jsx: 5.3.2(acorn@8.18.0)
+      acorn: 8.19.0
+      acorn-jsx: 5.3.2(acorn@8.19.0)
       eslint-visitor-keys: 5.0.1
 
   esprima@4.0.1: {}
@@ -10718,7 +10736,7 @@ snapshots:
       sharp: 0.35.5(@types/node@26.6.4)
       undici: 7.30.0
       workerd: 1.20261006.1
-      ws: 8.21.3
+      ws: 8.22.0
       youch: 4.1.0-beta.10
     transitivePeerDependencies:
       - '@types/node'
@@ -12168,7 +12186,7 @@ snapshots:
     dependencies:
       xml-name-validator: 5.0.0
 
-  web-tree-sitter@0.27.0: {}
+  web-tree-sitter@0.27.1: {}
 
   webidl-conversions@8.0.1: {}
 
@@ -12257,6 +12275,8 @@ snapshots:
       signal-exit: 4.1.0
 
   ws@8.21.3: {}
+
+  ws@8.22.0: {}
 
   wsl-utils@1.0.0:
     dependencies:
