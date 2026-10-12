@@ -6,6 +6,18 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { referenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 import { typeNavigationButton } from './type-navigation.js';
 
+/** Dismiss only expected notices from the hermetic server's absent Worker routes. */
+export async function dismissLocalTransportNotices(page: Page) {
+  const notices = page
+    .locator('[data-slot="toast"]')
+    .filter({ hasText: /Pages Function LSP unreachable|Server-side parsing unavailable/ });
+  while (await notices.count()) {
+    const count = await notices.count();
+    await notices.first().locator('[data-slot="toast-close"]').click();
+    await expect(notices).toHaveCount(count - 1);
+  }
+}
+
 export async function expectCenterPaneBounds(page: Page) {
   const center = page.getByTestId('center-stack');
   const bounds = (await center.boundingBox())!;
@@ -39,12 +51,13 @@ export async function loadPinnedFunction(page: Page) {
   await typeNavigationButton(page, 'cdm.base.math.Abs', 'RosettaFunction').click();
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
   // Local LSP/router notices are dismissible; they must not trap keyboard focus during editing.
-  while (await page.getByRole('button', { name: 'Dismiss notification', exact: true }).count())
-    await page.getByRole('button', { name: 'Dismiss notification', exact: true }).first().click();
+  await dismissLocalTransportNotices(page);
   await expect(page.getByTestId('implementation-editor')).toBeVisible();
 }
 
 export async function openBuilder(page: Page) {
+  await dismissLocalTransportNotices(page);
+
   await page.getByTestId('implementation-editor').locator('.cm-content').press('ControlOrMeta+End');
   await page
     .getByRole('region', { name: 'Function implementation' })

@@ -132,7 +132,7 @@ for (const delay of [0, 1000]) {
       // Touch the existing field so the Inspector's afterTouched validation is observable.
       await name.press('End');
       await name.press('X');
-      await expect(page.getByText(probe, { exact: true })).toBeVisible({ timeout: 1800 });
+      await expect(page.getByRole('alert').filter({ hasText: probe }).first()).toBeVisible({ timeout: 1800 });
       const elapsed = performance.now() - started;
       expect(elapsed).toBeLessThan(2000);
       console.log(`Inspector schema HMR: ${Math.round(elapsed)}ms, no document reload`);
