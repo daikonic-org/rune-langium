@@ -29,7 +29,13 @@ export interface MetadataTargetBinding {
   currentNode(): MetadataNode | undefined;
 }
 const Context = createContext<MetadataTargetBinding | null>(null);
-export function MetadataTargetProvider({ value, children }: { value: MetadataTargetBinding; children: ReactNode }) {
+export function MetadataTargetProvider({
+  value,
+  children
+}: {
+  value: MetadataTargetBinding | null;
+  children: ReactNode;
+}) {
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useMetadataTarget(): MetadataTargetBinding | null {

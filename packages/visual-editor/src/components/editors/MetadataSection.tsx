@@ -189,7 +189,7 @@ export function MetadataSection(props: MetadataSectionProps): React.ReactNode {
                 binding={binding}
               />
             ))}
-          {(props.includeComments ?? !binding) && (
+          {(props.includeComments ?? !(binding || ctx?.sourceCommentsOnly)) && (
             <MetadataScalar
               name="comments"
               kind="comments"

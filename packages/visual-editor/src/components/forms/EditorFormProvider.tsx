@@ -86,3 +86,8 @@ export function EditorController<T extends FieldValues, N extends FieldPath<T>>(
     />
   );
 }
+
+/** The same L1 rule guards debounced commits as the Controller's draft validation. */
+export function useEditorFieldValidator(name: string): Validate | undefined {
+  return useContext(ValidationContext)?.(name);
+}

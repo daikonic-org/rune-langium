@@ -7,7 +7,7 @@ import { inspectorRowAttributes, type InspectorRowProps } from './inspector/insp
 
 import { useCallback } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { EditorController as Controller } from '../forms/EditorFormProvider.js';
+import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { X } from 'lucide-react';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -85,6 +85,7 @@ function EnumValueRow({
   // hand-authored projection schema; the projection layer is gone now.
   const prefix = `enumValues.${index}`;
 
+  const validateName = useEditorFieldValidator(`${prefix}.name`);
   const enumSynonyms = useWatch({
     control,
     name: `${prefix}.enumSynonyms`,
@@ -94,10 +95,11 @@ function EnumValueRow({
 
   const commitNameChange = useCallback(
     (newName: string) => {
+      if (validateName && validateName(newName) !== true) return;
       const currentDisplayName: string | undefined = getValues(`${prefix}.display`);
       onUpdate(nodeId, name, newName, currentDisplayName || undefined);
     },
-    [nodeId, name, displayName, prefix, getValues, onUpdate]
+    [nodeId, name, displayName, prefix, getValues, onUpdate, validateName]
   );
 
   const debouncedName = useAutoSave(commitNameChange, 500);

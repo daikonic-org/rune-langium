@@ -36,7 +36,7 @@ import { inspectorRowAttributes, type InspectorRowProps } from './inspector/insp
 
 import { useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { EditorController as Controller } from '../forms/EditorFormProvider.js';
+import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { X } from 'lucide-react';
@@ -121,6 +121,8 @@ function AttributeRow({
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
   const prefix = `${fieldArrayName}.${index}`;
 
+  const validateName = useEditorFieldValidator(`${prefix}.name`);
+
   // AST-canonical reads (R11 / row-renderer contract §2). The picker still
   // talks in `(inf..sup)` strings, so we adapt at the row boundary rather
   // than mutating its public API (it ships in `components.ts` and is wired
@@ -145,13 +147,14 @@ function AttributeRow({
 
   const commitName = useCallback(
     (newName: string) => {
+      if (validateName && validateName(newName) !== true) return;
       const currentType: string = getValues(`${prefix}.typeCall.type.$refText`) ?? 'string';
       const currentCard = normaliseCard(
         getValues(`${prefix}.card`) as { inf: number; sup?: number; unbounded?: boolean } | undefined
       );
       onUpdate(index, committedName, newName, currentType, formatCardinality(currentCard) || '(1..1)');
     },
-    [index, committedName, prefix, getValues, onUpdate]
+    [index, committedName, prefix, getValues, onUpdate, validateName]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
@@ -260,9 +263,10 @@ function AttributeRow({
       <Controller
         control={control}
         name={`${prefix}.name`}
-        render={({ field }) => (
+        render={({ field, fieldState }) => (
           <Input
             variant="inline"
+            aria-invalid={fieldState.invalid}
             data-slot="attribute-name"
             type="text"
             value={field.value}

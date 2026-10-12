@@ -230,11 +230,11 @@ describe('EnumForm – US3/Phase 5b z2f migration contract (ET1–ET4)', () => {
     rows.forEach((row, idx) => {
       const inputs = row.querySelectorAll('input[type="text"]');
       // First input is the value name, second is the display name
-      expect(inputs.length).toBeGreaterThanOrEqual(2);
+      expect(inputs.length).toBe(1);
       const ariaLabel = inputs[0]!.getAttribute('aria-label') ?? '';
       expect(ariaLabel.toLowerCase()).toContain('value name');
       // Document order: name input precedes display input within each row
-      expect(row.compareDocumentPosition(inputs[1]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(row.querySelector('input[aria-label="Display name"]')).toBeNull();
       void idx;
     });
   });
@@ -360,10 +360,8 @@ describe('EnumForm – US3/Phase 5b z2f migration contract (ET1–ET4)', () => {
     expect(rows.length).toBeGreaterThanOrEqual(1);
     const inputs = rows[0]!.querySelectorAll('input[type="text"]');
     const nameInput = inputs[0] as HTMLInputElement;
-    const displayInput = inputs[1] as HTMLInputElement;
 
     fireEvent.change(nameInput, { target: { value: 'USD2' } });
-    fireEvent.change(displayInput, { target: { value: 'US Dollar v2' } });
 
     // No update action before the debounce expires
     expect(updateEnumValue).not.toHaveBeenCalled();
@@ -380,7 +378,7 @@ describe('EnumForm – US3/Phase 5b z2f migration contract (ET1–ET4)', () => {
     expect(lastCall?.[0]).toBe('node-1');
     expect(lastCall?.[1]).toBe('USD');
     // The latest displayName typed wins inside the debounce window.
-    expect(lastCall?.[3]).toBe('US Dollar v2');
+    expect(lastCall?.[3]).toBe('US Dollar');
   });
 });
 

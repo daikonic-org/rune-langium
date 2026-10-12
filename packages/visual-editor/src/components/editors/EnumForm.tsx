@@ -35,6 +35,12 @@ import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/u
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
+import { InspectorFrame } from './inspector/InspectorFrame.js';
+import { InspectorFooter } from './inspector/InspectorFooter.js';
+import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
+import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
+import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
+import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
 import { ErrorsSection } from '../ErrorsSection.js';
 import { Plus } from 'lucide-react';
 import { EnumValueRow, InheritedEnumValueRow } from './EnumValueRow.js';
@@ -69,7 +75,7 @@ const EMPTY_SYNONYM_SOURCE_OPTIONS: SourceRefOption[] = [];
 // Props
 // ---------------------------------------------------------------------------
 
-export interface EnumFormProps {
+export interface EnumFormProps extends InspectorHostProps {
   /** Node ID of the Enum being edited. */
   nodeId: string;
   /** Data payload for the selected enum node (AnyGraphNode with $type='RosettaEnumeration'). */
@@ -120,7 +126,11 @@ function EnumForm({
   allNodeIds,
   readOnly: readOnlyProp,
   refOnly,
-  meta: nodeMeta
+  meta: nodeMeta,
+  scopeKey,
+  parseEpoch,
+  saveStatus,
+  registerCommitFlush
 }: EnumFormProps) {
   const d = data as any;
   // ---- Form setup (R11: AST schema + identity projection) -----------------
@@ -240,7 +250,7 @@ function EnumForm({
   // ---- Effective members (local + inherited) -------------------------------
 
   const parentName = getRefText(d.parent);
-  const { effective: effectiveValues } = useEffectiveMembers(data, allNodes);
+  const { effective: effectiveValues } = useEffectiveMembers(data, allNodes, fields);
   const inheritedCount = effectiveValues.filter((e) => e.source === 'inherited').length;
 
   // ---- Resolve parent enum option ------------------------------------------
@@ -251,106 +261,132 @@ function EnumForm({
 
   const isReadOnly = Boolean(readOnlyProp || nodeMeta.isReadOnly);
 
+  const targets = useInspectorTargets({
+    nodeId,
+    root: data,
+    fields,
+    collection: 'enumValues',
+    effective: effectiveValues,
+    actions,
+    scopeKey,
+    parseEpoch,
+    readOnly: isReadOnly
+  });
+
   const editorActionsValue = useMemo(
-    () => ({ nodeId, actions, readOnly: isReadOnly, synonymSourceOptions }),
-    [nodeId, actions, isReadOnly, synonymSourceOptions]
+    () => ({ nodeId, actions, readOnly: isReadOnly, synonymSourceOptions, allNodes, sourceCommentsOnly: true }),
+    [nodeId, actions, isReadOnly, synonymSourceOptions, allNodes]
   );
 
   // ---- Render --------------------------------------------------------------
 
   return (
-    <FormProvider {...form} schema={RosettaEnumerationSchema}>
+    <FormProvider
+      {...form}
+      schema={RosettaEnumerationSchema}
+      registerCommitFlush={registerCommitFlush}
+      additionalCommitFlush={debouncedName.flush}
+    >
       <EditorActionsProvider {...editorActionsValue}>
-        <div data-slot="enum-form" className="flex flex-col gap-4 p-4">
-          {/* Header: Namespace + Name + Badge */}
-          <TypeHeader
-            kind="enum"
-            namespace={nodeMeta.namespace}
-            control={form.control}
-            onNameChange={debouncedName}
-            placeholder="Enum name"
-            nameAriaLabel="Enum type name"
-            className={INSPECTOR_FORM_HEADER_CLASS}
-            onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
-            trailing={
-              refOnly ? (
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  Reference Only
-                </Badge>
-              ) : undefined
-            }
-          />
-
-          {/* Parent Enum */}
-          <FieldSet className="gap-1.5">
-            <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-              Extends
-            </FieldLegend>
-            <TypeReferenceField
-              value={parentValue ?? null}
-              displayName={parentName}
-              options={parentOptions}
-              onSelect={handleParentSelect}
-              placeholder="Select parent enum..."
-              allowClear
-              emptyLabel="No parent enum"
-              filterKinds={['enum']}
-              onNavigateToNode={onNavigateToNode}
-              allNodeIds={allNodeIds}
-              disabled={isReadOnly}
-            />
-          </FieldSet>
-
-          {/* Enum Values */}
-          <FieldSet className="gap-1">
-            <FieldLegend variant="label" className="mb-0 text-muted-foreground flex items-center justify-between">
-              <span>Values ({fields.length + inheritedCount})</span>
-              {/* Icon-only add button matches FormPreviewPanel; see
+        <div data-slot="enum-form" className="h-full min-h-0 p-4">
+          <MetadataTargetProvider value={targets.rootBinding}>
+            <InspectorFrame
+              header={
+                <>
+                  <TypeHeader
+                    kind="enum"
+                    namespace={nodeMeta.namespace}
+                    control={form.control}
+                    onNameChange={debouncedName}
+                    placeholder="Enum name"
+                    nameAriaLabel="Enum type name"
+                    className={INSPECTOR_FORM_HEADER_CLASS}
+                    onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
+                    trailing={
+                      refOnly ? (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          Reference Only
+                        </Badge>
+                      ) : undefined
+                    }
+                  />
+                </>
+              }
+              inheritance={
+                <InspectorInheritanceField
+                  value={parentValue ?? null}
+                  displayName={parentName}
+                  options={parentOptions}
+                  onSelect={handleParentSelect}
+                  placeholder="Select parent enum..."
+                  allowClear
+                  emptyLabel="No parent enum"
+                  filterKinds={['enum']}
+                  onNavigateToNode={onNavigateToNode}
+                  allNodeIds={allNodeIds}
+                  disabled={isReadOnly}
+                />
+              }
+              sections={[
+                {
+                  id: 'members',
+                  label: 'Values',
+                  members: true,
+                  content: (
+                    <>
+                      {' '}
+                      <FieldSet className="gap-1">
+                        <FieldLegend
+                          variant="label"
+                          className="mb-0 text-muted-foreground flex items-center justify-between"
+                        >
+                          <span>Values ({fields.length + inheritedCount})</span>
+                          {/* Icon-only add button matches FormPreviewPanel; see
                   DataTypeForm for the rationale. */}
-              {!isReadOnly && (
-                <Button
-                  data-slot="add-value-btn"
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={handleAddValue}
-                  aria-label="Add value"
-                  title="Add value"
-                >
-                  <Plus className="size-3" />
-                </Button>
-              )}
-            </FieldLegend>
+                          {!isReadOnly && (
+                            <Button
+                              data-slot="add-value-btn"
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={handleAddValue}
+                              aria-label="Add value"
+                              title="Add value"
+                            >
+                              <Plus className="size-3" />
+                            </Button>
+                          )}
+                        </FieldLegend>
 
-            <PaginatedEnumValues
-              effectiveValues={effectiveValues}
-              // Read straight from `d`, NOT `committedRef` — the ref only updates
-              // in a post-commit layout effect, so on the render that swaps
-              // `data` (node switch / external graph push) it would still hold
-              // the PREVIOUS node's enumValues, baking a stale rename anchor
-              // into this row's onUpdate closures (Codex review).
-              committedEnumValues={d.enumValues ?? []}
-              nodeId={nodeId}
-              onUpdate={handleUpdateValue}
-              onRemove={handleRemoveValue}
-              onReorder={handleReorderValue}
-              onRevertOverride={handleRevertEnumOverride}
-              onOverrideInherited={handleOverrideInheritedValue}
-              isReadOnly={isReadOnly}
-              synonymSourceOptions={synonymSourceOptions}
+                        <PaginatedEnumValues
+                          effectiveValues={effectiveValues}
+                          targets={targets}
+                          // Read straight from `d`, NOT `committedRef` — the ref only updates
+                          // in a post-commit layout effect, so on the render that swaps
+                          // `data` (node switch / external graph push) it would still hold
+                          // the PREVIOUS node's enumValues, baking a stale rename anchor
+                          // into this row's onUpdate closures (Codex review).
+                          committedEnumValues={d.enumValues ?? []}
+                          nodeId={nodeId}
+                          onUpdate={handleUpdateValue}
+                          onRemove={handleRemoveValue}
+                          onReorder={handleReorderValue}
+                          onRevertOverride={handleRevertEnumOverride}
+                          onOverrideInherited={handleOverrideInheritedValue}
+                          isReadOnly={isReadOnly}
+                          synonymSourceOptions={synonymSourceOptions}
+                        />
+                      </FieldSet>
+                    </>
+                  )
+                },
+                { id: 'doc', label: 'Doc', content: <EditorSections names={['MetadataSection']} /> },
+                { id: 'meta', label: 'Meta', content: <EditorSections names={['AnnotationSection']} /> }
+              ]}
+              details={<InspectorMetadataDetails targets={targets} />}
+              footer={<InspectorFooter errors={nodeMeta.errors} status={saveStatus} />}
             />
-          </FieldSet>
-
-          {/* Annotations + Metadata sections — declarative path (Phase 7).
-              Section components read field paths via useFormContext and pull
-              callbacks from the EditorActionsProvider above. No imperative
-              wiring needed at this site. */}
-          <EditorSections names={['AnnotationSection']} />
-          <EditorSections names={['MetadataSection']} />
-
-          {/* Domain/graph-level errors (mirrors OtherForm's Errors section;
-              Codex review, PR #494) */}
-          <ErrorsSection errors={nodeMeta.errors} />
+          </MetadataTargetProvider>
         </div>
       </EditorActionsProvider>
     </FormProvider>
@@ -365,6 +401,7 @@ function EnumForm({
 const PAGE_SIZE = 50;
 
 interface PaginatedEnumValuesProps {
+  targets: ReturnType<typeof useInspectorTargets>;
   effectiveValues: Array<{
     id: string;
     source: 'local' | 'inherited';
@@ -388,6 +425,7 @@ interface PaginatedEnumValuesProps {
 }
 
 function PaginatedEnumValues({
+  targets,
   effectiveValues,
   committedEnumValues,
   nodeId,
@@ -413,11 +451,14 @@ function PaginatedEnumValues({
   const remaining = effectiveValues.length - visibleCount;
 
   return (
-    <FieldGroup className="gap-0.5">
+    <FieldGroup role="list" className="gap-0.5">
       {visible.map((entry) =>
         entry.source === 'local' ? (
           <EnumValueRow
             key={entry.id}
+            selected={targets.selection.selectedRow?.key === entry.id}
+            onSelect={() => targets.selection.select(entry.id)}
+            metadataInDetails
             index={entry.fieldIndex!}
             name={committedEnumValues[entry.fieldIndex!]?.name ?? ''}
             displayName={committedEnumValues[entry.fieldIndex!]?.display ?? ''}
@@ -432,6 +473,8 @@ function PaginatedEnumValues({
         ) : (
           <InheritedEnumValueRow
             key={entry.id}
+            selected={targets.selection.selectedRow?.key === entry.id}
+            onSelect={() => targets.selection.select(entry.id)}
             name={entry.name}
             displayName={entry.displayName}
             ancestorName={entry.ancestorName!}

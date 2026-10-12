@@ -25,6 +25,7 @@ export interface EditorActionsContextValue {
   compactConditions?: boolean;
   availableAnnotations?: string[];
   allNodes?: TypeGraphNode[];
+  sourceCommentsOnly?: boolean;
   synonymSourceOptions?: SourceRefOption[];
   renderExpressionEditor?: (props: ExpressionEditorSlotProps) => ReactNode;
   showPostConditionToggle?: boolean;

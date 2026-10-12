@@ -214,7 +214,7 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
   });
 
   // CT1 — leaf field set + tab order matches the baseline
-  it('renders leaf fields (name, definition, comments) in the documented tab order', () => {
+  it('renders leaf fields (name and definition with source-only comments) in the documented tab order', () => {
     const data = makeChoiceData({
       definition: 'A payment classification'
     });
@@ -240,9 +240,8 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');
     expect(descriptionTextarea).not.toBeNull();
-    expect(commentsTextarea).not.toBeNull();
+    expect(commentsTextarea).toBeNull();
     expect((descriptionTextarea as HTMLTextAreaElement).value).toBe('A payment classification');
-    expect((commentsTextarea as HTMLTextAreaElement).value).toBe('Initial comments');
 
     // Tab order is: name input < description textarea < comments textarea.
     const allInteractive = Array.from(
@@ -251,7 +250,7 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
       )
     );
     const slots = allInteractive.map((el) => el.getAttribute('data-slot'));
-    expect(slots).toEqual(['type-name-input', 'metadata-description', 'metadata-comments']);
+    expect(slots).toEqual(['type-name-input', 'metadata-description']);
   });
 
   // CT2 — debounced rename fires exactly once with the latest value
