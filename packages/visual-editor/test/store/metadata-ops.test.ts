@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
-import { createAnnotationDraft, createSynonymDraft } from '../../src/store/metadata-ops.js';
+import { createAnnotationDraft, createSynonymDraft, updateSynonymDraft } from '../../src/store/metadata-ops.js';
 
 describe('canonical metadata mutations', () => {
   it('commits one child edit with one history entry and preserves undo', async () => {
@@ -117,5 +117,27 @@ describe('canonical metadata mutations', () => {
       name: 'Manager',
       display: 'Account manager'
     });
+  });
+});
+
+it('editing one synonym value retains extra sources, mappings and hints', () => {
+  const original = createSynonymDraft('body', 'one.FpML', 'Trade')!;
+  if (original.$type !== 'RosettaSynonym') throw new Error('Wrong fixture variant');
+  const rich = {
+    ...original,
+    sources: [...original.sources, { $refText: 'two.FpML' }],
+    body: {
+      ...original.body,
+      hints: ['retained'],
+      values: [
+        { ...original.body.values[0], maps: 3 },
+        { ...original.body.values[0], name: 'Other' }
+      ]
+    }
+  };
+  const edited = updateSynonymDraft(rich, { source: 'three.FpML', value: 'Deal' });
+  expect(edited).toMatchObject({
+    sources: [{ $refText: 'three.FpML' }, { $refText: 'two.FpML' }],
+    body: { hints: ['retained'], values: [{ name: 'Deal', maps: 3 }, { name: 'Other' }] }
   });
 });

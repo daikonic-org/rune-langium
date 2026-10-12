@@ -26,6 +26,7 @@ export interface MetadataTargetBinding {
   envelope(command: MetadataCommand): PendingMetadata;
   commitPending(pending: PendingMetadata): MetadataEditResult;
   commit(command: MetadataCommand): MetadataEditResult;
+  currentNode(): MetadataNode | undefined;
 }
 const Context = createContext<MetadataTargetBinding | null>(null);
 export function MetadataTargetProvider({ value, children }: { value: MetadataTargetBinding; children: ReactNode }) {
@@ -79,6 +80,12 @@ export function useMetadataBinding(props: {
     capabilities: getMetadataCapabilities(node),
     envelope,
     commitPending,
+    currentNode: () => {
+      const live = current.current;
+      const row = props.row ? live.selection.resolve(props.row.key, props.scopeKey) : undefined;
+      if (props.scopeKey !== live.scopeKey || (props.row && (!row || row.inherited || !row.path))) return undefined;
+      return live.actions?.captureMetadataTarget(live.nodeId, row?.path ?? [])?.expected;
+    },
     commit: (command) => commitPending(envelope(command))
   };
 }

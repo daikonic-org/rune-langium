@@ -62,6 +62,28 @@ export function getMetadataItems(node: MetadataNode, field: ItemField): readonly
   return (node as MetadataFields)[field] ?? [];
 }
 
+/** Change the visible synonym fields while retaining all other canonical payload. */
+export function updateSynonymDraft(item: MetadataItem, changes: { source?: string; value?: string }): MetadataItem {
+  if (item.$type === 'AnnotationRef') return item;
+  const sources =
+    changes.source === undefined ? item.sources : [{ $refText: changes.source }, ...item.sources.slice(1)];
+  let draft: unknown;
+  if (changes.value === undefined) draft = { ...item, sources };
+  else {
+    const value = { $type: 'RosettaSynonymValueBase', name: changes.value };
+    if (item.$type === 'RosettaEnumSynonym') draft = { ...item, sources, synonymValue: changes.value };
+    else if (item.$type === 'RosettaClassSynonym') draft = { ...item, sources, value: { ...item.value, ...value } };
+    else
+      draft = {
+        ...item,
+        sources,
+        body: { ...item.body, values: [{ ...item.body.values[0], ...value }, ...item.body.values.slice(1)] }
+      };
+  }
+  // Dehydrated optional nodes include an unreachable never branch; the canonical field schema validates this draft at commit.
+  return draft as MetadataItem;
+}
+
 /** Validate the field being edited; unrelated declaration drafts do not participate. */
 export function validateMetadataCommand(node: MetadataNode, command: MetadataCommand): MetadataEditResult | undefined {
   const root = SCHEMA_BY_TYPE[node.$type];

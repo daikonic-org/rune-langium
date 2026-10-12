@@ -5,7 +5,13 @@
 
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
-import type { CommonFormActions, EnumFormActions, ExpressionEditorSlotProps, SourceRefOption } from '../../../types.js';
+import type {
+  CommonFormActions,
+  EnumFormActions,
+  ExpressionEditorSlotProps,
+  SourceRefOption,
+  TypeGraphNode
+} from '../../../types.js';
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -18,6 +24,7 @@ export interface EditorActionsContextValue {
   sourceReadOnly?: boolean;
   compactConditions?: boolean;
   availableAnnotations?: string[];
+  allNodes?: TypeGraphNode[];
   synonymSourceOptions?: SourceRefOption[];
   renderExpressionEditor?: (props: ExpressionEditorSlotProps) => ReactNode;
   showPostConditionToggle?: boolean;

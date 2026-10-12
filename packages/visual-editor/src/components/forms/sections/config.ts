@@ -3,11 +3,11 @@
 
 import type { FieldConfig } from '@zod-to-form/core';
 
-/** Section layout includes inherited AST properties and editor-only comments. */
+/** Shared placement for canonical metadata and condition constructs. */
 export const editorSections = new Map([
   ['AnnotationSection', ['annotations']],
   ['ConditionSection', ['conditions', 'postConditions']],
-  ['MetadataSection', ['definition', 'comments', 'synonyms']]
+  ['MetadataSection', ['definition', 'display', 'synonyms', 'enumSynonyms']]
 ]);
 
 /** Generated forms consume the same section assignments as the Inspector. */

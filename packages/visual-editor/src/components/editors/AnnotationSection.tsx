@@ -27,6 +27,10 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { annotationsToDisplay, type AnnotationDisplayInfo } from '../../adapters/model-helpers.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
 import { useStableKey } from '../../hooks/useStableKey.js';
+import { useMetadataTarget } from '../forms/metadata/MetadataTargetContext.js';
+import { createAnnotationDraft, getMetadataItems } from '../../store/metadata-ops.js';
+import { AnnotationArgumentsEditor } from './AnnotationArgumentsEditor.js';
+import type { MetadataItem } from '../../store/metadata-target.js';
 
 export interface AnnotationSectionProps {
   /**
@@ -73,6 +77,7 @@ export function AnnotationSection({
   onRemove
 }: AnnotationSectionProps) {
   const [showPicker, setShowPicker] = useState(false);
+  const [editing, setEditing] = useState<{ index: number; expected: MetadataItem }>();
   const getKey = useStableKey();
 
   // ------ Declarative-path fallbacks (Phase 7 / US5) ----------------------
@@ -82,27 +87,52 @@ export function AnnotationSection({
   // to the editor-actions context. Either path is no-op safe.
   const ctx = useEditorActionsContext();
   const formCtx = useFormContext();
+  const binding = useMetadataTarget();
+  const fieldPath = [binding?.formPrefix, 'annotations'].filter(Boolean).join('.');
 
   const annotationsFromForm =
-    rawAnnotations === undefined ? (formCtx?.watch?.('annotations') as unknown[] | undefined) : undefined;
+    rawAnnotations === undefined
+      ? binding && binding.formPrefix === undefined
+        ? getMetadataItems(binding.node, 'annotations')
+        : (formCtx?.watch?.(fieldPath) as unknown[] | undefined)
+      : undefined;
   const effectiveRawAnnotations = rawAnnotations ?? annotationsFromForm;
 
   const effectiveAvailable = availableAnnotations ?? ctx?.availableAnnotations ?? WELL_KNOWN_ANNOTATIONS;
-  const effectiveReadOnly = readOnly ?? ctx?.readOnly ?? false;
+  const effectiveReadOnly = Boolean(readOnly || ctx?.readOnly || binding?.readOnly);
 
   const effectiveOnAdd = useCallback(
     (name: string) => {
       if (onAdd) return onAdd(name);
+      if (binding) {
+        const item = createAnnotationDraft(name);
+        const result = binding.commit({ kind: 'append', field: 'annotations', value: item });
+        if (result.status === 'committed')
+          formCtx?.setValue(fieldPath, [...(formCtx.getValues(fieldPath) ?? []), item], { shouldDirty: true });
+        return;
+      }
       if (ctx) ctx.actions.addAnnotation(ctx.nodeId, name);
     },
-    [onAdd, ctx]
+    [onAdd, ctx, binding, formCtx, fieldPath]
   );
   const effectiveOnRemove = useCallback(
     (index: number) => {
       if (onRemove) return onRemove(index);
+      if (binding) {
+        const expected = getMetadataItems(binding.node, 'annotations')[index];
+        if (!expected) return;
+        const result = binding.commit({ kind: 'remove', field: 'annotations', index, expected });
+        if (result.status === 'committed')
+          formCtx?.setValue(
+            fieldPath,
+            (formCtx.getValues(fieldPath) ?? []).filter((_item: unknown, i: number) => i !== index),
+            { shouldDirty: true }
+          );
+        return;
+      }
       if (ctx) ctx.actions.removeAnnotation(ctx.nodeId, index);
     },
-    [onRemove, ctx]
+    [onRemove, ctx, binding, formCtx, fieldPath]
   );
 
   const annotations: AnnotationDisplayInfo[] = useMemo(
@@ -121,6 +151,7 @@ export function AnnotationSection({
     [effectiveOnAdd]
   );
 
+  if (binding && !binding.capabilities.annotations) return null;
   if (annotations.length === 0 && effectiveReadOnly) return null;
 
   return (
@@ -145,6 +176,19 @@ export function AnnotationSection({
         {annotations.map((ann, i) => (
           <Badge key={getKey(ann)} variant="annotation" className="gap-1 text-3xs h-5 pl-1.5 pr-1">
             [{ann.name}]{ann.attribute && <span className="opacity-60">.{ann.attribute}</span>}
+            {binding && !effectiveReadOnly && (
+              <button
+                type="button"
+                aria-label={`Edit ${ann.name} annotation`}
+                onClick={() => {
+                  const expected = getMetadataItems(binding.node, 'annotations')[i];
+                  if (expected) setEditing(editing?.index === i ? undefined : { index: i, expected });
+                }}
+                className="text-muted-foreground"
+              >
+                …
+              </button>
+            )}
             {!effectiveReadOnly && (
               <button
                 type="button"
@@ -159,6 +203,15 @@ export function AnnotationSection({
         ))}
         {annotations.length === 0 && <span className="text-3xs text-muted-foreground/60 italic">No annotations</span>}
       </div>
+
+      {editing && binding && !effectiveReadOnly && (
+        <AnnotationArgumentsEditor
+          key={`${fieldPath}:${editing.index}`}
+          prefix={fieldPath}
+          index={editing.index}
+          expected={editing.expected}
+        />
+      )}
 
       {/* Picker */}
       {showPicker && (
