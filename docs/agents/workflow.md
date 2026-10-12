@@ -222,3 +222,9 @@ The staged corpus scan reuses core's fixture loader and links all three bundles
 together. Its ignored `packages/codegen/dist/python-projection-coverage.json`
 records versions, content hashes, counts and syntax/linking exclusions. The
 checked-in census and execution battery remain required when `.resources` is absent.
+
+## Inspector validation (#562 / #595)
+
+Use the shared construct assessment rather than a LOC threshold. Test canonical field/target/metadata actions, form selection/leases/flush, rich source trivia and parsed render/reconcile seams. Core grammar changes require regeneration of AST, domain operations and both Core/visual-editor schemas with their package scripts; never patch generated schema text. Regenerated DataReference/AttributeReference receivers are recursive canonical unions, not UI approximations.
+
+`PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm --filter @rune-langium/studio exec playwright test test/e2e/inspector-details.spec.ts test/e2e/expression-workspace.spec.ts --retries=0` checks saved OPFS source before reload, enum paging/display/reorder, inherited inspection/override, bounded pointer/touch/keyboard divider behavior, 200% text size/axe and continuous implementation sessions. Start an owned Vite server directly on 5174; preserve user servers and browser tabs. `pnpm --filter @rune-langium/studio run test:z2f-hmr` uses a disposable schema copy and its own random-port server. Read all attached screenshots and report the explicit network-LSP/hosted coverage gaps.

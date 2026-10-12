@@ -1,6 +1,6 @@
 # Shared Inspector Constructs Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Complete #562 with one authoritative editor per shared construct and a bottom pane for the selected child's metadata, retaining correct edits and source.
 
@@ -21,7 +21,15 @@
 - Task 1 complete: regenerated projected canonical metadata fields, shared schema lookup and owner/epoch/child guards; 20 metadata/L1/parity tests and visual-editor types pass.
 - Task 2 complete: canonical factories and guarded metadata commands share the existing mutateGraph/undo/reconcile path; root actions delegate. 56 store tests and 33 additional shared-section/reparse checks pass; types/lint pass.
 - Task 3 foundations complete: stable row/locator aliases, captured edit envelopes, existing timer flush and callback registry. 25 selection/debounce/L1 checks pass; actual-form integration remains in Tasks 4/6/7. Root-level timers outside the returned provider use its additionalCommitFlush prop.
-- Remaining Tasks 4–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
+- Tasks 4–7 complete in commits `96a33688`, `20a814f6`, `175992e7` and `8e000d04`: shared metadata controls/frame, all declaration surfaces and Studio barriers. Tasks 8–9 complete in `dce37a05` and the browser test commit: source trivia, rich paths, identity-safe drafts, blocked save retries and isolated journeys. Task 10 completed the fresh review, exact validation record and qualitative closeout; no merge/deployment is authorized. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
+
+### Verified execution adjustments
+
+- Reused the approved owning seams; one form, no new timer/dependency/storage format. The external source trigger remains upstream `useExternalSync`; its one reset now adapts dirty leaves/errors by child identity through public RHF `useFormState`.
+- Fresh review exposed the intermediate source/reset index mismatch, blocked metadata flushes, stale nonedited signature replay and Choice type-reference identity. Added regression fixtures and shared canonical range/name maps, name-only guarded row callbacks and retained retry results. Explicit generated-schema validation remains authoritative.
+- Core exports linked annotation definition facts from actual references instead of a UI import-scope approximation. Two grammar interfaces were made explicit to correct inferred recursive path inheritance, then grammar/AST/domain/Zod outputs were regenerated. Canonical Rune rendering now retains qualifier paths and empty STRING values.
+- Source/editor sessions remain mounted while readonly state changes via CodeMirror compartments. The shared header's old negative margins were removed after screenshot evidence showed 16 px overflow. Local Worker notices are dismissed with existing controls solely to make isolated screenshots readable.
+- Final full-suite results and bounded-worker reruns are recorded in [the assessment](../../investigations/2026-10-12-inspector-562-assessment.md). Core 348, codegen 2,284, visual-editor 1,636 and Studio 1,936 tests pass. Browser 16 pass with one explicit network-LSP skip; HMR two pass. No production claim.
 
 ## Global Constraints
 
@@ -424,7 +432,7 @@ The registry test covers aggregation; useAutoSave tests pin timer cancellation a
 
 **Interfaces:** Consumes target context, factory/commit APIs and schema paths. `SynonymEditor` consumes an editable `formPrefix` or a canonical `readonlyNode`, `field: 'synonyms' | 'enumSynonyms'`, `kind: 'class' | 'body' | 'enumValue'`, source options, read-only and guarded commit. Existing public section props continue to work as thin bindings. `MetadataSectionProps` gains optional `includeComments?: boolean`; standalone legacy usage retains current behavior, new Inspector bindings explicitly exclude comments.
 
-- [ ] Render the same sections at root and `attributes.0`/`enumValues.0`. Assert edits affect the intended child, canonical validation fires, class/body/member synonym shapes differ correctly, unsupported controls are absent, and read-only rendering cannot commit. Use `AnnotationRef` fixtures with populated attribute and qualifiers and assert unrelated payload fields survive edits.
+- [x] Render the same sections at root and `attributes.0`/`enumValues.0`. Assert edits affect the intended child, canonical validation fires, class/body/member synonym shapes differ correctly, unsupported controls are absent, and read-only rendering cannot commit. Use `AnnotationRef` fixtures with populated attribute and qualifiers and assert unrelated payload fields survive edits.
 
 ```ts
 expect(createSynonymDraft('class', 'other.FpML', 'Trade')).toMatchObject({
@@ -439,9 +447,9 @@ expect(createSynonymDraft('enumValue', 'other.FpML', 'Manager')).toMatchObject({
 expect(createSynonymDraft('body', 'other.FpML', '')).toBeUndefined();
 ```
 
-- [ ] Run metadata target, existing `MetadataSection-synonyms.test.tsx` and `EnumValueRow.test.tsx`; new nested behavior should fail before refactoring.
-- [ ] Replace root-only `definition`/`annotations`/`synonyms` paths with target-prefixed paths and canonical capability checks. Always obtain `$type` from the bound child rather than the parent form's `$type`. Keep EditorController validation and existing picker primitives; disable Add until required inputs are valid. Expose supported annotation attribute/qualifier fields through their canonical nested schemas and existing reference controls, retaining unedited rich payloads.
-- [ ] Add the enum Display name control to MetadataSection's shared target-aware rendering, bound to `${formPrefix}.display` through EditorController. Its existing useAutoSave receives the Task 3 target-safe envelope and the display command; normalize a cleared input to `undefined` through the same canonical path. The same component's read-only branch reads `readonlyNode.display`. Do not add an enum `labels` field, a second form, or an enum-specific metadata writer.
+- [x] Run metadata target, existing `MetadataSection-synonyms.test.tsx` and `EnumValueRow.test.tsx`; new nested behavior should fail before refactoring.
+- [x] Replace root-only `definition`/`annotations`/`synonyms` paths with target-prefixed paths and canonical capability checks. Always obtain `$type` from the bound child rather than the parent form's `$type`. Keep EditorController validation and existing picker primitives; disable Add until required inputs are valid. Expose supported annotation attribute/qualifier fields through their canonical nested schemas and existing reference controls, retaining unedited rich payloads.
+- [x] Add the enum Display name control to MetadataSection's shared target-aware rendering, bound to `${formPrefix}.display` through EditorController. Its existing useAutoSave receives the Task 3 target-safe envelope and the display command; normalize a cleared input to `undefined` through the same canonical path. The same component's read-only branch reads `readonlyNode.display`. Do not add an enum `labels` field, a second form, or an enum-specific metadata writer.
 
 ```ts
 const target = actions.captureMetadataTarget(nodeId, ['enumValues', 0]);
@@ -455,12 +463,12 @@ expect(actions.captureMetadataTarget(nodeId, ['enumValues', 0])?.expected).toMat
 });
 ```
 
-- [ ] Key the lower metadata section subtree by bound child/prefix so `useFieldArray` never changes its `name` within an existing hook instance. Keep `shouldUnregister: false` for these fields; re-keying the presentation must retain values and errors in the parent form, including an invalid name or pending metadata draft.
-- [ ] For inherited children not present in the local form array, render the same construct's read-only branch from `readonlyNode`. Do not register the ancestor's values under a guessed local prefix, copy them into the parent's editable form, or create another child form. Read-only branches expose no mutations and retain provenance.
-- [ ] Extract the synonym interaction from both current implementations into `SynonymEditor`. Factories from Task 2 own AST construction; `SourceRefField` and `resolveSynonymRefText` own source selection/qualification. Scope options come from the current canonical declaration/catalogue, preserving existing reference validation; do not hard-code new target rules in the UI.
-- [ ] Remove comments from new Inspector section placement and explicitly hide its editor-only field in generated config. Keep standalone comment props/actions and stored notes; no child notes field. SectionRenderer and generated config continue using the same authoritative section assignments.
-- [ ] Move EnumForm's new Inspector synonym presentation into details; standalone EnumValueRow may retain its optional presentation by delegating to the same SynonymEditor. Do not retain duplicated chips, validators or add/remove handlers.
-- [ ] Run affected section, row/config validation tests and visual-editor type-check; commit `refactor: share Inspector metadata construct editors`.
+- [x] Key the lower metadata section subtree by bound child/prefix so `useFieldArray` never changes its `name` within an existing hook instance. Keep `shouldUnregister: false` for these fields; re-keying the presentation must retain values and errors in the parent form, including an invalid name or pending metadata draft.
+- [x] For inherited children not present in the local form array, render the same construct's read-only branch from `readonlyNode`. Do not register the ancestor's values under a guessed local prefix, copy them into the parent's editable form, or create another child form. Read-only branches expose no mutations and retain provenance.
+- [x] Extract the synonym interaction from both current implementations into `SynonymEditor`. Factories from Task 2 own AST construction; `SourceRefField` and `resolveSynonymRefText` own source selection/qualification. Scope options come from the current canonical declaration/catalogue, preserving existing reference validation; do not hard-code new target rules in the UI.
+- [x] Remove comments from new Inspector section placement and explicitly hide its editor-only field in generated config. Keep standalone comment props/actions and stored notes; no child notes field. SectionRenderer and generated config continue using the same authoritative section assignments.
+- [x] Move EnumForm's new Inspector synonym presentation into details; standalone EnumValueRow may retain its optional presentation by delegating to the same SynonymEditor. Do not retain duplicated chips, validators or add/remove handlers.
+- [x] Run affected section, row/config validation tests and visual-editor type-check; commit `refactor: share Inspector metadata construct editors`.
 
 ### Task 5: Common frame, lower pane and inheritance presentation
 
@@ -468,7 +476,7 @@ expect(actions.captureMetadataTarget(nodeId, ['enumValues', 0])?.expected).toMat
 
 **Interfaces:** `InspectorSection { id: string; label: string; content: ReactNode; members?: boolean }`; `InspectorFrameProps { header: ReactNode; inheritance?: ReactNode; sections: readonly InspectorSection[]; details?: ReactNode; footer?: ReactNode; onSectionChange?: (id: string) => void }`. `InspectorDetailsPaneProps { targetName?: string; children: ReactNode; onClear?: () => void }`. `InspectorInheritanceField` composes existing TypeReferenceField with `value`, `displayName`, `options`, `onSelect`, `disabled` and navigation props.
 
-- [ ] Test frame with multiple sections and with a single/simple section. Verify one header/footer, useful empty details heading, collapsed default without selection, current target name, and keyboard divider bounds.
+- [x] Test frame with multiple sections and with a single/simple section. Verify one header/footer, useful empty details heading, collapsed default without selection, current target name, and keyboard divider bounds.
 
 ```tsx
 render(
@@ -487,8 +495,8 @@ fireEvent.click(screen.getByRole('button', { name: 'Collapse item details' }));
 expect(screen.getByRole('button', { name: 'Expand item details' })).toHaveAttribute('aria-expanded', 'false');
 ```
 
-- [ ] Run `test/editors/inspector-frame.test.tsx`; expect missing component failures.
-- [ ] Compose existing TypeHeader, Tabs, ErrorsSection and design-system primitives; do not define another declaration header or parent picker. Frame occupies available flex height, main content and lower details scroll separately, footer stays outside both. Sections decide whether details apply; no empty tabs or nested detail tabs. Use existing Explore/Inspector tokens and spacing.
+- [x] Run `test/editors/inspector-frame.test.tsx`; expect missing component failures.
+- [x] Compose existing TypeHeader, Tabs, ErrorsSection and design-system primitives; do not define another declaration header or parent picker. Frame occupies available flex height, main content and lower details scroll separately, footer stays outside both. Sections decide whether details apply; no empty tabs or nested detail tabs. Use existing Explore/Inspector tokens and spacing.
 
 ```tsx
 <div className="flex h-full min-h-0 flex-col" data-slot="inspector-frame">
@@ -502,9 +510,9 @@ expect(screen.getByRole('button', { name: 'Expand item details' })).toHaveAttrib
 </div>
 ```
 
-- [ ] Implement divider state in the pane, bounded by actual frame height and minimum main/detail sizes, with pointer capture, cancellation cleanup, `role="separator"`, arrow/Home/End support, touch-action and aria values. Persist no model/draft data; in-memory size is sufficient for this change. Collapse hides only details, not the form or function/condition session.
-- [ ] Add row focus/selection presentation through shared wrapper attributes, without stealing input focus or intercepting editor/picker keys. Footer omits unknown host save status and uses real validation status. Inheritance wrapper supplies kind restrictions while retaining existing override/provenance components.
-- [ ] Run frame tests, lint/style/type-check; commit `feat: add shared Inspector frame and lower details pane`.
+- [x] Implement divider state in the pane, bounded by actual frame height and minimum main/detail sizes, with pointer capture, cancellation cleanup, `role="separator"`, arrow/Home/End support, touch-action and aria values. Persist no model/draft data; in-memory size is sufficient for this change. Collapse hides only details, not the form or function/condition session.
+- [x] Add row focus/selection presentation through shared wrapper attributes, without stealing input focus or intercepting editor/picker keys. Footer omits unknown host save status and uses real validation status. Inheritance wrapper supplies kind restrictions while retaining existing override/provenance components.
+- [x] Run frame tests, lint/style/type-check; commit `feat: add shared Inspector frame and lower details pane`.
 
 ### Task 6: Data, Enum and Choice integration
 
@@ -512,7 +520,7 @@ expect(screen.getByRole('button', { name: 'Expand item details' })).toHaveAttrib
 
 **Interfaces:** Supply existing providers/field arrays to Tasks 3–5. Add optional row `onSelect?: () => void`, `selected?: boolean`; basic edit callbacks stay compatible. Full collection paths are computed before pagination/filtering. Common form props gain optional metadata actions/scope/status and `registerCommitFlush`; forward the latter to EditorFormProvider. No new required actions.
 
-- [ ] Test selection + metadata on actual forms, inline name/type/cardinality editing, inherited inspection/local override, ChoiceOption schema-supported metadata, and a member on the second enum page. Assert root Doc/Meta controls still target the declaration.
+- [x] Test selection + metadata on actual forms, inline name/type/cardinality editing, inherited inspection/local override, ChoiceOption schema-supported metadata, and a member on the second enum page. Assert root Doc/Meta controls still target the declaration.
 
 ```ts
 fireEvent.focus(within(rows[0]).getByRole('textbox', { name: /attribute name/i }));
@@ -525,10 +533,10 @@ expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).
 expect(store.getState().captureMetadataTarget(id, [])?.expected).not.toHaveProperty('definition');
 ```
 
-- [ ] Run changed form/row tests before migration; new detail behaviors should fail. Keep existing basic edit checks as regression coverage.
-- [ ] Wrap each form's contents with InspectorFrame **inside its existing EditorFormProvider**. Keep existing useExternalSync and committed-name anchors; never move form ownership into an outer shell. Map field.id to actual current array paths, attach selection/focus callbacks and pass the current child context to the bottom pane. Choice uses `attributes`, not an invented `options` property.
-- [ ] In Enum paging, pass full row identity/index through PaginatedEnumValues and the registry; page-relative positions must never become AST positions. Remove editable display-name and synonym controls from Inspector rows, supplying both in details via shared metadata controls. Rows retain value-name editing, reorder/remove and existing override/provenance actions. Standalone EnumValueRow APIs keep their current optional presentation through the same shared control binding. Inherited entries remain read-only until an explicit local override exists.
-- [ ] Add EnumForm tests proving Display name is in `Details: Manager`, absent from the row, editable/clearable and retained across rename, reorder, page changes and source reparse. Race a pending display edit against a name edit; the legacy full-value callback must read current display from the shared form rather than overwrite it with its committed prop. Clear display and then rename: `undefined` must not fall back to the old committed display name. Test inherited display inspection and explicit local override separately.
+- [x] Run changed form/row tests before migration; new detail behaviors should fail. Keep existing basic edit checks as regression coverage.
+- [x] Wrap each form's contents with InspectorFrame **inside its existing EditorFormProvider**. Keep existing useExternalSync and committed-name anchors; never move form ownership into an outer shell. Map field.id to actual current array paths, attach selection/focus callbacks and pass the current child context to the bottom pane. Choice uses `attributes`, not an invented `options` property.
+- [x] In Enum paging, pass full row identity/index through PaginatedEnumValues and the registry; page-relative positions must never become AST positions. Remove editable display-name and synonym controls from Inspector rows, supplying both in details via shared metadata controls. Rows retain value-name editing, reorder/remove and existing override/provenance actions. Standalone EnumValueRow APIs keep their current optional presentation through the same shared control binding. Inherited entries remain read-only until an explicit local override exists.
+- [x] Add EnumForm tests proving Display name is in `Details: Manager`, absent from the row, editable/clearable and retained across rename, reorder, page changes and source reparse. Race a pending display edit against a name edit; the legacy full-value callback must read current display from the shared form rather than overwrite it with its committed prop. Clear display and then rename: `undefined` must not fall back to the old committed display name. Test inherited display inspection and explicit local override separately.
 
 ```tsx
 const row = screen.getAllByRole('listitem')[0];
@@ -545,8 +553,8 @@ expect(store.getState().captureMetadataTarget(id, ['enumValues', 0])?.expected).
 });
 ```
 
-- [ ] Update `dataform-roundtrip.test.tsx`: seed legacy `fixture.comments` with `store.getState().updateComments(node.id, fixture.comments)` before render, assert the new Inspector comments control is absent, edit definition normally and retain the stored-note/source parity assertions. Do not regenerate the pinned baseline to remove its checks. Retain standalone comments tests where they cover the public API.
-- [ ] Run affected form/row/parity tests, configured-section and canonical validation tests. Commit `refactor: compose type Inspectors from shared constructs`.
+- [x] Update `dataform-roundtrip.test.tsx`: seed legacy `fixture.comments` with `store.getState().updateComments(node.id, fixture.comments)` before render, assert the new Inspector comments control is absent, edit definition normally and retain the stored-note/source parity assertions. Do not regenerate the pinned baseline to remove its checks. Retain standalone comments tests where they cover the public API.
+- [x] Run affected form/row/parity tests, configured-section and canonical validation tests. Commit `refactor: compose type Inspectors from shared constructs`.
 
 ### Task 7: Function, TypeAlias, read-only surfaces and Studio bindings
 
@@ -556,7 +564,7 @@ expect(store.getState().captureMetadataTarget(id, ['enumValues', 0])?.expected).
 
 Extend `useModelSourceSync` to return `SourceSyncHandle { flush(snapshot: SourceSyncSnapshot): Promise<void> }`, where `SourceSyncSnapshot { nodes: TypeGraphNode[]; edges: TypeGraphEdge[]; parseEpoch: number; patches: Patches; inversePatches: Patches }`. Its observer and explicit flush call one shared publish function, retain the frozen parse baseline and deduplication, and await the existing `onModelChanged` receipt. The host's `registerEditorSaveBarrier(flush: () => Promise<void>): () => void` registers the combined form/source flush; App invokes it before the existing `workspaceAutosave.flush()` in `clearWorkspaceState`.
 
-- [ ] Test function input documentation/annotations with the same AttributeRow/metadata editors, inherited inputs, output metadata at `['output']`, alias-supported sections and read-only Other display. Spy on a supplied expression slot's mount/dispose counts during child selection, collapse and resize; they must not change. Preserve legacy public FunctionInputRow behavior by delegating shared presentation/controls rather than changing its callback semantics.
+- [x] Test function input documentation/annotations with the same AttributeRow/metadata editors, inherited inputs, output metadata at `['output']`, alias-supported sections and read-only Other display. Spy on a supplied expression slot's mount/dispose counts during child selection, collapse and resize; they must not change. Preserve legacy public FunctionInputRow behavior by delegating shared presentation/controls rather than changing its callback semantics.
 
 ```tsx
 const mount = vi.fn();
@@ -575,9 +583,9 @@ expect(mount).toHaveBeenCalledTimes(1);
 expect(dispose).not.toHaveBeenCalled();
 ```
 
-- [ ] Run function/read-only/panel integration tests; new selected-input metadata should fail before integration.
-- [ ] Replace repeated frame/header/footer/parent-picker composition with Tasks 4–5. Function sections retain continuous implementation, pre/post conditions and existing generated projections; add only supported metadata details. TypeAlias and Other do not gain controls absent from canonical schemas/capabilities. All diagnostics remain reachable.
-- [ ] Supply current workspace scope to EditorFormPanel without keying/recreating the entire source session on child selection. Bind metadata actions through existing Studio editor action guards; an old scope rejects pending commits. Add a test switching between two workspaces containing identical namespace/type/field names before debounce fires.
+- [x] Run function/read-only/panel integration tests; new selected-input metadata should fail before integration.
+- [x] Replace repeated frame/header/footer/parent-picker composition with Tasks 4–5. Function sections retain continuous implementation, pre/post conditions and existing generated projections; add only supported metadata details. TypeAlias and Other do not gain controls absent from canonical schemas/capabilities. All diagnostics remain reachable.
+- [x] Supply current workspace scope to EditorFormPanel without keying/recreating the entire source session on child selection. Bind metadata actions through existing Studio editor action guards; an old scope rejects pending commits. Add a test switching between two workspaces containing identical namespace/type/field names before debounce fires.
 
 ```ts
 const currentMetadataScope = useLatestRef(scopeKey);
@@ -598,7 +606,7 @@ const metadataActions = useMemo<InspectorMetadataActions>(() => {
 
 The host wrapper's scope ref is shared by old and current callbacks. A fresh store capture from an old component must not bypass a workspace boundary. Keep the existing owner-specific structural/source guards alongside this scope check; normal declaration navigation within a workspace may still flush a valid edit to the original declaration.
 
-- [ ] Wire the declaration registry flush and canonical source-sync flush into App's existing transition barrier, before graph clear/epoch invalidation. Expose only ephemeral registration callbacks through WorkspaceProvider; no stored callbacks or serialized editor data. Await source publication, then run the existing storage flush and retain current failure/superseding-transition behavior.
+- [x] Wire the declaration registry flush and canonical source-sync flush into App's existing transition barrier, before graph clear/epoch invalidation. Expose only ephemeral registration callbacks through WorkspaceProvider; no stored callbacks or serialized editor data. Await source publication, then run the existing storage flush and retain current failure/superseding-transition behavior.
 
 ```ts
 // App owns the active view callbacks; the collection contains no model data.
@@ -632,8 +640,8 @@ await workspaceAutosave.flush();
 
 `flushEditorSaveBarriers(): Promise<void>` iterates the callbacks registered by `registerEditorSaveBarrier`. Explicit source flush must use the hook's exact immutable parsed baseline, never the already-mutated live file map. If a coherent source baseline cannot be obtained, reject the transition and retain the current workspace/error for retry. Test a workspace switch initiated at 100ms after a field edit, before either debounce expires: the old workspace's file must contain the edit before activation. Pagehide may request the same flush but cannot promise asynchronous durability; the browser reload journey separately waits for OPFS evidence.
 
-- [ ] Supply saveStatus only from an existing honest host save receipt/state. If no authoritative receipt is available at this seam, omit save text; the common footer still exposes validation/read-only state. Do not manufacture Saved locally or introduce a timer.
-- [ ] Run visual-editor form/panel tests, Studio integration tests, both type-checks and expression regression tests. Commit `refactor: unify callable and read-only Inspector composition`.
+- [x] Supply saveStatus only from an existing honest host save receipt/state. If no authoritative receipt is available at this seam, omit save text; the common footer still exposes validation/read-only state. Do not manufacture Saved locally or introduce a timer.
+- [x] Run visual-editor form/panel tests, Studio integration tests, both type-checks and expression regression tests. Commit `refactor: unify callable and read-only Inspector composition`.
 
 ### Task 8: Source fidelity and reconciliation through child metadata edits
 
@@ -641,7 +649,7 @@ await workspaceAutosave.flush();
 
 **Interfaces:** Core produces `SourceComment { offset: number; end: number; text: string }`, `getSourceComments(source: string): readonly SourceComment[]` from canonical lexer tokens, using `getSharedServices` from `packages/core/src/api/shared-services.ts`. VE produces `SourceTriviaIndex { withOwnedTrivia(node: DehydratedNode, rendered: string, reused: boolean): string }` and `createSourceTriviaIndex(source: string, baselineNodes: readonly DehydratedNode[], comments: readonly SourceComment[]): SourceTriviaIndex` within the current render invocation. No persisted trivia fields or new parser/pretty-printer.
 
-- [ ] Use the existing baseline fixture with a leading child comment, inline trailing comment, internal block comment, CRLF and non-BMP text. Edit a child definition and annotation, rename/reorder it, render, reparse and undo. Assert each comment occurs once, remains with its owner, unrelated function bytes remain exact and both pending metadata edits survive reparse.
+- [x] Use the existing baseline fixture with a leading child comment, inline trailing comment, internal block comment, CRLF and non-BMP text. Edit a child definition and annotation, rename/reorder it, render, reparse and undo. Assert each comment occurs once, remains with its owner, unrelated function bytes remain exact and both pending metadata edits survive reparse.
 
 ```ts
 const text = source.replace(
@@ -667,8 +675,8 @@ expect(output.indexOf('// name owner 🧭')).toBeGreaterThan(output.indexOf('age
 expect((await parse(output)).hasErrors).toBe(false);
 ```
 
-- [ ] Run new core/VE source tests and existing CST fidelity tests. Record which assertions already pass; implement only the owning-seam gaps demonstrated by these tests.
-- [ ] Extract comments with the existing shared Lexer, without regex-scanning strings or constructing another grammar/parser:
+- [x] Run new core/VE source tests and existing CST fidelity tests. Record which assertions already pass; implement only the owning-seam gaps demonstrated by these tests.
+- [x] Extract comments with the existing shared Lexer, without regex-scanning strings or constructing another grammar/parser:
 
 ```ts
 const result = getSharedServices().RuneDsl.parser.Lexer.tokenize(source);
@@ -677,8 +685,8 @@ return result.hidden
   .map((token) => ({ offset: token.startOffset, end: token.endOffset! + 1, text: token.image }));
 ```
 
-- [ ] Build trivia ownership once per baseline render from canonical comment offsets and original child `$cstRange`s. Same-line trailing trivia belongs to the preceding child; contiguous leading trivia at child indentation belongs to the following child. Comments inside a child's range belong to its smallest containing construct; unassociated/blank-separated parent comments stay parent-owned. Use original baseline children recovered through existing inverse-patch machinery, not current array order, to classify before a reorder. UTF-16 offsets index original source directly.
-- [ ] Integrate trivia at existing recursive render boundaries. Clean reused slices already contain their internal comments: append/prepend only owned trivia outside the slice. Dirty children retain owned internal comment text around their corresponding child boundaries while canonical rendering supplies semantic text. Track emitted comment ranges within the render so parent/child recursion cannot duplicate them. Leading/trailing trivia moves with its child; removed child-owned trivia is removed with that child, and untouched parent/sibling trivia stays present. Normalize relative indentation using the existing renderer helper, preserving original newline style.
+- [x] Build trivia ownership once per baseline render from canonical comment offsets and original child `$cstRange`s. Same-line trailing trivia belongs to the preceding child; contiguous leading trivia at child indentation belongs to the following child. Comments inside a child's range belong to its smallest containing construct; unassociated/blank-separated parent comments stay parent-owned. Use original baseline children recovered through existing inverse-patch machinery, not current array order, to classify before a reorder. UTF-16 offsets index original source directly.
+- [x] Integrate trivia at existing recursive render boundaries. Clean reused slices already contain their internal comments: append/prepend only owned trivia outside the slice. Dirty children retain owned internal comment text around their corresponding child boundaries while canonical rendering supplies semantic text. Track emitted comment ranges within the render so parent/child recursion cannot duplicate them. Leading/trailing trivia moves with its child; removed child-owned trivia is removed with that child, and untouched parent/sibling trivia stays present. Normalize relative indentation using the existing renderer helper, preserving original newline style.
 
 ```ts
 // In the existing recursive renderer, after deciding whether a child is clean.
@@ -687,8 +695,8 @@ const text =
 if (text !== null) return trivia.withOwnedTrivia(child, text, Boolean(range && !subtreeDirty));
 ```
 
-- [ ] Preserve schema gate and existing CST fallback behavior, with no independent metadata serializer. For a demonstrated unsupported new item variant, implement it in canonical `rosetta-render-core.ts`, add its schema registry entry if needed, test parsed round-trip and rebuild codegen. Never display a successful commit for a new metadata construct silently omitted by rendering.
-- [ ] Run core source-comments tests, VE trivia/CST/reconcile tests, codegen annotation/synonym round-trip tests, then core/codegen/VE type-check and required builds. Commit `fix: preserve source trivia through Inspector metadata edits`.
+- [x] Preserve schema gate and existing CST fallback behavior, with no independent metadata serializer. For a demonstrated unsupported new item variant, implement it in canonical `rosetta-render-core.ts`, add its schema registry entry if needed, test parsed round-trip and rebuild codegen. Never display a successful commit for a new metadata construct silently omitted by rendering.
+- [x] Run core source-comments tests, VE trivia/CST/reconcile tests, codegen annotation/synonym round-trip tests, then core/codegen/VE type-check and required builds. Commit `fix: preserve source trivia through Inspector metadata edits`.
 
 ### Task 9: Browser, persistence and accessibility journeys
 
@@ -696,7 +704,7 @@ if (text !== null) return trivia.withOwnedTrivia(child, text, Boolean(range && !
 
 **Interfaces:** Browser fixtures use real `.rosetta` uploads and actual Inspector/store/source behavior. Add stable `data-slot`/accessible labels only for meaningful UI boundaries introduced above, not test-only private state APIs.
 
-- [ ] Add browser checks for selection + inline basics + bottom metadata, enum display-name editing/clearing/reload, rename/reorder/reload, source-only comments, inherited inspection/override, paging, divider keyboard/touch, narrow viewport/text scaling and function/condition session continuity.
+- [x] Add browser checks for selection + inline basics + bottom metadata, enum display-name editing/clearing/reload, rename/reorder/reload, source-only comments, inherited inspection/override, paging, divider keyboard/touch, narrow viewport/text scaling and function/condition session continuity.
 
 ```ts
 async function waitForSavedSource(page: Page, fileName: string, expected: string) {
@@ -756,11 +764,11 @@ test('selected field metadata survives rename and reload', async ({ page }) => {
 });
 ```
 
-- [ ] Start an owned dev server directly with `pnpm --filter @rune-langium/studio exec vite --host 127.0.0.1 --port 5174 --strictPort`; do not run cleanup scripts or reuse the user's primary 5173 server. Run `PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm --filter @rune-langium/studio exec playwright test test/e2e/inspector-details.spec.ts --retries=0` using isolated contexts. Failures before completing integration should describe the missing behavior, not a dead server.
-- [ ] Strengthen persistence integration using existing fake storage/clock harness: make several valid child edits, assert existing debounce coalesces writes, delay the first save while making a newer edit, transition workspace, and reject/retry storage. The latest snapshot must save before activation; stale child callbacks cannot edit identical IDs in another workspace. Do not modify debounce semantics to make tests pass.
-- [ ] Exercise narrow panels with a long annotation/synonym list and at least two enum pages. Run AxeBuilder over the actual Inspector, verify controls stay inside pane bounds and resize observer/console errors are absent. Tests wait for visible readiness and committed source rather than `networkidle` or arbitrary sleeps.
-- [ ] Run the new journeys alongside `expression-workspace.spec.ts` and the existing `pnpm --filter @rune-langium/studio run test:z2f-hmr`. Include Task 0's multi-document curated source integration/reveal regressions when verifying the new Inspector frame; inherited/curated details and Open in Source must retain that fixed navigation identity. Network LSP cases remain explicit opt-in and skipped coverage is reported; do not claim hosted production proof from local journeys.
-- [ ] Stop only the owned server. Commit `test: cover selected-item Inspector persistence and accessibility`.
+- [x] Start an owned dev server directly with `pnpm --filter @rune-langium/studio exec vite --host 127.0.0.1 --port 5174 --strictPort`; do not run cleanup scripts or reuse the user's primary 5173 server. Run `PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm --filter @rune-langium/studio exec playwright test test/e2e/inspector-details.spec.ts --retries=0` using isolated contexts. Failures before completing integration should describe the missing behavior, not a dead server.
+- [x] Strengthen persistence integration using existing fake storage/clock harness: make several valid child edits, assert existing debounce coalesces writes, delay the first save while making a newer edit, transition workspace, and reject/retry storage. The latest snapshot must save before activation; stale child callbacks cannot edit identical IDs in another workspace. Do not modify debounce semantics to make tests pass.
+- [x] Exercise narrow panels with a long annotation/synonym list and at least two enum pages. Run AxeBuilder over the actual Inspector, verify controls stay inside pane bounds and resize observer/console errors are absent. Tests wait for visible readiness and committed source rather than `networkidle` or arbitrary sleeps.
+- [x] Run the new journeys alongside `expression-workspace.spec.ts` and the existing `pnpm --filter @rune-langium/studio run test:z2f-hmr`. Include Task 0's multi-document curated source integration/reveal regressions when verifying the new Inspector frame; inherited/curated details and Open in Source must retain that fixed navigation identity. Network LSP cases remain explicit opt-in and skipped coverage is reported; do not claim hosted production proof from local journeys.
+- [x] Stop only the owned server. Commit `test: cover selected-item Inspector persistence and accessibility`.
 
 ### Task 10: Qualitative assessment, documentation and final verification
 
@@ -768,7 +776,7 @@ test('selected field metadata survives rename and reload', async ({ page }) => {
 
 **Interfaces:** Produces the source-backed construct reuse matrix and validation report required by the approved spec; it is the closeout gate, not a LOC score.
 
-- [ ] Populate an assessment row for every shared construct and applicable declaration/child owner:
+- [x] Populate an assessment row for every shared construct and applicable declaration/child owner:
 
 ```markdown
 | Construct     | Canonical implementation         | Owners/bindings                       | Behavior evidence                           | Deliberate variant/exception          |
@@ -777,9 +785,9 @@ test('selected field metadata survives rename and reload', async ({ page }) => {
 | Synonyms      | SynonymEditor + metadata-ops     | Class, body and enumValue variants    | Cross-namespace and required-value tests    | AST payload variants remain typed     |
 ```
 
-- [ ] Inspect remaining repeated UI/semantic logic after all migrations. Add rows for attributes/function inputs, annotations, inheritance, header/footer/navigation and conditions/errors. Name exact implementation files and tests; include standalone wrappers and generated/custom config consumers. Resolve parallel editors/factories rather than counting shared hook imports. Record actual remaining exceptions and their reason; do not invent a passing percentage.
-- [ ] Update architecture/workflow guidance for the common frame, form-local selection, guarded target actions, source-only comments and honest save status. Document #595's declaration-owned curated routing and request-scoped reveal, retaining active-namespace source laziness and existing cache semantics. Mark the original LOC criterion explicitly superseded by the user's October 11 qualitative decision; retain measured history. Confirm public callback APIs and stored notes coverage are retained.
-- [ ] Run relevant complete visual-editor and Studio test suites, lint/style/format checks, workspace type-check and final browser journeys. If Task 8 changed core/codegen runtime rendering, include full affected package tests and rebuilds before consumer verification. Use these commands from the root:
+- [x] Inspect remaining repeated UI/semantic logic after all migrations. Add rows for attributes/function inputs, annotations, inheritance, header/footer/navigation and conditions/errors. Name exact implementation files and tests; include standalone wrappers and generated/custom config consumers. Resolve parallel editors/factories rather than counting shared hook imports. Record actual remaining exceptions and their reason; do not invent a passing percentage.
+- [x] Update architecture/workflow guidance for the common frame, form-local selection, guarded target actions, source-only comments and honest save status. Document #595's declaration-owned curated routing and request-scoped reveal, retaining active-namespace source laziness and existing cache semantics. Mark the original LOC criterion explicitly superseded by the user's October 11 qualitative decision; retain measured history. Confirm public callback APIs and stored notes coverage are retained.
+- [x] Run relevant complete visual-editor and Studio test suites, lint/style/format checks, workspace type-check and final browser journeys. If Task 8 changed core/codegen runtime rendering, include full affected package tests and rebuilds before consumer verification. Use these commands from the root:
 
 ```bash
 pnpm --filter @rune-langium/visual-editor test
@@ -792,9 +800,9 @@ pnpm --filter @rune-langium/core test
 pnpm --filter @rune-langium/codegen test
 ```
 
-- [ ] Record exact commands/results, public-behavior coverage, source-rich fixture revisions, browser bounds/axe/console evidence and any explicit hosted-LSP gaps. No production deployment or checkout is implied by this plan.
-- [ ] Update #562 with the explicit criterion revision and confirmed implementation evidence, retaining separate persistence incidents. Keep it open while the implementation PR awaits review/merge; use `Fixes #562` in the PR only after the complete construct matrix, required checks and final review pass, so closure follows an authorized merge. Commit documentation as `docs: record qualitative Inspector consolidation evidence`.
-- [ ] Before final delivery, get one fresh whole-branch review under the selected inline execution method. Address justified findings and rerun only affected checks. Preserve dirty files and Infigraph continuity. A later PR may be created for review; merging/deployment requires its user authorization.
+- [x] Record exact commands/results, public-behavior coverage, source-rich fixture revisions, browser bounds/axe/console evidence and any explicit hosted-LSP gaps. No production deployment or checkout is implied by this plan.
+- [x] Update #562 with the explicit criterion revision and confirmed implementation evidence, retaining separate persistence incidents. Keep it open while the implementation PR awaits review/merge; use `Fixes #562` in the PR only after the complete construct matrix, required checks and final review pass, so closure follows an authorized merge. Commit documentation as `docs: record qualitative Inspector consolidation evidence`.
+- [x] Before final delivery, get one fresh whole-branch review under the selected inline execution method. Address justified findings and rerun only affected checks. Preserve dirty files and Infigraph continuity. A later PR may be created for review; merging/deployment requires its user authorization.
 
 ## Spec coverage and planning self-review
 

@@ -3,6 +3,10 @@
 **Branch**: `013-z2f-editor-migration` | **Phase**: 1 (design)
 **Audience**: implementers of any of the five form slices (Phases B and D)
 
+**October 12, 2026 implementation addendum:** The approved [shared Inspector plan](../../../docs/superpowers/plans/2026-10-12-inspector-shared-constructs.md) supersedes the numeric-index dirty retention and row rename descriptions below. Each declaration still owns one canonical form/schema. Optional host props `scopeKey`, `parseEpoch`, `saveStatus` and `registerCommitFlush` connect current workspace ownership and the existing persistence barrier; standalone consumers remain supported. `useInspectorExternalSync` delegates source triggering to upstream `useExternalSync`, then resets once and reapplies only uniquely matched dirty member leaves/errors. Same-epoch removal/name reuse and ambiguous reparse matches clear stale drafts with a visible identity error. Shared `useInspectorTargets` resolves canonical members before enum paging and supports name-only commits against current signature/display; the previous row callback API remains a fallback.
+
+Child metadata paths use the parent form through `MetadataTargetContext`, generated schema capability checks and guarded graph actions. Accepted rich payloads detach from mutable RHF values, and uniquely unchanged item leases can renew across reparse. The existing per-field debounce reports a valid parse-blocked commit as pending; the shared flush registry rejects premature persistence and retains the edit for retry. No new timer, persisted child ID, storage format or private child form is added. Comments remain in Source and legacy notes/public callbacks remain supported. See the [qualitative assessment](../../../docs/investigations/2026-10-12-inspector-562-assessment.md) for implemented construct variants and tests. The rest of this document is retained as the original migration contract.
+
 This document defines the integration contract between the editor pane (which
 holds the selected graph node and per-kind action callbacks) and the form host
 (`<ZodForm>` plus the upstream primitives from `010-editor-primitives`). It is
@@ -42,18 +46,18 @@ The form is bound to `data` by **reference identity**:
   upstream `useExternalSync(form, data, toValues)` hook (R4 of
   `research.md`). The previous custom `<ExternalDataSync>` component is
   removed.
-- When `data === prevData` but a *property* of `data` changed by mutation,
+- When `data === prevData` but a _property_ of `data` changed by mutation,
   the form host MUST NOT reset. Pristine fields stay current via the natural
   React render cycle; dirty fields are protected by `keepDirtyValues`.
 - When the user has an in-flight debounced commit at the moment `data`
-  identity changes, the pending commit MUST flush against the *original*
+  identity changes, the pending commit MUST flush against the _original_
   `nodeId` before the form repopulates with the new node's values. This
   preserves the existing behaviour described in spec Edge Cases.
 
 **Failure mode**: if `toFormValues(data)` throws (e.g. malformed AST), the
 form host MUST surface the error to the surrounding error boundary rather
 than render a blank form. The spec's edge case ("source doesn't satisfy the
-schema") is *not* this case — that one is a Zod validation issue at field
+schema") is _not_ this case — that one is a Zod validation issue at field
 level, not a projection error.
 
 ---

@@ -1,4 +1,7 @@
 ---
+
+> October 11, 2026: the user superseded T070/SC-001's LOC threshold with the qualitative shared-construct gate for [#562](https://github.com/pradeepmouli/rune-langium/issues/562). Historical checklist items below are preserved, not retroactively marked complete. Current execution and public API/persistence/source evidence live in the [Inspector plan](../../docs/superpowers/plans/2026-10-12-inspector-shared-constructs.md) and [assessment](../../docs/investigations/2026-10-12-inspector-562-assessment.md).
+
 description: "Task breakdown for Migrate Visual Editor Forms to zod-to-form"
 ---
 
@@ -33,8 +36,8 @@ This is a TypeScript pnpm-workspaces monorepo (`rune-langium`). Paths are relati
 
 **Purpose**: The branch `013-z2f-editor-migration` is already checked out and the workspace is wired. This phase confirms the green baseline before any migration work begins. No new tooling is introduced.
 
-- [X] T001 Confirm green baseline: from repo root run `pnpm install`, `pnpm --filter @rune-langium/visual-editor build`, `pnpm --filter @rune-langium/visual-editor test`, and `pnpm run type-check`. Assert all pass before any task in Phase 2 begins.
-- [X] T002 Confirm Playwright is wired in `apps/studio/playwright.config.ts` and that `pnpm --filter @rune-langium/studio playwright test --list` enumerates the existing suite (no new tests yet — wiring check only).
+- [x] T001 Confirm green baseline: from repo root run `pnpm install`, `pnpm --filter @rune-langium/visual-editor build`, `pnpm --filter @rune-langium/visual-editor test`, and `pnpm run type-check`. Assert all pass before any task in Phase 2 begins.
+- [x] T002 Confirm Playwright is wired in `apps/studio/playwright.config.ts` and that `pnpm --filter @rune-langium/studio playwright test --list` enumerates the existing suite (no new tests yet — wiring check only).
 
 ---
 
@@ -53,9 +56,9 @@ This is a TypeScript pnpm-workspaces monorepo (`rune-langium`). Paths are relati
 
 ### Schema source unification (R1 / FR-008 / Phase A)
 
-- [X] T007 Confirm `packages/visual-editor/z2f.config.ts` already imports from `src/generated/zod-schemas.js` and that every AST-only field (`$type` family, `references`, `labels`, `ruleReferences`, `enumSynonyms`, `postConditions`, `arguments`) is marked `hidden: true`. Document any AST field NOT covered by `hidden:` rules; add it.
-- [X] T008 Confirm the typed config docstring states the L1/L2 contract: hidden fields are stripped from the schema-lite validation surface at runtime; the AST schemas remain canonical and grammar-driven. No code changes if the previous config already satisfies this — verify and update only the docstring if so.
-- [X] T009 Run `pnpm --filter @rune-langium/visual-editor type-check` and confirm zero TypeScript errors. Run the full `pnpm --filter @rune-langium/visual-editor test` and confirm no regressions. Note: editor files under `src/components/editors/` MAY still import projection schemas at this stage (those imports go away in Phase 9 / T076).
+- [x] T007 Confirm `packages/visual-editor/z2f.config.ts` already imports from `src/generated/zod-schemas.js` and that every AST-only field (`$type` family, `references`, `labels`, `ruleReferences`, `enumSynonyms`, `postConditions`, `arguments`) is marked `hidden: true`. Document any AST field NOT covered by `hidden:` rules; add it.
+- [x] T008 Confirm the typed config docstring states the L1/L2 contract: hidden fields are stripped from the schema-lite validation surface at runtime; the AST schemas remain canonical and grammar-driven. No code changes if the previous config already satisfies this — verify and update only the docstring if so.
+- [x] T009 Run `pnpm --filter @rune-langium/visual-editor type-check` and confirm zero TypeScript errors. Run the full `pnpm --filter @rune-langium/visual-editor test` and confirm no regressions. Note: editor files under `src/components/editors/` MAY still import projection schemas at this stage (those imports go away in Phase 9 / T076).
 
 **Checkpoint**: Baseline captured, typed config points at the canonical form-surface schemas. US1–US7 implementation can now begin per the dependency graph below.
 
@@ -322,13 +325,13 @@ US3 — Phase 5 (T023–T039)  ── Choice / Enum / Function / TypeAlias
 
 ### Cross-spec dependency summary (all upstream gates)
 
-| Downstream phase | Upstream task (z2f spec 010) | What it provides |
-|------------------|------------------------------|------------------|
-| Phase 3 (US1)    | T021                          | `useExternalSync(form, source, toValues)` hook |
-| Phase 3 (US1)    | T011 / T012                   | `ArrayReorderHandle` component (via `componentMap`) |
-| Phase 4 (US2)    | T014                          | `ArrayBlock` reorder wiring + `arrayConfig.reorder` consumption |
-| Phase 6 (US4)    | T038                          | Ghost-row rendering via `arrayConfig.before` / `arrayConfig.after` |
-| Phase 8 (US6)    | T046                          | Custom-row-renderer worked-example MDX |
+| Downstream phase | Upstream task (z2f spec 010) | What it provides                                                   |
+| ---------------- | ---------------------------- | ------------------------------------------------------------------ |
+| Phase 3 (US1)    | T021                         | `useExternalSync(form, source, toValues)` hook                     |
+| Phase 3 (US1)    | T011 / T012                  | `ArrayReorderHandle` component (via `componentMap`)                |
+| Phase 4 (US2)    | T014                         | `ArrayBlock` reorder wiring + `arrayConfig.reorder` consumption    |
+| Phase 6 (US4)    | T038                         | Ghost-row rendering via `arrayConfig.before` / `arrayConfig.after` |
+| Phase 8 (US6)    | T046                         | Custom-row-renderer worked-example MDX                             |
 
 ## Parallel execution opportunities
 

@@ -1,59 +1,64 @@
 # LOC Reduction Report — feature 013-z2f-editor-migration
 
 **Generated**: 2026-04-25
-**Baseline commit**: `d38d863` (chore(deps): bump @zod-to-form/{core,react} to ^0.8.0, the commit *immediately before* Phase 3 / US1 began)
+**Baseline commit**: `d38d863` (chore(deps): bump @zod-to-form/{core,react} to ^0.8.0, the commit _immediately before_ Phase 3 / US1 began)
 **Final commit**: `1ba9631` (013-z2f-editor-migration HEAD)
 **Spec target**: SC-001 — total LOC in editor forms folder MUST decrease by ≥25%
 
-## Summary
+## Current acceptance decision (October 11, 2026)
+
+The user superseded SC-001's 25% LOC requirement with a qualitative DRY assessment: identical subnodes use the same constructs, including attributes, annotations, inheritance and synonyms, and share header/footer/navigation. The historical measurements below are retained as history; they are not the present acceptance gate. See the [#562 implementation assessment](../../docs/investigations/2026-10-12-inspector-562-assessment.md). Its current behavior/test evidence must pass before #562 closes.
+
+## Historical summary
 
 **SC-001 is NOT met.** Editors LOC went from **5,868 → 6,052**, a net change
 of **+184 lines (+3%)**. The migration prioritised parity (FR-012/SC-004) and
 end-user behavioural unchanged-ness over aggressive LOC reduction.
 
-| Phase target | Outcome |
-|---|---|
-| ≥25% reduction (SC-001) | ❌ +3% increase |
-| ZERO end-user-visible regressions (FR-012) | ✅ all 651 tests still pass |
-| ZERO graph-action contract changes (FR-002) | ✅ EditorFormActions diff empty |
-| All AST-canonical (R1, FR-008) | ✅ form-schemas.ts deleted; identityProjection helper for all five forms |
-| Custom rows via FormMeta.render (US6) | ✅ 4 row renderers registered |
-| Sections declarative (US5) | ✅ section: config + componentModule wired |
-| Inherited rows via ghost rows (US4) | ✅ arrayConfig.before in DataTypeForm |
-| Reorder via z2f primitive (US2) | ✅ arrayConfig.reorder true on attributes[] |
+| Phase target                                | Outcome                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------ |
+| ≥25% reduction (SC-001)                     | ❌ +3% increase                                                          |
+| ZERO end-user-visible regressions (FR-012)  | ✅ all 651 tests still pass                                              |
+| ZERO graph-action contract changes (FR-002) | ✅ EditorFormActions diff empty                                          |
+| All AST-canonical (R1, FR-008)              | ✅ form-schemas.ts deleted; identityProjection helper for all five forms |
+| Custom rows via FormMeta.render (US6)       | ✅ 4 row renderers registered                                            |
+| Sections declarative (US5)                  | ✅ section: config + componentModule wired                               |
+| Inherited rows via ghost rows (US4)         | ✅ arrayConfig.before in DataTypeForm                                    |
+| Reorder via z2f primitive (US2)             | ✅ arrayConfig.reorder true on attributes[]                              |
 
 ## Per-file deltas
 
 Largest reductions and growths by file:
 
-| File | Baseline | Final | Δ |
-|---|---:|---:|---:|
-| `FunctionForm.tsx` | 711 | 550 | **−161** |
-| `EnumForm.tsx` | 400 | 368 | **−32** |
-| `DataTypeForm.tsx` | 471 | 530 | +59 |
-| `AttributeRow.tsx` | 348 | 397 | +49 |
-| `MetadataSection.tsx` | 231 | 288 | +57 |
-| `AnnotationSection.tsx` | 136 | 187 | +51 |
-| `ConditionSection.tsx` | 396 | 475 | +79 |
-| `EnumValueRow.tsx` | 283 | 287 | +4 |
-| `TypeAliasForm.tsx` | 243 | 233 | −10 |
-| `ChoiceForm.tsx` | 283 | 283 | 0 |
-| **New: `FunctionInputRow.tsx`** | — | 88 | +88 |
-| Other (TypeSelector, expression-builder/*, etc.) | unchanged | unchanged | 0 |
+| File                                             |  Baseline |     Final |        Δ |
+| ------------------------------------------------ | --------: | --------: | -------: |
+| `FunctionForm.tsx`                               |       711 |       550 | **−161** |
+| `EnumForm.tsx`                                   |       400 |       368 |  **−32** |
+| `DataTypeForm.tsx`                               |       471 |       530 |      +59 |
+| `AttributeRow.tsx`                               |       348 |       397 |      +49 |
+| `MetadataSection.tsx`                            |       231 |       288 |      +57 |
+| `AnnotationSection.tsx`                          |       136 |       187 |      +51 |
+| `ConditionSection.tsx`                           |       396 |       475 |      +79 |
+| `EnumValueRow.tsx`                               |       283 |       287 |       +4 |
+| `TypeAliasForm.tsx`                              |       243 |       233 |      −10 |
+| `ChoiceForm.tsx`                                 |       283 |       283 |        0 |
+| **New: `FunctionInputRow.tsx`**                  |         — |        88 |      +88 |
+| Other (TypeSelector, expression-builder/*, etc.) | unchanged | unchanged |        0 |
 
 (Outside `editors/`: new helper files in `forms/sections/` and `forms/rows/`
 add ~250 LOC. The two deletions — `forms/ExternalDataSync.tsx` (65 LOC) +
 `forms/MapFormRegistry.ts` (~50 LOC) + `schemas/form-schemas.ts` (147 LOC)
-+ `test/schemas/form-schemas.test.ts` (~280 LOC) — net to roughly +0 LOC
-across the rest of the package.)
+
+- `test/schemas/form-schemas.test.ts` (~280 LOC) — net to roughly +0 LOC
+  across the rest of the package.)
 
 ## Why SC-001 missed
 
 The migration's per-form changes broke roughly even because three things
-each *added* LOC:
+each _added_ LOC:
 
 1. **Section components grew** (Annotation +51, Condition +79, Metadata
-   +57). Phase 7 made them work in *both* the old prop-callback path
+   +57). Phase 7 made them work in _both_ the old prop-callback path
    (still used by the imperative JSX in the forms) **and** the new
    declarative `section:` path (back-compat fallback via
    `EditorActionsContext`). The dual-mode adds branches; the per-form
@@ -76,7 +81,7 @@ each *added* LOC:
    projection's flat `members[]` did.
 
 The single reduction worth highlighting is **FunctionForm −161** —
-removing the imperative section JSX cascade *did* shrink that file
+removing the imperative section JSX cascade _did_ shrink that file
 notably; it was the largest pre-migration form (711 LOC) so the
 absolute drop is visible.
 

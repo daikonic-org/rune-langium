@@ -4,27 +4,27 @@ Current source and package manifests take precedence over historical specs.
 
 ## Package Map
 
-| Area | Responsibility and entry points |
-| --- | --- |
-| `packages/core` | Rune grammar, generated AST/domain/Zod surfaces, parsing, linking, validation, and serialization. `src/services/rune-dsl-module.ts` exposes `createRuneDslServices`, which composes generated and custom Langium services and registers validation. |
-| `packages/lsp-server` | Language-server integration over the core language services. |
-| `packages/codegen` | Native generation, imports, Rosetta rendering, and instance utilities. `src/generator.ts` orchestrates namespace generation; `src/emit/namespace-walker.ts` supplies shared normalization. |
-| `packages/visual-editor` | React Flow graphs, forms, adapters, and editor state; consumes core and codegen. |
-| `packages/design-system` | Shared theme, tokens, and UI primitives. |
-| `apps/studio` | React IDE, workspace persistence, browser workers, provider composition, and Pages Functions. |
-| `packages/git-sync-engine`, `packages/curated-schema` | Shared Git synchronization and curated-model contracts. |
-| `packages/instrumentation-core`, `packages/worker-core` | Shared instrumentation and Worker infrastructure; Worker logging lives in `worker-core/log`. |
-| `apps/lsp-worker` | Hosted LSP sessions in `RuneLspSession` Durable Objects. |
-| Other worker apps | Curated-model mirror, GitHub authentication, codegen gateway, and telemetry. |
-| `packages/codegen-legacy`, `apps/codegen-container` | Legacy JVM/Rosetta bridge and container path; Java 21 and `rosetta-code-generators` still apply here. |
-| `apps/docs`, `site` | Documentation and landing page, combined with Studio into the Pages artifact. |
+| Area                                                    | Responsibility and entry points                                                                                                                                                                                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core`                                         | Rune grammar, generated AST/domain/Zod surfaces, parsing, linking, validation, and serialization. `src/services/rune-dsl-module.ts` exposes `createRuneDslServices`, which composes generated and custom Langium services and registers validation. |
+| `packages/lsp-server`                                   | Language-server integration over the core language services.                                                                                                                                                                                        |
+| `packages/codegen`                                      | Native generation, imports, Rosetta rendering, and instance utilities. `src/generator.ts` orchestrates namespace generation; `src/emit/namespace-walker.ts` supplies shared normalization.                                                          |
+| `packages/visual-editor`                                | React Flow graphs, forms, adapters, and editor state; consumes core and codegen.                                                                                                                                                                    |
+| `packages/design-system`                                | Shared theme, tokens, and UI primitives.                                                                                                                                                                                                            |
+| `apps/studio`                                           | React IDE, workspace persistence, browser workers, provider composition, and Pages Functions.                                                                                                                                                       |
+| `packages/git-sync-engine`, `packages/curated-schema`   | Shared Git synchronization and curated-model contracts.                                                                                                                                                                                             |
+| `packages/instrumentation-core`, `packages/worker-core` | Shared instrumentation and Worker infrastructure; Worker logging lives in `worker-core/log`.                                                                                                                                                        |
+| `apps/lsp-worker`                                       | Hosted LSP sessions in `RuneLspSession` Durable Objects.                                                                                                                                                                                            |
+| Other worker apps                                       | Curated-model mirror, GitHub authentication, codegen gateway, and telemetry.                                                                                                                                                                        |
+| `packages/codegen-legacy`, `apps/codegen-container`     | Legacy JVM/Rosetta bridge and container path; Java 21 and `rosetta-code-generators` still apply here.                                                                                                                                               |
+| `apps/docs`, `site`                                     | Documentation and landing page, combined with Studio into the Pages artifact.                                                                                                                                                                       |
 
 The main dependencies are Studio → visual-editor/codegen/LSP/core,
 and CLI/codegen/LSP → core.
 
 ## Studio Runtime
 
-- Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.3; check manifests before changing versions.
+- Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.4; check manifests before changing versions.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.
 - `apps/studio/src/shell/providers/StudioProviders.tsx` composes provider responsibilities; `LspProvider.tsx` owns the LSP client and transport lifecycle.
@@ -205,3 +205,15 @@ provenance and Studio's file-version/async cache guards; generated views remain
 read-only and do not widen the inverse lens.
 
 Rule predicates resolve their declared input through the authoritative type/scope helpers. Python shares implicit field-context initialization with Data conditions; TypeScript rules reuse its Data-condition context, including inherited fields and metadata presence. Named rule fields link through the same typed scope used for navigation.
+
+## Inspector shared constructs
+
+The Inspector uses one declaration form and generated canonical schema. `InspectorFrame` composes the common header, inheritance picker, appropriate tabs and `InspectorFooter`; `InspectorDetailsPane` shows metadata for the selected child below the member rows. Attributes/function inputs share `AttributeRow` and the same complete Attribute draft factory. Enum identifiers remain inline; enum `display` belongs in selected-value details. `MetadataSection`, `AnnotationSection` and `SynonymEditor` bind root or child paths through `MetadataTargetContext`; readonly rich items use the authoritative Rune renderer.
+
+`useInspectorTargets` maps form keys to canonical member range/name/type-reference identity before paging, including the source-reset frame. `useInspectorSelection` maintains form-local RHF/pointer/range identity and requires a unique match after reparse. `useInspectorExternalSync` uses upstream source triggering and RHF public form-state subscription to rebase dirty leaves/errors through that same authored member identity; removed/ambiguous drafts cannot migrate to a replacement child. Guarded name-only callbacks preserve current Source signatures/display. Nothing persists these child keys. `metadata-target` guards owner, epoch and expected item; `metadata-ops` validates the edited canonical field and uses the existing graph recipe/history/patch path. Valid pending metadata commits blocked by parsing retain their draft and reject the existing save barrier until retry. Rich form payloads detach on acceptance, and unchanged item leases can renew across reparse. Inherited/curated metadata stays readonly; explicit existing override actions retain their meaning.
+
+`EditorCommitRegistry` flushes existing debounced fields and focused rich item edits before a root rename or Studio workspace/source/storage barrier. Source sync's explicit flush awaits the same ordered publication receipt and immutable parsed baseline as its observer. CodeMirror keeps its view during temporary readonly/signature-coordinate transitions and reconfigures editability in place; stale source coordinates cannot authorize edits or projections. Studio does not manufacture a Saved label.
+
+Authored comments are Source-only. Core's existing lexer yields UTF-16 comment ranges; per-render trivia ownership comes from original child CST ranges, including outside-root inline tails. Clean declarations need no trivia scan. Dirty render recursion preserves owned comments once, drops removed-child trivia and reuses untouched bodies. Legacy notes and standalone callback APIs remain covered. See the [qualitative #562 assessment](../investigations/2026-10-12-inspector-562-assessment.md).
+
+Curated navigation resolves the selected declaration's actual document within the active bundle/version/namespace/artifact. Pending reveal is scoped to current navigation/workspace/revision and is cancelled when superseded. Multi-document namespaces must never use the first matching namespace file as a declaration owner; namespace/source laziness and immutable cache keys are unchanged.
