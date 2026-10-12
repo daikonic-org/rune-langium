@@ -16,6 +16,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parse } from '@rune-langium/core';
 import { createEditorStore } from '../../src/store/editor-store.js';
+import { buildSourceForNamespaces } from '../../src/hooks/useModelSourceSync.js';
 
 const BASE_SOURCE = `
 namespace test.reconcile
@@ -115,5 +116,31 @@ describe('edit-reconcile — store integration', () => {
     store.getState().loadModels(staleModels);
 
     expect(alphaAttrNames(store)).toEqual(['x']); // deletion not resurrected
+  });
+
+  it('retains consecutive child metadata edits and reorder when an older source parse completes', async () => {
+    const id = store.getState().nodes.find((node) => node.data.name === 'Alpha')!.id;
+    const first = store.getState().captureMetadataTarget(id, ['attributes', 0])!;
+    store.getState().applyMetadataCommand(first, { kind: 'definition', value: 'First docs' });
+    const state = store.getState();
+    const rendered = buildSourceForNamespaces({
+      nodes: state.nodes,
+      edges: state.edges,
+      originalSourceByNamespace: new Map([['test.reconcile', BASE_SOURCE]]),
+      patches: state.pendingEditPatches,
+      inversePatches: state.pendingInversePatches
+    }).get('test.reconcile')!;
+    const parsed = await parse(rendered);
+    expect(parsed.hasErrors).toBe(false);
+    store.getState().reorderAttribute(id, 0, 1);
+    const second = store.getState().captureMetadataTarget(id, ['attributes', 1])!;
+    store.getState().applyMetadataCommand(second, { kind: 'definition', value: 'Second docs' });
+    store.getState().loadModels(parsed.value);
+    expect(alphaAttrNames(store)).toEqual(['y', 'x']);
+    expect(store.getState().captureMetadataTarget(id, ['attributes', 1])?.expected).toMatchObject({
+      name: 'x',
+      definition: 'Second docs'
+    });
+    expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).not.toHaveProperty('definition');
   });
 });

@@ -19,7 +19,8 @@
 - Integrated fresh `origin/master` at `8e09f2d4`; preserved dirty agent documents and `.resources`.
 - Task 0 completed locally: the stable-path hydration fixture fails with the original effect and passes with the corrected document routing. Source integration uses two real serialized documents and confirms full-file read-only function reveal. All 94 scoped Studio tests and Studio type checks pass. Production J20 now checks visible declaration reveal; production execution is pending an authorized deployment.
 - Task 1 complete: regenerated projected canonical metadata fields, shared schema lookup and owner/epoch/child guards; 20 metadata/L1/parity tests and visual-editor types pass.
-- Remaining Tasks 2–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
+- Task 2 complete: canonical factories and guarded metadata commands share the existing mutateGraph/undo/reconcile path; root actions delegate. 56 store tests and 33 additional shared-section/reparse checks pass; types/lint pass.
+- Remaining Tasks 3–10 are pending. Run scoped Vitest via `pnpm --filter <package> exec vitest run <files>`; an extra `--` through the package test script causes this Vitest version to run the entire suite.
 
 ## Global Constraints
 
@@ -324,7 +325,7 @@ export function resolveMetadataTarget(state: EditorState, target: MetadataTarget
 
 **Interfaces:** Consumes Task 1 targets/capabilities. Produces `InspectorMetadataActions` on the store and `createAnnotationDraft(name: string, attribute?: string, qualifiers?: readonly Dehydrated<AnnotationQualifier>[]): Dehydrated<AnnotationRef>`, `createSynonymDraft(kind: 'class' | 'body' | 'enumValue', source: string, value?: string): MetadataItem | undefined`. Form props receive optional `metadataActions?: InspectorMetadataActions`; existing CommonFormActions remain usable.
 
-- [ ] Add behavior tests for a child definition edit, rich annotation replacement, all synonym variants, negative/stale item indices, read-only owners, invalid payloads and exactly one undo entry per successful command.
+- [x] Add behavior tests for a child definition edit, rich annotation replacement, all synonym variants, negative/stale item indices, read-only owners, invalid payloads and exactly one undo entry per successful command.
 
 ```ts
 it('commits child metadata through the existing undo and patch path', async () => {
@@ -350,8 +351,8 @@ it('commits child metadata through the existing undo and patch path', async () =
 });
 ```
 
-- [ ] Run `pnpm --filter @rune-langium/visual-editor test -- test/store/metadata-ops.test.ts`; expect missing actions before implementation.
-- [ ] Build drafts through the canonical generated schemas. Populate required `AnnotationRef.qualifiers`, preserve existing `attribute`/qualifiers on updates, and share reference qualification with `resolveSynonymRefText`. Class values are optional; body/enumValue require a nonempty value and source.
+- [x] Run `pnpm --filter @rune-langium/visual-editor test -- test/store/metadata-ops.test.ts`; expect missing actions before implementation.
+- [x] Build drafts through the canonical generated schemas. Populate required `AnnotationRef.qualifiers`, preserve existing `attribute`/qualifiers on updates, and share reference qualification with `resolveSynonymRefText`. Class values are optional; body/enumValue require a nonempty value and source.
 
 ```ts
 return AnnotationRefSchema.parse({
@@ -362,9 +363,9 @@ return AnnotationRefSchema.parse({
 });
 ```
 
-- [ ] Validate only the edited canonical field/item before mutation; unrelated expression drafts must not block valid metadata. Check target and item identity, read-only state and capabilities before entering `mutateGraph`. Return canonical issue messages on invalid input; no history/patch/source change on rejected commands. Mutate a field/array in place through existing generated DomainOps where available, retaining other AST fields and source ranges. The display command sets/clears canonical `display` independently of the value's identifier; test set, clear, undo/redo and rejection on unsupported targets.
-- [ ] Delegate existing root definition/annotation/synonym and enum-value synonym actions to the same recipes, capturing current root/child at each call. Retain current method signatures and legacy notes behavior. Do not transplant rich-payload construction into JSX.
-- [ ] Extend reconciliation integration: commit metadata, render/save, begin another metadata edit, load the matching reparse and assert both edits and child ownership survive. Include reorder followed by reparse. Run metadata suites, `mutate-graph` and reconciliation suites plus type-check. Commit `feat: support guarded child metadata mutations`.
+- [x] Validate only the edited canonical field/item before mutation; unrelated expression drafts must not block valid metadata. Check target and item identity, read-only state and capabilities before entering `mutateGraph`. Return canonical issue messages on invalid input; no history/patch/source change on rejected commands. Mutate a field/array in place through existing generated DomainOps where available, retaining other AST fields and source ranges. The display command sets/clears canonical `display` independently of the value's identifier; test set, clear, undo/redo and rejection on unsupported targets.
+- [x] Delegate existing root definition/annotation/synonym and enum-value synonym actions to the same recipes, capturing current root/child at each call. Retain current method signatures and legacy notes behavior. Do not transplant rich-payload construction into JSX.
+- [x] Extend reconciliation integration: commit metadata, render/save, begin another metadata edit, load the matching reparse and assert both edits and child ownership survive. Include reorder followed by reparse. Run metadata suites, `mutate-graph` and reconciliation suites plus type-check. Commit `feat: support guarded child metadata mutations`.
 
 ### Task 3: Form-local selection and target-safe debounce
 

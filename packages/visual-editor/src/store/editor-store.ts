@@ -69,6 +69,20 @@ import {
 } from './node-projection.js';
 import { selectEdgeIndex } from './edge-index.js';
 import { rewriteEdgeRefInNode, rewriteOwnRefs, renameRefValue } from './edge-ref-rewrite.js';
+import {
+  captureMetadataTarget as captureTarget,
+  resolveMetadataTarget,
+  readAtMetadataPath,
+  getMetadataCapabilities,
+  type InspectorMetadataActions
+} from './metadata-target.js';
+import {
+  applyMetadataRecipe,
+  validateMetadataCommand,
+  createAnnotationDraft,
+  createSynonymDraft,
+  getMetadataItems
+} from './metadata-ops.js';
 
 // ---------------------------------------------------------------------------
 // Cross-namespace type-ref disambiguation (spec 020 Phase 13, Finding 3)
@@ -254,7 +268,7 @@ export interface DeferredExportEntry {
   exports: Array<{ type: string; name: string }>;
 }
 
-export interface EditorActions {
+export interface EditorActions extends InspectorMetadataActions {
   // --- Data loading ---
   loadModels(models: unknown, layoutOpts?: LayoutOptions): void;
   /** Register deferred corpus types as graph nodes without full AST models. */
@@ -1691,30 +1705,18 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
 
           // no generated domain op at the enum-value level; push/splice inline
           addEnumValueSynonym(nodeId: string, valueIndex: number, source: string, value: string) {
-            mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data as { $type?: string; enumValues?: any[] } | undefined;
-              if (d?.$type !== 'RosettaEnumeration') return;
-              const ev = d.enumValues?.[valueIndex];
-              if (!ev) return;
-              if (!Array.isArray(ev.enumSynonyms)) ev.enumSynonyms = [];
-              ev.enumSynonyms.push({
-                $type: 'RosettaEnumSynonym',
-                sources: [{ $refText: source }],
-                synonymValue: value
-              });
-            });
+            const target = get().captureMetadataTarget(nodeId, ['enumValues', valueIndex]);
+            const item = createSynonymDraft('enumValue', source, value);
+            if (target && item)
+              get().applyMetadataCommand(target, { kind: 'append', field: 'enumSynonyms', value: item });
           },
 
           removeEnumValueSynonym(nodeId: string, valueIndex: number, synIndex: number) {
-            mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data as { $type?: string; enumValues?: any[] } | undefined;
-              if (d?.$type !== 'RosettaEnumeration') return;
-              const arr = d.enumValues?.[valueIndex]?.enumSynonyms;
-              // Bounds guard: splice(-1, 1) would delete the LAST entry; out-of-range emits spurious patch.
-              if (Array.isArray(arr) && synIndex >= 0 && synIndex < arr.length) arr.splice(synIndex, 1);
-            });
+            const target = get().captureMetadataTarget(nodeId, ['enumValues', valueIndex]);
+            if (!target) return;
+            const expected = getMetadataItems(target.expected, 'enumSynonyms')[synIndex];
+            if (expected)
+              get().applyMetadataCommand(target, { kind: 'remove', field: 'enumSynonyms', index: synIndex, expected });
           },
 
           setEnumParent(nodeId: string, parentId: string | null) {
@@ -2172,13 +2174,28 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
           // Metadata operations
           // -----------------------------------------------------------------------
 
-          updateDefinition(nodeId: string, definition: string) {
+          captureMetadataTarget(nodeId, path) {
+            return captureTarget(get(), nodeId, path);
+          },
+
+          applyMetadataCommand(target, command) {
+            const state = get();
+            const node = resolveMetadataTarget(state, target);
+            if (!node) return { status: 'stale' };
+            if (state.nodesById.get(target.nodeId)?.meta.isReadOnly) return { status: 'readOnly' };
+            const rejected = validateMetadataCommand(node, command);
+            if (rejected) return rejected;
             mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data;
-              if (!d) return;
-              (d as { definition?: string }).definition = definition;
+              const owner = draft.nodes.get(target.nodeId)?.data;
+              const current = owner && readAtMetadataPath(owner, target.path);
+              if (current) applyMetadataRecipe(current, command);
             });
+            return { status: 'committed' };
+          },
+
+          updateDefinition(nodeId: string, definition: string) {
+            const target = get().captureMetadataTarget(nodeId, []);
+            if (target) get().applyMetadataCommand(target, { kind: 'definition', value: definition });
           },
 
           updateComments(nodeId: string, comments: string) {
@@ -2192,93 +2209,36 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
 
           // item construction stays bespoke (rich-ref synonym shapes); append delegated to DomainOps
           addSynonym(nodeId: string, source: string, value?: string) {
-            mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data;
-              if (!d) return;
-              const dd = d as { synonyms?: any[] };
-              // Every synonym kind REQUIRES at least one source (grammar:
-              // `'[' 'synonym' sources+=[RosettaSynonymSource:QualifiedName] ...`).
-              // Data/Choice use RosettaClassSynonym (optional value → { name }),
-              // Enum uses RosettaSynonym with a body (requires value — no-op when absent,
-              // since a body-less enum synonym renders unparsable in rosetta-render-core).
-              const sources = [{ $refText: source }];
-              if (d.$type === 'Data' || d.$type === 'Choice') {
-                const newSyn: any = { $type: 'RosettaClassSynonym', sources };
-                if (value) newSyn.value = { name: value };
-                if (!Array.isArray(dd.synonyms)) dd.synonyms = [];
-                if (d.$type === 'Data') {
-                  Data.addSynonym(d, newSyn as Parameters<typeof Data.addSynonym>[1]);
-                } else {
-                  Choice.addSynonym(d, newSyn as Parameters<typeof Choice.addSynonym>[1]);
-                }
-              } else if (d.$type === 'RosettaEnumeration') {
-                if (!value) return; // enum-level RosettaSynonym requires a body value
-                const newSyn = { $type: 'RosettaSynonym', sources, body: { values: [{ name: value }] } };
-                if (!Array.isArray(dd.synonyms)) dd.synonyms = [];
-                RosettaEnumeration.addSynonym(d, newSyn as Parameters<typeof RosettaEnumeration.addSynonym>[1]);
-              }
-              // other $types: no-op (no mutation → mutateGraph early-exits)
-            });
+            const target = get().captureMetadataTarget(nodeId, []);
+            if (!target) return;
+            const kind = getMetadataCapabilities(target.expected).synonymKind;
+            const item = kind && createSynonymDraft(kind, source, value);
+            if (item) get().applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value: item });
           },
 
-          // no 1:1 generated accessor: kind-agnostic / rich-ref
           removeSynonym(nodeId: string, index: number) {
-            mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data;
-              if (!d) return;
-              const dd = d as { synonyms?: any[] };
-              // Bounds guard (master used a bounds-safe filter): splice(-1, 1)
-              // would delete the LAST synonym; out-of-range would emit a no-op patch.
-              if (Array.isArray(dd.synonyms) && index >= 0 && index < dd.synonyms.length) {
-                dd.synonyms.splice(index, 1);
-              }
-            });
+            const target = get().captureMetadataTarget(nodeId, []);
+            if (!target) return;
+            const expected = getMetadataItems(target.expected, 'synonyms')[index];
+            if (expected) get().applyMetadataCommand(target, { kind: 'remove', field: 'synonyms', index, expected });
           },
 
-          // -----------------------------------------------------------------------
-          // Annotation operations
-          // -----------------------------------------------------------------------
-
-          // no 1:1 generated accessor: kind-agnostic / rich-ref construction
           addAnnotation(nodeId: string, annotationName: string) {
-            mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data;
-              if (!d) return;
-              const dd = d as { annotations?: any[] };
-              const newAnnotationRef = { $type: 'AnnotationRef', annotation: { $refText: annotationName } };
-              if (Array.isArray(dd.annotations)) {
-                dd.annotations.push(newAnnotationRef);
-              } else {
-                dd.annotations = [newAnnotationRef];
-              }
-            });
+            const target = get().captureMetadataTarget(nodeId, []);
+            if (target)
+              get().applyMetadataCommand(target, {
+                kind: 'append',
+                field: 'annotations',
+                value: createAnnotationDraft(annotationName)
+              });
           },
 
-          // no 1:1 generated accessor: kind-agnostic / rich-ref
           removeAnnotation(nodeId: string, index: number) {
-            mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data;
-              if (!d) return;
-              const dd = d as { annotations?: any[] };
-              // Bounds guard (master used a bounds-safe filter): splice(-1, 1)
-              // would delete the LAST annotation; out-of-range would emit a no-op patch.
-              if (Array.isArray(dd.annotations) && index >= 0 && index < dd.annotations.length) {
-                dd.annotations.splice(index, 1);
-              }
-            });
+            const target = get().captureMetadataTarget(nodeId, []);
+            if (!target) return;
+            const expected = getMetadataItems(target.expected, 'annotations')[index];
+            if (expected) get().applyMetadataCommand(target, { kind: 'remove', field: 'annotations', index, expected });
           },
-
-          // -----------------------------------------------------------------------
-          // ReactFlow integration
-          // -----------------------------------------------------------------------
-
-          // -----------------------------------------------------------------------
-          // On-demand curated hydration
-          // -----------------------------------------------------------------------
 
           requestNamespaceHydration(ns: string) {
             set((s) => {
