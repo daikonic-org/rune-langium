@@ -11,7 +11,11 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { WorkspaceFile } from '../../src/services/workspace.js';
-import { resolveEditorFilePath, useExploreFileNavStore } from '../../src/shell/explore-file-nav-store.js';
+import {
+  resolveEditorFilePath,
+  resolveHydratedSourcePath,
+  useExploreFileNavStore
+} from '../../src/shell/explore-file-nav-store.js';
 
 describe('explore file nav store', () => {
   beforeEach(() => {
@@ -82,5 +86,64 @@ describe('parser to source-editor file navigation', () => {
     const user = { name: 'types.rosetta', path: 'cdm/models/types.rosetta', content: '', dirty: false };
     expect(resolveEditorFilePath(user.path, [curated, user])).toBe(user.path);
     expect(resolveEditorFilePath('missing/types.rosetta', [curated, user])).toBeUndefined();
+  });
+});
+
+describe('hydrated curated source ownership', () => {
+  const enumFile: WorkspaceFile = {
+    name: 'enums.rosetta',
+    path: '[cdm]/enums.rosetta',
+    content: '',
+    dirty: false,
+    refOnly: true,
+    readOnly: true,
+    bundleId: 'cdm',
+    bundleVersion: 'latest',
+    namespace: 'cdm.example',
+    artifactKey: 'cdm/digest/example'
+  };
+  const typeFile = { ...enumFile, name: 'types.rosetta', path: '[cdm]/types.rosetta' };
+  const request = {
+    bundleId: 'cdm',
+    bundleVersion: 'latest',
+    namespace: 'cdm.example',
+    path: enumFile.path,
+    nodeId: 'cdm.example.Example'
+  };
+
+  it.each([
+    [enumFile, typeFile],
+    [typeFile, enumFile]
+  ])('selects the declaration document regardless of namespace file order', (...files) => {
+    expect(resolveHydratedSourcePath(request, files, ['cdm.example'], 'cdm/types.rosetta')).toBe(typeFile.path);
+  });
+  it('waits for authoritative ownership instead of opening the catalogue document', () => {
+    expect(resolveHydratedSourcePath(request, [enumFile, typeFile], ['cdm.example'])).toBeUndefined();
+  });
+  it('retains an explicit file request', () => {
+    expect(
+      resolveHydratedSourcePath(
+        { ...request, nodeId: undefined, path: typeFile.path },
+        [enumFile, typeFile],
+        ['cdm.example']
+      )
+    ).toBe(typeFile.path);
+  });
+  it('does not use a same-name file from another bundle', () => {
+    const other = { ...typeFile, bundleId: 'fpml', path: '[fpml]/types.rosetta' };
+    expect(resolveHydratedSourcePath(request, [other], ['cdm.example'], 'cdm/types.rosetta')).toBeUndefined();
+  });
+  it('rejects replaced versions and immutable artifact identities', () => {
+    expect(
+      resolveHydratedSourcePath(request, [{ ...typeFile, bundleVersion: 'next' }], ['cdm.example'], typeFile.path)
+    ).toBeUndefined();
+    expect(
+      resolveHydratedSourcePath({ ...request, artifactKey: 'old' }, [typeFile], ['cdm.example'], typeFile.path)
+    ).toBeUndefined();
+  });
+  it('supports legacy source only after its namespace is hydrated', () => {
+    const legacy = { ...typeFile, artifactKey: undefined };
+    expect(resolveHydratedSourcePath(request, [legacy], [], typeFile.path)).toBeUndefined();
+    expect(resolveHydratedSourcePath(request, [legacy], ['cdm.example'], typeFile.path)).toBe(typeFile.path);
   });
 });

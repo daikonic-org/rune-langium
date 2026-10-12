@@ -115,7 +115,12 @@ import type { DeferredExportEntry } from '../workers/parser-worker.js';
 import { pathToUri } from '../utils/uri.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { combineFileDiagnostics, countDiagnostics } from './explore-diagnostics.js';
-import { resolveEditorFilePath, useExploreFileNavStore } from './explore-file-nav-store.js';
+import {
+  resolveEditorFilePath,
+  resolveHydratedSourcePath,
+  useExploreFileNavStore,
+  type HydratedSourceRequest
+} from './explore-file-nav-store.js';
 import { useExportDialogStore } from './export-dialog-store.js';
 import { useImportDialogStore } from './import-dialog-store.js';
 import { HydrationOrchestrator } from '../services/hydration-orchestrator.js';
@@ -484,11 +489,14 @@ export const ExplorePerspective = withInstrumentation(
     const [loadingSourcePaths, setLoadingSourcePaths] = useState<Set<string>>(() => new Set());
     const sourceLoadTokensRef = useRef(new Map<string, object>());
     const pendingSourceRequestsRef = useRef(new Map<string, object>());
-    const pendingSourceNavigationRef = useRef<{ bundleId: string; namespace: string; path: string } | null>(null);
+    const pendingSourceNavigationRef = useRef<
+      (HydratedSourceRequest & { workspaceId: string; revision: number }) | null
+    >(null);
     const [sourceLoadError, setSourceLoadError] = useState<{ path: string; message: string } | null>(null);
     useEffect(() => {
       sourceLoadTokensRef.current.clear();
       pendingSourceRequestsRef.current.clear();
+      pendingSourceNavigationRef.current = null;
       setLoadingSourcePaths(new Set());
       setSourceLoadError(null);
       return () => {
@@ -1158,7 +1166,15 @@ export const ExplorePerspective = withInstrumentation(
         }
         if (!file.artifactKey && !hydratedNamespaces.includes(namespace)) {
           if (sourcePath === activeEditorFile) {
-            pendingSourceNavigationRef.current = { bundleId: file.bundleId, namespace, path: file.path };
+            pendingSourceNavigationRef.current = {
+              bundleId: file.bundleId,
+              bundleVersion: file.bundleVersion,
+              namespace,
+              path: file.path,
+              workspaceId,
+              revision: navigationSequenceRef.current,
+              nodeId: sourcePath === selectedSourceFilePath ? (selectedNodeId ?? undefined) : undefined
+            };
           }
           useEditorStore.getState().requestNamespaceHydration(namespace);
           continue;
@@ -1194,6 +1210,7 @@ export const ExplorePerspective = withInstrumentation(
       activeEditorFile,
       selectedSourceFilePath,
       selectedNodeMeta?.namespace,
+      selectedNodeId,
       hydratedNamespaces,
       workspaceId,
       loadCuratedSource
@@ -1201,17 +1218,31 @@ export const ExplorePerspective = withInstrumentation(
     useEffect(() => {
       const pending = pendingSourceNavigationRef.current;
       if (!pending) return;
+      if (
+        pending.workspaceId !== workspaceId ||
+        pending.revision !== navigationSequenceRef.current ||
+        (pending.nodeId !== undefined && pending.nodeId !== selectedNodeId)
+      ) {
+        pendingSourceNavigationRef.current = null;
+        return;
+      }
       if (activeEditorFile !== pending.path && files.some((file) => file.path === pending.path)) {
         pendingSourceNavigationRef.current = null;
         return;
       }
-      const hydratedFile = files.find(
-        (file) => file.bundleId === pending.bundleId && file.namespace === pending.namespace && file.artifactKey
-      );
-      if (!hydratedFile) return;
+      const hydratedPath = resolveHydratedSourcePath(pending, files, hydratedNamespaces, selectedSourceFilePath);
+      if (!hydratedPath) return;
       pendingSourceNavigationRef.current = null;
-      setActiveEditorFile(hydratedFile.path);
-    }, [files, activeEditorFile, setActiveEditorFile]);
+      setActiveEditorFile(hydratedPath);
+    }, [
+      files,
+      activeEditorFile,
+      setActiveEditorFile,
+      hydratedNamespaces,
+      selectedSourceFilePath,
+      selectedNodeId,
+      workspaceId
+    ]);
     const currentNavigationTarget =
       navigationTarget && navigationTarget.nodeId === selectedNodeId && navigationTarget.workspaceId === workspaceId
         ? navigationTarget

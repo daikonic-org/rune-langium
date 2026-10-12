@@ -17,7 +17,8 @@ import {
   resetCuratedDocumentCache
 } from '../../src/services/workspace.js';
 import { useModelStore } from '../../src/store/model-store.js';
-import { SourceEditor } from '../../src/components/SourceEditor.js';
+import { SourceEditor, type SourceEditorRef } from '../../src/components/SourceEditor.js';
+import { resolveHydratedSourcePath } from '../../src/shell/explore-file-nav-store.js';
 
 afterEach(() => {
   cleanup();
@@ -27,7 +28,10 @@ afterEach(() => {
 });
 
 it('loads original curated source on demand and displays it in a read-only editor', async () => {
-  const content = '// Preserve this comment\nnamespace curated.source\n\ntype Example:\n  value string (1..1)\n';
+  const content =
+    '// Preserve this comment\nnamespace curated.source\n\ntype Example:\n  value string (1..1)\n' +
+    '\n'.repeat(80) +
+    'func Identity:\n  inputs:\n    value int (1..1)\n  output:\n    result int (1..1)\n  set result:\n    value\n';
   const { RuneDsl } = createRuneDslServices();
   const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
     content,
@@ -35,6 +39,13 @@ it('loads original curated source on demand and displays it in a read-only edito
   );
   await RuneDsl.shared.workspace.DocumentBuilder.build([document]);
   const modelJson = serializeRuneModel(RuneDsl.serializer.JsonSerializer, document.parseResult.value);
+  const enumContent = 'namespace curated.source\nenum Role:\n  Manager\n';
+  const enumDocument = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+    enumContent,
+    URI.parse('file:///[cdm]/enums.rosetta')
+  );
+  await RuneDsl.shared.workspace.DocumentBuilder.build([enumDocument]);
+  const enumJson = serializeRuneModel(RuneDsl.serializer.JsonSerializer, enumDocument.parseResult.value);
   const artifactPath = 'https://www.daikonic.dev/curated/cdm/artifacts/source-test/ns/curated.source.json.gz';
   const mirrorRequests: string[] = [];
   vi.stubGlobal(
@@ -62,7 +73,11 @@ it('loads original curated source on demand and displays it in a read-only edito
           namespaces: {
             'curated.source': {
               deps: [],
-              exports: [{ type: 'Data', name: 'Example' }],
+              exports: [
+                { type: 'Data', name: 'Example' },
+                { type: 'RosettaFunction', name: 'Identity' },
+                { type: 'RosettaEnumeration', name: 'Role' }
+              ],
               artifact: artifactPath
             }
           }
@@ -74,10 +89,19 @@ it('loads original curated source on demand and displays it in a read-only edito
             JSON.stringify({
               documents: [
                 {
+                  path: 'enums.rosetta',
+                  content: enumContent,
+                  modelJson: enumJson,
+                  exports: [{ type: 'RosettaEnumeration', name: 'Role', path: '/elements@0' }]
+                },
+                {
                   path: 'example.rosetta',
                   content,
                   modelJson,
-                  exports: [{ type: 'Data', name: 'Example', path: '/elements@0' }]
+                  exports: [
+                    { type: 'Data', name: 'Example', path: '/elements@0' },
+                    { type: 'RosettaFunction', name: 'Identity', path: '/elements@1' }
+                  ]
                 }
               ]
             })
@@ -97,11 +121,14 @@ it('loads original curated source on demand and displays it in a read-only edito
   expect(result.curatedRefOnlyFiles?.cdm?.[0]).toMatchObject({ content: '', sourceLoaded: false });
   const artifactKey = result.curatedRefOnlyFiles!.cdm![0]!.artifactKey;
   expect(await loadCuratedNamespaceSource('cdm', 'latest', 'curated.source', artifactKey)).toMatchObject({
-    documents: [{ uri: 'cdm/example.rosetta', content }]
+    documents: [
+      { uri: 'cdm/enums.rosetta', content: enumContent },
+      { uri: 'cdm/example.rosetta', content }
+    ]
   });
   const files = (await parseWorkspaceViaRouter([], { curatedBundles, hydrateNamespaces: ['curated.source'] }))
     .curatedRefOnlyFiles!.cdm!;
-  expect(files[0]).toMatchObject({ content, sourceLoaded: true, refOnly: true, serializedModelJson: modelJson });
+  expect(files[1]).toMatchObject({ content, sourceLoaded: true, refOnly: true, serializedModelJson: modelJson });
   expect(mirrorRequests.filter((url) => !url.endsWith('/manifest.json'))).toEqual([artifactPath]);
   const model = {
     source: { id: 'cdm', name: 'CDM', repoUrl: 'https://example.com/cdm.git', ref: 'master', paths: [] },
@@ -111,10 +138,30 @@ it('loads original curated source on demand and displays it in a read-only edito
   };
   useModelStore.setState({ models: new Map([['cdm', model]]) });
   let view: EditorView | undefined;
+  const ref = React.createRef<SourceEditorRef>();
   const initial = mergeModelFiles([], model);
+  const owner = result.deferredExports?.find((entry) =>
+    entry.exports.some((declaration) => declaration.name === 'Example')
+  );
+  expect(owner?.filePath).toBe('cdm/example.rosetta');
+  const activeFile = resolveHydratedSourcePath(
+    {
+      bundleId: 'cdm',
+      bundleVersion: 'latest',
+      namespace: 'curated.source',
+      path: '[cdm]/curated.source',
+      nodeId: 'curated.source.Example'
+    },
+    initial,
+    ['curated.source'],
+    owner?.filePath
+  );
+  expect(activeFile).toBe('[cdm]/example.rosetta');
   const editor = render(
     <SourceEditor
+      ref={ref}
       files={initial}
+      activeFile={activeFile}
       onEditorViewCreated={(_path, created) => {
         view = created;
       }}
@@ -124,9 +171,14 @@ it('loads original curated source on demand and displays it in a read-only edito
 
   useModelStore.getState().setCuratedFiles('cdm', files);
   const loaded = useModelStore.getState().models.get('cdm')!;
-  expect(loaded.files[0]!.content).toBe(content);
-  editor.rerender(<SourceEditor files={mergeModelFiles([], loaded)} />);
+  expect(loaded.files[1]!.content).toBe(content);
+  editor.rerender(<SourceEditor ref={ref} files={mergeModelFiles([], loaded)} activeFile={activeFile} />);
   expect(view!.state.doc.toString()).toBe(content);
   expect(view!.state.readOnly).toBe(true);
   expect(editor.container.querySelector('.cm-content')?.textContent).toContain('Preserve this comment');
+  const functionLine = content.slice(0, content.indexOf('func Identity:')).split('\n').length;
+  expect(ref.current!.revealLine(functionLine, '[cdm]/enums.rosetta')).toBe(false);
+  expect(ref.current!.revealLine(functionLine, activeFile)).toBe(true);
+  expect(view!.state.selection.main.head).toBe(view!.state.doc.line(functionLine).from);
+  expect(view!.state.doc.toString()).toBe(content);
 });

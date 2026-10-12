@@ -3169,6 +3169,42 @@ describe('EditorPage source reveal lifecycle', () => {
     expect(sourceEditorMockState.revealLine).toHaveBeenCalledExactlyOnceWith(5, hydrated.files[0]!.path);
   });
 
+  it.each(['[cdm]/types.rosetta', '[cdm]/cdm.base.datetime'])(
+    'keeps the selected type file when namespace hydration also publishes an enum file first (%s)',
+    (initialPath) => {
+      select();
+      const input = props('');
+      Object.assign(input.files[0]!, {
+        path: initialPath,
+        artifactKey: undefined,
+        bundleId: 'cdm',
+        bundleVersion: 'latest'
+      });
+      input.deferredExports[0]!.filePath = input.files[0]!.path;
+      const view = renderEditorPage(input);
+      const hydrated = props();
+      Object.assign(hydrated.files[0]!, { path: '[cdm]/types.rosetta', bundleId: 'cdm', bundleVersion: 'latest' });
+      hydrated.deferredExports[0]!.filePath = 'cdm/types.rosetta';
+      hydrated.files.unshift({
+        ...hydrated.files[0]!,
+        path: '[cdm]/enums.rosetta',
+        name: 'enums.rosetta',
+        content: 'namespace cdm.base.datetime\nenum Convention:\n  None\n'
+      });
+      hydrated.deferredExports.unshift({
+        namespace,
+        filePath: 'cdm/enums.rosetta',
+        exports: [{ name: 'Convention', type: 'RosettaEnumeration' }]
+      });
+      editorStoreState.hydratedNamespaces = [namespace];
+      view.rerenderEditorPage(hydrated);
+      flushFrames();
+      expect(useExploreFileNavStore.getState().activeEditorFile).toBe('[cdm]/types.rosetta');
+      expect(sourceEditorMockState.revealLine).toHaveBeenLastCalledWith(5, '[cdm]/types.rosetta');
+      expect(sourceEditorMockState.revealLine).not.toHaveBeenCalledWith(expect.anything(), '[cdm]/enums.rosetta');
+    }
+  );
+
   it('does not reopen a canceled selection when hydration changes its file path', () => {
     select();
     const input = props('');

@@ -3,7 +3,7 @@
 **Date:** 2026-10-11
 **Issue:** [#562 — Inspector consolidation](https://github.com/pradeepmouli/rune-langium/issues/562)
 **Related navigation regression:** [#595 — wrong curated Source after hydration](https://github.com/pradeepmouli/rune-langium/issues/595), added to the plan at the user's request on 2026-10-12.
-**Status:** Written spec approved on 2026-10-12; implementation plan pending review.
+**Status:** Spec and implementation plan approved; inline implementation started on 2026-10-12.
 **Source snapshot:** `5812283ab9b81563b737291c6860e6db825a9c87`.
 
 ## Intent and success criterion
