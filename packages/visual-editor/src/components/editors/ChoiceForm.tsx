@@ -35,7 +35,7 @@ import { useFieldArray, type Control } from 'react-hook-form';
 import { useCallback } from 'react';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Badge } from '@rune-langium/design-system/ui/badge';
-import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
+import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
 import { InspectorFooter } from './inspector/InspectorFooter.js';
 import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
@@ -240,7 +240,7 @@ function ChoiceForm({
         readOnly={isReadOnly}
         synonymSourceOptions={synonymSourceOptions}
       >
-        <div data-slot="choice-form" className="h-full min-h-0 p-4">
+        <div data-slot="choice-form" className={INSPECTOR_FORM_CLASS}>
           <MetadataTargetProvider value={targets.rootBinding}>
             <InspectorFrame
               header={

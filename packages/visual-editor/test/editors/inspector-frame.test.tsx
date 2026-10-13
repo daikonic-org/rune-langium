@@ -8,6 +8,25 @@ import { InspectorDetailsPane } from '../../src/components/editors/inspector/Ins
 
 afterEach(cleanup);
 describe('common Inspector composition', () => {
+  it('names element details and uses an accessible icon-only collapse control', () => {
+    const { rerender } = render(
+      <InspectorDetailsPane elementLabel="Attribute" targetName="party">
+        <p>Metadata</p>
+      </InspectorDetailsPane>
+    );
+    expect(screen.getByText('Attribute: party')).toBeVisible();
+    const collapse = screen.getByRole('button', { name: 'Collapse item details' });
+    expect(collapse).toHaveTextContent('');
+    fireEvent.click(collapse);
+    expect(screen.getByRole('button', { name: 'Expand item details' })).toHaveAttribute('aria-expanded', 'false');
+    rerender(
+      <InspectorDetailsPane elementLabel="Member" targetName="Buy">
+        <p>Metadata</p>
+      </InspectorDetailsPane>
+    );
+    expect(screen.getByText('Member: Buy')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Details: Buy' })).toBeVisible();
+  });
   it('mounts sections on first activation and retains their drafts and DOM identity', () => {
     render(
       <InspectorFrame

@@ -11,8 +11,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { useState } from 'react';
+import { useDesignPreviewStore } from '../../src/store/design-preview-store.js';
 
 interface FakeGroupSpy {
   api: {
@@ -69,6 +70,7 @@ class FakeApi {
   groups = new Map<string, FakeGroupSpy>();
   panelStates = new Map<string, FakePanelSpy>();
   private layoutChangeListener: (() => void) | null = null;
+  emitLayoutChange = () => this.layoutChangeListener?.();
   onDidLayoutChange = (listener: () => void) => {
     this.layoutChangeListener = listener;
     return {
@@ -189,6 +191,35 @@ beforeEach(() => {
 });
 
 describe('DockShell — dockview integration (T065)', () => {
+  it('aligns the location path to the measured center stack as the layout changes', async () => {
+    let centerLeft = 380;
+    const geometry = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      return this.dataset.testid === 'dock-shell'
+        ? new DOMRect(100, 0, 1200, 720)
+        : this.dataset.testid === 'studio-paneswitch'
+          ? new DOMRect(centerLeft, 0, 600, 34)
+          : new DOMRect();
+    });
+    useDesignPreviewStore.getState().setPreference('path', true);
+    const { unmount } = render(
+      <DockShell
+        studioVersion="0.1.0"
+        workspaceId="alignment"
+        panelComponents={{ 'workspace.visualPreview': () => <div data-testid="studio-paneswitch" /> }}
+      />
+    );
+    try {
+      const shell = screen.getByTestId('dock-shell');
+      await waitFor(() => expect(shell.style.getPropertyValue('--rune-center-stack-start')).toBe('280px'));
+      centerLeft = 220;
+      act(() => lastApi!.emitLayoutChange());
+      expect(shell.style.getPropertyValue('--rune-center-stack-start')).toBe('120px');
+    } finally {
+      unmount();
+      geometry.mockRestore();
+      useDesignPreviewStore.getState().reset();
+    }
+  });
   it('registers every locked panel name as a dockview component', () => {
     render(<DockShell studioVersion="0.1.0" workspaceId="ws-1" />);
     for (const name of PANEL_COMPONENT_NAMES) {

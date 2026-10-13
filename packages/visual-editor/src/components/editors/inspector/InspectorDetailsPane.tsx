@@ -3,15 +3,22 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
 export interface InspectorDetailsPaneProps {
   targetName?: string;
   children: ReactNode;
   onClear?: () => void;
+  elementLabel?: string;
 }
 
 /** A bounded local layout preference; no model, draft or persistence ownership. */
-export function InspectorDetailsPane({ targetName, children, onClear }: InspectorDetailsPaneProps) {
+export function InspectorDetailsPane({
+  targetName,
+  children,
+  onClear,
+  elementLabel = 'Member'
+}: InspectorDetailsPaneProps) {
   const id = useId();
   const element = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(!targetName);
@@ -91,23 +98,39 @@ export function InspectorDetailsPane({ targetName, children, onClear }: Inspecto
           }}
         />
       )}
-      <div className="flex shrink-0 items-center justify-between gap-2 py-1.5 text-xs">
-        <span className="min-w-0 truncate font-medium">{targetName ? `Details: ${targetName}` : 'Item details'}</span>
+      <div className="flex shrink-0 items-center justify-between gap-2 py-1.5 text-base">
+        <span
+          className="min-w-0 truncate font-medium"
+          title={targetName ? `${elementLabel}: ${targetName}` : elementLabel}
+        >
+          {targetName ? `${elementLabel}: ${targetName}` : elementLabel}
+        </span>
         <div className="flex shrink-0 items-center gap-1">
           {targetName && onClear && (
-            <Button variant="ghost" size="sm" onClick={onClear} aria-label="Clear item selection">
-              Clear
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={onClear}
+              aria-label="Clear item selection"
+              title="Clear item selection"
+            >
+              <X className="size-3.5" aria-hidden="true" />
             </Button>
           )}
           <Button
-            variant="ghost"
-            size="sm"
+            variant="outline"
+            size="icon-xs"
             aria-expanded={!collapsed}
             aria-controls={id}
             aria-label={collapsed ? 'Expand item details' : 'Collapse item details'}
+            title={collapsed ? 'Expand item details' : 'Collapse item details'}
             onClick={() => setCollapsed(!collapsed)}
           >
-            {collapsed ? 'Expand' : 'Collapse'}
+            {collapsed ? (
+              <ChevronUp className="size-3.5" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+            )}
           </Button>
         </div>
       </div>

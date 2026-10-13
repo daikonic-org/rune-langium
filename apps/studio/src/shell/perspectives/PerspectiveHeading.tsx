@@ -48,10 +48,16 @@ export const PerspectiveHeading = withInstrumentation(function PerspectiveHeadin
   if (!perspective) return null;
   const Icon = perspective.icon;
   return (
-    <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-      <h1 className="studio-layout-presets__title shrink-0" data-testid="perspective-heading">
+    <div
+      className={
+        perspectiveId === 'explore' && showPath
+          ? 'studio-perspective-heading studio-perspective-heading--aligned'
+          : 'studio-perspective-heading'
+      }
+    >
+      <h1 className="studio-layout-presets__title" data-testid="perspective-heading">
         <Icon className="size-4" aria-hidden="true" />
-        <span>{perspective.title ?? perspective.label}</span>
+        <span className="truncate">{perspective.title ?? perspective.label}</span>
       </h1>
       {perspectiveId === 'explore' && showPath && <ExploreLocationPath />}
     </div>

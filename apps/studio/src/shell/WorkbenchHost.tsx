@@ -12,7 +12,8 @@ import { StudioDockTab } from './StudioDockTab.js';
 import type { WorkbenchDefinition, WorkbenchHostProps } from './workbench-types.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { useDesignPreviewStore } from '../store/design-preview-store.js';
-import { collapseAuxiliaryPanels, type AuxiliaryPanelLayout } from './auxiliary-panel-layout.js';
+import { collapseAuxiliaryPanels, getExploreSidePanel, type AuxiliaryPanelLayout } from './auxiliary-panel-layout.js';
+import { PanelCollapseButton } from './PanelCollapseButton.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
 
@@ -22,8 +23,89 @@ const HeaderActionsContext = createContext<{
   original?: WorkbenchHostProps['rightHeaderActionsComponent'];
 }>({ auxiliary: null, refresh: () => {} });
 
+const COLLAPSED_SIDE_WIDTH = 52;
+
+function SidePanelHeaderAction({
+  group,
+  label,
+  direction,
+  auxiliary
+}: {
+  group: IDockviewHeaderActionsProps['group'];
+  label: string;
+  direction: 'left' | 'right';
+  auxiliary: AuxiliaryPanelLayout | null;
+}) {
+  const isCollapsed = () =>
+    group.api.location.type === 'edge' ? group.api.isCollapsed() : group.api.width <= COLLAPSED_SIDE_WIDTH + 1;
+  const [collapsed, setCollapsed] = useState(isCollapsed);
+  const expandedWidth = useRef(direction === 'left' ? 240 : 320);
+  const expandedConstraints = useRef({
+    minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
+    maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
+  });
+  const ownsCollapsedConstraints = useRef(false);
+  useEffect(() => {
+    const update = () => {
+      const next = isCollapsed();
+      if (!next && group.api.location.type === 'grid') expandedWidth.current = group.api.width;
+      setCollapsed(next);
+    };
+    update();
+    const collapseListener = group.api.onDidCollapsedChange(update);
+    const sizeListener = group.api.onDidDimensionsChange(update);
+    return () => {
+      collapseListener.dispose();
+      sizeListener.dispose();
+      // A user can move the main task into this group; release our rail bounds.
+      if (
+        ownsCollapsedConstraints.current &&
+        group.element.isConnected &&
+        group.panels.length > 0 &&
+        group.api.location.type === 'grid' &&
+        !getExploreSidePanel(group.panels.map((panel) => panel.api.component))
+      ) {
+        group.api.setConstraints(expandedConstraints.current);
+        group.api.setSize({ width: expandedWidth.current });
+      }
+    };
+  }, [group]);
+  useEffect(() => {
+    const element = group.element;
+    element.classList.toggle('studio-side-panel-collapsed', collapsed && group.api.location.type === 'grid');
+    return () => element.classList.remove('studio-side-panel-collapsed');
+  }, [group, collapsed]);
+  const toggle = () => {
+    if (group.api.location.type === 'edge') {
+      if (auxiliary?.isManaged(group.id)) auxiliary.setCollapsed(group.id, !collapsed);
+      else if (collapsed) group.api.expand();
+      else group.api.collapse();
+    } else {
+      // Match the utility tray's resize approach without removing the panel's DOM.
+      const width = expandedWidth.current;
+      if (collapsed) {
+        ownsCollapsedConstraints.current = false;
+        group.api.setConstraints(expandedConstraints.current);
+        group.api.setSize({ width });
+      } else {
+        ownsCollapsedConstraints.current = true;
+        expandedConstraints.current = { minimumWidth: group.minimumWidth, maximumWidth: group.maximumWidth };
+        group.api.setConstraints({ minimumWidth: COLLAPSED_SIDE_WIDTH, maximumWidth: COLLAPSED_SIDE_WIDTH });
+        group.api.setSize({ width: COLLAPSED_SIDE_WIDTH });
+      }
+    }
+  };
+  return (
+    <div className="studio-panel-actions mr-1">
+      <PanelCollapseButton label={label} direction={direction} collapsed={collapsed} onToggle={toggle} />
+    </div>
+  );
+}
+
 function WorkbenchHeaderActions(props: IDockviewHeaderActionsProps) {
   const { auxiliary, refresh, original: Original } = useContext(HeaderActionsContext);
+  const side = getExploreSidePanel(props.group.panels?.map((panel) => panel.api.component) ?? []);
+  if (side) return <SidePanelHeaderAction group={props.group} {...side} auxiliary={auxiliary} />;
   if (!auxiliary?.isManaged(props.group.id)) return Original ? <Original {...props} /> : null;
   const pinned = auxiliary.isPinned(props.group.id);
   return (

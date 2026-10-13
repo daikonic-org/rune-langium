@@ -58,9 +58,8 @@ export default function DesignPreferencesPreview() {
             </label>
           ))}
           <p className="text-xs text-muted-foreground">
-            Auxiliary panels start pinned. Unpin to collapse them into edge tabs. Open panels can stay alongside each
-            other; unpinned panels hide when you return to the main work area. Turning this off restores your original
-            arrangement.
+            Explorer and Preview use their header chevrons to hide or show. Other auxiliary panels start pinned and can
+            be unpinned. Turning this off restores your original arrangement.
           </p>
           <label className="flex items-center justify-between gap-3 text-sm">
             Pane pill gap

@@ -20,8 +20,9 @@ import { KindBadge } from './KindBadge.js';
 import { useEditorActionsContext } from './forms/sections/EditorActionsContext.js';
 import type { TypeKind } from '../types.js';
 
-/** Align the shared header with each form's padded body without overflowing its frame. */
+/** Shared, flush Inspector frame and header geometry; sections own their inner spacing. */
 export const INSPECTOR_FORM_HEADER_CLASS = 'px-0 mb-3';
+export const INSPECTOR_FORM_CLASS = 'h-full min-h-0';
 
 export interface TypeHeaderProps {
   kind: TypeKind;
@@ -66,7 +67,11 @@ export function TypeHeader({
     >
       <div className="flex min-w-0 flex-1 flex-col">
         {namespace && (
-          <span data-slot="type-header-namespace" className="truncate text-xs text-muted-foreground">
+          <span
+            data-slot="type-header-namespace"
+            className="truncate text-base text-muted-foreground"
+            title={namespace}
+          >
             {namespace}
           </span>
         )}

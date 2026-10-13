@@ -8,8 +8,18 @@ import type { useInspectorTargets } from '../../forms/metadata/useInspectorTarge
 
 export function InspectorMetadataDetails({ targets }: { targets: ReturnType<typeof useInspectorTargets> }) {
   const row = targets.selection.selectedRow;
+  const type = targets.rootBinding.node.$type;
+  const elementLabel =
+    type === 'RosettaEnumeration'
+      ? 'Member'
+      : type === 'Choice'
+        ? 'Option'
+        : type === 'RosettaFunction'
+          ? 'Input'
+          : 'Attribute';
   return (
     <InspectorDetailsPane
+      elementLabel={elementLabel}
       targetName={row?.name || (row ? 'Unnamed member' : undefined)}
       onClear={targets.selection.clear}
     >

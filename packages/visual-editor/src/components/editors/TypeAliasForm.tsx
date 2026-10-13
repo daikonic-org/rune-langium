@@ -37,7 +37,7 @@ import { useCallback } from 'react';
 import { useWatch } from 'react-hook-form';
 import { FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Badge } from '@rune-langium/design-system/ui/badge';
-import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
+import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
 import { InspectorFooter } from './inspector/InspectorFooter.js';
 import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
@@ -237,7 +237,7 @@ function TypeAliasForm({
         registerCommitFlush={lifecycle.register}
         additionalCommitFlush={debouncedName.flush}
       >
-        <div data-slot="type-alias-form" className="h-full min-h-0 p-4">
+        <div data-slot="type-alias-form" className={INSPECTOR_FORM_CLASS}>
           <MetadataTargetProvider value={targets.rootBinding}>
             <InspectorFrame
               header={

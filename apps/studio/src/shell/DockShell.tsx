@@ -27,7 +27,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import type React from 'react';
 import type { ComponentType } from 'react';
 import type { DockviewApi, IDockviewHeaderActionsProps } from 'dockview-react';
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useLatestRef } from '@rune-langium/visual-editor';
 import { FileTreePanel } from './panels/FileTreePanel.js';
 import { EditorPanel } from './panels/EditorPanel.js';
@@ -61,6 +61,7 @@ import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { StudioDockTab, type StudioDockTabParams } from './StudioDockTab.js';
 import { useDesignPreviewStore } from '../store/design-preview-store.js';
+import { PanelCollapseButton } from './PanelCollapseButton.js';
 
 const UTILITY_PANEL_IDS = new Set(['workspace.problems', 'workspace.activity', 'workspace.output']);
 
@@ -80,24 +81,19 @@ function UtilityGroupHeaderActions(props: IDockviewHeaderActionsProps) {
   // id-based lookup misses the header-actions registry entry and the chevron.
   const activeComponent = props.activePanel?.api.component;
   if (!activeComponent || !UTILITY_PANEL_IDS.has(activeComponent)) return null;
-  const label = utilitiesCollapsed ? 'Show Problems & Messages' : 'Hide Problems & Messages';
   // Pass this header's own group API so the tween resizes THIS group, not
   // whichever utility panel the global panel search happens to find first.
   const groupApi = props.group.api as unknown as UtilityGroupApi;
   return (
     <div className="studio-panel-actions mr-1" aria-label="Utility panel actions">
       {actions.get(activeComponent) ?? null}
-      <button
-        type="button"
-        className="studio-panel-action studio-utility-toggle"
-        onClick={() => toggleUtilities(groupApi)}
-        aria-label={label}
-        title={label}
-        aria-expanded={!utilitiesCollapsed}
-        data-testid="toggle-utilities-chevron"
-      >
-        {utilitiesCollapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-      </button>
+      <PanelCollapseButton
+        label="Problems & Messages"
+        collapsed={utilitiesCollapsed}
+        direction="bottom"
+        onToggle={() => toggleUtilities(groupApi)}
+        testId="toggle-utilities-chevron"
+      />
     </div>
   );
 }
@@ -216,6 +212,46 @@ export const DockShell = withInstrumentation(
     const { showToast } = useStudioToast();
     const showToastRef = useLatestRef(showToast);
     const apiRef = useRef<DockviewApi | null>(null);
+    const shellRef = useRef<HTMLDivElement>(null);
+    const watchLocationLayoutRef = useRef<(api: DockviewApi) => void>(() => {});
+    const showLocationPath = useDesignPreviewStore((state) => state.preferences.path);
+    useEffect(() => {
+      const shell = shellRef.current;
+      if (!shell || !showLocationPath) return;
+      let center: Element | null = null;
+      const update = () => {
+        const next = shell.querySelector('[data-testid="studio-paneswitch"]');
+        if (!next) return;
+        if (center !== next) {
+          if (center) observer.unobserve(center);
+          observer.observe(next);
+          center = next;
+        }
+        const rect = next.getBoundingClientRect();
+        if (rect.width > 0)
+          shell.style.setProperty(
+            '--rune-center-stack-start',
+            `${Math.max(0, rect.left - shell.getBoundingClientRect().left)}px`
+          );
+      };
+      const observer = new ResizeObserver(update);
+      observer.observe(shell);
+      let listener: { dispose(): void } | undefined;
+      watchLocationLayoutRef.current = (api) => {
+        listener?.dispose();
+        listener = api.onDidLayoutChange(update);
+        update();
+      };
+      if (apiRef.current) watchLocationLayoutRef.current(apiRef.current);
+      const frame = requestAnimationFrame(update);
+      return () => {
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+        listener?.dispose();
+        watchLocationLayoutRef.current = () => {};
+        shell.style.removeProperty('--rune-center-stack-start');
+      };
+    }, [showLocationPath]);
     const suppressLayoutPersistenceRef = useRef(false);
     const onLayoutChangeRef = useLatestRef(onLayoutChange);
 
@@ -333,6 +369,7 @@ export const DockShell = withInstrumentation(
 
     const handleWorkbenchReady = useCallback((api: DockviewApi) => {
       apiRef.current = api;
+      watchLocationLayoutRef.current(api);
       applyPanelTabMeta(api, panelTabMetaRef.current);
       const currentLayout = restoredDefaultRef.current ?? layoutRef.current;
       if (currentLayout.dockview?.shape === 'factory') {
@@ -498,6 +535,7 @@ export const DockShell = withInstrumentation(
 
     return (
       <div
+        ref={shellRef}
         role="application"
         aria-label="Studio dock shell"
         className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col"

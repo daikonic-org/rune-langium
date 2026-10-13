@@ -48,6 +48,7 @@ export const studioEditorTheme = EditorView.theme(
     '.cm-gutters': {
       // Gutters are siblings of the content and need the same metrics for alignment.
       ...editorTextStyle,
+      paddingLeft: 'var(--space-1)',
       backgroundColor: 'color-mix(in srgb, var(--card) 92%, var(--background))',
       color: 'var(--muted-foreground)',
       border: 'none',

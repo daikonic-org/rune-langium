@@ -2223,6 +2223,12 @@ html {
   height: 28px;
 }
 
+/* A collapsed grid column keeps its own chevron reachable and its drafts mounted. */
+.studio-app .studio-side-panel-collapsed > :is(.dv-content-container),
+.studio-app .studio-side-panel-collapsed .dv-tabs-container {
+  display: none;
+}
+
 .studio-app .studio-center-stack-container {
   container-type: inline-size;
 }
@@ -2245,6 +2251,35 @@ html {
    * split-handle drag is live (`.is-dragging`) so the split tracks the
    * pointer 1:1. */
   transition: flex-grow var(--motion-default);
+}
+
+/* Inset the drawing viewport, preserving React Flow's own hit-test geometry. */
+.studio-app .studio-center-stack__pane:is([data-pane='graph'], [data-pane='structure']) > * {
+  padding: calc(var(--space-3) / 2);
+  box-sizing: border-box;
+}
+
+.studio-app .studio-perspective-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.studio-app .studio-perspective-heading--aligned {
+  flex: 1;
+  display: grid;
+  grid-template-columns: max(0px, calc(var(--rune-center-stack-start, var(--space-10)) - var(--space-2))) minmax(0, 1fr);
+  gap: 0;
+}
+
+.studio-app .studio-perspective-heading--aligned .studio-layout-presets__title {
+  overflow: hidden;
+  padding-inline-end: var(--space-2);
+}
+
+.studio-app .studio-layout-presets__title > svg {
+  flex-shrink: 0;
 }
 
 /* Keep every selected pane usable when the center column cannot fit three editors. */

@@ -123,7 +123,7 @@
 
 /* ─── Variant tag next to the wordmark ─── */
 [data-theme='daikonic'] .studio-brand__name::after {
-  content: 'Daikonic';
+  content: 'PREVIEW';
   display: inline-block;
   margin-left: var(--space-2);
   font-family: var(--font-display, 'Outfit'), system-ui, sans-serif;

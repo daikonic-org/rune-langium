@@ -18,6 +18,19 @@ const AUXILIARY_PANELS: Record<WorkbenchDefinition['id'], Record<string, EdgeGro
   export: { 'export.settings': 'right', 'export.preview': 'bottom' }
 };
 
+/** Dedicated Explore side groups; never include a group shared with the main task. */
+export const getExploreSidePanel = withInstrumentation(
+  function getExploreSidePanel(components: readonly string[]) {
+    const direction = AUXILIARY_PANELS.explore[components[0] ?? ''];
+    if (
+      (direction === 'left' || direction === 'right') &&
+      components.every((component) => AUXILIARY_PANELS.explore[component] === direction)
+    )
+      return { direction, label: direction === 'left' ? 'Type explorer' : 'Preview panel' };
+  },
+  { op: 'getExploreSidePanel' }
+);
+
 /** Use native edge-group collapse/expand; no enterprise peek-module dependency. */
 export const collapseAuxiliaryPanels = withInstrumentation(
   function collapseAuxiliaryPanels(api: DockviewApi, perspective: WorkbenchDefinition['id']) {
@@ -113,6 +126,14 @@ export const collapseAuxiliaryPanels = withInstrumentation(
     return {
       isManaged: (id: string) => managed.has(id),
       isPinned: (id: string) => pinned.has(id),
+      setCollapsed(id: string, collapsed: boolean) {
+        const group = api.groups.find((candidate) => candidate.id === id);
+        if (!group || !managed.has(id)) return;
+        // Explicit hide/show controls own visibility until the next user action.
+        pinned.add(id);
+        if (collapsed) group.api.collapse();
+        else group.api.expand();
+      },
       togglePin(id: string) {
         const group = api.groups.find((candidate) => candidate.id === id);
         if (!group || !managed.has(id)) return;
