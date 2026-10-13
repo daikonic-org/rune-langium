@@ -4,6 +4,7 @@
 import type { DockviewApi, EdgeGroupPosition } from 'dockview-react';
 import type { WorkbenchDefinition } from './workbench-types.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { EXPLORE_PREVIEW_WIDTH } from './layout-factory.js';
 
 const AUXILIARY_PANELS: Record<WorkbenchDefinition['id'], Record<string, EdgeGroupPosition>> = {
   explore: {
@@ -31,7 +32,7 @@ export const getExploreSidePanel = withInstrumentation(
   { op: 'getExploreSidePanel' }
 );
 
-/** Restore older split preview columns as one Form/Code group without replacing views. */
+/** Restore one compact Form/Code group without replacing views. */
 export const consolidateExplorePreviewPanels = withInstrumentation(
   function consolidateExplorePreviewPanels(api: DockviewApi): void {
     const panels = api.panels.filter(
@@ -47,6 +48,20 @@ export const consolidateExplorePreviewPanels = withInstrumentation(
         panel.api.moveTo({ group: anchor.group, position: 'center', skipSetActive: true });
     }
     if (active && panels.includes(active)) active.api.setActive();
+    // Restoring/merging proportional columns can inflate the preview before the
+    // first layout. Apply its initial width once; later manual resizing is untouched.
+    let listener: { dispose(): void } | undefined;
+    let initialized = false;
+    const compact = () => {
+      if (initialized) return;
+      const group = anchor.group;
+      if (api.width <= 0 || group.api.width <= 0) return;
+      initialized = true;
+      listener?.dispose();
+      if (group.api.width > EXPLORE_PREVIEW_WIDTH) group.api.setSize({ width: EXPLORE_PREVIEW_WIDTH });
+    };
+    listener = anchor.group.api.onDidDimensionsChange(() => queueMicrotask(compact));
+    queueMicrotask(compact);
   },
   { op: 'consolidateExplorePreviewPanels' }
 );
@@ -78,13 +93,15 @@ export const collapseAuxiliaryPanels = withInstrumentation(
         api.addEdgeGroup(position, {
           id: `${perspective}.auxiliary.${position}`,
           initialSize:
-            position === 'bottom'
-              ? sharesMainTask
-                ? 220
-                : Math.max(220, first.group.api.height)
-              : sharesMainTask
-                ? 280
-                : Math.max(240, first.group.api.width),
+            perspective === 'explore' && position === 'right'
+              ? EXPLORE_PREVIEW_WIDTH
+              : position === 'bottom'
+                ? sharesMainTask
+                  ? 220
+                  : Math.max(220, first.group.api.height)
+                : sharesMainTask
+                  ? 280
+                  : Math.max(240, first.group.api.width),
           minimumSize: position === 'bottom' ? 120 : 180,
           collapsedSize: 34,
           collapsed: false

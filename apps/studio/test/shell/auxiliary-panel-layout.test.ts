@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDockview, type DockviewApi } from 'dockview-react';
 import { collapseAuxiliaryPanels, consolidateExplorePreviewPanels } from '../../src/shell/auxiliary-panel-layout.js';
+import { EXPLORE_PREVIEW_WIDTH } from '../../src/shell/layout-factory.js';
 
 let api: DockviewApi;
 afterEach(() => api?.dispose());
@@ -23,9 +24,14 @@ function clickTab(panel: { group: { element: HTMLElement }; id: string }) {
 }
 
 describe('auxiliary edge panels', () => {
-  it('consolidates split preview groups while retaining active selection and panel identity', () => {
+  it('consolidates split preview groups while retaining active selection and panel identity', async () => {
     const api = createWorkbench();
-    const form = api.addPanel({ id: 'form', component: 'workspace.formPreview' });
+    api.addPanel({ id: 'model', component: 'workspace.visualPreview' });
+    const form = api.addPanel({
+      id: 'form',
+      component: 'workspace.formPreview',
+      position: { referencePanel: 'model', direction: 'right' }
+    });
     const code = api.addPanel({
       id: 'code',
       component: 'workspace.codePreview',
@@ -33,11 +39,17 @@ describe('auxiliary edge panels', () => {
     });
     code.api.setActive();
     consolidateExplorePreviewPanels(api);
+    await Promise.resolve();
     expect(form.group).toBe(code.group);
     expect(api.getPanel('code')).toBe(code);
     expect(api.activePanel).toBe(code);
+    expect(form.group.api.width).toBe(EXPLORE_PREVIEW_WIDTH);
     consolidateExplorePreviewPanels(api);
+    await Promise.resolve();
     expect(form.group.panels).toHaveLength(2);
+    form.group.api.setSize({ width: 400 });
+    api.layout(1400, 720);
+    expect(form.group.api.width).toBeGreaterThan(EXPLORE_PREVIEW_WIDTH);
   });
 
   it('preserves preview groups that share the main task', () => {

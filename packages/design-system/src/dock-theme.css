@@ -68,7 +68,8 @@
 
   /* ── Panel layout ───────────────────────────────────────────────── */
   .studio-app .rune-dock-theme {
-    padding: 8px;
+    /* Leaf views own the inset; nested shells/grids must not add another frame. */
+    padding: 0;
     background: var(--background);
   }
 
@@ -269,9 +270,7 @@
 
 .studio-app .dv-view.visible {
   overflow: hidden !important;
-  margin-top: 0;
-  margin-bottom: 0;
-  margin-right: 12px;
+  margin: 0;
 }
 
 /* dockview leaves .dv-content-container without overflow, so tall panel content

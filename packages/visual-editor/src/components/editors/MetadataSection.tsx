@@ -115,7 +115,7 @@ export function MetadataScalar({
                     : event.target.value
                 );
               }}
-              className="w-full resize-y rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              className="w-full resize-y rounded border border-input bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring disabled:opacity-50"
             />
           )}
           {fieldState.error && (

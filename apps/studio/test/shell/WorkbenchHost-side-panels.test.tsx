@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import type { DockviewApi } from 'dockview-react';
 import { WorkbenchHost } from '../../src/shell/WorkbenchHost.js';
 import { useDesignPreviewStore } from '../../src/store/design-preview-store.js';
+import { EXPLORE_PREVIEW_WIDTH } from '../../src/shell/layout-factory.js';
 
 afterEach(() => useDesignPreviewStore.getState().reset());
 
@@ -56,6 +57,7 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   const form = ready!.getPanel('form')!;
   const code = ready!.getPanel('code')!;
   expect(code.group).toBe(form.group);
+  await waitFor(() => expect(form.group.api.width).toBe(EXPLORE_PREVIEW_WIDTH));
   expect(screen.getAllByRole('button', { name: 'Hide Preview panel' })).toHaveLength(1);
   expect(screen.getByRole('tab', { name: 'Type explorer' })).toBeInTheDocument();
   expect(types.group.element).toHaveClass('studio-side-panel');

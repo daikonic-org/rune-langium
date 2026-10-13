@@ -19,7 +19,7 @@ import {
   type AuxiliaryPanelLayout
 } from './auxiliary-panel-layout.js';
 import { PanelCollapseButton } from './PanelCollapseButton.js';
-import { PANEL_TITLES } from './layout-factory.js';
+import { EXPLORE_PREVIEW_WIDTH, PANEL_TITLES } from './layout-factory.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
 
@@ -57,7 +57,7 @@ function SidePanelHeaderAction({
   let layout = sideLayouts.get(group);
   if (!layout) {
     layout = {
-      expandedWidth: direction === 'left' ? 240 : 320,
+      expandedWidth: direction === 'left' ? 240 : EXPLORE_PREVIEW_WIDTH,
       expandedConstraints: {
         minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
         maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth

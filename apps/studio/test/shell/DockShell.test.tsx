@@ -15,6 +15,12 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { useState } from 'react';
 import { useDesignPreviewStore } from '../../src/store/design-preview-store.js';
 
+// Native grouping/width behavior is covered by the real-Dockview side-panel tests.
+vi.mock('../../src/shell/auxiliary-panel-layout.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/shell/auxiliary-panel-layout.js')>()),
+  consolidateExplorePreviewPanels: vi.fn()
+}));
+
 interface FakeGroupSpy {
   api: {
     height: number;
@@ -65,7 +71,12 @@ const captured: CapturedReady = { components: {}, defaultTabComponent: undefined
 let lastApi: FakeApi | null = null;
 
 class FakeApi {
-  panels: Array<{ id: string; component: string; api: { component: string }; group: FakeGroupSpy }> = [];
+  panels: Array<{
+    id: string;
+    component: string;
+    api: { component: string; setTitle(title: string): void };
+    group: FakeGroupSpy;
+  }> = [];
   cleared = 0;
   groups = new Map<string, FakeGroupSpy>();
   panelStates = new Map<string, FakePanelSpy>();
@@ -83,7 +94,12 @@ class FakeApi {
   };
   addPanel = (opts: { id: string; component: string }) => {
     const group = makeFakeGroup();
-    this.panels.push({ id: opts.id, component: opts.component, api: { component: opts.component }, group });
+    this.panels.push({
+      id: opts.id,
+      component: opts.component,
+      api: { component: opts.component, setTitle() {} },
+      group
+    });
     const panelSpy: FakePanelSpy = {
       activeCalls: 0,
       parameterCalls: [],
@@ -129,7 +145,7 @@ class FakeApi {
         },
         group
       };
-      this.panels.push({ id, component, api: { component }, group });
+      this.panels.push({ id, component, api: { component, setTitle() {} }, group });
       this.groups.set(id, group);
       this.panelStates.set(id, panelSpy);
     }
