@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../../helpers/source-editor.js';
 import {
   checkout as test,
   expect,
@@ -25,7 +26,7 @@ import type { Page } from '@playwright/test';
  * isn't already visible.
  */
 async function ensureSourcePaneOpen(page: Page): Promise<void> {
-  const sourceEditor = page.getByTestId('source-editor');
+  const sourceEditor = fullSourceEditor(page);
   if (await sourceEditor.isVisible().catch(() => false)) return;
   await page.getByRole('button', { name: 'Source' }).click();
   await expect(sourceEditor).toBeVisible({ timeout: 10000 });
@@ -128,7 +129,7 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
     await evidence.checkpoint('renamed');
 
     await ensureSourcePaneOpen(page);
-    const preReloadSource = page.getByTestId('source-editor').locator('.cm-content');
+    const preReloadSource = fullSourceEditor(page).locator('.cm-content');
     await expect(preReloadSource).toContainText(`type ${RENAMED_TYPE_NAME}:`, { timeout: 10000 });
     // Same generous timeout as the assertion above, not Playwright's 5000ms
     // default — both depend on the identical reparse/render pipeline, and a
@@ -173,7 +174,7 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
 
     await typeNavigationButton(page, `${NAMESPACE}.${RENAMED_TYPE_NAME}`).click();
     await ensureSourcePaneOpen(page);
-    const sourceEditor = page.getByTestId('source-editor').locator('.cm-content');
+    const sourceEditor = fullSourceEditor(page).locator('.cm-content');
     await expect(sourceEditor).toBeVisible({ timeout: 10000 });
     await expect(sourceEditor).toContainText(`type ${RENAMED_TYPE_NAME}:`);
     await expect(sourceEditor).toContainText('notes');

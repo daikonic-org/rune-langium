@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import { EvidenceCollector, appendJourneyRecord, type JourneyRecord } from './evidence.js';
@@ -346,7 +347,7 @@ async function reachBlankScratchSource(page: Page): Promise<Locator> {
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
 
   await page.getByRole('button', { name: 'Source' }).click();
-  const editor = page.getByTestId('source-editor').locator('.cm-content');
+  const editor = fullSourceEditor(page).locator('.cm-content');
   await expect(editor).toBeVisible({ timeout: 10000 });
   await editor.click();
 

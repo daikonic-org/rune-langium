@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../../helpers/source-editor.js';
 import { checkout as test, expect, loadCdm } from '../fixtures.js';
 import { declarationNodeId, typeNavigationButton } from '../../helpers/type-navigation.js';
 import { waitForHydratedNode } from '../readiness.js';
@@ -28,7 +29,7 @@ test.describe('J06 — Structure view', () => {
     await expect(node).toBeVisible();
     await node.click();
     await page.getByRole('button', { name: 'Source', exact: true }).click();
-    await expect(page.getByTestId('source-editor')).toBeVisible();
+    await expect(fullSourceEditor(page)).toBeVisible();
     await expectContainedInPane(node, page.getByTestId('structure-view-flow'));
     await evidence.checkpoint('node-selected');
   });

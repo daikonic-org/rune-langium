@@ -5,6 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import {
   loadPinnedFunction,
   openBuilder,
@@ -82,7 +83,7 @@ func Run:
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
-  const source = page.getByTestId('source-editor').filter({ visible: true });
+  const source = fullSourceEditor(page);
   await expect(source.locator('.cm-content')).toContainText('namespace compact');
   await testInfo.attach('compact-editor', { body: await page.screenshot(), contentType: 'image/png' });
 });
@@ -172,7 +173,7 @@ func Compute(kind: Kind -> Cash):
     await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Source', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Inspector', exact: true }).click();
-    const source = page.getByTestId('source-editor').filter({ visible: true }).locator('.cm-content');
+    const source = fullSourceEditor(page).locator('.cm-content');
     await source.press('ControlOrMeta+Home');
     await expect(source).toContainText('func Compute:');
     await expect(source).toContainText('amount + 10');
@@ -242,11 +243,31 @@ test('Data conditions have independent active editors and typed projections', as
   await loadPinnedFunction(page);
   await page.getByTestId('namespace-search').fill('Frequency');
   await typeNavigationButton(page, 'cdm.base.datetime.Frequency', 'Data').click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  const source = fullSourceEditor(page).locator('.cm-content');
+  await expect(source).toBeVisible();
+  await expect(source).toContainText('type Frequency:');
+  await expect(page.getByTestId('source-editor')).toHaveCount(1);
   await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
   await page.getByRole('tab', { name: 'PositivePeriodMultiplier', exact: true }).click();
   const condition = page.getByRole('region', { name: 'Condition expression' });
   await expect(condition.getByTestId('implementation-editor')).toHaveCount(1);
   await expect(condition).toContainText('periodMultiplier > 0');
+  const editor = condition.getByTestId('implementation-editor').locator('.cm-content');
+  const session = await editor.elementHandle();
+  await editor.press('ControlOrMeta+a');
+  await page.keyboard.insertText('periodMultiplier > 1');
+  await expect(editor).toContainText('periodMultiplier > 1');
+  await page.getByRole('tab', { name: 'Members', exact: true }).click();
+  // A visited condition session stays mounted, so only the pane-scoped selector is unique.
+  await expect(page.getByTestId('source-editor')).toHaveCount(2);
+  await expect(source).toHaveCount(1);
+  await expect(source).toBeVisible();
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+  expect(await editor.evaluate((element, original) => element === original, session)).toBe(true);
+  await expect(editor).toContainText('periodMultiplier > 1');
+  await editor.press('ControlOrMeta+z');
+  await expect(editor).toContainText('periodMultiplier > 0');
   await condition.getByRole('button', { name: 'Python', exact: true }).click();
   await expect(condition.getByRole('textbox', { name: 'Generated python' })).toContainText('periodMultiplier');
   await expect(condition.getByRole('textbox', { name: 'Generated python' })).not.toContainText('def ');
@@ -293,11 +314,7 @@ test('Source and Inspector send each edit once through the real network LSP', as
   await editor.press('Space');
   await expect.poll(() => changes().length).toBe(before + 1);
   await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
-  const source = page
-    .getByTestId('center-stack')
-    .locator('[data-pane="source"]')
-    .getByTestId('source-editor')
-    .locator('.cm-content');
+  const source = fullSourceEditor(page).locator('.cm-content');
   await expect(source).toBeVisible();
   before = changes().length;
   await source.press('ControlOrMeta+End');
@@ -347,9 +364,7 @@ test('pinned function display, private builder draft, Apply and one undo stay co
   await rune.locator('.cm-content').press('ControlOrMeta+z');
   await expect(rune).toContainText('-1 * arg');
   await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
-  await expect(
-    page.getByTestId('center-stack').locator('[data-pane="source"]').getByTestId('source-editor')
-  ).toBeVisible();
+  await expect(fullSourceEditor(page)).toBeVisible();
 });
 
 for (const width of [1280, 800]) {

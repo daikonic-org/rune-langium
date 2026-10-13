@@ -236,14 +236,16 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
     expect(nameInput).not.toBeNull();
     expect((nameInput as HTMLInputElement).value).toBe('PaymentType');
 
-    // MetadataSection renders Description (definition) and Comments textareas.
+    expect(container.querySelector('[data-slot="metadata-description"]')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Doc', exact: true }));
+    // Documentation mounts on activation; authored comments remain Source-only.
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');
     expect(descriptionTextarea).not.toBeNull();
     expect(commentsTextarea).toBeNull();
     expect((descriptionTextarea as HTMLTextAreaElement).value).toBe('A payment classification');
 
-    // Tab order is: name input < description textarea < comments textarea.
+    // Document order is name input before the activated definition field.
     const allInteractive = Array.from(
       container.querySelectorAll(
         'input[data-slot="type-name-input"], textarea[data-slot="metadata-description"], textarea[data-slot="metadata-comments"]'
@@ -335,7 +337,8 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
     // The pending dirty edit was flushed against the original binding.
     expect(renameType).toHaveBeenCalled();
 
-    // Pristine fields reflect nodeB after the swap.
+    fireEvent.click(screen.getByRole('tab', { name: 'Doc', exact: true }));
+    // First activation reads the pristine fields from nodeB after the swap.
     const definitionTextarea = container.querySelector('[data-slot="metadata-description"]') as HTMLTextAreaElement;
     expect(definitionTextarea.value).toBe('Variant B definition');
 

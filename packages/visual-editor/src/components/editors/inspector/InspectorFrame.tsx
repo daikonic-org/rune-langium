@@ -30,6 +30,11 @@ export function InspectorFrame({
 }: InspectorFrameProps) {
   const [selected, setSelected] = useState(sections[0]?.id);
   const active = sections.find((section) => section.id === selected) ?? sections[0];
+  const [mountedSections, setMountedSections] = useState(() => new Set<string>());
+  // Track activation in state so discarded renders cannot retain an unvisited session.
+  if (active && !mountedSections.has(active.id)) {
+    setMountedSections(new Set(mountedSections).add(active.id));
+  }
   return (
     <div data-slot="inspector-frame" className="flex h-full min-h-0 flex-col overflow-auto">
       <div className="shrink-0">{header}</div>
@@ -57,7 +62,7 @@ export function InspectorFrame({
               <TabsContent
                 key={section.id}
                 value={section.id}
-                keepMounted
+                keepMounted={mountedSections.has(section.id)}
                 className="studio-scroll mt-0 min-h-0 flex-1 overflow-auto py-3 data-[hidden]:hidden"
               >
                 {section.content}

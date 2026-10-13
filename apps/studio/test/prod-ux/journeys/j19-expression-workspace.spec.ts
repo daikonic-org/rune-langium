@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -143,7 +144,7 @@ func Compute(kind: Kind -> Cash):
         await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
         await expect(page.getByRole('button', { name: 'Source', exact: true })).toHaveAttribute('aria-pressed', 'true');
         await page.getByRole('button', { name: 'Inspector', exact: true }).click();
-        const source = page.getByTestId('source-editor').filter({ visible: true }).locator('.cm-content');
+        const source = fullSourceEditor(page).locator('.cm-content');
         await source.press('ControlOrMeta+Home');
         await expect(source).toContainText('amount + 10');
         await expect(source).not.toContainText('Compute(kind:');
@@ -216,7 +217,7 @@ func Compute(kind: Kind -> Cash):
       }
       await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
       await page.getByRole('button', { name: 'Inspector', exact: true }).click();
-      const source = page.getByTestId('source-editor').filter({ visible: true }).locator('.cm-content');
+      const source = fullSourceEditor(page).locator('.cm-content');
       await expect(source).toHaveAttribute('aria-readonly', 'true');
       await expect(source).toContainText('func Abs:');
       await evidence.checkpoint('curated-source-readonly');

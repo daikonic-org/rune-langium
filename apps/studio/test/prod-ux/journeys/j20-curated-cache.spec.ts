@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../../helpers/source-editor.js';
 import { checkout as test, expect, loadCdm, captureOpLogSnapshot } from '../fixtures.js';
 import { captureNetworkResponse } from '../network-evidence.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
@@ -30,8 +31,8 @@ test('J20 cached curated JSON and lazy source are reused after reload', async ({
     await typeNavigationButton(page, 'cdm.base.math.Abs', 'RosettaFunction').click();
     const toggle = page.getByRole('button', { name: 'Source', exact: true });
     if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
-    await expect(page.locator('[data-pane="source"] .cm-content')).toContainText('func Abs:');
-    const declaration = page.locator('[data-pane="source"] .cm-source-reveal-line').filter({ hasText: 'func Abs:' });
+    await expect(fullSourceEditor(page).locator('.cm-content')).toContainText('func Abs:');
+    const declaration = fullSourceEditor(page).locator('.cm-source-reveal-line').filter({ hasText: 'func Abs:' });
     await expect(declaration).toBeVisible();
     await expect(declaration).toBeInViewport();
   }
