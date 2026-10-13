@@ -390,6 +390,8 @@ export interface InheritedAttributeRowProps extends InspectorRowProps {
   onOverride: () => void;
   onNavigateToNode?: NavigateToNodeCallback;
   allNodeIds?: string[];
+  /** Canonical options retain the referenced type's kind color in read-only rows. */
+  availableTypes?: TypeOption[];
   /** When true, hide the Override button to prevent mutations on locked types. */
   disabled?: boolean;
 }
@@ -402,6 +404,7 @@ function InheritedAttributeRow({
   onOverride,
   onNavigateToNode,
   allNodeIds,
+  availableTypes,
   disabled,
   selected,
   onSelect
@@ -415,16 +418,12 @@ function InheritedAttributeRow({
       {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-attribute-row"
       data-name={name}
-      className={`${ATTRIBUTE_ROW_LAYOUT} rounded border border-transparent px-1 py-1
-        bg-muted/20 opacity-70`}
+      className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} rounded bg-muted/20`}
     >
       {/* Spacer aligns with drag handle */}
       <span className="w-3 shrink-0 justify-self-center" />
 
-      <span
-        data-slot="attribute-name"
-        className={`${INSPECTOR_ROW_NAME_CLASS} font-mono text-muted-foreground truncate`}
-      >
+      <span data-slot="attribute-name" className={`${INSPECTOR_ROW_NAME_CLASS} text-muted-foreground truncate`}>
         {name}
       </span>
 
@@ -432,7 +431,7 @@ function InheritedAttributeRow({
         <TypeReferenceField
           value={null}
           displayName={typeName}
-          options={[]}
+          options={availableTypes}
           onSelect={() => undefined}
           readOnly
           placeholder="Type"

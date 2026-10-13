@@ -2717,19 +2717,21 @@ export const ExplorePerspective = withInstrumentation(
 
     const renderStructurePane = useCallback(
       () => (
-        <StructureView
-          focusedTypeId={structureFocusedTypeId}
-          navigationRevision={navigationRevision}
-          adapterDoc={adapterDocument}
-          expansionMap={expansionMap}
-          cellComponents={structureCellComponents}
-          onToggleExpansion={toggleExpansion}
-          unsupportedSelectedType={structureUnsupportedSelectedType}
-          onNodeSelect={(canonicalId) => storeSelectNode(canonicalId, { reapplyFocusMode: false })}
-          onNavigateToEnumType={handleStructureNavigateToEnumType}
-          structureDiagnostics={structureDiagnostics}
-          pendingHydrationNamespaces={pendingHydrationNamespaces}
-        />
+        <div className="h-full min-h-0 studio-graph-canvas">
+          <StructureView
+            focusedTypeId={structureFocusedTypeId}
+            navigationRevision={navigationRevision}
+            adapterDoc={adapterDocument}
+            expansionMap={expansionMap}
+            cellComponents={structureCellComponents}
+            onToggleExpansion={toggleExpansion}
+            unsupportedSelectedType={structureUnsupportedSelectedType}
+            onNodeSelect={(canonicalId) => storeSelectNode(canonicalId, { reapplyFocusMode: false })}
+            onNavigateToEnumType={handleStructureNavigateToEnumType}
+            structureDiagnostics={structureDiagnostics}
+            pendingHydrationNamespaces={pendingHydrationNamespaces}
+          />
+        </div>
       ),
       [
         navigationRevision,

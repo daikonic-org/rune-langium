@@ -679,6 +679,7 @@ function FunctionForm({
                         {/* Function Body — aliases + operations, each with its own
               expression editor (R10 / FR-010 — bespoke UX preserved). */}
                         <InheritedMembersSection
+                          availableTypes={availableTypes}
                           groups={inheritedGroups}
                           onSelectMember={(ancestor, name) => targets.selection.select(`inherited:${ancestor}:${name}`)}
                           selectedKey={targets.selection.selectedRow?.key}

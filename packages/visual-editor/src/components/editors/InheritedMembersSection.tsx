@@ -18,15 +18,22 @@ import { Badge } from '@rune-langium/design-system/ui/badge';
 import type { InheritedGroup } from '../../hooks/useInheritedMembers.js';
 import { InheritedAttributeRow } from './AttributeRow.js';
 import { getTypeRefText, formatCardinality } from '../../adapters/model-helpers.js';
+import type { TypeOption } from '../../types.js';
 
 export interface InheritedMembersSectionProps {
   /** Groups of inherited members, one per ancestor. */
   groups: InheritedGroup[];
+  availableTypes?: TypeOption[];
   selectedKey?: string;
   onSelectMember?: (ancestor: string, name: string) => void;
 }
 
-export function InheritedMembersSection({ groups, selectedKey, onSelectMember }: InheritedMembersSectionProps) {
+export function InheritedMembersSection({
+  groups,
+  availableTypes,
+  selectedKey,
+  onSelectMember
+}: InheritedMembersSectionProps) {
   if (groups.length === 0) return null;
 
   const totalCount = groups.reduce((sum, g) => sum + g.members.length, 0);
@@ -38,6 +45,7 @@ export function InheritedMembersSection({ groups, selectedKey, onSelectMember }:
         <InheritedGroupCollapsible
           key={group.ancestorName}
           group={group}
+          availableTypes={availableTypes}
           selectedKey={selectedKey}
           onSelectMember={onSelectMember}
         />
@@ -48,10 +56,12 @@ export function InheritedMembersSection({ groups, selectedKey, onSelectMember }:
 
 function InheritedGroupCollapsible({
   group,
+  availableTypes,
   selectedKey,
   onSelectMember
 }: {
   group: InheritedGroup;
+  availableTypes?: TypeOption[];
   selectedKey?: string;
   onSelectMember?: (ancestor: string, name: string) => void;
 }) {
@@ -75,6 +85,7 @@ function InheritedGroupCollapsible({
             const cardinality = formatCardinality(member.card as any);
             return (
               <InheritedAttributeRow
+                availableTypes={availableTypes}
                 key={name}
                 name={name}
                 typeName={typeName ?? 'string'}

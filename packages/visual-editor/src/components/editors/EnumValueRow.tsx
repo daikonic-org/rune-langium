@@ -305,17 +305,16 @@ function InheritedEnumValueRow({
       {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-enum-value-row"
       data-name={name}
-      className="flex items-center gap-1.5 py-1 rounded border border-transparent
-        bg-muted/20 opacity-70"
+      className={`${INSPECTOR_ROW_CLASS} flex items-center gap-1.5 rounded bg-muted/20`}
       role="listitem"
     >
       {/* Spacer aligns with drag handle */}
       <span className="w-3 shrink-0" />
 
-      <span className="flex-1 min-w-0 px-2 py-1 text-sm text-muted-foreground font-mono truncate">{name}</span>
+      <span className={`flex-1 ${INSPECTOR_ROW_NAME_CLASS} text-muted-foreground truncate`}>{name}</span>
 
       {!metadataInDetails && displayName && (
-        <span className="flex-1 min-w-0 px-2 py-1 text-sm text-muted-foreground italic truncate">{displayName}</span>
+        <span className={`flex-1 ${INSPECTOR_ROW_NAME_CLASS} text-muted-foreground truncate`}>{displayName}</span>
       )}
 
       <span data-slot="inherited-from-label" className="text-xs text-muted-foreground italic whitespace-nowrap">

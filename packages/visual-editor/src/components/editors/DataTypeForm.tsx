@@ -338,6 +338,7 @@ function DataTypeForm({
         id: entry.id,
         render: (_ctx: GhostRowContext) => (
           <InheritedAttributeRow
+            availableTypes={availableTypes}
             name={entry.name}
             selected={targets.selection.selectedRow?.key === entry.id}
             onSelect={() => targets.selection.select(entry.id)}
@@ -361,6 +362,7 @@ function DataTypeForm({
     return rows;
   }, [
     effectiveAttributes,
+    availableTypes,
     isReadOnly,
     handleOverrideInherited,
     onNavigateToNode,
