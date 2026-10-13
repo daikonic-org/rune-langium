@@ -85,3 +85,35 @@ export const resolveEditorFilePath = withInstrumentation(
   },
   { op: 'resolveEditorFilePath' }
 );
+
+export interface HydratedSourceRequest {
+  bundleId: string;
+  bundleVersion: string;
+  namespace: string;
+  path: string;
+  nodeId?: string;
+  artifactKey?: string;
+}
+
+/** Preserve document ownership when hydration replaces a catalogue placeholder. */
+export const resolveHydratedSourcePath = withInstrumentation(
+  function resolveHydratedSourcePath(
+    request: HydratedSourceRequest,
+    files: readonly WorkspaceFile[],
+    hydratedNamespaces: readonly string[],
+    resolvedDeclarationPath?: string
+  ): string | undefined {
+    const path = resolveEditorFilePath(request.nodeId ? resolvedDeclarationPath : request.path, files);
+    const file = path ? files.find((candidate) => candidate.path === path) : undefined;
+    if (
+      !file?.refOnly ||
+      file.bundleId !== request.bundleId ||
+      file.bundleVersion !== request.bundleVersion ||
+      file.namespace !== request.namespace ||
+      (request.artifactKey !== undefined && file.artifactKey !== request.artifactKey)
+    )
+      return undefined;
+    return file.artifactKey || hydratedNamespaces.includes(request.namespace) ? file.path : undefined;
+  },
+  { op: 'resolveHydratedSourcePath' }
+);

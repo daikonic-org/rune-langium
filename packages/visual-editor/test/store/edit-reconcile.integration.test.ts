@@ -16,6 +16,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parse } from '@rune-langium/core';
 import { createEditorStore } from '../../src/store/editor-store.js';
+import { buildSourceForNamespaces } from '../../src/hooks/useModelSourceSync.js';
+import { reconcileParse } from '../../src/store/edit-reconcile.js';
+import { getMetadataItems, updateSynonymDraft } from '../../src/store/metadata-ops.js';
+import { readAtMetadataPath, type MetadataPath } from '../../src/store/metadata-target.js';
+import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
 
 const BASE_SOURCE = `
 namespace test.reconcile
@@ -41,6 +46,134 @@ function alphaAttrNames(store: ReturnType<typeof createEditorStore>): string[] {
   const alpha = store.getState().nodes.find((n) => n.data.name === 'Alpha');
   return ((alpha!.data as { attributes?: Array<{ name: string }> }).attributes ?? []).map((a) => a.name);
 }
+
+it.each(['annotation', 'class synonym', 'body synonym', 'enum synonym'] as const)(
+  'retires a length-changing %s replacement and preserves later Source edits',
+  async (kind) => {
+    const source = `namespace test.reconcile
+synonym source FpML
+annotation marking:
+  scheme string (1..1)
+type Alpha:
+  [synonym FpML value "oldClass"]
+  // field owner
+  x string (1..1) [marking scheme "scheme"="oldAnnotation"] [synonym FpML value "oldBody"]
+enum Role:
+  Value [synonym FpML value "oldEnum"]
+`;
+    const { store, getNode } = await loadInspectorFixture(source);
+    const id = getNode(kind === 'enum synonym' ? 'Role' : 'Alpha').id;
+    const path: MetadataPath =
+      kind === 'class synonym' ? [] : kind === 'enum synonym' ? ['enumValues', 0] : ['attributes', 0];
+    const field = kind === 'annotation' ? 'annotations' : kind === 'enum synonym' ? 'enumSynonyms' : 'synonyms';
+    const target = store.getState().captureMetadataTarget(id, path)!;
+    const original = getMetadataItems(target.expected, field)[0]!;
+    const inspectorValue = 'A much longer Inspector value';
+    const value =
+      original.$type === 'AnnotationRef'
+        ? {
+            ...original,
+            qualifiers: original.qualifiers.map((qualifier) => ({ ...qualifier, qualValue: inspectorValue }))
+          }
+        : updateSynonymDraft(original, { value: inspectorValue });
+    expect(
+      store.getState().applyMetadataCommand(target, { kind: 'replace', field, index: 0, expected: original, value })
+        .status
+    ).toBe('committed');
+    const edited = store.getState();
+    const output = buildSourceForNamespaces({
+      nodes: edited.nodes,
+      edges: edited.edges,
+      originalSourceByNamespace: new Map([['test.reconcile', source]]),
+      patches: edited.pendingEditPatches,
+      inversePatches: edited.pendingInversePatches
+    }).get('test.reconcile')!;
+    expect(output).toContain(inspectorValue);
+    expect(output.split('field owner')).toHaveLength(2);
+    const caughtUp = await loadInspectorFixture(output);
+    const freshItem = getMetadataItems(caughtUp.store.getState().captureMetadataTarget(id, path)!.expected, field)[0]!;
+    expect(freshItem.$cstRange).not.toEqual(original.$cstRange);
+    const reconciled = reconcileParse(
+      caughtUp.store.getState().nodes,
+      caughtUp.store.getState().edges,
+      edited.pendingEditPatches
+    );
+    expect(reconciled.remainingPatches).toEqual([]);
+    const owner = readAtMetadataPath(reconciled.nodesById.get(id)!.data, path)!;
+    expect(getMetadataItems(owner, field)[0]?.$cstRange).toEqual(freshItem.$cstRange);
+
+    const sourceEdit = output.replace(inspectorValue, 'Source value');
+    const later = await loadInspectorFixture(sourceEdit);
+    const afterSource = reconcileParse(
+      later.store.getState().nodes,
+      later.store.getState().edges,
+      reconciled.remainingPatches
+    );
+    const laterOwner = readAtMetadataPath(afterSource.nodesById.get(id)!.data, path)!;
+    expect(getMetadataItems(laterOwner, field)[0]).toEqual(
+      getMetadataItems(later.store.getState().captureMetadataTarget(id, path)!.expected, field)[0]
+    );
+    expect(
+      buildSourceForNamespaces({
+        nodes: [...afterSource.nodesById.values()],
+        edges: [...afterSource.edgesById.values()],
+        originalSourceByNamespace: new Map([['test.reconcile', sourceEdit]]),
+        patches: afterSource.remainingPatches
+      }).get('test.reconcile')
+    ).toBe(sourceEdit);
+
+    // The production store also clears replay intent after loading a parse.
+    // A caught-up parse must retain fresh ranges, rather than replay old coordinates once.
+    store.getState().loadModels((await parse(output)).value);
+    expect(getMetadataItems(store.getState().captureMetadataTarget(id, path)!.expected, field)[0]?.$cstRange).toEqual(
+      freshItem.$cstRange
+    );
+    store.getState().loadModels((await parse(sourceEdit)).value);
+    expect(getMetadataItems(store.getState().captureMetadataTarget(id, path)!.expected, field)[0]).toEqual(
+      getMetadataItems(later.store.getState().captureMetadataTarget(id, path)!.expected, field)[0]
+    );
+  }
+);
+
+it('retires an optional enum display clear and preserves a later Source display name', async () => {
+  const source = 'namespace test.reconcile\nenum Role:\n  Value displayName "Original label"\n';
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Role').id;
+  const path = ['enumValues', 0] as const;
+  const target = store.getState().captureMetadataTarget(id, path)!;
+  expect(store.getState().applyMetadataCommand(target, { kind: 'display', value: undefined }).status).toBe('committed');
+  const edited = store.getState();
+  const output = buildSourceForNamespaces({
+    nodes: edited.nodes,
+    edges: edited.edges,
+    originalSourceByNamespace: new Map([['test.reconcile', source]]),
+    patches: edited.pendingEditPatches,
+    inversePatches: edited.pendingInversePatches
+  }).get('test.reconcile')!;
+  expect(output).not.toContain('displayName');
+  const caughtUp = await loadInspectorFixture(output);
+  const reconciled = reconcileParse(
+    caughtUp.store.getState().nodes,
+    caughtUp.store.getState().edges,
+    edited.pendingEditPatches
+  );
+  expect(reconciled.remainingPatches).toEqual([]);
+  const sourceEdit = output.replace('Value', 'Value displayName "Source label"');
+  const later = await loadInspectorFixture(sourceEdit);
+  const next = reconcileParse(later.store.getState().nodes, later.store.getState().edges, reconciled.remainingPatches);
+  expect(readAtMetadataPath(next.nodesById.get(id)!.data, path)).toMatchObject({ display: 'Source label' });
+  expect(
+    buildSourceForNamespaces({
+      nodes: [...next.nodesById.values()],
+      edges: [...next.edgesById.values()],
+      originalSourceByNamespace: new Map([['test.reconcile', sourceEdit]]),
+      patches: next.remainingPatches
+    }).get('test.reconcile')
+  ).toBe(sourceEdit);
+  store.getState().loadModels((await parse(output)).value);
+  store.getState().loadModels((await parse(sourceEdit)).value);
+  expect(store.getState().captureMetadataTarget(id, path)!.expected).toMatchObject({ display: 'Source label' });
+});
 
 describe('edit-reconcile — store integration', () => {
   let store: ReturnType<typeof createEditorStore>;
@@ -115,5 +248,31 @@ describe('edit-reconcile — store integration', () => {
     store.getState().loadModels(staleModels);
 
     expect(alphaAttrNames(store)).toEqual(['x']); // deletion not resurrected
+  });
+
+  it('retains consecutive child metadata edits and reorder when an older source parse completes', async () => {
+    const id = store.getState().nodes.find((node) => node.data.name === 'Alpha')!.id;
+    const first = store.getState().captureMetadataTarget(id, ['attributes', 0])!;
+    store.getState().applyMetadataCommand(first, { kind: 'definition', value: 'First docs' });
+    const state = store.getState();
+    const rendered = buildSourceForNamespaces({
+      nodes: state.nodes,
+      edges: state.edges,
+      originalSourceByNamespace: new Map([['test.reconcile', BASE_SOURCE]]),
+      patches: state.pendingEditPatches,
+      inversePatches: state.pendingInversePatches
+    }).get('test.reconcile')!;
+    const parsed = await parse(rendered);
+    expect(parsed.hasErrors).toBe(false);
+    store.getState().reorderAttribute(id, 0, 1);
+    const second = store.getState().captureMetadataTarget(id, ['attributes', 1])!;
+    store.getState().applyMetadataCommand(second, { kind: 'definition', value: 'Second docs' });
+    store.getState().loadModels(parsed.value);
+    expect(alphaAttrNames(store)).toEqual(['y', 'x']);
+    expect(store.getState().captureMetadataTarget(id, ['attributes', 1])?.expected).toMatchObject({
+      name: 'x',
+      definition: 'Second docs'
+    });
+    expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).not.toHaveProperty('definition');
   });
 });

@@ -27,6 +27,7 @@ describe('pinned Data form round-trip contract', () => {
       store.getState().loadModels(parsed.value);
       const node = store.getState().nodes.find((node) => node.data.name === fixture.name)!;
       expect(node).toBeDefined();
+      store.getState().updateComments(node.id, fixture.comments);
       vi.useFakeTimers();
 
       const { container } = render(
@@ -50,9 +51,7 @@ describe('pinned Data form round-trip contract', () => {
       fireEvent.change(container.querySelector('[data-slot="metadata-description"]')!, {
         target: { value: fixture.definition }
       });
-      fireEvent.change(container.querySelector('[data-slot="metadata-comments"]')!, {
-        target: { value: fixture.comments }
-      });
+      expect(container.querySelector('[data-slot="metadata-comments"]')).toBeNull();
       await act(async () => vi.advanceTimersByTime(500));
       // An empty name must neither rename the node nor discard its metadata.
       fireEvent.change(screen.getByLabelText('Data type name'), { target: { value: '' } });

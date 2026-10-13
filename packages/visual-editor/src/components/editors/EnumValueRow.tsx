@@ -1,56 +1,32 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-/**
- * EnumValueRow — inline editable row for a single enumeration value.
- *
- * Reads/writes form state via `useFormContext` (provided by the parent
- * FormProvider in EnumForm). The committed `name`/`displayName` props act
- * as diff anchors for callbacks; the live form values come from the form
- * context at `enumValues[index].name` and `enumValues[index].display`
- * (AST-canonical paths per R11 of `specs/013-z2f-editor-migration`).
- *
- * Renders: drag handle (⠿) | value name input | display name input | remove button.
- * Name/displayName changes are debounced (500 ms). Empty names show a
- * destructive border (token-backed per R12).
- *
- * A synonym sub-section below the main row appears when `synonymSourceOptions`
- * is supplied (threaded from EnumForm). Synonym add requires both a source
- * pick AND a value string — RosettaEnumSynonym always has a `synonymValue`.
- * Qualify rule (plan L15) matches MetadataSection: cross-namespace sources
- * persist as `${ns}.${name}` via `resolveSynonymRefText`.
- *
- * @module
- */
+/** Inline value basics; optional standalone metadata delegates to shared editors. */
 
-import { useState, useCallback } from 'react';
+import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+
+import { useEffect, useCallback } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { EditorController as Controller } from '../forms/EditorFormProvider.js';
+import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { X } from 'lucide-react';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
-import { SourceRefField } from './SourceRefField.js';
-import { resolveSynonymRefText } from './synonym-ref.js';
+import { SynonymEditor } from './SynonymEditor.js';
+import { MetadataScalar } from './MetadataSection.js';
 import type { SourceRefOption } from '../../types.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type EnumSynonymEntry = {
-  $type?: string;
-  sources?: { $refText?: string }[];
-  synonymValue?: string;
-};
-
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
-export interface EnumValueRowProps {
+export interface EnumValueRowProps extends InspectorRowProps {
   /** Last-committed value name (used as oldName diff anchor in callbacks). */
   name: string;
   /** Last-committed display name (used as diff anchor in callbacks). */
@@ -61,6 +37,8 @@ export interface EnumValueRowProps {
   index: number;
   /** Commit value name/displayName changes to the graph. */
   onUpdate: (nodeId: string, oldName: string, newName: string, displayName?: string) => void;
+  /** Optional name-only commit using the host's current canonical member identity. */
+  onRename?: (name: string) => void;
   /** Remove this enum value. */
   onRemove: (nodeId: string, valueName: string) => void;
   /** Reorder (drag) callback; fromIndex → toIndex. */
@@ -76,6 +54,7 @@ export interface EnumValueRowProps {
    * When non-empty, a synonym sub-section (chips + add-row) appears below the main row.
    */
   synonymSourceOptions?: SourceRefOption[];
+  metadataInDetails?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,18 +65,21 @@ const EMPTY_SYNONYM_SOURCE_OPTIONS: SourceRefOption[] = [];
 
 function EnumValueRow({
   name,
-  displayName,
   nodeId,
   index,
   onUpdate,
+  onRename,
   onRemove,
   onReorder,
   disabled = false,
   isOverride = false,
   onRevert,
-  synonymSourceOptions = EMPTY_SYNONYM_SOURCE_OPTIONS
+  synonymSourceOptions = EMPTY_SYNONYM_SOURCE_OPTIONS,
+  metadataInDetails = false,
+  selected,
+  onSelect
 }: EnumValueRowProps) {
-  const { control, getValues, setValue } = useFormContext();
+  const { control, getValues } = useFormContext();
   const editorCtx = useEditorActionsContext();
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
   // AST-canonical paths (R11): `enumValues[].name` and `enumValues[].display`.
@@ -105,32 +87,27 @@ function EnumValueRow({
   // hand-authored projection schema; the projection layer is gone now.
   const prefix = `enumValues.${index}`;
 
-  // Synonym picker state — source canonical id + value text
-  const [pendingSource, setPendingSource] = useState<string | null>(null);
-  const [pendingValue, setPendingValue] = useState('');
-
-  // Subscribe to the synonym array so chips update after add/remove.
-  // defaultValue is seeded from getValues() (a synchronous form-store read)
-  // rather than a bare [] because useWatch does not auto-populate from nested
-  // defaultValues on the initial render — getValues does.
-  const rawEnumSynonyms = useWatch({
+  const validateName = useEditorFieldValidator(`${prefix}.name`);
+  const enumSynonyms = useWatch({
     control,
-    name: `${prefix}.enumSynonyms` as any,
+    name: `${prefix}.enumSynonyms`,
     defaultValue: getValues(`${prefix}.enumSynonyms`) ?? []
   });
-  const enumSynonyms = (Array.isArray(rawEnumSynonyms) ? rawEnumSynonyms : []) as EnumSynonymEntry[];
-
   // ---- Name auto-save (debounced) ------------------------------------------
 
   const commitNameChange = useCallback(
-    (newName: string) => {
-      const currentDisplayName: string = getValues(`${prefix}.display`) ?? displayName;
-      onUpdate(nodeId, name, newName, currentDisplayName || undefined);
+    (draft: { name: string; oldName: string; display?: string }) => {
+      if (validateName && validateName(draft.name) !== true) return;
+      if (effectiveReadOnly) return false;
+      if (onRename) onRename(draft.name);
+      else onUpdate(nodeId, draft.oldName, draft.name, draft.display || undefined);
     },
-    [nodeId, name, displayName, prefix, getValues, onUpdate]
+    [validateName, effectiveReadOnly, nodeId, onUpdate, onRename]
   );
-
   const debouncedName = useAutoSave(commitNameChange, 500);
+  useEffect(() => {
+    if (!effectiveReadOnly) debouncedName.flush();
+  }, [effectiveReadOnly, debouncedName]);
 
   // ---- Display name auto-save (debounced) ----------------------------------
 
@@ -141,8 +118,6 @@ function EnumValueRow({
     },
     [nodeId, name, prefix, getValues, onUpdate]
   );
-
-  const debouncedDisplayName = useAutoSave(commitDisplayName, 500);
 
   // ---- Drag reorder --------------------------------------------------------
 
@@ -164,49 +139,14 @@ function EnumValueRow({
     }
   }
 
-  // ---- Synonym add/remove --------------------------------------------------
-
-  const handleAddEnumSynonym = useCallback(() => {
-    if (!pendingSource || !pendingValue) return;
-    const opt = synonymSourceOptions.find((o) => o.value === pendingSource);
-    // plan L15: cross-namespace qualifies; same-namespace stays bare.
-    const refText = resolveSynonymRefText(opt, editorCtx?.nodeId, pendingSource);
-    // Optimistic form-state update for immediate chip display
-    const currentSyns: EnumSynonymEntry[] = (getValues(`${prefix}.enumSynonyms`) ?? []) as EnumSynonymEntry[];
-    setValue(`${prefix}.enumSynonyms` as any, [
-      ...currentSyns,
-      { $type: 'RosettaEnumSynonym', sources: [{ $refText: refText }], synonymValue: pendingValue }
-    ]);
-    // Commit to graph
-    if (editorCtx) {
-      editorCtx.actions.addEnumValueSynonym?.(editorCtx.nodeId, index, refText, pendingValue);
-    }
-    setPendingSource(null);
-    setPendingValue('');
-  }, [pendingSource, pendingValue, synonymSourceOptions, editorCtx, prefix, getValues, setValue, index]);
-
-  const handleRemoveEnumSynonym = useCallback(
-    (synIndex: number) => {
-      const currentSyns: EnumSynonymEntry[] = (getValues(`${prefix}.enumSynonyms`) ?? []) as EnumSynonymEntry[];
-      setValue(
-        `${prefix}.enumSynonyms` as any,
-        currentSyns.filter((_, i) => i !== synIndex)
-      );
-      if (editorCtx) {
-        editorCtx.actions.removeEnumValueSynonym?.(editorCtx.nodeId, index, synIndex);
-      }
-    },
-    [editorCtx, prefix, getValues, setValue, index]
-  );
-
-  // Show the synonym section when there are existing synonyms OR when the
-  // host supplies options (so the user can add synonyms to this value).
-  const showSynonymSection = enumSynonyms.length > 0 || (!effectiveReadOnly && synonymSourceOptions.length > 0);
+  const showSynonymSection =
+    !metadataInDetails && ((enumSynonyms?.length ?? 0) > 0 || (!effectiveReadOnly && synonymSourceOptions.length > 0));
 
   // ---- Render -------------------------------------------------------------
 
   return (
     <div
+      {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="enum-value-row"
       className="rune-inspector-row border border-transparent px-1 py-1 hover:border-border"
       role="listitem"
@@ -239,7 +179,7 @@ function EnumValueRow({
                 value={field.value ?? ''}
                 onChange={(e) => {
                   field.onChange(e);
-                  debouncedName(e.target.value);
+                  debouncedName({ name: e.target.value, oldName: name, display: getValues(`${prefix}.display`) });
                 }}
                 onBlur={field.onBlur}
                 disabled={effectiveReadOnly}
@@ -251,26 +191,17 @@ function EnumValueRow({
           }}
         />
 
-        {/* Display name via Controller */}
-        <Controller
-          control={control}
-          name={`${prefix}.display`}
-          render={({ field }) => (
-            <Input
-              variant="inline"
-              type="text"
-              value={field.value ?? ''}
-              onChange={(e) => {
-                field.onChange(e);
-                debouncedDisplayName(e.target.value);
-              }}
-              onBlur={field.onBlur}
-              disabled={effectiveReadOnly}
-              placeholder="Display name (optional)"
-              className="flex-1 min-w-0 px-2 py-1 text-sm"
-            />
-          )}
-        />
+        {!metadataInDetails && (
+          <MetadataScalar
+            name={`${prefix}.display`}
+            kind="display"
+            label="Display name"
+            slot="metadata-display"
+            inline
+            readOnly={effectiveReadOnly}
+            onCommit={commitDisplayName}
+          />
+        )}
 
         {/* Override badge */}
         {isOverride && (
@@ -311,70 +242,25 @@ function EnumValueRow({
         )}
       </div>
 
-      {/* Synonym sub-section — chips + add-row */}
       {showSynonymSection && (
-        <div data-slot="enum-value-synonyms" className="pl-4 pt-1 flex flex-col gap-1">
-          {/* Existing synonym chips */}
-          {enumSynonyms.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {enumSynonyms.map((syn: EnumSynonymEntry, synIdx: number) => {
-                const sourceRef = syn.sources?.[0]?.$refText ?? '';
-                const synonymValue = syn.synonymValue ?? '';
-                const chipLabel = synonymValue ? `${sourceRef} — ${synonymValue}` : sourceRef;
-                return (
-                  <span
-                    key={`enum-syn-${sourceRef}:${synIdx}`}
-                    className="inline-flex items-center gap-1 rounded bg-card
-                      px-2 py-0.5 text-xs text-foreground"
-                  >
-                    {chipLabel}
-                    {!effectiveReadOnly && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveEnumSynonym(synIdx)}
-                        aria-label={`remove enum synonym ${sourceRef}`}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Add row: source picker + value input + Add button */}
-          {!effectiveReadOnly && synonymSourceOptions.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              <SourceRefField
-                value={pendingSource}
-                options={synonymSourceOptions}
-                onSelect={setPendingSource}
-                placeholder="Select source…"
-              />
-              <Input
-                variant="inline"
-                type="text"
-                value={pendingValue}
-                onChange={(e) => setPendingValue(e.target.value)}
-                placeholder="Synonym value…"
-                data-slot="enum-synonym-value-input"
-                className="flex-1 min-w-0 px-2 py-1 text-xs"
-              />
-              <button
-                type="button"
-                onClick={handleAddEnumSynonym}
-                disabled={!pendingSource || !pendingValue}
-                className="rounded bg-card px-2 py-1 text-xs text-foreground
-                  hover:bg-muted transition-colors
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
-          )}
-        </div>
+        <SynonymEditor
+          formPrefix={prefix}
+          field="enumSynonyms"
+          kind="enumValue"
+          nodeId={nodeId}
+          sourceOptions={synonymSourceOptions}
+          readOnly={effectiveReadOnly}
+          onAdd={
+            editorCtx
+              ? (source, value) => editorCtx.actions.addEnumValueSynonym?.(nodeId, index, source, value ?? '')
+              : undefined
+          }
+          onRemove={
+            editorCtx
+              ? (synonymIndex) => editorCtx.actions.removeEnumValueSynonym?.(nodeId, index, synonymIndex)
+              : undefined
+          }
+        />
       )}
     </div>
   );
@@ -386,21 +272,32 @@ export { EnumValueRow };
 // InheritedEnumValueRow — read-only row for an inherited enum value
 // ---------------------------------------------------------------------------
 
-export interface InheritedEnumValueRowProps {
+export interface InheritedEnumValueRowProps extends InspectorRowProps {
   name: string;
   displayName?: string;
   ancestorName: string;
+  metadataInDetails?: boolean;
   onOverride: () => void;
   /** When true, hide the Override button to prevent mutations on locked types. */
   disabled?: boolean;
 }
 
-function InheritedEnumValueRow({ name, displayName, ancestorName, onOverride, disabled }: InheritedEnumValueRowProps) {
+function InheritedEnumValueRow({
+  name,
+  displayName,
+  ancestorName,
+  onOverride,
+  metadataInDetails = false,
+  disabled,
+  selected,
+  onSelect
+}: InheritedEnumValueRowProps) {
   const editorCtx = useEditorActionsContext();
   const effectiveDisabled = Boolean(disabled || editorCtx?.readOnly);
 
   return (
     <div
+      {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-enum-value-row"
       data-name={name}
       className="flex items-center gap-1.5 py-1 rounded border border-transparent
@@ -412,7 +309,7 @@ function InheritedEnumValueRow({ name, displayName, ancestorName, onOverride, di
 
       <span className="flex-1 min-w-0 px-2 py-1 text-sm text-muted-foreground font-mono truncate">{name}</span>
 
-      {displayName && (
+      {!metadataInDetails && displayName && (
         <span className="flex-1 min-w-0 px-2 py-1 text-sm text-muted-foreground italic truncate">{displayName}</span>
       )}
 

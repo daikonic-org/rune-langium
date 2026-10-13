@@ -18,24 +18,32 @@
  * @module
  */
 
-import { useCallback, useMemo } from 'react';
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
+import { createAttributeDraft } from '../../store/attribute-drafts.js';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useFieldArray, type Control } from 'react-hook-form';
 import type { GhostRow, GhostRowContext } from '@zod-to-form/core';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
-import { ErrorsSection } from '../ErrorsSection.js';
+import { InspectorFrame } from './inspector/InspectorFrame.js';
+import { InspectorFooter } from './inspector/InspectorFooter.js';
+import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
+import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
+import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
+import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
 import { Plus } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@rune-langium/design-system/ui/tabs';
 import { AttributeRow } from './AttributeRow.js';
 import { InheritedAttributeRow } from './AttributeRow.js';
-import { TypeReferenceField } from './TypeReferenceField.js';
 import { useEffectiveMembers } from '../../hooks/useInheritedMembers.js';
 import { getRefText, parseCardinality } from '../../adapters/model-helpers.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -63,7 +71,7 @@ const EMPTY_SYNONYM_SOURCE_OPTIONS: SourceRefOption[] = [];
 // Props
 // ---------------------------------------------------------------------------
 
-export interface DataTypeFormProps {
+export interface DataTypeFormProps extends InspectorHostProps {
   /** Node ID of the Data type being edited. */
   nodeId: string;
   /** Data payload for the selected node (AnyGraphNode with $type='Data'). */
@@ -125,7 +133,11 @@ function DataTypeForm({
   allNodeIds,
   readOnly: readOnlyProp,
   refOnly,
-  meta: nodeMeta
+  meta: nodeMeta,
+  scopeKey,
+  parseEpoch,
+  saveStatus,
+  registerCommitFlush
 }: DataTypeFormProps) {
   // ---- Form setup (useZodForm + useExternalSync per R11 / R4) -------------
   // Drive validation off the canonical AST schema. Per R11 the editor
@@ -145,7 +157,7 @@ function DataTypeForm({
   // (object identity is the contract). `keepDirty: true` preserves the
   // pre-migration `keepDirtyValues: true` semantics so in-flight user edits
   // are not stomped by a graph push.
-  useExternalSync(form, data, (d) => formValuesProjection<typeof DataSchema>(d, nodeMeta), { keepDirty: true });
+  useInspectorExternalSync(form, data, (d) => formValuesProjection<typeof DataSchema>(d, nodeMeta), { parseEpoch });
 
   // `DataSchema` is a `z.looseObject`; the inferred `output<>` does not
   // expose `attributes` as a structured array path RHF's overloaded
@@ -168,17 +180,25 @@ function DataTypeForm({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
-      if (structuralEditsDisabled || readOnlyProp || nodeMeta.isReadOnly) return;
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.Data!, 'name')?.safeParse(newName.trim()).success) return;
+      if (structuralEditsDisabled) return false;
+      if (readOnlyProp || nodeMeta.isReadOnly) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly]
+    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
+  useEffect(() => {
+    if (!structuralEditsDisabled) debouncedName.flush();
+  }, [structuralEditsDisabled, debouncedName]);
 
   // ---- Inheritance ---------------------------------------------------------
 
@@ -201,13 +221,8 @@ function DataTypeForm({
   // bespoke <AttributeRow> reads `attributes.${i}.{name,typeCall.type.$refText,card,override}`
   // (R11), so the appended item must be in that shape — no projection.
   const makeAttributeAstItem = useCallback(
-    (name: string, typeName: string, cardinality: string, override = false) => ({
-      $type: 'Attribute' as const,
-      name,
-      typeCall: { $type: 'TypeCall' as const, type: { $refText: typeName } },
-      card: parseCardinality(cardinality),
-      override
-    }),
+    (name: string, typeName: string, cardinality = '(1..1)', override = false) =>
+      createAttributeDraft(name, typeName, parseCardinality(cardinality), override),
     []
   );
 
@@ -303,6 +318,18 @@ function DataTypeForm({
   // participate in form state, validation, or submission. The render function
   // receives `{ isFirst, isLast }` positional context and returns the existing
   // <InheritedAttributeRow> JSX with the override affordance preserved.
+  const targets = useInspectorTargets({
+    nodeId,
+    root: data,
+    fields,
+    collection: 'attributes',
+    effective: effectiveAttributes,
+    actions,
+    scopeKey,
+    parseEpoch,
+    readOnly: isReadOnly
+  });
+
   const ghostRowsBefore = useMemo<GhostRow[]>(() => {
     const rows: GhostRow[] = [];
     for (const entry of effectiveAttributes) {
@@ -312,6 +339,8 @@ function DataTypeForm({
         render: (_ctx: GhostRowContext) => (
           <InheritedAttributeRow
             name={entry.name}
+            selected={targets.selection.selectedRow?.key === entry.id}
+            onSelect={() => targets.selection.select(entry.id)}
             typeName={entry.typeName ?? 'string'}
             cardinality={entry.cardinality ?? '(1..1)'}
             ancestorName={entry.ancestorName ?? ''}
@@ -330,175 +359,206 @@ function DataTypeForm({
       });
     }
     return rows;
-  }, [effectiveAttributes, isReadOnly, handleOverrideInherited, onNavigateToNode, allNodeIds]);
+  }, [
+    effectiveAttributes,
+    isReadOnly,
+    handleOverrideInherited,
+    onNavigateToNode,
+    allNodeIds,
+    targets.selection.selectedRow?.key,
+    targets.selection.select
+  ]);
 
   const inheritedCount = ghostRowsBefore.length;
 
   // ---- Render --------------------------------------------------------------
 
   return (
-    <FormProvider {...form} schema={DataSchema}>
+    <FormProvider
+      {...form}
+      canonicalType="Data"
+      schema={DataSchema}
+      registerCommitFlush={lifecycle.register}
+      additionalCommitFlush={debouncedName.flush}
+    >
       <EditorActionsProvider
         nodeId={nodeId}
         actions={actions}
+        allNodes={allNodes}
+        sourceCommentsOnly
         readOnly={isReadOnly}
         synonymSourceOptions={synonymSourceOptions}
         renderExpressionEditor={renderExpressionEditor}
         compactConditions={compactConditions}
         sourceReadOnly={sourceReadOnly}
       >
-        <div data-slot="data-type-form" className="flex flex-col min-h-0 h-full gap-4 p-4">
-          {structuralEditsDisabled && (
-            <p role="status" className="text-xs text-muted-foreground">
-              Structural editing waits for the current Rune draft to parse.
-            </p>
-          )}
-          {/* Header: Namespace + Name + Badge — always visible above tabs */}
-          <TypeHeader
-            kind="data"
-            namespace={nodeMeta.namespace}
-            control={form.control}
-            onNameChange={debouncedName}
-            placeholder="Type name"
-            nameAriaLabel="Data type name"
-            className={INSPECTOR_FORM_HEADER_CLASS}
-            onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
-            trailing={
-              refOnly ? (
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  Reference Only
-                </Badge>
-              ) : undefined
-            }
-          />
-
-          {/* Inheritance — always visible above tabs */}
-          <div className="shrink-0">
-            <FieldSet className="gap-1.5">
-              <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                Extends
-              </FieldLegend>
-              <TypeReferenceField
-                value={parentValue ?? null}
-                displayName={parentName}
-                options={parentOptions}
-                onSelect={handleParentSelect}
-                placeholder="Select parent type..."
-                allowClear
-                emptyLabel="No parent type"
-                filterKinds={['data', 'builtin']}
-                onNavigateToNode={onNavigateToNode}
-                allNodeIds={allNodeIds}
-                disabled={isReadOnly}
-              />
-            </FieldSet>
-          </div>
-
-          {/* Domain/graph-level errors — always visible above tabs (mirrors
-              OtherForm's Errors section; Codex review, PR #494) */}
-          <ErrorsSection errors={nodeMeta.errors} />
-
-          {/* Tabbed sections */}
-          <Tabs defaultValue="members" className="-mx-4 flex-1 flex flex-col min-h-0">
-            <TabsList size="sm" className="px-2">
-              <TabsTrigger value="members">Members</TabsTrigger>
-              <TabsTrigger value="conditions">Conditions</TabsTrigger>
-              <TabsTrigger value="doc">Doc</TabsTrigger>
-              <TabsTrigger value="meta">Meta</TabsTrigger>
-            </TabsList>
-
-            {/* Members tab — attributes */}
-            <TabsContent value="members" className="studio-scroll flex-1 overflow-y-auto p-4 mt-0">
-              <FieldSet className="gap-1">
-                <FieldLegend variant="label" className="mb-0 text-muted-foreground flex items-center justify-between">
-                  <span>Attributes ({fields.length + inheritedCount})</span>
-                  {/* Icon-only add button to match FormPreviewPanel's
+        <div data-slot="data-type-form" className="h-full min-h-0 p-4">
+          <MetadataTargetProvider value={targets.rootBinding}>
+            <InspectorFrame
+              header={
+                <>
+                  {structuralEditsDisabled && (
+                    <p role="status" className="text-xs text-muted-foreground">
+                      Structural editing waits for the current Rune draft to parse.
+                    </p>
+                  )}
+                  <TypeHeader
+                    kind="data"
+                    namespace={nodeMeta.namespace}
+                    control={form.control}
+                    onNameChange={debouncedName}
+                    placeholder="Type name"
+                    nameAriaLabel="Data type name"
+                    className={INSPECTOR_FORM_HEADER_CLASS}
+                    onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
+                    trailing={
+                      refOnly ? (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          Reference Only
+                        </Badge>
+                      ) : undefined
+                    }
+                  />
+                </>
+              }
+              inheritance={
+                <InspectorInheritanceField
+                  value={parentValue ?? null}
+                  displayName={parentName}
+                  options={parentOptions}
+                  onSelect={handleParentSelect}
+                  placeholder="Select parent type..."
+                  allowClear
+                  emptyLabel="No parent type"
+                  filterKinds={['data', 'builtin']}
+                  onNavigateToNode={onNavigateToNode}
+                  allNodeIds={allNodeIds}
+                  disabled={isReadOnly}
+                />
+              }
+              sections={[
+                {
+                  id: 'members',
+                  label: 'Members',
+                  members: true,
+                  content: (
+                    <>
+                      <FieldSet className="gap-1">
+                        <FieldLegend
+                          variant="label"
+                          className="mb-0 text-muted-foreground flex items-center justify-between"
+                        >
+                          <span>Attributes ({fields.length + inheritedCount})</span>
+                          {/* Icon-only add button to match FormPreviewPanel's
                     +/- treatment for optional sections and array adds.
                     The legend already names the section ("Attributes"),
                     so the button only conveys the operation. aria-label
                     preserves the full phrasing for screen readers. */}
-                  {!isReadOnly && (
-                    <Button
-                      data-slot="add-attribute-btn"
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={handleAddAttribute}
-                      aria-label="Add attribute"
-                      title="Add attribute"
-                    >
-                      <Plus className="size-3" />
-                    </Button>
-                  )}
-                </FieldLegend>
+                          {!isReadOnly && (
+                            <Button
+                              data-slot="add-attribute-btn"
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={handleAddAttribute}
+                              aria-label="Add attribute"
+                              title="Add attribute"
+                            >
+                              <Plus className="size-3" />
+                            </Button>
+                          )}
+                        </FieldLegend>
 
-                <FieldGroup className="gap-0.5">
-                  {/* Inherited rows via z2f's `arrayConfig.before` ghost-row primitive
+                        <FieldGroup role="list" className="gap-0.5">
+                          {/* Inherited rows via z2f's `arrayConfig.before` ghost-row primitive
                     (R6 / US4). Rendered above local rows; do not participate in
                     form state, validation, or submission. */}
-                  {ghostRowsBefore.map((row, i) => (
-                    <div key={`ghost-before-${row.id}`}>
-                      {
-                        row.render({
-                          isFirst: i === 0,
-                          isLast: i === ghostRowsBefore.length - 1
-                        }) as ReactNode
-                      }
-                    </div>
-                  ))}
+                          {ghostRowsBefore.map((row, i) => (
+                            <div key={`ghost-before-${row.id}`}>
+                              {
+                                row.render({
+                                  isFirst: i === 0,
+                                  isLast: i === ghostRowsBefore.length - 1
+                                }) as ReactNode
+                              }
+                            </div>
+                          ))}
 
-                  {/* Local rows from RHF's useFieldArray — the form-state surface. */}
-                  {fields.map((field, index) => {
-                    const meta = localMeta[index];
-                    const isOverride = meta?.isOverride ?? false;
-                    const localName = meta?.name ?? '';
-                    return (
-                      <AttributeRow
-                        key={field.id}
-                        index={index}
-                        // Read straight from `data`, NOT `committedRef` — the ref only
-                        // updates in a post-commit layout effect, so on the render
-                        // that swaps `data` (node switch / external graph push) it
-                        // would still hold the PREVIOUS node's name at this index,
-                        // baking a stale rename/retype anchor into this row's
-                        // onUpdate closures (Codex review).
-                        committedName={((data as any).attributes ?? [])[index]?.name ?? ''}
-                        availableTypes={availableTypes}
-                        onUpdate={handleUpdateAttribute}
-                        onRemove={handleRemoveAttribute}
-                        onReorder={handleReorderAttribute}
-                        onNavigateToNode={onNavigateToNode}
-                        allNodeIds={allNodeIds}
-                        isOverride={isOverride}
-                        onRevert={isOverride ? () => handleRevertOverride(localName) : undefined}
-                      />
-                    );
-                  })}
+                          {/* Local rows from RHF's useFieldArray — the form-state surface. */}
+                          {fields.map((field, index) => {
+                            const meta = localMeta[index];
+                            const isOverride = meta?.isOverride ?? false;
+                            const localName = meta?.name ?? '';
+                            return (
+                              <AttributeRow
+                                key={field.id}
+                                selected={targets.selection.selectedRow?.key === field.id}
+                                onSelect={() => targets.selection.select(field.id)}
+                                index={index}
+                                // Read straight from `data`, NOT `committedRef` — the ref only
+                                // updates in a post-commit layout effect, so on the render
+                                // that swaps `data` (node switch / external graph push) it
+                                // would still hold the PREVIOUS node's name at this index,
+                                // baking a stale rename/retype anchor into this row's
+                                // onUpdate closures (Codex review).
+                                committedName={((data as any).attributes ?? [])[index]?.name ?? ''}
+                                availableTypes={availableTypes}
+                                onUpdate={handleUpdateAttribute}
+                                onRename={
+                                  targets.rootBinding.guarded ? (name) => targets.renameRow(field.id, name) : undefined
+                                }
+                                onRemove={handleRemoveAttribute}
+                                onReorder={handleReorderAttribute}
+                                onNavigateToNode={onNavigateToNode}
+                                allNodeIds={allNodeIds}
+                                isOverride={isOverride}
+                                onRevert={isOverride ? () => handleRevertOverride(localName) : undefined}
+                              />
+                            );
+                          })}
 
-                  {fields.length === 0 && ghostRowsBefore.length === 0 && (
-                    <p className="text-xs text-muted-foreground italic py-2 text-center">
-                      No attributes defined. Use the + button above to add one.
-                    </p>
-                  )}
-                </FieldGroup>
-              </FieldSet>
-            </TabsContent>
-
-            {/* Conditions tab */}
-            <TabsContent value="conditions" className="studio-scroll flex-1 overflow-y-auto p-4 mt-0">
-              <EditorSections names={['ConditionSection']} />
-            </TabsContent>
-
-            {/* Doc tab — description, comments, synonyms */}
-            <TabsContent value="doc" className="studio-scroll flex-1 overflow-y-auto p-4 mt-0">
-              <EditorSections names={['MetadataSection']} />
-            </TabsContent>
-
-            {/* Meta tab — annotations */}
-            <TabsContent value="meta" className="studio-scroll flex-1 overflow-y-auto p-4 mt-0">
-              <EditorSections names={['AnnotationSection']} />
-            </TabsContent>
-          </Tabs>
+                          {fields.length === 0 && ghostRowsBefore.length === 0 && (
+                            <p className="text-xs text-muted-foreground italic py-2 text-center">
+                              No attributes defined. Use the + button above to add one.
+                            </p>
+                          )}
+                        </FieldGroup>
+                      </FieldSet>
+                    </>
+                  )
+                },
+                {
+                  id: 'conditions',
+                  label: 'Conditions',
+                  content: (
+                    <>
+                      <EditorSections names={['ConditionSection']} />
+                    </>
+                  )
+                },
+                {
+                  id: 'doc',
+                  label: 'Doc',
+                  content: (
+                    <>
+                      <EditorSections names={['MetadataSection']} />
+                    </>
+                  )
+                },
+                {
+                  id: 'meta',
+                  label: 'Meta',
+                  content: (
+                    <>
+                      <EditorSections names={['AnnotationSection']} />
+                    </>
+                  )
+                }
+              ]}
+              details={<InspectorMetadataDetails targets={targets} />}
+              footer={<InspectorFooter errors={nodeMeta.errors} status={saveStatus} />}
+            />
+          </MetadataTargetProvider>
         </div>
       </EditorActionsProvider>
     </FormProvider>

@@ -31,6 +31,9 @@ test('J20 cached curated JSON and lazy source are reused after reload', async ({
     const toggle = page.getByRole('button', { name: 'Source', exact: true });
     if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
     await expect(page.locator('[data-pane="source"] .cm-content')).toContainText('func Abs:');
+    const declaration = page.locator('[data-pane="source"] .cm-source-reveal-line').filter({ hasText: 'func Abs:' });
+    await expect(declaration).toBeVisible();
+    await expect(declaration).toBeInViewport();
   }
   await evidence.measure('curatedSourceOpen', 'cold Abs', openSource);
   await evidence.checkpoint('cold-original-source');

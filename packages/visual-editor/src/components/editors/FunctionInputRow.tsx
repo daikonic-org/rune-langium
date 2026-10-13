@@ -14,7 +14,8 @@
 
 import { X } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { TypeLink } from './TypeLink.js';
+import { InspectorMemberSummary } from './inspector/InspectorMemberSummary.js';
+import type { InspectorRowProps } from './inspector/inspector-row.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
 import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
 
@@ -22,7 +23,7 @@ import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface FunctionInputRowProps {
+export interface FunctionInputRowProps extends InspectorRowProps {
   /** Display projection of the input — name + resolved type label. */
   member: { name: string; typeName?: string };
   /** Node ID of the parent function — forwarded to `onRemove`. */
@@ -50,31 +51,23 @@ function FunctionInputRow({
   onRemove,
   disabled = false,
   onNavigateToNode,
-  allNodeIds
+  allNodeIds,
+  selected,
+  onSelect
 }: FunctionInputRowProps) {
   const editorCtx = useEditorActionsContext();
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
   return (
-    <div
-      data-slot="input-param-row"
-      className="rune-inspector-row flex items-center gap-1.5 border border-transparent p-1 hover:border-border"
-      role="listitem"
+    <InspectorMemberSummary
+      name={member.name}
+      typeName={member.typeName ?? 'string'}
+      slot="input-param-row"
+      nameSlot="param-name"
+      onNavigateToNode={onNavigateToNode}
+      allNodeIds={allNodeIds}
+      selected={selected}
+      onSelect={onSelect}
     >
-      <span className="text-xs text-muted-foreground w-3" aria-hidden="true">
-        ⠇
-      </span>
-
-      <span data-slot="param-name" className="text-sm font-medium min-w-20">
-        {member.name || '(unnamed)'}
-      </span>
-
-      <TypeLink
-        typeName={member.typeName ?? 'string'}
-        onNavigateToNode={onNavigateToNode}
-        allNodeIds={allNodeIds}
-        className="text-xs text-muted-foreground"
-      />
-
       {/* Icon-button replaces literal "✕" Unicode glyph. Mirrors the pattern
        * applied to AttributeRow / ChoiceOptionRow in the same commit batch —
        * lucide <X /> in a ghost icon-button, hover:text-destructive override
@@ -92,7 +85,7 @@ function FunctionInputRow({
       >
         <X className="size-3" />
       </Button>
-    </div>
+    </InspectorMemberSummary>
   );
 }
 

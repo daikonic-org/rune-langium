@@ -34,6 +34,10 @@
  * @module
  */
 
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
+import { createAttributeDraft } from '../../store/attribute-drafts.js';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { renderNode, type DehydratedNode } from '@rune-langium/codegen/rosetta';
 import type { ReactNode } from 'react';
@@ -44,7 +48,12 @@ import { Textarea } from '@rune-langium/design-system/ui/textarea';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
-import { ErrorsSection } from '../ErrorsSection.js';
+import { InspectorFrame } from './inspector/InspectorFrame.js';
+import { InspectorFooter } from './inspector/InspectorFooter.js';
+import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
+import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
+import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
+import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
 import { Plus } from 'lucide-react';
 import { TypeReferenceField } from './TypeReferenceField.js';
 import { AttributeRow } from './AttributeRow.js';
@@ -58,10 +67,11 @@ import {
   parseCardinality,
   getExpressionDisplayText
 } from '../../adapters/model-helpers.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
 import { useStableKey } from '../../hooks/useStableKey.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider, EditorController as Controller } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -71,9 +81,11 @@ import { useExpressionAutocomplete } from '../../hooks/useExpressionAutocomplete
 import { validateExpression } from '../../validation/edit-validator.js';
 import { formValuesProjection } from './identity-projection.js';
 import type {
+  TypeGraphNode,
   AnyGraphNode,
   GraphNodeMeta,
   TypeOption,
+  SourceRefOption,
   EditorFormActions,
   ExpressionEditorSlotProps,
   FunctionBodyEditorSlotProps,
@@ -169,7 +181,9 @@ function OperationExpressionEditor({
 // Props
 // ---------------------------------------------------------------------------
 
-export interface FunctionFormProps {
+export interface FunctionFormProps extends InspectorHostProps {
+  allNodes?: TypeGraphNode[];
+  synonymSourceOptions?: SourceRefOption[];
   /** Node ID of the Function being edited. */
   nodeId: string;
   /** Data payload for the selected function node (AnyGraphNode with $type='RosettaFunction'). */
@@ -227,11 +241,17 @@ function FunctionForm({
   renderExpressionEditor,
   renderFunctionBodyEditor,
   structuralEditsDisabled = false,
+  synonymSourceOptions,
   onNavigateToNode,
   allNodeIds,
   readOnly: readOnlyProp,
   refOnly,
-  meta: nodeMeta
+  meta: nodeMeta,
+  allNodes = [],
+  scopeKey,
+  parseEpoch,
+  saveStatus,
+  registerCommitFlush
 }: FunctionFormProps) {
   const d = data as any;
   const getKey = useStableKey();
@@ -253,8 +273,8 @@ function FunctionForm({
   // node (object identity is the contract). `keepDirty: true` preserves
   // the pre-migration `keepDirtyValues: true` semantics so in-flight
   // user edits are not stomped by a graph push.
-  useExternalSync(form, data, (n) => formValuesProjection<typeof RosettaFunctionSchema>(n, nodeMeta), {
-    keepDirty: true
+  useInspectorExternalSync(form, data, (n) => formValuesProjection<typeof RosettaFunctionSchema>(n, nodeMeta), {
+    parseEpoch
   });
 
   // ---- useFieldArray for `inputs` (mirrors DataTypeForm's `attributes`) ----
@@ -279,17 +299,25 @@ function FunctionForm({
 
   // ---- Name auto-save (debounced — preserved per R8) ----------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
-      if (structuralEditsDisabled || readOnlyProp || nodeMeta.isReadOnly) return;
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.RosettaFunction!, 'name')?.safeParse(newName.trim()).success) return;
+      if (structuralEditsDisabled) return false;
+      if (readOnlyProp || nodeMeta.isReadOnly) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly]
+    [nodeId, actions, structuralEditsDisabled, readOnlyProp, nodeMeta.isReadOnly, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
+  useEffect(() => {
+    if (!structuralEditsDisabled) debouncedName.flush();
+  }, [structuralEditsDisabled, debouncedName]);
 
   // ---- Expression validation (on blur — preserves bespoke UX, FR-010) -----
 
@@ -381,13 +409,8 @@ function FunctionForm({
   // shape as DataTypeForm.makeAttributeAstItem — function inputs and data
   // attributes share the `Attribute` AST schema.
   const makeInputAstItem = useCallback(
-    (name: string, typeName: string, cardinality = '(1..1)', override = false) => ({
-      $type: 'Attribute' as const,
-      name,
-      typeCall: { $type: 'TypeCall' as const, type: { $refText: typeName }, arguments: [] as never[] },
-      card: parseCardinality(cardinality),
-      override
-    }),
+    (name: string, typeName: string, cardinality = '(1..1)', override = false) =>
+      createAttributeDraft(name, typeName, parseCardinality(cardinality), override),
     []
   );
 
@@ -455,280 +478,339 @@ function FunctionForm({
   const sourceReadOnly = Boolean(readOnlyProp || nodeMeta.isReadOnly);
   const isReadOnly = sourceReadOnly || structuralEditsDisabled;
 
+  const inheritedRows = inheritedGroups.flatMap((group) =>
+    group.members.map((member) => {
+      const node = member as { name?: string };
+      return {
+        id: `inherited:${group.ancestorName}:${node.name ?? ''}`,
+        name: node.name ?? '',
+        source: 'inherited' as const,
+        isOverride: false,
+        rawMember: member
+      };
+    })
+  );
+  const targets = useInspectorTargets({
+    nodeId,
+    root: data,
+    fields,
+    collection: 'inputs',
+    effective: inheritedRows,
+    actions,
+    scopeKey,
+    parseEpoch,
+    readOnly: isReadOnly,
+    output: true
+  });
+
   return (
     <EditorActionsProvider
       nodeId={nodeId}
       actions={actions}
+      allNodes={allNodes}
+      sourceCommentsOnly
+      synonymSourceOptions={synonymSourceOptions}
       readOnly={isReadOnly}
       renderExpressionEditor={renderExpressionEditor}
       showPostConditionToggle
     >
-      <FormProvider {...form} schema={RosettaFunctionSchema}>
-        <div data-slot="function-form" className="flex flex-col gap-4 p-4">
-          {structuralEditsDisabled && (
-            <p role="status" className="text-xs text-muted-foreground">
-              Signature editing waits for the current Rune draft to parse.
-            </p>
-          )}
-          <fieldset disabled={structuralEditsDisabled} className="contents">
-            {/* Header: Namespace + Name + Badge */}
-            <TypeHeader
-              kind="func"
-              namespace={nodeMeta.namespace}
-              control={form.control}
-              onNameChange={debouncedName}
-              placeholder="Function name"
-              nameAriaLabel="Function type name"
-              className={INSPECTOR_FORM_HEADER_CLASS}
-              onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
-              trailing={
-                refOnly ? (
-                  <Badge variant="outline" className="text-xs text-muted-foreground">
-                    Reference Only
-                  </Badge>
-                ) : undefined
-              }
-            />
-
-            {/* Extends (superFunction) — mirrors DataTypeForm's / EnumForm's
-              own editable Extends FieldSet; see superFunctionName's doc
-              comment above for why InheritedMembersSection alone isn't
-              sufficient. */}
-            <FieldSet className="gap-1.5">
-              <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                Extends
-              </FieldLegend>
-              <TypeReferenceField
-                value={parentValue}
-                displayName={superFunctionName}
-                options={parentOptions}
-                onSelect={handleParentSelect}
-                placeholder="Select parent function..."
-                allowClear
-                emptyLabel="No parent function"
-                filterKinds={['func']}
-                onNavigateToNode={onNavigateToNode}
-                allNodeIds={allNodeIds}
-                disabled={isReadOnly}
-              />
-            </FieldSet>
-
-            {/* Input Parameters — editable AttributeRow list via useFieldArray,
-              mirrors the Members section in DataTypeForm (DRY / R-func-input). */}
-            <FieldSet className="gap-1">
-              <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                Inputs ({fields.length})
-              </FieldLegend>
-
-              <FieldGroup className="gap-0.5">
-                {fields.map((field, index) => (
-                  <AttributeRow
-                    key={field.id}
-                    index={index}
-                    fieldArrayName="inputs"
-                    // Read straight from `data`, NOT `committedRef` — see DataTypeForm's
-                    // identical fix; the ref is post-commit-only and can bake a stale
-                    // rename anchor into this row's onUpdate closures.
-                    committedName={(d.inputs ?? [])[index]?.name ?? ''}
-                    availableTypes={availableTypes}
-                    onUpdate={handleUpdateInput}
-                    onRemove={handleRemoveInputByIndex}
-                    onReorder={handleReorderInput}
-                    onNavigateToNode={onNavigateToNode}
-                    allNodeIds={allNodeIds}
-                    disabled={isReadOnly}
-                  />
-                ))}
-
-                {fields.length === 0 && (
-                  <p className="text-xs text-muted-foreground italic py-2 text-center">No input parameters defined.</p>
-                )}
-              </FieldGroup>
-
-              {/* Inline add input — hidden in read-only mode */}
-              {!isReadOnly && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Input
-                    data-slot="add-param-name"
-                    type="text"
-                    value={addParamName}
-                    onChange={(e) => setAddParamName(e.target.value)}
-                    placeholder="Name"
-                    className="text-xs h-6 px-1.5 flex-1 min-w-0"
-                    aria-label="New input parameter name"
-                  />
-                  <div className="min-w-0 shrink-0">
-                    <TypeReferenceField
-                      value={addParamType || null}
-                      options={availableTypes}
-                      onSelect={(v) => setAddParamType(v ?? '')}
-                      placeholder="Type..."
-                      emptyLabel="Type"
-                      onNavigateToNode={onNavigateToNode}
-                      allNodeIds={allNodeIds}
+      <FormProvider
+        {...form}
+        canonicalType="RosettaFunction"
+        schema={RosettaFunctionSchema}
+        registerCommitFlush={lifecycle.register}
+        additionalCommitFlush={debouncedName.flush}
+      >
+        <div data-slot="function-form" className="h-full min-h-0 p-4">
+          <MetadataTargetProvider value={targets.rootBinding}>
+            <InspectorFrame
+              header={
+                <>
+                  {structuralEditsDisabled && (
+                    <p role="status" className="text-xs text-muted-foreground">
+                      Signature editing waits for the current Rune draft to parse.
+                    </p>
+                  )}
+                  <fieldset disabled={structuralEditsDisabled} className="contents">
+                    <TypeHeader
+                      kind="func"
+                      namespace={nodeMeta.namespace}
+                      control={form.control}
+                      onNameChange={debouncedName}
+                      placeholder="Function name"
+                      nameAriaLabel="Function type name"
+                      className={INSPECTOR_FORM_HEADER_CLASS}
+                      onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
+                      trailing={
+                        refOnly ? (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            Reference Only
+                          </Badge>
+                        ) : undefined
+                      }
                     />
-                  </div>
-                  {/* Icon-only add button matches FormPreviewPanel; see
+                  </fieldset>
+                </>
+              }
+              inheritance={
+                <InspectorInheritanceField
+                  value={parentValue}
+                  displayName={superFunctionName}
+                  options={parentOptions}
+                  onSelect={handleParentSelect}
+                  placeholder="Select parent function..."
+                  allowClear
+                  emptyLabel="No parent function"
+                  filterKinds={['func']}
+                  onNavigateToNode={onNavigateToNode}
+                  allNodeIds={allNodeIds}
+                  disabled={isReadOnly}
+                />
+              }
+              sections={[
+                {
+                  id: 'implementation',
+                  label: 'Implementation',
+                  members: true,
+                  content: (
+                    <>
+                      <fieldset disabled={structuralEditsDisabled} className="contents">
+                        {' '}
+                        {/* Input Parameters — editable AttributeRow list via useFieldArray,
+              mirrors the Members section in DataTypeForm (DRY / R-func-input). */}
+                        <FieldSet className="gap-1">
+                          <FieldLegend variant="label" className="mb-0 text-muted-foreground">
+                            Inputs ({fields.length})
+                          </FieldLegend>
+
+                          <FieldGroup className="gap-0.5">
+                            {fields.map((field, index) => (
+                              <AttributeRow
+                                key={field.id}
+                                selected={targets.selection.selectedRow?.key === field.id}
+                                onSelect={() => targets.selection.select(field.id)}
+                                index={index}
+                                fieldArrayName="inputs"
+                                // Read straight from `data`, NOT `committedRef` — see DataTypeForm's
+                                // identical fix; the ref is post-commit-only and can bake a stale
+                                // rename anchor into this row's onUpdate closures.
+                                committedName={(d.inputs ?? [])[index]?.name ?? ''}
+                                availableTypes={availableTypes}
+                                onUpdate={handleUpdateInput}
+                                onRename={
+                                  targets.rootBinding.guarded ? (name) => targets.renameRow(field.id, name) : undefined
+                                }
+                                onRemove={handleRemoveInputByIndex}
+                                onReorder={handleReorderInput}
+                                onNavigateToNode={onNavigateToNode}
+                                allNodeIds={allNodeIds}
+                                disabled={isReadOnly}
+                              />
+                            ))}
+
+                            {fields.length === 0 && (
+                              <p className="text-xs text-muted-foreground italic py-2 text-center">
+                                No input parameters defined.
+                              </p>
+                            )}
+                          </FieldGroup>
+
+                          {/* Inline add input — hidden in read-only mode */}
+                          {!isReadOnly && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Input
+                                data-slot="add-param-name"
+                                type="text"
+                                value={addParamName}
+                                onChange={(e) => setAddParamName(e.target.value)}
+                                placeholder="Name"
+                                className="text-xs h-6 px-1.5 flex-1 min-w-0"
+                                aria-label="New input parameter name"
+                              />
+                              <div className="min-w-0 shrink-0">
+                                <TypeReferenceField
+                                  value={addParamType || null}
+                                  options={availableTypes}
+                                  onSelect={(v) => setAddParamType(v ?? '')}
+                                  placeholder="Type..."
+                                  emptyLabel="Type"
+                                  onNavigateToNode={onNavigateToNode}
+                                  allNodeIds={allNodeIds}
+                                />
+                              </div>
+                              {/* Icon-only add button matches FormPreviewPanel; see
                   DataTypeForm for the rationale. */}
-                  <Button
-                    data-slot="add-input-btn"
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={handleAddInput}
-                    aria-label="Add input"
-                    title="Add input"
-                    className="shrink-0"
-                  >
-                    <Plus className="size-3" />
-                  </Button>
-                </div>
-              )}
-            </FieldSet>
-
-            {/* Output Type */}
-            <FieldSet className="gap-1.5">
-              <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                Output Type
-              </FieldLegend>
-              <TypeReferenceField
-                value={outputValue}
-                displayName={outputType}
-                options={availableTypes}
-                onSelect={handleOutputTypeSelect}
-                placeholder="Select output type..."
-                emptyLabel="No output type"
-                onNavigateToNode={onNavigateToNode}
-                allNodeIds={allNodeIds}
-                disabled={isReadOnly}
-              />
-            </FieldSet>
-
-            {/* Function Body — aliases + operations, each with its own
+                              <Button
+                                data-slot="add-input-btn"
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={handleAddInput}
+                                aria-label="Add input"
+                                title="Add input"
+                                className="shrink-0"
+                              >
+                                <Plus className="size-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </FieldSet>
+                        {/* Output Type */}
+                        <FieldSet
+                          className="gap-1.5"
+                          onFocusCapture={() => targets.selection.select('$output')}
+                          onClick={() => targets.selection.select('$output')}
+                        >
+                          <FieldLegend variant="label" className="mb-0 text-muted-foreground">
+                            Output Type
+                          </FieldLegend>
+                          <TypeReferenceField
+                            value={outputValue}
+                            displayName={outputType}
+                            options={availableTypes}
+                            onSelect={handleOutputTypeSelect}
+                            placeholder="Select output type..."
+                            emptyLabel="No output type"
+                            onNavigateToNode={onNavigateToNode}
+                            allNodeIds={allNodeIds}
+                            disabled={isReadOnly}
+                          />
+                        </FieldSet>
+                        {/* Function Body — aliases + operations, each with its own
               expression editor (R10 / FR-010 — bespoke UX preserved). */}
-          </fieldset>
-          {renderFunctionBodyEditor ? (
-            renderFunctionBodyEditor({ nodeId, readOnly: sourceReadOnly })
-          ) : (
-            <>
-              <FieldSet className="gap-2">
-                <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                  Function Body
-                </FieldLegend>
+                        <InheritedMembersSection
+                          groups={inheritedGroups}
+                          onSelectMember={(ancestor, name) => targets.selection.select(`inherited:${ancestor}:${name}`)}
+                          selectedKey={targets.selection.selectedRow?.key}
+                        />
+                      </fieldset>{' '}
+                      {renderFunctionBodyEditor ? (
+                        renderFunctionBodyEditor({ nodeId, readOnly: sourceReadOnly })
+                      ) : (
+                        <>
+                          <FieldSet className="gap-2">
+                            <FieldLegend variant="label" className="mb-0 text-muted-foreground">
+                              Function Body
+                            </FieldLegend>
 
-                {/* Aliases (shortcuts) — always non-editable derived content,
+                            {/* Aliases (shortcuts) — always non-editable derived content,
                 regardless of isReadOnly (mirrors the pre-existing Textarea
                 fallback's hardcoded `readOnly`). renderExpressionEditor's
                 rich editor has no readOnly awareness of its own; calling
                 it unconditionally let users type inside a fully-
                 interactive-looking ExpressionBuilder whose changes
                 silently never persist (Codex review, PR #494). */}
-                {(d.shortcuts ?? []).map((shortcut: any, i: number) => {
-                  const aliasText = getCstText(shortcut.expression);
-                  return (
-                    <div key={getKey(shortcut)} data-slot="alias-section" className="flex flex-col gap-1">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        alias {shortcut.name ?? `#${i}`}
-                      </span>
-                      <pre className="studio-scroll text-xs font-mono bg-muted/30 rounded p-2 whitespace-pre-wrap overflow-auto max-h-40">
-                        {aliasText || '(empty)'}
-                      </pre>
-                    </div>
-                  );
-                })}
+                            {(d.shortcuts ?? []).map((shortcut: any, i: number) => {
+                              const aliasText = getCstText(shortcut.expression);
+                              return (
+                                <div key={getKey(shortcut)} data-slot="alias-section" className="flex flex-col gap-1">
+                                  <span className="text-xs font-medium text-muted-foreground">
+                                    alias {shortcut.name ?? `#${i}`}
+                                  </span>
+                                  <pre className="studio-scroll text-xs font-mono bg-muted/30 rounded p-2 whitespace-pre-wrap overflow-auto max-h-40">
+                                    {aliasText || '(empty)'}
+                                  </pre>
+                                </div>
+                              );
+                            })}
 
-                {(d.operations ?? []).map((op: DehydratedNode, index: number) => (
-                  <OperationExpressionEditor
-                    key={index}
-                    nodeId={nodeId}
-                    operation={op}
-                    index={index}
-                    actions={actions}
-                    readOnly={isReadOnly}
-                    renderExpressionEditor={renderExpressionEditor}
-                  />
-                ))}
+                            {(d.operations ?? []).map((op: DehydratedNode, index: number) => (
+                              <OperationExpressionEditor
+                                key={index}
+                                nodeId={nodeId}
+                                operation={op}
+                                index={index}
+                                actions={actions}
+                                readOnly={isReadOnly}
+                                renderExpressionEditor={renderExpressionEditor}
+                              />
+                            ))}
 
-                {/* Empty state — no operations yet */}
-                {(d.operations ?? []).length === 0 && (d.shortcuts ?? []).length === 0 && (
-                  <Controller
-                    control={form.control}
-                    name={'expressionText' as never}
-                    render={({ field, fieldState }) => (
-                      <Field>
-                        {isReadOnly ? (
-                          // Read-only (including refOnly): render static text, same
-                          // as ConditionSection's own readOnly branch —
-                          // renderExpressionEditor's rich editor has no readOnly
-                          // awareness of its own, so calling it here would let the
-                          // user type into a fully-interactive-looking editor whose
-                          // changes silently never persist (Codex review, PR #494).
-                          <pre className="studio-scroll text-xs font-mono bg-muted/50 rounded p-2 whitespace-pre-wrap overflow-auto max-h-40">
-                            {(field.value as string | undefined) || '(empty)'}
-                          </pre>
-                        ) : renderExpressionEditor ? (
-                          renderExpressionEditor({
-                            value: field.value ?? '',
-                            onChange: (val: string) => {
-                              field.onChange(val);
-                              if (expressionError) setExpressionError(null);
-                            },
-                            onBlur: () => {
-                              field.onBlur();
-                              handleExpressionBlur();
-                            },
-                            error: expressionError,
-                            placeholder: 'Enter function expression...'
-                          })
-                        ) : (
-                          <Textarea
-                            {...field}
-                            value={field.value ?? ''}
-                            data-slot="expression-editor"
-                            aria-invalid={fieldState.invalid}
-                            aria-label="Function expression"
-                            onBlur={() => {
-                              field.onBlur();
-                              handleExpressionBlur();
-                            }}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              if (expressionError) setExpressionError(null);
-                            }}
-                            rows={4}
-                            className={`text-sm font-mono resize-y ${expressionError ? 'border-destructive' : ''}`}
-                            placeholder="Enter function expression..."
-                          />
-                        )}
-                        {expressionError && (
-                          <p data-slot="expression-error" className="text-xs text-destructive mt-0.5">
-                            {expressionError}
-                          </p>
-                        )}
-                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                      </Field>
-                    )}
-                  />
-                )}
-              </FieldSet>
+                            {/* Empty state — no operations yet */}
+                            {(d.operations ?? []).length === 0 && (d.shortcuts ?? []).length === 0 && (
+                              <Controller
+                                control={form.control}
+                                name={'expressionText' as never}
+                                render={({ field, fieldState }) => (
+                                  <Field>
+                                    {isReadOnly ? (
+                                      // Read-only (including refOnly): render static text, same
+                                      // as ConditionSection's own readOnly branch —
+                                      // renderExpressionEditor's rich editor has no readOnly
+                                      // awareness of its own, so calling it here would let the
+                                      // user type into a fully-interactive-looking editor whose
+                                      // changes silently never persist (Codex review, PR #494).
+                                      <pre className="studio-scroll text-xs font-mono bg-muted/50 rounded p-2 whitespace-pre-wrap overflow-auto max-h-40">
+                                        {(field.value as string | undefined) || '(empty)'}
+                                      </pre>
+                                    ) : renderExpressionEditor ? (
+                                      renderExpressionEditor({
+                                        value: field.value ?? '',
+                                        onChange: (val: string) => {
+                                          field.onChange(val);
+                                          if (expressionError) setExpressionError(null);
+                                        },
+                                        onBlur: () => {
+                                          field.onBlur();
+                                          handleExpressionBlur();
+                                        },
+                                        error: expressionError,
+                                        placeholder: 'Enter function expression...'
+                                      })
+                                    ) : (
+                                      <Textarea
+                                        {...field}
+                                        value={field.value ?? ''}
+                                        data-slot="expression-editor"
+                                        aria-invalid={fieldState.invalid}
+                                        aria-label="Function expression"
+                                        onBlur={() => {
+                                          field.onBlur();
+                                          handleExpressionBlur();
+                                        }}
+                                        onChange={(e) => {
+                                          field.onChange(e);
+                                          if (expressionError) setExpressionError(null);
+                                        }}
+                                        rows={4}
+                                        className={`text-sm font-mono resize-y ${expressionError ? 'border-destructive' : ''}`}
+                                        placeholder="Enter function expression..."
+                                      />
+                                    )}
+                                    {expressionError && (
+                                      <p data-slot="expression-error" className="text-xs text-destructive mt-0.5">
+                                        {expressionError}
+                                      </p>
+                                    )}
+                                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                                  </Field>
+                                )}
+                              />
+                            )}
+                          </FieldSet>
 
-              {/* Configured sections share form state and host actions. */}
-              <EditorSections names={['ConditionSection']} />
-            </>
-          )}
-
-          <fieldset disabled={structuralEditsDisabled} className="contents">
-            <EditorSections names={['AnnotationSection']} />
-
-            {/* Inherited members (from super-function, if applicable) */}
-            <InheritedMembersSection groups={inheritedGroups} />
-
-            <EditorSections names={['MetadataSection']} />
-          </fieldset>
-
-          {/* Domain/graph-level errors (mirrors OtherForm's Errors section;
-              Codex review, PR #494) */}
-          <ErrorsSection errors={nodeMeta.errors} />
+                          {/* Configured sections share form state and host actions. */}
+                        </>
+                      )}
+                    </>
+                  )
+                },
+                ...(!renderFunctionBodyEditor
+                  ? [
+                      {
+                        id: 'conditions',
+                        label: 'Conditions',
+                        content: <EditorSections names={['ConditionSection']} />
+                      }
+                    ]
+                  : []),
+                { id: 'doc', label: 'Doc', content: <EditorSections names={['MetadataSection']} /> },
+                { id: 'meta', label: 'Meta', content: <EditorSections names={['AnnotationSection']} /> }
+              ]}
+              details={<InspectorMetadataDetails targets={targets} />}
+              footer={<InspectorFooter errors={nodeMeta.errors} status={saveStatus} />}
+            />
+          </MetadataTargetProvider>
         </div>
       </FormProvider>
     </EditorActionsProvider>

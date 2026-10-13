@@ -9,6 +9,7 @@ import {
   loadPinnedFunction,
   openBuilder,
   expectCenterPaneBounds,
+  dismissLocalTransportNotices,
   enlargeDialogText
 } from '../helpers/expression-workspace.js';
 
@@ -364,7 +365,9 @@ for (const width of [1280, 800]) {
     await implementation.getByRole('button', { name: 'Builder', exact: true }).scrollIntoViewIfNeeded();
     await expect(implementation.getByRole('button', { name: 'Builder', exact: true })).toBeInViewport();
     await expectCenterPaneBounds(page);
+    await dismissLocalTransportNotices(page);
     await page.screenshot({ path: testInfo.outputPath(`inspector-${width}.png`) });
+
     const dialog = await openBuilder(page);
     await enlargeDialogText(page, dialog);
     const issues = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa']).analyze();
@@ -372,6 +375,7 @@ for (const width of [1280, 800]) {
     const bounds = await dialog.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    await dismissLocalTransportNotices(page);
     await page.screenshot({ path: testInfo.outputPath(`builder-${width}.png`) });
     await dialog.getByRole('button', { name: 'Text', exact: true }).click();
     const textIssues = await new AxeBuilder({ page })

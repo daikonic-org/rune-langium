@@ -398,7 +398,7 @@ describe('DataTypeForm – US1 z2f migration contract (T010–T012)', () => {
   });
 
   // T010 — leaf field set + tab order
-  it('renders leaf fields (name, definition, comments) in the documented tab order', () => {
+  it('renders leaf fields (name and definition with source-only comments) in the documented tab order', () => {
     const data = makeDataNode();
     // `comments` is UI metadata (node.meta sibling) — seeded into form state
     // from `meta`, not from the domain payload.
@@ -431,9 +431,8 @@ describe('DataTypeForm – US1 z2f migration contract (T010–T012)', () => {
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');
     expect(descriptionTextarea).not.toBeNull();
-    expect(commentsTextarea).not.toBeNull();
+    expect(commentsTextarea).toBeNull();
     expect((descriptionTextarea as HTMLTextAreaElement).value).toBe('A financial trade');
-    expect((commentsTextarea as HTMLTextAreaElement).value).toBe('Initial comments');
 
     // Tab order: name input appears before doc-tab content in DOM order.
     // After clicking Doc, the textarea elements are rendered in the active panel.
@@ -443,7 +442,7 @@ describe('DataTypeForm – US1 z2f migration contract (T010–T012)', () => {
       )
     );
     const slots = allInteractive.map((el) => el.getAttribute('data-slot'));
-    expect(slots).toEqual(['type-name-input', 'metadata-description', 'metadata-comments']);
+    expect(slots).toEqual(['type-name-input', 'metadata-description']);
   });
 
   // T011 — debounced rename fires exactly once with the new name

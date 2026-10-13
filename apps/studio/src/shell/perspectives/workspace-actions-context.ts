@@ -13,6 +13,7 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 export interface WorkspaceActions {
   /** Current workspace files — forwarded to FileLoader as `existingFiles`. */
   files: WorkspaceFile[];
+  registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;
   /** Called when the user loads files via drag-drop / file picker / new. */
   onFilesLoaded: (files: WorkspaceFile[]) => void;
   /**

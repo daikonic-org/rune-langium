@@ -117,3 +117,9 @@ export { getEnumValues } from './utils/enum-utils.js';
 
 export { getExpressionScope } from './utils/expression-scope.js';
 export type { ExpressionScopeEntry } from './utils/expression-scope.js';
+
+export { getSourceComments } from './api/source-comments.js';
+export type { SourceComment } from './api/source-comments.js';
+
+export { getAnnotationDefinitions } from './api/annotation-definitions.js';
+export type { AnnotationDefinitionIdentity } from './api/annotation-definitions.js';

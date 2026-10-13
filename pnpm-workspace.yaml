@@ -94,3 +94,5 @@ packageExtensions:
 # GHSA-vfj7-8cjw-p6xm: structural guards backported from micromatch/braces#82.
 patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch
+  # Preserve contained-node union setters until langium-zod publishes support.
+  langium-zod@0.12.2: patches/langium-zod@0.12.2.patch

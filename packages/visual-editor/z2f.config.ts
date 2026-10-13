@@ -55,6 +55,7 @@ export default defineConfig<typeof Components, typeof ZodSchemas>({
   exclude: [],
   fields: {
     ...editorSectionFields,
+    comments: { hidden: true },
     // --- Global field mappings (apply across all schemas) ---
 
     // Cross-reference fields → TypeSelector

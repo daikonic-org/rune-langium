@@ -119,7 +119,7 @@ function renderMapPrimary(node: AnyNode): string {
 // --- attribute reference (recursive) ----------------------------------------
 
 /** `Data.QualifiedName -> attr [-> attr ...]` — root is RosettaDataReference, recurse on nested RosettaAttributeReference. */
-function renderAttributeReference(node: AnyNode): string {
+export function renderAttributeReference(node: AnyNode): string {
   if (node.$type === 'RosettaDataReference') {
     return refText(node['data']);
   }

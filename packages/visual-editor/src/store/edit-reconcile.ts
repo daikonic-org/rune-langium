@@ -77,6 +77,21 @@ const PARSE_METADATA_KEYS = new Set([
   '$document'
 ]);
 
+/** Exact authored equality, ignoring parse ranges and absent optional values. */
+export function authoredValuesEqual(left: unknown, right: unknown): boolean {
+  const comparable = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(comparable);
+    if (value === null || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key, item]) => !PARSE_METADATA_KEYS.has(key) && item !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, comparable(item)])
+    );
+  };
+  return valueEqual(comparable(left), comparable(right));
+}
+
 /** Compare authored patch fields while allowing a parsed AST to carry metadata. */
 function parsedContainsPatchValue(parsed: unknown, patched: unknown): boolean {
   if (Object.is(parsed, patched)) return true;
@@ -121,8 +136,8 @@ function readPath(root: GraphDraft, path: ReadonlyArray<string | number>): { fou
 
 /**
  * Has the freshly-parsed graph already round-tripped this edit? An add/replace
- * is satisfied when the parse already holds the patched value at that path; a
- * remove is satisfied when the path is already absent. Satisfied patches are
+ * is satisfied when the parse already holds the authored value at that path,
+ * ignoring parser coordinates. A remove is satisfied when the path is absent. Satisfied patches are
  * dropped (the source caught up), so edits don't replay forever or resurrect a
  * value the user later changed through the source editor.
  */
@@ -131,8 +146,8 @@ export function patchAlreadySatisfied(parse: GraphDraft, patch: Patch): boolean 
   if (!Array.isArray(patch.path)) return false;
   const { found, value } = readPath(parse, patch.path);
   if (patch.op === 'remove') return !found;
-  if (!found) return false;
-  return valueEqual(value, patch.value);
+  if (!found) return patch.value === undefined && typeof patch.path[patch.path.length - 1] === 'string';
+  return authoredValuesEqual(value, patch.value);
 }
 
 /**

@@ -17,6 +17,7 @@
  */
 
 import type { Node, Edge } from '@xyflow/react';
+import type { InspectorMetadataActions } from './store/metadata-target.js';
 import type {
   Data,
   Choice,
@@ -46,6 +47,8 @@ export interface GraphNodeMeta {
   errors: ValidationError[];
   isReadOnly?: boolean;
   hasExternalRefs: boolean;
+  /** Derived linked scope facts; never part of the authored domain payload. */
+  annotationDefinitions?: Readonly<Record<string, { name: string; namespace: string }>>;
   /** UI-only annotation (not from AST). */
   comments?: string;
   /** True only on deferred-export placeholder nodes (list-only curated types
@@ -204,7 +207,7 @@ export interface SourceRefOption {
 // ---------------------------------------------------------------------------
 
 /** Actions shared by all type kinds. */
-export interface CommonFormActions {
+export interface CommonFormActions extends Partial<InspectorMetadataActions> {
   renameType(nodeId: string, newName: string): void;
   deleteType(nodeId: string): void;
   updateDefinition(nodeId: string, definition: string): void;

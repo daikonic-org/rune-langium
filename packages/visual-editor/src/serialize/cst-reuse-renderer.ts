@@ -18,6 +18,8 @@ import {
   type RenderOpts,
   type DehydratedNode
 } from '@rune-langium/codegen/rosetta';
+import { getSourceComments } from '@rune-langium/core';
+import { createSourceTriviaIndex, type SourceTriviaIndex } from './source-trivia.js';
 import type { TypeGraphNode } from '../types.js';
 import { type DirtyIndex, isSubtreeDirty } from './dirty-paths.js';
 import { SCHEMA_BY_TYPE } from '../schemas/schema-by-type.js';
@@ -82,6 +84,7 @@ export interface RenderArgs {
    * the assembled output. Pre-sorted by offset; caller is responsible for
    * excluding ranges still occupied by a renamed/replaced node (rename-safety).
    */
+  baselineNodes?: readonly DehydratedNode[];
   removedRanges?: ReadonlyArray<{ offset: number; end: number }>;
 }
 
@@ -111,6 +114,46 @@ function copyGapExcluding(
 export function renderNamespace(args: RenderArgs): string {
   const { nodes, originalSource, dirty, forceDirtyNodeIds } = args;
 
+  let trivia: SourceTriviaIndex | undefined;
+  const getTrivia = () => {
+    if (trivia) return trivia;
+    const changed = nodes.filter((node) => forceDirtyNodeIds?.has(node.id) || isSubtreeDirty(dirty, node.id, []));
+    const scopes = [
+      ...changed.flatMap((node) => {
+        const range = cstRange(node.data);
+        return range ? [range] : [];
+      }),
+      ...(args.removedRanges ?? [])
+    ];
+    const rootRanges = nodes
+      .flatMap((node) => {
+        const range = cstRange(node.data);
+        return range ? [range] : [];
+      })
+      .sort((left, right) => left.offset - right.offset);
+    const intervals = scopes.map((scope) => ({
+      offset: scope.offset,
+      end: rootRanges.find((range) => range.offset >= scope.end)?.offset ?? originalSource.length
+    }));
+    const baseline = (args.baselineNodes ?? nodes.map((node) => node.data)).filter((node) => {
+      const range = cstRange(node);
+      return range && scopes.some((scope) => scope.offset <= range.offset && scope.end >= range.end);
+    });
+    const comments = scopes.length
+      ? getSourceComments(originalSource).filter((comment) =>
+          intervals.some((interval) => interval.offset <= comment.offset && comment.offset < interval.end)
+        )
+      : [];
+    trivia = createSourceTriviaIndex(
+      originalSource,
+      baseline,
+      comments,
+      changed.map((node) => node.data)
+    );
+    return trivia;
+  };
+  const originalNewlines = (text: string) => (originalSource.includes('\r\n') ? text.replace(/\r?\n/g, '\r\n') : text);
+
   // P2 fidelity: an unedited expression body inside an otherwise-dirty node
   // (e.g. a condition renamed but its body untouched) would otherwise fall
   // through render-core's default `exprText`, which renders STRUCTURALLY —
@@ -134,7 +177,12 @@ export function renderNamespace(args: RenderArgs): string {
     // `indentBlock` call — so, like a whole-node CHILD reuse, the slice must
     // be normalized to RELATIVE indentation first (see normalizeReusedSlice's
     // doc) or continuation lines end up over-indented by the wrapper's pad.
-    if (range) return normalizeReusedSlice(originalSource.slice(range.offset, range.end), originalSource, range.offset);
+    if (range)
+      return getTrivia().withOwnedTrivia(
+        expr as DehydratedNode,
+        normalizeReusedSlice(originalSource.slice(range.offset, range.end), originalSource, range.offset),
+        true
+      );
     return renderExpression(expr as never);
   };
 
@@ -153,8 +201,12 @@ export function renderNamespace(args: RenderArgs): string {
       // byte-identical, so they are never normalized.
       const isChild = dataPath.length > 0;
       if (range && !subtreeDirty) {
-        return reuseSlice(originalSource, range, isChild); // clean → reuse
+        return isChild
+          ? getTrivia().withOwnedTrivia(child, reuseSlice(originalSource, range, true), true)
+          : reuseSlice(originalSource, range, false); // clean → reuse
       }
+      const ownedTrivia = getTrivia();
+      if (hasRawDslExpression(child)) ownedTrivia.ignoreReplacedExpression(child);
       // Dirty or new → regenerate. renderChild recurses with extended dataPath.
       const renderChild: RenderChild = (c) => {
         const idx = childIndex(child, c, dataPath);
@@ -184,7 +236,7 @@ export function renderNamespace(args: RenderArgs): string {
               result.error.issues.map((i) => ({ path: i.path, message: i.message }))
             );
           }
-          if (range) return reuseSlice(originalSource, range, isChild);
+          if (range) return ownedTrivia.withOwnedTrivia(child, reuseSlice(originalSource, range, isChild), true);
           if (schemaGateDebug) {
             console.warn(
               `[cst-reuse] skipping new node of unimplemented/invalid $type "${childType}" — schema validation failed and no $cstRange`
@@ -194,8 +246,8 @@ export function renderNamespace(args: RenderArgs): string {
         }
       }
       const generated = renderNode(child, renderChild, { renderExpr });
-      if (generated !== null) return generated;
-      if (range) return reuseSlice(originalSource, range, isChild); // unimplemented but had bytes
+      if (generated !== null) return originalNewlines(ownedTrivia.withOwnedTrivia(child, generated, false));
+      if (range) return ownedTrivia.withOwnedTrivia(child, reuseSlice(originalSource, range, isChild), true); // unimplemented but had bytes
       // Brand-new node of an unimplemented $type — no bytes to slice and no
       // renderer to regenerate it. Degrade gracefully: return '' so this node is
       // absent from the output rather than crashing the source-sync effect.
@@ -213,6 +265,10 @@ export function renderNamespace(args: RenderArgs): string {
   // belonging to genuinely-deleted elements.
   const sortedRemoved = [...(args.removedRanges ?? [])].sort((a, b) => a.offset - b.offset);
 
+  if (sortedRemoved.length > 0) getTrivia();
+  const omittedRanges = () =>
+    [...sortedRemoved, ...(trivia?.omittedGapRanges() ?? [])].sort((left, right) => left.offset - right.offset);
+
   const placed = nodes
     .map((n) => ({ n, range: cstRange(n.data) }))
     .filter((x): x is { n: TypeGraphNode; range: CstRange } => x.range !== undefined)
@@ -221,13 +277,13 @@ export function renderNamespace(args: RenderArgs): string {
   const parts: string[] = [];
   let cursor = 0;
   for (const { n, range } of placed) {
-    if (range.offset > cursor) parts.push(copyGapExcluding(originalSource, cursor, range.offset, sortedRemoved));
+    if (range.offset > cursor) parts.push(copyGapExcluding(originalSource, cursor, range.offset, omittedRanges()));
     const render = makeRender(n.id);
     parts.push(render(n.data, []));
     cursor = range.end;
   }
   if (cursor < originalSource.length)
-    parts.push(copyGapExcluding(originalSource, cursor, originalSource.length, sortedRemoved));
+    parts.push(copyGapExcluding(originalSource, cursor, originalSource.length, omittedRanges()));
 
   // New top-level nodes (no $cstRange) → append at the namespace tail.
   // Filter out empty strings: a fresh node whose $type is unimplemented returns

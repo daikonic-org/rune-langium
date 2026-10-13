@@ -42,6 +42,7 @@ import {
   conditionsToDisplay,
   useEditorStore,
   useModelSourceSync,
+  createEditorCommitRegistry,
   useLatestRef,
   makeNodeId,
   nameFromNodeId,
@@ -67,8 +68,10 @@ import type {
   RangeDiagnostic
 } from '@rune-langium/visual-editor';
 import { useStructureViewStore } from '../store/structure-view-store.js';
+import type { WorkspaceFile } from '../services/workspace.js';
 import type { RosettaModel } from '@rune-langium/core';
 import { getNodeSourceRegion, namespaceFromModelName, RuneDslTerminals } from '@rune-langium/core';
+import { createScopedMetadataActions } from './inspector-metadata-actions.js';
 import { SourceEditor } from '../components/SourceEditor.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
@@ -115,7 +118,12 @@ import type { DeferredExportEntry } from '../workers/parser-worker.js';
 import { pathToUri } from '../utils/uri.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { combineFileDiagnostics, countDiagnostics } from './explore-diagnostics.js';
-import { resolveEditorFilePath, useExploreFileNavStore } from './explore-file-nav-store.js';
+import {
+  resolveEditorFilePath,
+  resolveHydratedSourcePath,
+  useExploreFileNavStore,
+  type HydratedSourceRequest
+} from './explore-file-nav-store.js';
 import { useExportDialogStore } from './export-dialog-store.js';
 import { useImportDialogStore } from './import-dialog-store.js';
 import { HydrationOrchestrator } from '../services/hydration-orchestrator.js';
@@ -463,7 +471,9 @@ export const ExplorePerspective = withInstrumentation(
     // Workspace actions — formerly props, now from the actions context.
     // onClose/onSwitchWorkspace/onCreateWorkspace moved to AppHeader's
     // WorkspaceSwitcherTrigger (shared-perspective-chrome plan, Task 3).
-    const { onFilesChange, loadCuratedSource } = useWorkspaceActions();
+    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier } = useWorkspaceActions();
+    const inspectorScope = `${workspaceId}:${workspace.workspaceEpoch ?? 0}`;
+    const formCommitRegistry = useMemo(createEditorCommitRegistry, []);
 
     const graphRef = useRef<RuneTypeGraphRef>(null);
     const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -484,11 +494,14 @@ export const ExplorePerspective = withInstrumentation(
     const [loadingSourcePaths, setLoadingSourcePaths] = useState<Set<string>>(() => new Set());
     const sourceLoadTokensRef = useRef(new Map<string, object>());
     const pendingSourceRequestsRef = useRef(new Map<string, object>());
-    const pendingSourceNavigationRef = useRef<{ bundleId: string; namespace: string; path: string } | null>(null);
+    const pendingSourceNavigationRef = useRef<
+      (HydratedSourceRequest & { workspaceId: string; revision: number }) | null
+    >(null);
     const [sourceLoadError, setSourceLoadError] = useState<{ path: string; message: string } | null>(null);
     useEffect(() => {
       sourceLoadTokensRef.current.clear();
       pendingSourceRequestsRef.current.clear();
+      pendingSourceNavigationRef.current = null;
       setLoadingSourcePaths(new Set());
       setSourceLoadError(null);
       return () => {
@@ -1158,7 +1171,15 @@ export const ExplorePerspective = withInstrumentation(
         }
         if (!file.artifactKey && !hydratedNamespaces.includes(namespace)) {
           if (sourcePath === activeEditorFile) {
-            pendingSourceNavigationRef.current = { bundleId: file.bundleId, namespace, path: file.path };
+            pendingSourceNavigationRef.current = {
+              bundleId: file.bundleId,
+              bundleVersion: file.bundleVersion,
+              namespace,
+              path: file.path,
+              workspaceId,
+              revision: navigationSequenceRef.current,
+              nodeId: sourcePath === selectedSourceFilePath ? (selectedNodeId ?? undefined) : undefined
+            };
           }
           useEditorStore.getState().requestNamespaceHydration(namespace);
           continue;
@@ -1194,6 +1215,7 @@ export const ExplorePerspective = withInstrumentation(
       activeEditorFile,
       selectedSourceFilePath,
       selectedNodeMeta?.namespace,
+      selectedNodeId,
       hydratedNamespaces,
       workspaceId,
       loadCuratedSource
@@ -1201,17 +1223,31 @@ export const ExplorePerspective = withInstrumentation(
     useEffect(() => {
       const pending = pendingSourceNavigationRef.current;
       if (!pending) return;
+      if (
+        pending.workspaceId !== workspaceId ||
+        pending.revision !== navigationSequenceRef.current ||
+        (pending.nodeId !== undefined && pending.nodeId !== selectedNodeId)
+      ) {
+        pendingSourceNavigationRef.current = null;
+        return;
+      }
       if (activeEditorFile !== pending.path && files.some((file) => file.path === pending.path)) {
         pendingSourceNavigationRef.current = null;
         return;
       }
-      const hydratedFile = files.find(
-        (file) => file.bundleId === pending.bundleId && file.namespace === pending.namespace && file.artifactKey
-      );
-      if (!hydratedFile) return;
+      const hydratedPath = resolveHydratedSourcePath(pending, files, hydratedNamespaces, selectedSourceFilePath);
+      if (!hydratedPath) return;
       pendingSourceNavigationRef.current = null;
-      setActiveEditorFile(hydratedFile.path);
-    }, [files, activeEditorFile, setActiveEditorFile]);
+      setActiveEditorFile(hydratedPath);
+    }, [
+      files,
+      activeEditorFile,
+      setActiveEditorFile,
+      hydratedNamespaces,
+      selectedSourceFilePath,
+      selectedNodeId,
+      workspaceId
+    ]);
     const currentNavigationTarget =
       navigationTarget && navigationTarget.nodeId === selectedNodeId && navigationTarget.workspaceId === workspaceId
         ? navigationTarget
@@ -1630,7 +1666,7 @@ export const ExplorePerspective = withInstrumentation(
     // Previously this subscription lived inside RuneTypeGraph, which is only
     // mounted when the Graph pane is active; Structure-pane edits never reached
     // the source pane (2026-05-21, fix/inspector-source-sync).
-    useModelSourceSync(
+    const sourceSync = useModelSourceSync(
       storeNodes,
       storeEdges,
       handleModelChanged,
@@ -1638,6 +1674,22 @@ export const ExplorePerspective = withInstrumentation(
       storePendingEditPatches,
       originalSourceByNamespace,
       storePendingInversePatches
+    );
+
+    useEffect(
+      () =>
+        registerEditorSaveBarrier?.(async () => {
+          formCommitRegistry.flush();
+          const latest = useEditorStore.getState();
+          await sourceSync.flush({
+            nodes: latest.nodes,
+            edges: latest.edges,
+            parseEpoch: latest.parseEpoch,
+            patches: latest.pendingEditPatches,
+            inversePatches: latest.pendingInversePatches
+          });
+        }),
+      [registerEditorSaveBarrier, formCommitRegistry, sourceSync.flush]
     );
 
     useLspDiagnosticsBridge(lspClient);
@@ -2271,11 +2323,30 @@ export const ExplorePerspective = withInstrumentation(
 
     const selectedExpressionFile = files.find((file) => file.path === selectedSourceFilePath);
     const selectedParsedModel = parsedModels?.find((entry) => entry.filePath === selectedSourceFilePath);
-    const selectedParseCurrent = Boolean(
-      selectedExpressionFile &&
-      selectedParsedModel?.source === selectedExpressionFile.content &&
-      !parseErrors.get(selectedExpressionFile.path)?.length
+    const isParsedFileCurrent = useCallback(
+      (file: WorkspaceFile | undefined) => {
+        const parsed = file ? parsedModels?.find((entry) => entry.filePath === file.path) : undefined;
+        return Boolean(file && parsed?.source === file.content && !parseErrors.get(file.path)?.length);
+      },
+      [parsedModels, parseErrors]
     );
+    const selectedParseCurrent = isParsedFileCurrent(selectedExpressionFile);
+    const metadataContext = useLatestRef({
+      scope: inspectorScope,
+      canEdit: (nodeId: string) => {
+        const node = useEditorStore.getState().nodesById.get(nodeId);
+        if (!node || node.meta.isReadOnly) return false;
+        const path = resolveEditorFilePath(resolveNodeFile(node.data, node.meta), files);
+        const file = files.find((candidate) => candidate.path === path);
+        if (!file || file.refOnly || file.readOnly) return false;
+        return isParsedFileCurrent(file);
+      }
+    });
+    const metadataActions = useMemo(
+      () => createScopedMetadataActions(inspectorScope, () => metadataContext.current, useEditorStore.getState()),
+      [inspectorScope, metadataContext]
+    );
+
     const renderFunctionBodyEditor = useCallback(
       (props: FunctionBodyEditorSlotProps) => (
         <ExpressionWorkspace
@@ -2407,7 +2478,7 @@ export const ExplorePerspective = withInstrumentation(
 
     const renderInspectorPane = useCallback(
       () => (
-        <div ref={inspectorArrivalRef} className="studio-scroll flex flex-col min-h-0 h-full overflow-auto">
+        <div ref={inspectorArrivalRef} className="studio-scroll flex flex-col min-h-0 h-full overflow-hidden">
           <EditorFormPanel
             nodeData={selectedNodeData}
             meta={selectedNodeMeta}
@@ -2417,6 +2488,10 @@ export const ExplorePerspective = withInstrumentation(
             availableTypes={availableTypes}
             synonymSourceOptions={synonymSourceOptions}
             actions={editorActions}
+            metadataActions={metadataActions}
+            scopeKey={inspectorScope}
+            parseEpoch={storeParseEpoch}
+            registerCommitFlush={formCommitRegistry.register}
             allNodes={storeNodes}
             nodeRepository={nodeRepository}
             renderExpressionEditor={renderExpressionEditor}
@@ -2436,6 +2511,10 @@ export const ExplorePerspective = withInstrumentation(
         </div>
       ),
       [
+        metadataActions,
+        inspectorScope,
+        storeParseEpoch,
+        formCommitRegistry,
         selectedNodeData,
         selectedNodeMeta,
         selectedNodeId,

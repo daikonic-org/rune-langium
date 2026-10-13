@@ -226,9 +226,24 @@ function AppContent() {
     [reportWorkspaceError]
   );
 
+  const editorSaveBarriers = useRef(new Set<() => Promise<void>>());
+  const registerEditorSaveBarrier = useCallback((flush: () => Promise<void>) => {
+    editorSaveBarriers.current.add(flush);
+    return () => {
+      editorSaveBarriers.current.delete(flush);
+    };
+  }, []);
+  const flushEditorSaveBarriers = useCallback(async () => {
+    // Snapshot because flushing can change mounted form registrations.
+    // eslint-disable-next-line unicorn/no-useless-spread
+    for (const flush of [...editorSaveBarriers.current]) await flush();
+  }, []);
+
   useEffect(() => {
     const flush = () => {
-      void workspaceAutosave.flush().catch(() => {});
+      void flushEditorSaveBarriers()
+        .then(() => workspaceAutosave.flush())
+        .catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
@@ -240,7 +255,7 @@ function AppContent() {
       document.removeEventListener('visibilitychange', onVisibility);
       flush();
     };
-  }, [workspaceAutosave]);
+  }, [workspaceAutosave, flushEditorSaveBarriers]);
 
   useEffect(() => {
     if (!workspaceError) {
@@ -413,9 +428,18 @@ function AppContent() {
   const clearWorkspaceState = useCallback(async (): Promise<number | null> => {
     const transition = ++workspaceTransitionRef.current;
     try {
+      await flushEditorSaveBarriers();
+    } catch (error) {
+      reportWorkspaceError(
+        'Could not finish publishing current Inspector edits; the workspace remains open for retry',
+        error
+      );
+      return null;
+    }
+    try {
       await workspaceAutosave.flush();
     } catch {
-      // Autosave reported the storage failure; keep the current workspace and its retryable draft.
+      // The existing autosave callback reported this failure; retain the current workspace for retry.
       return null;
     }
     if (transition !== workspaceTransitionRef.current) return null;
@@ -438,7 +462,7 @@ function AppContent() {
     usePreviewStore.getState().resetPreviewState();
     useCodegenStore.getState().resetCodegenState();
     return epoch;
-  }, [invalidateWorkspaceParses, workspaceAutosave]);
+  }, [invalidateWorkspaceParses, workspaceAutosave, flushEditorSaveBarriers, reportWorkspaceError]);
 
   const syncWorkspaceToEditor = useCallback(
     async (workspaceFiles: WorkspaceFile[]) => {
@@ -1238,6 +1262,7 @@ function AppContent() {
   const workspaceActionsValue = useMemo(
     () => ({
       files,
+      registerEditorSaveBarrier,
       onFilesLoaded: handleFilesLoaded,
       createGitBackedWorkspace: handleCreateGitBackedWorkspace,
       onGitHubWorkspaceCreated: handleGitHubWorkspaceCreated,
@@ -1253,6 +1278,7 @@ function AppContent() {
     }),
     [
       files,
+      registerEditorSaveBarrier,
       handleFilesLoaded,
       handleCreateGitBackedWorkspace,
       handleGitHubWorkspaceCreated,
@@ -1270,6 +1296,7 @@ function AppContent() {
   const workspaceStateValue = useMemo(
     () => ({
       workspaceId: restoredWorkspace?.id,
+      workspaceEpoch: workspaceEpochRef.current,
       workspaceKind: restoredWorkspace?.kind,
       workspaceName: restoredWorkspace?.name,
       fileCount: files.filter((f) => !f.readOnly).length,

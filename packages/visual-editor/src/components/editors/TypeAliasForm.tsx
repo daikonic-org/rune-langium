@@ -10,7 +10,7 @@
  * - `useZodForm(RosettaTypeAliasSchema, …)` drives validation off the
  *   canonical AST schema (per R1). The graph node is passed straight
  *   into `defaultValues` (per R11) — no projection layer.
- * - `useExternalSync(form, data, (n) => formValuesProjection(n, nodeMeta))`
+ * - `useInspectorExternalSync(form, data, (n) => formValuesProjection(n, nodeMeta))`
  *   re-binds pristine field state when the host swaps to a different node
  *   (per R4). The form consumes the AST shape directly; the projection
  *   only threads the typed gap and seeds the UI-only `comments` field.
@@ -30,17 +30,24 @@
  * @module
  */
 
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
 import { useCallback } from 'react';
 import { useWatch } from 'react-hook-form';
 import { FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
-import { DefinitionField } from '../DefinitionField.js';
-import { ErrorsSection } from '../ErrorsSection.js';
+import { InspectorFrame } from './inspector/InspectorFrame.js';
+import { InspectorFooter } from './inspector/InspectorFooter.js';
+import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
+import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
+import { EditorSections } from '../forms/sections/EditorSections.js';
 import { TypeReferenceField } from './TypeReferenceField.js';
+import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
-import { useZodForm, useExternalSync } from '@zod-to-form/react';
+import { useZodForm } from '@zod-to-form/react';
 import { EditorFormProvider as FormProvider } from '../forms/EditorFormProvider.js';
 import { editorOptimization } from '../forms/editor-optimization.js';
 
@@ -63,7 +70,7 @@ const EMPTY_TYPES: TypeOption[] = [];
 // Props
 // ---------------------------------------------------------------------------
 
-export interface TypeAliasFormProps {
+export interface TypeAliasFormProps extends InspectorHostProps {
   /** Node ID of the TypeAlias being edited. */
   nodeId: string;
   /** Data payload for the selected type alias node (AnyGraphNode with $type='RosettaTypeAlias'). */
@@ -110,7 +117,11 @@ function TypeAliasForm({
   allNodeIds,
   readOnly: readOnlyProp,
   refOnly,
-  meta: nodeMeta
+  meta: nodeMeta,
+  scopeKey,
+  parseEpoch,
+  saveStatus,
+  registerCommitFlush
 }: TypeAliasFormProps) {
   // ---- Form setup (useZodForm + upstream useExternalSync, R11 / R4) -------
   // Drive validation off the canonical AST schema; pass the graph node
@@ -132,8 +143,8 @@ function TypeAliasForm({
   // (object identity is the contract). `keepDirty: true` preserves the
   // pre-migration `keepDirtyValues: true` semantics so in-flight user
   // edits are not stomped by a graph push.
-  useExternalSync(form, data, (n) => formValuesProjection<typeof RosettaTypeAliasSchema>(n, nodeMeta), {
-    keepDirty: true
+  useInspectorExternalSync(form, data, (n) => formValuesProjection<typeof RosettaTypeAliasSchema>(n, nodeMeta), {
+    parseEpoch
   });
 
   // Track committed (graph-confirmed) data for diffing
@@ -141,13 +152,17 @@ function TypeAliasForm({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  const lifecycle = useInspectorCommitLifecycle(registerCommitFlush);
+
   const commitName = useCallback(
     (newName: string) => {
+      if (!getEditorFieldSchema(SCHEMA_BY_TYPE.RosettaTypeAlias!, 'name')?.safeParse(newName.trim()).success) return;
       if (newName && newName.trim() && newName !== committedRef.current.name) {
+        lifecycle.flush();
         actions.renameType(nodeId, newName.trim());
       }
     },
-    [nodeId, actions]
+    [nodeId, actions, lifecycle.flush]
   );
 
   const debouncedName = useAutoSave(commitName, 500);
@@ -202,60 +217,79 @@ function TypeAliasForm({
 
   const isReadOnly = Boolean(readOnlyProp || nodeMeta.isReadOnly);
 
+  const targets = useInspectorTargets({
+    nodeId,
+    root: data,
+    fields: [],
+    collection: 'attributes',
+    actions,
+    scopeKey,
+    parseEpoch,
+    readOnly: isReadOnly
+  });
+
   return (
-    <EditorActionsProvider nodeId={nodeId} actions={actions} readOnly={isReadOnly}>
-      <FormProvider {...form} schema={RosettaTypeAliasSchema}>
-        <div data-slot="type-alias-form" className="flex flex-col gap-4 p-4">
-          {/* Header: Namespace + Name + Badge */}
-          <TypeHeader
-            kind="typeAlias"
-            namespace={nodeMeta.namespace}
-            control={form.control}
-            onNameChange={debouncedName}
-            placeholder="Type alias name"
-            nameAriaLabel="Type alias name"
-            className={INSPECTOR_FORM_HEADER_CLASS}
-            onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
-            trailing={
-              refOnly ? (
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  Reference Only
-                </Badge>
-              ) : undefined
-            }
-          />
-
-          {/* Definition — read-only display (mirrors OtherForm's own
-              `{d.definition && <DefinitionField .../>}`). TypeAliasForm has
-              no editable definition affordance today (a pre-existing,
-              unrelated gap), but a refOnly alias's `definition` text must
-              stay visible now that it routes here instead of OtherForm
-              (Codex review, PR #494). */}
-          {(data as { definition?: string }).definition && (
-            <DefinitionField value={(data as { definition?: string }).definition!} />
-          )}
-
-          {/* Wrapped type — the TypeAlias-specific primary affordance */}
-          <FieldSet className="gap-1.5">
-            <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-              Wrapped type
-            </FieldLegend>
-            <TypeReferenceField
-              value={currentTypeValue ?? null}
-              displayName={currentTypeLabel}
-              options={availableTypes}
-              onSelect={handleTypeSelect}
-              placeholder="Select wrapped type..."
-              emptyLabel="No wrapped type"
-              onNavigateToNode={onNavigateToNode}
-              allNodeIds={allNodeIds}
-              disabled={isReadOnly}
+    <EditorActionsProvider nodeId={nodeId} actions={actions} readOnly={isReadOnly} sourceCommentsOnly>
+      <FormProvider
+        {...form}
+        canonicalType="RosettaTypeAlias"
+        schema={RosettaTypeAliasSchema}
+        registerCommitFlush={lifecycle.register}
+        additionalCommitFlush={debouncedName.flush}
+      >
+        <div data-slot="type-alias-form" className="h-full min-h-0 p-4">
+          <MetadataTargetProvider value={targets.rootBinding}>
+            <InspectorFrame
+              header={
+                <TypeHeader
+                  kind="typeAlias"
+                  namespace={nodeMeta.namespace}
+                  control={form.control}
+                  onNameChange={debouncedName}
+                  placeholder="Type alias name"
+                  nameAriaLabel="Type alias name"
+                  className={INSPECTOR_FORM_HEADER_CLASS}
+                  onReveal={onNavigateToNode ? () => onNavigateToNode(nodeId) : undefined}
+                  trailing={
+                    refOnly ? (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Reference Only
+                      </Badge>
+                    ) : undefined
+                  }
+                />
+              }
+              sections={[
+                {
+                  id: 'type',
+                  label: 'Type',
+                  content: (
+                    <>
+                      {' '}
+                      <FieldSet className="gap-1.5">
+                        <FieldLegend variant="label" className="mb-0 text-muted-foreground">
+                          Wrapped type
+                        </FieldLegend>
+                        <TypeReferenceField
+                          value={currentTypeValue ?? null}
+                          displayName={currentTypeLabel}
+                          options={availableTypes}
+                          onSelect={handleTypeSelect}
+                          placeholder="Select wrapped type..."
+                          emptyLabel="No wrapped type"
+                          onNavigateToNode={onNavigateToNode}
+                          allNodeIds={allNodeIds}
+                          disabled={isReadOnly}
+                        />
+                      </FieldSet>
+                      <EditorSections names={['MetadataSection']} />
+                    </>
+                  )
+                }
+              ]}
+              footer={<InspectorFooter errors={nodeMeta.errors} status={saveStatus} />}
             />
-          </FieldSet>
-
-          {/* Domain/graph-level errors (mirrors OtherForm's Errors section;
-              Codex review, PR #494) */}
-          <ErrorsSection errors={nodeMeta.errors} />
+          </MetadataTargetProvider>
         </div>
       </FormProvider>
     </EditorActionsProvider>

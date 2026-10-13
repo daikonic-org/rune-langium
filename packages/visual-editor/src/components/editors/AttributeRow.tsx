@@ -32,9 +32,11 @@
  * @module
  */
 
-import { useCallback, useMemo } from 'react';
+import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+
+import { useEffect, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { EditorController as Controller } from '../forms/EditorFormProvider.js';
+import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { X } from 'lucide-react';
@@ -49,7 +51,7 @@ import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface AttributeRowProps {
+export interface AttributeRowProps extends InspectorRowProps {
   /** Index position of this member in the useFieldArray. */
   index: number;
   /**
@@ -70,6 +72,8 @@ export interface AttributeRowProps {
     cardinality: string,
     targetTypeId?: string
   ) => void;
+  /** Optional name-only commit using the host's current canonical member identity. */
+  onRename?: (name: string) => void;
   /** Remove this attribute by index. */
   onRemove: (index: number) => void;
   /** Reorder (drag) callback; fromIndex → toIndex. */
@@ -104,18 +108,23 @@ function AttributeRow({
   committedName,
   availableTypes,
   onUpdate,
+  onRename,
   onRemove,
   onReorder,
   disabled = false,
   onNavigateToNode,
   allNodeIds,
   isOverride: isOverrideProp,
-  onRevert
+  onRevert,
+  selected,
+  onSelect
 }: AttributeRowProps) {
   const { control, getValues, setValue, watch } = useFormContext();
   const editorCtx = useEditorActionsContext();
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
   const prefix = `${fieldArrayName}.${index}`;
+
+  const validateName = useEditorFieldValidator(`${prefix}.name`);
 
   // AST-canonical reads (R11 / row-renderer contract §2). The picker still
   // talks in `(inf..sup)` strings, so we adapt at the row boundary rather
@@ -139,18 +148,31 @@ function AttributeRow({
 
   // ---- Name auto-save (debounced) ------------------------------------------
 
+  type NameDraft = { name: string; committedName: string; index: number; type: string; card: string };
   const commitName = useCallback(
-    (newName: string) => {
-      const currentType: string = getValues(`${prefix}.typeCall.type.$refText`) ?? 'string';
-      const currentCard = normaliseCard(
-        getValues(`${prefix}.card`) as { inf: number; sup?: number; unbounded?: boolean } | undefined
-      );
-      onUpdate(index, committedName, newName, currentType, formatCardinality(currentCard) || '(1..1)');
+    (draft: NameDraft) => {
+      if (validateName && validateName(draft.name) !== true) return;
+      if (effectiveReadOnly) return false;
+      if (onRename) onRename(draft.name);
+      else onUpdate(draft.index, draft.committedName, draft.name, draft.type, draft.card);
     },
-    [index, committedName, prefix, getValues, onUpdate]
+    [validateName, effectiveReadOnly, onUpdate, onRename]
   );
-
   const debouncedName = useAutoSave(commitName, 500);
+  useEffect(() => {
+    if (!effectiveReadOnly) debouncedName.flush();
+  }, [effectiveReadOnly, debouncedName]);
+  const nameDraft = (name: string): NameDraft => ({
+    name,
+    committedName,
+    index,
+    type: getValues(`${prefix}.typeCall.type.$refText`) ?? 'string',
+    card: formatCardinality(normaliseCard(getValues(`${prefix}.card`))) || '(1..1)'
+  });
+  const validCombinedName = useCallback(() => {
+    const name: string = getValues(`${prefix}.name`);
+    return validateName && validateName(name) !== true ? committedName : name;
+  }, [getValues, prefix, validateName, committedName]);
 
   // ---- Type selection (immediate) ------------------------------------------
 
@@ -164,10 +186,10 @@ function AttributeRow({
       // namespaces (mirrors the attribute-type-update path — DRY).
       const targetTypeId = option?.value;
       setValue(`${prefix}.typeCall.type.$refText`, newTypeName, { shouldDirty: true });
-      const name: string = getValues(`${prefix}.name`);
+      const name = validCombinedName();
       onUpdate(index, committedName, name, newTypeName, cardinalityString, targetTypeId);
     },
-    [index, committedName, prefix, availableTypes, getValues, setValue, cardinalityString, onUpdate]
+    [index, committedName, prefix, availableTypes, getValues, setValue, cardinalityString, onUpdate, validCombinedName]
   );
 
   // ---- Cardinality (immediate from picker) ---------------------------------
@@ -179,10 +201,10 @@ function AttributeRow({
       // the action callback (EditorFormActions still take `cardinality: string`
       // — FR-002).
       setValue(`${prefix}.card`, parseCardinality(card), { shouldDirty: true });
-      const name: string = getValues(`${prefix}.name`);
+      const name = validCombinedName();
       onUpdate(index, committedName, name, typeName ?? 'string', card);
     },
-    [index, committedName, prefix, typeName, getValues, setValue, onUpdate]
+    [index, committedName, prefix, typeName, getValues, setValue, onUpdate, validCombinedName]
   );
 
   // ---- Drag reorder ---------------------------------------------------------
@@ -232,6 +254,8 @@ function AttributeRow({
 
   return (
     <div
+      role="listitem"
+      {...inspectorRowAttributes({ selected, onSelect }, committedName)}
       data-slot="attribute-row"
       data-index={index}
       className={`${ATTRIBUTE_ROW_LAYOUT} rune-inspector-row border border-transparent px-1 py-0.5
@@ -254,15 +278,16 @@ function AttributeRow({
       <Controller
         control={control}
         name={`${prefix}.name`}
-        render={({ field }) => (
+        render={({ field, fieldState }) => (
           <Input
             variant="inline"
+            aria-invalid={fieldState.invalid}
             data-slot="attribute-name"
             type="text"
             value={field.value}
             onChange={(e) => {
               field.onChange(e);
-              debouncedName(e.target.value);
+              debouncedName(nameDraft(e.target.value));
             }}
             onBlur={field.onBlur}
             disabled={effectiveReadOnly}
@@ -353,7 +378,7 @@ export { AttributeRow };
 // InheritedAttributeRow — read-only row for an inherited attribute
 // ---------------------------------------------------------------------------
 
-export interface InheritedAttributeRowProps {
+export interface InheritedAttributeRowProps extends InspectorRowProps {
   name: string;
   typeName: string;
   cardinality: string;
@@ -373,13 +398,17 @@ function InheritedAttributeRow({
   onOverride,
   onNavigateToNode,
   allNodeIds,
-  disabled
+  disabled,
+  selected,
+  onSelect
 }: InheritedAttributeRowProps) {
   const editorCtx = useEditorActionsContext();
   const effectiveDisabled = Boolean(disabled || editorCtx?.readOnly);
 
   return (
     <div
+      role="listitem"
+      {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-attribute-row"
       data-name={name}
       className={`${ATTRIBUTE_ROW_LAYOUT} rounded border border-transparent px-1 py-0.5

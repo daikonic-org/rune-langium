@@ -21,11 +21,12 @@
  *     that excludes `position`, `errors`, and `hasExternalRefs`.
  *   - Skips when serialized output is byte-for-byte equal to the previous
  *     emission (no-op store re-renders).
- *   - Fire-and-forget: does not await the handler's return value.
+ *   - Observer publication stays automatic; explicit flush awaits the same receipt.
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { Patches } from 'mutative';
+import type { DehydratedNode } from '@rune-langium/codegen/rosetta';
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
 import { astRelevantProjection, nameFromNodeId } from '../store/node-projection.js';
 import { renderNamespace } from '../serialize/cst-reuse-renderer.js';
@@ -179,6 +180,24 @@ export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, str
     (removalsByNs.get(ns) ?? removalsByNs.set(ns, []).get(ns)!).push(r);
   }
 
+  const baselineByNs = new Map<string, DehydratedNode[]>();
+  const owners = new Map(nodes.map((node) => [node.id, node.meta.namespace]));
+  for (const patch of inversePatches) {
+    if (patch.path[0] !== 'nodes' || patch.path.length !== 2) continue;
+    const old = patch.value as { meta?: { namespace?: string } } | undefined;
+    if (old?.meta?.namespace) owners.set(String(patch.path[1]), old.meta.namespace);
+  }
+  for (const patch of inversePatches) {
+    if (patch.path[0] !== 'nodes') continue;
+    const namespace = owners.get(String(patch.path[1]));
+    if (!namespace) continue;
+    const old = patch.value as { $type?: string; data?: DehydratedNode } | undefined;
+    const values = Array.isArray(old) ? old : old?.data ? [old.data] : old?.$type ? [old] : [];
+    (baselineByNs.get(namespace) ?? baselineByNs.set(namespace, []).get(namespace)!).push(
+      ...(values as DehydratedNode[])
+    );
+  }
+
   const byNs = new Map<string, TypeGraphNode[]>();
   for (const n of effectiveNodes) {
     if (n.meta.deferred) continue; // curated placeholders are never source
@@ -203,7 +222,17 @@ export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, str
     // namespaces continue to serialize normally. The previous persisted text for
     // this namespace remains in effect until a successful serialize or reparse.
     try {
-      out.set(ns, renderNamespace({ nodes: nsNodes, originalSource, dirty, forceDirtyNodeIds, removedRanges }));
+      out.set(
+        ns,
+        renderNamespace({
+          nodes: nsNodes,
+          originalSource,
+          dirty,
+          forceDirtyNodeIds,
+          removedRanges,
+          baselineNodes: [...nsNodes.map((node) => node.data), ...(baselineByNs.get(ns) ?? [])]
+        })
+      );
     } catch (err) {
       console.warn(`[cst-reuse] namespace "${ns}" serialization failed — skipping`, err);
     }
@@ -233,6 +262,17 @@ function cloneWithRef(n: TypeGraphNode, refKey: string, refText: string | undefi
  * @param onModelChanged - Callback invoked with a `Map<namespace, serializedText>`
  *   on each content change after the initial mount.
  */
+export interface SourceSyncSnapshot {
+  nodes: TypeGraphNode[];
+  edges: TypeGraphEdge[];
+  parseEpoch: number;
+  patches: Patches;
+  inversePatches: Patches;
+}
+export interface SourceSyncHandle {
+  flush(snapshot: SourceSyncSnapshot): Promise<void>;
+}
+
 export function useModelSourceSync(
   nodes: TypeGraphNode[],
   edges: TypeGraphEdge[],
@@ -268,7 +308,7 @@ export function useModelSourceSync(
    * legacy/test callers without deletion support keep the old behavior.
    */
   inversePatches: Patches = []
-): void {
+): SourceSyncHandle {
   // Keep a stable ref so the effect doesn't need to re-register when the
   // callback identity changes (e.g. inline arrow in EditorPage).
   const onModelChangedRef = useRef(onModelChanged);
@@ -295,99 +335,81 @@ export function useModelSourceSync(
   // Initialised to the mount-time source (the authoritative parsed text at load).
   const parseBaselineSourceRef = useRef(originalSourceByNamespace);
 
-  useEffect(() => {
+  const rendered = useRef({ parseEpoch, originalSourceByNamespace });
+  rendered.current = { parseEpoch, originalSourceByNamespace };
+  const pending = useRef<Promise<void>>(Promise.resolve());
+  const busy = useRef(false);
+  const queued = useRef<Map<string, string> | null>(null);
+  const publish = useCallback((snapshot: SourceSyncSnapshot, explicit: boolean): Promise<void> => {
+    const { nodes, edges, parseEpoch, patches, inversePatches } = snapshot;
     const handler = onModelChangedRef.current;
-    if (!handler) return;
-    // Deleting the LAST remaining node empties `nodes`, but the removal is
-    // carried only by an inverse `remove` patch at ['nodes', <id>]. Bailing on
-    // `nodes.length === 0` here would skip buildSourceForNamespaces entirely, so
-    // the deleted type would survive in the file. Proceed when a genuine
-    // node-removal is pending (a parsed node — has $cstRange + namespace); a
-    // truly-empty graph with no pending removal still bails.
-    const hasPendingNodeRemoval = inversePatches.some((p) => {
-      const path = p.path as (string | number)[];
-      if (path[0] !== 'nodes' || path.length !== 2) return false;
-      const v = p.value as { meta?: { namespace?: string }; data?: { $cstRange?: unknown } } | undefined;
-      return Boolean(v?.data?.$cstRange) && Boolean(v?.meta?.namespace);
+    if (!handler) return pending.current;
+    const hasRemoval = inversePatches.some((p) => {
+      const value = p.value as { meta?: { namespace?: string }; data?: { $cstRange?: unknown } } | undefined;
+      return p.path[0] === 'nodes' && p.path.length === 2 && Boolean(value?.meta?.namespace && value?.data?.$cstRange);
     });
-    if (nodes.length === 0 && !hasPendingNodeRemoval) return;
-
-    // Did this render's nodes/edges change arrive together with a parse? If so
-    // the graph was rebuilt FROM source — it must NOT be serialized back.
+    if (nodes.length === 0 && !hasRemoval) return pending.current;
+    // A new parse without edits needs no write-back. Only the observer may adopt its source baseline.
+    if (explicit && parseEpoch !== lastParseEpochRef.current) {
+      return patches.length > 0 || inversePatches.length > 0
+        ? Promise.reject(new Error('Source has changed; wait for the current parse before switching workspaces.'))
+        : pending.current;
+    }
     const parseAdvanced = parseEpoch !== lastParseEpochRef.current;
-    lastParseEpochRef.current = parseEpoch;
-
-    // Advance the frozen parse-baseline ONLY when a reparse re-stamped `$cstRange`
-    // (parseEpoch bump). The just-arrived `originalSourceByNamespace` is the exact
-    // text those new offsets index. Between reparses the ref stays frozen so every
-    // serialize slices the baseline the offsets actually point at — never the
-    // already-mutated live file content. (See parseBaselineSourceRef above.)
     if (parseAdvanced) {
-      parseBaselineSourceRef.current = originalSourceByNamespace;
+      lastParseEpochRef.current = parseEpoch;
+      parseBaselineSourceRef.current = rendered.current.originalSourceByNamespace;
     }
-    const baselineSource = parseBaselineSourceRef.current;
-
     const fingerprint = computeContentFingerprint(nodes, edges);
-    if (lastContentFingerprintRef.current === fingerprint) return;
+    if (lastContentFingerprintRef.current === fingerprint) return pending.current;
     lastContentFingerprintRef.current = fingerprint;
-
-    // PARSE-ORIGIN GATE (source-corruption fix): a content change that came
-    // with a parseEpoch bump is the graph being (re)derived from the source —
-    // re-serializing it is a no-op at best and, when the parse is degraded
-    // (worker unavailable), splices truncated text over the real file. Adopt
-    // the parse as the new serialize baseline and bail without emitting. Only
-    // genuine USER edits (parseEpoch unchanged) fall through to serialize.
-    if (parseAdvanced) {
-      // At parse time pendingEditPatches has just been cleared, so patches is
-      // empty → every node is subtree-clean → each namespace's text is sliced
-      // verbatim from originalSourceByNamespace (the authoritative parsed source).
-      // Using the same serializer as the user-edit path keeps the
-      // lastSerializedRef baseline byte-equal to what the edit path will produce,
-      // so the byte-equality de-dup fires correctly on the first user edit.
-      lastSerializedRef.current = buildSourceForNamespaces({
-        nodes,
-        edges,
-        originalSourceByNamespace: baselineSource,
-        patches,
-        inversePatches
-      });
-      hasFiredInitialSerializeRef.current = true;
-      return;
-    }
-
     const next = buildSourceForNamespaces({
       nodes,
       edges,
-      originalSourceByNamespace: baselineSource,
+      originalSourceByNamespace: parseBaselineSourceRef.current,
       patches,
       inversePatches
     });
-
-    // Skip the very first emission after mount — at load time the source
-    // pane already has the authoritative parsed text, and re-emitting would
-    // mark every file dirty for no user-visible reason.
-    if (!hasFiredInitialSerializeRef.current) {
+    if (parseAdvanced || (!hasFiredInitialSerializeRef.current && (!explicit || patches.length === 0))) {
       hasFiredInitialSerializeRef.current = true;
       lastSerializedRef.current = next;
-      return;
+      return pending.current;
     }
-
-    const prev = lastSerializedRef.current;
-    if (prev && prev.size === next.size) {
-      let changed = false;
-      for (const [k, v] of next) {
-        if (prev.get(k) !== v) {
-          changed = true;
-          break;
-        }
+    hasFiredInitialSerializeRef.current = true;
+    const previous = queued.current ?? lastSerializedRef.current;
+    if (previous && previous.size === next.size && [...next].every(([key, value]) => previous.get(key) === value))
+      return pending.current;
+    queued.current = next;
+    // Keep publication receipts in order; a rejected receipt remains observable to flush.
+    const start = () => {
+      try {
+        return Promise.resolve(handler(next));
+      } catch (error) {
+        return Promise.reject(error);
       }
-      if (!changed) return;
-    }
-
-    lastSerializedRef.current = next;
-    // Fire-and-forget — the handler may return a Promise (e.g. studio's
-    // async smart-merge), but the source-sync effect intentionally does
-    // not await it.
-    void handler(next);
-  }, [nodes, edges, parseEpoch, patches, originalSourceByNamespace, inversePatches]);
+    };
+    const issued = busy.current ? pending.current.catch(() => {}).then(start) : start();
+    busy.current = true;
+    const receipt = issued
+      .then(() => {
+        lastSerializedRef.current = next;
+        if (queued.current === next) queued.current = null;
+      })
+      .catch((error) => {
+        if (queued.current === next) queued.current = null;
+        lastContentFingerprintRef.current = null;
+        throw error;
+      });
+    void receipt
+      .finally(() => {
+        if (pending.current === receipt) busy.current = false;
+      })
+      .catch(() => {});
+    pending.current = receipt;
+    return receipt;
+  }, []);
+  useEffect(() => {
+    void publish({ nodes, edges, parseEpoch, patches, inversePatches }, false).catch(() => {});
+  }, [nodes, edges, parseEpoch, patches, originalSourceByNamespace, inversePatches, publish]);
+  return { flush: useCallback((snapshot: SourceSyncSnapshot) => publish(snapshot, true), [publish]) };
 }

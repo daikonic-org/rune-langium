@@ -310,6 +310,8 @@ const renderSourceEditor = withInstrumentation(
     // down and recreating the whole EditorView (which would drop the user's
     // cursor position, scroll offset, and undo history).
     const lspCompartmentRef = useRef<Compartment | null>(null);
+    const editingCompartmentRef = useRef<Compartment | null>(null);
+    const editingModeRef = useRef<boolean | undefined>(undefined);
 
     // Sync selectedPath when activeFile prop changes externally. Adjusted
     // during render (React's blessed pattern) rather than in an effect, so
@@ -496,6 +498,40 @@ const renderSourceEditor = withInstrumentation(
       [files, handleFileSelect, tabId]
     );
 
+    const editingExtensions = useCallback((filePath: string, isReadOnly: boolean): Extension[] => {
+      const editable: Extension[] = [];
+      if (isReadOnly) {
+        editable.push(EditorState.readOnly.of(true));
+      } else {
+        editable.push(
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged && !update.transactions.every((tr) => tr.annotation(externalDocumentChange))) {
+              const content = update.state.doc.toString();
+              contentMapRef.current.set(filePath, content);
+              onContentChangeRef.current?.(filePath, content);
+            }
+          })
+        );
+      }
+      // Phase 9: accept type-ref drops from NamespaceExplorer onto the editor surface.
+      // Delegates to pure helpers (handleTypeRefDragOver / handleTypeRefDrop) so the
+      // logic is unit-testable without constructing a full EditorView.
+      // Guard: read-only editors must never receive drop mutations — CodeMirror's
+      // EditorState.readOnly.of(true) blocks user input but NOT programmatic
+      // view.dispatch(), so without this gate a drop would silently mutate a
+      // system/built-in buffer that onContentChange never sees.
+      if (!isReadOnly) {
+        editable.push(
+          EditorView.domEventHandlers({
+            dragover: handleTypeRefDragOver,
+            drop: handleTypeRefDrop
+          })
+        );
+      }
+
+      return editable;
+    }, []);
+
     // Build extensions — uses refs for callbacks to keep extensions stable
     const buildExtensions = useCallback(
       (filePath: string, isReadOnly: boolean, lspCompartment: Compartment): Extension[] => {
@@ -511,19 +547,8 @@ const renderSourceEditor = withInstrumentation(
           })
         );
 
-        if (isReadOnly) {
-          exts.push(EditorState.readOnly.of(true));
-        } else {
-          exts.push(
-            EditorView.updateListener.of((update) => {
-              if (update.docChanged && !update.transactions.every((tr) => tr.annotation(externalDocumentChange))) {
-                const content = update.state.doc.toString();
-                contentMapRef.current.set(filePath, content);
-                onContentChangeRef.current?.(filePath, content);
-              }
-            })
-          );
-        }
+        const editingCompartment = editingCompartmentRef.current;
+        if (editingCompartment) exts.push(editingCompartment.of(editingExtensions(filePath, isReadOnly)));
 
         // Task 7 (+ issue #453 follow-up): detect go-to-definition navigation
         // AND plain click-driven cursor placement, firing onNavigateToNode
@@ -561,22 +586,6 @@ const renderSourceEditor = withInstrumentation(
         // plugin never needs recreating this EditorView to attach.
         exts.push(lspCompartment.of([]));
 
-        // Phase 9: accept type-ref drops from NamespaceExplorer onto the editor surface.
-        // Delegates to pure helpers (handleTypeRefDragOver / handleTypeRefDrop) so the
-        // logic is unit-testable without constructing a full EditorView.
-        // Guard: read-only editors must never receive drop mutations — CodeMirror's
-        // EditorState.readOnly.of(true) blocks user input but NOT programmatic
-        // view.dispatch(), so without this gate a drop would silently mutate a
-        // system/built-in buffer that onContentChange never sees.
-        if (!isReadOnly) {
-          exts.push(
-            EditorView.domEventHandlers({
-              dragover: handleTypeRefDragOver,
-              drop: handleTypeRefDrop
-            })
-          );
-        }
-
         return exts;
         // No external reactive values captured — callbacks route through
         // stable refs, and the LSP plugin is wired separately via the
@@ -601,6 +610,8 @@ const renderSourceEditor = withInstrumentation(
       }
 
       const content = contentMapRef.current.get(currentFile.path) ?? currentFile.content;
+      editingCompartmentRef.current = new Compartment();
+      editingModeRef.current = currentFile.readOnly ?? false;
       const lspCompartment = new Compartment();
       lspCompartmentRef.current = lspCompartment;
 
@@ -628,11 +639,23 @@ const renderSourceEditor = withInstrumentation(
         editorViewRef.current = null;
         editorViewPathRef.current = null;
         lspCompartmentRef.current = null;
+        editingCompartmentRef.current = null;
+        editingModeRef.current = undefined;
       };
       // Only recreate editor when file path changes (tab switch).
       // Content updates are handled by the updateListener extension, NOT by recreating.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentFile?.path, currentFile?.readOnly, buildExtensions]);
+    }, [currentFile?.path, buildExtensions]);
+
+    useEffect(() => {
+      const view = editorViewRef.current;
+      const compartment = editingCompartmentRef.current;
+      const readOnly = currentFile?.readOnly ?? false;
+      if (view && compartment && currentFile && editingModeRef.current !== readOnly) {
+        view.dispatch({ effects: compartment.reconfigure(editingExtensions(currentFile.path, readOnly)) });
+        editingModeRef.current = readOnly;
+      }
+    }, [currentFile?.path, currentFile?.readOnly, editingExtensions]);
 
     // Late-bind the LSP plugin once the async LSP connection finishes,
     // reconfiguring the reserved compartment in the already-mounted

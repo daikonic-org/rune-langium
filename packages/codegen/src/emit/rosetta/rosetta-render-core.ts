@@ -30,6 +30,7 @@ import {
   renderSynonymBody,
   renderClassSynonymValue,
   renderMetaSynonymValue,
+  renderAttributeReference,
   UnsupportedSynonymBodyError
 } from './render-synonym-body.js';
 
@@ -392,16 +393,16 @@ function renderAnnotationRef(a: DehydratedNode): string {
   };
   const parts = [ar.annotation?.$refText ?? ''];
   if (ar.attribute?.$refText) parts.push(ar.attribute.$refText);
-  // Grammar `AnnotationQualifier`: `qualName=STRING '=' (qualValue=STRING | qualPath=...)`.
-  // Both sides originate from STRING, so qualName and qualValue must be quoted +
-  // escaped or embedded quotes/backslashes produce invalid `.rosetta`. A
-  // qualPath alternative (a reference, not inspector-editable) rides its CST when
-  // present and is skipped here.
   for (const q of ar.qualifiers ?? []) {
-    const qq = q as { qualName?: string; qualValue?: string; qualPath?: unknown };
-    if (!qq.qualName) continue;
+    const qq = q as {
+      qualName?: string;
+      qualValue?: string;
+      qualPath?: Parameters<typeof renderAttributeReference>[0];
+    };
+    if (qq.qualName === undefined) continue;
     const name = `"${escapeString(qq.qualName)}"`;
     if (qq.qualValue !== undefined) parts.push(`${name}="${escapeString(qq.qualValue)}"`);
+    else if (qq.qualPath) parts.push(`${name}=${renderAttributeReference(qq.qualPath)}`);
   }
   return `[${parts.join(' ')}]`;
 }

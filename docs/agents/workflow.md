@@ -50,6 +50,7 @@ pnpm --filter @rune-langium/codegen run generate:sql-node-types
 Run only the generators affected by the change.
 Domain generation applies the same safe lint fixes as the commit hook before
 formatting, so its type-only imports reproduce in CI.
+The pinned `langium-zod@0.12.2` patch retains setters for contained-node unions, including recursive `RosettaAttributeReference.receiver`. Union setters use the canonical dehydrated field type; mixed primitive/node unions remain excluded. Core's generator and public-domain tests cover this surface. Remove the patch after an upstream release supports these operations and regeneration preserves the exported API.
 The current Langium CLI's JSON-schema validation fails with `Invalid URL` on
 Node 24/26. Node 22.13.0 was historically verified for grammar generation, before the current Node 22.22.2 floor. When the CLI asks
 whether to delete additional generated files, retain `domain.ts` and
@@ -222,3 +223,11 @@ The staged corpus scan reuses core's fixture loader and links all three bundles
 together. Its ignored `packages/codegen/dist/python-projection-coverage.json`
 records versions, content hashes, counts and syntax/linking exclusions. The
 checked-in census and execution battery remain required when `.resources` is absent.
+
+## Inspector validation (#562 / #595)
+
+Main CI's `lint-and-test` job has a 30-minute budget for the full package suite and root coverage run. PR #601's 20-minute run passed package tests but hit GitHub's job timeout during coverage; this budget preserves both runs and subsequent audit/bundle checks.
+
+Use the shared construct assessment rather than a LOC threshold. Test canonical field/target/metadata actions, form selection/leases/flush, rich source trivia and parsed render/reconcile seams. Core grammar changes require regeneration of AST, domain operations and both Core/visual-editor schemas with their package scripts; never patch generated schema text. Regenerated DataReference/AttributeReference receivers are recursive canonical unions, not UI approximations.
+
+`PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm --filter @rune-langium/studio exec playwright test test/e2e/inspector-details.spec.ts test/e2e/expression-workspace.spec.ts --retries=0` checks saved OPFS source before reload, enum paging/display/reorder, inherited inspection/override, bounded pointer/touch/keyboard divider behavior, 200% text size/axe and continuous implementation sessions. Start an owned Vite server directly on 5174; preserve user servers and browser tabs. `pnpm --filter @rune-langium/studio run test:z2f-hmr` uses a disposable schema copy and its own random-port server. Read all attached screenshots and report the explicit network-LSP/hosted coverage gaps.

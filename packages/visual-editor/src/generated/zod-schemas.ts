@@ -57,91 +57,6 @@ export const RosettaCardinalitySchema = z.looseObject({
   unbounded: z.boolean().optional()
 });
 
-export const AttributeSchema = z.looseObject({
-  $type: z.literal('Attribute'),
-  name: ValidIDSchema,
-  typeCall: TypeCallSchema,
-  card: RosettaCardinalitySchema
-});
-
-export const AnnotationSchema = z.looseObject({
-  $type: z.literal('Annotation'),
-  name: ValidIDSchema,
-  definition: z.string().optional(),
-  prefix: ValidIDSchema.optional(),
-  attributes: z.array(AttributeSchema)
-});
-
-export const AnnotationDeepPathSchema = z.looseObject({
-  $type: z.literal('AnnotationDeepPath'),
-  receiver: z.lazy(() => AnnotationPathExpressionSchema),
-  operator: z.literal('->>'),
-  attribute: ReferenceSchema
-});
-
-export const AnnotationPathSchema = z.looseObject({
-  $type: z.literal('AnnotationPath'),
-  receiver: z.lazy(() => AnnotationPathExpressionSchema),
-  operator: z.literal('->'),
-  attribute: ReferenceSchema
-});
-
-export const AnnotationPathAttributeReferenceSchema = z.looseObject({
-  $type: z.literal('AnnotationPathAttributeReference'),
-  attribute: ReferenceSchema
-});
-
-export const RosettaDataReferenceSchema = z.looseObject({
-  $type: z.literal('RosettaDataReference'),
-  data: ReferenceSchema
-});
-
-export const RosettaAttributeReferenceSchema = z.looseObject({
-  $type: z.literal('RosettaAttributeReference'),
-  receiver: RosettaDataReferenceSchema,
-  attribute: ReferenceSchema
-});
-
-export const AnnotationQualifierSchema = z
-  .looseObject({
-    $type: z.literal('AnnotationQualifier'),
-    qualName: z.string(),
-    qualValue: z.string().optional(),
-    qualPath: RosettaAttributeReferenceSchema.optional()
-  })
-  .superRefine((val, ctx) => {
-    if (!(val['qualValue'] !== undefined || val['qualPath'] !== undefined)) {
-      ctx.addIssue({ code: 'custom', message: 'At least one of qualValue, qualPath must be present' });
-    }
-  });
-
-export const AnnotationRefSchema = z.looseObject({
-  $type: z.literal('AnnotationRef'),
-  annotation: ReferenceSchema,
-  attribute: ReferenceSchema.optional(),
-  qualifiers: z.array(AnnotationQualifierSchema)
-});
-
-export const ArithmeticOperationSchema = z.looseObject({
-  $type: z.literal('ArithmeticOperation'),
-  left: z.lazy(() => RosettaExpressionSchema),
-  operator: z.union([z.literal('+'), z.literal('-'), z.literal('*'), z.literal('/')]),
-  right: z.lazy(() => RosettaExpressionSchema)
-});
-
-export const AsKeyOperationSchema = z.looseObject({
-  $type: z.literal('AsKeyOperation'),
-  argument: z.lazy(() => RosettaExpressionSchema),
-  operator: z.literal('as-key')
-});
-
-export const AsOperationSchema = z.looseObject({
-  $type: z.literal('AsOperation'),
-  argument: z.lazy(() => RosettaExpressionSchema).optional(),
-  operator: z.literal('as'),
-  type: ReferenceSchema
-});
-
 export const RosettaSegmentRefSchema = z.looseObject({
   $type: z.literal('RosettaSegmentRef'),
   segment: ReferenceSchema,
@@ -170,6 +85,34 @@ export const RosettaDocReferenceSchema = z.looseObject({
   structuredProvision: z.string().optional(),
   provision: z.string().optional(),
   reportedField: z.boolean().optional()
+});
+
+export const RosettaAttributeReferenceSchema = z.looseObject({
+  $type: z.literal('RosettaAttributeReference'),
+  get receiver() {
+    return z.union([RosettaDataReferenceSchema, RosettaAttributeReferenceSchema]);
+  },
+  attribute: ReferenceSchema
+});
+
+export const AnnotationQualifierSchema = z
+  .looseObject({
+    $type: z.literal('AnnotationQualifier'),
+    qualName: z.string(),
+    qualValue: z.string().optional(),
+    qualPath: RosettaAttributeReferenceSchema.optional()
+  })
+  .superRefine((val, ctx) => {
+    if (!(val['qualValue'] !== undefined || val['qualPath'] !== undefined)) {
+      ctx.addIssue({ code: 'custom', message: 'At least one of qualValue, qualPath must be present' });
+    }
+  });
+
+export const AnnotationRefSchema = z.looseObject({
+  $type: z.literal('AnnotationRef'),
+  annotation: ReferenceSchema,
+  attribute: ReferenceSchema.optional(),
+  qualifiers: z.array(AnnotationQualifierSchema)
 });
 
 export const RosettaMergeSynonymValueSchema = z.looseObject({
@@ -263,6 +206,68 @@ export const RuleReferenceAnnotationSchema = z.looseObject({
   empty: z.boolean().optional()
 });
 
+export const AttributeSchema = z.looseObject({
+  $type: z.literal('Attribute'),
+  override: z.boolean().optional(),
+  name: ValidIDSchema,
+  typeCall: TypeCallSchema,
+  typeCallArgs: z.array(TypeCallArgumentSchema),
+  card: RosettaCardinalitySchema,
+  definition: z.string().optional(),
+  references: z.array(RosettaDocReferenceSchema),
+  annotations: z.array(AnnotationRefSchema),
+  synonyms: z.array(RosettaSynonymSchema),
+  labels: z.array(LabelAnnotationSchema),
+  ruleReferences: z.array(RuleReferenceAnnotationSchema)
+});
+
+export const AnnotationSchema = z.looseObject({
+  $type: z.literal('Annotation'),
+  name: ValidIDSchema,
+  definition: z.string().optional(),
+  prefix: ValidIDSchema.optional(),
+  attributes: z.array(AttributeSchema)
+});
+
+export const AnnotationDeepPathSchema = z.looseObject({
+  $type: z.literal('AnnotationDeepPath'),
+  receiver: z.lazy(() => AnnotationPathExpressionSchema),
+  operator: z.literal('->>'),
+  attribute: ReferenceSchema
+});
+
+export const AnnotationPathSchema = z.looseObject({
+  $type: z.literal('AnnotationPath'),
+  receiver: z.lazy(() => AnnotationPathExpressionSchema),
+  operator: z.literal('->'),
+  attribute: ReferenceSchema
+});
+
+export const AnnotationPathAttributeReferenceSchema = z.looseObject({
+  $type: z.literal('AnnotationPathAttributeReference'),
+  attribute: ReferenceSchema
+});
+
+export const ArithmeticOperationSchema = z.looseObject({
+  $type: z.literal('ArithmeticOperation'),
+  left: z.lazy(() => RosettaExpressionSchema),
+  operator: z.union([z.literal('+'), z.literal('-'), z.literal('*'), z.literal('/')]),
+  right: z.lazy(() => RosettaExpressionSchema)
+});
+
+export const AsKeyOperationSchema = z.looseObject({
+  $type: z.literal('AsKeyOperation'),
+  argument: z.lazy(() => RosettaExpressionSchema),
+  operator: z.literal('as-key')
+});
+
+export const AsOperationSchema = z.looseObject({
+  $type: z.literal('AsOperation'),
+  argument: z.lazy(() => RosettaExpressionSchema).optional(),
+  operator: z.literal('as'),
+  type: ReferenceSchema
+});
+
 export const ChoiceOptionSchema = z.looseObject({
   $type: z.literal('ChoiceOption'),
   typeCall: TypeCallSchema,
@@ -274,10 +279,20 @@ export const ChoiceOptionSchema = z.looseObject({
   ruleReferences: z.array(RuleReferenceAnnotationSchema)
 });
 
+export const RosettaClassSynonymSchema = z.looseObject({
+  $type: z.literal('RosettaClassSynonym'),
+  sources: z.array(ReferenceSchema).min(1),
+  value: RosettaSynonymValueBaseSchema.optional(),
+  metaValue: RosettaSynonymValueBaseSchema.optional()
+});
+
 export const ChoiceSchema = z.looseObject({
   $type: z.literal('Choice'),
   name: ValidIDSchema,
-  attributes: z.array(ChoiceOptionSchema)
+  definition: z.string().optional(),
+  attributes: z.array(ChoiceOptionSchema),
+  annotations: z.array(AnnotationRefSchema),
+  synonyms: z.array(RosettaClassSynonymSchema)
 });
 
 export const ChoiceOperationSchema = z.looseObject({
@@ -318,7 +333,11 @@ export const DataSchema = z.looseObject({
   $type: z.literal('Data'),
   name: ValidIDSchema,
   superType: ReferenceSchema.optional(),
-  attributes: z.array(AttributeSchema)
+  definition: z.string().optional(),
+  attributes: z.array(AttributeSchema),
+  references: z.array(RosettaDocReferenceSchema),
+  annotations: z.array(AnnotationRefSchema),
+  synonyms: z.array(RosettaClassSynonymSchema)
 });
 
 export const DefaultOperationSchema = z.looseObject({
@@ -487,13 +506,6 @@ export const RosettaBooleanLiteralSchema = z.looseObject({
   value: z.boolean().optional()
 });
 
-export const RosettaClassSynonymSchema = z.looseObject({
-  $type: z.literal('RosettaClassSynonym'),
-  sources: z.array(ReferenceSchema).min(1),
-  value: RosettaSynonymValueBaseSchema.optional(),
-  metaValue: RosettaSynonymValueBaseSchema.optional()
-});
-
 export const RosettaConditionalExpressionSchema = z.looseObject({
   $type: z.literal('RosettaConditionalExpression'),
   if: z.lazy(() => RosettaExpressionSchema).optional(),
@@ -546,6 +558,11 @@ export const RosettaCountOperationSchema = z.looseObject({
   operator: z.literal('count')
 });
 
+export const RosettaDataReferenceSchema = z.looseObject({
+  $type: z.literal('RosettaDataReference'),
+  data: ReferenceSchema
+});
+
 export const RosettaDeepFeatureCallSchema = z.looseObject({
   $type: z.literal('RosettaDeepFeatureCall'),
   receiver: z.lazy(() => RosettaExpressionSchema),
@@ -583,7 +600,11 @@ export const RosettaEnumerationSchema = z.looseObject({
   $type: z.literal('RosettaEnumeration'),
   name: ValidIDSchema,
   parent: ReferenceSchema.optional(),
-  enumValues: z.array(RosettaEnumValueSchema)
+  definition: z.string().optional(),
+  enumValues: z.array(RosettaEnumValueSchema),
+  references: z.array(RosettaDocReferenceSchema),
+  annotations: z.array(AnnotationRefSchema),
+  synonyms: z.array(RosettaSynonymSchema)
 });
 
 export const RosettaEnumValueReferenceSchema = z.looseObject({
@@ -670,6 +691,9 @@ export const RosettaFeatureCallSchema = z.looseObject({
 export const RosettaFunctionSchema = z.looseObject({
   $type: z.literal('RosettaFunction'),
   name: ValidIDSchema,
+  definition: z.string().optional(),
+  references: z.array(RosettaDocReferenceSchema),
+  annotations: z.array(AnnotationRefSchema),
   inputs: z.array(AttributeSchema),
   output: AttributeSchema.optional()
 });
@@ -1134,22 +1158,13 @@ export const AstNodeSchema = z.discriminatedUnion('$type', [
   TypeCallArgumentSchema,
   TypeCallSchema,
   RosettaCardinalitySchema,
-  AttributeSchema,
-  AnnotationSchema,
-  AnnotationDeepPathSchema,
-  AnnotationPathSchema,
-  AnnotationPathAttributeReferenceSchema,
-  RosettaDataReferenceSchema,
-  RosettaAttributeReferenceSchema,
-  AnnotationQualifierSchema,
-  AnnotationRefSchema,
-  ArithmeticOperationSchema,
-  AsKeyOperationSchema,
-  AsOperationSchema,
   RosettaSegmentRefSchema,
   RegulatoryDocumentReferenceSchema,
   DocumentRationaleSchema,
   RosettaDocReferenceSchema,
+  RosettaAttributeReferenceSchema,
+  AnnotationQualifierSchema,
+  AnnotationRefSchema,
   RosettaMergeSynonymValueSchema,
   RosettaMappingPathTestsSchema,
   RosettaMappingInstanceSchema,
@@ -1159,7 +1174,16 @@ export const AstNodeSchema = z.discriminatedUnion('$type', [
   RosettaSynonymSchema,
   LabelAnnotationSchema,
   RuleReferenceAnnotationSchema,
+  AttributeSchema,
+  AnnotationSchema,
+  AnnotationDeepPathSchema,
+  AnnotationPathSchema,
+  AnnotationPathAttributeReferenceSchema,
+  ArithmeticOperationSchema,
+  AsKeyOperationSchema,
+  AsOperationSchema,
   ChoiceOptionSchema,
+  RosettaClassSynonymSchema,
   ChoiceSchema,
   ChoiceOperationSchema,
   ClosureParameterSchema,
@@ -1192,7 +1216,6 @@ export const AstNodeSchema = z.discriminatedUnion('$type', [
   RosettaBasicTypeSchema,
   RosettaBodySchema,
   RosettaBooleanLiteralSchema,
-  RosettaClassSynonymSchema,
   RosettaConditionalExpressionSchema,
   RosettaSuperCallSchema,
   RosettaSymbolReferenceSchema,
@@ -1200,6 +1223,7 @@ export const AstNodeSchema = z.discriminatedUnion('$type', [
   RosettaContainsExpressionSchema,
   RosettaCorpusSchema,
   RosettaCountOperationSchema,
+  RosettaDataReferenceSchema,
   RosettaDeepFeatureCallSchema,
   RosettaDisjointExpressionSchema,
   RosettaEnumSynonymSchema,
@@ -1282,6 +1306,70 @@ export function createTypeCallSchema(refs: TypeCallSchemaRefs = {}) {
   });
 }
 
+export interface RosettaSegmentRefSchemaRefs {
+  RosettaSegment?: string[];
+}
+
+export function createRosettaSegmentRefSchema(refs: RosettaSegmentRefSchemaRefs = {}) {
+  return RosettaSegmentRefSchema.safeExtend({
+    segment: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaSegment ?? []) })
+  });
+}
+
+export interface RegulatoryDocumentReferenceSchemaRefs {
+  RosettaBody?: string[];
+  RosettaCorpus?: string[];
+}
+
+export function createRegulatoryDocumentReferenceSchema(refs: RegulatoryDocumentReferenceSchemaRefs = {}) {
+  return RegulatoryDocumentReferenceSchema.safeExtend({
+    body: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaBody ?? []) }),
+    corpusList: z.array(ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaCorpus ?? []) })).min(1)
+  });
+}
+
+export interface RosettaAttributeReferenceSchemaRefs {
+  AttributeOrChoiceOption?: string[];
+}
+
+export function createRosettaAttributeReferenceSchema(refs: RosettaAttributeReferenceSchemaRefs = {}) {
+  return RosettaAttributeReferenceSchema.safeExtend({
+    attribute: ReferenceSchema.extend({ $refText: zRef(() => refs.AttributeOrChoiceOption ?? []) })
+  });
+}
+
+export interface AnnotationRefSchemaRefs {
+  Annotation?: string[];
+  Attribute?: string[];
+}
+
+export function createAnnotationRefSchema(refs: AnnotationRefSchemaRefs = {}) {
+  return AnnotationRefSchema.safeExtend({
+    annotation: ReferenceSchema.extend({ $refText: zRef(() => refs.Annotation ?? []) }),
+    attribute: ReferenceSchema.extend({ $refText: zRef(() => refs.Attribute ?? []) }).optional()
+  });
+}
+
+export interface RosettaSynonymSchemaRefs {
+  RosettaSynonymSource?: string[];
+}
+
+export function createRosettaSynonymSchema(refs: RosettaSynonymSchemaRefs = {}) {
+  return RosettaSynonymSchema.safeExtend({
+    sources: z.array(ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaSynonymSource ?? []) })).min(1)
+  });
+}
+
+export interface RuleReferenceAnnotationSchemaRefs {
+  RosettaRule?: string[];
+}
+
+export function createRuleReferenceAnnotationSchema(refs: RuleReferenceAnnotationSchemaRefs = {}) {
+  return RuleReferenceAnnotationSchema.safeExtend({
+    reportingRule: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaRule ?? []) }).optional()
+  });
+}
+
 export interface AnnotationDeepPathSchemaRefs {
   AttributeOrChoiceOption?: string[];
 }
@@ -1312,38 +1400,6 @@ export function createAnnotationPathAttributeReferenceSchema(refs: AnnotationPat
   });
 }
 
-export interface RosettaDataReferenceSchemaRefs {
-  DataOrChoice?: string[];
-}
-
-export function createRosettaDataReferenceSchema(refs: RosettaDataReferenceSchemaRefs = {}) {
-  return RosettaDataReferenceSchema.safeExtend({
-    data: ReferenceSchema.extend({ $refText: zRef(() => refs.DataOrChoice ?? []) })
-  });
-}
-
-export interface RosettaAttributeReferenceSchemaRefs {
-  AttributeOrChoiceOption?: string[];
-}
-
-export function createRosettaAttributeReferenceSchema(refs: RosettaAttributeReferenceSchemaRefs = {}) {
-  return RosettaAttributeReferenceSchema.safeExtend({
-    attribute: ReferenceSchema.extend({ $refText: zRef(() => refs.AttributeOrChoiceOption ?? []) })
-  });
-}
-
-export interface AnnotationRefSchemaRefs {
-  Annotation?: string[];
-  Attribute?: string[];
-}
-
-export function createAnnotationRefSchema(refs: AnnotationRefSchemaRefs = {}) {
-  return AnnotationRefSchema.safeExtend({
-    annotation: ReferenceSchema.extend({ $refText: zRef(() => refs.Annotation ?? []) }),
-    attribute: ReferenceSchema.extend({ $refText: zRef(() => refs.Attribute ?? []) }).optional()
-  });
-}
-
 export interface AsOperationSchemaRefs {
   RosettaType?: string[];
 }
@@ -1354,45 +1410,13 @@ export function createAsOperationSchema(refs: AsOperationSchemaRefs = {}) {
   });
 }
 
-export interface RosettaSegmentRefSchemaRefs {
-  RosettaSegment?: string[];
-}
-
-export function createRosettaSegmentRefSchema(refs: RosettaSegmentRefSchemaRefs = {}) {
-  return RosettaSegmentRefSchema.safeExtend({
-    segment: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaSegment ?? []) })
-  });
-}
-
-export interface RegulatoryDocumentReferenceSchemaRefs {
-  RosettaBody?: string[];
-  RosettaCorpus?: string[];
-}
-
-export function createRegulatoryDocumentReferenceSchema(refs: RegulatoryDocumentReferenceSchemaRefs = {}) {
-  return RegulatoryDocumentReferenceSchema.safeExtend({
-    body: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaBody ?? []) }),
-    corpusList: z.array(ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaCorpus ?? []) })).min(1)
-  });
-}
-
-export interface RosettaSynonymSchemaRefs {
+export interface RosettaClassSynonymSchemaRefs {
   RosettaSynonymSource?: string[];
 }
 
-export function createRosettaSynonymSchema(refs: RosettaSynonymSchemaRefs = {}) {
-  return RosettaSynonymSchema.safeExtend({
+export function createRosettaClassSynonymSchema(refs: RosettaClassSynonymSchemaRefs = {}) {
+  return RosettaClassSynonymSchema.safeExtend({
     sources: z.array(ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaSynonymSource ?? []) })).min(1)
-  });
-}
-
-export interface RuleReferenceAnnotationSchemaRefs {
-  RosettaRule?: string[];
-}
-
-export function createRuleReferenceAnnotationSchema(refs: RuleReferenceAnnotationSchemaRefs = {}) {
-  return RuleReferenceAnnotationSchema.safeExtend({
-    reportingRule: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaRule ?? []) }).optional()
   });
 }
 
@@ -1446,16 +1470,6 @@ export function createOperationSchema(refs: OperationSchemaRefs = {}) {
   });
 }
 
-export interface RosettaClassSynonymSchemaRefs {
-  RosettaSynonymSource?: string[];
-}
-
-export function createRosettaClassSynonymSchema(refs: RosettaClassSynonymSchemaRefs = {}) {
-  return RosettaClassSynonymSchema.safeExtend({
-    sources: z.array(ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaSynonymSource ?? []) })).min(1)
-  });
-}
-
 export interface RosettaSymbolReferenceSchemaRefs {
   RosettaSymbol?: string[];
 }
@@ -1473,6 +1487,16 @@ export interface RosettaCorpusSchemaRefs {
 export function createRosettaCorpusSchema(refs: RosettaCorpusSchemaRefs = {}) {
   return RosettaCorpusSchema.safeExtend({
     body: ReferenceSchema.extend({ $refText: zRef(() => refs.RosettaBody ?? []) }).optional()
+  });
+}
+
+export interface RosettaDataReferenceSchemaRefs {
+  DataOrChoice?: string[];
+}
+
+export function createRosettaDataReferenceSchema(refs: RosettaDataReferenceSchemaRefs = {}) {
+  return RosettaDataReferenceSchema.safeExtend({
+    data: ReferenceSchema.extend({ $refText: zRef(() => refs.DataOrChoice ?? []) })
   });
 }
 

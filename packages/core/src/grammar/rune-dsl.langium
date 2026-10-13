@@ -679,12 +679,21 @@ RosettaMapRosettaPath:
     'rosettaPath' '=' path=RosettaAttributeReference
 ;
 
-RosettaDataReference:
+interface RosettaDataReference {
+    data: @DataOrChoice
+}
+
+interface RosettaAttributeReference {
+    receiver: RosettaDataReference | RosettaAttributeReference
+    attribute: @AttributeOrChoiceOption
+}
+
+RosettaDataReference returns RosettaDataReference:
     data=[DataOrChoice:QualifiedName]
 ;
 
-RosettaAttributeReference:
-    RosettaDataReference ({infer RosettaAttributeReference.receiver=current} '->' attribute=[AttributeOrChoiceOption:ValidID])+
+RosettaAttributeReference returns RosettaAttributeReference:
+    RosettaDataReference ({RosettaAttributeReference.receiver=current} '->' attribute=[AttributeOrChoiceOption:ValidID])+
 ;
 
 RosettaMapTestExpressionRule infers RosettaMapTestExpression:

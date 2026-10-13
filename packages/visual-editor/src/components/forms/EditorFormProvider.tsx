@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, useEffect } from 'react';
+import { createEditorCommitRegistry, EditorCommitProvider } from '../../hooks/editor-commit-lifecycle.js';
 import { z } from 'zod';
+import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
+import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
 import { normalizeFormValues } from '@zod-to-form/core';
 import {
   Controller,
@@ -16,42 +19,45 @@ import {
 type Validate = (value: unknown) => true | string;
 const ValidationContext = createContext<((name: string) => Validate | undefined) | null>(null);
 
-/** Resolve an atomic field without reproducing any schema constraints. */
-function fieldSchema(root: z.ZodObject, path: string): z.ZodType | undefined {
-  let schema: z.ZodType | undefined = root;
-  for (const segment of path.split('.')) {
-    while (
-      schema instanceof z.ZodOptional ||
-      schema instanceof z.ZodNullable ||
-      schema instanceof z.ZodDefault ||
-      schema instanceof z.ZodReadonly
-    )
-      schema = schema.unwrap() as z.ZodType;
-    if (schema instanceof z.ZodLazy) schema = schema.unwrap() as z.ZodType;
-    if (schema instanceof z.ZodObject) schema = schema.shape[segment];
-    else if (schema instanceof z.ZodArray && /^\d+$/.test(segment)) schema = schema.element as z.ZodType;
-    else return undefined;
-  }
-  return schema;
-}
-
 /** Supplies L1 rules to bespoke editor controls, including identifier unions. */
 export function EditorFormProvider<T extends FieldValues>({
   schema,
+  canonicalType: suppliedCanonicalType,
   children,
+  registerCommitFlush,
+  additionalCommitFlush,
   ...form
-}: FormProviderProps<T> & { schema: z.ZodObject }) {
+}: FormProviderProps<T> & {
+  schema: z.ZodObject;
+  canonicalType?: string;
+  registerCommitFlush?: (flush: () => void) => () => void;
+  additionalCommitFlush?: () => void;
+}) {
+  const registry = useMemo(createEditorCommitRegistry, []);
+  useEffect(() => registerCommitFlush?.(() => registry.flush()), [registry, registerCommitFlush]);
+  useEffect(
+    () => (additionalCommitFlush ? registry.register(additionalCommitFlush) : undefined),
+    [registry, additionalCommitFlush]
+  );
   const getValidate = useMemo(() => {
+    const tag = schema.shape.$type;
+    const canonicalType =
+      suppliedCanonicalType ??
+      (tag instanceof z.ZodLiteral && typeof tag.value === 'string' && SCHEMA_BY_TYPE[tag.value] === schema
+        ? tag.value
+        : undefined);
     const validators = new Map<string, Validate | undefined>();
     return (name: string) => {
       const key = name.replace(/\.\d+(?=\.|$)/g, '.0');
       if (!validators.has(key)) {
-        const atomic = fieldSchema(schema, key);
+        const atomic = getEditorFieldSchema(schema, key);
         validators.set(
           key,
           atomic
             ? (value) => {
-                const result = atomic.safeParse(normalizeFormValues(value));
+                const current = canonicalType ? getEditorFieldSchema(SCHEMA_BY_TYPE[canonicalType]!, key) : atomic;
+                if (!current) return 'This field is no longer supported by the current schema.';
+                const result = current.safeParse(normalizeFormValues(value));
                 return result.success || result.error.issues[0]?.message || 'Validation failed';
               }
             : undefined
@@ -59,10 +65,12 @@ export function EditorFormProvider<T extends FieldValues>({
       }
       return validators.get(key);
     };
-  }, [schema]);
+  }, [schema, suppliedCanonicalType]);
   return (
     <ValidationContext.Provider value={getValidate}>
-      <FormProvider {...form}>{children}</FormProvider>
+      <EditorCommitProvider registry={registry}>
+        <FormProvider {...form}>{children}</FormProvider>
+      </EditorCommitProvider>
     </ValidationContext.Provider>
   );
 }
@@ -88,4 +96,9 @@ export function EditorController<T extends FieldValues, N extends FieldPath<T>>(
       }
     />
   );
+}
+
+/** The same L1 rule guards debounced commits as the Controller's draft validation. */
+export function useEditorFieldValidator(name: string): Validate | undefined {
+  return useContext(ValidationContext)?.(name);
 }

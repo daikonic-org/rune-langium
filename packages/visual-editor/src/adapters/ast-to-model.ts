@@ -22,7 +22,8 @@ import {
   isAnnotation,
   parsedAdapter,
   curatedAdapter,
-  getExpressionOwners
+  getExpressionOwners,
+  getAnnotationDefinitions
 } from '@rune-langium/core';
 import type { RosettaModel, RosettaRootElement } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge, GraphNodeMeta, GraphFilters, TypeKind } from '../types.js';
@@ -101,6 +102,11 @@ function buildGraphNode<T extends { $type: string; name: string }>(
     isReadOnly,
     hasExternalRefs: false
   };
+
+  if (isLiveAstElement(element)) {
+    const definitions = getAnnotationDefinitions(element);
+    if (Object.keys(definitions).length) meta.annotationDefinitions = definitions;
+  }
 
   return {
     id: nodeId,

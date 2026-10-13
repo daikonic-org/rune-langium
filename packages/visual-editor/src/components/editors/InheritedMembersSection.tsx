@@ -16,14 +16,17 @@ import { ChevronRight } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@rune-langium/design-system/ui/collapsible';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import type { InheritedGroup } from '../../hooks/useInheritedMembers.js';
+import { InheritedAttributeRow } from './AttributeRow.js';
 import { getTypeRefText, formatCardinality } from '../../adapters/model-helpers.js';
 
 export interface InheritedMembersSectionProps {
   /** Groups of inherited members, one per ancestor. */
   groups: InheritedGroup[];
+  selectedKey?: string;
+  onSelectMember?: (ancestor: string, name: string) => void;
 }
 
-export function InheritedMembersSection({ groups }: InheritedMembersSectionProps) {
+export function InheritedMembersSection({ groups, selectedKey, onSelectMember }: InheritedMembersSectionProps) {
   if (groups.length === 0) return null;
 
   const totalCount = groups.reduce((sum, g) => sum + g.members.length, 0);
@@ -32,13 +35,26 @@ export function InheritedMembersSection({ groups }: InheritedMembersSectionProps
     <div className="space-y-1">
       <p className="text-xs font-medium text-muted-foreground px-1">Inherited ({totalCount})</p>
       {groups.map((group) => (
-        <InheritedGroupCollapsible key={group.ancestorName} group={group} />
+        <InheritedGroupCollapsible
+          key={group.ancestorName}
+          group={group}
+          selectedKey={selectedKey}
+          onSelectMember={onSelectMember}
+        />
       ))}
     </div>
   );
 }
 
-function InheritedGroupCollapsible({ group }: { group: InheritedGroup }) {
+function InheritedGroupCollapsible({
+  group,
+  selectedKey,
+  onSelectMember
+}: {
+  group: InheritedGroup;
+  selectedKey?: string;
+  onSelectMember?: (ancestor: string, name: string) => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -58,11 +74,17 @@ function InheritedGroupCollapsible({ group }: { group: InheritedGroup }) {
             const typeName = getTypeRefText(member.typeCall as any);
             const cardinality = formatCardinality(member.card as any);
             return (
-              <div key={name} className="flex items-center gap-2 text-xs text-muted-foreground py-0.5 px-1">
-                <span className="font-mono">{name}</span>
-                {typeName && <span className="text-muted-foreground/60">{typeName}</span>}
-                {cardinality && <span className="text-muted-foreground/40">{cardinality}</span>}
-              </div>
+              <InheritedAttributeRow
+                key={name}
+                name={name}
+                typeName={typeName ?? 'string'}
+                cardinality={cardinality}
+                ancestorName={group.ancestorName}
+                disabled
+                onOverride={() => {}}
+                selected={selectedKey === `inherited:${group.ancestorName}:${name}`}
+                onSelect={onSelectMember ? () => onSelectMember(group.ancestorName, name) : undefined}
+              />
             );
           })}
         </div>
