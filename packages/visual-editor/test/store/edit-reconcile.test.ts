@@ -106,6 +106,22 @@ describe('edit-reconcile', () => {
     expect(remainingPatches.length).toBe(0); // cleared — no longer pending
   });
 
+  it('ignores parser coordinates while still requiring exact authored object fields', () => {
+    const path = ['nodes', 'ns.Alpha', 'data', 'attributes', 0, 'card'];
+    const card = { $type: 'RosettaCardinality', inf: 0, sup: 1, unbounded: false };
+    const patch: Patch = { op: 'replace', path, value: { ...card, $cstRange: { offset: 10, end: 16 } } };
+    const graph = (parsedCard: AttrWithCard['card']) =>
+      projectGraph(
+        [dataNodeWithCard('ns.Alpha', 'Alpha', [{ name: 'x', type: 'string', card: parsedCard }])],
+        NO_EDGES
+      );
+    const fresh = { ...card, $cstRange: { offset: 30, end: 36 } };
+    expect(patchAlreadySatisfied(graph(fresh), patch)).toBe(true);
+    expect(patchAlreadySatisfied(graph({ ...card, inf: 1 }), patch)).toBe(false);
+    const otherAuthoredField = { ...card, extra: 'authored' };
+    expect(patchAlreadySatisfied(graph(otherAuthoredField), patch)).toBe(false);
+  });
+
   it('does not duplicate an added attribute renamed before its source reparse', () => {
     const initial = [dataNode('ns.Alpha', 'Alpha', [{ name: 'quantity', type: 'number' }])];
     const added = commitGraphEdit(initial, NO_EDGES, (draft) => {
@@ -162,10 +178,8 @@ describe('edit-reconcile', () => {
   });
 
   it('reorder-safety with object-valued patch (cardinality card): edit lands on the CORRECT node after reorder', () => {
-    // Object-valued edits (like cardinality `card`) are the most dangerous case: they never
-    // compare byte-equal to parse values (`patchAlreadySatisfied` → false forever) because the
-    // parse re-derives them with extra AST metadata. This test proves they still address the
-    // RIGHT node by id even when the parse reorders the array.
+    // Object-valued edits must replay against the right node when its authored
+    // value has not caught up, even if the parse reorders the node array.
     const cardOneOne: AttrWithCard['card'] = { $type: 'RosettaCardinality', inf: 1, sup: 1, unbounded: false };
     const live = [
       dataNodeWithCard('ns.Alpha', 'Alpha', [{ name: 'x', type: 'string', card: cardOneOne }]),

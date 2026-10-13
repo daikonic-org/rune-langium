@@ -136,8 +136,8 @@ function readPath(root: GraphDraft, path: ReadonlyArray<string | number>): { fou
 
 /**
  * Has the freshly-parsed graph already round-tripped this edit? An add/replace
- * is satisfied when the parse already holds the patched value at that path; a
- * remove is satisfied when the path is already absent. Satisfied patches are
+ * is satisfied when the parse already holds the authored value at that path,
+ * ignoring parser coordinates. A remove is satisfied when the path is absent. Satisfied patches are
  * dropped (the source caught up), so edits don't replay forever or resurrect a
  * value the user later changed through the source editor.
  */
@@ -147,7 +147,7 @@ export function patchAlreadySatisfied(parse: GraphDraft, patch: Patch): boolean 
   const { found, value } = readPath(parse, patch.path);
   if (patch.op === 'remove') return !found;
   if (!found) return false;
-  return valueEqual(value, patch.value);
+  return authoredValuesEqual(value, patch.value);
 }
 
 /**
