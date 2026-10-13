@@ -1684,24 +1684,27 @@ button[data-navigable]:focus-visible {
 }
 
 /* Programmatic navigation arrival: layout-neutral and separate from selection. */
-.rune-navigation-arrival {
+.rune-navigation-arrival,
+.navigation-arrival {
   outline: 2px solid color-mix(in oklch, var(--primary) 65%, transparent);
   outline-offset: 3px;
   animation: rune-navigation-arrival 1s ease-out;
 }
 
 @keyframes rune-navigation-arrival {
-  from {
-    outline-color: var(--primary);
+  0%,
+  100% {
+    outline-color: transparent;
   }
 
-  to {
-    outline-color: transparent;
+  15% {
+    outline-color: var(--primary);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rune-navigation-arrival {
+  .rune-navigation-arrival,
+  .navigation-arrival {
     animation: none;
   }
 }

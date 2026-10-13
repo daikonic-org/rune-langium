@@ -109,6 +109,11 @@ describe('NamespaceExplorerPanel', () => {
     renderPanel({ showHeading: false });
     expect(screen.queryByText('Type explorer')).not.toBeInTheDocument();
     expect(screen.getByTestId('namespace-explorer-count')).toHaveTextContent(`${defaultNodes.length} available`);
+    const description = screen.getByText('Click name or arrow to open. Drag a row to a type field.');
+    expect(
+      description.compareDocumentPosition(screen.getByTestId('namespace-explorer-count')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Filter types or namespaces' })).toBeInTheDocument();
   });
 

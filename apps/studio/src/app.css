@@ -2591,6 +2591,6 @@ html {
 
 
 .navigation-arrival {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent);
-  background-color: color-mix(in srgb, var(--primary) 8%, transparent);
+  /* Use the shared graph/structure arrival fade, inside scrollable panel bounds. */
+  outline-offset: -2px;
 }

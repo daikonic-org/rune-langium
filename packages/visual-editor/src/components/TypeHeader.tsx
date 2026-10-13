@@ -21,8 +21,8 @@ import { useEditorActionsContext } from './forms/sections/EditorActionsContext.j
 import type { TypeKind } from '../types.js';
 
 /** One shared Inspector inset; headers and sections do not repeat horizontal padding. */
-export const INSPECTOR_FORM_HEADER_CLASS = 'px-0 mb-3';
-export const INSPECTOR_FORM_CLASS = 'box-border h-full min-h-0 p-3';
+export const INSPECTOR_FORM_HEADER_CLASS = 'px-0 py-1.5 mb-1.5';
+export const INSPECTOR_FORM_CLASS = 'box-border h-full min-h-0 p-1.5';
 
 export interface TypeHeaderProps {
   kind: TypeKind;

@@ -137,7 +137,7 @@ export function InspectorDetailsPane({
         role="region"
         aria-label={targetName ? `Details: ${targetName}` : 'Item details'}
         hidden={collapsed}
-        className="studio-scroll min-h-0 flex-1 overflow-auto pb-3"
+        className="studio-scroll min-h-0 flex-1 overflow-auto pb-1.5"
       >
         {targetName ? (
           children

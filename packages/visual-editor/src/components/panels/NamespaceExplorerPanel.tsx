@@ -394,17 +394,15 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
       <div className={`flex flex-col h-full bg-card ${className ?? ''}`} data-testid="namespace-explorer">
         {/* Header */}
         <div className="px-3 py-2 border-b">
-          <div
-            className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${showHeading ? 'justify-between' : 'justify-end'}`}
-          >
-            {showHeading && <span className="text-sm font-semibold">Type explorer</span>}
-            <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
-          </div>
-          <p className="mt-1 text-2xs text-muted-foreground">
+          {showHeading && <span className="block text-sm font-semibold">Type explorer</span>}
+          <p className={`${showHeading ? 'mt-1 ' : ''}text-2xs text-muted-foreground`}>
             {selection
               ? 'Click a row to include or exclude it. Use the arrow to open.'
               : 'Click name or arrow to open. Drag a row to a type field.'}
           </p>
+          <div className="mt-1.5 flex">
+            <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
+          </div>
         </div>
 
         {/* Toolbar */}
