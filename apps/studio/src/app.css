@@ -2224,6 +2224,12 @@ html {
 }
 
 /* The Explorer's sole dock title retains the original content heading's emphasis. */
+.studio-app .studio-dock-tab[data-component='workspace.fileTree'] {
+  justify-content: flex-start;
+  padding-inline: var(--space-1);
+  text-align: left;
+}
+
 .studio-app .studio-dock-tab[data-component='workspace.fileTree'] .studio-dock-tab__label {
   color: var(--foreground);
   font-size: var(--text-sm);
