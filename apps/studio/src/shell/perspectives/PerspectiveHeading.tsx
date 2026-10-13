@@ -9,7 +9,7 @@
  */
 import type React from 'react';
 import { withInstrumentation } from '@rune-langium/instrumentation-core';
-import { KIND_LABEL, resolveNodeKind, useEditorStore, type TypeKind } from '@rune-langium/visual-editor';
+import { useEditorStore } from '@rune-langium/visual-editor';
 import { useDesignPreviewStore } from '../../store/design-preview-store.js';
 import { PERSPECTIVES } from './perspective-registry.js';
 import type { PerspectiveId } from './perspective-types.js';
@@ -19,11 +19,7 @@ function ExploreLocationPath(): React.ReactElement | null {
     state.selectedNodeId ? state.nodesById.get(state.selectedNodeId) : undefined
   );
   if (!selected) return null;
-  const parts = [
-    ...selected.meta.namespace.split('.').filter(Boolean),
-    KIND_LABEL[resolveNodeKind(selected) as TypeKind],
-    selected.data.name
-  ];
+  const parts = [...selected.meta.namespace.split('.').filter(Boolean), selected.data.name];
   return (
     <nav className="studio-explore-location" aria-label="Explore location" title={parts.join(' / ')}>
       <ol dir="ltr">

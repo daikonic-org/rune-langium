@@ -33,7 +33,7 @@ it('follows canonical selection after the heading and clears when selection disa
   expect(screen.queryByRole('navigation', { name: 'Explore location' })).not.toBeInTheDocument();
   act(() => useDesignPreviewStore.getState().setPreference('path', true));
   const path = screen.getByRole('navigation', { name: 'Explore location' });
-  expect(path).toHaveAttribute('title', 'cdm / base / math / Enum / Rounding');
+  expect(path).toHaveAttribute('title', 'cdm / base / math / Rounding');
   expect(path.querySelector('[aria-current="location"]')).toHaveTextContent('Rounding');
   expect(
     screen.getByRole('heading', { name: 'Explore' }).compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING
