@@ -568,17 +568,16 @@ describe('FunctionForm – US3 (Phase 5c) z2f migration contract (FT1–FT4)', (
     expect(expressionTextarea).not.toBeNull();
     expect((expressionTextarea as HTMLTextAreaElement).value).toBe('trade -> price -> amount');
 
-    // The MetadataSection renders Description + Comments textareas via the
-    // declarative section-component path (post-migration). Either path
-    // surfaces the documented data-slot keys.
+    expect(container.querySelector('[data-slot="metadata-description"]')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Doc', exact: true }));
+    // Documentation activates the shared section; authored comments remain Source-only.
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');
     expect(descriptionTextarea).not.toBeNull();
     expect(commentsTextarea).toBeNull();
     expect((descriptionTextarea as HTMLTextAreaElement).value).toBe('Computes the notional');
 
-    // Tab order must preserve: name input < expression editor < description
-    // textarea < comments textarea (verified by document order).
+    // Visited implementation and documentation fields preserve their document order.
     const slotOrder = Array.from(
       container.querySelectorAll(
         'input[data-slot="type-name-input"], textarea[data-slot="expression-editor"], textarea[data-slot="metadata-description"], textarea[data-slot="metadata-comments"]'

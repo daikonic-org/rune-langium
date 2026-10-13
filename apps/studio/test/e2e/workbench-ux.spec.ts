@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { test, expect, type Page } from '@playwright/test';
 import { typeNameButton, typeNavigationButton, typeSelectionCheckbox } from '../helpers/type-navigation.js';
 import { expectContainedInPane } from '../helpers/pane-geometry.js';
@@ -38,7 +39,7 @@ test('search opens declarations, files and destinations, and handles no results'
   await page.keyboard.press('ControlOrMeta+k');
   await search.fill('demo.rosetta');
   await page.getByRole('option', { name: 'demo.rosetta', exact: true }).click();
-  await expect(page.getByTestId('source-editor')).toContainText('type Trade');
+  await expect(fullSourceEditor(page)).toContainText('type Trade');
   await page.keyboard.press('ControlOrMeta+k');
   await search.fill('Open Export');
   await search.press('ArrowDown');

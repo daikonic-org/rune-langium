@@ -11,6 +11,7 @@
  * 4. Status bar information remains available
  */
 
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { test, expect, type Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ test.describe('Workspace chrome & graph panel', () => {
   test('should keep explorer, graph, and source surfaces visible together', async ({ page }) => {
     await expect(page.getByTestId('namespace-explorer')).toBeVisible();
     await expect(page.locator('[aria-label="Graph toolbar"]')).toBeVisible();
-    const sourceEditor = page.locator('[data-testid="source-editor"]');
+    const sourceEditor = fullSourceEditor(page);
     await expect(sourceEditor).toBeVisible();
   });
 

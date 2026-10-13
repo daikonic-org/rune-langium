@@ -22,6 +22,7 @@
  * visible/clickable in the graph until something selects them first.
  */
 
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { test, expect, type Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
@@ -92,7 +93,7 @@ test.describe('Source ↔ Graph ↔ Form Sync', () => {
     await navigateToType(page, 'Customer');
     await openPane(page, 'Source');
 
-    const sourceEditor = page.getByTestId('source-editor');
+    const sourceEditor = fullSourceEditor(page);
     await expect(sourceEditor).toBeVisible({ timeout: 10000 });
     await expect(sourceEditor.getByText('Customer', { exact: false })).toBeVisible();
   });

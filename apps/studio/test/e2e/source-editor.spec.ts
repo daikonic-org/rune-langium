@@ -10,6 +10,7 @@
  * 3. CodeMirror renders with syntax content
  */
 
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { test, expect, type Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ async function openSourceFromNode(page: Page, nodeTestId: string) {
   await node.dblclick({ force: true });
   await page.getByRole('button', { name: 'Source', exact: true }).click();
   // Source opens alongside the selected declaration.
-  await page.waitForSelector('[data-testid="source-editor"]', { timeout: 10000 });
+  await expect(fullSourceEditor(page)).toBeVisible({ timeout: 10000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +78,7 @@ test.describe('Source Editor', () => {
     await sourceBtn.click();
     await page.waitForTimeout(500);
 
-    const sourceEditor = page.locator('[data-testid="source-editor"]');
+    const sourceEditor = fullSourceEditor(page);
     await expect(sourceEditor).toBeVisible({ timeout: 5000 });
   });
 
@@ -97,7 +98,7 @@ test.describe('Source Editor', () => {
     ]);
     await openSourceFromNode(page, 'rf__node-source.test.Widget');
 
-    const source = page.getByTestId('source-editor');
+    const source = fullSourceEditor(page);
     await expect(page.getByLabel('Source file path', { exact: true })).toContainText('widget.rosetta');
     await page.getByRole('button', { name: 'color.rosetta', exact: true }).click();
     await expect(page.getByLabel('Source file path', { exact: true })).toContainText('color.rosetta');
@@ -120,7 +121,7 @@ test.describe('Source Editor', () => {
     await sourceBtn.click();
     await page.waitForTimeout(500);
 
-    const sourceEditor = page.locator('[data-testid="source-editor"]');
+    const sourceEditor = fullSourceEditor(page);
     await expect(sourceEditor).toBeVisible();
 
     // Close

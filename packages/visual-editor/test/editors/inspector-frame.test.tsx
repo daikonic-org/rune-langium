@@ -8,7 +8,7 @@ import { InspectorDetailsPane } from '../../src/components/editors/inspector/Ins
 
 afterEach(cleanup);
 describe('common Inspector composition', () => {
-  it('keeps one header/footer and mounted sections when switching tabs', () => {
+  it('mounts sections on first activation and retains their drafts and DOM identity', () => {
     render(
       <InspectorFrame
         header={<h2>Person</h2>}
@@ -33,12 +33,44 @@ describe('common Inspector composition', () => {
         }
       />
     );
+    const member = screen.getByLabelText('Invalid name');
+    fireEvent.change(member, { target: { value: 'invalid draft!' } });
+    expect(screen.queryByLabelText('Rune condition')).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: 'Conditions' }));
-    expect(screen.getByLabelText('Invalid name')).toHaveValue('draft');
+    const condition = screen.getByLabelText('Rune condition');
+    fireEvent.change(condition, { target: { value: 'age > (' } });
+    expect(screen.getByLabelText('Invalid name')).toBe(member);
+    expect(member).toHaveValue('invalid draft!');
     expect(screen.getByLabelText('Rune condition')).toBeVisible();
     expect(screen.getAllByRole('heading', { name: 'Person' })).toHaveLength(1);
     expect(screen.getAllByText('Actual host status')).toHaveLength(1);
     expect(screen.queryByRole('region', { name: 'Details: age' })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
+    expect(screen.getByLabelText('Rune condition')).toBe(condition);
+    expect(condition).not.toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: 'Conditions' }));
+    expect(screen.getByLabelText('Rune condition')).toBe(condition);
+    expect(condition).toHaveValue('age > (');
+    expect(condition).toBeVisible();
+  });
+  it('retains activated sections across reordering and records a fallback activation', () => {
+    const members = { id: 'members', label: 'Members', content: <input aria-label="Member draft" /> };
+    const conditions = { id: 'conditions', label: 'Conditions', content: <input aria-label="Condition draft" /> };
+    const metadata = { id: 'metadata', label: 'Metadata', content: <input aria-label="Metadata draft" /> };
+    const { rerender } = render(<InspectorFrame header="Person" sections={[members, conditions, metadata]} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Conditions' }));
+    const condition = screen.getByLabelText('Condition draft');
+    fireEvent.change(condition, { target: { value: 'unfinished (' } });
+    rerender(<InspectorFrame header="Person" sections={[metadata, conditions, members]} />);
+    expect(screen.getByLabelText('Condition draft')).toBe(condition);
+    expect(condition).toHaveValue('unfinished (');
+    expect(screen.queryByLabelText('Metadata draft')).toBeNull();
+    rerender(<InspectorFrame header="Person" sections={[metadata, members]} />);
+    const fallback = screen.getByLabelText('Metadata draft');
+    expect(fallback).toBeVisible();
+    rerender(<InspectorFrame header="Person" sections={[members, metadata]} />);
+    expect(screen.getByLabelText('Metadata draft')).toBe(fallback);
+    expect(fallback).not.toBeVisible();
   });
   it('omits tabs for one section and starts empty details collapsed', () => {
     render(

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
@@ -103,7 +104,7 @@ test.describe('production checkout smoke', () => {
     await expect(centerStack.getByText('Reference Only', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Source' }).click();
     await expect(page.getByLabel('Source file path')).toContainText('base-datetime-type.rosetta');
-    const source = page.getByTestId('source-editor').locator('.cm-content');
+    const source = fullSourceEditor(page).locator('.cm-content');
     await expect(source).toContainText('type BusinessCenters');
     await expectSourceReadOnly(source);
   });
@@ -143,7 +144,7 @@ test.describe('production checkout smoke', () => {
 
     await page.getByRole('button', { name: 'Source' }).click();
     await expect(page.getByLabel('Source file path')).toContainText('base-staticdata-party-type.rosetta');
-    const source = page.getByTestId('source-editor').locator('.cm-content');
+    const source = fullSourceEditor(page).locator('.cm-content');
     await expect(source).toContainText('type Counterparty');
     await expectSourceReadOnly(source);
   });

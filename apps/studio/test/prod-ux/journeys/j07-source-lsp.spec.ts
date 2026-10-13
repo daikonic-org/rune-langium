@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { fullSourceEditor } from '../../helpers/source-editor.js';
 import { checkout as test, expect } from '../fixtures.js';
 
 const WORKSPACE_FILE_NAME = 'starter.rosetta';
@@ -59,7 +60,7 @@ test.describe('J07 — Source view + LSP diagnostics', () => {
     // Click into CodeMirror's content element (the established pattern in
     // test/e2e/source-editor.spec.ts) rather than the outer `source-editor`
     // section, so keyboard input is guaranteed to land in the editable surface.
-    const editor = page.getByTestId('source-editor');
+    const editor = fullSourceEditor(page);
     await expect(editor).toBeVisible({ timeout: 10000 });
     await editor.locator('.cm-content').click();
     await page.keyboard.type('type Bad syntax here###');
