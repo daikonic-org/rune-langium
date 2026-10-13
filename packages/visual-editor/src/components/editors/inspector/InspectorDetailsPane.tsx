@@ -42,6 +42,7 @@ export function InspectorDetailsPane({
   }, []);
   const height = Math.min(max, Math.max(96, size));
   const move = (value: number) => setSize(Math.min(max, Math.max(96, value)));
+  const heading = `${elementLabel} Detail${targetName ? `: ${targetName}` : ''}`;
   return (
     <div
       ref={element}
@@ -99,11 +100,8 @@ export function InspectorDetailsPane({
         />
       )}
       <div className="flex shrink-0 items-center justify-between gap-2 py-1.5 text-base">
-        <span
-          className="min-w-0 truncate font-medium"
-          title={targetName ? `${elementLabel}: ${targetName}` : elementLabel}
-        >
-          {targetName ? `${elementLabel}: ${targetName}` : elementLabel}
+        <span className="min-w-0 truncate font-medium" title={heading}>
+          {heading}
         </span>
         <div className="flex shrink-0 items-center gap-1">
           {targetName && onClear && (

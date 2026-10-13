@@ -14,7 +14,7 @@ describe('common Inspector composition', () => {
         <p>Metadata</p>
       </InspectorDetailsPane>
     );
-    expect(screen.getByText('Attribute: party')).toBeVisible();
+    expect(screen.getByText('Attribute Detail: party')).toBeVisible();
     const collapse = screen.getByRole('button', { name: 'Collapse item details' });
     expect(collapse).toHaveTextContent('');
     fireEvent.click(collapse);
@@ -24,7 +24,7 @@ describe('common Inspector composition', () => {
         <p>Metadata</p>
       </InspectorDetailsPane>
     );
-    expect(screen.getByText('Member: Buy')).toBeVisible();
+    expect(screen.getByText('Member Detail: Buy')).toBeVisible();
     expect(screen.getByRole('region', { name: 'Details: Buy' })).toBeVisible();
   });
   it('mounts sections on first activation and retains their drafts and DOM identity', () => {
