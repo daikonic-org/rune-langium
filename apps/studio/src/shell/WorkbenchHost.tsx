@@ -38,6 +38,16 @@ const HeaderActionsContext = createContext<{
 
 const COLLAPSED_SIDE_WIDTH = 52;
 
+function setPreviewPanelTitles(group: IDockviewHeaderActionsProps['group'], collapsed: boolean): void {
+  for (const panel of group.panels) {
+    const component = panel.api.component;
+    if (component === 'workspace.formPreview' || component === 'workspace.codePreview') {
+      const title = PANEL_TITLES[component];
+      panel.api.setTitle(collapsed ? `${title} Preview` : title);
+    }
+  }
+}
+
 function SidePanelHeaderAction({
   group,
   label,
@@ -104,12 +114,14 @@ function SidePanelHeaderAction({
         group.panels.length > 0 &&
         !getExploreSidePanel(group.panels.map((panel) => panel.api.component))
       ) {
+        setPreviewPanelTitles(group, false);
         group.api.setHeaderPosition('top');
       }
     };
   }, [group]);
   useEffect(() => {
     group.element.classList.toggle('studio-side-panel-collapsed', collapsed);
+    setPreviewPanelTitles(group, collapsed);
     const position = collapsed ? direction : 'top';
     if (group.api.getHeaderPosition() !== position) group.api.setHeaderPosition(position);
   }, [group, collapsed, direction]);

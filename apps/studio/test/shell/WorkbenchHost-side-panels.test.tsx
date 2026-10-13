@@ -63,7 +63,7 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   expect(types.group.element).toHaveClass('studio-side-panel');
   expect(types.group.api.getHeaderPosition()).toBe('top');
   const originalWidth = types.group.api.width;
-  await user.click(screen.getByRole('tab', { name: 'form' }));
+  await user.click(screen.getByRole('tab', { name: 'Form' }));
   expect(form.group.activePanel?.id).toBe('form');
   const draft = screen.getByRole('textbox', { name: 'Preview draft' });
   fireEvent.change(draft, { target: { value: 'unfinished value' } });
@@ -71,6 +71,8 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   expect(types.group.api.getHeaderPosition()).toBe('left');
   expect(screen.getByRole('button', { name: 'Show Type explorer' })).toHaveAttribute('aria-expanded', 'false');
   await user.click(screen.getByRole('button', { name: 'Hide Preview panel' }));
+  expect(screen.getByRole('tab', { name: 'Form Preview' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Code Preview' })).toBeInTheDocument();
   expect(form.group.api.getHeaderPosition()).toBe('right');
   act(() => ready!.layout(1600, 720));
   expect(screen.getByRole('button', { name: 'Show Type explorer' })).toHaveAttribute('aria-expanded', 'false');
@@ -84,12 +86,13 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   expect(screen.getByRole('button', { name: 'Hide Type explorer' })).toHaveAttribute('aria-expanded', 'true');
   await user.click(screen.getByRole('button', { name: 'Show Preview panel' }));
   expect(form.group.api.getHeaderPosition()).toBe('top');
-  await user.click(screen.getByRole('tab', { name: 'form' }));
+  expect(screen.getByRole('tab', { name: 'Code' })).toBeInTheDocument();
+  await user.click(screen.getByRole('tab', { name: 'Form' }));
   expect(screen.getByRole('button', { name: 'Hide Preview panel' })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('textbox', { name: 'Preview draft' })).toBe(draft);
   expect(draft).toHaveValue('unfinished value');
   expect(ready!.getPanel('form')).toBe(form);
-  await user.click(screen.getByRole('tab', { name: 'code' }));
+  await user.click(screen.getByRole('tab', { name: 'Code' }));
   const codeDraft = screen.getByRole('textbox', { name: 'Code draft' });
   fireEvent.change(codeDraft, { target: { value: 'generated value' } });
   expect(codeDraft).toHaveValue('generated value');
