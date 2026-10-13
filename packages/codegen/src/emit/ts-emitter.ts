@@ -32,7 +32,7 @@ import {
 } from '@rune-langium/core';
 import { emittedTypeScriptProjection } from '../projection/typescript.js';
 import type { EmittedProjection } from '../projection/types.js';
-import { expressionIsMany, featureIsMany, typeFeatures, resolveType } from '../expr/navigation.js';
+import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveType } from '../expr/navigation.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
@@ -680,6 +680,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
             ? node.referenceGuard?.ref
             : undefined;
         if (isData(narrowed) || isChoice(narrowed)) trackRef(narrowed, `${narrowed.name}Shape`);
+        if (isRosettaConstructorExpression(node)) {
+          const type = expressionType(node);
+          if (isData(type) || isChoice(type)) trackRef(type, `${type.name}Shape`);
+        }
         if (isRosettaSymbolReference(node)) {
           const ref = node.symbol?.ref;
           if (isRosettaFunction(ref) || isRosettaExternalFunction(ref) || isRosettaRule(ref)) trackCallable(ref);

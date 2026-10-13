@@ -3,7 +3,12 @@
 
 import { metadataPropertyPath } from '../expr/metadata-runtime.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
-import { collectionValue, expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
+import {
+  collectionValue,
+  expressionFitsCardinality,
+  renderCardinalityChecks,
+  renderCheckedValue
+} from '../expr/cardinality.js';
 import { expressionIsMany } from '../expr/navigation.js';
 import { freshLocal } from '../expr/inline-function.js';
 import { isListLiteral, isRosettaExpression } from '@rune-langium/core';
@@ -43,7 +48,7 @@ export function renderFuncAssignment(
       : [];
   if (assignment.kind === 'set') {
     const checks = !path.length && bounds && expressionFitsCardinality(expression, bounds) ? [] : checksFor('value');
-    if (checks.length) expr = `((value) => { ${checks.join(' ')} return value; })(${expr})`;
+    expr = renderCheckedValue(expr, checks, targetMany, true, bounds?.upper === 0);
   }
   if (assignment.metadataKind) {
     const helper = assignment.metadataKind === 'reference' ? 'rune.toReference' : 'rune.toField';

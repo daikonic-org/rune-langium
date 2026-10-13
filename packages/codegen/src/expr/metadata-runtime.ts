@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { isAttribute, isRosettaMetaType, type AnnotationRef } from '@rune-langium/core';
+import { parenthesizeReceiver } from './syntax.js';
 
 /** Metadata names defined by the Rune `metadata` annotation. */
 export const metadataNames = new Set(['address', 'id', 'key', 'location', 'reference', 'scheme', 'template']);
@@ -60,7 +61,8 @@ export function metadataObjectType(
 }
 
 export function unwrapMetadata(value: string, many: boolean): string {
-  return many ? `(${value} ?? []).map((field) => field.value).filter((value) => value != null)` : `(${value})?.value`;
+  if (many) return `(${value} ?? []).map((field) => field.value).filter((value) => value != null)`;
+  return `${parenthesizeReceiver(value)}?.value`;
 }
 
 /** Normalize a present expression using declaration metadata rather than payload shape. */

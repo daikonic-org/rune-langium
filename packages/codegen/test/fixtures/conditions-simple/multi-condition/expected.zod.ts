@@ -200,14 +200,14 @@ export const UnitTypeSchema = z
     c: z.string().optional()
   })
   .superRefine((data, ctx) => {
-    if (!rune.exists(data.a)) {
+    if (data.a == null) {
       ctx.addIssue({
         code: 'custom',
         message: 'AExists: a must be present in UnitType',
         path: ['AExists']
       });
     }
-    if (rune.exists(data.b)) {
+    if (data.b != null) {
       ctx.addIssue({
         code: 'custom',
         message: 'BAbsent: b must be absent in UnitType',

@@ -125,7 +125,7 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     // zod-data-extends-choice.test.ts's single-level equivalent for the
     // full rationale. Multi-level must resolve the SAME remap even though
     // the Choice is 2 links away (ObservableItem, then the Choice).
-    expect(output.content).toContain('rune.exists(data.cash)');
+    expect(output.content).toContain('data.cash == null');
     expect(output.content).not.toContain('data.Cash');
     expect(output.content).not.toContain('DIAGNOSTIC');
   });

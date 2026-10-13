@@ -73,7 +73,8 @@ function scalarKind(expression: RosettaExpression | undefined): ScalarKind | und
   if (isRosettaBooleanLiteral(expression)) return 'boolean';
   if (
     isRosettaStringLiteral(expression) ||
-    (isRosettaSymbolReference(expression) && isRosettaEnumValue(expression.symbol.ref))
+    (isRosettaSymbolReference(expression) && isRosettaEnumValue(expression.symbol.ref)) ||
+    (isRosettaFeatureCall(expression) && isRosettaEnumValue(expression.feature?.ref))
   )
     return 'string';
   if (isRosettaIntLiteral(expression) || isRosettaNumberLiteral(expression)) return 'number';
@@ -112,6 +113,7 @@ export function expressionIsPresent(
   try {
     if (isRosettaSymbolReference(expression)) {
       const declaration = expression.symbol.ref;
+      if (isRosettaEnumValue(declaration)) return true;
       if (isShortcutDeclaration(declaration)) return expressionIsPresent(declaration.expression, visiting);
       return (
         isAttribute(declaration) &&
@@ -162,6 +164,7 @@ export function requiredScalarKind(
     if (isRosettaIntLiteral(expression) || isRosettaNumberLiteral(expression)) return 'number';
     if (isRosettaSymbolReference(expression)) {
       const declaration = expression.symbol.ref;
+      if (isRosettaEnumValue(declaration)) return 'string';
       if (isShortcutDeclaration(declaration)) return requiredScalarKind(declaration.expression, visiting);
       // Output cardinality is enforced at return, after potentially absent writes.
       // It cannot prove that the accumulator (or an alias of it) is initialized.
@@ -180,6 +183,7 @@ export function requiredScalarKind(
     }
     if (isRosettaFeatureCall(expression)) {
       const declaration = expression.feature?.ref;
+      if (isRosettaEnumValue(declaration)) return 'string';
       // Required children of optional receivers can still be absent.
       if (!isAttribute(declaration) || !featureIsRequired(declaration) || hasFieldMetadata(declaration))
         return undefined;

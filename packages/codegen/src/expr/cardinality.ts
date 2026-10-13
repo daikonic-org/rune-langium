@@ -63,12 +63,13 @@ export function adaptCardinalityValue(
   value: string,
   cardinality: RuneFuncParam['cardinality'],
   label: string,
-  expression?: RosettaExpression
+  expression?: RosettaExpression,
+  typescript = false
 ): string {
   if (expressionFitsCardinality(expression, cardinality)) {
     return expressionIsMany(expression) ? collectionValue(value, expression) : value;
   }
-  return normalizeCardinalityValue(value, cardinality, label);
+  return normalizeCardinalityValue(value, cardinality, label, expression, typescript);
 }
 
 /** Collection-producing operations already return arrays; optional fields can be absent. */
@@ -120,10 +121,26 @@ export function renderCardinalityChecks(
 export function normalizeCardinalityValue(
   value: string,
   cardinality: RuneFuncParam['cardinality'],
-  label: string
+  label: string,
+  expression?: RosettaExpression,
+  typescript = false
 ): string {
   const many = cardinality.upper === null || cardinality.upper > 1;
-  value = `${many ? 'rune.list' : 'rune.single'}(${value})`;
+  const known =
+    expression &&
+    !(isRosettaSymbolReference(expression) && !expression.symbol.ref) &&
+    !(isListLiteral(expression) && expression.elements.length === 0);
+  const uniformCollection =
+    expression &&
+    !isRosettaConditionalExpression(expression) &&
+    !isThenOperation(expression) &&
+    !(isRosettaSymbolReference(expression) && isShortcutDeclaration(expression.symbol.ref));
+  const sameCardinality = known && expressionIsMany(expression) === many && (!many || uniformCollection);
+  value = sameCardinality
+    ? many
+      ? collectionValue(value, expression)
+      : value
+    : `${many ? 'rune.list' : 'rune.single'}(${value})`;
   const checks = renderCardinalityChecks(
     'value',
     cardinality,
@@ -131,5 +148,18 @@ export function normalizeCardinalityValue(
     many ? `${label} has too few values` : `${label} requires a value`,
     `${label} has too many values`
   );
-  return checks.length ? `((value) => { ${checks.join(' ')} return value; })(${value})` : value;
+  return renderCheckedValue(value, checks, many, typescript, cardinality.upper === 0);
+}
+
+/** Preserve literal inference when checking an authored value's cardinality. */
+export function renderCheckedValue(
+  value: string,
+  checks: readonly string[],
+  many: boolean,
+  typescript: boolean,
+  absent = false
+): string {
+  if (!checks.length) return value;
+  const parameter = typescript ? `<const T${many ? ' extends unknown[]' : ''}>(value: T)` : '(value)';
+  return `(${parameter} => { ${checks.join(' ')} return ${absent ? 'undefined' : 'value'}; })(${value})`;
 }

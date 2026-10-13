@@ -219,7 +219,7 @@ export function isTrade(x: unknown): x is Trade {
 
 
 export function validateIsLargeTrade(trade: RuneFuncData<TradeShape>): boolean {
-  return rune.compare(trade.Trade?.notional, 1000000, (a, b) => a > b, "all");
+  return (trade.Trade?.notional != null && trade.Trade?.notional > 1000000);
 }
 
 export const runeReportRules = {

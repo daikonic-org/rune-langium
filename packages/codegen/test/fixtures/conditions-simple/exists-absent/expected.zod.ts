@@ -197,12 +197,12 @@ export const HasASchema = z
   .object({
     a: z.string().optional()
   })
-  .refine((data) => rune.exists(data.a), 'AExists: a must be present in HasA');
+  .refine((data) => data.a != null, 'AExists: a must be present in HasA');
 export type HasA = z.infer<typeof HasASchema>;
 
 export const HasNoBSchema = z
   .object({
     b: z.string().optional()
   })
-  .refine((data) => !rune.exists(data.b), 'BAbsent: b must be absent in HasNoB');
+  .refine((data) => data.b == null, 'BAbsent: b must be absent in HasNoB');
 export type HasNoB = z.infer<typeof HasNoBSchema>;

@@ -157,6 +157,20 @@ language and declaration identity alongside the existing workspace version guard
 
 Equality projections and exports use compact native scalar comparisons when the
 linked type proof permits them, including optional scalars over prevalidated JSON.
+Enum constants use the same scalar proof in both feature-call and symbol-reference
+forms, including hydrated models. Boolean comparisons against literals reduce to
+the value or its negation when the field is required. Branch and short-circuit
+facts fold proven scalar contradictions instead of widening inputs with casts.
+Typed scalar presence uses null checks; collections use their length. Metadata
+field collections have required payloads, while reference collections check for
+an actual payload because reference-only entries are valid. Unknown cardinality
+retains the runtime presence helper. Constructor context and literal-preserving
+cardinality generics retain enum types without literal casts; matched scalar and
+collection shapes skip redundant normalization.
+Displayed TypeScript condition predicates use `false` for a missing `else`.
+Executable validators retain implication semantics: a condition passes when its
+antecedent does not apply. A missing branch in a function value expression remains
+`undefined`; nested value expressions within predicates retain that behavior.
 Structured values compare canonical `rune.valueKey` results; collection comparisons
 call `rune.equals(left, right, quantifier?, unequal?)`. Computed scalars use native
 target-language comparisons as well. Built-ins whose source is not loaded and

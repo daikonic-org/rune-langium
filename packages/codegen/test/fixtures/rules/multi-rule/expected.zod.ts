@@ -202,12 +202,12 @@ export type Account = z.infer<typeof AccountSchema>;
 
 
 export const validateIsActive = AccountSchema.refine(
-  (data) => rune.compare(data.Account?.balance, 0, (a, b) => a > b, "all"),
+  (data) => (data.Account?.balance != null && data.Account?.balance > 0),
   'IsActive'
 );
 
 export const validateIsPremium = AccountSchema.refine(
-  (data) => ((data.Account?.tier as string | undefined) === 'premium'),
+  (data) => (data.Account?.tier === 'premium'),
   'IsPremium'
 );
 

@@ -199,21 +199,21 @@ export const NumericCheckSchema = z
     threshold: z.number().int().optional()
   })
   .superRefine((data, ctx) => {
-    if (!rune.compare(data.value, 0, (a, b) => a > b, "all")) {
+    if (!((data.value != null && data.value > 0))) {
       ctx.addIssue({
         code: 'custom',
         message: 'ValuePositive: condition failed in NumericCheck',
         path: ['ValuePositive']
       });
     }
-    if (!rune.compare(data.value, data.threshold, (a, b) => a < b, "all")) {
+    if (!((data.value != null && data.threshold != null && data.value < data.threshold))) {
       ctx.addIssue({
         code: 'custom',
         message: 'ValueBelowThreshold: condition failed in NumericCheck',
         path: ['ValueBelowThreshold']
       });
     }
-    if (!(((data.value as number | undefined) !== 0))) {
+    if (!((data.value !== 0))) {
       ctx.addIssue({
         code: 'custom',
         message: 'ValueNotZero: condition failed in NumericCheck',

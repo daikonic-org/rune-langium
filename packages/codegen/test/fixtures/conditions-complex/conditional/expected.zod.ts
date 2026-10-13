@@ -199,7 +199,7 @@ export const ConditionalCheckSchema = z
     value: z.string().optional()
   })
   .refine(
-    (data) => (((data.flag as boolean | undefined) === true) ? rune.exists(data.value) : true),
+    (data) => ((data.flag === true) ? data.value != null : true),
     'IfFlagThenValue: condition failed in ConditionalCheck'
   );
 export type ConditionalCheck = z.infer<typeof ConditionalCheckSchema>;

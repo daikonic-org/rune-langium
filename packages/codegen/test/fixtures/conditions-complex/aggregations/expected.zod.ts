@@ -205,7 +205,7 @@ export const AggCheckSchema = z
         path: ['CountPositive']
       });
     }
-    if (!rune.exists(rune.list(data.values)[0])) {
+    if (!(rune.list(data.values)[0] != null)) {
       ctx.addIssue({
         code: 'custom',
         message: 'FirstExists: condition failed in AggCheck',

@@ -668,6 +668,34 @@ func Optional:
     expect(funcs.Optional!({ value: 2 })).toBe(2);
     expect(funcs.Optional!({ value: -2 })).toBeUndefined();
   });
+  it('preserves enum collections, conditional fields and nested writes without literal casts', async () => {
+    const funcs = await compile(`namespace test.enumInference
+enum Currency:
+ USD
+ EUR
+type Batch:
+ currencies Currency (1..*)
+ currency Currency (1..1)
+func Build:
+ inputs: flag boolean (1..1) values Currency (0..*) one Currency (1..1)
+ output: result Batch (1..1)
+ set result: Batch {
+  currencies: if flag then values else one,
+  currency: if flag then Currency -> USD else Currency -> EUR
+ }
+func Literal:
+ output: result Batch (1..1)
+ set result: Batch {currencies: [USD, EUR], currency: USD}
+ set result -> currency: EUR
+`);
+    expect(funcs.Build!({ flag: false, one: 'USD' })).toEqual({ currencies: ['USD'], currency: 'EUR' });
+    expect(funcs.Build!({ flag: true, values: ['EUR'], one: 'USD' })).toEqual({
+      currencies: ['EUR'],
+      currency: 'USD'
+    });
+    expect(() => funcs.Build!({ flag: true, values: [], one: 'USD' })).toThrow('too few values');
+    expect(funcs.Literal!({})).toEqual({ currencies: ['USD', 'EUR'], currency: 'EUR' });
+  });
   it('retains metadata when narrowing data subtypes', async () => {
     const funcs = await compile(`namespace test.dataMetaNarrow
  type Base:

@@ -248,11 +248,11 @@ export function isBox(x: unknown): x is Box {
 
 
 export function MakePoint(input: { x: number; y: number }): RuneFuncData<PointShape> {
-  const result = { x: input.x, y: input.y };
+  const result = ({ x: input.x, y: input.y } satisfies RuneFuncData<PointShape>);
   return result;
 }
 
 export function MakeEmptyBox(input: { w: number }): RuneFuncData<BoxShape> {
-  const result = { origin: {}, width: input.w };
+  const result = ({ origin: {}, width: input.w } satisfies RuneFuncData<BoxShape>);
   return result;
 }

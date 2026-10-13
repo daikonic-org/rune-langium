@@ -202,5 +202,5 @@ export const PartySchema = z
   .object({
     address: AddressSchema.optional()
   })
-  .refine((data) => rune.exists(data.address?.city), 'CityExists: condition failed in Party');
+  .refine((data) => data.address?.city != null, 'CityExists: condition failed in Party');
 export type Party = z.infer<typeof PartySchema>;

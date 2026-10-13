@@ -223,11 +223,11 @@ export function isAccount(x: unknown): x is Account {
 
 
 export function validateIsActive(account: RuneFuncData<AccountShape>): boolean {
-  return rune.compare(account.Account?.balance, 0, (a, b) => a > b, "all");
+  return (account.Account?.balance != null && account.Account?.balance > 0);
 }
 
 export function validateIsPremium(account: RuneFuncData<AccountShape>): boolean {
-  return ((account.Account?.tier as string | undefined) === 'premium');
+  return (account.Account?.tier === 'premium');
 }
 
 export const runeReportRules = {

@@ -151,7 +151,7 @@ describe('US6 funcs: precondition referencing a func-scope alias', () => {
   it('resolves the alias exists check without an unknown-attribute DIAGNOSTIC fallback', async () => {
     const actual = await generateFuncFixture('precondition-alias');
     expect(actual).not.toContain('DIAGNOSTIC');
-    expect(actual).toContain('rune.exists(payload)');
+    expect(actual).toContain('payload == null');
   });
 });
 
