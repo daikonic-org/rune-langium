@@ -20,9 +20,9 @@ import { KindBadge } from './KindBadge.js';
 import { useEditorActionsContext } from './forms/sections/EditorActionsContext.js';
 import type { TypeKind } from '../types.js';
 
-/** Shared, flush Inspector frame and header geometry; sections own their inner spacing. */
+/** One shared Inspector inset; headers and sections do not repeat horizontal padding. */
 export const INSPECTOR_FORM_HEADER_CLASS = 'px-0 mb-3';
-export const INSPECTOR_FORM_CLASS = 'h-full min-h-0';
+export const INSPECTOR_FORM_CLASS = 'box-border h-full min-h-0 p-3';
 
 export interface TypeHeaderProps {
   kind: TypeKind;

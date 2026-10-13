@@ -2223,9 +2223,13 @@ html {
   height: 28px;
 }
 
-/* A collapsed grid column keeps its own chevron reachable and its drafts mounted. */
-.studio-app .studio-side-panel-collapsed > :is(.dv-content-container),
-.studio-app .studio-side-panel-collapsed .dv-tabs-container {
+/* Side panels always retain their chevron, even with only one tab. */
+.studio-app .rune-dock-theme .studio-side-panel > .dv-tabs-and-actions-container.dv-single-tab {
+  display: flex;
+}
+
+/* Collapsed columns keep vertical tab chrome and mounted, hidden drafts. */
+.studio-app .studio-side-panel-collapsed > .dv-content-container {
   display: none;
 }
 

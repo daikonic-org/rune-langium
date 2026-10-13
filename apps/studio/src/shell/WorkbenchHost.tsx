@@ -17,11 +17,18 @@ import { PanelCollapseButton } from './PanelCollapseButton.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
 
+interface SidePanelLayout {
+  expandedWidth: number;
+  expandedConstraints: { minimumWidth: number; maximumWidth: number };
+  ownsCollapsedConstraints: boolean;
+}
+
 const HeaderActionsContext = createContext<{
   auxiliary: AuxiliaryPanelLayout | null;
+  sideLayouts: WeakMap<IDockviewHeaderActionsProps['group'], SidePanelLayout>;
   refresh(): void;
   original?: WorkbenchHostProps['rightHeaderActionsComponent'];
-}>({ auxiliary: null, refresh: () => {} });
+}>({ auxiliary: null, sideLayouts: new WeakMap(), refresh: () => {} });
 
 const COLLAPSED_SIDE_WIDTH = 52;
 
@@ -39,16 +46,25 @@ function SidePanelHeaderAction({
   const isCollapsed = () =>
     group.api.location.type === 'edge' ? group.api.isCollapsed() : group.api.width <= COLLAPSED_SIDE_WIDTH + 1;
   const [collapsed, setCollapsed] = useState(isCollapsed);
-  const expandedWidth = useRef(direction === 'left' ? 240 : 320);
-  const expandedConstraints = useRef({
-    minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
-    maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
-  });
-  const ownsCollapsedConstraints = useRef(false);
+  // Header orientation can recreate this component; the workbench owns its size memory.
+  const { sideLayouts } = useContext(HeaderActionsContext);
+  let layout = sideLayouts.get(group);
+  if (!layout) {
+    layout = {
+      expandedWidth: direction === 'left' ? 240 : 320,
+      expandedConstraints: {
+        minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
+        maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
+      },
+      ownsCollapsedConstraints: false
+    };
+    sideLayouts.set(group, layout);
+  }
+  const sideLayout = layout;
   useEffect(() => {
     const update = () => {
       const next = isCollapsed();
-      if (!next && group.api.location.type === 'grid') expandedWidth.current = group.api.width;
+      if (!next && group.api.location.type === 'grid') sideLayout.expandedWidth = group.api.width;
       setCollapsed(next);
     };
     update();
@@ -59,22 +75,38 @@ function SidePanelHeaderAction({
       sizeListener.dispose();
       // A user can move the main task into this group; release our rail bounds.
       if (
-        ownsCollapsedConstraints.current &&
+        sideLayout.ownsCollapsedConstraints &&
         group.element.isConnected &&
         group.panels.length > 0 &&
         group.api.location.type === 'grid' &&
         !getExploreSidePanel(group.panels.map((panel) => panel.api.component))
       ) {
-        group.api.setConstraints(expandedConstraints.current);
-        group.api.setSize({ width: expandedWidth.current });
+        group.api.setConstraints(sideLayout.expandedConstraints);
+        group.api.setSize({ width: sideLayout.expandedWidth });
       }
     };
   }, [group]);
   useEffect(() => {
     const element = group.element;
-    element.classList.toggle('studio-side-panel-collapsed', collapsed && group.api.location.type === 'grid');
-    return () => element.classList.remove('studio-side-panel-collapsed');
-  }, [group, collapsed]);
+    element.classList.add('studio-side-panel');
+    return () => {
+      element.classList.remove('studio-side-panel', 'studio-side-panel-collapsed');
+      // Dockview can recreate header actions when their orientation changes.
+      // Restore only when this group has stopped being a dedicated side panel.
+      if (
+        element.isConnected &&
+        group.panels.length > 0 &&
+        !getExploreSidePanel(group.panels.map((panel) => panel.api.component))
+      ) {
+        group.api.setHeaderPosition('top');
+      }
+    };
+  }, [group]);
+  useEffect(() => {
+    group.element.classList.toggle('studio-side-panel-collapsed', collapsed);
+    const position = collapsed ? direction : 'top';
+    if (group.api.getHeaderPosition() !== position) group.api.setHeaderPosition(position);
+  }, [group, collapsed, direction]);
   const toggle = () => {
     if (group.api.location.type === 'edge') {
       if (auxiliary?.isManaged(group.id)) auxiliary.setCollapsed(group.id, !collapsed);
@@ -82,14 +114,14 @@ function SidePanelHeaderAction({
       else group.api.collapse();
     } else {
       // Match the utility tray's resize approach without removing the panel's DOM.
-      const width = expandedWidth.current;
+      const width = sideLayout.expandedWidth;
       if (collapsed) {
-        ownsCollapsedConstraints.current = false;
-        group.api.setConstraints(expandedConstraints.current);
+        sideLayout.ownsCollapsedConstraints = false;
+        group.api.setConstraints(sideLayout.expandedConstraints);
         group.api.setSize({ width });
       } else {
-        ownsCollapsedConstraints.current = true;
-        expandedConstraints.current = { minimumWidth: group.minimumWidth, maximumWidth: group.maximumWidth };
+        sideLayout.ownsCollapsedConstraints = true;
+        sideLayout.expandedConstraints = { minimumWidth: group.minimumWidth, maximumWidth: group.maximumWidth };
         group.api.setConstraints({ minimumWidth: COLLAPSED_SIDE_WIDTH, maximumWidth: COLLAPSED_SIDE_WIDTH });
         group.api.setSize({ width: COLLAPSED_SIDE_WIDTH });
       }
@@ -186,6 +218,7 @@ export const WorkbenchHost = withInstrumentation(
     const listenerRef = useRef<{ dispose(): void } | null>(null);
     const apiRef = useRef<DockviewApi | null>(null);
     const mountedRef = useRef(true);
+    const sideLayouts = useMemo(() => new WeakMap<IDockviewHeaderActionsProps['group'], SidePanelLayout>(), []);
     const [auxiliary, setAuxiliary] = useState<AuxiliaryPanelLayout | null>(null);
     const [, setPinRevision] = useState(0);
     const collapseAuxiliary = useDesignPreviewStore((state) => state.preferences.auxiliary);
@@ -272,6 +305,7 @@ export const WorkbenchHost = withInstrumentation(
         <HeaderActionsContext.Provider
           value={{
             auxiliary,
+            sideLayouts,
             refresh: () => setPinRevision((revision) => revision + 1),
             original: rightHeaderActionsComponent
           }}

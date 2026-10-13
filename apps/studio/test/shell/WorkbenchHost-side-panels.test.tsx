@@ -48,22 +48,28 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   await waitFor(() => expect(screen.getByRole('button', { name: 'Hide Type explorer' })).toBeInTheDocument());
   const types = ready!.getPanel('types')!;
   const form = ready!.getPanel('form')!;
+  expect(types.group.element).toHaveClass('studio-side-panel');
+  expect(types.group.api.getHeaderPosition()).toBe('top');
   const originalWidth = types.group.api.width;
   const draft = screen.getByRole('textbox', { name: 'Preview draft' });
   await user.type(draft, ' value');
   await user.click(screen.getByRole('button', { name: 'Hide Type explorer' }));
+  expect(types.group.api.getHeaderPosition()).toBe('left');
   expect(screen.getByRole('button', { name: 'Show Type explorer' })).toHaveAttribute('aria-expanded', 'false');
   await user.click(screen.getByRole('button', { name: 'Hide Preview panel' }));
+  expect(form.group.api.getHeaderPosition()).toBe('right');
   act(() => ready!.layout(1600, 720));
   expect(screen.getByRole('button', { name: 'Show Type explorer' })).toHaveAttribute('aria-expanded', 'false');
   expect(screen.getByRole('button', { name: 'Show Preview panel' })).toHaveAttribute('aria-expanded', 'false');
   await user.click(screen.getByRole('button', { name: 'Show Type explorer' }));
+  expect(types.group.api.getHeaderPosition()).toBe('top');
   expect(screen.getByRole('button', { name: 'Hide Type explorer' })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('button', { name: 'Show Preview panel' })).toHaveAttribute('aria-expanded', 'false');
   expect(types.group.api.width).toBe(originalWidth);
   act(() => ready!.getPanel('model')!.api.setActive());
   expect(screen.getByRole('button', { name: 'Hide Type explorer' })).toHaveAttribute('aria-expanded', 'true');
   await user.click(screen.getByRole('button', { name: 'Show Preview panel' }));
+  expect(form.group.api.getHeaderPosition()).toBe('top');
   await user.click(screen.getByRole('tab', { name: 'form' }));
   expect(screen.getByRole('button', { name: 'Hide Preview panel' })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('textbox', { name: 'Preview draft' })).toBe(draft);
@@ -80,6 +86,8 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
     );
     expect(screen.queryByRole('button', { name: 'Show Type explorer' })).not.toBeInTheDocument();
     expect(types.group.api.width).toBeGreaterThan(52);
+    expect(types.group.element).not.toHaveClass('studio-side-panel');
+    expect(types.group.api.getHeaderPosition()).toBe('top');
   }
   unmount();
 });
