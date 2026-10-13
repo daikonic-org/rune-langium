@@ -49,7 +49,12 @@ export const StudioDockTab = withInstrumentation(
     }, [api]);
 
     return (
-      <div ref={element} className="studio-dock-tab" data-count={count === undefined ? undefined : String(count)}>
+      <div
+        ref={element}
+        className="studio-dock-tab"
+        data-component={api.component}
+        data-count={count === undefined ? undefined : String(count)}
+      >
         <span className="studio-dock-tab__label">{api.title ?? ''}</span>
         {count !== undefined ? (
           <NumberChiclet className="studio-dock-tab__count" title={`${count} item${count === 1 ? '' : 's'}`}>
