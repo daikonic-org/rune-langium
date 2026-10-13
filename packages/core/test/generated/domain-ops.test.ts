@@ -10,6 +10,25 @@ import {
   RosettaFunction,
   RosettaRecordType
 } from '../../src/generated/domain.js';
+import { RosettaAttributeReference, type Dehydrated } from '../../src/index.js';
+
+it('retains the public receiver setter for data and recursive attribute receivers', () => {
+  const data = { $type: 'RosettaDataReference' as const, data: { $refText: 'Person' } };
+  const node: Dehydrated<RosettaAttributeReference> = {
+    $type: 'RosettaAttributeReference',
+    receiver: data,
+    attribute: { $refText: 'name' }
+  };
+  const nested: Dehydrated<RosettaAttributeReference> = {
+    $type: 'RosettaAttributeReference',
+    receiver: data,
+    attribute: { $refText: 'address' }
+  };
+  RosettaAttributeReference.setReceiver(node, nested);
+  expect(node.receiver).toBe(nested);
+  RosettaAttributeReference.setReceiver(node, data);
+  expect(node.receiver).toBe(data);
+});
 
 // ---------------------------------------------------------------------------
 // Minimal test-fixture factories (type-level only — no Langium runtime)

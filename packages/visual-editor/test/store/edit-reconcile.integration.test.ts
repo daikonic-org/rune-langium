@@ -135,6 +135,46 @@ enum Role:
   }
 );
 
+it('retires an optional enum display clear and preserves a later Source display name', async () => {
+  const source = 'namespace test.reconcile\nenum Role:\n  Value displayName "Original label"\n';
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Role').id;
+  const path = ['enumValues', 0] as const;
+  const target = store.getState().captureMetadataTarget(id, path)!;
+  expect(store.getState().applyMetadataCommand(target, { kind: 'display', value: undefined }).status).toBe('committed');
+  const edited = store.getState();
+  const output = buildSourceForNamespaces({
+    nodes: edited.nodes,
+    edges: edited.edges,
+    originalSourceByNamespace: new Map([['test.reconcile', source]]),
+    patches: edited.pendingEditPatches,
+    inversePatches: edited.pendingInversePatches
+  }).get('test.reconcile')!;
+  expect(output).not.toContain('displayName');
+  const caughtUp = await loadInspectorFixture(output);
+  const reconciled = reconcileParse(
+    caughtUp.store.getState().nodes,
+    caughtUp.store.getState().edges,
+    edited.pendingEditPatches
+  );
+  expect(reconciled.remainingPatches).toEqual([]);
+  const sourceEdit = output.replace('Value', 'Value displayName "Source label"');
+  const later = await loadInspectorFixture(sourceEdit);
+  const next = reconcileParse(later.store.getState().nodes, later.store.getState().edges, reconciled.remainingPatches);
+  expect(readAtMetadataPath(next.nodesById.get(id)!.data, path)).toMatchObject({ display: 'Source label' });
+  expect(
+    buildSourceForNamespaces({
+      nodes: [...next.nodesById.values()],
+      edges: [...next.edgesById.values()],
+      originalSourceByNamespace: new Map([['test.reconcile', sourceEdit]]),
+      patches: next.remainingPatches
+    }).get('test.reconcile')
+  ).toBe(sourceEdit);
+  store.getState().loadModels((await parse(output)).value);
+  store.getState().loadModels((await parse(sourceEdit)).value);
+  expect(store.getState().captureMetadataTarget(id, path)!.expected).toMatchObject({ display: 'Source label' });
+});
+
 describe('edit-reconcile — store integration', () => {
   let store: ReturnType<typeof createEditorStore>;
   let baseModels: unknown;

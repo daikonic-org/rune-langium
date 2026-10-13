@@ -3,11 +3,12 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { act, fireEvent, render, screen, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, screen, cleanup, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorFormProvider } from '../../src/components/forms/EditorFormProvider.js';
 import { MetadataSection } from '../../src/components/editors/MetadataSection.js';
 import { AnnotationSection } from '../../src/components/editors/AnnotationSection.js';
+import { SynonymEditor } from '../../src/components/editors/SynonymEditor.js';
 import {
   MetadataTargetProvider,
   useMetadataBinding
@@ -18,6 +19,108 @@ import { SCHEMA_BY_TYPE } from '../../src/schemas/schema-by-type.js';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
 import type { z } from 'zod';
 import { createEditorCommitRegistry } from '../../src/hooks/editor-commit-lifecycle.js';
+import { getMetadataItems } from '../../src/store/metadata-ops.js';
+
+it.each([
+  ['annotation', 'readOnly'],
+  ['annotation', 'stale'],
+  ['synonym', 'readOnly'],
+  ['synonym', 'stale']
+] as const)('retries a rich %s draft after a transient %s result', async (kind, status) => {
+  const { parse } = await import('@rune-langium/core');
+  const source = `namespace demo.forms
+synonym source FpML
+annotation marking:
+  scheme string (1..1)
+type Person:
+  name string (1..1) [marking scheme "scheme"="oldAnnotation"] [synonym FpML value "oldSynonym"]
+`;
+  const { store, getNode } = await loadInspectorFixture(source);
+  const root = getNode('Person');
+  const registry = createEditorCommitRegistry();
+  const itemPath = `attributes.0.${kind === 'annotation' ? 'annotations' : 'synonyms'}.0`;
+  let blocked = false;
+  const applyMetadataCommand = vi.fn<ReturnType<typeof store.getState>['applyMetadataCommand']>((target, command) =>
+    blocked ? { status } : store.getState().applyMetadataCommand(target, command)
+  );
+  const actions: ReturnType<typeof store.getState> = {
+    ...store.getState(),
+    applyMetadataCommand
+  };
+  function Fixture() {
+    const form = useForm({ defaultValues: root.data });
+    const row = {
+      key: 'name',
+      name: 'name',
+      inherited: false,
+      path: ['attributes', 0] as const,
+      node: store.getState().captureMetadataTarget(root.id, ['attributes', 0])!.expected
+    };
+    const selection = useInspectorSelection('retry', [row]);
+    const binding = useMetadataBinding({
+      scopeKey: 'retry',
+      nodeId: root.id,
+      root: root.data,
+      row,
+      selection,
+      actions
+    });
+    return (
+      <EditorFormProvider {...form} schema={SCHEMA_BY_TYPE.Data as z.ZodObject} registerCommitFlush={registry.register}>
+        <button onClick={() => form.setError(itemPath, { type: 'zodSchema', message: 'Invalid metadata' })}>
+          Schema error
+        </button>
+        <button onClick={() => form.clearErrors(itemPath)}>Clear schema error</button>
+        <EditorActionsProvider nodeId={root.id} actions={actions} allNodes={store.getState().nodes}>
+          <MetadataTargetProvider value={binding}>
+            {kind === 'annotation' ? (
+              <AnnotationSection />
+            ) : (
+              <SynonymEditor field="synonyms" kind="body" formPrefix="attributes.0" sourceOptions={[]} />
+            )}
+          </MetadataTargetProvider>
+        </EditorActionsProvider>
+      </EditorFormProvider>
+    );
+  }
+  render(<Fixture />);
+  fireEvent.click(
+    screen.getByRole('button', { name: kind === 'annotation' ? 'Edit marking annotation' : 'Edit synonym 1' })
+  );
+  const input =
+    kind === 'annotation'
+      ? screen.getByLabelText('Qualifier 1 value')
+      : within(screen.getByRole('group', { name: 'Synonym details' })).getByLabelText('Synonym value');
+  fireEvent.change(input, { target: { value: 'First value' } });
+  fireEvent.blur(input);
+  fireEvent.click(screen.getByRole('button', { name: 'Schema error' }));
+  const committedCalls = applyMetadataCommand.mock.calls.length;
+  act(() => expect(() => registry.flush()).not.toThrow());
+  expect(applyMetadataCommand).toHaveBeenCalledTimes(committedCalls);
+  fireEvent.click(screen.getByRole('button', { name: 'Clear schema error' }));
+  blocked = true;
+  fireEvent.change(input, { target: { value: 'Second value' } });
+  fireEvent.blur(input);
+  if (kind === 'synonym') {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('group', { name: 'Synonym details' })).toBeInTheDocument();
+  }
+  act(() => {
+    expect(() => registry.flush()).toThrow('waiting for the current Rune source to parse');
+    expect(() => registry.flush()).toThrow('waiting for the current Rune source to parse');
+  });
+  expect(input).toHaveValue('Second value');
+  const parsed = await parse(source.replace(kind === 'annotation' ? 'oldAnnotation' : 'oldSynonym', 'First value'));
+  act(() => store.getState().loadModels(parsed.value));
+  blocked = false;
+  act(() => expect(() => registry.flush()).not.toThrow());
+  const owner = store.getState().captureMetadataTarget(root.id, ['attributes', 0])!.expected;
+  expect(getMetadataItems(owner, kind === 'annotation' ? 'annotations' : 'synonyms')[0]).toMatchObject(
+    kind === 'annotation'
+      ? { qualifiers: [{ qualValue: 'Second value' }] }
+      : { body: { values: [{ name: 'Second value' }] } }
+  );
+});
 
 afterEach(() => {
   cleanup();

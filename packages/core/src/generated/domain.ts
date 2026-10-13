@@ -943,6 +943,12 @@ export namespace RegulatoryDocumentReference {
 
 export type RosettaAttributeReference = ast.RosettaAttributeReference;
 export namespace RosettaAttributeReference {
+  export function setReceiver(
+    node: Dehydrated<ast.RosettaAttributeReference>,
+    receiver: Dehydrated<ast.RosettaAttributeReference>['receiver']
+  ): void {
+    node.receiver = receiver;
+  }
   export function setAttribute(node: Dehydrated<ast.RosettaAttributeReference>, refText: string): void {
     node.attribute = { $refText: refText };
   }
@@ -1005,6 +1011,12 @@ export namespace RosettaClassSynonym {
 
 export type RosettaConstructorExpression = ast.RosettaConstructorExpression;
 export namespace RosettaConstructorExpression {
+  export function setTypeRef(
+    node: Dehydrated<ast.RosettaConstructorExpression>,
+    typeRef: Dehydrated<ast.RosettaConstructorExpression>['typeRef']
+  ): void {
+    node.typeRef = typeRef;
+  }
   export function getConstructorTypeArgs(
     node: Dehydrated<ast.RosettaConstructorExpression>
   ): Dehydrated<ast.TypeCallArgument>[] {

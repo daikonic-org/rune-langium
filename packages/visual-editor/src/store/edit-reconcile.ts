@@ -146,7 +146,7 @@ export function patchAlreadySatisfied(parse: GraphDraft, patch: Patch): boolean 
   if (!Array.isArray(patch.path)) return false;
   const { found, value } = readPath(parse, patch.path);
   if (patch.op === 'remove') return !found;
-  if (!found) return false;
+  if (!found) return patch.value === undefined && typeof patch.path[patch.path.length - 1] === 'string';
   return authoredValuesEqual(value, patch.value);
 }
 

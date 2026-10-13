@@ -155,7 +155,7 @@ function SynonymItemEditor({
             <button
               type="button"
               onClick={() => {
-                commit();
+                if (commit() === false) return;
                 onClose();
               }}
               className="text-xs"

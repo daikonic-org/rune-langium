@@ -122,6 +122,18 @@ describe('edit-reconcile', () => {
     expect(patchAlreadySatisfied(graph(otherAuthoredField), patch)).toBe(false);
   });
 
+  it.each(['add', 'replace'] as const)('recognizes an absent optional property as an undefined %s', (op) => {
+    const graph = projectGraph([dataNode('ns.Alpha', 'Alpha', [{ name: 'x', type: 'string' }])], NO_EDGES);
+    const path = ['nodes', 'ns.Alpha', 'data', 'attributes', 0, 'definition'];
+    expect(patchAlreadySatisfied(graph, { op, path, value: undefined })).toBe(true);
+    for (const value of [null, false, '']) {
+      expect(patchAlreadySatisfied(graph, { op, path, value })).toBe(false);
+    }
+    expect(
+      patchAlreadySatisfied(graph, { op, path: ['nodes', 'ns.Alpha', 'data', 'attributes', 1], value: undefined })
+    ).toBe(false);
+  });
+
   it('does not duplicate an added attribute renamed before its source reparse', () => {
     const initial = [dataNode('ns.Alpha', 'Alpha', [{ name: 'quantity', type: 'number' }])];
     const added = commitGraphEdit(initial, NO_EDGES, (draft) => {

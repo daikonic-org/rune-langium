@@ -1,0 +1,29 @@
+diff --git a/dist/emitters/namespace-ops.js b/dist/emitters/namespace-ops.js
+index 9deaadb11e1a772665276b0ae7bf57606b121149..f5a400ca518a329977034f1e534a365d793d9fc9 100644
+--- a/dist/emitters/namespace-ops.js
++++ b/dist/emitters/namespace-ops.js
+@@ -13,6 +13,10 @@ function classifyField(fieldName, zodType, optional, objectTypeNames) {
+             return { tag: 'skip' };
+         return { tag: 'singleNode', fieldName, typeName: zodType.typeName, optional };
+     }
++    if (zodType.kind === 'union' && zodType.members.length > 0 &&
++        zodType.members.every((member) => member.kind === 'reference' && objectTypeNames.has(member.typeName))) {
++        return { tag: 'singleNode', fieldName, optional };
++    }
+     if (zodType.kind === 'crossReference') {
+         return { tag: 'crossRef', fieldName, targetType: zodType.targetType, optional };
+     }
+@@ -85,9 +89,11 @@ function emitSingleNodeOps(typeName, field) {
+     const safeFieldParam = safeParam(fieldName);
+     const Field = capitalize(fieldName);
+     const T = astRef(typeName);
+-    const F = astRef(fieldTypeName);
++    const F = fieldTypeName
++        ? `Dehydrated<${astRef(fieldTypeName)}>`
++        : `Dehydrated<${T}>[${JSON.stringify(fieldName)}]`;
+     const lines = [
+-        `  export function set${Field}(node: Dehydrated<${T}>, ${safeFieldParam}: Dehydrated<${F}>): void {`,
++        `  export function set${Field}(node: Dehydrated<${T}>, ${safeFieldParam}: ${F}): void {`,
+         `    node.${fieldName} = ${safeFieldParam};`,
+         `  }`,
+     ];

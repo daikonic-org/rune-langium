@@ -39,7 +39,7 @@ export function useMetadataItemLease(
   };
 }
 
-/** Rich edits use the declaration's existing save barrier, including focused inputs. */
+/** Rich edits share the declaration save barrier; transient commit errors remain retryable. */
 export function useMetadataItemCommit(
   field: 'annotations' | 'synonyms' | 'enumSynonyms',
   index: number,
@@ -51,7 +51,8 @@ export function useMetadataItemCommit(
   const replace = useMetadataItemLease(field, index, expected);
   const registry = useEditorCommitRegistry();
   const commit = () => {
-    if (!binding || getFieldState(path).invalid) return;
+    const state = getFieldState(path);
+    if (!binding || (state.invalid && state.error?.type !== 'commit')) return;
     if (binding.readOnly) {
       const current = binding.currentTarget();
       const item = current && getMetadataItems(current.expected, field)[index];
@@ -59,12 +60,14 @@ export function useMetadataItemCommit(
     }
     const result = replace(getValues(path));
     if (result.status === 'committed') clearErrors(path);
-    else
+    else {
       setError(path, {
-        type: 'commit',
+        type: result.status === 'invalid' ? 'validate' : 'commit',
         message:
           result.status === 'invalid' ? result.issues[0]?.message : 'This item changed before the edit could be saved.'
       });
+      if (result.status === 'readOnly' || result.status === 'stale') return false;
+    }
   };
   const latest = useRef(commit);
   latest.current = commit;

@@ -26,6 +26,7 @@ packageExtensionsChecksum: sha256-tPitCNUFutwUwyNLYfr/kXx7HP/Rj2KZog+7pbgM8ws=
 
 patchedDependencies:
   braces@3.0.3: 34eb31fe97613665c68c7d975f52a39cfe1a8be6064d9d12687b19ab626b4564
+  langium-zod@0.12.2: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
 
 importers:
 
@@ -579,7 +580,7 @@ importers:
         version: 4.4.0
       langium-zod:
         specifier: 0.12.2
-        version: 0.12.2
+        version: 0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -787,7 +788,7 @@ importers:
         version: 30.1.2
       langium-zod:
         specifier: 0.12.2
-        version: 0.12.2
+        version: 0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -10410,7 +10411,7 @@ snapshots:
       langium: 4.4.0
       railroad-diagrams: 1.0.0
 
-  langium-zod@0.12.2:
+  langium-zod@0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
     dependencies:
       humanize-string: 3.1.0
       langium: 4.4.0
