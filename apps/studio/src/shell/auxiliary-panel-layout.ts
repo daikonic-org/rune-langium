@@ -25,6 +25,7 @@ export const collapseAuxiliaryPanels = withInstrumentation(
     const pinned = new Set<string>();
     const managed = new Set<string>();
     const created = new Set<EdgeGroupPosition>();
+    const headerListeners: Array<{ dispose(): void }> = [];
     const policy = AUXILIARY_PANELS[perspective];
 
     for (const position of ['left', 'right', 'bottom'] as const) {
@@ -59,21 +60,55 @@ export const collapseAuxiliaryPanels = withInstrumentation(
       if (!group) continue;
       if (!existing) {
         created.add(position);
-        edge.setHeaderPosition(position === 'bottom' ? 'top' : position);
+        // Expanded tools retain the normal horizontal panel/tab chrome.
+        // Only collapsed side strips need a vertical header.
+        edge.setHeaderPosition('top');
+        if (position !== 'bottom') {
+          headerListeners.push(
+            edge.onDidCollapsedChange(({ isCollapsed }) => {
+              edge.setHeaderPosition(isCollapsed ? position : 'top');
+            })
+          );
+        }
       }
       if (!edge.isCollapsed()) pinned.add(edge.id);
       managed.add(edge.id);
       for (const panel of panels) panel.api.moveTo({ group, position: 'center', skipSetActive: true });
     }
 
+    let returningFocus = false;
     const listener = api.onDidActiveGroupChange((active) => {
+      // Edge tabs focus their group on pointer-down, then toggle on click.
+      // Let Dockview own that toggle and keep other tool panels open.
+      if (returningFocus || active?.api.location.type !== 'grid') return;
       for (const position of ['left', 'right', 'bottom'] as const) {
         const edge = api.getEdgeGroup(position);
         if (!edge || !managed.has(edge.id)) continue;
-        if (edge.id === active?.id || pinned.has(edge.id)) edge.expand();
-        else edge.collapse();
+        if (!pinned.has(edge.id)) edge.collapse();
       }
     });
+    let activationReady = false;
+    const activation = api.onDidActivePanelChange(({ panel, origin }) => {
+      // API navigation has no subsequent native tab click to open the edge.
+      // Ignore the emitter's replay of the selection that existed before setup.
+      if (activationReady && panel && origin === 'api' && managed.has(panel.group.id)) panel.group.api.expand();
+    });
+    activationReady = true;
+    const keyboardListeners = api.groups
+      .filter((group) => managed.has(group.id))
+      .map((group) => {
+        const onKeyDown = (event: KeyboardEvent) => {
+          if (
+            (event.key === 'Enter' || event.key === ' ') &&
+            event.target instanceof Element &&
+            event.target.closest('.dv-tab')
+          )
+            group.api.expand();
+        };
+        // Run after the native tab-list keyboard handler has selected the panel.
+        group.element.addEventListener('keydown', onKeyDown);
+        return () => group.element.removeEventListener('keydown', onKeyDown);
+      });
 
     return {
       isManaged: (id: string) => managed.has(id),
@@ -84,7 +119,12 @@ export const collapseAuxiliaryPanels = withInstrumentation(
         if (pinned.has(id)) {
           pinned.delete(id);
           group.api.collapse();
-          api.panels.find((panel) => panel.api.location.type === 'grid')?.api.setActive();
+          returningFocus = true;
+          try {
+            api.panels.find((panel) => panel.api.location.type === 'grid')?.api.setActive();
+          } finally {
+            returningFocus = false;
+          }
         } else {
           pinned.add(id);
           group.api.expand();
@@ -92,6 +132,9 @@ export const collapseAuxiliaryPanels = withInstrumentation(
       },
       dispose(restore = true) {
         listener.dispose();
+        activation.dispose();
+        headerListeners.forEach((listener) => listener.dispose());
+        keyboardListeners.forEach((dispose) => dispose());
         if (restore) {
           api.fromJSON(original, { reuseExistingPanels: true });
           for (const position of created) {

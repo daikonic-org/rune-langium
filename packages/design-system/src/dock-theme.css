@@ -317,7 +317,7 @@
  * (`--rs-line` ≈ 10% near-white), giving the edge just enough definition
  * without becoming a heavy full border. */
 .studio-app .rune-dock-theme .dv-groupview {
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--card);
   box-shadow:
@@ -332,7 +332,7 @@
   align-items: center;
   min-height: 34px;
   padding: 3px 6px 4px;
-  border-radius: 12px 12px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background:
     linear-gradient(
       180deg,
@@ -344,15 +344,21 @@
 
 /* Native edge headers can run down either side instead of across the top. */
 .studio-app .rune-dock-theme .dv-groupview-header-left > .dv-tabs-and-actions-container {
-  border-radius: var(--radius-lg, 12px) 0 0 var(--radius-lg, 12px);
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
 }
 
 .studio-app .rune-dock-theme .dv-groupview-header-right > .dv-tabs-and-actions-container {
-  border-radius: 0 var(--radius-lg, 12px) var(--radius-lg, 12px) 0;
+  border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
 }
 
 .studio-app .rune-dock-theme .dv-edge-collapsed > .dv-tabs-and-actions-container {
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-xl);
+}
+
+/* Keep native edge tabs on the same rounded selectors as grid panels.
+ * This must be unlayered to beat Dockview's own theme defaults. */
+.studio-app .rune-dock-theme .dv-tab {
+  border-radius: var(--radius-md);
 }
 
 /* Dockview tab text defaults are theme-defined and unlayered, so keep these

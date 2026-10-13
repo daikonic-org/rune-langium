@@ -74,7 +74,6 @@
 
 :root[data-design-preview-details='true'] .studio-app :is(.studio-topbar, .studio-layout-presets, .studio-center-stack__bar) button {
   min-height: var(--space-7);
-  border-radius: var(--radius-sm);
 }
 
 :root[data-design-preview-details='true'] .studio-app :is(.studio-topbar, .studio-layout-presets, .studio-center-stack__bar) button > svg {
@@ -85,14 +84,6 @@
 :root[data-design-preview-details='true'] .studio-app .studio-paneswitch {
   height: var(--space-7);
   border-radius: var(--radius-full);
-}
-
-:root[data-design-preview-details='true'] .studio-app .studio-paneswitch__seg {
-  border-radius: 0;
-}
-
-:root[data-design-preview-details='true'] .studio-app :is(.studio-type-row, .rune-ns-seg-header) :is([data-slot='badge'], [data-slot='number-chiclet']) {
-  border-radius: var(--radius-sm);
 }
 
 :root[data-design-preview-details='true'] .studio-app .dv-tabs-and-actions-container {
