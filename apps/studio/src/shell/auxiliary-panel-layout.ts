@@ -31,6 +31,26 @@ export const getExploreSidePanel = withInstrumentation(
   { op: 'getExploreSidePanel' }
 );
 
+/** Restore older split preview columns as one Form/Code group without replacing views. */
+export const consolidateExplorePreviewPanels = withInstrumentation(
+  function consolidateExplorePreviewPanels(api: DockviewApi): void {
+    const panels = api.panels.filter(
+      (panel) =>
+        panel.api.location.type === 'grid' &&
+        getExploreSidePanel(panel.group.panels.map((item) => item.api.component))?.direction === 'right'
+    );
+    const anchor = panels.find((panel) => panel.api.component === 'workspace.formPreview') ?? panels[0];
+    if (!anchor) return;
+    const active = api.activePanel;
+    for (const panel of panels) {
+      if (panel.group !== anchor.group)
+        panel.api.moveTo({ group: anchor.group, position: 'center', skipSetActive: true });
+    }
+    if (active && panels.includes(active)) active.api.setActive();
+  },
+  { op: 'consolidateExplorePreviewPanels' }
+);
+
 /** Use native edge-group collapse/expand; no enterprise peek-module dependency. */
 export const collapseAuxiliaryPanels = withInstrumentation(
   function collapseAuxiliaryPanels(api: DockviewApi, perspective: WorkbenchDefinition['id']) {

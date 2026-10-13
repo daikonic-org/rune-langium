@@ -2037,6 +2037,7 @@ export const ExplorePerspective = withInstrumentation(
       () => (
         <div className="h-full">
           <NamespaceExplorerPanel
+            showHeading={false}
             nodeRepository={nodeRepository}
             expandedNamespaces={expandedNamespaces}
             hiddenNodeIds={hiddenNodeIds}

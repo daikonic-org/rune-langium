@@ -2233,6 +2233,17 @@ html {
   display: none;
 }
 
+/* The shared chevron leads the vertical titles instead of sitting at the rail's foot. */
+.studio-app .studio-side-panel-collapsed > .dv-tabs-and-actions-container > .dv-right-actions-container {
+  order: -1;
+  flex: 0 0 auto;
+  margin-bottom: var(--space-2);
+}
+
+.studio-app .studio-side-panel-collapsed .studio-panel-actions {
+  margin-right: 0;
+}
+
 .studio-app .studio-center-stack-container {
   container-type: inline-size;
 }

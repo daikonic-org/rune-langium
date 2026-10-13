@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { afterEach, expect, it } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DockviewApi } from 'dockview-react';
 import { WorkbenchHost } from '../../src/shell/WorkbenchHost.js';
@@ -21,7 +21,8 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
         panels: {
           'workspace.visualPreview': () => <div>Model</div>,
           'workspace.fileTree': () => <div>Types</div>,
-          'workspace.formPreview': () => <input aria-label="Preview draft" defaultValue="unfinished" />
+          'workspace.formPreview': () => <input aria-label="Preview draft" defaultValue="unfinished" />,
+          'workspace.codePreview': () => <input aria-label="Code draft" defaultValue="generated" />
         },
         titles: {},
         buildDefault(api) {
@@ -36,6 +37,11 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
             component: 'workspace.formPreview',
             position: { referencePanel: model.id, direction: 'right' }
           });
+          api.addPanel({
+            id: 'code',
+            component: 'workspace.codePreview',
+            position: { referencePanel: 'form', direction: 'right' }
+          });
         }
       }}
       onReady={(api) => {
@@ -48,11 +54,17 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   await waitFor(() => expect(screen.getByRole('button', { name: 'Hide Type explorer' })).toBeInTheDocument());
   const types = ready!.getPanel('types')!;
   const form = ready!.getPanel('form')!;
+  const code = ready!.getPanel('code')!;
+  expect(code.group).toBe(form.group);
+  expect(screen.getAllByRole('button', { name: 'Hide Preview panel' })).toHaveLength(1);
+  expect(screen.getByRole('tab', { name: 'Type explorer' })).toBeInTheDocument();
   expect(types.group.element).toHaveClass('studio-side-panel');
   expect(types.group.api.getHeaderPosition()).toBe('top');
   const originalWidth = types.group.api.width;
+  await user.click(screen.getByRole('tab', { name: 'form' }));
+  expect(form.group.activePanel?.id).toBe('form');
   const draft = screen.getByRole('textbox', { name: 'Preview draft' });
-  await user.type(draft, ' value');
+  fireEvent.change(draft, { target: { value: 'unfinished value' } });
   await user.click(screen.getByRole('button', { name: 'Hide Type explorer' }));
   expect(types.group.api.getHeaderPosition()).toBe('left');
   expect(screen.getByRole('button', { name: 'Show Type explorer' })).toHaveAttribute('aria-expanded', 'false');
@@ -75,6 +87,15 @@ it.each([false, true])('provides explicit side-panel toggles with edge preview=%
   expect(screen.getByRole('textbox', { name: 'Preview draft' })).toBe(draft);
   expect(draft).toHaveValue('unfinished value');
   expect(ready!.getPanel('form')).toBe(form);
+  await user.click(screen.getByRole('tab', { name: 'code' }));
+  const codeDraft = screen.getByRole('textbox', { name: 'Code draft' });
+  fireEvent.change(codeDraft, { target: { value: 'generated value' } });
+  expect(codeDraft).toHaveValue('generated value');
+  await user.click(screen.getByRole('button', { name: 'Hide Preview panel' }));
+  expect(screen.getAllByRole('button', { name: 'Show Preview panel' })).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: 'Show Preview panel' }));
+  expect(screen.getByRole('textbox', { name: 'Code draft' })).toBe(codeDraft);
+  expect(codeDraft).toHaveValue('generated value');
   if (!preview) {
     await user.click(screen.getByRole('button', { name: 'Hide Type explorer' }));
     act(() =>

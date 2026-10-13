@@ -20,14 +20,14 @@ export const StudioDockTab = withInstrumentation(
       const tab = element.current?.closest('.dv-tab');
       if (!tab) return;
       const select = (event: Event) => {
-        if (event.defaultPrevented || api.location.type !== 'edge') return;
+        if (event.defaultPrevented) return;
         if (!getExploreSidePanel(api.group.panels.map((panel) => panel.api.component))) return;
         if (event instanceof MouseEvent && (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey))
           return;
         // Side tabs select a view; the explicit chevron alone hides the panel.
         event.preventDefault();
         api.setActive();
-        api.group.api.expand();
+        if (api.location.type === 'edge') api.group.api.expand();
       };
       tab.addEventListener('click', select, true);
       return () => tab.removeEventListener('click', select, true);

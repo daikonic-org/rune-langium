@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDockview, type DockviewApi } from 'dockview-react';
-import { collapseAuxiliaryPanels } from '../../src/shell/auxiliary-panel-layout.js';
+import { collapseAuxiliaryPanels, consolidateExplorePreviewPanels } from '../../src/shell/auxiliary-panel-layout.js';
 
 let api: DockviewApi;
 afterEach(() => api?.dispose());
@@ -23,6 +23,42 @@ function clickTab(panel: { group: { element: HTMLElement }; id: string }) {
 }
 
 describe('auxiliary edge panels', () => {
+  it('consolidates split preview groups while retaining active selection and panel identity', () => {
+    const api = createWorkbench();
+    const form = api.addPanel({ id: 'form', component: 'workspace.formPreview' });
+    const code = api.addPanel({
+      id: 'code',
+      component: 'workspace.codePreview',
+      position: { referencePanel: 'form', direction: 'right' }
+    });
+    code.api.setActive();
+    consolidateExplorePreviewPanels(api);
+    expect(form.group).toBe(code.group);
+    expect(api.getPanel('code')).toBe(code);
+    expect(api.activePanel).toBe(code);
+    consolidateExplorePreviewPanels(api);
+    expect(form.group.panels).toHaveLength(2);
+  });
+
+  it('preserves preview groups that share the main task', () => {
+    const api = createWorkbench();
+    const form = api.addPanel({ id: 'form', component: 'workspace.formPreview' });
+    const model = api.addPanel({
+      id: 'model',
+      component: 'workspace.visualPreview',
+      position: { referencePanel: 'form', direction: 'within' }
+    });
+    const code = api.addPanel({
+      id: 'code',
+      component: 'workspace.codePreview',
+      position: { referencePanel: 'form', direction: 'right' }
+    });
+    model.api.setActive();
+    consolidateExplorePreviewPanels(api);
+    expect(code.group).not.toBe(form.group);
+    expect(api.activePanel).toBe(model);
+  });
+
   it('selects a different tab in a hidden edge on the first click', () => {
     const api = createWorkbench();
     api.addPanel({ id: 'model', component: 'workspace.visualPreview' });

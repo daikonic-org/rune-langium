@@ -105,6 +105,13 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof NamespaceExp
 }
 
 describe('NamespaceExplorerPanel', () => {
+  it('uses a host heading without losing counts or search controls', () => {
+    renderPanel({ showHeading: false });
+    expect(screen.queryByText('Type explorer')).not.toBeInTheDocument();
+    expect(screen.getByTestId('namespace-explorer-count')).toHaveTextContent(`${defaultNodes.length} available`);
+    expect(screen.getByRole('textbox', { name: 'Filter types or namespaces' })).toBeInTheDocument();
+  });
+
   it('opens parent namespace rows without opening multiple child branches', () => {
     renderPanel();
     const toggle = within(screen.getByTestId('ns-seg-com')).getByRole('button', { name: 'com', exact: true });

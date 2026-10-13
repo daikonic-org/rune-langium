@@ -12,8 +12,14 @@ import { StudioDockTab } from './StudioDockTab.js';
 import type { WorkbenchDefinition, WorkbenchHostProps } from './workbench-types.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { useDesignPreviewStore } from '../store/design-preview-store.js';
-import { collapseAuxiliaryPanels, getExploreSidePanel, type AuxiliaryPanelLayout } from './auxiliary-panel-layout.js';
+import {
+  collapseAuxiliaryPanels,
+  consolidateExplorePreviewPanels,
+  getExploreSidePanel,
+  type AuxiliaryPanelLayout
+} from './auxiliary-panel-layout.js';
 import { PanelCollapseButton } from './PanelCollapseButton.js';
+import { PANEL_TITLES } from './layout-factory.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
 
@@ -277,6 +283,13 @@ export const WorkbenchHost = withInstrumentation(
         currentDefinition.buildDefault(event.api, viewportWidth());
         currentDefinition.reconcile?.(event.api, viewportWidth());
         onRestoreFallbackRef.current?.();
+      }
+
+      if (currentDefinition.id === 'explore') {
+        consolidateExplorePreviewPanels(event.api);
+        for (const panel of event.api.panels) {
+          if (panel.api.component === 'workspace.fileTree') panel.api.setTitle(PANEL_TITLES['workspace.fileTree']);
+        }
       }
 
       listenerRef.current = event.api.onDidLayoutChange(() => {

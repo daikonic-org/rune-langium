@@ -3,7 +3,12 @@
 
 /** Inline value basics; optional standalone metadata delegates to shared editors. */
 
-import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+import {
+  INSPECTOR_ROW_CLASS,
+  INSPECTOR_ROW_NAME_CLASS,
+  inspectorRowAttributes,
+  type InspectorRowProps
+} from './inspector/inspector-row.js';
 
 import { useEffect, useCallback } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -148,7 +153,7 @@ function EnumValueRow({
     <div
       {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="enum-value-row"
-      className="rune-inspector-row border border-transparent px-1 py-1 hover:border-border"
+      className={INSPECTOR_ROW_CLASS}
       role="listitem"
       draggable={!effectiveReadOnly}
       onDragStart={handleDragStart}
@@ -185,7 +190,7 @@ function EnumValueRow({
                 disabled={effectiveReadOnly}
                 aria-label={`Value name for ${name || 'new value'}`}
                 placeholder="Value name"
-                className={`flex-1 min-w-0 px-2 py-1 text-sm${isEmpty ? ' border-destructive' : ''}`}
+                className={`flex-1 ${INSPECTOR_ROW_NAME_CLASS}${isEmpty ? ' border-destructive' : ''}`}
               />
             );
           }}
