@@ -71,6 +71,17 @@ adapted metadata contract, permits omitted zero-minimum arrays, and leaves Data
 conditions to their separate validation flow. Generated
 functions expose ordered `parameterNames` metadata, including single-file bundles.
 Studio maps validated fields through this order and then invokes the positional API.
+
+TypeScript `single-file` bundles contain `model.ts` and `helpers.ts`; distribute
+both files. The model starts with imports and declarations, while shared runtime
+implementations live only in the companion. Barrel bundles use the same companion
+instead of the former `runtime.ts`. Helper filenames gain a numeric suffix when
+a namespace already owns that path. Model files precede companion files in
+generator output, so previews open the model by default. Parameters and shortcuts
+escape runtime globals such as `Number`, `undefined` and `Math`; original Rune
+input names remain in `parameterNames`. Python similarly protects names imported
+by its runtime, including `math`, while retaining ordinary builtin parameter names.
+
 Functions enforce declared output bounds at runtime, including absent-only `(0..0)` outputs.
 Required metadata assignment fields reject absent values. Metadata helper discovery
 follows linked declarations, including imported constructor and assignment fields.

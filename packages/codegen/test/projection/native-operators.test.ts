@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { describe, it, expect } from 'vitest';
 import { parseExpression, isData, isRosettaModel } from '@rune-langium/core';
 import { transpileExpression, type ExpressionTranspilerContext } from '../../src/expr/transpiler.js';
@@ -14,7 +15,6 @@ import { linkedFunctions } from './python-test-utils.js';
 import { generatedDirectory } from '../helpers/generated-directory.js';
 import { AstUtils } from 'langium';
 import { generate } from '../../src/export.js';
-import { createRequire } from 'node:module';
 
 const context: ExpressionTranspilerContext = {
   selfName: 'data',
@@ -99,12 +99,7 @@ func RequiredOutput:
       target: 'typescript',
       typescript: { layout: 'single-file' }
     });
-    const source = files.find((file) => file.content.includes('function RequiredOutput'))!.content;
-    const javascript = ts.transpileModule(source, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    const exports: { RequiredOutput?: (flag: boolean) => number } = {};
-    new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
+    const exports = compileGeneratedTypeScript(files);
     expect(exports.RequiredOutput!(true)).toBe(2);
     expect(() => exports.RequiredOutput!(false)).toThrow("Function 'RequiredOutput' produced no result");
   });
@@ -172,11 +167,7 @@ func Anchor:
     expect(absent({ isSpecified: false, legalDocument: '' })).toBe(false);
     expect(absent({ isSpecified: true })).toBe(false);
     const files = await generate([AstUtils.getDocument(func!)], { target: 'typescript' });
-    const javascript = ts.transpileModule(files[0]!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    const exports: Record<string, unknown> = {};
-    new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
+    const exports = compileGeneratedTypeScript<Record<string, unknown>>(files);
     const Terms = exports.OtherAgreementTerms as new (data: { isSpecified: boolean; legalDocument?: string }) => {
       validateNotSpecified(): { valid: boolean };
       validateSpecified(): { valid: boolean };

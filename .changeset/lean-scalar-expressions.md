@@ -21,3 +21,10 @@ Retain ordered function metadata in single-file output. Show purpose-built objec
 equality methods in display bodies while JSON exports keep canonical comparisons.
 Use safe schema extension for inherited refinements and shorter unique callable
 references with collision-safe aliases.
+
+Extract bundled TypeScript runtime implementations into `helpers.ts`, replacing
+the former barrel `runtime.ts` and removing duplicated helpers from `model.ts`.
+Keep model files before companions in preview/download ordering and allocate a
+suffix when a namespace owns the helper filename. Protect TypeScript runtime
+globals and Python imported module bindings from positional input collisions,
+while preserving original Rune names in ordered function metadata.

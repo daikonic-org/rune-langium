@@ -209,7 +209,7 @@ function groupByNamespace(docs: LangiumDocument[]): Map<string, LangiumDocument[
  *
  * @param docs - One or more parsed Langium documents.
  * @param options - Generator options.
- * @returns Array of GeneratorOutput, sorted by relativePath.
+ * @returns Model outputs followed by companion files, with deterministic paths within each group.
  * @throws GeneratorError when strict mode is enabled and any error diagnostic is produced.
  */
 export async function runGenerate(
@@ -308,8 +308,11 @@ export async function runGenerate(
         }
       }
 
-      // Sort by relativePath for deterministic output (SC-007)
-      outputs.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+      outputs.sort(
+        (a, b) =>
+          Number(a.artifactRole === 'support') - Number(b.artifactRole === 'support') ||
+          a.relativePath.localeCompare(b.relativePath)
+      );
     }
   }
 

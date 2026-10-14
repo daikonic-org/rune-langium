@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { spawnSync } from 'node:child_process';
 import ts from 'typescript-classic';
 import { AstUtils } from 'langium';
@@ -46,6 +45,18 @@ func SynthesizedShadow:
  inputs: seed number (1..1) ^class number (1..1)
  output: answer number (1..1)
  set answer: class_input(^class)
+func GlobalInputs:
+ inputs: Number number (1..1) undefined number (0..1) math number (1..1) Math number (1..1) text string (1..1) value number (1..1)
+ output: answer number (1..1)
+ set answer: (text to-number) + (value to-int) + Number + (undefined default 0) + math + Math
+func ModuleInput:
+ inputs: math number (1..1) values number (0..*)
+ output: answer number (0..*)
+ set answer: values distinct
+func MissingSentinel:
+ inputs: undefined number (1..1) flag boolean (1..1)
+ output: answer number (0..1)
+ set answer: if flag then 1 else empty
 `;
 
 function assertModuleSyntax(code: string) {
@@ -104,29 +115,8 @@ Ordered({first: 1, second: 2});
 // @ts-expect-error Preserve each parameter's type.
 Ordered(1, 'wrong');
 `;
-  const filename = resolve(import.meta.dirname, 'generated-positional-api.ts');
-  const options: ts.CompilerOptions = {
-    strict: true,
-    noEmit: true,
-    skipLibCheck: true,
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
-    types: []
-  };
-  const host = ts.createCompilerHost(options),
-    readFile = host.readFile.bind(host);
-  host.readFile = (path) => (path === filename ? code + assertions : readFile(path));
-  expect(
-    ts
-      .getPreEmitDiagnostics(ts.createProgram([filename], options, host))
-      .map((error) => ts.flattenDiagnosticMessageText(error.messageText, '\n'))
-  ).toEqual([]);
   assertModuleSyntax(code);
-  const javascript = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-  }).outputText;
-  const exports: Record<string, (...args: unknown[]) => unknown> = {};
-  new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
+  const exports = compileGeneratedTypeScript(outputs, { assertions });
   expect(exports.Ordered!(undefined, 7)).toBe(7);
   expect(exports.Ordered!(3, 7, 'suffix')).toBe(10);
   expect(exports.Forward!()).toBe(7);
@@ -136,6 +126,10 @@ Ordered(1, 'wrong');
   expect(exports.Escaped!(3, 7)).toBe(10);
   expect(exports.AwaitValue!(3)).toBe(3);
   expect(exports.SynthesizedShadow!(0, 3)).toBe(4);
+  expect(exports.GlobalInputs!(1, undefined, 2, 3, '4.5', 6)).toBe(16.5);
+  expect(exports.ModuleInput!(1, [2, 2, 3])).toEqual([2, 3]);
+  expect(exports.MissingSentinel!(9, false)).toBeUndefined();
+  expect(exports.MissingSentinel!(9, true)).toBe(1);
 });
 
 it('exports positional Python APIs and preserves builtins and callable bindings shadowed by input names', async () => {
@@ -156,9 +150,13 @@ it('exports positional Python APIs and preserves builtins and callable bindings 
         { expression: 'Escaped(3, 7)' },
         { expression: 'AwaitValue(3)' },
         { expression: 'SynthesizedShadow(0, 3)' },
+        { expression: 'GlobalInputs(1, None, 2, 3, "4.5", 6)' },
         { expression: 'Ordered(3, 7, "the literal len(values) stays unchanged")' }
       ],
       module.code.replace(/^from __future__.*$/gm, '')
     )
-  ).toEqual([7, 10, 7, 9, 10, 3, 10, 3, 4, 10].map((value) => ({ value })));
+  ).toEqual([7, 10, 7, 9, 10, 3, 10, 3, 4, 16.5, 10].map((value) => ({ value })));
+  expect(
+    runPython([{ expression: 'ModuleInput(1, [2, 2, 3])' }], module.code.replace(/^from __future__.*$/gm, ''))
+  ).toEqual([{ value: [2, 3] }]);
 });

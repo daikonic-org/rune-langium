@@ -285,6 +285,9 @@ func MakeTwo:
     const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'single-file' } });
     const model = outputs.find((output) => output.relativePath === 'model.ts');
     expect(model).toBeDefined();
-    expect(model!.content.match(/type RuneFuncData<T>/g)).toHaveLength(1);
+    expect(model!.content).not.toContain('type RuneFuncData<T>');
+    expect(
+      outputs.find((output) => output.relativePath === 'helpers.ts')!.content.match(/type RuneFuncData<T>/g)
+    ).toHaveLength(1);
   });
 });

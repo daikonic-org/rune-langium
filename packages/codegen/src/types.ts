@@ -236,6 +236,8 @@ export interface GeneratedFunc {
  * FR-001 (output structure).
  */
 export interface GeneratorOutput {
+  /** Shared companion files follow model files in previews and downloads. */
+  artifactRole?: 'support';
   /** Source-bound implementation fragments recorded by the target emitter. */
   projections?: EmittedProjection[];
   /** Relative path of the emitted file (e.g. 'cdm/base/math.zod.ts'). */
