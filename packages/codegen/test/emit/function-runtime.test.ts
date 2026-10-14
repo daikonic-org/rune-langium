@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices, assertValidDocuments, BASICTYPES_ROSETTA } from '@rune-langium/core';
 import { URI } from 'langium';
 import ts from 'typescript-classic';
-import { resolve } from 'node:path';
-import { createRequire } from 'node:module';
 import { Temporal } from '@js-temporal/polyfill';
 import { generate } from '../../src/export.js';
 import { mixedChoiceSource, mixedChoiceCases } from '../helpers/mixed-choice.js';
@@ -32,27 +31,7 @@ async function compile(
   expect(outputs.flatMap((output) => output.diagnostics.filter((d) => d.severity === 'error'))).toEqual([]);
   const code = outputs[0]!.content;
   onSource?.(code);
-  const fileName = resolve(import.meta.dirname, 'generated-function-runtime.ts');
-  const options: ts.CompilerOptions = {
-    strict: true,
-    noEmit: true,
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.CommonJS,
-    skipLibCheck: true,
-    types: []
-  };
-  const host = ts.createCompilerHost(options);
-  const readFile = host.readFile.bind(host);
-  host.readFile = (file) => (file === fileName ? code + '\n' + typeAssertions : readFile(file));
-  const program = ts.createProgram([fileName], options, host);
-  expect(ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'))).toEqual(
-    []
-  );
-  const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-  }).outputText;
-  const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
-  new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
+  const exports = compileGeneratedTypeScript(outputs, { assertions: typeAssertions });
   return recordFunctionExports(exports, outputs);
 }
 

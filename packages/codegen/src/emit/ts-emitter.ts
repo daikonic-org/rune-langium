@@ -88,7 +88,13 @@ import {
   transpileExpression,
   type ExpressionTranspilerContext
 } from '../expr/transpiler.js';
-import { typescriptProfile, TS_LIBRARY_RUNTIME_SOURCE, TS_RUNTIME_SIDECAR_PATH } from './typescript-profile.js';
+import {
+  typescriptProfile,
+  TS_LIBRARY_RUNTIME_SOURCE,
+  TS_RUNTIME_SIDECAR_PATH,
+  typescriptHelperModuleName
+} from './typescript-profile.js';
+
 import { TS_RESERVED_WORDS } from '../lens/reserved-words.js';
 import { CallableNames, callableExportName, type CallableDeclaration } from './callable-names.js';
 import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
@@ -106,6 +112,39 @@ import {
   type RuneFuncAlias,
   type FuncBodyContext
 } from '../types/func.js';
+
+const FUNCTION_RESERVED_NAMES = new Set<string>([
+  ...TS_RESERVED_WORDS,
+  ...RUNE_HELPER_NAMES,
+  'arguments',
+  'eval',
+  'undefined',
+  'NaN',
+  'Infinity',
+  'globalThis',
+  'Array',
+  'Boolean',
+  'Number',
+  'String',
+  'Object',
+  'Set',
+  'Map',
+  'WeakSet',
+  'WeakMap',
+  'Date',
+  'Temporal',
+  'Math',
+  'JSON',
+  'RegExp',
+  'Symbol',
+  'BigInt',
+  'Error',
+  'TypeError',
+  'parseInt',
+  'parseFloat',
+  'isFinite',
+  'isNaN'
+]);
 
 // ---------------------------------------------------------------------------
 // Internal emission context
@@ -1552,12 +1591,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ...(this.suppressBoilerplate
         ? [
             "import { Temporal } from '@js-temporal/polyfill';",
-            buildRuntimeHelperImportLine(`${resolveImportPath(this.model.namespace, 'runtime', this.registry)}.js`, [
-              ...libraryHelpers,
-              ...(this.usesMetadata()
-                ? ['type RuneFieldWithMeta', 'type RuneReferenceWithMeta', 'type RuneMetadata']
-                : [])
-            ]),
+            buildRuntimeHelperImportLine(
+              `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`,
+              [
+                ...libraryHelpers,
+                ...(this.usesMetadata()
+                  ? ['type RuneFieldWithMeta', 'type RuneReferenceWithMeta', 'type RuneMetadata']
+                  : [])
+              ]
+            ),
             ``
           ]
         : [
@@ -1881,7 +1923,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   private static parameterBindings(func: RuneFunc): Map<string, string> {
-    const reserved = new Set<string>([...TS_RESERVED_WORDS, ...RUNE_HELPER_NAMES, 'arguments', 'eval', 'Temporal']);
+    const reserved = FUNCTION_RESERVED_NAMES;
     const used = new Set([...reserved, ...func.inputs.map((input) => input.name)]);
     return new Map(
       func.inputs.map((input) => {
@@ -1933,7 +1975,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     let result = 'result';
     for (let suffix = 1; inputNames.has(result) || func.aliases.some((alias) => alias.name === result); suffix++)
       result = `result${suffix}`;
-    const helperNames = new Set<string>(RUNE_HELPER_NAMES);
+    const helperNames = FUNCTION_RESERVED_NAMES;
     const reserved = new Set([...helperNames, result, ...inputNames, ...func.aliases.map((alias) => alias.name)]);
     const aliasBindings = new Map<string, string>();
     for (const alias of func.aliases) {

@@ -219,6 +219,13 @@ calls remain inline where their behavior matches. A single runtime composition
 function builds TypeScript, JavaScript and sidecar sources, creating the namespace
 after its implementations; metadata members follow the existing metadata-use
 selection. Namespace aliases retain generic signatures and presence type guards.
+Bundled TypeScript models import the shared `helpers.ts` companion instead of
+inlining it. The namespace emitter and profile share its collision-safe filename
+allocation. Generic model emitters tag shared artifacts as support files;
+generator ordering places model outputs first and sorts paths within each group,
+so preview and download ordering agree. Function parameters and shortcuts protect
+TypeScript runtime globals; Python parameter allocation derives imported bindings
+from its canonical runtime source. Ordered metadata retains original Rune names.
 Python uses static aliases to its authoritative implementations; dependency
 discovery follows both namespace methods and helpers passed as callbacks.
 

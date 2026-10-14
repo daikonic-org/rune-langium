@@ -51,11 +51,25 @@ export interface PythonModule {
   bindings: ReadonlyMap<string, string>;
 }
 
-const reserved = new Set(
-  'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case type Any Callable TypedDict NotRequired Literal math re calendar date time datetime timedelta timezone ZoneInfo reduce cmp_to_key input bool float int str list dict len sum min max sorted range enumerate map set tuple all any next isinstance globals ValueError TypeError OverflowError abs callable divmod reversed repr staticmethod'.split(
+const runtimeImports = new Set(
+  [...PYTHON_RUNTIME_SOURCE.matchAll(/^(?:import |from (?!__future__\b)\S+ import )([^\n]+)$/gm)]
+    .flatMap((match) => match[1]!.split(','))
+    .map(
+      (binding) =>
+        binding
+          .trim()
+          .split(/\s+as\s+/)
+          .slice(-1)[0]!
+          .split('.')[0]!
+    )
+);
+
+const reserved = new Set([
+  ...runtimeImports,
+  ...'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case type Literal input bool float int str list dict len sum min max sorted range enumerate map set tuple all any next isinstance globals ValueError TypeError OverflowError abs callable divmod reversed repr staticmethod'.split(
     ' '
   )
-);
+]);
 for (const match of PYTHON_RUNTIME_SOURCE.matchAll(/^def (\w+)\(/gm)) reserved.add(match[1]!);
 for (const match of PYTHON_RUNTIME_SOURCE.matchAll(/^class (\w+)(?:[[(]|:)/gm)) reserved.add(match[1]!);
 
@@ -192,7 +206,12 @@ function parameterBindings(inputs: readonly Attribute[]): Map<Attribute, string>
   const used = new Set(inputs.map((input) => input.name));
   return new Map(
     inputs.map((input) => {
-      if (!PY_RESERVED_WORDS.has(input.name) && input.name !== 'rune' && !input.name.startsWith('_rune'))
+      if (
+        !PY_RESERVED_WORDS.has(input.name) &&
+        !runtimeImports.has(input.name) &&
+        input.name !== 'rune' &&
+        !input.name.startsWith('_rune')
+      )
         return [input, input.name];
       let name = `${input.name}_input`;
       for (let suffix = 1; used.has(name); suffix++) name = `${input.name}_input${suffix}`;

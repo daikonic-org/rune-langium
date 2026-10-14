@@ -81,7 +81,7 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
     const outputs: GeneratorOutput[] = [...perNs];
     const barrel = this.profile.makeBarrel(perNs, registry);
     if (barrel) outputs.push(barrel);
-    outputs.push(...this.profile.makeSharedArtifacts(perNs, registry));
+    outputs.push(...this.sharedArtifacts(perNs, registry));
     return outputs;
   }
 
@@ -113,8 +113,12 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
     }
 
     const main = this.profile.concatenate(perNs, registry);
-    const sidecars = this.profile.makeSharedArtifacts(perNs, registry);
+    const sidecars = this.sharedArtifacts(perNs, registry);
     return sidecars.length > 0 ? [main, ...sidecars] : [main];
+  }
+
+  private sharedArtifacts(perNs: ReadonlyArray<GeneratorOutput>, registry: NamespaceRegistry): GeneratorOutput[] {
+    return this.profile.makeSharedArtifacts(perNs, registry).map((output) => ({ ...output, artifactRole: 'support' }));
   }
 
   private checkLimits(

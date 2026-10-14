@@ -156,3 +156,32 @@ Follow-up validation passed 2,308 codegen tests (one existing skip/eight todo),
 Both cold-cache HMR cases passed at 186ms and 1,210ms without a reload; the two
 real-browser formatting/Source/date-form smoke journeys also passed. The earlier
 full expression suite's explicit network-LSP skip remains a coverage limitation.
+
+The export follow-up moves bundled TypeScript implementations into `helpers.ts`.
+Single-file `model.ts` now imports that companion; both layouts share filename
+allocation so namespaces `helpers` and `helpers1` cannot overwrite it. Generic
+model packaging marks companions as support artifacts, and the generator keeps
+models first with deterministic paths within each group. This matters because
+alphabetical sorting alone would make `helpers.ts` the default Studio preview.
+Execution tests now load the complete emitted module set through Node's resolver;
+strict checks retain metadata, Temporal, native libraries and cross-namespace calls.
+
+Additional positional input regressions reproduced TypeScript Number/undefined
+capture diagnostics and Python's `int has no attribute isnan` with a `math` input.
+Shared TypeScript binding reservations also protect shortcuts; Python discovers
+imported names from its authoritative runtime. Ordinary builtin inputs such as
+`len` retain their existing qualified-call behavior. Original input names and
+positional metadata remain intact. Codegen passed 2,310 tests (one existing skip,
+eight todo), Studio's six focused worker/export suites passed 216 checks including
+all 117 CDM cases, and all 132 pinned TypeScript files compile strictly.
+Final codegen validation passed 2,312 tests after adding case-insensitive filename
+collision coverage and the silent `undefined` sentinel regression. Full workspace
+types and scoped lint/format pass. The new browser journey uses actual generated
+outputs in a mocked transport envelope: `model.ts` opens first, the helper file
+is selectable, and both downloaded files match the previewed bytes. The two
+existing function/Temporal browser smoke journeys also pass; hosted transport and
+production deployment are not exercised by these local checks.
+
+CI on the preceding head failed only the unchanged 400-node rename timing test
+at 101.5ms against 100ms. All 15 focused rename tests passed locally; its threshold
+has not changed. Fresh-head CI is still required after the export follow-up.
