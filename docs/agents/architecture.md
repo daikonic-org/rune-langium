@@ -319,3 +319,9 @@ method predicate, preserving empty, broadcasting and positional rules.
 Notification presentation does not own logging. Operation owners record their
 Activity/Output events, optionally displaying a toast; dismissing a toast creates
 no operation or history entry. `recordOperation` supplies the shared correlation ID.
+
+The Langium connection adapter routes typed, generic and logging notifications
+through one send boundary. It checks listening state and handles the pinned
+lspeasy server/WebSocket terminal-disconnect rejection if the socket closes during
+the send. Async diagnostic publication can finish after a client disconnects;
+other send failures and request failures continue to propagate.

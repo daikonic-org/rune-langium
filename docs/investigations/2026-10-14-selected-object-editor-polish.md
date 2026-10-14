@@ -85,7 +85,7 @@ Verified local results for this branch:
 | Check | Result |
 | --- | --- |
 | `PYTHON_BINARY=/Users/pmouli/.local/bin/python3.14 pnpm --filter @rune-langium/codegen exec vitest run --maxWorkers=2` | 2,320 pass; one skip, eight todo |
-| `pnpm --filter @rune-langium/studio exec vitest run --maxWorkers=2` | 1,989 pass; two skip |
+| `pnpm --filter @rune-langium/studio exec vitest run --maxWorkers=2` | 1,991 pass; two skip |
 | `pnpm --filter @rune-langium/visual-editor test` | 1,663 pass |
 | Post-enum worker/expression checks | 68 pass |
 | Post-regeneration worker/provider checks | 119 pass |
@@ -99,3 +99,31 @@ Earlier concurrent runs hit existing five-second fixture and 120-second corpus
 time limits. Isolated runs at reduced parallelism passed without changing their
 budgets. An initial default-Python run used the machine's unsupported Python 3.9;
 the verified codegen result uses Python 3.14 explicitly.
+
+## CI follow-up: late LSP diagnostics
+
+The first PR #607 lint-and-test run (`38618638579`) passed all 74 LSP assertions
+but failed with an unhandled `WebSocket is not connected` rejection from diagnostic
+publication after a CLI test closed its client. The adapter's preflight
+`server.isListening()` check could remain true during the transport-close race.
+
+Typed, generic and console notifications now share a send boundary that handles
+only the pinned SDK's terminal-disconnect errors, including rejection after sending
+starts. Unrelated failures still reject. Regression tests cover both public send
+surfaces, late logging, and preservation of genuine errors.
+
+## First review follow-ups
+
+PR threads `PRRT_kwDORLopOc6seJEz` and `PRRT_kwDORLopOc6seJE7` identified
+redundant selected-preview file publication and duplicated reconnect history.
+Selected generation now uses the readiness operation's existing worker receipt;
+only unselected generation synchronizes directly. Reconnect failures use one
+shared feedback call retaining their original operation ID and duration.
+Behavioral tests count one publication per open/retry and one correlated failure
+in each history.
+
+The two provider regressions both fail against the first PR head and pass with
+these fixes. The four affected worker/provider suites pass 101 tests. All 78 LSP
+tests and the full workspace type check pass after the disconnect fix; its two
+delayed-send regressions also fail against the original adapter and pass with the
+shared send boundary. Logs are saved under `dist/selected-object-polish/`.

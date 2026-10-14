@@ -135,11 +135,7 @@ export const LspProvider = withInstrumentation(
           const msg = err instanceof Error ? err.message : String(err);
           const durationMs = performance.now() - startedAt;
           console.error('[LspProvider] LSP reconnect failed:', err);
-          useOutputStore
-            .getState()
-            .addLine(fmtLine('lsp', 'reconnect failed', msg), 'error', { op: 'lsp', opId, durationMs });
-          useActivityStore.getState().addActivity('lsp', false, `reconnect failed · ${msg}`, { opId, durationMs });
-          recordOperation('lsp', err instanceof Error ? err.message : 'Reconnect failed', 'error');
+          recordOperation('lsp', `reconnect failed · ${msg}`, 'error', { opId, durationMs });
           showToast({
             title: 'LSP reconnect failed',
             description: err instanceof Error ? err.message : 'Could not reconnect to the language server.',

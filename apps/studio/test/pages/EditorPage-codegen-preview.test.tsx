@@ -183,6 +183,28 @@ describe('CodegenProvider — codegen worker→store path', () => {
     });
   });
 
+  it('publishes files once for each selected preview generation', async () => {
+    const id = 'a.Model#Data';
+    usePreviewStore.getState().setAvailableTargets([{ id, namespace: 'a', name: 'Model', kind: 'Data' }]);
+    usePreviewStore.getState().selectTarget(id);
+    renderProvider();
+    await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
+    const worker = MockWorker.instances[0]!;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const publications = () =>
+      worker.postMessage.mock.calls.filter(([message]) => message.type === 'preview:setFiles').length;
+    const initial = publications();
+    await act(async () => useCodegenStore.getState().setActiveTarget('zod'));
+    await waitFor(() => expect(lastCodegenGenerate(worker)).toBeDefined());
+    expect(publications() - initial).toBe(1);
+    const previous = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => useCodegenStore.getState().refreshCodePreview());
+    await waitFor(() => expect(lastCodegenGenerate(worker)?.requestId).not.toBe(previous));
+    expect(publications() - initial).toBe(2);
+  });
+
   it('requests explicit regeneration without changing the active target', async () => {
     renderProvider();
     await waitFor(() => expect(MockWorker.instances).toHaveLength(1));

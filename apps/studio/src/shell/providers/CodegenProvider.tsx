@@ -738,12 +738,14 @@ export const CodegenProvider = withInstrumentation(
       const controller = new AbortController();
       void (async () => {
         if (selectedCodeTarget) {
-          await readinessRef.current?.ensure(
+          if (!readinessRef.current) throw new Error('Selected preview preparation is unavailable.');
+          await readinessRef.current.ensure(
             `${selectedCodeTarget.namespace}.${selectedCodeTarget.name}`,
             controller.signal
           );
+        } else {
+          await syncWorkerFiles(codegenWorker, controller.signal);
         }
-        await syncWorkerFiles(codegenWorker, controller.signal);
         if (controller.signal.aborted || codegenCurrentRequestIdRef.current !== requestId) return;
         codegenWorker.postMessage({
           type: 'codegen:generate',

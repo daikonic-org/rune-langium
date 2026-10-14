@@ -47,6 +47,7 @@ vi.mock('../../../src/config.js', () => ({ config: { lspEnabled: true }, studioC
 import { LspProvider } from '../../../src/shell/providers/LspProvider.js';
 import { useLsp } from '../../../src/shell/providers/lsp-context.js';
 import { WorkspaceStateContext, type WorkspaceState } from '../../../src/shell/providers/workspace-context.js';
+import { useOutputStore } from '../../../src/store/output-store.js';
 import { useActivityStore } from '../../../src/store/activity-store.js';
 import { useExploreFileNavStore } from '../../../src/shell/explore-file-nav-store.js';
 
@@ -261,6 +262,34 @@ describe('LspProvider', () => {
       .entries.filter((e) => e.tag === 'lsp' && (e.msg === 'connected' || e.msg === 'reconnected'));
     expect(connectedEntries).toHaveLength(1);
     expect(connectedEntries[0]?.msg).toBe('reconnected');
+  });
+
+  it('records a failed reconnect once in each history under the same operation id', async () => {
+    reconnect.mockRejectedValueOnce(new Error('Reconnect socket closed'));
+    function Probe() {
+      const { reconnect: retry } = useLsp();
+      return <button onClick={retry}>Retry failed connection</button>;
+    }
+    await act(async () =>
+      render(
+        <WorkspaceStateContext.Provider value={wsState([])}>
+          <LspProvider>
+            <Probe />
+          </LspProvider>
+        </WorkspaceStateContext.Provider>
+      )
+    );
+    useActivityStore.getState().clearEntries();
+    useOutputStore.getState().clearLines();
+    await act(async () => screen.getByText('Retry failed connection').click());
+    const activity = useActivityStore
+      .getState()
+      .entries.filter((entry) => entry.msg.includes('Reconnect socket closed'));
+    const output = useOutputStore.getState().lines.filter((entry) => entry.text.includes('Reconnect socket closed'));
+    expect(activity).toHaveLength(1);
+    expect(output).toHaveLength(1);
+    expect(activity[0].opId).toBeDefined();
+    expect(output[0].opId).toBe(activity[0].opId);
   });
 
   it('reconnect() with LSP disabled does not falsely log a "reconnected" success entry', async () => {
