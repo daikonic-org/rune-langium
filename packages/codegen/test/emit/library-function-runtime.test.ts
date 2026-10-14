@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -81,7 +82,7 @@ func External:
         program.emit();
         const require = createRequire(join(directory, 'entry.js'));
         const entry = layout === 'single-file' ? 'model' : layout === 'barrel' ? 'index' : 'builtin/consumer';
-        const funcs = require(`./${entry}.js`);
+        const funcs = recordFunctionExports(require(`./${entry}.js`), outputs);
         const library = layout === 'per-namespace' ? require('./builtin/helpers.js') : funcs;
         expect(funcs.Minimum({ left: 4, right: -2 })).toBe(-2);
         expect(funcs.Maximum({ left: 4, right: -2 })).toBe(4);

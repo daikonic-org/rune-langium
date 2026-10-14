@@ -101,7 +101,7 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     expect((model?.content.match(/^\/\/ Source namespace:/gm) ?? []).length).toBe(0);
   });
 
-  it('does not expose namespace-relative function metadata in a concatenated artifact', async () => {
+  it('retains ordered function metadata in the concatenated module', async () => {
     const { RuneDsl } = createRuneDslServices();
     const docs = [SOURCE_A, SOURCE_B].map((source, i) =>
       RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
@@ -116,7 +116,10 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     const model = bundled.find((output) => output.relativePath === 'model.ts')!;
     expect(model.content).toContain('export function Fn0');
     expect(model.content).toContain('export function Fn1');
-    expect(model.funcs).toEqual([]);
+    expect(model.funcs).toHaveLength(2);
+    expect(model.funcs.every((func) => func.relativePath === 'model.ts' && func.parameterNames.length === 0)).toBe(
+      true
+    );
     expect(model.projections).toHaveLength(2);
   });
 

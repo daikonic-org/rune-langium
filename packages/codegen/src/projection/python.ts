@@ -134,10 +134,10 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         const values = inputs.map((parameter, index) => {
           const source = args[index];
           const text = source ? render(source, { ...context, preserveMetadata: true }) : context.self;
-          return `${pyString(parameter.name)}: ${pythonArgument(text, parameter, source, context)}`;
+          return pythonArgument(text, parameter, source, context);
         });
         return pythonUnwrap(
-          `${context.name(target)}({${values.join(', ')}})`,
+          `${context.name(target)}(${values.join(', ')})`,
           context.preserveMetadata ? undefined : fieldMetadataKind(functionOutput(target)),
           expressionIsMany(expression)
         );
@@ -614,10 +614,10 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
           expression.explicitArguments && source
             ? render(source, { ...context, preserveMetadata: true })
             : (context.locals.get(parameter) ?? pythonRead(context.self, [parameter.name]));
-        return `${pyString(parameter.name)}: ${pythonArgument(value, parameter, source, context)}`;
+        return pythonArgument(value, parameter, source, context);
       });
       return pythonUnwrap(
-        `${context.name(parent)}({${values.join(', ')}})`,
+        `${context.name(parent)}(${values.join(', ')})`,
         context.preserveMetadata ? undefined : fieldMetadataKind(functionOutput(parent)),
         expressionIsMany(expression)
       );

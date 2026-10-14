@@ -145,6 +145,8 @@ const PRECEDENCE: Record<string, number> = {
  * Not exposed in the public API. Per data-model §7.
  */
 export interface ExpressionTranspilerContext {
+  /** Display-only contract: purpose-built Rune objects implement canonical recursive equality. */
+  objectEquality?: 'method';
   /** Literal facts established by the current conditional branch over immutable input paths. */
   scalarValues?: ReadonlyMap<string, string | number | boolean>;
   /** Capture an emitted condition without repeating resolution or rendering. */
@@ -1021,6 +1023,10 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
       }
       return `(${left} ${expr.operator === '<>' ? '!==' : '==='} ${right})`;
     }
+    if (ctx.objectEquality === 'method' && !expressionIsMany(expr.left) && !expressionIsMany(expr.right)) {
+      const same = `(${parenthesizeReceiver(left)}?.equals(${right}) ?? ${parenthesizeReceiver(right)} == null)`;
+      return expr.operator === '<>' ? `!${same}` : same;
+    }
     return `(rune.valueKey(${left}) ${expr.operator === '<>' ? '!==' : '==='} rune.valueKey(${right}))`;
   }
   if (isComparisonOperation(expr)) {
@@ -1599,7 +1605,7 @@ export function transpileSuperCall(expr: RosettaExpression, ctx: ExpressionTrans
       ? (ctx.callableName?.(parent.source, ctx.localBindings?.has(parent.name) || ctx.selfName === parent.name) ??
         parent.name)
       : parent.name;
-    const call = `${name}({ ${parent.inputs.map((input, i) => `${input.name}: ${args[i]}`).join(', ')} })`;
+    const call = `${name}(${args.join(', ')})`;
     const output = parent.output;
     return output && hasFieldMetadata(output) && !ctx.preserveMetadata && ctx.emitMode.startsWith('ts-')
       ? unwrapMetadata(call, output.card.unbounded || (output.card.sup ?? 1) > 1)

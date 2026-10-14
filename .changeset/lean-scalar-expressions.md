@@ -1,5 +1,5 @@
 ---
-'@rune-langium/codegen': patch
+'@rune-langium/codegen': minor
 ---
 
 Emit native enum and boolean comparisons, null and collection presence checks,
@@ -12,3 +12,12 @@ Render common collection, presence, navigation and arithmetic utilities with nat
 language constructs using shared cardinality facts and runtime source builders.
 Keep Python export boundary normalization outside displayed bodies, reuse completed
 primitive return bounds, and accept explicit implicit-empty composite constructors.
+
+Change generated TypeScript and Python function APIs to positional parameters in
+Rune declaration order. Preserve ordinary parameter names, escaping target-language
+keywords or implementation binding collisions. Consumers must replace function
+input records with ordered arguments; Studio adapts validated named form fields.
+Retain ordered function metadata in single-file output. Show purpose-built object
+equality methods in display bodies while JSON exports keep canonical comparisons.
+Use safe schema extension for inherited refinements and shorter unique callable
+references with collision-safe aliases.

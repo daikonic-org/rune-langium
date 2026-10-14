@@ -258,7 +258,8 @@ describe('US6 funcs: constructor-expr (T128)', () => {
     }).outputText;
     const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
     new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
-    expect(exports[name]!(input)).toEqual(expected);
+    const args = 'x' in input ? [input.x, input.y] : [input.w];
+    expect((exports[name] as (...args: unknown[]) => unknown)(...args)).toEqual(expected);
   });
 });
 

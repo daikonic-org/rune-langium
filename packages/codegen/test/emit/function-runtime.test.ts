@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices, assertValidDocuments, BASICTYPES_ROSETTA } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -52,7 +53,7 @@ async function compile(
   }).outputText;
   const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
   new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
-  return exports;
+  return recordFunctionExports(exports, outputs);
 }
 
 describe('generated TypeScript function execution', () => {
@@ -264,9 +265,9 @@ func ComputedNaN:
       const emitted = declarations.get(name)!;
       expect(emitted).not.toMatch(/input =|rune\.(single|list|equals|normalize\w*|get)\(/);
     }
-    expect(declarations.get('Read')).toContain('input.source?.child?.value');
-    expect(declarations.get('ReadDeep')).toContain('input.source?.child?.value');
-    expect(declarations.get('Echo')).toContain('return input.source;');
+    expect(declarations.get('Read')).toContain('source?.child?.value');
+    expect(declarations.get('ReadDeep')).toContain('source?.child?.value');
+    expect(declarations.get('Echo')).toContain('return source;');
     expect(declarations.get('Equal')).toContain('===');
     expect(declarations.get('SameObject')).toContain('rune.valueKey');
     expect(declarations.get('SameObject')).not.toContain('rune.equals');
@@ -1145,9 +1146,9 @@ func Retain:
  inputs: value Envelope (1..1)
  output: result Envelope (1..1)
  set result: value`,
-      `const input: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: {} as Temporal.${type === 'date' ? 'PlainDate' : type === 'time' ? 'PlainTime' : type === 'dateTime' ? 'PlainDateTime' : 'ZonedDateTime'}}]}};
+      `const input: Parameters<typeof Retain>[0] = {events: [{eventDate: {} as Temporal.${type === 'date' ? 'PlainDate' : type === 'time' ? 'PlainTime' : type === 'dateTime' ? 'PlainDateTime' : 'ZonedDateTime'}}]};
 // @ts-expect-error ISO strings belong at the JSON boundary.
-const invalid: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: ${JSON.stringify(value)}}]}};`
+const invalid: Parameters<typeof Retain>[0] = {events: [{eventDate: ${JSON.stringify(value)}}]};`
     );
     const created = funcs.Create!({ text: value }) as { events: { eventDate: unknown }[] };
     expect(Object.prototype.toString.call(created.events[0]!.eventDate)).toContain('Temporal.');
@@ -2417,19 +2418,19 @@ func Many:
  set result: values
 `,
       `
-const numberResult: number = Required({n: 1});
-const optionalResult: number | undefined = Optional({});
-const arrayResult: number[] = Many({values: [1, 2]});
+const numberResult: number = Required(1);
+const optionalResult: number | undefined = Optional();
+const arrayResult: number[] = Many([1, 2]);
 // @ts-expect-error Required input is missing.
-Required({});
+Required();
 // @ts-expect-error Rune int accepts numbers.
-Required({n: '1'});
+Required('1');
 // @ts-expect-error Rune output is numeric.
-const wrongOutput: string = Required({n: 1});
+const wrongOutput: string = Required(1);
 // @ts-expect-error Optional output may be absent.
-const missingOptionality: number = Optional({});
+const missingOptionality: number = Optional();
 // @ts-expect-error Collection input requires an array.
-Many({values: 1});
+Many(1);
 `
     );
   });
@@ -2610,9 +2611,9 @@ func Reference:
 `,
       `
 const item: Item = {name: 'A', meta: {externalKey: 'item-1'}};
-const reference: RuneReferenceWithMeta<Item> = Reference({source: item});
+const reference: RuneReferenceWithMeta<Item> = Reference(item);
 // @ts-expect-error Reference outputs are wrappers, not direct data values.
-const value: Item = Reference({source: item});
+const value: Item = Reference(item);
 `
     );
     expect(funcs.Reference!({ source: { name: 'A', meta: { externalKey: 'item-1' } } })).toEqual({

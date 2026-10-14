@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import type { EmittedProjection } from './projection/types.js';
 import type { TemporalWireFormat } from './expr/temporal-conversions.js';
 import type { ExcelOptions } from './options/excel-options.js';
 import type { OpenApiOptions } from './options/openapi-options.js';
@@ -206,6 +207,8 @@ export interface GeneratorDiagnostic {
  * FR-028–FR-032 (function declarations, US6).
  */
 export interface GeneratedFunc {
+  /** Rune input names in positional API order; used by named form adapters. */
+  parameterNames: string[];
   /** Actual module export when the Rune name collides with a type declaration. */
   exportName?: string;
   /** The func's identifier as declared in the Rune model. */
@@ -234,7 +237,7 @@ export interface GeneratedFunc {
  */
 export interface GeneratorOutput {
   /** Source-bound implementation fragments recorded by the target emitter. */
-  projections?: import('./projection/types.js').EmittedProjection[];
+  projections?: EmittedProjection[];
   /** Relative path of the emitted file (e.g. 'cdm/base/math.zod.ts'). */
   relativePath: string;
   /** Full text content of the emitted file. */

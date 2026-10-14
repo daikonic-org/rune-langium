@@ -7,7 +7,7 @@ backends differ slightly in their declaration coverage.
 
 | Fragments containing a `rune.*` call | Before | After |
 | --- | ---: | ---: |
-| TypeScript | 1,413 | 337 |
+| TypeScript | 1,413 | 258 |
 | Python | 2,519 | 1,250 |
 
 These counts include abstract native bindings as well as utilities. The projections
@@ -45,17 +45,18 @@ as the executable export. Export declarations retain boundary behavior.
 
 | Family | Remaining TypeScript calls | Remaining Python calls | Assessment |
 | --- | ---: | ---: | --- |
-| Structural equality and identity | `valueKey` 336, `equals` 71 | `equals` 568 | Object comparison ignores absent/null fields and handles nested ordered collections. Replacing it with identity equality or ordinary dictionary equality would change behavior. |
+| Structural equality and identity | `equals` 71 | `equals` 568 | Scalar TypeScript display comparisons use purpose-built Rune objects' `.equals()` with canonical recursive semantics; executable JSON exports still use structural keys. Structured collection comparisons and Python comparisons retain absent/null and ordered-collection behavior. |
 | Metadata construction/conversion | `toField` 101, `withMeta` 91, `toReference` 28, `asKey` 11 | `toField` 114, `withMeta` 91, `toReference` 29, `asKey` 11 | Wrapper conversion, reference-only payloads, keys, address merging and evaluation order remain authoritative. A native presentation would need to expose those actual operations. |
 | Structural collection operations | `distinct` 17, `contains` 6, `disjoint` 1 | `distinct` 17, `contains` 6, `disjoint` 1, `ordered` 11, `reduce` 2 | Primitive cases are native. Remaining cases need structural keys, metadata accumulator conversion or unresolved key facts. |
 | Authored boundaries and nested assignment | None in these namespace-call families | `cardinality` 2,988, `single` 143, `assign` 369 | These include call/constructor bounds, many-to-single conversions and nested writes. Valid Rune expressions can produce absent or multiple values. The display omits export scaffolding but still records these expression/assignment operations. |
 | Calendar precision and explicit conversions | `dateConstructTemporal` 1 | `dateField` 102, `temporalKey` 76, `divide` 64, `toString` 29, `number` 2, `dateConstruct` 1 | Python preserves nanoseconds, expanded years, timezone behavior and JavaScript-compatible division/conversion rules. Ordinary Python datetime/division/string conversion is not an interchangeable implementation. |
 | Abstract implementation binding | None | `native` 58 | These represent declared external implementations rather than generic utilities. |
 
-A fully native display of the remaining operations needs a presentation decision
-for larger algorithms. Executable exports may retain specialized helpers. The
-current scrub removes routine utilities without substituting inaccurate operations
-for the remaining cases.
+Purpose-built Rune objects provide the accepted display contract for scalar
+TypeScript recursive equality. Their method represents the existing shared
+comparison behavior; it does not introduce JavaScript operator overloading.
+Remaining specialized collection, metadata and calendar calls are preserved
+when replacing them with ordinary language operations would change behavior.
 
 ## Constructor review finding
 
@@ -91,8 +92,8 @@ cardinality adaptation. Empty Choice constructors are absent; empty Data builder
 remain objects. Linked expression and strict export tests cover empty/mixed lists,
 aliases and required output/argument failures, including Python execution.
 
-- Full codegen suite, with Python 3.14: 2,303 tests passed; one existing skip and eight todo cases.
-- Studio projection, all 117 CDM reference parity cases and codegen preview: 165 tests passed.
+- Full codegen suite, with Python 3.14: 2,307 tests passed; one existing skip and eight todo cases.
+- Studio projection/formatting, all 117 CDM parity cases, source navigation and previews: 284 tests passed.
 - Pinned corpus: 132 generated TypeScript files compile strictly across 189 source documents.
 - Workspace and codegen type checks, changed-file lint and formatting pass.
 - Golden outputs were regenerated through the real emitter.
@@ -101,3 +102,27 @@ New checks cover empty collections, operand evaluation count, metadata wrapper
 identity, primitive quantified equality/NaN, optional Temporal equality, Temporal
 collection ordering, native Python Unicode sets, completed primitive return bounds
 and execution of the displayed Python body over typed data.
+
+Positional public APIs preserve Rune declaration order, ordinary input names and
+types, including optional-before-required inputs. Direct TypeScript strict/runtime
+and Python execution checks cover zero/multiple inputs, escaped keywords, result
+accumulator collisions and shadowed builtins/callables. The existing corpus stores
+named records; test-only invocation adapters map those records into the positional
+API without changing internal generated calls. Six function goldens were regenerated
+through the public emitter. Both reverse expression-lens suites still pass.
+
+The 10 local expression browser journeys pass, including the actual browser Ruff
+WASM loader, date form execution, continuous formatted bodies, source comment
+clicks and narrow layout checks. The network LSP journey skips without its server.
+Formatting made Python bodies longer than CodeMirror's virtualized viewport; the
+journey now reads the full editor document for whole-body assertions.
+
+Studio's production build passes. Its existing advisory JS size limit remains
+exceeded: 14,977,529 bytes versus 6,593,600. An archived HEAD Studio build with the
+same workspace dependencies and current compiled codegen measured 13,779,620;
+lazy formatter JS chunks account for 1,195,886 of the increase. The shared codegen
+ABI differs slightly from that HEAD source baseline, so this comparison isolates
+the Studio formatter addition rather than claiming a byte-exact old-revision build.
+Ruff's separately loaded WASM asset is 1,215,985 bytes. CI already treats this
+budget as advisory; its threshold has not been raised. The existing Changesets
+private-dependency configuration remains tracked by #594.

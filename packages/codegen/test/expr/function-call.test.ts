@@ -20,21 +20,21 @@ function resolve(node: Record<string, unknown>, name: string, inputs: string[]) 
 }
 
 describe('resolved Rosetta function call rendering', () => {
-  it('maps parsed arguments to declared input names', () => {
+  it('keeps parsed arguments in declared positional order', () => {
     const node = resolve(parsed('Foo(a, b)'), 'Foo', ['left', 'right']);
     expect(renderResolvedFunctionCall(node, (arg) => (isRosettaSymbolReference(arg) ? arg.symbol.$refText : ''))).toBe(
-      'Foo({ left: a, right: b })'
+      'Foo(a, b)'
     );
   });
 
-  it('renders a bare zero-input function reference as an object call', () => {
+  it('renders a bare zero-input function reference as a zero-argument call', () => {
     const node = resolve(parsed('Foo'), 'Foo', []);
-    expect(renderResolvedFunctionCall(node, () => 'ignored')).toBe('Foo({})');
+    expect(renderResolvedFunctionCall(node, () => 'ignored')).toBe('Foo()');
   });
 
   it('supports nested call rendering through the argument callback', () => {
     const node = resolve(parsed('Outer(Inner)'), 'Outer', ['value']);
-    expect(renderResolvedFunctionCall(node, () => 'Inner({})')).toBe('Outer({ value: Inner({}) })');
+    expect(renderResolvedFunctionCall(node, () => 'Inner()')).toBe('Outer(Inner())');
   });
 
   it('reports explicit-call arity mismatches instead of guessing', () => {

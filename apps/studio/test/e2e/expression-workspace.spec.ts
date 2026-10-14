@@ -5,7 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
-import { fullSourceEditor } from '../helpers/source-editor.js';
+import { fullSourceEditor, codeMirrorDocument } from '../helpers/source-editor.js';
 import {
   loadPinnedFunction,
   openBuilder,
@@ -47,6 +47,10 @@ func Run:
  inputs: amount int (1..1)
  output: result int (1..1)
  set result: 42
+ // type is
+ // type between
+ // type construct
+ // type source
 `)
   });
   await page.getByTestId('namespace-search').fill('Run');
@@ -80,11 +84,20 @@ func Run:
   await expect(projection).not.toContainText('export function');
   await expect(implementation.locator('.cm-gutters')).toHaveCount(0);
   await testInfo.attach('body-only-projection', { body: await page.screenshot(), contentType: 'image/png' });
+  await implementation.getByRole('button', { name: 'Python', exact: true }).click();
+  await expect(implementation.getByRole('textbox', { name: 'Generated python' })).toContainText('return 42');
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
   const source = fullSourceEditor(page);
   await expect(source.locator('.cm-content')).toContainText('namespace compact');
+  for (const token of ['is', 'between', 'construct', 'source']) {
+    await source
+      .locator('.cm-line')
+      .filter({ hasText: `// type ${token}` })
+      .click();
+    await expect(page.getByText(`Type "${token}" not loaded`, { exact: false })).toHaveCount(0);
+  }
   await testInfo.attach('compact-editor', { body: await page.screenshot(), contentType: 'image/png' });
 });
 
@@ -112,7 +125,7 @@ func Days:
   const implementation = page.getByRole('region', { name: 'Function implementation' });
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
-  await expect(projection).toContainText('input.right.until(input.left).days');
+  await expect(projection).toContainText('right.until(left).days');
   await expect(projection).not.toContainText('rune.');
   await expect(projection).not.toContainText('.from(');
   await expect(projection).not.toContainText('export function');
@@ -230,7 +243,7 @@ test('ten-operation CDM function stays one editable implementation with complete
       language === 'TypeScript' ? 'export function' : 'def ConvertToAdjustableOrRelativeDate'
     );
     await projected.press('ControlOrMeta+End');
-    await expect(projected).toContainText('periodMultiplier');
+    await expect.poll(() => codeMirrorDocument(projected)).toContain('periodMultiplier');
     await expect(implementation.getByRole('alert')).toHaveCount(0);
   }
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();

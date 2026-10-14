@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -228,12 +229,12 @@ func ShadowAgain:
         program.emit();
         const require = createRequire(join(directory, 'entry.js'));
         const entry = layout === 'single-file' ? 'model' : layout === 'barrel' ? 'index' : 'caller';
-        const funcs = require(`./${entry}.js`);
+        const funcs = recordFunctionExports(require(`./${entry}.js`), outputs);
         expect(funcs.ReadUnique({ value: 4 })).toBe(8);
         expect(funcs.ShadowUnique({ value: 4 })).toBe(8);
         expect(funcs.UniquePipeline({ value: 4 })).toBe(8);
         expect(funcs.UniqueChild({ value: 4 })).toBe(8);
-        const observer = layout === 'per-namespace' ? require('./observer.js') : funcs;
+        const observer = layout === 'per-namespace' ? recordFunctionExports(require('./observer.js'), outputs) : funcs;
         expect(observer.ShadowAgain({ value: 4 })).toBe(8);
         const remoteNative = layout === 'per-namespace' ? require('./beta.js').RemoteNative : funcs.RemoteNative;
         remoteNative.implementation = (value: number) => value + 5;
@@ -274,9 +275,11 @@ func ShadowAgain:
         expect(funcs.Rules({ value: 4 })).toBe(11);
         expect(funcs.Libraries({ value: 4 })).toBe(38);
         if (layout !== 'per-namespace') {
-          expect(funcs.__rune$alpha$Echo({ value: 4 })).toBe(5);
-          expect(funcs.__rune$beta$Echo({ value: 4 })).toBe(6);
-          expect(funcs.__rune$caller$Echo({ value: 4 })).toBe(11);
+          expect(layout === 'single-file' ? funcs.__rune$alpha$Echo({ value: 4 }) : funcs.__rune$alpha$Echo(4)).toBe(5);
+          expect(layout === 'single-file' ? funcs.__rune$beta$Echo({ value: 4 }) : funcs.__rune$beta$Echo(4)).toBe(6);
+          expect(layout === 'single-file' ? funcs.__rune$caller$Echo({ value: 4 }) : funcs.__rune$caller$Echo(4)).toBe(
+            11
+          );
         }
       } finally {
         rmSync(directory, { recursive: true, force: true });

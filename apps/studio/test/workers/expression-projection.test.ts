@@ -258,8 +258,8 @@ func Retain:
     const response = scope.postMessage.mock.calls
       .map(([message]) => message)
       .find((message) => message.requestId === 'abs');
-    expect(response.projection.code).toContain('input.arg < 0');
-    expect(response.projection.code).toContain('-1 * input.arg');
+    expect(response.projection.code).toContain('arg < 0');
+    expect(response.projection.code).toContain('-1 * arg');
     expect(response.projection.code).not.toMatch(/rune\.(?:compare|binary|normalize|get)\(/);
   });
   it.each([

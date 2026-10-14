@@ -189,9 +189,9 @@ const rune = {
 // --- end runtime helpers ---
 
 
-export function AliasFunc(input: { value: number }): number {
+export function AliasFunc(value: number): number {
   let result: number | undefined;
-  const x = input.value;
+  const x = value;
   result = x;
   if (result == null) throw new Error("Function 'AliasFunc' produced no result");
   return result;

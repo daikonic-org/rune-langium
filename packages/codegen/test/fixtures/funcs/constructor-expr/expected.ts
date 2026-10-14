@@ -247,12 +247,12 @@ export function isBox(x: unknown): x is Box {
 }
 
 
-export function MakePoint(input: { x: number; y: number }): RuneFuncData<PointShape> {
-  const result = ({ x: input.x, y: input.y } satisfies RuneFuncData<PointShape>);
+export function MakePoint(x: number, y: number): RuneFuncData<PointShape> {
+  const result = ({ x: x, y: y } satisfies RuneFuncData<PointShape>);
   return result;
 }
 
-export function MakeEmptyBox(input: { w: number }): RuneFuncData<BoxShape> {
-  const result = ({ origin: ({} as RuneFuncData<PointShape>), width: input.w } satisfies RuneFuncData<BoxShape>);
+export function MakeEmptyBox(w: number): RuneFuncData<BoxShape> {
+  const result = ({ origin: ({} as RuneFuncData<PointShape>), width: w } satisfies RuneFuncData<BoxShape>);
   return result;
 }

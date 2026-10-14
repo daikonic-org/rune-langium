@@ -19,6 +19,8 @@ export async function loadRealWorker() {
     importScripts: () => undefined
   };
   vi.stubGlobal('self', scope);
+  // Node runs the same formatter engine without Vite's browser WASM asset loader.
+  vi.stubEnv('SSR', true);
   vi.resetModules();
   await import('../../../src/workers/codegen-worker.ts');
   return {

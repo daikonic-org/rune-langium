@@ -69,6 +69,7 @@ import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { PreviewWorkerRequest, ProjectionRequest } from '../services/codegen-service.js';
 import { z } from 'zod';
+import { formatGeneratedProjection } from '../services/projection-format.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
 
@@ -861,11 +862,13 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
       );
       if (version !== previewFilesVersion || !current())
         throw new Error('The source changed. Refresh the generated view.');
-      scope.postMessage({
-        type: 'projection:result',
-        requestId: request.requestId,
-        projection: { ...selectPythonProjection(module, subject, request.kind, 'body'), subject: request.subject }
-      });
+      const projection = await formatGeneratedProjection(
+        { ...selectPythonProjection(module, subject, request.kind, 'body'), subject: request.subject },
+        request.kind
+      );
+      if (version !== previewFilesVersion || !current())
+        throw new Error('The source changed. Refresh the generated view.');
+      scope.postMessage({ type: 'projection:result', requestId: request.requestId, projection });
       return;
     }
     const { value: outputs } = await getOrComputeAsync(
@@ -876,10 +879,15 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
     );
     if (version !== previewFilesVersion || !current())
       throw new Error('The source changed. Refresh the generated view.');
-    const projection = {
-      ...selectTypeScriptProjection(outputs, subject, request.kind, 'body'),
-      subject: request.subject
-    };
+    const projection = await formatGeneratedProjection(
+      {
+        ...selectTypeScriptProjection(outputs, subject, request.kind, 'body'),
+        subject: request.subject
+      },
+      request.kind
+    );
+    if (version !== previewFilesVersion || !current())
+      throw new Error('The source changed. Refresh the generated view.');
     scope.postMessage({ type: 'projection:result', requestId: request.requestId, projection });
   } catch (error) {
     scope.postMessage({
@@ -949,11 +957,13 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
     let selectedModulePath: string | undefined;
     let selectedTargetId = functionFqn;
     let selectedExportName: string | undefined;
+    let parameterNames: readonly string[] = [];
     for (const result of results) {
       const ns = result.relativePath.replace(/\//g, '.').replace(/\.ts$/, '');
       const func = result.funcs.find((f) => f.name === functionFqn || `${ns}.${f.name}` === functionFqn);
       if (func) {
         selectedExportName = func.exportName ?? func.name;
+        parameterNames = func.parameterNames;
         selectedModulePath = result.relativePath;
         selectedTargetId = `${ns}.${func.name}`;
         break;
@@ -1003,11 +1013,14 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
     if (typeof functionValue !== 'function') {
       throw new Error(`Generated module '${selectedModulePath}' does not export function '${bareName}'.`);
     }
+    const validatedInputs = validation.data;
+    if (typeof validatedInputs !== 'object' || validatedInputs === null)
+      throw new Error('The function input schema did not return a field record.');
     const output = runInWorkerSandbox(
       '',
       '$rune$function',
-      { functionValue, inputs: validation.data },
-      '$rune$function.functionValue($rune$function.inputs)'
+      { functionValue, args: parameterNames.map((name) => Reflect.get(validatedInputs, name)) },
+      '$rune$function.functionValue(...$rune$function.args)'
     );
 
     scope.postMessage({

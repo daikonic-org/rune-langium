@@ -214,9 +214,9 @@ export function isWrapper(x: unknown): x is Wrapper {
 }
 
 
-export function UsePayload(input: { wrapper: RuneFuncData<WrapperShape> }): string {
+export function UsePayload(wrapper: RuneFuncData<WrapperShape>): string {
   let result: string | undefined;
-  const payload = input.wrapper?.payload;
+  const payload = wrapper?.payload;
   if (payload == null) {
     throw new Error('Diagnostic: PayloadExists: payload must be present in UsePayload');
   }

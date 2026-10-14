@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import ts from 'typescript-classic';
@@ -49,11 +50,13 @@ async function executableFunctions<T extends Record<string, unknown> = Record<st
     strict: true,
     typescript: { layout: 'single-file' }
   });
-  const exports = {} as T;
+  const rawExports = {} as T;
+  let exports = rawExports;
   const javascript = ts.transpileModule(typescript!.content, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
   }).outputText;
   new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+  exports = recordFunctionExports(exports, [typescript!]);
   return { python, exports, document };
 }
 
@@ -448,11 +451,12 @@ func Build:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
+    let exports: Record<string, (data: object) => unknown> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     const value = exports.Build!({ id: 'id' });
     expect(value === undefined ? null : JSON.parse(JSON.stringify(value, (_key, value) => value ?? null))).toEqual(
       expected
@@ -487,11 +491,12 @@ func Build:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
+    let exports: Record<string, (data: object) => unknown> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     const expected = JSON.parse(JSON.stringify(exports.Build!({})));
     expect(expected).toEqual({ amount: 1, values: [2, 3] });
     expect(
@@ -537,11 +542,12 @@ func Build:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
+    let exports: Record<string, (data: object) => unknown> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     const original =
       shape === 'collection'
         ? [
@@ -606,11 +612,12 @@ func Create:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: { value?: number }) => unknown> = {};
+    let exports: Record<string, (data: { value?: number }) => unknown> = {};
     const js = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', js)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     expect(exports.Forward!({})).toBeUndefined();
     const present = exports.Forward!({ value: 0 });
     expect(present).toEqual(kind === 'scheme' ? { value: 0, meta: {} } : { value: 0 });
@@ -704,7 +711,7 @@ func AliasOutput:
       ])[0]!.error
     ).toContain('produced');
     expect(module.code).toContain('result: float | None = None');
-    expect(module.code).toContain(`def ${name}(input: ${name}_Input) -> float:`);
+    expect(module.code).toContain(`def ${name}(flag: bool) -> float:`);
   });
 
   it('keeps comprehension bindings and runtime builtins separate from legal declarations', async () => {
@@ -738,7 +745,7 @@ func Native:
     const module = generatePythonModule([AstUtils.getDocument(funcs[0]!)]);
     const call = (name: string) => module.bindings.get(`python.names.${name}`)!;
     expect(
-      execute(module.code + '\nrune_bind("python.names.Native", lambda input: input["amount"] + 1)\n', [
+      execute(module.code + '\nrune_bind("python.names.Native", lambda amount: amount + 1)\n', [
         { expression: `${call('Collision')}(data)`, data: { xs: [1, 2] } },
         { expression: `${call('reversed')}(data)`, data: { xs: [1, 2] } },
         { expression: `${call('Native')}(data)`, data: { amount: 2 } }
@@ -816,11 +823,11 @@ func Build:
     const document = AstUtils.getDocument(funcs[0]!);
     const module = generatePythonModule([document]);
     const name = module.bindings.get('python.functions.Build')!;
-    expect(module.code).toContain(`def ${name}(input: ${name}_Input) -> Result:`);
+    expect(module.code).toContain(`def ${name}(value: float) -> Result:`);
     expect(
       execute(module.code + '\nfrom typing import get_type_hints\n', [
         {
-          expression: `str(get_type_hints(${name}_Input)["value"])`
+          expression: `str(get_type_hints(${name})["value"])`
         }
       ])
     ).toEqual([{ value: "<class 'float'>" }]);
@@ -916,7 +923,7 @@ func Call:
       'Positive'
     );
     expect(
-      execute(module.code + '\nrune_bind("python.native.Native", lambda input: input["amount"] * 3)\n', [
+      execute(module.code + '\nrune_bind("python.native.Native", lambda amount: amount * 3)\n', [
         { expression: `${name}(data)`, data: { amount: 2 } }
       ])
     ).toEqual([{ value: 6 }]);
@@ -993,11 +1000,12 @@ func Identity:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, new (data: object) => { validateSelection(): { valid: boolean } }> = {};
+    let exports: Record<string, new (data: object) => { validateSelection(): { valid: boolean } }> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     const cases = [
       { data: {}, expected: false },
       { data: { left: 0 }, expected: true },
@@ -1037,11 +1045,12 @@ func Anchor:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, new (data: object) => { validateSelection(): { valid: boolean } }> = {};
+    let exports: Record<string, new (data: object) => { validateSelection(): { valid: boolean } }> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     expect(new exports.Empty!({}).validateSelection().valid).toBe(false);
     expect(execute(python.code, [{ expression: `${name}(data)`, data: {} }])).toEqual([{ value: false }]);
   });
@@ -1062,11 +1071,12 @@ func Validate:
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
+    let exports: Record<string, (data: object) => unknown> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     const cases = [{}, { left: 0 }, { right: false }, { left: 0, right: false }];
     const results = execute(
       python.code,
@@ -1165,7 +1175,7 @@ func F:
     expect(
       execute(module.code + '\nfrom typing import get_type_hints\n', [
         {
-          expression: `list(get_type_hints(get_type_hints(get_type_hints(${name})["input"])["other"]))`
+          expression: `list(get_type_hints(get_type_hints(${name})["other"]))`
         }
       ])
     ).toEqual([{ value: ['x'] }]);
@@ -1432,11 +1442,12 @@ describe('pinned CDM Python backend execution', () => {
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, new (data: object) => { validateUnitType(): { valid: boolean } }> = {};
+    let exports: Record<string, new (data: object) => { validateUnitType(): { valid: boolean } }> = {};
     const javascript = ts.transpileModule(typescript!.content, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
     new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    exports = recordFunctionExports(exports, [typescript!]);
     const cases = [
       { data: {}, expected: false },
       { data: { financialUnit: 'Share' }, expected: true },

@@ -35,7 +35,10 @@ The module contains complete functions, typed input/Data records, enum literals,
 runtime helpers and source-addressed function/condition fragments. Python 3.13
 uses standard-library `TypedDict` and `Literal`; optional fields use `NotRequired`,
 collection fields use lists, and Rune numeric values use binary64 floats. Functions
-retain ordered aliases, preconditions, set/add operations and postconditions.
+take positional parameters in Rune order, retain their ordinary names and types,
+and retain ordered aliases, preconditions, set/add operations and postconditions.
+Optional Python parameters accept `None`; only trailing optional parameters have
+defaults. Native function bindings receive the same positional arguments.
 Native declarations require `rune.bind(qualifiedName, callable)` before execution;
 missing bindings raise an explicit error. Studio displays projections read-only
 and retains the narrower reverse-expression lens.
@@ -51,9 +54,12 @@ arms remain lazy without nested-ternary depth limits.
 
 ## TypeScript functions
 
-Rune functions emit named exports with a single typed input object and an explicit
-return type. Data values use `RuneFuncData<TypeShape>`, which preserves nested
-fields while excluding class validation methods. Required inputs are required properties; optional inputs use `?`;
+Rune functions emit named exports with positional parameters in Rune declaration
+order and an explicit return type, such as `AddTwo(left, right)`. Ordinary parameter
+names match Rune inputs; target keywords and implementation binding collisions
+are escaped. Data values use `RuneFuncData<TypeShape>`, which preserves nested
+fields while excluding class validation methods. Required inputs are required parameters. Trailing optional inputs use `?`; optional
+inputs before required ones accept `undefined` without changing argument order;
 collection inputs and outputs use arrays. An optional scalar output returns
 `T | undefined`. These types describe values and collection shape; TypeScript
 arrays do not encode every Rune minimum or maximum cardinality. Exported functions
@@ -63,7 +69,9 @@ Validate external payloads before calling them; Studio does this once using
 reuses the Data schema emitter and dependency closure. This input schema accepts the
 adapted metadata contract, permits omitted zero-minimum arrays, and leaves Data
 conditions to their separate validation flow. Generated
-functions enforce declared output bounds at runtime, including absent-only `(0..0)` outputs.
+functions expose ordered `parameterNames` metadata, including single-file bundles.
+Studio maps validated fields through this order and then invokes the positional API.
+Functions enforce declared output bounds at runtime, including absent-only `(0..0)` outputs.
 Required metadata assignment fields reject absent values. Metadata helper discovery
 follows linked declarations, including imported constructor and assignment fields.
 
@@ -171,3 +179,9 @@ Invalid or unknown expression nodes emit diagnostics and throw when evaluated.
 `test/emit/function-runtime.test.ts` parses Rune, generates complete modules,
 checks them with TypeScript strict mode, and executes the result. Its call-site
 checks also verify rejection of incompatible inputs and return assignments.
+
+Generated display bodies use purpose-built Rune objects' `.equals()` for scalar
+structural comparisons, delegating to the canonical recursive equality contract.
+Executable TypeScript exports still compare plain JSON using shared runtime helpers.
+Studio formats generated TypeScript and Python with lazy formatter engines in its
+worker; authored Rune source and executable exports are unchanged by formatting.

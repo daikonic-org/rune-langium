@@ -189,10 +189,10 @@ const rune = {
 // --- end runtime helpers ---
 
 
-export function Double(input: { n: number }): number {
-  return (input.n + input.n);
+export function Double(n: number): number {
+  return (n + n);
 }
 
-export function Triple(input: { n: number }): number {
-  return ((input.n + input.n) + input.n);
+export function Triple(n: number): number {
+  return ((n + n) + n);
 }

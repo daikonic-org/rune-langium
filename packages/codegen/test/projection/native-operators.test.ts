@@ -103,10 +103,10 @@ func RequiredOutput:
     const javascript = ts.transpileModule(source, {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
     }).outputText;
-    const exports: { RequiredOutput?: (input: { flag: boolean }) => number } = {};
+    const exports: { RequiredOutput?: (flag: boolean) => number } = {};
     new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
-    expect(exports.RequiredOutput!({ flag: true })).toBe(2);
-    expect(() => exports.RequiredOutput!({ flag: false })).toThrow("Function 'RequiredOutput' produced no result");
+    expect(exports.RequiredOutput!(true)).toBe(2);
+    expect(() => exports.RequiredOutput!(false)).toThrow("Function 'RequiredOutput' produced no result");
   });
   it('uses strict scalar equality and direct numeric comparisons', () => {
     expect(render('"a" = "b"')).toBe('false');

@@ -333,7 +333,7 @@ func Read:
     const module = generatePythonModule([AstUtils.getDocument(func!)]);
     const body = module.projections.find((entry) => entry.kind === 'function')!.body!.code;
     expect(body).not.toMatch(/rune\.(get|unwrap|assignmentValue|normalize\w*|cardinality|list)\(/);
-    expect(module.code).toContain('input = rune.normalizeObject(');
+    expect(module.code).toContain('rune.normalizeObject(');
     expect(
       runPython(
         [{ expression: 'Read(data)', data: { entry: { amount: 3 } } }],
@@ -343,7 +343,7 @@ func Read:
     expect(
       runPython(
         [{ expression: 'projected(data)', data: { entry: { amount: 3 } } }],
-        `def projected(input):\n${body
+        `def projected(entry):\n${body
           .split('\n')
           .map((line) => '    ' + line)
           .join('\n')}`

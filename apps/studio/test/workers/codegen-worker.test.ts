@@ -3,6 +3,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../src/services/projection-format.js', () => ({
+  formatGeneratedProjection: async (projection: unknown) => projection
+}));
+
 const buildMock = vi.fn(async () => undefined);
 const fromStringMock = vi.fn((content: string, uri: string) => ({
   uri,
@@ -976,9 +980,9 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
     generateMock.mockReturnValue([
       {
         relativePath: 'alpha.ts',
-        content: 'export function Run(input) { return input.count + 1; }',
+        content: 'export function Run(count) { return count + 1; }',
         diagnostics: [],
-        funcs: [{ name: 'Run', fileContents: '' }]
+        funcs: [{ name: 'Run', parameterNames: ['count'], fileContents: '' }]
       }
     ]);
     emitStandaloneZodSchemaMock.mockReturnValue({
@@ -1022,7 +1026,7 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
         content: 'export function CalcTrade(input) { return input; }',
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'CalcTrade', fileContents: 'function CalcTrade(input) { return input; }' }]
+        funcs: [{ name: 'CalcTrade', parameterNames: [], fileContents: 'function CalcTrade(input) { return input; }' }]
       }
     ]);
 
@@ -1060,7 +1064,7 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
         content: 'export function CalcTrade(input) { return input; }',
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'CalcTrade', fileContents: 'function CalcTrade(input) { return input; }' }]
+        funcs: [{ name: 'CalcTrade', parameterNames: [], fileContents: 'function CalcTrade(input) { return input; }' }]
       }
     ]);
 
@@ -1089,7 +1093,7 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
         content: 'export function CalcTrade(input) { return input; }',
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'CalcTrade', fileContents: 'function CalcTrade(input) { return input; }' }]
+        funcs: [{ name: 'CalcTrade', parameterNames: [], fileContents: 'function CalcTrade(input) { return input; }' }]
       }
     ]);
 
@@ -1126,13 +1130,13 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
           const runeWithMeta = <T, K extends string>(value: T, entries: Record<K, unknown>): T => value;
           const runeDistinct = <T>(values: readonly T[]): T[] => Array.from(new Set(values));
           const increment = (value: number): number => value + 1;
-          export function Summarize(input: { values: number[] }): number[] {
-            return runeWithMeta(runeDistinct(input.values.map(increment)), { source: 'preview' });
+          export function Summarize(values: number[]): number[] {
+            return runeWithMeta(runeDistinct(values.map(increment)), { source: 'preview' });
           }
         `,
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'Summarize', fileContents: '' }]
+        funcs: [{ name: 'Summarize', parameterNames: ['values'], fileContents: '' }]
       }
     ]);
 
@@ -1166,9 +1170,9 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
       {
         relativePath: 'alpha.ts',
         content: `import { Temporal } from '@js-temporal/polyfill';
-        export function DateFunction(input) { return Temporal.PlainDate.from(input.value).year; }`,
+        export function DateFunction(value) { return Temporal.PlainDate.from(value).year; }`,
         diagnostics: [],
-        funcs: [{ name: 'Date', exportName: 'DateFunction', fileContents: '' }]
+        funcs: [{ name: 'Date', parameterNames: ['value'], exportName: 'DateFunction', fileContents: '' }]
       }
     ]);
     const { scope, dispatch } = await loadWorkerModule();
@@ -1218,7 +1222,7 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
         content: `import { Temporal } from '@js-temporal/polyfill';
           export function Output() { return ${expression}; }`,
         diagnostics: [],
-        funcs: [{ name: 'Output', fileContents: '' }]
+        funcs: [{ name: 'Output', parameterNames: [], fileContents: '' }]
       }
     ]);
     const { scope, dispatch } = await loadWorkerModule();
@@ -1244,24 +1248,24 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
         relativePath: 'alpha.ts',
         content: `
           import { innerValue } from './beta.js';
-          export function Outer(input: { value: number }): number {
-            return innerValue(input);
+          export function Outer(value: number): number {
+            return innerValue(value);
           }
         `,
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'Outer', fileContents: '' }]
+        funcs: [{ name: 'Outer', parameterNames: ['value'], fileContents: '' }]
       },
       {
         relativePath: 'beta.ts',
         content: `
-          export function innerValue(input: { value: number }): number {
-            return input.value * 2;
+          export function innerValue(value: number): number {
+            return value * 2;
           }
         `,
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'innerValue', fileContents: '' }]
+        funcs: [{ name: 'innerValue', parameterNames: ['value'], fileContents: '' }]
       }
     ]);
 
@@ -1302,7 +1306,7 @@ describe('codegen-worker previewGenerateCache (executeFunction)', () => {
         `,
         sourceMap: undefined,
         diagnostics: [],
-        funcs: [{ name: 'Unsafe', fileContents: '' }]
+        funcs: [{ name: 'Unsafe', parameterNames: ['path'], fileContents: '' }]
       }
     ]);
 

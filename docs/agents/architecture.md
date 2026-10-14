@@ -171,7 +171,10 @@ Displayed TypeScript condition predicates use `false` for a missing `else`.
 Executable validators retain implication semantics: a condition passes when its
 antecedent does not apply. A missing branch in a function value expression remains
 `undefined`; nested value expressions within predicates retain that behavior.
-Structured values compare canonical `rune.valueKey` results. Primitive collection
+Executable structured values compare canonical `rune.valueKey` results. Scalar
+structural comparisons in displayed TypeScript bodies assume purpose-built Rune
+objects with `.equals()` implementing that same recursive contract; optional objects
+retain null/undefined equivalence. This representation does not execute in the preview. Primitive collection
 comparisons inline the same quantified equality source used by the runtime;
 structured collections retain `rune.equals(left, right, quantifier?, unequal?)`. Computed scalars use native
 target-language comparisons as well. Built-ins whose source is not loaded and
@@ -227,8 +230,13 @@ file. Grammar reflection drives the expression-kind census; linked execution
 fixtures compare Python with the TypeScript emitter, including lexical closure
 scope, metadata retention, nanoseconds and daylight-saving transitions.
 
-`generatePythonModule` emits typed input/Data records, enum literals and complete
-function bodies. Native declarations require an explicit callable binding;
+`generatePythonModule` emits typed Data records, enum literals and complete
+function bodies with positional parameters. Both generated APIs use declared Rune
+input order and names, escaping target keywords or internal binding collisions.
+Trailing optional arguments have defaults; preceding optional arguments retain
+explicit absence types. TypeScript exposes ordered `parameterNames` metadata even
+in single-file output; Studio uses it to adapt schema-validated named form fields.
+Python protects builtins and global callables from input-name shadowing. Native declarations require an explicit callable binding;
 missing bindings fail visibly. Dispatch normalizes inputs before selecting a
 variant, retaining wrappers for its body. Function condition fragments are
 captured from that same body traversal. Python records the authored body statements
@@ -239,7 +247,10 @@ deduplication. Specialized metadata, structural equality and precision-preservin
 calendar operations retain their authoritative implementation. See the
 [utility scrub audit](../investigations/2026-10-13-projection-utility-scrub.md).
 Python and TypeScript share projection
-provenance and Studio's file-version/async cache guards; generated views remain
+provenance and Studio's file-version/async cache guards. Studio lazily loads
+Prettier and Ruff WASM in the codegen worker for generated display formatting,
+strips temporary formatter wrappers and rechecks source freshness afterward.
+Authored Rune text is not formatted through this path. Generated views remain
 read-only and do not widen the inverse lens.
 
 Rule predicates resolve their declared input through the authoritative type/scope helpers. Python shares implicit field-context initialization with Data conditions; TypeScript rules reuse its Data-condition context, including inherited fields and metadata presence. Named rule fields link through the same typed scope used for navigation.
@@ -257,3 +268,8 @@ Inspector sections mount on first activation and remain mounted while hidden aft
 Authored comments are Source-only. Core's existing lexer yields UTF-16 comment ranges; per-render trivia ownership comes from original child CST ranges, including outside-root inline tails. Clean declarations need no trivia scan. Dirty render recursion preserves owned comments once, drops removed-child trivia and reuses untouched bodies. Legacy notes and standalone callback APIs remain covered. See the [qualitative #562 assessment](../investigations/2026-10-12-inspector-562-assessment.md).
 
 Curated navigation resolves the selected declaration's actual document within the active bundle/version/namespace/artifact. Pending reveal is scoped to current navigation/workspace/revision and is cancelled when superseded. Multi-document namespaces must never use the first matching namespace file as a declaration owner; namespace/source laziness and immutable cache keys are unchanged.
+
+Source selection uses CodeMirror lexical context plus an anchored declaration and
+its name range. Comments, strings, neighboring lines and ordinary expression
+keywords cannot manufacture a missing-type navigation request. Explicit LSP
+reference navigation still resolves through the language service.
