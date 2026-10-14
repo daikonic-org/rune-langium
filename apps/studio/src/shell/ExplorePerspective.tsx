@@ -44,10 +44,9 @@ import {
   useModelSourceSync,
   createEditorCommitRegistry,
   useLatestRef,
+  useNavigationArrival,
   makeNodeId,
   nameFromNodeId,
-  isTypeNodeId,
-  qualifiedNameFromNodeId,
   splitNodeId,
   selectNodeRepository
 } from '@rune-langium/visual-editor';
@@ -127,7 +126,7 @@ import {
 import { useExportDialogStore } from './export-dialog-store.js';
 import { useImportDialogStore } from './import-dialog-store.js';
 import { HydrationOrchestrator } from '../services/hydration-orchestrator.js';
-import { useExploreNavigationStore } from '../services/explore-navigation.js';
+import { resolveExploreNavigation, useExploreNavigationStore } from '../services/explore-navigation.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 /**
@@ -489,8 +488,11 @@ export const ExplorePerspective = withInstrumentation(
     } | null>(null);
     const pendingFileArrivalRef = useLatestRef(pendingFileArrival);
     const sourcePaneRef = useRef<HTMLDivElement>(null);
-    const inspectorArrivalRevisionRef = useRef<number | undefined>(undefined);
-    const inspectorArrivalRef = useRef<HTMLDivElement>(null);
+    const {
+      arrivalNodeId: inspectorArrivalNodeId,
+      emphasizeArrival: emphasizeInspectorArrival,
+      cancelArrival: cancelInspectorArrival
+    } = useNavigationArrival();
     const [loadingSourcePaths, setLoadingSourcePaths] = useState<Set<string>>(() => new Set());
     const sourceLoadTokensRef = useRef(new Map<string, object>());
     const pendingSourceRequestsRef = useRef(new Map<string, object>());
@@ -1496,12 +1498,21 @@ export const ExplorePerspective = withInstrumentation(
 
     const navigateToNode = useCallback(
       (nodeId: string, origin?: 'source') => {
-        const targetNode =
-          nodeRepository.byId(nodeId) ??
-          nodeRepository.all().find((node) => isTypeNodeId(node.id) && qualifiedNameFromNodeId(node.id) === nodeId);
-        const resolvedNodeId = targetNode?.id ?? nodeId;
-        const exists = Boolean(targetNode);
-        if (!exists) {
+        const editor = useEditorStore.getState();
+        const { targetNode, unchanged } = resolveExploreNavigation(
+          nodeRepository,
+          nodeId,
+          editor.selectedNodeId,
+          origin
+        );
+        if (origin === 'source' && targetNode) {
+          pendingRevealRef.current = null;
+          setSourceNavigationPending(null);
+        }
+        // Cursor placement inside the current declaration is selection synchronization,
+        // not a new visit: preserve camera, focus, and the consumed arrival revision.
+        if (unchanged) return;
+        if (!targetNode) {
           const shortName = nameFromNodeId(nodeId);
           showToast({
             description: `Type "${shortName}" not loaded — load the file containing this type`,
@@ -1510,14 +1521,13 @@ export const ExplorePerspective = withInstrumentation(
           });
           return;
         }
+        const resolvedNodeId = targetNode.id;
         // History tracking (back-stack push + forward-stack invalidation) is
         // handled generically by the selectedNodeId subscription above.
         // Explicit navigation reveals the target while preserving unrelated kind filters.
-        const editor = useEditorStore.getState();
         const targetKind = targetNode?.type as import('@rune-langium/visual-editor').TypeKind;
         if (targetKind && !editor.visibility.visibleNodeKinds.has(targetKind)) editor.toggleNodeKind(targetKind);
         if (sourceRevealIntentRef.current) sourceRevealIntentRef.current.cancelled = false;
-        if (origin === 'source') pendingRevealRef.current = null;
         requestNavigationArrival(resolvedNodeId, origin);
         storeSelectNode(resolvedNodeId, { reapplyFocusMode: true });
         if (!focusMode) editor.revealNeighbors(resolvedNodeId);
@@ -2450,36 +2460,21 @@ export const ExplorePerspective = withInstrumentation(
       ]
     );
 
+    // Depend on readiness, not the AST object: reparsing the same declaration
+    // must neither cancel an active cue nor replay a consumed navigation.
+    const inspectorArrivalReady = Boolean(selectedNodeData && !selectedNodeMeta?.deferred);
     useEffect(() => {
-      if (
-        !navigationRevision ||
-        inspectorArrivalRevisionRef.current === navigationRevision ||
-        !selectedNodeData ||
-        selectedNodeMeta?.deferred ||
-        !inspectorArrivalRef.current
-      )
-        return;
-      let cleanup: (() => void) | undefined;
-      let cancelled = false;
-      let arrivalFrame: number | undefined;
-      const frame = requestAnimationFrame(() => {
-        arrivalFrame = requestAnimationFrame(() => {
-          if (cancelled || !inspectorArrivalRef.current) return;
-          inspectorArrivalRevisionRef.current = navigationRevision;
-          cleanup = emphasizeNavigationArrival(inspectorArrivalRef.current);
-        });
-      });
-      return () => {
-        cancelled = true;
-        cancelAnimationFrame(frame);
-        if (arrivalFrame !== undefined) cancelAnimationFrame(arrivalFrame);
-        cleanup?.();
-      };
-    }, [navigationRevision, selectedNodeData, selectedNodeMeta?.deferred]);
+      if (navigationRevision !== undefined && selectedNodeId && inspectorArrivalReady) {
+        emphasizeInspectorArrival(selectedNodeId, navigationRevision);
+      }
+      return cancelInspectorArrival;
+    }, [navigationRevision, selectedNodeId, inspectorArrivalReady, emphasizeInspectorArrival, cancelInspectorArrival]);
 
     const renderInspectorPane = useCallback(
       () => (
-        <div ref={inspectorArrivalRef} className="studio-scroll flex flex-col min-h-0 h-full overflow-hidden">
+        <div
+          className={`studio-scroll flex flex-col min-h-0 h-full overflow-hidden${inspectorArrivalNodeId && inspectorArrivalNodeId === selectedNodeId ? ' navigation-arrival' : ''}`}
+        >
           <EditorFormPanel
             nodeData={selectedNodeData}
             meta={selectedNodeMeta}
@@ -2512,6 +2507,7 @@ export const ExplorePerspective = withInstrumentation(
         </div>
       ),
       [
+        inspectorArrivalNodeId,
         metadataActions,
         inspectorScope,
         storeParseEpoch,
