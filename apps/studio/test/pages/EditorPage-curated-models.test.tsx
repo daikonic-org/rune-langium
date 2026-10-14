@@ -122,6 +122,8 @@ vi.mock('@rune-langium/visual-editor', async () => ({
     await vi.importActual<typeof import('@rune-langium/visual-editor')>('@rune-langium/visual-editor')
   ).createEditorCommitRegistry,
   useModelSourceSync: () => ({ flush: async () => {} }),
+  useNavigationArrival: (await import('../../../../packages/visual-editor/src/hooks/useNavigationArrival.js'))
+    .useNavigationArrival,
   // Mirrors the real hook: a ref synced to the latest value via
   // useLayoutEffect, not a render-body write.
   useLatestRef: <T,>(value: T) => {

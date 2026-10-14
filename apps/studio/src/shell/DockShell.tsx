@@ -299,14 +299,21 @@ export const DockShell = withInstrumentation(
       layout.dockview && layout.dockview.shape === 'factory' ? layout.dockview.bottomGroup.collapsed : false
     );
     const collapseAuxiliary = useDesignPreviewStore((state) => state.preferences.auxiliary);
+    const utilitiesCollapsedRef = useLatestRef(utilitiesCollapsed);
     useEffect(() => {
       if (!collapseAuxiliary) return;
       const edge = apiRef.current?.getEdgeGroup('bottom');
       if (!edge) return;
+      const originalCollapsed = utilitiesCollapsedRef.current;
       setUtilitiesCollapsedState(edge.isCollapsed());
       const listener = edge.onDidCollapsedChange((event) => setUtilitiesCollapsedState(event.isCollapsed));
-      return () => listener.dispose();
-    }, [collapseAuxiliary]);
+      return () => {
+        listener.dispose();
+        // WorkbenchHost restores the pre-preview grid snapshot; restore its
+        // logical flag too, so the next toolbar/header toggle uses that state.
+        setUtilitiesCollapsedState(originalCollapsed);
+      };
+    }, [collapseAuxiliary, utilitiesCollapsedRef]);
 
     // Refs kept current so stable callbacks always read the latest values
     // without needing them as useCallback deps.

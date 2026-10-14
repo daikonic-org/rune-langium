@@ -256,6 +256,10 @@ class MockWorker {
   }
 }
 
+function getGraphCanvas(): HTMLDivElement | null {
+  return screen.queryByTestId('rune-type-graph-mock')?.closest<HTMLDivElement>('.studio-graph-canvas') ?? null;
+}
+
 vi.mock('@rune-langium/visual-editor', async () => ({
   RuneTypeGraph: React.forwardRef(
     (
@@ -281,7 +285,7 @@ vi.mock('@rune-langium/visual-editor', async () => ({
         relayout: runeTypeGraphMockState.relayout,
         exportRosetta: () => new Map()
       }));
-      return React.createElement('div');
+      return React.createElement('div', { 'data-testid': 'rune-type-graph-mock' });
     }
   ),
   NamespaceExplorerPanel: (props: { onSelectNode?: (nodeId: string) => void; [key: string]: unknown }) => {
@@ -339,6 +343,8 @@ vi.mock('@rune-langium/visual-editor', async () => ({
   createEditorCommitRegistry: (await import('../../../../packages/visual-editor/src/hooks/editor-commit-lifecycle.js'))
     .createEditorCommitRegistry,
   useModelSourceSync: () => ({ flush: vi.fn().mockResolvedValue(undefined) }),
+  useNavigationArrival: (await import('../../../../packages/visual-editor/src/hooks/useNavigationArrival.js'))
+    .useNavigationArrival,
   // Mirrors the real hook: a ref synced to the latest value via
   // useLayoutEffect, not a render-body write.
   useLatestRef: <T,>(value: T) => {
@@ -2221,7 +2227,7 @@ describe('EditorPage workspace chrome', () => {
 
     expect(runeTypeGraphMockState.latestConfig?.layout?.direction).toBe('LR');
 
-    const graphCanvas = document.querySelector('.studio-graph-canvas') as HTMLDivElement | null;
+    const graphCanvas = getGraphCanvas() as HTMLDivElement | null;
     expect(graphCanvas).not.toBeNull();
     vi.spyOn(graphCanvas!, 'getBoundingClientRect').mockReturnValue({
       width: 800,
@@ -2250,7 +2256,7 @@ describe('EditorPage workspace chrome', () => {
 
     expect(runeTypeGraphMockState.latestConfig?.layout?.direction).toBe('LR');
 
-    const graphCanvas = document.querySelector('.studio-graph-canvas') as HTMLDivElement | null;
+    const graphCanvas = getGraphCanvas() as HTMLDivElement | null;
     expect(graphCanvas).not.toBeNull();
     vi.spyOn(graphCanvas!, 'getBoundingClientRect').mockReturnValue({
       width: 800,
@@ -2277,7 +2283,7 @@ describe('EditorPage workspace chrome', () => {
     renderEditorPage(props);
     expect(screen.getByTestId('center-stack-mock')).toBeInTheDocument();
     expect(centerStackMockState.setShowGraph).toBeDefined();
-    expect(document.querySelector('.studio-graph-canvas')).toBeNull();
+    expect(getGraphCanvas()).toBeNull();
 
     const frames = new Map<number, FrameRequestCallback>();
     let nextFrame = 1;
@@ -2292,7 +2298,7 @@ describe('EditorPage workspace chrome', () => {
     try {
       centerStackMockState.showGraph = true;
       act(() => centerStackMockState.setShowGraph?.(true));
-      const firstCanvas = document.querySelector('.studio-graph-canvas') as HTMLDivElement;
+      const firstCanvas = getGraphCanvas() as HTMLDivElement;
       expect(firstCanvas).not.toBeNull();
       const firstObserver = resizeObserverMockState.instances.find((instance) =>
         instance.targets.includes(firstCanvas)
@@ -2325,7 +2331,7 @@ describe('EditorPage workspace chrome', () => {
       act(() => centerStackMockState.setShowGraph?.(false));
       expect(firstObserver?.disconnected).toBe(true);
       act(() => centerStackMockState.setShowGraph?.(true));
-      const secondCanvas = document.querySelector('.studio-graph-canvas') as HTMLDivElement;
+      const secondCanvas = getGraphCanvas() as HTMLDivElement;
       expect(secondCanvas).not.toBe(firstCanvas);
       expect(resizeObserverMockState.instances.some((instance) => instance.targets.includes(secondCanvas))).toBe(true);
     } finally {
@@ -2347,7 +2353,7 @@ describe('EditorPage workspace chrome', () => {
       ]
     });
 
-    const graphCanvas = document.querySelector('.studio-graph-canvas') as HTMLDivElement | null;
+    const graphCanvas = getGraphCanvas() as HTMLDivElement | null;
     expect(graphCanvas).not.toBeNull();
     vi.spyOn(graphCanvas!, 'getBoundingClientRect').mockReturnValue({
       width: 1100,
@@ -2377,7 +2383,7 @@ describe('EditorPage workspace chrome', () => {
       ]
     });
 
-    const graphCanvas = document.querySelector('.studio-graph-canvas') as HTMLDivElement | null;
+    const graphCanvas = getGraphCanvas() as HTMLDivElement | null;
     expect(graphCanvas).not.toBeNull();
     vi.spyOn(graphCanvas!, 'getBoundingClientRect').mockReturnValue({
       width: 800,
@@ -2958,14 +2964,42 @@ describe('EditorPage source reveal lifecycle', () => {
       const view = renderEditorPage(input);
       act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(editorStoreState.selectedNodeId!));
       flushFrames();
-      flushFrames();
+      act(() => vi.advanceTimersByTime(299));
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+      act(() => vi.advanceTimersByTime(1));
       expect(view.container.querySelector('.studio-scroll.navigation-arrival')).not.toBeNull();
-      act(() => vi.advanceTimersByTime(1000));
+      act(() => vi.advanceTimersByTime(500));
       editorStoreState.nodes = editorStoreState.nodes.map((node) => ({ ...node, data: { ...node.data } }));
       view.rerenderEditorPage(input);
       flushFrames();
-      flushFrames();
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(500));
       expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+      view.rerenderEditorPage(input);
+      act(() => vi.advanceTimersByTime(300));
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not replay an Inspector cue when Source reports the same resolved declaration', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      select();
+      const view = renderEditorPage(props());
+      const nodeId = editorStoreState.selectedNodeId!;
+      act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(nodeId));
+      act(() => vi.advanceTimersByTime(1300));
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+      editorStoreState.selectNode.mockClear();
+      act(() => sourceEditorMockState.latestProps?.onNavigateToNode?.(`${namespace}.BusinessCenters`));
+      act(() => vi.advanceTimersByTime(1300));
+      expect(editorStoreState.selectNode).not.toHaveBeenCalled();
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).toBeNull();
+      act(() => namespaceExplorerMockState.latestProps?.onSelectNode?.(nodeId));
+      act(() => vi.advanceTimersByTime(300));
+      expect(view.container.querySelector('.studio-scroll.navigation-arrival')).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }

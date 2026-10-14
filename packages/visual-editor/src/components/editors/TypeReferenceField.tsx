@@ -94,7 +94,12 @@ export function TypeReferenceField({
     const byValue = options?.find((option) => option.value === value);
     if (byValue) return byValue;
     if (displayName) {
-      return options?.find((option) => option.label === displayName) ?? null;
+      const byLabel = options?.find((option) => option.label === displayName);
+      if (byLabel) return byLabel;
+      // Qualified authored references retain the canonical option's kind even
+      // when its display label is bare (e.g. two namespaces both define Status).
+      const nodeId = resolveNodeId(displayName, options?.map((option) => option.value) ?? []);
+      return options?.find((option) => option.value === nodeId) ?? null;
     }
     return null;
   }, [displayName, options, value]);
