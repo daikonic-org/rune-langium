@@ -235,7 +235,6 @@ describe('DockShell — dockview integration (T065)', () => {
           ? new DOMRect(centerLeft, 0, 600, 34)
           : new DOMRect();
     });
-    useDesignPreviewStore.getState().setPreference('path', true);
     const { unmount } = render(
       <DockShell
         studioVersion="0.1.0"

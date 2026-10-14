@@ -87,9 +87,8 @@ pnpm --filter @rune-langium/studio run type-check
 For local visual comparisons, add `?design-preview` to the dev-server URL. The
 floating **Design preferences** control compares all five polish priorities:
 navigation text, calmer chrome, collapsing auxiliary panels, a responsive top bar,
-and consistent control details, plus pane-pill spacing and an Explore location
-path. Explore's Type explorer and shared Form/Code preview use explicit header
-chevrons and vertical labels when hidden; their drafts and expanded widths remain
+and consistent control details, plus pane-pill spacing. Explore's Type explorer
+and shared Form/Code preview use explicit header chevrons and vertical labels when hidden; their drafts and expanded widths remain
 in memory. Other auxiliary panels start pinned and can be unpinned. Disabling
 that option restores the original arrangement without replacing existing panel
 instances. Comparison layouts are never saved to the workspace. Changes last
@@ -98,6 +97,10 @@ controls are excluded from production. This uses constrained grid rails for
 Explore's side panels and free native edge-group collapse/expand elsewhere;
 Dockview's slide-out
 overlay auto-hide requires its separate enterprise module.
+
+Explore's location path is part of the normal interface, including production.
+It shows the selected declaration after its namespace, aligns with the center
+stack, and truncates from the beginning when space is tight.
 
 ### With external LSP server
 

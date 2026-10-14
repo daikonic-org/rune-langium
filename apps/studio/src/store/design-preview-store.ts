@@ -3,7 +3,7 @@
 
 import { create } from 'zustand';
 
-const defaults = { calm: false, readable: false, auxiliary: false, header: false, details: false, path: false };
+const defaults = { calm: false, readable: false, auxiliary: false, header: false, details: false };
 export type DesignPreviewPreference = keyof typeof defaults;
 
 /** Page-session UI choices; the opt-in development panel is the only writer. */

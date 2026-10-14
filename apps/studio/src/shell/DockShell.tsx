@@ -214,10 +214,9 @@ export const DockShell = withInstrumentation(
     const apiRef = useRef<DockviewApi | null>(null);
     const shellRef = useRef<HTMLDivElement>(null);
     const watchLocationLayoutRef = useRef<(api: DockviewApi) => void>(() => {});
-    const showLocationPath = useDesignPreviewStore((state) => state.preferences.path);
     useEffect(() => {
       const shell = shellRef.current;
-      if (!shell || !showLocationPath) return;
+      if (!shell) return;
       let center: Element | null = null;
       const update = () => {
         const next = shell.querySelector('[data-testid="studio-paneswitch"]');
@@ -251,7 +250,7 @@ export const DockShell = withInstrumentation(
         watchLocationLayoutRef.current = () => {};
         shell.style.removeProperty('--rune-center-stack-start');
       };
-    }, [showLocationPath]);
+    }, []);
     const suppressLayoutPersistenceRef = useRef(false);
     const onLayoutChangeRef = useLatestRef(onLayoutChange);
 
