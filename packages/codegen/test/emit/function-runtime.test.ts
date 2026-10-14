@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { Temporal } from '@js-temporal/polyfill';
 import { generate } from '../../src/export.js';
 import { mixedChoiceSource, mixedChoiceCases } from '../helpers/mixed-choice.js';
+import { emptyChoiceSource } from '../helpers/empty-choice.js';
 
 async function compile(
   source: string | string[],
@@ -55,6 +56,17 @@ async function compile(
 }
 
 describe('generated TypeScript function execution', () => {
+  it('omits empty Choice list entries and enforces their required boundaries', async () => {
+    const funcs = await compile([BASICTYPES_ROSETTA, emptyChoiceSource], '', true);
+    expect(funcs.EmptyList!({})).toEqual([]);
+    expect(funcs.EmptyCount!({})).toBe(0);
+    expect(funcs.MixedList!({})).toEqual([{ leaf: { value: 7 } }]);
+    expect(funcs.DataCount!({})).toBe(1);
+    expect(funcs.AliasCount!({})).toBe(0);
+    expect(() => funcs.RequireList!({})).toThrow(/too few/);
+    expect(() => funcs.RequireArgument!({})).toThrow(/requires a value/);
+  });
+
   it('accepts explicit implicit-empty constructor placeholders and checks complete siblings', async () => {
     let source = '';
     const funcs = await compile(

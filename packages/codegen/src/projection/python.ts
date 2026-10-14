@@ -22,6 +22,7 @@ import {
   nativeEqualityOperands,
   nativeScalarOperands,
   nativeTemporalOperands,
+  expressionIsPresent,
   requiredScalarKind,
   primitiveElementKind
 } from '../expr/scalar-operators.js';
@@ -431,7 +432,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       const object = `{${values.join(', ')}}`;
       if (isRosettaRecordType(target) && ['date', 'dateTime', 'zonedDateTime'].includes(target.name))
         return `rune.dateConstruct(${pyString(target.name)}, ${object})`;
-      return isChoice(target) && !values.length ? 'None' : object;
+      return !expressionIsPresent(expression) ? 'None' : object;
     }
     case 'DefaultOperation': {
       const left = expression.left ? branch(expression.left) : argument(),

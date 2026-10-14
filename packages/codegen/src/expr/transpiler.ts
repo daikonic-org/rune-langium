@@ -1213,14 +1213,14 @@ export function transpileConditional(expr: RosettaExpression, ctx: ExpressionTra
   return `(${antecedent} ? ${consequent} : ${alternative})`;
 }
 
-/** Emit declared constructor fields; an empty constructor becomes an empty object. */
+/** Emit declared constructor fields using the shared presence facts. */
 export function transpileConstructor(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
   if (!isRosettaConstructorExpression(expr)) {
     return diagnosticFallback('Invalid expression: not RosettaConstructorExpression');
   }
   const type = expressionType(expr.typeRef);
   if (expr.values.length === 0) {
-    if (isChoice(type)) return 'undefined';
+    if (!expressionIsPresent(expr)) return 'undefined';
     return ctx.emitMode === 'ts-expression' && isData(type) && expr.implicitEmpty
       ? `({} as ${resolveFuncValueTypeTs(type, undefined, ctx.typeNameResolver)})`
       : '{}';

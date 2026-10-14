@@ -9,6 +9,7 @@ import {
   isRosettaExistsExpression,
   isRosettaAbsentExpression,
   isAttribute,
+  isChoice,
   isInlineFunction,
   isListLiteral,
   type Attribute,
@@ -159,6 +160,8 @@ export function expressionIsPresent(
         expressionIsPresent(expression.receiver, visiting)
       );
     }
+    if (isRosettaConstructorExpression(expression))
+      return expression.values.length > 0 || !isChoice(expressionType(expression.typeRef));
     return (
       isRosettaBooleanLiteral(expression) ||
       isRosettaStringLiteral(expression) ||
@@ -169,7 +172,6 @@ export function expressionIsPresent(
       isLogicalOperation(expression) ||
       isRosettaExistsExpression(expression) ||
       isRosettaAbsentExpression(expression) ||
-      isRosettaConstructorExpression(expression) ||
       requiredScalarKind(expression) !== undefined
     );
   } finally {

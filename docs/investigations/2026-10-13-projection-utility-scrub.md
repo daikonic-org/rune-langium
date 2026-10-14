@@ -75,7 +75,12 @@ those shapes, missing/empty cases and single receiver evaluation. Strict export
 checks cover date, date-time and zoned date-time navigation, aliases and implicit
 pipeline fields.
 
-- Full codegen suite, with Python 3.14: 2,301 tests passed; one existing skip and eight todo cases.
+Constructor presence is shared by TypeScript, Python, list materialization and
+cardinality adaptation. Empty Choice constructors are absent; empty Data builders
+remain objects. Linked expression and strict export tests cover empty/mixed lists,
+aliases and required output/argument failures, including Python execution.
+
+- Full codegen suite, with Python 3.14: 2,303 tests passed; one existing skip and eight todo cases.
 - Studio projection, all 117 CDM reference parity cases and codegen preview: 165 tests passed.
 - Pinned corpus: 132 generated TypeScript files compile strictly across 189 source documents.
 - Workspace and codegen type checks, changed-file lint and formatting pass.

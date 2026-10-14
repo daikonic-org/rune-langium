@@ -10,6 +10,7 @@ import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { nativeCount } from '../../src/expr/collection-shape.js';
 import { RUNTIME_HELPER_JS_SOURCE } from '../../src/helpers.js';
 import { linkedFunctions, runPython } from './python-test-utils.js';
+import { emptyChoiceSource } from '../helpers/empty-choice.js';
 
 const context: ExpressionTranspilerContext = {
   selfName: 'data',
@@ -31,6 +32,29 @@ function execute(code: string, data: unknown) {
 }
 
 describe('native utilities from linked expression facts', () => {
+  it('omits absent Choice constructors from lists while retaining actual constructed values', async () => {
+    const funcs = await linkedFunctions(emptyChoiceSource);
+    for (const emitMode of ['ts-expression', 'zod-refine'] as const) {
+      const values = funcs
+        .slice(0, 4)
+        .map((func) => execute(transpileExpression(func.operations[0]!.expression, { ...context, emitMode }), {}));
+      expect(values.slice(0, 4)).toEqual([[], 0, [{ leaf: { value: 7 } }], 1]);
+    }
+    const module = generatePythonModule([AstUtils.getDocument(funcs[0]!)]);
+    expect(
+      runPython(
+        funcs.slice(0, 5).map((func) => ({ expression: `${func.name}(data)` })),
+        module.code.replace(/^from __future__.*$/gm, '')
+      )
+    ).toEqual([{ value: [] }, { value: 0 }, { value: [{ leaf: { value: 7 } }] }, { value: 1 }, { value: 0 }]);
+    expect(
+      runPython(
+        ['RequireList', 'RequireArgument'].map((name) => ({ expression: `${name}(data)` })),
+        module.code.replace(/^from __future__.*$/gm, '')
+      )
+    ).toEqual([{ error: expect.stringMatching(/too few/) }, { error: expect.stringMatching(/requires a value/) }]);
+  });
+
   it('uses native Python primitive sets with UTF-16 identity and empty containment rules', async () => {
     const funcs = await linkedFunctions(`namespace native.python_sets
 func Contains:
