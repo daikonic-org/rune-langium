@@ -197,7 +197,7 @@ export const CenterStackPanel = withInstrumentation(
                 />
               )}
               <div
-                className="studio-center-stack__pane p-3 text-sm"
+                className="studio-center-stack__pane text-sm"
                 data-pane={pane}
                 style={{
                   // e2e-batch fix: was `flex: <grow> 1 0%`, which gives a 0% basis

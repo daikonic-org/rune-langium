@@ -172,6 +172,7 @@ export type { FunctionScope, FunctionScopeEntry } from './store/expression-store
 // Hooks
 export { useAutoSave } from './hooks/useAutoSave.js';
 export { useLatestRef } from './hooks/useLatestRef.js';
+export { useNavigationArrival } from './hooks/useNavigationArrival.js';
 export { useStableKey } from './hooks/useStableKey.js';
 export { useExpressionAutocomplete } from './hooks/useExpressionAutocomplete.js';
 export type { CompletionItem, UseExpressionAutocompleteResult } from './hooks/useExpressionAutocomplete.js';

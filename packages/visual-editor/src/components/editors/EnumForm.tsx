@@ -37,7 +37,7 @@ import { useFieldArray, type Control } from 'react-hook-form';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Badge } from '@rune-langium/design-system/ui/badge';
-import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
+import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
 import { InspectorFooter } from './inspector/InspectorFooter.js';
 import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
@@ -295,7 +295,7 @@ function EnumForm({
       additionalCommitFlush={debouncedName.flush}
     >
       <EditorActionsProvider {...editorActionsValue}>
-        <div data-slot="enum-form" className="h-full min-h-0 p-4">
+        <div data-slot="enum-form" className={INSPECTOR_FORM_CLASS}>
           <MetadataTargetProvider value={targets.rootBinding}>
             <InspectorFrame
               header={

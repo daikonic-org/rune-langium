@@ -5,7 +5,7 @@ import { Buffer } from 'buffer';
 // isomorphic-git requires global Buffer in the browser
 (globalThis as any).Buffer = Buffer;
 
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { InstrumentationErrorBoundary } from './components/InstrumentationErrorBoundary.js';
@@ -38,10 +38,20 @@ if (!root) {
   throw new Error('Root element not found');
 }
 
+const DesignPreferencesPreview =
+  import.meta.env.DEV && new URLSearchParams(location.search).has('design-preview')
+    ? lazy(() => import('./components/DesignPreferencesPreview.js'))
+    : null;
+
 createRoot(root).render(
   <StrictMode>
     <InstrumentationErrorBoundary>
       <App />
+      {DesignPreferencesPreview && (
+        <Suspense fallback={null}>
+          <DesignPreferencesPreview />
+        </Suspense>
+      )}
     </InstrumentationErrorBoundary>
   </StrictMode>
 );

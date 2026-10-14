@@ -2,10 +2,31 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { create } from 'zustand';
+import { isTypeNodeId, qualifiedNameFromNodeId } from '@rune-langium/visual-editor/identifiers';
+import type { NodeRepository } from '@rune-langium/visual-editor/model';
 import { usePerspectiveStore } from '../store/perspective-store.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
 export type NavigateToExploreType = (typeFqn: string) => void;
+
+/** Resolve Source's qualified names before deciding whether selection changed. */
+export const resolveExploreNavigation = withInstrumentation(
+  function resolveExploreNavigation(
+    repository: NodeRepository,
+    nodeId: string,
+    selectedNodeId: string | null | undefined,
+    origin?: 'source'
+  ) {
+    const targetNode =
+      repository.byId(nodeId) ??
+      repository.all().find((node) => isTypeNodeId(node.id) && qualifiedNameFromNodeId(node.id) === nodeId);
+    return {
+      targetNode,
+      unchanged: origin === 'source' && targetNode !== undefined && targetNode.id === selectedNodeId
+    };
+  },
+  { op: 'resolveExploreNavigation' }
+);
 
 interface ExploreNavigationState {
   navigateToType: NavigateToExploreType | undefined;

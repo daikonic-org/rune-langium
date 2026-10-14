@@ -32,7 +32,12 @@
  * @module
  */
 
-import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+import {
+  INSPECTOR_ROW_CLASS,
+  INSPECTOR_ROW_NAME_CLASS,
+  inspectorRowAttributes,
+  type InspectorRowProps
+} from './inspector/inspector-row.js';
 
 import { useEffect, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -258,8 +263,7 @@ function AttributeRow({
       {...inspectorRowAttributes({ selected, onSelect }, committedName)}
       data-slot="attribute-row"
       data-index={index}
-      className={`${ATTRIBUTE_ROW_LAYOUT} rune-inspector-row border border-transparent px-1 py-0.5
-        hover:border-border ${isOverride ? 'opacity-60' : ''}`}
+      className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} ${isOverride ? 'opacity-60' : ''}`}
       draggable={!effectiveReadOnly}
       onDragStart={handleDragStart}
       onDrop={handleDrop}
@@ -291,7 +295,7 @@ function AttributeRow({
             }}
             onBlur={field.onBlur}
             disabled={effectiveReadOnly}
-            className="w-full min-w-0 px-1.5 py-0.5 text-xs"
+            className={`w-full ${INSPECTOR_ROW_NAME_CLASS}`}
             placeholder="name"
             aria-label={`Attribute name: ${field.value}`}
           />
@@ -386,6 +390,8 @@ export interface InheritedAttributeRowProps extends InspectorRowProps {
   onOverride: () => void;
   onNavigateToNode?: NavigateToNodeCallback;
   allNodeIds?: string[];
+  /** Canonical options retain the referenced type's kind color in read-only rows. */
+  availableTypes?: TypeOption[];
   /** When true, hide the Override button to prevent mutations on locked types. */
   disabled?: boolean;
 }
@@ -398,6 +404,7 @@ function InheritedAttributeRow({
   onOverride,
   onNavigateToNode,
   allNodeIds,
+  availableTypes,
   disabled,
   selected,
   onSelect
@@ -411,16 +418,12 @@ function InheritedAttributeRow({
       {...inspectorRowAttributes({ selected, onSelect }, name)}
       data-slot="inherited-attribute-row"
       data-name={name}
-      className={`${ATTRIBUTE_ROW_LAYOUT} rounded border border-transparent px-1 py-0.5
-        bg-muted/20 opacity-70`}
+      className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} rounded bg-muted/20`}
     >
       {/* Spacer aligns with drag handle */}
       <span className="w-3 shrink-0 justify-self-center" />
 
-      <span
-        data-slot="attribute-name"
-        className="min-w-0 px-1.5 py-0.5 text-xs font-mono text-muted-foreground truncate"
-      >
+      <span data-slot="attribute-name" className={`${INSPECTOR_ROW_NAME_CLASS} text-muted-foreground truncate`}>
         {name}
       </span>
 
@@ -428,7 +431,7 @@ function InheritedAttributeRow({
         <TypeReferenceField
           value={null}
           displayName={typeName}
-          options={[]}
+          options={availableTypes}
           onSelect={() => undefined}
           readOnly
           placeholder="Type"

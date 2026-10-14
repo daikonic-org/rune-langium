@@ -23,7 +23,7 @@ import { InspectorInheritanceField } from '../editors/inspector/InspectorInherit
 import { InspectorMemberSummary } from '../editors/inspector/InspectorMemberSummary.js';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { resolveNodeKind, formatCardinality, getTypeRefText, getRefText } from '../../adapters/model-helpers.js';
-import { TypeHeader } from '../TypeHeader.js';
+import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import type { AnyGraphNode, GraphNodeMeta, NavigateToNodeCallback, TypeKind } from '../../types.js';
 
 export interface OtherFormProps {
@@ -126,14 +126,14 @@ function ReadonlyInspector({
   const selection = useInspectorSelection(nodeId ?? nodeData.name, rows);
   const selected = selection.selectedRow;
   return (
-    <div className="h-full min-h-0 p-4" data-slot="other-form">
+    <div className={INSPECTOR_FORM_CLASS} data-slot="other-form">
       <InspectorFrame
         header={
           <TypeHeader
             kind={kind as TypeKind}
             namespace={nodeMeta.namespace}
             name={d.name}
-            className="-mx-4 -mt-4"
+            className={INSPECTOR_FORM_HEADER_CLASS}
             onReveal={onNavigateToNode && nodeId ? () => onNavigateToNode(nodeId) : undefined}
             trailing={
               refOnly ? (

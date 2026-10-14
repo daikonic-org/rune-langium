@@ -8,12 +8,12 @@
  *   • `dockview-theme-abyss` — upstream base palette (--dv-* defaults)
  *   • `rune-dock-theme`      — structural overrides from dock-theme.css
  *
- * Passes all IDockviewReactProps through unchanged. Consumers can extend
- * className to add sizing utilities (e.g. "h-full min-w-0 w-full").
+ * Extends the shell theme with Rune chrome and passes layout/panel props through.
+ * Consumers can extend className with sizing utilities (e.g. "h-full min-w-0 w-full").
  */
 
-import React from 'react';
-import { DockviewReact } from 'dockview-react';
+import React, { useMemo } from 'react';
+import { DockviewReact, themeAbyss } from 'dockview-react';
 import type { IDockviewReactProps } from 'dockview-react';
 
 export interface DockLayoutProps extends IDockviewReactProps {
@@ -31,8 +31,14 @@ export interface DockLayoutProps extends IDockviewReactProps {
  * All panel composition (components, defaultTabComponent, onReady, etc.) stays
  * in the consuming application — this component is purely a rendering primitive.
  */
-export function DockLayout({ className, ...props }: DockLayoutProps): React.ReactElement {
+export function DockLayout({ className, theme, ...props }: DockLayoutProps): React.ReactElement {
   const mergedClassName = ['dockview-theme-abyss', 'rune-dock-theme', ...(className ? [className] : [])].join(' ');
+  // Edge groups live in Dockview's outer shell, outside the className grid.
+  // Its theme must carry Rune's same tokens and structural chrome.
+  const shellTheme = useMemo(() => {
+    const base = theme ?? themeAbyss;
+    return { ...base, className: `${base.className} rune-dock-theme` };
+  }, [theme]);
 
-  return <DockviewReact {...props} className={mergedClassName} />;
+  return <DockviewReact {...props} theme={shellTheme} className={mergedClassName} />;
 }

@@ -38,7 +38,7 @@ export function InspectorFrame({
   return (
     <div data-slot="inspector-frame" className="flex h-full min-h-0 flex-col overflow-auto">
       <div className="shrink-0">{header}</div>
-      {inheritance && <div className="shrink-0 pb-3">{inheritance}</div>}
+      {inheritance && <div className="shrink-0 pb-1.5">{inheritance}</div>}
       {sections.length > 1 ? (
         <Tabs
           value={active?.id}
@@ -48,7 +48,7 @@ export function InspectorFrame({
               onSectionChange?.(value);
             }
           }}
-          className="flex min-h-fit flex-1 flex-col"
+          className="flex min-h-fit flex-1 flex-col gap-1.5"
         >
           <TabsList size="sm" className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start">
             {sections.map((section) => (
@@ -63,7 +63,7 @@ export function InspectorFrame({
                 key={section.id}
                 value={section.id}
                 keepMounted={mountedSections.has(section.id)}
-                className="studio-scroll mt-0 min-h-0 flex-1 overflow-auto py-3 data-[hidden]:hidden"
+                className="studio-scroll mt-0 min-h-0 flex-1 overflow-auto py-1.5 data-[hidden]:hidden"
               >
                 {section.content}
               </TabsContent>
@@ -73,14 +73,14 @@ export function InspectorFrame({
         </Tabs>
       ) : (
         <>
-          <div data-slot="inspector-main" className="studio-scroll min-h-0 flex-1 overflow-auto py-3">
+          <div data-slot="inspector-main" className="studio-scroll min-h-0 flex-1 overflow-auto py-1.5">
             {active?.content}
           </div>
           {active?.members ? details : null}
         </>
       )}
       {footer && (
-        <footer data-slot="inspector-footer" className="shrink-0 border-t border-border pt-2">
+        <footer data-slot="inspector-footer" className="shrink-0 border-t border-border pt-1.5">
           {footer}
         </footer>
       )}

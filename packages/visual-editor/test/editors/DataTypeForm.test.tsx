@@ -230,6 +230,7 @@ describe('DataTypeForm – merged inherited attribute list', () => {
     );
     const inherited = container.querySelectorAll('[data-slot="inherited-attribute-row"]');
     expect(inherited.length).toBe(1);
+    expect(inherited[0]?.querySelector('[data-slot="type-picker-trigger"]')).toHaveAttribute('data-kind', 'BasicType');
   });
 
   it('shows inherited-from label with ancestor name', () => {

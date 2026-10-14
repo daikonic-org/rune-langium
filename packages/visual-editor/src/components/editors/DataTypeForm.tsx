@@ -28,7 +28,7 @@ import type { GhostRow, GhostRowContext } from '@zod-to-form/core';
 import { FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Badge } from '@rune-langium/design-system/ui/badge';
-import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS } from '../TypeHeader.js';
+import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
 import { InspectorFooter } from './inspector/InspectorFooter.js';
 import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
@@ -338,6 +338,7 @@ function DataTypeForm({
         id: entry.id,
         render: (_ctx: GhostRowContext) => (
           <InheritedAttributeRow
+            availableTypes={availableTypes}
             name={entry.name}
             selected={targets.selection.selectedRow?.key === entry.id}
             onSelect={() => targets.selection.select(entry.id)}
@@ -361,6 +362,7 @@ function DataTypeForm({
     return rows;
   }, [
     effectiveAttributes,
+    availableTypes,
     isReadOnly,
     handleOverrideInherited,
     onNavigateToNode,
@@ -392,7 +394,7 @@ function DataTypeForm({
         compactConditions={compactConditions}
         sourceReadOnly={sourceReadOnly}
       >
-        <div data-slot="data-type-form" className="h-full min-h-0 p-4">
+        <div data-slot="data-type-form" className={INSPECTOR_FORM_CLASS}>
           <MetadataTargetProvider value={targets.rootBinding}>
             <InspectorFrame
               header={

@@ -11,8 +11,26 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { useState } from 'react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { useEffect, useState } from 'react';
+import { useDesignPreviewStore } from '../../src/store/design-preview-store.js';
+
+// Native grouping/width behavior is covered by the real-Dockview side-panel tests.
+vi.mock('../../src/shell/auxiliary-panel-layout.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/shell/auxiliary-panel-layout.js')>()),
+  consolidateExplorePreviewPanels: vi.fn(),
+  // This shell suite observes the logical flag around WorkbenchHost's preview
+  // lifecycle; real edge movement/restoration is covered by the native suites.
+  collapseAuxiliaryPanels: vi.fn((api: FakeApi) => ({
+    isManaged: () => false,
+    isPinned: () => true,
+    setCollapsed() {},
+    togglePin() {},
+    dispose() {
+      api.bottomEdge = undefined;
+    }
+  }))
+}));
 
 interface FakeGroupSpy {
   api: {
@@ -64,11 +82,22 @@ const captured: CapturedReady = { components: {}, defaultTabComponent: undefined
 let lastApi: FakeApi | null = null;
 
 class FakeApi {
-  panels: Array<{ id: string; component: string; api: { component: string }; group: FakeGroupSpy }> = [];
+  panels: Array<{
+    id: string;
+    component: string;
+    api: { component: string; setTitle(title: string): void };
+    group: FakeGroupSpy;
+  }> = [];
   cleared = 0;
+  bottomEdge?: {
+    isCollapsed(): boolean;
+    onDidCollapsedChange(listener: (event: { isCollapsed: boolean }) => void): { dispose(): void };
+  };
+  getEdgeGroup = (position: string) => (position === 'bottom' ? this.bottomEdge : undefined);
   groups = new Map<string, FakeGroupSpy>();
   panelStates = new Map<string, FakePanelSpy>();
   private layoutChangeListener: (() => void) | null = null;
+  emitLayoutChange = () => this.layoutChangeListener?.();
   onDidLayoutChange = (listener: () => void) => {
     this.layoutChangeListener = listener;
     return {
@@ -81,7 +110,12 @@ class FakeApi {
   };
   addPanel = (opts: { id: string; component: string }) => {
     const group = makeFakeGroup();
-    this.panels.push({ id: opts.id, component: opts.component, api: { component: opts.component }, group });
+    this.panels.push({
+      id: opts.id,
+      component: opts.component,
+      api: { component: opts.component, setTitle() {} },
+      group
+    });
     const panelSpy: FakePanelSpy = {
       activeCalls: 0,
       parameterCalls: [],
@@ -127,7 +161,7 @@ class FakeApi {
         },
         group
       };
-      this.panels.push({ id, component, api: { component }, group });
+      this.panels.push({ id, component, api: { component, setTitle() {} }, group });
       this.groups.set(id, group);
       this.panelStates.set(id, panelSpy);
     }
@@ -149,7 +183,8 @@ class FakeApi {
   };
 }
 
-vi.mock('dockview-react', () => ({
+vi.mock('dockview-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('dockview-react')>()),
   DockviewReact(props: {
     components: Record<string, unknown>;
     defaultTabComponent?: unknown;
@@ -158,10 +193,13 @@ vi.mock('dockview-react', () => ({
     captured.components = props.components;
     captured.defaultTabComponent = props.defaultTabComponent;
     captured.onReady = props.onReady;
-    setTimeout(() => {
-      lastApi = new FakeApi();
-      props.onReady({ api: lastApi });
-    }, 0);
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        lastApi = new FakeApi();
+        props.onReady({ api: lastApi });
+      }, 0);
+      return () => clearTimeout(timer);
+    }, []);
     return (
       <div data-testid="dockview-react-mock">
         {Object.entries(props.components).map(([name, Component]) => {
@@ -188,6 +226,35 @@ beforeEach(() => {
 });
 
 describe('DockShell — dockview integration (T065)', () => {
+  it('aligns the location path to the measured center stack as the layout changes', async () => {
+    let centerLeft = 380;
+    const geometry = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      return this.dataset.testid === 'dock-shell'
+        ? new DOMRect(100, 0, 1200, 720)
+        : this.dataset.testid === 'studio-paneswitch'
+          ? new DOMRect(centerLeft, 0, 600, 34)
+          : new DOMRect();
+    });
+    useDesignPreviewStore.getState().setPreference('path', true);
+    const { unmount } = render(
+      <DockShell
+        studioVersion="0.1.0"
+        workspaceId="alignment"
+        panelComponents={{ 'workspace.visualPreview': () => <div data-testid="studio-paneswitch" /> }}
+      />
+    );
+    try {
+      const shell = screen.getByTestId('dock-shell');
+      await waitFor(() => expect(shell.style.getPropertyValue('--rune-center-stack-start')).toBe('280px'));
+      centerLeft = 220;
+      act(() => lastApi!.emitLayoutChange());
+      expect(shell.style.getPropertyValue('--rune-center-stack-start')).toBe('120px');
+    } finally {
+      unmount();
+      geometry.mockRestore();
+      useDesignPreviewStore.getState().reset();
+    }
+  });
   it('registers every locked panel name as a dockview component', () => {
     render(<DockShell studioVersion="0.1.0" workspaceId="ws-1" />);
     for (const name of PANEL_COMPONENT_NAMES) {
@@ -548,6 +615,64 @@ describe('DockShell — dockview integration (T065)', () => {
     fireEvent.click(toggle);
     expect(sizeCalls[sizeCalls.length - 1]).toEqual({ height: 220 });
   });
+
+  it.each([true, false])(
+    'restores the utility flag after auxiliary preview (originally collapsed: %s)',
+    async (collapsed) => {
+      const { unmount } = render(
+        <DockShell
+          studioVersion="0.1.0"
+          workspaceId="preview-restore"
+          initialLayout={
+            {
+              version: LAYOUT_SCHEMA_VERSION,
+              writtenBy: '0.1.0',
+              dockview: {
+                shape: 'native',
+                json: {
+                  grid: { root: {} },
+                  panels: {
+                    'p-problems': { contentComponent: 'workspace.problems', testGroupHeight: collapsed ? 42 : 220 }
+                  }
+                }
+              }
+            } as never
+          }
+        />
+      );
+      try {
+        const toggle = screen.getByTestId('toggle-utilities');
+        await waitFor(() => expect(lastApi).not.toBeNull());
+        expect(toggle).toHaveAttribute('aria-pressed', String(!collapsed));
+        const restoredGroup = lastApi!.groups.get('p-problems')!;
+        let edgeCollapsed = collapsed;
+        let listener: ((event: { isCollapsed: boolean }) => void) | undefined;
+        const disposed = vi.fn();
+        lastApi!.bottomEdge = {
+          isCollapsed: () => edgeCollapsed,
+          onDidCollapsedChange(callback) {
+            listener = callback;
+            return { dispose: disposed };
+          }
+        };
+        act(() => useDesignPreviewStore.getState().setPreference('auxiliary', true));
+        act(() => {
+          edgeCollapsed = !collapsed;
+          listener!({ isCollapsed: edgeCollapsed });
+        });
+        expect(toggle).toHaveAttribute('aria-pressed', String(collapsed));
+        act(() => useDesignPreviewStore.getState().setPreference('auxiliary', false));
+        expect(disposed).toHaveBeenCalledOnce();
+        expect(toggle).toHaveAttribute('aria-pressed', String(!collapsed));
+        expect(toggle).toHaveTextContent(collapsed ? 'Show utilities' : 'Hide utilities');
+        fireEvent.click(toggle);
+        expect(restoredGroup.sizeCalls.at(-1)).toEqual({ height: collapsed ? 220 : 42 });
+      } finally {
+        unmount();
+        useDesignPreviewStore.getState().reset();
+      }
+    }
+  );
 
   it('finds the utility tray even when the snapshot lacks a Problems panel', async () => {
     render(

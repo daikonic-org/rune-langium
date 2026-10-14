@@ -74,6 +74,8 @@ export interface NamespaceExplorerPanelProps {
   selectedNodeId?: string | null;
   /** Optional className for outer container. */
   className?: string;
+  /** Omit the repeated heading when a host already supplies the panel title. */
+  showHeading?: boolean;
   /** Total edge count for cross-namespace reference detection. */
   hiddenRefCounts?: Map<string, number>;
   /**
@@ -188,6 +190,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   onCollapseAll,
   onSelectNode,
   className,
+  showHeading = true,
   hiddenRefCounts,
   dragSourceId,
   onSetDragSource,
@@ -391,15 +394,15 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
       <div className={`flex flex-col h-full bg-card ${className ?? ''}`} data-testid="namespace-explorer">
         {/* Header */}
         <div className="px-3 py-2 border-b">
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <span className="text-sm font-semibold">Type explorer</span>
-            <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
-          </div>
-          <p className="mt-1 text-2xs text-muted-foreground">
+          {showHeading && <span className="block text-sm font-semibold">Type explorer</span>}
+          <p className={`${showHeading ? 'mt-1 ' : ''}text-2xs text-muted-foreground`}>
             {selection
               ? 'Click a row to include or exclude it. Use the arrow to open.'
               : 'Click name or arrow to open. Drag a row to a type field.'}
           </p>
+          <div className="mt-1.5 flex">
+            <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
+          </div>
         </div>
 
         {/* Toolbar */}

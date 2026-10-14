@@ -10,7 +10,7 @@
  * @module
  */
 
-import { inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
+import { INSPECTOR_ROW_CLASS, inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
 
 import { getKindBadgeClasses } from './TypeSelector.js';
 import { TypeLink } from './TypeLink.js';
@@ -69,7 +69,7 @@ function ChoiceOptionRow({
       role="listitem"
       {...inspectorRowAttributes({ selected, onSelect }, typeName)}
       data-slot="choice-option-row"
-      className="rune-inspector-row flex items-center gap-2 border border-transparent px-1 py-1 hover:border-border"
+      className={`${INSPECTOR_ROW_CLASS} flex items-center gap-2`}
     >
       {/* Kind badge / clickable type link */}
       <TypeLink

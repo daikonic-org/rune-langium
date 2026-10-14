@@ -31,7 +31,8 @@ class FakeApi {
 const disposeListener = vi.fn();
 let api: FakeApi;
 
-vi.mock('dockview-react', () => ({
+vi.mock('dockview-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('dockview-react')>()),
   DockviewReact(props: { components: Record<string, ComponentType>; onReady(event: { api: FakeApi }): void }) {
     api = new FakeApi();
     props.onReady({ api });

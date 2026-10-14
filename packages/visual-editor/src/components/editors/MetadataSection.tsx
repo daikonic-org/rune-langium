@@ -115,7 +115,7 @@ export function MetadataScalar({
                     : event.target.value
                 );
               }}
-              className="w-full resize-y rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              className="w-full resize-y rounded border border-input bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring disabled:opacity-50"
             />
           )}
           {fieldState.error && (
@@ -142,7 +142,7 @@ function FormMetadataSection(props: MetadataSectionProps): React.ReactNode {
   const kind = caps?.synonymKind ?? (getValues('$type') === 'RosettaEnumeration' ? 'body' : 'class');
   const sources = props.synonymSourceOptions ?? ctx?.synonymSourceOptions ?? EMPTY_SOURCES;
   return (
-    <div data-slot="metadata-section" className="mt-3 border-t border-border pt-3">
+    <div data-slot="metadata-section" className="mt-1.5 border-t border-border pt-1.5">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -153,7 +153,7 @@ function FormMetadataSection(props: MetadataSectionProps): React.ReactNode {
         <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
       </button>
       {expanded && (
-        <FieldGroup className="mt-2 gap-3">
+        <FieldGroup className="mt-1.5 gap-3">
           {(!caps || caps.definition) && (
             <MetadataScalar
               name={path('definition')}
@@ -226,7 +226,7 @@ function ReadonlyMetadataSection({
 }) {
   const caps = getMetadataCapabilities(node);
   return (
-    <div data-slot="metadata-section" className="space-y-3 border-t border-border pt-3">
+    <div data-slot="metadata-section" className="space-y-3 border-t border-border pt-1.5">
       {caps.definition && (
         <Field>
           <FieldLabel>Documentation</FieldLabel>

@@ -2223,6 +2223,40 @@ html {
   height: 28px;
 }
 
+/* The Explorer's sole dock title retains the original content heading's emphasis. */
+.studio-app .studio-dock-tab[data-component='workspace.fileTree'] {
+  justify-content: flex-start;
+  padding-inline: var(--space-1);
+  text-align: left;
+}
+
+.studio-app .studio-dock-tab[data-component='workspace.fileTree'] .studio-dock-tab__label {
+  color: var(--foreground);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* Side panels always retain their chevron, even with only one tab. */
+.studio-app .rune-dock-theme .studio-side-panel > .dv-tabs-and-actions-container.dv-single-tab {
+  display: flex;
+}
+
+/* Collapsed columns keep vertical tab chrome and mounted, hidden drafts. */
+.studio-app .studio-side-panel-collapsed > .dv-content-container {
+  display: none;
+}
+
+/* The shared chevron leads the vertical titles instead of sitting at the rail's foot. */
+.studio-app .studio-side-panel-collapsed > .dv-tabs-and-actions-container > .dv-right-actions-container {
+  order: -1;
+  flex: 0 0 auto;
+  margin-bottom: var(--space-2);
+}
+
+.studio-app .studio-side-panel-collapsed .studio-panel-actions {
+  margin-right: 0;
+}
+
 .studio-app .studio-center-stack-container {
   container-type: inline-size;
 }
@@ -2245,6 +2279,35 @@ html {
    * split-handle drag is live (`.is-dragging`) so the split tracks the
    * pointer 1:1. */
   transition: flex-grow var(--motion-default);
+}
+
+/* Inset the drawing viewport, preserving React Flow's own hit-test geometry. */
+.studio-app .studio-center-stack__pane:is([data-pane='graph'], [data-pane='structure']) > * {
+  padding: calc(var(--space-3) / 2);
+  box-sizing: border-box;
+}
+
+.studio-app .studio-perspective-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.studio-app .studio-perspective-heading--aligned {
+  flex: 1;
+  display: grid;
+  grid-template-columns: max(0px, calc(var(--rune-center-stack-start, var(--space-10)) - var(--space-2))) minmax(0, 1fr);
+  gap: 0;
+}
+
+.studio-app .studio-perspective-heading--aligned .studio-layout-presets__title {
+  overflow: hidden;
+  padding-inline-end: var(--space-2);
+}
+
+.studio-app .studio-layout-presets__title > svg {
+  flex-shrink: 0;
 }
 
 /* Keep every selected pane usable when the center column cannot fit three editors. */
@@ -2528,6 +2591,6 @@ html {
 
 
 .navigation-arrival {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent);
-  background-color: color-mix(in srgb, var(--primary) 8%, transparent);
+  /* Use the shared graph/structure arrival fade, inside scrollable panel bounds. */
+  outline-offset: -2px;
 }

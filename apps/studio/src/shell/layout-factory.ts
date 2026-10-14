@@ -45,7 +45,7 @@ export {
  * `workspace.*` IDs must never leak into the rendered chrome.
  */
 export const PANEL_TITLES: Record<PanelComponentName, string> = {
-  'workspace.fileTree': 'Types',
+  'workspace.fileTree': 'Type explorer',
   'workspace.editor': 'Source',
   'workspace.inspector': 'Inspector',
   'workspace.problems': 'Problems',
@@ -57,6 +57,7 @@ export const PANEL_TITLES: Record<PanelComponentName, string> = {
 };
 
 export const LAYOUT_SCHEMA_VERSION = 7;
+export const EXPLORE_PREVIEW_WIDTH = 320;
 
 const _SMALL_VIEWPORT_BREAKPOINT_PX = 1280;
 
@@ -86,7 +87,7 @@ export const buildDefaultLayout = withInstrumentation(
         },
         {
           active: previewActive,
-          size: 280,
+          size: EXPLORE_PREVIEW_WIDTH,
           tabs: [{ component: 'workspace.formPreview' }, { component: 'workspace.codePreview' }]
         }
       ],

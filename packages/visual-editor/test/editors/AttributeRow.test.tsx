@@ -20,14 +20,95 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { useForm, FormProvider } from 'react-hook-form';
-import { AttributeRow } from '../../src/components/editors/AttributeRow.js';
+import { AttributeRow, InheritedAttributeRow } from '../../src/components/editors/AttributeRow.js';
+import { InheritedMembersSection } from '../../src/components/editors/InheritedMembersSection.js';
 import type { TypeOption } from '../../src/types.js';
+import { makeNodeId } from '../../src/store/node-projection.js';
 
 const AVAILABLE_TYPES: TypeOption[] = [
   { value: 'builtin::string', label: 'string', kind: 'builtin' },
   { value: 'builtin::number', label: 'number', kind: 'builtin' },
   { value: 'builtin::date', label: 'date', kind: 'builtin' }
 ];
+
+it.each([
+  ['Identifier', 'Data'],
+  ['string', 'BasicType'],
+  ['Status', 'Enum'],
+  ['Missing', 'Unresolved']
+])('keeps inherited %s references in their canonical %s kind', (typeName, kind) => {
+  const { container } = render(
+    <InheritedAttributeRow
+      name="identifier"
+      typeName={typeName}
+      cardinality="(1..1)"
+      ancestorName="Base"
+      disabled
+      onOverride={vi.fn()}
+      availableTypes={[
+        ...AVAILABLE_TYPES,
+        { value: 'test.Identifier', label: 'Identifier', kind: 'data' },
+        { value: 'test.Status', label: 'Status', kind: 'enum' }
+      ]}
+    />
+  );
+  const chip = container.querySelector('[data-slot="type-picker-trigger"]');
+  expect(chip).toHaveAttribute('data-kind', kind);
+  expect(chip).toBeDisabled();
+  expect(chip).toHaveTextContent(typeName);
+});
+
+it.each([
+  ['base.Status', 'Enum', 'base', 'RosettaEnumeration'],
+  ['other.Status', 'Data', 'other', 'Data']
+])('resolves inherited %s before choosing its %s color and navigation target', (typeName, kind, namespace, astKind) => {
+  const onNavigateToNode = vi.fn();
+  const availableTypes: TypeOption[] = [
+    { value: makeNodeId('other', 'Status', 'Data'), label: 'Status', namespace: 'other', kind: 'data' },
+    { value: makeNodeId('base', 'Status', 'RosettaEnumeration'), label: 'Status', namespace: 'base', kind: 'enum' }
+  ];
+  const { container } = render(
+    <InheritedAttributeRow
+      name="status"
+      typeName={typeName}
+      cardinality="(1..1)"
+      ancestorName="Base"
+      disabled
+      onOverride={vi.fn()}
+      availableTypes={availableTypes}
+      allNodeIds={availableTypes.map((option) => option.value)}
+      onNavigateToNode={onNavigateToNode}
+    />
+  );
+  expect(container.querySelector('[data-slot="type-picker-trigger"]')).toHaveAttribute('data-kind', kind);
+  fireEvent.click(screen.getByRole('button', { name: `Go to ${typeName}` }));
+  expect(onNavigateToNode).toHaveBeenCalledExactlyOnceWith(makeNodeId(namespace, 'Status', astKind));
+});
+
+it('retains kind colors when opening a collapsible inherited member group', () => {
+  const { container } = render(
+    <InheritedMembersSection
+      availableTypes={[{ value: 'test.Identifier', label: 'Identifier', kind: 'data' }]}
+      groups={[
+        {
+          ancestorName: 'Base',
+          namespace: 'test',
+          kind: 'func',
+          members: [
+            {
+              $type: 'Attribute',
+              name: 'identifier',
+              typeCall: { $type: 'TypeCall', type: { $refText: 'Identifier' } },
+              card: { inf: 1, sup: 1 }
+            }
+          ]
+        }
+      ]}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: /from Base/ }));
+  expect(container.querySelector('[data-slot="type-picker-trigger"]')).toHaveAttribute('data-kind', 'Data');
+});
 
 /**
  * AST-shaped Attribute item that `<AttributeRow>` consumes via
