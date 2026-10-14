@@ -9,21 +9,22 @@ export interface CodePreviewFile {
   sourceMap: SourceMapEntry[];
 }
 
+interface CodePreviewContents {
+  files: CodePreviewFile[];
+  activeRelativePath: string;
+}
+
 export type CodePreviewSnapshot =
-  | { status: 'waiting'; target: Target }
-  | {
+  | { status: 'waiting'; target: Target; previous?: CodePreviewContents }
+  | ({
       status: 'ready';
       target: Target;
-      files: CodePreviewFile[];
-      activeRelativePath: string;
-    }
-  | {
+    } & CodePreviewContents)
+  | ({
       status: 'stale';
       target: Target;
       message: string;
-      files: CodePreviewFile[];
-      activeRelativePath: string;
-    }
+    } & CodePreviewContents)
   | {
       status: 'unavailable';
       target: Target;
@@ -69,7 +70,7 @@ interface CodegenState {
 const DEFAULT_TARGET: Target = 'zod';
 const INITIAL_REQUEST_ID = `codegen:${DEFAULT_TARGET}:0`;
 
-function createInitialSnapshot(target: Target = DEFAULT_TARGET): CodePreviewSnapshot {
+function createInitialSnapshot(target: Target = DEFAULT_TARGET): Extract<CodePreviewSnapshot, { status: 'waiting' }> {
   return {
     status: 'waiting',
     target
@@ -86,6 +87,12 @@ function pickActiveRelativePath(files: CodePreviewFile[], previousRelativePath?:
   return files[0]?.relativePath;
 }
 
+function previousContents(snapshot: CodePreviewSnapshot, target: Target): CodePreviewContents | undefined {
+  if (snapshot.target !== target) return undefined;
+  if (snapshot.status === 'waiting') return snapshot.previous;
+  return 'files' in snapshot ? snapshot : undefined;
+}
+
 export const useCodegenStore = create<CodegenState>((set) => ({
   refreshRevision: 0,
   refreshCodePreview: () => set((state) => ({ refreshRevision: state.refreshRevision + 1 })),
@@ -97,11 +104,14 @@ export const useCodegenStore = create<CodegenState>((set) => ({
   setDependencyGraph: (graph) => set({ dependencyGraph: graph }),
   beginCodePreviewRequest: (target) => {
     const requestId = `codegen:${target}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
-    set({
+    set((state) => ({
       codePreviewTarget: target,
       currentRequestId: requestId,
-      snapshot: createInitialSnapshot(target)
-    });
+      snapshot: {
+        ...createInitialSnapshot(target),
+        previous: previousContents(state.snapshot, target)
+      }
+    }));
     return requestId;
   },
   setCodePreviewTarget: (target) =>
@@ -125,7 +135,7 @@ export const useCodegenStore = create<CodegenState>((set) => ({
     }),
   receiveCodePreviewResult: (input) =>
     set((state) => {
-      const previousActive = 'activeRelativePath' in state.snapshot ? state.snapshot.activeRelativePath : undefined;
+      const previousActive = previousContents(state.snapshot, input.target)?.activeRelativePath;
       const activeRelativePath = pickActiveRelativePath(input.files, previousActive);
       if (!activeRelativePath) {
         return {
@@ -149,8 +159,9 @@ export const useCodegenStore = create<CodegenState>((set) => ({
     }),
   markCodePreviewStale: (input) =>
     set((state) => {
-      const previousFiles = 'files' in state.snapshot ? state.snapshot.files : undefined;
-      const activeRelativePath = 'activeRelativePath' in state.snapshot ? state.snapshot.activeRelativePath : undefined;
+      const previous = previousContents(state.snapshot, input.target);
+      const previousFiles = previous?.files;
+      const activeRelativePath = previous?.activeRelativePath;
       if (!previousFiles || previousFiles.length === 0 || !activeRelativePath) {
         return {
           codePreviewTarget: input.target,

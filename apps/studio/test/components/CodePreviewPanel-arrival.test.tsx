@@ -83,6 +83,9 @@ it('retains the generated document while regenerating the same target', () => {
   const before = view.state.doc.toString();
   act(() => useCodegenStore.getState().beginCodePreviewRequest('zod'));
   expect(view.state.doc.toString()).toBe(before);
+  act(() => useCodegenStore.getState().markCodePreviewStale({ target: 'zod', message: 'Fix source errors.' }));
+  expect(view.state.doc.toString()).toBe(before);
+  expect(screen.getByText('Outdated — fix errors to refresh')).toBeVisible();
 });
 
 it('waits for generated output for a pending arrival and consumes it only once', () => {

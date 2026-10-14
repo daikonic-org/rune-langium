@@ -327,6 +327,14 @@ together. Other language emitters retain their own naming policy.
 Notification presentation does not own logging. Operation owners record their
 Activity/Output events, optionally displaying a toast; dismissing a toast creates
 no operation or history entry. `recordOperation` supplies the shared correlation ID.
+Workspace failure owners use that helper once, including storage error details;
+the workspace error notification effect does not add history records.
+
+Code preview requests retain the previous same-target contents separately from
+the waiting snapshot's renderable output. Stale results recover those files and
+the selected path; successful results preserve a still-present selected path.
+Changing output language or resetting workspace state clears that recovery data.
+Waiting recovery contents are not eligible for navigation arrival cues.
 
 The Langium connection adapter routes typed, generic and logging notifications
 through one send boundary. It checks listening state and handles the pinned

@@ -149,3 +149,17 @@ Final follow-up validation: all 2,323 codegen tests pass (one existing skip, eig
 todo) with Python 3.14 and two workers; all 67 Studio codegen worker tests pass;
 all 132 pinned generated TypeScript files compile strictly after the rebuild.
 Changed-source lint and formatting pass.
+
+## Second review follow-ups
+
+Threads `PRRT_kwDORLopOc6shOUg` and `PRRT_kwDORLopOc6shOUn` identified duplicate
+workspace failure history and lost stale-preview recovery after request start.
+Workspace failures now record once at their owner, retaining detailed errors and
+a shared operation ID; the notification effect only shows the toast.
+
+Waiting snapshots retain previous same-target contents for recovery without
+treating them as a newly generated navigation destination. Repeated retries and
+stale responses retain the selected file; format switches and workspace reset
+clear recovery contents. Three behavior regressions fail against the previous
+head and pass after the fix. All 89 affected store, preview panel, workspace
+persistence and provider tests pass.

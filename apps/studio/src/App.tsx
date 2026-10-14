@@ -38,7 +38,6 @@ import { createWorkspaceAutosave } from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from './store/output-store.js';
-import { useActivityStore } from './store/activity-store.js';
 import { allocateOpId } from './services/op-log.js';
 import { recordPerf, recordPerfStart } from './services/perf-log.js';
 import { useInstanceStore } from './store/instance-store.js';
@@ -213,10 +212,7 @@ function AppContent() {
   const reportWorkspaceError = useCallback((message: string, error: unknown) => {
     console.warn(`[App] ${message}:`, error);
     setWorkspaceError(message);
-    useOutputStore
-      .getState()
-      .addLine(fmtLine('workspace', message, error instanceof Error ? error.message : undefined), 'error');
-    useActivityStore.getState().addActivity('workspace', false, message);
+    recordOperation('workspace', error instanceof Error ? `${message} · ${error.message}` : message, 'error');
   }, []);
 
   const workspaceAutosave = useMemo(
@@ -262,7 +258,6 @@ function AppContent() {
     if (!workspaceError) {
       return;
     }
-    recordOperation('workspace', workspaceError, 'error');
     showToast({
       title: 'Workspace error',
       description: workspaceError,

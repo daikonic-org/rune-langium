@@ -10,6 +10,8 @@ import { App } from '../../src/App.js';
 import { useModelStore } from '../../src/store/model-store.js';
 import { usePreviewStore } from '../../src/store/preview-store.js';
 import { useCodegenStore } from '../../src/store/codegen-store.js';
+import { useActivityStore } from '../../src/store/activity-store.js';
+import { useOutputStore } from '../../src/store/output-store.js';
 import { getModelSource } from '../../src/services/model-registry.js';
 import type { LoadedModel } from '../../src/types/model-types.js';
 import { _resetForTests, listRecents, loadWorkspace, saveWorkspace } from '../../src/workspace/persistence.js';
@@ -263,6 +265,25 @@ it.each([false, true])(
 );
 
 describe('workspace isolation', () => {
+  it('records an autosave failure once in each history with one operation id', async () => {
+    vi.spyOn(workspaceFiles, 'saveWorkspaceFiles').mockRejectedValue(new Error('Quota exceeded'));
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+    useActivityStore.getState().clearEntries();
+    useOutputStore.getState().clearLines();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit from test' }));
+    await waitFor(() => {
+      const activity = useActivityStore
+        .getState()
+        .entries.filter((entry) => entry.msg.includes('edits remain in memory'));
+      const output = useOutputStore.getState().lines.filter((entry) => entry.text.includes('edits remain in memory'));
+      expect(activity).toHaveLength(1);
+      expect(output).toHaveLength(1);
+      expect(activity[0].opId).toBeDefined();
+      expect(output[0].opId).toBe(activity[0].opId);
+      expect(output[0].text).toContain('Quota exceeded');
+    });
+  });
   it.each(['close', 'reset', 'switch', 'replace'] as const)(
     'preserves an unsaved draft when %s fails to flush, then saves it on retry',
     async (transition) => {
