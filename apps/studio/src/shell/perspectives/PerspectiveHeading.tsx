@@ -10,7 +10,6 @@
 import type React from 'react';
 import { withInstrumentation } from '@rune-langium/instrumentation-core';
 import { useEditorStore } from '@rune-langium/visual-editor';
-import { useDesignPreviewStore } from '../../store/design-preview-store.js';
 import { PERSPECTIVES } from './perspective-registry.js';
 import type { PerspectiveId } from './perspective-types.js';
 
@@ -39,14 +38,13 @@ export const PerspectiveHeading = withInstrumentation(function PerspectiveHeadin
 }: {
   perspectiveId: PerspectiveId;
 }): React.ReactElement | null {
-  const showPath = useDesignPreviewStore((state) => state.preferences.path);
   const perspective = PERSPECTIVES.find((p) => p.id === perspectiveId);
   if (!perspective) return null;
   const Icon = perspective.icon;
   return (
     <div
       className={
-        perspectiveId === 'explore' && showPath
+        perspectiveId === 'explore'
           ? 'studio-perspective-heading studio-perspective-heading--aligned'
           : 'studio-perspective-heading'
       }
@@ -55,7 +53,7 @@ export const PerspectiveHeading = withInstrumentation(function PerspectiveHeadin
         <Icon className="size-4" aria-hidden="true" />
         <span className="truncate">{perspective.title ?? perspective.label}</span>
       </h1>
-      {perspectiveId === 'explore' && showPath && <ExploreLocationPath />}
+      {perspectiveId === 'explore' && <ExploreLocationPath />}
     </div>
   );
 });

@@ -2310,6 +2310,27 @@ html {
   flex-shrink: 0;
 }
 
+/* Keep the selected declaration visible when its qualified path is too long. */
+.studio-explore-location {
+  min-width: 0;
+  overflow: hidden;
+  direction: rtl;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+.studio-explore-location ol,
+.studio-explore-location li {
+  display: inline;
+}
+
+.studio-explore-location li[aria-current] {
+  color: var(--foreground);
+}
+
 /* Keep every selected pane usable when the center column cannot fit three editors. */
 @container (max-width: 900px) {
   .studio-app .studio-center-stack:is([data-count='3'], [data-count='4']) {

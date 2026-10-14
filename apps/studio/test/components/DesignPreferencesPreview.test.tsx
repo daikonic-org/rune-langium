@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DesignPreferencesPreview from '../../src/components/DesignPreferencesPreview.js';
-import { useDesignPreviewStore } from '../../src/store/design-preview-store.js';
 
 describe('DesignPreferencesPreview', () => {
   it('compares live styles and resets without retaining choices after unmount', async () => {
@@ -17,8 +16,6 @@ describe('DesignPreferencesPreview', () => {
     await user.click(screen.getByRole('checkbox', { name: /Pinnable auxiliary panels/ }));
     await user.click(screen.getByRole('checkbox', { name: /Uncrowd the top bar/ }));
     await user.click(screen.getByRole('checkbox', { name: /Consistent controls/ }));
-    await user.click(screen.getByRole('checkbox', { name: 'Explore location path' }));
-    expect(useDesignPreviewStore.getState().preferences.path).toBe(true);
     await user.selectOptions(screen.getByRole('combobox', { name: 'Pane pill gap' }), 'wide');
     expect(document.documentElement.dataset.designPreviewCalm).toBe('true');
     expect(document.documentElement.dataset.designPreviewReadable).toBe('true');
@@ -26,7 +23,6 @@ describe('DesignPreferencesPreview', () => {
     expect(document.documentElement.dataset.designPreviewHeader).toBe('true');
     expect(document.documentElement.dataset.designPreviewDetails).toBe('true');
     await user.click(screen.getByRole('button', { name: 'Reset to current design' }));
-    expect(useDesignPreviewStore.getState().preferences.path).toBe(false);
     expect(document.documentElement.dataset.designPreviewCalm).toBe('false');
     expect(document.documentElement.dataset.designPreviewReadable).toBe('false');
     expect(document.documentElement.dataset.designPreviewGap).toBe('current');

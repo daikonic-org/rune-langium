@@ -17,8 +17,7 @@ export default function DesignPreferencesPreview() {
     { key: 'calm', label: '2 · Calmer chrome' },
     { key: 'auxiliary', label: '3 · Pinnable auxiliary panels' },
     { key: 'header', label: '4 · Uncrowd the top bar' },
-    { key: 'details', label: '5 · Consistent controls' },
-    { key: 'path', label: 'Explore location path' }
+    { key: 'details', label: '5 · Consistent controls' }
   ];
 
   useEffect(() => {
