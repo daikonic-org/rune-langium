@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+/** Compare typed objects or Temporal values without calling equals on an absent operand. */
+export function methodEqualityPredicate(left = 'left', right = 'right'): string {
+  return `${left} == null || ${right} == null ? ${left} == null && ${right} == null : ${left}.equals(${right})`;
+}
+
 /** Shared source for structural Rune value equality in TS and executable previews. */
 export function valueEqualitySource(
   typescript: boolean,

@@ -287,3 +287,35 @@ Source selection uses CodeMirror lexical context plus an anchored declaration an
 its name range. Comments, strings, neighboring lines and ordinary expression
 keywords cannot manufacture a missing-type navigation request. Explicit LSP
 reference navigation still resolves through the language service.
+
+### Selected-object inspector and code previews
+
+Original curated source is parsed through Studio's shared parser before binding
+Inspector expression ranges. Published serialized offsets are not assumed to
+match the source artifact. Projection requests verify that actual source range,
+then resolve the corresponding linked declaration/condition for emission; range
+and file-version guards still reject stale or cross-declaration requests.
+
+Code preview uses the selected declaration and the canonical export dependency
+closure for authored and curated objects. It awaits namespace readiness and the
+worker file receipt. The active View action bypasses its cached generation without hiding the pane;
+request identity and source versions reject late results. Download retains its
+explicit namespace/layout configuration.
+
+Inspector documentation and annotations share Details. Readonly child metadata
+comes from its canonical selected node, not an unrelated parent form field.
+Function body editors fill the space above item details. Documentation can scroll
+or resize without authorizing changes to readonly declarations.
+
+Displayed TypeScript bodies assume purpose-built, validated Rune objects. Named
+type guards express narrowing; narrowing followed by presence fuses to a guard
+(or its negation). Object comparisons use `.equals`; primitives and null presence
+checks use native operators. Resolved enum values use their declared members (including switch cases), while string literals remain strings. Displayed calls omit runtime argument assertions and
+output accumulators infer their types. Simple enum return dispatch uses `switch`.
+Executable exports retain their required boundary and metadata/cardinality checks.
+Collection comparisons reuse the shared quantified equality source with the object
+method predicate, preserving empty, broadcasting and positional rules.
+
+Notification presentation does not own logging. Operation owners record their
+Activity/Output events, optionally displaying a toast; dismissing a toast creates
+no operation or history entry. `recordOperation` supplies the shared correlation ID.

@@ -210,7 +210,7 @@ it('Function input/output details share the parent form without remounting the b
   await act(async () => vi.advanceTimersByTime(500));
   expect(store.getState().captureMetadataTarget(id, ['output'])?.expected).toMatchObject({ definition: 'Output docs' });
   fireEvent.click(screen.getByRole('button', { name: 'Collapse item details' }));
-  fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
   fireEvent.click(screen.getByRole('tab', { name: 'Implementation' }));
   expect(mount).toHaveBeenCalledTimes(1);
   expect(dispose).not.toHaveBeenCalled();
@@ -236,7 +236,7 @@ it('flushes pending root metadata before a declaration rename changes its ID', a
   render(<Fixture />);
   fireEvent.change(screen.getByLabelText('Data type name'), { target: { value: 'Renamed' } });
   await act(async () => vi.advanceTimersByTime(100));
-  fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
   fireEvent.change(screen.getByLabelText('Definition'), { target: { value: 'Pending declaration docs' } });
   await act(async () => vi.advanceTimersByTime(400));
   expect(store.getState().nodes.find((node) => node.data.name === 'Renamed')?.data.definition).toBe(

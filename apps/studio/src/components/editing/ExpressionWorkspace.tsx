@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useState, useRef, useId, type CSSProperties } from 'react';
+import { useEffect, useState, useRef, useId } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { isolateHistory } from '@codemirror/commands';
 import type { ExpressionEditorSlotProps, FunctionScope } from '@rune-langium/visual-editor';
@@ -18,6 +18,7 @@ import {
   type ExpressionRegion
 } from '@rune-langium/core';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
+import { parseFile } from '../../services/workspace.js';
 import type { DocumentBinding, DocumentEdit, ExpressionDocument } from '../../services/expression-document.js';
 import type { LspClientService } from '../../services/lsp-client.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -29,6 +30,19 @@ import { useExpressionProjection } from './use-expression-projection.js';
 import { ForeignExpressionDialog } from './ForeignExpressionDialog.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { protectedRegion } from '../../lang/document-extensions.js';
+
+// Condition editors in the same readonly file share its coordinate parse.
+// Immutable file snapshots are weak keys, so changing source replaces the entry
+// and unmounted files do not remain retained by this cache.
+const originalSourceParses = new WeakMap<WorkspaceFile, ReturnType<typeof parseFile>>();
+function originalSourceParse(file: WorkspaceFile): ReturnType<typeof parseFile> {
+  let pending = originalSourceParses.get(file);
+  if (!pending) {
+    pending = parseFile(file.content, pathToUri(file.path));
+    originalSourceParses.set(file, pending);
+  }
+  return pending;
+}
 
 export interface ExpressionWorkspaceProps {
   nodeId: string;
@@ -96,15 +110,36 @@ export const ExpressionWorkspace = withInstrumentation(
       []
     );
     const [coordinateError, setCoordinateError] = useState<string | undefined>();
+    const [sourceParse, setSourceParse] = useState<ParsedWorkspaceModel>();
+    useEffect(() => {
+      if (!file || file.sourceLoaded === false || !(file.readOnly || file.refOnly)) return;
+      let cancelled = false;
+      setCoordinateError('Resolving original source…');
+      void originalSourceParse(file).then((result) => {
+        if (cancelled) return;
+        if (!result.model || result.errors.length) {
+          setCoordinateError('The original source could not be parsed. Open the file in Source.');
+          return;
+        }
+        setSourceParse({ filePath: file.path, source: file.content, model: result.model });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [file?.path, file?.content, file?.sourceLoaded, file?.readOnly, file?.refOnly]);
     const regionKey = target ? `${target.kind}:${target.index}` : 'implementation';
     useEffect(() => {
       if (!file || file.sourceLoaded === false) return;
+      const originalSource = file.readOnly || file.refOnly;
+      if (originalSource && (sourceParse?.filePath !== file.path || sourceParse.source !== file.content)) return;
       const owner =
-        parsed && parseCurrent
-          ? findExpressionOwner(parsed.model, { name: nameFromNodeId(nodeId), kind: kindFromNodeId(nodeId) })
-          : readOnly && (file.readOnly || file.refOnly)
-            ? sourceOwner
-            : undefined;
+        originalSource && sourceParse
+          ? findExpressionOwner(sourceParse.model, { name: nameFromNodeId(nodeId), kind: kindFromNodeId(nodeId) })
+          : parsed && parseCurrent
+            ? findExpressionOwner(parsed.model, { name: nameFromNodeId(nodeId), kind: kindFromNodeId(nodeId) })
+            : readOnly && (file.readOnly || file.refOnly)
+              ? sourceOwner
+              : undefined;
       if (!owner || (owner.$type !== 'RosettaFunction' && owner.$type !== 'Data')) {
         if (parseCurrent) {
           setBinding(null);
@@ -138,7 +173,18 @@ export const ExpressionWorkspace = withInstrumentation(
       } catch (error) {
         setCoordinateError(error instanceof Error ? error.message : String(error));
       }
-    }, [file, parsed, parseCurrent, sourceOwner, readOnly, nodeId, documents, target?.kind, target?.index]);
+    }, [
+      file,
+      parsed,
+      sourceParse,
+      parseCurrent,
+      sourceOwner,
+      readOnly,
+      nodeId,
+      documents,
+      target?.kind,
+      target?.index
+    ]);
     const active =
       file &&
       !coordinateError &&
@@ -218,12 +264,12 @@ export const ExpressionWorkspace = withInstrumentation(
     return (
       <section
         id={editorId}
-        className="flex flex-col gap-1"
+        data-expanded={expanded}
+        className="expression-workspace flex min-h-32 flex-1 flex-col gap-1"
         aria-label={target ? 'Condition expression' : 'Function implementation'}
-        style={{ '--expression-editor-height': expanded ? 'min(70dvh,48rem)' : 'min(45dvh,28rem)' } as CSSProperties}
       >
         <div className="flex min-h-6 flex-wrap items-center justify-between gap-1">
-          <span className="text-xs font-medium text-muted-foreground">{target ? 'Expression' : 'Implementation'}</span>
+          {target && <span className="text-xs font-medium text-muted-foreground">Expression</span>}
           <div className="flex flex-wrap items-center gap-1">
             {(['rune', 'typescript', 'python'] as const).map((choice) => (
               <Button
@@ -285,7 +331,7 @@ export const ExpressionWorkspace = withInstrumentation(
             </Button>
           </div>
         </div>
-        <div hidden={language !== 'rune'}>
+        <div className={language === 'rune' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
           {displayed && coordinateError && (
             <p role="status" className="text-xs text-muted-foreground">
               {coordinateError}

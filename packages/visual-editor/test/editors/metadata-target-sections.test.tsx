@@ -176,7 +176,9 @@ describe('shared metadata controls at child paths', () => {
     expect(screen.queryByLabelText('Comments')).not.toBeInTheDocument();
   });
   it('inspects inherited metadata without registering an ancestor in the local form', async () => {
-    const { store, getNode } = await loadInspectorFixture();
+    const { store, getNode } = await loadInspectorFixture(
+      'namespace demo.forms\nannotation marking:\n scheme string (1..1)\ntype Person:\n name string (1..1) [marking scheme "scheme"="ISIN"]\ntype Employee extends Person:\n employeeId string (1..1)\n'
+    );
     const root = getNode('Employee');
     const ancestor = store.getState().captureMetadataTarget(getNode('Person').id, ['attributes', 0])!.expected;
     const before = store.getState().pendingEditPatches;
@@ -205,6 +207,7 @@ describe('shared metadata controls at child paths', () => {
     }
     render(<Fixture />);
     expect(screen.queryByRole('textbox', { name: 'Definition' })).toBeNull();
+    expect(screen.getByText('[marking]', { exact: false })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Add annotation' })).toBeNull();
     expect(store.getState().pendingEditPatches).toBe(before);
   });

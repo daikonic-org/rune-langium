@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import {
   Toast,
   ToastClose,
@@ -13,9 +13,6 @@ import {
   useToastManager
 } from '@rune-langium/design-system/ui/toast';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
-import { useOutputStore, fmtLine } from '../store/output-store.js';
-import { useActivityStore } from '../store/activity-store.js';
-import { allocateOpId } from '../services/op-log.js';
 import { addInstrumentationSink, withInstrumentation, type TelemetryRecord } from '../services/instrumentation/core.js';
 import { isFailureRecord } from '../services/instrumentation/record-status.js';
 
@@ -47,9 +44,8 @@ interface StudioToastContextValue {
   /**
    * Pure toast render, no output-store/activity-store mirroring. Used by
    * the instrumentation Toast sink, which independently targets Activity
-   * itself — see docs/superpowers/specs/
-   * 2026-08-02-instrumentation-multi-sink-design.md. showToast's existing
-   * mirroring is unaffected; this is a new, narrower, additive primitive.
+   * itself. The
+   * operation owner records Activity/Output independently of notification presentation.
    */
   notify: (toast: StudioToastInput) => void;
 }
@@ -69,27 +65,8 @@ export const StudioToastProvider = withInstrumentation(
 
 function StudioToastInner({ children }: { children: ReactNode }) {
   const { toasts, add, close } = useToastManager();
-  // Tracks each in-flight loading toast's op-log span, keyed by the toast
-  // library's own id (distinct from opId), so dismissToast can close the
-  // matching span with a real elapsed duration.
-  const loadingSpans = useRef(new Map<string, { opId: number; description: string; startedAt: number }>()).current;
-
   const showToast = useCallback(
     (input: StudioToastInput) => {
-      const opId = allocateOpId();
-      const isDestructive = input.variant === 'destructive';
-      useOutputStore
-        .getState()
-        .addLine(
-          fmtLine('toast', input.title ?? input.description, input.title ? input.description : undefined),
-          isDestructive ? 'error' : 'info',
-          {
-            op: 'toast',
-            opId
-          }
-        );
-      useActivityStore.getState().addActivity('toast', !isDestructive, input.title ?? input.description, { opId });
-
       add({
         title: input.title,
         description: input.description,
@@ -102,11 +79,6 @@ function StudioToastInner({ children }: { children: ReactNode }) {
 
   const showLoadingToast = useCallback(
     (input: StudioLoadingToastInput) => {
-      const opId = allocateOpId();
-      const description = input.title ?? input.description;
-      useOutputStore.getState().addLine(fmtLine('toast', description), 'info', { op: 'toast', opId });
-      useActivityStore.getState().addActivity('toast', true, description, { opId });
-
       const id = add({
         title: input.title,
         description: input.description,
@@ -115,7 +87,6 @@ function StudioToastInner({ children }: { children: ReactNode }) {
         // duration; the caller dismisses it explicitly when done.
         timeout: 0
       });
-      loadingSpans.set(id, { opId, description, startedAt: performance.now() });
       return id;
     },
     [add]
@@ -123,36 +94,12 @@ function StudioToastInner({ children }: { children: ReactNode }) {
 
   const dismissToast = useCallback(
     (id: string) => {
-      const span = loadingSpans.get(id);
-      if (span) {
-        loadingSpans.delete(id);
-        const durationMs = performance.now() - span.startedAt;
-        useOutputStore.getState().addLine(fmtLine('toast', 'dismissed', span.description), 'success', {
-          op: 'toast',
-          opId: span.opId,
-          durationMs
-        });
-        useActivityStore.getState().addActivity('toast', true, `dismissed · ${span.description}`, {
-          opId: span.opId,
-          durationMs
-        });
-      }
       close(id);
     },
     [close]
   );
 
-  const notify = useCallback(
-    (input: StudioToastInput) => {
-      add({
-        title: input.title,
-        description: input.description,
-        type: input.variant ?? 'default',
-        timeout: input.duration
-      });
-    },
-    [add]
-  );
+  const notify = showToast;
 
   useEffect(() => {
     return addInstrumentationSink((record: TelemetryRecord) => {

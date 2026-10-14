@@ -31,6 +31,8 @@ export type CodePreviewSnapshot =
     };
 
 interface CodegenState {
+  refreshRevision: number;
+  refreshCodePreview: () => void;
   /**
    * Cross-namespace dependency graph from the most recent /api/parse
    * response (spec 2026-05-14 §5.2). Keys are namespace names; values are
@@ -85,6 +87,8 @@ function pickActiveRelativePath(files: CodePreviewFile[], previousRelativePath?:
 }
 
 export const useCodegenStore = create<CodegenState>((set) => ({
+  refreshRevision: 0,
+  refreshCodePreview: () => set((state) => ({ refreshRevision: state.refreshRevision + 1 })),
   dependencyGraph: {},
   codePreviewTarget: DEFAULT_TARGET,
   activeTarget: undefined,
@@ -179,6 +183,7 @@ export const useCodegenStore = create<CodegenState>((set) => ({
     })),
   resetCodegenState: () =>
     set({
+      refreshRevision: 0,
       dependencyGraph: {},
       codePreviewTarget: DEFAULT_TARGET,
       activeTarget: undefined,

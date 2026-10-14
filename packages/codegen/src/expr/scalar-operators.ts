@@ -26,13 +26,22 @@ import {
   isRosettaSymbolReference,
   isShortcutDeclaration,
   type RosettaExpression,
+  type RosettaEnumValue,
   type TypeCall
 } from '@rune-langium/core';
 import { AstUtils } from 'langium';
 import { expressionIsMany, expressionType, featureIsRequired } from './navigation.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
 import { resolveTypeCallTarget, type TypeIndexLookup } from '../emit/type-ref-resolver.js';
-import { functionOutput } from '../types/func.js';
+import { functionOutput, type FuncTypeNameResolver } from '../types/func.js';
+
+/** Display enum members from linked declarations; never infer enums from string text. */
+export function enumMemberReference(value: RosettaEnumValue, resolveName?: FuncTypeNameResolver): string {
+  const owner = AstUtils.getContainerOfType(value, isRosettaEnumeration);
+  if (!owner) return JSON.stringify(value.name);
+  const name = resolveName?.(owner, owner.name) ?? owner.name;
+  return /^[A-Za-z_$][\w$]*$/.test(value.name) ? `${name}.${value.name}` : `${name}[${JSON.stringify(value.name)}]`;
+}
 
 export const temporalScalarTypes = {
   date: 'PlainDate',

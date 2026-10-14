@@ -17,7 +17,7 @@ const SCRATCH_TYPE = 'ScratchCodegenWidget';
 test.describe('J11 — Client-side codegen (Code tab)', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
 
-  test('J11 Code tab renders non-empty output per target for the scratch workspace; curated content is available through Download', async ({
+  test('J11 Code tab renders selected curated and scratch declarations and regenerates output', async ({
     page,
     evidence
   }) => {
@@ -33,23 +33,15 @@ test.describe('J11 — Client-side codegen (Code tab)', () => {
     await page.getByRole('tab', { name: 'Code' }).click();
     await expect(page.getByTestId('panel-codePreview')).toBeVisible({ timeout: 20000 });
 
-    // FINDING (this session, confirmed live against production): the Code
-    // tab's live per-target preview is deliberately, NOT accidentally,
-    // scoped to user-authored workspace files only —
-    // apps/studio/src/shell/providers/CodegenProvider.tsx's file-sync effect
-    // says so explicitly ("codegen:setFiles uses only user-authored files —
-    // readOnly corpus files are not the target of local code generation").
-    // Selecting/hydrating ANCHOR_DATA and opening every target's viewer here
-    // renders the SAME output as an empty scratch workspace (an empty
-    // `$defs: {}` for JSON Schema, observed live) — never ANCHOR_DATA's own
-    // schema. This is a real, documented product decision, not a bug to
-    // route around: only the separate, server-backed Download path
-    // (`/api/codegen`, wired through `DownloadConfigDialog`) includes
-    // curated bundles — confirmed live this session, its namespace list
-    // shows 42 curated `cdm.*` namespaces once CDM is loaded. So the
-    // "curated anchor" half of this journey verifies curated inclusion via
-    // that Download path instead of the live per-target loop below (which
-    // is exercised, meaningfully, only against the scratch workspace).
+    // Live Code preview follows the selected declaration, including curated objects.
+    await page.getByTestId('codegen-targets-table__view-typescript').click();
+    await expect(page.getByTestId('codegen-status')).toContainText(/Generated/i, { timeout: 20000 });
+    await expect(page.getByTestId('code-preview-editor')).toContainText(ANCHOR_DATA.split('.').at(-1)!);
+    await page.getByRole('button', { name: 'Regenerate TypeScript preview' }).click();
+    await expect(page.getByTestId('codegen-status')).toContainText(/Generated/i, { timeout: 20000 });
+    await expect(page.getByTestId('code-preview-editor')).toContainText(ANCHOR_DATA.split('.').at(-1)!);
+    await evidence.checkpoint('selected-curated-code-regenerated');
+
     await page.getByTestId('codegen-targets-table__download-typescript').click();
     await expect(page.getByTestId('download-config-dialog')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('download-config-dialog__ns-row-cdm.base.datetime')).toBeVisible();
@@ -94,10 +86,7 @@ test.describe('J11 — Client-side codegen (Code tab)', () => {
     await expect(page.getByTestId('panel-codePreview')).toBeVisible({ timeout: 20000 });
 
     for (const target of TARGETS) {
-      // Clicking a different target's View (eye) button directly swaps the
-      // open viewer — no need to collapse the previous one first
-      // (CodePreviewPanel.tsx's handleViewTarget only toggles closed when
-      // the SAME target is clicked again).
+      // View swaps targets; the active target's action regenerates its output.
       const startedAt = Date.now();
       await page.getByTestId(`codegen-targets-table__view-${target}`).click();
       await expect(page.getByTestId('codegen-status')).toContainText(/Generated/i, { timeout: 20000 });

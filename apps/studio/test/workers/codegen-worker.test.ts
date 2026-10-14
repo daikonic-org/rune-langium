@@ -2308,6 +2308,22 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     expect(generateMock).toHaveBeenCalledTimes(2);
   });
 
+  it('explicit regeneration reruns generation with unchanged sources', async () => {
+    const { dispatch } = await loadWorkerModule();
+    dispatch({
+      type: 'codegen:setFiles',
+      files: [{ uri: 'file:///retry.rosetta', content: 'namespace retry' }],
+      requestId: 'retry:files'
+    });
+    await flushWorker();
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'retry:cached' });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'retry:fresh', regenerate: true });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(2);
+  });
+
   it('invalidates the codegen cache after codegen:setFiles', async () => {
     const { dispatch } = await loadWorkerModule();
 

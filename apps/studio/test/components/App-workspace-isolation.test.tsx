@@ -241,7 +241,7 @@ it.each([false, true])(
     const save = vi.spyOn(workspaceFiles, 'saveWorkspaceFiles');
     render(<App />);
     await screen.findByLabelText('Data type name');
-    fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
     fireEvent.change(screen.getByLabelText('Definition'), { target: { value: 'Saved from pending Inspector timer' } });
     expect(
       useEditorStore.getState().nodes.find((node) => node.data.name === 'Person')?.data.definition

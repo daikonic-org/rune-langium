@@ -435,6 +435,29 @@ describe('source-bound expression workspace', () => {
     expect(writes).not.toHaveBeenCalled();
   });
 
+  it('uses original curated source boundaries despite drifted serialized offsets', async () => {
+    const text = source + 'func Neighbor:\n output: result int (1..1)\n set result: 2\n';
+    const parsed = await parse(text.replace('namespace test', 'namespace     test'));
+    const { RuneDsl } = createRuneDslServices();
+    const owner = JSON.parse(serializeRuneModel(RuneDsl.serializer.JsonSerializer, parsed.value)).elements[0];
+    const { props, writes } = await context();
+    const host = render(
+      <ExpressionWorkspace
+        {...props}
+        sourceOwner={owner}
+        parsed={undefined}
+        parseCurrent={false}
+        readOnly
+        file={{ ...props.file, content: text, sourceLoaded: true, readOnly: true, refOnly: true }}
+      />
+    );
+    const editor = await host.findByTestId('implementation-editor');
+    expect(editor).toHaveTextContent('set result: 1');
+    expect(editor).not.toHaveTextContent('func');
+    expect(editor).not.toHaveTextContent('Neighbor');
+    expect(writes).not.toHaveBeenCalled();
+  });
+
   it('respects file read-only capability even if the host flag is false', async () => {
     const { props, writes } = await context();
     const host = render(
@@ -445,6 +468,7 @@ describe('source-bound expression workspace', () => {
       />
     );
     const editor = await host.findByTestId('implementation-editor');
+    await waitFor(() => expect(editor.querySelector('.cm-editor')).not.toBeNull());
     const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
     act(() => view.dispatch({ changes: { from: source.indexOf('1\n'), insert: '9' } }));
     expect(view.state.doc.toString()).toBe(source);

@@ -76,6 +76,15 @@ it('does not restart a consumed arrival when target metadata or generated output
   expect(scroll).not.toHaveBeenCalled();
 });
 
+it('retains the generated document while regenerating the same target', () => {
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  act(() => usePreviewStore.getState().selectTarget('test.Trade'));
+  const view = EditorView.findFromDOM(container.querySelector('.cm-editor')!)!;
+  const before = view.state.doc.toString();
+  act(() => useCodegenStore.getState().beginCodePreviewRequest('zod'));
+  expect(view.state.doc.toString()).toBe(before);
+});
+
 it('waits for generated output for a pending arrival and consumes it only once', () => {
   useCodegenStore.setState({ snapshot: { status: 'waiting', target: 'zod' } });
   const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);

@@ -5,6 +5,7 @@ import {
   getEnumValues,
   isAsOperation,
   isSwitchCaseGuard,
+  isSwitchOperation,
   isChoice,
   isAttribute,
   isChoiceOption,
@@ -37,6 +38,9 @@ import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
 import { renderFuncAssignment } from './func-assignment.js';
+import { renderSwitchExpression } from '../expr/switch-expression.js';
+import { freshLocal } from '../expr/inline-function.js';
+import { enumMemberReference } from '../expr/scalar-operators.js';
 import { expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
@@ -480,7 +484,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
                     ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, []),
                     callableName: this.callableName,
                     typeNameResolver: this.typeName,
-                    objectEquality: 'method'
+                    objectEquality: 'method',
+                    projection: true
                   })
                     .join('\n')
                     .split('\n')
@@ -1463,7 +1468,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           ...transpilerCtx,
           selfName: 'data',
           emitMode: 'ts-expression',
-          objectEquality: 'method'
+          objectEquality: 'method',
+          projection: true
         })
       );
       methodBlocks.push(method);
@@ -2073,7 +2079,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ctx.onConditionProjection?.(
         condNode,
         throwForm,
-        transpileCondition(condNode, { ...condCtx, emitMode: 'ts-expression', objectEquality: 'method' })
+        transpileCondition(condNode, {
+          ...condCtx,
+          emitMode: 'ts-expression',
+          objectEquality: 'method',
+          projection: true
+        })
       );
       lines.push(throwForm);
     }
@@ -2097,8 +2108,22 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       !func.preConditions.length &&
       !func.postConditions.length &&
       isRosettaExpression(assignment.exprNode) &&
-      expressionFitsCardinality(assignment.exprNode, func.output.cardinality)
+      (ctx.projection || expressionFitsCardinality(assignment.exprNode, func.output.cardinality))
     ) {
+      if (ctx.projection && isSwitchOperation(assignment.exprNode)) {
+        const statement = renderSwitchExpression(assignment.exprNode, {
+          enumValue: (value) => enumMemberReference(value, ctx.typeNameResolver),
+          returnStatement: true,
+          selectorName: freshLocal(ctx, 'switchValue'),
+          selfName: ctx.selfName,
+          renderExpression: (expression, options) =>
+            transpileExpression(expression, {
+              ...ctx,
+              ...(options?.selfName ? { selfName: options.selfName } : {})
+            })
+        });
+        if (statement) return statement.split('\n').map((line) => `  ${line}`);
+      }
       const statement = TsNamespaceEmitter.emitFuncSet(assignment, ctx);
       if (statement.startsWith(`  ${result} = `) && !statement.includes('\n')) {
         // A local preserves structural assignment for constructor literals with additional fields.
@@ -2129,9 +2154,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     const outputTs = TsNamespaceEmitter.funcParamType(func.output);
     if (ctx.outputAccumulator === 'array') {
-      bodyLines.push(`  let ${result}: ${outputTs}[] = [];`);
+      bodyLines.push(`  let ${result}${ctx.projection ? '' : `: ${outputTs}[]`} = [];`);
     } else {
-      bodyLines.push(`  let ${result}: ${outputTs} | undefined;`);
+      bodyLines.push(`  let ${result}${ctx.projection ? '' : `: ${outputTs} | undefined`};`);
     }
 
     // Aliases before pre-conditions: the grammar (rune-dsl.langium's
@@ -2155,15 +2180,16 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));
     }
 
-    bodyLines.push(
-      ...renderCardinalityChecks(
-        result,
-        func.output.cardinality,
-        ctx.outputAccumulator === 'array',
-        `Function '${func.name}' produced ${ctx.outputAccumulator === 'array' ? 'too few results' : 'no result'}`,
-        `Function '${func.name}' produced too many results`
-      ).map((line) => `  ${line}`)
-    );
+    if (!ctx.projection)
+      bodyLines.push(
+        ...renderCardinalityChecks(
+          result,
+          func.output.cardinality,
+          ctx.outputAccumulator === 'array',
+          `Function '${func.name}' produced ${ctx.outputAccumulator === 'array' ? 'too few results' : 'no result'}`,
+          `Function '${func.name}' produced too many results`
+        ).map((line) => `  ${line}`)
+      );
 
     const postConds = TsNamespaceEmitter.emitFuncConditions(func.postConditions, func, ctx);
     for (const block of postConds) {
@@ -2196,6 +2222,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         ...ctx,
         diagnostics: [],
         objectEquality: 'method',
+        projection: true,
         onConditionProjection: undefined
       })
         .join('\n')

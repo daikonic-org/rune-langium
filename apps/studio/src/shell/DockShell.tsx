@@ -23,6 +23,7 @@
  * assertions remain reachable.
  */
 
+import { recordOperation } from '../services/operation-feedback.js';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import type { ComponentType } from 'react';
@@ -57,7 +58,6 @@ import { PerspectiveHeading } from './perspectives/PerspectiveHeading.js';
 import { CenterPanesContext, type CenterPane } from './center-panes-context.js';
 import { useExploreFileNavStore } from './explore-file-nav-store.js';
 import { useStudioToast } from '../components/StudioToastProvider.js';
-import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { StudioDockTab, type StudioDockTabParams } from './StudioDockTab.js';
 import { useDesignPreviewStore } from '../store/design-preview-store.js';
@@ -353,12 +353,11 @@ export const DockShell = withInstrumentation(
 
     const reportNativeLayoutError = useCallback((err: unknown) => {
       console.error('[DockShell] Failed to serialize layout change', err);
-      useOutputStore
-        .getState()
-        .addLine(
-          fmtLine('layout', 'failed to persist layout change', err instanceof Error ? err.message : String(err)),
-          'warn'
-        );
+      recordOperation(
+        'layout',
+        `Failed to persist layout change: ${err instanceof Error ? err.message : String(err)}`,
+        'warn'
+      );
       showToastRef.current({
         title: 'Layout not saved',
         description: 'Could not persist the current panel arrangement.',
@@ -524,12 +523,7 @@ export const DockShell = withInstrumentation(
           });
         } catch (err) {
           console.error('[DockShell] Failed to reset layout', err);
-          useOutputStore
-            .getState()
-            .addLine(
-              fmtLine('layout', 'failed to reset layout', err instanceof Error ? err.message : String(err)),
-              'error'
-            );
+          recordOperation('layout', err instanceof Error ? err.message : 'Failed to reset layout', 'error');
           showToast({
             title: 'Layout reset failed',
             description: err instanceof Error ? err.message : 'Could not reset the panel layout.',

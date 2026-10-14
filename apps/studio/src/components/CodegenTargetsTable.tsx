@@ -22,7 +22,7 @@ import React from 'react';
 import { IMPLEMENTED_TARGETS, TARGET_DESCRIPTORS, type Target } from '@rune-langium/codegen/export';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
-import { Eye, EyeOff, Download } from 'lucide-react';
+import { Eye, RotateCw, Download } from 'lucide-react';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface CodegenTargetsTableProps {
@@ -38,7 +38,7 @@ export interface CodegenTargetsTableProps {
   /**
    * If set, that target's row is marked as "active" — its preview is
    * currently expanded below the table. The View icon flips to
-   * "currently visible" so a second click clearly reads as a toggle off.
+   * "currently visible" so its action clearly reads as regeneration.
    */
   activeTarget?: Target;
 }
@@ -110,14 +110,16 @@ export const CodegenTargetsTable = withInstrumentation(
                             type="button"
                             size="icon-sm"
                             variant="ghost"
-                            aria-label={isActive ? `Hide ${descriptor.label} preview` : `View ${descriptor.label}`}
+                            aria-label={
+                              isActive ? `Regenerate ${descriptor.label} preview` : `View ${descriptor.label}`
+                            }
                             aria-pressed={isActive}
-                            title={isActive ? `Hide ${descriptor.label} preview` : `View ${descriptor.label}`}
+                            title={isActive ? `Regenerate ${descriptor.label} preview` : `View ${descriptor.label}`}
                             data-testid={`codegen-targets-table__view-${target}`}
                             onClick={() => onView(target)}
                           >
                             {isActive ? (
-                              <EyeOff className="size-4" aria-hidden="true" />
+                              <RotateCw className="size-4" aria-hidden="true" />
                             ) : (
                               <Eye className="size-4" aria-hidden="true" />
                             )}

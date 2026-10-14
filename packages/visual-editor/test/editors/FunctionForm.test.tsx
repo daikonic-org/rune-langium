@@ -569,7 +569,7 @@ describe('FunctionForm – US3 (Phase 5c) z2f migration contract (FT1–FT4)', (
     expect((expressionTextarea as HTMLTextAreaElement).value).toBe('trade -> price -> amount');
 
     expect(container.querySelector('[data-slot="metadata-description"]')).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'Doc', exact: true }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details', exact: true }));
     // Documentation activates the shared section; authored comments remain Source-only.
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');

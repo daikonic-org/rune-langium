@@ -37,7 +37,18 @@ import { WorkspaceStateContext, type WorkspaceState } from '../../src/shell/prov
 
 class MockWorker {
   static instances: MockWorker[] = [];
-  readonly postMessage = vi.fn();
+  readonly postMessage = vi.fn((message: { type: string; requestId?: string; filesRevision?: number }) => {
+    if (message.type === 'preview:setFiles')
+      queueMicrotask(() =>
+        this.dispatch('message', {
+          data: {
+            type: 'preview:files-ready',
+            requestId: message.requestId,
+            filesRevision: message.filesRevision
+          }
+        })
+      );
+  });
   readonly listeners = new Map<string, Set<EventListener>>();
   readonly addEventListener = vi.fn((type: string, listener: EventListener) => {
     const handlers = this.listeners.get(type) ?? new Set<EventListener>();
@@ -170,6 +181,23 @@ describe('CodegenProvider — codegen worker→store path', () => {
       expect(typeof msg!.requestId).toBe('string');
       expect(msg!.requestId.length).toBeGreaterThan(0);
     });
+  });
+
+  it('requests explicit regeneration without changing the active target', async () => {
+    renderProvider();
+    await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
+    const worker = MockWorker.instances[0]!;
+    await act(async () => useCodegenStore.getState().setActiveTarget('zod'));
+    await waitFor(() => expect(lastCodegenGenerate(worker)).toBeDefined());
+    const initial = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => useCodegenStore.getState().refreshCodePreview());
+    await waitFor(() => expect(lastCodegenGenerate(worker)?.requestId).not.toBe(initial));
+    expect(worker.postMessage.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'codegen:generate',
+      target: 'zod',
+      regenerate: true
+    });
+    expect(useCodegenStore.getState().activeTarget).toBe('zod');
   });
 
   it('marks the store snapshot ready on codegen:result for the current requestId', async () => {

@@ -237,7 +237,7 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
     expect((nameInput as HTMLInputElement).value).toBe('PaymentType');
 
     expect(container.querySelector('[data-slot="metadata-description"]')).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'Doc', exact: true }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details', exact: true }));
     // Documentation mounts on activation; authored comments remain Source-only.
     const descriptionTextarea = container.querySelector('[data-slot="metadata-description"]');
     const commentsTextarea = container.querySelector('[data-slot="metadata-comments"]');
@@ -337,7 +337,7 @@ describe('ChoiceForm – US3 z2f migration contract (CT1–CT4)', () => {
     // The pending dirty edit was flushed against the original binding.
     expect(renameType).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Doc', exact: true }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details', exact: true }));
     // First activation reads the pristine fields from nodeB after the swap.
     const definitionTextarea = container.querySelector('[data-slot="metadata-description"]') as HTMLTextAreaElement;
     expect(definitionTextarea.value).toBe('Variant B definition');

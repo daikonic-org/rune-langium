@@ -107,7 +107,7 @@ describe('DataTypeForm – read-only mode contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders zero enabled inputs, textareas, or selects in the form', () => {
+  it('renders zero editable inputs, textareas, or selects in the form', () => {
     const { container } = render(
       <DataTypeForm
         nodeId="test.LockedTrade"
@@ -121,7 +121,7 @@ describe('DataTypeForm – read-only mode contract', () => {
     // The Members tab is mounted by default; Doc/Meta tabs are lazy.
     // Query all interactive controls that should NOT be editable.
     const enabledInputs = container.querySelectorAll(
-      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([disabled]), textarea:not([disabled]):not([readonly]), select:not([disabled])'
     );
 
     // The type-name field should be a static <h3> not an <input> in read-only.
@@ -289,7 +289,7 @@ describe('EnumForm – read-only mode contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders zero enabled inputs, textareas, or selects', () => {
+  it('renders zero editable inputs, textareas, or selects', () => {
     const { container } = render(
       <EnumForm
         nodeId="test.enums.LockedCurrencyEnum"
@@ -301,7 +301,7 @@ describe('EnumForm – read-only mode contract', () => {
     );
 
     const enabledInputs = container.querySelectorAll(
-      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([disabled]), textarea:not([disabled]):not([readonly]), select:not([disabled])'
     );
     const slots = Array.from(enabledInputs).map((el) => el.getAttribute('data-slot') ?? el.tagName.toLowerCase());
     expect(slots, `Unexpected enabled inputs: ${JSON.stringify(slots)}`).toHaveLength(0);
@@ -423,7 +423,7 @@ describe('ChoiceForm – read-only mode contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders zero enabled inputs, textareas, or selects', () => {
+  it('renders zero editable inputs, textareas, or selects', () => {
     const { container } = render(
       <ChoiceForm
         nodeId="test.model.LockedPaymentType"
@@ -435,7 +435,7 @@ describe('ChoiceForm – read-only mode contract', () => {
     );
 
     const enabledInputs = container.querySelectorAll(
-      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([disabled]), textarea:not([disabled]):not([readonly]), select:not([disabled])'
     );
     const slots = Array.from(enabledInputs).map((el) => el.getAttribute('data-slot') ?? el.tagName.toLowerCase());
     expect(slots, `Unexpected enabled inputs: ${JSON.stringify(slots)}`).toHaveLength(0);
@@ -569,7 +569,7 @@ describe('FunctionForm – read-only mode contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders zero enabled inputs, textareas, or selects', () => {
+  it('renders zero editable inputs, textareas, or selects', () => {
     const { container } = render(
       <FunctionForm
         nodeId="test.model.LockedCalculateNotional"
@@ -581,7 +581,7 @@ describe('FunctionForm – read-only mode contract', () => {
     );
 
     const enabledInputs = container.querySelectorAll(
-      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([disabled]), textarea:not([disabled]):not([readonly]), select:not([disabled])'
     );
     const slots = Array.from(enabledInputs).map((el) => el.getAttribute('data-slot') ?? el.tagName.toLowerCase());
     expect(slots, `Unexpected enabled inputs: ${JSON.stringify(slots)}`).toHaveLength(0);
@@ -719,7 +719,7 @@ describe('TypeAliasForm – read-only mode contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders zero enabled inputs, textareas, or selects', () => {
+  it('renders zero editable inputs, textareas, or selects', () => {
     const { container } = render(
       <TypeAliasForm
         nodeId="test.aliases.LockedShortText"
@@ -731,7 +731,7 @@ describe('TypeAliasForm – read-only mode contract', () => {
     );
 
     const enabledInputs = container.querySelectorAll(
-      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([disabled]), textarea:not([disabled]):not([readonly]), select:not([disabled])'
     );
     const slots = Array.from(enabledInputs).map((el) => el.getAttribute('data-slot') ?? el.tagName.toLowerCase());
     expect(slots, `Unexpected enabled inputs: ${JSON.stringify(slots)}`).toHaveLength(0);

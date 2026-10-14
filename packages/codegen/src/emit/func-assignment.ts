@@ -39,7 +39,7 @@ export function renderFuncAssignment(
         : nativeSingle(expr, expression, true);
   const bounds = assignment.targetCardinality;
   const checksFor = (value: string, arraySize?: string) =>
-    bounds
+    bounds && !ctx.projection
       ? renderCardinalityChecks(
           value,
           bounds,
@@ -74,10 +74,12 @@ export function renderFuncAssignment(
       if (many) {
         lines.push(`  ${target} ??= [];`);
         const item = freshLocal(ctx, `__assignmentItem${index}`);
-        lines.push(`  const ${item} = ${target}[0] ??= ${initial} as NonNullable<(typeof ${target})[number]>;`);
+        lines.push(
+          `  const ${item} = ${target}[0] ??= ${initial}${ctx.projection ? '' : ` as NonNullable<(typeof ${target})[number]>`};`
+        );
         target = item;
       } else {
-        lines.push(`  ${target} ??= ${initial} as NonNullable<typeof ${target}>;`);
+        lines.push(`  ${target} ??= ${initial}${ctx.projection ? '' : ` as NonNullable<typeof ${target}>`};`);
       }
       if (segment.metadataEntry) {
         const path = metadataPropertyPath(segment.metadataEntry);
@@ -91,11 +93,13 @@ export function renderFuncAssignment(
       }
       if (metadataKind) {
         target += '.value';
-        lines.push(`  ${target} ??= {} as NonNullable<typeof ${target}>;`);
+        lines.push(`  ${target} ??= {}${ctx.projection ? '' : ` as NonNullable<typeof ${target}>`};`);
       }
       if (segment.choiceOption) {
         const choice = freshLocal(ctx, `__assignmentChoice${index}`);
-        lines.push(`  const ${choice} = ${target} as Extract<typeof ${target}, { ${segment.name}: unknown }>;`);
+        lines.push(
+          `  const ${choice} = ${target}${ctx.projection ? '' : ` as Extract<typeof ${target}, { ${segment.name}: unknown }>`};`
+        );
         target = choice;
       }
       target += `.${segment.name}`;

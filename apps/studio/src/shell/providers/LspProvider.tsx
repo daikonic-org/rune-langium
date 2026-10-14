@@ -1,6 +1,7 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
+import { recordOperation } from '../../services/operation-feedback.js';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { LspContext, type LspContextValue } from './lsp-context.js';
@@ -138,6 +139,7 @@ export const LspProvider = withInstrumentation(
             .getState()
             .addLine(fmtLine('lsp', 'reconnect failed', msg), 'error', { op: 'lsp', opId, durationMs });
           useActivityStore.getState().addActivity('lsp', false, `reconnect failed · ${msg}`, { opId, durationMs });
+          recordOperation('lsp', err instanceof Error ? err.message : 'Reconnect failed', 'error');
           showToast({
             title: 'LSP reconnect failed',
             description: err instanceof Error ? err.message : 'Could not reconnect to the language server.',

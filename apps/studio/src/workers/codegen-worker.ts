@@ -40,6 +40,7 @@ import {
   createRuneDslServices,
   hydrateModelDocuments,
   getExpressionOwners,
+  getExpressionRegions,
   getFunctionImplementationRegion,
   getNodeSourceRegion,
   isRosettaFunction,
@@ -110,6 +111,8 @@ interface GenerateMessage {
   type: 'codegen:generate';
   target?: Target;
   requestId?: string;
+  selection?: Parameters<typeof resolveExportSelection>[1];
+  regenerate?: boolean;
 }
 
 interface PreviewExecuteMessage {
@@ -163,7 +166,8 @@ const previewSchemaCache = new Map<string, VersionedEntry<FormPreviewSchema[]>>(
 const previewGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
 const previewPythonCache = new Map<string, VersionedEntry<PythonModule>>();
 let codegenFilesVersion = 0;
-const codegenGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
+// One result per output target, rather than retaining every visited declaration.
+const codegenGenerateCache = new Map<string, VersionedEntry<{ selectionKey: string; results: GeneratorOutput[] }>>();
 const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValidatorResult>>();
 
 // Curated documents are relinked as a BATCH once per `preview:setFiles`
@@ -392,10 +396,15 @@ function compileStandaloneValidator(
 // Generation logic
 // ---------------------------------------------------------------------------
 
-async function runCodegen(target: Target, requestId?: string): Promise<void> {
+async function runCodegen(
+  target: Target,
+  requestId?: string,
+  selection?: GenerateMessage['selection'],
+  regenerate = false
+): Promise<void> {
   const scope = self as unknown as DedicatedWorkerGlobalScope;
 
-  if (currentCodegenFiles.length === 0) {
+  if ((selection ? currentPreviewFiles : currentCodegenFiles).length === 0) {
     scope.postMessage({
       type: 'codegen:outdated',
       target,
@@ -413,13 +422,12 @@ async function runCodegen(target: Target, requestId?: string): Promise<void> {
     // codegenGenerateCache write with THIS captured version (not the live
     // counter re-sampled after the build) ensures a stale-derived result
     // is never marked valid for the new version.
-    const documentsVersion = codegenFilesVersion;
+    const documentsVersion = selection ? previewFilesVersion : codegenFilesVersion;
 
-    const documents: LangiumDocument[] = currentCodegenFiles.map(({ uri, content }) =>
-      factory.fromString(content, URI.parse(uri))
-    );
-
-    await builder.build(documents, { validation: false, eagerLinking: false });
+    const documents: LangiumDocument[] = selection
+      ? resolveExportSelection((await buildDocuments()).value, selection).documents
+      : currentCodegenFiles.map(({ uri, content }) => factory.fromString(content, URI.parse(uri)));
+    if (!selection) await builder.build(documents, { validation: false, eagerLinking: false });
 
     const hasErrors = documents.some(hasDocumentErrors);
 
@@ -433,12 +441,19 @@ async function runCodegen(target: Target, requestId?: string): Promise<void> {
       return;
     }
 
-    const { value: results } = await getOrComputeAsync(
+    const selectionKey = JSON.stringify(selection ?? null);
+    if (regenerate || codegenGenerateCache.get(target)?.value.selectionKey !== selectionKey)
+      codegenGenerateCache.delete(target);
+    const {
+      value: { results }
+    } = await getOrComputeAsync(
       codegenGenerateCache,
       target,
       () => documentsVersion,
-      () => generate(documents, { target })
+      async () => ({ selectionKey, results: await generate(documents, { target }) })
     );
+
+    if (documentsVersion !== (selection ? previewFilesVersion : codegenFilesVersion)) return;
 
     // 018 Task 0.7 follow-up — when every output carries an error
     // diagnostic AND no content (the shape returned by `runGenerate`
@@ -828,21 +843,47 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
     if (!current()) throw new Error('The source changed. Refresh the generated view.');
     const { version, value: documents } = await buildDocuments();
     let subject = { ...request.subject, uri: URI.parse(request.subject.uri).toString() };
-    if (request.kind === 'function') {
+    if (
+      request.kind === 'function' ||
+      currentPreviewFiles.find((file) => file.uri === request.subject.uri)?.serializedModelJson
+    ) {
       const owner = getExpressionOwners(documents.map((doc) => doc.parseResult.value as RosettaModel)).find((node) => {
         const doc = AstUtils.getDocument(node);
         const namespace = namespaceFromModelName((doc.parseResult.value as RosettaModel).name) ?? 'unknown';
         return (
-          isRosettaFunction(node) &&
+          (request.kind !== 'function' || isRosettaFunction(node)) &&
           doc.uri.toString() === subject.uri &&
           makeNodeId(namespace, node.name, node.$type) === subject.nodeId
         );
       });
-      if (!owner || !isRosettaFunction(owner)) throw new Error('The function owner is unavailable.');
-      const body = getFunctionImplementationRegion(owner, request.source);
-      if (body.from !== subject.region.from || body.to !== subject.region.to)
-        throw new Error('The function source region changed. Refresh the generated view.');
-      subject = { ...subject, region: getNodeSourceRegion(owner) };
+      if (!owner) throw new Error('The expression owner is unavailable.');
+      // Published model coordinates may predate the original-source artifact.
+      // Resolve the display boundary from the actual bytes, keeping the linked
+      // immutable model for emission and its internal provenance lookup.
+      const sourceModel = factory.fromString(request.source, URI.parse(request.subject.uri)).parseResult;
+      if (sourceModel.parserErrors.length || sourceModel.lexerErrors.length)
+        throw new Error('The original source could not be parsed.');
+      const sourceOwner = getExpressionOwners([sourceModel.value as RosettaModel]).find(
+        (node) => node.$type === owner.$type && node.name === owner.name
+      );
+      if (!sourceOwner) throw new Error('The expression owner is unavailable.');
+      if (request.kind === 'function' && isRosettaFunction(sourceOwner)) {
+        const body = getFunctionImplementationRegion(sourceOwner, request.source);
+        if (body.from !== subject.region.from || body.to !== subject.region.to)
+          throw new Error('The function source region changed. Refresh the generated view.');
+        subject = { ...subject, region: getNodeSourceRegion(owner) };
+      } else {
+        const sourceRegion = getExpressionRegions(sourceOwner).find(
+          (entry) => entry.region.from === subject.region.from && entry.region.to === subject.region.to
+        );
+        const linkedRegion =
+          sourceRegion &&
+          getExpressionRegions(owner).find(
+            (entry) => entry.kind === sourceRegion.kind && entry.index === sourceRegion.index
+          );
+        if (!linkedRegion) throw new Error('The expression source region changed. Refresh the generated view.');
+        subject = { ...subject, region: linkedRegion.region };
+      }
     }
     const fqn = qualifiedNameFromNodeId(subject.nodeId);
     const separator = fqn.lastIndexOf('.');
@@ -1151,7 +1192,7 @@ if (isWorkerGlobalScope()) {
         if (msg.requestId) {
           lastCodegenRequestId = msg.requestId;
         }
-        runCodegen(lastTarget, lastCodegenRequestId).catch(console.error);
+        runCodegen(lastTarget, lastCodegenRequestId, msg.selection, msg.regenerate).catch(console.error);
       } else if (msg.type === 'preview:setFiles') {
         const changed =
           msg.files.length !== currentPreviewFiles.length ||

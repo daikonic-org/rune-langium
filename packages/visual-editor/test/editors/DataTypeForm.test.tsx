@@ -422,7 +422,7 @@ describe('DataTypeForm – US1 z2f migration contract (T010–T012)', () => {
     // Metadata fields live in the "Doc" tab — activate it first.
     // Base UI tabs switch on click, so drive the actual interaction the user
     // performs instead of the old Radix-specific mouseDown shortcut.
-    const docTab = screen.getByRole('tab', { name: /doc/i });
+    const docTab = screen.getByRole('tab', { name: /details/i });
     act(() => {
       fireEvent.click(docTab);
     });
@@ -539,7 +539,7 @@ describe('DataTypeForm – US1 z2f migration contract (T010–T012)', () => {
     // Pristine fields (definition) reflect nodeB's values after the swap.
     // MetadataSection lives in the "Doc" tab — activate it to render the DOM.
     // Base UI tabs switch on click, so use the real activation gesture.
-    const docTab = screen.getByRole('tab', { name: /doc/i });
+    const docTab = screen.getByRole('tab', { name: /details/i });
     act(() => {
       fireEvent.click(docTab);
     });

@@ -12,6 +12,7 @@
  * messages. This prevents double-subscription when both the dock panel
  * and ExportPerspective display the same output.
  */
+import { recordOperation } from '../services/operation-feedback.js';
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
@@ -39,6 +40,7 @@ import { usePreviewStore } from '../store/preview-store.js';
 import { useStudioToast } from './StudioToastProvider.js';
 import { CODE_PREVIEW_PANEL_ID, TARGET_LABELS } from './codegen-ui.js';
 import { uriToPath } from '../utils/uri.js';
+import { minimalDocumentChange } from '../lang/minimal-document-change.js';
 import { findGeneratedDeclarationLine } from '../utils/generated-declaration.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -126,12 +128,11 @@ export const CodePreviewPanel = withInstrumentation(
     const sourceEditorRefRef = useLatestRef(sourceEditorRef);
     const activeFileRef = useLatestRef<CodePreviewFile | undefined>(activeFile);
 
-    // 019 polish — View toggles. Click the eye on the already-active row
-    // collapses the preview area; click on a different row swaps it.
+    // View opens another target; the active target regenerates without hiding its pane.
     const handleViewTarget = useCallback(
       (newTarget: Target) => {
         if (activeTarget === newTarget) {
-          setActiveTarget(undefined);
+          useCodegenStore.getState().refreshCodePreview();
           return;
         }
         setActiveTarget(newTarget);
@@ -207,7 +208,7 @@ export const CodePreviewPanel = withInstrumentation(
           if (err instanceof CodegenDownloadError) {
             const detail = err.diagnostics.length > 0 ? err.diagnostics.map((d) => d.message).join('; ') : err.message;
             showToast({ title: 'Code generation failed', description: detail, variant: 'destructive' });
-            useOutputStore.getState().addLine(fmtLine('codegen', err.message), 'error');
+            recordOperation('codegen', err.message, 'error');
             err.diagnostics.forEach((d) =>
               useOutputStore
                 .getState()
@@ -220,7 +221,7 @@ export const CodePreviewPanel = withInstrumentation(
           } else {
             const msg = err instanceof Error ? err.message : 'Unexpected error during download.';
             showToast({ title: 'Download failed', description: msg, variant: 'destructive' });
-            useOutputStore.getState().addLine(fmtLine('codegen', msg), 'error');
+            recordOperation('codegen', msg, 'error');
             console.error('[CodePreviewPanel] Download failed for target', newTarget, err);
           }
         } finally {
@@ -276,20 +277,39 @@ export const CodePreviewPanel = withInstrumentation(
     useEffect(() => {
       const view = editorViewRef.current;
       if (!view) return;
+      if (!activeFile && snapshot.status === 'waiting') return;
       const nextContent = activeFile?.content ?? '';
       const current = view.state.doc.toString();
       if (current === nextContent) return;
       view.dispatch({
-        changes: { from: 0, to: current.length, insert: nextContent },
+        changes: minimalDocumentChange(current, nextContent),
         annotations: externalDocumentChange.of(true)
       });
-    }, [activeFile, activeTarget, target]);
+    }, [activeFile, activeTarget, target, snapshot.status]);
 
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
     const selectedTarget = usePreviewStore((s) => s.selectedTarget);
     const navigationRequest = usePreviewStore((s) => s.navigationRequest);
+    const destination = useMemo(() => {
+      if (!selectedTargetId || !('files' in snapshot)) return undefined;
+      const declaration = selectedTarget ?? { name: nameFromNodeId(selectedTargetId), namespace: '', kind: '' };
+      const destinations = snapshot.files.flatMap((file) => {
+        const lineIndex = findGeneratedDeclarationLine(target, file, declaration);
+        return lineIndex === undefined ? [] : [{ file, lineIndex }];
+      });
+      return destinations.length === 1 ? destinations[0] : undefined;
+    }, [snapshot, selectedTargetId, selectedTarget, target]);
     const consumedArrivalRef = useRef<{ view: EditorView; request: typeof navigationRequest } | undefined>(undefined);
     const cancelledArrivalRef = useRef<typeof navigationRequest>(undefined);
+    const chosenOutputRef = useRef<{ files: CodePreviewFile[]; targetId: string | undefined } | undefined>(undefined);
+    useEffect(() => {
+      if (navigationRequest && cancelledArrivalRef.current === navigationRequest) return;
+      if (!destination || activeTarget !== target || snapshot.target !== target || !('files' in snapshot)) return;
+      if (chosenOutputRef.current?.files === snapshot.files && chosenOutputRef.current.targetId === selectedTargetId)
+        return;
+      chosenOutputRef.current = { files: snapshot.files, targetId: selectedTargetId };
+      setActiveCodePreviewFile(destination.file.relativePath);
+    }, [destination, snapshot, selectedTargetId, navigationRequest, activeTarget, target, setActiveCodePreviewFile]);
     useEffect(() => {
       const view = editorViewRef.current;
       if (!view) return;
@@ -305,23 +325,15 @@ export const CodePreviewPanel = withInstrumentation(
         !('files' in snapshot)
       )
         return;
-      const typeName = nameFromNodeId(selectedTargetId);
-      if (!typeName) return;
-      const declaration = selectedTarget ?? { name: typeName, namespace: '', kind: '' };
-      const destinations = snapshot.files.flatMap((file) => {
-        const lineIndex = findGeneratedDeclarationLine(target, file, declaration);
-        return lineIndex === undefined ? [] : [{ file, lineIndex }];
-      });
-      if (destinations.length !== 1) return;
-      const destination = destinations[0]!;
+      if (!destination) return;
       if (activeFile?.relativePath !== destination.file.relativePath) {
         setActiveCodePreviewFile(destination.file.relativePath);
         return;
       }
       // The preceding content-sync effect must install this exact file first.
       if (view.state.doc.toString() !== destination.file.content) return;
-      const lineInfo = view.state.doc.line(destination.lineIndex + 1);
       consumedArrivalRef.current = { view, request: navigationRequest };
+      const lineInfo = view.state.doc.line(destination.lineIndex + 1);
       view.dispatch({
         effects: [
           EditorView.scrollIntoView(lineInfo.from, { y: 'start', yMargin: 40 }),
@@ -332,6 +344,7 @@ export const CodePreviewPanel = withInstrumentation(
       selectedTargetId,
       selectedTarget,
       navigationRequest,
+      destination,
       activeFile,
       activeTarget,
       target,
@@ -347,7 +360,7 @@ export const CodePreviewPanel = withInstrumentation(
 
     // 019 polish — stacked layout: targets table always at the top; when
     // `activeTarget` is set, the viewer expands below it. Clicking the
-    // eye icon on a row toggles its preview open/closed. `inflightTarget`
+    // active row regenerates its preview. `inflightTarget`
     // reflects the in-flight Download POST (Task 0.12) so the clicked
     // row shows a spinner while `/api/codegen` is outstanding.
     const viewerOpen = activeTarget !== undefined;

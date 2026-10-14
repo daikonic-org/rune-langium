@@ -2594,3 +2594,28 @@ html {
   /* Use the shared graph/structure arrival fade, inside scrollable panel bounds. */
   outline-offset: -2px;
 }
+
+/* Embedded bodies consume the Inspector's remaining space; CodeMirror scrolls
+ * internally instead of moving signature and item details out of the pane. */
+.expression-workspace {
+  --expression-editor-height: 100%;
+}
+
+.expression-workspace[data-expanded="true"] {
+  --expression-editor-height: min(70dvh, 48rem);
+}
+
+.expression-workspace > [data-testid="generated-expression"],
+.expression-workspace [data-testid="implementation-editor"] {
+  min-height: 8rem;
+  flex: 1 1 0;
+}
+
+.expression-workspace[data-expanded="true"] > [data-testid="generated-expression"],
+.expression-workspace[data-expanded="true"] [data-testid="implementation-editor"] {
+  min-height: var(--expression-editor-height);
+}
+
+.preview-panel__body :is(label, legend, input, select, textarea, button) {
+  font-size: var(--text-xs);
+}

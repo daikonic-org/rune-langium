@@ -136,12 +136,11 @@ Report anything a user would notice, even under a PASS verdict.
 - **opLog streams:** scan embedded `opLog` entries for `warn`/`error` levels on
   passing journeys; verify the Activity/Output panel screenshots actually show
   the operation stream (an empty Activity panel after a CDM load means the
-  logging pipeline itself regressed). Enforce the **superset-of-toasts
-  invariant**: any toast visible in a checkpoint screenshot (or recorded by the
-  harness) must have a matching opLog entry — a toast without one means the
-  toast→log mirror in `StudioToastProvider` regressed, which silently
-  un-audits every future notification; rank that as a regression even though
-  no user-visible feature broke.
+  logging pipeline itself regressed). Verify **operation coverage**: a failure
+  or loading operation that displays a notification must also have its owning
+  operation in Activity/Output. Toast display and dismissal are presentation
+  events and must not create separate TOAST entries. Compare operation identity
+  and evidence rather than requiring the notification title to match log text.
 - Axe: `critical` should already have failed the run; enumerate `serious` with
   the offending selector and screenshot.
 
