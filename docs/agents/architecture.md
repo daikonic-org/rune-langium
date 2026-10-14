@@ -316,6 +316,14 @@ Executable exports retain their required boundary and metadata/cardinality check
 Collection comparisons reuse the shared quantified equality source with the object
 method predicate, preserving empty, broadcasting and positional rules.
 
+TypeScript enums export a string-union type and a const value object under the
+same canonical name. The legacy Values array reads from that object. Inherited
+members and empty enums use core's canonical enum member collection, so displayed
+enum-member references resolve to actual generated values without changing JSON.
+TypeScript passes its existing reserved runtime names to the shared allocator;
+enum names colliding with those names and their companion exports are allocated
+together. Other language emitters retain their own naming policy.
+
 Notification presentation does not own logging. Operation owners record their
 Activity/Output events, optionally displaying a toast; dismissing a toast creates
 no operation or history entry. `recordOperation` supplies the shared correlation ID.

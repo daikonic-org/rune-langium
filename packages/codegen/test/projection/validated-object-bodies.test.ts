@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { URI } from 'langium';
 import { createRuneDslServices, getNodeSourceRegion, isRosettaFunction, type RosettaModel } from '@rune-langium/core';
 import { generate, selectTypeScriptProjection } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 const source = `namespace test.projection
  enum Direction:
@@ -146,6 +147,59 @@ describe('validated Rune object display contract', () => {
     expect(same('Increase', { Increase: 'Increase' })).toBe(true);
     expect(same('Decrease', { Increase: 'Increase' })).toBe(false);
   });
+  it.each(['per-namespace', 'barrel', 'single-file'] as const)(
+    'compiles enum member projections in %s exports',
+    async (layout) => {
+      const enumDoc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString<RosettaModel>(
+        `namespace test.enumvalues
+       enum BaseDirection:
+        Increase
+       enum Direction extends BaseDirection:
+        Decrease
+        __proto__
+       enum Empty:
+       enum Number:
+        Numeric
+       enum rune:
+        Helper
+      `,
+        URI.parse('file:///enum-values.rosetta')
+      );
+      await RuneDsl.shared.workspace.DocumentBuilder.build([enumDoc], { validation: false });
+      expect(enumDoc.parseResult.parserErrors).toEqual([]);
+      const enumOutputs = await generate([enumDoc], { target: 'typescript', typescript: { layout } });
+      const entry = enumOutputs.find((output) => output.content.includes('export type Direction ='))!.relativePath;
+      const runtime = compileGeneratedTypeScript<{
+        Direction: { Increase: 'Increase'; Decrease: 'Decrease'; __proto__: '__proto__' };
+        DirectionValues: string[];
+        Empty: Record<string, never>;
+        EmptyValues: never[];
+        NumberEnum: { Numeric: 'Numeric' };
+        runeEnum: { Helper: 'Helper' };
+        projectedEnumSame: (direction: string) => boolean;
+      }>(
+        enumOutputs.map((output) => ({
+          ...output,
+          content:
+            output.relativePath === entry
+              ? `${output.content}\nexport function projectedEnumSame(direction: Direction): boolean { ${body('EnumSame')} }`
+              : output.content
+        })),
+        { entry }
+      );
+      expect(runtime.Direction.Increase).toBe('Increase');
+      expect(runtime.DirectionValues).toContain(runtime.Direction.Increase);
+      expect(Object.prototype.hasOwnProperty.call(runtime.Direction, '__proto__')).toBe(true);
+      expect(runtime.Direction.__proto__).toBe('__proto__');
+      expect(runtime.projectedEnumSame(runtime.Direction.Increase)).toBe(true);
+      expect(runtime.projectedEnumSame(runtime.Direction.Decrease)).toBe(false);
+      expect(runtime.Empty).toEqual({});
+      expect(runtime.EmptyValues).toEqual([]);
+      expect(runtime.NumberEnum.Numeric).toBe('Numeric');
+      expect(runtime.runeEnum.Helper).toBe('Helper');
+    },
+    20_000
+  );
   it('does not invoke object equality when either optional operand is absent', () => {
     const same = new Function('left', 'right', body('OptionalSame'));
     let calls = 0;

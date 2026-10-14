@@ -315,7 +315,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.typeIndex = toTypeIndexLookup(this.ctx);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
-    this.callableNames = new CallableNames(registry);
+    this.callableNames = new CallableNames(registry, FUNCTION_RESERVED_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';
   }
 
@@ -1618,24 +1618,31 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   /**
    * Emit a TypeScript enum declaration (as a const string union + const object).
-   * No Zod dependency. Renamed from emitEnumDeclaration.
+   * The value object and legacy Values array share the canonical enum members.
    */
   private emitEnumDeclaration(enumNode: RosettaEnumeration): string {
     const name = this.typeName(enumNode);
     const memberNames = getEnumValues(enumNode).map((v) => v.name);
+    const members = memberNames.map((member) => {
+      const key = member === '__proto__' ? `[${JSON.stringify(member)}]` : JSON.stringify(member);
+      return `  ${key}: ${JSON.stringify(member)}`;
+    });
+    const valueObject = `export const ${name} = {${members.length ? `\n${members.join(',\n')}\n` : ''}} as const;`;
 
     if (memberNames.length === 0) {
       return [
         `export type ${name} = never;`,
+        valueObject,
         `export const ${this.typeName(enumNode, `${enumNode.name}Values`)}: ${name}[] = [];`
       ].join('\n');
     }
 
     const memberLiterals = memberNames.map((m) => `'${m}'`).join(' | ');
-    const valuesArr = memberNames.map((m) => `'${m}'`).join(', ');
+    const valuesArr = memberNames.map((m) => `${name}[${JSON.stringify(m)}]`).join(', ');
 
     const lines: string[] = [
       `export type ${name} = ${memberLiterals};`,
+      valueObject,
       `export const ${this.typeName(enumNode, `${enumNode.name}Values`)}: ${name}[] = [${valuesArr}];`
     ];
 

@@ -127,3 +127,25 @@ these fixes. The four affected worker/provider suites pass 101 tests. All 78 LSP
 tests and the full workspace type check pass after the disconnect fix; its two
 delayed-send regressions also fail against the original adapter and pass with the
 shared send boundary. Logs are saved under `dist/selected-object-polish/`.
+
+## Enum value review follow-up
+
+Thread `PRRT_kwDORLopOc6sezhG` found that enum-member projections referenced a
+runtime object absent from emitted TypeScript. The emitter now exports that
+object alongside its existing string-union type, and the legacy Values array
+reads its values from the object. A strict compilation and execution regression
+uses the real emitted module, including inherited and empty enums, rather than a
+mock enum object. The regression reproduces the missing-value compiler error
+before the fix.
+
+All three TypeScript layouts compile and execute the real enum-value regression,
+including `__proto__` members and runtime-reserved enum names. The latter uses
+the existing TypeScript reserved-name set and shared declaration allocator;
+Python naming is unchanged. The annotation enum golden is regenerated through
+the built emitter, and the constructor test restricts its no-cast check to enum
+literal expressions rather than rejecting the enum declaration's const object.
+
+Final follow-up validation: all 2,323 codegen tests pass (one existing skip, eight
+todo) with Python 3.14 and two workers; all 67 Studio codegen worker tests pass;
+all 132 pinned generated TypeScript files compile strictly after the rebuild.
+Changed-source lint and formatting pass.
