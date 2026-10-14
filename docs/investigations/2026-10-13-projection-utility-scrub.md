@@ -126,3 +126,33 @@ the Studio formatter addition rather than claiming a byte-exact old-revision bui
 Ruff's separately loaded WASM asset is 1,215,985 bytes. CI already treats this
 budget as advisory; its threshold has not been raised. The existing Changesets
 private-dependency configuration remains tracked by #594.
+
+Fresh-head CI exposed a development-only formatter discovery race: Vite optimized
+worker formatter subpaths after the Inspector was ready and reloaded the page
+while the schema HMR test recorded its no-reload token. The same failure reproduced
+locally before the fix. Canonical Vite config now discovers browser formatter
+subpaths up front and excludes Node-only Ruff; both cold-cache schema HMR cases
+pass (zero and 1,000ms artificial transform delay), without extending their
+2-second limits or weakening reload detection.
+
+Source navigation's shared Rune lexer now carries quoted string state across
+lines. Real CodeMirror state tests reproduce false `fake.is` selections inside
+multiline documentation and lost navigation after comment markers in a string;
+both quote styles, escaped quotes, ignored namespace text and the next real
+declaration now pass alongside the existing Source editor checks (61 tests).
+
+Two positional API review regressions also reproduce on the previous head:
+module-reserved `await` inputs were emitted verbatim, and a non-first escaped
+`class` input could shadow a called `class_input` function. The shared reserved
+word set includes `await`; callable reference resolution compares the final
+exported name against both source and emitted local bindings for ordinary,
+external/rule and `super` calls. Regression checks parse actual emitted
+JavaScript as an ES module, strictly compile TypeScript and execute both target
+languages; ordinary Rune parameter names remain unchanged.
+
+Follow-up validation passed 2,308 codegen tests (one existing skip/eight todo),
+269 focused Studio checks including all 117 CDM cases, strict compilation of all
+132 pinned TypeScript files, full workspace types and changed-file lint/format.
+Both cold-cache HMR cases passed at 186ms and 1,210ms without a reload; the two
+real-browser formatting/Source/date-form smoke journeys also passed. The earlier
+full expression suite's explicit network-LSP skip remains a coverage limitation.

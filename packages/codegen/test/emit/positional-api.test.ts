@@ -3,6 +3,7 @@
 
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import ts from 'typescript-classic';
 import { AstUtils } from 'langium';
 import { expect, it } from 'vitest';
@@ -33,7 +34,51 @@ func Escaped:
  inputs: ^class number (1..1) ^from number (1..1)
  output: answer number (1..1)
  set answer: ^class + ^from
+func AwaitValue:
+ inputs: await number (1..1)
+ output: answer number (1..1)
+ set answer: await
+func class_input:
+ inputs: amount number (1..1)
+ output: answer number (1..1)
+ set answer: amount + 1
+func SynthesizedShadow:
+ inputs: seed number (1..1) ^class number (1..1)
+ output: answer number (1..1)
+ set answer: class_input(^class)
 `;
+
+function assertModuleSyntax(code: string) {
+  const result = spawnSync(process.execPath, ['--input-type=module', '--check'], {
+    input: ts.transpileModule(code, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
+    }).outputText,
+    encoding: 'utf8'
+  });
+  expect(result.stderr).toBe('');
+  expect(result.status).toBe(0);
+}
+
+it('escapes module and strict-mode reserved parameter bindings', async () => {
+  const names = ['await', 'yield', 'arguments', 'eval'];
+  const funcs = await linkedFunctions(
+    'namespace positional.reserved\n' +
+      names
+        .map(
+          (name, index) =>
+            `func Reserved${index}:\n inputs: ^${name} number (1..1)\n output: answer number (1..1)\n set answer: ^${name}\n`
+        )
+        .join('\n')
+  );
+  const outputs = await generate([AstUtils.getDocument(funcs[0]!)], {
+    target: 'typescript',
+    typescript: { layout: 'single-file' }
+  });
+  const code = outputs[0]!.content;
+  for (const [index, name] of names.entries())
+    expect(code).toContain(`function Reserved${index}(${name}_input: number)`);
+  assertModuleSyntax(code);
+});
 
 it('exports strictly typed positional TypeScript APIs with Rune parameter order and names', async () => {
   const funcs = await linkedFunctions(source);
@@ -65,7 +110,7 @@ Ordered(1, 'wrong');
     noEmit: true,
     skipLibCheck: true,
     target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.CommonJS,
+    module: ts.ModuleKind.ESNext,
     types: []
   };
   const host = ts.createCompilerHost(options),
@@ -76,6 +121,7 @@ Ordered(1, 'wrong');
       .getPreEmitDiagnostics(ts.createProgram([filename], options, host))
       .map((error) => ts.flattenDiagnosticMessageText(error.messageText, '\n'))
   ).toEqual([]);
+  assertModuleSyntax(code);
   const javascript = ts.transpileModule(code, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
   }).outputText;
@@ -88,6 +134,8 @@ Ordered(1, 'wrong');
   expect(exports.Shadow!(3, 7)).toBe(10);
   expect(exports.Count!(1, [2, 3])).toBe(3);
   expect(exports.Escaped!(3, 7)).toBe(10);
+  expect(exports.AwaitValue!(3)).toBe(3);
+  expect(exports.SynthesizedShadow!(0, 3)).toBe(4);
 });
 
 it('exports positional Python APIs and preserves builtins and callable bindings shadowed by input names', async () => {
@@ -106,9 +154,11 @@ it('exports positional Python APIs and preserves builtins and callable bindings 
         { expression: 'Shadow(3, 7)' },
         { expression: 'Count(1, [2, 3])' },
         { expression: 'Escaped(3, 7)' },
+        { expression: 'AwaitValue(3)' },
+        { expression: 'SynthesizedShadow(0, 3)' },
         { expression: 'Ordered(3, 7, "the literal len(values) stays unchanged")' }
       ],
       module.code.replace(/^from __future__.*$/gm, '')
     )
-  ).toEqual([7, 10, 7, 9, 10, 3, 10, 10].map((value) => ({ value })));
+  ).toEqual([7, 10, 7, 9, 10, 3, 10, 3, 4, 10].map((value) => ({ value })));
 });

@@ -1582,6 +1582,18 @@ function prepareFunctionArgument(
   return value;
 }
 
+function callableReference(declaration: CallableDeclaration, ctx: ExpressionTranspilerContext): string {
+  const name = ctx.callableName?.(declaration) ?? callableExportName(declaration);
+  let shadowed = ctx.selfName === name || ctx.localBindings?.has(name);
+  for (const binding of ctx.localBindings?.values() ?? []) {
+    if (binding === name) {
+      shadowed = true;
+      break;
+    }
+  }
+  return shadowed ? (ctx.callableName?.(declaration, true) ?? name) : name;
+}
+
 /** Call the enclosing function's parent with explicit or forwarded arguments. */
 export function transpileSuperCall(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
   if (!isRosettaSuperCall(expr)) {
@@ -1601,10 +1613,7 @@ export function transpileSuperCall(expr: RosettaExpression, ctx: ExpressionTrans
         ? prepareFunctionArgument(transpileExpression(arg, argumentCtx), input, ctx, arg)
         : attrAccessExpr(input.name, argumentCtx);
     });
-    const name = parent.source
-      ? (ctx.callableName?.(parent.source, ctx.localBindings?.has(parent.name) || ctx.selfName === parent.name) ??
-        parent.name)
-      : parent.name;
+    const name = parent.source ? callableReference(parent.source, ctx) : parent.name;
     const call = `${name}(${args.join(', ')})`;
     const output = parent.output;
     return output && hasFieldMetadata(output) && !ctx.preserveMetadata && ctx.emitMode.startsWith('ts-')
@@ -1687,7 +1696,7 @@ export function transpileExpression(
         },
         ctx.selfName,
         (value, parameter, argument) => prepareFunctionArgument(value, parameter, ctx, argument),
-        ctx.callableName?.(target, ctx.localBindings?.has(target.name) || ctx.selfName === target.name)
+        callableReference(target, ctx)
       );
       if (call !== undefined) {
         const output = functionOutput(target);
@@ -1719,9 +1728,7 @@ export function transpileExpression(
         ctx.diagnostics.push({ severity: 'error', code: 'invalid-function-call', message });
         return diagnosticFallback(message);
       }
-      const exported = callableExportName(target);
-      const callable =
-        ctx.callableName?.(target, ctx.localBindings?.has(exported) || ctx.selfName === exported) ?? exported;
+      const callable = callableReference(target, ctx);
       return `${callable}(${args.join(', ')})`;
     }
     if (target?.$type === 'RosettaEnumeration') return target.name;

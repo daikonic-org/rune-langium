@@ -34,6 +34,28 @@ describe('source declaration selection', () => {
     expect(select('namespace real\n/*\nnamespace fake\n*/\ntype Valid:\n', 'Valid')).toBe('real.Valid');
   });
 
+  it.each(['"', "'"])('ignores declarations inside multiline %s documentation', (quote) => {
+    const source = [
+      'namespace real',
+      `<${quote}description with an escaped \\${quote}`,
+      'namespace fake',
+      'type is',
+      'type between',
+      'type construct',
+      'type source',
+      `${quote}>`,
+      'type Valid:'
+    ].join('\n');
+    for (const token of ['is', 'between', 'construct', 'source']) expect(select(source, `type ${token}`, 6)).toBeNull();
+    expect(select(source, 'Valid')).toBe('real.Valid');
+  });
+
+  it('keeps comment markers inside a multiline description as string content', () => {
+    const source = 'namespace real\n<"description /* //\ntype source\n">\ntype Valid:';
+    expect(select(source, 'type source', 6)).toBeNull();
+    expect(select(source, 'Valid')).toBe('real.Valid');
+  });
+
   it('recognizes escaped declaration identifiers', () => {
     expect(select('namespace example\ntype ^source:\n', '^source', 2)).toBe('example.source');
   });

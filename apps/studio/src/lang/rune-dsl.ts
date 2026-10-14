@@ -122,6 +122,7 @@ const BOOLEANS = new Set(['True', 'False']);
 interface RuneDslState {
   /** Whether we're inside a multi-line comment. */
   inBlockComment: boolean;
+  inString: '"' | "'" | null;
   /** Whether the previous token was a type keyword. */
   expectTypeName: boolean;
 }
@@ -130,14 +131,28 @@ interface RuneDslState {
 // Stream parser implementation
 // ────────────────────────────────────────────────────────────────────────────
 
+function consumeString(stream: StringStream, state: RuneDslState): string {
+  while (!stream.eol()) {
+    const character = stream.next();
+    if (character === '\\') stream.next();
+    else if (character === state.inString) {
+      state.inString = null;
+      break;
+    }
+  }
+  return 'string';
+}
+
 export const runeDslStreamParser = {
   name: 'rune-dsl',
 
   startState(): RuneDslState {
-    return { inBlockComment: false, expectTypeName: false };
+    return { inBlockComment: false, inString: null, expectTypeName: false };
   },
 
   token(stream: StringStream, state: RuneDslState): string | null {
+    if (state.inString) return consumeString(stream, state);
+
     // Continue block comment
     if (state.inBlockComment) {
       if (stream.match('*/')) {
@@ -164,8 +179,12 @@ export const runeDslStreamParser = {
     }
 
     // Strings
-    if (stream.match(/^"(?:\\.|[^"\\])*"/)) return 'string';
-    if (stream.match(/^'(?:\\.|[^'\\])*'/)) return 'string';
+    const quote = stream.peek();
+    if (quote === '"' || quote === "'") {
+      stream.next();
+      state.inString = quote;
+      return consumeString(stream, state);
+    }
 
     // Numbers
     if (stream.match(/^[0-9]+(?:\.[0-9]+)?/)) return 'number';
