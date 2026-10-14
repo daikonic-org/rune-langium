@@ -37,7 +37,7 @@ import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveT
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
-import { renderFuncAssignment } from './func-assignment.js';
+import { renderFuncAssignment, renderAssignmentValue } from './func-assignment.js';
 import { renderSwitchExpression } from '../expr/switch-expression.js';
 import { freshLocal } from '../expr/inline-function.js';
 import { enumMemberReference } from '../expr/scalar-operators.js';
@@ -2118,9 +2118,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       (ctx.projection || expressionFitsCardinality(assignment.exprNode, func.output.cardinality))
     ) {
       if (ctx.projection && isSwitchOperation(assignment.exprNode)) {
+        const targetMany = assignment.targetMany ?? ctx.outputAccumulator === 'array';
         const statement = renderSwitchExpression(assignment.exprNode, {
           enumValue: (value) => enumMemberReference(value, ctx.typeNameResolver),
           returnStatement: true,
+          returnValue: (value, expression) =>
+            expression ? renderAssignmentValue(value, expression, targetMany) : targetMany ? '[]' : value,
           selectorName: freshLocal(ctx, 'switchValue'),
           selfName: ctx.selfName,
           renderExpression: (expression, options) =>

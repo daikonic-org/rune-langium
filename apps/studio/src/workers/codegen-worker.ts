@@ -11,7 +11,7 @@ import { Temporal } from '@js-temporal/polyfill';
  * identity per surface, and echoes request ids back so the UI can discard
  * stale replies after files or selections change.
  *
- *   codegen:setFiles         — Update the workspace file set and trigger generation.
+ *   codegen:setFiles         — Install the workspace file set without generating.
  *   codegen:generate         — (Re-)generate using the current file set.
  *   preview:setFiles         — Update the workspace file set and re-run the last preview target.
  *   preview:generate         — (Re-)generate the selected form-preview target.
@@ -104,7 +104,6 @@ interface FileEntry {
 interface SetFilesMessage {
   type: 'codegen:setFiles';
   files: FileEntry[];
-  requestId?: string;
 }
 
 interface GenerateMessage {
@@ -1181,10 +1180,6 @@ if (isWorkerGlobalScope()) {
       if (msg.type === 'codegen:setFiles') {
         currentCodegenFiles = msg.files;
         codegenFilesVersion++;
-        if (msg.requestId) {
-          lastCodegenRequestId = msg.requestId;
-        }
-        runCodegen(lastTarget, lastCodegenRequestId).catch(console.error);
       } else if (msg.type === 'codegen:generate') {
         if (msg.target !== undefined) {
           lastTarget = msg.target;

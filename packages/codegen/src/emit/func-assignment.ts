@@ -12,8 +12,25 @@ import {
 import { expressionIsMany } from '../expr/navigation.js';
 import { nativeCollection, nativeSingle } from '../expr/collection-shape.js';
 import { freshLocal } from '../expr/inline-function.js';
-import { isListLiteral, isRosettaExpression } from '@rune-langium/core';
+import { isListLiteral, isRosettaExpression, type RosettaExpression } from '@rune-langium/core';
 import type { FuncBodyContext, RuneFuncAssignment } from '../types/func.js';
+
+/** Shared value shaping for assignments and projected branch returns. */
+export function renderAssignmentValue(
+  value: string,
+  expression: RosettaExpression | undefined,
+  targetMany: boolean
+): string {
+  const sourceMany = expression ? expressionIsMany(expression) : undefined;
+  const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
+  return sourceMany === targetMany && !emptyList
+    ? targetMany
+      ? collectionValue(value, expression)
+      : value
+    : targetMany
+      ? nativeCollection(value, expression, undefined, true)
+      : nativeSingle(value, expression, true);
+}
 
 export function renderFuncAssignment(
   assignment: RuneFuncAssignment,
@@ -26,17 +43,7 @@ export function renderFuncAssignment(
   const lines: string[] = [];
   const targetMany = assignment.targetMany ?? (path.length === 0 && ctx.outputAccumulator === 'array');
   const expression = isRosettaExpression(assignment.exprNode) ? assignment.exprNode : undefined;
-  const sourceMany = expression ? expressionIsMany(expression) : undefined;
-  let expr = renderExpression(assignment.exprNode);
-  const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
-  expr =
-    sourceMany === targetMany && !emptyList
-      ? targetMany
-        ? collectionValue(expr, expression)
-        : expr
-      : targetMany
-        ? nativeCollection(expr, expression, undefined, true)
-        : nativeSingle(expr, expression, true);
+  let expr = renderAssignmentValue(renderExpression(assignment.exprNode), expression, targetMany);
   const bounds = assignment.targetCardinality;
   const checksFor = (value: string, arraySize?: string) =>
     bounds && !ctx.projection

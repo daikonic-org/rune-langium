@@ -34,6 +34,8 @@ export interface SwitchExpressionRenderOptions {
   /** Fuse a projection's narrowing and presence test without extracting the selected value. */
   presence?: 'present' | 'absent';
   returnStatement?: boolean;
+  /** Shape statement returns using the surrounding assignment's cardinality. */
+  returnValue?: (value: string, expression?: RosettaExpression) => string;
   selectorName?: string;
   /** Projection-only narrowing for purpose-built Rune objects, not raw JSON validation. */
   objectGuard?: (target: RosettaType) => string;
@@ -167,12 +169,13 @@ function primitiveSwitch(
   options: SwitchExpressionRenderOptions,
   inputType: ExpressionType | undefined
 ): string {
-  let fallback = 'undefined';
+  let fallback = options.returnStatement ? (options.returnValue?.('undefined') ?? 'undefined') : 'undefined';
   const cases: { value: string; branch: string }[] = [];
   const selector =
     options.returnStatement && /^[A-Za-z_$][\w$]*$/.test(argument) ? argument : (options.selectorName ?? '__sw');
   for (const currentCase of operation.cases) {
-    const branch = options.renderExpression(currentCase.expression, { selfName: options.selector?.name ?? selector });
+    const value = options.renderExpression(currentCase.expression, { selfName: options.selector?.name ?? selector });
+    const branch = options.returnStatement ? (options.returnValue?.(value, currentCase.expression) ?? value) : value;
     if (!currentCase.guard) {
       fallback = branch;
       continue;

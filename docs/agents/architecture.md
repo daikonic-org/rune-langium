@@ -315,6 +315,8 @@ output accumulators infer their types. Simple enum return dispatch uses `switch`
 Executable exports retain their required boundary and metadata/cardinality checks.
 Collection comparisons reuse the shared quantified equality source with the object
 method predicate, preserving empty, broadcasting and positional rules.
+Projected switch statement returns reuse ordinary assignment value shaping,
+including scalar-to-collection conversion, empty branches and omitted defaults.
 
 TypeScript enums export a string-union type and a const value object under the
 same canonical name. The legacy Values array reads from that object. Inherited
@@ -335,6 +337,10 @@ the waiting snapshot's renderable output. Stale results recover those files and
 the selected path; successful results preserve a still-present selected path.
 Changing output language or resetting workspace state clears that recovery data.
 Waiting recovery contents are not eligible for navigation arrival cues.
+Worker `codegen:setFiles` messages only install source files and invalidate the
+codegen version. Only `codegen:generate` runs export generation. Selected preview
+readiness therefore publishes its snapshot without starting a discarded
+whole-workspace export before the selected-closure request.
 
 The Langium connection adapter routes typed, generic and logging notifications
 through one send boundary. It checks listening state and handles the pinned

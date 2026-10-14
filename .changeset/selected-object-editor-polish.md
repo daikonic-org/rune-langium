@@ -9,3 +9,5 @@ Simplify typed TypeScript body projections with object equality methods, named n
 Settle late diagnostic/logging notifications when a WebSocket disconnects during sending, preserving other send failures.
 
 Export TypeScript enum value objects so displayed enum members resolve in generated modules, preserving JSON strings and protecting runtime-reserved names through the shared allocator.
+
+Preserve output cardinality in projected switch statement returns through the shared assignment value renderer.

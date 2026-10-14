@@ -1390,7 +1390,7 @@ describe('codegen-worker code preview messages', () => {
     });
   });
 
-  it('uses the latest codegen file-sync request id for regenerated output', async () => {
+  it('generates refreshed files only under an explicit generation request id', async () => {
     generateMock.mockReturnValue([
       {
         relativePath: 'trade.zod.ts',
@@ -1417,8 +1417,11 @@ describe('codegen-worker code preview messages', () => {
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace demo\n\ntype Trade:' }],
-      requestId: 'codegen:zod:8'
+      requestId: 'ignored-file-publication'
     });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'codegen:zod:8' });
     await flushWorker();
 
     expect(scope.postMessage).toHaveBeenLastCalledWith({
@@ -2267,9 +2270,6 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
   it('caches generate() across repeated codegen:generate calls for the same target', async () => {
     const { dispatch } = await loadWorkerModule();
 
-    // codegen:setFiles's own handler auto-triggers runCodegen(lastTarget)
-    // — lastTarget defaults to 'zod', so this dispatch alone already
-    // computes and caches the 'zod' entry (call #1).
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
@@ -2277,8 +2277,7 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     });
     await flushWorker();
 
-    // Both explicit dispatches below are the SAME target as the cache
-    // entry setFiles already populated — neither should trigger a new call.
+    // Only the first explicit request computes; the next request reuses it.
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'hit:2' });
     await flushWorker();
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'hit:3' });
@@ -2287,10 +2286,33 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     expect(generateMock).toHaveBeenCalledTimes(1);
   });
 
+  it('installs files without generating discarded workspace output before a selected request', async () => {
+    const { dispatch, scope } = await loadWorkerModule();
+    dispatch({ type: 'codegen:setFiles', files: [{ uri: 'file:///trade.rosetta', content: 'namespace gamma' }] });
+    await flushWorker();
+    expect(generateMock).not.toHaveBeenCalled();
+    expect(scope.postMessage).not.toHaveBeenCalled();
+    dispatch({
+      type: 'preview:setFiles',
+      files: [{ uri: 'file:///trade.rosetta', content: 'namespace gamma' }],
+      requestId: 'preview:files:1',
+      filesRevision: 1
+    });
+    await flushWorker();
+    expect(generateMock).not.toHaveBeenCalled();
+    const selection = { declarations: [{ namespace: 'gamma', name: 'Trade', kind: 'Data' }], namespaces: [] };
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'selected:1', selection });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    expect(generateMock).toHaveBeenLastCalledWith(expect.any(Array), { target: 'zod' });
+    expect(scope.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'codegen:result', requestId: 'selected:1' })
+    );
+  });
+
   it('keeps separate cache entries per target', async () => {
     const { dispatch } = await loadWorkerModule();
 
-    // Populates the 'zod' cache entry (call #1) — see the prior test.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
@@ -2327,8 +2349,7 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
   it('invalidates the codegen cache after codegen:setFiles', async () => {
     const { dispatch } = await loadWorkerModule();
 
-    // Populates the 'zod' cache entry at version 1 (call #1); the explicit
-    // generate below is a cache hit against that same entry (no new call).
+    // First generation populates the cache for file version 1.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
@@ -2338,16 +2359,13 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'inv:2' });
     await flushWorker();
 
-    // Bumps codegenFilesVersion — its own auto-triggered runCodegen('zod')
-    // is a fresh miss at the new version (call #2).
+    // Publication invalidates the cache; the explicit request below recomputes.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
       requestId: 'inv:3'
     });
     await flushWorker();
-    // Same version/target as the entry inv:3's auto-triggered run just
-    // populated — a cache hit, no new call.
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'inv:4' });
     await flushWorker();
 
@@ -2374,23 +2392,22 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
 
     const { scope, dispatch } = await loadWorkerModule();
 
-    // Call A: codegenFilesVersion becomes 1; its auto-triggered
-    // runCodegen('zod') suspends inside generate() (resolver #0).
+    // Call A captures file version 1 and suspends inside generate().
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma-v1"' }],
       requestId: 'race:1'
     });
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'race:1' });
     await flushWorker();
 
-    // Call B: codegenFilesVersion becomes 2; its OWN auto-triggered
-    // runCodegen('zod') also suspends inside generate() (resolver #1) — a
-    // second, independent in-flight call for the same cache key.
+    // Call B captures version 2; both requests are now in flight.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma-v2"' }],
       requestId: 'race:2'
     });
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'race:2' });
     await flushWorker();
 
     expect(generateResolvers).toHaveLength(2);

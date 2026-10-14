@@ -163,3 +163,26 @@ stale responses retain the selected file; format switches and workspace reset
 clear recovery contents. Three behavior regressions fail against the previous
 head and pass after the fix. All 89 affected store, preview panel, workspace
 persistence and provider tests pass.
+
+## Third review follow-ups
+
+Threads `PRRT_kwDORLopOc6shfzu` and `PRRT_kwDORLopOc6shfz3` found that statement
+switch projections bypassed assignment cardinality and that file publication
+still implicitly generated a discarded full-workspace export.
+
+Switch branch returns now use the same value-shaping function as ordinary
+assignments; collection defaults return an empty array. Strict compilation and
+execution compare displayed and exported functions for scalar, collection,
+optional, empty and missing branches in both output directions.
+
+`codegen:setFiles` now only installs source and advances its version. Explicit
+generation requests remain the sole export trigger. Worker tests verify zero
+export calls during both file publications, one call for selected generation,
+cache reuse/invalidation and preservation of the existing completion race guard.
+Both review regressions fail before these fixes and pass afterward.
+
+Validation: all 2,324 codegen tests pass with Python 3.14 (one existing skip,
+eight todo), all 93 Studio worker/provider tests pass, and all 132 pinned
+generated TypeScript files compile strictly after rebuilding codegen.
+All 161 Studio projection/parity checks pass, including all 117 CDM reference cases.
+Changed-source lint, formatting and whitespace checks pass.

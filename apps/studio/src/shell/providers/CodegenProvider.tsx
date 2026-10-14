@@ -119,7 +119,6 @@ export const CodegenProvider = withInstrumentation(
     const [previewSessionFactory, setPreviewSessionFactory] = useState<PreviewSessionFactory | null>(null);
 
     const previewRequestSequenceRef = useRef(0);
-    const codegenRequestSequenceRef = useRef(0);
     const currentPreviewRequestIdRef = useRef<string | undefined>(undefined);
     const codegenCurrentRequestIdRef = useRef<string>('');
     const orchestratorRef = useRef<HydrationOrchestrator | null>(null);
@@ -268,8 +267,7 @@ export const CodegenProvider = withInstrumentation(
           try {
             worker.postMessage({
               type: 'codegen:setFiles',
-              files: codegenFiles,
-              requestId: `codegen:files:${++codegenRequestSequenceRef.current}`
+              files: codegenFiles
             });
             worker.postMessage(createPreviewSetFilesMessage(previewFiles, requestId, filesRevision));
           } catch (error) {
