@@ -73,7 +73,7 @@ func RequiredOutput:
           ['pending', 'pending']
         ])
       });
-      expect(expression).toContain('rune.binary');
+      expect(expression).not.toContain('rune.binary');
       const javascript = ts.transpileModule(
         `function run(result: unknown, pending: unknown) { return ${expression}; }`,
         { compilerOptions: { target: ts.ScriptTarget.ES2022 } }
@@ -268,8 +268,8 @@ ${predicates.map((predicate, index) => `function case${index}(data: Input) { ret
     expect(evaluate('a = b', { a: { value: 1 }, b: { value: 1 } })).toBe(true);
     expect(evaluate('a = b', { a: undefined, b: null })).toBe(true);
     expect(render('a = b')).toBe('(rune.valueKey(data.a) === rune.valueKey(data.b))');
-    expect(render('[1, 2] = [1, 2]')).toMatch(/^rune\.equals\([^]*, "all"\)$/);
-    expect(render('[1, 2] = [1, 2]')).not.toContain('=>');
+    expect(render('[1, 2] = [1, 2]')).not.toContain('rune.');
+    expect(evaluate('[1, 2] = [1, 2]')).toBe(true);
   });
   it('strictly compiles native equality after nested boolean control-flow narrowing', async () => {
     const [func] = await linkedFunctions(`namespace native.narrowing

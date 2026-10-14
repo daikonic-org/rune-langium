@@ -198,14 +198,14 @@ export const AggCheckSchema = z
     values: z.array(z.number().int())
   })
   .superRefine((data, ctx) => {
-    if (!rune.compare(rune.count(data.values), 0, (a, b) => a > b, "all")) {
+    if (!(((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))(((value) => value == null ? [] : [value])((data.values?.length ?? 0)).filter((value) => value != null), [0].filter((value) => value != null)))) {
       ctx.addIssue({
         code: 'custom',
         message: 'CountPositive: condition failed in AggCheck',
         path: ['CountPositive']
       });
     }
-    if (!(rune.list(data.values)[0] != null)) {
+    if (!((data.values ?? [])[0] != null)) {
       ctx.addIssue({
         code: 'custom',
         message: 'FirstExists: condition failed in AggCheck',

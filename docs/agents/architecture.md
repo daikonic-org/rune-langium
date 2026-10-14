@@ -164,17 +164,27 @@ facts fold proven scalar contradictions instead of widening inputs with casts.
 Typed scalar presence uses null checks; collections use their length. Metadata
 field collections have required payloads, while reference collections check for
 an actual payload because reference-only entries are valid. Unknown cardinality
-retains the runtime presence helper. Constructor context and literal-preserving
+uses a native, single-evaluation presence predicate. Constructor context and literal-preserving
 cardinality generics retain enum types without literal casts; matched scalar and
 collection shapes skip redundant normalization.
 Displayed TypeScript condition predicates use `false` for a missing `else`.
 Executable validators retain implication semantics: a condition passes when its
 antecedent does not apply. A missing branch in a function value expression remains
 `undefined`; nested value expressions within predicates retain that behavior.
-Structured values compare canonical `rune.valueKey` results; collection comparisons
-call `rune.equals(left, right, quantifier?, unequal?)`. Computed scalars use native
+Structured values compare canonical `rune.valueKey` results. Primitive collection
+comparisons inline the same quantified equality source used by the runtime;
+structured collections retain `rune.equals(left, right, quantifier?, unequal?)`. Computed scalars use native
 target-language comparisons as well. Built-ins whose source is not loaded and
 linked aliases resolve through the same declared-type resolver as signatures.
+`collection-shape` distinguishes uniformly scalar/array expressions from mixed branches,
+using the linked navigation facts. Native list materialization, count, filtering,
+mapping, edges, ordering and primitive set operations serve projections and exports.
+Mixed branches use native flattening without widening or casting input values.
+Singleton arithmetic and Cartesian comparison share source builders with the runtime;
+each operand/key is evaluated once. Completed primitive function returns reuse their
+enforced output bounds; pending output accumulators and composite/metadata boundaries
+retain their checks. Explicit `...` composite constructors retain a builder assertion
+for their incomplete fields; complete constructors use `satisfies` and preserve enum literals.
 Primitive and enum function inputs need no input normalization. Dates and times
 use Temporal in both functions and Data classes. Required calendar arithmetic,
 field access, equality, and ordering use native Temporal operations. Input schemas
@@ -214,7 +224,14 @@ scope, metadata retention, nanoseconds and daylight-saving transitions.
 function bodies. Native declarations require an explicit callable binding;
 missing bindings fail visibly. Dispatch normalizes inputs before selecting a
 variant, retaining wrappers for its body. Function condition fragments are
-captured from that same body traversal. Python and TypeScript share projection
+captured from that same body traversal. Python records the authored body statements
+without export input normalization or the final export boundary check. Expressions,
+conditions and assignments still use the canonical backend, with native dictionary
+access, comprehensions, presence/default/coalescing, collection edges and primitive
+deduplication. Specialized metadata, structural equality and precision-preserving
+calendar operations retain their authoritative implementation. See the
+[utility scrub audit](../investigations/2026-10-13-projection-utility-scrub.md).
+Python and TypeScript share projection
 provenance and Studio's file-version/async cache guards; generated views remain
 read-only and do not widen the inverse lens.
 

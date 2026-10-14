@@ -214,7 +214,7 @@ export const UnitTypeSchema = z
         path: ['BAbsent']
       });
     }
-    if (!rune.checkOneOf([data.a, data.c])) {
+    if (!(([data.a, data.c]).filter((value) => value != null && (!Array.isArray(value) || value.length > 0)).length === 1)) {
       ctx.addIssue({
         code: 'custom',
         message: 'OneOfAC: exactly one of [a, c] must be present in UnitType',

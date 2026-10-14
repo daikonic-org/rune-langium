@@ -202,7 +202,7 @@ export type Position = z.infer<typeof PositionSchema>;
 
 
 export const validateIsSignificant = PositionSchema.refine(
-  (data) => rune.compare(rune.binary(data.Position?.quantity, data.Position?.price, (a, b) => a * b), 10000, (a, b) => a > b, "all"),
+  (data) => ((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))(((value) => value == null ? [] : [value])(((left, right) => left == null || right == null ? undefined : left * right)(data.Position?.quantity, data.Position?.price)).filter((value) => value != null), [10000].filter((value) => value != null)),
   'IsSignificant'
 );
 

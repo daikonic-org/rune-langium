@@ -8,9 +8,12 @@ import {
   type Attribute,
   type InlineFunction
 } from '@rune-langium/core';
-import { expressionIsMany, expressionType, typeFeatures, featureName } from '../expr/navigation.js';
+import { expressionIsMany, expressionType, typeFeatures, featureName, featureIsMany } from '../expr/navigation.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { fieldMetadataKind, type FieldMetadataKind } from '../expr/metadata-runtime.js';
+import { expressionFitsCardinality } from '../expr/cardinality.js';
+import { collectionShape } from '../expr/collection-shape.js';
+import { expressionIsPresent } from '../expr/scalar-operators.js';
 import type { PythonProjectionContext } from './context.js';
 import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
 
@@ -32,10 +35,75 @@ export function pythonBind(value: string, name: string, body: string): string {
   return `(lambda ${name}: ${body})(${value})`;
 }
 export function pythonRead(value: string, names: readonly string[], many = false): string {
-  return `rune.get(${value}, [${names.map(pyString).join(', ')}]${many ? ', True' : ''})`;
+  for (const name of names) {
+    value = many
+      ? `[child for parent in ${pythonCollection(value)} for child in ${pythonCollection(`None if parent is None else parent.get(${pyString(name)})`)}]`
+      : value === 'input' || value === 'data'
+        ? `${value}.get(${pyString(name)})`
+        : pythonBind(value, '_rune_parent', `None if _rune_parent is None else _rune_parent.get(${pyString(name)})`);
+  }
+  return value;
 }
-export function pythonUnwrap(value: string, kind: FieldMetadataKind | undefined, many = false): string {
-  return kind ? `rune.unwrap(${value}${many ? ', True' : ''})` : value;
+export function pythonUnwrap(value: string, kind: FieldMetadataKind | undefined, many?: boolean): string {
+  if (!kind) return value;
+  const collection = (input: string) =>
+    `[payload for field in ${pythonCollection(input)} for payload in [field.get("value")] if payload is not None]`;
+  if (many) return collection(value);
+  if (many === undefined)
+    return pythonBind(
+      value,
+      '_rune_field',
+      `${collection('_rune_field')} if isinstance(_rune_field, list) else ${pythonRead('_rune_field', ['value'])}`
+    );
+  return pythonRead(value, ['value']);
+}
+
+/** Native materialization; mixed cardinality is an authored expression shape. */
+export function pythonCollection(value: string, expression?: RosettaExpression, implicitMany?: boolean): string {
+  const shape = expression
+    ? collectionShape(expression)
+    : implicitMany === undefined
+      ? 'unknown'
+      : implicitMany
+        ? 'array'
+        : 'scalar';
+  if (shape === 'array') return `(${value} or [])`;
+  if (shape === 'scalar' && expressionIsPresent(expression)) return `[${value}]`;
+  return pythonBind(
+    value,
+    '_rune_value',
+    shape === 'scalar'
+      ? '[] if _rune_value is None else [_rune_value]'
+      : '[] if _rune_value is None else _rune_value if isinstance(_rune_value, list) else [_rune_value]'
+  );
+}
+
+export function pythonPresence(value: string, many?: boolean, absent = false): string {
+  const presence =
+    many === true
+      ? `bool(${value})`
+      : many === false
+        ? `(${value} is not None)`
+        : pythonBind(
+            value,
+            '_rune_value',
+            '_rune_value is not None and (not isinstance(_rune_value, list) or bool(_rune_value))'
+          );
+  return absent ? `(not ${presence})` : presence;
+}
+
+export function pythonCoalesce(values: readonly string[]): string {
+  return `next((value for value in [${values.join(', ')}] if value is not None), None)`;
+}
+
+/** Stable native keys preserve IEEE NaN and JavaScript UTF-16 string identity. */
+export function pythonPrimitiveKey(value: string, kind: string): string {
+  if (kind === 'boolean') return value;
+  const key =
+    kind === 'string'
+      ? '_rune_key.encode("utf-16-be", "surrogatepass")'
+      : '("number:nan",) if math.isnan(_rune_key) else _rune_key';
+  return pythonBind(value, '_rune_key', `None if _rune_key is None else ${key}`);
 }
 export function pythonReadField(
   receiver: string,
@@ -44,11 +112,12 @@ export function pythonReadField(
 ): string {
   return pythonUnwrap(
     binding ?? pythonRead(receiver, [featureName(field)]),
-    'annotations' in field ? fieldMetadataKind(field) : undefined
+    'annotations' in field ? fieldMetadataKind(field) : undefined,
+    featureIsMany(field)
   );
 }
 export function pythonComparison(left: string, right: string, operator: string, strings = false): string {
-  const key = (value: string) => (strings ? `rune.stringKey(${value})` : value);
+  const key = (value: string) => (strings ? `(${value}).encode("utf-16-be", "surrogatepass")` : value);
   return `(${key(left)} ${operator} ${key(right)})`;
 }
 export function pythonNormalize(
@@ -74,6 +143,9 @@ export function pythonArgument(
     input = argument ? expressionMetadataKind(argument) : context.implicit?.metadata;
   if (target) value = pythonNormalize(value, input, target);
   else if (input) value = pythonUnwrap(value, input, argument ? expressionIsMany(argument) : context.implicit?.many);
+  const bounds = { lower: parameter.card.inf, upper: parameter.card.unbounded ? null : (parameter.card.sup ?? 1) };
+  if (expressionFitsCardinality(argument, bounds))
+    return parameter.card.unbounded || (parameter.card.sup ?? 1) > 1 ? pythonCollection(value, argument) : value;
   return `rune.cardinality(${value}, ${parameter.card.inf}, ${parameter.card.unbounded ? 'None' : (parameter.card.sup ?? 1)}, ${pyString(parameter.name)})`;
 }
 export function pythonInline(

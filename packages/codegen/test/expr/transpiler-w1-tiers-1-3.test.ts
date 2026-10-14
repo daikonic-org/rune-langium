@@ -118,7 +118,7 @@ describe('W1 Tier 2 — simple mappings', () => {
     const expr = parse('items only-element');
     const ctx = makeCtx();
     expect(transpileExpression(expr, ctx)).toBe(
-      '((__oe) => (__oe.length === 1 ? __oe[0] : undefined))(rune.list(data.items))'
+      '((__oe) => (__oe.length === 1 ? __oe[0] : undefined))(((value) => value == null ? [] : [value].flat())(data.items))'
     );
   });
 

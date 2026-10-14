@@ -35,8 +35,8 @@ export function bindImplicitFeatures(
     const name = featureName(field);
     bindings.set(
       name,
-      renderCalendarField(field, () => receiver, many) ??
-        renderFeaturePath(receiver, [name], many || featureIsMany(field))
+      renderCalendarField(field, () => receiver, many, ctx.emitMode.startsWith('ts-')) ??
+        renderFeaturePath(receiver, [name], many || featureIsMany(field), ctx.emitMode.startsWith('ts-'))
     );
     const kind = 'annotations' in field ? fieldMetadataKind(field) : undefined;
     localMetadata.set(name, kind ? { kind, many: many || featureIsMany(field) } : undefined);

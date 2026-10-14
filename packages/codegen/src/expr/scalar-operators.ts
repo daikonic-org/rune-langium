@@ -10,6 +10,7 @@ import {
   isRosettaAbsentExpression,
   isAttribute,
   isInlineFunction,
+  isListLiteral,
   type Attribute,
   isRosettaBooleanLiteral,
   isRosettaFeatureCall,
@@ -70,6 +71,22 @@ export function declaredScalarKind(call: TypeCall | undefined): ScalarKind | und
 }
 
 function scalarKind(expression: RosettaExpression | undefined): ScalarKind | undefined {
+  if (
+    expression &&
+    [
+      'EqualityOperation',
+      'ComparisonOperation',
+      'LogicalOperation',
+      'RosettaExistsExpression',
+      'RosettaAbsentExpression',
+      'RosettaOnlyExistsExpression',
+      'RosettaContainsExpression',
+      'RosettaDisjointExpression',
+      'OneOfOperation',
+      'ChoiceOperation'
+    ].includes(expression.$type)
+  )
+    return 'boolean';
   if (isRosettaBooleanLiteral(expression)) return 'boolean';
   if (
     isRosettaStringLiteral(expression) ||
@@ -95,6 +112,15 @@ function scalarKind(expression: RosettaExpression | undefined): ScalarKind | und
   return declaredScalarKind(call);
 }
 
+/** Linked primitive element kind is useful even when the expression is multi-valued. */
+export function primitiveElementKind(expression: RosettaExpression | undefined): ScalarKind | undefined {
+  if (isListLiteral(expression)) {
+    const kinds = expression.elements.map(primitiveElementKind);
+    return kinds.length && kinds.every((kind) => kind === kinds[0]) ? kinds[0] : undefined;
+  }
+  return scalarKind(expression);
+}
+
 /** Inputs and the current validated Data record are safe; guarded implicit lookups are not. */
 export function attributeReferenceIsValidated(expression: RosettaExpression, attribute: Attribute): boolean {
   return isRosettaFunction(attribute.$container)
@@ -115,6 +141,7 @@ export function expressionIsPresent(
       const declaration = expression.symbol.ref;
       if (isRosettaEnumValue(declaration)) return true;
       if (isShortcutDeclaration(declaration)) return expressionIsPresent(declaration.expression, visiting);
+      if (isRosettaFunction(declaration)) return requiredScalarKind(expression) !== undefined;
       return (
         isAttribute(declaration) &&
         attributeReferenceIsValidated(expression, declaration) &&
@@ -166,6 +193,10 @@ export function requiredScalarKind(
       const declaration = expression.symbol.ref;
       if (isRosettaEnumValue(declaration)) return 'string';
       if (isShortcutDeclaration(declaration)) return requiredScalarKind(declaration.expression, visiting);
+      if (isRosettaFunction(declaration)) {
+        const output = functionOutput(declaration);
+        return output && featureIsRequired(output) && !hasFieldMetadata(output) ? primitive : undefined;
+      }
       // Output cardinality is enforced at return, after potentially absent writes.
       // It cannot prove that the accumulator (or an alias of it) is initialized.
       if (

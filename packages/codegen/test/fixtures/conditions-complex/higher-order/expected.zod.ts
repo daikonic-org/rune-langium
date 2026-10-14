@@ -198,7 +198,7 @@ export const HigherOrderCheckSchema = z
     values: z.array(z.number().int())
   })
   .refine(
-    (data) => !!(rune.list(data.values).filter((item) => rune.compare(item, 0, (a, b) => a > b, "all")))?.length,
+    (data) => !!((data.values ?? []).filter((item) => ((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))(((value) => value == null ? [] : [value])(item).filter((value) => value != null), [0].filter((value) => value != null))))?.length,
     'NonEmpty: condition failed in HigherOrderCheck'
   );
 export type HigherOrderCheck = z.infer<typeof HigherOrderCheckSchema>;

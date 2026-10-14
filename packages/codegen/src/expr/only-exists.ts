@@ -11,6 +11,7 @@ import {
 import { expressionType, featureName, typeFeatures } from './navigation.js';
 import type { ExpressionTranspilerContext } from './transpiler.js';
 import { treesEquivalent } from '../emit/rosetta/expression-tree-equivalence.js';
+import { renderPresence } from './presence.js';
 
 /** Shared parent/field selection; emitters own their target predicate syntax. */
 export function onlyExistsSelection(
@@ -51,7 +52,9 @@ export function renderOnlyExists(
   if (!selected) return undefined;
   const { parent, parentText, forbidden } = selected;
   const access = (name: string) => (parent ? `__parent?.[${JSON.stringify(name)}]` : renderAttribute(name));
-  const checks = forbidden.map((name) => `!rune.exists(${access(name)})`);
+  const checks = forbidden.map(
+    (name) => `(${renderPresence(access(name), undefined, undefined, true, ctx.emitMode.startsWith('ts-'))})`
+  );
   const predicate = checks.join(' && ') || 'true';
   return parent ? `((__parent) => ${predicate})(${parentText})` : `(${predicate})`;
 }

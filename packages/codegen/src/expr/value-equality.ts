@@ -25,22 +25,32 @@ ${prefix}const rune = {
       const same = runeValueKey(left) === runeValueKey(right);
       return unequal ? !same : same;
     }
-    const leftArray = Array.isArray(left), rightArray = Array.isArray(right);
+${quantifiedEqualityBody('unequal ? !rune.equals(a, b) : rune.equals(a, b)', typescript)}
+  },
+${Object.entries(members)
+  .map(([name, implementation]) => `  ${name}: ${implementation}`)
+  .join(',\n')}
+};`;
+}
+
+/** The same broadcasting and positional comparison rules for helpers and native predicates. */
+export function quantifiedEqualityBody(
+  comparison: string,
+  typescript: boolean,
+  quantifier = "quantifier === 'all'"
+): string {
+  const valueType = typescript ? ': unknown' : '';
+  return `    const leftArray = Array.isArray(left), rightArray = Array.isArray(right);
     const l = leftArray ? left : left == null ? [] : [left];
     const r = rightArray ? right : right == null ? [] : [right];
     if (l.length === 0 || r.length === 0) {
       const same = leftArray === rightArray && l.length === r.length;
       return unequal ? !same : same;
     }
-    const compare = (a${valueType}, b${valueType}) => unequal ? !rune.equals(a, b) : rune.equals(a, b);
-    if (!leftArray) return quantifier === 'all' ? r.every((b) => compare(left, b)) : r.some((b) => compare(left, b));
-    if (!rightArray) return quantifier === 'all' ? l.every((a) => compare(a, right)) : l.some((a) => compare(a, right));
-    return quantifier === 'all'
+    const compare = (a${valueType}, b${valueType}) => ${comparison};
+    if (!leftArray) return ${quantifier} ? r.every((b) => compare(left, b)) : r.some((b) => compare(left, b));
+    if (!rightArray) return ${quantifier} ? l.every((a) => compare(a, right)) : l.some((a) => compare(a, right));
+    return ${quantifier}
       ? (unequal || l.length === r.length) && l.every((a, i) => i >= r.length ? unequal : compare(a, r[i]))
-      : (unequal && l.length !== r.length) || l.some((a, i) => i < r.length && compare(a, r[i]));
-  },
-${Object.entries(members)
-  .map(([name, implementation]) => `  ${name}: ${implementation}`)
-  .join(',\n')}
-};`;
+      : (unequal && l.length !== r.length) || l.some((a, i) => i < r.length && compare(a, r[i]));`;
 }

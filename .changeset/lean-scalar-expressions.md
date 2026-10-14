@@ -7,3 +7,8 @@ and guarded optional primitive comparisons over typed values. Remove scalar and
 enum literal casts while retaining enum inference through constructors and
 cardinality boundaries. TypeScript condition previews use a false fallback;
 executable validation and missing function values retain their existing semantics.
+
+Render common collection, presence, navigation and arithmetic utilities with native
+language constructs using shared cardinality facts and runtime source builders.
+Keep Python export boundary normalization outside displayed bodies, reuse completed
+primitive return bounds, and accept explicit implicit-empty composite constructors.

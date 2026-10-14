@@ -223,7 +223,7 @@ export function isPosition(x: unknown): x is Position {
 
 
 export function validateIsSignificant(position: RuneFuncData<PositionShape>): boolean {
-  return rune.compare(rune.binary(position.Position?.quantity, position.Position?.price, (a, b) => a * b), 10000, (a, b) => a > b, "all");
+  return ((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))((<const T>(value: T) => value == null ? [] : [value])(((left, right) => left == null || right == null ? undefined : left * right)(position.Position?.quantity, position.Position?.price)).filter((value) => value != null), [10000].filter((value) => value != null));
 }
 
 export const runeReportRules = {

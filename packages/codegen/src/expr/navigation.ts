@@ -45,6 +45,7 @@ import {
 import { AstUtils } from 'langium';
 import { choiceOptionFieldName } from '../emit/base-namespace-emitter.js';
 import { functionOutput } from '../types/func.js';
+import { nativeCollection } from './collection-shape.js';
 
 type Feature = Attribute | ChoiceOption | RosettaRecordFeature;
 
@@ -278,10 +279,10 @@ export function renderCalendarField(
     temporal
       ? knownPresent
         ? `${value}.${field}`
-        : `(${value} as Temporal.${temporalType} | undefined)?.${field}`
+        : `((value: Temporal.${temporalType} | undefined) => value?.${field})(${value})`
       : `rune.dateField(${value}, ${JSON.stringify(feature.$container.name)}, ${JSON.stringify(feature.name)})`;
   const value = receiver();
-  return many ? `rune.list(${value}).flatMap((value) => rune.list(${read('value', true)}))` : read(value, required);
+  return many ? `(${value} ?? []).map((value) => ${read('value', true)})` : read(value, required);
 }
 
 export function deepFeaturePaths(
@@ -337,7 +338,7 @@ export function choiceOptionPaths(choice: Choice, goal: RosettaType, exact = fal
 }
 
 /** Project a path while retaining TypeScript's union narrowing at each choice arm. */
-export function renderFeaturePath(receiver: string, path: readonly string[], many = false): string {
+export function renderFeaturePath(receiver: string, path: readonly string[], many = false, typescript = false): string {
   if (path.length === 0) return receiver;
   // Keep the emitted expression linear in the path length. Each step is
   // wrapped once; the previous implementation recursively rendered the
@@ -351,14 +352,15 @@ export function renderFeaturePath(receiver: string, path: readonly string[], man
       result = `((__value) => ${access})(${result})`;
       continue;
     }
-    result = `rune.list(${result}).flatMap((__value) => rune.list(${access}))`;
+    result = `${nativeCollection(result, undefined, undefined, typescript)}.flatMap((__value) => ${nativeCollection(access, undefined, undefined, typescript)})`;
   }
   return result;
 }
 
 export function renderNavigation(
   expr: RosettaExpression,
-  render: (expr: RosettaExpression) => string
+  render: (expr: RosettaExpression) => string,
+  typescript = false
 ): string | undefined {
   if (!isRosettaFeatureCall(expr) && !isRosettaDeepFeatureCall(expr)) return undefined;
   const feature = expr.feature?.ref;
@@ -378,12 +380,12 @@ export function renderNavigation(
       if (paths.length === 1) return read(receiver, paths[0]!);
       return `((__root) => ${paths.map((path) => read('__root', path)).join(' ?? ')})(${receiver})`;
     }
-    const projections = paths.map((path) => renderFeaturePath('__root', path.map(featureName), many));
+    const projections = paths.map((path) => renderFeaturePath('__root', path.map(featureName), many, typescript));
     const projected = many ? `[${projections.map((value) => `...${value}`).join(', ')}]` : projections.join(' ?? ');
     return `((__root) => ${projected})(${receiver})`;
   }
   if (isChoice(expressionType(expr.receiver)) || expressionIsMany(expr.receiver)) {
-    return renderFeaturePath(receiver, [name], expressionIsMany(expr));
+    return renderFeaturePath(receiver, [name], expressionIsMany(expr), typescript);
   }
   return `${receiver}?.${name}`;
 }

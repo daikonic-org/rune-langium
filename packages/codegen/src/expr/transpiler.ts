@@ -88,8 +88,10 @@ import { renderAsExpression, renderSwitchExpression } from './switch-expression.
 import { renderOnlyExists } from './only-exists.js';
 import { arrowBody, freshLocal, inlineContext, bindImplicitFeatures } from './inline-function.js';
 import { renderCardinalityOperation } from './cardinality-operations.js';
-import { renderPresence } from './presence.js';
+import { renderPresence, renderPresenceCount } from './presence.js';
 import { parenthesizeReceiver } from './syntax.js';
+import { nativeCollection, nativeCount } from './collection-shape.js';
+import { singletonBinaryResult, cartesianComparison } from './binary-runtime.js';
 import {
   renderNavigation,
   renderCalendarField,
@@ -109,6 +111,7 @@ import {
   nativeEqualityOperands,
   scalarEqualityOperands,
   nativeScalarOperands,
+  primitiveElementKind,
   nativeTemporalOperands,
   temporalScalarTypes,
   expressionIsPresent,
@@ -276,7 +279,7 @@ function transpilePresence(
         : argument
           ? declared?.includes('[]') || expressionIsMany(argument)
           : (ctx.implicitMetadata?.many ?? false);
-  return renderPresence(value, many, metadata, absent);
+  return renderPresence(value, many, metadata, absent, ctx.emitMode.startsWith('ts-'));
 }
 
 /**
@@ -369,20 +372,21 @@ function validateAttr(attrName: string, ctx: ExpressionTranspilerContext): boole
  * T053.
  */
 export function emitOneOf(attrNames: string[], ctx: ExpressionTranspilerContext): string {
-  const attrList = attrNames.map((n) => attrAccessExpr(n, ctx)).join(', ');
+  const values = attrNames.map((name) => attrAccessExpr(name, ctx)).join(', ');
+  const predicate = `${renderPresenceCount(`[${values}]`, ctx.emitMode.startsWith('ts-'))} === 1`;
   const message = `${ctx.conditionName}: exactly one of [${attrNames.join(', ')}] must be present in ${ctx.typeName}`;
 
   if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
-    return `rune.checkOneOf([${attrList}])`;
+    return predicate;
   }
 
   if (ctx.emitMode === 'ts-method') {
-    return [`if (!rune.checkOneOf([${attrList}])) {`, `  errors.push('${message}');`, `}`].join('\n');
+    return [`if (!(${predicate})) {`, `  errors.push('${message}');`, `}`].join('\n');
   }
 
   // superRefine mode
   return [
-    `if (!rune.checkOneOf([${attrList}])) {`,
+    `if (!(${predicate})) {`,
     `  ctx.addIssue({`,
     `    code: 'custom',`,
     `    message: '${message}',`,
@@ -399,27 +403,7 @@ export function emitOneOf(attrNames: string[], ctx: ExpressionTranspilerContext)
  * T053.
  */
 export function emitChoice(attrNames: string[], ctx: ExpressionTranspilerContext): string {
-  const attrList = attrNames.map((n) => attrAccessExpr(n, ctx)).join(', ');
-  const message = `${ctx.conditionName}: exactly one of [${attrNames.join(', ')}] must be present in ${ctx.typeName}`;
-
-  if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
-    return `rune.checkOneOf([${attrList}])`;
-  }
-
-  if (ctx.emitMode === 'ts-method') {
-    return [`if (!rune.checkOneOf([${attrList}])) {`, `  errors.push('${message}');`, `}`].join('\n');
-  }
-
-  // superRefine mode
-  return [
-    `if (!rune.checkOneOf([${attrList}])) {`,
-    `  ctx.addIssue({`,
-    `    code: 'custom',`,
-    `    message: '${message}',`,
-    `    path: ['${ctx.conditionName}']`,
-    `  });`,
-    `}`
-  ].join('\n');
+  return emitOneOf(attrNames, ctx);
 }
 
 /**
@@ -527,9 +511,11 @@ export function emitOnlyExists(allowedAttrNames: string[], ctx: ExpressionTransp
       return 'true';
     }
     if (forbiddenAttrs.length === 1) {
-      return `!rune.exists(${attrAccessExpr(forbiddenAttrs[0]!, ctx)})`;
+      return renderPresence(attrAccessExpr(forbiddenAttrs[0]!, ctx), undefined, undefined, true);
     }
-    return forbiddenAttrs.map((n) => `!rune.exists(${attrAccessExpr(n, ctx)})`).join(' && ');
+    return forbiddenAttrs
+      .map((name) => `(${renderPresence(attrAccessExpr(name, ctx), undefined, undefined, true)})`)
+      .join(' && ');
   }
 
   if (ctx.emitMode === 'ts-method') {
@@ -537,7 +523,7 @@ export function emitOnlyExists(allowedAttrNames: string[], ctx: ExpressionTransp
       return '// only-exists: no forbidden attributes';
     }
     const checks = forbiddenAttrs.map((n) =>
-      [`if (rune.exists(${attrAccessExpr(n, ctx)})) {`, `  errors.push('${message}');`, `}`].join('\n')
+      [`if (${renderPresence(attrAccessExpr(n, ctx), undefined)}) {`, `  errors.push('${message}');`, `}`].join('\n')
     );
     return checks.join('\n');
   }
@@ -548,7 +534,7 @@ export function emitOnlyExists(allowedAttrNames: string[], ctx: ExpressionTransp
   }
   const checks = forbiddenAttrs.map((n) =>
     [
-      `if (rune.exists(${attrAccessExpr(n, ctx)})) {`,
+      `if (${renderPresence(attrAccessExpr(n, ctx), undefined)}) {`,
       `  ctx.addIssue({`,
       `    code: 'custom',`,
       `    message: '${message}',`,
@@ -934,7 +920,11 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
       return read(receiver);
     }
   }
-  const rendered = renderNavigation(expr, (child) => transpileExpression(child, { ...ctx, preserveMetadata: false }));
+  const rendered = renderNavigation(
+    expr,
+    (child) => transpileExpression(child, { ...ctx, preserveMetadata: false }),
+    ctx.emitMode.startsWith('ts-')
+  );
   if (rendered !== undefined) {
     const feature = isRosettaFeatureCall(expr) || isRosettaDeepFeatureCall(expr) ? expr.feature?.ref : undefined;
     return isAttribute(feature) && hasFieldMetadata(feature) && !ctx.preserveMetadata && ctx.emitMode.startsWith('ts-')
@@ -984,7 +974,14 @@ export function transpileArithmetic(expr: RosettaExpression, ctx: ExpressionTran
           ? 'a.toPlainDateTime(b)'
           : 'Temporal.PlainDate.from(String(a)).toPlainDateTime(Temporal.PlainTime.from(String(b))).toString()'
         : `a ${expr.operator} b`;
-  return `rune.binary(${left}, ${right}, (a, b) => ${operation})`;
+  const optional = scalarEqualityOperands(expr.left, expr.right, false);
+  if (optional === 'number' || (optional === 'string' && expr.operator === '+'))
+    return `((left, right) => left == null || right == null ? undefined : left ${expr.operator} right)(${left}, ${right})`;
+  const typescript = ctx.emitMode.startsWith('ts-');
+  const l = nativeCollection(left, expr.left, undefined, typescript);
+  const r = nativeCollection(right, expr.right, undefined, typescript);
+  const scalarOperation = operation.replace(/\ba\b/g, '(l[0])').replace(/\bb\b/g, '(r[0])');
+  return `((l, r) => ${singletonBinaryResult(scalarOperation)})(${l}.filter((value) => value != null), ${r}.filter((value) => value != null))`;
 }
 
 /**
@@ -999,6 +996,18 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
     const right = transpileExpression(expr.right, ctx);
     if (ctx.emitMode.startsWith('ts-') && nativeTemporalOperands(expr.left, expr.right))
       return `${expr.operator === '<>' ? '!' : ''}${left}.equals(${right})`;
+    const calendar = primitiveElementKind(expr.left);
+    if (
+      ctx.emitMode.startsWith('ts-') &&
+      !expressionIsMany(expr.left) &&
+      !expressionIsMany(expr.right) &&
+      calendar &&
+      calendar in temporalScalarTypes &&
+      calendar === primitiveElementKind(expr.right)
+    ) {
+      const same = 'left == null || right == null ? left == null && right == null : left.equals(right)';
+      return `((left, right) => ${expr.operator === '<>' ? `!(${same})` : same})(${left}, ${right})`;
+    }
     const isoDates = !ctx.emitMode.startsWith('ts-');
     if (nativeEqualityOperands(expr.left, expr.right, isoDates)) {
       const literal = scalarLiteral(expr.right);
@@ -1040,7 +1049,10 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
         ? `Temporal.${kind}.compare(a, b) ${expr.operator} 0`
         : `Temporal.${kind}.compare(${parser}(String(a)), ${parser}(String(b))) ${expr.operator} 0`
       : `a ${expr.operator} b`;
-    return `rune.compare(${left}, ${right}, (a, b) => ${comparison}, ${JSON.stringify(expr.cardMod ?? 'all')})`;
+    const typescript = ctx.emitMode.startsWith('ts-');
+    const l = nativeCollection(left, expr.left, undefined, typescript);
+    const r = nativeCollection(right, expr.right, undefined, typescript);
+    return `((l, r) => l.length > 0 && r.length > 0 && (${cartesianComparison(comparison, String((expr.cardMod ?? 'all') === 'all'))}))(${l}.filter((value) => value != null), ${r}.filter((value) => value != null))`;
   }
   return diagnosticFallback('Invalid expression: not a comparison');
 }
@@ -1066,17 +1078,22 @@ export function transpileBoolean(expr: RosettaExpression, ctx: ExpressionTranspi
 
 /** Compare collection membership using Rune value equality. */
 export function transpileSetOps(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
-  if (isRosettaContainsExpression(expr)) {
-    const right = transpileExpression(expr.right, ctx);
-    const left = expr.left ? transpileExpression(expr.left, ctx) : `(${ctx.selfName} ?? [])`;
-    return `rune.contains(${left}, ${right})`;
+  if (!isRosettaContainsExpression(expr) && !isRosettaDisjointExpression(expr))
+    return diagnosticFallback('Invalid expression: not a set-op');
+  const right = transpileExpression(expr.right, ctx);
+  const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
+  const kind = primitiveElementKind(expr.left);
+  if (kind && kind === primitiveElementKind(expr.right) && ['number', 'string', 'boolean'].includes(kind)) {
+    const typescript = ctx.emitMode.startsWith('ts-');
+    const l = nativeCollection(left, expr.left, ctx.implicitMetadata?.many, typescript);
+    const r = nativeCollection(right, expr.right, undefined, typescript);
+    const set = `new Set${typescript ? `<${kind}>` : ''}(left)`;
+    const predicate = isRosettaContainsExpression(expr)
+      ? 'left.length > 0 && right.length > 0 && right.every((value) => keys.has(value))'
+      : '!right.some((value) => keys.has(value))';
+    return `((left, right) => { const keys = ${set}; return ${predicate}; })(${l}, ${r})`;
   }
-  if (isRosettaDisjointExpression(expr)) {
-    const right = transpileExpression(expr.right, ctx);
-    const left = expr.left ? transpileExpression(expr.left, ctx) : `(${ctx.selfName} ?? [])`;
-    return `rune.disjoint(${left}, ${right})`;
-  }
-  return diagnosticFallback('Invalid expression: not a set-op');
+  return `rune.${isRosettaContainsExpression(expr) ? 'contains' : 'disjoint'}(${left}, ${right})`;
 }
 
 /** Lower aggregates, preserving collection order and empty-value behavior. */
@@ -1087,33 +1104,40 @@ export function transpileAggregation(expr: RosettaExpression, ctx: ExpressionTra
   const getArg = (arg: RosettaExpression | undefined): string => (arg ? transpileExpression(arg, ctx) : ctx.selfName);
 
   if (isRosettaCountOperation(expr)) {
-    return `rune.count(${getArg(expr.argument)})`;
+    return nativeCount(getArg(expr.argument), expr.argument, ctx.implicitMetadata?.many);
   }
   if (isSumOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `rune.list(${arr}).reduce((a, b) => a + b, 0)`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'))}.reduce((a, b) => a + b, 0)`;
   }
   if (isDistinctOperation(expr)) {
     const arr = getArg(expr.argument);
     const kind = ctx.preserveMetadata ? expressionMetadataKind(expr.argument) : undefined;
     const value = kind ? unwrapMetadata('value', false) : 'value';
+    const element = primitiveElementKind(expr.argument);
+    if (element === 'string' || element === 'boolean' || element === 'number') {
+      const values = nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'));
+      if (!kind) return `[...new Set(${values})]`;
+      const seen = ctx.emitMode.startsWith('ts-') ? `new Set<${element} | undefined>()` : 'new Set()';
+      return `(() => { const seen = ${seen}; return ${values}.filter((value) => { const key = ${value}; if (seen.has(key)) return false; seen.add(key); return true; }); })()`;
+    }
     return `rune.distinct(${arr}${kind ? `, (value) => rune.valueKey(${value})` : ''})`;
   }
   if (isFirstOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `rune.list(${arr})[0]`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'))}[0]`;
   }
   if (isLastOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `rune.list(${arr}).at(-1)`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'))}.at(-1)`;
   }
   if (isFlattenOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `rune.list(${arr}).flat()`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'))}.flat()`;
   }
   if (isReverseOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `rune.list(${arr}).slice().reverse()`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'))}.slice().reverse()`;
   }
   return diagnosticFallback('Invalid expression: unknown aggregation');
 }
@@ -1193,8 +1217,12 @@ export function transpileConstructor(expr: RosettaExpression, ctx: ExpressionTra
   if (!isRosettaConstructorExpression(expr)) {
     return diagnosticFallback('Invalid expression: not RosettaConstructorExpression');
   }
+  const type = expressionType(expr.typeRef);
   if (expr.values.length === 0) {
-    return expressionType(expr.typeRef)?.$type === 'Choice' ? 'undefined' : '{}';
+    if (isChoice(type)) return 'undefined';
+    return ctx.emitMode === 'ts-expression' && isData(type) && expr.implicitEmpty
+      ? `({} as ${resolveFuncValueTypeTs(type, undefined, ctx.typeNameResolver)})`
+      : '{}';
   }
   const pairs = expr.values
     .map((kv) => {
@@ -1217,12 +1245,11 @@ export function transpileConstructor(expr: RosettaExpression, ctx: ExpressionTra
       return `${key}: ${val}`;
     })
     .join(', ');
-  const type = expressionType(expr.typeRef);
   if (isRosettaRecordType(type) && ['date', 'dateTime', 'zonedDateTime'].includes(type.name))
     return `rune.${ctx.emitMode.startsWith('ts-') ? 'dateConstructTemporal' : 'dateConstruct'}(${JSON.stringify(type.name)}, { ${pairs} })`;
   const value = `{ ${pairs} }`;
   if (ctx.emitMode === 'ts-expression' && (isData(type) || isChoice(type)))
-    return `(${value} satisfies ${resolveFuncValueTypeTs(type, undefined, ctx.typeNameResolver)})`;
+    return `(${value} ${expr.implicitEmpty ? 'as' : 'satisfies'} ${resolveFuncValueTypeTs(type, undefined, ctx.typeNameResolver)})`;
   return value;
 }
 
@@ -1237,7 +1264,7 @@ export function transpileListLiteral(expr: RosettaExpression, ctx: ExpressionTra
   }
   const kind = ctx.preserveMetadata ? expressionMetadataKind(expr) : undefined;
   const elements = expr.elements.map((element) => transpileMetadataBranch(element, kind, ctx));
-  const list = `[${elements.map((element, index) => (expressionIsPresent(expr.elements[index]) ? element : `...rune.list(${element})`)).join(', ')}]`;
+  const list = `[${elements.map((element, index) => (expressionIsPresent(expr.elements[index]) ? element : `...${nativeCollection(element, expr.elements[index], undefined, ctx.emitMode.startsWith('ts-'))}`)).join(', ')}]`;
   return kind ? `${list}.filter((value) => value != null)` : list;
 }
 
@@ -1293,7 +1320,7 @@ export function transpileOnlyElement(expr: RosettaExpression, ctx: ExpressionTra
     return diagnosticFallback('Invalid expression: not RosettaOnlyElement');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return `((__oe) => (__oe.length === 1 ? __oe[0] : undefined))(rune.list(${arg}))`;
+  return `((__oe) => (__oe.length === 1 ? __oe[0] : undefined))(${nativeCollection(arg, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'))})`;
 }
 
 export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1334,8 +1361,10 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
   const input =
     inputKind === 'reference' && !resultKind
       ? `(${arr} ?? []).filter((value): value is typeof value & { value: NonNullable<typeof value.value> } => value.value != null)`
-      : `rune.list(${arr})`;
-  const reduced = `((${values}) => ${values}.length === 0 ? undefined : ${values}.slice(1).reduce((${accName}, ${itemName}) => ${arrowBody(body)}, ${initial}))(${input})`;
+      : nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'));
+  const initialName = freshLocal(ctx, '__initial');
+  const accumulatorType = ctx.emitMode.startsWith('ts-') ? `<typeof ${initialName} | undefined>` : '';
+  const reduced = `((${values}) => { if (${values}.length === 0) return undefined; const ${initialName} = ${initial}; return ${values}.slice(1).reduce${accumulatorType}((${accName}, ${itemName}) => ${arrowBody(body)}, ${initialName}); })(${input})`;
   return resultKind && !ctx.preserveMetadata ? unwrapMetadata(reduced, false) : reduced;
 }
 
@@ -1718,12 +1747,13 @@ export function transpileExpression(
 
   if (isOneOfOperation(expr)) {
     if (!expr.argument) return emitOneOf([...ctx.attributeTypes.keys()], { ...valueCtx, emitMode: 'zod-refine' });
-    if (isListLiteral(expr.argument)) return `rune.checkOneOf(${transpileExpression(expr.argument, valueCtx)})`;
+    if (isListLiteral(expr.argument))
+      return `${renderPresenceCount(transpileExpression(expr.argument, valueCtx))} === 1`;
     const argument = transpileExpression(expr.argument, valueCtx);
     const fields = typeFeatures(expressionType(expr.argument)).map(featureName);
     if (fields.length)
-      return `((__one) => __one != null && rune.checkOneOf([${fields.map((name) => `__one[${JSON.stringify(name)}]`).join(', ')}]))(${argument})`;
-    return `((__one) => rune.checkOneOf(Array.isArray(__one) ? __one : [__one]))(${argument})`;
+      return `((__one) => __one != null && ${renderPresenceCount(`[${fields.map((name) => `__one[${JSON.stringify(name)}]`).join(', ')}]`)} === 1)(${argument})`;
+    return `((__one) => ${renderPresenceCount('Array.isArray(__one) ? __one : [__one]')} === 1)(${argument})`;
   }
   if (isChoiceOperation(expr)) {
     const names = expr.attributes
@@ -1735,8 +1765,8 @@ export function transpileExpression(
       .join(', ');
     const predicate =
       expr.necessity === 'optional'
-        ? `[${values}].filter((value) => rune.exists(value)).length <= 1`
-        : `rune.checkOneOf([${values}])`;
+        ? `${renderPresenceCount(`[${values}]`, ctx.emitMode.startsWith('ts-'))} <= 1`
+        : `${renderPresenceCount(`[${values}]`, ctx.emitMode.startsWith('ts-'))} === 1`;
     return value ? `((__choice) => __choice != null && (${predicate}))(${value})` : predicate;
   }
 

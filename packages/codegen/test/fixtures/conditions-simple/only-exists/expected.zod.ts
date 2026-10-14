@@ -199,5 +199,8 @@ export const HasABCSchema = z
     b: z.string().optional(),
     c: z.string().optional()
   })
-  .refine((data) => (!rune.exists(data.c)), 'OnlyAB: only [a, b] may exist in HasABC');
+  .refine(
+    (data) => ((!((value) => value != null && (!Array.isArray(value) || value.length > 0))(data.c))),
+    'OnlyAB: only [a, b] may exist in HasABC'
+  );
 export type HasABC = z.infer<typeof HasABCSchema>;

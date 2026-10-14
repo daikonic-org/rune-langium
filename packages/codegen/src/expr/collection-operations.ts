@@ -3,6 +3,8 @@
 import { unwrapMetadata } from './metadata-runtime.js';
 import { expressionMetadataKind } from './metadata-type.js';
 import { inlineContext, freshLocal, arrowBody } from './inline-function.js';
+import { nativeCollection } from './collection-shape.js';
+import { primitiveElementKind, temporalScalarTypes } from './scalar-operators.js';
 
 import {
   isFilterOperation,
@@ -32,6 +34,7 @@ export function renderCollectionOperation(
   const argumentCtx =
     isMapOperation(expr) && expr.function && ctx.emitMode.startsWith('ts-') ? { ...ctx, preserveMetadata: true } : ctx;
   const argument = expr.argument ? render(expr.argument, argumentCtx) : ctx.selfName;
+  const values = nativeCollection(argument, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'));
   const kind = argumentCtx.preserveMetadata
     ? expr.argument
       ? expressionMetadataKind(expr.argument)
@@ -41,6 +44,11 @@ export function renderCollectionOperation(
   const fn = 'function' in expr ? expr.function : undefined;
   const param = freshLocal(ctx, fn?.parameters?.[0]?.name ?? 'item');
   const valueCtx = { ...ctx, preserveMetadata: false };
+  const keyKind = primitiveElementKind(fn?.body ?? expr.argument);
+  const temporal =
+    ctx.emitMode.startsWith('ts-') && keyKind && keyKind in temporalScalarTypes
+      ? temporalScalarTypes[keyKind as keyof typeof temporalScalarTypes]
+      : undefined;
   const key = (name: string) =>
     fn ? render(fn.body, inlineContext(fn, valueCtx, [name], metadata)) : metadata ? unwrapMetadata(name, false) : name;
   if (isFilterOperation(expr) || isMapOperation(expr)) {
@@ -50,8 +58,8 @@ export function renderCollectionOperation(
         ? render(fn.body, inlineContext(fn, ctx, [param], metadata))
         : param;
     return isFilterOperation(expr)
-      ? `rune.list(${argument}).filter((${param}) => ${arrowBody(body)})`
-      : `rune.list(${argument}).flatMap((${param}) => rune.list(${body}))`;
+      ? `${values}.filter((${param}) => ${arrowBody(body)})`
+      : `${values}.flatMap((${param}) => ${nativeCollection(body, fn?.body, false, ctx.emitMode.startsWith('ts-'))})`;
   }
   if (isSortOperation(expr)) {
     const a = freshLocal(ctx, '__sortA');
@@ -60,7 +68,7 @@ export function renderCollectionOperation(
     const keyB = freshLocal(ctx, '__keyB');
     const ka = key(a);
     const kb = key(b);
-    return `rune.list(${argument}).slice().sort((${a}, ${b}) => { const ${keyA} = (${ka}); const ${keyB} = (${kb}); return rune.order(${keyA}, ${keyB}, (a, b) => a < b ? -1 : a > b ? 1 : 0); })`;
+    return `${values}.slice().sort((${a}, ${b}) => { const ${keyA} = (${ka}); const ${keyB} = (${kb}); return ${nativeOrder(keyA, keyB, true, temporal)}; })`;
   }
   if (isMinOperation(expr) || isMaxOperation(expr)) {
     const item = freshLocal(ctx, '__item');
@@ -69,7 +77,19 @@ export function renderCollectionOperation(
     const itemKey = key(item);
     const bestKey = key(best);
     const sign = isMinOperation(expr) ? '<' : '>';
-    return `(() => { const ${values} = rune.list(${argument}); if (${values}.length === 0) return undefined; return ${values}.slice(1).reduce((${best}, ${item}) => rune.order((${itemKey}), (${bestKey}), (a, b) => a < b ? -1 : a > b ? 1 : 0, ${isMinOperation(expr)}) ${sign} 0 ? ${item} : ${best}, ${values}[0]); })()`;
+    const itemKeyName = freshLocal(ctx, '__itemKey');
+    const bestKeyName = freshLocal(ctx, '__bestKey');
+    const input = nativeCollection(argument, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'));
+    return `(() => { const ${values} = ${input}; if (${values}.length === 0) return undefined; return ${values}.slice(1).reduce((${best}, ${item}) => { const ${itemKeyName} = (${itemKey}); const ${bestKeyName} = (${bestKey}); return ${nativeOrder(itemKeyName, bestKeyName, isMinOperation(expr), temporal)} ${sign} 0 ? ${item} : ${best}; }, ${values}[0]); })()`;
   }
   return undefined;
+}
+
+function nativeOrder(left: string, right: string, nullsLast = true, temporal?: string): string {
+  const absent = nullsLast ? '1' : '-1';
+  const present = nullsLast ? '-1' : '1';
+  const comparison = temporal
+    ? `Temporal.${temporal}.compare(${left}, ${right})`
+    : `${left} < ${right} ? -1 : ${left} > ${right} ? 1 : 0`;
+  return `(${left} == null ? ${right} == null ? 0 : ${absent} : ${right} == null ? ${present} : ${comparison})`;
 }

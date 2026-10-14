@@ -22,7 +22,8 @@ import {
   type RuneFuncAssignment
 } from '../types/func.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
-import { declaredScalarKind, requiredScalarKind } from '../expr/scalar-operators.js';
+import { declaredScalarKind } from '../expr/scalar-operators.js';
+import { collectionShape } from '../expr/collection-shape.js';
 import { expressionFitsCardinality } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataPropertyPath } from '../expr/metadata-runtime.js';
 import { typeFeatures, featureName, resolveType, type ExpressionType } from '../expr/navigation.js';
@@ -31,6 +32,8 @@ import { renderPythonExpression } from './python.js';
 import {
   pythonRead,
   pythonUnwrap,
+  pythonCollection,
+  pythonNormalize,
   pythonHelperDependencies,
   pyString,
   pyBool,
@@ -156,13 +159,18 @@ function assignmentLines(
   const root = roots.get(assignment.target ?? '');
   if (!root) throw new Error(`Unresolved Python assignment root '${assignment.target ?? ''}'`);
   const bounds = assignment.targetCardinality;
-  const normalized =
-    !many && !assignment.metadataKind && requiredScalarKind(expression)
-      ? value
-      : `rune.assignmentValue(${value}, ${pyString(expressionMetadataKind(expression) ?? 'value')}, ${pyString(assignment.metadataKind ?? 'value')}, ${pyBool(many)})`;
+  const sourceKind = expressionMetadataKind(expression);
+  const wrapped = pythonNormalize(value, sourceKind, assignment.metadataKind);
+  const normalized = many
+    ? pythonCollection(wrapped, expression)
+    : collectionShape(expression) === 'scalar'
+      ? wrapped
+      : `rune.single(${wrapped})`;
   const path = assignment.path ?? [];
   if (!path.length)
-    return [`${root} = ${assignment.kind === 'add' ? `rune.list(${root}) + rune.list(${normalized})` : normalized}`];
+    return [
+      `${root} = ${assignment.kind === 'add' ? `${pythonCollection(root)} + ${pythonCollection(normalized, undefined, many)}` : normalized}`
+    ];
   const segments = path.map(
     (segment) =>
       `{${[
@@ -234,9 +242,9 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     state: { next: 0 }
   };
   const normalizedInputs = inputsRequiringNormalization(inputs);
-  const finish = (lines: string[]) => {
+  const finish = (lines: string[], body = lines) => {
     const code = `def ${name}(input: ${context.inputName?.(func) ?? name + '_Input'}) -> ${pythonFieldType(output, context)}:\n${lines.map((line) => '    ' + line).join('\n')}\n`;
-    return projection(func, context, code, 'function', lines.join('\n'));
+    return projection(func, context, code, 'function', body.join('\n'));
   };
   const single = facts.assignments[0];
   if (
@@ -259,6 +267,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     lines.push(
       `input[${pyString(input.name)}] = rune.cardinality(input.get(${pyString(input.name)}), ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
     );
+  const bodyStart = lines.length;
   const outputType = pythonFieldType(output, context);
   const accumulatorType = outputMany || outputType.includes(' | None') ? outputType : `${outputType} | None`;
   lines.push(`${result}: ${accumulatorType} = ${outputMany ? '[]' : 'None'}`);
@@ -285,12 +294,13 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   func.conditions.forEach(check);
   if (facts.isAbstract) lines.push(`${result} = rune.native(${pyString(qualified(func))}, input)`);
   else for (const assignment of facts.assignments) lines.push(...assignmentLines(assignment, renderContext, roots));
+  const outputCheck = lines.length;
   lines.push(
     `${result} = rune.cardinality(${result}, ${output.card.inf}, ${output.card.unbounded ? 'None' : (output.card.sup ?? 1)}, ${pyString(`Function '${func.name}' produced`)})`
   );
   func.postConditions.forEach(check);
   lines.push(`return ${result}`);
-  return finish(lines);
+  return finish(lines, [...lines.slice(bodyStart, outputCheck), ...lines.slice(outputCheck + 1)]);
 }
 
 function pythonDataContext(context: PythonProjectionContext, type: ExpressionType | undefined): PythonRenderContext {

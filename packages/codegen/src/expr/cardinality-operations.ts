@@ -12,6 +12,8 @@
  */
 import { isEqualityOperation, isRosettaExistsExpression, type RosettaExpression } from '@rune-langium/core';
 import { expressionIsMany } from './navigation.js';
+import { primitiveElementKind } from './scalar-operators.js';
+import { quantifiedEqualityBody } from './value-equality.js';
 import type { ExpressionTranspilerContext } from './transpiler.js';
 
 type Render = (expr: RosettaExpression, ctx: ExpressionTranspilerContext) => string;
@@ -47,5 +49,13 @@ export function renderCardinalityOperation(
   const left = binary.left ? render(binary.left, ctx) : ctx.selfName;
   const right = render(binary.right, ctx);
   const quantifier = binary.cardMod ?? (binary.operator === '<>' ? 'any' : 'all');
+  const kind = primitiveElementKind(binary.left);
+  if (kind && kind === primitiveElementKind(binary.right) && ['number', 'string', 'boolean'].includes(kind)) {
+    const ts = ctx.emitMode.startsWith('ts-');
+    const equal = kind === 'number' ? '(a === b || (Number.isNaN(a) && Number.isNaN(b)))' : '(a === b)';
+    const comparison = binary.operator === '<>' ? `!${equal}` : equal;
+    const parameters = ts ? '(left: unknown, right: unknown)' : '(left, right)';
+    return `(${parameters} => { const unequal = ${binary.operator === '<>'}; ${quantifiedEqualityBody(comparison, ts, String(quantifier === 'all'))} })(${left}, ${right})`;
+  }
   return `rune.equals(${left}, ${right}, ${JSON.stringify(quantifier)}${binary.operator === '<>' ? ', true' : ''})`;
 }

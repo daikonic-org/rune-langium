@@ -200,7 +200,7 @@ export const UnitTypeSchema = z
     c: z.string().optional()
   })
   .refine(
-    (data) => rune.checkOneOf([data.a, data.b, data.c]),
+    (data) => ([data.a, data.b, data.c]).filter((value) => value != null && (!Array.isArray(value) || value.length > 0)).length === 1,
     'Pick: exactly one of [a, b, c] must be present in UnitType'
   );
 export type UnitType = z.infer<typeof UnitTypeSchema>;

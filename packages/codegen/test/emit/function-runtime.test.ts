@@ -55,6 +55,39 @@ async function compile(
 }
 
 describe('generated TypeScript function execution', () => {
+  it('accepts explicit implicit-empty constructor placeholders and checks complete siblings', async () => {
+    let source = '';
+    const funcs = await compile(
+      [
+        BASICTYPES_ROSETTA,
+        `namespace test.partial_constructors
+enum Kind:
+ A
+ B
+type Point:
+ x int (1..1)
+ y int (1..1)
+type Box:
+ origin Point (1..1)
+ kind Kind (1..1)
+func MakeEmptyBox:
+ output: result Box (1..1)
+ set result: Box { origin: Point { ... }, kind: Kind -> A }
+ set result -> origin -> x: 1
+ set result -> origin -> y: 2
+`
+      ],
+      '',
+      true,
+      (code) => {
+        source = code;
+      }
+    );
+    expect(funcs.MakeEmptyBox!({})).toEqual({ origin: { x: 1, y: 2 }, kind: 'A' });
+    expect(source).toContain('{} as RuneFuncData<PointShape>');
+    expect(source).toContain('satisfies RuneFuncData<BoxShape>');
+    expect(source).not.toMatch(/"A" as|as const/);
+  });
   it('uses Temporal values and equality in both functions and Data classes', async () => {
     const funcs = await compile(`namespace typed.calendar
 recordType date { year int month int day int }
@@ -173,7 +206,7 @@ func ComputedNaN:
     expect(declarations.get('Equal')).toContain('===');
     expect(declarations.get('SameObject')).toContain('rune.valueKey');
     expect(declarations.get('SameObject')).not.toContain('rune.equals');
-    expect(declarations.get('SameList')).toContain('rune.equals');
+    expect(declarations.get('SameList')).not.toContain('rune.equals');
     const child = Object.freeze({ value: 10 });
     expect(funcs.Read!({ source: { child } })).toBe(10);
     expect(funcs.Read!({ source: {} })).toBeUndefined();

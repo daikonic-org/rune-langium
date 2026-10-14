@@ -253,6 +253,6 @@ export function MakePoint(input: { x: number; y: number }): RuneFuncData<PointSh
 }
 
 export function MakeEmptyBox(input: { w: number }): RuneFuncData<BoxShape> {
-  const result = ({ origin: {}, width: input.w } satisfies RuneFuncData<BoxShape>);
+  const result = ({ origin: ({} as RuneFuncData<PointShape>), width: input.w } satisfies RuneFuncData<BoxShape>);
   return result;
 }

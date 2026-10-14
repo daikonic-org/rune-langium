@@ -9,14 +9,12 @@ import {
   isRosettaFunction,
   isRosettaSymbolReference,
   isShortcutDeclaration,
-  isListLiteral,
-  isRosettaConditionalExpression,
-  isThenOperation,
   type RosettaExpression
 } from '@rune-langium/core';
 import { expressionIsMany } from './navigation.js';
 import { expressionIsPresent, attributeReferenceIsValidated } from './scalar-operators.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
+import { collectionIsPresent, collectionShape, nativeCollection, nativeSingle } from './collection-shape.js';
 
 /** Reuse linked bounds when passing already validated values to another declaration. */
 export function expressionFitsCardinality(
@@ -74,21 +72,8 @@ export function adaptCardinalityValue(
 
 /** Collection-producing operations already return arrays; optional fields can be absent. */
 export function collectionValue(value: string, expression: RosettaExpression | undefined): string {
-  const present = (node: RosettaExpression | undefined): boolean => {
-    if (!node) return false;
-    if (isListLiteral(node)) return node.elements.length > 0;
-    if (isThenOperation(node)) return present(node.function?.body ?? node.argument);
-    if (isRosettaConditionalExpression(node)) return present(node.ifthen) && present(node.elsethen);
-    return [
-      'MapOperation',
-      'FilterOperation',
-      'SortOperation',
-      'ReverseOperation',
-      'DistinctOperation',
-      'FlattenOperation'
-    ].includes(node.$type);
-  };
-  return present(expression) ? value : `(${value} ?? [])`;
+  if (collectionShape(expression) !== 'array') return nativeCollection(value, expression);
+  return collectionIsPresent(expression) ? value : `(${value} ?? [])`;
 }
 
 /** Shared runtime bounds for function arguments, outputs, and nested assignments. */
@@ -126,21 +111,9 @@ export function normalizeCardinalityValue(
   typescript = false
 ): string {
   const many = cardinality.upper === null || cardinality.upper > 1;
-  const known =
-    expression &&
-    !(isRosettaSymbolReference(expression) && !expression.symbol.ref) &&
-    !(isListLiteral(expression) && expression.elements.length === 0);
-  const uniformCollection =
-    expression &&
-    !isRosettaConditionalExpression(expression) &&
-    !isThenOperation(expression) &&
-    !(isRosettaSymbolReference(expression) && isShortcutDeclaration(expression.symbol.ref));
-  const sameCardinality = known && expressionIsMany(expression) === many && (!many || uniformCollection);
-  value = sameCardinality
-    ? many
-      ? collectionValue(value, expression)
-      : value
-    : `${many ? 'rune.list' : 'rune.single'}(${value})`;
+  value = many
+    ? nativeCollection(value, expression, undefined, typescript)
+    : nativeSingle(value, expression, typescript);
   const checks = renderCardinalityChecks(
     'value',
     cardinality,

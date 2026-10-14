@@ -22,7 +22,8 @@ import {
   nativeEqualityOperands,
   nativeScalarOperands,
   nativeTemporalOperands,
-  requiredScalarKind
+  requiredScalarKind,
+  primitiveElementKind
 } from '../expr/scalar-operators.js';
 import { TEMPORAL_CONVERSION_PATTERNS } from '../expr/temporal-conversions.js';
 import { functionInputs, functionOutput } from '../types/func.js';
@@ -31,6 +32,9 @@ import type { GeneratedProjection } from './types.js';
 import {
   pythonArgument,
   pythonBind,
+  pythonCollection,
+  pythonPresence,
+  pythonPrimitiveKey,
   pythonDeclarationValue,
   pythonComparison,
   pythonFresh,
@@ -184,7 +188,11 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
           return `(rune.dateDays(${left}) - rune.dateDays(${right}))`;
         if (rightKind === 'time' && expression.operator === '+') return `rune.dateJoin(${left}, ${right})`;
       }
-      return `rune.binary(${left}, ${right}, lambda a, b: ${operation})`;
+      return pythonBind(
+        `([value for value in ${pythonCollection(left)} if value is not None], [value for value in ${pythonCollection(right)} if value is not None])`,
+        '_rune_operands',
+        `(lambda a, b: ${operation})(_rune_operands[0][0], _rune_operands[1][0]) if len(_rune_operands[0]) == 1 and len(_rune_operands[1]) == 1 else None`
+      );
     }
     case 'EqualityOperation': {
       const left = expression.left ? render(expression.left, valueContext) : argument(false),
@@ -222,38 +230,88 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         expression.operator,
         type === 'string'
       );
-      return `rune.compare(${left}, ${right}, lambda a, b: ${compare}, ${pyString(expression.cardMod ?? 'all')})`;
+      return pythonBind(
+        `([value for value in ${pythonCollection(left)} if value is not None], [value for value in ${pythonCollection(right)} if value is not None])`,
+        '_rune_operands',
+        `bool(_rune_operands[0] and _rune_operands[1]) and ${expression.cardMod === 'any' ? 'any' : 'all'}(${compare} for a in _rune_operands[0] for b in _rune_operands[1])`
+      );
     }
     case 'LogicalOperation':
       return `(${expression.left ? render(expression.left, valueContext) : argument(false)} ${expression.operator} ${render(expression.right, valueContext)})`;
     case 'RosettaContainsExpression':
-    case 'RosettaDisjointExpression':
-      return `rune.${expression.$type === 'RosettaContainsExpression' ? 'contains' : 'disjoint'}(${expression.left ? render(expression.left, valueContext) : argument(false)}, ${render(expression.right, valueContext)})`;
+    case 'RosettaDisjointExpression': {
+      const left = expression.left ? render(expression.left, valueContext) : argument(false),
+        right = render(expression.right, valueContext);
+      const kind = primitiveElementKind(expression.left);
+      if (kind && kind === primitiveElementKind(expression.right) && ['string', 'number', 'boolean'].includes(kind)) {
+        const operands = pythonFresh(context, 'operands'),
+          keys = pythonFresh(context, 'keys');
+        const key = pythonPrimitiveKey('value', kind);
+        const values = `(${pythonCollection(left, expression.left)}, ${pythonCollection(right, expression.right)})`;
+        const contains = `bool(${operands}[0] and ${operands}[1]) and all(${key} in ${keys} for value in ${operands}[1])`;
+        const disjoint = `not any(${key} in ${keys} for value in ${operands}[1])`;
+        return pythonBind(
+          values,
+          operands,
+          pythonBind(
+            `{${key} for value in ${operands}[0]}`,
+            keys,
+            expression.$type === 'RosettaContainsExpression' ? contains : disjoint
+          )
+        );
+      }
+      return `rune.${expression.$type === 'RosettaContainsExpression' ? 'contains' : 'disjoint'}(${left}, ${right})`;
+    }
     case 'RosettaExistsExpression': {
       const value = argument(false);
-      if (!expression.modifier) return `rune.exists(${value})`;
-      return `(len(rune.list(${value})) ${expression.modifier === 'single' ? '== 1' : '> 1'})`;
+      if (!expression.modifier) return pythonPresence(value);
+      return `(len(${pythonCollection(value)}) ${expression.modifier === 'single' ? '== 1' : '> 1'})`;
     }
     case 'RosettaAbsentExpression':
-      return `(not rune.exists(${argument(false)}))`;
+      return pythonPresence(argument(false), undefined, true);
     case 'RosettaCountOperation':
-      return `len(rune.list(${argument(false)}))`;
+      return `len(${pythonCollection(argument(false))})`;
     case 'RosettaOnlyElement':
-      return `rune.only(${argument()})`;
+      return pythonBind(
+        pythonCollection(argument()),
+        '_rune_values',
+        '_rune_values[0] if len(_rune_values) == 1 else None'
+      );
     case 'FirstOperation':
     case 'LastOperation':
-      return `rune.edge(${argument()}, ${pyBool(expression.$type === 'LastOperation')})`;
+      return pythonBind(
+        pythonCollection(argument()),
+        '_rune_values',
+        `_rune_values[${expression.$type === 'LastOperation' ? '-1' : '0'}] if _rune_values else None`
+      );
     case 'SumOperation':
-      return `sum(rune.list(${argument(false)}))`;
+      return `sum(${pythonCollection(argument(false))})`;
     case 'FlattenOperation': {
       const item = pythonFresh(context, 'item'),
         child = pythonFresh(context, 'child');
-      return `[${child} for ${item} in rune.list(${argument()}) for ${child} in rune.list(${item})]`;
+      return `[${child} for ${item} in ${pythonCollection(argument())} for ${child} in ${pythonCollection(item)}]`;
     }
     case 'ReverseOperation':
-      return `list(reversed(rune.list(${argument()})))`;
-    case 'DistinctOperation':
+      return `list(reversed(${pythonCollection(argument())}))`;
+    case 'DistinctOperation': {
+      const kind = primitiveElementKind(arg);
+      const wrapped = context.preserveMetadata ? expressionMetadataKind(arg) : undefined;
+      if (kind && ['number', 'string', 'boolean'].includes(kind)) {
+        const values = pythonCollection(argument(), arg);
+        if (!wrapped && kind === 'boolean') return `list(dict.fromkeys(${values}))`;
+        const item = pythonFresh(context, 'item'),
+          seen = pythonFresh(context, 'seen'),
+          key = pythonFresh(context, 'key');
+        const payload = pythonUnwrap(item, wrapped, false);
+        const identity = pythonPrimitiveKey(payload, kind);
+        return pythonBind(
+          'set()',
+          seen,
+          `[${item} for ${item} in ${values} for ${key} in [${identity}] if ${key} not in ${seen} and not ${seen}.add(${key})]`
+        );
+      }
       return `rune.distinct(${argument()}, ${pyBool(!!context.preserveMetadata && !!expressionMetadataKind(arg))})`;
+    }
     case 'FilterOperation':
     case 'MapOperation': {
       const item = pythonFresh(context, 'item');
@@ -269,8 +327,8 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       const mapped = pythonFresh(context, 'mapped');
       const result =
         expression.$type === 'FilterOperation'
-          ? `[${item} for ${item} in rune.list(${input}) if ${body}]`
-          : `[${mapped} for ${item} in rune.list(${input}) for ${mapped} in rune.list(${body})]`;
+          ? `[${item} for ${item} in ${pythonCollection(input, arg)} if ${body}]`
+          : `[${mapped} for ${item} in ${pythonCollection(input, arg)} for ${mapped} in ${pythonCollection(body, expression.function?.body)}]`;
       return expression.$type === 'FilterOperation' && !context.preserveMetadata
         ? pythonUnwrap(result, expressionMetadataKind(arg), true)
         : result;
@@ -282,7 +340,22 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         kind = expressionMetadataKind(arg);
       const child = pythonInline(expression.function, valueContext, [item], arg);
       const key = expression.function ? render(expression.function.body, child) : pythonUnwrap(item, kind);
-      const result = `rune.ordered(${argument(!!kind || context.preserveMetadata)}, lambda ${item}: ${key}, ${pyString(expression.operator)})`;
+      const keyKind = primitiveElementKind(expression.function?.body ?? arg);
+      let result: string;
+      if (keyKind && ['number', 'string', 'boolean'].includes(keyKind)) {
+        const nullsLast = expression.$type !== 'MaxOperation';
+        const keyValue = keyKind === 'string' ? `value.encode("utf-16-be", "surrogatepass")` : 'value';
+        const ordering = pythonBind(
+          key,
+          'value',
+          `(value is ${nullsLast ? '' : 'not '}None, ${keyValue} if value is not None else 0)`
+        );
+        const values = pythonCollection(argument(!!kind || context.preserveMetadata), arg);
+        const operation =
+          expression.$type === 'SortOperation' ? 'sorted' : expression.$type === 'MinOperation' ? 'min' : 'max';
+        result = `${operation}(${values}, key=lambda ${item}: ${ordering}${expression.$type === 'SortOperation' ? '' : ', default=None'})`;
+      } else
+        result = `rune.ordered(${argument(!!kind || context.preserveMetadata)}, lambda ${item}: ${key}, ${pyString(expression.operator)})`;
       return context.preserveMetadata ? result : pythonUnwrap(result, kind, expression.$type === 'SortOperation');
     }
     case 'ReduceOperation': {
@@ -305,7 +378,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       const first = pythonNormalize(item, inputKind, resultKind);
       const input =
         inputKind === 'reference' && !resultKind
-          ? `[${item} for ${item} in rune.list(${argument(true)}) if rune.unwrap(${item}) is not None]`
+          ? `[${item} for ${item} in ${pythonCollection(argument(true), arg)} if ${pythonUnwrap(item, inputKind)} is not None]`
           : argument(true);
       const reduced = `rune.reduce(${input}, lambda ${accumulator}, ${item}: ${result}, lambda ${item}: ${first})`;
       return pythonUnwrap(reduced, context.preserveMetadata ? undefined : resultKind);
@@ -337,7 +410,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       );
       const item = pythonFresh(context, 'item'),
         branch = pythonFresh(context, 'branch');
-      return `[${item} for ${branch} in [${values.join(', ')}] for ${item} in rune.list(${branch})${target ? ` if ${item} is not None` : ''}]`;
+      return `[${item} for ${branch} in [${values.join(', ')}] for ${item} in ${pythonCollection(branch)}${target ? ` if ${item} is not None` : ''}]`;
     }
     case 'RosettaConstructorExpression': {
       const target = expression.typeRef.$type === 'RosettaSymbolReference' ? expression.typeRef.symbol.ref : undefined;
@@ -363,7 +436,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
     case 'DefaultOperation': {
       const left = expression.left ? branch(expression.left) : argument(),
         right = branch(expression.right);
-      return `rune.default(${left}, lambda: ${right})`;
+      return pythonBind(left, '_rune_default', `_rune_default if ${pythonPresence('_rune_default')} else ${right}`);
     }
     case 'JoinOperation': {
       const separator = expression.right ? render(expression.right, valueContext) : '""';
@@ -443,9 +516,9 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
                   : pythonRead(root, [name]);
               })
               .join(', ')}]`
-          : `rune.list(${root})`;
+          : pythonCollection(root);
       const value = pythonFresh(context, 'value');
-      const count = `sum(1 for ${value} in ${values} if rune.exists(${value}))`;
+      const count = `sum(1 for ${value} in ${values} if ${pythonPresence(value)})`;
       const predicate = `${count} ${expression.$type === 'ChoiceOperation' && expression.necessity === 'optional' ? '<= 1' : '== 1'}`;
       return pythonBind(
         argument(false),
@@ -468,7 +541,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       const single = `${value} if ${selected.guard} else None`;
       const mapped = pythonFresh(context, 'selected');
       const result = expressionIsMany(expression)
-        ? `[${mapped} for ${name} in rune.list(${argument(true)}) for ${mapped} in rune.list(${single})]`
+        ? `[${mapped} for ${name} in ${pythonCollection(argument(true), arg)} for ${mapped} in ${pythonCollection(single)}]`
         : pythonBind(argument(true), name, single);
       return context.preserveMetadata
         ? result
@@ -516,7 +589,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
               : undefined;
           if (!guard) throw new Error('Unresolved switch guard');
           branches.push(
-            `(lambda: rune.equals(${selector}, ${guard}), lambda: ${switchBranch(current.expression, childContext)})`
+            `(lambda: ${['number', 'string', 'boolean'].includes(primitiveElementKind(arg) ?? '') ? `${selector} == ${guard}` : `rune.equals(${selector}, ${guard})`}, lambda: ${switchBranch(current.expression, childContext)})`
           );
         }
       }

@@ -192,7 +192,7 @@ const rune = {
 export function CollectItems(input: { value: number }): number[] {
   let result: number[] = [];
   {
-    const __assignmentValue = rune.list(input.value);
+    const __assignmentValue = [input.value];
     if (Array.isArray(__assignmentValue)) result.push(...__assignmentValue);
     else if (__assignmentValue != null) result.push(__assignmentValue);
   }
