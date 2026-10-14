@@ -189,6 +189,6 @@ const rune = {
 // --- end runtime helpers ---
 
 
-export function AddTwo(input: { a: number; b: number }): number {
-  return (input.a + input.b);
+export function AddTwo(a: number, b: number): number {
+  return (a + b);
 }

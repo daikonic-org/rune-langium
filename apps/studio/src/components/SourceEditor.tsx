@@ -35,10 +35,11 @@ import {
   setProtectedRegion
 } from '../lang/document-extensions.js';
 import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
+import { sourceDeclarationAt } from '../lang/source-declaration.js';
 import type { LspClientService } from '../services/lsp-client.js';
 import { pathToUri } from '../utils/uri.js';
 import { cn } from '@rune-langium/design-system/utils';
-import { isTypeRefPayload, makeNodeId, TYPE_REF_PAYLOAD_MIME, useLatestRef } from '@rune-langium/visual-editor';
+import { isTypeRefPayload, TYPE_REF_PAYLOAD_MIME, useLatestRef } from '@rune-langium/visual-editor';
 import { withInstrumentation, Capture } from '../services/instrumentation/core.js';
 
 // Re-export pathToUri for backward compatibility
@@ -208,60 +209,6 @@ function scrollToPosition(
     effects: [EditorView.scrollIntoView(selectionAnchor, { y: 'center' }), setSourceReveal.of(selectionAnchor)]
   });
   if (focus) view.contentDOM.focus({ preventScroll: true });
-}
-
-/**
- * Extract a graph nodeId (namespace.TypeName) from the cursor position
- * after a go-to-definition jump (Task 7).
- *
- * When jumpToDefinition places the cursor at a type definition, we scan
- * backwards to find the `namespace` declaration and forwards/around to
- * find the type keyword + name (e.g. `type Foo:`, `enum Bar:`, `func Baz:`).
- *
- * Returns null if the position doesn't correspond to a recognizable type definition.
- */
-function extractNodeIdAtPosition(state: EditorState, pos: number): string | null {
-  const doc = state.doc;
-  const lineAt = doc.lineAt(pos);
-
-  // Find the type name on the current line or nearby lines.
-  // Rosetta DSL patterns: `type <Name>:`, `enum <Name>:`, `func <Name>:`,
-  // `choice <Name>:`, `typeAlias <Name>`, `metaType <Name>`
-  const typePattern = /\b(type|enum|func|choice|typeAlias|metaType)\s+(\w+)/;
-
-  // Check the line where the cursor landed
-  let match = typePattern.exec(lineAt.text);
-
-  // If not on this line, check a few lines around (definition might span lines)
-  if (!match) {
-    for (let delta = -2; delta <= 2; delta++) {
-      if (delta === 0) continue;
-      const lineNum = lineAt.number + delta;
-      if (lineNum < 1 || lineNum > doc.lines) continue;
-      const nearbyLine = doc.line(lineNum);
-      match = typePattern.exec(nearbyLine.text);
-      if (match) break;
-    }
-  }
-
-  if (!match) return null;
-  const typeName = match[2]!;
-
-  // Scan backwards from the cursor to find the `namespace` declaration
-  const nsPattern = /^namespace\s+([\w.]+)/;
-  let namespace: string | null = null;
-  for (let ln = lineAt.number; ln >= 1; ln--) {
-    const nsMatch = nsPattern.exec(doc.line(ln).text);
-    if (nsMatch) {
-      namespace = nsMatch[1]!;
-      break;
-    }
-  }
-
-  // Skip graph navigation if namespace can't be determined
-  if (!namespace) return null;
-
-  return makeNodeId(namespace, typeName, match[1] === 'func' ? 'RosettaFunction' : undefined);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -550,19 +497,7 @@ const renderSourceEditor = withInstrumentation(
         const editingCompartment = editingCompartmentRef.current;
         if (editingCompartment) exts.push(editingCompartment.of(editingExtensions(filePath, isReadOnly)));
 
-        // Task 7 (+ issue #453 follow-up): detect go-to-definition navigation
-        // AND plain click-driven cursor placement, firing onNavigateToNode
-        // for either. @codemirror/lsp-client's jumpToDefinition tags its
-        // transaction "select.definition"; CodeMirror's own built-in mouse
-        // handling tags a click-to-position-cursor transaction
-        // "select.pointer" (@codemirror/view's MouseSelectionDragging —
-        // verified against the installed package). Originally this only
-        // listened for "select.definition", so placing the cursor in a
-        // type's own declaration via a plain click never synced selection
-        // elsewhere — only the LSP's explicit go-to-definition action did.
-        // Deliberately NOT "select.keyboard" (arrow-key cursor movement) —
-        // that would resync on every keystroke while just moving around;
-        // add it separately if that granularity is ever wanted.
+        // Plain clicks and LSP definition jumps synchronize recognized declaration names.
         exts.push(
           EditorView.updateListener.of((update) => {
             for (const tr of update.transactions) {
@@ -571,7 +506,7 @@ const renderSourceEditor = withInstrumentation(
                 // position. Try to extract the type name at the cursor
                 // position for graph navigation.
                 const pos = tr.newSelection.main.head;
-                const nodeId = extractNodeIdAtPosition(update.state, pos);
+                const nodeId = sourceDeclarationAt(update.state, pos);
                 if (nodeId && onNavigateToNodeRef.current) {
                   onNavigateToNodeRef.current(nodeId);
                 }

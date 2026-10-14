@@ -13,6 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
 import { generate } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 const SOURCE_A = `namespace foo
 
@@ -53,7 +54,7 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     }
   });
 
-  it('barrel layout emits per-namespace files + index.ts + runtime.ts', async () => {
+  it('barrel layout emits per-namespace files + index.ts + helpers.ts', async () => {
     const docs = await parseTwoNamespaces();
     const outputs = await generate(docs, {
       target: 'typescript',
@@ -61,18 +62,17 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     });
 
     const paths = outputs.map((o) => o.relativePath).sort();
-    // Single runtime.ts: shared helpers + builtin lib funcs (isLeapYear).
-    expect(paths).toEqual(['bar.ts', 'foo.ts', 'index.ts', 'runtime.ts']);
+    expect(paths).toEqual(['bar.ts', 'foo.ts', 'helpers.ts', 'index.ts']);
 
     const fooOutput = outputs.find((o) => o.relativePath === 'foo.ts');
-    expect(fooOutput?.content).toContain(`import { rune, type RuneFuncData } from './runtime.js';`);
+    expect(fooOutput?.content).toContain(`import { rune, type RuneFuncData } from './helpers.js';`);
     expect(fooOutput?.content).not.toContain('// --- rune-codegen runtime helpers (inlined) ---');
 
     const indexOutput = outputs.find((o) => o.relativePath === 'index.ts');
     expect(indexOutput?.content).toContain(`export * from './foo.js';`);
     expect(indexOutput?.content).toContain(`export * from './bar.js';`);
 
-    const runtimeOutput = outputs.find((o) => o.relativePath === 'runtime.ts');
+    const runtimeOutput = outputs.find((o) => o.relativePath === 'helpers.ts');
     expect(runtimeOutput?.content).toContain(`export const runeCheckOneOf`);
     expect(runtimeOutput?.content).toContain(`export const runeCount`);
     expect(runtimeOutput?.content).toContain(`export const runeAttrExists`);
@@ -87,12 +87,14 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     });
 
     const paths = outputs.map((o) => o.relativePath).sort();
-    // Single runtime.ts: shared helpers + builtin lib funcs (isLeapYear).
-    expect(paths).toEqual(['model.ts', 'runtime.ts']);
+    expect(paths).toEqual(['helpers.ts', 'model.ts']);
+    expect(outputs[0]?.relativePath).toBe('model.ts');
+    expect(outputs[1]?.artifactRole).toBe('support');
 
     const model = outputs.find((o) => o.relativePath === 'model.ts');
-    // One canonical helpers block; no Zod import (TS-only target).
-    expect((model?.content.match(/const runeCheckOneOf = \(values:/g) ?? []).length).toBe(1);
+    expect(model?.content).toContain(`from './helpers.js';`);
+    expect(model?.content).not.toContain('const runeCheckOneOf');
+    expect(model?.content).not.toContain('const rune =');
     expect(model?.content).not.toContain(`import { z } from 'zod';`);
     // Both namespace bodies present.
     expect(model?.content).toContain('Trade');
@@ -101,7 +103,7 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     expect((model?.content.match(/^\/\/ Source namespace:/gm) ?? []).length).toBe(0);
   });
 
-  it('does not expose namespace-relative function metadata in a concatenated artifact', async () => {
+  it('retains ordered function metadata in the concatenated module', async () => {
     const { RuneDsl } = createRuneDslServices();
     const docs = [SOURCE_A, SOURCE_B].map((source, i) =>
       RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
@@ -116,8 +118,33 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     const model = bundled.find((output) => output.relativePath === 'model.ts')!;
     expect(model.content).toContain('export function Fn0');
     expect(model.content).toContain('export function Fn1');
-    expect(model.funcs).toEqual([]);
+    expect(model.funcs).toHaveLength(2);
+    expect(model.funcs.every((func) => func.relativePath === 'model.ts' && func.parameterNames.length === 0)).toBe(
+      true
+    );
     expect(model.projections).toHaveLength(2);
+  });
+
+  it.each([
+    ['barrel', 'helpers'],
+    ['single-file', 'helpers'],
+    ['barrel', 'Helpers'],
+    ['single-file', 'Helpers']
+  ] as const)('keeps helper modules distinct from namespace files in %s layout with %s', async (layout, namespace) => {
+    const { RuneDsl } = createRuneDslServices();
+    const docs = [namespace, 'helpers1'].map((name, index) =>
+      RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+        `namespace ${name}\nfunc Return${index}:\n output: answer number (1..1)\n set answer: ${index + 1}`,
+        URI.parse(`file:///${name}.rosetta`)
+      )
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
+    const outputs = await generate(docs, { target: 'typescript', typescript: { layout } });
+    expect(new Set(outputs.map((output) => output.relativePath)).size).toBe(outputs.length);
+    expect(outputs.some((output) => output.relativePath === 'helpers2.ts')).toBe(true);
+    const exports = compileGeneratedTypeScript(outputs, { entry: layout === 'barrel' ? 'index.ts' : 'model.ts' });
+    expect(exports.Return0!()).toBe(1);
+    expect(exports.Return1!()).toBe(2);
   });
 
   it('single-file layout fires the size guardrail when maxNamespaces is exceeded', async () => {

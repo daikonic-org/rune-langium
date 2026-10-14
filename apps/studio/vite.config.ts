@@ -62,7 +62,15 @@ export default defineConfig(() => {
     // Generate TSX before React transforms it; use the same config as CLI/discovery.
     plugins: [z2fVite({ configOverride: studioFormConfig }), tailwindcss(), react(), forceExitAfterBuild()],
     optimizeDeps: {
-      include: ['buffer']
+      // Worker-only dynamic imports must be discovered before a dev session starts.
+      include: [
+        'buffer',
+        'prettier/standalone',
+        'prettier/plugins/typescript',
+        'prettier/plugins/estree',
+        '@wasm-fmt/ruff_fmt/vite'
+      ],
+      exclude: ['@wasm-fmt/ruff_fmt/node']
     },
     // langium-zod's `dist/index.js` re-exports its CLI (`generate` from `cli.js`)
     // which runs `process.argv.slice(2)` at module-init. When vite optimises

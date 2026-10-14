@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-import ts from 'typescript-classic';
 import { functionInputs } from '../helpers/function-inputs.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AstUtils, URI, type LangiumDocument } from 'langium';
@@ -44,16 +44,15 @@ async function executableFunctions<T extends Record<string, unknown> = Record<st
   const funcs = await linkedFunctions(source);
   const document = AstUtils.getDocument(funcs[0]!);
   const python = generatePythonModule([document]);
-  const [typescript] = await generate([document], {
+  const typescriptOutputs = await generate([document], {
     target: 'typescript',
     strict: true,
     typescript: { layout: 'single-file' }
   });
-  const exports = {} as T;
-  const javascript = ts.transpileModule(typescript!.content, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-  }).outputText;
-  new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+  const exports = recordFunctionExports(
+    compileGeneratedTypeScript(typescriptOutputs, { checkTypes: false }) as T,
+    typescriptOutputs
+  );
   return { python, exports, document };
 }
 
@@ -443,16 +442,15 @@ func Build:
 `);
     const document = AstUtils.getDocument(funcs[0]!);
     const python = generatePythonModule([document]);
-    const [typescript] = await generate([document], {
+    const typescriptOutputs = await generate([document], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript(typescriptOutputs, { checkTypes: false }),
+      typescriptOutputs
+    );
     const value = exports.Build!({ id: 'id' });
     expect(value === undefined ? null : JSON.parse(JSON.stringify(value, (_key, value) => value ?? null))).toEqual(
       expected
@@ -482,16 +480,15 @@ func Build:
 `);
     const document = AstUtils.getDocument(funcs[0]!);
     const python = generatePythonModule([document]);
-    const [typescript] = await generate([document], {
+    const typescriptOutputs = await generate([document], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript(typescriptOutputs, { checkTypes: false }),
+      typescriptOutputs
+    );
     const expected = JSON.parse(JSON.stringify(exports.Build!({})));
     expect(expected).toEqual({ amount: 1, values: [2, 3] });
     expect(
@@ -532,16 +529,15 @@ func Build:
 `);
     const document = AstUtils.getDocument(funcs[0]!);
     const python = generatePythonModule([document]);
-    const [typescript] = await generate([document], {
+    const typescriptOutputs = await generate([document], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript(typescriptOutputs, { checkTypes: false }),
+      typescriptOutputs
+    );
     const original =
       shape === 'collection'
         ? [
@@ -601,16 +597,15 @@ func Create:
 `);
     const doc = AstUtils.getDocument(funcs[0]!);
     const python = generatePythonModule([doc]);
-    const [typescript] = await generate([doc], {
+    const typescriptOutputs = await generate([doc], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: { value?: number }) => unknown> = {};
-    const js = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', js)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript(typescriptOutputs, { checkTypes: false }),
+      typescriptOutputs
+    );
     expect(exports.Forward!({})).toBeUndefined();
     const present = exports.Forward!({ value: 0 });
     expect(present).toEqual(kind === 'scheme' ? { value: 0, meta: {} } : { value: 0 });
@@ -704,7 +699,7 @@ func AliasOutput:
       ])[0]!.error
     ).toContain('produced');
     expect(module.code).toContain('result: float | None = None');
-    expect(module.code).toContain(`def ${name}(input: ${name}_Input) -> float:`);
+    expect(module.code).toContain(`def ${name}(flag: bool) -> float:`);
   });
 
   it('keeps comprehension bindings and runtime builtins separate from legal declarations', async () => {
@@ -738,7 +733,7 @@ func Native:
     const module = generatePythonModule([AstUtils.getDocument(funcs[0]!)]);
     const call = (name: string) => module.bindings.get(`python.names.${name}`)!;
     expect(
-      execute(module.code + '\nrune_bind("python.names.Native", lambda input: input["amount"] + 1)\n', [
+      execute(module.code + '\nrune_bind("python.names.Native", lambda amount: amount + 1)\n', [
         { expression: `${call('Collision')}(data)`, data: { xs: [1, 2] } },
         { expression: `${call('reversed')}(data)`, data: { xs: [1, 2] } },
         { expression: `${call('Native')}(data)`, data: { amount: 2 } }
@@ -796,6 +791,95 @@ func Check:
     expect(() => generatePythonModule([AstUtils.getDocument(different[0]!)])).toThrow('linked common parent');
   });
 
+  it('checks common-parent metadata payloads in only-exists expressions and validators', async () => {
+    const funcs = await linkedFunctions(`namespace python.parent_metadata
+annotation metadata:
+ reference string (0..1)
+ scheme string (0..1)
+metaType reference string
+metaType scheme string
+type Parent:
+ scalar number (0..1)
+  [metadata reference]
+ many number (0..*)
+  [metadata reference]
+ field number (0..1)
+  [metadata scheme]
+ fields number (0..*)
+  [metadata scheme]
+type Terms extends Parent:
+ flag boolean (0..1)
+type Envelope:
+ terms Terms (0..1)
+ condition Selection: (terms -> flag) only exists
+func Check:
+ inputs: terms Terms (0..1)
+ output: result boolean (1..1)
+ set result: (terms -> flag) only exists
+func Nested:
+ inputs: terms Terms (0..1)
+ output: result boolean (1..1)
+ set result: if True then (terms -> flag) only exists else False
+func Verify:
+ inputs: terms Terms (0..1)
+ output: result boolean (1..1)
+ set result: True
+ post-condition Selection: (terms -> flag) only exists
+`);
+    const document = AstUtils.getDocument(funcs[0]!);
+    const python = generatePythonModule([document]);
+    const outputs = await generate([document], {
+      target: 'typescript',
+      strict: true,
+      typescript: { layout: 'single-file' }
+    });
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript<{
+        Envelope: new (data: object) => { validateSelection(): { valid: boolean } };
+        Check: (data: object) => boolean;
+        Nested: (data: object) => boolean;
+        Verify: (data: object) => boolean;
+      }>(outputs),
+      outputs
+    );
+    const cases = [
+      { terms: undefined, valid: true },
+      { terms: {}, valid: true },
+      { terms: { flag: false }, valid: true },
+      { terms: { scalar: { externalReference: 'id' } }, valid: true },
+      { terms: { many: [{ externalReference: 'id' }] }, valid: true },
+      { terms: { many: [] }, valid: true },
+      { terms: { scalar: { value: 0 } }, valid: false },
+      { terms: { many: [{ externalReference: 'id' }, { value: 0 }] }, valid: false },
+      { terms: { field: { value: 0, meta: {} } }, valid: false },
+      { terms: { fields: [{ value: 0, meta: {} }] }, valid: false }
+    ];
+    for (const { terms, valid } of cases) {
+      const data = { terms };
+      expect(exports.Check(data)).toBe(valid);
+      expect(exports.Nested(data)).toBe(valid);
+      expect(new exports.Envelope(data).validateSelection().valid).toBe(valid);
+      if (valid) expect(exports.Verify(data)).toBe(true);
+      else expect(() => exports.Verify(data)).toThrow('Selection');
+    }
+    for (const name of ['Check', 'Nested', 'Verify']) {
+      const results = execute(
+        python.code,
+        cases.map(({ terms }) => ({
+          expression: `${python.bindings.get(`python.parent_metadata.${name}`)}(data)`,
+          data: { terms }
+        }))
+      );
+      cases.forEach(({ valid }, index) => {
+        if (name === 'Verify' && !valid) expect(results[index]?.error).toContain('Selection');
+        else
+          expect(results[index], `${name}: ${JSON.stringify(cases[index]!.terms)}`).toEqual({
+            value: name === 'Verify' ? true : valid
+          });
+      });
+    }
+  }, 30_000);
+
   it('types a continuous body and preserves aliases, nested writes, append and condition order', async () => {
     const funcs = await linkedFunctions(`namespace python.functions
 type Child:
@@ -816,11 +900,11 @@ func Build:
     const document = AstUtils.getDocument(funcs[0]!);
     const module = generatePythonModule([document]);
     const name = module.bindings.get('python.functions.Build')!;
-    expect(module.code).toContain(`def ${name}(input: ${name}_Input) -> Result:`);
+    expect(module.code).toContain(`def ${name}(value: float) -> Result:`);
     expect(
       execute(module.code + '\nfrom typing import get_type_hints\n', [
         {
-          expression: `str(get_type_hints(${name}_Input)["value"])`
+          expression: `str(get_type_hints(${name})["value"])`
         }
       ])
     ).toEqual([{ value: "<class 'float'>" }]);
@@ -916,7 +1000,7 @@ func Call:
       'Positive'
     );
     expect(
-      execute(module.code + '\nrune_bind("python.native.Native", lambda input: input["amount"] * 3)\n', [
+      execute(module.code + '\nrune_bind("python.native.Native", lambda amount: amount * 3)\n', [
         { expression: `${name}(data)`, data: { amount: 2 } }
       ])
     ).toEqual([{ value: 6 }]);
@@ -988,16 +1072,18 @@ func Identity:
     const python = generatePythonModule([document]);
     const condition = python.projections.find((entry) => entry.kind === 'condition')!;
     const name = /^def (\w+)/.exec(condition.code)![1]!;
-    const [typescript] = await generate([document], {
+    const typescriptOutputs = await generate([document], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, new (data: object) => { validateSelection(): { valid: boolean } }> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript<Record<string, new (data: object) => { validateSelection(): { valid: boolean } }>>(
+        typescriptOutputs,
+        { checkTypes: false }
+      ),
+      typescriptOutputs
+    );
     const cases = [
       { data: {}, expected: false },
       { data: { left: 0 }, expected: true },
@@ -1032,16 +1118,18 @@ func Anchor:
     const python = generatePythonModule([document]);
     const condition = python.projections.find((entry) => entry.kind === 'condition')!;
     const name = /^def (\w+)/.exec(condition.code)![1]!;
-    const [typescript] = await generate([document], {
+    const typescriptOutputs = await generate([document], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, new (data: object) => { validateSelection(): { valid: boolean } }> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript<Record<string, new (data: object) => { validateSelection(): { valid: boolean } }>>(
+        typescriptOutputs,
+        { checkTypes: false }
+      ),
+      typescriptOutputs
+    );
     expect(new exports.Empty!({}).validateSelection().valid).toBe(false);
     expect(execute(python.code, [{ expression: `${name}(data)`, data: {} }])).toEqual([{ value: false }]);
   });
@@ -1057,16 +1145,15 @@ func Validate:
 `);
     const document = AstUtils.getDocument(funcs[0]!);
     const python = generatePythonModule([document]);
-    const [typescript] = await generate([document], {
+    const typescriptOutputs = await generate([document], {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, (data: object) => unknown> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript(typescriptOutputs, { checkTypes: false }),
+      typescriptOutputs
+    );
     const cases = [{}, { left: 0 }, { right: false }, { left: 0, right: false }];
     const results = execute(
       python.code,
@@ -1165,7 +1252,7 @@ func F:
     expect(
       execute(module.code + '\nfrom typing import get_type_hints\n', [
         {
-          expression: `list(get_type_hints(get_type_hints(get_type_hints(${name})["input"])["other"]))`
+          expression: `list(get_type_hints(get_type_hints(${name})["other"]))`
         }
       ])
     ).toEqual([{ value: ['x'] }]);
@@ -1427,16 +1514,18 @@ describe('pinned CDM Python backend execution', () => {
   it('matches the CDM UnitType one-of predicate for absent and multiple fields', async () => {
     const projection = module.projections.find((entry) => entry.code.includes('data: UnitType)'))!;
     const name = /^def (\w+)/.exec(projection.code)![1]!;
-    const [typescript] = await generate(documents, {
+    const typescriptOutputs = await generate(documents, {
       target: 'typescript',
       strict: true,
       typescript: { layout: 'single-file' }
     });
-    const exports: Record<string, new (data: object) => { validateUnitType(): { valid: boolean } }> = {};
-    const javascript = ts.transpileModule(typescript!.content, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    new Function('require', 'exports', javascript)(createRequire(import.meta.url), exports);
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript<Record<string, new (data: object) => { validateUnitType(): { valid: boolean } }>>(
+        typescriptOutputs,
+        { checkTypes: false }
+      ),
+      typescriptOutputs
+    );
     const cases = [
       { data: {}, expected: false },
       { data: { financialUnit: 'Share' }, expected: true },
@@ -1454,7 +1543,7 @@ describe('pinned CDM Python backend execution', () => {
         cases.map(({ data }) => ({ expression: `${name}(data)`, data }))
       )
     ).toEqual(expected);
-  });
+  }, 30_000);
   it.each(referenceCases)('$id ($function)', (testCase) => {
     const output = outputs[referenceCases.indexOf(testCase)]!;
     if (testCase.expectedError) expect(output.error).toContain(testCase.expectedError);

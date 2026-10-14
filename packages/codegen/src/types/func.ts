@@ -18,8 +18,11 @@ import {
   isChoice,
   isChoiceOption,
   isRosettaTypeAlias,
+  isRosettaType,
+  isTypeCall,
   type RosettaFunction,
   type Attribute,
+  type RosettaType,
   type TypeCall
 } from '@rune-langium/core';
 
@@ -396,12 +399,12 @@ export function resolveFuncTypeTs(typeName: string): string {
  * Build a RuneFuncParam from a Langium Attribute node.
  */
 function funcTypeInfo(
-  typeCall: TypeCall | undefined,
+  typeCall: TypeCall | RosettaType | undefined,
   plainDataTypeNames?: ReadonlySet<string>,
   typeNameResolver?: FuncTypeNameResolver
 ): { typeName: string; shapeTypeName?: string } {
-  const ref = typeCall?.type?.ref;
-  const typeName = ref?.name ?? typeCall?.type?.$refText ?? 'unknown';
+  const ref = isTypeCall(typeCall) ? typeCall.type?.ref : typeCall;
+  const typeName = ref?.name ?? (isTypeCall(typeCall) ? typeCall.type?.$refText : undefined) ?? 'unknown';
   const shapeTypeName =
     isData(ref) || isChoice(ref) || plainDataTypeNames?.has(typeName)
       ? `${typeName}Shape`
@@ -432,13 +435,13 @@ function extractParam(
   };
 }
 
-/** Resolve an Attribute's plain-data TypeScript value type at a func boundary. */
+/** Resolve a declared plain-data TypeScript value type at a func boundary or constructor. */
 export function resolveFuncValueTypeTs(
-  attr: { typeCall?: TypeCall },
+  attr: { typeCall?: TypeCall } | RosettaType,
   plainDataTypeNames?: ReadonlySet<string>,
   typeNameResolver?: FuncTypeNameResolver
 ): string {
-  const param = funcTypeInfo(attr.typeCall, plainDataTypeNames, typeNameResolver);
+  const param = funcTypeInfo(isRosettaType(attr) ? attr : attr.typeCall, plainDataTypeNames, typeNameResolver);
   return param.shapeTypeName ? `RuneFuncData<${param.shapeTypeName}>` : resolveFuncTypeTs(param.typeName);
 }
 

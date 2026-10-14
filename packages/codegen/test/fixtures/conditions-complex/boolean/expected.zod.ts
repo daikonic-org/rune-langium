@@ -200,14 +200,14 @@ export const BoolCheckSchema = z
     c: z.string().optional()
   })
   .superRefine((data, ctx) => {
-    if (!(rune.exists(data.a) || rune.exists(data.b))) {
+    if (!(data.a != null || data.b != null)) {
       ctx.addIssue({
         code: 'custom',
         message: 'AOrB: condition failed in BoolCheck',
         path: ['AOrB']
       });
     }
-    if (!(rune.exists(data.a) && rune.exists(data.b))) {
+    if (!(data.a != null && data.b != null)) {
       ctx.addIssue({
         code: 'custom',
         message: 'AAndB: condition failed in BoolCheck',

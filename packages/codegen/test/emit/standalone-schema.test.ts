@@ -5,6 +5,7 @@ import { writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { generatedDirectory } from '../helpers/generated-directory.js';
+import { refinedPreviewSource } from '../helpers/refined-preview.js';
 import { describe, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
 import { createRuneDslServices } from '@rune-langium/core';
@@ -224,6 +225,23 @@ async function toEvaluableJs(tsCode: string): Promise<string> {
 }
 
 describe('emitStandaloneZodSchema', () => {
+  skipIfNodeLt22('preserves inherited refinements when overriding fields in preview schemas', async () => {
+    const docs = await parseModels([refinedPreviewSource]);
+    const { z } = await import('zod');
+    const { RUNTIME_HELPER_JS_SOURCE } = await import('../../src/export.js');
+    for (const name of ['Child', 'Grandchild']) {
+      const emitted = emitStandaloneZodSchema(docs, `test.refinedPreview.${name}`);
+      expect(emitted.diagnostics.filter((entry) => entry.severity === 'error')).toEqual([]);
+      const schema = new Function(
+        'z',
+        `${RUNTIME_HELPER_JS_SOURCE}\n${await toEvaluableJs(emitted.code)}\nreturn ${name}Schema;`
+      )(z);
+      expect(schema.safeParse({ value: 1, note: 'valid' }).success).toBe(true);
+      expect(schema.safeParse({ value: -1, note: 'valid' }).success).toBe(false);
+      expect(schema.safeParse({ value: 1, note: '' }).success).toBe(false);
+    }
+  });
+
   skipIfNodeLt22('validates function inputs through the canonical Data closure without rewriting the AST', async () => {
     const docs = await parseModels([
       `namespace test.values

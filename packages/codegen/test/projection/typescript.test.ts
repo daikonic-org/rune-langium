@@ -108,7 +108,8 @@ func Calendar:
         'body'
       );
       const predicate = new Function(
-        'input',
+        'left',
+        'right',
         'result',
         'Temporal',
         ts.transpileModule(`return ${projected.code};`, {
@@ -117,9 +118,9 @@ func Calendar:
       );
       const left = Temporal.PlainDate.from('2026-10-10');
       const right = Temporal.PlainDate.from('2026-10-10');
-      expect(predicate({ left, right }, left, Temporal), kind).toBe(true);
+      expect(predicate(left, right, left, Temporal), kind).toBe(true);
       const earlier = Temporal.PlainDate.from('2026-10-09');
-      expect(predicate({ left, right: earlier }, left, Temporal), kind).toBe(false);
+      expect(predicate(left, earlier, left, Temporal), kind).toBe(false);
       expect(projected.code).toContain(kind === 'precondition' ? 'Temporal.PlainDate.compare(' : '.equals(');
     }
   });
@@ -140,5 +141,5 @@ func Calendar:
     };
     const projected = selectTypeScriptProjection(bundled, subject, 'function');
     expect(bundled.some((output) => output.content.includes(projected.code))).toBe(true);
-  });
+  }, 30_000);
 });

@@ -199,7 +199,7 @@ export const SetOpsCheckSchema = z
     allowed: z.array(z.string())
   })
   .refine(
-    (data) => rune.disjoint(data.items, data.allowed),
+    (data) => ((left, right) => { const keys = new Set(left); return !right.some((value) => keys.has(value)); })((data.items ?? []), (data.allowed ?? [])),
     'ItemsDisjoint: condition failed in SetOpsCheck'
   );
 export type SetOpsCheck = z.infer<typeof SetOpsCheckSchema>;

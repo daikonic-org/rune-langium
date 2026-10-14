@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -54,7 +55,39 @@ enum Side:
   [metadata reference]
 `;
       sources[1] += '\nfunc isEntry:\n inputs: value int (1..1)\n output: result int (1..1)\n set result: value + 3\n';
+      sources[1] += `
+func GetFloatingRateProcessingParameters:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ alias GetFloatingRateProcessingParameters: value + 100
+ set result: if value = 0 then 4 else beta.GetFloatingRateProcessingParameters(value - 1) + 1
+library function RemoteNative(value int) int
+`;
       sources.push(`namespace caller
+func ReadUnique:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ set result: beta.GetFloatingRateProcessingParameters(value)
+func ShadowUnique:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ alias GetFloatingRateProcessingParameters: value + 100
+ set result: beta.GetFloatingRateProcessingParameters(value)
+func UniquePipeline:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ set result: value then beta.GetFloatingRateProcessingParameters
+func UniqueChild extends beta.GetFloatingRateProcessingParameters:
+ set result: super(value)
+func CallUniqueNative:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ set result: beta.RemoteNative(value)
+func ShadowLateNative:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ alias LateNative: value + 200
+ set result: zeta.LateNative(value)
 func CheckRuntimeNamespace:
  inputs:
   a alpha.rune (1..1)
@@ -142,6 +175,14 @@ type runeAnnotation:
 type runeAnnotation1Args:
  value int (1..1)
 `);
+      sources.push(`namespace observer
+func ShadowAgain:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ alias GetFloatingRateProcessingParameters: value + 200
+ set result: beta.GetFloatingRateProcessingParameters(value)
+`);
+      sources.push('namespace zeta\nlibrary function LateNative(value int) int\n');
       const docs = sources.map((source, index) =>
         RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
           source,
@@ -152,6 +193,11 @@ type runeAnnotation1Args:
       expect(docs.flatMap((doc) => doc.parseResult.parserErrors)).toEqual([]);
       const outputs = await generate(docs, { target: 'typescript', typescript: { layout } });
       expect(outputs.flatMap((output) => output.diagnostics.filter((d) => d.severity === 'error'))).toEqual([]);
+      const projection = outputs
+        .flatMap((output) => output.projections ?? [])
+        .find((entry) => /function ReadUnique\(/.test(entry.code));
+      expect(projection?.body?.code).toContain('GetFloatingRateProcessingParameters(');
+      expect(projection?.body?.code).not.toContain('__rune$');
       const directory = generatedDirectory(join(tmpdir(), 'rune-qualified-runtime-'));
       try {
         writeFileSync(join(directory, 'package.json'), '{"type":"commonjs"}');
@@ -183,7 +229,19 @@ type runeAnnotation1Args:
         program.emit();
         const require = createRequire(join(directory, 'entry.js'));
         const entry = layout === 'single-file' ? 'model' : layout === 'barrel' ? 'index' : 'caller';
-        const funcs = require(`./${entry}.js`);
+        const funcs = recordFunctionExports(require(`./${entry}.js`), outputs);
+        expect(funcs.ReadUnique({ value: 4 })).toBe(8);
+        expect(funcs.ShadowUnique({ value: 4 })).toBe(8);
+        expect(funcs.UniquePipeline({ value: 4 })).toBe(8);
+        expect(funcs.UniqueChild({ value: 4 })).toBe(8);
+        const observer = layout === 'per-namespace' ? recordFunctionExports(require('./observer.js'), outputs) : funcs;
+        expect(observer.ShadowAgain({ value: 4 })).toBe(8);
+        const remoteNative = layout === 'per-namespace' ? require('./beta.js').RemoteNative : funcs.RemoteNative;
+        remoteNative.implementation = (value: number) => value + 5;
+        expect(funcs.CallUniqueNative({ value: 4 })).toBe(9);
+        const lateNative = layout === 'per-namespace' ? require('./zeta.js').LateNative : funcs.LateNative;
+        lateNative.implementation = (value: number) => value + 6;
+        expect(funcs.ShadowLateNative({ value: 4 })).toBe(10);
         const annotations = layout === 'per-namespace' ? require('./annotations.js') : funcs;
         expect(typeof annotations.runeAnnotation2({ tagValue: 'test' })).toBe('function');
         expect(funcs.CheckRuntimeNamespace({ a: { value: 1 }, b: { value: 1 } })).toBe(true);
@@ -217,9 +275,11 @@ type runeAnnotation1Args:
         expect(funcs.Rules({ value: 4 })).toBe(11);
         expect(funcs.Libraries({ value: 4 })).toBe(38);
         if (layout !== 'per-namespace') {
-          expect(funcs.__rune$alpha$Echo({ value: 4 })).toBe(5);
-          expect(funcs.__rune$beta$Echo({ value: 4 })).toBe(6);
-          expect(funcs.__rune$caller$Echo({ value: 4 })).toBe(11);
+          expect(layout === 'single-file' ? funcs.__rune$alpha$Echo({ value: 4 }) : funcs.__rune$alpha$Echo(4)).toBe(5);
+          expect(layout === 'single-file' ? funcs.__rune$beta$Echo({ value: 4 }) : funcs.__rune$beta$Echo(4)).toBe(6);
+          expect(layout === 'single-file' ? funcs.__rune$caller$Echo({ value: 4 }) : funcs.__rune$caller$Echo(4)).toBe(
+            11
+          );
         }
       } finally {
         rmSync(directory, { recursive: true, force: true });

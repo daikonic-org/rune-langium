@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices, assertValidDocuments, BASICTYPES_ROSETTA } from '@rune-langium/core';
 import { URI } from 'langium';
 import ts from 'typescript-classic';
-import { resolve } from 'node:path';
-import { createRequire } from 'node:module';
 import { Temporal } from '@js-temporal/polyfill';
 import { generate } from '../../src/export.js';
 import { mixedChoiceSource, mixedChoiceCases } from '../helpers/mixed-choice.js';
+import { emptyChoiceSource } from '../helpers/empty-choice.js';
 
 async function compile(
   source: string | string[],
@@ -30,31 +31,55 @@ async function compile(
   expect(outputs.flatMap((output) => output.diagnostics.filter((d) => d.severity === 'error'))).toEqual([]);
   const code = outputs[0]!.content;
   onSource?.(code);
-  const fileName = resolve(import.meta.dirname, 'generated-function-runtime.ts');
-  const options: ts.CompilerOptions = {
-    strict: true,
-    noEmit: true,
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.CommonJS,
-    skipLibCheck: true,
-    types: []
-  };
-  const host = ts.createCompilerHost(options);
-  const readFile = host.readFile.bind(host);
-  host.readFile = (file) => (file === fileName ? code + '\n' + typeAssertions : readFile(file));
-  const program = ts.createProgram([fileName], options, host);
-  expect(ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'))).toEqual(
-    []
-  );
-  const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
-  }).outputText;
-  const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
-  new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
-  return exports;
+  const exports = compileGeneratedTypeScript(outputs, { assertions: typeAssertions });
+  return recordFunctionExports(exports, outputs);
 }
 
 describe('generated TypeScript function execution', () => {
+  it('omits empty Choice list entries and enforces their required boundaries', async () => {
+    const funcs = await compile([BASICTYPES_ROSETTA, emptyChoiceSource], '', true);
+    expect(funcs.EmptyList!({})).toEqual([]);
+    expect(funcs.EmptyCount!({})).toBe(0);
+    expect(funcs.MixedList!({})).toEqual([{ leaf: { value: 7 } }]);
+    expect(funcs.DataCount!({})).toBe(1);
+    expect(funcs.AliasCount!({})).toBe(0);
+    expect(() => funcs.RequireList!({})).toThrow(/too few/);
+    expect(() => funcs.RequireArgument!({})).toThrow(/requires a value/);
+  });
+
+  it('accepts explicit implicit-empty constructor placeholders and checks complete siblings', async () => {
+    let source = '';
+    const funcs = await compile(
+      [
+        BASICTYPES_ROSETTA,
+        `namespace test.partial_constructors
+enum Kind:
+ A
+ B
+type Point:
+ x int (1..1)
+ y int (1..1)
+type Box:
+ origin Point (1..1)
+ kind Kind (1..1)
+func MakeEmptyBox:
+ output: result Box (1..1)
+ set result: Box { origin: Point { ... }, kind: Kind -> A }
+ set result -> origin -> x: 1
+ set result -> origin -> y: 2
+`
+      ],
+      '',
+      true,
+      (code) => {
+        source = code;
+      }
+    );
+    expect(funcs.MakeEmptyBox!({})).toEqual({ origin: { x: 1, y: 2 }, kind: 'A' });
+    expect(source).toContain('{} as RuneFuncData<PointShape>');
+    expect(source).toContain('satisfies RuneFuncData<BoxShape>');
+    expect(source).not.toMatch(/"A" as|as const/);
+  });
   it('uses Temporal values and equality in both functions and Data classes', async () => {
     const funcs = await compile(`namespace typed.calendar
 recordType date { year int month int day int }
@@ -89,6 +114,58 @@ func Same:
       }).validateSame().valid
     ).toBe(false);
   });
+  it('compiles and executes mixed-cardinality calendar navigation without helper calls', async () => {
+    const funcs = await compile(
+      [
+        BASICTYPES_ROSETTA,
+        `namespace test.mixedCalendars
+${['date', 'dateTime', 'zonedDateTime']
+  .map(
+    (type, index) => `
+func Years${index}:
+ inputs: flag boolean (1..1) dates ${type} (0..*) date ${type} (0..1)
+ output: result int (0..*)
+ set result: (if flag then dates else date)${type === 'date' ? '' : ' -> date'} -> year
+`
+  )
+  .join('\n')}
+func DefaultYears:
+ inputs: dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ set result: (dates default date) -> year
+func AliasYears:
+ inputs: flag boolean (1..1) dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ alias selected: if flag then dates else date
+ set result: selected -> year
+func ImplicitYears:
+ inputs: flag boolean (1..1) dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ set result: (if flag then dates else date) then year
+`
+      ],
+      '',
+      true
+    );
+    const dates = [
+      Temporal.PlainDate.from('2026-10-13'),
+      Temporal.PlainDateTime.from('2026-10-13T12:30:00'),
+      Temporal.ZonedDateTime.from('2026-10-13T12:30:00[UTC]')
+    ];
+    for (const [index, date] of dates.entries()) {
+      expect(funcs[`Years${index}`]!({ flag: true, dates: [date] })).toEqual([2026]);
+      expect(funcs[`Years${index}`]!({ flag: false, date })).toEqual([2026]);
+      expect(funcs[`Years${index}`]!({ flag: false })).toEqual([]);
+      expect(funcs[`Years${index}`]!({ flag: true, dates: [] })).toEqual([]);
+    }
+    expect(funcs.DefaultYears!({ dates: [], date: dates[0] })).toEqual([2026]);
+    expect(funcs.DefaultYears!({ dates: [dates[0]], date: Temporal.PlainDate.from('2025-01-01') })).toEqual([2026]);
+    expect(funcs.AliasYears!({ flag: false, date: dates[0] })).toEqual([2026]);
+    expect(funcs.AliasYears!({ flag: true, dates: [dates[0]] })).toEqual([2026]);
+    expect(funcs.ImplicitYears!({ flag: false, date: dates[0] })).toEqual([2026]);
+    expect(funcs.ImplicitYears!({ flag: true, dates: [dates[0]] })).toEqual([2026]);
+  });
+
   it('keeps optional calendar navigation compilable in an absence-narrowed branch', async () => {
     const funcs = await compile([
       BASICTYPES_ROSETTA,
@@ -167,13 +244,13 @@ func ComputedNaN:
       const emitted = declarations.get(name)!;
       expect(emitted).not.toMatch(/input =|rune\.(single|list|equals|normalize\w*|get)\(/);
     }
-    expect(declarations.get('Read')).toContain('input.source?.child?.value');
-    expect(declarations.get('ReadDeep')).toContain('input.source?.child?.value');
-    expect(declarations.get('Echo')).toContain('return input.source;');
+    expect(declarations.get('Read')).toContain('source?.child?.value');
+    expect(declarations.get('ReadDeep')).toContain('source?.child?.value');
+    expect(declarations.get('Echo')).toContain('return source;');
     expect(declarations.get('Equal')).toContain('===');
     expect(declarations.get('SameObject')).toContain('rune.valueKey');
     expect(declarations.get('SameObject')).not.toContain('rune.equals');
-    expect(declarations.get('SameList')).toContain('rune.equals');
+    expect(declarations.get('SameList')).not.toContain('rune.equals');
     const child = Object.freeze({ value: 10 });
     expect(funcs.Read!({ source: { child } })).toBe(10);
     expect(funcs.Read!({ source: {} })).toBeUndefined();
@@ -668,6 +745,34 @@ func Optional:
     expect(funcs.Optional!({ value: 2 })).toBe(2);
     expect(funcs.Optional!({ value: -2 })).toBeUndefined();
   });
+  it('preserves enum collections, conditional fields and nested writes without literal casts', async () => {
+    const funcs = await compile(`namespace test.enumInference
+enum Currency:
+ USD
+ EUR
+type Batch:
+ currencies Currency (1..*)
+ currency Currency (1..1)
+func Build:
+ inputs: flag boolean (1..1) values Currency (0..*) one Currency (1..1)
+ output: result Batch (1..1)
+ set result: Batch {
+  currencies: if flag then values else one,
+  currency: if flag then Currency -> USD else Currency -> EUR
+ }
+func Literal:
+ output: result Batch (1..1)
+ set result: Batch {currencies: [USD, EUR], currency: USD}
+ set result -> currency: EUR
+`);
+    expect(funcs.Build!({ flag: false, one: 'USD' })).toEqual({ currencies: ['USD'], currency: 'EUR' });
+    expect(funcs.Build!({ flag: true, values: ['EUR'], one: 'USD' })).toEqual({
+      currencies: ['EUR'],
+      currency: 'USD'
+    });
+    expect(() => funcs.Build!({ flag: true, values: [], one: 'USD' })).toThrow('too few values');
+    expect(funcs.Literal!({})).toEqual({ currencies: ['USD', 'EUR'], currency: 'EUR' });
+  });
   it('retains metadata when narrowing data subtypes', async () => {
     const funcs = await compile(`namespace test.dataMetaNarrow
  type Base:
@@ -1020,9 +1125,9 @@ func Retain:
  inputs: value Envelope (1..1)
  output: result Envelope (1..1)
  set result: value`,
-      `const input: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: {} as Temporal.${type === 'date' ? 'PlainDate' : type === 'time' ? 'PlainTime' : type === 'dateTime' ? 'PlainDateTime' : 'ZonedDateTime'}}]}};
+      `const input: Parameters<typeof Retain>[0] = {events: [{eventDate: {} as Temporal.${type === 'date' ? 'PlainDate' : type === 'time' ? 'PlainTime' : type === 'dateTime' ? 'PlainDateTime' : 'ZonedDateTime'}}]};
 // @ts-expect-error ISO strings belong at the JSON boundary.
-const invalid: Parameters<typeof Retain>[0] = {value: {events: [{eventDate: ${JSON.stringify(value)}}]}};`
+const invalid: Parameters<typeof Retain>[0] = {events: [{eventDate: ${JSON.stringify(value)}}]};`
     );
     const created = funcs.Create!({ text: value }) as { events: { eventDate: unknown }[] };
     expect(Object.prototype.toString.call(created.events[0]!.eventDate)).toContain('Temporal.');
@@ -2292,19 +2397,19 @@ func Many:
  set result: values
 `,
       `
-const numberResult: number = Required({n: 1});
-const optionalResult: number | undefined = Optional({});
-const arrayResult: number[] = Many({values: [1, 2]});
+const numberResult: number = Required(1);
+const optionalResult: number | undefined = Optional();
+const arrayResult: number[] = Many([1, 2]);
 // @ts-expect-error Required input is missing.
-Required({});
+Required();
 // @ts-expect-error Rune int accepts numbers.
-Required({n: '1'});
+Required('1');
 // @ts-expect-error Rune output is numeric.
-const wrongOutput: string = Required({n: 1});
+const wrongOutput: string = Required(1);
 // @ts-expect-error Optional output may be absent.
-const missingOptionality: number = Optional({});
+const missingOptionality: number = Optional();
 // @ts-expect-error Collection input requires an array.
-Many({values: 1});
+Many(1);
 `
     );
   });
@@ -2485,9 +2590,9 @@ func Reference:
 `,
       `
 const item: Item = {name: 'A', meta: {externalKey: 'item-1'}};
-const reference: RuneReferenceWithMeta<Item> = Reference({source: item});
+const reference: RuneReferenceWithMeta<Item> = Reference(item);
 // @ts-expect-error Reference outputs are wrappers, not direct data values.
-const value: Item = Reference({source: item});
+const value: Item = Reference(item);
 `
     );
     expect(funcs.Reference!({ source: { name: 'A', meta: { externalKey: 'item-1' } } })).toEqual({

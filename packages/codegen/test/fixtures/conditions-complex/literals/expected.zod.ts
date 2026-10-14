@@ -200,21 +200,21 @@ export const WithLiteralsSchema = z
     active: z.boolean().optional()
   })
   .superRefine((data, ctx) => {
-    if (!(((data.score as number | undefined) === 42))) {
+    if (!((data.score === 42))) {
       ctx.addIssue({
         code: 'custom',
         message: 'ScoreCheck: condition failed in WithLiterals',
         path: ['ScoreCheck']
       });
     }
-    if (!(((data.name as string | undefined) === 'hello'))) {
+    if (!((data.name === 'hello'))) {
       ctx.addIssue({
         code: 'custom',
         message: 'NameCheck: condition failed in WithLiterals',
         path: ['NameCheck']
       });
     }
-    if (!(((data.active as boolean | undefined) === true))) {
+    if (!((data.active === true))) {
       ctx.addIssue({
         code: 'custom',
         message: 'ActiveCheck: condition failed in WithLiterals',

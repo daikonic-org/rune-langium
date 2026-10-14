@@ -22,21 +22,25 @@ import {
   type RuneFuncAssignment
 } from '../types/func.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
-import { declaredScalarKind, requiredScalarKind } from '../expr/scalar-operators.js';
+import { declaredScalarKind } from '../expr/scalar-operators.js';
+import { collectionShape } from '../expr/collection-shape.js';
 import { expressionFitsCardinality } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataPropertyPath } from '../expr/metadata-runtime.js';
 import { typeFeatures, featureName, resolveType, type ExpressionType } from '../expr/navigation.js';
+import { PY_RESERVED_WORDS } from '../lens/reserved-words.js';
 import { recordedProjection, findProjectionFragment } from './provenance.js';
 import { renderPythonExpression } from './python.js';
 import {
   pythonRead,
   pythonUnwrap,
+  pythonCollection,
+  pythonNormalize,
   pythonHelperDependencies,
   pyString,
   pyBool,
   type PythonRenderContext
 } from './python-operations.js';
-import { pythonFieldType, pythonFieldNormalizer, pythonTypedDict, pythonTypeDeclarations } from './python-types.js';
+import { pythonFieldType, pythonFieldNormalizer, pythonTypeDeclarations } from './python-types.js';
 import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
 import type { PythonProjectionContext } from './context.js';
 import type { EmittedProjection, GeneratedProjection, ProjectionSubject } from './types.js';
@@ -47,11 +51,25 @@ export interface PythonModule {
   bindings: ReadonlyMap<string, string>;
 }
 
-const reserved = new Set(
-  'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case type Any Callable TypedDict NotRequired Literal math re calendar date time datetime timedelta timezone ZoneInfo reduce cmp_to_key input bool float int str list dict len sum min max sorted range enumerate map set tuple all any next isinstance globals ValueError TypeError OverflowError abs callable divmod reversed repr staticmethod'.split(
+const runtimeImports = new Set(
+  [...PYTHON_RUNTIME_SOURCE.matchAll(/^(?:import |from (?!__future__\b)\S+ import )([^\n]+)$/gm)]
+    .flatMap((match) => match[1]!.split(','))
+    .map(
+      (binding) =>
+        binding
+          .trim()
+          .split(/\s+as\s+/)
+          .slice(-1)[0]!
+          .split('.')[0]!
+    )
+);
+
+const reserved = new Set([
+  ...runtimeImports,
+  ...'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case type Literal input bool float int str list dict len sum min max sorted range enumerate map set tuple all any next isinstance globals ValueError TypeError OverflowError abs callable divmod reversed repr staticmethod'.split(
     ' '
   )
-);
+]);
 for (const match of PYTHON_RUNTIME_SOURCE.matchAll(/^def (\w+)\(/gm)) reserved.add(match[1]!);
 for (const match of PYTHON_RUNTIME_SOURCE.matchAll(/^class (\w+)(?:[[(]|:)/gm)) reserved.add(match[1]!);
 
@@ -156,13 +174,18 @@ function assignmentLines(
   const root = roots.get(assignment.target ?? '');
   if (!root) throw new Error(`Unresolved Python assignment root '${assignment.target ?? ''}'`);
   const bounds = assignment.targetCardinality;
-  const normalized =
-    !many && !assignment.metadataKind && requiredScalarKind(expression)
-      ? value
-      : `rune.assignmentValue(${value}, ${pyString(expressionMetadataKind(expression) ?? 'value')}, ${pyString(assignment.metadataKind ?? 'value')}, ${pyBool(many)})`;
+  const sourceKind = expressionMetadataKind(expression);
+  const wrapped = pythonNormalize(value, sourceKind, assignment.metadataKind);
+  const normalized = many
+    ? pythonCollection(wrapped, expression)
+    : collectionShape(expression) === 'scalar'
+      ? wrapped
+      : `rune.single(${wrapped})`;
   const path = assignment.path ?? [];
   if (!path.length)
-    return [`${root} = ${assignment.kind === 'add' ? `rune.list(${root}) + rune.list(${normalized})` : normalized}`];
+    return [
+      `${root} = ${assignment.kind === 'add' ? `${pythonCollection(root)} + ${pythonCollection(normalized, undefined, many)}` : normalized}`
+    ];
   const segments = path.map(
     (segment) =>
       `{${[
@@ -179,12 +202,80 @@ function assignmentLines(
   ];
 }
 
-function normalizeInput(inputs: readonly Attribute[], context: PythonProjectionContext): string {
-  return `input = rune.normalizeObject(input, {${inputs.map((input) => `${pyString(input.name)}: ${pythonFieldNormalizer(input, context)}`).join(', ')}})`;
+function parameterBindings(inputs: readonly Attribute[]): Map<Attribute, string> {
+  const used = new Set(inputs.map((input) => input.name));
+  return new Map(
+    inputs.map((input) => {
+      if (
+        !PY_RESERVED_WORDS.has(input.name) &&
+        !runtimeImports.has(input.name) &&
+        input.name !== 'rune' &&
+        !input.name.startsWith('_rune')
+      )
+        return [input, input.name];
+      let name = `${input.name}_input`;
+      for (let suffix = 1; used.has(name); suffix++) name = `${input.name}_input${suffix}`;
+      used.add(name);
+      return [input, name];
+    })
+  );
+}
+
+function functionParameters(inputs: readonly Attribute[], context: PythonProjectionContext): string {
+  const names = parameterBindings(inputs);
+  const lastRequired = inputs.reduce((last, input, index) => (input.card.inf > 0 ? index : last), -1);
+  return inputs
+    .map((input, index) => {
+      const type = pythonFieldType(input, context);
+      const optionalType = input.card.inf === 0 && !type.endsWith(' | None') ? `${type} | None` : type;
+      return `${names.get(input)}: ${optionalType}${index > lastRequired ? ' = None' : ''}`;
+    })
+    .join(', ');
+}
+
+function normalizeInputs(
+  inputs: readonly Attribute[],
+  context: PythonProjectionContext,
+  names = parameterBindings(inputs)
+): string[] {
+  return inputs.map((input) => `${names.get(input)} = (${pythonFieldNormalizer(input, context)})(${names.get(input)})`);
 }
 
 function inputsRequiringNormalization(inputs: readonly Attribute[]): Attribute[] {
   return inputs.filter((input) => !declaredScalarKind(input.typeCall) || fieldMetadataKind(input));
+}
+
+/** Qualify only bare generated calls when a parameter shadows a Python runtime builtin. */
+function qualifyBuiltinCalls(source: string, shadowed: ReadonlySet<string>): string {
+  let result = '',
+    position = 0;
+  while (position < source.length) {
+    const character = source[position]!;
+    if (character === '"' || character === "'") {
+      const quote = source.startsWith(character.repeat(3), position) ? character.repeat(3) : character;
+      const start = position;
+      position += quote.length;
+      while (position < source.length) {
+        if (source[position] === '\\') position += 2;
+        else if (source.startsWith(quote, position)) {
+          position += quote.length;
+          break;
+        } else position++;
+      }
+      result += source.slice(start, position);
+    } else if (/[a-zA-Z_]/.test(character)) {
+      const start = position++;
+      while (position < source.length && /[a-zA-Z_0-9]/.test(source[position]!)) position++;
+      const name = source.slice(start, position);
+      const called = /^\s*\(/.test(source.slice(position));
+      const receiver = source.slice(0, start).trimEnd().endsWith('.');
+      result += shadowed.has(name) && called && !receiver ? `_rune_builtins.${name}` : name;
+    } else {
+      result += character;
+      position++;
+    }
+  }
+  return result;
 }
 
 /** Complete implementation; the inverse Python lens retains its narrower expression contract. */
@@ -211,32 +302,38 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     locals = new Map(context.locals),
     roots = new Map<string, string>();
   const used = new Set(context.globalNames ?? [...reserved, ...declarations.map((node) => context.name(node))]);
+  const parameters = parameterBindings(inputs);
+  for (const name of parameters.values()) used.add(name);
   const result = identifier(output.name, used),
     outputMany = output.card.unbounded || (output.card.sup ?? 1) > 1;
   locals.set(output, result);
   roots.set(output.name, result);
   for (const input of inputs) {
-    const read =
-      declaredScalarKind(input.typeCall) && !fieldMetadataKind(input)
-        ? input.card.inf > 0
-          ? `input[${pyString(input.name)}]`
-          : `input.get(${pyString(input.name)})`
-        : pythonRead('input', [input.name]);
+    const read = parameters.get(input)!;
     locals.set(input, read);
-    roots.set(input.name, `input[${pyString(input.name)}]`);
+    roots.set(input.name, read);
   }
   const renderContext: PythonRenderContext = {
     ...context,
     locals,
-    self: 'input',
+    name: (node) => {
+      const global = context.name(node);
+      return [...parameters.values()].includes(global) ? `_rune_globals[${pyString(global)}]` : global;
+    },
+    self: parameters.values().next().value ?? 'None',
     resultMode: 'function',
     superFunction: func.superFunction?.ref,
     state: { next: 0 }
   };
   const normalizedInputs = inputsRequiringNormalization(inputs);
-  const finish = (lines: string[]) => {
-    const code = `def ${name}(input: ${context.inputName?.(func) ?? name + '_Input'}) -> ${pythonFieldType(output, context)}:\n${lines.map((line) => '    ' + line).join('\n')}\n`;
-    return projection(func, context, code, 'function', lines.join('\n'));
+  const shadowedBuiltins = new Set(
+    inputs.map((input) => input.name).filter((name) => reserved.has(name) && !PY_RESERVED_WORDS.has(name))
+  );
+  const finish = (lines: string[], body = lines) => {
+    lines = lines.map((line) => qualifyBuiltinCalls(line, shadowedBuiltins));
+    body = body.map((line) => qualifyBuiltinCalls(line, shadowedBuiltins));
+    const code = `def ${name}(${functionParameters(inputs, context)}) -> ${pythonFieldType(output, context)}:\n${lines.map((line) => '    ' + line).join('\n')}\n`;
+    return projection(func, context, code, 'function', body.join('\n'));
   };
   const single = facts.assignments[0];
   if (
@@ -254,11 +351,12 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   ) {
     return finish([`return ${renderPythonExpression(single.exprNode as RosettaExpression, renderContext)}`]);
   }
-  const lines: string[] = normalizedInputs.length ? [normalizeInput(normalizedInputs, context)] : [];
+  const lines: string[] = normalizeInputs(normalizedInputs, context, parameters);
   for (const input of normalizedInputs)
     lines.push(
-      `input[${pyString(input.name)}] = rune.cardinality(input.get(${pyString(input.name)}), ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
+      `${parameters.get(input)} = rune.cardinality(${parameters.get(input)}, ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
     );
+  const bodyStart = lines.length;
   const outputType = pythonFieldType(output, context);
   const accumulatorType = outputMany || outputType.includes(' | None') ? outputType : `${outputType} | None`;
   lines.push(`${result}: ${accumulatorType} = ${outputMany ? '[]' : 'None'}`);
@@ -270,11 +368,14 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     roots.set(alias.name, local);
   }
   const check = (condition: Condition) => {
-    const predicate = renderPythonExpression(condition.expression, {
-      ...renderContext,
-      preserveMetadata: false,
-      resultMode: 'condition'
-    });
+    const predicate = qualifyBuiltinCalls(
+      renderPythonExpression(condition.expression, {
+        ...renderContext,
+        preserveMetadata: false,
+        resultMode: 'condition'
+      }),
+      shadowedBuiltins
+    );
     const guard = [
       `if not (${predicate}):`,
       `    raise ValueError(${pyString(`Diagnostic: ${condition.name ?? func.name}`)})`
@@ -283,14 +384,18 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     context.onConditionProjection?.(condition, guard.join('\n'), predicate);
   };
   func.conditions.forEach(check);
-  if (facts.isAbstract) lines.push(`${result} = rune.native(${pyString(qualified(func))}, input)`);
+  if (facts.isAbstract)
+    lines.push(
+      `${result} = rune.native(${pyString(qualified(func))}${inputs.map((input) => `, ${parameters.get(input)}`).join('')})`
+    );
   else for (const assignment of facts.assignments) lines.push(...assignmentLines(assignment, renderContext, roots));
+  const outputCheck = lines.length;
   lines.push(
     `${result} = rune.cardinality(${result}, ${output.card.inf}, ${output.card.unbounded ? 'None' : (output.card.sup ?? 1)}, ${pyString(`Function '${func.name}' produced`)})`
   );
   func.postConditions.forEach(check);
   lines.push(`return ${result}`);
-  return finish(lines);
+  return finish(lines, [...lines.slice(bodyStart, outputCheck), ...lines.slice(outputCheck + 1)]);
 }
 
 function pythonDataContext(context: PythonProjectionContext, type: ExpressionType | undefined): PythonRenderContext {
@@ -341,7 +446,13 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
     isRosettaModel(document.parseResult.value) ? document.parseResult.value.elements : []
   );
   const types = elements.filter((node) => isData(node) || isChoice(node) || isRosettaEnumeration(node));
-  const sections = [PYTHON_RUNTIME_SOURCE, 'from typing import Literal', ...pythonTypeDeclarations(types, context)];
+  const sections = [
+    PYTHON_RUNTIME_SOURCE,
+    'from typing import Literal',
+    'import builtins as _rune_builtins',
+    '_rune_globals = globals()',
+    ...pythonTypeDeclarations(types, context)
+  ];
   const projections: EmittedProjection[] = [],
     bindings = new Map<string, string>();
   context.onConditionProjection = (condition, code, predicate) => {
@@ -362,7 +473,10 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
     const base = group.find((func) => !func.dispatchAttribute) ?? group[0]!,
       name = context.name(base);
     bindings.set(key, name);
-    sections.push(pythonTypedDict(context.inputName!(base), functionInputs(functionSignature(base, funcs)), context));
+
+    const signatureInputs = functionInputs(functionSignature(base, funcs));
+    const parameters = parameterBindings(signatureInputs);
+    const argumentsText = signatureInputs.map((input) => parameters.get(input)).join(', ');
     const variants = group.filter((func) => func.dispatchAttribute);
     const bodies = new Map<RosettaFunction, string>();
     let code: string;
@@ -383,21 +497,19 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
           const parameter = functionInputs(functionSignature(base, funcs)).find(
             (input) => input.name === (func.dispatchAttribute!.ref?.name ?? func.dispatchAttribute!.$refText)
           );
-          const selector = pythonUnwrap(
-            `input.get(${pyString(func.dispatchAttribute.ref?.name ?? func.dispatchAttribute.$refText)})`,
-            fieldMetadataKind(parameter)
-          );
+          const selector = pythonUnwrap(parameters.get(parameter!)!, fieldMetadataKind(parameter));
           const expected = pyString(func.dispatchValue?.value.ref?.name ?? func.dispatchValue?.value.$refText ?? '');
-          calls.push(`    if ${selector} == ${expected}:\n        return ${implementation}(input)`);
+          calls.push(`    if ${selector} == ${expected}:\n        return ${implementation}(${argumentsText})`);
         }
       }
       const baseIndex = group.indexOf(base);
       const output = functionOutput(functionSignature(base, funcs));
       if (!output) throw new Error(`Function '${base.name}' has no output declaration.`);
-      const inputs = inputsRequiringNormalization(functionInputs(functionSignature(base, funcs)));
-      const normalize = inputs.length ? `    ${normalizeInput(inputs, context)}\n` : '';
+      const normalize = normalizeInputs(inputsRequiringNormalization(signatureInputs), context, parameters)
+        .map((line) => `    ${line}\n`)
+        .join('');
       chunks.push(
-        `def ${name}(input: ${context.inputName!(base)}) -> ${pythonFieldType(output, context)}:\n${normalize}${calls.join('\n')}\n    return _rune_impl_${name}_${baseIndex}(input)\n`
+        `def ${name}(${functionParameters(signatureInputs, context)}) -> ${pythonFieldType(output, context)}:\n${normalize}${calls.join('\n')}\n    return _rune_impl_${name}_${baseIndex}(${argumentsText})\n`
       );
       code = chunks.join('\n');
     }

@@ -200,21 +200,21 @@ export const UnitTypeSchema = z
     c: z.string().optional()
   })
   .superRefine((data, ctx) => {
-    if (!rune.exists(data.a)) {
+    if (data.a == null) {
       ctx.addIssue({
         code: 'custom',
         message: 'AExists: a must be present in UnitType',
         path: ['AExists']
       });
     }
-    if (rune.exists(data.b)) {
+    if (data.b != null) {
       ctx.addIssue({
         code: 'custom',
         message: 'BAbsent: b must be absent in UnitType',
         path: ['BAbsent']
       });
     }
-    if (!rune.checkOneOf([data.a, data.c])) {
+    if (!(([data.a, data.c]).filter((value) => value != null && (!Array.isArray(value) || value.length > 0)).length === 1)) {
       ctx.addIssue({
         code: 'custom',
         message: 'OneOfAC: exactly one of [a, c] must be present in UnitType',

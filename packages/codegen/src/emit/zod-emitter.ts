@@ -736,8 +736,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    *    throws at MODULE-INIT time — this was the real, previously-
    *    unguarded bug for BOTH the single-level and multi-level cases).
    *  - No Choice ancestor, but `data.superType?.ref` is a Data:
-   *    `${ParentSchema}.extend({...})` — the ordinary FR-005 path,
-   *    unchanged.
+   *    `${ParentSchema}.safeExtend({...})`, retaining refinements when
+   *    the child overrides inherited fields.
    *  - No superType: a plain `z.object({...})` body (emitObjectBody).
    *
    * `attrIndent` controls the object-body indentation for own attributes,
@@ -817,11 +817,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         return `z.object({\n${reindented}\n})`;
       }
       if (data.attributes.length === 0) {
-        return `${parentSchema}.extend({})`;
+        return `${parentSchema}.safeExtend({})`;
       }
       const attrs = data.attributes.map((attr) => this.emitAttribute(attr, data.name));
       const reindented = attrIndent === '' ? attrs.join(',\n') : attrs.map((a) => `${attrIndent}${a}`).join(',\n');
-      return `${parentSchema}.extend({\n${reindented}\n})`;
+      return `${parentSchema}.safeExtend({\n${reindented}\n})`;
     }
 
     return this.emitObjectBody(data);

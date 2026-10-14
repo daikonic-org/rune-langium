@@ -151,7 +151,7 @@ describe('US6 funcs: precondition referencing a func-scope alias', () => {
   it('resolves the alias exists check without an unknown-attribute DIAGNOSTIC fallback', async () => {
     const actual = await generateFuncFixture('precondition-alias');
     expect(actual).not.toContain('DIAGNOSTIC');
-    expect(actual).toContain('rune.exists(payload)');
+    expect(actual).toContain('payload == null');
   });
 });
 
@@ -258,7 +258,8 @@ describe('US6 funcs: constructor-expr (T128)', () => {
     }).outputText;
     const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
     new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
-    expect(exports[name]!(input)).toEqual(expected);
+    const args = 'x' in input ? [input.x, input.y] : [input.w];
+    expect((exports[name] as (...args: unknown[]) => unknown)(...args)).toEqual(expected);
   });
 });
 

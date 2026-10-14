@@ -23,14 +23,14 @@ export function renderResolvedFunctionCall(
   const callable = emittedName ?? func.name;
   const args = node.rawArgs;
   const inputs = functionInputs(func);
-  if (!node.explicitArguments && args.length === 0 && inputs.length === 0) return `${callable}({})`;
+  if (!node.explicitArguments && args.length === 0 && inputs.length === 0) return `${callable}()`;
   if (!node.explicitArguments && inputs.length === 1 && implicitArgument !== undefined) {
-    return `${callable}({ ${inputs[0]!.name}: ${prepareArgument(implicitArgument, inputs[0]!)} })`;
+    return `${callable}(${prepareArgument(implicitArgument, inputs[0]!)})`;
   }
   if (!node.explicitArguments) return undefined;
   if (args.length !== inputs.length) {
     report?.(`Function '${func.name}' called with ${args.length} argument(s), expected ${inputs.length}`);
     return undefined;
   }
-  return `${callable}({ ${args.map((arg, index) => `${inputs[index]!.name}: ${prepareArgument(renderArgument(arg, inputs[index]!), inputs[index]!, arg)}`).join(', ')} })`;
+  return `${callable}(${args.map((arg, index) => prepareArgument(renderArgument(arg, inputs[index]!), inputs[index]!, arg)).join(', ')})`;
 }

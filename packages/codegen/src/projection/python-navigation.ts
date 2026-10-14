@@ -33,6 +33,9 @@ import {
   pythonRootFields,
   pythonUnwrap,
   pythonNormalize,
+  pythonCollection,
+  pythonCoalesce,
+  pythonPresence,
   pyBool,
   pyString,
   type PythonRenderContext,
@@ -48,7 +51,9 @@ export function pythonCalendarField(feature: unknown, receiver: string, many = f
     return undefined;
   const read = (value: string) =>
     `rune.dateField(${value}, ${pyString(feature.$container.name)}, ${pyString(feature.name)})`;
-  return many ? `[child for value in rune.list(${receiver}) for child in rune.list(${read('value')})]` : read(receiver);
+  return many
+    ? `[child for value in ${pythonCollection(receiver)} for child in [${read('value')}] if child is not None]`
+    : read(receiver);
 }
 export function pythonNavigation(
   expression: RosettaExpression,
@@ -92,7 +97,7 @@ export function pythonNavigation(
     result = pythonBind(
       receiver,
       root,
-      many ? `[item for branch in [${values.join(', ')}] for item in branch]` : `rune.coalesce([${values.join(', ')}])`
+      many ? `[item for branch in [${values.join(', ')}] for item in branch]` : pythonCoalesce(values)
     );
   } else result = pythonRead(receiver, [name], expressionIsMany(expression.receiver));
   return context.preserveMetadata
@@ -113,7 +118,7 @@ export function pythonTypeSelection(value: string, input: RosettaType, target: R
       });
       return pythonNormalize(result, path[path.length - 1]?.metadataKind, selection.metadataKind);
     });
-    const selected = `rune.coalesce([${branches.join(', ')}])`;
+    const selected = pythonCoalesce(branches);
     return { selected, guard: `(${selected} is not None)`, metadata: selection.metadataKind, projected: true };
   }
   if (exact && isData(input) && (!isData(resolved) || !typeMatches(resolved, input)))
@@ -151,7 +156,7 @@ export function pythonOnlyExists(
       selected.forbidden
         .map((name) => {
           const field = fields.get(name)!;
-          return `not rune.exists(${pythonReadField(context.self, field, context.locals.get(field))})`;
+          return pythonPresence(pythonReadField(context.self, field, context.locals.get(field)), undefined, true);
         })
         .join(' and ') || pyBool(true)
     );
@@ -161,6 +166,8 @@ export function pythonOnlyExists(
   return pythonBind(
     value,
     bound,
-    selected.forbidden.map((name) => `not rune.exists(${pythonRead(bound, [name])})`).join(' and ') || pyBool(true)
+    selected.forbidden
+      .map((name) => pythonPresence(pythonReadField(bound, selected.features!.get(name)!), undefined, true))
+      .join(' and ') || pyBool(true)
   );
 }

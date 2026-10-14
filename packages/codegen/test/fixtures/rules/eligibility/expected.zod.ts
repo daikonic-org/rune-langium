@@ -201,7 +201,7 @@ export type Trade = z.infer<typeof TradeSchema>;
 
 
 export const validateIsLargeTrade = TradeSchema.refine(
-  (data) => rune.compare(data.Trade?.notional, 1000000, (a, b) => a > b, "all"),
+  (data) => (data.Trade?.notional != null && data.Trade?.notional > 1000000),
   'IsLargeTrade'
 );
 

@@ -11,8 +11,9 @@
  * if emitted verbatim as an identifier.
  */
 
-/** TypeScript/JS words reserved in strict-mode ES modules (mirrors packages/codegen/src/emit/zod-emitter.ts's _RESERVED_WORDS list — kept as a separate copy since that list is private to a different emitter concern). */
+/** TypeScript/JavaScript keywords reserved as bindings in strict ES modules. */
 export const TS_RESERVED_WORDS: ReadonlySet<string> = new Set([
+  'await',
   'break',
   'case',
   'catch',

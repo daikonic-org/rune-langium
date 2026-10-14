@@ -143,9 +143,12 @@ describe('P4 regression debt — chained same-tier comparisons', () => {
   it('a > (b > c): same-tier RIGHT child of a non-associative comparison operator keeps parens', () => {
     const expr = parse('a > (b > c)');
     const ctx = makeCtx();
-    expect(transpileExpression(expr, ctx)).toBe(
-      'rune.compare(data.a, rune.compare(data.b, data.c, (a, b) => a > b, "all"), (a, b) => a > b, "all")'
-    );
+    const code = transpileExpression(expr, ctx);
+    expect(code).not.toContain('rune.compare');
+    const run = Function('data', `return ${code};`);
+    expect(run({ a: 2, b: 5, c: 3 })).toBe(true);
+    expect(run({ a: 1, b: 5, c: 3 })).toBe(false);
+    expect(run({ a: 1, b: 1, c: 3 })).toBe(true);
   });
 });
 

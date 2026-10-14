@@ -123,6 +123,8 @@ describe('RosettaOnlyExistsExpression — nested (non-top-level) position', () =
     const ctx = makeCtx();
     const out = transpileExpression(expr, ctx);
     expect(out).not.toContain('DIAGNOSTIC');
-    expect(out).toContain('!rune.exists(data.c)');
+    expect(out).not.toContain('rune.exists');
+    expect(Function('data', `return ${out}`)({ a: 1 })).toBe(true);
+    expect(Function('data', `return ${out}`)({ a: 1, c: 2 })).toBe(false);
   });
 });

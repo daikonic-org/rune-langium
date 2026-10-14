@@ -28,6 +28,8 @@ export class CallableNames {
   private readonly dataExports = new Map<string, string>();
   private readonly owners = new Map<string, Set<string>>();
   private readonly aliases = new Map<string, string>();
+  private readonly scopedAliases = new Map<string, string>();
+  private readonly reservedAliases: Set<string>;
 
   constructor(registry: NamespaceRegistry) {
     for (const [namespace, manifest] of registry.namespaces) {
@@ -93,6 +95,7 @@ export class CallableNames {
         this.aliases.set(`${namespace}.${name}`, alias);
       }
     }
+    this.reservedAliases = reserved;
   }
 
   exported(namespace: string, name: string): string {
@@ -118,6 +121,19 @@ export class CallableNames {
 
   alias(namespace: string, name: string): string {
     return this.aliases.get(`${namespace}.${name}`) ?? name;
+  }
+
+  protectedAlias(namespace: string, name: string, scope: string): string {
+    if (scope === namespace) return this.alias(namespace, name);
+    const key = `${scope}\u0000${namespace}\u0000${name}`;
+    const existing = this.scopedAliases.get(key);
+    if (existing) return existing;
+    const base = `${this.alias(namespace, name)}$in$${scope.replace(/[^\w$]/g, '$')}`;
+    let alias = base;
+    for (let suffix = 1; this.reservedAliases.has(alias); suffix++) alias = `${base}_${suffix}`;
+    this.reservedAliases.add(alias);
+    this.scopedAliases.set(key, alias);
+    return alias;
   }
 
   bundled(namespace: string, name: string): string {

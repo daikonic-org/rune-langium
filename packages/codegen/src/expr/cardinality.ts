@@ -9,14 +9,12 @@ import {
   isRosettaFunction,
   isRosettaSymbolReference,
   isShortcutDeclaration,
-  isListLiteral,
-  isRosettaConditionalExpression,
-  isThenOperation,
   type RosettaExpression
 } from '@rune-langium/core';
 import { expressionIsMany } from './navigation.js';
 import { expressionIsPresent, attributeReferenceIsValidated } from './scalar-operators.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
+import { collectionIsPresent, collectionShape, nativeCollection, nativeSingle } from './collection-shape.js';
 
 /** Reuse linked bounds when passing already validated values to another declaration. */
 export function expressionFitsCardinality(
@@ -63,31 +61,19 @@ export function adaptCardinalityValue(
   value: string,
   cardinality: RuneFuncParam['cardinality'],
   label: string,
-  expression?: RosettaExpression
+  expression?: RosettaExpression,
+  typescript = false
 ): string {
   if (expressionFitsCardinality(expression, cardinality)) {
     return expressionIsMany(expression) ? collectionValue(value, expression) : value;
   }
-  return normalizeCardinalityValue(value, cardinality, label);
+  return normalizeCardinalityValue(value, cardinality, label, expression, typescript);
 }
 
 /** Collection-producing operations already return arrays; optional fields can be absent. */
 export function collectionValue(value: string, expression: RosettaExpression | undefined): string {
-  const present = (node: RosettaExpression | undefined): boolean => {
-    if (!node) return false;
-    if (isListLiteral(node)) return node.elements.length > 0;
-    if (isThenOperation(node)) return present(node.function?.body ?? node.argument);
-    if (isRosettaConditionalExpression(node)) return present(node.ifthen) && present(node.elsethen);
-    return [
-      'MapOperation',
-      'FilterOperation',
-      'SortOperation',
-      'ReverseOperation',
-      'DistinctOperation',
-      'FlattenOperation'
-    ].includes(node.$type);
-  };
-  return present(expression) ? value : `(${value} ?? [])`;
+  if (collectionShape(expression) !== 'array') return nativeCollection(value, expression);
+  return collectionIsPresent(expression) ? value : `(${value} ?? [])`;
 }
 
 /** Shared runtime bounds for function arguments, outputs, and nested assignments. */
@@ -120,10 +106,14 @@ export function renderCardinalityChecks(
 export function normalizeCardinalityValue(
   value: string,
   cardinality: RuneFuncParam['cardinality'],
-  label: string
+  label: string,
+  expression?: RosettaExpression,
+  typescript = false
 ): string {
   const many = cardinality.upper === null || cardinality.upper > 1;
-  value = `${many ? 'rune.list' : 'rune.single'}(${value})`;
+  value = many
+    ? nativeCollection(value, expression, undefined, typescript)
+    : nativeSingle(value, expression, typescript);
   const checks = renderCardinalityChecks(
     'value',
     cardinality,
@@ -131,5 +121,18 @@ export function normalizeCardinalityValue(
     many ? `${label} has too few values` : `${label} requires a value`,
     `${label} has too many values`
   );
-  return checks.length ? `((value) => { ${checks.join(' ')} return value; })(${value})` : value;
+  return renderCheckedValue(value, checks, many, typescript, cardinality.upper === 0);
+}
+
+/** Preserve literal inference when checking an authored value's cardinality. */
+export function renderCheckedValue(
+  value: string,
+  checks: readonly string[],
+  many: boolean,
+  typescript: boolean,
+  absent = false
+): string {
+  if (!checks.length) return value;
+  const parameter = typescript ? `<const T${many ? ' extends unknown[]' : ''}>(value: T)` : '(value)';
+  return `(${parameter} => { ${checks.join(' ')} return ${absent ? 'undefined' : 'value'}; })(${value})`;
 }

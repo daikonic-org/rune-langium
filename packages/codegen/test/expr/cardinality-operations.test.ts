@@ -5,6 +5,7 @@ import { parseExpression } from '@rune-langium/core';
 import { RUNTIME_HELPER_JS_SOURCE } from '../../src/helpers.js';
 import { transpileExpression } from '../../src/expr/transpiler.js';
 import type { ExpressionTranspilerContext } from '../../src/expr/transpiler.js';
+import ts from 'typescript-classic';
 
 const ctx: ExpressionTranspilerContext = {
   selfName: 'data',
@@ -24,7 +25,10 @@ function emit(source: string): string {
   return transpileExpression(parsed.value, ctx);
 }
 function run(source: string, data: unknown): unknown {
-  return Function('data', `${RUNTIME_HELPER_JS_SOURCE}\nreturn ${emit(source)}`)(data);
+  const javascript = ts.transpileModule(`const result = ${emit(source)};`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  return Function('data', `${RUNTIME_HELPER_JS_SOURCE}\n${javascript}\nreturn result;`)(data);
 }
 
 describe('cardinality operations', () => {

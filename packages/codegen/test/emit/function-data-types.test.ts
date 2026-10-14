@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -48,7 +49,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
   }).outputText;
   const exports: Record<string, (input: unknown) => unknown> = {};
   new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
-  return exports;
+  return recordFunctionExports(exports, outputs);
 }
 
 async function parse(source: string, uri: string) {
@@ -130,15 +131,15 @@ func RefRaw:
 `,
       `
 const input: RuneFuncData<ParentShape> = { child: { value: 4 } };
-const output: RuneFuncData<ParentShape> = Build({ value: 4 });
-const echoed: RuneFuncData<ParentShape> = Echo({ value: input });
+const output: RuneFuncData<ParentShape> = Build(4);
+const echoed: RuneFuncData<ParentShape> = Echo(input);
 const referenceInput: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = { value: { value: 'A' } };
-const echoedReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefEcho({ source: referenceInput });
-const rawReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefRaw({ text: 'A' });
+const echoedReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefEcho(referenceInput);
+const rawReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefRaw('A');
 // @ts-expect-error Child's required value must remain present in nested plain data.
 const missingChildValue: RuneFuncData<ParentShape> = { child: {} };
 // @ts-expect-error Build's scalar input remains numeric.
-Build({ value: 'wrong' });
+Build('wrong');
 `
     );
 
@@ -284,6 +285,9 @@ func MakeTwo:
     const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'single-file' } });
     const model = outputs.find((output) => output.relativePath === 'model.ts');
     expect(model).toBeDefined();
-    expect(model!.content.match(/type RuneFuncData<T>/g)).toHaveLength(1);
+    expect(model!.content).not.toContain('type RuneFuncData<T>');
+    expect(
+      outputs.find((output) => output.relativePath === 'helpers.ts')!.content.match(/type RuneFuncData<T>/g)
+    ).toHaveLength(1);
   });
 });

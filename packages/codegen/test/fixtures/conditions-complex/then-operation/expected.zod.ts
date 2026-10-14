@@ -198,7 +198,7 @@ export const ThenCheckSchema = z
     items: z.array(z.number().int())
   })
   .refine(
-    (data) => ((__pipe) => (rune.compare(rune.count(rune.distinct(__pipe)), 0, (a, b) => a > b, "all")))(data.items),
+    (data) => ((__pipe) => (((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))(((value) => value == null ? [] : [value])(((rune.distinct(__pipe))?.length ?? 0)).filter((value) => value != null), [0].filter((value) => value != null))))(data.items),
     'HasDistinct: condition failed in ThenCheck'
   );
 export type ThenCheck = z.infer<typeof ThenCheckSchema>;

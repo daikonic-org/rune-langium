@@ -110,7 +110,7 @@ describe('zod-emitter — Data extends Choice (emitted source text)', () => {
     // — so the transpiled predicate MUST read `data.cash`, not `data.Cash`
     // (which would always be undefined at runtime — a silent false-negative
     // this exact assertion caught on first implementation).
-    expect(output.content).toContain('rune.exists(data.cash)');
+    expect(output.content).toContain('data.cash == null');
     expect(output.content).not.toContain('data.Cash');
   });
 });
