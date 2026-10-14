@@ -892,7 +892,8 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
       () => transpileExpression(expr.receiver, { ...ctx, preserveMetadata: false }),
       expressionIsMany(expr.receiver),
       ctx.emitMode.startsWith('ts-'),
-      requiredScalarKind(expr.receiver) !== undefined
+      requiredScalarKind(expr.receiver) !== undefined,
+      expr.receiver
     );
     if (calendarField !== undefined) return calendarField;
     if (ctx.emitMode.startsWith('ts-') && isRosettaEnumValue(feature)) {

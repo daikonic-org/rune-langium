@@ -105,6 +105,36 @@ func Case${index}:
     ]);
   });
 
+  it('reads calendar fields from mixed scalar and collection branches in both expression modes', async () => {
+    const funcs = await linkedFunctions(`namespace native.mixed_calendars
+func Years:
+ inputs: flag boolean (1..1) dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ set result: (if flag then dates else date) -> year
+`);
+    const expression = funcs[0]!.operations[0]!.expression;
+    for (const emitMode of ['ts-expression', 'zod-refine'] as const) {
+      const code = transpileExpression(expression, { ...context, emitMode });
+      if (emitMode === 'ts-expression') expect(code).not.toContain('rune.');
+      const date = emitMode === 'ts-expression' ? Temporal.PlainDate.from('2026-10-13') : '2026-10-13';
+      expect(execute(code, { flag: true, dates: [date] })).toEqual([2026]);
+      expect(execute(code, { flag: false, date })).toEqual([2026]);
+      expect(execute(code, { flag: true, dates: [] })).toEqual([]);
+      expect(execute(code, { flag: false })).toEqual([]);
+      let reads = 0;
+      expect(
+        execute(code, {
+          flag: false,
+          get date() {
+            reads++;
+            return date;
+          }
+        })
+      ).toEqual([2026]);
+      expect(reads).toBe(1);
+    }
+  });
+
   it('compares nullable calendar values natively and evaluates each operand once', async () => {
     const [func] = await linkedFunctions(`namespace native.optional_calendars
 func Same:

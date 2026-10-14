@@ -122,6 +122,58 @@ func Same:
       }).validateSame().valid
     ).toBe(false);
   });
+  it('compiles and executes mixed-cardinality calendar navigation without helper calls', async () => {
+    const funcs = await compile(
+      [
+        BASICTYPES_ROSETTA,
+        `namespace test.mixedCalendars
+${['date', 'dateTime', 'zonedDateTime']
+  .map(
+    (type, index) => `
+func Years${index}:
+ inputs: flag boolean (1..1) dates ${type} (0..*) date ${type} (0..1)
+ output: result int (0..*)
+ set result: (if flag then dates else date)${type === 'date' ? '' : ' -> date'} -> year
+`
+  )
+  .join('\n')}
+func DefaultYears:
+ inputs: dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ set result: (dates default date) -> year
+func AliasYears:
+ inputs: flag boolean (1..1) dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ alias selected: if flag then dates else date
+ set result: selected -> year
+func ImplicitYears:
+ inputs: flag boolean (1..1) dates date (0..*) date date (0..1)
+ output: result int (0..*)
+ set result: (if flag then dates else date) then year
+`
+      ],
+      '',
+      true
+    );
+    const dates = [
+      Temporal.PlainDate.from('2026-10-13'),
+      Temporal.PlainDateTime.from('2026-10-13T12:30:00'),
+      Temporal.ZonedDateTime.from('2026-10-13T12:30:00[UTC]')
+    ];
+    for (const [index, date] of dates.entries()) {
+      expect(funcs[`Years${index}`]!({ flag: true, dates: [date] })).toEqual([2026]);
+      expect(funcs[`Years${index}`]!({ flag: false, date })).toEqual([2026]);
+      expect(funcs[`Years${index}`]!({ flag: false })).toEqual([]);
+      expect(funcs[`Years${index}`]!({ flag: true, dates: [] })).toEqual([]);
+    }
+    expect(funcs.DefaultYears!({ dates: [], date: dates[0] })).toEqual([2026]);
+    expect(funcs.DefaultYears!({ dates: [dates[0]], date: Temporal.PlainDate.from('2025-01-01') })).toEqual([2026]);
+    expect(funcs.AliasYears!({ flag: false, date: dates[0] })).toEqual([2026]);
+    expect(funcs.AliasYears!({ flag: true, dates: [dates[0]] })).toEqual([2026]);
+    expect(funcs.ImplicitYears!({ flag: false, date: dates[0] })).toEqual([2026]);
+    expect(funcs.ImplicitYears!({ flag: true, dates: [dates[0]] })).toEqual([2026]);
+  });
+
   it('keeps optional calendar navigation compilable in an absence-narrowed branch', async () => {
     const funcs = await compile([
       BASICTYPES_ROSETTA,

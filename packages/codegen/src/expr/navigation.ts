@@ -253,7 +253,8 @@ export function renderCalendarField(
   receiver: () => string,
   many = false,
   temporal = false,
-  required = false
+  required = false,
+  receiverExpression?: RosettaExpression
 ): string | undefined {
   if (
     !isRosettaRecordFeature(feature) ||
@@ -282,7 +283,9 @@ export function renderCalendarField(
         : `((value: Temporal.${temporalType} | undefined) => value?.${field})(${value})`
       : `rune.dateField(${value}, ${JSON.stringify(feature.$container.name)}, ${JSON.stringify(feature.name)})`;
   const value = receiver();
-  return many ? `(${value} ?? []).map((value) => ${read('value', true)})` : read(value, required);
+  return many
+    ? `${nativeCollection(value, receiverExpression, undefined, temporal)}.map((value) => ${read('value', true)})`
+    : read(value, required);
 }
 
 export function deepFeaturePaths(

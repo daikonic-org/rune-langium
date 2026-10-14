@@ -68,7 +68,14 @@ a complete Box, subsequent field writes and the enum sibling.
 
 ## Verification
 
-- Full codegen suite, with Python 3.14: 2,299 tests passed; one existing skip and eight todo cases.
+Calendar navigation also uses the shared shape-aware materializer before mapping.
+A conditional, default or alias may legitimately return a single calendar value
+on one branch and a list on another. Both Temporal and ISO predicate modes retain
+those shapes, missing/empty cases and single receiver evaluation. Strict export
+checks cover date, date-time and zoned date-time navigation, aliases and implicit
+pipeline fields.
+
+- Full codegen suite, with Python 3.14: 2,301 tests passed; one existing skip and eight todo cases.
 - Studio projection, all 117 CDM reference parity cases and codegen preview: 165 tests passed.
 - Pinned corpus: 132 generated TypeScript files compile strictly across 189 source documents.
 - Workspace and codegen type checks, changed-file lint and formatting pass.
