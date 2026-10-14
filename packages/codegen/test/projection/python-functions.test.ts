@@ -791,6 +791,95 @@ func Check:
     expect(() => generatePythonModule([AstUtils.getDocument(different[0]!)])).toThrow('linked common parent');
   });
 
+  it('checks common-parent metadata payloads in only-exists expressions and validators', async () => {
+    const funcs = await linkedFunctions(`namespace python.parent_metadata
+annotation metadata:
+ reference string (0..1)
+ scheme string (0..1)
+metaType reference string
+metaType scheme string
+type Parent:
+ scalar number (0..1)
+  [metadata reference]
+ many number (0..*)
+  [metadata reference]
+ field number (0..1)
+  [metadata scheme]
+ fields number (0..*)
+  [metadata scheme]
+type Terms extends Parent:
+ flag boolean (0..1)
+type Envelope:
+ terms Terms (0..1)
+ condition Selection: (terms -> flag) only exists
+func Check:
+ inputs: terms Terms (0..1)
+ output: result boolean (1..1)
+ set result: (terms -> flag) only exists
+func Nested:
+ inputs: terms Terms (0..1)
+ output: result boolean (1..1)
+ set result: if True then (terms -> flag) only exists else False
+func Verify:
+ inputs: terms Terms (0..1)
+ output: result boolean (1..1)
+ set result: True
+ post-condition Selection: (terms -> flag) only exists
+`);
+    const document = AstUtils.getDocument(funcs[0]!);
+    const python = generatePythonModule([document]);
+    const outputs = await generate([document], {
+      target: 'typescript',
+      strict: true,
+      typescript: { layout: 'single-file' }
+    });
+    const exports = recordFunctionExports(
+      compileGeneratedTypeScript<{
+        Envelope: new (data: object) => { validateSelection(): { valid: boolean } };
+        Check: (data: object) => boolean;
+        Nested: (data: object) => boolean;
+        Verify: (data: object) => boolean;
+      }>(outputs),
+      outputs
+    );
+    const cases = [
+      { terms: undefined, valid: true },
+      { terms: {}, valid: true },
+      { terms: { flag: false }, valid: true },
+      { terms: { scalar: { externalReference: 'id' } }, valid: true },
+      { terms: { many: [{ externalReference: 'id' }] }, valid: true },
+      { terms: { many: [] }, valid: true },
+      { terms: { scalar: { value: 0 } }, valid: false },
+      { terms: { many: [{ externalReference: 'id' }, { value: 0 }] }, valid: false },
+      { terms: { field: { value: 0, meta: {} } }, valid: false },
+      { terms: { fields: [{ value: 0, meta: {} }] }, valid: false }
+    ];
+    for (const { terms, valid } of cases) {
+      const data = { terms };
+      expect(exports.Check(data)).toBe(valid);
+      expect(exports.Nested(data)).toBe(valid);
+      expect(new exports.Envelope(data).validateSelection().valid).toBe(valid);
+      if (valid) expect(exports.Verify(data)).toBe(true);
+      else expect(() => exports.Verify(data)).toThrow('Selection');
+    }
+    for (const name of ['Check', 'Nested', 'Verify']) {
+      const results = execute(
+        python.code,
+        cases.map(({ terms }) => ({
+          expression: `${python.bindings.get(`python.parent_metadata.${name}`)}(data)`,
+          data: { terms }
+        }))
+      );
+      cases.forEach(({ valid }, index) => {
+        if (name === 'Verify' && !valid) expect(results[index]?.error).toContain('Selection');
+        else
+          expect(results[index], `${name}: ${JSON.stringify(cases[index]!.terms)}`).toEqual({
+            value: name === 'Verify' ? true : valid
+          });
+      });
+    }
+  }, 30_000);
+
   it('types a continuous body and preserves aliases, nested writes, append and condition order', async () => {
     const funcs = await linkedFunctions(`namespace python.functions
 type Child:

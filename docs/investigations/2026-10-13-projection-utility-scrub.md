@@ -197,3 +197,17 @@ CI limits unchanged. Both complete suites pass through the root coverage runner:
 174 tests in 11.7 seconds locally. The focused invocation disables aggregate
 coverage percentage thresholds because it runs only these two files; the full
 CI coverage thresholds remain unchanged.
+
+A new review reproduced reference-only forbidden fields being counted as present
+in common-parent `only exists` expressions. The selector retained names but lost
+the linked fields' metadata/cardinality facts. Both TypeScript and Python now
+reuse those shared facts with their existing presence renderer/field readers,
+while preserving one parent evaluation. A strict compiled-module regression
+covers optional parents, inherited scalar/list reference and field metadata,
+mixed reference/value lists, nested predicates, Data validators and function
+postconditions. It failed before the fix in TypeScript and exposed the same
+common-parent gap in Python. Validation passes 2,313 codegen tests (one existing
+skip/eight todo), 216 Studio consumer checks including all 117 CDM cases, 175
+checks through focused root V8 coverage and all 132 strictly compiled pinned
+TypeScript files. Aggregate coverage thresholds are disabled only for the focused
+local run; the full CI thresholds remain unchanged.

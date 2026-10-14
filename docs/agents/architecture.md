@@ -195,6 +195,10 @@ single-file output cannot duplicate aliases or read later native bindings early.
 Constructor emitters and cardinality/list adaptation share presence facts: an empty
 Choice is absent, while an empty Data builder is an object. Required boundaries
 must still reject empty Choices.
+`only exists` retains the common parent's linked field metadata and cardinality
+for both targets. Its existing presence renderer and field readers treat
+reference-only scalar/list wrappers as absent, including inherited fields,
+nested predicates and postconditions; the parent expression is evaluated once.
 Primitive and enum function inputs need no input normalization. Dates and times
 use Temporal in both functions and Data classes. Required calendar arithmetic,
 field access, equality, and ordering use native Temporal operations. Input schemas

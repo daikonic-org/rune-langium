@@ -166,7 +166,8 @@ export function pythonOnlyExists(
   return pythonBind(
     value,
     bound,
-    selected.forbidden.map((name) => pythonPresence(pythonRead(bound, [name]), undefined, true)).join(' and ') ||
-      pyBool(true)
+    selected.forbidden
+      .map((name) => pythonPresence(pythonReadField(bound, selected.features!.get(name)!), undefined, true))
+      .join(' and ') || pyBool(true)
   );
 }
