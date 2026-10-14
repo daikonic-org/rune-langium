@@ -141,5 +141,5 @@ func Calendar:
     };
     const projected = selectTypeScriptProjection(bundled, subject, 'function');
     expect(bundled.some((output) => output.content.includes(projected.code))).toBe(true);
-  });
+  }, 30_000);
 });

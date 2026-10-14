@@ -1454,7 +1454,7 @@ describe('pinned CDM Python backend execution', () => {
         cases.map(({ data }) => ({ expression: `${name}(data)`, data }))
       )
     ).toEqual(expected);
-  });
+  }, 30_000);
   it.each(referenceCases)('$id ($function)', (testCase) => {
     const output = outputs[referenceCases.indexOf(testCase)]!;
     if (testCase.expectedError) expect(output.error).toContain(testCase.expectedError);

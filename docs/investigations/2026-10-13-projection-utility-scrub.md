@@ -185,3 +185,15 @@ production deployment are not exercised by these local checks.
 CI on the preceding head failed only the unchanged 400-node rename timing test
 at 101.5ms against 100ms. All 15 focused rename tests passed locally; its threshold
 has not changed. Fresh-head CI is still required after the export follow-up.
+
+The latest review completed without new findings; all six known review threads
+are resolved. CI on `dc77f3c4` passed package tests, types, lint, formatting and
+Studio accessibility/HMR, then failed two projection corpus tests under root V8
+coverage's default five-second budget. Single-file provenance completed in
+6.7 seconds; CDM UnitType parity also regenerates complete TypeScript artifacts
+and executes both languages. These correctness checks now use the existing
+30-second corpus execution budget explicitly, with all assertions and global
+CI limits unchanged. Both complete suites pass through the root coverage runner:
+174 tests in 11.7 seconds locally. The focused invocation disables aggregate
+coverage percentage thresholds because it runs only these two files; the full
+CI coverage thresholds remain unchanged.
