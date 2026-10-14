@@ -185,6 +185,10 @@ each operand/key is evaluated once. Completed primitive function returns reuse t
 enforced output bounds; pending output accumulators and composite/metadata boundaries
 retain their checks. Explicit `...` composite constructors retain a builder assertion
 for their incomplete fields; complete constructors use `satisfies` and preserve enum literals.
+Cross-namespace calls reuse the shared export-name ownership table: unique names
+stay short, while collisions and lexical shadowing retain protected aliases.
+Private captures are scoped to the caller module and defer binding reads, so
+single-file output cannot duplicate aliases or read later native bindings early.
 Constructor emitters and cardinality/list adaptation share presence facts: an empty
 Choice is absent, while an empty Data builder is an object. Required boundaries
 must still reject empty Choices.

@@ -104,7 +104,8 @@ vi.mock('@codemirror/commands', () => ({
   defaultKeymap: []
 }));
 
-vi.mock('@codemirror/language', () => ({
+vi.mock('@codemirror/language', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@codemirror/language')>()),
   HighlightStyle: { define: vi.fn().mockReturnValue([]) },
   syntaxHighlighting: vi.fn().mockReturnValue([]),
   defaultHighlightStyle: []
@@ -406,25 +407,6 @@ describe('SourceEditor', () => {
   });
 
   describe('graph navigation via source clicks (issue #453 follow-up)', () => {
-    // A minimal CM6-Text-like `doc` — only the methods extractNodeIdAtPosition
-    // (SourceEditor.tsx, module-private) actually reads: lineAt(pos),
-    // line(n), and the `lines` count.
-    function makeFakeDoc(lines: string[]) {
-      return {
-        lines: lines.length,
-        lineAt: (pos: number) => {
-          let offset = 0;
-          for (let i = 0; i < lines.length; i++) {
-            const lineLength = lines[i]!.length + 1;
-            if (pos < offset + lineLength) return { number: i + 1, text: lines[i]! };
-            offset += lineLength;
-          }
-          return { number: lines.length, text: lines[lines.length - 1] ?? '' };
-        },
-        line: (n: number) => ({ text: lines[n - 1] ?? '' })
-      };
-    }
-
     const navFile = {
       name: 'nav.rosetta',
       path: '/workspace/nav.rosetta',
@@ -443,7 +425,15 @@ describe('SourceEditor', () => {
     // listener is safe — no need to single out "the navigation one".
     async function fireSelectionTransaction(userEvent: string, headPos: number, file = navFile) {
       const { EditorView } = vi.mocked(await import('@codemirror/view'));
-      const state = { doc: makeFakeDoc(file.content.split('\n')) };
+      const { EditorState: RealEditorState } =
+        await vi.importActual<typeof import('@codemirror/state')>('@codemirror/state');
+      const { StreamLanguage } = await vi.importActual<typeof import('@codemirror/language')>('@codemirror/language');
+      const { runeDslStreamParser } =
+        await vi.importActual<typeof import('../../src/lang/rune-dsl.js')>('../../src/lang/rune-dsl.js');
+      const state = RealEditorState.create({
+        doc: file.content,
+        extensions: StreamLanguage.define(runeDslStreamParser)
+      });
       const update = {
         transactions: [{ isUserEvent: (e: string) => e === userEvent, newSelection: { main: { head: headPos } } }],
         state

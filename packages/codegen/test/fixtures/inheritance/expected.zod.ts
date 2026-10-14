@@ -198,17 +198,17 @@ export const AnimalSchema = z.object({
 });
 export type Animal = z.infer<typeof AnimalSchema>;
 
-export const DogSchema = AnimalSchema.extend({
+export const DogSchema = AnimalSchema.safeExtend({
   breed: z.string()
 });
 export type Dog = z.infer<typeof DogSchema>;
 
-export const SiblingSchema = AnimalSchema.extend({
+export const SiblingSchema = AnimalSchema.safeExtend({
   age: z.number().int()
 });
 export type Sibling = z.infer<typeof SiblingSchema>;
 
-export const PoodleSchema = DogSchema.extend({
+export const PoodleSchema = DogSchema.safeExtend({
   size: z.string()
 });
 export type Poodle = z.infer<typeof PoodleSchema>;

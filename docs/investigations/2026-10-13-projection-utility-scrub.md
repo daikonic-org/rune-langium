@@ -68,6 +68,17 @@ a complete Box, subsequent field writes and the enum sibling.
 
 ## Verification
 
+Unique cross-namespace TypeScript calls now retain their exported names. Protected
+aliases remain for collisions and local shadowing; caller-scoped lazy captures
+keep single-file bundles safe when multiple modules shadow a callable or a native
+binding appears later in the bundle. All three layouts have strict compilation
+and execution coverage, including library calls, pipelines and inherited calls.
+
+Preview Data inheritance uses Zod's `safeExtend`, preserving parent refinements
+when a child overrides fields. The shared refined-parent fixture covers child and
+grandchild validation through both the standalone generator and Studio's real
+worker; valid data passes and parent/child condition failures remain visible.
+
 Calendar navigation also uses the shared shape-aware materializer before mapping.
 A conditional, default or alias may legitimately return a single calendar value
 on one branch and a list on another. Both Temporal and ISO predicate modes retain

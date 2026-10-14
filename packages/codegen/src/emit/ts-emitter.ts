@@ -280,14 +280,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private callableName = (declaration: CallableDeclaration, forceAlias = false): string => {
     const namespace = getElementNamespace(declaration) ?? this.model.namespace;
     const name = this.callableNames.exported(namespace, callableExportName(declaration));
-    const emitted = this.singleFile
-      ? this.callableNames.bundled(namespace, name)
-      : namespace === this.model.namespace
-        ? name
-        : this.callableNames.alias(namespace, name);
-    if (forceAlias && namespace === this.model.namespace) {
-      const alias = this.callableNames.alias(namespace, name);
-      if (alias !== emitted) this.localCallableAliases.set(alias, emitted);
+    const emitted =
+      this.singleFile || namespace !== this.model.namespace ? this.callableNames.bundled(namespace, name) : name;
+    if (forceAlias) {
+      if (this.callableNames.alias(namespace, name) === emitted) return emitted;
+      const alias = this.callableNames.protectedAlias(namespace, name, this.model.namespace);
+      this.localCallableAliases.set(alias, emitted);
       return alias;
     }
     return emitted;
@@ -487,9 +485,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     return {
       relativePath: this.relativePath,
       content:
-        [...this.sections, ...[...this.localCallableAliases].map(([alias, name]) => `const ${alias} = ${name};`)].join(
-          '\n'
-        ) + '\n',
+        [
+          ...this.sections,
+          ...[...this.localCallableAliases].map(
+            ([alias, name]) => `const ${alias} = (...args: Parameters<typeof ${name}>) => ${name}(...args);`
+          )
+        ].join('\n') + '\n',
       sourceMap: this.ctx.sourceMap,
       diagnostics: this.ctx.diagnostics,
       funcs: this.generatedFuncs,

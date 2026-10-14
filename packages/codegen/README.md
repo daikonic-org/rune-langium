@@ -107,6 +107,10 @@ implicit calls, and `super`. Functions sharing a name with a type receive a `Nam
 function names; conflicting callable names in barrel and single-file output use
 `__rune$namespace$Name` exports (namespace dots become `$`). Internal aliases use
 `$` so Rune inputs and aliases cannot shadow them.
+Unique cross-namespace calls keep the exported function name. Only colliding or
+lexically shadowed calls use protected aliases; private aliases include the caller
+namespace when needed for single-file output and defer native binding reads until
+invocation.
 Metadata-annotated parameters use `RuneFieldWithMeta<T>` or
 `RuneReferenceWithMeta<T>`; ordinary value expressions unwrap field metadata,
 while calls and assignments retain wrappers where their declarations require them.
