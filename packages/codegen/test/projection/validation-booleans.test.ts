@@ -105,6 +105,7 @@ describe('validation failures in displayed bodies', () => {
     expect(results[2]).toEqual({ error: 'Diagnostic: WithinLimit' });
   });
 
+  // This integration check links the corpus and emits both languages under coverage.
   it('returns false before the native implementation in the pinned CDM RoundToNearest example', async () => {
     const { RuneDsl } = createRuneDslServices();
     const documents = referenceFiles().map(({ uri, content }) =>
@@ -131,5 +132,5 @@ describe('validation failures in displayed bodies', () => {
       .join('\n')}\n`;
     expect(runPython([{ expression: 'projected(-1)' }], code)).toEqual([{ value: false }]);
     expect(pyBody).toContain('rune.native');
-  });
+  }, 30_000);
 });
