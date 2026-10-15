@@ -255,3 +255,20 @@ strictly after rebuilding codegen. Codegen source/test types and changed-file
 lint/format pass. The first broad Studio run exposed a test waiting for its
 container before CodeMirror mounted; it now waits for the actual editor view
 with the same timeout and readonly assertion. The full rerun passes.
+
+## Refreshed readonly source
+
+Thread `PRRT_kwDORLopOc6sl2O4` found that a failed replacement coordinate parse
+left an older readonly binding visible. Replacement parsing now clears prior
+bindings and parse state. The active/display predicates also require the parsed
+source and captured binding to match current readonly content, so neither Rune
+nor cached projections show the prior body while parsing or after failure.
+Rejected parse promises use the same failure state. Editable draft recovery is
+unchanged. Four before/after regressions cover invalid/rejected replacements in
+Rune/TypeScript and restoration of valid source. The curated-coordinate fixture
+now publishes its source to the canonical document owner as the real host does.
+
+Readonly follow-up validation: all 2,009 Studio tests pass (two existing skips),
+including all 28 expression-workspace tests; changed-file lint/format and
+whitespace checks pass. Codegen remains unchanged from its 2,327-test and
+132-file strict corpus validation.

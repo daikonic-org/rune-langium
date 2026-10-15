@@ -296,6 +296,11 @@ match the source artifact. Projection requests verify that actual source range,
 then resolve the corresponding linked declaration/condition for emission; range
 and file-version guards still reject stale or cross-declaration requests.
 
+Refreshed readonly source clears prior coordinate parses/bindings before parsing;
+Rune bodies and generated views require a source-matching binding. Parse errors
+and rejected parses show the source error instead of old code. Editable drafts
+retain their existing last-valid recovery behavior.
+
 Code preview uses the selected declaration and the canonical export dependency
 closure for authored and curated objects. It awaits namespace readiness and the
 worker file receipt. The active View action bypasses its cached generation without hiding the pane;

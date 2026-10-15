@@ -114,15 +114,22 @@ export const ExpressionWorkspace = withInstrumentation(
     useEffect(() => {
       if (!file || file.sourceLoaded === false || !(file.readOnly || file.refOnly)) return;
       let cancelled = false;
+      setBinding(null);
+      setSourceParse(undefined);
       setCoordinateError('Resolving original source…');
-      void originalSourceParse(file).then((result) => {
-        if (cancelled) return;
-        if (!result.model || result.errors.length) {
-          setCoordinateError('The original source could not be parsed. Open the file in Source.');
-          return;
-        }
-        setSourceParse({ filePath: file.path, source: file.content, model: result.model });
-      });
+      const failed = () => {
+        if (!cancelled) setCoordinateError('The original source could not be parsed. Open the file in Source.');
+      };
+      void originalSourceParse(file)
+        .then((result) => {
+          if (cancelled) return;
+          if (!result.model || result.errors.length) {
+            failed();
+            return;
+          }
+          setSourceParse({ filePath: file.path, source: file.content, model: result.model });
+        })
+        .catch(failed);
       return () => {
         cancelled = true;
       };
@@ -185,7 +192,14 @@ export const ExpressionWorkspace = withInstrumentation(
       target?.kind,
       target?.index
     ]);
+    const originalSourceCurrent =
+      !(file?.readOnly || file?.refOnly) ||
+      (file.sourceLoaded !== false &&
+        sourceParse?.filePath === file.path &&
+        sourceParse.source === file.content &&
+        binding?.source === file.content);
     const active =
+      originalSourceCurrent &&
       file &&
       !coordinateError &&
       file.sourceLoaded !== false &&
@@ -193,7 +207,14 @@ export const ExpressionWorkspace = withInstrumentation(
       binding.nodeId === nodeId
         ? binding
         : null;
-    const displayed = file && binding?.uri === pathToUri(file.path) && binding.nodeId === nodeId ? binding : null;
+    const displayed =
+      originalSourceCurrent && file && binding?.uri === pathToUri(file.path) && binding.nodeId === nodeId
+        ? binding
+        : null;
+    const sourceStatus =
+      sourceError ??
+      coordinateError ??
+      (file?.sourceLoaded === false ? 'Loading source…' : 'Waiting for the current Rune source to parse…');
     const [language, setLanguage] = useState<'rune' | 'typescript' | 'python'>('rune');
     const [projectionRetry, setProjectionRetry] = useState(0);
     const projection = useExpressionProjection(
@@ -331,7 +352,10 @@ export const ExpressionWorkspace = withInstrumentation(
             </Button>
           </div>
         </div>
-        <div className={language === 'rune' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+        <div
+          aria-hidden={language !== 'rune'}
+          className={language === 'rune' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
+        >
           {displayed && coordinateError && (
             <p role="status" className="text-xs text-muted-foreground">
               {coordinateError}
@@ -357,13 +381,16 @@ export const ExpressionWorkspace = withInstrumentation(
             />
           ) : (
             <p role="status" className="text-xs text-muted-foreground">
-              {sourceError ??
-                coordinateError ??
-                (file?.sourceLoaded === false ? 'Loading source…' : 'Waiting for the current Rune source to parse…')}
+              {sourceStatus}
             </p>
           )}
         </div>
-        {language !== 'rune' && (
+        {language !== 'rune' && !originalSourceCurrent && (
+          <p role="status" className="text-xs text-muted-foreground">
+            {sourceStatus}
+          </p>
+        )}
+        {language !== 'rune' && originalSourceCurrent && (
           <>
             <p className="text-xs text-muted-foreground">Generated · read-only</p>
             {'projection' in projection && projection.projection && (
