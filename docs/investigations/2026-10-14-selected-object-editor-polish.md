@@ -272,3 +272,22 @@ Readonly follow-up validation: all 2,009 Studio tests pass (two existing skips),
 including all 28 expression-workspace tests; changed-file lint/format and
 whitespace checks pass. Codegen remains unchanged from its 2,327-test and
 132-file strict corpus validation.
+
+## Missing selected source and warning outcomes
+
+Threads `PRRT_kwDORLopOc6smEaD` and `PRRT_kwDORLopOc6smEaK` found two
+remaining recovery/reporting issues. The worker now consumes the shared export
+resolver's unknown declarations/namespaces before generation. Invalid selected
+source therefore posts `codegen:outdated`, preserving the last same-selection
+preview rather than replacing it with an empty or partial export. The source
+version guard also suppresses obsolete selection failures. Invalid unrelated
+files remain filtered without blocking a valid selection.
+
+Operation warning records retain warning severity in Output and now carry an
+unsuccessful Activity outcome. Info/success and error behavior are unchanged.
+Four regressions fail before the fixes and pass afterward; all 76 focused
+worker/operation tests pass.
+
+Final follow-up validation: all 2,016 Studio tests pass (two existing skips),
+Studio application/functions types and scoped lint/format pass. Codegen is
+unchanged from the prior 2,327-test and 132-file strict corpus checks.

@@ -423,10 +423,24 @@ async function runCodegen(
     // is never marked valid for the new version.
     const documentsVersion = selection ? previewFilesVersion : codegenFilesVersion;
 
-    const documents: LangiumDocument[] = selection
-      ? resolveExportSelection((await buildDocuments()).value, selection).documents
-      : currentCodegenFiles.map(({ uri, content }) => factory.fromString(content, URI.parse(uri)));
-    if (!selection) await builder.build(documents, { validation: false, eagerLinking: false });
+    let documents: LangiumDocument[];
+    if (selection) {
+      const resolved = resolveExportSelection((await buildDocuments()).value, selection);
+      if (documentsVersion !== previewFilesVersion) return;
+      if (resolved.unknown.length || resolved.unknownNamespaces.length) {
+        scope.postMessage({
+          type: 'codegen:outdated',
+          target,
+          requestId,
+          message: 'Selected source is unavailable or invalid. Fix or reload it to refresh the code preview.'
+        });
+        return;
+      }
+      documents = resolved.documents;
+    } else {
+      documents = currentCodegenFiles.map(({ uri, content }) => factory.fromString(content, URI.parse(uri)));
+      await builder.build(documents, { validation: false, eagerLinking: false });
+    }
 
     const hasErrors = documents.some(hasDocumentErrors);
 

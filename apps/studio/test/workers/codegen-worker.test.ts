@@ -15,6 +15,11 @@ const fromStringMock = vi.fn((content: string, uri: string) => ({
   parseResult: { value: { uri, content }, lexerErrors: [], parserErrors: [] }
 }));
 const generateMock = vi.fn(() => []);
+const resolveExportSelectionMock = vi.fn((documents: unknown[]) => ({
+  documents,
+  unknown: [] as unknown[],
+  unknownNamespaces: [] as string[]
+}));
 const generatePythonMock = vi.fn(() => ({ code: '', projections: [], bindings: new Map() }));
 const selectPythonProjectionMock = vi.fn((_module, subject) => ({
   language: 'python',
@@ -139,7 +144,7 @@ vi.mock('@rune-langium/core', () => {
 
 vi.mock('@rune-langium/codegen/export', () => ({
   generate: generateMock,
-  resolveExportSelection: (documents: unknown[]) => ({ documents }),
+  resolveExportSelection: resolveExportSelectionMock,
   selectTypeScriptProjection: selectProjectionMock,
   generatePythonModule: generatePythonMock,
   selectPythonProjection: selectPythonProjectionMock,
@@ -1475,6 +1480,64 @@ describe('codegen-worker code preview messages', () => {
       message: 'Fix model errors to refresh the code preview.'
     });
   });
+
+  it.each(['invalid declaration', 'missing namespace', 'partial selection'])(
+    'posts outdated rather than an empty or partial selected export for %s',
+    async (scenario) => {
+      const { scope, dispatch } = await loadWorkerModule();
+      buildMock.mockImplementationOnce(async (documents) => {
+        documents[0].parseResult.parserErrors = [{ message: 'Invalid selected source' }];
+      });
+      dispatch({
+        type: 'preview:setFiles',
+        files: [
+          { uri: 'file:///trade.rosetta', content: 'broken syntax' },
+          { uri: 'file:///valid.rosetta', content: 'namespace valid' }
+        ],
+        filesRevision: 1
+      });
+      await flushWorker();
+      resolveExportSelectionMock.mockImplementationOnce((documents) => {
+        expect(documents).toHaveLength(1);
+        return {
+          documents: scenario === 'partial selection' ? documents : [],
+          unknown: scenario === 'missing namespace' ? [] : [{ namespace: 'demo', name: 'Trade', kind: 'Data' }],
+          unknownNamespaces: scenario === 'missing namespace' ? ['demo'] : []
+        };
+      });
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: 'selected:invalid',
+        selection: { declarations: [{ namespace: 'demo', name: 'Trade', kind: 'Data' }], namespaces: [] }
+      });
+      await flushWorker();
+      expect(generateMock).not.toHaveBeenCalled();
+      expect(scope.postMessage).toHaveBeenLastCalledWith({
+        type: 'codegen:outdated',
+        target: 'typescript',
+        requestId: 'selected:invalid',
+        message: 'Selected source is unavailable or invalid. Fix or reload it to refresh the code preview.'
+      });
+
+      // A later valid selection can still generate despite the unrelated invalid document.
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: 'selected:valid',
+        selection: { declarations: [{ namespace: 'valid', name: 'Valid', kind: 'Data' }], namespaces: [] }
+      });
+      await flushWorker();
+      expect(generateMock).toHaveBeenCalledOnce();
+      expect(generateMock.mock.calls[0][0]).toHaveLength(1);
+      expect(scope.postMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'codegen:result',
+          requestId: 'selected:valid'
+        })
+      );
+    }
+  );
 
   // 019 Task #88 follow-up — preview was broken for curated workspaces
   // because `buildDocuments` parsed empty `content` strings and filtered

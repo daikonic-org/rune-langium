@@ -16,7 +16,7 @@ export const recordOperation = withInstrumentation(
   ): number {
     const opId = metadata.opId ?? allocateOpId();
     const meta = { op: tag, ...metadata, opId };
-    useActivityStore.getState().addActivity(tag, level !== 'error', message, meta);
+    useActivityStore.getState().addActivity(tag, level !== 'error' && level !== 'warn', message, meta);
     useOutputStore.getState().addLine(fmtLine(tag, message), level, meta);
     return opId;
   },

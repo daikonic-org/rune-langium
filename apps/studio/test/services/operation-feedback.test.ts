@@ -23,3 +23,14 @@ it('records correlated operation start and completion without toast lifecycle ev
   expect(output[1]).toMatchObject({ durationMs: 42 });
   expect(output.every((entry) => !entry.text.includes('toast'))).toBe(true);
 });
+
+it.each([
+  ['info', true],
+  ['success', true],
+  ['warn', false],
+  ['error', false]
+] as const)('records %s with the appropriate activity outcome and output severity', (level, ok) => {
+  const opId = recordOperation('layout', 'Layout operation', level, { durationMs: 12 });
+  expect(useActivityStore.getState().entries).toEqual([expect.objectContaining({ ok, opId, durationMs: 12 })]);
+  expect(useOutputStore.getState().lines).toEqual([expect.objectContaining({ severity: level, opId, durationMs: 12 })]);
+});
