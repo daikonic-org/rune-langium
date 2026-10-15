@@ -533,6 +533,20 @@ describe('source-bound expression workspace', () => {
     else await waitFor(() => expect(host.getByTestId('implementation-editor')).toHaveTextContent('set result: 1'));
   });
 
+  it('hides readonly Rune source when the current bytes have only lexer errors', async () => {
+    const { props, setFile } = await context();
+    const file = { ...props.file, content: source + '\u0000', readOnly: true, refOnly: true, sourceLoaded: true };
+    const parsed = await parse(file.content);
+    expect(parsed.parserErrors).toHaveLength(0);
+    expect(parsed.lexerErrors.length).toBeGreaterThan(0);
+    setFile(file);
+    const host = render(
+      <ExpressionWorkspace {...props} file={file} readOnly parsed={undefined} parseCurrent={false} />
+    );
+    await waitFor(() => expect(host.getByRole('status')).toHaveTextContent('The original source could not be parsed'));
+    expect(host.queryByTestId('implementation-editor')).toBeNull();
+  });
+
   it('respects file read-only capability even if the host flag is false', async () => {
     const { props, writes } = await context();
     const host = render(

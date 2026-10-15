@@ -85,6 +85,21 @@ async function loadParserWorkerModule() {
 }
 
 describe('parser-worker', () => {
+  it.each(['parse', 'parseWorkspace'] as const)('reports lexer-only errors for %s requests', async (type) => {
+    const { dispatchWorkerRequest } = await loadParserWorkerModule();
+    buildMock.mockImplementationOnce(async (documents) => {
+      documents[0].parseResult.lexerErrors = [{ message: 'Illegal character' }];
+    });
+    const response = await dispatchWorkerRequest(
+      type === 'parse'
+        ? { type, id: 'lexer', content: 'namespace test', uri: 'file:///test.rosetta' }
+        : { type, id: 'lexer', files: [{ name: 'file:///test.rosetta', content: 'namespace test' }] }
+    );
+    expect(response).toMatchObject({
+      errors: type === 'parse' ? ['Illegal character'] : { 'file:///test.rosetta': ['Illegal character'] }
+    });
+  });
+
   it('propagates a failed scope snapshot build and allows the next queued request', async () => {
     const { dispatchWorkerRequest } = await loadParserWorkerModule();
     buildMock.mockRejectedValueOnce(new Error('Snapshot build failed'));

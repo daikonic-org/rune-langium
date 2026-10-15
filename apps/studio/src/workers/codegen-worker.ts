@@ -160,7 +160,7 @@ let lastPreviewRequestId: string | undefined;
 let previewFilesVersion = 0;
 let previewFilesRevision = 0;
 let previewVersionStartRevision = 0;
-const documentsCache = new Map<string, VersionedEntry<LangiumDocument[]>>();
+const documentsCache = new Map<string, VersionedEntry<{ all: LangiumDocument[]; valid: LangiumDocument[] }>>();
 const previewSchemaCache = new Map<string, VersionedEntry<FormPreviewSchema[]>>();
 const previewGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
 const previewPythonCache = new Map<string, VersionedEntry<PythonModule>>();
@@ -424,8 +424,13 @@ async function runCodegen(
     const documentsVersion = selection ? previewFilesVersion : codegenFilesVersion;
 
     let documents: LangiumDocument[];
+    const invalidDocumentUris = new Set<string>();
     if (selection) {
-      const resolved = resolveExportSelection((await buildDocuments()).value, selection);
+      const allDocuments = (await buildDocuments(true)).value;
+      for (const document of allDocuments) {
+        if (hasDocumentErrors(document)) invalidDocumentUris.add(document.uri.toString());
+      }
+      const resolved = resolveExportSelection(allDocuments, selection);
       if (documentsVersion !== previewFilesVersion) return;
       if (resolved.unknown.length || resolved.unknownNamespaces.length) {
         scope.postMessage({
@@ -442,7 +447,17 @@ async function runCodegen(
       await builder.build(documents, { validation: false, eagerLinking: false });
     }
 
-    const hasErrors = documents.some(hasDocumentErrors);
+    const hasErrors =
+      documents.some(hasDocumentErrors) ||
+      (selection &&
+        documents.some((document) =>
+          AstUtils.streamAllContents(document.parseResult.value).some((node) =>
+            AstUtils.streamReferences(node).some(({ reference }) => {
+              const targetUri = reference.error?.targetDescription?.documentUri;
+              return targetUri !== undefined && invalidDocumentUris.has(targetUri.toString());
+            })
+          )
+        ));
 
     if (hasErrors) {
       scope.postMessage({
@@ -507,14 +522,14 @@ async function runCodegen(
   }
 }
 
-async function buildDocuments(): Promise<VersionedEntry<LangiumDocument[]>> {
-  return getOrComputeAsync(
+async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<LangiumDocument[]>> {
+  const entry = await getOrComputeAsync(
     documentsCache,
     'documents',
     () => previewFilesVersion,
     async () => {
       if (currentPreviewFiles.length === 0) {
-        return [];
+        return { all: [], valid: [] };
       }
 
       // 019 Task #88 follow-up: split into user files (parse path) and
@@ -551,9 +566,9 @@ async function buildDocuments(): Promise<VersionedEntry<LangiumDocument[]>> {
       // cached result rather than re-registering/re-linking on every build.
       const curatedDocuments = cachedCuratedDocuments;
 
-      // Filter out user files with parse/lex errors. Corpus files may
-      // contain constructs the parser doesn't fully support; excluding them
-      // keeps the namespace index intact for the remaining files.
+      // Keep invalid documents in the shared cache so selected exports can
+      // resolve their complete dependency closure before rejecting errors.
+      // Other preview consumers receive the filtered view below.
       const validUserDocuments = userDocuments.filter((d) => !hasDocumentErrors(d));
       if (validUserDocuments.length < userDocuments.length) {
         console.warn(
@@ -562,9 +577,10 @@ async function buildDocuments(): Promise<VersionedEntry<LangiumDocument[]>> {
           } user file(s) had parse errors and were excluded from preview.`
         );
       }
-      return [...validUserDocuments, ...curatedDocuments];
+      return { all: [...userDocuments, ...curatedDocuments], valid: [...validUserDocuments, ...curatedDocuments] };
     }
   );
+  return { version: entry.version, value: includeInvalid ? entry.value.all : entry.value.valid };
 }
 
 function generatedPreviewSchemaForTarget(

@@ -15,6 +15,9 @@ const fromStringMock = vi.fn((content: string, uri: string) => ({
   parseResult: { value: { uri, content }, lexerErrors: [], parserErrors: [] }
 }));
 const generateMock = vi.fn(() => []);
+const streamReferencesMock = vi.fn(
+  () => [] as Array<{ reference: { error?: { message: string; targetDescription?: { documentUri: string } } } }>
+);
 const resolveExportSelectionMock = vi.fn((documents: unknown[]) => ({
   documents,
   unknown: [] as unknown[],
@@ -163,7 +166,11 @@ vi.mock('@rune-langium/codegen/instances', () => ({
 }));
 
 vi.mock('langium', () => ({
-  AstUtils: { getDocument: (node: { $document: unknown }) => node.$document },
+  AstUtils: {
+    getDocument: (node: { $document: unknown }) => node.$document,
+    streamAllContents: (node: unknown) => [node],
+    streamReferences: streamReferencesMock
+  },
   URI: {
     parse: (value: string) => value
   }
@@ -1498,9 +1505,9 @@ describe('codegen-worker code preview messages', () => {
       });
       await flushWorker();
       resolveExportSelectionMock.mockImplementationOnce((documents) => {
-        expect(documents).toHaveLength(1);
+        expect(documents).toHaveLength(2);
         return {
-          documents: scenario === 'partial selection' ? documents : [],
+          documents: scenario === 'partial selection' ? documents.slice(1) : [],
           unknown: scenario === 'missing namespace' ? [] : [{ namespace: 'demo', name: 'Trade', kind: 'Data' }],
           unknownNamespaces: scenario === 'missing namespace' ? ['demo'] : []
         };
@@ -1521,6 +1528,11 @@ describe('codegen-worker code preview messages', () => {
       });
 
       // A later valid selection can still generate despite the unrelated invalid document.
+      resolveExportSelectionMock.mockImplementationOnce((documents) => ({
+        documents: documents.slice(1),
+        unknown: [],
+        unknownNamespaces: []
+      }));
       dispatch({
         type: 'codegen:generate',
         target: 'typescript',
@@ -1536,6 +1548,59 @@ describe('codegen-worker code preview messages', () => {
           requestId: 'selected:valid'
         })
       );
+    }
+  );
+
+  it.each(['lexerErrors', 'parserErrors', 'unresolved reference'] as const)(
+    'keeps selected output outdated when its dependency has %s',
+    async (kind) => {
+      const { scope, dispatch } = await loadWorkerModule();
+      buildMock.mockImplementationOnce(async (documents) => {
+        documents[1].parseResult[kind === 'unresolved reference' ? 'parserErrors' : kind] = [
+          { message: 'Invalid dependency' }
+        ];
+      });
+      dispatch({
+        type: 'preview:setFiles',
+        files: [
+          { uri: 'file:///trade.rosetta', content: 'namespace demo' },
+          { uri: 'file:///dependency.rosetta', content: 'namespace dependency' }
+        ],
+        filesRevision: 1
+      });
+      await flushWorker();
+      // The shared resolver returns the reachable closure. It must receive the
+      // invalid dependency too, so runCodegen can reject it before generation.
+      resolveExportSelectionMock.mockImplementationOnce((documents) => ({
+        documents: kind === 'unresolved reference' ? documents.slice(0, 1) : documents,
+        unknown: [],
+        unknownNamespaces: []
+      }));
+      if (kind === 'unresolved reference')
+        streamReferencesMock.mockReturnValueOnce([
+          {
+            reference: {
+              error: {
+                message: 'Missing dependency declaration',
+                targetDescription: { documentUri: 'file:///dependency.rosetta' }
+              }
+            }
+          }
+        ]);
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: 'selected:dependency',
+        selection: { declarations: [{ namespace: 'demo', name: 'Trade', kind: 'Data' }], namespaces: [] }
+      });
+      await flushWorker();
+      expect(generateMock).not.toHaveBeenCalled();
+      expect(scope.postMessage).toHaveBeenLastCalledWith({
+        type: 'codegen:outdated',
+        target: 'typescript',
+        requestId: 'selected:dependency',
+        message: 'Fix model errors to refresh the code preview.'
+      });
     }
   );
 

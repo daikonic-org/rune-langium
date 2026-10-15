@@ -291,3 +291,32 @@ worker/operation tests pass.
 Final follow-up validation: all 2,016 Studio tests pass (two existing skips),
 Studio application/functions types and scoped lint/format pass. Codegen is
 unchanged from the prior 2,327-test and 132-file strict corpus checks.
+
+## Dependency syntax and lexer-only source failures
+
+Threads `PRRT_kwDORLopOc6smWC_` and `PRRT_kwDORLopOc6smWDC` found related
+validation gaps. The versioned document cache now holds both complete and valid
+views, preserving each array identity. Selected exports resolve their closure
+against the complete set, reject syntax failures in that closure, and inspect
+only selected AST references whose failed target is a known invalid document. Ordinary previews retain the
+filtered set, so unrelated broken files do not block them or valid selected
+exports. Failed links into those invalid documents also remain stale.
+
+A shared `parseErrorMessages` collector now includes lexer and parser failures
+for single-file/workspace parsing in both the worker and main-thread fallback.
+A real lexer-only readonly expression no longer becomes a valid binding. Six
+initial regressions failed before the fix; the final 151 focused tests pass,
+including extra fallback-workspace and unresolved-reference cases. The existing
+cache-identity assertion caught an intermediate allocation change; caching both
+views restores the invariant without weakening that assertion.
+
+Real-worker linked dependency regressions cover lexer and parser failures,
+valid → invalid → repaired source, and an unrelated invalid file throughout.
+Both fail on 2073f1cf and pass with the fix; all 46 linked projection/export tests
+pass. An intermediate blanket unresolved-reference check blocked a curated
+fixture with absent built-ins; the final check is limited to failed targets in
+known invalid documents, preserving the existing missing-built-in limitation.
+
+Final validation passes all 2,026 Studio tests (two existing skips), Studio
+application/functions types, scoped lint/format and whitespace checks. Codegen
+source is unchanged from its prior 2,327 tests and 132 strict corpus files.

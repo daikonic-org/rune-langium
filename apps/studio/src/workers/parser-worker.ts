@@ -28,6 +28,7 @@ import {
 } from '@rune-langium/core';
 import type { CuratedSerializedDocument } from '@rune-langium/curated-schema';
 import { URI, EmptyFileSystem, type AstNode, type AstNodeDescription, type LangiumDocument } from 'langium';
+import { parseErrorMessages } from '../services/parse-errors.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from '../services/instrumentation/core.js';
@@ -304,12 +305,7 @@ const handleParse = withInstrumentation(
     try {
       const document = await factory.fromString(req.content, URI.parse(req.uri ?? 'inmemory:///model.rosetta'));
       await builder.build([document], { validation: false, eagerLinking: false });
-      const errors: string[] = [];
-      if (document.parseResult.parserErrors.length > 0) {
-        for (const err of document.parseResult.parserErrors) {
-          errors.push(err.message);
-        }
-      }
+      const errors = parseErrorMessages(document.parseResult);
       const model = document.parseResult.value as RosettaModel;
       if (model) preserveCstText(model);
       return { type: 'parseResult', id: req.id, model, errors };
@@ -437,10 +433,11 @@ const handleParseWorkspace = withInstrumentation(
               serializedModelJson: serializeRuneModel(RuneDsl.serializer.JsonSerializer, model)
             });
         }
-        if (document.parseResult.parserErrors.length > 0) {
+        const fileErrors = parseErrorMessages(document.parseResult);
+        if (fileErrors.length > 0) {
           const docUri = document.uri?.toString() ?? '';
           const fileName = uriToFileName.get(docUri) ?? docUri;
-          errors[fileName] = document.parseResult.parserErrors.map((e: { message: string }) => e.message);
+          errors[fileName] = fileErrors;
         }
       }
 

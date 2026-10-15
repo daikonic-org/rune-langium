@@ -123,6 +123,39 @@ describe('linked expression projections', () => {
       useModelStore.setState({ models: previous });
     }
   });
+  it.each(['lexer', 'parser'] as const)(
+    'preserves selected exports when a reachable dependency has a %s error',
+    async (kind) => {
+      const { scope, dispatch } = await loadRealWorker();
+      const root = {
+        uri: 'file:///consumer.rosetta',
+        content: 'namespace consumer\nimport dependency.*\ntype Trade:\n dep D (1..1)\n'
+      };
+      const dependency = {
+        uri: 'file:///dependency.rosetta',
+        content: 'namespace dependency\ntype D:\n value string (1..1)\n'
+      };
+      const unrelated = {
+        uri: 'file:///unrelated.rosetta',
+        content: 'namespace unrelated\ntype Other:\n field string (1..1)\n\u0000'
+      };
+      const selection = { namespaces: [], declarations: [{ namespace: 'consumer', name: 'Trade', kind: 'Data' }] };
+      const request = async (filesRevision: number, invalid: boolean) => {
+        const content = invalid ? dependency.content + (kind === 'lexer' ? '\u0000' : '\ntype :') : dependency.content;
+        dispatch({ type: 'preview:setFiles', filesRevision, files: [root, { ...dependency, content }, unrelated] });
+        const requestId = `dependency:${filesRevision}`;
+        dispatch({ type: 'codegen:generate', target: 'typescript', requestId, selection });
+        await vi.waitFor(() => expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ requestId })));
+        return scope.postMessage.mock.calls
+          .map(([message]) => message)
+          .find((message) => message.requestId === requestId);
+      };
+      expect(await request(1, false)).toMatchObject({ type: 'codegen:result' });
+      expect(await request(2, true)).toMatchObject({ type: 'codegen:outdated' });
+      expect(await request(3, false)).toMatchObject({ type: 'codegen:result' });
+    }
+  );
+
   it('generates the selected curated declaration and refreshes after source changes', async () => {
     const uri = 'file:///curated.rosetta';
     const fixture =

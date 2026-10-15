@@ -157,6 +157,10 @@ the selected declaration and its dependency closure, including dispatch siblings
 An unrelated broken declaration must not block a valid projection; a rendering
 failure in the selected closure remains visible. Projection cache keys include
 language and declaration identity alongside the existing workspace version guard.
+Selected code exports resolve against the complete cached document set and reject
+syntax or reference errors in their closure; other preview consumers retain the
+cached valid-document view. Worker and main-thread parse results collect lexer
+and parser errors through the same helper, including original-source coordinates.
 
 Equality projections and exports use compact native scalar comparisons when the
 linked type proof permits them, including optional scalars over prevalidated JSON.
