@@ -85,7 +85,7 @@ import { adaptCardinalityValue } from './cardinality.js';
 import { decodeCardinality } from '../emit/base-namespace-emitter.js';
 import { expressionMetadataKind, choiceSelectionMetadata } from './metadata-type.js';
 import { functionOutput, resolveFuncValueTypeTs, type FuncTypeNameResolver } from '../types/func.js';
-import { renderAsExpression, renderSwitchExpression } from './switch-expression.js';
+import { renderAsExpression, renderSwitchExpression, type SwitchExpressionRenderOptions } from './switch-expression.js';
 import { renderOnlyExists } from './only-exists.js';
 import { arrowBody, freshLocal, inlineContext, bindImplicitFeatures } from './inline-function.js';
 import { renderCardinalityOperation } from './cardinality-operations.js';
@@ -1523,14 +1523,19 @@ function typedDataGuard(ctx: ExpressionTranspilerContext, kind?: FieldMetadataKi
     : undefined;
 }
 
-/** Select a declared switch branch and bind its implicit item. */
-export function transpileSwitch(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
+/** Share selector and implicit metadata bindings between expression and statement switches. */
+export function renderTranspiledSwitch(
+  expr: RosettaExpression,
+  ctx: ExpressionTranspilerContext,
+  options: Pick<SwitchExpressionRenderOptions, 'returnStatement' | 'returnValue' | 'selectorName'> = {}
+): string | undefined {
   const kind = ctx.preserveMetadata ? expressionMetadataKind(expr) : undefined;
   const argument = isSwitchOperation(expr) ? getOperationArgument(expr) : undefined;
   const inputType = expressionType(argument);
   const selectorKind = ctx.emitMode.startsWith('ts-') ? expressionMetadataKind(argument) : undefined;
   const selectorMany = expressionIsMany(argument);
-  const result = renderSwitchExpression(expr, {
+  return renderSwitchExpression(expr, {
+    ...options,
     enumValue: ctx.projection ? (value) => enumMemberReference(value, ctx.typeNameResolver) : undefined,
     typeGuard: typedDataGuard(ctx, selectorKind),
     selfName: ctx.selfName,
@@ -1567,7 +1572,11 @@ export function transpileSwitch(expr: RosettaExpression, ctx: ExpressionTranspil
     },
     report: (message) => ctx.diagnostics.push({ severity: 'error', code: 'unresolved-switch-guard', message })
   });
-  return result ?? diagnosticFallback(`Invalid switch expression in '${ctx.conditionName}'`);
+}
+
+/** Select a declared switch branch and bind its implicit item. */
+export function transpileSwitch(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
+  return renderTranspiledSwitch(expr, ctx) ?? diagnosticFallback(`Invalid switch expression in '${ctx.conditionName}'`);
 }
 
 type FunctionCallParameter = Pick<Attribute, 'name'> &

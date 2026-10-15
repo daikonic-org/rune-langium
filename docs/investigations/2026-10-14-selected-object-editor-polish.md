@@ -230,3 +230,28 @@ operands never invoke equality; executable equality tests exercise plain objects
 
 Selection follow-up validation: all 2,004 Studio tests pass (two existing skips),
 including 59 store/provider/real-editor checks. Changed-source lint/format passes.
+
+## Switch metadata and hydration failure follow-ups
+
+Threads `PRRT_kwDORLopOc6slnFS` and `PRRT_kwDORLopOc6slnFY` identified a
+parallel statement-switch context and another duplicated hydration failure.
+`renderTranspiledSwitch` now owns both expression and statement branch bindings,
+including the original metadata selector, implicit metadata and Choice bindings.
+The statement form binds its selector once. Strict compilation/execution checks
+cover metadata passed from implicit items to typed functions, field/reference
+wrappers, matched/default branches, missing/reference-only inputs and one payload
+read. The linked regressions reproduce compiler errors before the fix.
+
+The hydration rejection path now supplies its curated operation ID and duration
+to the workspace-error owner. That helper records once and retains the normal
+state/notification update. A rejected hydration regression observes one terminal
+entry in each history with the original correlation, the graph preserved and the
+namespace retryable; the previous code produces two failures.
+
+Follow-up validation: 2,327 codegen tests pass with Python 3.14 (one skip,
+eight todo), 2,005 Studio tests pass (two skips), 161 projection/parity checks
+pass including all 117 CDM cases, and all 132 pinned TypeScript files compile
+strictly after rebuilding codegen. Codegen source/test types and changed-file
+lint/format pass. The first broad Studio run exposed a test waiting for its
+container before CodeMirror mounted; it now waits for the actual editor view
+with the same timeout and readonly assertion. The full rerun passes.

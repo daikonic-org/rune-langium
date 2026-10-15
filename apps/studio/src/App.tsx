@@ -10,6 +10,7 @@
  */
 
 import { recordOperation } from './services/operation-feedback.js';
+import type { AddActivityMeta } from './store/activity-store.js';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import '@xyflow/react/dist/style.css';
 import '@rune-langium/visual-editor/styles.css';
@@ -209,11 +210,19 @@ function AppContent() {
   const unavailableCuratedBindingsRef = useRef(new Map<string, CuratedModelBinding>());
   const { showToast, showLoadingToast, dismissToast } = useStudioToast();
 
-  const reportWorkspaceError = useCallback((message: string, error: unknown) => {
-    console.warn(`[App] ${message}:`, error);
-    setWorkspaceError(message);
-    recordOperation('workspace', error instanceof Error ? `${message} · ${error.message}` : message, 'error');
-  }, []);
+  const reportWorkspaceError = useCallback(
+    (message: string, error: unknown, operation?: { tag: string; metadata: AddActivityMeta }) => {
+      console.warn(`[App] ${message}:`, error);
+      setWorkspaceError(message);
+      recordOperation(
+        operation?.tag ?? 'workspace',
+        error instanceof Error ? `${message} · ${error.message}` : message,
+        'error',
+        operation?.metadata
+      );
+    },
+    []
+  );
 
   const workspaceAutosave = useMemo(
     () =>
@@ -382,13 +391,10 @@ function AppContent() {
         // Dequeue the failed namespaces (without marking hydrated) so the user
         // can retry by re-selecting/re-expanding them; keep the last valid graph.
         useEditorStore.getState().dequeuePendingHydration(pendingHydration);
-        recordOperation(
-          'curated',
-          `Failed to load ${label}: ${err instanceof Error ? err.message : String(err)}`,
-          'error',
-          { opId: hydrationOpId, durationMs: performance.now() - startedAt }
-        );
-        reportWorkspaceError('Failed to hydrate the selected namespace; keeping the last valid graph', err);
+        reportWorkspaceError('Failed to hydrate the selected namespace; keeping the last valid graph', err, {
+          tag: 'curated',
+          metadata: { opId: hydrationOpId, durationMs: performance.now() - startedAt, subject: label }
+        });
       })
       .finally(() => {
         if (!cancelled) dismissToast(toastId);

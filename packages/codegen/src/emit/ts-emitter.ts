@@ -38,9 +38,7 @@ import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
 import { renderFuncAssignment, renderAssignmentValue } from './func-assignment.js';
-import { renderSwitchExpression } from '../expr/switch-expression.js';
 import { freshLocal } from '../expr/inline-function.js';
-import { enumMemberReference } from '../expr/scalar-operators.js';
 import { expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
@@ -90,6 +88,7 @@ import {
   attrAccessExpr,
   transpileCondition,
   transpileExpression,
+  renderTranspiledSwitch,
   type ExpressionTranspilerContext
 } from '../expr/transpiler.js';
 import {
@@ -2086,18 +2085,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     ) {
       if (ctx.projection && isSwitchOperation(assignment.exprNode)) {
         const targetMany = assignment.targetMany ?? ctx.outputAccumulator === 'array';
-        const statement = renderSwitchExpression(assignment.exprNode, {
-          enumValue: (value) => enumMemberReference(value, ctx.typeNameResolver),
+        const statement = renderTranspiledSwitch(assignment.exprNode, ctx, {
           returnStatement: true,
           returnValue: (value, expression) =>
             expression ? renderAssignmentValue(value, expression, targetMany) : targetMany ? '[]' : value,
-          selectorName: freshLocal(ctx, 'switchValue'),
-          selfName: ctx.selfName,
-          renderExpression: (expression, options) =>
-            transpileExpression(expression, {
-              ...ctx,
-              ...(options?.selfName ? { selfName: options.selfName } : {})
-            })
+          selectorName: freshLocal(ctx, 'switchValue')
         });
         if (statement) return statement.split('\n').map((line) => `  ${line}`);
       }

@@ -10,6 +10,8 @@ import { useEditorStore } from '@rune-langium/visual-editor';
 import { App } from '../../src/App.js';
 import { getModelSource } from '../../src/services/model-registry.js';
 import { useModelStore } from '../../src/store/model-store.js';
+import { useActivityStore } from '../../src/store/activity-store.js';
+import { useOutputStore } from '../../src/store/output-store.js';
 import { saveWorkspace, _resetForTests, type WorkspaceRecord } from '../../src/workspace/persistence.js';
 import { createOpfsRoot, type OpfsRoot } from '../setup/opfs-mock.js';
 import { saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
@@ -148,6 +150,8 @@ function deferred<T>() {
 }
 
 beforeEach(async () => {
+  useActivityStore.getState().clearEntries();
+  useOutputStore.getState().clearLines();
   useEditorStore.getState().resetHydration();
   parseWorkspaceFilesMock.mockReset();
   showToastSpy.mockReset();
@@ -311,6 +315,49 @@ describe('App parse recovery', () => {
 });
 
 describe('App curated parse projection', () => {
+  it('records one correlated hydration failure while retaining the graph and showing a notification', async () => {
+    parseWorkspaceFilesMock
+      .mockResolvedValueOnce({
+        models: [{ name: 'restored.project' }],
+        parsedModels: [{ filePath: 'trade.rosetta', model: { name: 'restored.project' } }],
+        errors: new Map(),
+        parseMode: 'router'
+      })
+      .mockRejectedValueOnce(new Error('hydration unavailable'));
+    await saveWorkspace(makeWorkspace('ws-hydration-reject', 'Hydration reject'));
+    await saveWorkspaceFiles('ws-hydration-reject', [
+      {
+        name: 'trade.rosetta',
+        path: 'trade.rosetta',
+        content: 'namespace restored.project',
+        dirty: false
+      }
+    ]);
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('model-count').textContent).toBe('1'));
+    fireEvent.click(screen.getByRole('button', { name: 'hydrate' }));
+    await waitFor(() =>
+      expect(showToastSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Failed to hydrate the selected namespace; keeping the last valid graph'
+        })
+      )
+    );
+    const failureEntries = useActivityStore.getState().entries.filter((entry) => !entry.ok);
+    const failureLines = useOutputStore.getState().lines.filter((line) => line.severity === 'error');
+    expect(failureEntries).toHaveLength(1);
+    expect(failureLines).toHaveLength(1);
+    const start = useActivityStore
+      .getState()
+      .entries.find((entry) => entry.msg === 'Loading cdm.base.staticdata.party…')!;
+    expect(failureEntries[0]).toMatchObject({ tag: 'curated', opId: start.opId, durationMs: expect.any(Number) });
+    expect(failureLines[0]).toMatchObject({ opId: start.opId, durationMs: expect.any(Number) });
+    expect(failureLines[0]!.text).toContain('hydration unavailable');
+    expect(useEditorStore.getState().pendingHydrationNamespaces).toEqual([]);
+    expect(useEditorStore.getState().hydratedNamespaces).not.toContain('cdm.base.staticdata.party');
+    expect(screen.getByTestId('model-count').textContent).toBe('1');
+  });
+
   it('keeps hydration retryable when the parse preserves the last valid graph', async () => {
     parseWorkspaceFilesMock
       .mockResolvedValueOnce({

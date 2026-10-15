@@ -320,6 +320,10 @@ Collection comparisons reuse the shared quantified equality source with the obje
 method predicate, preserving empty, broadcasting and positional rules.
 Projected switch statement returns reuse ordinary assignment value shaping,
 including scalar-to-collection conversion, empty branches and omitted defaults.
+Expression and statement switches share `renderTranspiledSwitch`, retaining the
+original metadata selector and implicit branch context while comparing its
+payload. Statement selectors bind once rather than wrapping statements as an
+expression.
 
 TypeScript enums export a string-union type and a const value object under the
 same canonical name. The legacy Values array reads from that object. Inherited
@@ -336,6 +340,8 @@ Activity/Output events, optionally displaying a toast; dismissing a toast create
 no operation or history entry. `recordOperation` supplies the shared correlation ID.
 Workspace failure owners use that helper once, including storage error details;
 the workspace error notification effect does not add history records.
+Hydration rejections pass their original curated operation ID and duration to
+the workspace-error owner, rather than recording a second terminal failure.
 
 Code preview requests retain the previous same-target, same-selection contents separately from
 the waiting snapshot's renderable output. Stale results recover those files and

@@ -286,5 +286,8 @@ export function renderSwitchExpression(
     inputType && (isChoice(inputType) || isData(inputType))
       ? objectSwitch(expression, selector, inputType, options)
       : primitiveSwitch(expression, selector, options, inputType);
-  return options.selector ? `((${options.selector.name}) => (${result}))(${argument})` : result;
+  if (!options.selector) return result;
+  return options.returnStatement
+    ? `const ${options.selector.name} = ${argument};\n${result}`
+    : `((${options.selector.name}) => (${result}))(${argument})`;
 }

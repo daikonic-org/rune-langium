@@ -429,7 +429,13 @@ describe('source-bound expression workspace', () => {
       />
     );
     const editor = await host.findByTestId('implementation-editor');
-    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
+    const view = await waitFor(() => {
+      const element = editor.querySelector('.cm-editor');
+      expect(element).not.toBeNull();
+      const mounted = EditorView.findFromDOM(element!);
+      expect(mounted).not.toBeNull();
+      return mounted!;
+    });
     act(() => view.dispatch({ changes: { from: source.indexOf('1\n'), insert: 'broken' } }));
     expect(view.state.doc.toString()).toBe(source);
     expect(writes).not.toHaveBeenCalled();
