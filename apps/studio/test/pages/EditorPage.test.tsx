@@ -810,6 +810,9 @@ describe('EditorPage preview target identity', () => {
         (message as { type?: string; targetId?: string }).type === 'preview:generate' &&
         (message as { targetId?: string }).targetId === 'preview.alpha.Trade'
     ).length;
+    const initialCodegenGenerateCount = worker.postMessage.mock.calls.filter(
+      ([message]) => (message as { type?: string }).type === 'codegen:generate'
+    ).length;
     const initialSetFilesCount = worker.postMessage.mock.calls.filter(
       ([message]) => (message as { type?: string }).type === 'preview:setFiles'
     ).length;
@@ -846,8 +849,11 @@ describe('EditorPage preview target identity', () => {
         .map(([message]) => message as { type?: string; requestId?: string })
         .filter((message) => message.type === 'codegen:setFiles');
       expect(codegenSetFilesMessages.length).toBeGreaterThan(0);
-      expect(codegenSetFilesMessages.every((message) => message.requestId?.startsWith('codegen:'))).toBe(true);
-      expect(codegenSetFilesMessages.every((message) => !message.requestId?.startsWith('preview:'))).toBe(true);
+      expect(codegenSetFilesMessages.every((message) => message.requestId === undefined)).toBe(true);
+      expect(
+        worker.postMessage.mock.calls.filter(([message]) => (message as { type?: string }).type === 'codegen:generate')
+          .length
+      ).toBe(initialCodegenGenerateCount);
     });
   });
 

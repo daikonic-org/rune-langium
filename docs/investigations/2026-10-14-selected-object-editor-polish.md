@@ -186,3 +186,24 @@ eight todo), all 93 Studio worker/provider tests pass, and all 132 pinned
 generated TypeScript files compile strictly after rebuilding codegen.
 All 161 Studio projection/parity checks pass, including all 117 CDM reference cases.
 Changed-source lint, formatting and whitespace checks pass.
+
+## Barrel naming and CI follow-up
+
+Thread `PRRT_kwDORLopOc6sjtMP` found that the barrel allocator did not use the
+namespace emitter's TypeScript enum reservations. The shared
+`TYPESCRIPT_RESERVED_NAMES` policy now supplies namespace declarations, parameter
+bindings and barrel names. A strict compilation and execution regression uses
+two namespaces declaring `Number` and `rune`, checking their value objects,
+Values arrays and DisplayNames exports. It reproduces five conflicting exports
+before the fix and passes afterward. Python naming remains unchanged.
+
+Run `38653005820` also found an outdated EditorPage assertion that file
+publication carried a generation request ID. The test now checks pure source
+installation and verifies that a source edit starts no extra export, matching
+the third review's explicit-generation contract. The old expectation fails
+locally as well as in CI.
+
+Final follow-up validation: all 2,325 codegen tests pass with Python 3.14 (one
+existing skip, eight todo), all 1,998 Studio tests pass (two skips), and all 132
+pinned generated TypeScript files compile strictly after the codegen rebuild.
+Codegen source/test types and changed-file lint/format pass.

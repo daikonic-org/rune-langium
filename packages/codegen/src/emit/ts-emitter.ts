@@ -85,7 +85,7 @@ import {
 } from './base-namespace-emitter.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { debug } from '../instrument.js';
-import { runtimeHelperSource, RUNE_HELPER_NAMES, buildRuntimeHelperImportLine } from '../helpers.js';
+import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
 import {
   attrAccessExpr,
   transpileCondition,
@@ -99,7 +99,7 @@ import {
   typescriptHelperModuleName
 } from './typescript-profile.js';
 
-import { TS_RESERVED_WORDS } from '../lens/reserved-words.js';
+import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
 import { CallableNames, callableExportName, type CallableDeclaration } from './callable-names.js';
 import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
 import {
@@ -116,39 +116,6 @@ import {
   type RuneFuncAlias,
   type FuncBodyContext
 } from '../types/func.js';
-
-const FUNCTION_RESERVED_NAMES = new Set<string>([
-  ...TS_RESERVED_WORDS,
-  ...RUNE_HELPER_NAMES,
-  'arguments',
-  'eval',
-  'undefined',
-  'NaN',
-  'Infinity',
-  'globalThis',
-  'Array',
-  'Boolean',
-  'Number',
-  'String',
-  'Object',
-  'Set',
-  'Map',
-  'WeakSet',
-  'WeakMap',
-  'Date',
-  'Temporal',
-  'Math',
-  'JSON',
-  'RegExp',
-  'Symbol',
-  'BigInt',
-  'Error',
-  'TypeError',
-  'parseInt',
-  'parseFloat',
-  'isFinite',
-  'isNaN'
-]);
 
 // ---------------------------------------------------------------------------
 // Internal emission context
@@ -315,7 +282,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.typeIndex = toTypeIndexLookup(this.ctx);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
-    this.callableNames = new CallableNames(registry, FUNCTION_RESERVED_NAMES);
+    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';
   }
 
@@ -1936,7 +1903,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   private static parameterBindings(func: RuneFunc): Map<string, string> {
-    const reserved = FUNCTION_RESERVED_NAMES;
+    const reserved = TYPESCRIPT_RESERVED_NAMES;
     const used = new Set([...reserved, ...func.inputs.map((input) => input.name)]);
     return new Map(
       func.inputs.map((input) => {
@@ -1988,7 +1955,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     let result = 'result';
     for (let suffix = 1; inputNames.has(result) || func.aliases.some((alias) => alias.name === result); suffix++)
       result = `result${suffix}`;
-    const helperNames = FUNCTION_RESERVED_NAMES;
+    const helperNames = TYPESCRIPT_RESERVED_NAMES;
     const reserved = new Set([...helperNames, result, ...inputNames, ...func.aliases.map((alias) => alias.name)]);
     const aliasBindings = new Map<string, string>();
     for (const alias of func.aliases) {

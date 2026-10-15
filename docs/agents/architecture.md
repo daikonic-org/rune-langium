@@ -324,7 +324,9 @@ members and empty enums use core's canonical enum member collection, so displaye
 enum-member references resolve to actual generated values without changing JSON.
 TypeScript passes its existing reserved runtime names to the shared allocator;
 enum names colliding with those names and their companion exports are allocated
-together. Other language emitters retain their own naming policy.
+together. Namespace emission, parameter bindings and the barrel allocator use
+the same `TYPESCRIPT_RESERVED_NAMES` policy. Other language emitters retain
+their own naming policy.
 
 Notification presentation does not own logging. Operation owners record their
 Activity/Output events, optionally displaying a toast; dismissing a toast creates
