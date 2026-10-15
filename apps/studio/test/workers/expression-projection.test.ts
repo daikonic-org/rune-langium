@@ -34,6 +34,47 @@ async function requestFixture(language: 'typescript' | 'python' = 'typescript') 
 }
 
 describe('linked expression projections', () => {
+  it.each(['typescript', 'python'] as const)('displays %s validation failures as false returns', async (language) => {
+    const fixture = `namespace test
+func ValidateAmount:
+ inputs: amount number (1..1)
+ output: result number (1..1)
+ condition Positive: amount > 0
+ set result: amount
+ post-condition Bounded: result < 10
+`;
+    const parsed = await parse(fixture);
+    expect(parsed.parserErrors).toEqual([]);
+    const subject = {
+      uri: 'file:///validation.rosetta',
+      nodeId: 'test.ValidateAmount#RosettaFunction',
+      region: getFunctionImplementationRegion(parsed.value.elements[0]!, fixture)
+    };
+    const { scope, dispatch } = await loadRealWorker();
+    dispatch({ type: 'preview:setFiles', filesRevision: 1, files: [{ uri: subject.uri, content: fixture }] });
+    dispatch({
+      type: 'projection:generate',
+      requestId: 'validation',
+      language,
+      kind: 'function',
+      source: fixture,
+      subject,
+      filesRevision: 1
+    });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'projection:result', requestId: 'validation' })
+      )
+    );
+    const response = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'validation');
+    expect(response.projection.code).not.toMatch(/throw|raise/);
+    expect(response.projection.code.match(language === 'typescript' ? /return false;/g : /return False/g)).toHaveLength(
+      2
+    );
+    expect(response.projection.code).toContain('return result');
+  });
   it('executes and projects pinned CDM functions with an implicit serialized Rune dependency after restore', async () => {
     const sources = referenceFiles();
     const { RuneDsl } = createRuneDslServices();

@@ -54,11 +54,21 @@ export async function linkedFunctions(source: string): Promise<RosettaFunction[]
   if (!isRosettaModel(model)) throw new Error('Expected model');
   return model.elements.filter((element) => element.$type === 'RosettaFunction');
 }
-export function runPython(cases: readonly { expression: string; data?: unknown }[], source = ''): unknown[] {
+export function runPython(
+  cases: readonly { expression: string; data?: unknown }[],
+  source = '',
+  options: { includeRuntime?: boolean } = {}
+): unknown[] {
   const result = spawnSync(
     process.env.PYTHON_BINARY ?? 'python3',
     [new URL('python-runtime-check.py', import.meta.url).pathname],
-    { encoding: 'utf8', input: JSON.stringify({ source: PYTHON_RUNTIME_SOURCE + '\n' + source, cases }) }
+    {
+      encoding: 'utf8',
+      input: JSON.stringify({
+        source: options.includeRuntime === false ? source : PYTHON_RUNTIME_SOURCE + '\n' + source,
+        cases
+      })
+    }
   );
   expect(result.status, result.error?.message ?? result.stderr).toBe(0);
   return JSON.parse(result.stdout);
