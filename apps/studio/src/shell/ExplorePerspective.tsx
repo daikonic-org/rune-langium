@@ -25,6 +25,7 @@
  * explorer sidebar merge into the dockable shell, reducing chrome (T091).
  */
 
+import { recordOperation } from '../services/operation-feedback.js';
 import { useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import {
   RuneTypeGraph,
@@ -1514,6 +1515,7 @@ export const ExplorePerspective = withInstrumentation(
         if (unchanged) return;
         if (!targetNode) {
           const shortName = nameFromNodeId(nodeId);
+          recordOperation('navigation', `Type "${shortName}" not loaded`, 'warn');
           showToast({
             description: `Type "${shortName}" not loaded — load the file containing this type`,
             variant: 'destructive',
@@ -1566,6 +1568,7 @@ export const ExplorePerspective = withInstrumentation(
       const exists = storeNodes.some((n) => n.id === prev);
       if (!exists) {
         updateHistoryFlags();
+        recordOperation('navigation', `Previous node "${prev}" is no longer in the graph`, 'warn');
         showToast({
           description: `Previous node "${prev}" is no longer in the graph`,
           variant: 'destructive',
@@ -1600,6 +1603,7 @@ export const ExplorePerspective = withInstrumentation(
       const exists = storeNodes.some((n) => n.id === next);
       if (!exists) {
         updateHistoryFlags();
+        recordOperation('navigation', `Node "${next}" is no longer in the graph`, 'warn');
         showToast({
           description: `Node "${next}" is no longer in the graph`,
           variant: 'destructive',

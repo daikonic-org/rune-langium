@@ -123,6 +123,111 @@ describe('linked expression projections', () => {
       useModelStore.setState({ models: previous });
     }
   });
+  it.each(['lexer', 'parser'] as const)(
+    'preserves selected exports when a reachable dependency has a %s error',
+    async (kind) => {
+      const { scope, dispatch } = await loadRealWorker();
+      const root = {
+        uri: 'file:///consumer.rosetta',
+        content: 'namespace consumer\nimport dependency.*\ntype Trade:\n dep D (1..1)\n'
+      };
+      const dependency = {
+        uri: 'file:///dependency.rosetta',
+        content: 'namespace dependency\ntype D:\n value string (1..1)\n'
+      };
+      const unrelated = {
+        uri: 'file:///unrelated.rosetta',
+        content: 'namespace unrelated\ntype Other:\n field string (1..1)\n\u0000'
+      };
+      const selection = { namespaces: [], declarations: [{ namespace: 'consumer', name: 'Trade', kind: 'Data' }] };
+      const request = async (filesRevision: number, invalid: boolean) => {
+        const content = invalid ? dependency.content + (kind === 'lexer' ? '\u0000' : '\ntype :') : dependency.content;
+        dispatch({ type: 'preview:setFiles', filesRevision, files: [root, { ...dependency, content }, unrelated] });
+        const requestId = `dependency:${filesRevision}`;
+        dispatch({ type: 'codegen:generate', target: 'typescript', requestId, selection });
+        await vi.waitFor(() => expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ requestId })));
+        return scope.postMessage.mock.calls
+          .map(([message]) => message)
+          .find((message) => message.requestId === requestId);
+      };
+      expect(await request(1, false)).toMatchObject({ type: 'codegen:result' });
+      expect(await request(2, true)).toMatchObject({ type: 'codegen:outdated' });
+      expect(await request(3, false)).toMatchObject({ type: 'codegen:result' });
+    }
+  );
+
+  it('generates the selected curated declaration and refreshes after source changes', async () => {
+    const uri = 'file:///curated.rosetta';
+    const fixture =
+      'namespace reference\ntype Selected:\n value int (1..1)\ntype Neighbor:\n unrelated string (1..1)\n';
+    const { RuneDsl } = createRuneDslServices();
+    const doc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(fixture, URI.parse(uri));
+    await RuneDsl.shared.workspace.DocumentBuilder.build([doc], { validation: false });
+    const serializedModelJson = serializeRuneModel(RuneDsl.serializer.JsonSerializer, doc.parseResult.value);
+    const { scope, dispatch } = await loadRealWorker();
+    const selection = { declarations: [{ namespace: 'reference', name: 'Selected', kind: 'Data' }], namespaces: [] };
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [
+        { uri: 'file:///blank.rosetta', content: 'namespace example\ntype Blank:\n exampleField string (1..1)\n' },
+        { uri, content: fixture, serializedModelJson }
+      ]
+    });
+    dispatch({ type: 'codegen:generate', target: 'typescript', requestId: 'selected', selection });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'codegen:result', requestId: 'selected' })
+      )
+    );
+    const first = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'selected');
+    const code = first.files.map((file: { content: string }) => file.content).join('\n');
+    expect(code).toContain('Selected');
+    expect(code).not.toContain('exampleField');
+    expect(code).not.toContain('unrelated');
+    dispatch({
+      type: 'codegen:generate',
+      target: 'typescript',
+      requestId: 'neighbor',
+      selection: {
+        declarations: [{ namespace: 'reference', name: 'Neighbor', kind: 'Data' }],
+        namespaces: []
+      }
+    });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'codegen:result', requestId: 'neighbor' })
+      )
+    );
+    const neighbor = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'neighbor');
+    expect(neighbor.files.map((file: { content: string }) => file.content).join('\n')).toContain('unrelated');
+    dispatch({ type: 'codegen:generate', target: 'typescript', requestId: 'selected-again', selection });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'codegen:result', requestId: 'selected-again' })
+      )
+    );
+    const again = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'selected-again');
+    expect(again.files.map((file: { content: string }) => file.content).join('\n')).not.toContain('unrelated');
+    const edited = fixture.replace('value int', 'changedValue int');
+    dispatch({ type: 'preview:setFiles', filesRevision: 2, files: [{ uri, content: edited }] });
+    dispatch({ type: 'codegen:generate', target: 'typescript', requestId: 'refreshed', selection });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'codegen:result', requestId: 'refreshed' })
+      )
+    );
+    const second = scope.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.requestId === 'refreshed');
+    expect(second.files.map((file: { content: string }) => file.content).join('\n')).toContain('changedValue');
+  });
   it.each(
     ['date', 'time', 'dateTime', 'zonedDateTime', 'Kind', 'NumberAlias', 'DateAlias', 'EnumAlias'].flatMap((type) =>
       ['typescript', 'python'].map((language) => ({ type, language }))
@@ -335,6 +440,70 @@ func Retain:
       )
     );
   });
+  it.each(['typescript', 'python'] as const)(
+    'uses actual source coordinates for drifted curated %s bodies and conditions',
+    async (language) => {
+      const fixture =
+        'namespace test\ntype Invoice:\n amount int (1..1)\n condition Positive: amount > 0\nfunc Calculate:\n output: result int (1..1)\n set result: 1\nfunc Neighbor:\n output: result int (1..1)\n set result: 2\n';
+      const { RuneDsl } = createRuneDslServices();
+      const uri = 'file:///drifted.rosetta';
+      const original = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(fixture, URI.parse(uri));
+      // A published model can retain offsets from a differently spaced copy.
+      const older = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+        fixture.replace('namespace test', 'namespace     test'),
+        URI.parse(uri)
+      );
+      await RuneDsl.shared.workspace.DocumentBuilder.build([older], { validation: false });
+      const serializedModelJson = serializeRuneModel(RuneDsl.serializer.JsonSerializer, older.parseResult.value);
+      const { scope, dispatch } = await loadRealWorker();
+      dispatch({ type: 'preview:setFiles', filesRevision: 1, files: [{ uri, content: fixture, serializedModelJson }] });
+      for (const kind of ['function', 'condition'] as const) {
+        const owner = original.parseResult.value.elements[kind === 'function' ? 1 : 0]!;
+        const subject = {
+          uri,
+          nodeId: kind === 'function' ? 'test.Calculate#RosettaFunction' : 'test.Invoice#Data',
+          region:
+            kind === 'function'
+              ? getFunctionImplementationRegion(owner, fixture)
+              : getExpressionRegions(owner)[0]!.region
+        };
+        dispatch({
+          type: 'projection:generate',
+          requestId: kind,
+          language,
+          kind,
+          source: fixture,
+          subject,
+          filesRevision: 1
+        });
+        await vi.waitFor(() =>
+          expect(scope.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'projection:result', requestId: kind })
+          )
+        );
+        const response = scope.postMessage.mock.calls
+          .map(([message]) => message)
+          .find((message) => message.requestId === kind);
+        expect(response.projection.subject).toEqual(subject);
+        expect(response.projection.code).toContain(kind === 'function' ? 'return 1' : 'amount');
+        expect(response.projection.code).not.toContain('Neighbor');
+        dispatch({
+          type: 'projection:generate',
+          requestId: `${kind}-bad-region`,
+          language,
+          kind,
+          source: fixture,
+          subject: { ...subject, region: { ...subject.region, to: fixture.length } },
+          filesRevision: 1
+        });
+        await vi.waitFor(() =>
+          expect(scope.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'projection:error', requestId: `${kind}-bad-region` })
+          )
+        );
+      }
+    }
+  );
   it.each(['typescript', 'python'] as const)('matches the edited Data condition expression in %s', async (language) => {
     const conditionSource =
       'namespace test\ntype Invoice:\n amount int (1..1)\n condition AmountPositive:\n  amount > 0\n';

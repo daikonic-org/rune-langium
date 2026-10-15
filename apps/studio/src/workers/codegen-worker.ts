@@ -11,7 +11,7 @@ import { Temporal } from '@js-temporal/polyfill';
  * identity per surface, and echoes request ids back so the UI can discard
  * stale replies after files or selections change.
  *
- *   codegen:setFiles         — Update the workspace file set and trigger generation.
+ *   codegen:setFiles         — Install the workspace file set without generating.
  *   codegen:generate         — (Re-)generate using the current file set.
  *   preview:setFiles         — Update the workspace file set and re-run the last preview target.
  *   preview:generate         — (Re-)generate the selected form-preview target.
@@ -40,6 +40,7 @@ import {
   createRuneDslServices,
   hydrateModelDocuments,
   getExpressionOwners,
+  getExpressionRegions,
   getFunctionImplementationRegion,
   getNodeSourceRegion,
   isRosettaFunction,
@@ -103,13 +104,14 @@ interface FileEntry {
 interface SetFilesMessage {
   type: 'codegen:setFiles';
   files: FileEntry[];
-  requestId?: string;
 }
 
 interface GenerateMessage {
   type: 'codegen:generate';
   target?: Target;
   requestId?: string;
+  selection?: Parameters<typeof resolveExportSelection>[1];
+  regenerate?: boolean;
 }
 
 interface PreviewExecuteMessage {
@@ -158,12 +160,13 @@ let lastPreviewRequestId: string | undefined;
 let previewFilesVersion = 0;
 let previewFilesRevision = 0;
 let previewVersionStartRevision = 0;
-const documentsCache = new Map<string, VersionedEntry<LangiumDocument[]>>();
+const documentsCache = new Map<string, VersionedEntry<{ all: LangiumDocument[]; valid: LangiumDocument[] }>>();
 const previewSchemaCache = new Map<string, VersionedEntry<FormPreviewSchema[]>>();
 const previewGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
 const previewPythonCache = new Map<string, VersionedEntry<PythonModule>>();
 let codegenFilesVersion = 0;
-const codegenGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
+// One result per output target, rather than retaining every visited declaration.
+const codegenGenerateCache = new Map<string, VersionedEntry<{ selectionKey: string; results: GeneratorOutput[] }>>();
 const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValidatorResult>>();
 
 // Curated documents are relinked as a BATCH once per `preview:setFiles`
@@ -392,10 +395,15 @@ function compileStandaloneValidator(
 // Generation logic
 // ---------------------------------------------------------------------------
 
-async function runCodegen(target: Target, requestId?: string): Promise<void> {
+async function runCodegen(
+  target: Target,
+  requestId?: string,
+  selection?: GenerateMessage['selection'],
+  regenerate = false
+): Promise<void> {
   const scope = self as unknown as DedicatedWorkerGlobalScope;
 
-  if (currentCodegenFiles.length === 0) {
+  if ((selection ? currentPreviewFiles : currentCodegenFiles).length === 0) {
     scope.postMessage({
       type: 'codegen:outdated',
       target,
@@ -413,15 +421,43 @@ async function runCodegen(target: Target, requestId?: string): Promise<void> {
     // codegenGenerateCache write with THIS captured version (not the live
     // counter re-sampled after the build) ensures a stale-derived result
     // is never marked valid for the new version.
-    const documentsVersion = codegenFilesVersion;
+    const documentsVersion = selection ? previewFilesVersion : codegenFilesVersion;
 
-    const documents: LangiumDocument[] = currentCodegenFiles.map(({ uri, content }) =>
-      factory.fromString(content, URI.parse(uri))
-    );
+    let documents: LangiumDocument[];
+    const invalidDocumentUris = new Set<string>();
+    if (selection) {
+      const allDocuments = (await buildDocuments(true)).value;
+      for (const document of allDocuments) {
+        if (hasDocumentErrors(document)) invalidDocumentUris.add(document.uri.toString());
+      }
+      const resolved = resolveExportSelection(allDocuments, selection);
+      if (documentsVersion !== previewFilesVersion) return;
+      if (resolved.unknown.length || resolved.unknownNamespaces.length) {
+        scope.postMessage({
+          type: 'codegen:outdated',
+          target,
+          requestId,
+          message: 'Selected source is unavailable or invalid. Fix or reload it to refresh the code preview.'
+        });
+        return;
+      }
+      documents = resolved.documents;
+    } else {
+      documents = currentCodegenFiles.map(({ uri, content }) => factory.fromString(content, URI.parse(uri)));
+      await builder.build(documents, { validation: false, eagerLinking: false });
+    }
 
-    await builder.build(documents, { validation: false, eagerLinking: false });
-
-    const hasErrors = documents.some(hasDocumentErrors);
+    const hasErrors =
+      documents.some(hasDocumentErrors) ||
+      (selection &&
+        documents.some((document) =>
+          AstUtils.streamAllContents(document.parseResult.value).some((node) =>
+            AstUtils.streamReferences(node).some(({ reference }) => {
+              const targetUri = reference.error?.targetDescription?.documentUri;
+              return targetUri !== undefined && invalidDocumentUris.has(targetUri.toString());
+            })
+          )
+        ));
 
     if (hasErrors) {
       scope.postMessage({
@@ -433,12 +469,19 @@ async function runCodegen(target: Target, requestId?: string): Promise<void> {
       return;
     }
 
-    const { value: results } = await getOrComputeAsync(
+    const selectionKey = JSON.stringify(selection ?? null);
+    if (regenerate || codegenGenerateCache.get(target)?.value.selectionKey !== selectionKey)
+      codegenGenerateCache.delete(target);
+    const {
+      value: { results }
+    } = await getOrComputeAsync(
       codegenGenerateCache,
       target,
       () => documentsVersion,
-      () => generate(documents, { target })
+      async () => ({ selectionKey, results: await generate(documents, { target }) })
     );
+
+    if (documentsVersion !== (selection ? previewFilesVersion : codegenFilesVersion)) return;
 
     // 018 Task 0.7 follow-up — when every output carries an error
     // diagnostic AND no content (the shape returned by `runGenerate`
@@ -479,14 +522,14 @@ async function runCodegen(target: Target, requestId?: string): Promise<void> {
   }
 }
 
-async function buildDocuments(): Promise<VersionedEntry<LangiumDocument[]>> {
-  return getOrComputeAsync(
+async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<LangiumDocument[]>> {
+  const entry = await getOrComputeAsync(
     documentsCache,
     'documents',
     () => previewFilesVersion,
     async () => {
       if (currentPreviewFiles.length === 0) {
-        return [];
+        return { all: [], valid: [] };
       }
 
       // 019 Task #88 follow-up: split into user files (parse path) and
@@ -523,9 +566,9 @@ async function buildDocuments(): Promise<VersionedEntry<LangiumDocument[]>> {
       // cached result rather than re-registering/re-linking on every build.
       const curatedDocuments = cachedCuratedDocuments;
 
-      // Filter out user files with parse/lex errors. Corpus files may
-      // contain constructs the parser doesn't fully support; excluding them
-      // keeps the namespace index intact for the remaining files.
+      // Keep invalid documents in the shared cache so selected exports can
+      // resolve their complete dependency closure before rejecting errors.
+      // Other preview consumers receive the filtered view below.
       const validUserDocuments = userDocuments.filter((d) => !hasDocumentErrors(d));
       if (validUserDocuments.length < userDocuments.length) {
         console.warn(
@@ -534,9 +577,10 @@ async function buildDocuments(): Promise<VersionedEntry<LangiumDocument[]>> {
           } user file(s) had parse errors and were excluded from preview.`
         );
       }
-      return [...validUserDocuments, ...curatedDocuments];
+      return { all: [...userDocuments, ...curatedDocuments], valid: [...validUserDocuments, ...curatedDocuments] };
     }
   );
+  return { version: entry.version, value: includeInvalid ? entry.value.all : entry.value.valid };
 }
 
 function generatedPreviewSchemaForTarget(
@@ -828,21 +872,47 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
     if (!current()) throw new Error('The source changed. Refresh the generated view.');
     const { version, value: documents } = await buildDocuments();
     let subject = { ...request.subject, uri: URI.parse(request.subject.uri).toString() };
-    if (request.kind === 'function') {
+    if (
+      request.kind === 'function' ||
+      currentPreviewFiles.find((file) => file.uri === request.subject.uri)?.serializedModelJson
+    ) {
       const owner = getExpressionOwners(documents.map((doc) => doc.parseResult.value as RosettaModel)).find((node) => {
         const doc = AstUtils.getDocument(node);
         const namespace = namespaceFromModelName((doc.parseResult.value as RosettaModel).name) ?? 'unknown';
         return (
-          isRosettaFunction(node) &&
+          (request.kind !== 'function' || isRosettaFunction(node)) &&
           doc.uri.toString() === subject.uri &&
           makeNodeId(namespace, node.name, node.$type) === subject.nodeId
         );
       });
-      if (!owner || !isRosettaFunction(owner)) throw new Error('The function owner is unavailable.');
-      const body = getFunctionImplementationRegion(owner, request.source);
-      if (body.from !== subject.region.from || body.to !== subject.region.to)
-        throw new Error('The function source region changed. Refresh the generated view.');
-      subject = { ...subject, region: getNodeSourceRegion(owner) };
+      if (!owner) throw new Error('The expression owner is unavailable.');
+      // Published model coordinates may predate the original-source artifact.
+      // Resolve the display boundary from the actual bytes, keeping the linked
+      // immutable model for emission and its internal provenance lookup.
+      const sourceModel = factory.fromString(request.source, URI.parse(request.subject.uri)).parseResult;
+      if (sourceModel.parserErrors.length || sourceModel.lexerErrors.length)
+        throw new Error('The original source could not be parsed.');
+      const sourceOwner = getExpressionOwners([sourceModel.value as RosettaModel]).find(
+        (node) => node.$type === owner.$type && node.name === owner.name
+      );
+      if (!sourceOwner) throw new Error('The expression owner is unavailable.');
+      if (request.kind === 'function' && isRosettaFunction(sourceOwner)) {
+        const body = getFunctionImplementationRegion(sourceOwner, request.source);
+        if (body.from !== subject.region.from || body.to !== subject.region.to)
+          throw new Error('The function source region changed. Refresh the generated view.');
+        subject = { ...subject, region: getNodeSourceRegion(owner) };
+      } else {
+        const sourceRegion = getExpressionRegions(sourceOwner).find(
+          (entry) => entry.region.from === subject.region.from && entry.region.to === subject.region.to
+        );
+        const linkedRegion =
+          sourceRegion &&
+          getExpressionRegions(owner).find(
+            (entry) => entry.kind === sourceRegion.kind && entry.index === sourceRegion.index
+          );
+        if (!linkedRegion) throw new Error('The expression source region changed. Refresh the generated view.');
+        subject = { ...subject, region: linkedRegion.region };
+      }
     }
     const fqn = qualifiedNameFromNodeId(subject.nodeId);
     const separator = fqn.lastIndexOf('.');
@@ -1140,10 +1210,6 @@ if (isWorkerGlobalScope()) {
       if (msg.type === 'codegen:setFiles') {
         currentCodegenFiles = msg.files;
         codegenFilesVersion++;
-        if (msg.requestId) {
-          lastCodegenRequestId = msg.requestId;
-        }
-        runCodegen(lastTarget, lastCodegenRequestId).catch(console.error);
       } else if (msg.type === 'codegen:generate') {
         if (msg.target !== undefined) {
           lastTarget = msg.target;
@@ -1151,7 +1217,7 @@ if (isWorkerGlobalScope()) {
         if (msg.requestId) {
           lastCodegenRequestId = msg.requestId;
         }
-        runCodegen(lastTarget, lastCodegenRequestId).catch(console.error);
+        runCodegen(lastTarget, lastCodegenRequestId, msg.selection, msg.regenerate).catch(console.error);
       } else if (msg.type === 'preview:setFiles') {
         const changed =
           msg.files.length !== currentPreviewFiles.length ||

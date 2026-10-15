@@ -150,6 +150,49 @@ describe('createConnectionAdapter', () => {
     expect(server.sendNotification).not.toHaveBeenCalled();
   });
 
+  it.each(['typed', 'generic'] as const)(
+    'settles a %s notification when the socket closes during sending',
+    async (surface) => {
+      const server = createMockServer();
+      let fail!: (error: Error) => void;
+      server.sendNotification.mockImplementation(
+        () =>
+          new Promise((_, reject) => {
+            fail = reject;
+          })
+      );
+      const conn = createConnectionAdapter(server as any);
+      const params = { uri: 'file:///late.rosetta', diagnostics: [] };
+      const pending =
+        surface === 'typed'
+          ? conn.sendDiagnostics(params)
+          : conn.sendNotification('textDocument/publishDiagnostics', params);
+      expect(server.isListening()).toBe(true);
+      fail(new Error('WebSocket is not connected'));
+      await expect(pending).resolves.toBeUndefined();
+    }
+  );
+
+  it('does not hide notification failures on a live socket', async () => {
+    const server = createMockServer();
+    const failure = new Error('Invalid diagnostic payload');
+    server.sendNotification.mockRejectedValueOnce(failure);
+    const conn = createConnectionAdapter(server as any);
+    await expect(conn.sendDiagnostics({ uri: 'file:///bad.rosetta', diagnostics: [] })).rejects.toBe(failure);
+  });
+
+  it('settles a logging notification after the socket disconnects', async () => {
+    const server = createMockServer();
+    server.sendNotification.mockRejectedValueOnce(new Error('WebSocket is not connected'));
+    const conn = createConnectionAdapter(server as any);
+    conn.console.info('Late validation finished');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(server.sendNotification).toHaveBeenCalledWith('window/logMessage', {
+      type: 3,
+      message: 'Late validation finished'
+    });
+  });
+
   it('should handle sendNotification with string method', async () => {
     const server = createMockServer();
     const conn = createConnectionAdapter(server as any);

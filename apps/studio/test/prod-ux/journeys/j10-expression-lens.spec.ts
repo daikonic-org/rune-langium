@@ -33,12 +33,7 @@ test.describe('J10 — Continuous expression editing and generated views', () =>
     await evidence.checkpoint('continuous-rune-implementation');
 
     for (const language of ['TypeScript', 'Python'] as const) {
-      await expectBodyProjection(
-        implementation,
-        language,
-        language === 'TypeScript' ? 'input.amount' : 'input["amount"]',
-        'return result'
-      );
+      await expectBodyProjection(implementation, language, 'amount', 'return result');
       await evidence.checkpoint(`generated-${language.toLowerCase()}`);
     }
     await implementation.getByRole('button', { name: 'Rune', exact: true }).click();

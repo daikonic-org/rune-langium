@@ -47,7 +47,7 @@ describe('pinned Data form round-trip contract', () => {
         expect(rows[index]!.querySelector('input')).toHaveValue(fixture.attributes[index]);
       }
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Doc' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
       fireEvent.change(container.querySelector('[data-slot="metadata-description"]')!, {
         target: { value: fixture.definition }
       });

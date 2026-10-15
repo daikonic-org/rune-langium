@@ -10,10 +10,15 @@
  * logic separate from the expression dispatcher so the dispatcher can share
  * it between conditions and nested expressions.
  */
-import { isEqualityOperation, isRosettaExistsExpression, type RosettaExpression } from '@rune-langium/core';
+import {
+  isEqualityOperation,
+  isListLiteral,
+  isRosettaExistsExpression,
+  type RosettaExpression
+} from '@rune-langium/core';
 import { expressionIsMany } from './navigation.js';
 import { primitiveElementKind } from './scalar-operators.js';
-import { quantifiedEqualityBody } from './value-equality.js';
+import { methodEqualityPredicate, quantifiedEqualityBody } from './value-equality.js';
 import type { ExpressionTranspilerContext } from './transpiler.js';
 
 type Render = (expr: RosettaExpression, ctx: ExpressionTranspilerContext) => string;
@@ -33,6 +38,9 @@ export function renderCardinalityOperation(
 
   const binary = isEqualityOperation(expr) ? expr : undefined;
   if (!binary) return undefined;
+  const empty = (node: RosettaExpression | undefined) => isListLiteral(node) && node.elements.length === 0;
+  // The projection's shared presence renderer owns plain comparisons with empty.
+  if (ctx.projection && !binary.cardMod && (empty(binary.left) || empty(binary.right))) return undefined;
   const needsCollectionSemantics = (node: RosettaExpression | undefined): boolean => {
     if (!node) return false;
     if (expressionIsMany(node)) return true;
@@ -50,6 +58,13 @@ export function renderCardinalityOperation(
   const right = render(binary.right, ctx);
   const quantifier = binary.cardMod ?? (binary.operator === '<>' ? 'any' : 'all');
   const kind = primitiveElementKind(binary.left);
+  if (ctx.projection) {
+    const unequal = binary.operator === '<>';
+    const primitive = kind && ['number', 'string', 'boolean'].includes(kind);
+    const equal = primitive ? 'a === b' : methodEqualityPredicate('a', 'b');
+    const compare = unequal ? `!(${equal})` : `(${equal})`;
+    return `((left, right) => { const unequal = ${unequal}; ${quantifiedEqualityBody(compare, false, String(quantifier === 'all'))} })(${left}, ${right})`;
+  }
   if (kind && kind === primitiveElementKind(binary.right) && ['number', 'string', 'boolean'].includes(kind)) {
     const ts = ctx.emitMode.startsWith('ts-');
     const equal = kind === 'number' ? '(a === b || (Number.isNaN(a) && Number.isNaN(b)))' : '(a === b)';

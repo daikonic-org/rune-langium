@@ -39,6 +39,27 @@ async function parseTwoNamespaces() {
 }
 
 describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
+  it('compiles colliding runtime-reserved enums and their companions through the barrel', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const docs = ['foo', 'bar'].map((namespace) =>
+      RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+        `namespace ${namespace}\n enum Number:\n  Numeric displayName "Numeric value"\n enum rune:\n  Helper`,
+        URI.parse(`inmemory:///${namespace}-enums.rosetta`)
+      )
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { validation: false });
+    for (const doc of docs) expect(doc.parseResult.parserErrors).toEqual([]);
+    const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'barrel' } });
+    const runtime = compileGeneratedTypeScript<Record<string, unknown>>(outputs, { entry: 'index.ts' });
+    for (const namespace of ['foo', 'bar']) {
+      expect(runtime[`__rune$${namespace}$NumberEnum`]).toEqual({ Numeric: 'Numeric' });
+      expect(runtime[`__rune$${namespace}$NumberEnumValues`]).toEqual(['Numeric']);
+      expect(runtime[`__rune$${namespace}$NumberEnumDisplayNames`]).toEqual({ Numeric: 'Numeric value' });
+      expect(runtime[`__rune$${namespace}$runeEnum`]).toEqual({ Helper: 'Helper' });
+      expect(runtime[`__rune$${namespace}$runeEnumValues`]).toEqual(['Helper']);
+    }
+  }, 20_000);
+
   it('per-namespace layout (library default) is unchanged: one file per namespace, inlined helpers', async () => {
     const docs = await parseTwoNamespaces();
     const outputs = await generate(docs, { target: 'typescript' });

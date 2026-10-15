@@ -15,6 +15,14 @@ const fromStringMock = vi.fn((content: string, uri: string) => ({
   parseResult: { value: { uri, content }, lexerErrors: [], parserErrors: [] }
 }));
 const generateMock = vi.fn(() => []);
+const streamReferencesMock = vi.fn(
+  () => [] as Array<{ reference: { error?: { message: string; targetDescription?: { documentUri: string } } } }>
+);
+const resolveExportSelectionMock = vi.fn((documents: unknown[]) => ({
+  documents,
+  unknown: [] as unknown[],
+  unknownNamespaces: [] as string[]
+}));
 const generatePythonMock = vi.fn(() => ({ code: '', projections: [], bindings: new Map() }));
 const selectPythonProjectionMock = vi.fn((_module, subject) => ({
   language: 'python',
@@ -139,7 +147,7 @@ vi.mock('@rune-langium/core', () => {
 
 vi.mock('@rune-langium/codegen/export', () => ({
   generate: generateMock,
-  resolveExportSelection: (documents: unknown[]) => ({ documents }),
+  resolveExportSelection: resolveExportSelectionMock,
   selectTypeScriptProjection: selectProjectionMock,
   generatePythonModule: generatePythonMock,
   selectPythonProjection: selectPythonProjectionMock,
@@ -158,7 +166,11 @@ vi.mock('@rune-langium/codegen/instances', () => ({
 }));
 
 vi.mock('langium', () => ({
-  AstUtils: { getDocument: (node: { $document: unknown }) => node.$document },
+  AstUtils: {
+    getDocument: (node: { $document: unknown }) => node.$document,
+    streamAllContents: (node: unknown) => [node],
+    streamReferences: streamReferencesMock
+  },
   URI: {
     parse: (value: string) => value
   }
@@ -1390,7 +1402,7 @@ describe('codegen-worker code preview messages', () => {
     });
   });
 
-  it('uses the latest codegen file-sync request id for regenerated output', async () => {
+  it('generates refreshed files only under an explicit generation request id', async () => {
     generateMock.mockReturnValue([
       {
         relativePath: 'trade.zod.ts',
@@ -1417,8 +1429,11 @@ describe('codegen-worker code preview messages', () => {
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace demo\n\ntype Trade:' }],
-      requestId: 'codegen:zod:8'
+      requestId: 'ignored-file-publication'
     });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'codegen:zod:8' });
     await flushWorker();
 
     expect(scope.postMessage).toHaveBeenLastCalledWith({
@@ -1472,6 +1487,122 @@ describe('codegen-worker code preview messages', () => {
       message: 'Fix model errors to refresh the code preview.'
     });
   });
+
+  it.each(['invalid declaration', 'missing namespace', 'partial selection'])(
+    'posts outdated rather than an empty or partial selected export for %s',
+    async (scenario) => {
+      const { scope, dispatch } = await loadWorkerModule();
+      buildMock.mockImplementationOnce(async (documents) => {
+        documents[0].parseResult.parserErrors = [{ message: 'Invalid selected source' }];
+      });
+      dispatch({
+        type: 'preview:setFiles',
+        files: [
+          { uri: 'file:///trade.rosetta', content: 'broken syntax' },
+          { uri: 'file:///valid.rosetta', content: 'namespace valid' }
+        ],
+        filesRevision: 1
+      });
+      await flushWorker();
+      resolveExportSelectionMock.mockImplementationOnce((documents) => {
+        expect(documents).toHaveLength(2);
+        return {
+          documents: scenario === 'partial selection' ? documents.slice(1) : [],
+          unknown: scenario === 'missing namespace' ? [] : [{ namespace: 'demo', name: 'Trade', kind: 'Data' }],
+          unknownNamespaces: scenario === 'missing namespace' ? ['demo'] : []
+        };
+      });
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: 'selected:invalid',
+        selection: { declarations: [{ namespace: 'demo', name: 'Trade', kind: 'Data' }], namespaces: [] }
+      });
+      await flushWorker();
+      expect(generateMock).not.toHaveBeenCalled();
+      expect(scope.postMessage).toHaveBeenLastCalledWith({
+        type: 'codegen:outdated',
+        target: 'typescript',
+        requestId: 'selected:invalid',
+        message: 'Selected source is unavailable or invalid. Fix or reload it to refresh the code preview.'
+      });
+
+      // A later valid selection can still generate despite the unrelated invalid document.
+      resolveExportSelectionMock.mockImplementationOnce((documents) => ({
+        documents: documents.slice(1),
+        unknown: [],
+        unknownNamespaces: []
+      }));
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: 'selected:valid',
+        selection: { declarations: [{ namespace: 'valid', name: 'Valid', kind: 'Data' }], namespaces: [] }
+      });
+      await flushWorker();
+      expect(generateMock).toHaveBeenCalledOnce();
+      expect(generateMock.mock.calls[0][0]).toHaveLength(1);
+      expect(scope.postMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'codegen:result',
+          requestId: 'selected:valid'
+        })
+      );
+    }
+  );
+
+  it.each(['lexerErrors', 'parserErrors', 'unresolved reference'] as const)(
+    'keeps selected output outdated when its dependency has %s',
+    async (kind) => {
+      const { scope, dispatch } = await loadWorkerModule();
+      buildMock.mockImplementationOnce(async (documents) => {
+        documents[1].parseResult[kind === 'unresolved reference' ? 'parserErrors' : kind] = [
+          { message: 'Invalid dependency' }
+        ];
+      });
+      dispatch({
+        type: 'preview:setFiles',
+        files: [
+          { uri: 'file:///trade.rosetta', content: 'namespace demo' },
+          { uri: 'file:///dependency.rosetta', content: 'namespace dependency' }
+        ],
+        filesRevision: 1
+      });
+      await flushWorker();
+      // The shared resolver returns the reachable closure. It must receive the
+      // invalid dependency too, so runCodegen can reject it before generation.
+      resolveExportSelectionMock.mockImplementationOnce((documents) => ({
+        documents: kind === 'unresolved reference' ? documents.slice(0, 1) : documents,
+        unknown: [],
+        unknownNamespaces: []
+      }));
+      if (kind === 'unresolved reference')
+        streamReferencesMock.mockReturnValueOnce([
+          {
+            reference: {
+              error: {
+                message: 'Missing dependency declaration',
+                targetDescription: { documentUri: 'file:///dependency.rosetta' }
+              }
+            }
+          }
+        ]);
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: 'selected:dependency',
+        selection: { declarations: [{ namespace: 'demo', name: 'Trade', kind: 'Data' }], namespaces: [] }
+      });
+      await flushWorker();
+      expect(generateMock).not.toHaveBeenCalled();
+      expect(scope.postMessage).toHaveBeenLastCalledWith({
+        type: 'codegen:outdated',
+        target: 'typescript',
+        requestId: 'selected:dependency',
+        message: 'Fix model errors to refresh the code preview.'
+      });
+    }
+  );
 
   // 019 Task #88 follow-up — preview was broken for curated workspaces
   // because `buildDocuments` parsed empty `content` strings and filtered
@@ -2267,9 +2398,6 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
   it('caches generate() across repeated codegen:generate calls for the same target', async () => {
     const { dispatch } = await loadWorkerModule();
 
-    // codegen:setFiles's own handler auto-triggers runCodegen(lastTarget)
-    // — lastTarget defaults to 'zod', so this dispatch alone already
-    // computes and caches the 'zod' entry (call #1).
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
@@ -2277,8 +2405,7 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     });
     await flushWorker();
 
-    // Both explicit dispatches below are the SAME target as the cache
-    // entry setFiles already populated — neither should trigger a new call.
+    // Only the first explicit request computes; the next request reuses it.
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'hit:2' });
     await flushWorker();
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'hit:3' });
@@ -2287,10 +2414,33 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     expect(generateMock).toHaveBeenCalledTimes(1);
   });
 
+  it('installs files without generating discarded workspace output before a selected request', async () => {
+    const { dispatch, scope } = await loadWorkerModule();
+    dispatch({ type: 'codegen:setFiles', files: [{ uri: 'file:///trade.rosetta', content: 'namespace gamma' }] });
+    await flushWorker();
+    expect(generateMock).not.toHaveBeenCalled();
+    expect(scope.postMessage).not.toHaveBeenCalled();
+    dispatch({
+      type: 'preview:setFiles',
+      files: [{ uri: 'file:///trade.rosetta', content: 'namespace gamma' }],
+      requestId: 'preview:files:1',
+      filesRevision: 1
+    });
+    await flushWorker();
+    expect(generateMock).not.toHaveBeenCalled();
+    const selection = { declarations: [{ namespace: 'gamma', name: 'Trade', kind: 'Data' }], namespaces: [] };
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'selected:1', selection });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    expect(generateMock).toHaveBeenLastCalledWith(expect.any(Array), { target: 'zod' });
+    expect(scope.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'codegen:result', requestId: 'selected:1' })
+    );
+  });
+
   it('keeps separate cache entries per target', async () => {
     const { dispatch } = await loadWorkerModule();
 
-    // Populates the 'zod' cache entry (call #1) — see the prior test.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
@@ -2308,11 +2458,26 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     expect(generateMock).toHaveBeenCalledTimes(2);
   });
 
+  it('explicit regeneration reruns generation with unchanged sources', async () => {
+    const { dispatch } = await loadWorkerModule();
+    dispatch({
+      type: 'codegen:setFiles',
+      files: [{ uri: 'file:///retry.rosetta', content: 'namespace retry' }],
+      requestId: 'retry:files'
+    });
+    await flushWorker();
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'retry:cached' });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'retry:fresh', regenerate: true });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(2);
+  });
+
   it('invalidates the codegen cache after codegen:setFiles', async () => {
     const { dispatch } = await loadWorkerModule();
 
-    // Populates the 'zod' cache entry at version 1 (call #1); the explicit
-    // generate below is a cache hit against that same entry (no new call).
+    // First generation populates the cache for file version 1.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
@@ -2322,16 +2487,13 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'inv:2' });
     await flushWorker();
 
-    // Bumps codegenFilesVersion — its own auto-triggered runCodegen('zod')
-    // is a fresh miss at the new version (call #2).
+    // Publication invalidates the cache; the explicit request below recomputes.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma"' }],
       requestId: 'inv:3'
     });
     await flushWorker();
-    // Same version/target as the entry inv:3's auto-triggered run just
-    // populated — a cache hit, no new call.
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'inv:4' });
     await flushWorker();
 
@@ -2358,23 +2520,22 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
 
     const { scope, dispatch } = await loadWorkerModule();
 
-    // Call A: codegenFilesVersion becomes 1; its auto-triggered
-    // runCodegen('zod') suspends inside generate() (resolver #0).
+    // Call A captures file version 1 and suspends inside generate().
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma-v1"' }],
       requestId: 'race:1'
     });
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'race:1' });
     await flushWorker();
 
-    // Call B: codegenFilesVersion becomes 2; its OWN auto-triggered
-    // runCodegen('zod') also suspends inside generate() (resolver #1) — a
-    // second, independent in-flight call for the same cache key.
+    // Call B captures version 2; both requests are now in flight.
     dispatch({
       type: 'codegen:setFiles',
       files: [{ uri: 'file:///trade.rosetta', content: 'namespace "gamma-v2"' }],
       requestId: 'race:2'
     });
+    dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'race:2' });
     await flushWorker();
 
     expect(generateResolvers).toHaveLength(2);

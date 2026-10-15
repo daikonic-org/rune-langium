@@ -67,6 +67,40 @@ describe('useCodegenStore', () => {
     });
   });
 
+  it('retains the selected output across repeated refreshes that return stale', () => {
+    const files = ['alpha', 'beta'].map((name) => ({ relativePath: `${name}.ts`, content: name, sourceMap: [] }));
+    useCodegenStore.getState().receiveCodePreviewResult({ target: 'typescript', files });
+    useCodegenStore.getState().setActiveCodePreviewFile('beta.ts');
+    useCodegenStore.getState().beginCodePreviewRequest('typescript');
+    useCodegenStore.getState().beginCodePreviewRequest('typescript');
+    useCodegenStore.getState().markCodePreviewStale({ target: 'typescript', message: 'Fix source errors.' });
+    expect(useCodegenStore.getState().snapshot).toMatchObject({
+      status: 'stale',
+      target: 'typescript',
+      files,
+      activeRelativePath: 'beta.ts'
+    });
+    useCodegenStore.getState().beginCodePreviewRequest('typescript');
+    useCodegenStore.getState().receiveCodePreviewResult({ target: 'typescript', files });
+    expect(useCodegenStore.getState().snapshot).toMatchObject({ status: 'ready', activeRelativePath: 'beta.ts' });
+  });
+
+  it.each(['target switch', 'workspace reset'] as const)('clears recovery contents after %s', (transition) => {
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'typescript',
+      files: [{ relativePath: 'alpha.ts', content: 'alpha', sourceMap: [] }]
+    });
+    if (transition === 'workspace reset') useCodegenStore.getState().resetCodegenState();
+    const target = transition === 'workspace reset' ? 'typescript' : 'zod';
+    useCodegenStore.getState().beginCodePreviewRequest(target);
+    useCodegenStore.getState().markCodePreviewStale({ target, message: 'Fix source errors.' });
+    expect(useCodegenStore.getState().snapshot).toEqual({
+      status: 'unavailable',
+      target,
+      message: 'Fix source errors.'
+    });
+  });
+
   it('preserves the selected generated file when a refreshed result still contains it', () => {
     useCodegenStore.getState().receiveCodePreviewResult({
       target: 'zod',

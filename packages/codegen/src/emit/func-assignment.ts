@@ -12,8 +12,25 @@ import {
 import { expressionIsMany } from '../expr/navigation.js';
 import { nativeCollection, nativeSingle } from '../expr/collection-shape.js';
 import { freshLocal } from '../expr/inline-function.js';
-import { isListLiteral, isRosettaExpression } from '@rune-langium/core';
+import { isListLiteral, isRosettaExpression, type RosettaExpression } from '@rune-langium/core';
 import type { FuncBodyContext, RuneFuncAssignment } from '../types/func.js';
+
+/** Shared value shaping for assignments and projected branch returns. */
+export function renderAssignmentValue(
+  value: string,
+  expression: RosettaExpression | undefined,
+  targetMany: boolean
+): string {
+  const sourceMany = expression ? expressionIsMany(expression) : undefined;
+  const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
+  return sourceMany === targetMany && !emptyList
+    ? targetMany
+      ? collectionValue(value, expression)
+      : value
+    : targetMany
+      ? nativeCollection(value, expression, undefined, true)
+      : nativeSingle(value, expression, true);
+}
 
 export function renderFuncAssignment(
   assignment: RuneFuncAssignment,
@@ -26,20 +43,10 @@ export function renderFuncAssignment(
   const lines: string[] = [];
   const targetMany = assignment.targetMany ?? (path.length === 0 && ctx.outputAccumulator === 'array');
   const expression = isRosettaExpression(assignment.exprNode) ? assignment.exprNode : undefined;
-  const sourceMany = expression ? expressionIsMany(expression) : undefined;
-  let expr = renderExpression(assignment.exprNode);
-  const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
-  expr =
-    sourceMany === targetMany && !emptyList
-      ? targetMany
-        ? collectionValue(expr, expression)
-        : expr
-      : targetMany
-        ? nativeCollection(expr, expression, undefined, true)
-        : nativeSingle(expr, expression, true);
+  let expr = renderAssignmentValue(renderExpression(assignment.exprNode), expression, targetMany);
   const bounds = assignment.targetCardinality;
   const checksFor = (value: string, arraySize?: string) =>
-    bounds
+    bounds && !ctx.projection
       ? renderCardinalityChecks(
           value,
           bounds,
@@ -74,10 +81,12 @@ export function renderFuncAssignment(
       if (many) {
         lines.push(`  ${target} ??= [];`);
         const item = freshLocal(ctx, `__assignmentItem${index}`);
-        lines.push(`  const ${item} = ${target}[0] ??= ${initial} as NonNullable<(typeof ${target})[number]>;`);
+        lines.push(
+          `  const ${item} = ${target}[0] ??= ${initial}${ctx.projection ? '' : ` as NonNullable<(typeof ${target})[number]>`};`
+        );
         target = item;
       } else {
-        lines.push(`  ${target} ??= ${initial} as NonNullable<typeof ${target}>;`);
+        lines.push(`  ${target} ??= ${initial}${ctx.projection ? '' : ` as NonNullable<typeof ${target}>`};`);
       }
       if (segment.metadataEntry) {
         const path = metadataPropertyPath(segment.metadataEntry);
@@ -91,11 +100,13 @@ export function renderFuncAssignment(
       }
       if (metadataKind) {
         target += '.value';
-        lines.push(`  ${target} ??= {} as NonNullable<typeof ${target}>;`);
+        lines.push(`  ${target} ??= {}${ctx.projection ? '' : ` as NonNullable<typeof ${target}>`};`);
       }
       if (segment.choiceOption) {
         const choice = freshLocal(ctx, `__assignmentChoice${index}`);
-        lines.push(`  const ${choice} = ${target} as Extract<typeof ${target}, { ${segment.name}: unknown }>;`);
+        lines.push(
+          `  const ${choice} = ${target}${ctx.projection ? '' : ` as Extract<typeof ${target}, { ${segment.name}: unknown }>`};`
+        );
         target = choice;
       }
       target += `.${segment.name}`;

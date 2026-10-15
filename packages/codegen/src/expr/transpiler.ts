@@ -44,6 +44,7 @@ import {
   isListLiteral,
   isThenOperation,
   isAsKeyOperation,
+  isAsOperation,
   isWithMetaOperation,
   isDefaultOperation,
   isJoinOperation,
@@ -84,10 +85,11 @@ import { adaptCardinalityValue } from './cardinality.js';
 import { decodeCardinality } from '../emit/base-namespace-emitter.js';
 import { expressionMetadataKind, choiceSelectionMetadata } from './metadata-type.js';
 import { functionOutput, resolveFuncValueTypeTs, type FuncTypeNameResolver } from '../types/func.js';
-import { renderAsExpression, renderSwitchExpression } from './switch-expression.js';
+import { renderAsExpression, renderSwitchExpression, type SwitchExpressionRenderOptions } from './switch-expression.js';
 import { renderOnlyExists } from './only-exists.js';
 import { arrowBody, freshLocal, inlineContext, bindImplicitFeatures } from './inline-function.js';
 import { renderCardinalityOperation } from './cardinality-operations.js';
+import { methodEqualityPredicate } from './value-equality.js';
 import { renderPresence, renderPresenceCount } from './presence.js';
 import { parenthesizeReceiver } from './syntax.js';
 import { nativeCollection, nativeCount } from './collection-shape.js';
@@ -115,7 +117,8 @@ import {
   nativeTemporalOperands,
   temporalScalarTypes,
   expressionIsPresent,
-  requiredScalarKind
+  requiredScalarKind,
+  enumMemberReference
 } from './scalar-operators.js';
 
 // ---------------------------------------------------------------------------
@@ -145,6 +148,8 @@ const PRECEDENCE: Record<string, number> = {
  * Not exposed in the public API. Per data-model §7.
  */
 export interface ExpressionTranspilerContext {
+  /** Display bodies assume validated, purpose-built Rune objects. Executable APIs retain boundary checks. */
+  projection?: boolean;
   /** Display-only contract: purpose-built Rune objects implement canonical recursive equality. */
   objectEquality?: 'method';
   /** Literal facts established by the current conditional branch over immutable input paths. */
@@ -263,6 +268,21 @@ function transpilePresence(
   absent = false
 ): string {
   if (isListLiteral(argument) && argument.elements.length === 0) return String(absent);
+  if (
+    ctx.projection &&
+    isAsOperation(argument) &&
+    !expressionMetadataKind(argument) &&
+    !expressionMetadataKind(getOperationArgument(argument))
+  ) {
+    const predicate = renderAsExpression(argument, {
+      presence: absent ? 'absent' : 'present',
+      objectGuard: (target) => ctx.typeNameResolver?.(target, `is${target.name}`) ?? `is${target.name}`,
+      selfName: ctx.selfName,
+      renderExpression: (node) => transpileExpression(node, ctx),
+      report: (message) => ctx.diagnostics.push({ severity: 'error', code: 'invalid-type-narrowing', message })
+    });
+    if (predicate !== undefined) return predicate;
+  }
   const metadata = argument ? expressionMetadataKind(argument) : ctx.implicitMetadata?.kind;
   const value = argument
     ? transpileExpression(argument, { ...ctx, preserveMetadata: metadata !== undefined })
@@ -899,7 +919,7 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
     );
     if (calendarField !== undefined) return calendarField;
     if (ctx.emitMode.startsWith('ts-') && isRosettaEnumValue(feature)) {
-      return JSON.stringify(feature.name);
+      return ctx.projection ? enumMemberReference(feature, ctx.typeNameResolver) : JSON.stringify(feature.name);
     }
     if (
       ctx.emitMode.startsWith('ts-') &&
@@ -997,6 +1017,13 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
   if (isEqualityOperation(expr)) {
     const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
     const right = transpileExpression(expr.right, ctx);
+    if (ctx.projection) {
+      const empty = (node: RosettaExpression | undefined) => isListLiteral(node) && node.elements.length === 0;
+      const absent = empty(expr.right) ? expr.left : empty(expr.left) ? expr.right : undefined;
+      if (absent) {
+        return transpilePresence(absent, ctx, expr.operator !== '<>');
+      }
+    }
     if (ctx.emitMode.startsWith('ts-') && nativeTemporalOperands(expr.left, expr.right))
       return `${expr.operator === '<>' ? '!' : ''}${left}.equals(${right})`;
     const calendar = primitiveElementKind(expr.left);
@@ -1008,7 +1035,7 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
       calendar in temporalScalarTypes &&
       calendar === primitiveElementKind(expr.right)
     ) {
-      const same = 'left == null || right == null ? left == null && right == null : left.equals(right)';
+      const same = methodEqualityPredicate();
       return `((left, right) => ${expr.operator === '<>' ? `!(${same})` : same})(${left}, ${right})`;
     }
     const isoDates = !ctx.emitMode.startsWith('ts-');
@@ -1024,7 +1051,9 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
       return `(${left} ${expr.operator === '<>' ? '!==' : '==='} ${right})`;
     }
     if (ctx.objectEquality === 'method' && !expressionIsMany(expr.left) && !expressionIsMany(expr.right)) {
-      const same = `(${parenthesizeReceiver(left)}?.equals(${right}) ?? ${parenthesizeReceiver(right)} == null)`;
+      if (expressionIsPresent(expr.left) && expressionIsPresent(expr.right))
+        return `${expr.operator === '<>' ? '!' : ''}${parenthesizeReceiver(left)}.equals(${right})`;
+      const same = `((left, right) => ${methodEqualityPredicate()})(${left}, ${right})`;
       return expr.operator === '<>' ? `!${same}` : same;
     }
     return `(rune.valueKey(${left}) ${expr.operator === '<>' ? '!==' : '==='} rune.valueKey(${right}))`;
@@ -1494,14 +1523,20 @@ function typedDataGuard(ctx: ExpressionTranspilerContext, kind?: FieldMetadataKi
     : undefined;
 }
 
-/** Select a declared switch branch and bind its implicit item. */
-export function transpileSwitch(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
+/** Share selector and implicit metadata bindings between expression and statement switches. */
+export function renderTranspiledSwitch(
+  expr: RosettaExpression,
+  ctx: ExpressionTranspilerContext,
+  options: Pick<SwitchExpressionRenderOptions, 'returnStatement' | 'returnValue' | 'selectorName'> = {}
+): string | undefined {
   const kind = ctx.preserveMetadata ? expressionMetadataKind(expr) : undefined;
   const argument = isSwitchOperation(expr) ? getOperationArgument(expr) : undefined;
   const inputType = expressionType(argument);
   const selectorKind = ctx.emitMode.startsWith('ts-') ? expressionMetadataKind(argument) : undefined;
   const selectorMany = expressionIsMany(argument);
-  const result = renderSwitchExpression(expr, {
+  return renderSwitchExpression(expr, {
+    ...options,
+    enumValue: ctx.projection ? (value) => enumMemberReference(value, ctx.typeNameResolver) : undefined,
     typeGuard: typedDataGuard(ctx, selectorKind),
     selfName: ctx.selfName,
     ...(selectorKind
@@ -1537,7 +1572,11 @@ export function transpileSwitch(expr: RosettaExpression, ctx: ExpressionTranspil
     },
     report: (message) => ctx.diagnostics.push({ severity: 'error', code: 'unresolved-switch-guard', message })
   });
-  return result ?? diagnosticFallback(`Invalid switch expression in '${ctx.conditionName}'`);
+}
+
+/** Select a declared switch branch and bind its implicit item. */
+export function transpileSwitch(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
+  return renderTranspiledSwitch(expr, ctx) ?? diagnosticFallback(`Invalid switch expression in '${ctx.conditionName}'`);
 }
 
 type FunctionCallParameter = Pick<Attribute, 'name'> &
@@ -1549,6 +1588,7 @@ function prepareFunctionArgument(
   ctx: ExpressionTranspilerContext,
   argument?: RosettaExpression
 ): string {
+  if (ctx.projection) return value;
   const kind = ctx.emitMode.startsWith('ts-') ? fieldMetadataKind(parameter) : undefined;
   const cardinality = parameter.cardinality ?? (parameter.card ? decodeCardinality(parameter.card) : undefined);
   const many = cardinality?.upper === null || (cardinality?.upper ?? 1) > 1;
@@ -1643,6 +1683,12 @@ export function transpileExpression(
     const kind = expressionMetadataKind(expr);
     const inputKind = expressionMetadataKind(getOperationArgument(expr));
     const result = renderAsExpression(expr, {
+      ...(ctx.projection && !inputKind && !kind
+        ? {
+            objectGuard: (target: RosettaType) =>
+              ctx.typeNameResolver?.(target, `is${target.name}`) ?? `is${target.name}`
+          }
+        : {}),
       typeGuard: typedDataGuard(ctx, inputKind),
       selfName: ctx.selfName,
       renderExpression: (node) => transpileExpression(node, { ...ctx, preserveMetadata: true }),
@@ -1733,7 +1779,7 @@ export function transpileExpression(
     }
     if (target?.$type === 'RosettaEnumeration') return target.name;
     if (isRosettaEnumValue(target)) {
-      return JSON.stringify(target.name);
+      return ctx.projection ? enumMemberReference(target, ctx.typeNameResolver) : JSON.stringify(target.name);
     }
     return attrAccessExpr(name, ctx);
   }

@@ -1,6 +1,7 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
+import { recordOperation } from '../../services/operation-feedback.js';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useEditorStore } from '@rune-langium/visual-editor';
@@ -118,7 +119,6 @@ export const CodegenProvider = withInstrumentation(
     const [previewSessionFactory, setPreviewSessionFactory] = useState<PreviewSessionFactory | null>(null);
 
     const previewRequestSequenceRef = useRef(0);
-    const codegenRequestSequenceRef = useRef(0);
     const currentPreviewRequestIdRef = useRef<string | undefined>(undefined);
     const codegenCurrentRequestIdRef = useRef<string>('');
     const orchestratorRef = useRef<HydrationOrchestrator | null>(null);
@@ -213,7 +213,7 @@ export const CodegenProvider = withInstrumentation(
           message: `${baseMessage} ${detail}`.trim()
         });
         console.error(`[CodegenProvider] ${baseMessage}`, error);
-        useOutputStore.getState().addLine(fmtLine('preview', baseMessage, detail), 'error', {
+        recordOperation('preview', `${baseMessage} ${detail}`, 'error', {
           op: 'preview',
           subject: targetId
         });
@@ -267,8 +267,7 @@ export const CodegenProvider = withInstrumentation(
           try {
             worker.postMessage({
               type: 'codegen:setFiles',
-              files: codegenFiles,
-              requestId: `codegen:files:${++codegenRequestSequenceRef.current}`
+              files: codegenFiles
             });
             worker.postMessage(createPreviewSetFilesMessage(previewFiles, requestId, filesRevision));
           } catch (error) {
@@ -707,7 +706,7 @@ export const CodegenProvider = withInstrumentation(
           target: store.codePreviewTarget,
           message: 'Code preview worker crashed — reload Studio.'
         });
-        useOutputStore.getState().addLine(fmtLine('codegen', 'worker crashed', event.message), 'error');
+        recordOperation('codegen', `Worker crashed: ${event.message}`, 'error');
         showToast({
           title: 'Code preview worker crashed',
           description: 'Reload Studio to restore code preview.',
@@ -727,31 +726,78 @@ export const CodegenProvider = withInstrumentation(
     // Mirrors the removed CodePreviewPanel effect (018 Task 0.8).
     const codegenActiveTarget = useCodegenStore((s) => s.activeTarget);
     const codegenPreviewTarget = useCodegenStore((s) => s.codePreviewTarget);
+    const refreshRevision = useCodegenStore((s) => s.refreshRevision);
+    const dispatchedRefreshRevisionRef = useRef(refreshRevision);
+    const selectedCodeTarget = usePreviewStore((s) => s.selectedTarget);
     useEffect(() => {
       if (!codegenWorker || codegenActiveTarget === undefined) return;
-      const requestId = useCodegenStore.getState().beginCodePreviewRequest(codegenPreviewTarget);
+      const selectionKey = JSON.stringify([
+        workspaceId,
+        selectedCodeTarget?.namespace,
+        selectedCodeTarget?.name,
+        selectedCodeTarget?.kind
+      ]);
+      const requestId = useCodegenStore.getState().beginCodePreviewRequest(codegenPreviewTarget, selectionKey);
       codegenCurrentRequestIdRef.current = requestId;
-      try {
-        codegenWorker.postMessage({ type: 'codegen:generate', target: codegenPreviewTarget, requestId });
-      } catch (err) {
+      const controller = new AbortController();
+      void (async () => {
+        if (selectedCodeTarget) {
+          if (!readinessRef.current) throw new Error('Selected preview preparation is unavailable.');
+          await readinessRef.current.ensure(
+            `${selectedCodeTarget.namespace}.${selectedCodeTarget.name}`,
+            controller.signal
+          );
+        } else {
+          await syncWorkerFiles(codegenWorker, controller.signal);
+        }
+        if (controller.signal.aborted || codegenCurrentRequestIdRef.current !== requestId) return;
+        codegenWorker.postMessage({
+          type: 'codegen:generate',
+          target: codegenPreviewTarget,
+          requestId,
+          regenerate: refreshRevision !== dispatchedRefreshRevisionRef.current,
+          ...(selectedCodeTarget
+            ? {
+                selection: {
+                  declarations: [
+                    {
+                      namespace: selectedCodeTarget.namespace,
+                      name: selectedCodeTarget.name,
+                      kind: selectedCodeTarget.kind
+                    }
+                  ],
+                  namespaces: []
+                }
+              }
+            : {})
+        });
+        dispatchedRefreshRevisionRef.current = refreshRevision;
+      })().catch((err) => {
+        if (controller.signal.aborted || codegenCurrentRequestIdRef.current !== requestId) return;
         console.error('[CodegenProvider] Failed to request code generation:', err);
         useCodegenStore.getState().markCodePreviewUnavailable({
           target: codegenPreviewTarget,
           message: 'Code preview worker is unavailable.'
         });
-        useOutputStore
-          .getState()
-          .addLine(
-            fmtLine('codegen', 'generation request failed', err instanceof Error ? err.message : String(err)),
-            'error'
-          );
+        recordOperation('codegen', err instanceof Error ? err.message : 'Generation request failed', 'error');
         showToast({
           title: 'Code preview unavailable',
           description: err instanceof Error ? err.message : 'Could not reach the code preview worker.',
           variant: 'destructive'
         });
-      }
-    }, [codegenWorker, codegenActiveTarget, codegenPreviewTarget, showToast]);
+      });
+      return () => controller.abort();
+    }, [
+      codegenWorker,
+      codegenActiveTarget,
+      codegenPreviewTarget,
+      selectedCodeTarget,
+      workspaceId,
+      files,
+      refreshRevision,
+      syncWorkerFiles,
+      showToast
+    ]);
 
     return <PreviewSessionContext.Provider value={previewSessionFactory}>{children}</PreviewSessionContext.Provider>;
   },

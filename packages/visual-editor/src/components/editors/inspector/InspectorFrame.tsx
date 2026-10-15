@@ -9,6 +9,7 @@ export interface InspectorSection {
   label: string;
   content: ReactNode;
   members?: boolean;
+  fill?: boolean;
 }
 export interface InspectorFrameProps {
   header: ReactNode;
@@ -48,7 +49,7 @@ export function InspectorFrame({
               onSectionChange?.(value);
             }
           }}
-          className="flex min-h-fit flex-1 flex-col gap-1.5"
+          className="flex min-h-0 flex-1 flex-col gap-1.5"
         >
           <TabsList size="sm" className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start">
             {sections.map((section) => (
@@ -63,7 +64,7 @@ export function InspectorFrame({
                 key={section.id}
                 value={section.id}
                 keepMounted={mountedSections.has(section.id)}
-                className="studio-scroll mt-0 min-h-0 flex-1 overflow-auto py-1.5 data-[hidden]:hidden"
+                className={`studio-scroll mt-0 min-h-0 flex-1 overflow-auto py-1.5 data-[hidden]:hidden ${section.fill ? 'flex flex-col gap-1.5' : ''}`}
               >
                 {section.content}
               </TabsContent>

@@ -37,7 +37,18 @@ import { WorkspaceStateContext, type WorkspaceState } from '../../src/shell/prov
 
 class MockWorker {
   static instances: MockWorker[] = [];
-  readonly postMessage = vi.fn();
+  readonly postMessage = vi.fn((message: { type: string; requestId?: string; filesRevision?: number }) => {
+    if (message.type === 'preview:setFiles')
+      queueMicrotask(() =>
+        this.dispatch('message', {
+          data: {
+            type: 'preview:files-ready',
+            requestId: message.requestId,
+            filesRevision: message.filesRevision
+          }
+        })
+      );
+  });
   readonly listeners = new Map<string, Set<EventListener>>();
   readonly addEventListener = vi.fn((type: string, listener: EventListener) => {
     const handlers = this.listeners.get(type) ?? new Set<EventListener>();
@@ -172,6 +183,45 @@ describe('CodegenProvider — codegen worker→store path', () => {
     });
   });
 
+  it('publishes files once for each selected preview generation', async () => {
+    const id = 'a.Model#Data';
+    usePreviewStore.getState().setAvailableTargets([{ id, namespace: 'a', name: 'Model', kind: 'Data' }]);
+    usePreviewStore.getState().selectTarget(id);
+    renderProvider();
+    await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
+    const worker = MockWorker.instances[0]!;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const publications = () =>
+      worker.postMessage.mock.calls.filter(([message]) => message.type === 'preview:setFiles').length;
+    const initial = publications();
+    await act(async () => useCodegenStore.getState().setActiveTarget('zod'));
+    await waitFor(() => expect(lastCodegenGenerate(worker)).toBeDefined());
+    expect(publications() - initial).toBe(1);
+    const previous = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => useCodegenStore.getState().refreshCodePreview());
+    await waitFor(() => expect(lastCodegenGenerate(worker)?.requestId).not.toBe(previous));
+    expect(publications() - initial).toBe(2);
+  });
+
+  it('requests explicit regeneration without changing the active target', async () => {
+    renderProvider();
+    await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
+    const worker = MockWorker.instances[0]!;
+    await act(async () => useCodegenStore.getState().setActiveTarget('zod'));
+    await waitFor(() => expect(lastCodegenGenerate(worker)).toBeDefined());
+    const initial = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => useCodegenStore.getState().refreshCodePreview());
+    await waitFor(() => expect(lastCodegenGenerate(worker)?.requestId).not.toBe(initial));
+    expect(worker.postMessage.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'codegen:generate',
+      target: 'zod',
+      regenerate: true
+    });
+    expect(useCodegenStore.getState().activeTarget).toBe('zod');
+  });
+
   it('marks the store snapshot ready on codegen:result for the current requestId', async () => {
     renderProvider();
     await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
@@ -246,6 +296,76 @@ describe('CodegenProvider — codegen worker→store path', () => {
       expect(snapshot.message).toMatch(/Fix model errors/i);
       // Last-good content retained.
       expect(snapshot.files[0]?.content).toBe('good');
+    }
+  });
+
+  it.each([
+    'different declaration',
+    'different kind',
+    'workspace export',
+    'different workspace',
+    'same declaration'
+  ] as const)('scopes outdated recovery when requesting %s', async (transition) => {
+    const a = { id: 'a.Model#Data', namespace: 'a', name: 'Model', kind: 'Data' };
+    const b =
+      transition === 'different kind'
+        ? { ...a, id: 'a.Model#RosettaFunction', kind: 'RosettaFunction' }
+        : { ...a, id: 'a.Other#Data', name: 'Other' };
+    usePreviewStore.getState().setAvailableTargets([a, b]);
+    usePreviewStore.getState().selectTarget(a.id);
+    const { rerender } = renderProvider();
+    await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
+    const worker = MockWorker.instances[0]!;
+    await act(async () => {
+      useCodegenStore.getState().setCodePreviewTarget('typescript');
+      useCodegenStore.getState().setActiveTarget('typescript');
+    });
+    await waitFor(() => expect(lastCodegenGenerate(worker)).toBeDefined());
+    const firstId = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => {
+      worker.dispatch('message', {
+        data: {
+          type: 'codegen:result',
+          target: 'typescript',
+          requestId: firstId,
+          files: [{ relativePath: 'a.ts', content: 'declaration A', sourceMap: [] }]
+        }
+      });
+    });
+    expect(useCodegenStore.getState().snapshot.status).toBe('ready');
+    await act(async () => {
+      if (transition === 'same declaration') {
+        useCodegenStore.getState().refreshCodePreview();
+      } else if (transition === 'different workspace') {
+        rerender(
+          <WorkspaceStateContext.Provider value={{ ...wsState(WS_FILES), workspaceId: 'ws-B' }}>
+            <CodegenProvider>
+              <div />
+            </CodegenProvider>
+          </WorkspaceStateContext.Provider>
+        );
+      } else {
+        usePreviewStore.getState().selectTarget(transition === 'workspace export' ? undefined : b.id);
+      }
+    });
+    await waitFor(() => expect(lastCodegenGenerate(worker)!.requestId).not.toBe(firstId));
+    const nextId = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => {
+      worker.dispatch('message', {
+        data: { type: 'codegen:outdated', target: 'typescript', requestId: nextId, message: 'Fix source.' }
+      });
+    });
+    if (transition === 'same declaration') {
+      expect(useCodegenStore.getState().snapshot).toMatchObject({
+        status: 'stale',
+        files: [{ relativePath: 'a.ts', content: 'declaration A' }]
+      });
+    } else {
+      expect(useCodegenStore.getState().snapshot).toEqual({
+        status: 'unavailable',
+        target: 'typescript',
+        message: 'Fix source.'
+      });
     }
   });
 

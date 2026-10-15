@@ -5,6 +5,7 @@ import {
   getEnumValues,
   isAsOperation,
   isSwitchCaseGuard,
+  isSwitchOperation,
   isChoice,
   isAttribute,
   isChoiceOption,
@@ -36,7 +37,8 @@ import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveT
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
-import { renderFuncAssignment } from './func-assignment.js';
+import { renderFuncAssignment, renderAssignmentValue } from './func-assignment.js';
+import { freshLocal } from '../expr/inline-function.js';
 import { expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
@@ -81,11 +83,12 @@ import {
 } from './base-namespace-emitter.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { debug } from '../instrument.js';
-import { runtimeHelperSource, RUNE_HELPER_NAMES, buildRuntimeHelperImportLine } from '../helpers.js';
+import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
 import {
   attrAccessExpr,
   transpileCondition,
   transpileExpression,
+  renderTranspiledSwitch,
   type ExpressionTranspilerContext
 } from '../expr/transpiler.js';
 import {
@@ -95,7 +98,7 @@ import {
   typescriptHelperModuleName
 } from './typescript-profile.js';
 
-import { TS_RESERVED_WORDS } from '../lens/reserved-words.js';
+import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
 import { CallableNames, callableExportName, type CallableDeclaration } from './callable-names.js';
 import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
 import {
@@ -112,39 +115,6 @@ import {
   type RuneFuncAlias,
   type FuncBodyContext
 } from '../types/func.js';
-
-const FUNCTION_RESERVED_NAMES = new Set<string>([
-  ...TS_RESERVED_WORDS,
-  ...RUNE_HELPER_NAMES,
-  'arguments',
-  'eval',
-  'undefined',
-  'NaN',
-  'Infinity',
-  'globalThis',
-  'Array',
-  'Boolean',
-  'Number',
-  'String',
-  'Object',
-  'Set',
-  'Map',
-  'WeakSet',
-  'WeakMap',
-  'Date',
-  'Temporal',
-  'Math',
-  'JSON',
-  'RegExp',
-  'Symbol',
-  'BigInt',
-  'Error',
-  'TypeError',
-  'parseInt',
-  'parseFloat',
-  'isFinite',
-  'isNaN'
-]);
 
 // ---------------------------------------------------------------------------
 // Internal emission context
@@ -311,7 +281,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.typeIndex = toTypeIndexLookup(this.ctx);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
-    this.callableNames = new CallableNames(registry);
+    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';
   }
 
@@ -480,7 +450,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
                     ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, []),
                     callableName: this.callableName,
                     typeNameResolver: this.typeName,
-                    objectEquality: 'method'
+                    objectEquality: 'method',
+                    projection: true
                   })
                     .join('\n')
                     .split('\n')
@@ -1463,7 +1434,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           ...transpilerCtx,
           selfName: 'data',
           emitMode: 'ts-expression',
-          objectEquality: 'method'
+          objectEquality: 'method',
+          projection: true
         })
       );
       methodBlocks.push(method);
@@ -1612,24 +1584,31 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   /**
    * Emit a TypeScript enum declaration (as a const string union + const object).
-   * No Zod dependency. Renamed from emitEnumDeclaration.
+   * The value object and legacy Values array share the canonical enum members.
    */
   private emitEnumDeclaration(enumNode: RosettaEnumeration): string {
     const name = this.typeName(enumNode);
     const memberNames = getEnumValues(enumNode).map((v) => v.name);
+    const members = memberNames.map((member) => {
+      const key = member === '__proto__' ? `[${JSON.stringify(member)}]` : JSON.stringify(member);
+      return `  ${key}: ${JSON.stringify(member)}`;
+    });
+    const valueObject = `export const ${name} = {${members.length ? `\n${members.join(',\n')}\n` : ''}} as const;`;
 
     if (memberNames.length === 0) {
       return [
         `export type ${name} = never;`,
+        valueObject,
         `export const ${this.typeName(enumNode, `${enumNode.name}Values`)}: ${name}[] = [];`
       ].join('\n');
     }
 
     const memberLiterals = memberNames.map((m) => `'${m}'`).join(' | ');
-    const valuesArr = memberNames.map((m) => `'${m}'`).join(', ');
+    const valuesArr = memberNames.map((m) => `${name}[${JSON.stringify(m)}]`).join(', ');
 
     const lines: string[] = [
       `export type ${name} = ${memberLiterals};`,
+      valueObject,
       `export const ${this.typeName(enumNode, `${enumNode.name}Values`)}: ${name}[] = [${valuesArr}];`
     ];
 
@@ -1923,7 +1902,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   private static parameterBindings(func: RuneFunc): Map<string, string> {
-    const reserved = FUNCTION_RESERVED_NAMES;
+    const reserved = TYPESCRIPT_RESERVED_NAMES;
     const used = new Set([...reserved, ...func.inputs.map((input) => input.name)]);
     return new Map(
       func.inputs.map((input) => {
@@ -1975,7 +1954,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     let result = 'result';
     for (let suffix = 1; inputNames.has(result) || func.aliases.some((alias) => alias.name === result); suffix++)
       result = `result${suffix}`;
-    const helperNames = FUNCTION_RESERVED_NAMES;
+    const helperNames = TYPESCRIPT_RESERVED_NAMES;
     const reserved = new Set([...helperNames, result, ...inputNames, ...func.aliases.map((alias) => alias.name)]);
     const aliasBindings = new Map<string, string>();
     for (const alias of func.aliases) {
@@ -2073,7 +2052,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ctx.onConditionProjection?.(
         condNode,
         throwForm,
-        transpileCondition(condNode, { ...condCtx, emitMode: 'ts-expression', objectEquality: 'method' })
+        transpileCondition(condNode, {
+          ...condCtx,
+          emitMode: 'ts-expression',
+          objectEquality: 'method',
+          projection: true
+        })
       );
       lines.push(throwForm);
     }
@@ -2097,8 +2081,18 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       !func.preConditions.length &&
       !func.postConditions.length &&
       isRosettaExpression(assignment.exprNode) &&
-      expressionFitsCardinality(assignment.exprNode, func.output.cardinality)
+      (ctx.projection || expressionFitsCardinality(assignment.exprNode, func.output.cardinality))
     ) {
+      if (ctx.projection && isSwitchOperation(assignment.exprNode)) {
+        const targetMany = assignment.targetMany ?? ctx.outputAccumulator === 'array';
+        const statement = renderTranspiledSwitch(assignment.exprNode, ctx, {
+          returnStatement: true,
+          returnValue: (value, expression) =>
+            expression ? renderAssignmentValue(value, expression, targetMany) : targetMany ? '[]' : value,
+          selectorName: freshLocal(ctx, 'switchValue')
+        });
+        if (statement) return statement.split('\n').map((line) => `  ${line}`);
+      }
       const statement = TsNamespaceEmitter.emitFuncSet(assignment, ctx);
       if (statement.startsWith(`  ${result} = `) && !statement.includes('\n')) {
         // A local preserves structural assignment for constructor literals with additional fields.
@@ -2129,9 +2123,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     const outputTs = TsNamespaceEmitter.funcParamType(func.output);
     if (ctx.outputAccumulator === 'array') {
-      bodyLines.push(`  let ${result}: ${outputTs}[] = [];`);
+      bodyLines.push(`  let ${result}${ctx.projection ? '' : `: ${outputTs}[]`} = [];`);
     } else {
-      bodyLines.push(`  let ${result}: ${outputTs} | undefined;`);
+      bodyLines.push(`  let ${result}${ctx.projection ? '' : `: ${outputTs} | undefined`};`);
     }
 
     // Aliases before pre-conditions: the grammar (rune-dsl.langium's
@@ -2155,15 +2149,16 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));
     }
 
-    bodyLines.push(
-      ...renderCardinalityChecks(
-        result,
-        func.output.cardinality,
-        ctx.outputAccumulator === 'array',
-        `Function '${func.name}' produced ${ctx.outputAccumulator === 'array' ? 'too few results' : 'no result'}`,
-        `Function '${func.name}' produced too many results`
-      ).map((line) => `  ${line}`)
-    );
+    if (!ctx.projection)
+      bodyLines.push(
+        ...renderCardinalityChecks(
+          result,
+          func.output.cardinality,
+          ctx.outputAccumulator === 'array',
+          `Function '${func.name}' produced ${ctx.outputAccumulator === 'array' ? 'too few results' : 'no result'}`,
+          `Function '${func.name}' produced too many results`
+        ).map((line) => `  ${line}`)
+      );
 
     const postConds = TsNamespaceEmitter.emitFuncConditions(func.postConditions, func, ctx);
     for (const block of postConds) {
@@ -2196,6 +2191,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         ...ctx,
         diagnostics: [],
         objectEquality: 'method',
+        projection: true,
         onConditionProjection: undefined
       })
         .join('\n')

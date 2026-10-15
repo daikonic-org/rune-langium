@@ -387,8 +387,11 @@ function EnumForm({
                     </>
                   )
                 },
-                { id: 'doc', label: 'Doc', content: <EditorSections names={['MetadataSection']} /> },
-                { id: 'meta', label: 'Meta', content: <EditorSections names={['AnnotationSection']} /> }
+                {
+                  id: 'details',
+                  label: 'Details',
+                  content: <EditorSections names={['MetadataSection', 'AnnotationSection']} />
+                }
               ]}
               details={<InspectorMetadataDetails targets={targets} />}
               footer={<InspectorFooter errors={nodeMeta.errors} status={saveStatus} />}

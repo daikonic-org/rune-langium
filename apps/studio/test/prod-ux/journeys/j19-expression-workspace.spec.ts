@@ -207,12 +207,7 @@ func Compute(kind: Kind -> Cash):
       await expect(rune).toHaveText(original);
       await expect(implementation.getByRole('button', { name: 'Builder', exact: true })).toBeDisabled();
       for (const language of ['TypeScript', 'Python'] as const) {
-        await expectBodyProjection(
-          implementation,
-          language,
-          language === 'TypeScript' ? 'input.arg' : 'input["arg"]',
-          'return'
-        );
+        await expectBodyProjection(implementation, language, 'arg', 'return');
         await evidence.checkpoint(`curated-${language.toLowerCase()}`);
       }
       await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();

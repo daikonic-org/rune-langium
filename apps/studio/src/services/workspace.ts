@@ -42,6 +42,7 @@ import { routeTelemetryRecord } from './instrumentation/browser-sink.js';
 import { isTelemetryRecordMessage } from './instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import { pathToUri } from '../utils/uri.js';
+import { parseErrorMessages } from './parse-errors.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
 import { downloadBlob } from './browser-download.js';
 
@@ -355,7 +356,7 @@ async function parseWorkspaceFilesOnMainThread(
         serializedModelJson: serializeRuneModel(serializer, result.value)
       });
     }
-    const fileErrors = result.parserErrors.map((err) => err.message);
+    const fileErrors = parseErrorMessages(result);
     if (fileErrors.length > 0) {
       errors.set(file.path, fileErrors);
     }
@@ -545,12 +546,7 @@ export const parseFile = withInstrumentation(
     // Main-thread fallback
     try {
       const result = await parse(content, uri);
-      const errors: string[] = [];
-      if (result.parserErrors && result.parserErrors.length > 0) {
-        for (const err of result.parserErrors) {
-          errors.push(err.message);
-        }
-      }
+      const errors = parseErrorMessages(result);
       return {
         model: result.value,
         errors,

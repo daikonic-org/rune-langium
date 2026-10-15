@@ -157,6 +157,10 @@ the selected declaration and its dependency closure, including dispatch siblings
 An unrelated broken declaration must not block a valid projection; a rendering
 failure in the selected closure remains visible. Projection cache keys include
 language and declaration identity alongside the existing workspace version guard.
+Selected code exports resolve against the complete cached document set and reject
+syntax or reference errors in their closure; other preview consumers retain the
+cached valid-document view. Worker and main-thread parse results collect lexer
+and parser errors through the same helper, including original-source coordinates.
 
 Equality projections and exports use compact native scalar comparisons when the
 linked type proof permits them, including optional scalars over prevalidated JSON.
@@ -287,3 +291,82 @@ Source selection uses CodeMirror lexical context plus an anchored declaration an
 its name range. Comments, strings, neighboring lines and ordinary expression
 keywords cannot manufacture a missing-type navigation request. Explicit LSP
 reference navigation still resolves through the language service.
+
+### Selected-object inspector and code previews
+
+Original curated source is parsed through Studio's shared parser before binding
+Inspector expression ranges. Published serialized offsets are not assumed to
+match the source artifact. Projection requests verify that actual source range,
+then resolve the corresponding linked declaration/condition for emission; range
+and file-version guards still reject stale or cross-declaration requests.
+
+Refreshed readonly source clears prior coordinate parses/bindings before parsing;
+Rune bodies and generated views require a source-matching binding. Parse errors
+and rejected parses show the source error instead of old code. Editable drafts
+retain their existing last-valid recovery behavior.
+
+Code preview uses the selected declaration and the canonical export dependency
+closure for authored and curated objects. It awaits namespace readiness and the
+worker file receipt. The active View action bypasses its cached generation without hiding the pane;
+request identity and source versions reject late results. Download retains its
+explicit namespace/layout configuration.
+
+Inspector documentation and annotations share Details. Readonly child metadata
+comes from its canonical selected node, not an unrelated parent form field.
+Function body editors fill the space above item details. Documentation can scroll
+or resize without authorizing changes to readonly declarations.
+
+Displayed TypeScript bodies assume purpose-built, validated Rune objects. The
+object methods belong to that explanatory display contract, not the structural
+`RuneFuncData` arguments accepted by executable exports. Copying a display body
+into the JSON API does not substitute for executable code generation. Named
+type guards express narrowing; narrowing followed by presence fuses to a guard
+(or its negation). Object comparisons use `.equals`; primitives and null presence
+checks use native operators. Resolved enum values use their declared members (including switch cases), while string literals remain strings. Displayed calls omit runtime argument assertions and
+output accumulators infer their types. Simple enum return dispatch uses `switch`.
+Executable exports retain their required boundary and metadata/cardinality checks.
+Collection comparisons reuse the shared quantified equality source with the object
+method predicate, preserving empty, broadcasting and positional rules.
+Projected switch statement returns reuse ordinary assignment value shaping,
+including scalar-to-collection conversion, empty branches and omitted defaults.
+Expression and statement switches share `renderTranspiledSwitch`, retaining the
+original metadata selector and implicit branch context while comparing its
+payload. Statement selectors bind once rather than wrapping statements as an
+expression.
+
+TypeScript enums export a string-union type and a const value object under the
+same canonical name. The legacy Values array reads from that object. Inherited
+members and empty enums use core's canonical enum member collection, so displayed
+enum-member references resolve to actual generated values without changing JSON.
+TypeScript passes its existing reserved runtime names to the shared allocator;
+enum names colliding with those names and their companion exports are allocated
+together. Namespace emission, parameter bindings and the barrel allocator use
+the same `TYPESCRIPT_RESERVED_NAMES` policy. Other language emitters retain
+their own naming policy.
+
+Notification presentation does not own logging. Operation owners record their
+Activity/Output events, optionally displaying a toast; dismissing a toast creates
+no operation or history entry. `recordOperation` supplies the shared correlation ID.
+Workspace failure owners use that helper once, including storage error details;
+the workspace error notification effect does not add history records.
+Hydration rejections pass their original curated operation ID and duration to
+the workspace-error owner, rather than recording a second terminal failure.
+
+Code preview requests retain the previous same-target, same-selection contents separately from
+the waiting snapshot's renderable output. Stale results recover those files and
+the selected path; successful results preserve a still-present selected path.
+Changing output language, workspace identity, declaration namespace/name/kind,
+or switching between a declaration and a workspace export clears recovery data.
+The editor clears the previous selection's document even when an earlier request
+was already waiting; repeated refreshes for the same selection retain the view.
+Waiting recovery contents are not eligible for navigation arrival cues.
+Worker `codegen:setFiles` messages only install source files and invalidate the
+codegen version. Only `codegen:generate` runs export generation. Selected preview
+readiness therefore publishes its snapshot without starting a discarded
+whole-workspace export before the selected-closure request.
+
+The Langium connection adapter routes typed, generic and logging notifications
+through one send boundary. It checks listening state and handles the pinned
+lspeasy server/WebSocket terminal-disconnect rejection if the socket closes during
+the send. Async diagnostic publication can finish after a client disconnects;
+other send failures and request failures continue to propagate.

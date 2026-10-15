@@ -5,6 +5,7 @@ import {
   isRosettaRule,
   isData,
   isAnnotation,
+  isRosettaEnumeration,
   type RosettaFunction,
   type RosettaExternalFunction,
   type RosettaRule
@@ -26,12 +27,13 @@ export class CallableNames {
   private readonly functionExports = new Map<string, string>();
   private readonly annotationExports = new Map<string, string>();
   private readonly dataExports = new Map<string, string>();
+  private readonly enumExports = new Map<string, string>();
   private readonly owners = new Map<string, Set<string>>();
   private readonly aliases = new Map<string, string>();
   private readonly scopedAliases = new Map<string, string>();
   private readonly reservedAliases: Set<string>;
 
-  constructor(registry: NamespaceRegistry) {
+  constructor(registry: NamespaceRegistry, enumReservedNames?: ReadonlySet<string>) {
     for (const [namespace, manifest] of registry.namespaces) {
       const typeNames = new Set([
         ...manifest.exportedDataNames,
@@ -66,11 +68,16 @@ export class CallableNames {
         if (helpers.has(name)) allocate(name, 'Data', this.dataExports);
       for (const name of [...manifest.exportedAnnotationNames].sort())
         if (helpers.has(name)) allocate(name, 'Annotation', this.annotationExports, ['Args']);
+      for (const name of [...manifest.exportedEnumNames].sort())
+        if (enumReservedNames?.has(name)) allocate(name, 'Enum', this.enumExports, ['Values', 'DisplayNames']);
       const names = new Set([
         ...[...manifest.exportedDataNames].map((name) => this.dataExported(namespace, name)),
         ...[...manifest.exportedDataNames].flatMap((name) => [`${name}Shape`, `is${name}`]),
-        ...manifest.exportedEnumNames,
-        ...[...manifest.exportedEnumNames].flatMap((name) => [`${name}Values`, `${name}DisplayNames`]),
+        ...[...manifest.exportedEnumNames].map((name) => this.enumExported(namespace, name)),
+        ...[...manifest.exportedEnumNames].flatMap((name) => [
+          `${this.enumExported(namespace, name)}Values`,
+          `${this.enumExported(namespace, name)}DisplayNames`
+        ]),
         ...[...manifest.exportedFuncNames].map((name) => this.exported(namespace, name)),
         ...manifest.exportedTypeAliasNames,
         ...[...manifest.exportedAnnotationNames].map((name) => this.annotationExported(namespace, name)),
@@ -110,8 +117,17 @@ export class CallableNames {
     return this.annotationExports.get(`${namespace}.${name}`) ?? name;
   }
 
+  private enumExported(namespace: string, name: string): string {
+    return this.enumExports.get(`${namespace}.${name}`) ?? name;
+  }
+
   declarationExported(namespace: string, declaration: AstNode & { name: string }, name = declaration.name): string {
     if (isData(declaration)) return this.dataExported(namespace, name);
+    if (isRosettaEnumeration(declaration)) {
+      const exported = this.enumExported(namespace, declaration.name);
+      for (const suffix of ['', 'Values', 'DisplayNames'])
+        if (name === `${declaration.name}${suffix}`) return `${exported}${suffix}`;
+    }
     if (isAnnotation(declaration)) {
       if (name === declaration.name) return this.annotationExported(namespace, name);
       if (name === `${declaration.name}Args`) return `${this.annotationExported(namespace, declaration.name)}Args`;

@@ -198,4 +198,9 @@ export function source(args: sourceArgs): ClassDecorator & PropertyDecorator {
 }
 
 export type Currency = 'USD' | 'EUR' | 'GBP';
-export const CurrencyValues: Currency[] = ['USD', 'EUR', 'GBP'];
+export const Currency = {
+  "USD": "USD",
+  "EUR": "EUR",
+  "GBP": "GBP"
+} as const;
+export const CurrencyValues: Currency[] = [Currency["USD"], Currency["EUR"], Currency["GBP"]];

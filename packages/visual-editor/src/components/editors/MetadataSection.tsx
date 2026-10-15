@@ -101,7 +101,7 @@ export function MetadataScalar({
             <textarea
               id={id}
               value={field.value ?? ''}
-              disabled={readOnly}
+              readOnly={readOnly}
               rows={2}
               aria-label={kind === 'definition' ? 'Definition' : label}
               aria-invalid={fieldState.invalid}
@@ -115,7 +115,7 @@ export function MetadataScalar({
                     : event.target.value
                 );
               }}
-              className="w-full resize-y rounded border border-input bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring disabled:opacity-50"
+              className="studio-scroll min-h-16 max-h-96 w-full resize-y overflow-auto rounded border border-input bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring"
             />
           )}
           {fieldState.error && (
@@ -230,7 +230,7 @@ function ReadonlyMetadataSection({
       {caps.definition && (
         <Field>
           <FieldLabel>Documentation</FieldLabel>
-          <p className="whitespace-pre-wrap text-sm">
+          <p className="studio-scroll min-h-16 max-h-96 resize-y overflow-auto whitespace-pre-wrap text-sm">
             {'definition' in node && typeof node.definition === 'string' ? node.definition : 'No documentation'}
           </p>
         </Field>

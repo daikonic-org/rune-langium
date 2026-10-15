@@ -10,6 +10,7 @@ import {
   isRosettaType,
   isSwitchOperation,
   type RosettaExpression,
+  type RosettaEnumValue,
   type AsOperation,
   type RosettaType,
   type SwitchOperation
@@ -28,6 +29,16 @@ import {
 } from './navigation.js';
 
 export interface SwitchExpressionRenderOptions {
+  /** Display resolved enum cases using the same member renderer as comparisons. */
+  enumValue?: (value: RosettaEnumValue) => string;
+  /** Fuse a projection's narrowing and presence test without extracting the selected value. */
+  presence?: 'present' | 'absent';
+  returnStatement?: boolean;
+  /** Shape statement returns using the surrounding assignment's cardinality. */
+  returnValue?: (value: string, expression?: RosettaExpression) => string;
+  selectorName?: string;
+  /** Projection-only narrowing for purpose-built Rune objects, not raw JSON validation. */
+  objectGuard?: (target: RosettaType) => string;
   /** Render an expression, optionally rebinding the implicit `item`. */
   renderExpression: (
     expression: RosettaExpression,
@@ -130,6 +141,16 @@ export function renderAsExpression(
   const argument = expression.argument
     ? options.renderExpression(expression.argument)
     : (options.selfName ?? 'undefined');
+  if (target && options.objectGuard) {
+    const guard = options.objectGuard(target);
+    if (options.presence) {
+      const predicate = expressionIsMany(expression) ? `(${argument} ?? []).some(${guard})` : `${guard}(${argument})`;
+      return options.presence === 'absent' ? `!${predicate}` : predicate;
+    }
+    return expressionIsMany(expression)
+      ? `(${argument} ?? []).filter(${guard})`
+      : `((value) => ${guard}(value) ? value : undefined)(${argument})`;
+  }
   const value = options.selector ? options.selector.unwrap('__source') : '__source';
   const guard =
     isData(inputType) && target && options.typeGuard
@@ -148,21 +169,24 @@ function primitiveSwitch(
   options: SwitchExpressionRenderOptions,
   inputType: ExpressionType | undefined
 ): string {
-  let fallback = 'undefined';
-  const cases: string[] = [];
+  let fallback = options.returnStatement ? (options.returnValue?.('undefined') ?? 'undefined') : 'undefined';
+  const cases: { value: string; branch: string }[] = [];
+  const selector =
+    options.returnStatement && /^[A-Za-z_$][\w$]*$/.test(argument) ? argument : (options.selectorName ?? '__sw');
   for (const currentCase of operation.cases) {
-    const branch = options.renderExpression(currentCase.expression, { selfName: options.selector?.name ?? '__sw' });
+    const value = options.renderExpression(currentCase.expression, { selfName: options.selector?.name ?? selector });
+    const branch = options.returnStatement ? (options.returnValue?.(value, currentCase.expression) ?? value) : value;
     if (!currentCase.guard) {
       fallback = branch;
       continue;
     }
     if (currentCase.guard.literalGuard) {
-      cases.push(`(__sw === ${options.renderExpression(currentCase.guard.literalGuard)}) ? ${branch}`);
+      cases.push({ value: options.renderExpression(currentCase.guard.literalGuard), branch });
       continue;
     }
     const target = currentCase.guard.referenceGuard?.ref;
     if (isRosettaEnumValue(target)) {
-      cases.push(`(__sw === ${JSON.stringify(target.name)}) ? ${branch}`);
+      cases.push({ value: options.enumValue?.(target) ?? JSON.stringify(target.name), branch });
       continue;
     }
     const targetName = referenceName(currentCase.guard.referenceGuard);
@@ -170,13 +194,26 @@ function primitiveSwitch(
     // name comparison as the legacy renderer. Once linking supplies a Data or
     // Choice target, objectSwitch above takes the structural path instead.
     if (targetName !== undefined) {
-      cases.push(`(__sw === ${JSON.stringify(targetName)}) ? ${branch}`);
+      cases.push({ value: JSON.stringify(targetName), branch });
     } else {
       options.report?.(`Unsupported ${typeName(inputType)} switch guard`);
     }
   }
-  const chain = cases.reduceRight((acc, currentCase) => `${currentCase} : ${acc}`, fallback);
-  return `((__sw) => (${chain}))(${argument})`;
+  if (options.returnStatement) {
+    return [
+      ...(selector !== argument ? [`const ${selector} = ${argument};`] : []),
+      `switch (${selector}) {`,
+      ...cases.flatMap(({ value, branch }) => [`  case ${value}:`, `    return ${branch};`]),
+      '  default:',
+      `    return ${fallback};`,
+      '}'
+    ].join('\n');
+  }
+  const chain = cases.reduceRight(
+    (acc, currentCase) => `(${selector} === ${currentCase.value}) ? ${currentCase.branch} : ${acc}`,
+    fallback
+  );
+  return `((${selector}) => (${chain}))(${argument})`;
 }
 
 function objectSwitch(
@@ -243,10 +280,14 @@ export function renderSwitchExpression(
     ? options.renderExpression(expression.argument)
     : (options.selfName ?? 'undefined');
   const inputType = expressionType(getOperationArgument(expression));
+  if (options.returnStatement && inputType && (isChoice(inputType) || isData(inputType))) return undefined;
   const selector = options.selector ? options.selector.unwrap(options.selector.name) : argument;
   const result =
     inputType && (isChoice(inputType) || isData(inputType))
       ? objectSwitch(expression, selector, inputType, options)
       : primitiveSwitch(expression, selector, options, inputType);
-  return options.selector ? `((${options.selector.name}) => (${result}))(${argument})` : result;
+  if (!options.selector) return result;
+  return options.returnStatement
+    ? `const ${options.selector.name} = ${argument};\n${result}`
+    : `((${options.selector.name}) => (${result}))(${argument})`;
 }

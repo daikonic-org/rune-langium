@@ -97,42 +97,21 @@ describe('StudioToastProvider', () => {
   });
 });
 
-describe('StudioToastProvider — superset-of-toasts invariant', () => {
+describe('StudioToastProvider — presentation only', () => {
   beforeEach(() => {
     useOutputStore.setState({ lines: [] });
     useActivityStore.setState({ entries: [] });
   });
-
-  it('showToast publishes a matching activity-store entry', () => {
+  it.each(['show', 'show-and-dismiss'])('does not manufacture operation records for %s', (button) => {
     render(
       <StudioToastProvider>
         <ShowToastHarness />
-      </StudioToastProvider>
-    );
-    screen.getByText('show').click();
-
-    const entries = useActivityStore.getState().entries;
-    expect(entries).toHaveLength(1);
-    expect(entries[0].tag).toBe('toast');
-    expect(entries[0].ok).toBe(false); // variant: 'destructive'
-    expect(entries[0].msg).toBe('Plain notification');
-  });
-
-  it('showLoadingToast publishes a start entry; dismissToast publishes the matching end entry with the same opId', () => {
-    render(
-      <StudioToastProvider>
         <LoadingToastHarness />
       </StudioToastProvider>
     );
-    screen.getByText('show-and-dismiss').click();
-
-    const entries = useActivityStore.getState().entries;
-    // one entry for the loading-toast start, one for its dismissal
-    expect(entries).toHaveLength(2);
-    expect(entries[0].tag).toBe('toast');
-    expect(entries[0].opId).toBeDefined();
-    expect(entries[1].opId).toBe(entries[0].opId);
-    expect(entries[1].durationMs).toBeGreaterThanOrEqual(0);
+    screen.getByText(button).click();
+    expect(useActivityStore.getState().entries).toHaveLength(0);
+    expect(useOutputStore.getState().lines).toHaveLength(0);
   });
 });
 
@@ -156,15 +135,14 @@ describe('StudioToastProvider — notify pass-through', () => {
     expect(useActivityStore.getState().entries).toHaveLength(0);
   });
 
-  it("showToast's existing mirroring is unaffected by notify's addition", () => {
+  it('showToast also leaves operation logging to its owner', () => {
     render(
       <StudioToastProvider>
         <ShowToastHarness />
       </StudioToastProvider>
     );
     screen.getByText('show').click();
-    expect(useActivityStore.getState().entries).toHaveLength(1);
-    expect(useActivityStore.getState().entries[0].tag).toBe('toast');
+    expect(useActivityStore.getState().entries).toHaveLength(0);
   });
 });
 

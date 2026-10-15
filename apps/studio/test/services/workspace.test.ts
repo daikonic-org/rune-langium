@@ -6,6 +6,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { parse } from '@rune-langium/core';
 import {
   _resetParserWorkerForTests,
   parseFile,
@@ -54,6 +55,17 @@ type Foo:
     expect(result).toHaveProperty('errors');
   });
 
+  it('reports lexer-only errors from the main-thread fallback', async () => {
+    vi.stubGlobal('Worker', undefined);
+    const source = 'namespace demo\ntype Foo:\n  bar string (1..1)\n\u0000';
+    const parsed = await parse(source);
+    expect(parsed.parserErrors).toHaveLength(0);
+    expect(parsed.lexerErrors.length).toBeGreaterThan(0);
+    const result = await parseFile(source);
+    expect(result.parseMode).toBe('main-thread-fallback');
+    expect(result.errors).toEqual(parsed.lexerErrors.map((error) => error.message));
+  });
+
   it('should handle empty content', async () => {
     const result = await parseFile('');
     expect(result).toHaveProperty('model');
@@ -87,6 +99,17 @@ describe('parseWorkspaceFiles', () => {
     expect(result.parsedModels[0]!.model.elements[0]!.name).toBe('Original');
     expect(result.parsedModels[0]!.source).toBe(source);
   });
+  it('reports lexer-only workspace errors on main-thread fallback', async () => {
+    vi.stubGlobal('Worker', undefined);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    const file = createWorkspaceFile('lexer.rosetta', 'namespace lexer\ntype Foo:\n  bar string (1..1)\n\u0000');
+    const parsed = await parse(file.content);
+    expect(parsed.parserErrors).toHaveLength(0);
+    const result = await parseWorkspaceFiles([file]);
+    expect(result.parseMode).toBe('main-thread-fallback');
+    expect(result.errors.get(file.path)).toEqual(parsed.lexerErrors.map((error) => error.message));
+  });
+
   it('should parse multiple files', async () => {
     const files: WorkspaceFile[] = [
       {

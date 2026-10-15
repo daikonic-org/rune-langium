@@ -16,9 +16,14 @@ import {
 import { ExpressionWorkspace } from '../../src/components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../../src/services/expression-document.js';
 import type { WorkspaceFile } from '../../src/services/workspace.js';
+import * as workspaceServices from '../../src/services/workspace.js';
 import { PreviewSessionContext } from '../../src/shell/providers/preview-session-context.js';
+import { pathToUri } from '../../src/utils/uri.js';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 const source = 'namespace test\nversion "test"\nfunc Calculate:\n  output: result int (1..1)\n  set result: 1\n';
 
 async function context() {
@@ -39,7 +44,16 @@ async function context() {
     onContentChange: writes,
     onOpenSource: vi.fn()
   };
-  return { props, sibling, writes, getFile: () => file };
+  return {
+    props,
+    sibling,
+    writes,
+    getFile: () => file,
+    setFile: (next: WorkspaceFile) => {
+      file = next;
+      documents.observe(pathToUri(file.path));
+    }
+  };
 }
 
 describe('source-bound expression workspace', () => {
@@ -429,10 +443,108 @@ describe('source-bound expression workspace', () => {
       />
     );
     const editor = await host.findByTestId('implementation-editor');
-    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
+    const view = await waitFor(() => {
+      const element = editor.querySelector('.cm-editor');
+      expect(element).not.toBeNull();
+      const mounted = EditorView.findFromDOM(element!);
+      expect(mounted).not.toBeNull();
+      return mounted!;
+    });
     act(() => view.dispatch({ changes: { from: source.indexOf('1\n'), insert: 'broken' } }));
     expect(view.state.doc.toString()).toBe(source);
     expect(writes).not.toHaveBeenCalled();
+  });
+
+  it('uses original curated source boundaries despite drifted serialized offsets', async () => {
+    const text = source + 'func Neighbor:\n output: result int (1..1)\n set result: 2\n';
+    const parsed = await parse(text.replace('namespace test', 'namespace     test'));
+    const { RuneDsl } = createRuneDslServices();
+    const owner = JSON.parse(serializeRuneModel(RuneDsl.serializer.JsonSerializer, parsed.value)).elements[0];
+    const { props, writes, setFile } = await context();
+    const file = { ...props.file, content: text, sourceLoaded: true, readOnly: true, refOnly: true };
+    setFile(file);
+    const host = render(
+      <ExpressionWorkspace
+        {...props}
+        sourceOwner={owner}
+        parsed={undefined}
+        parseCurrent={false}
+        readOnly
+        file={file}
+      />
+    );
+    const editor = await host.findByTestId('implementation-editor');
+    expect(editor).toHaveTextContent('set result: 1');
+    expect(editor).not.toHaveTextContent('func');
+    expect(editor).not.toHaveTextContent('Neighbor');
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Rune', 'invalid'],
+    ['Rune', 'rejected'],
+    ['TypeScript', 'invalid'],
+    ['TypeScript', 'rejected']
+  ] as const)('clears replaced readonly %s source when coordinate parsing is %s', async (language, outcome) => {
+    const { props, setFile } = await context();
+    const file = { ...props.file, readOnly: true, refOnly: true, sourceLoaded: true };
+    const project = vi.fn(async (target, subject) => ({
+      language: target,
+      subject,
+      code: 'return 1;',
+      sourceMap: [],
+      requiredHelpers: []
+    }));
+    const factory = () => ({ schema: vi.fn(), execute: vi.fn(), project, dispose: vi.fn() });
+    const view = (currentFile: WorkspaceFile) => {
+      setFile(currentFile);
+      return (
+        <PreviewSessionContext.Provider value={factory}>
+          <ExpressionWorkspace {...props} file={currentFile} readOnly parsed={undefined} parseCurrent={false} />
+        </PreviewSessionContext.Provider>
+      );
+    };
+    const host = render(view(file));
+    await waitFor(() => expect(host.getByTestId('implementation-editor')).toHaveTextContent('set result: 1'));
+    if (language === 'TypeScript') {
+      fireEvent.click(host.getByRole('button', { name: 'TypeScript' }));
+      await waitFor(() => expect(host.getByTestId('generated-expression')).toHaveTextContent('return 1;'));
+    }
+    let reject!: (reason: Error) => void;
+    let resolve!: (result: Awaited<ReturnType<typeof workspaceServices.parseFile>>) => void;
+    const pending = new Promise<Awaited<ReturnType<typeof workspaceServices.parseFile>>>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    vi.spyOn(workspaceServices, 'parseFile').mockReturnValueOnce(pending);
+    host.rerender(view({ ...file, content: 'namespace test\nfunc Calculate: broken' }));
+    expect(host.queryByTestId('implementation-editor')).toBeNull();
+    expect(host.queryByTestId('generated-expression')).toBeNull();
+    await act(async () => {
+      if (outcome === 'rejected') reject(new Error('coordinate parser failed'));
+      else resolve({ errors: ['Invalid refreshed source.'] });
+    });
+    expect(host.getByRole('status')).toHaveTextContent('The original source could not be parsed');
+    expect(host.queryByTestId('implementation-editor')).toBeNull();
+    expect(host.queryByTestId('generated-expression')).toBeNull();
+    host.rerender(view(file));
+    if (language === 'TypeScript')
+      await waitFor(() => expect(host.getByTestId('generated-expression')).toHaveTextContent('return 1;'));
+    else await waitFor(() => expect(host.getByTestId('implementation-editor')).toHaveTextContent('set result: 1'));
+  });
+
+  it('hides readonly Rune source when the current bytes have only lexer errors', async () => {
+    const { props, setFile } = await context();
+    const file = { ...props.file, content: source + '\u0000', readOnly: true, refOnly: true, sourceLoaded: true };
+    const parsed = await parse(file.content);
+    expect(parsed.parserErrors).toHaveLength(0);
+    expect(parsed.lexerErrors.length).toBeGreaterThan(0);
+    setFile(file);
+    const host = render(
+      <ExpressionWorkspace {...props} file={file} readOnly parsed={undefined} parseCurrent={false} />
+    );
+    await waitFor(() => expect(host.getByRole('status')).toHaveTextContent('The original source could not be parsed'));
+    expect(host.queryByTestId('implementation-editor')).toBeNull();
   });
 
   it('respects file read-only capability even if the host flag is false', async () => {
@@ -445,6 +557,7 @@ describe('source-bound expression workspace', () => {
       />
     );
     const editor = await host.findByTestId('implementation-editor');
+    await waitFor(() => expect(editor.querySelector('.cm-editor')).not.toBeNull());
     const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
     act(() => view.dispatch({ changes: { from: source.indexOf('1\n'), insert: '9' } }));
     expect(view.state.doc.toString()).toBe(source);

@@ -93,9 +93,10 @@ export function AnnotationSection({
 
   const annotationsFromForm =
     rawAnnotations === undefined
-      ? binding && binding.formPrefix === undefined
+      ? binding && (binding.formPrefix === undefined || binding.readOnly)
         ? getMetadataItems(binding.node, 'annotations')
-        : (formCtx?.watch?.(fieldPath) as unknown[] | undefined)
+        : ((formCtx?.watch?.(fieldPath) as unknown[] | undefined) ??
+          (binding ? getMetadataItems(binding.node, 'annotations') : undefined))
       : undefined;
   const effectiveRawAnnotations = rawAnnotations ?? annotationsFromForm;
 

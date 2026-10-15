@@ -9,6 +9,8 @@
  * and LSP client lifecycle.
  */
 
+import { recordOperation } from './services/operation-feedback.js';
+import type { AddActivityMeta } from './store/activity-store.js';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import '@xyflow/react/dist/style.css';
 import '@rune-langium/visual-editor/styles.css';
@@ -37,7 +39,6 @@ import { createWorkspaceAutosave } from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from './store/output-store.js';
-import { useActivityStore } from './store/activity-store.js';
 import { allocateOpId } from './services/op-log.js';
 import { recordPerf, recordPerfStart } from './services/perf-log.js';
 import { useInstanceStore } from './store/instance-store.js';
@@ -209,14 +210,19 @@ function AppContent() {
   const unavailableCuratedBindingsRef = useRef(new Map<string, CuratedModelBinding>());
   const { showToast, showLoadingToast, dismissToast } = useStudioToast();
 
-  const reportWorkspaceError = useCallback((message: string, error: unknown) => {
-    console.warn(`[App] ${message}:`, error);
-    setWorkspaceError(message);
-    useOutputStore
-      .getState()
-      .addLine(fmtLine('workspace', message, error instanceof Error ? error.message : undefined), 'error');
-    useActivityStore.getState().addActivity('workspace', false, message);
-  }, []);
+  const reportWorkspaceError = useCallback(
+    (message: string, error: unknown, operation?: { tag: string; metadata: AddActivityMeta }) => {
+      console.warn(`[App] ${message}:`, error);
+      setWorkspaceError(message);
+      recordOperation(
+        operation?.tag ?? 'workspace',
+        error instanceof Error ? `${message} · ${error.message}` : message,
+        'error',
+        operation?.metadata
+      );
+    },
+    []
+  );
 
   const workspaceAutosave = useMemo(
     () =>
@@ -273,6 +279,7 @@ function AppContent() {
     if (!workspaceNotice) {
       return;
     }
+    recordOperation('workspace', workspaceNotice);
     showToast({
       title: 'Workspace notice',
       description: workspaceNotice,
@@ -354,6 +361,8 @@ function AppContent() {
     // it's visible even if the user has navigated away from the node/panel
     // that triggered it.
     const label = pendingHydration.length === 1 ? pendingHydration[0] : `${pendingHydration.length} namespaces`;
+    const startedAt = performance.now();
+    const hydrationOpId = recordOperation('curated', `Loading ${label}…`);
     const toastId = showLoadingToast({ description: `Loading ${label}…` });
     void parseWorkspaceFiles(files, { hydrateNamespaces: requested, requireCuratedHydration: true })
       .then((result) => {
@@ -363,18 +372,29 @@ function AppContent() {
           // The last valid semantic model is still in use. Keep this namespace
           // retryable rather than claiming its new declarations were applied.
           useEditorStore.getState().dequeuePendingHydration(pendingHydration);
+          recordOperation('curated', `Could not load ${label}: source has parse errors`, 'error', {
+            opId: hydrationOpId,
+            durationMs: performance.now() - startedAt
+          });
           return;
         }
         // Mark exactly the set sent in THIS parse (not whatever is pending when
         // the promise resolves) so a request arriving mid-flight isn't lost.
         useEditorStore.getState().markNamespacesHydrated(pendingHydration);
+        recordOperation('curated', `Loaded ${label}`, 'success', {
+          opId: hydrationOpId,
+          durationMs: performance.now() - startedAt
+        });
       })
       .catch((err) => {
         if (cancelled || epoch !== workspaceEpochRef.current) return;
         // Dequeue the failed namespaces (without marking hydrated) so the user
         // can retry by re-selecting/re-expanding them; keep the last valid graph.
         useEditorStore.getState().dequeuePendingHydration(pendingHydration);
-        reportWorkspaceError('Failed to hydrate the selected namespace; keeping the last valid graph', err);
+        reportWorkspaceError('Failed to hydrate the selected namespace; keeping the last valid graph', err, {
+          tag: 'curated',
+          metadata: { opId: hydrationOpId, durationMs: performance.now() - startedAt, subject: label }
+        });
       })
       .finally(() => {
         if (!cancelled) dismissToast(toastId);

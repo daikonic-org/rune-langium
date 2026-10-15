@@ -90,16 +90,15 @@ describe('CodePreviewPanel table-as-landing flow', () => {
     // We do not assert postMessage here.
   });
 
-  it('clicking the eye a second time on the active row toggles the preview off', () => {
+  it('regenerates the active target without closing its editor', () => {
     render(<CodePreviewPanel sourceEditorRef={null} />);
     fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));
+    const editor = screen.getByTestId('code-preview-editor');
+    const revision = useCodegenStore.getState().refreshRevision;
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate Zod preview' }));
     expect(useCodegenStore.getState().activeTarget).toBe('zod');
-    // Toggle off — second click on the same row's eye icon.
-    fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));
-    expect(useCodegenStore.getState().activeTarget).toBeUndefined();
-    // Table still visible; viewer is gone.
-    expect(screen.getByTestId('codegen-targets-table')).toBeTruthy();
-    expect(screen.queryByTestId('code-preview-editor')).toBeNull();
+    expect(useCodegenStore.getState().refreshRevision).toBe(revision + 1);
+    expect(screen.getByTestId('code-preview-editor')).toBe(editor);
   });
 
   it('clicking the eye on a different row swaps the preview without closing it', () => {
@@ -110,22 +109,6 @@ describe('CodePreviewPanel table-as-landing flow', () => {
     expect(useCodegenStore.getState().activeTarget).toBe('typescript');
     expect(useCodegenStore.getState().codePreviewTarget).toBe('typescript');
     expect(screen.getByTestId('code-preview-editor')).toBeTruthy();
-  });
-
-  it('toggling the eye off then back on resets the activeTarget in the store', async () => {
-    render(<CodePreviewPanel sourceEditorRef={null} />);
-    fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));
-    expect(useCodegenStore.getState().activeTarget).toBe('zod');
-    // toggle off
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));
-    });
-    expect(useCodegenStore.getState().activeTarget).toBeUndefined();
-    // toggle back on
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));
-    });
-    expect(useCodegenStore.getState().activeTarget).toBe('zod');
   });
 
   it('does not render the old TargetSwitcher tabs in either mode', () => {

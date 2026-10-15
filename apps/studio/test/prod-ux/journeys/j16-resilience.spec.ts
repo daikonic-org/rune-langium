@@ -184,6 +184,8 @@ test.describe('J16 — Resilience & chrome', () => {
       }
       await page.getByRole('tab', { name: 'Activity', exact: true }).click();
       await expect(page.getByTestId('panel-activity')).toBeVisible();
+      await expect(page.getByTestId('panel-activity')).toContainText('J16 toast-determinism mock');
+      await expect(page.getByTestId('panel-activity')).not.toContainText('TOAST');
       await evidence.checkpoint('activity-history');
       await page.getByRole('tab', { name: 'Output', exact: true }).click();
       await expect(page.getByTestId('panel-output')).toContainText('J16 toast-determinism mock');
