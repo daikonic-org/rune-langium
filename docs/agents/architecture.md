@@ -307,7 +307,10 @@ comes from its canonical selected node, not an unrelated parent form field.
 Function body editors fill the space above item details. Documentation can scroll
 or resize without authorizing changes to readonly declarations.
 
-Displayed TypeScript bodies assume purpose-built, validated Rune objects. Named
+Displayed TypeScript bodies assume purpose-built, validated Rune objects. The
+object methods belong to that explanatory display contract, not the structural
+`RuneFuncData` arguments accepted by executable exports. Copying a display body
+into the JSON API does not substitute for executable code generation. Named
 type guards express narrowing; narrowing followed by presence fuses to a guard
 (or its negation). Object comparisons use `.equals`; primitives and null presence
 checks use native operators. Resolved enum values use their declared members (including switch cases), while string literals remain strings. Displayed calls omit runtime argument assertions and
@@ -334,10 +337,13 @@ no operation or history entry. `recordOperation` supplies the shared correlation
 Workspace failure owners use that helper once, including storage error details;
 the workspace error notification effect does not add history records.
 
-Code preview requests retain the previous same-target contents separately from
+Code preview requests retain the previous same-target, same-selection contents separately from
 the waiting snapshot's renderable output. Stale results recover those files and
 the selected path; successful results preserve a still-present selected path.
-Changing output language or resetting workspace state clears that recovery data.
+Changing output language, workspace identity, declaration namespace/name/kind,
+or switching between a declaration and a workspace export clears recovery data.
+The editor clears the previous selection's document even when an earlier request
+was already waiting; repeated refreshes for the same selection retain the view.
 Waiting recovery contents are not eligible for navigation arrival cues.
 Worker `codegen:setFiles` messages only install source files and invalidate the
 codegen version. Only `codegen:generate` runs export generation. Selected preview

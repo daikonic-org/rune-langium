@@ -731,7 +731,13 @@ export const CodegenProvider = withInstrumentation(
     const selectedCodeTarget = usePreviewStore((s) => s.selectedTarget);
     useEffect(() => {
       if (!codegenWorker || codegenActiveTarget === undefined) return;
-      const requestId = useCodegenStore.getState().beginCodePreviewRequest(codegenPreviewTarget);
+      const selectionKey = JSON.stringify([
+        workspaceId,
+        selectedCodeTarget?.namespace,
+        selectedCodeTarget?.name,
+        selectedCodeTarget?.kind
+      ]);
+      const requestId = useCodegenStore.getState().beginCodePreviewRequest(codegenPreviewTarget, selectionKey);
       codegenCurrentRequestIdRef.current = requestId;
       const controller = new AbortController();
       void (async () => {
@@ -786,6 +792,7 @@ export const CodegenProvider = withInstrumentation(
       codegenActiveTarget,
       codegenPreviewTarget,
       selectedCodeTarget,
+      workspaceId,
       files,
       refreshRevision,
       syncWorkerFiles,

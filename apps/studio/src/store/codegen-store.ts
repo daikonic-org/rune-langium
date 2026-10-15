@@ -54,8 +54,9 @@ interface CodegenState {
    */
   activeTarget: Target | undefined;
   currentRequestId: string;
+  currentSelectionKey: string | undefined;
   snapshot: CodePreviewSnapshot;
-  beginCodePreviewRequest: (target: Target) => string;
+  beginCodePreviewRequest: (target: Target, selectionKey?: string) => string;
   setDependencyGraph: (graph: Record<string, string[]>) => void;
   setCodePreviewTarget: (target: Target) => void;
   /** Switch the viewer to `target`, or pass `undefined` to return to the targets table. */
@@ -100,16 +101,18 @@ export const useCodegenStore = create<CodegenState>((set) => ({
   codePreviewTarget: DEFAULT_TARGET,
   activeTarget: undefined,
   currentRequestId: INITIAL_REQUEST_ID,
+  currentSelectionKey: undefined,
   snapshot: createInitialSnapshot(),
   setDependencyGraph: (graph) => set({ dependencyGraph: graph }),
-  beginCodePreviewRequest: (target) => {
+  beginCodePreviewRequest: (target, selectionKey) => {
     const requestId = `codegen:${target}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
     set((state) => ({
       codePreviewTarget: target,
       currentRequestId: requestId,
+      currentSelectionKey: selectionKey,
       snapshot: {
         ...createInitialSnapshot(target),
-        previous: previousContents(state.snapshot, target)
+        previous: state.currentSelectionKey === selectionKey ? previousContents(state.snapshot, target) : undefined
       }
     }));
     return requestId;
@@ -118,6 +121,7 @@ export const useCodegenStore = create<CodegenState>((set) => ({
     set({
       codePreviewTarget: target,
       currentRequestId: `codegen:${target}:0`,
+      currentSelectionKey: undefined,
       snapshot: createInitialSnapshot(target)
     }),
   setActiveTarget: (target) => set({ activeTarget: target }),
@@ -199,6 +203,7 @@ export const useCodegenStore = create<CodegenState>((set) => ({
       codePreviewTarget: DEFAULT_TARGET,
       activeTarget: undefined,
       currentRequestId: INITIAL_REQUEST_ID,
+      currentSelectionKey: undefined,
       snapshot: createInitialSnapshot()
     })
 }));

@@ -12,6 +12,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   Object.defineProperty(Range.prototype, 'getBoundingClientRect', { configurable: true, value: () => new DOMRect() });
   Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: () => [] });
+  useCodegenStore.getState().resetCodegenState();
   useCodegenStore.setState({ codePreviewTarget: 'zod', activeTarget: 'zod' });
   useCodegenStore.getState().receiveCodePreviewResult({
     target: 'zod',
@@ -86,6 +87,19 @@ it('retains the generated document while regenerating the same target', () => {
   act(() => useCodegenStore.getState().markCodePreviewStale({ target: 'zod', message: 'Fix source errors.' }));
   expect(view.state.doc.toString()).toBe(before);
   expect(screen.getByText('Outdated — fix errors to refresh')).toBeVisible();
+});
+
+it('clears the old document when selection changes during an in-flight refresh', () => {
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  const view = EditorView.findFromDOM(container.querySelector('.cm-editor')!)!;
+  const before = view.state.doc.toString();
+  act(() => useCodegenStore.getState().beginCodePreviewRequest('zod'));
+  expect(view.state.doc.toString()).toBe(before);
+  act(() => useCodegenStore.getState().beginCodePreviewRequest('zod', 'test.Other#Data'));
+  expect(view.state.doc.toString()).toBe('');
+  act(() => useCodegenStore.getState().markCodePreviewStale({ target: 'zod', message: 'Fix source.' }));
+  expect(view.state.doc.toString()).toBe('');
+  expect(useCodegenStore.getState().snapshot.status).toBe('unavailable');
 });
 
 it('waits for generated output for a pending arrival and consumes it only once', () => {

@@ -207,3 +207,26 @@ Final follow-up validation: all 2,325 codegen tests pass with Python 3.14 (one
 existing skip, eight todo), all 1,998 Studio tests pass (two skips), and all 132
 pinned generated TypeScript files compile strictly after the codegen rebuild.
 Codegen source/test types and changed-file lint/format pass.
+
+## Selection recovery and object display contract
+
+Thread `PRRT_kwDORLopOc6sldSF` reproduced recovery of declaration A's preview
+after switching to declaration B and receiving an outdated result. Request
+recovery now includes workspace identity and declaration namespace/name/kind;
+whole-workspace exports have their own identity. The editor clears unrelated
+contents during waiting, including waiting-to-waiting selection changes, while
+same-selection refreshes retain their document. Provider regressions cover
+declaration, kind, selection removal and workspace transitions; a real CodeMirror
+regression covers selection change during an in-flight refresh. They fail before
+the fix and pass afterward.
+
+Thread `PRRT_kwDORLopOc6sldSC` asks to align displayed object equality with
+structural JSON APIs. This is intentionally outside the display contract agreed
+with the user: projections assume purpose-built objects with `.equals`; exports
+accept structural `RuneFuncData` and keep shared structural equality. Neither
+contract is changed by copying a projection into an exported function. Existing
+projection execution tests supply purpose-built objects and verify that absent
+operands never invoke equality; executable equality tests exercise plain objects.
+
+Selection follow-up validation: all 2,004 Studio tests pass (two existing skips),
+including 59 store/provider/real-editor checks. Changed-source lint/format passes.

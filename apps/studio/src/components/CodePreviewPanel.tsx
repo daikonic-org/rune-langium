@@ -277,7 +277,7 @@ export const CodePreviewPanel = withInstrumentation(
     useEffect(() => {
       const view = editorViewRef.current;
       if (!view) return;
-      if (!activeFile && snapshot.status === 'waiting') return;
+      if (!activeFile && snapshot.status === 'waiting' && snapshot.previous) return;
       const nextContent = activeFile?.content ?? '';
       const current = view.state.doc.toString();
       if (current === nextContent) return;
@@ -285,7 +285,7 @@ export const CodePreviewPanel = withInstrumentation(
         changes: minimalDocumentChange(current, nextContent),
         annotations: externalDocumentChange.of(true)
       });
-    }, [activeFile, activeTarget, target, snapshot.status]);
+    }, [activeFile, activeTarget, target, snapshot]);
 
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
     const selectedTarget = usePreviewStore((s) => s.selectedTarget);

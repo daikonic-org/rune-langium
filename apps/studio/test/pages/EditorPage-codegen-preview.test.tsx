@@ -299,6 +299,76 @@ describe('CodegenProvider — codegen worker→store path', () => {
     }
   });
 
+  it.each([
+    'different declaration',
+    'different kind',
+    'workspace export',
+    'different workspace',
+    'same declaration'
+  ] as const)('scopes outdated recovery when requesting %s', async (transition) => {
+    const a = { id: 'a.Model#Data', namespace: 'a', name: 'Model', kind: 'Data' };
+    const b =
+      transition === 'different kind'
+        ? { ...a, id: 'a.Model#RosettaFunction', kind: 'RosettaFunction' }
+        : { ...a, id: 'a.Other#Data', name: 'Other' };
+    usePreviewStore.getState().setAvailableTargets([a, b]);
+    usePreviewStore.getState().selectTarget(a.id);
+    const { rerender } = renderProvider();
+    await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
+    const worker = MockWorker.instances[0]!;
+    await act(async () => {
+      useCodegenStore.getState().setCodePreviewTarget('typescript');
+      useCodegenStore.getState().setActiveTarget('typescript');
+    });
+    await waitFor(() => expect(lastCodegenGenerate(worker)).toBeDefined());
+    const firstId = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => {
+      worker.dispatch('message', {
+        data: {
+          type: 'codegen:result',
+          target: 'typescript',
+          requestId: firstId,
+          files: [{ relativePath: 'a.ts', content: 'declaration A', sourceMap: [] }]
+        }
+      });
+    });
+    expect(useCodegenStore.getState().snapshot.status).toBe('ready');
+    await act(async () => {
+      if (transition === 'same declaration') {
+        useCodegenStore.getState().refreshCodePreview();
+      } else if (transition === 'different workspace') {
+        rerender(
+          <WorkspaceStateContext.Provider value={{ ...wsState(WS_FILES), workspaceId: 'ws-B' }}>
+            <CodegenProvider>
+              <div />
+            </CodegenProvider>
+          </WorkspaceStateContext.Provider>
+        );
+      } else {
+        usePreviewStore.getState().selectTarget(transition === 'workspace export' ? undefined : b.id);
+      }
+    });
+    await waitFor(() => expect(lastCodegenGenerate(worker)!.requestId).not.toBe(firstId));
+    const nextId = lastCodegenGenerate(worker)!.requestId;
+    await act(async () => {
+      worker.dispatch('message', {
+        data: { type: 'codegen:outdated', target: 'typescript', requestId: nextId, message: 'Fix source.' }
+      });
+    });
+    if (transition === 'same declaration') {
+      expect(useCodegenStore.getState().snapshot).toMatchObject({
+        status: 'stale',
+        files: [{ relativePath: 'a.ts', content: 'declaration A' }]
+      });
+    } else {
+      expect(useCodegenStore.getState().snapshot).toEqual({
+        status: 'unavailable',
+        target: 'typescript',
+        message: 'Fix source.'
+      });
+    }
+  });
+
   it('marks the store snapshot unavailable on codegen:error', async () => {
     renderProvider();
     await waitFor(() => expect(MockWorker.instances).toHaveLength(1));
