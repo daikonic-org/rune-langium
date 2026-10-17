@@ -16,6 +16,7 @@ import {
   isRosettaDeepFeatureCall,
   isRosettaConstructorExpression,
   isRosettaFunction,
+  isRosettaRule,
   isRosettaEnumValue,
   isShortcutDeclaration,
   isRosettaOnlyElement,
@@ -138,7 +139,7 @@ export function expressionIsMany(
           return from(argument) || featureIsMany(isAttribute(ref) || isRosettaRecordFeature(ref) ? ref : undefined);
       }
       if (isRosettaFunction(ref)) return featureIsMany(functionOutput(ref));
-      if (isShortcutDeclaration(ref)) return from(ref.expression);
+      if (isShortcutDeclaration(ref) || isRosettaRule(ref)) return from(ref.expression);
       return featureIsMany(ref as Feature | undefined);
     }
     if (expr.$type === 'RosettaImplicitVariable') {
@@ -175,7 +176,7 @@ export function expressionType(
       if (isData(ref) || isChoice(ref) || isRosettaRecordType(ref)) return ref;
       if (isAttribute(ref) || isChoiceOption(ref) || isRosettaRecordFeature(ref)) return resolveType(ref.typeCall);
       if (isRosettaFunction(ref)) return resolveType(functionOutput(ref)?.typeCall);
-      if (isShortcutDeclaration(ref)) return from(ref.expression);
+      if (isShortcutDeclaration(ref) || isRosettaRule(ref)) return from(ref.expression);
     }
     if (expr.$type === 'RosettaImplicitVariable') {
       // `item` is commonly wrapped by one or more feature calls before it is
@@ -212,6 +213,7 @@ export function expressionType(
             return from(getOperationArgument(parent));
           }
         }
+        if (isRosettaRule(owner)) return resolveType(owner.input);
         owner = (owner as { $container?: unknown }).$container;
       }
     }

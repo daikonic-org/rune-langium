@@ -6,6 +6,7 @@ import {
   isAttribute,
   isChoiceOption,
   isRosettaFunction,
+  isRosettaRule,
   isRosettaSymbolReference,
   isRosettaFeatureCall,
   isRosettaDeepFeatureCall,
@@ -45,7 +46,7 @@ export function collectionShape(
   }
   if (isRosettaSymbolReference(expression)) {
     const ref = expression.symbol.ref;
-    if (isShortcutDeclaration(ref)) return from(ref.expression);
+    if (isShortcutDeclaration(ref) || isRosettaRule(ref)) return from(ref.expression);
     if (isRosettaFunction(ref)) return featureIsMany(functionOutput(ref)) ? 'array' : 'scalar';
     if (isAttribute(ref) || isChoiceOption(ref)) return expressionIsMany(expression) ? 'array' : 'scalar';
     if (isRosettaEnumValue(ref)) return 'scalar';

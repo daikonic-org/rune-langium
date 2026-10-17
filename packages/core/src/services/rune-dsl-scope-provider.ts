@@ -330,8 +330,8 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
         return this.resolveTypeCallToData(sym.typeCall);
       }
 
-      // ShortcutDeclaration → type comes from its expression
-      if (isShortcutDeclaration(sym)) {
+      // Aliases and rules infer their result type through the same cycle guard.
+      if (isShortcutDeclaration(sym) || isRosettaRule(sym)) {
         return sym.expression ? this.resolveExpressionType(sym.expression) : undefined;
       }
 
@@ -434,7 +434,8 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
           if (refText) return this.resolveDataOrChoiceByName(refText);
         }
       }
-      return undefined;
+      const rule = AstUtils.getContainerOfType(expr, isRosettaRule);
+      return rule ? this.resolveTypeCallToData(rule.input) : undefined;
     }
 
     return resolveOperationType(

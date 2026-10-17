@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+
+namespace scope.types
+type Specification:
+ textValue string (1..1)
+ registeredOn date (1..1)
+type Engine:
+ kind string (1..1)
+type Powered:
+ specification Specification (1..1)
+ engine Engine (1..1)
+type Pedal:
+ weight number (1..1)
+choice Vehicle:
+ Powered
+ Pedal
+type Envelope:
+ vehicle Vehicle (1..1)
