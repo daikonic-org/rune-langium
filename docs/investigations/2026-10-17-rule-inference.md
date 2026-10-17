@@ -39,12 +39,23 @@ reported zero syntax exclusions and zero unlinked declarations for that cohort;
 there is no evidence these particular errors were hidden in the scanned models.
 The Vehicle Emissions demo was not among the three corpus sources.
 
-Core's CDM grammar census checks parsing rather than workspace linking. The
-optional projection census records and excludes syntax-invalid documents and
-unlinked declarations, then checks the remaining generated Python syntax. Its
-green result alone is not a full workspace linkage guarantee. The curated
-artifact builder separately requires every selected document to pass
-`assertValidDocuments` before publication.
+Previously, Core's CDM grammar census checked parsing rather than workspace
+linking. The optional projection census recorded and excluded syntax-invalid
+documents and unlinked declarations before checking generated Python syntax.
+The curated artifact builder separately required every selected document to
+pass `assertValidDocuments` before publication.
+
+The regular Core corpus suite now also requires every CDM/FpML/Rune document to
+parse and link through that same assertion. The projection census applies the
+same gate before rendering and no longer excludes erroneous documents or
+declarations. Shared fixture loading rejects an empty dependency set, and AST
+checks cover every linked document rather than a ten-file sample.
+
+A fresh upstream check at CDM `830b53b3403be45abcb3b3e194908831f418286c`,
+FpML `ab92e75df45e882e6775a5ce94dc6f520fe446f6` (3.8.0), and Rune
+`4fa22a75f957940ee2c70a6ead5d53597dbd97a1` (10.15.1) passed: all 148 CDM,
+42 FpML and two Rune documents parsed and linked without errors. This local
+source-artifact build did not publish or deploy anything.
 
 The new authored fixtures in `test/fixtures/regressions/rule-inference/` are
 always present. Core requires correct reference ownership and scope isolation;

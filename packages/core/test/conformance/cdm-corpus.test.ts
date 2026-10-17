@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect } from 'vitest';
-import { loadAllFixtures, fixtureVersion, listFixtures } from '../helpers/fixture-loader.js';
+import { URI } from 'langium';
+import { loadCorpusFixtures, loadAllFixtures, fixtureVersion, listFixtures } from '../helpers/fixture-loader.js';
 import { parse } from '../../src/api/parse.js';
+import { addLegacyAnnotations, assertValidDocuments, createRuneDslServices } from '../../src/index.js';
 
 describe('CDM Corpus Conformance (SC-001)', () => {
   it('should have vendored CDM fixtures', async () => {
@@ -47,14 +49,27 @@ describe('CDM Corpus Conformance (SC-001)', () => {
     expect(results.length).toBe(0);
   }, 30_000);
 
-  it('should produce typed AST nodes for every parsed CDM file', async () => {
-    const fixtures = await loadAllFixtures('cdm');
-    for (const { name, content } of fixtures.slice(0, 10)) {
-      const result = await parse(content, `inmemory:///cdm/${name}`);
-      expect(result.value).toBeDefined();
-      expect(result.value.$type).toBe('RosettaModel');
-    }
-  });
+  it('should parse and link the entire dependency workspace without exclusions', async () => {
+    const sources = await loadCorpusFixtures();
+    const { RuneDsl } = createRuneDslServices();
+    const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
+    const documents = sources.flatMap(({ corpus, files }) =>
+      files.map(({ name, content }) => {
+        const document = factory.fromString(content, URI.parse(`file:///corpus/${corpus}/${name}`));
+        return corpus === 'rune-dsl' && name === 'annotations.rosetta'
+          ? addLegacyAnnotations(document, factory)
+          : document;
+      })
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+    assertValidDocuments(documents);
+    for (const document of documents) expect(document.parseResult.value.$type).toBe('RosettaModel');
+    console.info('Full corpus parse/link gate:', {
+      sources: sources.map(({ corpus, version, files }) => ({ corpus, version, documents: files.length })),
+      documents: documents.length,
+      references: documents.reduce((total, document) => total + document.references.length, 0)
+    });
+  }, 60_000);
 });
 
 describe('Rune DSL Built-in Types', () => {
