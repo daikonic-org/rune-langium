@@ -140,7 +140,10 @@ Generated expression views use codegen's recorded projection metadata and the
 existing preview worker/session client. Embedded function views display body-only
 fragments; condition views display the predicate without declaration or diagnostic
 wrappers. Emitters record these fragments during the same traversal that generates
-the full exported declarations; public projection selectors default to declarations. Display coverage is independent of inverse-lens coverage. Reverse
+the full exported declarations. Displayed function bodies return `false` when a
+precondition or postcondition fails; successful bodies retain their normal result.
+Executable function declarations retain diagnostic exceptions for those failures.
+Public projection selectors default to declarations. Display coverage is independent of inverse-lens coverage. Reverse
 editing opens a private dialog, schema-validates and reparses the converted Rune
 AST, and applies only the captured region with revision guards. Generated function bodies remain read-only. Function provenance includes trailing implementation
 comments through core's source-region helper. The projection worker resolves the

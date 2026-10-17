@@ -357,6 +357,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
       `${parameters.get(input)} = rune.cardinality(${parameters.get(input)}, ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
     );
   const bodyStart = lines.length;
+  const conditionFailureLines = new Set<number>();
   const outputType = pythonFieldType(output, context);
   const accumulatorType = outputMany || outputType.includes(' | None') ? outputType : `${outputType} | None`;
   lines.push(`${result}: ${accumulatorType} = ${outputMany ? '[]' : 'None'}`);
@@ -380,6 +381,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
       `if not (${predicate}):`,
       `    raise ValueError(${pyString(`Diagnostic: ${condition.name ?? func.name}`)})`
     ];
+    conditionFailureLines.add(lines.length + 1);
     lines.push(...guard);
     context.onConditionProjection?.(condition, guard.join('\n'), predicate);
   };
@@ -395,7 +397,11 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   );
   func.postConditions.forEach(check);
   lines.push(`return ${result}`);
-  return finish(lines, [...lines.slice(bodyStart, outputCheck), ...lines.slice(outputCheck + 1)]);
+  // Record display-only failures at emission time; exported diagnostics remain unchanged.
+  const body = lines.flatMap((line, index) =>
+    index < bodyStart || index === outputCheck ? [] : [conditionFailureLines.has(index) ? '    return False' : line]
+  );
+  return finish(lines, body);
 }
 
 function pythonDataContext(context: PythonProjectionContext, type: ExpressionType | undefined): PythonRenderContext {

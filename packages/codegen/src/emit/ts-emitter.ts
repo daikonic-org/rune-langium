@@ -2044,14 +2044,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         emitMode: 'ts-method'
       };
       const body = transpileCondition(condNode, condCtx);
-      const throwForm = body
-        .replace(/errors\.push\('(.+?)'\);/g, `throw new Error('Diagnostic: $1');`)
+      const guard = body
+        .replace(/errors\.push\('(.+?)'\);/g, ctx.projection ? 'return false;' : `throw new Error('Diagnostic: $1');`)
         .split('\n')
         .map((line) => `  ${line}`)
         .join('\n');
       ctx.onConditionProjection?.(
         condNode,
-        throwForm,
+        guard,
         transpileCondition(condNode, {
           ...condCtx,
           emitMode: 'ts-expression',
@@ -2059,7 +2059,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           projection: true
         })
       );
-      lines.push(throwForm);
+      lines.push(guard);
     }
     return lines;
   }
