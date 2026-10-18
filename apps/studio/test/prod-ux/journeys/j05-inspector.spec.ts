@@ -18,9 +18,15 @@ test.describe('J05 — Inspector pane', () => {
 
     await page.getByTestId('rail-explore').click();
     await page.getByTestId('namespace-search').fill('BusinessCenters');
+    const inspectorToggle = page.getByRole('button', { name: 'Inspector', exact: true });
+    if ((await inspectorToggle.getAttribute('aria-pressed')) !== 'true') await inspectorToggle.click();
+    const selectedAt = Date.now();
     await typeNavigationButton(page, ANCHOR_DATA).click();
-
-    await page.getByRole('button', { name: 'Inspector' }).click();
+    const inspector = centerStack.locator('[data-pane="inspector"]');
+    await expectPopulatedAttributes(inspector);
+    evidence.recordTiming('inspectorFirstContent', ANCHOR_DATA, Date.now() - selectedAt);
+    await expect(inspector.locator('[data-inspector-readiness="linked"]')).toBeVisible({ timeout: 30_000 });
+    evidence.recordTiming('hydration', ANCHOR_DATA, Date.now() - selectedAt);
     await expect(centerStack.getByRole('heading', { name: 'BusinessCenters' })).toBeVisible({ timeout: 30_000 });
     await expect(centerStack.getByText('cdm.base.datetime', { exact: true })).toBeVisible();
     await expect(centerStack.getByText('Reference Only', { exact: true })).toBeVisible();

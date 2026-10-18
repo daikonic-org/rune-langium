@@ -6,6 +6,7 @@ import type { WorkspaceKind } from '../../workspace/persistence.js';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
 import type { RosettaModel } from '@rune-langium/core';
 import type { DeferredExportEntry } from '../../workers/parser-worker.js';
+import type { CuratedCacheSeed } from '../../services/curated-cache-seeds.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 /** Current loaded-model data published by WorkspaceProvider. Value swaps per
@@ -21,6 +22,7 @@ export interface WorkspaceState {
   models: RosettaModel[];
   parsedModels: ParsedWorkspaceModel[];
   deferredExports: DeferredExportEntry[];
+  curatedCacheSeeds?: CuratedCacheSeed[];
   parseErrors: Map<string, string[]>;
 }
 
