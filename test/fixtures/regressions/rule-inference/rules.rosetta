@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+
+namespace scope.rules
+import scope.types.*
+reporting rule Engine from Envelope:
+ vehicle switch
+  Powered then engine,
+  default empty
+reporting rule Forward from Envelope: Engine
+reporting rule ReadKind from Envelope: extract Forward -> kind
+reporting rule Registration from Vehicle:
+ extract item ->> specification -> registeredOn
+eligibility rule IsRegistered from Vehicle:
+ item ->> specification -> registeredOn exists
+reporting rule ManyEngines from Envelope: extract vehicle ->> engine
+reporting rule ManyKinds from Envelope: ManyEngines -> kind
+reporting rule DefaultRegistration from Envelope:
+ vehicle switch
+  Pedal then empty,
+  default item ->> specification -> registeredOn
+reporting rule AliasedRegistration from PoweredAliasAgain:
+ item -> specification -> registeredOn
+reporting rule LiteralSelector from Powered:
+ engine -> kind switch
+  "electric" then item,
+  default item

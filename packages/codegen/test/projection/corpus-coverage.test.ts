@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { AstUtils, URI } from 'langium';
 import {
   addLegacyAnnotations,
+  assertValidDocuments,
   createRuneDslServices,
   getNodeSourceRegion,
   isData,
@@ -18,7 +19,7 @@ import {
   isRosettaRule,
   isRosettaModel
 } from '@rune-langium/core';
-import { loadAllFixtures, fixtureVersion } from '../../../core/test/helpers/fixture-loader.js';
+import { loadCorpusFixtures } from '../../../core/test/helpers/fixture-loader.js';
 import {
   createPythonProjectionContext,
   projectPythonFunction,
@@ -30,15 +31,8 @@ import { PYTHON_RUNTIME_SOURCE } from '../../src/projection/python-runtime.js';
 const resources = resolve(import.meta.dirname, '../../../../.resources');
 
 describe.skipIf(!existsSync(resolve(resources, 'cdm')))('staged Python projection corpus', () => {
-  it('renders and compiles every syntax-valid linked implementation and condition', async () => {
-    const corpora = ['rune-dsl', 'rune-fpml', 'cdm'];
-    const sources = await Promise.all(
-      corpora.map(async (corpus) => ({
-        corpus,
-        version: await fixtureVersion(corpus),
-        files: await loadAllFixtures(corpus)
-      }))
-    );
+  it('requires the full corpus to link before rendering and compiling every implementation and condition', async () => {
+    const sources = await loadCorpusFixtures();
     const { RuneDsl } = createRuneDslServices();
     const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
     const documents = sources.flatMap(({ corpus, files }) =>
@@ -50,6 +44,7 @@ describe.skipIf(!existsSync(resolve(resources, 'cdm')))('staged Python projectio
       })
     );
     await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+    assertValidDocuments(documents);
     const context = createPythonProjectionContext(documents, { uri: '', nodeId: '', region: { from: 0, to: 0 } });
     const code: string[] = [],
       kinds = new Map<string, number>(),
@@ -57,30 +52,14 @@ describe.skipIf(!existsSync(resolve(resources, 'cdm')))('staged Python projectio
     let functions = 0,
       conditions = 0,
       rules = 0,
-      nativeBindings = 0,
-      syntaxDocuments = 0,
-      unlinkedDeclarations = 0;
+      nativeBindings = 0;
     for (const document of documents) {
-      if (document.parseResult.parserErrors.length || document.parseResult.lexerErrors.length) {
-        syntaxDocuments++;
-        continue;
-      }
       const model = document.parseResult.value;
-      if (!isRosettaModel(model)) continue;
-      const failures = [...document.references].filter((reference) => reference.error);
+      if (!isRosettaModel(model)) throw new Error(`Expected Rune model in ${document.uri}`);
       for (const node of model.elements) {
         const subjects = isRosettaFunction(node) || isRosettaRule(node) ? [node] : isData(node) ? node.conditions : [];
         for (const subject of subjects) {
           const region = getNodeSourceRegion(subject);
-          if (
-            failures.some((reference) => {
-              const offset = reference.$refNode?.offset;
-              return offset !== undefined && offset >= region.from && offset < region.to;
-            })
-          ) {
-            unlinkedDeclarations++;
-            continue;
-          }
           const bound = {
             ...context,
             subject: { uri: document.uri.toString(), nodeId: 'name' in node ? node.name : node.$type, region }
@@ -123,8 +102,10 @@ describe.skipIf(!existsSync(resolve(resources, 'cdm')))('staged Python projectio
       conditions,
       rules,
       nativeBindings,
-      syntaxDocuments,
-      unlinkedDeclarations,
+      documents: documents.length,
+      references: documents.reduce((total, document) => total + document.references.length, 0),
+      syntaxDocuments: 0,
+      unlinkedDeclarations: 0,
       expressionKinds: Object.fromEntries(kinds),
       refusals
     };

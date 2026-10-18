@@ -16,6 +16,7 @@ import {
   isRosettaDeepFeatureCall,
   isRosettaConstructorExpression,
   isRosettaFunction,
+  isRosettaRule,
   isRosettaEnumValue,
   isShortcutDeclaration,
   isRosettaOnlyElement,
@@ -138,7 +139,7 @@ export function expressionIsMany(
           return from(argument) || featureIsMany(isAttribute(ref) || isRosettaRecordFeature(ref) ? ref : undefined);
       }
       if (isRosettaFunction(ref)) return featureIsMany(functionOutput(ref));
-      if (isShortcutDeclaration(ref)) return from(ref.expression);
+      if (isShortcutDeclaration(ref) || isRosettaRule(ref)) return from(ref.expression);
       return featureIsMany(ref as Feature | undefined);
     }
     if (expr.$type === 'RosettaImplicitVariable') {
@@ -175,7 +176,7 @@ export function expressionType(
       if (isData(ref) || isChoice(ref) || isRosettaRecordType(ref)) return ref;
       if (isAttribute(ref) || isChoiceOption(ref) || isRosettaRecordFeature(ref)) return resolveType(ref.typeCall);
       if (isRosettaFunction(ref)) return resolveType(functionOutput(ref)?.typeCall);
-      if (isShortcutDeclaration(ref)) return from(ref.expression);
+      if (isShortcutDeclaration(ref) || isRosettaRule(ref)) return from(ref.expression);
     }
     if (expr.$type === 'RosettaImplicitVariable') {
       // `item` is commonly wrapped by one or more feature calls before it is
@@ -193,7 +194,7 @@ export function expressionType(
           // from the switch argument rather than treating that link as final.
           const operation = (owner as { $container?: unknown }).$container;
           if (isSwitchOperation(operation)) {
-            const input = from(operation.argument);
+            const input = from(getOperationArgument(operation));
             const targetName =
               (target && typeof target === 'object' && 'name' in target && typeof target.name === 'string'
                 ? target.name
@@ -204,6 +205,7 @@ export function expressionType(
               const optionType = choiceOptionType(input, targetName);
               if (isData(optionType) || isChoice(optionType)) return optionType;
             }
+            return input;
           }
         }
         if (isInlineFunction(owner)) {
@@ -212,6 +214,7 @@ export function expressionType(
             return from(getOperationArgument(parent));
           }
         }
+        if (isRosettaRule(owner)) return resolveType(owner.input);
         owner = (owner as { $container?: unknown }).$container;
       }
     }

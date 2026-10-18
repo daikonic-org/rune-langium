@@ -676,8 +676,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // Check rule input types
     for (const rule of this.ctx.rulesByName.values()) {
       const inputRef = rule.input?.type?.ref;
-      if (inputRef && isData(inputRef)) {
+      if (isData(inputRef) || isChoice(inputRef)) {
         trackRef(inputRef, `${inputRef.name}Shape`);
+        trackRef(inputRef, inputRef.name);
+      } else if (inputRef?.$type === 'RosettaTypeAlias' || inputRef?.$type === 'RosettaEnumeration') {
         trackRef(inputRef, inputRef.name);
       }
     }

@@ -90,11 +90,9 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
     arg
       ? render(arg, { ...context, preserveMetadata: preserve })
       : pythonUnwrap(context.self, preserve ? undefined : context.implicit?.metadata, context.implicit?.many);
-  const branch = (
-    child: RosettaExpression,
-    target = context.preserveMetadata ? expressionMetadataKind(expression) : undefined
-  ) => {
-    const text = render(child, { ...context, preserveMetadata: !!target });
+  const branch = (child: RosettaExpression, childContext = context) => {
+    const target = context.preserveMetadata ? expressionMetadataKind(expression) : undefined;
+    const text = render(child, { ...childContext, preserveMetadata: !!target });
     if (child.$type === 'ListLiteral' && !child.elements.length && !expressionIsMany(expression)) return 'None';
     return target ? pythonNormalize(text, expressionMetadataKind(child), target) : text;
   };
@@ -559,12 +557,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         self: name,
         implicit: { expression: arg, name, metadata: kind, ...(input ? { type: input } : {}) }
       };
-      const switchBranch = (child: RosettaExpression, ctx: PythonRenderContext) => {
-        const target = context.preserveMetadata ? expressionMetadataKind(expression) : undefined;
-        const text = render(child, { ...ctx, preserveMetadata: !!target });
-        return target ? pythonNormalize(text, expressionMetadataKind(child), target) : text;
-      };
-      const fallbackValue = fallback ? switchBranch(fallback.expression, childContext) : 'None';
+      const fallbackValue = fallback ? branch(fallback.expression, childContext) : 'None';
       const branches: string[] = [];
       for (const current of expression.cases) {
         if (!current.guard) continue;
@@ -580,7 +573,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
             implicit: { name: item, type: target, metadata: selection.projected ? selection.metadata : kind }
           };
           branches.push(
-            `(lambda: ${selection.guard}, lambda: ${pythonBind(value, item, switchBranch(current.expression, child))})`
+            `(lambda: ${selection.guard}, lambda: ${pythonBind(value, item, branch(current.expression, child))})`
           );
         } else {
           const guard = current.guard.literalGuard
@@ -590,7 +583,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
               : undefined;
           if (!guard) throw new Error('Unresolved switch guard');
           branches.push(
-            `(lambda: ${['number', 'string', 'boolean'].includes(primitiveElementKind(arg) ?? '') ? `${selector} == ${guard}` : `rune.equals(${selector}, ${guard})`}, lambda: ${switchBranch(current.expression, childContext)})`
+            `(lambda: ${['number', 'string', 'boolean'].includes(primitiveElementKind(arg) ?? '') ? `${selector} == ${guard}` : `rune.equals(${selector}, ${guard})`}, lambda: ${branch(current.expression, childContext)})`
           );
         }
       }

@@ -67,3 +67,14 @@ export async function fixtureVersion(subdir: string): Promise<string | undefined
     return undefined;
   }
 }
+
+/** Load the complete dependency workspace; a missing corpus must not shrink coverage. */
+export async function loadCorpusFixtures() {
+  return Promise.all(
+    ['rune-dsl', 'rune-fpml', 'cdm'].map(async (corpus) => {
+      const files = await loadAllFixtures(corpus);
+      if (!files.length) throw new Error(`Missing ${corpus} corpus fixtures; run scripts/update-fixtures.sh`);
+      return { corpus, version: await fixtureVersion(corpus), files };
+    })
+  );
+}
