@@ -296,6 +296,14 @@ export const isParseWorkspaceResponse = withInstrumentation(
 // Worker message handler
 // ---------------------------------------------------------------------------
 
+/** Match the server's canonical wire form; never send live Langium objects. */
+function modelSnapshot(
+  model: RosettaModel,
+  json = serializeRuneModel(RuneDsl.serializer.JsonSerializer, model)
+): RosettaModel {
+  return JSON.parse(json) as RosettaModel;
+}
+
 // Not `export const` here — this function is exported once, below, via
 // the grouped `export { handleParse, handleParseWorkspace,
 // handleLinkDocument };` statement (the codemod would otherwise introduce
@@ -308,7 +316,7 @@ const handleParse = withInstrumentation(
       const errors = parseErrorMessages(document.parseResult);
       const model = document.parseResult.value as RosettaModel;
       if (model) preserveCstText(model);
-      return { type: 'parseResult', id: req.id, model, errors };
+      return { type: 'parseResult', id: req.id, model: model ? modelSnapshot(model) : null, errors };
     } catch (e) {
       return {
         type: 'parseResult',
@@ -424,13 +432,15 @@ const handleParseWorkspace = withInstrumentation(
         const model = document.parseResult.value as RosettaModel;
         if (model) {
           preserveCstText(model);
-          models.push(model);
+          const serializedModelJson = serializeRuneModel(RuneDsl.serializer.JsonSerializer, model);
+          const snapshot = modelSnapshot(model, serializedModelJson);
+          models.push(snapshot);
           const fileName = uriToFileName.get(document.uri?.toString() ?? '');
           if (fileName)
             parsedModels.push({
               filePath: fileName,
-              model,
-              serializedModelJson: serializeRuneModel(RuneDsl.serializer.JsonSerializer, model)
+              model: snapshot,
+              serializedModelJson
             });
         }
         const fileErrors = parseErrorMessages(document.parseResult);
@@ -538,7 +548,7 @@ const handleLinkDocument = withInstrumentation(
         id: req.id,
         linked: true,
         errors,
-        newModels: newModelsAccumulator
+        newModels: newModelsAccumulator.map((model) => modelSnapshot(model))
       };
     } catch (error) {
       if (targetArtifactKey) invalidArtifactKeys.add(targetArtifactKey);

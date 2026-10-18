@@ -177,6 +177,11 @@ func Compute(kind: Kind -> Cash):
       if (language === 'Python' && baseFirst) await projection.press('PageDown');
       await expect(projection).toContainText('10');
       await expect(implementation.getByRole('alert')).toHaveCount(0);
+      const caption = await implementation.getByText('Generated · read-only', { exact: true }).boundingBox();
+      const openSource = implementation.getByRole('button', { name: 'Open in Source', exact: true });
+      const toolbarButton = await openSource.boundingBox();
+      expect(caption!.y).toBeGreaterThanOrEqual(toolbarButton!.y + toolbarButton!.height);
+      await openSource.click({ trial: true });
     }
     await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
     const dialog = await openBuilder(page);

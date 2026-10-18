@@ -289,7 +289,7 @@ export const ExpressionWorkspace = withInstrumentation(
         className="expression-workspace flex min-h-32 flex-1 flex-col gap-1"
         aria-label={target ? 'Condition expression' : 'Function implementation'}
       >
-        <div className="flex min-h-6 flex-wrap items-center justify-between gap-1">
+        <div className="flex min-h-6 shrink-0 flex-wrap items-center justify-between gap-1">
           {target && <span className="text-xs font-medium text-muted-foreground">Expression</span>}
           <div className="flex flex-wrap items-center gap-1">
             {(['rune', 'typescript', 'python'] as const).map((choice) => (
@@ -392,7 +392,7 @@ export const ExpressionWorkspace = withInstrumentation(
         )}
         {language !== 'rune' && originalSourceCurrent && (
           <>
-            <p className="text-xs text-muted-foreground">Generated · read-only</p>
+            <p className="shrink-0 text-xs text-muted-foreground">Generated · read-only</p>
             {'projection' in projection && projection.projection && (
               <GeneratedExpressionView projection={projection.projection} />
             )}
