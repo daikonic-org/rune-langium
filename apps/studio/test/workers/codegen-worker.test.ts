@@ -216,6 +216,48 @@ async function flushWorker() {
 }
 
 describe('codegen-worker preview messages', () => {
+  it('reports opt-in stage timings without capturing model source or AST payloads', async () => {
+    const { dispatch } = await loadWorkerModule();
+    const { configureInstrumentation, resetInstrumentationForTests } =
+      await import('../../src/services/instrumentation/core.js');
+    const records: Array<{ op: string; durationMs?: number; captured: number }> = [];
+    const operations = ['previewHydrateDocuments', 'previewBuildDocuments', 'previewGenerateSchema'];
+    configureInstrumentation(
+      (record) => records.push(record),
+      () => true,
+      { level: 'trace', operations }
+    );
+    try {
+      dispatch({
+        type: 'preview:setFiles',
+        filesRevision: 1,
+        files: [{ uri: 'file:///privateCustomer.rosetta', content: 'namespace privateCustomer\ntype PrivateTrade:' }]
+      });
+      dispatch({ type: 'preview:generate', targetId: 'privateCustomer.PrivateTrade', requestId: 'preview:timing' });
+      await flushWorker();
+      expect(records.map((record) => record.op)).toEqual(expect.arrayContaining(operations));
+      expect(records.every((record) => typeof record.durationMs === 'number')).toBe(true);
+      expect(records.every((record) => record.captured === 0)).toBe(true);
+      expect(JSON.stringify(records)).not.toMatch(/privateCustomer|PrivateTrade/);
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        buildMock.mockRejectedValueOnce(new Error('privateCustomer: PrivateTrade source failed'));
+        dispatch({
+          type: 'preview:setFiles',
+          filesRevision: 2,
+          files: [{ uri: 'file:///privateCustomer.rosetta', content: 'namespace privateCustomer\ntype Changed:' }]
+        });
+        await flushWorker();
+        expect(records).toContainEqual(expect.objectContaining({ signature: 'preview-stage-error' }));
+        expect(JSON.stringify(records)).not.toMatch(/privateCustomer|PrivateTrade/);
+      } finally {
+        errorLog.mockRestore();
+      }
+    } finally {
+      resetInstrumentationForTests();
+    }
+  });
+
   it.each(['typescript', 'python'])(
     'reuses %s generation for identical receipts and invalidates when a dependency changes',
     async (language) => {

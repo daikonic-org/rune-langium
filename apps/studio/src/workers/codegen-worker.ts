@@ -4,6 +4,7 @@
 /// <reference lib="webworker" />
 
 import { Temporal } from '@js-temporal/polyfill';
+import { withInstrumentation } from '../services/instrumentation/core.js';
 
 /**
  * Dedicated worker for running @rune-langium/codegen off the main thread.
@@ -175,6 +176,23 @@ const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValida
 // `executeFunction`/`validateInstance` call. See `hydrateCuratedDocuments`.
 let cachedCuratedDocuments: LangiumDocument[] = [];
 let lastCuratedEntries: FileEntry[] = [];
+
+// Shared trace boundaries capture timings only, never source, ASTs or instance values.
+const previewStageTelemetry = {
+  level: 'trace',
+  capture: 0,
+  sanitizeError: () => ({ signature: 'preview-stage-error' })
+} as const;
+const previewStages = {
+  hydrateDocuments: withInstrumentation(hydrateCuratedDocuments, {
+    ...previewStageTelemetry,
+    op: 'previewHydrateDocuments'
+  }),
+  buildDocuments: withInstrumentation(buildDocuments, { ...previewStageTelemetry, op: 'previewBuildDocuments' }),
+  generateSchema: withInstrumentation(runPreview, { ...previewStageTelemetry, op: 'previewGenerateSchema' }),
+  generateProjection: withInstrumentation(runProjection, { ...previewStageTelemetry, op: 'previewGenerateProjection' }),
+  executeFunction: withInstrumentation(executeFunction, { ...previewStageTelemetry, op: 'previewExecuteFunction' })
+};
 
 function isPreviewUserEntryParseable(entry: FileEntry): boolean {
   const lowerUri = entry.uri.toLowerCase();
@@ -426,7 +444,7 @@ async function runCodegen(
     let documents: LangiumDocument[];
     const invalidDocumentUris = new Set<string>();
     if (selection) {
-      const allDocuments = (await buildDocuments(true)).value;
+      const allDocuments = (await previewStages.buildDocuments(true)).value;
       for (const document of allDocuments) {
         if (hasDocumentErrors(document)) invalidDocumentUris.add(document.uri.toString());
       }
@@ -609,7 +627,7 @@ async function runPreview(targetId: string, requestId: string): Promise<void> {
 
   try {
     const [generatorTargetId] = targetId.split('#', 2);
-    const { version: documentsVersion, value: documents } = await buildDocuments();
+    const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     if (documents.length === 0) {
       scope.postMessage({
         type: 'preview:stale',
@@ -677,7 +695,7 @@ async function runInstanceSchema(typeFqn: string, requestId: string): Promise<vo
 
   try {
     const [targetId] = typeFqn.split('#', 2);
-    const { version: documentsVersion, value: documents } = await buildDocuments();
+    const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     if (documents.length === 0) {
       scope.postMessage({
         type: 'instance:generateSchemaStale',
@@ -870,7 +888,7 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
       request.filesRevision <= previewFilesRevision &&
       currentPreviewFiles.some((file) => file.uri === request.subject.uri && file.content === request.source);
     if (!current()) throw new Error('The source changed. Refresh the generated view.');
-    const { version, value: documents } = await buildDocuments();
+    const { version, value: documents } = await previewStages.buildDocuments();
     let subject = { ...request.subject, uri: URI.parse(request.subject.uri).toString() };
     if (
       request.kind === 'function' ||
@@ -998,7 +1016,7 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
   const functionFqn = qualifiedNameFromNodeId(funcName);
 
   try {
-    const { version: documentsVersion, value: documents } = await buildDocuments();
+    const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     // Tagged with documentsVersion (fixed — `documents` is an immutable local
     // array once obtained, so no further staleness can be introduced during
     // this call), not the live previewFilesVersion — see runPreview's
@@ -1151,7 +1169,7 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
   const scope = self as unknown as DedicatedWorkerGlobalScope;
 
   try {
-    const { version: documentsVersion, value: documents } = await buildDocuments();
+    const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     const { value: compiled } = getOrCompute(standaloneValidatorCache, typeFqn, documentsVersion, () =>
       compileStandaloneValidator(documents, typeFqn)
     );
@@ -1230,7 +1248,7 @@ if (isWorkerGlobalScope()) {
               previous.serializedModelJson !== file.serializedModelJson
             );
           });
-        hydrateCuratedDocuments(msg.files);
+        previewStages.hydrateDocuments(msg.files);
         currentPreviewFiles = msg.files;
         if (changed) {
           previewFilesVersion++;
@@ -1250,17 +1268,17 @@ if (isWorkerGlobalScope()) {
         }
         const requestId = msg.requestId ?? lastPreviewRequestId;
         if (lastPreviewTargetId && requestId) {
-          runPreview(lastPreviewTargetId, requestId).catch(console.error);
+          previewStages.generateSchema(lastPreviewTargetId, requestId).catch(console.error);
         }
       } else if (msg.type === 'preview:generate') {
         lastPreviewTargetId = msg.targetId;
         lastPreviewRequestId = msg.requestId;
-        runPreview(msg.targetId, msg.requestId).catch(console.error);
+        previewStages.generateSchema(msg.targetId, msg.requestId).catch(console.error);
       } else if (msg.type === 'preview:execute') {
         const { funcName, inputs, requestId } = msg;
-        executeFunction(funcName, inputs, requestId).catch(console.error);
+        previewStages.executeFunction(funcName, inputs, requestId).catch(console.error);
       } else if (msg.type === 'projection:generate') {
-        runProjection(msg).catch(console.error);
+        previewStages.generateProjection(msg).catch(console.error);
       } else if (msg.type === 'instance:validate') {
         const { typeFqn, data, requestId } = msg;
         validateInstance(typeFqn, data, requestId).catch(console.error);
