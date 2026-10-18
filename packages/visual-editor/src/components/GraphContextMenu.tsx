@@ -7,14 +7,14 @@
  * Provides actions like "Show only this & neighbors", "Hide node",
  * and "Show all nodes" to control graph visibility.
  *
- * Uses the DS DropdownMenu primitive (Radix) anchored at cursor coordinates
- * via a fixed zero-size trigger span.
+ * Uses the shared Base UI menu anchored at cursor coordinates.
  */
 
 import { useCallback } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -119,25 +119,34 @@ export function GraphContextMenu({ state, layoutEngine, onLayoutEngineChange, on
       <DropdownMenuContent align="start" sideOffset={0} data-testid="graph-context-menu">
         {state?.node && (
           <>
-            <DropdownMenuLabel className="truncate">{nodeName}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleRevealNeighbors}>
-              <span className="w-4 text-center">◉</span>
-              Show related nodes
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleIsolate}>
-              <span className="w-4 text-center">⊙</span>
-              Focus on this &amp; neighbors
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleHideNode}>
-              <span className="w-4 text-center">⊘</span>
-              Hide this node
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="truncate">{nodeName}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={handleRevealNeighbors}>
+                <span aria-hidden className="w-4 text-center">
+                  ◉
+                </span>
+                Show related nodes
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleIsolate}>
+                <span aria-hidden className="w-4 text-center">
+                  ⊙
+                </span>
+                Focus on this &amp; neighbors
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleHideNode}>
+                <span aria-hidden className="w-4 text-center">
+                  ⊘
+                </span>
+                Hide this node
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>
         )}
         <DropdownMenuItem onClick={handleShowAll}>
-          <span className="w-4 text-center">◎</span>
+          <span aria-hidden className="w-4 text-center">
+            ◎
+          </span>
           Show all nodes
         </DropdownMenuItem>
         <DropdownMenuSeparator />
