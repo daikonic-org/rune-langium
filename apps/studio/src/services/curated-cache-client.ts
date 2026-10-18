@@ -41,7 +41,8 @@ export const createCuratedCacheClient = withInstrumentation(
     }
 
     function connect() {
-      if (connection || disposed || disabled || seeds.length === 0 || typeof window === 'undefined') return;
+      if (connection || disposed || disabled || (!active && seeds.length === 0) || typeof window === 'undefined')
+        return;
       const network = navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } };
       if (network.connection?.saveData || ['slow-2g', '2g'].includes(network.connection?.effectiveType ?? '')) return;
       const fail = () => {
@@ -93,6 +94,7 @@ export const createCuratedCacheClient = withInstrumentation(
       foreground() {
         active++;
         if (connection) hold();
+        else connect();
         let released = false;
         return () => {
           if (released) return;

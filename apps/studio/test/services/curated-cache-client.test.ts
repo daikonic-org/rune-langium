@@ -71,6 +71,15 @@ it('keeps overlapping foreground operations paused until all are released, with 
   expect(port.postMessage.mock.calls).toHaveLength(calls);
 });
 
+it('joins the shared worker before a foreground-only tab has received manifest seeds', () => {
+  const client = setup();
+  const release = client.foreground();
+  expect(shared).toHaveLength(1);
+  expect(shared[0]!.port.postMessage).toHaveBeenLastCalledWith({ type: 'foreground', active: true });
+  release();
+  expect(shared[0]!.port.postMessage).toHaveBeenLastCalledWith({ type: 'foreground', active: false });
+});
+
 it('falls back to a dedicated worker when sharing fails, then disables speculation if that also fails', () => {
   const client = setup();
   client.seed([seed]);
