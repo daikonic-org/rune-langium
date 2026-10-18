@@ -135,4 +135,52 @@ reporting rule Invalid from Specification: item -> kind
     );
     expect(errors.map((reference) => reference.$refText)).toEqual(['kind']);
   });
+  it('binds default-case item to the nested selector instead of the outer rule', async () => {
+    const { errors } = await link(
+      model +
+        `
+reporting rule DefaultRegistration from Envelope:
+ vehicle switch
+  Pedal then empty,
+  default item ->> specification -> registeredOn
+`
+    );
+    expect(errors.map((reference) => reference.$refText)).toEqual([]);
+  });
+
+  it('does not expose outer input fields through a switch default', async () => {
+    const { errors } = await link(
+      model +
+        `
+reporting rule Invalid from Envelope:
+ vehicle switch
+  Pedal then empty,
+  default item -> vehicle
+`
+    );
+    expect(errors.map((reference) => reference.$refText)).toEqual(['vehicle']);
+  });
+
+  it.each(['PoweredAlias', 'PoweredAliasAgain'])('scopes root item through structured alias %s', async (alias) => {
+    const { errors } = await link(
+      model +
+        `
+reporting rule AliasedRegistration from ${alias}: item -> specification -> registeredOn
+reporting rule Invalid from ${alias}: item -> weight
+`
+    );
+    expect(errors.map((reference) => reference.$refText)).toEqual(['weight']);
+  });
+
+  it('terminates when structured input aliases are cyclic', async () => {
+    const { errors } = await link(
+      model +
+        `
+typeAlias FirstAlias: SecondAlias
+typeAlias SecondAlias: FirstAlias
+reporting rule Invalid from FirstAlias: item -> missing
+`
+    );
+    expect(errors.map((reference) => reference.$refText)).toEqual(['missing']);
+  });
 });

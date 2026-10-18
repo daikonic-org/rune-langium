@@ -194,7 +194,7 @@ export function expressionType(
           // from the switch argument rather than treating that link as final.
           const operation = (owner as { $container?: unknown }).$container;
           if (isSwitchOperation(operation)) {
-            const input = from(operation.argument);
+            const input = from(getOperationArgument(operation));
             const targetName =
               (target && typeof target === 'object' && 'name' in target && typeof target.name === 'string'
                 ? target.name
@@ -205,6 +205,7 @@ export function expressionType(
               const optionType = choiceOptionType(input, targetName);
               if (isData(optionType) || isChoice(optionType)) return optionType;
             }
+            return input;
           }
         }
         if (isInlineFunction(owner)) {

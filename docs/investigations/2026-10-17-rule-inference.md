@@ -21,7 +21,11 @@ Core resolves rule results through the existing guarded expression inference
 used for aliases. Root implicit variables fall back to the enclosing rule's
 input after collection and switch bindings have been considered. Negative tests
 verify that unrelated fields do not become available through global fallback.
-Mutually recursive rules terminate without inventing a result type.
+Mutually recursive rules terminate without inventing a result type. Structured
+rule inputs use the shared cycle-safe alias resolver, including multi-hop aliases.
+Switch defaults and literal cases retain the selector type; regressions reject
+outer-rule field leakage and execute default-branch and aliased-input navigation
+in TypeScript and Python.
 
 Codegen follows rule expressions in its shared type, cardinality and collection
 analysis. Generated TypeScript imports Choice rule input types. Python uses one

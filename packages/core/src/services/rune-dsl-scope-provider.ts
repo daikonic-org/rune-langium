@@ -8,7 +8,8 @@ import {
   getFunctionInputs,
   getFunctionOutput,
   getOperationArgument,
-  resolveOperationType
+  resolveOperationType,
+  resolveTypeAliases
 } from '../utils/expression-utils.js';
 import { getEnumValues } from '../utils/enum-utils.js';
 import { qualifiedExportPath } from '../naming/qualified-export-path.js';
@@ -434,6 +435,11 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
           if (refText) return this.resolveDataOrChoiceByName(refText);
         }
       }
+      if (switchCase) {
+        const operation = switchCase.$container;
+        const argument = isSwitchOperation(operation) ? getOperationArgument(operation) : undefined;
+        return argument ? this.resolveExpressionType(argument) : undefined;
+      }
       const rule = AstUtils.getContainerOfType(expr, isRosettaRule);
       return rule ? this.resolveTypeCallToData(rule.input) : undefined;
     }
@@ -467,9 +473,8 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
     if (!typeCall) return undefined;
     const ref = typeCall.type?.ref;
     if (ref) {
-      if (isData(ref)) return ref;
-      if (isRosettaRecordType(ref)) return ref;
-      if (isChoice(ref)) return ref;
+      const resolved = resolveTypeAliases(ref);
+      if (isData(resolved) || isRosettaRecordType(resolved) || isChoice(resolved)) return resolved;
       return undefined;
     }
     // Fallback: .ref not linked yet — look up by $refText in the global index

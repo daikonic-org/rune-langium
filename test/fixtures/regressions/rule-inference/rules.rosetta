@@ -15,3 +15,13 @@ eligibility rule IsRegistered from Vehicle:
  item ->> specification -> registeredOn exists
 reporting rule ManyEngines from Envelope: extract vehicle ->> engine
 reporting rule ManyKinds from Envelope: ManyEngines -> kind
+reporting rule DefaultRegistration from Envelope:
+ vehicle switch
+  Pedal then empty,
+  default item ->> specification -> registeredOn
+reporting rule AliasedRegistration from PoweredAliasAgain:
+ item -> specification -> registeredOn
+reporting rule LiteralSelector from Powered:
+ engine -> kind switch
+  "electric" then item,
+  default item

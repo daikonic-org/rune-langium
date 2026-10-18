@@ -17,3 +17,5 @@ choice Vehicle:
  Pedal
 type Envelope:
  vehicle Vehicle (1..1)
+typeAlias PoweredAlias: Powered
+typeAlias PoweredAliasAgain: PoweredAlias
