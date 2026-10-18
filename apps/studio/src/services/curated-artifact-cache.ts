@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { CuratedModelIdSchema, CuratedSerializedDocumentExportSchema } from '@rune-langium/curated-schema';
 import type { HydrateRequest } from '../workers/parser-worker.js';
 import { withInstrumentation } from './instrumentation/core.js';
+import { curatedArtifactIdentity } from './curated-artifact-identity.js';
 
 type HydrationDocument = HydrateRequest['documents'][number];
 type SourceDocument = Pick<HydrationDocument, 'uri' | 'content'>;
@@ -18,7 +19,6 @@ const DB_NAME = 'rune-curated-artifacts';
 const MAX_BYTES = 128 * 1024 * 1024;
 const MAX_ENTRIES = 512;
 
-const ArtifactKeySchema = z.tuple([CuratedModelIdSchema, z.string()]);
 const SourceDocumentSchema = z.object({ uri: z.string().min(1), content: z.string() });
 const SourcesSchema = z.array(SourceDocumentSchema);
 const DocumentSchema = SourceDocumentSchema.extend({
@@ -67,18 +67,7 @@ async function updateCache<T>(
 }
 
 function artifactBundle(key: string): string | undefined {
-  try {
-    const parsed = ArtifactKeySchema.safeParse(JSON.parse(key));
-    if (!parsed.success) return undefined;
-    const [bundleId, artifact] = parsed.data;
-    const prefix = `https://www.daikonic.dev/curated/${bundleId}/`;
-    const path = artifact.startsWith(prefix) ? artifact.slice(prefix.length) : artifact;
-    // The publisher includes the content digest in this directory. Floating
-    // pointers and legacy date-only paths must always go through the server.
-    return /^artifacts\/\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\/ns\/[^/?#]+\.json\.gz$/.test(path) ? bundleId : undefined;
-  } catch {
-    return undefined;
-  }
+  return curatedArtifactIdentity(key)?.bundleId;
 }
 
 function entryId(kind: CacheKind, artifactKey: string): string {
@@ -162,19 +151,25 @@ export const createCuratedArtifactCache = withInstrumentation(
     );
 
     const write = withInstrumentation(
-      async function writeCuratedArtifact(kind: CacheKind, artifactKey: string, value: unknown): Promise<void> {
-        if (!artifactBundle(artifactKey)) return;
+      async function writeCuratedArtifact(
+        kind: CacheKind,
+        artifactKey: string,
+        value: unknown,
+        evict = true
+      ): Promise<boolean> {
+        if (!artifactBundle(artifactKey)) return false;
         try {
           const payload = JSON.stringify(value);
           const sizeBytes = payload.length * 2;
-          if (sizeBytes > maxBytes) return;
+          if (sizeBytes > maxBytes) return false;
           const db = await getDb();
-          if (!db) return;
+          if (!db) return false;
           const id = entryId(kind, artifactKey);
-          await updateCache(db, async (tx) => {
+          return await updateCache(db, async (tx) => {
             const entries = (await tx.objectStore('entries').getAll()).filter((entry) => entry.id !== id);
             entries.sort((a, b) => a.lastUsedAt - b.lastUsedAt);
             let bytes = entries.reduce((sum, entry) => sum + entry.sizeBytes, sizeBytes);
+            if (!evict && (bytes > maxBytes || entries.length >= maxEntries)) return false;
             while (entries.length && (bytes > maxBytes || entries.length >= maxEntries)) {
               const oldest = entries.shift()!;
               bytes -= oldest.sizeBytes;
@@ -190,9 +185,11 @@ export const createCuratedArtifactCache = withInstrumentation(
               lastUsedAt: Date.now()
             });
             await tx.objectStore('payloads').put(payload, id);
+            return true;
           });
         } catch {
           // Private browsing, eviction and quota errors are ordinary cache misses.
+          return false;
         }
       },
       { op: 'curatedCacheWrite', level: 'trace' }
@@ -219,6 +216,24 @@ export const createCuratedArtifactCache = withInstrumentation(
       { op: 'curatedCacheIndex', level: 'trace' }
     );
 
+    async function storeDocuments(
+      artifactKey: string,
+      documents: HydrationDocument[],
+      evict: boolean
+    ): Promise<boolean> {
+      const parsed = DocumentsSchema.safeParse(documents);
+      const bundleId = artifactBundle(artifactKey);
+      if (!parsed.success || parsed.data.some((doc) => doc.artifactKey !== artifactKey || doc.bundleId !== bundleId)) {
+        return false;
+      }
+      return write(
+        'documents',
+        artifactKey,
+        parsed.data.map((doc) => ({ ...doc, content: '', sourceLoaded: false })),
+        evict
+      );
+    }
+
     return {
       documentKeys,
       async documents(artifactKey: string): Promise<HydrationDocument[] | undefined> {
@@ -240,24 +255,16 @@ export const createCuratedArtifactCache = withInstrumentation(
         await remove([entryId('source', artifactKey)]);
         return undefined;
       },
-      putDocuments(artifactKey: string, documents: HydrationDocument[]): Promise<void> {
-        const parsed = DocumentsSchema.safeParse(documents);
-        const bundleId = artifactBundle(artifactKey);
-        if (
-          !parsed.success ||
-          parsed.data.some((doc) => doc.artifactKey !== artifactKey || doc.bundleId !== bundleId)
-        ) {
-          return Promise.resolve();
-        }
-        return write(
-          'documents',
-          artifactKey,
-          parsed.data.map((doc) => ({ ...doc, content: '', sourceLoaded: false }))
-        );
+      async putDocuments(artifactKey: string, documents: HydrationDocument[]): Promise<void> {
+        await storeDocuments(artifactKey, documents, true);
       },
-      putSource(artifactKey: string, documents: SourceDocument[]): Promise<void> {
+      /** Speculation never evicts foreground records; false also covers unavailable storage. */
+      seedDocuments(artifactKey: string, documents: HydrationDocument[]): Promise<boolean> {
+        return storeDocuments(artifactKey, documents, false);
+      },
+      async putSource(artifactKey: string, documents: SourceDocument[]): Promise<void> {
         const parsed = SourcesSchema.safeParse(documents);
-        return parsed.success ? write('source', artifactKey, parsed.data) : Promise.resolve();
+        if (parsed.success) await write('source', artifactKey, parsed.data);
       },
       discardDocuments(keys: readonly string[]): Promise<void> {
         return remove(keys.map((key) => entryId('documents', key)));

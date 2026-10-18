@@ -30,7 +30,12 @@ import {
   collectNamespaceDependencies
 } from '@rune-langium/core';
 import { URI, type LangiumDocument, type LangiumSharedCoreServices, type LangiumCoreServices } from 'langium';
-import { loadCuratedWorkspace, curatedWorkspaceErrorResponse } from '../../src/services/curated-workspace.js';
+import {
+  loadCuratedWorkspace,
+  curatedWorkspaceErrorResponse,
+  curatedArtifactKey
+} from '../../src/services/curated-workspace.js';
+import { curatedHydrationDocuments, type CuratedCacheSeed } from '../../src/services/curated-cache-seeds.js';
 import { buildDependencyGraph, expandWildcard } from '../lib/curated-closure.js';
 import { readSerializedModelMeta } from '../lib/serialized-model-meta.js';
 import { withEdgeInstrumentation } from '../lib/instrumentation-sink.js';
@@ -215,6 +220,7 @@ const instrumentedOnRequestPost = withInstrumentation(
       const curatedDirectDeps = new Map<string, Set<string>>();
       let requiredCuratedArtifacts: Array<{ key: string; bundleId: string; namespace: string }> = [];
       const curatedBundleVersions: Record<string, string> = {};
+      const curatedCacheSeeds: CuratedCacheSeed[] = [];
       if (Array.isArray(body.curatedBundles) && body.curatedBundles.length > 0) {
         try {
           const knownArtifacts = new Set(
@@ -234,14 +240,20 @@ const instrumentedOnRequestPost = withInstrumentation(
           }
           for (const bundle of loaded.bundles) {
             curatedBundleVersions[bundle.id] = bundle.manifest.cohort ?? bundle.manifest.version;
+            documentsForHydration.push(...curatedHydrationDocuments(bundle.documents, bundle.id));
             for (const doc of bundle.documents) {
               // The parser worker consumes serializedModel and exports only.
               // Original source is fetched separately for the namespace being
               // viewed, so the closure does not carry all its source text.
-              documentsForHydration.push({ ...doc, content: '', sourceLoaded: false, bundleId: bundle.id });
               mergeCuratedDocIntoDeferredExports(doc, deferredExportsList);
             }
             for (const [ns, entry] of Object.entries(bundle.manifest.namespaces!)) {
+              curatedCacheSeeds.push({
+                key: curatedArtifactKey(bundle.id, entry.artifact),
+                bundleId: bundle.manifest.modelId,
+                version: curatedBundleVersions[bundle.id]!,
+                namespace: ns
+              });
               if (loaded.closure.has(ns)) continue;
               deferredExportsList.push({
                 filePath: `${bundle.id}/${ns}`,
@@ -303,6 +315,7 @@ const instrumentedOnRequestPost = withInstrumentation(
           hydrationState: { documents: documentsForHydration },
           requiredCuratedArtifacts,
           curatedBundleVersions,
+          curatedCacheSeeds,
           dependencyGraph
         }),
         {

@@ -48,6 +48,25 @@ and CLI/codegen/LSP → core.
 
 ## Curated Artifact Cache
 
+The parse response also advertises immutable `curatedCacheSeeds` from the same
+resolved manifests used for its dependency closure. Studio queues those public
+identities in `curated-cache-client`; a lazy module SharedWorker downloads one
+namespace at a time and writes through the canonical artifact cache without
+materializing Langium documents or publishing workspace models. Tabs share the
+queue and deduplicate by immutable artifact key. A dedicated worker provides a
+best-effort per-tab fallback when sharing is unavailable or fails. Data-saving
+and slow-2G connections do not start speculative loading.
+
+Foreground parse/source operations hold a renewable, expiring pause across tabs
+and abort active speculative fetches. Navigation releases the tab's ownership;
+immutable completed writes remain reusable. Prefetch uses the ordinary artifact
+fetcher and validation but disables its separate in-memory namespace retention.
+Its atomic cache writes never evict foreground entries and stop on capacity or
+storage failure. Mutable workspace files and per-tab parser state never cross
+this worker boundary. This is background cache seeding, not progressive Inspector
+hydration: current-cohort server validation and per-tab reconstruction still run
+when a type is opened.
+
 The curated artifact cache has a combined budget of 128 MiB of serialized UTF-16 payloads and 512 records, with least-recently-used eviction across model and source records. Payload and receipt writes are atomic. Storage denial, quota errors, incompatible formats and unusable entries fall back to normal loading. The parser keeps models deferred; if deserialization fails when a cached document is linked, it reports the immutable artifact identity. The workspace service discards the restored closure, coalesces concurrent failures into one server refetch and retries linking once. App subscribes to the recovery result through the same parse-result publication path used by ordinary parsing, keeping preview files consistent without importing UI stores into the service. App invalidates service recovery at the same boundary as its workspace parses, including switches to an empty workspace that start no new parse. Parse revisions prevent old recovery hydration and publication while immutable artifact and source caches remain reusable. Freshly downloaded model failures are reported without cache retries. The server still selects the current manifest and dependency closure, so a cached old generation cannot satisfy a new artifact identity. Mutable and legacy date-only artifact paths retain session caching only. Cache entries contain public curated data, never writable workspace files or UI state. Bump the cache format version when changing the serialized hydration contract. Trace operations `curatedCacheIndex`, `curatedCacheRead`, and `curatedCacheWrite` expose storage timings through the existing instrumentation configuration without capturing payloads. This cache reduces repeat downloads; worker hydration and rendering still run, and it does not provide an offline manifest path.
 
 ## Form Configuration

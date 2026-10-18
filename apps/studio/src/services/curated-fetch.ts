@@ -328,9 +328,10 @@ export const fetchCuratedNamespace = withInstrumentation(
     id: string,
     version: string,
     artifactKey: string,
-    fetcher?: CuratedFetcher
+    fetcher?: CuratedFetcher,
+    options: { retain?: boolean } = {}
   ): Promise<CuratedDocument[]> {
-    const cacheable = !artifactKey.includes('latest');
+    const cacheable = options.retain !== false && !artifactKey.includes('latest');
     const cacheKey = `${id}/${artifactKey}`;
     if (cacheable) {
       const hit = namespaceCache.get(cacheKey);

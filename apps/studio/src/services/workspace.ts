@@ -44,6 +44,8 @@ import { withInstrumentation, Capture } from './instrumentation/core.js';
 import { pathToUri } from '../utils/uri.js';
 import { parseErrorMessages } from './parse-errors.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
+import { curatedCacheClient } from './curated-cache-client.js';
+import type { CuratedCacheSeed } from './curated-cache-seeds.js';
 import { downloadBlob } from './browser-download.js';
 
 /** Known curated bundle ids — guards deferredExports filePath prefixes so user
@@ -109,6 +111,7 @@ export const invalidateCuratedCacheRecovery = withInstrumentation(
 export const resetCuratedDocumentCache = withInstrumentation(
   function resetCuratedDocumentCache(): void {
     curatedCacheEpoch += 1;
+    curatedCacheClient.seed([]);
     invalidateCuratedCacheRecovery();
     curatedDocumentCache.clear();
     curatedSourceCache.clear();
@@ -137,51 +140,56 @@ export const loadCuratedNamespaceSource = withInstrumentation(
     namespace: string,
     expectedArtifactKey?: string
   ): Promise<{ artifactKey: string; documents: Array<{ uri: string; content: string }> }> {
-    const cacheEpoch = curatedCacheEpoch;
-    if (expectedArtifactKey && !curatedSourceCache.has(expectedArtifactKey)) {
-      const documents = await curatedArtifactCache.source(expectedArtifactKey);
-      if (documents && cacheEpoch === curatedCacheEpoch) {
-        retainCuratedSource(expectedArtifactKey, documents);
+    const releaseCache = curatedCacheClient.foreground();
+    try {
+      const cacheEpoch = curatedCacheEpoch;
+      if (expectedArtifactKey && !curatedSourceCache.has(expectedArtifactKey)) {
+        const documents = await curatedArtifactCache.source(expectedArtifactKey);
+        if (documents && cacheEpoch === curatedCacheEpoch) {
+          retainCuratedSource(expectedArtifactKey, documents);
+        }
       }
-    }
-    if (expectedArtifactKey && curatedSourceCache.has(expectedArtifactKey)) {
-      return {
-        artifactKey: expectedArtifactKey,
-        documents: [...curatedSourceCache.get(expectedArtifactKey)!].map(([uri, content]) => ({ uri, content }))
-      };
-    }
-    const response = await withAbortTimeout(
-      (signal) =>
-        fetch('/api/curated-source', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bundleId, version, namespace, expectedArtifactKey }),
-          signal
-        }),
-      PARSE_ROUTER_TIMEOUT_MS
-    );
-    if (!response.ok) {
-      const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
-      throw new Error(
-        typeof failure?.error === 'string' ? failure.error : `/api/curated-source HTTP ${response.status}`
+      if (expectedArtifactKey && curatedSourceCache.has(expectedArtifactKey)) {
+        return {
+          artifactKey: expectedArtifactKey,
+          documents: [...curatedSourceCache.get(expectedArtifactKey)!].map(([uri, content]) => ({ uri, content }))
+        };
+      }
+      const response = await withAbortTimeout(
+        (signal) =>
+          fetch('/api/curated-source', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bundleId, version, namespace, expectedArtifactKey }),
+            signal
+          }),
+        PARSE_ROUTER_TIMEOUT_MS
       );
+      if (!response.ok) {
+        const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
+        throw new Error(
+          typeof failure?.error === 'string' ? failure.error : `/api/curated-source HTTP ${response.status}`
+        );
+      }
+      const result = (await response.json()) as {
+        artifactKey: string;
+        documents: Array<{ uri: string; content: string }>;
+      };
+      if (
+        typeof result.artifactKey !== 'string' ||
+        (expectedArtifactKey && result.artifactKey !== expectedArtifactKey) ||
+        !Array.isArray(result.documents) ||
+        result.documents.some((doc) => typeof doc.uri !== 'string' || typeof doc.content !== 'string')
+      ) {
+        throw new Error('Invalid curated source response');
+      }
+      if (cacheEpoch !== curatedCacheEpoch) return result;
+      retainCuratedSource(result.artifactKey, result.documents);
+      await curatedArtifactCache.putSource(result.artifactKey, result.documents);
+      return result;
+    } finally {
+      releaseCache();
     }
-    const result = (await response.json()) as {
-      artifactKey: string;
-      documents: Array<{ uri: string; content: string }>;
-    };
-    if (
-      typeof result.artifactKey !== 'string' ||
-      (expectedArtifactKey && result.artifactKey !== expectedArtifactKey) ||
-      !Array.isArray(result.documents) ||
-      result.documents.some((doc) => typeof doc.uri !== 'string' || typeof doc.content !== 'string')
-    ) {
-      throw new Error('Invalid curated source response');
-    }
-    if (cacheEpoch !== curatedCacheEpoch) return result;
-    retainCuratedSource(result.artifactKey, result.documents);
-    await curatedArtifactCache.putSource(result.artifactKey, result.documents);
-    return result;
   },
   { op: 'loadCuratedNamespaceSource' }
 );
@@ -752,315 +760,326 @@ export const parseWorkspaceViaRouter = withInstrumentation(
     options: CuratedParseOptions = {},
     retryCachedHydration = true
   ): Promise<ParseWorkspaceResponse> {
-    const cacheEpoch = curatedCacheEpoch;
-    invalidateCuratedCacheRecovery();
-    const revision = routedParseRevision;
-    const assertCurrentRecovery = () => {
-      if (!retryCachedHydration && (revision !== routedParseRevision || cacheEpoch !== curatedCacheEpoch)) {
-        throw new Error('Curated cache recovery was superseded by a newer workspace parse');
+    const releaseCache = curatedCacheClient.foreground();
+    try {
+      const cacheEpoch = curatedCacheEpoch;
+      invalidateCuratedCacheRecovery();
+      const revision = routedParseRevision;
+      const assertCurrentRecovery = () => {
+        if (!retryCachedHydration && (revision !== routedParseRevision || cacheEpoch !== curatedCacheEpoch)) {
+          throw new Error('Curated cache recovery was superseded by a newer workspace parse');
+        }
+      };
+      const restoredKeys = new Set<string>();
+      const capturedFiles = files.map((file) => ({ ...file }));
+      const sourceByPath = new Map(capturedFiles.map((file) => [file.name, file.content]));
+      const requestParse = (knownCuratedArtifacts: string[]) =>
+        withAbortTimeout(async (signal) => {
+          const response = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              files: capturedFiles,
+              curatedBundles: options.curatedBundles ?? [],
+              hydrateNamespaces: options.hydrateNamespaces ?? [],
+              knownCuratedArtifacts
+            }),
+            signal
+          });
+          if (!response.ok) throw new ParseRouterHttpError(response.status);
+          return response.json();
+        }, PARSE_ROUTER_TIMEOUT_MS);
+      let data: {
+        ok: boolean;
+        models: ParseWorkspaceResponse['models'];
+        deferredExports: ParseWorkspaceResponse['deferredExports'];
+        errors: ParseWorkspaceResponse['errors'];
+        hydrationState: { documents: HydrateRequest['documents'] };
+        requiredCuratedArtifacts?: Array<{ key: string; bundleId: string; namespace: string; documentCount?: number }>;
+        dependencyGraph?: Record<string, string[]>;
+        curatedBundleVersions?: Record<string, string>;
+        curatedCacheSeeds?: CuratedCacheSeed[];
+      };
+      const fetchParse = async (known: string[]): Promise<typeof data> => {
+        try {
+          return (await requestParse(known)) as typeof data;
+        } catch (error) {
+          const transient =
+            error instanceof OperationTimeoutError || (error instanceof ParseRouterHttpError && error.status >= 500);
+          if (!transient || !options.requireCuratedHydration) throw error;
+          return (await requestParse(known)) as typeof data;
+        }
+      };
+      const persistentKeys =
+        retryCachedHydration && options.curatedBundles?.length ? await curatedArtifactCache.documentKeys() : [];
+      data = await fetchParse([...new Set([...curatedDocumentCache.keys(), ...persistentKeys])]);
+      assertCurrentRecovery();
+
+      if (data.ok && data.curatedCacheSeeds) curatedCacheClient.seed(data.curatedCacheSeeds, options.hydrateNamespaces);
+
+      if (!data.ok) {
+        // Same reason as above: bubble up to the outer fallback with the full
+        // workspace inputs rather than reparsing only user files in-place.
+        throw new Error('/api/parse returned ok:false');
       }
-    };
-    const restoredKeys = new Set<string>();
-    const capturedFiles = files.map((file) => ({ ...file }));
-    const sourceByPath = new Map(capturedFiles.map((file) => [file.name, file.content]));
-    const requestParse = (knownCuratedArtifacts: string[]) =>
-      withAbortTimeout(async (signal) => {
-        const response = await fetch('/api/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            files: capturedFiles,
-            curatedBundles: options.curatedBundles ?? [],
-            hydrateNamespaces: options.hydrateNamespaces ?? [],
-            knownCuratedArtifacts
-          }),
-          signal
+
+      const assembleDocuments = async (result: typeof data): Promise<HydrationDocument[] | null> => {
+        if (!result.requiredCuratedArtifacts) return result.hydrationState.documents;
+        const received = new Map<string, HydrationDocument[]>();
+        const userDocuments: HydrationDocument[] = [];
+        for (const doc of result.hydrationState.documents) {
+          if (!doc.bundleId || !doc.artifactKey) {
+            userDocuments.push(doc);
+            continue;
+          }
+          const group = received.get(doc.artifactKey) ?? [];
+          group.push(doc);
+          received.set(doc.artifactKey, group);
+        }
+        const nextCache = new Map(curatedDocumentCache);
+        for (const [key, docs] of received) nextCache.set(key, docs);
+        const curatedDocuments: HydrationDocument[] = [];
+        for (const artifact of result.requiredCuratedArtifacts) {
+          if (retryCachedHydration && !nextCache.has(artifact.key)) {
+            const stored = await curatedArtifactCache.documents(artifact.key);
+            if (
+              stored &&
+              stored.every((doc) => doc.bundleId === artifact.bundleId && doc.namespace === artifact.namespace)
+            ) {
+              nextCache.set(artifact.key, stored);
+              restoredKeys.add(artifact.key);
+              if (cacheEpoch === curatedCacheEpoch) restoredCuratedKeys.add(artifact.key);
+            }
+          }
+          const docs = nextCache.get(artifact.key) ?? (artifact.documentCount === 0 ? [] : undefined);
+          if (!docs || (artifact.documentCount !== undefined && docs.length !== artifact.documentCount)) return null;
+          const sources = curatedSourceCache.get(artifact.key);
+          const loaded = sources ? withCuratedSource(docs, sources) : docs;
+          nextCache.set(artifact.key, loaded);
+          curatedDocuments.push(...loaded);
+        }
+        for (const artifact of result.requiredCuratedArtifacts) {
+          if (cacheEpoch === curatedCacheEpoch) curatedDocumentCache.set(artifact.key, nextCache.get(artifact.key)!);
+          if (received.has(artifact.key) || artifact.documentCount === 0) {
+            restoredCuratedKeys.delete(artifact.key);
+            await curatedArtifactCache.putDocuments(artifact.key, nextCache.get(artifact.key)!);
+          }
+        }
+        return [...userDocuments, ...curatedDocuments];
+      };
+      let hydrationDocuments = await assembleDocuments(data);
+      assertCurrentRecovery();
+      if (!hydrationDocuments) {
+        // A stale/missing browser receipt must never produce a partly linked graph.
+        data = await fetchParse([]);
+        assertCurrentRecovery();
+        if (!data.ok) throw new Error('/api/parse returned ok:false');
+        hydrationDocuments = await assembleDocuments(data);
+        assertCurrentRecovery();
+        if (!hydrationDocuments) throw new Error('/api/parse omitted required curated artifacts');
+      }
+
+      const deferredExports = [...(data.deferredExports ?? [])];
+      const deferredPaths = new Set(deferredExports.map((entry) => entry.filePath));
+      for (const doc of hydrationDocuments) {
+        if (!doc.bundleId || !doc.namespace || deferredPaths.has(doc.uri)) continue;
+        deferredExports.push({
+          filePath: doc.uri,
+          namespace: doc.namespace,
+          exports: doc.exports.map(({ type, name }) => ({ type, name }))
         });
-        if (!response.ok) throw new ParseRouterHttpError(response.status);
-        return response.json();
-      }, PARSE_ROUTER_TIMEOUT_MS);
-    let data: {
-      ok: boolean;
-      models: ParseWorkspaceResponse['models'];
-      deferredExports: ParseWorkspaceResponse['deferredExports'];
-      errors: ParseWorkspaceResponse['errors'];
-      hydrationState: { documents: HydrateRequest['documents'] };
-      requiredCuratedArtifacts?: Array<{ key: string; bundleId: string; namespace: string; documentCount?: number }>;
-      dependencyGraph?: Record<string, string[]>;
-      curatedBundleVersions?: Record<string, string>;
-    };
-    const fetchParse = async (known: string[]): Promise<typeof data> => {
-      try {
-        return (await requestParse(known)) as typeof data;
-      } catch (error) {
-        const transient =
-          error instanceof OperationTimeoutError || (error instanceof ParseRouterHttpError && error.status >= 500);
-        if (!transient || !options.requireCuratedHydration) throw error;
-        return (await requestParse(known)) as typeof data;
+        deferredPaths.add(doc.uri);
       }
-    };
-    const persistentKeys =
-      retryCachedHydration && options.curatedBundles?.length ? await curatedArtifactCache.documentKeys() : [];
-    data = await fetchParse([...new Set([...curatedDocumentCache.keys(), ...persistentKeys])]);
-    assertCurrentRecovery();
 
-    if (!data.ok) {
-      // Same reason as above: bubble up to the outer fallback with the full
-      // workspace inputs rather than reparsing only user files in-place.
-      throw new Error('/api/parse returned ok:false');
-    }
+      // Publish the cross-namespace dep graph (spec §5.2) into the codegen store
+      // so the Download config modal can drive its auto-select cascade. Absent /
+      // fail-soft responses leave it `{}` (modal shows no cascade hints).
+      useCodegenStore.getState().setDependencyGraph(data.dependencyGraph ?? {});
 
-    const assembleDocuments = async (result: typeof data): Promise<HydrationDocument[] | null> => {
-      if (!result.requiredCuratedArtifacts) return result.hydrationState.documents;
-      const received = new Map<string, HydrationDocument[]>();
-      const userDocuments: HydrationDocument[] = [];
-      for (const doc of result.hydrationState.documents) {
-        if (!doc.bundleId || !doc.artifactKey) {
-          userDocuments.push(doc);
+      // Deserialize ONLY the user-document hydration entries into RosettaModel
+      // instances for the graph view. Curated corpus documents stay in
+      // hydrationState so the worker hydrate path can register their exports
+      // for cross-reference resolution, but we deliberately keep them out of
+      // `models[]` / `parsedModels[]` — pushing them through here defeats the
+      // lazy/deferred-corpus design (the whole reason curated docs serialize to
+      // JSON in the first place) and reintroduces multi-megabyte main-thread
+      // deserialization on every debounced edit parse.
+      const userFileNames = new Set(sourceByPath.keys());
+      const services = createRuneDslServices(EmptyFileSystem).RuneDsl;
+      const models: RosettaModel[] = [];
+      const parsedModels: ParsedWorkspaceModel[] = [];
+      // Build a quick lookup: filePath → namespace from the response's
+      // deferredExports so curated entries get a real namespace rather than
+      // an empty string (Copilot review: CachedFile.namespace is declared
+      // non-optional). User-file entries are handled in the same loop.
+      const namespaceByFilePath = new Map<string, string>();
+      for (const d of deferredExports) {
+        namespaceByFilePath.set(d.filePath, d.namespace);
+      }
+      // Collect curated docs as refOnly CachedFile entries grouped by bundleId.
+      // The server stamps each hydration doc with an explicit `bundleId` field
+      // (apps/studio/functions/api/parse.ts) so we don't infer bundle
+      // membership from the URI prefix — the previous prefix inference
+      // false-positive'd for user files under `${bundleId}/path` (Codex P2
+      // review of PR #163).
+      const curatedRefOnlyFiles: Record<string, CachedFile[]> = {};
+      for (const doc of hydrationDocuments) {
+        // doc.uri is the bare filePath emitted by /api/parse + curated-fetch
+        // (no `file://` prefix). The legacy `file:///` strip is retained for
+        // backwards compatibility with any in-flight payloads.
+        const filePath = doc.uri.replace(/^file:\/\/\//, '');
+        if (userFileNames.has(filePath)) {
+          try {
+            const model = services.serializer.JsonSerializer.deserialize<RosettaModel>(doc.serializedModel);
+            models.push(model);
+            parsedModels.push({
+              filePath,
+              model,
+              source: sourceByPath.get(filePath),
+              serializedModelJson: doc.serializedModel
+            });
+          } catch (err) {
+            console.warn('[workspace] failed to deserialize hydration model for', doc.uri, err);
+          }
           continue;
         }
-        const group = received.get(doc.artifactKey) ?? [];
-        group.push(doc);
-        received.set(doc.artifactKey, group);
+        // Not a user file. Use the explicit bundleId stamped by the server;
+        // if it's missing (e.g. older deployments mid-rollout) we skip the
+        // entry rather than guess from the URI — silently grouping under
+        // the wrong key was the original Codex bug.
+        const bundleId = doc.bundleId;
+        if (!bundleId) continue;
+        // Strip the `${bundleId}/` prefix from the uri so the path within
+        // the bundle is preserved without the redundant id prefix on disk.
+        const pathInBundle = filePath.startsWith(`${bundleId}/`) ? filePath.slice(bundleId.length + 1) : filePath;
+        const entry: CachedFile = {
+          path: pathInBundle,
+          content: doc.content,
+          sourceLoaded: doc.sourceLoaded ?? Boolean(doc.content),
+          artifactKey: doc.artifactKey,
+          namespace: namespaceByFilePath.get(filePath) ?? '',
+          serializedModelJson: doc.serializedModel,
+          exports: doc.exports,
+          refOnly: true
+        };
+        (curatedRefOnlyFiles[bundleId] ??= []).push(entry);
       }
-      const nextCache = new Map(curatedDocumentCache);
-      for (const [key, docs] of received) nextCache.set(key, docs);
-      const curatedDocuments: HydrationDocument[] = [];
-      for (const artifact of result.requiredCuratedArtifacts) {
-        if (retryCachedHydration && !nextCache.has(artifact.key)) {
-          const stored = await curatedArtifactCache.documents(artifact.key);
-          if (
-            stored &&
-            stored.every((doc) => doc.bundleId === artifact.bundleId && doc.namespace === artifact.namespace)
-          ) {
-            nextCache.set(artifact.key, stored);
-            restoredKeys.add(artifact.key);
-            if (cacheEpoch === curatedCacheEpoch) restoredCuratedKeys.add(artifact.key);
-          }
-        }
-        const docs = nextCache.get(artifact.key) ?? (artifact.documentCount === 0 ? [] : undefined);
-        if (!docs || (artifact.documentCount !== undefined && docs.length !== artifact.documentCount)) return null;
-        const sources = curatedSourceCache.get(artifact.key);
-        const loaded = sources ? withCuratedSource(docs, sources) : docs;
-        nextCache.set(artifact.key, loaded);
-        curatedDocuments.push(...loaded);
+
+      // ── Restore "loaded" status for bundles outside the import closure ──────────
+      // The manifest fast-path hydrates ONLY the user's import closure into
+      // hydrationState, so a curated bundle that no user file imports yields zero
+      // hydrationState docs → zero curatedRefOnlyFiles → LoadedModel.files stays []
+      // → ModelLoader's 30s hydration timeout fires → "load failed". deferredExports
+      // lists EVERY namespace in each loaded bundle; register the list-only ones
+      // (those not already added from the closure above) as refOnly entries so the
+      // bundle reads as loaded. They carry no serializedModelJson — their ASTs
+      // hydrate on demand when the namespace is browsed.
+      const seenPathByBundle = new Map<string, Set<string>>();
+      for (const [bid, entries] of Object.entries(curatedRefOnlyFiles)) {
+        seenPathByBundle.set(bid, new Set(entries.map((e) => e.path)));
       }
-      for (const artifact of result.requiredCuratedArtifacts) {
-        if (cacheEpoch === curatedCacheEpoch) curatedDocumentCache.set(artifact.key, nextCache.get(artifact.key)!);
-        if (received.has(artifact.key) || artifact.documentCount === 0) {
-          restoredCuratedKeys.delete(artifact.key);
-          await curatedArtifactCache.putDocuments(artifact.key, nextCache.get(artifact.key)!);
-        }
+      for (const d of deferredExports) {
+        const slash = d.filePath.indexOf('/');
+        if (slash < 0) continue; // user-file entry: no bundle prefix
+        const bundleId = d.filePath.slice(0, slash);
+        if (!CURATED_BUNDLE_IDS.has(bundleId)) continue;
+        const pathInBundle = d.filePath.slice(slash + 1);
+        // Only list-only manifest namespaces belong here — their filePath is the
+        // synthetic `${bundleId}/${namespace}`. Closure docs (already added above)
+        // and user files under a `${bundleId}/...` path have a different shape and
+        // must be skipped, avoiding the `${bundleId}/...` false-positive class.
+        if (d.filePath !== `${bundleId}/${d.namespace}`) continue;
+        const seen = seenPathByBundle.get(bundleId) ?? new Set<string>();
+        if (seen.has(pathInBundle)) continue; // already added from the closure
+        seen.add(pathInBundle);
+        seenPathByBundle.set(bundleId, seen);
+        (curatedRefOnlyFiles[bundleId] ??= []).push({
+          path: pathInBundle,
+          content: '',
+          sourceLoaded: false,
+          namespace: d.namespace,
+          // CachedFile.exports needs {type,name,path}; deferredExports omits path
+          // (no AST yet). Path is only used to locate a node once hydrated.
+          exports: (d.exports ?? []).map((e) => ({ ...e, path: '' })),
+          refOnly: true
+        });
       }
-      return [...userDocuments, ...curatedDocuments];
-    };
-    let hydrationDocuments = await assembleDocuments(data);
-    assertCurrentRecovery();
-    if (!hydrationDocuments) {
-      // A stale/missing browser receipt must never produce a partly linked graph.
-      data = await fetchParse([]);
+
+      // Hydrate the browser worker with ALL server-parsed documents + exports
+      // (user AND curated) so subsequent linkDocument calls can resolve cross-
+      // references. Two failure modes are distinguished:
+      //
+      //   1. Worker REACHABLE but reports `ok: false` — a real hydration
+      //      failure. linkDocument lookups would silently miss the affected
+      //      docs. Throw so the caller either falls back for ordinary parsing
+      //      or reports failed curated hydration.
+      //   2. Worker UNREACHABLE (e.g. running in jsdom without a real Worker,
+      //      worker crashed, postMessage timeout) — log + accept the degraded
+      //      state. linkDocument will fail downstream but the graph still
+      //      renders from the deserialized models above. Throwing here would
+      //      regress test envs that don't ship the parser worker.
       assertCurrentRecovery();
-      if (!data.ok) throw new Error('/api/parse returned ok:false');
-      hydrationDocuments = await assembleDocuments(data);
-      assertCurrentRecovery();
-      if (!hydrationDocuments) throw new Error('/api/parse omitted required curated artifacts');
-    }
-
-    const deferredExports = [...(data.deferredExports ?? [])];
-    const deferredPaths = new Set(deferredExports.map((entry) => entry.filePath));
-    for (const doc of hydrationDocuments) {
-      if (!doc.bundleId || !doc.namespace || deferredPaths.has(doc.uri)) continue;
-      deferredExports.push({
-        filePath: doc.uri,
-        namespace: doc.namespace,
-        exports: doc.exports.map(({ type, name }) => ({ type, name }))
-      });
-      deferredPaths.add(doc.uri);
-    }
-
-    // Publish the cross-namespace dep graph (spec §5.2) into the codegen store
-    // so the Download config modal can drive its auto-select cascade. Absent /
-    // fail-soft responses leave it `{}` (modal shows no cascade hints).
-    useCodegenStore.getState().setDependencyGraph(data.dependencyGraph ?? {});
-
-    // Deserialize ONLY the user-document hydration entries into RosettaModel
-    // instances for the graph view. Curated corpus documents stay in
-    // hydrationState so the worker hydrate path can register their exports
-    // for cross-reference resolution, but we deliberately keep them out of
-    // `models[]` / `parsedModels[]` — pushing them through here defeats the
-    // lazy/deferred-corpus design (the whole reason curated docs serialize to
-    // JSON in the first place) and reintroduces multi-megabyte main-thread
-    // deserialization on every debounced edit parse.
-    const userFileNames = new Set(sourceByPath.keys());
-    const services = createRuneDslServices(EmptyFileSystem).RuneDsl;
-    const models: RosettaModel[] = [];
-    const parsedModels: ParsedWorkspaceModel[] = [];
-    // Build a quick lookup: filePath → namespace from the response's
-    // deferredExports so curated entries get a real namespace rather than
-    // an empty string (Copilot review: CachedFile.namespace is declared
-    // non-optional). User-file entries are handled in the same loop.
-    const namespaceByFilePath = new Map<string, string>();
-    for (const d of deferredExports) {
-      namespaceByFilePath.set(d.filePath, d.namespace);
-    }
-    // Collect curated docs as refOnly CachedFile entries grouped by bundleId.
-    // The server stamps each hydration doc with an explicit `bundleId` field
-    // (apps/studio/functions/api/parse.ts) so we don't infer bundle
-    // membership from the URI prefix — the previous prefix inference
-    // false-positive'd for user files under `${bundleId}/path` (Codex P2
-    // review of PR #163).
-    const curatedRefOnlyFiles: Record<string, CachedFile[]> = {};
-    for (const doc of hydrationDocuments) {
-      // doc.uri is the bare filePath emitted by /api/parse + curated-fetch
-      // (no `file://` prefix). The legacy `file:///` strip is retained for
-      // backwards compatibility with any in-flight payloads.
-      const filePath = doc.uri.replace(/^file:\/\/\//, '');
-      if (userFileNames.has(filePath)) {
-        try {
-          const model = services.serializer.JsonSerializer.deserialize<RosettaModel>(doc.serializedModel);
-          models.push(model);
-          parsedModels.push({
-            filePath,
-            model,
-            source: sourceByPath.get(filePath),
-            serializedModelJson: doc.serializedModel
-          });
-        } catch (err) {
-          console.warn('[workspace] failed to deserialize hydration model for', doc.uri, err);
+      try {
+        const hydrateResponse = await workerRequest({
+          type: 'hydrate',
+          id: `hydrate:${Date.now()}`,
+          documents: hydrationDocuments
+        });
+        if (hydrateResponse.type === 'hydrateResult' && !hydrateResponse.ok) {
+          throw new Error(`worker hydration failed: ${hydrateResponse.error ?? 'unknown'}`);
         }
-        continue;
-      }
-      // Not a user file. Use the explicit bundleId stamped by the server;
-      // if it's missing (e.g. older deployments mid-rollout) we skip the
-      // entry rather than guess from the URI — silently grouping under
-      // the wrong key was the original Codex bug.
-      const bundleId = doc.bundleId;
-      if (!bundleId) continue;
-      // Strip the `${bundleId}/` prefix from the uri so the path within
-      // the bundle is preserved without the redundant id prefix on disk.
-      const pathInBundle = filePath.startsWith(`${bundleId}/`) ? filePath.slice(bundleId.length + 1) : filePath;
-      const entry: CachedFile = {
-        path: pathInBundle,
-        content: doc.content,
-        sourceLoaded: doc.sourceLoaded ?? Boolean(doc.content),
-        artifactKey: doc.artifactKey,
-        namespace: namespaceByFilePath.get(filePath) ?? '',
-        serializedModelJson: doc.serializedModel,
-        exports: doc.exports,
-        refOnly: true
-      };
-      (curatedRefOnlyFiles[bundleId] ??= []).push(entry);
-    }
-
-    // ── Restore "loaded" status for bundles outside the import closure ──────────
-    // The manifest fast-path hydrates ONLY the user's import closure into
-    // hydrationState, so a curated bundle that no user file imports yields zero
-    // hydrationState docs → zero curatedRefOnlyFiles → LoadedModel.files stays []
-    // → ModelLoader's 30s hydration timeout fires → "load failed". deferredExports
-    // lists EVERY namespace in each loaded bundle; register the list-only ones
-    // (those not already added from the closure above) as refOnly entries so the
-    // bundle reads as loaded. They carry no serializedModelJson — their ASTs
-    // hydrate on demand when the namespace is browsed.
-    const seenPathByBundle = new Map<string, Set<string>>();
-    for (const [bid, entries] of Object.entries(curatedRefOnlyFiles)) {
-      seenPathByBundle.set(bid, new Set(entries.map((e) => e.path)));
-    }
-    for (const d of deferredExports) {
-      const slash = d.filePath.indexOf('/');
-      if (slash < 0) continue; // user-file entry: no bundle prefix
-      const bundleId = d.filePath.slice(0, slash);
-      if (!CURATED_BUNDLE_IDS.has(bundleId)) continue;
-      const pathInBundle = d.filePath.slice(slash + 1);
-      // Only list-only manifest namespaces belong here — their filePath is the
-      // synthetic `${bundleId}/${namespace}`. Closure docs (already added above)
-      // and user files under a `${bundleId}/...` path have a different shape and
-      // must be skipped, avoiding the `${bundleId}/...` false-positive class.
-      if (d.filePath !== `${bundleId}/${d.namespace}`) continue;
-      const seen = seenPathByBundle.get(bundleId) ?? new Set<string>();
-      if (seen.has(pathInBundle)) continue; // already added from the closure
-      seen.add(pathInBundle);
-      seenPathByBundle.set(bundleId, seen);
-      (curatedRefOnlyFiles[bundleId] ??= []).push({
-        path: pathInBundle,
-        content: '',
-        sourceLoaded: false,
-        namespace: d.namespace,
-        // CachedFile.exports needs {type,name,path}; deferredExports omits path
-        // (no AST yet). Path is only used to locate a node once hydrated.
-        exports: (d.exports ?? []).map((e) => ({ ...e, path: '' })),
-        refOnly: true
-      });
-    }
-
-    // Hydrate the browser worker with ALL server-parsed documents + exports
-    // (user AND curated) so subsequent linkDocument calls can resolve cross-
-    // references. Two failure modes are distinguished:
-    //
-    //   1. Worker REACHABLE but reports `ok: false` — a real hydration
-    //      failure. linkDocument lookups would silently miss the affected
-    //      docs. Throw so the caller either falls back for ordinary parsing
-    //      or reports failed curated hydration.
-    //   2. Worker UNREACHABLE (e.g. running in jsdom without a real Worker,
-    //      worker crashed, postMessage timeout) — log + accept the degraded
-    //      state. linkDocument will fail downstream but the graph still
-    //      renders from the deserialized models above. Throwing here would
-    //      regress test envs that don't ship the parser worker.
-    assertCurrentRecovery();
-    try {
-      const hydrateResponse = await workerRequest({
-        type: 'hydrate',
-        id: `hydrate:${Date.now()}`,
-        documents: hydrationDocuments
-      });
-      if (hydrateResponse.type === 'hydrateResult' && !hydrateResponse.ok) {
-        throw new Error(`worker hydration failed: ${hydrateResponse.error ?? 'unknown'}`);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.startsWith('worker hydration failed')) {
-        if (retryCachedHydration && restoredKeys.size) {
-          for (const key of restoredKeys) {
-            curatedDocumentCache.delete(key);
-            restoredCuratedKeys.delete(key);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.startsWith('worker hydration failed')) {
+          if (retryCachedHydration && restoredKeys.size) {
+            for (const key of restoredKeys) {
+              curatedDocumentCache.delete(key);
+              restoredCuratedKeys.delete(key);
+            }
+            await curatedArtifactCache.discardDocuments([...restoredKeys]);
+            return parseWorkspaceViaRouter(capturedFiles, options, false);
           }
-          await curatedArtifactCache.discardDocuments([...restoredKeys]);
-          return parseWorkspaceViaRouter(capturedFiles, options, false);
+          // Case 1 — worker explicitly rejected. Bubble up.
+          throw err;
         }
-        // Case 1 — worker explicitly rejected. Bubble up.
-        throw err;
+        // Case 2 — worker unreachable. Log and continue with deserialized models.
+        console.warn(
+          '[workspace] browser worker unreachable during hydrate; cross-ref resolution may be degraded:',
+          msg
+        );
       }
-      // Case 2 — worker unreachable. Log and continue with deserialized models.
-      console.warn('[workspace] browser worker unreachable during hydrate; cross-ref resolution may be degraded:', msg);
-    }
 
-    if (revision === routedParseRevision && cacheEpoch === curatedCacheEpoch) {
-      curatedLinkRecovery = {
-        revision,
-        epoch: cacheEpoch,
-        files: capturedFiles,
-        options: {
-          ...options,
-          curatedBundles: options.curatedBundles?.map((bundle) => ({ ...bundle })),
-          hydrateNamespaces: options.hydrateNamespaces?.slice()
-        },
-        keys: new Set(
-          hydrationDocuments.flatMap((doc) =>
-            doc.artifactKey && restoredCuratedKeys.has(doc.artifactKey) ? [doc.artifactKey] : []
+      if (revision === routedParseRevision && cacheEpoch === curatedCacheEpoch) {
+        curatedLinkRecovery = {
+          revision,
+          epoch: cacheEpoch,
+          files: capturedFiles,
+          options: {
+            ...options,
+            curatedBundles: options.curatedBundles?.map((bundle) => ({ ...bundle })),
+            hydrateNamespaces: options.hydrateNamespaces?.slice()
+          },
+          keys: new Set(
+            hydrationDocuments.flatMap((doc) =>
+              doc.artifactKey && restoredCuratedKeys.has(doc.artifactKey) ? [doc.artifactKey] : []
+            )
           )
-        )
-      };
-    }
+        };
+      }
 
-    return {
-      type: 'parseWorkspaceResult',
-      id: `routed:${Date.now()}`,
-      models,
-      parsedModels,
-      deferredExports,
-      errors: data.errors,
-      curatedRefOnlyFiles,
-      curatedBundleVersions: data.curatedBundleVersions
-    };
+      return {
+        type: 'parseWorkspaceResult',
+        id: `routed:${Date.now()}`,
+        models,
+        parsedModels,
+        deferredExports,
+        errors: data.errors,
+        curatedRefOnlyFiles,
+        curatedBundleVersions: data.curatedBundleVersions
+      };
+    } finally {
+      releaseCache();
+    }
     // Same raw-content concerns as parseWorkspaceFiles above — only counts.
   },
   {

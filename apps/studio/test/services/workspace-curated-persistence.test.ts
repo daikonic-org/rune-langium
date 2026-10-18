@@ -5,6 +5,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { curatedArtifactCache } from '../../src/services/curated-artifact-cache.js';
+import { curatedCacheClient } from '../../src/services/curated-cache-client.js';
 import {
   loadCuratedNamespaceSource,
   linkDocument,
@@ -83,6 +84,41 @@ it('coalesces concurrent deferred-link failures into one refetch and publishes t
     expect(await curatedArtifactCache.documents(key)).toEqual([document(key)]);
   } finally {
     unsubscribe();
+  }
+});
+
+it('schedules server-selected cache seeds without sharing writable workspace files and releases foreground priority', async () => {
+  const key = keyFor();
+  deferredCuratedWorker();
+  const seed = { key, bundleId: 'cdm', namespace: 'cached.example', version: 'b'.repeat(64) };
+  const schedule = vi.spyOn(curatedCacheClient, 'seed').mockImplementation(() => {});
+  const release = vi.fn();
+  const foreground = vi.spyOn(curatedCacheClient, 'foreground').mockReturnValue(release);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      Response.json({
+        ok: true,
+        models: [],
+        errors: {},
+        deferredExports: [],
+        hydrationState: { documents: [] },
+        requiredCuratedArtifacts: [],
+        curatedCacheSeeds: [seed]
+      })
+    )
+  );
+  try {
+    await parseWorkspaceViaRouter([{ name: 'private.rosetta', content: 'private source' }], options);
+    expect(schedule).toHaveBeenCalledWith([seed], options.hydrateNamespaces);
+    expect(JSON.stringify(schedule.mock.calls)).not.toContain('private');
+    expect(release).toHaveBeenCalledTimes(1);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    await expect(parseWorkspaceViaRouter([], options)).rejects.toThrow('offline');
+    expect(release).toHaveBeenCalledTimes(2);
+  } finally {
+    schedule.mockRestore();
+    foreground.mockRestore();
   }
 });
 
