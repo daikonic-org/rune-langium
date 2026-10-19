@@ -815,7 +815,9 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       data = await fetchParse([...new Set([...curatedDocumentCache.keys(), ...persistentKeys])]);
       assertCurrentRecovery();
 
-      if (data.ok && data.curatedCacheSeeds) curatedCacheClient.seed(data.curatedCacheSeeds, options.hydrateNamespaces);
+      if (data.ok && revision === routedParseRevision && cacheEpoch === curatedCacheEpoch) {
+        curatedCacheClient.seed(data.curatedCacheSeeds, options.hydrateNamespaces);
+      }
 
       if (!data.ok) {
         // Same reason as above: bubble up to the outer fallback with the full

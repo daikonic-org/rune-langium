@@ -122,6 +122,54 @@ it('schedules server-selected cache seeds without sharing writable workspace fil
   }
 });
 
+it.each(['a newer parse', 'a workspace reset', 'recovery invalidation'])(
+  'does not publish seeds from an ordinary parse superseded by %s',
+  async (change) => {
+    deferredCuratedWorker();
+    const seed = (digest: string) => ({
+      key: keyFor(digest),
+      bundleId: 'cdm',
+      namespace: 'cached.example',
+      version: digest
+    });
+    const oldSeed = seed('a'.repeat(12));
+    const currentSeed = seed('b'.repeat(12));
+    const result = (value: typeof oldSeed) =>
+      Response.json({
+        ok: true,
+        models: [],
+        errors: {},
+        deferredExports: [],
+        hydrationState: { documents: [] },
+        requiredCuratedArtifacts: [],
+        curatedCacheSeeds: [value]
+      });
+    const pending = Promise.withResolvers<Response>();
+    const fetch = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValueOnce(result(currentSeed));
+    vi.stubGlobal('fetch', fetch);
+    const schedule = vi.spyOn(curatedCacheClient, 'seed').mockImplementation(() => {});
+    try {
+      const previous = parseWorkspaceViaRouter([], options);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      if (change === 'a newer parse') {
+        await parseWorkspaceViaRouter([], options);
+        expect(schedule).toHaveBeenCalledWith([currentSeed], options.hydrateNamespaces);
+      } else if (change === 'a workspace reset') {
+        resetCuratedDocumentCache();
+        expect(schedule).toHaveBeenCalledWith([]);
+      } else {
+        invalidateCuratedCacheRecovery();
+      }
+      const currentCalls = schedule.mock.calls.slice();
+      pending.resolve(result(oldSeed));
+      await previous;
+      expect(schedule.mock.calls).toEqual(currentCalls);
+    } finally {
+      schedule.mockRestore();
+    }
+  }
+);
+
 it('does not hydrate or publish an old workspace when it changes during a cache-recovery fetch', async () => {
   const key = keyFor();
   await curatedArtifactCache.putDocuments(key, [{ ...document(key), serializedModel: '{broken' }]);
