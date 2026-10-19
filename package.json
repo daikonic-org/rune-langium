@@ -83,18 +83,18 @@
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "@skillit/cli": "^1.1.3",
-    "@types/node": "^26.6.4",
-    "@vitest/coverage-v8": "^5.0.3",
-    "@vitest/ui": "^5.0.3",
-    "concurrently": "^10.0.5",
+    "@types/node": "^26.6.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/ui": "^5.0.5",
+    "concurrently": "^10.0.6",
     "lint-staged": "^17.6.0",
-    "oxfmt": "^0.72.0",
-    "oxlint": "^1.87.0",
-    "oxlint-tsgolint": "7.0.2003",
-    "react-doctor": "^0.9.17",
+    "oxfmt": "^0.73.0",
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "7.0.2004",
+    "react-doctor": "^0.9.18",
     "simple-git-hooks": "^2.14.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0",
@@ -104,7 +104,7 @@
   "dependencies": {
     "@lspeasy/client": "^3.1.10",
     "@lspeasy/core": "^3.0.1",
-    "camelcase": "^9.0.0"
+    "camelcase": "^10.0.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}": "oxfmt"

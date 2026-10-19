@@ -131,7 +131,7 @@ export const GlobalSearch = withInstrumentation(
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <button type="button" className="studio-topbar__search" aria-label="Search">
+            <button type="button" className="studio-topbar__search">
               <Search className="size-3.5" />
               <span>Search types, files, commands…</span>
               <Kbd>⌘K</Kbd>

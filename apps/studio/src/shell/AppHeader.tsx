@@ -59,6 +59,9 @@ function WorkspaceSwitcherTrigger({
   workspaceId: string;
 }) {
   const [workspaceMenuRecents, setWorkspaceMenuRecents] = useState<RecentWorkspaceRecord[]>([]);
+  const name = workspaceName || 'Untitled workspace';
+  const initial = name.trim().charAt(0).toUpperCase();
+  const fileCountLabel = `${workspaceFileCount} file${workspaceFileCount === 1 ? '' : 's'}`;
   const handleWorkspaceMenuOpenChange = useCallback(
     (open: boolean) => {
       if (open) {
@@ -77,16 +80,14 @@ function WorkspaceSwitcherTrigger({
           <button
             type="button"
             className="studio-topbar__ws-btn"
-            aria-label={`Workspace menu — ${workspaceName || 'workspace'}`}
+            aria-label={`Workspace menu — ${initial} ${name} ${fileCountLabel}`}
             title="Switch / create / close workspace"
           >
             <span className="studio-topbar__ws-mark" aria-hidden="true">
-              {(workspaceName || 'Workspace').trim().charAt(0).toUpperCase()}
+              {initial}{' '}
             </span>
-            <span className="studio-topbar__ws-name">{workspaceName || 'Untitled workspace'}</span>
-            <span className="studio-topbar__ws-sub">
-              {workspaceFileCount} file{workspaceFileCount === 1 ? '' : 's'}
-            </span>
+            <span className="studio-topbar__ws-name">{name} </span>
+            <span className="studio-topbar__ws-sub">{fileCountLabel}</span>
             <ChevronDown className="size-3" />
           </button>
         }
@@ -155,6 +156,7 @@ interface AppHeaderProps {
 
 export const AppHeader = withInstrumentation(
   function AppHeader({ hasWorkspace, hasExploreContent }: AppHeaderProps) {
+    const accountInitials = 'PM';
     const activeId = usePerspectiveStore((s) => s.activePerspective);
     const effectiveId = resolveEffectivePerspective(activeId, { hasWorkspace, hasExploreContent });
     const perspective = PERSPECTIVES.find((p) => p.id === effectiveId);
@@ -232,9 +234,12 @@ export const AppHeader = withInstrumentation(
           <span className="studio-topbar__divider" />
           <FontScaleButton />
           <span className="studio-topbar__divider" />
-          <Avatar render={<button type="button" aria-label="Account" />} className="size-7 cursor-pointer">
+          <Avatar
+            render={<button type="button" aria-label={`${accountInitials} account`} />}
+            className="size-7 cursor-pointer"
+          >
             <AvatarFallback className="bg-linear-to-br from-enum to-data text-primary-foreground text-2xs font-bold">
-              PM
+              {accountInitials}
             </AvatarFallback>
           </Avatar>
         </div>

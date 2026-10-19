@@ -49,7 +49,7 @@ it('searches user files without exposing curated or synthetic workspace entries'
     </WorkspaceStateContext.Provider>
   );
 
-  fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Search types, files, commands/ }));
   expect(screen.getByText('user.rosetta')).toBeInTheDocument();
   expect(screen.queryByText('curated.rosetta')).not.toBeInTheDocument();
   expect(screen.queryByText('reference.rosetta')).not.toBeInTheDocument();

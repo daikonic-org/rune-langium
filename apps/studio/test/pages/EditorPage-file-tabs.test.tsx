@@ -142,8 +142,8 @@ describe('FileTabStrip chrome (Gap 1)', () => {
     const tabA = tabByName(FILE_A);
     const errChip = tabA.querySelector('.studio-topbar__tab-count.is-error');
     const warnChip = tabA.querySelector('.studio-topbar__tab-count.is-warning');
-    expect(errChip?.textContent).toBe('2');
-    expect(warnChip?.textContent).toBe('1');
+    expect(errChip?.textContent?.trim()).toBe('2');
+    expect(warnChip?.textContent?.trim()).toBe('1');
 
     // File B has no diagnostics → no count chiclets.
     const tabB = tabByName(FILE_B);

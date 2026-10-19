@@ -16,10 +16,10 @@
     "@rune-langium/worker-core": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261006.1",
+    "@cloudflare/workers-types": "^5.20261018.1",
     "miniflare": "5.20261001.0-alpha",
-    "vitest": "^5.0.3",
-    "wrangler": "^4.147.0"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.1"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

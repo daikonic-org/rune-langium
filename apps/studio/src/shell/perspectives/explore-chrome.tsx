@@ -93,6 +93,13 @@ function FileTabStrip({
     <div className="studio-topbar__tabs">
       {userFiles.map((f) => {
         const { errors, warnings } = countFileDiagnostics(fileDiagnostics.get(f.path));
+        const kindBadge = getFileKindBadge(f.name);
+        const visibleLabel = [
+          f.name,
+          ...(errors > 0 ? [errors] : []),
+          ...(warnings > 0 ? [warnings] : []),
+          kindBadge
+        ].join(' ');
         return (
           <div key={f.path} className={`studio-topbar__tab-wrapper ${f.path === activeFile ? 'is-active' : ''}`}>
             <button
@@ -100,17 +107,16 @@ function FileTabStrip({
               className="studio-topbar__tab"
               onClick={() => onSelectFile(f.path)}
               title={f.path}
-              // Explicit label so screen readers don't read the diagnostics
-              // chiclets as bare numbers (e.g. "a.rosetta 2 1").
-              aria-label={`${f.name}${f.dirty ? ', unsaved' : ''}${
+              // Preserve the visible label for speech input; explain counts afterward.
+              aria-label={`${visibleLabel}${f.dirty ? ', unsaved' : ''}${
                 errors > 0 ? `, ${errors} error${errors === 1 ? '' : 's'}` : ''
               }${warnings > 0 ? `, ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}`}
             >
               <span className={`studio-topbar__tab-dot ${f.dirty ? 'is-dirty' : ''}`} />
-              <span className="studio-topbar__tab-name">{f.name}</span>
+              <span className="studio-topbar__tab-name">{f.name} </span>
               {errors > 0 && (
                 <span className="studio-topbar__tab-count is-error" title={`${errors} error${errors === 1 ? '' : 's'}`}>
-                  {errors}
+                  {errors}{' '}
                 </span>
               )}
               {warnings > 0 && (
@@ -118,11 +124,11 @@ function FileTabStrip({
                   className="studio-topbar__tab-count is-warning"
                   title={`${warnings} warning${warnings === 1 ? '' : 's'}`}
                 >
-                  {warnings}
+                  {warnings}{' '}
                 </span>
               )}
               <span className="studio-topbar__tab-badge" aria-hidden="true">
-                {getFileKindBadge(f.name)}
+                {kindBadge}
               </span>
             </button>
             <button
