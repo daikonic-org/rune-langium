@@ -13,13 +13,13 @@ const seed = (namespace = 'example', digest = 'a'.repeat(12)) => ({
   namespace
 });
 const cleanups: Array<() => void> = [];
-function setup() {
+function setup(delayMs = 1) {
   vi.useFakeTimers();
   const cache = { documentKeys: vi.fn(async () => [] as string[]), seedDocuments: vi.fn(async () => true) };
   const fetchNamespace = vi.fn<typeof fetchCuratedNamespace>(async () => [
     { uri: 'cdm/example.rosetta', content: 'public source', serializedModel: '{}', exports: [] }
   ]);
-  const seeder = createCuratedCacheSeeder({ cache, fetchNamespace, delayMs: 1 });
+  const seeder = createCuratedCacheSeeder({ cache, fetchNamespace, delayMs });
   cleanups.push(() => seeder.close());
   return { cache, fetchNamespace, seeder };
 }
@@ -75,7 +75,7 @@ it('skips a batch of persisted artifacts in one pass before downloading a missin
 });
 
 it('waits for foreground work across tabs and automatically expires abandoned holds', async () => {
-  const { seeder, fetchNamespace } = setup();
+  const { seeder, fetchNamespace } = setup(1000);
   seeder.seed(1, [seed()]);
   seeder.foreground(2, true);
   await vi.advanceTimersByTimeAsync(5000);
@@ -83,7 +83,9 @@ it('waits for foreground work across tabs and automatically expires abandoned ho
   seeder.foreground(2, true);
   await vi.advanceTimersByTimeAsync(5000);
   expect(fetchNamespace).not.toHaveBeenCalled();
-  await vi.advanceTimersByTimeAsync(10_001);
+  await vi.advanceTimersByTimeAsync(9999);
+  expect(fetchNamespace).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
   expect(fetchNamespace).toHaveBeenCalledTimes(1);
 });
 
