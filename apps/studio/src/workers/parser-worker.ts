@@ -22,6 +22,7 @@ import {
   preserveCstText,
   serializeRuneModel,
   hydrateModelDocument,
+  hydrateModelDocuments,
   isRosettaModel,
   type DeferredModelProvider,
   type RosettaModel
@@ -129,11 +130,26 @@ export interface HydrateResponse {
   error?: string;
 }
 
+export interface InspectNamespaceRequest {
+  type: 'inspectNamespace';
+  id: string;
+  documents: Array<{ uri: string; serializedModel: string }>;
+}
+
+export interface InspectNamespaceResponse {
+  type: 'inspectNamespaceResult';
+  id: string;
+  /** Declaration snapshots only; never evidence of dependency/link readiness. */
+  models: RosettaModel[];
+  error?: string;
+}
+
 export type WorkerRequest =
   | ParseRequest
   | ParseWorkspaceRequest
   | LinkDocumentRequest
   | HydrateRequest
+  | InspectNamespaceRequest
   | ExpressionScopeRequest;
 
 export interface ParseResponse {
@@ -167,6 +183,7 @@ export interface ParseWorkspaceResponse {
   curatedRefOnlyFiles?: Record<string, import('../types/model-types.js').CachedFile[]>;
   /** Resolved manifest identities, including implicitly required bundles. */
   curatedBundleVersions?: Record<string, string>;
+  curatedCacheSeeds?: import('../services/curated-cache-seeds.js').CuratedCacheSeed[];
 }
 
 export type WorkerResponse =
@@ -174,6 +191,7 @@ export type WorkerResponse =
   | ParseWorkspaceResponse
   | LinkDocumentResponse
   | HydrateResponse
+  | InspectNamespaceResponse
   | ExpressionScopeResponse;
 
 // Deferred corpus model map: URI string → raw JSON (never deserialized until needed).
@@ -648,6 +666,35 @@ async function handleExpressionScope(req: ExpressionScopeRequest): Promise<Expre
 // Exported dispatcher — testable in Node without spinning up a Web Worker
 // ---------------------------------------------------------------------------
 
+const handleInspectNamespace = withInstrumentation(
+  async function handleInspectNamespace(req: InspectNamespaceRequest): Promise<InspectNamespaceResponse> {
+    try {
+      // A separate document set prevents failed dependency lookups in this early
+      // read from poisoning lazy references in the authoritative workspace.
+      const services = createRuneDslServices(EmptyFileSystem);
+      const entries = hydrateModelDocuments(
+        services,
+        req.documents.map((doc) => ({ uri: doc.uri, json: doc.serializedModel }))
+      );
+      if (entries.some(({ model }) => !isRosettaModel(model))) throw new Error('Expected a serialized RosettaModel');
+      await services.shared.workspace.DocumentBuilder.build(
+        entries.map(({ document }) => document),
+        { eagerLinking: false, validation: false }
+      );
+      return {
+        type: 'inspectNamespaceResult',
+        id: req.id,
+        models: entries.map(({ model }) =>
+          JSON.parse(serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, model))
+        )
+      };
+    } catch (error) {
+      return { type: 'inspectNamespaceResult', id: req.id, models: [], error: (error as Error).message };
+    }
+  },
+  { op: 'inspectCuratedDeclaration', capture: 0 }
+);
+
 // Langium's document/index services are mutable. A complete request, including
 // scope's parse/link/read sequence, must own them until its response is captured.
 let requestQueue: Promise<unknown> = Promise.resolve();
@@ -665,6 +712,8 @@ export const dispatchWorkerRequest = withInstrumentation(
           return handleHydrate(req);
         case 'expressionScope':
           return handleExpressionScope(req);
+        case 'inspectNamespace':
+          return handleInspectNamespace(req);
       }
     };
     const response = requestQueue.then(run);

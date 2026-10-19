@@ -15,6 +15,7 @@ export const TIMING_BUDGETS: Record<string, number> = {
   workspaceOpen: 5000,
   modelLoad: 45000,
   hydration: 10000,
+  inspectorFirstContent: 3000,
   typeClosureWalk: 60000,
   formRender: 5000,
   functionExecute: 10000,

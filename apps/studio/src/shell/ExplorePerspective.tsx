@@ -26,6 +26,8 @@
  */
 
 import { recordOperation } from '../services/operation-feedback.js';
+import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
+import { CuratedDeclarationInspector } from './panels/CuratedDeclarationInspector.js';
 import { useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import {
   RuneTypeGraph,
@@ -802,6 +804,13 @@ export const ExplorePerspective = withInstrumentation(
       () => Boolean(selectedNodeMeta?.deferred && pendingHydrationNamespaces.includes(selectedNodeMeta.namespace)),
       [selectedNodeMeta, pendingHydrationNamespaces]
     );
+    const declarationSeed = useMemo(() => {
+      if (!selectedNodeMeta?.deferred) return undefined;
+      const matches = parseCuratedCacheSeeds(workspace.curatedCacheSeeds).filter(
+        (seed) => seed.namespace === selectedNodeMeta.namespace
+      );
+      return new Set(matches.map((seed) => seed.key)).size === 1 ? matches[0] : undefined;
+    }, [workspace.curatedCacheSeeds, selectedNodeMeta]);
 
     const previewTargets: FormPreviewTarget[] = useMemo(() => {
       const sourceByTargetId = new Map<string, Pick<FormPreviewTarget, 'sourceUri' | 'sourceIndex' | 'sourceRange'>>();
@@ -2478,40 +2487,53 @@ export const ExplorePerspective = withInstrumentation(
       () => (
         <div
           className={`studio-scroll flex flex-col min-h-0 h-full overflow-hidden${inspectorArrivalNodeId && inspectorArrivalNodeId === selectedNodeId ? ' navigation-arrival' : ''}`}
+          data-inspector-readiness={selectedNodeMeta?.deferred ? 'loading' : selectedNodeData ? 'linked' : 'empty'}
         >
-          <EditorFormPanel
-            nodeData={selectedNodeData}
-            meta={selectedNodeMeta}
+          <CuratedDeclarationInspector
+            seed={declarationSeed}
             nodeId={selectedNodeId}
-            refOnly={selectedNodeIsRefOnly}
+            scope={inspectorScope}
             isHydrating={selectedNodeIsHydrating}
-            availableTypes={availableTypes}
-            synonymSourceOptions={synonymSourceOptions}
             actions={editorActions}
-            metadataActions={metadataActions}
-            scopeKey={inspectorScope}
-            parseEpoch={storeParseEpoch}
-            registerCommitFlush={formCommitRegistry.register}
+            availableTypes={availableTypes}
             allNodes={storeNodes}
             nodeRepository={nodeRepository}
-            renderExpressionEditor={renderExpressionEditor}
-            renderFunctionBodyEditor={renderFunctionBodyEditor}
-            structuralEditsDisabled={
-              !selectedNodeIsRefOnly &&
-              !selectedExpressionFile?.readOnly &&
-              (selectedNodeType === 'RosettaFunction' || selectedNodeType === 'Data') &&
-              !selectedParseCurrent
-            }
-            compactConditions
-            onClose={() => {
-              /* pane visibility handled by paneswitch */
-            }}
-            onNavigateToNode={navigateToNode}
-          />
+          >
+            <EditorFormPanel
+              nodeData={selectedNodeData}
+              meta={selectedNodeMeta}
+              nodeId={selectedNodeId}
+              refOnly={selectedNodeIsRefOnly}
+              isHydrating={selectedNodeIsHydrating}
+              availableTypes={availableTypes}
+              synonymSourceOptions={synonymSourceOptions}
+              actions={editorActions}
+              metadataActions={metadataActions}
+              scopeKey={inspectorScope}
+              parseEpoch={storeParseEpoch}
+              registerCommitFlush={formCommitRegistry.register}
+              allNodes={storeNodes}
+              nodeRepository={nodeRepository}
+              renderExpressionEditor={renderExpressionEditor}
+              renderFunctionBodyEditor={renderFunctionBodyEditor}
+              structuralEditsDisabled={
+                !selectedNodeIsRefOnly &&
+                !selectedExpressionFile?.readOnly &&
+                (selectedNodeType === 'RosettaFunction' || selectedNodeType === 'Data') &&
+                !selectedParseCurrent
+              }
+              compactConditions
+              onClose={() => {
+                /* pane visibility handled by paneswitch */
+              }}
+              onNavigateToNode={navigateToNode}
+            />
+          </CuratedDeclarationInspector>
         </div>
       ),
       [
         inspectorArrivalNodeId,
+        declarationSeed,
         metadataActions,
         inspectorScope,
         storeParseEpoch,

@@ -9,6 +9,7 @@
  * and LSP client lifecycle.
  */
 
+import type { CuratedCacheSeed } from './services/curated-cache-seeds.js';
 import { recordOperation } from './services/operation-feedback.js';
 import type { AddActivityMeta } from './store/activity-store.js';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
@@ -161,6 +162,7 @@ function deriveWorkspaceName(files: readonly WorkspaceFile[]): string {
 }
 
 function AppContent() {
+  const [curatedCacheSeeds, setCuratedCacheSeeds] = useState<CuratedCacheSeed[]>([]);
   const [files, setFiles] = useState<WorkspaceFile[]>([]);
   const [models, setModels] = useState<RosettaModel[]>([]);
   const [parsedModels, setParsedModels] = useState<Array<{ filePath: string; model: RosettaModel }>>([]);
@@ -298,6 +300,7 @@ function AppContent() {
         setModels(result.models);
         setParsedModels(result.parsedModels);
         setDeferredExports(result.deferredExports ?? []);
+        setCuratedCacheSeeds(result.curatedCacheSeeds ?? []);
         // Surface curated bundle contents into the model-store so ModelLoader's
         // "(N files)" badge + the curated file picker reflect what /api/parse
         // hydrated. The routed parse path is the only place the studio learns
@@ -471,6 +474,7 @@ function AppContent() {
     setParsedModels([]);
     setParseErrors(new Map());
     setDeferredExports([]);
+    setCuratedCacheSeeds([]);
     setCuratedSyncedWorkspaceId(null);
     setWorkspaceError(null);
     setWorkspaceNotice(null);
@@ -1324,9 +1328,10 @@ function AppContent() {
       models,
       parsedModels,
       deferredExports,
+      curatedCacheSeeds,
       parseErrors
     }),
-    [restoredWorkspace, files, models, parsedModels, deferredExports, parseErrors]
+    [restoredWorkspace, files, models, parsedModels, deferredExports, curatedCacheSeeds, parseErrors]
   );
 
   return (

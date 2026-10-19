@@ -33,7 +33,10 @@ import type {
   LinkDocumentRequest,
   LinkDocumentResponse,
   HydrateRequest,
-  HydrateResponse
+  HydrateResponse,
+  InspectNamespaceRequest,
+  InspectNamespaceResponse,
+  WorkerResponse
 } from '../workers/parser-worker.js';
 import { isParseResponse, isParseWorkspaceResponse, isLinkDocumentResponse } from '../workers/parser-worker.js';
 import { useCodegenStore } from '../store/codegen-store.js';
@@ -95,7 +98,8 @@ function routedWorkspaceResult(response: ParseWorkspaceResponse): ParseWorkspace
     parseMode: 'router',
     deferredExports: response.deferredExports,
     curatedRefOnlyFiles: response.curatedRefOnlyFiles,
-    curatedBundleVersions: response.curatedBundleVersions
+    curatedBundleVersions: response.curatedBundleVersions,
+    curatedCacheSeeds: response.curatedCacheSeeds
   };
 }
 
@@ -290,6 +294,7 @@ export interface ParseWorkspaceFilesResult {
    */
   curatedRefOnlyFiles?: Record<string, CachedFile[]>;
   curatedBundleVersions?: Record<string, string>;
+  curatedCacheSeeds?: CuratedCacheSeed[];
   deferredExports?: Array<{
     filePath: string;
     namespace: string;
@@ -417,9 +422,8 @@ function workerRequest(msg: Extract<WorkerRequest, { type: 'parseWorkspace' }>):
 function workerRequest(msg: LinkDocumentRequest): Promise<LinkDocumentResponse>;
 function workerRequest(msg: HydrateRequest): Promise<HydrateResponse>;
 function workerRequest(msg: ExpressionScopeRequest): Promise<ExpressionScopeResponse>;
-function workerRequest(
-  msg: WorkerRequest
-): Promise<ParseResponse | ParseWorkspaceResponse | LinkDocumentResponse | HydrateResponse | ExpressionScopeResponse> {
+function workerRequest(msg: InspectNamespaceRequest): Promise<InspectNamespaceResponse>;
+function workerRequest(msg: WorkerRequest): Promise<WorkerResponse> {
   return new Promise((resolve, reject) => {
     const w = getWorker();
     if (!w) {
@@ -468,6 +472,15 @@ function workerRequest(
           const data = e.data as ExpressionScopeResponse;
           if (data.type !== 'expressionScopeResult' || !Array.isArray(data.entries)) {
             reject(new Error('Worker returned an invalid expression scope'));
+            return;
+          }
+          resolve(data);
+          return;
+        }
+        if (msg.type === 'inspectNamespace') {
+          const data = e.data as InspectNamespaceResponse;
+          if (data.type !== 'inspectNamespaceResult' || !Array.isArray(data.models)) {
+            reject(new Error('Worker returned an invalid declaration snapshot'));
             return;
           }
           resolve(data);
@@ -532,6 +545,16 @@ function workerRequest(
     }, 30000);
   });
 }
+
+/** Isolated declaration read; does not hydrate the workspace or resolve its dependency closure. */
+export const inspectCuratedNamespace = withInstrumentation(
+  async function inspectCuratedNamespace(documents: InspectNamespaceRequest['documents']): Promise<RosettaModel[]> {
+    const result = await workerRequest({ type: 'inspectNamespace', id: `inspect:${++requestId}`, documents });
+    if (result.error) throw new Error(result.error);
+    return result.models;
+  },
+  { op: 'inspectCuratedNamespace', capture: 0 }
+);
 
 export const parseFile = withInstrumentation(
   async function parseFile(content: string, uri?: string): Promise<ParseFileResult> {
@@ -1077,7 +1100,8 @@ export const parseWorkspaceViaRouter = withInstrumentation(
         deferredExports,
         errors: data.errors,
         curatedRefOnlyFiles,
-        curatedBundleVersions: data.curatedBundleVersions
+        curatedBundleVersions: data.curatedBundleVersions,
+        curatedCacheSeeds: data.curatedCacheSeeds
       };
     } finally {
       releaseCache();
