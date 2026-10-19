@@ -148,9 +148,9 @@ export const CenterStackPanel = withInstrumentation(
           aria-label="Center pane selector"
           data-testid="studio-paneswitch"
         >
-          <div className="studio-paneswitch gap-4">
+          <div className="studio-paneswitch">
             {PANE_GROUPS.map(({ label, panes }) => (
-              <div key={label} className="flex h-full" role="group" aria-label={label}>
+              <div key={label} className="studio-paneswitch__group" role="group" aria-label={label}>
                 {panes.map((pane) => {
                   const isActive = activePanes.has(pane);
                   const Icon = PANE_ICONS[pane];

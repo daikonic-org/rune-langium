@@ -90,7 +90,7 @@ function FileTabStrip({
   const userFiles = files.filter(isUserWorkspaceFile);
 
   return (
-    <div className="studio-topbar__tabs">
+    <div className="studio-topbar__tabs" role="group" aria-label="Open files">
       {userFiles.map((f) => {
         const { errors, warnings } = countFileDiagnostics(fileDiagnostics.get(f.path));
         const kindBadge = getFileKindBadge(f.name);
@@ -105,6 +105,7 @@ function FileTabStrip({
             <button
               type="button"
               className="studio-topbar__tab"
+              aria-pressed={f.path === activeFile}
               onClick={() => onSelectFile(f.path)}
               title={f.path}
               // Preserve the visible label for speech input; explain counts afterward.
