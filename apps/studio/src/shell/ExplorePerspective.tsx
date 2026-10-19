@@ -2146,7 +2146,7 @@ export const ExplorePerspective = withInstrumentation(
     const FormPreviewPanelMounted = useCallback(() => <FormPreviewPanelShell />, []);
 
     const renderGraphPane = useCallback(
-      () => (
+      (showInspector: () => void) => (
         <section
           aria-label="Graph"
           data-testid="panel-visualPreview"
@@ -2220,7 +2220,11 @@ export const ExplorePerspective = withInstrumentation(
                 onNodeDoubleClick: () => {},
                 onModelChanged: handleModelChanged,
                 onLayoutEngineChange: storeSetLayoutEngine,
-                onNavigateToType: navigateToNode
+                onNavigateToType: navigateToNode,
+                onInspectType: (id) => {
+                  navigateToNode(id);
+                  showInspector();
+                }
               }}
             />
             {visibleGraphCount === 0 && (
@@ -2738,7 +2742,7 @@ export const ExplorePerspective = withInstrumentation(
     }, [structureLspDiagnostics, structureLineOffsets]);
 
     const renderStructurePane = useCallback(
-      () => (
+      (showInspector: () => void) => (
         <div className="h-full min-h-0 studio-graph-canvas">
           <StructureView
             focusedTypeId={structureFocusedTypeId}
@@ -2750,6 +2754,10 @@ export const ExplorePerspective = withInstrumentation(
             unsupportedSelectedType={structureUnsupportedSelectedType}
             onNodeSelect={(canonicalId) => storeSelectNode(canonicalId, { reapplyFocusMode: false })}
             onNavigateToEnumType={handleStructureNavigateToEnumType}
+            onInspectType={(id) => {
+              handleStructureNavigateToEnumType(id);
+              showInspector();
+            }}
             structureDiagnostics={structureDiagnostics}
             pendingHydrationNamespaces={pendingHydrationNamespaces}
           />

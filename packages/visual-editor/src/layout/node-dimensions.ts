@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type { TypeGraphNode } from '../types.js';
+import { enumPreviewRowCount } from '../utils/enum-preview.js';
 
 export const DEFAULT_NODE_WIDTH = 220;
 export const DEFAULT_NODE_HEIGHT = 120;
@@ -25,7 +26,8 @@ export function estimateNodeHeight(node: TypeGraphNode): number {
   const headerHeight = 40;
   const memberHeight = 24;
   const padding = 16;
-  return Math.max(DEFAULT_NODE_HEIGHT, headerHeight + members.length * memberHeight + padding);
+  const rowCount = node.type === 'enum' ? enumPreviewRowCount(members.length) : members.length;
+  return Math.max(DEFAULT_NODE_HEIGHT, headerHeight + rowCount * memberHeight + padding);
 }
 
 export function getNodeWidth(node: TypeGraphNode): number {

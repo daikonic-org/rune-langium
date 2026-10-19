@@ -840,11 +840,18 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
     const allNodeIds = new Set(storeNodes.map((n) => n.id));
     return {
       onNavigateToType: callbacks?.onNavigateToType,
+      onInspectType: callbacks?.onInspectType,
       allNodeIds,
       layoutDirection: activeLayout.direction ?? 'TB',
       pendingHydrationNamespaces
     };
-  }, [activeLayout.direction, storeNodes, callbacks?.onNavigateToType, pendingHydrationNamespaces]);
+  }, [
+    activeLayout.direction,
+    storeNodes,
+    callbacks?.onNavigateToType,
+    callbacks?.onInspectType,
+    pendingHydrationNamespaces
+  ]);
 
   // Node double-click handler
   const handleNodeDoubleClick = useCallback(

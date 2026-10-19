@@ -19,6 +19,7 @@
  */
 
 import type { Edge, Node } from '@xyflow/react';
+import { ENUM_PREVIEW_LIMIT, enumPreviewLabel, enumPreviewRowCount } from '../utils/enum-preview.js';
 import type {
   StructureBaseContainer,
   StructureChoiceNode,
@@ -572,7 +573,8 @@ const EMPTY_EXPANSIONS: ReadonlyMap<string, string> = new Map();
  */
 function sizeEnum(node: StructureEnumNode, input: StructureGraphInput): SizedNode {
   const rowOffsets = new Map<string, number>();
-  for (const [i, value] of node.values.entries()) {
+  const visibleValues = node.values.slice(0, ENUM_PREVIEW_LIMIT);
+  for (const [i, value] of visibleValues.entries()) {
     rowOffsets.set(value, HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2);
   }
   // Enum values stay single-line, unframed (ROW_HEIGHT) and FILL the column.
@@ -580,13 +582,18 @@ function sizeEnum(node: StructureEnumNode, input: StructureGraphInput): SizedNod
   // cluster (StructureEnumNode has no doc/annotation/condition fields).
   const rowsColWidth = Math.max(
     measuredOrEstimatedRowsColWidth(input, nodeInstanceId(node), () =>
-      estimateRowsColWidth(node.values.map((v) => ({ name: v, typeName: '', card: '' })))
+      estimateRowsColWidth([
+        ...visibleValues.map((v) => ({ name: v, typeName: '', card: '' })),
+        ...(node.values.length > ENUM_PREVIEW_LIMIT
+          ? [{ name: enumPreviewLabel(node.values.length), typeName: '', card: '' }]
+          : [])
+      ])
     ),
     measuredOrEstimatedHeaderWidth(input, nodeInstanceId(node), () => estimateHeaderWidth(node.name, false, 'Enum'))
   );
   return {
     width: rowsColWidth,
-    height: HEADER_HEIGHT + node.values.length * ROW_HEIGHT,
+    height: HEADER_HEIGHT + enumPreviewRowCount(node.values.length) * ROW_HEIGHT,
     rowsColWidth,
     rowOffsets
   };

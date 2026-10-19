@@ -244,6 +244,18 @@
   display: none;
 }
 
+.rune-enum-disclosure {
+  color: var(--color-node-text);
+  font: inherit;
+  white-space: nowrap;
+}
+
+button.rune-enum-disclosure {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .rune-node-kind-badge {
   display: inline-flex;
   align-items: center;

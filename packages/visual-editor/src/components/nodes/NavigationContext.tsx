@@ -19,6 +19,8 @@ export type GraphLayoutDirection = NonNullable<LayoutOptions['direction']>;
 
 export interface NavigationContextValue {
   onNavigateToType?: NavigateToNodeCallback;
+  /** Reveal the selected declaration's complete details in the host Inspector. */
+  onInspectType?: NavigateToNodeCallback;
   /** Set of all node IDs currently in the graph, used to check if a type is navigable. */
   allNodeIds: Set<string>;
   /** Active dagre layout direction so node handles can choose the opposing connector axis. */

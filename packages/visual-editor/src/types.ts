@@ -441,6 +441,8 @@ export interface RuneTypeGraphCallbacks {
   onNodeDoubleClick?: (nodeId: string, data: AnyGraphNode) => void;
   /** Called when a type reference is clicked within a graph node (e.g., attribute type name). */
   onNavigateToType?: NavigateToNodeCallback;
+  /** Reveal a declaration's complete details from a summarized graph card. */
+  onInspectType?: NavigateToNodeCallback;
   /** Called when the user switches layout engine from the graph context menu. */
   onLayoutEngineChange?: (engine: LayoutEngine) => void;
   onEdgeSelect?: (edgeId: string, data: EdgeData) => void;
