@@ -106,6 +106,13 @@ function toRosettaUri(name: string): URI {
   return URI.parse(`file:///${remapped}`);
 }
 
+const serializeParseResponse = withInstrumentation(stringifyWithBigInt, {
+  op: 'serializeParseResponse',
+  level: 'trace',
+  capture: 0,
+  sanitizeError: () => ({ signature: 'parse-response-serialization-error' })
+});
+
 // Manually wrapped (Cloudflare Pages Function arrow export — codemod-blind).
 // `request`/`env`/the request body (raw user model files) and Response
 // outputs all carry raw user model content or may carry secret env
@@ -300,7 +307,7 @@ const instrumentedOnRequestPost = withInstrumentation(
       // it needs from hydrationState.documents.
 
       return new Response(
-        stringifyWithBigInt({
+        serializeParseResponse({
           ok: true,
           models: [],
           // parsedModels intentionally absent — server cannot send Langium ASTs

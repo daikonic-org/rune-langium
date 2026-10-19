@@ -132,7 +132,7 @@ off by default. Each independently bundled Pages route configures its own edge
 sink before running its instrumented handler. `INSTRUMENTATION_ENABLED=true` enables it;
 `INSTRUMENTATION_LEVEL=trace` includes nested fetch spans (the default threshold
 is `info`). For a focused curated-load investigation, set
-`INSTRUMENTATION_OPS=onRequestPost,loadCuratedWorkspace,fetchCuratedManifest,fetchCuratedNamespace`
+`INSTRUMENTATION_OPS=onRequestPost,loadCuratedWorkspace,fetchCuratedManifest,fetchCuratedManifestRemote,fetchCuratedNamespace,downloadCuratedNamespace,decodeCuratedNamespace,serializeParseResponse`
 and `INSTRUMENTATION_TIMING_ONLY=true` in the Pages build environment before
 `pnpm run build:cloudflare`. The combined build copies these non-secret values
 into the generated root `wrangler.toml`, which supplies the Pages Function
@@ -151,6 +151,32 @@ or excluded call bypasses timing and capture.
 The default Pages build returns original untagged functions and route handlers;
 turning Pages diagnostics on or off therefore requires a rebuild and redeploy.
 Remove temporary diagnostic settings and rebuild/redeploy after the run.
+`fetchCuratedManifestRemote` appears only for uncached manifest reads;
+`downloadCuratedNamespace` includes response-body transfer, and
+`decodeCuratedNamespace` covers inflation, JSON/schema validation and document
+mapping. The latter two appear only for namespace cache misses.
+`serializeParseResponse` measures JSON response construction separately from
+HTTP delivery. These stages explicitly capture no arguments or return values,
+even without timing-only mode. Concurrent and nested durations overlap; do not
+add them together as request wall time.
+
+For a local, repeatable closure-loading comparison using existing pinned gzip
+artifacts, run from the repository root:
+
+```bash
+node apps/studio/scripts/benchmark-curated-hydration.mjs dist/codegen-corpus-artifacts <baseline-commit>
+```
+
+The artifact directory must contain `resolved-sources.json` and each bundle's
+`artifact-meta.json` and `ns/` outputs from the corpus artifact builder. The
+script checks provenance, bundles the baseline and current shared loaders into
+ignored `dist/issue-582/benchmark/`, and compares three cold/repeated/receipt
+loads with fresh runtime caches for each repetition. It verifies identical
+closure outputs and an eight-request limit. Its 15/120 ms artifact delays and
+25 ms manifest delays are simulated; the replay is not a production browser or
+Cloudflare benchmark. See the [investigation](investigations/2026-10-19-curated-hydration-latency.md)
+for the measured scope.
+
 J04b records `curatedNamespaceHydration` from Counterparty selection through
 populated Inspector attributes, even when an assertion fails; compare that
 wall-clock duration with the Pages Function spans for the same run.
