@@ -54,8 +54,12 @@ the full closure and render a read-only declaration-first Inspector. The parser
 worker uses isolated services, canonical `hydrateModelDocuments` and a lazy
 Langium build for this view. Its snapshots never enter semantic/graph/preview
 stores. Selection, activation scope and artifact identity guard late results;
-full linking replaces the temporary view. A visible loading notice and separate
-readiness markers prevent treating declared fields as resolved dependencies.
+the Inspector retains one projection for its active pinned namespace. Changing
+declarations in that namespace selects from the same pending or completed read
+instead of queuing another worker build. A different scope, cohort or namespace
+invalidates that read; full linking replaces the temporary view. A visible
+loading notice and separate readiness markers prevent treating declared fields
+as resolved dependencies.
 Older servers without metadata retain normal loading. See the
 [progressive hydration investigation](../investigations/2026-10-18-curated-progressive-hydration.md).
 

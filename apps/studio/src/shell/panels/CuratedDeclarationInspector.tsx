@@ -4,7 +4,7 @@
 import { useEffect, useState, type ReactNode, type ComponentProps } from 'react';
 import { EditorFormPanel, type EditorFormActions, type TypeGraphNode } from '@rune-langium/visual-editor';
 import type { CuratedCacheSeed } from '../../services/curated-cache-seeds.js';
-import { loadCuratedDeclaration } from '../../services/curated-declaration.js';
+import { loadCuratedDeclarations } from '../../services/curated-declaration.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 /** An explicitly incomplete, read-only view; the caller owns full semantic readiness. */
@@ -27,26 +27,28 @@ export const CuratedDeclarationInspector = withInstrumentation(
     actions: EditorFormActions;
     children: ReactNode;
   } & Partial<Pick<ComponentProps<typeof EditorFormPanel>, 'availableTypes' | 'allNodes' | 'nodeRepository'>>) {
-    const key = JSON.stringify([scope, nodeId, seed?.key]);
-    const [result, setResult] = useState<{ key: string; node: TypeGraphNode }>();
+    const key = JSON.stringify([scope, seed?.key, seed?.bundleId, seed?.version, seed?.namespace]);
+    const [result, setResult] = useState<{ key: string; nodes: TypeGraphNode[] }>();
+    const hasSelection = Boolean(nodeId);
     const artifactKey = seed?.key;
     const bundleId = seed?.bundleId;
     const version = seed?.version;
     const namespace = seed?.namespace;
     useEffect(() => {
-      if (!nodeId || !artifactKey || !bundleId || !version || !namespace) return;
+      if (!hasSelection || !artifactKey || !bundleId || !version || !namespace) return;
       const controller = new AbortController();
-      void loadCuratedDeclaration({ key: artifactKey, bundleId, version, namespace }, nodeId, controller.signal)
-        .then((node) => {
-          if (node && !controller.signal.aborted) setResult({ key, node });
+      void loadCuratedDeclarations({ key: artifactKey, bundleId, version, namespace }, controller.signal)
+        .then((nodes) => {
+          if (nodes.length && !controller.signal.aborted) setResult({ key, nodes });
         })
         .catch(() => {
           // The authoritative hydration still owns retry/error presentation.
         });
       return () => controller.abort();
-    }, [key, nodeId, artifactKey, bundleId, version, namespace]);
+    }, [key, hasSelection, artifactKey, bundleId, version, namespace]);
 
-    if (!seed || result?.key !== key) return children;
+    const node = result?.key === key ? result.nodes.find((candidate) => candidate.id === nodeId) : undefined;
+    if (!seed || !node) return children;
     return (
       <div className="flex flex-col min-h-0 h-full" data-inspector-readiness="declaration">
         <p role="status" className="shrink-0 px-3 py-2 text-xs text-muted-foreground border-b">
@@ -56,8 +58,8 @@ export const CuratedDeclarationInspector = withInstrumentation(
         </p>
         <div className="flex-1 min-h-0">
           <EditorFormPanel
-            nodeData={result.node.data}
-            meta={result.node.meta}
+            nodeData={node.data}
+            meta={node.meta}
             nodeId={nodeId}
             scopeKey={`${scope}:declaration`}
             actions={actions}

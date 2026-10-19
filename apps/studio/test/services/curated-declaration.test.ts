@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { afterEach, expect, it, vi } from 'vitest';
-import { loadCuratedDeclaration } from '../../src/services/curated-declaration.js';
+import { loadCuratedDeclarations } from '../../src/services/curated-declaration.js';
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
 
 const mocks = vi.hoisted(() => ({
@@ -33,14 +33,16 @@ const seed = {
   version: 'pinned',
   namespace: 'example.selected'
 };
-const id = 'example.selected.Selected#Data';
 afterEach(() => vi.resetAllMocks());
 
-it('uses the exact cached namespace and canonical adapter without a network request', async () => {
+it('projects every declaration in the exact cached namespace without a network request', async () => {
   const selected = (await declarationDocuments())[1]!;
-  mocks.documents.mockResolvedValue([{ ...selected, artifactKey: seed.key }]);
-  const node = await loadCuratedDeclaration(seed, id, new AbortController().signal);
-  expect(node?.data).toMatchObject({ name: 'Selected', attributes: [{ name: 'own' }] });
+  const model = JSON.parse(selected.serializedModel);
+  model.elements.push({ ...model.elements[0], name: 'Other' });
+  mocks.documents.mockResolvedValue([{ ...selected, artifactKey: seed.key, serializedModel: JSON.stringify(model) }]);
+  const nodes = await loadCuratedDeclarations(seed, new AbortController().signal);
+  expect(nodes.map((node) => node.id)).toEqual(['example.selected.Selected#Data', 'example.selected.Other#Data']);
+  expect(nodes[0]?.data).toMatchObject({ name: 'Selected', attributes: [{ name: 'own' }] });
   expect(mocks.documents).toHaveBeenCalledWith(seed.key);
   expect(mocks.fetch).not.toHaveBeenCalled();
   expect(mocks.release).toHaveBeenCalledOnce();
@@ -62,8 +64,8 @@ it.each(['missing', 'corrupt', 'wrong namespace'])(
           ]
     );
     mocks.fetch.mockResolvedValue([selected]);
-    const node = await loadCuratedDeclaration(seed, id, new AbortController().signal);
-    expect(node?.data).toMatchObject({ name: 'Selected', attributes: [{ name: 'own' }] });
+    const nodes = await loadCuratedDeclarations(seed, new AbortController().signal);
+    expect(nodes[0]?.data).toMatchObject({ name: 'Selected', attributes: [{ name: 'own' }] });
     expect(mocks.fetch).toHaveBeenCalledWith(
       'cdm',
       'pinned',
@@ -83,19 +85,17 @@ it('does not fetch or write after cancellation during a cache read', async () =>
     abort.abort();
     return undefined;
   });
-  await expect(loadCuratedDeclaration(seed, id, abort.signal)).rejects.toThrow();
+  await expect(loadCuratedDeclarations(seed, abort.signal)).rejects.toThrow();
   expect(mocks.fetch).not.toHaveBeenCalled();
   expect(mocks.seed).not.toHaveBeenCalled();
   expect(mocks.release).toHaveBeenCalledOnce();
 });
 
 it('rejects mutable or off-mirror identities and does not publish a mismatched declaration', async () => {
-  expect(
-    await loadCuratedDeclaration({ ...seed, key: '["cdm","latest"]' }, id, new AbortController().signal)
-  ).toBeUndefined();
+  expect(await loadCuratedDeclarations({ ...seed, key: '["cdm","latest"]' }, new AbortController().signal)).toEqual([]);
   expect(mocks.documents).not.toHaveBeenCalled();
   mocks.documents.mockResolvedValue(undefined);
   mocks.fetch.mockResolvedValue([(await declarationDocuments())[0]!]);
-  expect(await loadCuratedDeclaration(seed, id, new AbortController().signal)).toBeUndefined();
+  expect(await loadCuratedDeclarations(seed, new AbortController().signal)).toEqual([]);
   expect(mocks.seed).not.toHaveBeenCalled();
 });
