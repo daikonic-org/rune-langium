@@ -27,6 +27,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { TransportState } from '../services/transport-provider.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { Button } from '@rune-langium/design-system/ui/button';
 
 export interface LspConnectionBadgeProps {
   state: TransportState;
@@ -50,8 +51,12 @@ export const LspConnectionBadge = withInstrumentation(
 
     if (state.status === 'connecting') {
       return (
-        <span data-testid="lsp-badge-connecting" className="text-warning text-xs inline-flex items-center gap-1">
-          <RefreshCw className="size-3 animate-spin" />
+        <span
+          role="status"
+          data-testid="lsp-badge-connecting"
+          className="text-warning text-xs inline-flex items-center gap-1"
+        >
+          <RefreshCw aria-hidden="true" className="size-3 motion-safe:animate-spin" />
           Connecting…
         </span>
       );
@@ -59,18 +64,24 @@ export const LspConnectionBadge = withInstrumentation(
 
     // 'error' or 'disconnected' — surface FR-014 copy + recovery affordance.
     return (
-      <span data-testid="lsp-badge-error" className="text-destructive text-xs inline-flex items-center gap-2">
-        <AlertTriangle className="size-3.5" />
+      <span
+        role="status"
+        data-testid="lsp-badge-error"
+        className="text-(--color-danger-base) text-xs inline-flex items-center gap-2"
+      >
+        <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
         Language services unavailable
         {onRetry && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             data-testid="lsp-badge-retry"
             onClick={onRetry}
-            className="ml-1 underline hover:no-underline"
+            className="shrink-0 underline underline-offset-2 hover:no-underline"
           >
             Retry
-          </button>
+          </Button>
         )}
       </span>
     );

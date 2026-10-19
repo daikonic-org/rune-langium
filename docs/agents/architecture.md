@@ -375,6 +375,13 @@ comes from its canonical selected node, not an unrelated parent form field.
 Function body editors fill the space above item details. Documentation can scroll
 or resize without authorizing changes to readonly declarations.
 
+Expression language buttons reuse the shared pressed-state styling and form a
+named group separate from editing actions. The workspace footer renders one
+connection state: connected transport details, or the user-facing language-service
+badge with Retry. It wraps recovery controls on narrow screens and truncates the
+selected declaration ID while retaining the complete ID in its title. Transport
+error details remain in operation logs rather than a second footer indicator.
+
 Displayed TypeScript bodies assume purpose-built, validated Rune objects. The
 object methods belong to that explanatory display contract, not the structural
 `RuneFuncData` arguments accepted by executable exports. Copying a display body

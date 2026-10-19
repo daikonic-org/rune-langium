@@ -2885,19 +2885,34 @@ export const ExplorePerspective = withInstrumentation(
           </SourceNavigationFeedbackContext.Provider>
         </div>
 
-        <footer className="glass-statusbar flex items-center gap-4 px-3 py-1 text-xs text-muted-foreground border-t border-border">
-          <span>
+        <footer
+          role="group"
+          aria-label="Workspace status"
+          className="glass-statusbar flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1 text-xs text-muted-foreground border-t border-border"
+        >
+          <span className="shrink-0">
             {models.length} model{models.length === 1 ? '' : 's'}
           </span>
-          <span>{files.filter((f) => f.dirty).length} modified</span>
-          {selectedNodeId && <span>{selectedNodeId}</span>}
+          <span className="shrink-0">{files.filter((f) => f.dirty).length} modified</span>
+          {selectedNodeId && (
+            <span className="min-w-0 flex-1 basis-32 truncate" title={selectedNodeId}>
+              {selectedNodeId}
+            </span>
+          )}
           {(combinedDiagnostics.errors > 0 || combinedDiagnostics.warnings > 0) && (
-            <span>
+            <span className="shrink-0">
               {combinedDiagnostics.errors} err / {combinedDiagnostics.warnings} warn
             </span>
           )}
-          {transportState && <LspConnectionBadge state={transportState} onRetry={onReconnect} />}
-          {transportState && <ConnectionStatus state={transportState} onReconnect={onReconnect} />}
+          {transportState && (
+            <span className="shrink-0">
+              {transportState.status === 'connected' ? (
+                <ConnectionStatus state={transportState} />
+              ) : (
+                <LspConnectionBadge state={transportState} onRetry={onReconnect} />
+              )}
+            </span>
+          )}
         </footer>
 
         <ExportDialog
