@@ -22,6 +22,9 @@ using an Eclipse-based desktop workbench.
 
 Success means users can follow a declaration across views, understand its logic,
 make an intentional edit and see consistent results without losing their work.
+Polish, quality, consistency, DRY and extensibility are explicit product priorities:
+shared constructs should behave consistently across views, reuse authoritative
+implementations and support new capabilities through shared extension points.
 
 ## Positioning
 
@@ -83,13 +86,16 @@ visual identity or replace the existing interface.
 
 ## Product Principles
 
-1. Reuse authoritative language semantics and shared constructs across surfaces.
-2. Keep source, declaration identity and model relationships consistent across
-   navigation, structured edits, previews and exports.
-3. Prefer readable task-focused projections; preserve the requirements of actual
-   execution and generated APIs.
+1. Treat DRY as a correctness rule: reuse authoritative language semantics and
+   shared constructs across surfaces rather than maintaining parallel versions.
+2. Keep equivalent constructs, interactions, source identity and model relationships
+   consistent across navigation, structured edits, previews and exports.
+3. Make polish and quality part of completion: readable projections, usable
+   layouts, accessible interactions and honest readiness must preserve user work
+   and the contracts of actual execution and generated APIs.
 4. Reveal large models progressively without discarding their complete contents.
-5. State readiness and failures honestly while preserving user work.
+5. Build for extensibility through shared components and explicit extension points,
+   so new model constructs and capabilities do not require duplicated behavior.
 
 ## Accessibility & Inclusion
 
