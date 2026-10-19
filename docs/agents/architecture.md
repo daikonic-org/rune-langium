@@ -24,6 +24,11 @@ and CLI/codegen/LSP → core.
 
 ## Studio Runtime
 
+Studio's [product context](../../apps/studio/PRODUCT.md) records established users,
+workflows and product principles for interface work. Impeccable's local live-mode
+configuration names the Vite SPA entry; it does not inject a helper by default or
+change production CSP. Product context complements the runtime invariants below.
+
 - Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.4; check manifests before changing versions.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.

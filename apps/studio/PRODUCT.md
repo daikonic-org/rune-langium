@@ -103,5 +103,3 @@ mobile and browser coverage limits must be reported explicitly.
 
 - Audience priority is awaiting confirmation; the supported workflows above are
   established product facts.
-- The default workflow for new surfaces (image mockup first or code first) is
-  awaiting a user choice. No standing `buildPath` preference has been recorded.
