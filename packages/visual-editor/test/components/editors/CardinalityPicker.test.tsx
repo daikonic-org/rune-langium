@@ -22,7 +22,7 @@ describe('CardinalityPicker', () => {
   it('renders an empty value as muted placeholder text instead of a selected custom value', () => {
     render(<CardinalityPicker value="" onChange={vi.fn()} />);
 
-    const trigger = screen.getByRole('button', { name: 'Cardinality' });
+    const trigger = screen.getByRole('button', { name: /^Cardinality / });
     expect(trigger).toHaveTextContent('1..1');
     expect(trigger.querySelector('[data-slot="cardinality-value"]')).toHaveClass('text-muted-foreground');
   });

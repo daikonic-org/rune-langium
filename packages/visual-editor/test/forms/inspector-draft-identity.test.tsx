@@ -217,7 +217,7 @@ it('keeps an invalid name local when an immediate cardinality control commits', 
   }
   render(<Fixture />);
   fireEvent.change(screen.getByLabelText('Attribute name: name'), { target: { value: '' } });
-  fireEvent.click(screen.getAllByRole('button', { name: 'Cardinality' })[0]!);
+  fireEvent.click(screen.getAllByRole('button', { name: /^Cardinality / })[0]!);
   fireEvent.click(screen.getByRole('option', { name: '0..1' }));
   expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).toMatchObject({
     name: 'name',

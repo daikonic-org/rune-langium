@@ -114,6 +114,7 @@ export function CardinalityPicker({
   // Normalize the value for display (strip parens).
   const normalizedValue = value.replace(/[()]/g, '').trim();
   const hasValue = normalizedValue.length > 0;
+  const displayValue = hasValue ? normalizedValue : '1..1';
   const matchingPreset = PRESETS.find((p) => p.value.replace(/[()]/g, '').trim() === normalizedValue);
 
   const handleOpenChange = useCallback((next: boolean) => {
@@ -178,11 +179,11 @@ export function CardinalityPicker({
         render={
           <button
             type="button"
-            aria-label="Cardinality"
+            aria-label={`Cardinality ${displayValue}`}
             className={joinClasses(TRIGGER_VARIANT_CLASS[variant], wrapperClassName, triggerClassName)}
           >
             <span data-slot="cardinality-value" className={cn('font-mono', !hasValue && 'text-muted-foreground')}>
-              {hasValue ? normalizedValue : '1..1'}
+              {displayValue}
             </span>
             <ChevronDown className="size-3 shrink-0 opacity-50" aria-hidden="true" />
           </button>

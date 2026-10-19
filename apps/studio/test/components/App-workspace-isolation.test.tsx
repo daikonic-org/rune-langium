@@ -252,7 +252,7 @@ it.each([false, true])(
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
     if (failStorage) {
       await waitFor(() => expect(save).toHaveBeenCalled());
-      expect(screen.getByRole('button', { name: 'Workspace menu — Source project' })).toBeVisible();
+      expect(screen.getByRole('button', { name: /Workspace menu — .*Source project/ })).toBeVisible();
       expect((await loadWorkspaceFiles('ws-a'))[0]?.content).toBe(content);
       save.mockImplementation(write);
       await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
@@ -310,7 +310,7 @@ describe('workspace isolation', () => {
       await act(attempt);
       await waitFor(() => expect(save).toHaveBeenCalled());
       expect(screen.getByTestId('trade-content')).toHaveTextContent('namespace project.edited');
-      expect(screen.getByRole('button', { name: 'Workspace menu — Source project' })).toBeVisible();
+      expect(screen.getByRole('button', { name: /Workspace menu — .*Source project/ })).toBeVisible();
       expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
       expect(await listRecents()).toHaveLength(2);
 
@@ -464,7 +464,7 @@ describe('workspace isolation', () => {
 
   it('Close workspace returns to the launcher without erasing the saved files', async () => {
     await openSourceWorkspace();
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu — Source project' }));
+    fireEvent.click(screen.getByRole('button', { name: /Workspace menu — .*Source project/ }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Close Source project and return to start page' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
     expect(useModelStore.getState().models.size).toBe(0);
@@ -575,7 +575,7 @@ describe('workspace isolation', () => {
       await oldSwitch;
     });
     expect(screen.getByTestId('files')).toHaveTextContent('blank.rosetta');
-    expect(screen.getByRole('button', { name: 'Workspace menu — New' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Workspace menu — .*New/ })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'New blank workspace' })).not.toBeInTheDocument();
   });
 

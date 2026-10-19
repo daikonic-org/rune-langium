@@ -31,6 +31,8 @@ The audit still identifies the patched package as version 3.0.3, so `auditConfig
 
 Keep TypeScript `6.0.3` in docs and the `typescript-classic` alias in codegen: TypeDoc's peer range and codegen's compiler API need that release, while normal workspace compilation uses TypeScript 7.
 
+The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in both manifests and workspace overrides. Mutative 2 retains the producer API but changes patch ordering and patch-value identity; verify forward/inverse replay, edit reconciliation and source synchronization when upgrading it. Camelcase 10 requires Node 22, within the existing supported range.
+
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
 ## Generated Sources

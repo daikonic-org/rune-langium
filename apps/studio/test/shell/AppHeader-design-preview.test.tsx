@@ -41,7 +41,7 @@ describe('top-bar design preview', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 900 });
     useDesignPreviewStore.getState().setPreference('header', true);
     render(<AppHeader hasWorkspace hasExploreContent />);
-    expect(screen.getByRole('button', { name: 'Workspace menu — Model workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Workspace menu — .*Model workspace/ })).toBeInTheDocument();
     expect(screen.getByText('active.rosetta')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Export code' })).not.toBeInTheDocument();
