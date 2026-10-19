@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { onRequestPost } from '../api/parse.js';
+import { resetInstrumentationForTests } from '../../src/services/instrumentation/core.js';
 
 function makeRequest(body: unknown): Request {
   return new Request('http://example.com/api/parse', {
@@ -18,9 +19,29 @@ const SIMPLE_RUNE = 'namespace x\ntype T:\n  a string (1..1)\n';
 // spies (and any globalThis.fetch overrides) don't leak across tests.
 afterEach(() => {
   vi.restoreAllMocks();
+  resetInstrumentationForTests();
 });
 
 describe('POST /api/parse', () => {
+  it('measures response serialization without capturing source or response payload', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await onRequestPost({
+      request: makeRequest({ files: [{ name: 'x.rune', content: SIMPLE_RUNE }] }),
+      env: {
+        INSTRUMENTATION_ENABLED: 'true',
+        INSTRUMENTATION_LEVEL: 'trace',
+        INSTRUMENTATION_OPS: 'serializeParseResponse'
+      }
+    } as never);
+    expect(res.status).toBe(200);
+    expect(log).toHaveBeenCalledOnce();
+    const record = JSON.parse(log.mock.calls[0]![0] as string);
+    expect(record).toMatchObject({ op: 'serializeParseResponse', captured: 0 });
+    expect(record.durationMs).toBeGreaterThanOrEqual(0);
+    expect(record).not.toHaveProperty('input');
+    expect(record).not.toHaveProperty('output');
+    expect(JSON.stringify(record)).not.toContain(SIMPLE_RUNE);
+  });
   it('returns 400 for malformed JSON', async () => {
     const req = new Request('http://example.com/api/parse', {
       method: 'POST',

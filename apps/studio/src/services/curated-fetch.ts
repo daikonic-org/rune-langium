@@ -255,12 +255,58 @@ const NamespaceArtifactSchema = z.object({ documents: z.array(CuratedSerializedD
  */
 const namespaceCache = new Map<string, Promise<CuratedDocument[]>>();
 
+// Only exact cohort URLs are immutable. Bound retained manifests across releases;
+// cache promises so concurrent parses share their fetch and validation too.
+const manifestCache = new Map<string, Promise<CuratedManifest>>();
+const MANIFEST_CACHE_LIMIT = 24;
+const curatedStageTiming = {
+  level: 'trace',
+  capture: 0,
+  sanitizeError: () => ({ signature: 'curated-stage-error' })
+} as const;
+
 export const fetchCuratedManifest = withInstrumentation(
   async function fetchCuratedManifest(id: string, version: string, fetcher?: CuratedFetcher): Promise<CuratedManifest> {
+    const pinned = CuratedCohortSchema.safeParse(version).success;
+    if (!pinned) return fetchManifestRemote(id, version, fetcher, pinned);
+    const key = JSON.stringify([id, version]);
+    const hit = manifestCache.get(key);
+    if (hit) {
+      manifestCache.delete(key);
+      manifestCache.set(key, hit);
+      return hit;
+    }
+    const work = fetchManifestRemote(id, version, fetcher, pinned);
+    manifestCache.set(key, work);
+    if (manifestCache.size > MANIFEST_CACHE_LIMIT) manifestCache.delete(manifestCache.keys().next().value!);
+    work.catch(() => {
+      if (manifestCache.get(key) === work) manifestCache.delete(key);
+    });
+    return work;
+  },
+  {
+    op: 'fetchCuratedManifest',
+    capture: Capture.Input | Capture.Output,
+    sanitize: (value, which) => {
+      if (which === 'input') {
+        const [id, version] = value as [string, string, unknown];
+        return { id, version };
+      }
+      return value;
+    }
+  }
+);
+
+const fetchManifestRemote = withInstrumentation(
+  async function fetchManifestRemote(
+    id: string,
+    version: string,
+    fetcher: CuratedFetcher | undefined,
+    pinned: boolean
+  ): Promise<CuratedManifest> {
     // Default to globalThis.fetch — same rationale as fetchCuratedBundle (CF
     // same-zone loop prevention; production callers pass env.CURATED_MIRROR.fetch).
     const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
-    const pinned = CuratedCohortSchema.safeParse(version).success;
     const url = `${CURATED_MIRROR_BASE}/${id}/${pinned ? `artifacts/${version}/` : ''}manifest.json`;
 
     let res: Response;
@@ -306,21 +352,8 @@ export const fetchCuratedManifest = withInstrumentation(
       throw new CuratedBundleUnavailableError(id, version, undefined, new Error('Manifest cohort mismatch'));
     }
     return result.manifest;
-    // Fetched unauthenticated from the public curated mirror — the whole
-    // manifest (namespace/dep metadata for a curated bundle) is public,
-    // curated data, same trust tier as `id`/`version`. Safe to capture in full.
   },
-  {
-    op: 'fetchCuratedManifest',
-    capture: Capture.Input | Capture.Output,
-    sanitize: (value, which) => {
-      if (which === 'input') {
-        const [id, version] = value as [string, string, unknown];
-        return { id, version };
-      }
-      return value;
-    }
-  }
+  { ...curatedStageTiming, op: 'fetchCuratedManifestRemote' }
 );
 
 export const fetchCuratedNamespace = withInstrumentation(
@@ -396,21 +429,7 @@ async function fetchNamespaceArtifact(
   let fetched: { res: Response; gzBuffer: Uint8Array } | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      fetched = await withAbortTimeout(async (signal) => {
-        // Artifact bodies are gzip files; avoid a second transport encoding.
-        const res = await fetchFn(url, { headers: { 'Accept-Encoding': 'identity' }, signal });
-        if (!res.ok) {
-          console.error('curated-fetch non_ok_status', {
-            bundleId: id,
-            version,
-            url,
-            status: res.status,
-            contentType: res.headers.get('content-type')
-          });
-          throw new CuratedBundleUnavailableError(id, version, res.status);
-        }
-        return { res, gzBuffer: new Uint8Array(await res.arrayBuffer()) };
-      }, CURATED_FETCH_TIMEOUT_MS);
+      fetched = await downloadCuratedNamespace(id, version, url, fetchFn);
       break;
     } catch (err) {
       if (err instanceof OperationTimeoutError && attempt === 0) continue;
@@ -425,53 +444,80 @@ async function fetchNamespaceArtifact(
     }
   }
   if (!fetched) throw new CuratedBundleUnavailableError(id, version);
-  const { res, gzBuffer } = fetched;
-  let jsonText: string;
-  try {
-    jsonText = new TextDecoder('utf-8').decode(inflate(gzBuffer));
-  } catch (err) {
-    console.error('curated-fetch inflate_failed', {
-      bundleId: id,
-      version,
-      contentType: res.headers.get('content-type'),
-      contentEncoding: res.headers.get('content-encoding'),
-      bytesLength: gzBuffer.byteLength,
-      firstBytes: Array.from(gzBuffer.slice(0, 8))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join(' '),
-      err: err instanceof Error ? err.message : String(err)
-    });
-    throw new CuratedBundleUnavailableError(id, version, undefined, err);
-  }
-
-  let rawJson: unknown;
-  try {
-    rawJson = JSON.parse(jsonText);
-  } catch (err) {
-    console.error('curated-fetch json_parse_failed', {
-      bundleId: id,
-      version,
-      jsonLength: jsonText.length,
-      preview: jsonText.slice(0, 100),
-      err: err instanceof Error ? err.message : String(err)
-    });
-    throw new CuratedBundleUnavailableError(id, version, undefined, err);
-  }
-
-  const parsed = NamespaceArtifactSchema.safeParse(rawJson);
-  if (!parsed.success) {
-    console.error('curated-fetch ns_schema_mismatch', {
-      bundleId: id,
-      version,
-      error: parsed.error.message
-    });
-    throw new CuratedBundleUnavailableError(
-      id,
-      version,
-      undefined,
-      new Error(`namespace artifact schema mismatch: ${parsed.error.message}`)
-    );
-  }
-
-  return toDocuments(id, parsed.data);
+  return decodeCuratedNamespace(id, version, fetched.res, fetched.gzBuffer);
 }
+
+const downloadCuratedNamespace = withInstrumentation(
+  async function downloadCuratedNamespace(id: string, version: string, url: string, fetchFn: CuratedFetcher) {
+    return withAbortTimeout(async (signal) => {
+      // Artifact bodies are gzip files; avoid a second transport encoding.
+      const res = await fetchFn(url, { headers: { 'Accept-Encoding': 'identity' }, signal });
+      if (!res.ok) {
+        console.error('curated-fetch non_ok_status', {
+          bundleId: id,
+          version,
+          url,
+          status: res.status,
+          contentType: res.headers.get('content-type')
+        });
+        throw new CuratedBundleUnavailableError(id, version, res.status);
+      }
+      return { res, gzBuffer: new Uint8Array(await res.arrayBuffer()) };
+    }, CURATED_FETCH_TIMEOUT_MS);
+  },
+  { ...curatedStageTiming, op: 'downloadCuratedNamespace' }
+);
+
+const decodeCuratedNamespace = withInstrumentation(
+  function decodeCuratedNamespace(id: string, version: string, res: Response, gzBuffer: Uint8Array): CuratedDocument[] {
+    let jsonText: string;
+    try {
+      jsonText = new TextDecoder('utf-8').decode(inflate(gzBuffer));
+    } catch (err) {
+      console.error('curated-fetch inflate_failed', {
+        bundleId: id,
+        version,
+        contentType: res.headers.get('content-type'),
+        contentEncoding: res.headers.get('content-encoding'),
+        bytesLength: gzBuffer.byteLength,
+        firstBytes: Array.from(gzBuffer.slice(0, 8))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' '),
+        err: err instanceof Error ? err.message : String(err)
+      });
+      throw new CuratedBundleUnavailableError(id, version, undefined, err);
+    }
+
+    let rawJson: unknown;
+    try {
+      rawJson = JSON.parse(jsonText);
+    } catch (err) {
+      console.error('curated-fetch json_parse_failed', {
+        bundleId: id,
+        version,
+        jsonLength: jsonText.length,
+        preview: jsonText.slice(0, 100),
+        err: err instanceof Error ? err.message : String(err)
+      });
+      throw new CuratedBundleUnavailableError(id, version, undefined, err);
+    }
+
+    const parsed = NamespaceArtifactSchema.safeParse(rawJson);
+    if (!parsed.success) {
+      console.error('curated-fetch ns_schema_mismatch', {
+        bundleId: id,
+        version,
+        error: parsed.error.message
+      });
+      throw new CuratedBundleUnavailableError(
+        id,
+        version,
+        undefined,
+        new Error(`namespace artifact schema mismatch: ${parsed.error.message}`)
+      );
+    }
+
+    return toDocuments(id, parsed.data);
+  },
+  { ...curatedStageTiming, op: 'decodeCuratedNamespace' }
+);

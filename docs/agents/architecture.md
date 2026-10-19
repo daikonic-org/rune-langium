@@ -48,6 +48,15 @@ and CLI/codegen/LSP → core.
 
 ## Curated Artifact Cache
 
+The shared closure loader retains up to 24 immutable cohort manifests per runtime,
+deduplicating pending reads and evicting failures and least-recently-used entries.
+Floating/latest and legacy date requests always refresh their manifest pointer.
+Missing namespace artifacts use eight download slots that refill individually;
+results publish only after the complete closure succeeds, in original order.
+Neither optimization changes cohort selection, artifact receipts or preview
+readiness. The [latency investigation](../investigations/2026-10-19-curated-hydration-latency.md)
+records the fixed-corpus replay and its production verification limits.
+
 The workspace provider also carries the current parse result's pinned namespace
 seed metadata. A selected deferred type can read its namespace independently of
 the full closure and render a read-only declaration-first Inspector. The parser

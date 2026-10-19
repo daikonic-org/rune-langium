@@ -125,21 +125,35 @@ export const loadCuratedWorkspace = withInstrumentation(
         if (!knownArtifacts.has(key)) jobs.push({ bundle, namespace, artifact, key, reference });
       }
     }
-    for (let i = 0; i < jobs.length; i += 8) {
-      const fetched = await Promise.all(
-        jobs
-          .slice(i, i + 8)
-          .map(({ bundle, artifact }) =>
-            fetchCuratedNamespace(bundle.id, bundles.get(bundle.id)!.version, artifact, fetcher)
-          )
+    // Fill each freed slot immediately, but publish in manifest/closure order.
+    const fetched: CuratedDocument[][] = [];
+    let next = 0;
+    let failed = false;
+    await Promise.all(
+      Array.from({ length: Math.min(8, jobs.length) }, async () => {
+        while (!failed) {
+          const index = next++;
+          const job = jobs[index];
+          if (!job) return;
+          try {
+            fetched[index] = await fetchCuratedNamespace(
+              job.bundle.id,
+              bundles.get(job.bundle.id)!.version,
+              job.artifact,
+              fetcher
+            );
+          } catch (error) {
+            failed = true;
+            throw error;
+          }
+        }
+      })
+    );
+    for (const [index, job] of jobs.entries()) {
+      job.reference.documentCount = fetched[index]!.length;
+      job.bundle.documents.push(
+        ...fetched[index]!.map((doc) => ({ ...doc, artifactKey: job.key, namespace: job.namespace }))
       );
-      for (let j = 0; j < fetched.length; j++) {
-        const job = jobs[i + j]!;
-        job.reference.documentCount = fetched[j]!.length;
-        job.bundle.documents.push(
-          ...fetched[j]!.map((doc) => ({ ...doc, artifactKey: job.key, namespace: job.namespace }))
-        );
-      }
     }
     return { bundles: loaded, closure, graph, artifacts };
   },
