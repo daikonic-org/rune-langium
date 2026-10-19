@@ -49,6 +49,7 @@ describe('CDM Corpus Conformance (SC-001)', () => {
     expect(results.length).toBe(0);
   }, 30_000);
 
+  // Full dependency linking also runs under V8 coverage on shared CI runners.
   it('should parse and link the entire dependency workspace without exclusions', async () => {
     const sources = await loadCorpusFixtures();
     const { RuneDsl } = createRuneDslServices();
@@ -69,7 +70,7 @@ describe('CDM Corpus Conformance (SC-001)', () => {
       documents: documents.length,
       references: documents.reduce((total, document) => total + document.references.length, 0)
     });
-  }, 60_000);
+  }, 180_000);
 });
 
 describe('Rune DSL Built-in Types', () => {

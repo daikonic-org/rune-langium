@@ -83,6 +83,44 @@ it('keeps intentionally empty artifacts and strips source from JSON records', as
   expect(await value.source(key)).toBeUndefined();
 });
 
+it('background seeding does not evict foreground records, including across connections', async () => {
+  const { value, databaseName } = cache({ maxEntries: 1 });
+  const background = cache({ databaseName, maxEntries: 1 }).value;
+  const first = artifactKey('first');
+  const second = artifactKey('second');
+  await value.putDocuments(first, [document(first, 'first')]);
+  expect(await background.seedDocuments(second, [document(second, 'second')])).toBe(false);
+  expect(await value.documentKeys()).toEqual([first]);
+  await value.discardDocuments([first]);
+  expect(await background.seedDocuments(second, [document(second, 'second')])).toBe(true);
+  expect(await value.documents(second)).toEqual([document(second, 'second')]);
+});
+
+it('background fills retain the shared byte budget and reject invalid artifact identities', async () => {
+  const { value } = cache({ maxBytes: 1024 });
+  const first = artifactKey('first');
+  const second = artifactKey('second');
+  await value.putDocuments(first, [document(first, 'first')]);
+  expect(
+    await value.seedDocuments(second, [{ ...document(second, 'second'), serializedModel: 'x'.repeat(1024) }])
+  ).toBe(false);
+  expect(await value.seedDocuments('latest', [document(first, 'first')])).toBe(false);
+  expect(await value.documents(first)).toHaveLength(1);
+});
+
+it('enforces non-evicting capacity atomically when fallback workers race', async () => {
+  const { value, databaseName } = cache({ maxEntries: 1 });
+  const other = cache({ databaseName, maxEntries: 1 }).value;
+  const first = artifactKey('first');
+  const second = artifactKey('second');
+  const accepted = await Promise.all([
+    value.seedDocuments(first, [document(first, 'first')]),
+    other.seedDocuments(second, [document(second, 'second')])
+  ]);
+  expect(accepted.sort()).toEqual([false, true]);
+  expect(await value.documentKeys()).toHaveLength(1);
+});
+
 it('evicts the least recently read record across model and source entries', async () => {
   const { value } = cache({ maxEntries: 2 });
   const key = artifactKey('test');

@@ -474,7 +474,7 @@ describe('source-bound expression workspace', () => {
       />
     );
     const editor = await host.findByTestId('implementation-editor');
-    expect(editor).toHaveTextContent('set result: 1');
+    await waitFor(() => expect(editor).toHaveTextContent('set result: 1'));
     expect(editor).not.toHaveTextContent('func');
     expect(editor).not.toHaveTextContent('Neighbor');
     expect(writes).not.toHaveBeenCalled();

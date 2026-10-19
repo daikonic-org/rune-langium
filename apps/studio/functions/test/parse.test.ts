@@ -121,6 +121,34 @@ describe('POST /api/parse', () => {
 });
 
 describe('POST /api/parse — curatedBundles', () => {
+  it('advertises cohort-pinned background artifacts without loading their documents or user files', async () => {
+    const module = await import('../../src/services/curated-fetch.js');
+    const cohort = 'b'.repeat(64);
+    const artifact = 'artifacts/2026-10-18-aaaaaaaaaaaa/ns/cdm.example.json.gz';
+    vi.spyOn(module, 'fetchCuratedManifest').mockResolvedValue({
+      modelId: 'cdm',
+      version: '2026-10-18',
+      cohort,
+      namespaces: { 'cdm.example': { artifact, deps: [], exports: [{ name: 'Example', type: 'Data' }] } }
+    } as never);
+    const fetchNamespace = vi.spyOn(module, 'fetchCuratedNamespace');
+    const response = await onRequestPost({
+      request: makeRequest({ files: [], curatedBundles: [{ id: 'cdm', version: cohort }] })
+    } as never);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      curatedCacheSeeds: unknown[];
+      hydrationState: { documents: unknown[] };
+      requiredCuratedArtifacts: unknown[];
+    };
+    expect(body.curatedCacheSeeds).toEqual([
+      { key: JSON.stringify(['cdm', artifact]), bundleId: 'cdm', version: cohort, namespace: 'cdm.example' }
+    ]);
+    expect(body.hydrationState.documents).toEqual([]);
+    expect(body.requiredCuratedArtifacts).toEqual([]);
+    expect(fetchNamespace).not.toHaveBeenCalled();
+  });
+
   it('accepts an empty curatedBundles array', async () => {
     const res = await onRequestPost({
       request: makeRequest({

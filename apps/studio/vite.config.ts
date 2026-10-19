@@ -65,6 +65,7 @@ export default defineConfig(() => {
       // Worker-only dynamic imports must be discovered before a dev session starts.
       include: [
         'buffer',
+        'pako',
         'prettier/standalone',
         'prettier/plugins/typescript',
         'prettier/plugins/estree',
