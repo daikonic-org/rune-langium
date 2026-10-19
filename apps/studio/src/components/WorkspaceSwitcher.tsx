@@ -16,7 +16,7 @@
  * opened").
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
   Dialog,
@@ -65,6 +65,7 @@ function formatRelativeTime(iso: string): string {
 export const WorkspaceSwitcher = withInstrumentation(
   function WorkspaceSwitcher({ onOpen, onCreate: _onCreate, onDelete }: Props): React.ReactElement {
     const [rows, setRows] = useState<RecentWorkspaceRecord[]>([]);
+    const metadataId = useId();
     // Row awaiting delete confirmation — replaces the native window.confirm
     // with the design-system's animated Dialog for visual consistency.
     const [pendingDelete, setPendingDelete] = useState<RecentWorkspaceRecord | null>(null);
@@ -96,25 +97,36 @@ export const WorkspaceSwitcher = withInstrumentation(
                 data-id={row.id}
                 data-kind={row.kind}
               >
-                <div className="group flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm hover:bg-accent/50 transition-colors">
+                <div className="group relative flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm hover:bg-accent/50 transition-colors">
                   <button
                     type="button"
                     onClick={() => onOpen(row.id)}
-                    aria-label={`Open ${row.name}`}
-                    className="flex-1 flex items-center gap-2 text-left cursor-pointer"
+                    aria-labelledby={`${metadataId}-${row.id}-action ${metadataId}-${row.id}-name`}
+                    aria-describedby={`${metadataId}-${row.id}`}
+                    className="absolute inset-0 cursor-pointer rounded-md focus-visible:outline focus-visible:outline-ring"
                   >
-                    <span className="font-medium truncate">{row.name}</span>
+                    <span id={`${metadataId}-${row.id}-action`} className="sr-only">
+                      Open
+                    </span>
+                  </button>
+                  <span
+                    id={`${metadataId}-${row.id}-name`}
+                    className="pointer-events-none min-w-0 truncate font-medium"
+                  >
+                    {row.name}
+                  </span>
+                  <span id={`${metadataId}-${row.id}`} className="pointer-events-none contents">
                     <span className="shrink-0 text-3xs px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase tracking-wide">
                       {KIND_LABEL[row.kind]}
-                    </span>
+                    </span>{' '}
                     <span className="shrink-0 ml-auto text-xs text-muted-foreground">
                       {formatRelativeTime(row.lastOpenedAt)}
                     </span>
-                  </button>
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="size-5 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    className="relative size-5 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100"
                     onClick={() => setPendingDelete(row)}
                     aria-label={`Delete ${row.name}`}
                   >

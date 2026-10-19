@@ -37,6 +37,44 @@ function captureLsp(page: Page) {
   return { sent, errors };
 }
 
+for (const width of [1280, 800, 390]) {
+  test(`short Inspector preserves usable code and signature at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 720 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'layout.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(
+        'namespace layout\nfunc Run:\n inputs: amount int (1..1)\n output: result int (1..1)\n set result: amount + 1\n'
+      )
+    });
+    await page.getByTestId('namespace-search').fill('Run');
+    await typeNavigationButton(page, 'layout.Run', 'RosettaFunction').click();
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
+    await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+    await dismissLocalTransportNotices(page);
+    const implementation = page.getByRole('region', { name: 'Function implementation' });
+    const editor = implementation.getByTestId('implementation-editor');
+    await expect(editor.locator('.cm-content')).toContainText('set result: amount + 1');
+    await editor.scrollIntoViewIfNeeded();
+    const geometry = await editor.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const scroller = element.querySelector('.cm-scroller')!.getBoundingClientRect();
+      return { height: rect.height, codeHeight: scroller.height, width: document.documentElement.scrollWidth };
+    });
+    expect(geometry.height).toBeGreaterThanOrEqual(128);
+    expect(geometry.codeHeight).toBeGreaterThanOrEqual(120);
+    expect(geometry.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath(`inspector-${width}.png`) });
+    await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+    const generated = implementation.getByRole('textbox', { name: 'Generated typescript' });
+    await expect(generated).toContainText('amount');
+    expect((await generated.boundingBox())!.height).toBeGreaterThanOrEqual(120);
+    await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+    await expect(editor.locator('.cm-content')).toContainText('set result: amount + 1');
+  });
+}
+
 test('lean function projections retain schema validation and shared editor spacing', async ({ page }, testInfo) => {
   await page.goto('./');
   await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
@@ -66,6 +104,8 @@ func Run:
   expect(spacing.content).toBe('8px');
   expect(spacing.line).toBe('8px');
   expect(spacing.gutter).toBe(0);
+  // Wait for the Inspector's arrival layout before comparing expanded/collapsed sizes.
+  await implementation.getByRole('button', { name: 'Expand editor', exact: true }).scrollIntoViewIfNeeded();
   const initialHeight = (await editor.boundingBox())!.height;
   await implementation.getByRole('button', { name: 'Expand editor', exact: true }).click();
   await expect.poll(async () => (await editor.boundingBox())!.height).toBeGreaterThan(initialHeight);

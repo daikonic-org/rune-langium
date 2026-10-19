@@ -579,7 +579,7 @@ function FunctionForm({
                         {' '}
                         {/* Input Parameters — editable AttributeRow list via useFieldArray,
               mirrors the Members section in DataTypeForm (DRY / R-func-input). */}
-                        <FieldSet className="gap-1">
+                        <FieldSet className="shrink-0 gap-1">
                           <FieldLegend variant="label" className="mb-0 text-muted-foreground">
                             Inputs ({fields.length})
                           </FieldLegend>
@@ -658,7 +658,7 @@ function FunctionForm({
                         </FieldSet>
                         {/* Output Type */}
                         <FieldSet
-                          className="gap-1.5"
+                          className="shrink-0 gap-1.5"
                           onFocusCapture={() => targets.selection.select('$output')}
                           onClick={() => targets.selection.select('$output')}
                         >

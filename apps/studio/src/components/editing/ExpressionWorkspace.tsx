@@ -286,7 +286,7 @@ export const ExpressionWorkspace = withInstrumentation(
       <section
         id={editorId}
         data-expanded={expanded}
-        className="expression-workspace flex min-h-32 flex-1 flex-col gap-1"
+        className="expression-workspace flex min-h-64 flex-1 flex-col gap-1"
         aria-label={target ? 'Condition expression' : 'Function implementation'}
       >
         <div className="flex min-h-6 shrink-0 flex-wrap items-center justify-between gap-1">
@@ -354,7 +354,7 @@ export const ExpressionWorkspace = withInstrumentation(
         </div>
         <div
           aria-hidden={language !== 'rune'}
-          className={language === 'rune' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
+          className={language === 'rune' ? 'flex min-h-32 flex-1 flex-col' : 'hidden'}
         >
           {displayed && coordinateError && (
             <p role="status" className="text-xs text-muted-foreground">

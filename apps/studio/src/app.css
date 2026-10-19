@@ -2616,8 +2616,8 @@ html {
   outline-offset: -2px;
 }
 
-/* Embedded bodies consume the Inspector's remaining space; CodeMirror scrolls
- * internally instead of moving signature and item details out of the pane. */
+/* Embedded bodies fill spare space. Short Inspectors scroll the form rather
+ * than shrinking the signature or clipping CodeMirror below its usable size. */
 .expression-workspace {
   --expression-editor-height: 100%;
 }
