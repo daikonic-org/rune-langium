@@ -16,7 +16,9 @@ const SeedSchema = z
   })
   .refine((seed) => {
     const identity = curatedArtifactIdentity(seed.key);
-    return identity?.bundleId === seed.bundleId && identity.artifact.endsWith(`/ns/${seed.namespace}.json.gz`);
+    // The manifest owns this mapping; publisher-sanitized filenames can differ
+    // from their namespace (for example FpML's trailing-dot namespace).
+    return identity?.bundleId === seed.bundleId;
   });
 
 export type CuratedCacheSeed = z.infer<typeof SeedSchema>;

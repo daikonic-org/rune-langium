@@ -135,14 +135,41 @@ it('drops superseded jobs and continues past a failed artifact without retry loo
   expect(fetchNamespace.mock.calls.map((call) => call[2])).not.toContain(JSON.parse(seed('old').key)[1]);
 });
 
-it('accepts only bounded immutable metadata with matching bundle and namespace identities', () => {
+it('preserves publisher-provided namespace mappings, including sanitized artifact filenames', async () => {
+  const fpml = {
+    ...seed(),
+    bundleId: 'fpml' as const,
+    namespace: 'fpml.consolidated.',
+    key: JSON.stringify(['fpml', 'artifacts/2026-10-18-aaaaaaaaaaaa/ns/fpml.consolidated.aa680f2a.json.gz'])
+  };
+  const batch = [seed(), fpml];
+  expect(parseCuratedCacheSeeds(batch)).toEqual(batch);
+
+  const { seeder, fetchNamespace, cache } = setup();
+  seeder.seed(1, batch);
+  await vi.runAllTimersAsync();
+  expect(fetchNamespace).toHaveBeenCalledTimes(2);
+  expect(fetchNamespace).toHaveBeenLastCalledWith('fpml', fpml.version, JSON.parse(fpml.key)[1], expect.any(Function), {
+    retain: false
+  });
+  expect(cache.seedDocuments).toHaveBeenLastCalledWith(fpml.key, [
+    expect.objectContaining({ bundleId: 'fpml', namespace: fpml.namespace, artifactKey: fpml.key })
+  ]);
+});
+
+it('accepts only bounded immutable metadata with matching bundle identities', () => {
   expect(parseCuratedCacheSeeds([{ ...seed(), privateSource: 'must not cross the worker boundary' }])).toEqual([
     seed()
   ]);
   for (const bad of [
     { ...seed(), key: 'latest' },
     { ...seed(), bundleId: 'fpml' },
-    { ...seed(), namespace: 'different' }
+    { ...seed(), namespace: '' },
+    {
+      ...seed(),
+      key: JSON.stringify(['cdm', 'https://evil.example/artifacts/2026-10-18-aaaaaaaaaaaa/ns/example.json.gz'])
+    },
+    { ...seed(), key: JSON.stringify(['cdm', 'artifacts/2026-10-18-aaaaaaaaaaaa/ns/../example.json.gz']) }
   ]) {
     expect(parseCuratedCacheSeeds([bad])).toEqual([]);
   }
