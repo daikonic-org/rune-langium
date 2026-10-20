@@ -111,9 +111,11 @@ export function TypeReferenceField({
   const chipKind = toChipKind(selected?.kind);
 
   const resolvedNodeId = useMemo(() => {
-    if (!typeLabel || !allNodeIds?.length) return undefined;
-    return resolveNodeId(typeLabel, allNodeIds, imports);
-  }, [allNodeIds, typeLabel, imports]);
+    if (!allNodeIds?.length) return undefined;
+    if (effectiveValue && allNodeIds.includes(effectiveValue)) return effectiveValue;
+    const reference = effectiveValue?.startsWith('builtin::') ? typeLabel : (effectiveValue ?? typeLabel);
+    return reference ? resolveNodeId(reference, allNodeIds, imports) : undefined;
+  }, [allNodeIds, effectiveValue, typeLabel, imports]);
   const canNavigate = Boolean(onNavigateToNode && resolvedNodeId);
   const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToNode });
 
