@@ -332,3 +332,25 @@ describe('useInheritedMembers — qualified-name byId resolution', () => {
     expect(groups[0]!.members).toHaveLength(1);
   });
 });
+
+it('retains each ancestor file alias scope across an inheritance chain', () => {
+  const child = makeDataNode('Child', 'base.Parent', []);
+  child.meta.imports = [{ importedNamespace: 'middle.*', namespaceAlias: 'base' }];
+  const parent = makeDataNode('Parent', 'base.Grandparent', [makeAttrMember('near', 'item.Near')]);
+  parent.id = 'middle.Parent';
+  parent.meta.namespace = 'middle';
+  parent.meta.imports = [
+    { importedNamespace: 'root.*', namespaceAlias: 'base' },
+    { importedNamespace: 'near.*', namespaceAlias: 'item' }
+  ];
+  const grandparent = makeDataNode('Grandparent', undefined, [makeAttrMember('far', 'item.Far')]);
+  grandparent.id = 'root.Grandparent';
+  grandparent.meta.namespace = 'root';
+  grandparent.meta.imports = [{ importedNamespace: 'far.*', namespaceAlias: 'item' }];
+  const nodes = [child, parent, grandparent];
+  const { result } = renderHook(() => useEffectiveMembers(child.data as AnyGraphNode, nodes));
+  expect(result.current.effective.map((entry) => [entry.name, entry.imports])).toEqual([
+    ['near', parent.meta.imports],
+    ['far', grandparent.meta.imports]
+  ]);
+});

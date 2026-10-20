@@ -59,7 +59,7 @@
     min-width: 0;
     padding-inline: 0.625rem;
     text-transform: none;
-    letter-spacing: -0.01em;
+    letter-spacing: inherit;
     font-size: 0.75rem;
     font-weight: 500;
     line-height: 1;
@@ -303,24 +303,16 @@
  * Composes the `.studio-card` chrome (radius / background / two-tier
  * shadow) defined in design-system/theme.css so a Dockview panel and
  * a `.rune-node` on the same dark canvas read with matching elevation.
- * The 0.5px hairline ring is layered ABOVE the card shadow as a fourth
- * stacked layer so the sash hover indicator still has a border to
- * fight against — that's the one studio-specific addition. The 1px
- * solid border from `.studio-card` is intentionally suppressed (panels
- * sit flush against each other; a hairline ring reads better than a
- * full border at the panel edge).
- *
- * The ring uses `--color-border-strong` (10% white) rather than the plain
- * `--border` (6%): at 6% the hairline was nearly invisible against the panel
- * surface. 10% matches the Daikonic reference design's base panel line
- * (`--rs-line` ≈ 10% near-white), giving the edge just enough definition
- * without becoming a heavy full border. */
+ * The shared hairline width and border token keep panel boundaries aligned
+ * with forms, lists and portaled overlays. The inset header divider uses the
+ * same border color; resize handles continue to own the gaps between panels.
+ */
 .studio-app .rune-dock-theme .dv-groupview {
   border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--card);
   box-shadow:
-    0 0 0 0.5px var(--color-border-strong),
+    0 0 0 var(--hairline) var(--border),
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(0, 0, 0, 0.10);
 }
@@ -338,7 +330,7 @@
       color-mix(in srgb, var(--card) 94%, white 6%),
       color-mix(in srgb, var(--card) 97%, var(--background) 3%)
     );
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border) 52%, transparent);
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 
 /* Native edge headers can run down either side instead of across the top. */
@@ -377,7 +369,7 @@
   min-width: 0;
   padding-inline: 0.625rem;
   text-transform: none;
-  letter-spacing: -0.01em;
+  letter-spacing: inherit;
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1;

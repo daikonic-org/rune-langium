@@ -16,6 +16,7 @@ import { ChevronRight } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@rune-langium/design-system/ui/collapsible';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import type { InheritedGroup } from '../../hooks/useInheritedMembers.js';
+import { TypeReferenceImports } from './TypeLink.js';
 import { InheritedAttributeRow } from './AttributeRow.js';
 import { getTypeRefText, formatCardinality } from '../../adapters/model-helpers.js';
 import type { TypeOption } from '../../types.js';
@@ -77,28 +78,30 @@ function InheritedGroupCollapsible({
         </Badge>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ml-4 border-l border-border pl-2 space-y-0.5 py-1">
-          {group.members.map((m) => {
-            const member = m as Record<string, unknown>;
-            const name = (member.name as string) ?? '';
-            const typeName = getTypeRefText(member.typeCall as any);
-            const cardinality = formatCardinality(member.card as any);
-            return (
-              <InheritedAttributeRow
-                availableTypes={availableTypes}
-                key={name}
-                name={name}
-                typeName={typeName ?? 'string'}
-                cardinality={cardinality}
-                ancestorName={group.ancestorName}
-                disabled
-                onOverride={() => {}}
-                selected={selectedKey === `inherited:${group.ancestorName}:${name}`}
-                onSelect={onSelectMember ? () => onSelectMember(group.ancestorName, name) : undefined}
-              />
-            );
-          })}
-        </div>
+        <TypeReferenceImports.Provider value={group.imports}>
+          <div className="ml-4 border-l border-border pl-2 space-y-0.5 py-1">
+            {group.members.map((m) => {
+              const member = m as Record<string, unknown>;
+              const name = (member.name as string) ?? '';
+              const typeName = getTypeRefText(member.typeCall as any);
+              const cardinality = formatCardinality(member.card as any);
+              return (
+                <InheritedAttributeRow
+                  availableTypes={availableTypes}
+                  key={name}
+                  name={name}
+                  typeName={typeName ?? 'string'}
+                  cardinality={cardinality}
+                  ancestorName={group.ancestorName}
+                  disabled
+                  onOverride={() => {}}
+                  selected={selectedKey === `inherited:${group.ancestorName}:${name}`}
+                  onSelect={onSelectMember ? () => onSelectMember(group.ancestorName, name) : undefined}
+                />
+              );
+            })}
+          </div>
+        </TypeReferenceImports.Provider>
       </CollapsibleContent>
     </Collapsible>
   );

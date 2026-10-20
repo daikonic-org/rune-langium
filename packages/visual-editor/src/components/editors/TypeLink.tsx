@@ -10,8 +10,13 @@
  * @module
  */
 
+import { createContext, useContext } from 'react';
+import { buildImportAliasMap, importAliasCandidates } from '@rune-langium/core';
+import type { NamespaceImport } from '@rune-langium/core';
 import type { NavigateToNodeCallback } from '../../types.js';
 import { isTypeNodeId, nameFromNodeId, qualifiedNameFromNodeId } from '../../store/node-projection.js';
+
+export const TypeReferenceImports = createContext<readonly NamespaceImport[] | undefined>(undefined);
 
 export interface TypeLinkProps {
   /** The type name to display (e.g., "Quantity", "CompareOp"). */
@@ -29,16 +34,21 @@ export interface TypeLinkProps {
  * Exact Rune-qualified-name match first; then exact last-segment match via nameFromNodeId to avoid
  * namespace-segment collisions (e.g. "a.Foo.Bar" must NOT match typeName="Foo").
  */
-export function resolveNodeId(typeName: string, allNodeIds: string[]): string | undefined {
-  const typeNodeIds = allNodeIds.filter(isTypeNodeId);
-  // Exact Rune-qualified-name match first (already fully qualified)
-  const qualified = typeNodeIds.find((id) => qualifiedNameFromNodeId(id) === typeName);
-  if (qualified) return qualified;
-  // Exact last-segment match — avoids false positives from namespace segments
-  return typeNodeIds.find((id) => nameFromNodeId(id) === typeName);
+export function resolveNodeId(
+  typeName: string,
+  allNodeIds: readonly string[] | ReadonlySet<string>,
+  imports: readonly NamespaceImport[] = []
+): string | undefined {
+  for (const candidate of importAliasCandidates(typeName, buildImportAliasMap(imports))) {
+    for (const id of allNodeIds) if (isTypeNodeId(id) && qualifiedNameFromNodeId(id) === candidate) return id;
+  }
+  if (typeName.includes('.')) return undefined;
+  for (const id of allNodeIds) if (isTypeNodeId(id) && nameFromNodeId(id) === typeName) return id;
+  return undefined;
 }
 
 export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: TypeLinkProps) {
+  const imports = useContext(TypeReferenceImports);
   if (!typeName) return null;
 
   // If no navigation callback, render as plain text
@@ -51,7 +61,7 @@ export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: 
   }
 
   // Resolve once per render — avoids duplicate linear scans
-  const resolvedNodeId = allNodeIds ? resolveNodeId(typeName, allNodeIds) : undefined;
+  const resolvedNodeId = allNodeIds ? resolveNodeId(typeName, allNodeIds, imports) : undefined;
   const isResolvable = !!resolvedNodeId;
 
   const handleClick = () => {

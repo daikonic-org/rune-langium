@@ -44,9 +44,20 @@ for (const width of [1280, 800]) {
       for (let i = 0; i < 4; i++) await inspector.getByRole('button', { name: /^Show more/ }).click();
       await expect(inspector.getByRole('textbox', { name: 'Value name for Value200', exact: true })).toBeVisible();
       await page.screenshot({ path: info.outputPath(`${mode}-complete-inspector.png`) });
-      // Repeated disclosure must reveal, never toggle the open Inspector closed.
+      // A disclosure returns an already-open Inspector from Details to Values.
+      await inspector.getByRole('tab', { name: 'Details', exact: true }).click();
+      await expect(inspector.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
       await card.getByRole('button', { name: 'View all 201 values' }).click();
       await expect(inspector).toBeVisible();
+      await expect(inspector.getByRole('tab', { name: 'Values', exact: true })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
+      // Paging and the visited editor remain mounted across section changes.
+      await expect(inspector.getByRole('textbox', { name: 'Value name for Value200', exact: true })).toBeVisible();
     });
   }
 }

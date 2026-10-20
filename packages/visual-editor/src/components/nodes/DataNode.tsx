@@ -17,7 +17,13 @@ import type { AnyGraphNode } from '../../types.js';
 import type { StructureDataNode, StructureExpansionKey, StructureRow } from '../../types/structure-view.js';
 import { expansionKey } from '../../types/structure-view.js';
 import { getTypeRefText, formatCardinality } from '../../adapters/model-helpers.js';
-import { getHandlePositions, useNavigation, resolveTypeNodeId, useNodeMetaErrors } from './NavigationContext.js';
+import {
+  getHandlePositions,
+  useNavigation,
+  resolveTypeNodeId,
+  useNodeMetaErrors,
+  useNodeMetaImports
+} from './NavigationContext.js';
 import { BaseFlowNode } from './BaseFlowNode.js';
 import { StructureMetaIndicators } from './StructureMetaIndicators.js';
 import { useDiagnosticsForRange, diagnosticSeverityClass } from '../../hooks/useDiagnosticsForRange.js';
@@ -351,6 +357,7 @@ export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps
   // Validation errors live on the node.meta sibling (not on data) — read
   // them out of the ReactFlow store by node id.
   const nodeErrors = useNodeMetaErrors(id);
+  const imports = useNodeMetaImports(id);
   const summary =
     members.length === 0 ? 'No attributes' : `${members.length} attribute${members.length === 1 ? '' : 's'}`;
 
@@ -513,7 +520,7 @@ export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps
             {members.map((member: any) => {
               const typeName = getTypeRefText(member.typeCall);
               const card = formatCardinality(member.card);
-              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds) : undefined;
+              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
               return (
                 <div
                   key={member.name}

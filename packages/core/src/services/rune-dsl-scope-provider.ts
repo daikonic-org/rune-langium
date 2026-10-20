@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { buildImportAliasMap, importAliasCandidates } from '../naming/import-aliases.js';
 import type { AstNode, AstNodeDescription, ReferenceInfo, Scope, LangiumCoreServices } from 'langium';
 import { AstUtils, EMPTY_SCOPE, DefaultScopeProvider, MapScope, stream } from 'langium';
 import {
@@ -65,7 +66,6 @@ import type {
   ShortcutDeclaration,
   RosettaExpression,
   RosettaModel,
-  Import,
   RosettaFeatureCall,
   RosettaDeepFeatureCall,
   Segment,
@@ -122,13 +122,7 @@ class AliasResolvingScope implements Scope {
       if (explicit) candidates.add(explicit);
       for (const namespace of this.namespaces) candidates.add(`${namespace}.${name}`);
     }
-    candidates.add(name);
-    const dot = name.indexOf('.');
-    if (dot !== -1) {
-      const prefix = name.slice(0, dot);
-      const rest = name.slice(dot + 1);
-      for (const namespace of this.aliasMap.get(prefix) ?? []) candidates.add(`${namespace}.${rest}`);
-    }
+    for (const candidate of importAliasCandidates(name, this.aliasMap)) candidates.add(candidate);
     return candidates;
   }
 }
@@ -291,7 +285,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
       context.container,
       (node): node is RosettaModel => node.$type === 'RosettaModel'
     );
-    return new AliasResolvingScope(new MapScope(options, base), this.buildImportAliasMap(model?.imports ?? []));
+    return new AliasResolvingScope(new MapScope(options, base), buildImportAliasMap(model?.imports ?? []));
   }
 
   /**
@@ -1298,28 +1292,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
         .filter((entry) => !entry.namespaceAlias && !entry.importedNamespace.endsWith('.*'))
         .map((entry) => [entry.importedNamespace.split('.').pop()!, entry.importedNamespace])
     );
-    return new AliasResolvingScope(base, this.buildImportAliasMap(model.imports), namespaces, imports);
-  }
-
-  /**
-   * Build a map from alias name → list of namespace prefixes that the alias expands to.
-   * e.g. `import fpml.consolidated.shared.* as fpml` → `{ fpml: ["fpml.consolidated.shared"] }`
-   */
-  private buildImportAliasMap(imports: Import[]): Map<string, string[]> {
-    const map = new Map<string, string[]>();
-    for (const imp of imports) {
-      const alias = imp.namespaceAlias;
-      if (!alias) continue;
-      let ns = imp.importedNamespace;
-      if (ns.endsWith('.*')) ns = ns.slice(0, -2);
-      const existing = map.get(alias);
-      if (existing) {
-        existing.push(ns);
-      } else {
-        map.set(alias, [ns]);
-      }
-    }
-    return map;
+    return new AliasResolvingScope(base, buildImportAliasMap(model.imports), namespaces, imports);
   }
 
   /**

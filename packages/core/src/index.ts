@@ -123,3 +123,6 @@ export type { SourceComment } from './api/source-comments.js';
 
 export { getAnnotationDefinitions } from './api/annotation-definitions.js';
 export type { AnnotationDefinitionIdentity } from './api/annotation-definitions.js';
+
+export { buildImportAliasMap, importAliasCandidates } from './naming/import-aliases.js';
+export type { NamespaceImport } from './naming/import-aliases.js';

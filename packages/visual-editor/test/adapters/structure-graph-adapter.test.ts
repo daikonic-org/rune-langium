@@ -3838,3 +3838,35 @@ describe('buildStructureGraph — Function as focused root (Phase C)', () => {
     expect(fn.inputRows.map((r) => r.attrName)).toEqual(['x']);
   });
 });
+
+describe('repeated namespace import aliases', () => {
+  it('resolves separate namespaces sharing fpml without changing authored labels', () => {
+    const doc = {
+      namespaces: [{ uri: 'caller' }],
+      nodes: [
+        {
+          id: 'caller.Trade',
+          $type: 'Data' as const,
+          name: 'Trade',
+          namespace: 'caller',
+          imports: [
+            { importedNamespace: 'fpml.asset.*', namespaceAlias: 'fpml' },
+            { importedNamespace: 'fpml.option.*', namespaceAlias: 'fpml' }
+          ],
+          attributes: [
+            { name: 'asset', typeCall: 'fpml.Asset' },
+            { name: 'exercise', typeCall: 'fpml.Exercise' }
+          ]
+        },
+        { id: 'fpml.asset.Asset', $type: 'Data' as const, name: 'Asset', namespace: 'fpml.asset' },
+        { id: 'fpml.option.Exercise', $type: 'Data' as const, name: 'Exercise', namespace: 'fpml.option' },
+        { id: 'unrelated.Exercise', $type: 'Data' as const, name: 'Exercise', namespace: 'unrelated' }
+      ]
+    };
+    const result = buildStructureGraph(doc, { focusedTypeId: 'caller.Trade', expansionMap: new Map() });
+    const rows = (result.nodes.get('caller.Trade') as StructureDataNode).rows;
+    expect(rows.map((row) => row.typeName)).toEqual(['fpml.Asset', 'fpml.Exercise']);
+    expect(rows.map((row) => row.typeKind)).toEqual(['Data', 'Data']);
+    expect(rows.map((row) => row.targetNodeId)).toEqual(['fpml.asset.Asset', 'fpml.option.Exercise']);
+  });
+});

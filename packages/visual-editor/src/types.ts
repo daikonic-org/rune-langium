@@ -42,8 +42,12 @@ export type { Dehydrated } from '@rune-langium/core';
  * pure-domain `node.data` payload. `position` is NOT here — it already lives
  * on the ReactFlow node itself.
  */
+import type { NamespaceImport } from '@rune-langium/core';
+
 export interface GraphNodeMeta {
   namespace: string;
+  /** File-local import bindings for authored reference labels and navigation. */
+  imports?: readonly NamespaceImport[];
   errors: ValidationError[];
   isReadOnly?: boolean;
   hasExternalRefs: boolean;

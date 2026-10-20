@@ -880,3 +880,48 @@ describe('CodegenProvider', () => {
     expect(otherSelectionMsgsAfter.length).toBe(1);
   });
 });
+
+it('keeps an unsupported selected preview pending after namespace hydration until regeneration returns', () => {
+  usePreviewStore.getState().resetPreviewState();
+  const target = { id: 'selected.Trade', namespace: 'selected', name: 'Trade', kind: 'data' };
+  usePreviewStore.getState().setAvailableTargets([target]);
+  usePreviewStore.getState().selectTarget(target.id);
+  render(
+    <WorkspaceStateContext.Provider value={wsState('hydration-pending')}>
+      <CodegenProvider>
+        <div />
+      </CodegenProvider>
+    </WorkspaceStateContext.Provider>
+  );
+  const worker = FakeWorker.instances[0]!;
+  const request = worker.posted.find((m) => m.type === 'preview:generate');
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:stale',
+          requestId: request.requestId,
+          targetId: target.id,
+          reason: 'unsupported-target',
+          message: 'No schema available.'
+        }
+      });
+    useEditorStore.setState({ pendingHydrationNamespaces: ['selected'] });
+  });
+  expect(usePreviewStore.getState().status.state).toBe('unavailable');
+  act(() => useEditorStore.getState().markNamespacesHydrated(['selected']));
+  expect(useEditorStore.getState().pendingHydrationNamespaces).toEqual([]);
+  expect(usePreviewStore.getState().status).toEqual({ state: 'waiting', targetId: target.id });
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:result',
+          requestId: request.requestId,
+          targetId: target.id,
+          schema: { schemaVersion: 1, targetId: target.id, title: 'Trade', status: 'ready', fields: [] }
+        }
+      });
+  });
+  expect(usePreviewStore.getState().status).toEqual({ state: 'ready', targetId: target.id });
+});

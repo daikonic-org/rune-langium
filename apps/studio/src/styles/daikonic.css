@@ -157,3 +157,30 @@
     0 0 0 0.5px color-mix(in oklch, var(--primary), transparent 60%),
     0 6px 18px -6px color-mix(in oklch, var(--primary), transparent 50%);
 }
+
+/* Shared by the application and component-design previews. */
+@layer base {
+  /* One Studio profile reaches every perspective and body-portaled overlay. */
+  body[data-studio-app='true'] {
+    --font-size-ui: 0.8125rem;
+    --font-size-sm: var(--font-size-ui);
+    --text-sm: var(--font-size-ui);
+    --hairline: 1px;
+    --color-border-subtle: color-mix(in srgb, var(--foreground) 10%, transparent);
+    --color-border-default: color-mix(in srgb, var(--foreground) 16%, transparent);
+    --color-border-strong: color-mix(in srgb, var(--foreground) 24%, transparent);
+    --border: var(--color-border-default);
+    --input: var(--color-border-strong);
+    --sidebar-border: var(--border);
+    --glass-border: var(--border);
+    --glass-btn-border: var(--color-border-subtle);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-ui);
+    line-height: 1.5;
+    letter-spacing: normal;
+  }
+
+  body[data-studio-app='true'] :is(code, kbd, pre, samp, .font-mono, .cm-editor) {
+    letter-spacing: normal;
+  }
+}

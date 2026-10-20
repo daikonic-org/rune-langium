@@ -26,6 +26,7 @@ Project: "Daikonic Studio Components" (`projectId` in config.json). Package shap
 - The palette overlay is imported from Studio's source-available `apps/studio/src/styles/daikonic.css`; retain its FSL-1.1-ALv2 attribution. Components remain the design-system/visual-editor presentational exports. Set `data-theme="daikonic"` on `<html>` alongside `dark`, including when consuming the generated bundle.
 - Brand fonts (Inter / JetBrains Mono / Outfit) load via the same Google Fonts `@import url(...)` as `apps/studio/index.html:9`.
 - Studio hardcodes `<html class="dark">`; the only shipped palette is dark Daikonic (midnight-green surfaces, sandy-brown primary, keppel-teal secondary). User (2026-09-29): light mode / alternative palettes are welcome but not built yet — do not invent one; keep designs token-driven.
+- The Studio body profile in the authoritative `daikonic.css` overlay supplies 13 px Inter UI text, normal tracking and one-pixel semantic hairlines. `_studio-dark` sets `data-studio-app="true"` so design previews and portaled overlays match the application.
 - Preview card shell forces `body{background:#fff}`; every authored preview imports `./_studio-dark` (side effect: `html.dark` + `data-theme="daikonic"` + body bg/fg tokens) so portaled overlays inherit the theme. The import is stripped from `.prompt.md` examples.
 
 ## Previews

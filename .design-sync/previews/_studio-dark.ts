@@ -8,5 +8,6 @@
 // toasts) mount on <body>, so the class must live on <html>, not a wrapper.
 document.documentElement.classList.add('dark');
 document.documentElement.dataset.theme = 'daikonic';
+document.body.dataset.studioApp = 'true';
 document.body.style.background = 'var(--background)';
 document.body.style.color = 'var(--foreground)';

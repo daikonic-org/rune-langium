@@ -30,6 +30,7 @@
  * @module
  */
 
+import { TypeReferenceImports } from '../editors/TypeLink.js';
 import type { InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
 import type { InspectorMetadataActions } from '../../store/metadata-target.js';
 
@@ -37,6 +38,7 @@ import { useEffect, useCallback, useRef, useMemo, Component, memo } from 'react'
 import type { ReactNode, ErrorInfo } from 'react';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
 import { DataTypeForm } from '../editors/DataTypeForm.js';
+import { InspectorSectionRequestContext, type InspectorSectionRequest } from '../editors/inspector/InspectorFrame.js';
 import { EnumForm } from '../editors/EnumForm.js';
 import { ChoiceForm } from '../editors/ChoiceForm.js';
 import { FunctionForm } from '../editors/FunctionForm.js';
@@ -116,6 +118,7 @@ class FormErrorBoundary extends Component<{ children: ReactNode; nodeId: string 
 // ---------------------------------------------------------------------------
 
 export interface EditorFormPanelProps extends InspectorHostProps {
+  sectionRequest?: InspectorSectionRequest;
   metadataActions?: InspectorMetadataActions;
   /** The selected node's data, or null if nothing is selected. */
   nodeData: AnyGraphNode | null;
@@ -200,7 +203,8 @@ const EditorFormPanel = memo(function EditorFormPanel({
   parseEpoch,
   saveStatus,
   registerCommitFlush,
-  metadataActions
+  metadataActions,
+  sectionRequest
 }: EditorFormPanelProps) {
   const formActions = useMemo(
     () => (metadataActions ? { ...actions, ...metadataActions } : actions),
@@ -479,7 +483,13 @@ const EditorFormPanel = memo(function EditorFormPanel({
       tabIndex={-1}
     >
       <div data-slot="panel-content" className="studio-scroll flex-1 overflow-y-auto">
-        <FormErrorBoundary nodeId={nodeId}>{renderForm()}</FormErrorBoundary>
+        <TypeReferenceImports.Provider value={nodeMeta.imports}>
+          <InspectorSectionRequestContext.Provider
+            value={sectionRequest?.nodeId === nodeId ? sectionRequest : undefined}
+          >
+            <FormErrorBoundary nodeId={nodeId}>{renderForm()}</FormErrorBoundary>
+          </InspectorSectionRequestContext.Provider>
+        </TypeReferenceImports.Provider>
       </div>
     </aside>
   );

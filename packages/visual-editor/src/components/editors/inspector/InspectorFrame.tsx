@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
+
+export interface InspectorSectionRequest {
+  nodeId: string;
+  sectionId: string;
+  revision: number;
+}
+
+export const InspectorSectionRequestContext = createContext<InspectorSectionRequest | undefined>(undefined);
 
 export interface InspectorSection {
   id: string;
@@ -29,7 +37,11 @@ export function InspectorFrame({
   footer,
   onSectionChange
 }: InspectorFrameProps) {
-  const [selected, setSelected] = useState(sections[0]?.id);
+  const sectionRequest = useContext(InspectorSectionRequestContext);
+  const [selected, setSelected] = useState(sectionRequest?.sectionId ?? sections[0]?.id);
+  useEffect(() => {
+    if (sectionRequest) setSelected(sectionRequest.sectionId);
+  }, [sectionRequest]);
   const active = sections.find((section) => section.id === selected) ?? sections[0];
   const [mountedSections, setMountedSections] = useState(() => new Set<string>());
   // Track activation in state so discarded renders cannot retain an unvisited session.

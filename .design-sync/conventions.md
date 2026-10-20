@@ -1,6 +1,6 @@
 # Daikonic (Rune Studio) — build conventions
 
-**Setup.** Load `styles.css` and `_ds_bundle.js`; components live on `window.DaikonicDS`. Put `class="dark" data-theme="daikonic"` on `<html>` — Studio uses both, `dark:` variants and the Daikonic palette key off them, and dialogs/menus/toasts portal to `<body>`, so a wrapper `div` is not enough. The base layer already paints `body` with `bg-background text-foreground` in Inter (fonts load via `styles.css`). There is no provider component to wrap.
+**Setup.** Load `styles.css` and `_ds_bundle.js`; components live on `window.DaikonicDS`. Put `class="dark" data-theme="daikonic"` on `<html>` — Studio uses both, `dark:` variants and the Daikonic palette key off them, and dialogs/menus/toasts portal to `<body>`, so a wrapper `div` is not enough. Set `data-studio-app="true"` on `<body>` to apply Studio’s shared 13 px UI scale, normal tracking and one-pixel hairlines, including portaled overlays. The base layer already paints `body` with `bg-background text-foreground` in Inter (fonts load via `styles.css`). There is no provider component to wrap.
 
 **Palette.** Dark Daikonic is the only shipped palette (midnight-green surfaces, sandy-brown `primary`, keppel-teal `secondary`, vermilion `destructive`). A light theme is planned but not built — never invent one, and never write raw hex/oklch: use the semantic tokens below so a future palette re-skins everything.
 
@@ -19,6 +19,12 @@
 | Chrome | `studio-card` (12px radius + hairline + shadow elevated surface) |
 
 For a one-off size outside the scale, use `style={{ width: 480 }}` — arbitrary-value classes like `w-[480px]` render unstyled unless the DS already uses them.
+
+**Studio typography.** Inter for UI labels and navigation, 13 px / 1.5 by default
+with normal tracking; 12 px for supporting text and 16 px semibold for section
+headings. Keep source/code in JetBrains Mono and the brand wordmark in Outfit.
+Use rem-based tokens and preserve user text scaling. Dividers use `--border`,
+inputs use the stronger `--input`, and widths use `--hairline` throughout.
 
 **Studio patterns (copy these).**
 - Panel section label: `text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground`.

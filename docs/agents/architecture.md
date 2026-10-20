@@ -46,12 +46,39 @@ local navigation scope, preserving graph visibility and canonical export inclusi
 Both surfaces share the inset active-row highlight and retain their existing
 buttons, kind glyphs and native drag behavior.
 
+Studio's body-level visual profile applies to every perspective and portaled
+overlay: Inter UI text uses normal tracking and a 13 px default at the standard
+root size, with a shared compact label scale, readable line height and rem-based
+text scaling. Source and generated code retain the monospace family. Borders use
+one-pixel theme-colored hairlines, including Dockview panel edges and headers;
+controls use the stronger input tier. Brand accents and existing glyphs remain.
+
+Namespace alias expansion is shared with Core's scopes. One alias may name
+several imported namespaces in source order. Graph metadata retains imports per
+source declaration, including files sharing a namespace; Structure, Inspector,
+graph navigation and inherited member rows resolve against the originating
+file's imports. Labels keep authored reference text while navigation uses the
+canonical target ID. An inherited override resolves its parent's alias to a
+qualified type name before copying into the child's source scope.
+
+Enum summary disclosure sends a node-scoped Inspector section request with a
+fresh revision. Returning from Details to Values preserves the mounted editor
+and its paging state. Preview hydration completion marks a selected unsupported
+target as waiting until a generated result or concrete failure arrives; namespace
+hydration alone is not generation readiness.
+
 - Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.4; check manifests before changing versions.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.
 - `apps/studio/src/shell/providers/StudioProviders.tsx` composes provider responsibilities; `LspProvider.tsx` owns the LSP client and transport lifecycle.
 - `WorkbenchHost` owns Dockview mounting, stable panel bridges, native-layout restore, serialization subscriptions, and disposal. Each perspective supplies a `WorkbenchDefinition` with its panels, titles, and default builder. `DockShell` remains Explore's adapter: it owns migration of `PanelLayoutRecord`, the Explore factory layout, toolbar/shortcuts, center-pane policy, and utility-tray collapse behavior. Per-workspace perspective preferences use versioned workbench settings; they must contain UI state only, never model payloads or generated artifacts.
 - **Studio LSP is network-only.** `apps/studio/src/services/transport-provider.ts` defaults to session-token minting followed by a token-gated WebSocket to the hosted LSP. Only an explicit `wsUri` opts into direct WebSocket, with token-gated fallback after failure. Configured endpoints can differ between local, preview, and production environments.
+- Hosted dependency snapshots compute exports and local scopes without eagerly
+  linking every function body. Live source still links and validates through
+  Langium. Because lazy snapshot references do not enter the reverse-reference
+  index, source updates clear cached snapshot targets and rebuild the actual
+  open source set, preserving transitive diagnostic invalidation. Snapshot
+  replacement and close/restore retain the same authoritative model lifecycle.
 - Parser and codegen browser workers handle local model operations; they do not provide an LSP fallback.
 - LSP diagnostics carry the version of the validated Langium document. Studio uses one per-URI protocol version counter for live editor changes, headless file changes and dependency refreshes; mounting or replacing a view preserves that version. Studio rejects stale versions and invalid ranges before forwarding them to graph diagnostics or CodeMirror; it never clamps old ranges onto new source.
 - Parser workspace replacement uses one reset for parse and hydration, including empty snapshots. Langium's builder removes parsed documents and their index/build state; indexed deferred stubs are removed separately before registering the replacement. Scope snapshots must never retain symbols from removed files.

@@ -26,9 +26,7 @@
     overflow: hidden;
   }
 
-  body[data-studio-app='true'] {
-    font-family: var(--font-sans);
-  }
+
 }
 
 /* ---------- Shared scrollbar chrome (.studio-scroll) ----------
@@ -130,14 +128,8 @@ html {
 }
 
 @layer components {
-  /* Font cascade is handled at the body level:
-   *   • `body[data-studio-app='true']` (styles.css @layer base) sets var(--font-sans)
-   *   • `@layer base body` in design-system/theme.css does the same
-   *   • Tailwind v4 preflight `button, input, select, textarea { font: inherit }`
-   *     makes all form elements inherit from body, so no per-element overrides needed
-   *   • `h1-h6 { font-family: inherit }` in theme.css lets headings follow the body font
-   *   Previously three rules here repeated font-family: var(--font-sans) on .studio-app,
-   *   form elements, and h1-h6 — removed in Phase 4 style-override cleanup (redundant). */
+  /* The shared Studio profile in styles/daikonic.css reaches body portals.
+   * Preflight makes form controls inherit it; headings follow the same family. */
 
   /* Button density — studio compacts the default/sm/xs heights slightly
    * so panels read denser. cursor/transition/hover-lift are now in the

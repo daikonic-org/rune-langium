@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { EmptyFileSystem, URI, DocumentState } from 'langium';
 import { createRuneDslServices, compactLspModelJson, serializeRuneModel } from '@rune-langium/core';
 import { createRuneLspServer } from '../src/rune-dsl-server.js';
@@ -30,6 +30,19 @@ async function fixture() {
 }
 
 describe('semantic LSP dependency index', () => {
+  it('indexes dependency scopes without eagerly linking every serialized body', async () => {
+    const lsp = createRuneLspServer();
+    await lsp.shared.workspace.WorkspaceManager.initialized({});
+    const json = await modelJson('namespace example\ntype Party:\n name string (1..1)\n');
+    const link = vi.spyOn(lsp.services.references.Linker, 'link');
+    await lsp.syncModels({ document: { uri: depUri, modelJson: json } });
+    await lsp.syncModels({ retain: [depUri] });
+    expect(link.mock.calls.some(([document]) => document.uri.toString() === depUri)).toBe(false);
+    const document = lsp.shared.workspace.LangiumDocuments.getDocument(URI.parse(depUri))!;
+    expect(document.state).toBe(DocumentState.ComputedScopes);
+    expect(document.localSymbols).toBeDefined();
+  });
+
   it('resolves cross-file names and returns the serialized declaration range', async () => {
     const { lsp, user } = await fixture();
     expect(user.diagnostics?.filter((d) => d.severity === 1)).toEqual([]);

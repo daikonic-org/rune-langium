@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect, vi } from 'vitest';
+import { createRuneDslServices, compactLspModelJson, serializeRuneModel } from '@rune-langium/core';
 import { URI } from 'langium';
 import { createRuneLspServer } from '../src/rune-dsl-server.js';
 import { DurableObjectWebSocketTransport } from '../src/cf-durable-object-transport.js';
@@ -122,5 +123,73 @@ describe('RuneDocumentUpdateHandler', () => {
       expect(cleared).toBeDefined();
       expect(cleared.params.diagnostics).toEqual([]);
     });
+  });
+});
+
+describe('lazy semantic dependency invalidation', () => {
+  it('rechecks an open source after a transitive dependency changes through didOpen', async () => {
+    const lsp = createRuneLspServer();
+    const ws = makeFakeWs();
+    const transport = new DurableObjectWebSocketTransport(ws);
+    void lsp.listen(transport);
+    transport.receive(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { processId: null, rootUri: null, capabilities: {} }
+      })
+    );
+    await vi.waitFor(() => expect(ws.sent.some((m: any) => m.id === 1)).toBe(true));
+    transport.receive(JSON.stringify({ jsonrpc: '2.0', method: 'initialized', params: {} }));
+    const innerUri = 'file:///inner.rosetta';
+    const outerUri = 'file:///outer.rosetta';
+    const userUri = 'file:///user.rosetta';
+    for (const [uri, source] of [
+      [innerUri, 'namespace example\ntype Inner:\n field string (1..1)\n'],
+      [outerUri, 'namespace example\ntype Outer:\n inner Inner (1..1)\n']
+    ]) {
+      const { RuneDsl, shared } = createRuneDslServices();
+      const document = shared.workspace.LangiumDocumentFactory.fromString(source!, URI.parse(uri!));
+      await shared.workspace.DocumentBuilder.build([document]);
+      await lsp.syncModels({
+        document: {
+          uri: uri!,
+          modelJson: compactLspModelJson(
+            serializeRuneModel(RuneDsl.serializer.JsonSerializer, document.parseResult.value)
+          )
+        }
+      });
+    }
+    await lsp.syncModels({ retain: [innerUri, outerUri] });
+    const open = (uri: string, text: string) =>
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'textDocument/didOpen',
+          params: { textDocument: { uri, languageId: 'rosetta', version: 0, text } }
+        })
+      );
+    open(
+      userUri,
+      'namespace example\ntype User:\n outer Outer (1..1)\n condition UsesField: outer -> inner -> field exists\n'
+    );
+    await vi.waitFor(() => {
+      expect(
+        ws.sent.some((m: any) => m.method === 'textDocument/publishDiagnostics' && m.params?.uri === userUri)
+      ).toBe(true);
+    });
+    const diagnostics = () => {
+      const messages = ws.sent.filter(
+        (m: any) => m.method === 'textDocument/publishDiagnostics' && m.params?.uri === userUri
+      );
+      return messages[messages.length - 1] as any;
+    };
+    expect(diagnostics().params.diagnostics.filter((d: any) => d.severity === 1)).toEqual([]);
+    open(innerUri, 'namespace example\ntype Inner:\n renamed string (1..1)\n');
+    await vi.waitFor(() =>
+      expect(diagnostics().params.diagnostics.some((d: any) => d.message.includes("'field'"))).toBe(true)
+    );
+    transport.signalClose();
   });
 });

@@ -15,8 +15,11 @@ LSP server utilities for Rune DSL editor integrations.
 
 Studio sends canonical serialized models through `rune/syncModels`: individual
 `{ document: { uri, modelJson } }` updates followed by `{ retain: [uri, ...] }`.
-`retain` publishes the current semantic document set and rebuilds references;
-unchanged models need not be resent. Open LSP text documents always override
+`retain` publishes the current semantic document set and computes exports and
+local scopes; unchanged models need not be resent. Dependency bodies link lazily
+when live source needs them. Source edits clear cached dependency targets and
+recheck open documents, preserving transitive diagnostics without an eager
+reverse-reference index for the entire closed corpus. Open LSP text documents always override
 snapshots. Dependencies have declaration ranges but no CST, so only live source
 gets diagnostics. Other LSP clients can continue using ordinary `didOpen` and
 `didChange` messages.

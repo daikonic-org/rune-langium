@@ -11,6 +11,8 @@
  * @module
  */
 
+import { buildImportAliasMap, importAliasCandidates } from '@rune-langium/core';
+import type { NamespaceImport } from '@rune-langium/core';
 import { useMemo } from 'react';
 import type { AnyGraphNode, TypeGraphNode } from '../types.js';
 import { getRefText, resolveNodeKind, getTypeRefText, formatCardinality } from '../adapters/model-helpers.js';
@@ -40,6 +42,7 @@ interface RecordShape {
 export interface InheritedGroup {
   /** Name of the ancestor type. */
   ancestorName: string;
+  imports?: readonly NamespaceImport[];
   /** Namespace of the ancestor. */
   namespace: string;
   /** Kind of the ancestor node. */
@@ -94,29 +97,28 @@ export function useInheritedMembers(
     const visited = new Set<string>();
     let currentParentName: string | undefined = parentName;
     let depth = 0;
+    let imports = allNodes.find((node) => node.data === nodeData)?.meta.imports;
 
     while (currentParentName && depth < maxDepth) {
-      if (visited.has(currentParentName)) break; // cycle guard
-      visited.add(currentParentName);
-
-      // Qualified-name branch: byId is O(1) under invariant I1
-      // (node.id === makeNodeId(ns, name)); on the repo-less path the array
-      // scan must also check the composed id so cross-namespace supertypes
-      // referenced by fully-qualified $refText (e.g. "cdm.base.Foo") resolve.
-      const parentNode =
-        nodeRepository?.byId(currentParentName) ??
-        allNodes.find((n) => {
-          const pd = n.data;
-          return pd.name === currentParentName || makeNodeId(n.meta.namespace, pd.name) === currentParentName;
-        });
-
-      if (!parentNode) break;
+      let parentNode: TypeGraphNode | undefined;
+      for (const candidate of importAliasCandidates(currentParentName, buildImportAliasMap(imports ?? []))) {
+        parentNode =
+          nodeRepository?.byId(candidate) ??
+          allNodes.find(
+            (node) => node.data.name === candidate || makeNodeId(node.meta.namespace, node.data.name) === candidate
+          );
+        if (parentNode) break;
+      }
+      if (!parentNode || visited.has(parentNode.id)) break;
+      visited.add(parentNode.id);
+      imports = parentNode.meta.imports;
 
       const pd = parentNode.data;
       const members = getMembers(pd);
       if (members.length > 0) {
         groups.push({
           ancestorName: pd.name,
+          ...(imports ? { imports } : {}),
           namespace: parentNode.meta.namespace,
           kind: resolveNodeKind(parentNode),
           members
@@ -311,6 +313,7 @@ export function buildMergedEnumValueList(
 // ---------------------------------------------------------------------------
 
 export interface EffectiveEntry {
+  imports?: readonly NamespaceImport[];
   id: string;
   name: string;
   source: 'local' | 'inherited';
@@ -389,6 +392,7 @@ export function useEffectiveMembers(
             cardinality: formatCardinality(m.card),
             displayName: m.display ?? m.displayName,
             ancestorName: group.ancestorName,
+            ...(group.imports ? { imports: group.imports } : {}),
             inheritanceDepth: depth + 1,
             isOverride: false,
             rawMember: member

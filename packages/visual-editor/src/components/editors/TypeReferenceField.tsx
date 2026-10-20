@@ -15,12 +15,12 @@
  * the nav arrow remains (navigation is read-only-safe).
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useContext } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@rune-langium/design-system/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { RowGlyph } from '@rune-langium/design-system/ui/row-glyph';
-import { resolveNodeId } from './TypeLink.js';
+import { resolveNodeId, TypeReferenceImports } from './TypeLink.js';
 import { NamespaceTreePicker } from './NamespaceTreePicker.js';
 import { TypeChip, type TypeChipKind } from './structure/TypeChip.js';
 import { useTypeRefDrop } from '../../hooks/useTypeRefDrop.js';
@@ -89,6 +89,7 @@ export function TypeReferenceField({
   className
 }: TypeReferenceFieldProps) {
   const [open, setOpen] = useState(false);
+  const imports = useContext(TypeReferenceImports);
 
   const selected = useMemo(() => {
     const byValue = options?.find((option) => option.value === value);
@@ -98,11 +99,11 @@ export function TypeReferenceField({
       if (byLabel) return byLabel;
       // Qualified authored references retain the canonical option's kind even
       // when its display label is bare (e.g. two namespaces both define Status).
-      const nodeId = resolveNodeId(displayName, options?.map((option) => option.value) ?? []);
+      const nodeId = resolveNodeId(displayName, options?.map((option) => option.value) ?? [], imports);
       return options?.find((option) => option.value === nodeId) ?? null;
     }
     return null;
-  }, [displayName, options, value]);
+  }, [displayName, options, value, imports]);
 
   const effectiveValue = value ?? selected?.value ?? null;
   const typeLabel = displayName ?? selected?.label ?? '';
@@ -110,8 +111,8 @@ export function TypeReferenceField({
 
   const resolvedNodeId = useMemo(() => {
     if (!typeLabel || !allNodeIds?.length) return undefined;
-    return resolveNodeId(typeLabel, allNodeIds);
-  }, [allNodeIds, typeLabel]);
+    return resolveNodeId(typeLabel, allNodeIds, imports);
+  }, [allNodeIds, typeLabel, imports]);
   const canNavigate = Boolean(onNavigateToNode && resolvedNodeId);
 
   const handleNavigate = useCallback(() => {

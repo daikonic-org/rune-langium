@@ -268,6 +268,7 @@ function graphNodesToAdapterDocument(
         $type: 'Data',
         name: dd.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         extends: dd.superType?.$refText,
         // `attributes` on Dehydrated<Data> has the same structural shape as
@@ -293,6 +294,7 @@ function graphNodesToAdapterDocument(
         $type: 'Choice',
         name: dc.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         choiceOptions: (dc.attributes ?? []) as ReadonlyArray<AdapterChoiceOption>,
         // Phase A — type metadata. Choice declarations carry doc + annotations
@@ -307,15 +309,16 @@ function graphNodesToAdapterDocument(
         $type: 'Enum',
         name: de.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         values: (de.enumValues ?? []) as Array<{ name: string }>
       });
     } else if (effectiveType === 'RosettaRecordType') {
       const dr = d as { name: string };
-      adapterNodes.push({ id: rfNode.id, $type: 'Record', name: dr.name, namespace });
+      adapterNodes.push({ id: rfNode.id, $type: 'Record', name: dr.name, namespace, imports: rfNode.meta.imports });
     } else if (effectiveType === 'TypeAlias' || effectiveType === 'RosettaTypeAlias') {
       const ta = d as { name: string };
-      adapterNodes.push({ id: rfNode.id, $type: 'TypeAlias', name: ta.name, namespace });
+      adapterNodes.push({ id: rfNode.id, $type: 'TypeAlias', name: ta.name, namespace, imports: rfNode.meta.imports });
     } else if (effectiveType === 'RosettaFunction') {
       // Phase C — Function structure node. `inputs` and `output` are
       // Attribute-shaped (name + typeCall + card), identical to Data
@@ -336,6 +339,7 @@ function graphNodesToAdapterDocument(
         $type: 'Function',
         name: df.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         inputs: (df.inputs ?? []) as AdapterNode['inputs'],
         output: df.output ?? null,
@@ -546,6 +550,18 @@ export const ExplorePerspective = withInstrumentation(
     const storeOpenFileInSource = useExploreFileNavStore((s) => s.openFileInSource);
     const requestSourceFile = useExploreFileNavStore((s) => s.requestSourceFile);
     const [inspectorFocusNonce, setInspectorFocusNonce] = useState(0);
+    const [inspectorSectionRequest, setInspectorSectionRequest] = useState<{
+      nodeId: string;
+      sectionId: string;
+      revision: number;
+    }>();
+    const requestInspectorMembers = useCallback((nodeId: string) => {
+      setInspectorSectionRequest((previous) => ({
+        nodeId,
+        sectionId: 'members',
+        revision: (previous?.revision ?? 0) + 1
+      }));
+    }, []);
     const pendingRevealRef = useRef<SourceRevealRequest | null>(null);
     const navigationSequenceRef = useRef(0);
     const [navigationTarget, setNavigationTarget] = useState<{
@@ -2223,6 +2239,7 @@ export const ExplorePerspective = withInstrumentation(
                 onNavigateToType: navigateToNode,
                 onInspectType: (id) => {
                   navigateToNode(id);
+                  requestInspectorMembers(id);
                   showInspector();
                 }
               }}
@@ -2263,6 +2280,7 @@ export const ExplorePerspective = withInstrumentation(
         navigateToNode,
         storeLayoutEngine,
         storeSetLayoutEngine,
+        requestInspectorMembers,
         setGraphContainerRef
       ]
     );
@@ -2505,6 +2523,7 @@ export const ExplorePerspective = withInstrumentation(
           >
             <EditorFormPanel
               nodeData={selectedNodeData}
+              sectionRequest={inspectorSectionRequest}
               meta={selectedNodeMeta}
               nodeId={selectedNodeId}
               refOnly={selectedNodeIsRefOnly}
@@ -2543,6 +2562,7 @@ export const ExplorePerspective = withInstrumentation(
         storeParseEpoch,
         formCommitRegistry,
         selectedNodeData,
+        inspectorSectionRequest,
         selectedNodeMeta,
         selectedNodeId,
         selectedNodeIsRefOnly,
@@ -2756,6 +2776,7 @@ export const ExplorePerspective = withInstrumentation(
             onNavigateToEnumType={handleStructureNavigateToEnumType}
             onInspectType={(id) => {
               handleStructureNavigateToEnumType(id);
+              requestInspectorMembers(id);
               showInspector();
             }}
             structureDiagnostics={structureDiagnostics}
@@ -2773,6 +2794,7 @@ export const ExplorePerspective = withInstrumentation(
         structureUnsupportedSelectedType,
         storeSelectNode,
         handleStructureNavigateToEnumType,
+        requestInspectorMembers,
         structureDiagnostics,
         pendingHydrationNamespaces
       ]
