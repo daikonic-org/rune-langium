@@ -79,6 +79,15 @@ describe('WorkspaceSwitcher (T059)', () => {
     expect(onOpen).toHaveBeenCalledWith('w-1');
   });
 
+  it('describes storage and recency separately from the workspace action name', async () => {
+    await saveWorkspace(ws('w-1', 'One', 'browser-only', new Date().toISOString()));
+    render(<WorkspaceSwitcher onOpen={() => {}} onCreate={() => {}} onDelete={() => {}} />);
+    const open = await screen.findByRole('button', { name: 'Open One', exact: true });
+    expect(open).toHaveAccessibleDescription('Browser just now');
+    expect(screen.getByText('Browser')).toBeVisible();
+    expect(screen.getByText('just now')).toBeVisible();
+  });
+
   it('Delete button on a row calls onDelete after confirmation', async () => {
     await saveWorkspace(ws('w-1', 'Doomed', 'browser-only', '2026-04-25T00:00:00Z'));
     const onDelete = vi.fn();

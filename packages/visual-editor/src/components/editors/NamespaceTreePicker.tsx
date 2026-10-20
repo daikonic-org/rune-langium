@@ -12,7 +12,8 @@
  *
  * Path compression (`compressSingleChild`) is on: single-child namespace chains
  * collapse into one header (e.g. `com.rosetta`) so deep namespaces stay compact
- * in the narrow popover — the one rendering difference from the explorer.
+ * in the narrow popover. Focus, breadcrumbs and collision labels share the
+ * explorer's canonical presentation helpers.
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -22,15 +23,15 @@ import { Input } from '@rune-langium/design-system/ui/input';
 import type { TypeOption, TypeKind } from '../../types.js';
 import {
   buildSegmentedNamespaceTreeFromOptions,
+  compactSegmentedNamespaceTree,
   flattenSegmentedTree,
   filterSegmentedTree,
   ancestorPathsForMatches
 } from '../../utils/namespace-tree.js';
-import {
-  NamespaceSegmentHeaderRow,
-  NAMESPACE_TREE_INDENT_BASE,
-  NAMESPACE_TREE_TYPE_INDENT
-} from '../NamespaceSegmentHeaderRow.js';
+import { NamespaceSegmentHeaderRow, NAMESPACE_TREE_TYPE_INDENT } from '../NamespaceSegmentHeaderRow.js';
+import { NamespaceBreadcrumb, NamespaceTreeGuides } from '../NamespaceTreeChrome.js';
+import { namespaceTreeIndent, namespaceTypeLabels } from '../../utils/namespace-tree-presentation.js';
+import { useNamespaceScope } from '../../hooks/useNamespaceScope.js';
 import { useVirtualTree } from '../../hooks/useVirtualTree.js';
 import { getKindDotClass } from './TypeSelector.js';
 
@@ -49,8 +50,6 @@ export interface NamespaceTreePickerProps {
   autoFocusSearch?: boolean;
   className?: string;
 }
-
-const TYPE_ROW_PADDING_LEFT = NAMESPACE_TREE_INDENT_BASE + NAMESPACE_TREE_TYPE_INDENT;
 
 export function NamespaceTreePicker({
   options,
@@ -100,11 +99,21 @@ export function NamespaceTreePicker({
     return treeExpanded;
   }, [searchQuery, roots, treeExpanded]);
 
-  const visibleRoots = useMemo(() => filterSegmentedTree(roots, searchQuery), [roots, searchQuery]);
-
+  const compactRoots = useMemo(() => compactSegmentedNamespaceTree(roots), [roots]);
+  const { activeFocus, scopedRoots, focusNamespace } = useNamespaceScope(
+    compactRoots,
+    searchQuery,
+    scrollRef,
+    setTreeExpanded
+  );
+  const visibleRoots = useMemo(() => filterSegmentedTree(scopedRoots, searchQuery), [scopedRoots, searchQuery]);
+  const labels = useMemo(() => namespaceTypeLabels(compactRoots, !!searchQuery.trim()), [compactRoots, searchQuery]);
   const flatRows = useMemo(
-    () => flattenSegmentedTree(visibleRoots, effectiveExpanded, { compressSingleChild: true }),
-    [visibleRoots, effectiveExpanded]
+    () =>
+      flattenSegmentedTree(visibleRoots, effectiveExpanded).map((row) =>
+        row.kind === 'type' ? { ...row, qualifier: labels.get(row.nodeId)?.qualifier } : row
+      ),
+    [visibleRoots, effectiveExpanded, labels]
   );
 
   const virtualizer = useVirtualTree(flatRows, scrollRef);
@@ -143,6 +152,7 @@ export function NamespaceTreePicker({
         </button>
       )}
 
+      <NamespaceBreadcrumb path={activeFocus} onFocus={focusNamespace} />
       <div ref={scrollRef} className="studio-scroll max-h-72 flex-1 overflow-auto" data-testid="nstp-tree">
         {flatRows.length === 0 ? (
           <p className="px-3 py-4 text-center text-xs text-muted-foreground">
@@ -167,28 +177,47 @@ export function NamespaceTreePicker({
                     <NamespaceSegmentHeaderRow
                       data-testid={`nstp-seg-${row.fullPath}`}
                       fullPath={row.fullPath}
+                      label={row.segment || '(default)'}
+                      onFocus={() => focusNamespace(row.fullPath)}
                       expanded={row.expanded}
                       count={row.totalCount}
                       depth={row.depth}
                       onToggle={() => toggleExpand(row.fullPath)}
-                      indentPx={NAMESPACE_TREE_INDENT_BASE}
+                      indentPx={namespaceTreeIndent(row.depth)}
                     />
                   ) : row.kind === 'type' ? (
                     <button
                       type="button"
                       data-testid={`nstp-type-${row.nodeId}`}
                       onClick={() => onSelect(row.nodeId)}
-                      style={{ paddingLeft: `${TYPE_ROW_PADDING_LEFT}px`, height: '28px' }}
+                      style={{
+                        paddingLeft: `${namespaceTreeIndent(Math.max(0, (row.depth ?? 1) - 1)) + NAMESPACE_TREE_TYPE_INDENT}px`,
+                        height: '100%'
+                      }}
+                      title={labels.get(row.nodeId)?.fullLabel}
+                      aria-label={`${row.name}${labels.get(row.nodeId)?.qualifier ? ` ${labels.get(row.nodeId)!.qualifier}` : ''}`}
+                      aria-current={row.nodeId === value ? 'true' : undefined}
                       className={cn(
-                        'flex w-full items-center gap-2 pr-2 text-xs text-foreground hover:bg-accent/50',
+                        'rune-namespace-type-row relative flex w-full items-center gap-2 pr-2 text-xs text-foreground hover:bg-accent/50',
                         row.nodeId === value && 'bg-accent text-accent-foreground'
                       )}
                     >
+                      <NamespaceTreeGuides depth={row.depth ?? 1} />
                       <span
                         className={cn('inline-block size-2 shrink-0 rounded-full', getKindDotClass(row.typeKind))}
                         aria-hidden="true"
                       />
-                      <span className="truncate">{row.name}</span>
+                      <span className="min-w-0 text-left">
+                        <span className="block truncate">{row.name}</span>
+                        {labels.get(row.nodeId)?.qualifier && (
+                          <>
+                            {' '}
+                            <span className="block truncate text-3xs text-muted-foreground">
+                              {labels.get(row.nodeId)!.qualifier}
+                            </span>
+                          </>
+                        )}
+                      </span>
                     </button>
                   ) : null}
                 </div>

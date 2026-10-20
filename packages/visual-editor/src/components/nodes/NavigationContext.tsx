@@ -13,12 +13,15 @@ import { createContext, useContext } from 'react';
 import { Position, useStore } from '@xyflow/react';
 import type { NavigateToNodeCallback, TypeGraphNode, ValidationError } from '../../types.js';
 import type { LayoutOptions } from '../../types.js';
-import { isTypeNodeId, nameFromNodeId, qualifiedNameFromNodeId } from '../../store/node-projection.js';
+import { resolveNodeId } from '../editors/TypeLink.js';
+import type { NamespaceImport } from '@rune-langium/core';
 
 export type GraphLayoutDirection = NonNullable<LayoutOptions['direction']>;
 
 export interface NavigationContextValue {
   onNavigateToType?: NavigateToNodeCallback;
+  /** Reveal the selected declaration's complete details in the host Inspector. */
+  onInspectType?: NavigateToNodeCallback;
   /** Set of all node IDs currently in the graph, used to check if a type is navigable. */
   allNodeIds: Set<string>;
   /** Active dagre layout direction so node handles can choose the opposing connector axis. */
@@ -97,14 +100,17 @@ export function getHandlePositions(direction: GraphLayoutDirection): {
  * collisions (e.g. "a.Foo.Bar" must NOT match typeName="Foo").
  * Returns the first matching node ID, or undefined if not navigable.
  */
-export function resolveTypeNodeId(typeName: string, allNodeIds: Set<string>): string | undefined {
-  // Exact match first (already fully qualified, e.g., "cdm.base.math.Quantity")
-  for (const id of allNodeIds) {
-    if (isTypeNodeId(id) && qualifiedNameFromNodeId(id) === typeName) return id;
-  }
-  // Exact last-segment match — avoids false positives from namespace segments
-  for (const id of allNodeIds) {
-    if (isTypeNodeId(id) && nameFromNodeId(id) === typeName) return id;
-  }
-  return undefined;
+export function resolveTypeNodeId(
+  typeName: string,
+  allNodeIds: Set<string>,
+  imports?: readonly NamespaceImport[]
+): string | undefined {
+  return resolveNodeId(typeName, allNodeIds, imports);
+}
+
+/** Authored import bindings are UI metadata, not React Flow domain payload. */
+export function useNodeMetaImports(id: string): readonly NamespaceImport[] | undefined {
+  return useStore(
+    (state) => (state.nodeLookup.get(id)?.internals.userNode as TypeGraphNode | undefined)?.meta?.imports
+  );
 }

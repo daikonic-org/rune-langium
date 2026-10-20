@@ -33,10 +33,10 @@ const MIN_PANE_PX = 120;
 interface CenterStackPanelProps {
   /** Identity changes restart the delayed cue; hidden panes never pulse. */
   sourceNavigationPending?: object | null;
-  renderGraph: () => React.ReactElement | null;
+  renderGraph: (showInspector: () => void) => React.ReactElement | null;
   renderSource: () => React.ReactElement | null;
   renderInspector: () => React.ReactElement | null;
-  renderStructure: () => React.ReactElement | null;
+  renderStructure: (showInspector: () => void) => React.ReactElement | null;
 }
 
 export const CenterStackPanel = withInstrumentation(
@@ -48,6 +48,9 @@ export const CenterStackPanel = withInstrumentation(
     sourceNavigationPending: pendingOverride
   }: CenterStackPanelProps): React.ReactElement {
     const { activePanes, toggle } = useCenterPanes();
+    const showInspector = () => {
+      if (!activePanes.has('inspector')) toggle('inspector');
+    };
     const pendingContext = useContext(SourceNavigationFeedbackContext);
     const sourceNavigationPending = pendingOverride === undefined ? pendingContext : pendingOverride;
     const sourceVisible = activePanes.has('source');
@@ -126,9 +129,9 @@ export const CenterStackPanel = withInstrumentation(
     const renderPane = (pane: CenterPane): React.ReactElement | null => {
       switch (pane) {
         case 'graph':
-          return renderGraph();
+          return renderGraph(showInspector);
         case 'structure':
-          return renderStructure();
+          return renderStructure(showInspector);
         case 'source':
           return renderSource();
         case 'inspector':
@@ -145,9 +148,9 @@ export const CenterStackPanel = withInstrumentation(
           aria-label="Center pane selector"
           data-testid="studio-paneswitch"
         >
-          <div className="studio-paneswitch gap-4">
+          <div className="studio-paneswitch">
             {PANE_GROUPS.map(({ label, panes }) => (
-              <div key={label} className="flex h-full" role="group" aria-label={label}>
+              <div key={label} className="studio-paneswitch__group" role="group" aria-label={label}>
                 {panes.map((pane) => {
                   const isActive = activePanes.has(pane);
                   const Icon = PANE_ICONS[pane];

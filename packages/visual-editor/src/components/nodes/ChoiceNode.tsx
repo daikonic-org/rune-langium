@@ -32,7 +32,13 @@ import type {
 } from '../../types/structure-view.js';
 import { expansionKey } from '../../types/structure-view.js';
 import { getTypeRefText } from '../../adapters/model-helpers.js';
-import { getHandlePositions, useNavigation, resolveTypeNodeId, useNodeMetaErrors } from './NavigationContext.js';
+import {
+  getHandlePositions,
+  useNavigation,
+  resolveTypeNodeId,
+  useNodeMetaErrors,
+  useNodeMetaImports
+} from './NavigationContext.js';
 import { BaseFlowNode } from './BaseFlowNode.js';
 import { StructureMetaIndicators } from './StructureMetaIndicators.js';
 import type { RangeDiagnostic } from '../../hooks/useDiagnosticsForRange.js';
@@ -313,6 +319,7 @@ export const ChoiceNode = memo(function ChoiceNode({ data, selected, id }: NodeP
   const handles = getHandlePositions(layoutDirection);
   // Validation errors live on the node.meta sibling (not on data).
   const nodeErrors = useNodeMetaErrors(id);
+  const imports = useNodeMetaImports(id);
   // Hoisted above the structure/default branch below: hooks must run
   // unconditionally on every render, but the structure variant returns
   // early, so this can't sit after that branch (rules-of-hooks).
@@ -466,7 +473,7 @@ export const ChoiceNode = memo(function ChoiceNode({ data, selected, id }: NodeP
             {members.map((member: any, i: number) => {
               const typeName = getTypeRefText(member.typeCall);
               const displayName = typeName ?? member.name;
-              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds) : undefined;
+              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
               return (
                 <div key={typeName ?? member.name ?? i} className="rune-node-member">
                   {targetId && onNavigateToType ? (

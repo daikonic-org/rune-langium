@@ -18,6 +18,8 @@
  * @module
  */
 
+import { TypeReferenceImports, resolveNodeId } from './TypeLink.js';
+import { qualifiedNameFromNodeId } from '../../store/node-projection.js';
 import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
 import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
 import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
@@ -337,25 +339,31 @@ function DataTypeForm({
       rows.push({
         id: entry.id,
         render: (_ctx: GhostRowContext) => (
-          <InheritedAttributeRow
-            availableTypes={availableTypes}
-            name={entry.name}
-            selected={targets.selection.selectedRow?.key === entry.id}
-            onSelect={() => targets.selection.select(entry.id)}
-            typeName={entry.typeName ?? 'string'}
-            cardinality={entry.cardinality ?? '(1..1)'}
-            ancestorName={entry.ancestorName ?? ''}
-            disabled={isReadOnly}
-            onOverride={() =>
-              handleOverrideInherited({
-                name: entry.name,
-                typeName: entry.typeName ?? 'string',
-                cardinality: entry.cardinality ?? '(1..1)'
-              })
-            }
-            onNavigateToNode={onNavigateToNode}
-            allNodeIds={allNodeIds}
-          />
+          <TypeReferenceImports.Provider value={entry.imports}>
+            <InheritedAttributeRow
+              availableTypes={availableTypes}
+              name={entry.name}
+              selected={targets.selection.selectedRow?.key === entry.id}
+              onSelect={() => targets.selection.select(entry.id)}
+              typeName={entry.typeName ?? 'string'}
+              cardinality={entry.cardinality ?? '(1..1)'}
+              ancestorName={entry.ancestorName ?? ''}
+              disabled={isReadOnly}
+              onOverride={() =>
+                handleOverrideInherited({
+                  name: entry.name,
+                  typeName: qualifiedNameFromNodeId(
+                    resolveNodeId(entry.typeName ?? 'string', allNodeIds ?? [], entry.imports, entry.namespace) ??
+                      entry.typeName ??
+                      'string'
+                  ),
+                  cardinality: entry.cardinality ?? '(1..1)'
+                })
+              }
+              onNavigateToNode={onNavigateToNode}
+              allNodeIds={allNodeIds}
+            />
+          </TypeReferenceImports.Provider>
         )
       });
     }

@@ -144,11 +144,30 @@ export class RuneModelIndex {
 /** Snapshot dependencies have no CST; diagnostics belong to live source only. */
 export class RuneLspDocumentBuilder extends DefaultDocumentBuilder {
   restoreModels?: (uris: URI[]) => Promise<void>;
+  // Dependency snapshots need exports/scopes, not an eager walk of every body.
+  // Live source still links and indexes references for diagnostics/invalidation.
+  protected override shouldLink(document: LangiumDocument): boolean {
+    return Boolean(document.parseResult.value.$cstNode) && super.shouldLink(document);
+  }
   protected override shouldValidate(document: LangiumDocument): boolean {
     return Boolean(document.parseResult.value.$cstNode) && super.shouldValidate(document);
   }
   override async update(changed: URI[], deleted: URI[], token?: CancellationToken): Promise<void> {
-    await super.update(changed, deleted, token);
+    // Lazy dependency references are not in Langium's reverse-reference index.
+    // Invalidate their cached targets and rebuild the actual open source set.
+    const sources = new Map(changed.map((uri) => [uri.toString(), uri]));
+    if (changed.length || deleted.length) {
+      const removed = new Set(deleted.map((uri) => uri.toString()));
+      for (const document of this.langiumDocuments.all) {
+        if (!document.parseResult.value.$cstNode) {
+          this.serviceRegistry.getServices(document.uri).references.Linker.unlink(document);
+        } else {
+          const uri = document.uri.toString();
+          if (!removed.has(uri) && this.textDocuments?.get(uri)) sources.set(uri, document.uri);
+        }
+      }
+    }
+    await super.update([...sources.values()], deleted, token);
     await this.restoreModels?.(deleted);
   }
 }

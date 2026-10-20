@@ -378,3 +378,28 @@ describe('astToModel', () => {
     });
   });
 });
+
+describe('file-local namespace aliases', () => {
+  it('keeps different import bindings for declarations in the same namespace', async () => {
+    const sources = [
+      'namespace caller\nimport left.* as ref\ntype First:\n value ref.Target (0..1)\n',
+      'namespace caller\nimport right.* as ref\ntype Second:\n value ref.Target (0..1)\n',
+      'namespace left\ntype Target:\n value string (0..1)\n',
+      'namespace right\ntype Target:\n value int (0..1)\n'
+    ];
+    const models = await Promise.all(sources.map(async (source) => (await parse(source)).value));
+    const result = astToModel(models);
+    expect(result.nodes.find((node) => node.id === 'caller.First#Data')?.meta.imports).toEqual([
+      { importedNamespace: 'left.*', namespaceAlias: 'ref' }
+    ]);
+    expect(result.nodes.find((node) => node.id === 'caller.Second#Data')?.meta.imports).toEqual([
+      { importedNamespace: 'right.*', namespaceAlias: 'ref' }
+    ]);
+    expect(
+      result.edges.filter((edge) => edge.data?.kind === 'attribute-ref').map((edge) => [edge.source, edge.target])
+    ).toEqual([
+      ['caller.First#Data', 'left.Target#Data'],
+      ['caller.Second#Data', 'right.Target#Data']
+    ]);
+  });
+});

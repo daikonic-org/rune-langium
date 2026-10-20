@@ -244,6 +244,18 @@
   display: none;
 }
 
+.rune-enum-disclosure {
+  color: var(--color-node-text);
+  font: inherit;
+  white-space: nowrap;
+}
+
+button.rune-enum-disclosure {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .rune-node-kind-badge {
   display: inline-flex;
   align-items: center;
@@ -720,19 +732,19 @@ button[data-navigable]:focus-visible {
   background: color-mix(in oklch, var(--muted) 50%, transparent);
 }
 
-/* ── Namespace segment header band ────────────────────────────────────
-   The flat namespace tree (explorer + inspector type picker) drops the
-   per-depth indent, so nesting is signalled by a resting background that
-   deepens with depth. The depth tint is supplied by the component as the
-   `--ns-seg-bg` custom property (so this :hover rule can still override the
-   background — an inline `background` would beat the hover and kill the
-   affordance). Fallback keeps the original muted/40 if the var is unset. */
+/* Shared namespace hierarchy: restrained bands and inset selection. */
 .rune-ns-seg-header {
-  background: var(--ns-seg-bg, color-mix(in oklch, var(--muted) 40%, transparent));
+  background: var(--ns-seg-bg, color-mix(in oklch, var(--muted) 20%, transparent));
 }
 
 .rune-ns-seg-header:hover {
   background: color-mix(in oklch, var(--accent) 50%, transparent);
+}
+
+.rune-namespace-type-row[aria-current='true'] {
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--accent) 80%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 /* Type-reference field — a BARE layout wrapper + drop target. The colored chip
@@ -1285,16 +1297,17 @@ button[data-navigable]:focus-visible {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  flex: 1;
-  /* Inter-line gap matches the horizontal type↔cardinality gap on the
-     type-line (both var(--space-1) = 4px), so the stacked name/type lines
-     breathe by the same amount the type and cardinality do. DATA_ROW_HEIGHT
-     (36) = name line + this gap + type/card line. */
-  gap: var(--space-1);
+  flex: 1 1 auto;
+  /* Keep the two lines grouped while reserving padding inside the row frame. */
+  gap: calc(var(--space-1) / 2);
 }
 
 .rune-node-row__name-line {
   min-width: 0;
+}
+
+.rune-node-row__name-line .rune-cell-name {
+  padding-inline: calc(var(--rune-chip-padding-x) + var(--hairline));
 }
 
 .rune-node-row__type-line {
@@ -1302,6 +1315,16 @@ button[data-navigable]:focus-visible {
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+}
+
+.rune-node-row__type-line .rune-cell-type-wrap,
+.rune-cell-card-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rune-cell-card-wrap {
+  flex-shrink: 0;
 }
 
 /* ── Function node output row (Phase C) ───────────────────────────
@@ -1578,6 +1601,7 @@ button[data-navigable]:focus-visible {
 .rune-cell-card {
   display: inline-flex;
   align-items: center;
+  gap: calc(var(--space-1) / 2);
   padding: var(--rune-chip-padding-y) var(--rune-pill-padding-x);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);

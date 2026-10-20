@@ -16,6 +16,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { DataTypeForm } from '../../src/components/editors/DataTypeForm.js';
 import type { AnyGraphNode, TypeOption, EditorFormActions, TypeGraphNode } from '../../src/types.js';
 import { TYPE_REF_PAYLOAD_MIME, typeRefMimeForKind } from '../../src/types/structure-view.js';
+import type { NamespaceImport } from '@rune-langium/core';
 import type { TypeRefPayload } from '../../src/types/structure-view.js';
 import { testMeta } from '../helpers/node-meta.js';
 
@@ -214,6 +215,46 @@ describe('DataTypeForm – merged inherited attribute list', () => {
     (d as any).superType = { $refText: 'BaseType' };
     return { ...d, ...overrides } as AnyGraphNode;
   }
+
+  it.each<[string, string, NamespaceImport[], string]>([
+    ['same namespace', 'Amount', [], 'test.Amount'],
+    ['wildcard import', 'Amount', [{ importedNamespace: 'actual.*' }], 'actual.Amount'],
+    ['explicit import', 'Amount', [{ importedNamespace: 'actual.Amount' }], 'actual.Amount'],
+    ['unresolved', 'Unknown', [], 'Unknown'],
+    ['builtin', 'string', [], 'string'],
+    ['aliased', 'model.Amount', [{ importedNamespace: 'actual.*', namespaceAlias: 'model' }], 'actual.Amount']
+  ])(
+    'copies an inherited %s type using the parent scope, never global node order',
+    (_case, typeName, imports, expected) => {
+      const data = makeChildData();
+      const nodes = makeInheritanceNodes(data, [{ ...baseTypeAttr, typeCall: { type: { $refText: typeName } } }]);
+      const parent = nodes[1]!;
+      parent.meta.imports = [{ importedNamespace: 'unrelated.*', namespaceAlias: 'other' }, ...imports];
+      const actualNamespace = imports.length ? 'actual' : 'test';
+      const target = (namespace: string) =>
+        ({
+          ...parent,
+          id: `${namespace}.Amount`,
+          meta: testMeta(namespace),
+          data: { ...parent.data, name: 'Amount', attributes: [] }
+        }) as TypeGraphNode;
+      const allNodes = [target('wrong'), ...nodes, target(actualNamespace)];
+      const actions = makeActions();
+      const { container } = render(
+        <DataTypeForm
+          meta={testMeta('test')}
+          nodeId="test.Trade"
+          data={data}
+          availableTypes={AVAILABLE_TYPES}
+          actions={actions}
+          allNodes={allNodes}
+          allNodeIds={allNodes.map((node) => node.id)}
+        />
+      );
+      fireEvent.click(container.querySelector('[data-slot="attribute-override"]')!);
+      expect(actions.addAttribute).toHaveBeenCalledWith('test.Trade', 'id', expected, '(1..1)');
+    }
+  );
 
   it('renders inherited attribute rows when allNodes provided', () => {
     const childData = makeChildData();

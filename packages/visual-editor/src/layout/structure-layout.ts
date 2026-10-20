@@ -19,6 +19,7 @@
  */
 
 import type { Edge, Node } from '@xyflow/react';
+import { ENUM_PREVIEW_LIMIT, enumPreviewLabel, enumPreviewRowCount } from '../utils/enum-preview.js';
 import type {
   StructureBaseContainer,
   StructureChoiceNode,
@@ -32,11 +33,8 @@ import type {
 /**
  * Single source of truth for Structure View layout constants.
  *
- * **If you change a value here, mirror it in the CSS custom properties
- * declared in `src/styles.css` (the `:root` block near the top of the
- * Structure View section).  The unit test
- * `test/layout/structure-css-ssot.test.ts` enforces parity and will
- * fail CI if the two drift apart.**
+ * STRUCTURE_LAYOUT_CSS_VARS derives the CSS geometry directly from these
+ * values. Structure roots inject that map for styles.css to consume.
  */
 export const STRUCTURE_LAYOUT_CONSTANTS = {
   /**
@@ -50,9 +48,8 @@ export const STRUCTURE_LAYOUT_CONSTANTS = {
    * row box (`box-sizing: border-box`). XMLSpy-style: each Data row is TWO
    * lines of `--text-2xs` — the attribute NAME on top, the type-chip +
    * cardinality on a second line beneath — wrapped in a hairline-bordered card.
-   * 44 = content (name line 18 + var(--space-1) inter-line gap 4 + type/card
-   * line ~18.5 ≈ 40.5) + 2×1px row padding + 2×0.5px hairline border ≈ 43.5,
-   * rounded to 44. Rows are framed (border + padding + radius) and separated by
+   * 44 accommodates the name and control lines, a half-space inter-line gap,
+   * 2×DATA_ROW_PADDING_Y and the hairline border. Rows are framed and separated by
    * DATA_ROW_GAP; the rows stack also carries DATA_ROWS_PADDING top & bottom.
    * Choice/Enum stay on ROW_HEIGHT (28, single-line, unframed). Base-container
    * inherited rows are Data attribute rows, so they use this height too.
@@ -80,13 +77,13 @@ export const STRUCTURE_LAYOUT_CONSTANTS = {
    * DATA_ROW_HEIGHT (border-box) budgets content + 2×DATA_ROW_PADDING_Y +
    * 2×hairline border. CSS mirror: `--rune-data-row-padding-y`.
    */
-  DATA_ROW_PADDING_Y: 1,
+  DATA_ROW_PADDING_Y: 2,
   /**
    * Horizontal padding inside each framed row card (left & right). CSS mirror:
    * `--rune-data-row-padding-x`. (Width has estimate slack, so this is not as
    * tightly layout-coupled as the Y padding, but kept in the SSoT for parity.)
    */
-  DATA_ROW_PADDING_X: 2,
+  DATA_ROW_PADDING_X: 4,
   HEADER_HEIGHT: 28,
   /**
    * Minimum rows-column width — a TIGHT floor now that framed rows shrink-wrap
@@ -572,7 +569,8 @@ const EMPTY_EXPANSIONS: ReadonlyMap<string, string> = new Map();
  */
 function sizeEnum(node: StructureEnumNode, input: StructureGraphInput): SizedNode {
   const rowOffsets = new Map<string, number>();
-  for (const [i, value] of node.values.entries()) {
+  const visibleValues = node.values.slice(0, ENUM_PREVIEW_LIMIT);
+  for (const [i, value] of visibleValues.entries()) {
     rowOffsets.set(value, HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2);
   }
   // Enum values stay single-line, unframed (ROW_HEIGHT) and FILL the column.
@@ -580,13 +578,18 @@ function sizeEnum(node: StructureEnumNode, input: StructureGraphInput): SizedNod
   // cluster (StructureEnumNode has no doc/annotation/condition fields).
   const rowsColWidth = Math.max(
     measuredOrEstimatedRowsColWidth(input, nodeInstanceId(node), () =>
-      estimateRowsColWidth(node.values.map((v) => ({ name: v, typeName: '', card: '' })))
+      estimateRowsColWidth([
+        ...visibleValues.map((v) => ({ name: v, typeName: '', card: '' })),
+        ...(node.values.length > ENUM_PREVIEW_LIMIT
+          ? [{ name: enumPreviewLabel(node.values.length), typeName: '', card: '' }]
+          : [])
+      ])
     ),
     measuredOrEstimatedHeaderWidth(input, nodeInstanceId(node), () => estimateHeaderWidth(node.name, false, 'Enum'))
   );
   return {
     width: rowsColWidth,
-    height: HEADER_HEIGHT + node.values.length * ROW_HEIGHT,
+    height: HEADER_HEIGHT + enumPreviewRowCount(node.values.length) * ROW_HEIGHT,
     rowsColWidth,
     rowOffsets
   };

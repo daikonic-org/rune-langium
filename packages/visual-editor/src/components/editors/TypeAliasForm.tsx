@@ -35,7 +35,6 @@ import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
 import { useInspectorExternalSync } from '../../hooks/useInspectorExternalSync.js';
 import { useCallback } from 'react';
 import { useWatch } from 'react-hook-form';
-import { FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
@@ -43,7 +42,7 @@ import { InspectorFooter } from './inspector/InspectorFooter.js';
 import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
 import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
 import { EditorSections } from '../forms/sections/EditorSections.js';
-import { TypeReferenceField } from './TypeReferenceField.js';
+import { InspectorTypeField } from './inspector/InspectorTypeField.js';
 import { useInspectorCommitLifecycle } from '../../hooks/editor-commit-lifecycle.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useLatestRef } from '../../hooks/useLatestRef.js';
@@ -266,22 +265,18 @@ function TypeAliasForm({
                   content: (
                     <>
                       {' '}
-                      <FieldSet className="gap-1.5">
-                        <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                          Wrapped type
-                        </FieldLegend>
-                        <TypeReferenceField
-                          value={currentTypeValue ?? null}
-                          displayName={currentTypeLabel}
-                          options={availableTypes}
-                          onSelect={handleTypeSelect}
-                          placeholder="Select wrapped type..."
-                          emptyLabel="No wrapped type"
-                          onNavigateToNode={onNavigateToNode}
-                          allNodeIds={allNodeIds}
-                          disabled={isReadOnly}
-                        />
-                      </FieldSet>
+                      <InspectorTypeField
+                        label="Wrapped type"
+                        value={currentTypeValue ?? null}
+                        displayName={currentTypeLabel}
+                        options={availableTypes}
+                        onSelect={handleTypeSelect}
+                        placeholder="Select wrapped type..."
+                        emptyLabel="No wrapped type"
+                        onNavigateToNode={onNavigateToNode}
+                        allNodeIds={allNodeIds}
+                        disabled={isReadOnly}
+                      />
                       <EditorSections names={['MetadataSection']} />
                     </>
                   )

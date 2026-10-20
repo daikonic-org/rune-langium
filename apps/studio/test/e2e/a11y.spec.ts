@@ -13,6 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 const SELECTORS_TO_EXCLUDE = [
   // CodeMirror editor chrome — third-party, large a11y debt that's upstream's
@@ -36,6 +37,35 @@ async function openBlankWorkspace(page: import('@playwright/test').Page): Promis
 }
 
 test.describe('Studio a11y (T088)', () => {
+  test('recent workspace metadata remains descriptive without changing the action name', async ({ page }, testInfo) => {
+    await openBlankWorkspace(page);
+    await page.getByTestId('rail-workspaces').click();
+    await dismissLocalTransportNotices(page);
+    const switcher = page.getByTestId('workspace-switcher');
+    const open = switcher.getByRole('button', { name: /^Open / }).first();
+    await expect(open).toBeVisible();
+    await expect(open).toHaveAccessibleDescription(/Browser/);
+    await open.focus();
+    await expect(open).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.getAnimations().every((animation) => animation.playState !== 'running')))
+      .toBe(true);
+    const result = await new AxeBuilder({ page }).include('[data-testid="workspace-switcher"]').analyze();
+    expect(result.violations).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath('recent-workspace.png') });
+    await open.press('Enter');
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await page.getByTestId('rail-workspaces').click();
+    const row = switcher.getByTestId('workspace-row').first();
+    await row.hover();
+    await row.getByRole('button', { name: /^Delete / }).click();
+    await expect(page.getByTestId('workspace-delete-dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByTestId('workspace-delete-dialog')).toHaveCount(0);
+    const badge = (await row.getByText('Browser', { exact: true }).boundingBox())!;
+    await page.mouse.click(badge.x + badge.width / 2, badge.y + badge.height / 2);
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  });
   test('home / start page passes axe-core (no serious/critical)', async ({ page }) => {
     await page.goto('./');
     await expect(page.getByTestId('file-loader')).toBeVisible();

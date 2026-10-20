@@ -26,9 +26,7 @@
     overflow: hidden;
   }
 
-  body[data-studio-app='true'] {
-    font-family: var(--font-sans);
-  }
+
 }
 
 /* ---------- Shared scrollbar chrome (.studio-scroll) ----------
@@ -130,14 +128,8 @@ html {
 }
 
 @layer components {
-  /* Font cascade is handled at the body level:
-   *   • `body[data-studio-app='true']` (styles.css @layer base) sets var(--font-sans)
-   *   • `@layer base body` in design-system/theme.css does the same
-   *   • Tailwind v4 preflight `button, input, select, textarea { font: inherit }`
-   *     makes all form elements inherit from body, so no per-element overrides needed
-   *   • `h1-h6 { font-family: inherit }` in theme.css lets headings follow the body font
-   *   Previously three rules here repeated font-family: var(--font-sans) on .studio-app,
-   *   form elements, and h1-h6 — removed in Phase 4 style-override cleanup (redundant). */
+  /* The shared Studio profile in styles/daikonic.css reaches body portals.
+   * Preflight makes form controls inherit it; headings follow the same family. */
 
   /* Button density — studio compacts the default/sm/xs heights slightly
    * so panels read denser. cursor/transition/hover-lift are now in the
@@ -243,16 +235,21 @@ html {
     letter-spacing: 0.08em;
   }
 
-  /* ─── Pane switch — 3-segment pill ───────────────────────────────
-   * Single connected pill where each segment abuts the next: outer
-   * ends rounded, interior edges flat with a hairline divider. The
-   * active segment fills with the primary accent so the pill reads
-   * as a single 3-segmented control even though it's a real button
-   * group. Used for layout-preset selection (Navigate / Edit / Preview).
-   */
+  /* Separate rounded tracks distinguish the primary view from panes shown alongside it. */
   .studio-app .studio-paneswitch {
     display: inline-flex;
-    height: 26px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .studio-app .studio-paneswitch__group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    min-height: 26px;
+    max-width: 100%;
     background: color-mix(in srgb, var(--background) 96%, var(--muted) 4%);
     border: var(--hairline) solid color-mix(in srgb, var(--border) 80%, transparent);
     border-radius: var(--radius-full);
@@ -260,7 +257,6 @@ html {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 1px 3px rgba(0, 0, 0, 0.15);
-    flex-shrink: 0;
   }
 
   .studio-app .studio-paneswitch__seg {
@@ -270,7 +266,7 @@ html {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    height: 100%;
+    height: 26px;
     padding: 0 0.875rem;
     border-radius: 0;
     position: relative;
@@ -713,8 +709,8 @@ html {
     cursor: pointer;
     white-space: nowrap;
     transition:
-      color 0.15s ease,
-      transform 0.15s ease;
+      color 0.15s ease;
+    transform: none;
   }
 
   .studio-app .studio-topbar__tab:focus-visible,
@@ -723,37 +719,9 @@ html {
     outline-offset: -2px;
   }
 
-  /* Pill background/border/hover/active state now lives on the WRAPPER
-     (not the select-button) so it visually encompasses the delete button
-     too — previously the delete button sat outside the highlighted pill,
-     reading as a disconnected floating element rather than part of the
-     tab it belongs to. */
+  /* File tabs use a quiet shared surface; the underline identifies only the active file. */
   .studio-app .studio-topbar__tab-wrapper:hover {
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--card) 82%, transparent),
-        color-mix(in srgb, var(--accent) 28%, transparent)
-      );
-    border-color: color-mix(in srgb, var(--border) 84%, transparent);
-    box-shadow: inset 0 -2px 0 0 var(--primary);
-  }
-
-  /* Optical nudge: the pill's box-shadow is bottom-heavy (2px accent line
-     at the bottom vs. ~1px highlight at the top), which reads as content
-     sitting slightly high within the pill even though it's geometrically
-     centered (verified via getBoundingClientRect — dot/name/badge/delete
-     all share the exact same center). Shifting content up ~1px only in
-     the states that carry that asymmetric shadow restores the optical
-     balance without touching the true geometric centering used elsewhere. */
-  .studio-app .studio-topbar__tab-wrapper:hover .studio-topbar__tab,
-  .studio-app .studio-topbar__tab-wrapper.is-active .studio-topbar__tab {
-    transform: translateY(-1px);
-  }
-
-  .studio-app .studio-topbar__tab-wrapper:hover .studio-topbar__tab-delete,
-  .studio-app .studio-topbar__tab-wrapper.is-active .studio-topbar__tab-delete {
-    transform: translateY(-1px);
+    background: var(--accent);
   }
 
   .studio-app .studio-topbar__tab-wrapper:hover .studio-topbar__tab {
@@ -761,16 +729,8 @@ html {
   }
 
   .studio-app .studio-topbar__tab-wrapper.is-active {
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--card) 96%, transparent),
-        color-mix(in srgb, var(--primary) 10%, transparent)
-      );
-    border-color: color-mix(in srgb, var(--primary) 34%, transparent);
-    box-shadow:
-      inset 0 -2px 0 0 var(--primary),
-      inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+    background: var(--card);
+    box-shadow: inset 0 -2px 0 0 var(--primary);
   }
 
   .studio-app .studio-topbar__tab-wrapper.is-active .studio-topbar__tab {
@@ -815,9 +775,7 @@ html {
   }
 
   .studio-app .studio-topbar__tab-wrapper.is-active .studio-topbar__tab-badge {
-    background: color-mix(in srgb, var(--primary) 14%, transparent);
-    border-color: color-mix(in srgb, var(--primary) 28%, transparent);
-    color: color-mix(in srgb, var(--primary) 78%, white 22%);
+    color: var(--muted-foreground);
   }
 
   /* Per-tab diagnostics count chiclets — error uses the destructive token,
@@ -851,21 +809,18 @@ html {
     color: color-mix(in srgb, var(--color-warning) 84%, black 16%);
   }
 
-  /* Wraps one tab's select-button + delete-button as siblings (not nested
-     — a <button> inside another <button> is invalid HTML/ARIA) — and now
-     carries the pill background/border/radius itself (moved off the
-     select-button above) so the highlighted pill visually encompasses the
-     delete button too, instead of the delete button floating outside it. */
+  /* Select and delete remain sibling buttons within the same file surface. */
   .studio-app .studio-topbar__tab-wrapper {
     position: relative;
     display: flex;
     align-items: center;
     gap: var(--space-1);
     max-width: 200px;
+    flex: 0 0 auto;
     height: 28px;
     padding: 0 var(--space-2) 0 var(--space-3);
     border: var(--hairline) solid transparent;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-sm);
     box-sizing: border-box;
     transition:
       background 0.15s ease,
@@ -952,12 +907,6 @@ html {
     width: 2px;
     background: var(--primary);
     border-radius: var(--radius-xs);
-  }
-
-  /* Explorer selected row — gradient wash from primary (left-to-right fade) */
-  .studio-app .studio-type-row--selected {
-    background: linear-gradient(90deg, color-mix(in oklch, var(--primary), transparent 88%), transparent);
-    color: var(--foreground);
   }
 
   /* Navigation feedback: when the user clicks the row's nav arrow, the
@@ -1493,10 +1442,7 @@ html {
     transform 0.15s ease;
 }
 
-/* The shell's bottom-heavy active/hover indicator (box-shadow inset 0
-   -1.5px 0, no compensating top highlight) reads as visually off-center
-   even though the content is mathematically centered — same optical
-   correction as .studio-topbar__tab-wrapper. */
+/* Compensate for this editor tab's bottom-heavy active/hover indicator. */
 .studio-source-editor__tab-shell:hover .studio-source-editor__tab,
 .studio-source-editor__tab-shell--active .studio-source-editor__tab {
   transform: translateY(-1px);
@@ -2043,14 +1989,6 @@ html {
   background: color-mix(in srgb, var(--background) 82%, black 18%);
 }
 
-/* ── Refactory Dark — Grid background ────────────────────────── */
-.refactory-grid-bg {
-  background-image:
-    linear-gradient(var(--glass-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--glass-grid-line) 1px, transparent 1px);
-  background-size: 80px 80px;
-}
-
 /* ── Refactory Dark — Panel styling ──────────────────────────── */
 .panel-header-title {
   font-family: var(--font-mono);
@@ -2168,6 +2106,7 @@ html {
 
 .studio-app .studio-center-stack__bar {
   display: flex;
+  min-height: var(--studio-panel-header-height);
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
@@ -2346,19 +2285,6 @@ html {
 }
 
 @container (max-width: 600px) {
-  .studio-app .studio-center-stack__bar .studio-paneswitch {
-    flex-wrap: wrap;
-    height: auto;
-    max-width: 100%;
-    gap: var(--space-1);
-    border-radius: var(--radius-md);
-  }
-
-  .studio-app .studio-center-stack__bar .studio-paneswitch > [role='group'] {
-    height: 26px;
-    min-width: 0;
-  }
-
   .studio-app .studio-center-stack[data-count='2'] {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -2616,8 +2542,8 @@ html {
   outline-offset: -2px;
 }
 
-/* Embedded bodies consume the Inspector's remaining space; CodeMirror scrolls
- * internally instead of moving signature and item details out of the pane. */
+/* Embedded bodies fill spare space. Short Inspectors scroll the form rather
+ * than shrinking the signature or clipping CodeMirror below its usable size. */
 .expression-workspace {
   --expression-editor-height: 100%;
 }

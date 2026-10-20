@@ -202,6 +202,8 @@
    * dock chrome) that the className override can't reach. Note: 0.5px is
    * retina-first; sub-pixel borders round unpredictably on 1x displays. */
   --hairline: 0.5px;
+  /* Shared dock/center header rhythm includes room for a one-pixel divider. */
+  --studio-panel-header-height: 2.3125rem;
   --button-height: 40px;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;

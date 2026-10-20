@@ -23,7 +23,9 @@ import {
   parsedAdapter,
   curatedAdapter,
   getExpressionOwners,
-  getAnnotationDefinitions
+  getAnnotationDefinitions,
+  buildImportAliasMap,
+  importAliasCandidates
 } from '@rune-langium/core';
 import type { RosettaModel, RosettaRootElement } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge, GraphNodeMeta, GraphFilters, TypeKind } from '../types.js';
@@ -130,10 +132,21 @@ interface MemberLikeRef {
 type AstKind = TypeGraphNode['data']['$type'];
 type NodeIdLookup = ReadonlyMap<string, ReadonlyMap<AstKind, string>>;
 
-function resolveNodeId(lookup: NodeIdLookup, name: string, kinds: readonly AstKind[]): string | undefined {
-  const candidates = lookup.get(name);
-  if (!candidates) return undefined;
-  return kinds.map((kind) => candidates.get(kind)).find((nodeId): nodeId is string => nodeId !== undefined);
+function resolveNodeId(
+  lookup: NodeIdLookup,
+  name: string,
+  kinds: readonly AstKind[],
+  aliases: ReadonlyMap<string, readonly string[]>
+): string | undefined {
+  for (const candidate of importAliasCandidates(name, aliases)) {
+    const byKind = lookup.get(candidate);
+    if (!byKind) continue;
+    for (const kind of kinds) {
+      const id = byKind.get(kind);
+      if (id) return id;
+    }
+  }
+  return undefined;
 }
 
 function getAttributeEdges(
@@ -195,6 +208,10 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
     const m = model as RosettaModel;
     const namespace = getNamespace(m);
     const elements: RosettaRootElement[] = m.elements ?? [];
+    const imports = (m.imports ?? []).map(({ importedNamespace, namespaceAlias }) => ({
+      importedNamespace,
+      namespaceAlias
+    }));
     const modelUri = (m as unknown as { $document?: { uri?: { toString(): string } } }).$document?.uri?.toString();
     const isReadOnly = modelUri?.startsWith('system://') ?? false;
 
@@ -217,7 +234,9 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
         isRosettaBasicType(element) ||
         isAnnotation(element)
       ) {
-        nodes.push(buildGraphNode(element as { $type: string; name: string }, namespace, nodeId, isReadOnly));
+        const node = buildGraphNode(element as { $type: string; name: string }, namespace, nodeId, isReadOnly);
+        node.meta.imports = imports;
+        nodes.push(node);
         nodeIdSet.add(nodeId);
       }
     }
@@ -234,14 +253,16 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
       nodeIdsByName.set(name, byKind);
     }
   }
-  const resolveTypeReference = (name: string) => resolveNodeId(nodeIdsByName, name, TYPE_DECLARATION_KINDS);
-  const resolveEnumReference = (name: string) => resolveNodeId(nodeIdsByName, name, ['RosettaEnumeration']);
-  const resolveFunctionReference = (name: string) => resolveNodeId(nodeIdsByName, name, ['RosettaFunction']);
-
   // Second pass: create edges
   for (const node of nodes) {
     const d = node.data;
     const $type = d.$type;
+    const aliases = buildImportAliasMap(node.meta.imports ?? []);
+    const resolveReference = (name: string, kinds: readonly AstKind[]) =>
+      resolveNodeId(nodeIdsByName, name, kinds, aliases);
+    const resolveTypeReference = (name: string) => resolveReference(name, TYPE_DECLARATION_KINDS);
+    const resolveEnumReference = (name: string) => resolveReference(name, ['RosettaEnumeration']);
+    const resolveFunctionReference = (name: string) => resolveReference(name, ['RosettaFunction']);
 
     // Inheritance edges
     if ($type === 'Data') {
@@ -353,6 +374,7 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
   for (const node of nodes) {
     const d = node.data;
     const $type = d.$type;
+    const aliases = buildImportAliasMap(node.meta.imports ?? []);
     let members: MemberLikeRef[] | null = null;
     if ($type === 'Data' || $type === 'Annotation') {
       members = (d.attributes ?? []) as unknown as MemberLikeRef[];
@@ -364,7 +386,7 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
     if (members) {
       node.meta.hasExternalRefs = members.some((m) => {
         const t = getTypeRefText(m.typeCall);
-        return Boolean(t && !resolveTypeReference(t));
+        return Boolean(t && !resolveNodeId(nodeIdsByName, t, TYPE_DECLARATION_KINDS, aliases));
       });
     }
   }

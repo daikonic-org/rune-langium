@@ -13,7 +13,13 @@ import { memo, useCallback } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import type { AnyGraphNode, TypeKind } from '../../types.js';
 import { resolveNodeKind, getTypeRefText, formatCardinality, getRefText } from '../../adapters/model-helpers.js';
-import { getHandlePositions, useNavigation, resolveTypeNodeId, useNodeMetaErrors } from './NavigationContext.js';
+import {
+  getHandlePositions,
+  useNavigation,
+  resolveTypeNodeId,
+  useNodeMetaErrors,
+  useNodeMetaImports
+} from './NavigationContext.js';
 import { BaseFlowNode } from './BaseFlowNode.js';
 
 const KIND_CSS: Record<string, string> = {
@@ -33,6 +39,7 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
   const handles = getHandlePositions(layoutDirection);
   // Validation errors live on the node.meta sibling (not on data).
   const nodeErrors = useNodeMetaErrors(id);
+  const imports = useNodeMetaImports(id);
   // For functions, show inputs as members; otherwise show attributes/features
   const members = (
     kind === 'func' ? ((d as any).inputs ?? []) : ((d as any).attributes ?? (d as any).features ?? [])
@@ -47,8 +54,8 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
   );
 
   const outputTypeName = kind === 'func' ? getTypeRefText((d as any).output?.typeCall) : undefined;
-  const outputTargetId = outputTypeName ? resolveTypeNodeId(outputTypeName, allNodeIds) : undefined;
-  const parentTargetId = parentName ? resolveTypeNodeId(parentName, allNodeIds) : undefined;
+  const outputTargetId = outputTypeName ? resolveTypeNodeId(outputTypeName, allNodeIds, imports) : undefined;
+  const parentTargetId = parentName ? resolveTypeNodeId(parentName, allNodeIds, imports) : undefined;
   const summaryParts: string[] = [];
   if (parentName) summaryParts.push(`extends ${parentName}`);
   if (members.length > 0) {
@@ -92,7 +99,7 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
             {members.map((member: any) => {
               const typeName = getTypeRefText(member.typeCall);
               const card = formatCardinality(member.card);
-              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds) : undefined;
+              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
               return (
                 <div
                   key={member.name}

@@ -71,6 +71,7 @@ interface PreviewStoreState {
 interface PreviewStoreActions {
   setAvailableTargets(targets: FormPreviewTarget[], selectionRekey?: EditorState['selectionRekey']): void;
   selectTarget(targetId: string | undefined): void;
+  beginPreviewGeneration(targetId: string): void;
   receivePreviewResult(schema: FormPreviewSchema): void;
   receivePreviewStale(input: { targetId?: string; reason: PreviewStaleReason; message: string }): void;
   getFieldSource(targetId: string | undefined, fieldPath: string): PreviewSourceMapEntry | undefined;
@@ -372,6 +373,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       lastResolvedTarget: selectedTarget,
       status: selectedTarget ? { state: 'waiting', targetId } : { state: 'waiting' }
     });
+  },
+
+  beginPreviewGeneration(targetId) {
+    if (get().selectedTargetId === targetId) set({ status: { state: 'waiting', targetId } });
   },
 
   receivePreviewResult(schema) {

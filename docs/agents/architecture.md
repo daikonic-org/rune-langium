@@ -24,12 +24,61 @@ and CLI/codegen/LSP → core.
 
 ## Studio Runtime
 
+Studio's [product context](../../apps/studio/PRODUCT.md) records established users,
+workflows and product principles for interface work. Impeccable's local live-mode
+configuration names the Vite SPA entry; it does not inject a helper by default or
+change production CSP. Product context complements the runtime invariants below.
+
+Center-stack controls retain rounded pill tracks, separating the primary View
+from panes shown alongside it. Groups wrap together with the same selected-state
+styling. Open-file buttons expose their selection with `aria-pressed`; their
+strip scrolls instead of compressing every filename. File tabs use a quieter
+surface and active underline while the workspace picker retains its appearance.
+
+The Type explorer and Inspector type picker share namespace presentation: relative
+compressed labels, 8 px ancestor guides, bounded indentation, explicit namespace
+focus and ancestor breadcrumbs. Compression never crosses a declaration or branch.
+Name collisions receive the shortest distinguishing namespace suffix, then kind
+and actual declaration ID when needed; display labels never replace identity.
+Qualified rows reserve a second line in the virtualizer, whose keys include the
+row identity and height-affecting qualifier. Namespace focus changes only the
+local navigation scope, preserving graph visibility and canonical export inclusion.
+Both surfaces share the inset active-row highlight and retain their existing
+buttons, kind glyphs and native drag behavior.
+
+Studio's body-level visual profile applies to every perspective and portaled
+overlay: Inter UI text uses normal tracking and a 13 px default at the standard
+root size, with a shared compact label scale, readable line height and rem-based
+text scaling. Source and generated code retain the monospace family. Borders use
+one-pixel theme-colored hairlines, including Dockview panel edges and headers;
+controls use the stronger input tier. Brand accents and existing glyphs remain.
+
+Namespace alias expansion is shared with Core's scopes. One alias may name
+several imported namespaces in source order. Graph metadata retains imports per
+source declaration, including files sharing a namespace; Structure, Inspector,
+graph navigation and inherited member rows resolve against the originating
+file's imports. Labels keep authored reference text while navigation uses the
+canonical target ID. An inherited override resolves its parent's alias to a
+qualified type name before copying into the child's source scope.
+
+Enum summary disclosure sends a node-scoped Inspector section request with a
+fresh revision. Returning from Details to Values preserves the mounted editor
+and its paging state. Preview hydration completion marks a selected unsupported
+target as waiting until a generated result or concrete failure arrives; namespace
+hydration alone is not generation readiness.
+
 - Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.4; check manifests before changing versions.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.
 - `apps/studio/src/shell/providers/StudioProviders.tsx` composes provider responsibilities; `LspProvider.tsx` owns the LSP client and transport lifecycle.
 - `WorkbenchHost` owns Dockview mounting, stable panel bridges, native-layout restore, serialization subscriptions, and disposal. Each perspective supplies a `WorkbenchDefinition` with its panels, titles, and default builder. `DockShell` remains Explore's adapter: it owns migration of `PanelLayoutRecord`, the Explore factory layout, toolbar/shortcuts, center-pane policy, and utility-tray collapse behavior. Per-workspace perspective preferences use versioned workbench settings; they must contain UI state only, never model payloads or generated artifacts.
 - **Studio LSP is network-only.** `apps/studio/src/services/transport-provider.ts` defaults to session-token minting followed by a token-gated WebSocket to the hosted LSP. Only an explicit `wsUri` opts into direct WebSocket, with token-gated fallback after failure. Configured endpoints can differ between local, preview, and production environments.
+- Hosted dependency snapshots compute exports and local scopes without eagerly
+  linking every function body. Live source still links and validates through
+  Langium. Because lazy snapshot references do not enter the reverse-reference
+  index, source updates clear cached snapshot targets and rebuild the actual
+  open source set, preserving transitive diagnostic invalidation. Snapshot
+  replacement and close/restore retain the same authoritative model lifecycle.
 - Parser and codegen browser workers handle local model operations; they do not provide an LSP fallback.
 - LSP diagnostics carry the version of the validated Langium document. Studio uses one per-URI protocol version counter for live editor changes, headless file changes and dependency refreshes; mounting or replacing a view preserves that version. Studio rejects stale versions and invalid ranges before forwarding them to graph diagnostics or CodeMirror; it never clamps old ranges onto new source.
 - Parser workspace replacement uses one reset for parse and hydration, including empty snapshots. Langium's builder removes parsed documents and their index/build state; indexed deferred stubs are removed separately before registering the replacement. Scope snapshots must never retain symbols from removed files.
@@ -118,7 +167,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Workspace edits update memory immediately. Browser persistence coalesces rapid edits for 500 ms, with a two-second maximum wait while typing; pending snapshots keep their original workspace IDs and flush on workspace transitions, hidden visibility, page hide, and unmount. Parsing remains a separate debounce and does not gate saving syntactically invalid drafts.
 - Output offers an explicit local debug JSON download using the existing bounded diagnostic/operation stores. Source contents are opt-in and never lazily fetched; credentials, storage dumps, instance payloads, and serialized ASTs are not collected. Remote telemetry retains its existing closed privacy schema.
 - Recursive and deep preview objects use finite, namespace-qualified `FormPreviewSchema.definitions` generated by the same Data/Choice builders. `expandPreviewField` relocates one definition body at a time; the shared Preview/Prototype controls expand deferred objects only when a value exists or the user adds one. The eager depth cap limits schema size, not authoring or generated Zod validation depth. Invalid recursive aliases remain language errors.
-- Explorer navigation uses the graph node ID; row dragging retains the shared type-reference payload for association editing. In controlled inclusion mode, the row/name toggles the caller-provided canonical selection ID without a navigation highlight; the arrow opens the declaration. Filtering, virtualized rows, and collapsed namespace descendants must not discard explicit selections. The explorer count reports available declarations, independently of graph visibility.
+- Explorer navigation uses the graph node ID; row dragging retains the shared type-reference payload for association editing. In controlled inclusion mode, the row/name toggles the caller-provided canonical selection ID without a navigation highlight; the arrow opens the declaration. Filtering, virtualized rows, and collapsed namespace descendants must not discard explicit selections. The explorer count reports available declarations, independently of graph visibility, in a fixed footer below the scrolling tree. Global graph visibility actions belong in the Graph filter menu, leaving Explorer search and namespace navigation uncluttered.
 - Parsing and downloads share raw-source collection, including read-only system definitions. Editability must not determine which declarations codegen can resolve; curated bundle metadata and serialized documents use their separate transport.
 - Reference models explicitly selected on the launcher seed newly created workspaces, including pre-created Git-backed targets. Creating a workspace from an active one does not inherit its bindings. Saved curated-only workspaces restore their bindings even with zero source files. Failed or unresolved declared bindings remain persisted for retry; after a successful load, explicit unload removes the binding.
 - Explorer compacts namespace chains before filtering, retaining common-prefix branches and namespaces with direct declarations. Expanding a parent automatically opens only single-child namespace chains and stops at branching points; collapse clears the whole subtree. Shared namespace-tree helpers preserve canonical paths for expansion and subtree inclusion; the explorer omits per-namespace kind summaries while retaining declaration badges and top-level kind filters.
@@ -143,7 +192,9 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 - Inspector section placement is owned by `visual-editor/src/components/forms/sections/config.ts`. Generated form config derives its field assignments from that layout; custom Inspector tabs resolve the same sections with the upstream `SectionRenderer`. Placement includes inherited AST metadata and UI-only comments, which are not all enumerated by the generated schema walker. Standalone section callback props remain a public API.
 - Inspector forms own one 6px outer inset through `INSPECTOR_FORM_CLASS`; the center pane adds none, and headers/sections use 6px vertical spacing without repeating horizontal padding. Fields and embedded editors retain their own text inset; metadata textarea focus rings draw inside their borders so scroll edges cannot clip the side highlight. Inspector member rows share name-field geometry through `INSPECTOR_ROW_NAME_CLASS`, keeping attributes/function inputs and enum members at the same text size and padding. Inherited rows use the same typography with muted names, and consume the same type options as local rows so reference chips retain canonical kind colors. Member-details headings derive from the canonical root kind (Attribute, Member, Option, or Input), and icon-only controls retain accessible names. Inspector navigation uses the same one-second outline fade as graph/structure, inset to avoid clipping; reduced motion retains a static cue until cleanup. Dockview leaf views own symmetric gaps; shell/grid wrappers add no padding or one-sided margins. Center panes have no outer padding; graph/structure drawing wrappers share Studio's canvas background and own a 6px inset so React Flow's interaction layer remains untouched. `DockShell` measures the center stack for location-path alignment and updates it on native layout changes and resize.
-- Explore side panels use the shared `PanelCollapseButton` chrome from the utility tray. Dedicated grid groups resize to a constrained rail, rotate headers vertically while hidden, and retain mounted drafts and the session's expanded width in workbench-owned state across header remounts. Single-tab side groups retain header actions, with the chevron above titles when collapsed. Explore restores dedicated split Form/Code columns into one preview group without replacing panels, caps its initial width at the shared 320px default after dimensions are available, and leaves later manual resizing alone; mixed groups containing the main task are preserved. The dock title supplies Studio's sole Type explorer heading, with availability below its description; groups sharing the main task on narrow layouts are never hidden wholesale. Preview edge groups use their native collapse API, with explicit show/hide choices kept open across focus changes.
+- Inspector type-label rows use `InspectorTypeField` for Wrapped type, Output Type, and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
+- Structure remeasures intrinsic node widths when web fonts finish loading, since fixed node boxes cannot observe fallback-font replacement. Framed row padding derives from `STRUCTURE_LAYOUT_CONSTANTS`; type and cardinality wrappers use flex alignment so inline baselines cannot push controls into the frame.
+- Explore side panels use the shared `PanelCollapseButton` chrome from the utility tray. Dedicated grid groups resize to a constrained rail, rotate headers vertically while hidden, and retain mounted drafts and the session's expanded width in workbench-owned state across header remounts. Single-tab side groups retain header actions, with the chevron above titles when collapsed. Explore restores dedicated split Form/Code columns into one preview group without replacing panels, caps its initial width at the shared 320px default after dimensions are available, and leaves later manual resizing alone; mixed groups containing the main task are preserved. The dock title supplies Studio's sole Type explorer heading; groups sharing the main task on narrow layouts are never hidden wholesale. Preview edge groups use their native collapse API, with explicit show/hide choices kept open across focus changes.
 - Non-React consumers use `@rune-langium/visual-editor/model` for graph state and `/identifiers` for identifier helpers. Workers must not import the full UI barrel. The render gate accepts regenerated schemas into its existing registry during development, preserving workspace consumers while React refreshes the Inspector.
 
 ## Deployment and Verification
@@ -322,7 +373,23 @@ Rule predicates resolve their declared input through the authoritative type/scop
 
 ## Inspector shared constructs
 
-The Inspector uses one declaration form and generated canonical schema. `InspectorFrame` composes the common header, inheritance picker, appropriate tabs and `InspectorFooter`; `InspectorDetailsPane` shows metadata for the selected child below the member rows. Attributes/function inputs share `AttributeRow` and the same complete Attribute draft factory. Enum identifiers remain inline; enum `display` belongs in selected-value details. `MetadataSection`, `AnnotationSection` and `SynonymEditor` bind root or child paths through `MetadataTargetContext`; readonly rich items use the authoritative Rune renderer.
+Enum cards in Graph and Structure show at most eight values plus a disclosure
+row. `utils/enum-preview.ts` owns the limit, disclosure label and displayed row
+count shared by both renderers and layout estimates. Full model values remain
+intact. Hosts may supply `onInspectType` to reveal complete details; Studio opens
+the existing Inspector without toggling an already open pane closed. Inspector
+pagination remains the complete-list owner.
+Explicit Inspector section requests carry increasing revisions. A mounted frame
+consumes each revision once, so temporarily clearing the node-scoped context and
+returning to that node cannot replay an old disclosure over a manual tab choice.
+
+Inherited overrides retain the declaring ancestor's namespace and file imports.
+Core's `buildImportScope` and `importScopeCandidates` supply the same ordered
+lookup facts to the language scope and projected type resolution. Copying an
+inherited reference excludes the global bare-name fallback; unresolved text and
+builtins remain authored text instead of picking an unrelated loaded declaration.
+
+The Inspector uses one declaration form and generated canonical schema. `InspectorFrame` composes the common header, inheritance picker, appropriate tabs and `InspectorFooter`; `InspectorDetailsPane` shows metadata for the selected child below the member rows. Fill sections retain their minimum content height: a short Inspector scrolls the form rather than compressing signature fields or clipping the embedded editor. Attributes/function inputs share `AttributeRow` and the same complete Attribute draft factory. Enum identifiers remain inline; enum `display` belongs in selected-value details. `MetadataSection`, `AnnotationSection` and `SynonymEditor` bind root or child paths through `MetadataTargetContext`; readonly rich items use the authoritative Rune renderer.
 
 Inspector sections mount on first activation and remain mounted while hidden afterward. This avoids creating inactive expression editors on selection while preserving visited drafts, CodeMirror views/undo and registered commit flushes. Section IDs retain their sessions across tab reordering; removing a section unmounts its content. Browser checks for the complete file editor use `fullSourceEditor` in Studio's shared test helpers, scoped to the center stack's Source pane; embedded expression editors also use the shared SourceEditor component.
 
@@ -362,6 +429,13 @@ Inspector documentation and annotations share Details. Readonly child metadata
 comes from its canonical selected node, not an unrelated parent form field.
 Function body editors fill the space above item details. Documentation can scroll
 or resize without authorizing changes to readonly declarations.
+
+Expression language buttons reuse the shared pressed-state styling and form a
+named group separate from editing actions. The workspace footer renders one
+connection state: connected transport details, or the user-facing language-service
+badge with Retry. It wraps recovery controls on narrow screens and truncates the
+selected declaration ID while retaining the complete ID in its title. Transport
+error details remain in operation logs rather than a second footer indicator.
 
 Displayed TypeScript bodies assume purpose-built, validated Rune objects. The
 object methods belong to that explanatory display contract, not the structural

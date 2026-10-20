@@ -1,12 +1,32 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import type { ComponentProps } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { IMPLEMENTED_TARGETS, TARGET_DESCRIPTORS, type Target } from '@rune-langium/codegen/export';
 import { Button } from '@rune-langium/design-system/ui/button';
 import type { ExportConfig } from '../../services/export-request.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { TARGET_OPTION_FORMS, TARGET_PANELS } from '../../components/export-target-settings.js';
 import type { ExportRunState } from '../../store/export-workbench-store.js';
+
+/** Native selection keeps platform keyboard behavior; one inset glyph owns its geometry. */
+function ExportSelect({ children, ...props }: ComponentProps<'select'>) {
+  return (
+    <span data-slot="export-select" className="relative block min-w-0">
+      <select
+        {...props}
+        className="h-8 w-full min-w-0 appearance-none rounded border border-input bg-background pl-3 pr-8 text-sm font-normal forced-colors:appearance-auto"
+      >
+        {children}
+      </select>
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground forced-colors:hidden"
+      />
+    </span>
+  );
+}
 
 export interface ExportSettingsPanelProps {
   config: ExportConfig;
@@ -32,9 +52,8 @@ export const ExportSettingsPanel = withInstrumentation(
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium">
           Target
-          <select
+          <ExportSelect
             aria-label="Export target"
-            className="h-8 rounded border border-input bg-background px-2 text-sm font-normal"
             value={target}
             onChange={(event) => onChange({ ...config, target: event.target.value as Target })}
           >
@@ -43,14 +62,13 @@ export const ExportSettingsPanel = withInstrumentation(
                 {TARGET_DESCRIPTORS[candidate].label}
               </option>
             ))}
-          </select>
+          </ExportSelect>
         </label>
         {panel && (
           <label className="flex flex-col gap-1.5 text-xs font-medium">
             Layout
-            <select
+            <ExportSelect
               aria-label="Export layout"
-              className="h-8 rounded border border-input bg-background px-2 text-sm font-normal"
               value={(targetOptions.layout as string | undefined) ?? panel.defaultLayout ?? ''}
               onChange={(event) =>
                 onChange({
@@ -65,7 +83,7 @@ export const ExportSettingsPanel = withInstrumentation(
                   {layout.hint ? ` — ${layout.hint}` : ''}
                 </option>
               ))}
-            </select>
+            </ExportSelect>
           </label>
         )}
         {OptionsForm && (

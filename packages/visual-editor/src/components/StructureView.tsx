@@ -341,6 +341,8 @@ export interface StructureViewProps {
    * view, drilling into the enum's values.
    */
   readonly onNavigateToEnumType?: (typeId: string) => void;
+  /** Reveal complete member details from a summarized card. */
+  readonly onInspectType?: (typeId: string) => void;
   /**
    * Spec §3.4 — pre-converted LSP diagnostics for the focused file. Ranges
    * must be character offsets (not line/character), pre-converted by EditorPage
@@ -378,6 +380,7 @@ interface StructureFlowInnerProps {
   readonly onToggleExpansion?: (key: StructureExpansionKey) => void;
   readonly onNodeSelect?: (canonicalTypeId: string) => void;
   readonly onNavigateToEnumType?: (typeId: string) => void;
+  readonly onInspectType?: (typeId: string) => void;
   readonly structureDiagnostics?: readonly RangeDiagnostic[];
   readonly pendingHydrationNamespaces: ReadonlyArray<string>;
 }
@@ -396,6 +399,7 @@ function StructureFlowInner({
   onToggleExpansion,
   onNodeSelect,
   onNavigateToEnumType,
+  onInspectType,
   structureDiagnostics,
   pendingHydrationNamespaces
 }: StructureFlowInnerProps): React.ReactElement {
@@ -554,6 +558,22 @@ function StructureFlowInner({
   // real dimensions again so the measurement pass re-runs on reveal.
   const [visibilityTick, setVisibilityTick] = useState(0);
   const [viewportTick, setViewportTick] = useState(0);
+  useEffect(() => {
+    const fonts = document.fonts;
+    if (!fonts) return;
+    let active = true;
+    const remeasure = () => {
+      if (active) setVisibilityTick((tick) => tick + 1);
+    };
+    // Fixed node widths cannot observe the intrinsic growth when fallback
+    // text is replaced by the loaded UI/monospace fonts.
+    void fonts.ready.then(remeasure);
+    fonts.addEventListener('loadingdone', remeasure);
+    return () => {
+      active = false;
+      fonts.removeEventListener('loadingdone', remeasure);
+    };
+  }, []);
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || nodes.length === 0) return;
@@ -653,10 +673,11 @@ function StructureFlowInner({
   const navigationCtx = useMemo(
     () => ({
       allNodeIds: EMPTY_ALL_NODE_IDS,
+      onInspectType,
       layoutDirection: 'TB' as const,
       pendingHydrationNamespaces
     }),
-    [pendingHydrationNamespaces]
+    [pendingHydrationNamespaces, onInspectType]
   );
 
   return (
@@ -728,6 +749,7 @@ export function StructureView({
   unsupportedSelectedType,
   onNodeSelect,
   onNavigateToEnumType,
+  onInspectType,
   structureDiagnostics,
   pendingHydrationNamespaces
 }: StructureViewProps): React.ReactElement {
@@ -795,6 +817,7 @@ export function StructureView({
         onToggleExpansion={onToggleExpansion}
         onNodeSelect={onNodeSelect}
         onNavigateToEnumType={onNavigateToEnumType}
+        onInspectType={onInspectType}
         structureDiagnostics={structureDiagnostics}
         pendingHydrationNamespaces={pendingHydrationNamespaces ?? EMPTY_PENDING_HYDRATION}
       />

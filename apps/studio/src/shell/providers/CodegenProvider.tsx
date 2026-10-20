@@ -183,9 +183,19 @@ export const CodegenProvider = withInstrumentation(
         // wrapped in subscribeWithSelector; a two-argument form would silently
         // be ignored). Diff hydrationNonce manually to detect a hydration round.
         subscribeToHydrationChange: (onChange) =>
-          useEditorStore.subscribe((state) => {
+          useEditorStore.subscribe((state, previous) => {
             if (state.hydrationNonce !== lastHydrationNonce) {
               lastHydrationNonce = state.hydrationNonce;
+              const preview = usePreviewStore.getState();
+              const target = preview.selectedTarget;
+              if (
+                target &&
+                preview.status.state === 'unavailable' &&
+                preview.status.reason === 'unsupported-target' &&
+                previous.pendingHydrationNamespaces.includes(target.namespace) &&
+                state.hydratedNamespaces.includes(target.namespace)
+              )
+                preview.beginPreviewGeneration(target.id);
               onChange();
             }
           })
@@ -397,6 +407,7 @@ export const CodegenProvider = withInstrumentation(
     // already current from the effect above; this effect only updates the target.
     useEffect(() => {
       if (!codegenWorker || !previewSelectedTargetId) return;
+      usePreviewStore.getState().beginPreviewGeneration(previewSelectedTargetId);
       const requestId = `preview:${previewSelectedTargetId}:${++previewRequestSequenceRef.current}`;
       currentPreviewRequestIdRef.current = requestId;
       try {
@@ -565,6 +576,7 @@ export const CodegenProvider = withInstrumentation(
                           // selection to a different target while this retry was
                           // in flight — without it, this callback would clobber
                           // currentPreviewRequestIdRef for whatever is now selected.
+                          usePreviewStore.getState().beginPreviewGeneration(targetId);
                           setTimeout(() => {
                             if (!codegenWorker) return;
                             if (usePreviewStore.getState().selectedTargetId !== targetId) return;

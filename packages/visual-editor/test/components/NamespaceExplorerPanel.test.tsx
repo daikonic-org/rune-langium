@@ -158,7 +158,7 @@ describe('NamespaceExplorerPanel', () => {
     expect(screen.queryByTestId('ns-seg-com.rosetta')).not.toBeInTheDocument();
     const toggle = within(namespace).getByRole('button', { name: 'com.rosetta.model', exact: true });
     expect(toggle).toHaveAttribute('title', 'com.rosetta.model');
-    expect(toggle.querySelector('span')).toHaveAttribute('dir', 'rtl');
+    expect(toggle.querySelector('span')).toHaveAttribute('dir', 'ltr');
     expect(toggle).toHaveTextContent('com.rosetta.model');
     // Compression does not open previously collapsed deep namespaces.
     expect(screen.queryByTestId('ns-type-com.rosetta.model.Trade')).not.toBeInTheDocument();
@@ -201,21 +201,50 @@ describe('NamespaceExplorerPanel', () => {
       checked: true
     });
   });
+  it('focuses a namespace, preserves ancestor navigation and highlights the selected declaration', async () => {
+    const user = userEvent.setup();
+    renderPanel({ selectedNodeId: 'com.model.Trade' });
+    await user.click(screen.getByRole('button', { name: 'Focus namespace com.model', exact: true }));
+    expect(screen.queryByTestId('ns-seg-cdm')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ns-type-com.model.Trade')).toHaveAttribute('aria-current', 'true');
+    const breadcrumb = screen.getByRole('navigation', { name: 'Namespace location' });
+    expect(within(breadcrumb).getByRole('button', { name: 'com.model', exact: true })).toHaveAttribute(
+      'aria-current',
+      'location'
+    );
+    await user.click(within(breadcrumb).getByRole('button', { name: 'com', exact: true }));
+    expect(screen.getByTestId('ns-seg-com.lib')).toBeInTheDocument();
+    await user.click(within(breadcrumb).getByRole('button', { name: 'All', exact: true }));
+    expect(screen.getByTestId('ns-seg-cdm')).toBeInTheDocument();
+  });
+
+  it('disambiguates same-name search results and keeps their navigation and drag IDs distinct', () => {
+    const { props } = renderPanel();
+    fireEvent.change(screen.getByTestId('namespace-search'), { target: { value: 'Trade' } });
+    expect(screen.getByRole('button', { name: 'Trade model', exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trade trade', exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Trade model', exact: true }));
+    expect(props.onSelectNode).toHaveBeenLastCalledWith('com.model.Trade');
+    fireEvent.click(screen.getByRole('button', { name: 'Trade trade', exact: true }));
+    expect(props.onSelectNode).toHaveBeenLastCalledWith('cdm.trade.Trade');
+    expect(screen.getByTestId('ns-type-link-com.model.Trade')).toHaveAttribute(
+      'title',
+      expect.stringContaining('com.model.Trade')
+    );
+  });
+
   it('shows empty state when no nodes', () => {
     renderPanel({ nodeRepository: repoFrom([]) });
     expect(screen.getByText('No types loaded')).toBeTruthy();
   });
 
-  it('calls onExpandAll when expand-all button clicked', () => {
-    const { props } = renderPanel();
-    fireEvent.click(screen.getByTestId('expand-all'));
-    expect(props.onExpandAll).toHaveBeenCalledOnce();
-  });
-
-  it('calls onCollapseAll when collapse-all button clicked', () => {
-    const { props } = renderPanel();
-    fireEvent.click(screen.getByTestId('collapse-all'));
-    expect(props.onCollapseAll).toHaveBeenCalledOnce();
+  it('keeps the count in a quiet footer and omits global visibility shortcuts', () => {
+    renderPanel();
+    expect(screen.getByRole('contentinfo', { name: 'Available types' })).toContainElement(
+      screen.getByTestId('namespace-explorer-count')
+    );
+    expect(screen.queryByTestId('expand-all')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('collapse-all')).not.toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------

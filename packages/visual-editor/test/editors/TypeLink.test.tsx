@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { TypeLink } from '../../src/components/editors/TypeLink.js';
+import { TypeLink, TypeReferenceImports } from '../../src/components/editors/TypeLink.js';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -130,5 +130,27 @@ describe('TypeLink', () => {
       fireEvent.click(screen.getByRole('button'));
       expect(onNavigate).toHaveBeenCalledWith('test.Party#Data');
     });
+  });
+});
+
+describe('file-local alias navigation', () => {
+  it('tries all namespaces for one alias and rejects unrelated same-name targets', () => {
+    const navigate = vi.fn();
+    render(
+      <TypeReferenceImports.Provider
+        value={[
+          { importedNamespace: 'fpml.asset.*', namespaceAlias: 'fpml' },
+          { importedNamespace: 'fpml.option.*', namespaceAlias: 'fpml' }
+        ]}
+      >
+        <TypeLink
+          typeName="fpml.Exercise"
+          allNodeIds={['unrelated.Exercise', 'fpml.option.Exercise#Data']}
+          onNavigateToNode={navigate}
+        />
+      </TypeReferenceImports.Provider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'fpml.Exercise', exact: true }));
+    expect(navigate).toHaveBeenCalledWith('fpml.option.Exercise#Data');
   });
 });

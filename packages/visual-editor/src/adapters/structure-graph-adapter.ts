@@ -23,6 +23,8 @@ import {
   type StructureRow,
   expansionKey
 } from '../types/structure-view.js';
+import { buildImportAliasMap, importAliasCandidates } from '@rune-langium/core';
+import type { NamespaceImport } from '@rune-langium/core';
 import { BUILTIN_TYPES } from '../types.js';
 
 export interface AdapterDocument {
@@ -35,6 +37,7 @@ export interface AdapterNode {
   readonly $type: 'Data' | 'Choice' | 'Enum' | 'Record' | 'TypeAlias' | 'Function';
   readonly name: string;
   readonly namespace: string;
+  readonly imports?: readonly NamespaceImport[];
   /**
    * Forwarded from `GraphNodeMeta.deferred` by `graphNodesToAdapterDocument`.
    * True when this node is a deferred curated placeholder whose namespace
@@ -186,9 +189,9 @@ function formatCardinality(card: AdapterCardinality | undefined): string {
   return `${inf}..${sup}`;
 }
 
-function classifyType(typeName: string, doc: AdapterDocument, callerNamespace?: string): StructureRow['typeKind'] {
+function classifyType(typeName: string, doc: AdapterDocument, caller?: AdapterNode): StructureRow['typeKind'] {
   if (BUILTIN_SET.has(typeName)) return 'BasicType';
-  const match = findNodeByName(typeName, doc, callerNamespace);
+  const match = findNodeByName(typeName, doc, caller);
   if (!match) return 'Unresolved';
   if (match.$type === 'Data') return 'Data';
   if (match.$type === 'Choice') return 'Choice';
@@ -197,14 +200,14 @@ function classifyType(typeName: string, doc: AdapterDocument, callerNamespace?: 
   return 'Enum'; // remaining $type === 'Enum'
 }
 
-// callerNamespace is always provided by current callers (classifyType / buildRow / inheritance / root lookup); the undefined-namespace branch is defensive fallback.
+// Resolve aliases using the declaring node, since files in one namespace can have different imports.
 //
 // Rune DSL grammar (rune-dsl.langium) declares `TypeCall.type` and `extends`
 // superType references as `[T:QualifiedName]`, so $refText can be either a
 // bare name ("Party") or a fully-qualified name ("cdm.product.Party"). We
 // handle both forms here so the qualified-name source-drop path (Phase 9)
 // resolves correctly.
-function findNodeByName(typeName: string, doc: AdapterDocument, callerNamespace?: string): AdapterNode | undefined {
+function findNodeByName(typeName: string, doc: AdapterDocument, caller?: AdapterNode): AdapterNode | undefined {
   // Qualified-ref form: "<ns.segments>.<TypeName>". Split on the last dot:
   // everything before is the namespace, everything after is the simple name.
   // A failed qualified lookup is authoritative — type names can't contain
@@ -213,16 +216,22 @@ function findNodeByName(typeName: string, doc: AdapterDocument, callerNamespace?
   // typoed namespace silently resolve to a same-named type elsewhere.
   const lastDot = typeName.lastIndexOf('.');
   if (lastDot > 0) {
-    const qualifiedNs = typeName.slice(0, lastDot);
-    const qualifiedName = typeName.slice(lastDot + 1);
-    return doc.nodes.find((n) => n.name === qualifiedName && n.namespace === qualifiedNs);
+    const imports = caller?.imports ?? [];
+    for (const candidate of importAliasCandidates(typeName, buildImportAliasMap(imports))) {
+      const dot = candidate.lastIndexOf('.');
+      const match = doc.nodes.find(
+        (n) => n.name === candidate.slice(dot + 1) && n.namespace === candidate.slice(0, dot)
+      );
+      if (match) return match;
+    }
+    return undefined;
   }
 
   // Unqualified path: name match, optionally prefer same-namespace caller.
   let firstMatch: AdapterNode | undefined;
   for (const n of doc.nodes) {
     if (n.name !== typeName) continue;
-    if (callerNamespace && n.namespace === callerNamespace) return n;
+    if (caller && n.namespace === caller.namespace) return n;
     if (!firstMatch) firstMatch = n;
   }
   return firstMatch;
@@ -231,14 +240,14 @@ function findNodeByName(typeName: string, doc: AdapterDocument, callerNamespace?
 function buildRow(
   attr: AdapterAttribute,
   doc: AdapterDocument,
-  callerNamespace: string,
+  caller: AdapterNode,
   isInherited = false
 ): StructureRow {
   const typeName = typeRefText(attr);
-  const typeKind = classifyType(typeName, doc, callerNamespace);
+  const typeKind = classifyType(typeName, doc, caller);
   const target =
     typeKind !== 'BasicType' && typeKind !== 'Unresolved' && typeKind !== 'Record' && typeKind !== 'TypeAlias'
-      ? findNodeByName(typeName, doc, callerNamespace)
+      ? findNodeByName(typeName, doc, caller)
       : undefined;
   const cardinality = formatCardinality(attr.card);
   return {
@@ -301,7 +310,7 @@ function choiceOptRefText(opt: AdapterChoiceOption): string {
  * Reuses `findNodeByName` (the same lookup `buildRow` uses) to classify and
  * resolve the referenced type — no fabricated name or cardinality.
  */
-function buildChoiceArm(opt: AdapterChoiceOption, doc: AdapterDocument, ownerNamespace: string): StructureChoiceArm {
+function buildChoiceArm(opt: AdapterChoiceOption, doc: AdapterDocument, owner: AdapterNode): StructureChoiceArm {
   const refText = choiceOptRefText(opt);
   if (!refText) {
     return { typeName: '<unresolved>', typeKind: 'Unresolved' };
@@ -309,7 +318,7 @@ function buildChoiceArm(opt: AdapterChoiceOption, doc: AdapterDocument, ownerNam
   if (BUILTIN_SET.has(refText)) {
     return { typeName: refText, typeKind: 'Builtin' };
   }
-  const target = findNodeByName(refText, doc, ownerNamespace);
+  const target = findNodeByName(refText, doc, owner);
   if (!target) {
     return { typeName: refText, typeKind: 'Unresolved' };
   }
@@ -345,7 +354,7 @@ function buildChoiceNode(
 ): StructureChoiceNode {
   const arms = (node.choiceOptions ?? [])
     .filter((opt): opt is AdapterChoiceOption => opt != null)
-    .map((opt) => buildChoiceArm(opt, doc, node.namespace));
+    .map((opt) => buildChoiceArm(opt, doc, node));
   return {
     id: node.id,
     instanceId,
@@ -391,8 +400,8 @@ function buildEnumNode(node: AdapterNode, instanceId: string): StructureEnumNode
 function buildFunctionNode(node: AdapterNode, doc: AdapterDocument, instanceId: string): StructureFunctionNode {
   const inputRows = (node.inputs ?? [])
     .filter((a): a is AdapterAttribute => a != null)
-    .map((a) => buildRow(a, doc, node.namespace, false));
-  const outputRow = node.output != null ? buildRow(node.output, doc, node.namespace, false) : undefined;
+    .map((a) => buildRow(a, doc, node, false));
+  const outputRow = node.output != null ? buildRow(node.output, doc, node, false) : undefined;
   return {
     id: node.id,
     instanceId,
@@ -453,11 +462,11 @@ function computeOutermostCanonicalId(focused: AdapterNode, doc: AdapterDocument,
   }
   const visited = new Set<string>([focused.id]);
   let outermost = focused.id;
-  let cursor: AdapterNode | undefined = findNodeByName(focused.extends, doc, focused.namespace);
+  let cursor: AdapterNode | undefined = findNodeByName(focused.extends, doc, focused);
   while (cursor && !visited.has(cursor.id)) {
     visited.add(cursor.id);
     outermost = `${focused.id}::__base::${cursor.id}`;
-    cursor = cursor.extends ? findNodeByName(cursor.extends, doc, cursor.namespace) : undefined;
+    cursor = cursor.extends ? findNodeByName(cursor.extends, doc, cursor) : undefined;
   }
   cache?.set(focused.id, outermost);
   return outermost;
@@ -509,7 +518,7 @@ function walkAndExpand(
   // array briefly during partial-parse when the user is mid-keystroke.
   const rows = (node.attributes ?? [])
     .filter((a): a is AdapterAttribute => a != null)
-    .map((a) => buildRow(a, doc, node.namespace, false));
+    .map((a) => buildRow(a, doc, node, false));
 
   const placeholder: StructureDataNode = {
     id: node.id,
@@ -519,7 +528,7 @@ function walkAndExpand(
     namespaceUri: node.namespace,
     deferred: node.deferred,
     extendsName: node.extends,
-    extendsNodeId: node.extends ? findNodeByName(node.extends, doc, node.namespace)?.id : undefined,
+    extendsNodeId: node.extends ? findNodeByName(node.extends, doc, node)?.id : undefined,
     // Phase A — forward type metadata from the AdapterNode (projected by the
     // studio). Defensive defaults keep fallback/hydration nodes from throwing.
     definition: node.definition,
@@ -632,13 +641,11 @@ function materializeDataWithInheritance(
   // this call.
   const visited = new Set<string>([focused.id]);
   const ancestors: AdapterNode[] = [];
-  let cursor: AdapterNode | undefined = focused.extends
-    ? findNodeByName(focused.extends, doc, focused.namespace)
-    : undefined;
+  let cursor: AdapterNode | undefined = focused.extends ? findNodeByName(focused.extends, doc, focused) : undefined;
   while (cursor && !visited.has(cursor.id)) {
     visited.add(cursor.id);
     ancestors.push(cursor);
-    cursor = cursor.extends ? findNodeByName(cursor.extends, doc, cursor.namespace) : undefined;
+    cursor = cursor.extends ? findNodeByName(cursor.extends, doc, cursor) : undefined;
   }
 
   // Compute the canonical id chain of base containers (outermost FIRST).
@@ -706,7 +713,7 @@ function materializeDataWithInheritance(
     // in inherited-attribute arrays during partial-parse.
     const baseRows = (baseNode.attributes ?? [])
       .filter((a): a is AdapterAttribute => a != null)
-      .map((a) => buildRow(a, doc, baseNode.namespace, true));
+      .map((a) => buildRow(a, doc, baseNode, true));
 
     // Look up the rfId+path computed for this base container above. Loop
     // walks INNERMOST → OUTERMOST; arrays are OUTERMOST → INNERMOST.
@@ -851,7 +858,7 @@ function expandChoiceArms(
 
   for (const opt of node.choiceOptions ?? []) {
     if (opt == null) continue;
-    const arm = buildChoiceArm(opt, doc, node.namespace);
+    const arm = buildChoiceArm(opt, doc, node);
     if (arm.typeKind !== 'Data' && arm.typeKind !== 'Choice') continue;
     if (!arm.targetNodeId) continue;
     const key = expansionKey({

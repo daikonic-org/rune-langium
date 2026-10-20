@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
+
+export interface InspectorSectionRequest {
+  nodeId: string;
+  sectionId: string;
+  revision: number;
+}
+
+export const InspectorSectionRequestContext = createContext<InspectorSectionRequest | undefined>(undefined);
 
 export interface InspectorSection {
   id: string;
@@ -29,7 +37,18 @@ export function InspectorFrame({
   footer,
   onSectionChange
 }: InspectorFrameProps) {
-  const [selected, setSelected] = useState(sections[0]?.id);
+  const sectionRequest = useContext(InspectorSectionRequestContext);
+  const [selected, setSelected] = useState(sectionRequest?.sectionId ?? sections[0]?.id);
+  const consumedRevision = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      sectionRequest &&
+      (consumedRevision.current === undefined || sectionRequest.revision > consumedRevision.current)
+    ) {
+      consumedRevision.current = sectionRequest.revision;
+      setSelected(sectionRequest.sectionId);
+    }
+  }, [sectionRequest]);
   const active = sections.find((section) => section.id === selected) ?? sections[0];
   const [mountedSections, setMountedSections] = useState(() => new Set<string>());
   // Track activation in state so discarded renders cannot retain an unvisited session.
@@ -49,7 +68,7 @@ export function InspectorFrame({
               onSectionChange?.(value);
             }
           }}
-          className="flex min-h-0 flex-1 flex-col gap-1.5"
+          className={`flex flex-1 flex-col gap-1.5 ${active?.fill ? 'min-h-min' : 'min-h-0'}`}
         >
           <TabsList size="sm" className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start">
             {sections.map((section) => (
@@ -64,7 +83,7 @@ export function InspectorFrame({
                 key={section.id}
                 value={section.id}
                 keepMounted={mountedSections.has(section.id)}
-                className={`studio-scroll mt-0 min-h-0 flex-1 overflow-auto py-1.5 data-[hidden]:hidden ${section.fill ? 'flex flex-col gap-1.5' : ''}`}
+                className={`studio-scroll mt-0 flex-1 overflow-auto py-1.5 data-[hidden]:hidden ${section.fill ? 'flex min-h-min flex-col gap-1.5' : 'min-h-0'}`}
               >
                 {section.content}
               </TabsContent>

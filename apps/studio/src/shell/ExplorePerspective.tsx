@@ -268,6 +268,7 @@ function graphNodesToAdapterDocument(
         $type: 'Data',
         name: dd.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         extends: dd.superType?.$refText,
         // `attributes` on Dehydrated<Data> has the same structural shape as
@@ -293,6 +294,7 @@ function graphNodesToAdapterDocument(
         $type: 'Choice',
         name: dc.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         choiceOptions: (dc.attributes ?? []) as ReadonlyArray<AdapterChoiceOption>,
         // Phase A — type metadata. Choice declarations carry doc + annotations
@@ -307,15 +309,16 @@ function graphNodesToAdapterDocument(
         $type: 'Enum',
         name: de.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         values: (de.enumValues ?? []) as Array<{ name: string }>
       });
     } else if (effectiveType === 'RosettaRecordType') {
       const dr = d as { name: string };
-      adapterNodes.push({ id: rfNode.id, $type: 'Record', name: dr.name, namespace });
+      adapterNodes.push({ id: rfNode.id, $type: 'Record', name: dr.name, namespace, imports: rfNode.meta.imports });
     } else if (effectiveType === 'TypeAlias' || effectiveType === 'RosettaTypeAlias') {
       const ta = d as { name: string };
-      adapterNodes.push({ id: rfNode.id, $type: 'TypeAlias', name: ta.name, namespace });
+      adapterNodes.push({ id: rfNode.id, $type: 'TypeAlias', name: ta.name, namespace, imports: rfNode.meta.imports });
     } else if (effectiveType === 'RosettaFunction') {
       // Phase C — Function structure node. `inputs` and `output` are
       // Attribute-shaped (name + typeCall + card), identical to Data
@@ -336,6 +339,7 @@ function graphNodesToAdapterDocument(
         $type: 'Function',
         name: df.name,
         namespace,
+        imports: rfNode.meta.imports,
         deferred: rfNode.meta?.deferred,
         inputs: (df.inputs ?? []) as AdapterNode['inputs'],
         output: df.output ?? null,
@@ -546,6 +550,18 @@ export const ExplorePerspective = withInstrumentation(
     const storeOpenFileInSource = useExploreFileNavStore((s) => s.openFileInSource);
     const requestSourceFile = useExploreFileNavStore((s) => s.requestSourceFile);
     const [inspectorFocusNonce, setInspectorFocusNonce] = useState(0);
+    const [inspectorSectionRequest, setInspectorSectionRequest] = useState<{
+      nodeId: string;
+      sectionId: string;
+      revision: number;
+    }>();
+    const requestInspectorMembers = useCallback((nodeId: string) => {
+      setInspectorSectionRequest((previous) => ({
+        nodeId,
+        sectionId: 'members',
+        revision: (previous?.revision ?? 0) + 1
+      }));
+    }, []);
     const pendingRevealRef = useRef<SourceRevealRequest | null>(null);
     const navigationSequenceRef = useRef(0);
     const [navigationTarget, setNavigationTarget] = useState<{
@@ -2146,7 +2162,7 @@ export const ExplorePerspective = withInstrumentation(
     const FormPreviewPanelMounted = useCallback(() => <FormPreviewPanelShell />, []);
 
     const renderGraphPane = useCallback(
-      () => (
+      (showInspector: () => void) => (
         <section
           aria-label="Graph"
           data-testid="panel-visualPreview"
@@ -2220,7 +2236,12 @@ export const ExplorePerspective = withInstrumentation(
                 onNodeDoubleClick: () => {},
                 onModelChanged: handleModelChanged,
                 onLayoutEngineChange: storeSetLayoutEngine,
-                onNavigateToType: navigateToNode
+                onNavigateToType: navigateToNode,
+                onInspectType: (id) => {
+                  navigateToNode(id);
+                  requestInspectorMembers(id);
+                  showInspector();
+                }
               }}
             />
             {visibleGraphCount === 0 && (
@@ -2259,6 +2280,7 @@ export const ExplorePerspective = withInstrumentation(
         navigateToNode,
         storeLayoutEngine,
         storeSetLayoutEngine,
+        requestInspectorMembers,
         setGraphContainerRef
       ]
     );
@@ -2501,6 +2523,7 @@ export const ExplorePerspective = withInstrumentation(
           >
             <EditorFormPanel
               nodeData={selectedNodeData}
+              sectionRequest={inspectorSectionRequest}
               meta={selectedNodeMeta}
               nodeId={selectedNodeId}
               refOnly={selectedNodeIsRefOnly}
@@ -2539,6 +2562,7 @@ export const ExplorePerspective = withInstrumentation(
         storeParseEpoch,
         formCommitRegistry,
         selectedNodeData,
+        inspectorSectionRequest,
         selectedNodeMeta,
         selectedNodeId,
         selectedNodeIsRefOnly,
@@ -2738,7 +2762,7 @@ export const ExplorePerspective = withInstrumentation(
     }, [structureLspDiagnostics, structureLineOffsets]);
 
     const renderStructurePane = useCallback(
-      () => (
+      (showInspector: () => void) => (
         <div className="h-full min-h-0 studio-graph-canvas">
           <StructureView
             focusedTypeId={structureFocusedTypeId}
@@ -2750,6 +2774,11 @@ export const ExplorePerspective = withInstrumentation(
             unsupportedSelectedType={structureUnsupportedSelectedType}
             onNodeSelect={(canonicalId) => storeSelectNode(canonicalId, { reapplyFocusMode: false })}
             onNavigateToEnumType={handleStructureNavigateToEnumType}
+            onInspectType={(id) => {
+              handleStructureNavigateToEnumType(id);
+              requestInspectorMembers(id);
+              showInspector();
+            }}
             structureDiagnostics={structureDiagnostics}
             pendingHydrationNamespaces={pendingHydrationNamespaces}
           />
@@ -2765,6 +2794,7 @@ export const ExplorePerspective = withInstrumentation(
         structureUnsupportedSelectedType,
         storeSelectNode,
         handleStructureNavigateToEnumType,
+        requestInspectorMembers,
         structureDiagnostics,
         pendingHydrationNamespaces
       ]
@@ -2877,19 +2907,34 @@ export const ExplorePerspective = withInstrumentation(
           </SourceNavigationFeedbackContext.Provider>
         </div>
 
-        <footer className="glass-statusbar flex items-center gap-4 px-3 py-1 text-xs text-muted-foreground border-t border-border">
-          <span>
+        <footer
+          role="group"
+          aria-label="Workspace status"
+          className="glass-statusbar flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1 text-xs text-muted-foreground border-t border-border"
+        >
+          <span className="shrink-0">
             {models.length} model{models.length === 1 ? '' : 's'}
           </span>
-          <span>{files.filter((f) => f.dirty).length} modified</span>
-          {selectedNodeId && <span>{selectedNodeId}</span>}
+          <span className="shrink-0">{files.filter((f) => f.dirty).length} modified</span>
+          {selectedNodeId && (
+            <span className="min-w-0 flex-1 basis-32 truncate" title={selectedNodeId}>
+              {selectedNodeId}
+            </span>
+          )}
           {(combinedDiagnostics.errors > 0 || combinedDiagnostics.warnings > 0) && (
-            <span>
+            <span className="shrink-0">
               {combinedDiagnostics.errors} err / {combinedDiagnostics.warnings} warn
             </span>
           )}
-          {transportState && <LspConnectionBadge state={transportState} onRetry={onReconnect} />}
-          {transportState && <ConnectionStatus state={transportState} onReconnect={onReconnect} />}
+          {transportState && (
+            <span className="shrink-0">
+              {transportState.status === 'connected' ? (
+                <ConnectionStatus state={transportState} />
+              ) : (
+                <LspConnectionBadge state={transportState} onRetry={onReconnect} />
+              )}
+            </span>
+          )}
         </footer>
 
         <ExportDialog

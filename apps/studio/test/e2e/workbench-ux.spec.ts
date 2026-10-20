@@ -63,7 +63,9 @@ for (const width of [1280, 800]) {
     await expect(structure).toContainText('Trade');
     await expectContainedInPane(structure.locator('.react-flow__node').first(), structure);
     await page.getByRole('button', { name: 'Graph', exact: true }).click();
-    await page.getByRole('button', { name: 'Hide all', exact: true }).click();
+    await page.getByRole('button', { name: 'Filter visible types and relationships', exact: true }).click();
+    await page.getByRole('button', { name: 'Data', exact: true }).click();
+    await page.getByRole('button', { name: 'Data', exact: true }).press('Escape');
     await expect(page.getByTestId('graph-empty-state')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fit View', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Show selected type' }).click();

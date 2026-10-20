@@ -3,11 +3,34 @@
 
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { InspectorFrame } from '../../src/components/editors/inspector/InspectorFrame.js';
+import {
+  InspectorFrame,
+  InspectorSectionRequestContext
+} from '../../src/components/editors/inspector/InspectorFrame.js';
 import { InspectorDetailsPane } from '../../src/components/editors/inspector/InspectorDetailsPane.js';
 
 afterEach(cleanup);
 describe('common Inspector composition', () => {
+  it('consumes a section revision once across node selection changes and accepts a fresh request', () => {
+    const sections = [
+      { id: 'members', label: 'Values', content: <p>Enum values</p> },
+      { id: 'details', label: 'Details', content: <p>Enum metadata</p> }
+    ];
+    const request = { nodeId: 'example.A', sectionId: 'members', revision: 1 };
+    const view = (current: typeof request | undefined) => (
+      <InspectorSectionRequestContext.Provider value={current}>
+        <InspectorFrame header="Enum" sections={sections} />
+      </InspectorSectionRequestContext.Provider>
+    );
+    const { rerender } = render(view(request));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    rerender(view(undefined));
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+    rerender(view({ ...request }));
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+    rerender(view({ ...request, revision: 2 }));
+    expect(screen.getByRole('tab', { name: 'Values' })).toHaveAttribute('aria-selected', 'true');
+  });
   it('names element details and uses an accessible icon-only collapse control', () => {
     const { rerender } = render(
       <InspectorDetailsPane elementLabel="Attribute" targetName="party">

@@ -6,6 +6,7 @@ import { gzipSync } from 'node:zlib';
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
+import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 test('shows own fields before the closure arrives, then preserves inherited fields, previews, Source and reload reuse', async ({
   page,
@@ -111,6 +112,9 @@ test('shows own fields before the closure arrives, then preserves inherited fiel
   await expect(inspector.getByRole('status')).toContainText('Loading dependencies');
   // Previously linked parents may already be inspected; no new partial nodes are published.
   await expect(inspector.getByText('inherited', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('panel-formPreview')).toContainText('Generating preview for the selected type…');
+  await expect(page.getByTestId('panel-formPreview')).not.toContainText('No form preview schema is available');
+  await dismissLocalTransportNotices(page);
   await expect(page.getByTestId('panel-formPreview').getByRole('spinbutton', { name: 'Own', exact: true })).toHaveCount(
     0
   );

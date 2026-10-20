@@ -42,8 +42,12 @@ export type { Dehydrated } from '@rune-langium/core';
  * pure-domain `node.data` payload. `position` is NOT here — it already lives
  * on the ReactFlow node itself.
  */
+import type { NamespaceImport } from '@rune-langium/core';
+
 export interface GraphNodeMeta {
   namespace: string;
+  /** File-local import bindings for authored reference labels and navigation. */
+  imports?: readonly NamespaceImport[];
   errors: ValidationError[];
   isReadOnly?: boolean;
   hasExternalRefs: boolean;
@@ -441,6 +445,8 @@ export interface RuneTypeGraphCallbacks {
   onNodeDoubleClick?: (nodeId: string, data: AnyGraphNode) => void;
   /** Called when a type reference is clicked within a graph node (e.g., attribute type name). */
   onNavigateToType?: NavigateToNodeCallback;
+  /** Reveal a declaration's complete details from a summarized graph card. */
+  onInspectType?: NavigateToNodeCallback;
   /** Called when the user switches layout engine from the graph context menu. */
   onLayoutEngineChange?: (engine: LayoutEngine) => void;
   onEdgeSelect?: (edgeId: string, data: EdgeData) => void;
