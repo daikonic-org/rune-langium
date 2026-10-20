@@ -71,3 +71,51 @@ describe.each(fixtures)('$name context actions', ({ Component, data }) => {
     expect(reference).toHaveFocus();
   });
 });
+
+describe.each(['Record', 'TypeAlias'] as const)('static Structure %s keyboard actions', (kind) => {
+  it.each(['data', 'choice'] as const)('makes a terminal reference reachable in a %s node', async (ownerKind) => {
+    const inspect = vi.fn();
+    const Component = ownerKind === 'data' ? DataNode : ChoiceNode;
+    const row = {
+      attrName: 'value',
+      typeName: 'Other',
+      typeKind: kind,
+      targetNodeId: targetId,
+      cardinality: '0..1',
+      isOptional: true,
+      isInherited: false
+    };
+    const data = {
+      id: 'context.Example',
+      name: 'Example',
+      namespaceUri: 'context',
+      variant: 'structure',
+      kind: ownerKind,
+      rows: [row],
+      options: [row],
+      expansions: new Map()
+    };
+    render(
+      <ReactFlowProvider>
+        <NavigationContext.Provider
+          value={{
+            allNodeIds: new Set([targetId]),
+            layoutDirection: 'TB',
+            pendingHydrationNamespaces: [],
+            onInspectType: inspect
+          }}
+        >
+          <Component data={data as any} id="context.Example" type={ownerKind} />
+        </NavigationContext.Provider>
+      </ReactFlowProvider>
+    );
+    const reference = screen.getByRole('group', { name: ownerKind === 'data' ? 'value: Other' : 'Other' });
+    expect(reference).toHaveAttribute('tabindex', '0');
+    reference.focus();
+    fireEvent.keyDown(reference, { key: 'ContextMenu' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Inspect type', exact: true }));
+    expect(inspect).toHaveBeenCalledExactlyOnceWith(targetId);
+    expect(reference).toHaveFocus();
+    expect(screen.queryByRole('button', { name: /^Expand/ })).not.toBeInTheDocument();
+  });
+});
