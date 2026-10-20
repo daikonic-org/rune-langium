@@ -294,6 +294,8 @@ export interface StructureBaseContainer {
   /** Per-instance discriminator (Phase 14e); see `StructureDataNode.instanceId`. */
   readonly instanceId?: string;
   readonly kind: 'base';
+  /** Canonical inherited type identity for navigation (the wrapper is synthetic). */
+  readonly baseTypeId?: string;
   readonly baseTypeName: string;
   readonly baseTypeNamespaceUri: string;
   readonly baseRows: ReadonlyArray<StructureRow>;

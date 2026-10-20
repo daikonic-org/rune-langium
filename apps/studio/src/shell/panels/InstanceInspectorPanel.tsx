@@ -69,9 +69,16 @@ export const InstanceInspectorPanel = withInstrumentation(
       if (!fieldPath) return;
       patchView({ inspectorTab: 'form' });
       const frame = requestAnimationFrame(() => {
-        const target = Array.from(
-          destinationRef.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? []
-        ).find((element) => element.dataset.fieldPath === fieldPath);
+        const fields = Array.from(destinationRef.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? []);
+        // Closed collection details still expose their canonical item paths in the summary grid.
+        const target =
+          fields.find((element) => element.dataset.fieldPath === fieldPath) ??
+          fields
+            .filter((element) => {
+              const path = element.dataset.fieldPath!;
+              return fieldPath.startsWith(`${path}.`) || fieldPath.startsWith(`${path}[`);
+            })
+            .sort((a, b) => b.dataset.fieldPath!.length - a.dataset.fieldPath!.length)[0];
         if (!target) return;
         consumedArrivalRef.current = arrivalRequest;
         const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -94,7 +101,7 @@ export const InstanceInspectorPanel = withInstrumentation(
 
     return (
       <div ref={destinationRef} className="@container flex h-full min-h-0 flex-col overflow-hidden text-sm">
-        <header className="shrink-0 border-b border-border px-3 py-2">
+        <header className="shrink-0 border-b border-border px-panel-x py-panel-y">
           <h2 className="truncate text-sm font-semibold">{record.name}</h2>
           <p className="truncate text-xs text-muted-foreground">{record.typeFqn}</p>
           <Button
@@ -136,7 +143,7 @@ export const InstanceInspectorPanel = withInstrumentation(
             aria-label="Instance details"
             className="min-w-0 border-t border-border @3xl:overflow-auto @3xl:border-t-0 @3xl:border-l"
           >
-            <section aria-label="Instance validation" className="px-3 pt-2">
+            <section aria-label="Instance validation" className="px-panel-x py-panel-y">
               <h3 className="mb-1 font-semibold">Validation</h3>
               {validationStatus === 'pending' || !validationStatus ? (
                 <p role="status" className="text-muted-foreground">
@@ -176,7 +183,7 @@ export const InstanceInspectorPanel = withInstrumentation(
                 </Collapsible>
               )}
             </section>
-            <section className="flex flex-wrap items-center gap-x-2 px-3 pt-2 text-xs">
+            <section className="flex flex-wrap items-center gap-x-2 px-panel-x py-panel-y text-xs">
               <h3 className="font-medium">Provenance</h3>
               <p className="text-muted-foreground">{record.provenance?.codec ?? 'manual'}</p>
             </section>

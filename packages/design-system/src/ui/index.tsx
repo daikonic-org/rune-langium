@@ -6,6 +6,7 @@ export * from './app-switcher.js';
 export * from './avatar.js';
 export * from './badge.js';
 export * from './button.js';
+export * from './calendar.js';
 export * from './checkbox.js';
 export * from './code-block.js';
 export * from './collapsible.js';

@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-sy
 import { RowGlyph } from '@rune-langium/design-system/ui/row-glyph';
 import { resolveNodeId, TypeReferenceImports } from './TypeLink.js';
 import { NamespaceTreePicker } from './NamespaceTreePicker.js';
-import { TypeChip, type TypeChipKind } from './structure/TypeChip.js';
+import { TypeChip, typeChipKind } from './structure/TypeChip.js';
 import { useTypeRefDrop } from '../../hooks/useTypeRefDrop.js';
 import { TYPE_REF_KINDS, type TypeRefPayload } from '../../types/structure-view.js';
 import type { NavigateToNodeCallback, TypeKind, TypeOption } from '../../types.js';
@@ -42,23 +42,6 @@ export interface TypeReferenceFieldProps {
   allNodeIds?: string[];
   readOnly?: boolean;
   className?: string;
-}
-
-// Map a TypeOption kind to the canonical TypeChip color variant. Func/Annotation
-// (and an unknown/missing kind) fall to 'Unresolved' — they are not valid
-// attribute type-refs, so they only appear here in degenerate states.
-const KIND_TO_CHIP: Partial<Record<NonNullable<TypeOption['kind']>, TypeChipKind>> = {
-  data: 'Data',
-  choice: 'Choice',
-  enum: 'Enum',
-  record: 'Record',
-  typeAlias: 'TypeAlias',
-  basicType: 'BasicType',
-  builtin: 'BasicType'
-};
-
-function toChipKind(kind: TypeOption['kind'] | undefined): TypeChipKind {
-  return (kind && KIND_TO_CHIP[kind]) ?? 'Unresolved';
 }
 
 // Default whole-field drop kinds when a caller supplies no `filterKinds` —
@@ -108,12 +91,14 @@ export function TypeReferenceField({
 
   const effectiveValue = value ?? selected?.value ?? null;
   const typeLabel = displayName ?? selected?.label ?? '';
-  const chipKind = toChipKind(selected?.kind);
+  const chipKind = typeChipKind(selected?.kind);
 
   const resolvedNodeId = useMemo(() => {
-    if (!typeLabel || !allNodeIds?.length) return undefined;
-    return resolveNodeId(typeLabel, allNodeIds, imports);
-  }, [allNodeIds, typeLabel, imports]);
+    if (!allNodeIds?.length) return undefined;
+    if (effectiveValue && allNodeIds.includes(effectiveValue)) return effectiveValue;
+    const reference = effectiveValue?.startsWith('builtin::') ? typeLabel : (effectiveValue ?? typeLabel);
+    return reference ? resolveNodeId(reference, allNodeIds, imports) : undefined;
+  }, [allNodeIds, effectiveValue, typeLabel, imports]);
   const canNavigate = Boolean(onNavigateToNode && resolvedNodeId);
   const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToNode });
 

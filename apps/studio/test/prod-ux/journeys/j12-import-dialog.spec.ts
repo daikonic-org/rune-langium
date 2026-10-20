@@ -20,7 +20,7 @@ async function openWorkspaceAndImport(page: import('@playwright/test').Page): Pr
   ]);
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
 
-  await page.getByRole('button', { name: 'Import' }).click();
+  await page.getByRole('button', { name: 'Import Model' }).click();
   await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
 }
 
@@ -170,7 +170,7 @@ test.describe('J12 — Import dialog (inbound codegen)', () => {
 
     // Reopen for OpenAPI — this is where state-reset-between-formats matters:
     // a prior format's error/summary/preview must not leak into this run.
-    await page.getByRole('button', { name: 'Import' }).click();
+    await page.getByRole('button', { name: 'Import Model' }).click();
     await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('import-dialog__summary')).toHaveCount(0);
     await expect(page.getByTestId('import-dialog__error')).toHaveCount(0);
@@ -194,7 +194,7 @@ test.describe('J12 — Import dialog (inbound codegen)', () => {
     // SQL — exercises the tree-sitter WASM grammar-fetch path (PR #390's
     // `?url` asset loading in the deployed bundle) and the SQL-specific
     // required-namespace validation.
-    await page.getByRole('button', { name: 'Import' }).click();
+    await page.getByRole('button', { name: 'Import Model' }).click();
     await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
     await selectImportFormat(page, 'SQL DDL');
     await page.getByTestId('import-dialog__source').fill(SQL_SOURCE);
@@ -220,7 +220,7 @@ test.describe('J12 — Import dialog (inbound codegen)', () => {
     await evidence.checkpoint('sql-imported');
 
     // XSD.
-    await page.getByRole('button', { name: 'Import' }).click();
+    await page.getByRole('button', { name: 'Import Model' }).click();
     await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
     await selectImportFormat(page, 'XSD');
     await page.getByTestId('import-dialog__source').fill(XSD_SOURCE);

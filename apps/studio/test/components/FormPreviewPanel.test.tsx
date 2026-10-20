@@ -3,13 +3,28 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StrictMode } from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { FormPreviewPanel } from '../../src/components/FormPreviewPanel.js';
 import { usePreviewStore } from '../../src/store/preview-store.js';
 import { useOutputStore } from '../../src/store/output-store.js';
 import { installFakeValidatingWorker } from '../helpers/fake-validating-worker.js';
+
+async function chooseArm(name: string, current?: string) {
+  const user = userEvent.setup({ writeToClipboard: false });
+  const triggers = screen.getAllByRole('combobox', { name: 'Choose one option' });
+  const trigger = current ? triggers.find((element) => element.textContent?.includes(current))! : triggers[0]!;
+  await user.click(trigger);
+  await user.click(await screen.findByRole('option', { name, exact: true }));
+}
+function expectArm(name: string) {
+  expect(
+    screen
+      .getAllByRole('combobox', { name: 'Choose one option' })
+      .some((element) => element.textContent?.includes(name))
+  ).toBe(true);
+}
 
 const tradeSchema: FormPreviewSchema = {
   schemaVersion: 1,
@@ -731,7 +746,7 @@ describe('FormPreviewPanel', () => {
       fireEvent.change(screen.getByLabelText('Day'), { target: { value: '' } });
       expect(onValuesChange).toHaveBeenLastCalledWith({ day: '', timestamp: '' });
     });
-    it('uses native time/local pickers, retains seconds and exposes zoned ISO editing', () => {
+    it('uses styled time/local pickers, retains seconds and exposes zoned ISO editing', async () => {
       const schema: FormPreviewSchema = {
         schemaVersion: 1,
         targetId: 'test.Temporal',
@@ -755,7 +770,8 @@ describe('FormPreviewPanel', () => {
       fireEvent.change(screen.getByLabelText('Local'), { target: { value: '2026-10-12T14:30' } });
       expect(onValuesChange).toHaveBeenLastCalledWith({ ...values, local: '2026-10-12T14:30:00' });
       expect(screen.getByLabelText('Zoned')).toHaveValue(values.zoned);
-      fireEvent.change(screen.getByLabelText('Zoned picker'), { target: { value: '2026-10-12T14:30:12.123' } });
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Open Zoned picker' }));
+      fireEvent.click(await screen.findByRole('button', { name: /12, .*October.*2026/ }));
       expect(onValuesChange).toHaveBeenLastCalledWith({
         ...values,
         zoned: '2026-10-12T14:30:12.123456789+05:30[Asia/Kolkata]'
@@ -836,7 +852,7 @@ describe('FormPreviewPanel', () => {
       expect(onValuesChange).toHaveBeenCalledWith({ root: { name: '', children: [] } });
     });
 
-    it('renders deep existing values and recursive array items without expanding absent children', () => {
+    it('renders deep existing values and recursive array items without expanding absent children', async () => {
       const onValuesChange = vi.fn();
       const root = {
         name: 'Level 1',
@@ -854,11 +870,15 @@ describe('FormPreviewPanel', () => {
       expect(screen.getAllByRole('textbox').map((input) => (input as HTMLInputElement).value)).toEqual([
         'Level 1',
         'Level 2',
-        'Level 3',
-        'Sibling'
+        'Level 3'
       ]);
-      fireEvent.change(screen.getAllByRole('textbox')[3]!, { target: { value: 'Edited sibling' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Open Children 1 details' }));
+      const dialog = await screen.findByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('textbox', { name: 'Name' }), {
+        target: { value: 'Edited sibling' }
+      });
       expect(onValuesChange.mock.lastCall![0].root.children[0].name).toBe('Edited sibling');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
       fireEvent.click(document.querySelector('[data-field-path="root.children"] button')!);
       expect(onValuesChange.mock.lastCall![0].root.children).toEqual([{ name: 'Sibling' }, {}]);
     });
@@ -979,7 +999,7 @@ describe('FormPreviewPanel', () => {
       const user = userEvent.setup({ writeToClipboard: false });
       render(<FormPreviewPanel schema={schema} status={{ state: 'ready', targetId: schema.targetId }} />);
 
-      expect(screen.getByRole('radio', { name: 'Unit' })).toBeChecked();
+      expectArm('Unit');
       expect(usePreviewStore.getState().samples.get(schema.targetId)?.serialized).toBe('{\n  "unit": "Share"\n}');
 
       await user.click(screen.getByRole('combobox', { name: 'Unit' }));
@@ -987,9 +1007,9 @@ describe('FormPreviewPanel', () => {
       await user.click(await screen.findByRole('option', { name: 'Weight' }));
       expect(usePreviewStore.getState().samples.get(schema.targetId)?.serialized).toBe('{\n  "unit": "Weight"\n}');
 
-      await user.click(screen.getByRole('radio', { name: 'Cash' }));
-      await user.click(screen.getByRole('radio', { name: 'Unit' }));
-      expect(screen.getByRole('radio', { name: 'Unit' })).toBeChecked();
+      await chooseArm('Cash');
+      await chooseArm('Unit');
+      expectArm('Unit');
       expect(usePreviewStore.getState().samples.get(schema.targetId)?.serialized).toBe('{\n  "unit": "Share"\n}');
     });
 
@@ -1026,7 +1046,7 @@ describe('FormPreviewPanel', () => {
       ]
     };
 
-    it("renders a NESTED Data-extends-Choice reference's scalar/object arms through a single-selection radio group, not as always-present plain fields", () => {
+    it("renders a NESTED Data-extends-Choice reference's scalar/object arms through a single-selection dropdown, not as always-present plain fields", () => {
       render(
         <FormPreviewPanel
           schema={nestedChoiceSchema}
@@ -1035,8 +1055,8 @@ describe('FormPreviewPanel', () => {
       );
 
       expect(screen.getByText('Choose one option')).toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: 'Cash' })).toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: 'Commodity' })).toBeInTheDocument();
+      expectArm('Cash');
+      expect(screen.queryByRole('radio')).not.toBeInTheDocument();
       // The Data type's own (non-arm) attribute still renders as a plain field.
       expect(screen.getByLabelText('Weight')).toBeInTheDocument();
     });
@@ -1051,7 +1071,7 @@ describe('FormPreviewPanel', () => {
 
       // Cash is the first-listed arm — it should be the initially active
       // radio option, with its scalar control rendered...
-      expect(screen.getByRole('radio', { name: 'Cash' })).toBeChecked();
+      expectArm('Cash');
       expect(screen.getByRole('textbox', { name: 'Cash' })).toBeInTheDocument();
       // ...while Commodity's nested field must NOT be rendered — if every
       // arm's default value were seeded (the pre-fix bug), both would show
@@ -1060,7 +1080,6 @@ describe('FormPreviewPanel', () => {
     });
 
     it("switching the selected arm clears the previously-selected scalar arm's value entirely (not left at its default)", async () => {
-      const user = userEvent.setup();
       const onValuesChange = vi.fn();
       render(
         <FormPreviewPanel
@@ -1071,7 +1090,7 @@ describe('FormPreviewPanel', () => {
         />
       );
 
-      await user.click(screen.getByRole('radio', { name: 'Commodity' }));
+      await chooseArm('Commodity');
 
       expect(onValuesChange).toHaveBeenLastCalledWith({
         tradeId: 'T1',
@@ -1079,7 +1098,7 @@ describe('FormPreviewPanel', () => {
       });
     });
 
-    it('renders a TOP-LEVEL Data-extends-Choice schema\'s (kind !== "choice") arms through the same radio group as the nested case', () => {
+    it('renders a TOP-LEVEL Data-extends-Choice schema\'s (kind !== "choice") arms through the same dropdown as the nested case', () => {
       const rootChoiceSchema: FormPreviewSchema = {
         schemaVersion: 1,
         targetId: 'test.preview.BasketConstituent',
@@ -1105,11 +1124,11 @@ describe('FormPreviewPanel', () => {
       );
 
       expect(screen.getByText('Choose one option')).toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: 'Cash' })).toBeChecked();
+      expectArm('Cash');
       expect(screen.getByLabelText('Weight')).toBeInTheDocument();
     });
 
-    it("materializes an OBJECT-kind first arm's default fields into the sample, not just its radio selection (Codex round 2)", () => {
+    it("materializes an OBJECT-kind first arm's default fields into the sample, not just its dropdown selection (Codex round 2)", () => {
       // Commodity (an OBJECT arm) is listed FIRST here — the earlier tests
       // only ever exercised a scalar (Cash) first arm, which never hit
       // `buildDefaultValue`'s `required: false` → `undefined` short-circuit
@@ -1152,7 +1171,7 @@ describe('FormPreviewPanel', () => {
         />
       );
 
-      expect(screen.getByRole('radio', { name: 'Commodity' })).toBeChecked();
+      expectArm('Commodity');
       expect(screen.getByTestId('sample-data-output')).toHaveTextContent('"commodity": {');
       expect(screen.getByTestId('sample-data-output')).toHaveTextContent('"symbol": ""');
     });
@@ -1178,7 +1197,6 @@ describe('FormPreviewPanel', () => {
           }
         ]
       };
-      const user = userEvent.setup();
       const onValuesChange = vi.fn();
 
       render(
@@ -1190,7 +1208,7 @@ describe('FormPreviewPanel', () => {
         />
       );
 
-      await user.click(screen.getByRole('radio', { name: 'Cleared' }));
+      await chooseArm('Cleared');
 
       expect(onValuesChange).toHaveBeenLastCalledWith({
         tradeId: 'T1',
@@ -1198,7 +1216,7 @@ describe('FormPreviewPanel', () => {
       });
     });
 
-    it('keeps a NUMERIC arm selected (radio checked, input rendered) when its value is cleared mid-edit (issue #434 round 3)', async () => {
+    it('keeps a NUMERIC arm selected (dropdown selected, input rendered) when its value is cleared mid-edit (issue #434 round 3)', async () => {
       // getInputValue previously returned `undefined` for a cleared number
       // input; ChoiceFieldGroup's presence check (`value !== undefined`)
       // then read the arm as unselected the instant the user cleared it,
@@ -1256,7 +1274,7 @@ describe('FormPreviewPanel', () => {
       // controlled path deliberately skips this component's own
       // defaultValues — `values ?? defaultValues` only falls back on
       // null/undefined, not on a real, empty `{}`). Falling back to
-      // `fields[0]` here would show a radio checked while the persisted
+      // `fields[0]` here would show a dropdown selected while the persisted
       // sample has no key for it at all — a visual/data mismatch. No arm
       // checked is the honest rendering of that state.
       render(
@@ -1268,13 +1286,12 @@ describe('FormPreviewPanel', () => {
         />
       );
 
-      expect(screen.getByRole('radio', { name: 'Cash' })).not.toBeChecked();
-      expect(screen.getByRole('radio', { name: 'Commodity' })).not.toBeChecked();
+      expect(screen.getByRole('combobox', { name: 'Choose one option' })).toHaveTextContent('Choose an option');
       expect(screen.queryByRole('textbox', { name: 'Cash' })).not.toBeInTheDocument();
       expect(screen.queryByLabelText('Symbol')).not.toBeInTheDocument();
     });
 
-    it("routes a DOUBLY-nested Choice arm's own children through a nested radio group instead of flat always-present controls (issue #434 round 3)", async () => {
+    it("routes a DOUBLY-nested Choice arm's own children through a nested dropdown instead of flat always-present controls (issue #434 round 3)", async () => {
       // The selected "bond" arm is itself a Data type extending ANOTHER
       // Choice — mirrors what buildChoiceOptionField's doubly-nested branch
       // in preview-schema.ts actually produces: an 'object' field whose OWN
@@ -1303,7 +1320,6 @@ describe('FormPreviewPanel', () => {
           { path: 'equity', label: 'Equity', kind: 'string', required: false }
         ]
       };
-      const user = userEvent.setup();
       const onValuesChange = vi.fn();
 
       render(
@@ -1318,12 +1334,12 @@ describe('FormPreviewPanel', () => {
       // Two nested "Choose one option" groups: the outer Bond/Equity
       // choice, and the Bond arm's own Fixed/Floating rate choice.
       expect(screen.getAllByText('Choose one option')).toHaveLength(2);
-      expect(screen.getByRole('radio', { name: 'Fixed Rate' })).toBeChecked();
-      expect(screen.getByRole('radio', { name: 'Floating Rate' })).not.toBeChecked();
+      expectArm('Fixed Rate');
+      expect(screen.queryByRole('spinbutton', { name: 'Floating Rate' })).not.toBeInTheDocument();
       // The Bond arm's own ordinary attribute still renders as a plain field.
       expect(screen.getByLabelText('Coupon Frequency')).toBeInTheDocument();
 
-      await user.click(screen.getByRole('radio', { name: 'Floating Rate' }));
+      await chooseArm('Floating Rate', 'Fixed Rate');
 
       expect(onValuesChange).toHaveBeenLastCalledWith({
         bond: { couponFrequency: '', floatingRate: '' }

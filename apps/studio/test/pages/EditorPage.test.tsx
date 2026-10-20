@@ -1283,7 +1283,7 @@ describe('EditorPage workspace chrome', () => {
     expect(screen.getByText('Rune Studio')).toBeInTheDocument();
     expect(screen.getByText('CDM Workspace')).toBeInTheDocument();
     expect(screen.getByText('1 file')).toBeInTheDocument();
-    expect(screen.getByText('Import')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import Model', exact: true })).toBeInTheDocument();
 
     const graphToolbar = screen.getByLabelText('Graph toolbar');
     expect(graphToolbar).toBeInTheDocument();

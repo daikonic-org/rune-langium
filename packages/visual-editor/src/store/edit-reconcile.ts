@@ -23,6 +23,8 @@
  */
 
 import { create, apply, type Patches, type Patch } from 'mutative';
+import { parseExpression, parsedAdapter } from '@rune-langium/core';
+import { RAW_DSL_TYPE } from '@rune-langium/codegen/rosetta';
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
 import { toNodesById, toEdgesById, nodesFromMap, edgesFromMap } from './node-projection.js';
 
@@ -69,6 +71,7 @@ function valueEqual(a: unknown, b: unknown): boolean {
 
 const PARSE_METADATA_KEYS = new Set([
   '$cstNode',
+  '$cstText',
   '$cstRange',
   '$textRegion',
   '$container',
@@ -77,9 +80,31 @@ const PARSE_METADATA_KEYS = new Set([
   '$document'
 ]);
 
+const expressionDrafts = new WeakMap<object, unknown>();
+
+/** Compare an edited expression with its parsed shape through the real grammar. */
+function normalizedExpressionDraft(value: unknown): unknown {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('$type' in value) ||
+    value.$type !== RAW_DSL_TYPE ||
+    !('text' in value) ||
+    typeof value.text !== 'string'
+  )
+    return value;
+  if (expressionDrafts.has(value)) return expressionDrafts.get(value);
+  const parsed = parseExpression(value.text);
+  const normalized = parsed.hasErrors ? value : parsedAdapter.dehydrate(parsed.value);
+  expressionDrafts.set(value, normalized);
+  return normalized;
+}
+
 /** Exact authored equality, ignoring parse ranges and absent optional values. */
 export function authoredValuesEqual(left: unknown, right: unknown): boolean {
   const comparable = (value: unknown): unknown => {
+    const normalized = normalizedExpressionDraft(value);
+    if (normalized !== value) return comparable(normalized);
     if (Array.isArray(value)) return value.map(comparable);
     if (value === null || typeof value !== 'object') return value;
     return Object.fromEntries(
@@ -94,6 +119,8 @@ export function authoredValuesEqual(left: unknown, right: unknown): boolean {
 
 /** Compare authored patch fields while allowing a parsed AST to carry metadata. */
 function parsedContainsPatchValue(parsed: unknown, patched: unknown): boolean {
+  const normalized = normalizedExpressionDraft(patched);
+  if (normalized !== patched) return parsedContainsPatchValue(parsed, normalized);
   if (Object.is(parsed, patched)) return true;
   if (Array.isArray(patched)) {
     return (
@@ -107,6 +134,7 @@ function parsedContainsPatchValue(parsed: unknown, patched: unknown): boolean {
   return Object.entries(patched).every(
     ([key, value]) =>
       PARSE_METADATA_KEYS.has(key) ||
+      (value === undefined && (parsed as Record<string, unknown>)[key] === undefined) ||
       (Object.prototype.hasOwnProperty.call(parsed, key) &&
         parsedContainsPatchValue((parsed as Record<string, unknown>)[key], value))
   );

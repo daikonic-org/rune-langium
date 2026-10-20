@@ -151,6 +151,8 @@ export interface ExpressionEditorSlotProps {
   expressionAst?: unknown;
   readOnly?: boolean;
   target?: { nodeId: string; kind: 'precondition' | 'postcondition'; index: number };
+  /** Scope for a new condition draft; no expression source region exists yet. */
+  draftCondition?: { nodeId: string; kind: 'precondition' | 'postcondition' };
 }
 
 export interface FunctionBodyEditorSlotProps {

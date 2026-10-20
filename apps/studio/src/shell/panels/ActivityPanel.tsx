@@ -3,6 +3,7 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@rune-langium/design-system/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { useUtilityHeaderActions } from '../utility-header-actions-context.js';
 import { useActivityStore } from '../../store/activity-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -43,19 +44,23 @@ export const ActivityPanel = withInstrumentation(
     const headerActions = useMemo(
       () => (
         <>
-          <select
-            aria-label="Filter activity by namespace"
-            data-testid="activity-namespace-filter"
-            className="rounded border border-border bg-transparent px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as InstrumentationNamespace | 'all')}
-          >
-            {NAMESPACE_FILTERS.map((ns) => (
-              <option key={ns} value={ns}>
-                {ns === 'all' ? 'All' : ns}
-              </option>
-            ))}
-          </select>
+          <Select value={filter} onValueChange={(value) => setFilter(value as InstrumentationNamespace | 'all')}>
+            <SelectTrigger
+              size="sm"
+              aria-label="Filter activity by namespace"
+              data-testid="activity-namespace-filter"
+              className="min-w-28 px-2 py-0 text-xs data-[size=sm]:h-6 focus-visible:ring-inset"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {NAMESPACE_FILTERS.map((ns) => (
+                <SelectItem key={ns} value={ns}>
+                  {ns === 'all' ? 'All' : ns}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button
             type="button"
             className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"

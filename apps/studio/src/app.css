@@ -1656,6 +1656,17 @@ html {
  */
 
 /* ---------- Dark-theme ReactFlow controls & minimap ---------- */
+.studio-payload-graph {
+  --xy-node-background-color: var(--card);
+  --xy-node-color: var(--card-foreground);
+  --xy-node-border: var(--hairline) solid var(--border);
+  --xy-node-border-radius: var(--radius-lg);
+  --xy-node-boxshadow-hover: 0 0 0 var(--hairline) var(--primary);
+  --xy-node-boxshadow-selected: 0 0 0 var(--hairline) var(--primary);
+  --xy-edge-stroke: var(--muted-foreground);
+  --xy-edge-stroke-selected: var(--primary);
+}
+
 .studio-app .react-flow__controls {
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius-xl);

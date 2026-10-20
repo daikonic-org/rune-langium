@@ -87,7 +87,8 @@ export interface ExpressionScopeRequest {
   uri: string;
   name: string;
   kind?: string;
-  region: SourceRegion;
+  region?: SourceRegion;
+  draftCondition?: 'precondition' | 'postcondition';
   files?: ParseWorkspaceRequest['files'];
 }
 export interface ExpressionScopeResponse {
@@ -643,8 +644,29 @@ async function handleExpressionScope(req: ExpressionScopeRequest): Promise<Expre
     const owner = model && findExpressionOwner(model, req);
     if (!owner || (owner.$type !== 'RosettaFunction' && owner.$type !== 'Data'))
       throw new Error('The expression owner is unavailable.');
+    // A detached probe asks the canonical ScopeProvider about a new condition.
+    // It never changes the loaded owner or publishes an incomplete source edit.
+    if (req.draftCondition) {
+      const condition = {
+        $type: 'Condition',
+        postCondition: req.draftCondition === 'postcondition',
+        $container: owner,
+        $containerProperty: req.draftCondition === 'postcondition' ? 'postConditions' : 'conditions'
+      };
+      const probe = {
+        $type: 'RosettaBooleanLiteral',
+        value: true,
+        $container: condition,
+        $containerProperty: 'expression'
+      };
+      return {
+        type: 'expressionScopeResult',
+        id: req.id,
+        entries: getExpressionScope(probe as unknown as import('@rune-langium/core').RosettaExpression, RuneDsl)
+      };
+    }
     const target = getExpressionRegions(owner).find(
-      (entry) => entry.region.from === req.region.from && entry.region.to === req.region.to
+      (entry) => entry.region.from === req.region?.from && entry.region.to === req.region?.to
     );
     if (!target) throw new Error('The expression source changed. Reopen the builder.');
     return {

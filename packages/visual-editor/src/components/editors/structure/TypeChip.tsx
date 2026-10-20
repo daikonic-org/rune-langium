@@ -3,8 +3,26 @@
 
 import * as React from 'react';
 import { cn } from '@rune-langium/design-system/utils';
+import type { TypeOption } from '../../../types.js';
 
 export type TypeChipKind = 'Data' | 'Choice' | 'Enum' | 'BasicType' | 'Record' | 'TypeAlias' | 'Unresolved';
+
+// Map a TypeOption kind to the canonical TypeChip color variant. Func/Annotation
+// (and an unknown/missing kind) fall to 'Unresolved' — they are not valid
+// attribute type-refs, so they only appear here in degenerate states.
+const KIND_TO_CHIP: Partial<Record<NonNullable<TypeOption['kind']>, TypeChipKind>> = {
+  data: 'Data',
+  choice: 'Choice',
+  enum: 'Enum',
+  record: 'Record',
+  typeAlias: 'TypeAlias',
+  basicType: 'BasicType',
+  builtin: 'BasicType'
+};
+
+export function typeChipKind(kind: TypeOption['kind'] | undefined): TypeChipKind {
+  return (kind && KIND_TO_CHIP[kind]) ?? 'Unresolved';
+}
 
 /**
  * TypeChip — the canonical "type as chip" idiom (structure-view cells + the
@@ -30,7 +48,8 @@ export type TypeChipKind = 'Data' | 'Choice' | 'Enum' | 'BasicType' | 'Record' |
 
 // Per-kind colour surface. Data/Record/TypeAlias share the data palette;
 // BasicType & Unresolved use `color-mix` tints (the tier-3 vars).
-const kindVars: Record<TypeChipKind, React.CSSProperties> = {
+type TypeChipStyle = React.CSSProperties & { '--type-chip-bg': string; '--type-chip-fg': string };
+const kindVars: Record<TypeChipKind, TypeChipStyle> = {
   Data: { '--type-chip-bg': 'var(--color-data-badge)', '--type-chip-fg': 'var(--color-data-text)' },
   Record: { '--type-chip-bg': 'var(--color-data-badge)', '--type-chip-fg': 'var(--color-data-text)' },
   TypeAlias: { '--type-chip-bg': 'var(--color-data-badge)', '--type-chip-fg': 'var(--color-data-text)' },
@@ -44,7 +63,7 @@ const kindVars: Record<TypeChipKind, React.CSSProperties> = {
     '--type-chip-bg': 'color-mix(in oklch, var(--destructive) 14%, transparent)',
     '--type-chip-fg': 'var(--destructive)'
   }
-} as Record<TypeChipKind, React.CSSProperties>;
+};
 
 export interface TypeChipProps extends React.ComponentProps<'button'> {
   typeName: string;
@@ -68,7 +87,13 @@ export const TypeChip = React.forwardRef<HTMLButtonElement, TypeChipProps>(funct
       {...(isButton ? { type: 'button', disabled } : {})}
       data-slot="type-chip"
       data-kind={typeKind}
-      style={{ ...kindVars[typeKind], ...(style as React.CSSProperties) }}
+      style={
+        {
+          ...kindVars[typeKind],
+          '--type-chip-fg': `color-mix(in oklch, ${kindVars[typeKind]['--type-chip-fg']} 85%, var(--foreground))`,
+          ...(style as React.CSSProperties)
+        } as React.CSSProperties
+      }
       className={cn(
         // `rune-cell-type-chip` = the contextual-CSS + test hook (see header).
         'rune-cell-type-chip',

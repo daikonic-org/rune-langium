@@ -109,7 +109,10 @@
     "Tooltip": "../../.design-sync/groups/Overlays.md",
     "TooltipContent": "../../.design-sync/groups/Overlays.md",
     "TooltipProvider": "../../.design-sync/groups/Overlays.md",
-    "TooltipTrigger": "../../.design-sync/groups/Overlays.md"
+    "TooltipTrigger": "../../.design-sync/groups/Overlays.md",
+    "Calendar": "../../.design-sync/groups/Overlays.md",
+    "Disclosure": "../../.design-sync/groups/Layout.md",
+    "DisclosureButton": "../../.design-sync/groups/Layout.md"
   },
   "overrides": {
     "InteractiveDialog": {

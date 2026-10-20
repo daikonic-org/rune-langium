@@ -276,3 +276,46 @@ describe('edit-reconcile — store integration', () => {
     expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).not.toHaveProperty('definition');
   });
 });
+
+it.each(['data', 'precondition', 'postcondition', 'numeric', 'unnamed'] as const)(
+  'does not replay an already parsed %s condition added from a draft',
+  async (kind) => {
+    const source =
+      kind === 'data' || kind === 'numeric' || kind === 'unnamed'
+        ? 'namespace test.reconcile\ntype Alpha:\n x string (1..1)\n condition Existing: x exists\n'
+        : 'namespace test.reconcile\nfunc Alpha:\n inputs: x string (1..1)\n output: result string (1..1)\n condition Existing: x exists\n set result: x\n';
+    const { store, getNode } = await loadInspectorFixture(source);
+    const id = getNode('Alpha').id;
+    store.getState().addCondition(id, {
+      name: kind === 'unnamed' ? undefined : 'Present',
+      expressionText: kind === 'numeric' ? 'x count > 0' : 'x  exists',
+      isPostCondition: kind === 'postcondition'
+    });
+    const edited = store.getState();
+    const output = buildSourceForNamespaces({
+      nodes: edited.nodes,
+      edges: edited.edges,
+      originalSourceByNamespace: new Map([['test.reconcile', source]]),
+      patches: edited.pendingEditPatches,
+      inversePatches: edited.pendingInversePatches
+    }).get('test.reconcile')!;
+    const caughtUp = await loadInspectorFixture(output);
+    const reconciled = reconcileParse(
+      caughtUp.store.getState().nodes,
+      caughtUp.store.getState().edges,
+      edited.pendingEditPatches
+    );
+    const data = reconciled.nodesById.get(id)!.data as {
+      conditions: Array<{ name?: string }>;
+      postConditions?: Array<{ name?: string }>;
+    };
+    expect([...data.conditions, ...(data.postConditions ?? [])].map((condition) => condition.name)).toEqual([
+      'Existing',
+      kind === 'unnamed' ? undefined : 'Present'
+    ]);
+    expect(reconciled.remainingPatches).toEqual([]);
+    store.getState().loadModels((await parse(output)).value);
+    const reloaded = getNode('Alpha').data as typeof data;
+    expect([...reloaded.conditions, ...(reloaded.postConditions ?? [])]).toHaveLength(2);
+  }
+);

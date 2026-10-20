@@ -30,6 +30,7 @@ import type { ReactNode } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react';
 import type { ExpressionEditorSlotProps } from '../../types.js';
+import { Disclosure } from '@rune-langium/design-system/ui/collapsible';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { Input } from '@rune-langium/design-system/ui/input';
@@ -134,7 +135,7 @@ function ConditionRow({
           value={condition.name ?? ''}
           onChange={(e) => onUpdate?.(index, { name: e.target.value || undefined })}
           placeholder="Condition name (optional)"
-          className="text-xs h-7"
+          className="text-xs h-6"
           aria-label="Condition name"
         />
       )}
@@ -145,7 +146,7 @@ function ConditionRow({
           value={condition.definition ?? ''}
           onChange={(e) => onUpdate?.(index, { definition: e.target.value || undefined })}
           placeholder="Description (optional)"
-          className="text-xs h-7"
+          className="text-xs h-6"
           aria-label="Condition description"
         />
       )}
@@ -243,10 +244,9 @@ function ConditionRow({
             />
           )}
           {target && (
-            <details className="text-xs">
-              <summary className="cursor-pointer py-1 text-muted-foreground">Condition details</summary>
+            <Disclosure label="Condition details" className="text-xs">
               {metadata}
-            </details>
+            </Disclosure>
           )}
         </div>
       )}
@@ -262,9 +262,17 @@ interface AddConditionFormProps {
   onAdd: (condition: { name?: string; definition?: string; expressionText: string; isPostCondition?: boolean }) => void;
   onCancel: () => void;
   showPostConditionToggle: boolean;
+  nodeId?: string;
+  renderExpressionEditor?: (props: ExpressionEditorSlotProps) => ReactNode;
 }
 
-function AddConditionForm({ onAdd, onCancel, showPostConditionToggle }: AddConditionFormProps) {
+function AddConditionForm({
+  onAdd,
+  onCancel,
+  showPostConditionToggle,
+  nodeId,
+  renderExpressionEditor
+}: AddConditionFormProps) {
   const [name, setName] = useState('');
   const [definition, setDefinition] = useState('');
   const [expression, setExpression] = useState('');
@@ -281,13 +289,13 @@ function AddConditionForm({ onAdd, onCancel, showPostConditionToggle }: AddCondi
   }, [name, definition, expression, isPost, onAdd]);
 
   return (
-    <div className="border border-primary/30 rounded-md p-2 space-y-2 bg-primary/5">
+    <div className="border-t border-border pt-3 space-y-2">
       <div className="flex items-center gap-2">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Condition name (optional)"
-          className="text-xs h-7 flex-1"
+          className="text-xs h-6 flex-1"
           aria-label="New condition name"
         />
         {showPostConditionToggle && (
@@ -301,18 +309,29 @@ function AddConditionForm({ onAdd, onCancel, showPostConditionToggle }: AddCondi
         value={definition}
         onChange={(e) => setDefinition(e.target.value)}
         placeholder="Description (optional)"
-        className="text-xs h-7"
+        className="text-xs h-6"
         aria-label="New condition description"
       />
-      <Textarea
-        value={expression}
-        onChange={(e) => setExpression(e.target.value)}
-        placeholder="Expression body..."
-        className="text-xs font-mono resize-y"
-        rows={3}
-        aria-label="New condition expression"
-        autoFocus
-      />
+      {renderExpressionEditor ? (
+        renderExpressionEditor({
+          value: expression,
+          onChange: setExpression,
+          onBlur: () => {},
+          error: null,
+          placeholder: 'Build an expression or switch to Text. Changes stay here until Add.',
+          draftCondition: nodeId ? { nodeId, kind: isPost ? 'postcondition' : 'precondition' } : undefined
+        })
+      ) : (
+        <Textarea
+          value={expression}
+          onChange={(e) => setExpression(e.target.value)}
+          placeholder="Expression body..."
+          className="text-xs font-mono resize-y"
+          rows={3}
+          aria-label="New condition expression"
+          autoFocus
+        />
+      )}
       <div className="flex gap-1 justify-end">
         <Button variant="ghost" size="sm" onClick={onCancel}>
           Cancel
@@ -513,9 +532,11 @@ export function ConditionSection({
 
         {showAddForm && (
           <AddConditionForm
+            nodeId={targetNodeId}
             onAdd={handleAdd}
             onCancel={() => setShowAddForm(false)}
             showPostConditionToggle={showPostConditionToggle}
+            renderExpressionEditor={renderExpressionEditor}
           />
         )}
       </FieldGroup>

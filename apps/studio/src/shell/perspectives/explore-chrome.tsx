@@ -259,7 +259,7 @@ export const ExploreActions = withInstrumentation(
         </Button>
         <button type="button" className="studio-topbar__import" onClick={() => setShowImportDialog(true)}>
           <Wand2 className="size-3.5" />
-          Import
+          Import Model
         </button>
       </>
     );

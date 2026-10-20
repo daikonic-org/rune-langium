@@ -10,6 +10,7 @@
  * Popover + Base UI Command primitives.
  */
 
+import { ChevronDown } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import {
@@ -42,7 +43,7 @@ export function SourceRefField({
 }: SourceRefFieldProps) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => options.find((o) => o.value === value) ?? null, [options, value]);
-  const label = selected?.label ?? '';
+  const label = selected?.label ?? value ?? '';
 
   const items = useMemo<readonly CommandEntry<SourceRefOption>[]>(
     () =>
@@ -66,7 +67,7 @@ export function SourceRefField({
     return (
       <span
         data-slot="source-ref"
-        className="inline-flex items-center rounded bg-card px-2 py-0.5 text-xs text-foreground"
+        className="inline-flex items-center h-6 gap-1.5 rounded-md border border-input bg-background px-1.5 text-xs text-foreground"
       >
         {label || placeholder}
       </span>
@@ -81,9 +82,10 @@ export function SourceRefField({
           <button
             type="button"
             data-slot="source-ref-trigger"
-            className="nodrag nopan inline-flex items-center rounded bg-card px-2 py-0.5 text-xs text-foreground"
+            className="nodrag nopan inline-flex max-w-full items-center h-6 gap-1.5 rounded-md border border-input bg-background px-1.5 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
           >
-            {label || placeholder}
+            <span className="truncate">{label || placeholder}</span>
+            <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
           </button>
         }
       />
@@ -91,7 +93,7 @@ export function SourceRefField({
         <Command className="nodrag nopan" items={items} onItemSelect={handleSelect}>
           <CommandInput aria-label="Search sources" placeholder="Search sources…" />
           <CommandList>
-            <CommandEmpty>No synonym sources.</CommandEmpty>
+            <CommandEmpty>No matching options.</CommandEmpty>
             <CommandCollection<SourceRefOption>>
               {(item) => (
                 <CommandItem key={item.value.value} value={item}>

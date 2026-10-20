@@ -3870,3 +3870,78 @@ describe('repeated namespace import aliases', () => {
     expect(rows.map((row) => row.targetNodeId)).toEqual(['fpml.asset.Asset', 'fpml.option.Exercise']);
   });
 });
+
+describe.each(['Record', 'TypeAlias'] as const)('terminal %s reference identity', (kind) => {
+  const target = { id: `model.types.Value#${kind}`, $type: kind, name: 'Value', namespace: 'model.types' };
+  const attribute = {
+    name: 'value',
+    typeCall: { type: { $refText: 'types.Value' } },
+    card: { inf: 0, sup: 1, unbounded: false }
+  };
+  const owner = {
+    id: 'model.main.Owner#Data',
+    $type: 'Data' as const,
+    name: 'Owner',
+    namespace: 'model.main',
+    imports: [{ importedNamespace: 'model.types.*', namespaceAlias: 'types' }],
+    attributes: [attribute]
+  };
+  const document = {
+    namespaces: [{ uri: 'model.main' }, { uri: 'model.types' }],
+    nodes: [{ ...target, id: 'unrelated.Value', namespace: 'unrelated' }, target, owner]
+  };
+
+  it('keeps the resolved declaration ID and namespace on an ordinary attribute', () => {
+    const graph = buildStructureGraph(document, { focusedTypeId: owner.id, expansionMap: new Map() });
+    const root = graph.nodes.get(graph.rootNodeId) as StructureDataNode;
+    expect(root.rows[0]).toMatchObject({
+      typeKind: kind,
+      targetNodeId: target.id,
+      targetNamespaceUri: target.namespace
+    });
+    expect(root.expansions.size).toBe(0);
+  });
+
+  it('keeps the target identity on inherited attributes', () => {
+    const derived = {
+      id: 'model.main.Child#Data',
+      $type: 'Data' as const,
+      name: 'Child',
+      namespace: 'model.main',
+      extends: 'Owner',
+      attributes: []
+    };
+    const graph = buildStructureGraph(
+      { ...document, nodes: [...document.nodes, derived] },
+      { focusedTypeId: derived.id, expansionMap: new Map() }
+    );
+    const root = graph.nodes.get(graph.rootNodeId) as StructureBaseContainer;
+    expect(root.baseRows[0]).toMatchObject({
+      typeKind: kind,
+      targetNodeId: target.id,
+      targetNamespaceUri: target.namespace,
+      isInherited: true
+    });
+    expect(root.expansions.size).toBe(0);
+  });
+
+  it('keeps the target identity on Function inputs and output', () => {
+    const fn = {
+      ...owner,
+      id: 'model.main.Identity#RosettaFunction',
+      $type: 'Function' as const,
+      name: 'Identity',
+      inputs: [attribute],
+      output: { ...attribute, name: 'result' }
+    };
+    const graph = buildStructureGraph(
+      { ...document, nodes: [...document.nodes, fn] },
+      { focusedTypeId: fn.id, expansionMap: new Map() }
+    );
+    const root = graph.nodes.get(graph.rootNodeId) as StructureFunctionNode;
+    for (const row of [...root.inputRows, root.outputRow]) {
+      expect(row).toMatchObject({ typeKind: kind, targetNodeId: target.id, targetNamespaceUri: target.namespace });
+    }
+    expect(graph.nodes.size).toBe(1);
+  });
+});

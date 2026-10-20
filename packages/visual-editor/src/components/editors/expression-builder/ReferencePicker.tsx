@@ -61,10 +61,17 @@ export function ReferencePicker({ open, scope, onSelect, onClose }: ReferencePic
        * not by direct user interaction on a visible button.
        */}
       <SelectTrigger
+        aria-hidden="true"
+        tabIndex={-1}
+        className="border-0 p-0 shadow-none [&_svg]:hidden"
         nativeButton={false}
         render={<span aria-hidden style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} />}
       />
-      <SelectContent className="w-56 p-0" align="start" data-testid="reference-picker">
+      <SelectContent
+        className="w-72 max-w-[calc(100vw-32px)] max-h-64 p-0"
+        align="start"
+        data-testid="reference-picker"
+      >
         {allEntries.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No variables in scope</p>
         ) : null}
@@ -74,12 +81,22 @@ export function ReferencePicker({ open, scope, onSelect, onClose }: ReferencePic
             value={`${entry.origin}:${entry.name}`}
             data-testid={`ref-option-${entry.name}`}
           >
-            <span className="font-mono font-medium">{entry.name}</span>
-            {entry.typeName && <span className="text-3xs text-muted-foreground">{entry.typeName}</span>}
-            {entry.cardinality && (
-              <span className="rounded bg-muted px-1 text-3xs text-muted-foreground">{entry.cardinality}</span>
-            )}
-            <span className="ml-auto rounded bg-muted px-1 text-3xs text-muted-foreground">{entry.origin}</span>
+            <span className="flex min-w-0 w-full items-center gap-2">
+              <span className="min-w-0 flex-1 truncate font-mono font-medium" title={entry.name}>
+                {entry.name}
+              </span>
+              {entry.typeName && (
+                <span className="max-w-20 truncate text-3xs text-muted-foreground" title={entry.typeName}>
+                  {entry.typeName}
+                </span>
+              )}
+              {entry.cardinality && (
+                <span className="shrink-0 rounded bg-muted px-1 text-3xs text-muted-foreground">
+                  {entry.cardinality}
+                </span>
+              )}
+              <span className="shrink-0 rounded bg-muted px-1 text-3xs text-muted-foreground">{entry.origin}</span>
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

@@ -75,7 +75,10 @@ export function useTypeNavigationMenu(actions: TypeNavigationActions) {
       <TypeNavigationMenuItems nodeId={target.nodeId} {...actions} onClose={close} />
     </PointerMenu>
   ) : null;
-  const targetProps = (nodeId: string | undefined) => ({
+  const targetProps = (nodeId: string | undefined, label?: string) => ({
+    ...(nodeId && label && (actions.onNavigate || actions.onInspect)
+      ? { role: 'group', tabIndex: 0, 'aria-label': label, 'aria-haspopup': 'menu' as const }
+      : {}),
     onContextMenu: (event: MouseEvent) => open(event, nodeId),
     onKeyDown: (event: KeyboardEvent) => onKeyDown(event, nodeId)
   });

@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { ExpressionBuilder } from '../../src/components/editors/expression-builder/ExpressionBuilder.js';
 import { ConditionSection } from '../../src/components/editors/ConditionSection.js';
 
 const first = { $type: 'Condition', name: 'First', expression: { text: 'x > 0' } };
@@ -60,4 +61,47 @@ describe('compact data rules', () => {
     expect(screen.getByLabelText('Condition name')).toHaveValue('Second');
     expect(screen.getAllByTestId('active-expression')).toHaveLength(1);
   });
+});
+
+it('starts a condition in the shared builder with an empty private draft and commits only on Add', () => {
+  const onAdd = vi.fn();
+  const editor = vi.fn((props) => <ExpressionBuilder {...props} scope={{ inputs: [], output: null, aliases: [] }} />);
+  render(
+    <ConditionSection nodeId="test.Trade" compact conditions={[]} onAdd={onAdd} renderExpressionEditor={editor} />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+  expect(editor).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      value: '',
+      draftCondition: { nodeId: 'test.Trade', kind: 'precondition' }
+    })
+  );
+  expect(screen.getByRole('button', { name: 'Add', exact: true })).toBeDisabled();
+  fireEvent.click(screen.getByTestId('tab-text'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Expression draft' }), {
+    target: { value: 'currency = "USD"' }
+  });
+  expect(onAdd).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+  expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ expressionText: 'currency = "USD"' }));
+});
+
+it('discards a new condition builder draft on Cancel', () => {
+  const onAdd = vi.fn();
+  render(
+    <ConditionSection
+      conditions={[]}
+      onAdd={onAdd}
+      renderExpressionEditor={(props) => (
+        <ExpressionBuilder {...props} scope={{ inputs: [], output: null, aliases: [] }} />
+      )}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+  fireEvent.click(screen.getByTestId('tab-text'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Expression draft' }), { target: { value: 'True' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(onAdd).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+  expect(screen.getByRole('button', { name: 'Add', exact: true })).toBeDisabled();
 });

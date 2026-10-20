@@ -5,11 +5,9 @@
  * Input — shadcn/ui Input component.
  *
  * Variants:
- * - `default` (original): full-width h-8 field with ring focus, bg-background.
- * - `inline`: compact inspector/row field — bg-card base, 1px primary box-shadow
- *   on focus, bg-background when disabled. Matches the visual contract previously
- *   enforced by the studio panel-level `[data-slot='*-form'] input` overrides.
- *   Size and width are left to the call site via className.
+ * - `default`: full-width compact field with inset ring focus, bg-background.
+ * - `inline`: compact inspector/row field with the same border, fill and inset
+ *   focus treatment. Size and width are supplied by the caller.
  *
  * @module
  */
@@ -21,8 +19,8 @@ import { cn } from '../utils';
 export interface InputProps extends React.ComponentProps<'input'> {
   /**
    * Visual variant.
-   * - `'default'`: original full-width h-8 shadcn field.
-   * - `'inline'`: compact row/inspector field — bg-card, primary focus ring.
+   * - `'default'`: full-width compact field.
+   * - `'inline'`: compact row/inspector field with an inset focus ring.
    */
   variant?: 'default' | 'inline';
 }
@@ -36,20 +34,16 @@ function Input({ className, type, variant = 'default', ...props }: InputProps) {
       className={cn(
         // ── default variant ───────────────────────────────────────────────
         variant === 'default' && [
-          'h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground',
+          'h-6 w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs text-foreground',
           'placeholder:text-muted-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
           'disabled:opacity-50'
         ],
         // ── inline variant — compact inspector/row field ──────────────────
-        // Reproduces the panel-level CSS contract:
-        //   base:     bg-card, text-foreground, border-border
-        //   focus:    border-primary, box-shadow 0 0 0 1px primary
-        //   disabled: opacity-0.5, bg-background
         variant === 'inline' && [
-          'rounded border border-border bg-card text-foreground',
+          'rounded-md border border-input bg-background text-foreground',
           'placeholder:text-muted-foreground',
-          'outline-none focus:border-primary focus:shadow-[0_0_0_1px_var(--primary)]',
+          'outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
           'disabled:opacity-50 disabled:bg-background',
           'transition-[border-color,box-shadow]'
         ],

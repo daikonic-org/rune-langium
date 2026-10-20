@@ -29,10 +29,31 @@ Project: "Daikonic Studio Components" (`projectId` in config.json). Package shap
 - The Studio body profile in the authoritative `daikonic.css` overlay supplies 13 px Inter UI text, normal tracking and one-pixel semantic hairlines. `_studio-dark` sets `data-studio-app="true"` so design previews and portaled overlays match the application.
 - Preview card shell forces `body{background:#fff}`; every authored preview imports `./_studio-dark` (side effect: `html.dark` + `data-theme="daikonic"` + body bg/fg tokens) so portaled overlays inherit the theme. The import is stripped from `.prompt.md` examples.
 
+- Shared text fields use compact `h-6` / `text-xs` / `px-1.5` defaults, `rounded-md`
+  corners and an inset focus ring. Input's `inline` variant leaves density to the
+  caller while sharing the same fill, border and focus treatment. Textarea uses
+  that chrome with vertical content space; larger form/search controls retain
+  explicit height overrides. Keep focus inside the field so Inspector scroll
+  boundaries do not clip it.
+
+- `Disclosure` (native details) and `DisclosureButton` (caller-owned expansion)
+  share a 28 px header, left-hand Lucide chevron, spacing, typography and inset
+  keyboard focus. Use them for metadata/annotation details and form payloads;
+  retain the caller's panel lifecycle and initial expanded state. Native markers
+  are suppressed, and the chevron tracks the immediate details element's state.
+
 ## Previews
 - Story source: the prod-ux journeys (`apps/studio/test/prod-ux/journeys/j01..j18`) — each preview composes the component the way Studio uses it in that flow (user directive). Port JSX from the Studio component that the journey exercises.
 - 31 roots authored; 72 subparts (DialogContent, SelectItem, …) ship floor cards by design (shown composed inside their parent's card).
 - Overlays use `cardMode: single` + viewport overrides.
+- Calendar now has an authored [SettlementDate preview](previews/Calendar.tsx),
+  composed from the shared [Calendar source](../packages/design-system/src/ui/calendar.tsx)
+  used by Preview/Prototype temporal popovers. Its public props follow the pinned
+  `react-day-picker@9.14.0` `DayPicker` API; keep v9 class-name slots and component
+  overrides aligned with that source. It reuses Button variants and semantic
+  theme tokens for navigation, selection, today and outside days, while DayPicker
+  owns date-grid and keyboard semantics. The preview imports `_studio-dark` so
+  its theme matches Studio and portaled temporal controls.
 
 ## Composition gotchas (from preview waves)
 - base-ui, not Radix: `DropdownMenuLabel` must sit inside `DropdownMenuGroup` or the whole menu throws (blank card).

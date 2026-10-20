@@ -1,286 +1,40 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-/**
- * StructureView — assembles the Structure View by composing:
- *   - `buildStructureGraph`  (Phase 2 adapter)
- *   - `layoutStructureGraph` (Phase 3 layout)
- *   - React Flow for rendering the resulting nodes
- *
- * Renders an empty-state message when `focusedTypeId` or `adapterDoc` is absent.
- * Accepts an optional `cellComponents` prop (Phase 5/8) that is injected into the
- * data payload of `'data'`-typed nodes returned by layoutStructureGraph so that
- * DataNode's structure variant renders editable cells instead of plain spans.
- * Choice nodes (arms are type references, not attribute rows) and GroupContainerNode
- * (base-type wrap) do not participate in the cellComponents contract.
- *
- * @module
- */
-
-import { useNavigationArrival, type NavigationArrival } from '../hooks/useNavigationArrival.js';
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { indexById } from '@rune-langium/core';
-import { ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react';
-import type { Node, Edge } from '@xyflow/react';
-import type { AdapterDocument } from '../adapters/structure-graph-adapter.js';
-import { buildStructureGraph } from '../adapters/structure-graph-adapter.js';
-import { layoutStructureGraph, STRUCTURE_LAYOUT_CSS_VARS } from '../layout/structure-layout.js';
-import { nodeTypes } from './nodes/index.js';
-import { NavigationContext } from './nodes/NavigationContext.js';
+import React, {
+  createContext,
+  memo,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { ArrowRight, ArrowUpRight, ChevronRight, CircleHelp, LoaderCircle, LocateFixed } from 'lucide-react';
+import { createStore } from 'zustand/vanilla';
+import { useStore } from 'zustand';
+import { buildStructureGraph, type AdapterDocument } from '../adapters/structure-graph-adapter.js';
+import {
+  expansionKey,
+  type StructureExpansionKey,
+  type StructureGraphInput,
+  type StructureNode,
+  type StructureRow
+} from '../types/structure-view.js';
+import { useNavigationArrival } from '../hooks/useNavigationArrival.js';
+import {
+  useDiagnosticsForRange,
+  diagnosticSeverityClass,
+  type RangeDiagnostic
+} from '../hooks/useDiagnosticsForRange.js';
 import { useTypeNavigationMenu } from './TypeNavigationMenu.js';
-import type { MeasuredNodeWidths, StructureExpansionKey, StructureRow } from '../types/structure-view.js';
-import { measureStructureNodeWidths } from './measure-structure-widths.js';
-import type { RangeDiagnostic } from '../hooks/useDiagnosticsForRange.js';
+import { StructureMetaIndicators } from './nodes/StructureMetaIndicators.js';
+import { TypeChip } from './editors/structure/TypeChip.js';
+import { placeStructureBlock, type CanvasRect } from '../utils/structure-placement.js';
+import { ENUM_PREVIEW_LIMIT, enumPreviewLabel } from '../utils/enum-preview.js';
 
-/**
- * Compare two arrays element-wise. Falls back to a per-element equality
- * function (defaults to `Object.is`) — used for `rows` arrays where the
- * adapter emits fresh `StructureRow` arrays per pass but the individual
- * rows are simple records that should be compared structurally.
- */
-/**
- * Stable per-document version numbers for the measure-then-layout key.
- * WeakMap lookup-or-assign is idempotent: the same document object always
- * maps to the same version, no matter how many times (or in which aborted
- * render) it is asked — making it safe to call during render, unlike a
- * mutable ref bump.
- */
-const docVersions = new WeakMap<object, number>();
-let nextDocVersion = 0;
-function getDocVersion(doc: object): number {
-  let v = docVersions.get(doc);
-  if (v === undefined) {
-    v = nextDocVersion++;
-    docVersions.set(doc, v);
-  }
-  return v;
-}
-
-function arraysEqual<T>(a: ReadonlyArray<T>, b: ReadonlyArray<T>, eq: (x: T, y: T) => boolean = Object.is): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  // `.entries()` types `av` as `T`; `b[i]` is in-bounds because the lengths
-  // were just checked equal (the `!` encodes that).
-  for (const [i, av] of a.entries()) {
-    if (!eq(av, b[i]!)) return false;
-  }
-  return true;
-}
-
-/**
- * Shallow equality of two records (string-keyed). Used for individual
- * `StructureRow` / `StructureChoiceArm` objects whose fields are MOSTLY
- * primitive but include one known nested object: `astRange: { start, end }`.
- *
- * The adapter rebuilds `astRange` per pass with fresh `{ start, end }` objects
- * even when the parsed values are unchanged, so an `Object.is` walk would
- * treat every row as "changed" and trigger the all-visible-node rerender
- * fan-out the Phase 14c fix is supposed to prevent. `astRange` is compared
- * structurally (start === start && end === end); everything else stays
- * `Object.is` (strict primitive equality).
- *
- * If a future row field adds another nested object, extend this comparator
- * the same way `node.data` is extended above.
- */
-function shallowRecordEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-  const ao = a as Record<string, unknown>;
-  const bo = b as Record<string, unknown>;
-  const aKeys = Object.keys(ao);
-  const bKeys = Object.keys(bo);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const k of aKeys) {
-    const av = ao[k];
-    const bv = bo[k];
-    if (Object.is(av, bv)) continue;
-    if (k === 'astRange') {
-      // `{ start, end }` — adapter rebuilds the object per pass; compare by value.
-      if (!av || !bv || typeof av !== 'object' || typeof bv !== 'object') return false;
-      const ar = av as { start?: unknown; end?: unknown };
-      const br = bv as { start?: unknown; end?: unknown };
-      if (!Object.is(ar.start, br.start) || !Object.is(ar.end, br.end)) return false;
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
-
-/**
- * Compare two `ReadonlyMap<string, V>` instances by content. Used for the
- * `expansions` map on `StructureDataNode`/`StructureChoiceNode`/
- * `StructureBaseContainer` (V=string) which is rebuilt each adapter pass
- * even when content is unchanged, and (visual-polish #11) for layout-
- * emitted `rowOffsets` / `childYByAttrName` maps (V=number) which the
- * layout rebuilds on every pass to feed the SVG connector overlay.
- */
-function mapEqual<V>(a: ReadonlyMap<string, V>, b: ReadonlyMap<string, V>): boolean {
-  if (a === b) return true;
-  if (a.size !== b.size) return false;
-  for (const [k, v] of a) {
-    if (b.get(k) !== v) return false;
-  }
-  return true;
-}
-
-/**
- * Structural equality for a Structure View `node.data` payload. Walks the
- * shape the adapter+layout produce (StructureDataNode | StructureChoiceNode |
- * StructureBaseContainer | StructureEnumNode plus the layout's wrappers:
- * `variant: 'structure'`, `instancePath: readonly string[]`, and the
- * StructureFlowInner-injected `cellComponents`, `expansionMap`, and
- * `onToggleExpansion`).
- *
- * Returns `true` when content is unchanged so the caller can preserve the
- * previous node reference. React Flow shallow-compares `node.data` for its
- * memo cache, so reference preservation lets the per-node memo skip
- * re-rendering unchanged DataNode/ChoiceNode/GroupContainerNode instances.
- *
- * Trade-off: this comparator is bespoke for the StructureView node shape.
- * It does NOT generalize to arbitrary `unknown` payloads. If a future
- * adapter adds a field to StructureNode (e.g. a new nested object), the
- * comparator falls through to `Object.is` for that field and the worst
- * case is more frequent identity changes (correctness preserved; perf
- * benefit regresses). Adding a field to the equality walk here is the
- * targeted follow-up when that happens.
- */
-function shallowEqualData(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-  const ao = a as Record<string, unknown>;
-  const bo = b as Record<string, unknown>;
-  const aKeys = Object.keys(ao);
-  const bKeys = Object.keys(bo);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const k of aKeys) {
-    const av = ao[k];
-    const bv = bo[k];
-    if (Object.is(av, bv)) continue;
-    // Special-case the known-nested fields the adapter+layout rebuild per
-    // pass. Everything else falls through to Object.is (strict identity).
-    if (k === 'rows' || k === 'baseRows' || k === 'options' || k === 'inputRows') {
-      // Phase C: `inputRows` is a StructureFunctionNode's array of StructureRow
-      // (same per-pass-rebuilt shape as `rows`), so compare it structurally too.
-      if (!Array.isArray(av) || !Array.isArray(bv)) return false;
-      if (!arraysEqual(av, bv, shallowRecordEqual)) return false;
-      continue;
-    }
-    if (k === 'outputRow') {
-      // Phase C: single StructureRow (or undefined); the adapter rebuilds it per
-      // pass with a fresh astRange object, so compare by value via the same
-      // record comparator the row arrays use.
-      if (!shallowRecordEqual(av, bv)) return false;
-      continue;
-    }
-    if (k === 'values') {
-      // Enum value names: array of strings.
-      if (!Array.isArray(av) || !Array.isArray(bv)) return false;
-      if (!arraysEqual(av, bv, Object.is)) return false;
-      continue;
-    }
-    // Phase A meta (definition / annotations / conditions). `projectStructureMeta`
-    // rebuilds the annotations + conditions arrays on every adapter recompute, so
-    // without a structural compare any metadata-bearing Data/Choice/Function node
-    // would fail Object.is every pass and never reuse its React Flow node
-    // reference — defeating the Phase-14c re-render limiter (PR #307 finding #3).
-    if (k === 'definition') {
-      // Plain string | undefined — value compare.
-      if (av !== bv) return false;
-      continue;
-    }
-    if (k === 'annotations') {
-      // readonly string[] | undefined. Treat absent as empty so undefined ↔ [] is equal.
-      const aa = (av ?? []) as readonly string[];
-      const ba = (bv ?? []) as readonly string[];
-      if (!Array.isArray(aa) || !Array.isArray(ba)) return false;
-      if (!arraysEqual(aa, ba, Object.is)) return false;
-      continue;
-    }
-    if (k === 'conditions') {
-      // readonly { name, preview }[] | undefined — per-index field equality.
-      const ac = (av ?? []) as ReadonlyArray<{ name: string; preview: string }>;
-      const bc = (bv ?? []) as ReadonlyArray<{ name: string; preview: string }>;
-      if (!Array.isArray(ac) || !Array.isArray(bc)) return false;
-      if (!arraysEqual(ac, bc, (x, y) => x.name === y.name && x.preview === y.preview)) return false;
-      continue;
-    }
-    if (k === 'expansions') {
-      if (!(av instanceof Map) || !(bv instanceof Map)) return false;
-      if (!mapEqual(av as ReadonlyMap<string, string>, bv as ReadonlyMap<string, string>)) return false;
-      continue;
-    }
-    if (k === 'instancePath') {
-      // Array of React Flow instance ids (strings).
-      if (!Array.isArray(av) || !Array.isArray(bv)) return false;
-      if (!arraysEqual(av, bv, Object.is)) return false;
-      continue;
-    }
-    // Visual-polish #11 (PR #210): layout now threads `rowOffsets` and
-    // `childYByAttrName` as fresh Map instances on every layout pass (the
-    // SVG connector overlay reads them). Without an explicit content
-    // comparison they'd fail Object.is on every pass and break the Phase
-    // 14c perf invariant (≤1 DataNode re-render per content-equivalent
-    // edit). Both maps are `Map<string, number>` so a generic mapEqual
-    // walk suffices.
-    if (k === 'rowOffsets' || k === 'childYByAttrName') {
-      if (!(av instanceof Map) || !(bv instanceof Map)) return false;
-      if (!mapEqual(av as ReadonlyMap<string, number>, bv as ReadonlyMap<string, number>)) return false;
-      continue;
-    }
-    if (k === 'connectorGeometry') {
-      // Plain `{ rowRightX: number; childLeftX: number }` — fresh object
-      // per layout pass, so compare by value.
-      if (!av || !bv || typeof av !== 'object' || typeof bv !== 'object') return false;
-      const aco = av as { rowRightX: number; childLeftX: number };
-      const bco = bv as { rowRightX: number; childLeftX: number };
-      if (aco.rowRightX !== bco.rowRightX || aco.childLeftX !== bco.childLeftX) return false;
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
-
-/**
- * Identity-preserving merge of a fresh layout result into the previous
- * one (Phase 14c, Approach B). For each new node, if a previous node with
- * the same `id` exists AND its `data` payload is shallow-equal to the new
- * one, return the previous node object reference. Otherwise return the
- * new node as-is.
- *
- * React Flow shallow-compares `node.data` per node for memoization
- * decisions, so preserving the previous `data` reference where content
- * is unchanged stops the cascade where every keystroke re-renders every
- * visible DataNode.
- *
- * O(n) using a Map index over the previous nodes (no quadratic scan).
- */
-function preserveNodeIdentities(prev: ReadonlyArray<Node>, next: ReadonlyArray<Node>): Node[] {
-  if (prev.length === 0) return next as Node[];
-  const prevById = indexById(prev);
-  return next.map((n) => {
-    const p = prevById.get(n.id);
-    if (!p) return n;
-    // Compare top-level fields React Flow inspects for re-render decisions.
-    // Position changes legitimately mean layout moved; preserve identity
-    // only when position + parent + extent + size + data all match.
-    if (
-      p.position.x !== n.position.x ||
-      p.position.y !== n.position.y ||
-      p.parentId !== n.parentId ||
-      p.extent !== n.extent ||
-      p.type !== n.type ||
-      (p as { initialWidth?: number }).initialWidth !== (n as { initialWidth?: number }).initialWidth ||
-      (p as { initialHeight?: number }).initialHeight !== (n as { initialHeight?: number }).initialHeight
-    ) {
-      return n;
-    }
-    return shallowEqualData(p.data, n.data) ? p : n;
-  });
-}
-
-/** Shape injected into DataNode's structure-variant `data.cellComponents`. */
 export interface StructureCellComponents {
   readonly name?: React.ComponentType<{ value: string; nodeId: string; attrName: string }>;
   readonly type?: React.ComponentType<{
@@ -292,543 +46,710 @@ export interface StructureCellComponents {
   readonly card?: React.ComponentType<{ value: string; nodeId: string; attrName: string }>;
 }
 
+/** Shared host contract for the focused document and its existing editor slots. */
 export interface StructureViewProps {
-  /** Increment for each indirect navigation; omit for direct selection or ordinary mounting. */
   readonly navigationRevision?: number;
-  /** Canonical node id of the type to focus (e.g. `'cdm.trade.Trade'`). */
   readonly focusedTypeId: string | undefined;
-  /** In-memory document representation produced by the studio's store adapter. */
   readonly adapterDoc: AdapterDocument | undefined;
-  /** Expansion state; when undefined the view renders all nodes collapsed. */
   readonly expansionMap?: ReadonlyMap<string, boolean>;
-  /**
-   * Editable cell components for the structure variant of DataNode (Phase 5/8).
-   * When provided, `name`, `type`, and `card` slots replace the read-only spans
-   * in each attribute row. Memoize the object at the call site to avoid
-   * prop-identity churn on every render.
-   */
   readonly cellComponents?: StructureCellComponents;
-  /**
-   * Row-level expand/collapse handler (spec 020 Phase 13, Finding 1). When
-   * provided, each Data/Choice-typed row in the rendered DataNode shows an
-   * expansion chevron that calls this with the row's StructureExpansionKey.
-   * Wire this to `useStructureViewStore.toggleExpansion` in the studio so
-   * the click flips the relevant entry in `expansionMap`.
-   */
   readonly onToggleExpansion?: (key: StructureExpansionKey) => void;
-  /**
-   * When `focusedTypeId` is undefined because the user selected a type whose
-   * kind isn't supported in Structure View (Function / TypeAlias / Record /
-   * Annotation), pass the selected type's name and kind here so the empty
-   * state can render actionable guidance instead of the generic prompt
-   * (e2e-batch fix #10). When the user has selected nothing or a supported
-   * kind, leave this undefined.
-   */
   readonly unsupportedSelectedType?: { name: string; kind: string };
-  /**
-   * Selection sync (e2e-batch fix #3): fired when the user clicks any node in
-   * the rendered Structure tree. Receives the canonical type id (e.g.
-   * `'cdm.trade.Trade'`) — NOT the per-instance React Flow node id, so the
-   * receiver can write straight to a single `selectedNodeId` slice that the
-   * Graph / Source / Inspector also read from. EditorPage wires this to
-   * `useEditorStore.selectNode`.
-   */
+  /** Selection and navigation always use canonical identities, never instance IDs. */
   readonly onNodeSelect?: (canonicalTypeId: string) => void;
-  /**
-   * Spec §8 / §3.3 — navigate-to-enum callback. When provided, rows whose
-   * `typeKind === 'Enum'` (and arms in ChoiceNode) render an ↗ inspect button
-   * that fires this callback with the enum's canonical type id (ns.Name
-   * format). EditorPage wires this to set `focusedTypeId` on the structure
-   * view, drilling into the enum's values.
-   */
+  /** Historical prop name; handles resolved references of every supported kind. */
   readonly onNavigateToEnumType?: (typeId: string) => void;
-  /** Reveal complete member details from a summarized card. */
   readonly onInspectType?: (typeId: string) => void;
-  /**
-   * Spec §3.4 — pre-converted LSP diagnostics for the focused file. Ranges
-   * must be character offsets (not line/character), pre-converted by EditorPage
-   * via a memoized lineOffsets array. DataNode uses `useDiagnosticsForRange`
-   * to tint the left edge of rows with overlapping diagnostics. Pass a stable
-   * empty array when no diagnostics are available.
-   *
-   * **astRange-threading gap:** in production today, `StructureRow.astRange`
-   * is `undefined` because `graphNodesToAdapterDocument` doesn't derive it
-   * from `$cstNode` before strip. The end-to-end wiring is real and tested
-   * via synthetic astRange fixtures, but the severity class won't apply in
-   * production until the upstream threading lands (deferred follow-up).
-   */
   readonly structureDiagnostics?: readonly RangeDiagnostic[];
-  /**
-   * Namespaces currently being on-demand hydrated (see
-   * `useEditorStore.pendingHydrationNamespaces`). Threaded into a
-   * `NavigationContext.Provider` so structure-view nodes for deferred
-   * placeholders show the same hydrating spinner as the main graph canvas.
-   */
   readonly pendingHydrationNamespaces?: ReadonlyArray<string>;
 }
 
-const EMPTY_EXPANSION_MAP: ReadonlyMap<string, boolean> = new Map();
-const EMPTY_PENDING_HYDRATION: ReadonlyArray<string> = [];
-const EMPTY_ALL_NODE_IDS: Set<string> = new Set();
+const EMPTY_EXPANSIONS: ReadonlyMap<string, boolean> = new Map();
+const EMPTY_DIAGNOSTICS: readonly RangeDiagnostic[] = [];
+const EMPTY_PATH: readonly string[] = [];
 
-interface StructureFlowInnerProps {
-  readonly consumedArrivalRef: React.RefObject<NavigationArrival | undefined>;
-  readonly navigationRevision?: number;
-  readonly focusedTypeId: string;
-  readonly adapterDoc: AdapterDocument;
-  readonly expansionMap: ReadonlyMap<string, boolean>;
-  readonly cellComponents?: StructureCellComponents;
-  readonly onToggleExpansion?: (key: StructureExpansionKey) => void;
-  readonly onNodeSelect?: (canonicalTypeId: string) => void;
-  readonly onNavigateToEnumType?: (typeId: string) => void;
-  readonly onInspectType?: (typeId: string) => void;
-  readonly structureDiagnostics?: readonly RangeDiagnostic[];
-  readonly pendingHydrationNamespaces: ReadonlyArray<string>;
+interface DocumentContextValue extends Omit<StructureViewProps, 'adapterDoc' | 'unsupportedSelectedType'> {
+  graph: StructureGraphInput;
+  arrivalNodeId: string | null;
+  layouts: ReturnType<typeof createBlockLayouts>;
+}
+const DocumentContext = createContext<DocumentContextValue | null>(null);
+function useDocument() {
+  const value = useContext(DocumentContext);
+  if (!value) throw new Error('Structure content requires its document context');
+  return value;
 }
 
-/**
- * Inner ReactFlow renderer — kept separate so the ReactFlowProvider wraps the
- * whole subtree without the empty-state check logic needing to know about it.
- */
-function StructureFlowInner({
-  consumedArrivalRef,
-  focusedTypeId,
-  navigationRevision,
-  adapterDoc,
-  expansionMap,
-  cellComponents,
-  onToggleExpansion,
-  onNodeSelect,
-  onNavigateToEnumType,
-  onInspectType,
-  structureDiagnostics,
-  pendingHydrationNamespaces
-}: StructureFlowInnerProps): React.ReactElement {
-  // Phase 14c (Approach B): keep the previous useMemo result so we can
-  // identity-preserve unchanged nodes across re-renders. React Flow shallow-
-  // compares `node.data` per node for memoization; producing fresh object
-  // identities every layout pass — which is what the adapter+layout+injection
-  // stack does — busts that memo cache for every visible node, even when
-  // the underlying content is unchanged. Preserving the previous node
-  // reference where the data shallow-equals the new one limits the
-  // re-render fan-out to the actually-changed nodes.
-  const navigationMenu = useTypeNavigationMenu({ onNavigate: onNavigateToEnumType, onInspect: onInspectType });
-  const prevNodesRef = useRef<ReadonlyArray<Node>>([]);
-
-  // ── Measure-then-layout ────────────────────────────────────────────────
-  // Pass 1 lays out with character-count estimates (positions must exist
-  // before render). After commit, a layout effect measures each rendered
-  // node's natural rows-column/header widths from the real DOM and re-runs
-  // the layout with those measurements, so nodes hug their true content.
-  //
-  // `layoutKey` identifies one logical layout: measurements are only valid
-  // for the doc/focus/expansion state they were taken from, so the key
-  // gates both application (stale measurements are ignored) and reset.
-  // Doc identity → version via module-level WeakMap (see getDocVersion):
-  // a pure lookup-or-assign that is idempotent across renders, so it is
-  // safe to call during render (no ref mutation, no phantom bumps under
-  // StrictMode double-invoke or aborted concurrent renders).
-  const [measured, setMeasured] = useState<{
-    key: string;
-    widths: ReadonlyMap<string, MeasuredNodeWidths>;
-  } | null>(null);
-  // Viewport culling (`onlyRenderVisibleElements`) must stay OFF until the
-  // measurement pass has converged for the current layout: culled nodes are
-  // never mounted, so they would keep their character-count estimates, and
-  // nothing re-runs measurement when a pan/fitView later mounts them
-  // (PR #472 review). Once measureStructureNodeWidths returns null (nothing
-  // changed — every node measured within epsilon) for the current layoutKey,
-  // all widths are real and culling is safe to enable.
-  const [convergedKey, setConvergedKey] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const expansionSignature = useMemo(() => {
-    const entries: string[] = [];
-    for (const [k, v] of expansionMap) entries.push(`${k}=${v ? '1' : '0'}`);
-    entries.sort();
-    return entries.join('|');
-  }, [expansionMap]);
-  const layoutKey = `${getDocVersion(adapterDoc)}|${focusedTypeId}|${expansionSignature}`;
-  // Only measurements taken under the CURRENT key participate in layout —
-  // stale ones (older doc/focus/expansion) are ignored, not applied.
-  const measuredWidths = measured && measured.key === layoutKey ? measured.widths : undefined;
-
-  const { nodes, edges } = useMemo(() => {
-    const input = buildStructureGraph(adapterDoc, {
-      focusedTypeId,
-      expansionMap
-    });
-    // layoutStructureGraph returns LayoutResult: { nodes: ReadonlyArray<Node>, edges: ReadonlyArray<Edge> }
-    // where Node/Edge are from @xyflow/react. Spreading to mutable arrays satisfies ReactFlow's prop type.
-    const result = layoutStructureGraph(measuredWidths ? { ...input, measuredWidths } : input);
-    // Inject cellComponents AND row-expansion plumbing into the data payload of
-    // 'data'-typed nodes so that DataNode's structure variant renders editable
-    // cells and the per-row expand/collapse chevron (Finding 1).
-    //
-    // Phase 14e/B: 'choice' nodes now ALSO receive cellComponents +
-    // expansionMap + onToggleExpansion. ChoiceNode's structure variant renders
-    // a TypePickerCell per arm (drop target so the arm's type can be retyped)
-    // AND an expansion chevron for arms whose target is Data or Choice. Arms
-    // targeting terminal kinds (Enum / Builtin / Unresolved) render a spacer
-    // for visual alignment but no chevron — there's no subtree to drill into.
-    //
-    // 'structureBase' nodes (GroupContainerNode base-type branch) also receive
-    // expansionMap + onToggleExpansion so inherited Data/Choice rows can be
-    // expanded/collapsed (Codex P2, PR #191). cellComponents is NOT injected —
-    // base rows are read-only inherited rows; editable cells on base rows would
-    // be a separate scope decision (spec §5 does not include inline-editing of
-    // inherited attributes in Phase 13).
-    const needsInjection =
-      cellComponents !== undefined ||
-      onToggleExpansion !== undefined ||
-      onNavigateToEnumType !== undefined ||
-      (structureDiagnostics !== undefined && structureDiagnostics.length > 0);
-    const freshNodes: Node[] = needsInjection
-      ? result.nodes.map((n) => {
-          if (n.type === 'data')
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                cellComponents,
-                expansionMap,
-                onToggleExpansion,
-                onNavigateToEnumType,
-                structureDiagnostics
-              }
-            };
-          if (n.type === 'choice')
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                cellComponents,
-                expansionMap,
-                onToggleExpansion,
-                onNavigateToEnumType,
-                structureDiagnostics
-              }
-            };
-          if (n.type === 'structureBase') return { ...n, data: { ...n.data, expansionMap, onToggleExpansion } };
-          return n;
-        })
-      : (result.nodes as Node[]);
-
-    // Reuse previous node references where the new node's data is shallow-
-    // equal to the previous one. This lets React Flow's per-node memo skip
-    // re-rendering the unchanged DataNode/ChoiceNode/GroupContainerNode
-    // instances even though the upstream layout produced a fresh array.
-    //
-    // NOTE: this useMemo READS prevNodesRef but does NOT write it. The write
-    // happens in useLayoutEffect below — committing the cache only AFTER
-    // React has committed the render. Mutating the ref inside useMemo would
-    // be unsafe under concurrent rendering / StrictMode: an abandoned
-    // render's "stable" output would poison the cache for the next attempt.
-    const stableNodes = preserveNodeIdentities(prevNodesRef.current, freshNodes);
-    return { nodes: stableNodes, edges: result.edges as Edge[] };
-  }, [
-    focusedTypeId,
-    adapterDoc,
-    expansionMap,
-    cellComponents,
-    onToggleExpansion,
-    onNavigateToEnumType,
-    structureDiagnostics,
-    measuredWidths
-  ]);
-
-  // Commit the identity-preserving cache only after the render reaches
-  // commit phase. Abandoned/discarded renders (StrictMode double-invoke,
-  // concurrent priority preemption) never touch the cache.
+/** Native child sizes determine the local canvas extent; placement never touches model state. */
+function StructureMembers({ children, output = false }: { children: React.ReactNode; output?: boolean }) {
+  const canvas = useRef<HTMLOListElement>(null);
+  const { layouts } = useDocument();
   useLayoutEffect(() => {
-    prevNodesRef.current = nodes;
-  }, [nodes]);
-
-  // Measurement pass — runs after every committed layout. Reads the natural
-  // (max-content) widths of each rendered node's rows column and header and,
-  // when they differ from what the current layout used, stores them so the
-  // useMemo above re-runs the layout with real dimensions. Convergence:
-  // measureStructureNodeWidths returns null when nothing new/changed was
-  // found (the re-measured widths match within epsilon), which ends the
-  // measure → re-layout → measure loop after one correction in practice.
-  // Synchronous in useLayoutEffect, so the style mutations never paint.
-  //
-  // Hidden-host guard (PR #472 review): PerspectiveHost keeps Explore
-  // mounted under `display:none`, so this effect can fire while the
-  // container is hidden — every offsetWidth reads 0, the measurer returns
-  // null, and we must NOT treat that as convergence. Skip instead, and use
-  // a ResizeObserver to bump `visibilityTick` when the container gains
-  // real dimensions again so the measurement pass re-runs on reveal.
-  const [visibilityTick, setVisibilityTick] = useState(0);
-  const [viewportTick, setViewportTick] = useState(0);
-  useEffect(() => {
-    const fonts = document.fonts;
-    if (!fonts) return;
-    let active = true;
-    const remeasure = () => {
-      if (active) setVisibilityTick((tick) => tick + 1);
-    };
-    // Fixed node widths cannot observe the intrinsic growth when fallback
-    // text is replaced by the loaded UI/monospace fonts.
-    void fonts.ready.then(remeasure);
-    fonts.addEventListener('loadingdone', remeasure);
-    return () => {
-      active = false;
-      fonts.removeEventListener('loadingdone', remeasure);
-    };
-  }, []);
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container || nodes.length === 0) return;
-    if (container.offsetWidth === 0 && container.offsetHeight === 0) return; // hidden — skip
-    const next = measureStructureNodeWidths(container, measuredWidths);
-    if (next) setMeasured({ key: layoutKey, widths: next });
-    // null → converged: every rendered node's measured width matches the
-    // layout input within epsilon. Safe to enable viewport culling now.
-    else setConvergedKey(layoutKey);
-  }, [nodes, layoutKey, measuredWidths, visibilityTick]);
-
-  // Re-measure content only on reveal, but refit the camera after pane sizes
-  // settle. Opening a companion pane changes the viewport without changing
-  // any node geometry; retaining the old transform can leave the tree clipped.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || typeof ResizeObserver === 'undefined') return;
-    let width = container.offsetWidth;
-    let height = container.offsetHeight;
-    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-    let visibilityFrame: number | undefined;
-    const ro = new ResizeObserver(() => {
-      const nextWidth = container.offsetWidth;
-      const nextHeight = container.offsetHeight;
-      if (width === nextWidth && height === nextHeight) return;
-      const wasHidden = width === 0 || height === 0;
-      width = nextWidth;
-      height = nextHeight;
-      clearTimeout(resizeTimer);
-      if (width === 0 || height === 0) return;
-      if (wasHidden && visibilityFrame === undefined) {
-        visibilityFrame = window.requestAnimationFrame(() => {
-          visibilityFrame = undefined;
-          if (container.offsetWidth > 0 && container.offsetHeight > 0) setVisibilityTick((t) => t + 1);
-        });
+    const element = canvas.current;
+    if (!element) return;
+    let dimensions = '';
+    const measure = () => {
+      const rows = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
+      const fixed = rows.flatMap((row) => {
+        const branch = row.querySelector<HTMLElement>(':scope > .rune-structure-member__child[data-placed]');
+        return branch ? [{ branch, rect: blockRect(branch) }] : [];
+      });
+      const anchors = rows.flatMap((row) =>
+        Array.from(row.querySelectorAll<HTMLElement>(':scope > .rune-structure-member__row'))
+      );
+      const rowWidth = Math.max(0, ...anchors.map((anchor) => anchor.offsetWidth));
+      const branches = rows.flatMap((row) =>
+        Array.from(row.querySelectorAll<HTMLElement>(':scope > .rune-structure-member__child'))
+      );
+      const nextDimensions = `${element.clientWidth}:${branches.map((branch) => `${branch.offsetWidth},${branch.offsetHeight}`).join(';')}`;
+      const placeDefaults = dimensions !== nextDimensions;
+      dimensions = nextDimensions;
+      const card = element.parentElement;
+      if (!output && card) {
+        if (branches.length) {
+          const childWidth = Math.max(...branches.map((branch) => branch.offsetWidth));
+          card.toggleAttribute('data-compact', availableBlockWidth(card) < rowWidth + childWidth + 32);
+          const preferred = `${Math.ceil(rowWidth + childWidth + 48)}px`;
+          if (card.style.getPropertyValue('--structure-preferred-width') !== preferred)
+            card.style.setProperty('--structure-preferred-width', preferred);
+        } else {
+          card.removeAttribute('data-compact');
+          card.style.removeProperty('--structure-preferred-width');
+        }
       }
-      resizeTimer = setTimeout(() => setViewportTick((t) => t + 1), 120);
-    });
-    ro.observe(container);
-    return () => {
-      clearTimeout(resizeTimer);
-      if (visibilityFrame !== undefined) window.cancelAnimationFrame(visibilityFrame);
-      ro.disconnect();
+      const occupied: CanvasRect[] = [];
+      let nextTop = 8;
+      let extent = 0;
+      for (const row of rows) {
+        const anchor = row.querySelector<HTMLElement>(':scope > .rune-structure-member__row');
+        const branch = row.querySelector<HTMLElement>(':scope > .rune-structure-member__child');
+        if (anchor) extent = Math.max(extent, anchor.offsetTop + anchor.offsetHeight);
+        if (!branch) continue;
+        const separator = branch.querySelector<HTMLElement>(':scope > [role="separator"]');
+        separator?.setAttribute('aria-valuenow', `${Math.round(branch.offsetWidth)}`);
+        separator?.setAttribute('aria-valuemax', `${element.clientWidth}`);
+        const top = Math.max(anchor?.offsetTop ?? 8, nextTop);
+        if (!branch.dataset.placed && placeDefaults && getComputedStyle(branch).position === 'absolute') {
+          const peers = [...occupied, ...fixed.map((item) => item.rect)];
+          const desired = {
+            x: Math.min(rowWidth + 32, Math.max(0, element.clientWidth - branch.offsetWidth - 8)),
+            y: top,
+            width: branch.offsetWidth,
+            height: branch.offsetHeight
+          };
+          const fallback = { ...desired, y: Math.max(top, ...peers.map((peer) => peer.y + peer.height + 16)) };
+          const placed = placeStructureBlock(desired, fallback, peers, element.clientWidth, 'move');
+          branch.style.setProperty('--structure-default-x', `${placed.x}px`);
+          branch.style.setProperty('--structure-default-y', `${placed.y}px`);
+        } else if (placeDefaults) branch.style.setProperty('--structure-default-y', `${top}px`);
+        occupied.push(blockRect(branch));
+        nextTop = branch.offsetTop + branch.offsetHeight + 24;
+        extent = Math.max(extent, branch.offsetTop + branch.offsetHeight);
+        const connector = row.querySelector<SVGPathElement>(':scope > svg > path');
+        if (anchor && connector) {
+          const x = anchor.offsetLeft + anchor.offsetWidth;
+          const y = anchor.offsetTop + anchor.offsetHeight / 2;
+          const targetX = branch.offsetLeft;
+          const header = branch.querySelector<HTMLElement>(':scope > section > header');
+          const targetY = branch.offsetTop + (header?.offsetHeight ?? 36) / 2;
+          const controlX = x + (targetX - x) / 2;
+          connector.setAttribute('d', `M ${x} ${y} C ${controlX} ${y}, ${controlX} ${targetY}, ${targetX} ${targetY}`);
+        }
+      }
+      const minHeight = `${extent + 16}px`;
+      if (element.style.minHeight !== minHeight) element.style.minHeight = minHeight;
     };
-  }, []);
-
-  const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival(consumedArrivalRef);
-  useEffect(() => {
-    if (navigationRevision !== undefined) emphasizeArrival(focusedTypeId, navigationRevision);
-    return cancelArrival;
-  }, [focusedTypeId, navigationRevision, emphasizeArrival, cancelArrival]);
-  const arrivalNodes = useMemo(
-    () =>
-      nodes.map((node) =>
-        node.id === arrivalNodeId
-          ? { ...node, className: [node.className, 'rune-navigation-arrival'].filter(Boolean).join(' ') }
-          : node
-      ),
-    [nodes, arrivalNodeId]
-  );
-
-  // Auto-fit on focus or expansion change. User feedback: when nodes are
-  // expanded the structure tree grows past the viewport edge. Re-fitting
-  // when the focused type changes OR the expansion content changes keeps
-  // the whole tree on screen. `padding: 0.1` leaves a 10% margin;
-  // `duration: 300` matches the node-chrome transition for visual
-  // coherence.
-  //
-  // P2 review (PR #210): the dependency must capture content identity, not
-  // just `expansionMap.size`. A "swap" change (collapse one branch and
-  // expand another in the same render, or a model refresh that keeps the
-  // entry count constant) leaves `.size` unchanged but moves the tree
-  // geometry, leaving the newly expanded content outside the viewport
-  // with no refit. The map's object reference is rebuilt every render
-  // upstream, so depending on the Map directly would refit on every
-  // render. A content hash of the sorted entries gives correct
-  // same-count-swap detection without firing spuriously.
-  //
-  // Copilot review: `focusedTypeId` and `expansionMap` are non-optional
-  // on StructureFlowInnerProps; the previous `if (!focusedTypeId) return`
-  // and `expansionMap?.size` guards were dead.
-  const rf = useReactFlow();
-  useEffect(() => {
-    if (nodes.length === 0) return;
-    // requestAnimationFrame so the new node positions have been
-    // committed before fitView reads them.
-    const id = requestAnimationFrame(() => {
-      rf.fitView({ padding: 0.1, duration: 300 });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    element
+      .querySelectorAll(':scope > li > .rune-structure-member__row, :scope > li > .rune-structure-member__child')
+      .forEach((child) => observer.observe(child));
+    let pending = 0;
+    const unsubscribe = layouts.subscribe(() => {
+      cancelAnimationFrame(pending);
+      pending = requestAnimationFrame(measure);
     });
-    return () => cancelAnimationFrame(id);
-    // `measuredWidths` (P2 review): the measured re-layout changes node
-    // positions without changing focus/expansion/count, so the refit must
-    // follow the applied-measurement identity — but NOT raw `nodes`
-    // reference churn (document edits would cause spurious camera moves).
-  }, [focusedTypeId, expansionSignature, nodes.length, measuredWidths, viewportTick, rf]);
-
-  const navigationCtx = useMemo(
-    () => ({
-      allNodeIds: EMPTY_ALL_NODE_IDS,
-      onNavigateToType: onNavigateToEnumType,
-      onInspectType,
-      layoutDirection: 'TB' as const,
-      pendingHydrationNamespaces
-    }),
-    [pendingHydrationNamespaces, onInspectType, onNavigateToEnumType]
-  );
-
+    return () => {
+      observer.disconnect();
+      unsubscribe();
+      cancelAnimationFrame(pending);
+    };
+  }, [children, layouts, output]);
   return (
-    <NavigationContext.Provider value={navigationCtx}>
-      <div
-        ref={containerRef}
-        data-testid="structure-view-flow"
-        style={{ width: '100%', height: '100%', minHeight: 0, ...STRUCTURE_LAYOUT_CSS_VARS }}
-      >
-        <ReactFlow
-          nodes={arrivalNodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          onlyRenderVisibleElements={convergedKey === layoutKey}
-          proOptions={{ hideAttribution: true }}
-          // e2e-batch fix #3: selection sync — clicking any node in the
-          // Structure tree writes the OWNER type's canonical id to the shared
-          // selection slice. We extract `node.data.id` (the canonical type id
-          // stamped by the adapter, e.g. `cdm.trade.Trade`) rather than the
-          // React Flow `node.id` (which carries the per-instance suffix like
-          // `Trade::buyer::Party` and would not match the explorer / inspector
-          // selection contract). Falls back to `node.id` when `data.id` is
-          // missing so the click still produces a write.
-          //
-          // Codex P1 review: skip clicks on synthetic wrapper nodes
-          // (`structureBase` — the GroupContainerNode renderer for base-type
-          // wraps). Their `data.id` is the synthetic wrapper key like
-          // `cdm.trade.Trade::__base::cdm.trade.TradeBase`, not a real
-          // graph node id — writing it to selectedNodeId would put the cross-
-          // pane sync into a no-such-node state. The base's actual selectable
-          // contents (header → base type, child → derived type) are accessed
-          // via clicking either of those nodes directly; the wrapper itself
-          // doesn't represent a navigable selection target.
-          onNodeContextMenu={(event, node) => {
-            if (node.type === 'structureBase') return;
-            navigationMenu.open(event, (node.data as { id?: string }).id);
-          }}
-          onNodeClick={(_, node) => {
-            if (node.type === 'structureBase') return;
-            const canonicalId = (node.data as { id?: string } | undefined)?.id ?? node.id;
-            onNodeSelect?.(canonicalId);
-          }}
-        />
-      </div>
-      {navigationMenu.menu}
-    </NavigationContext.Provider>
+    <ol ref={canvas} className={`rune-structure-members${output ? ' rune-structure-members--output' : ''}`}>
+      {children}
+    </ol>
   );
 }
 
-/**
- * StructureView component.
- *
- * Shows the expanded structure graph for the focused type, with optional
- * editable cell components injected via `cellComponents`.  When
- * `focusedTypeId` or `adapterDoc` is missing an empty-state placeholder is
- * rendered instead.
- *
- * Stale-selection state is shown when `focusedTypeId` no longer resolves to
- * any node in `adapterDoc` (e.g. the type was renamed or deleted). Phase 14e/A
- * extends root rendering to Data, Choice, and Enum — only an unknown id falls
- * through to the unsupported-root branch.
- */
-export function StructureView({
-  focusedTypeId,
-  navigationRevision,
-  adapterDoc,
-  expansionMap,
-  cellComponents,
-  onToggleExpansion,
-  unsupportedSelectedType,
-  onNodeSelect,
-  onNavigateToEnumType,
-  onInspectType,
-  structureDiagnostics,
-  pendingHydrationNamespaces
-}: StructureViewProps): React.ReactElement {
-  // A temporary data refresh remounts the inner flow without creating a new navigation.
-  const consumedArrivalRef = useRef<NavigationArrival | undefined>(undefined);
-  if (!focusedTypeId || !adapterDoc) {
-    // e2e-batch fix (#10): distinguish "nothing selected" from "selected an
-    // unsupported kind (Function / TypeAlias / Record / Annotation)" so the
-    // user gets actionable guidance instead of the generic "Select a type"
-    // prompt that doesn't explain why their click didn't open anything.
-    if (unsupportedSelectedType) {
-      // Copilot review: `kind` is non-optional on the prop type, so the
-      // previous `?? 'non-structural'` fallback was dead. Drop it; if a
-      // caller ever needs to omit `kind`, the right move is to relax the
-      // prop type at the same time.
-      return (
+function StructureMember({
+  row,
+  owner,
+  instancePath,
+  inherited = false,
+  choice = false,
+  output = false
+}: {
+  row: StructureRow;
+  owner: StructureNode;
+  instancePath: readonly string[];
+  inherited?: boolean;
+  choice?: boolean;
+  output?: boolean;
+}) {
+  const context = useDocument();
+  const namespaceUri = owner.kind === 'base' ? owner.baseTypeNamespaceUri : owner.namespaceUri;
+  const typeId = owner.kind === 'base' ? owner.baseTypeName : owner.name;
+  const key: StructureExpansionKey = { namespaceUri, typeId, attrName: row.attrName, instancePath };
+  const expandable = !output && (row.typeKind === 'Data' || row.typeKind === 'Choice');
+  const expanded = expandable && context.expansionMap?.get(expansionKey(key)) === true;
+  const childId = 'expansions' in owner ? owner.expansions.get(row.attrName) : undefined;
+  const child = childId ? context.graph.nodes.get(childId) : undefined;
+  const diagnostic = useDiagnosticsForRange(row.astRange, context.structureDiagnostics ?? EMPTY_DIAGNOSTICS);
+  const navigation = useTypeNavigationMenu({
+    onNavigate: context.onNavigateToEnumType,
+    onInspect: context.onInspectType
+  });
+  const readonly = inherited || owner.kind === 'function';
+  const Name = readonly ? undefined : context.cellComponents?.name;
+  const Type = readonly ? undefined : context.cellComponents?.type;
+  const Card = readonly ? undefined : context.cellComponents?.card;
+  const controlsId = useId();
+  const branch = useRef<HTMLDivElement>(null);
+  const split = useBlockLayout(childId ?? controlsId, true, branch, true);
+  return (
+    <li className="rune-structure-member" data-expanded={expanded || undefined}>
+      <div
+        className={`rune-structure-member__row ${diagnostic ? diagnosticSeverityClass(diagnostic.severity) : ''}`}
+        data-attr={row.attrName}
+        title={diagnostic?.message}
+        {...navigation.targetProps(row.targetNodeId, `${row.attrName} type ${row.typeName}`)}
+      >
+        {!choice && (
+          <div className="rune-structure-member__name">
+            {output && <ArrowRight className="size-3.5" aria-label="Output" />}
+            {Name ? (
+              <Name value={row.attrName} nodeId={owner.id} attrName={row.attrName} />
+            ) : (
+              <span className="rune-cell-name">{row.attrName}</span>
+            )}
+          </div>
+        )}
+        <div className="rune-structure-member__type">
+          {Type ? (
+            <Type typeName={row.typeName} typeKind={row.typeKind} nodeId={owner.id} attrName={row.attrName} />
+          ) : (
+            <TypeChip as="span" typeName={row.typeName} typeKind={row.typeKind} />
+          )}
+          {!choice &&
+            (Card ? (
+              <Card value={row.cardinality} nodeId={owner.id} attrName={row.attrName} />
+            ) : (
+              <span className="rune-cell-card">{row.cardinality}</span>
+            ))}
+          {row.typeKind === 'Unresolved' && (
+            <span
+              role="img"
+              aria-label={`Unresolved type: ${row.typeName}`}
+              title="The referenced type could not be resolved"
+            >
+              <CircleHelp className="size-3.5" />
+            </span>
+          )}
+          {row.targetNodeId && context.onNavigateToEnumType && (
+            <button
+              type="button"
+              className="rune-structure-icon"
+              aria-label={`Navigate to ${row.typeName}`}
+              title={`Navigate to ${row.typeName}`}
+              onClick={() => context.onNavigateToEnumType?.(row.targetNodeId!)}
+            >
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        {expandable && (
+          <button
+            type="button"
+            className="rune-structure-icon rune-structure-member__toggle"
+            aria-expanded={expanded}
+            aria-controls={expanded ? controlsId : undefined}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${row.attrName}`}
+            onClick={() => context.onToggleExpansion?.(key)}
+          >
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      {expanded && (
         <div
-          data-testid="structure-unsupported-kind-state"
-          className="flex h-full flex-col items-center justify-center gap-2 px-6 py-8 text-center text-sm text-muted-foreground"
+          className="rune-structure-member__child"
+          id={controlsId}
+          ref={branch}
+          data-placed={split.layout.placed || undefined}
+          data-sized={split.layout.widthPx !== undefined || undefined}
+          style={{
+            width: split.layout.widthPx,
+            ...(split.layout.placed
+              ? {
+                  left: `clamp(0px, ${split.layout.x}px, calc(100% - ${split.layout.widthPx ?? branch.current?.offsetWidth ?? 0}px))`,
+                  top: split.layout.y
+                }
+              : {})
+          }}
         >
+          {child && (
+            <div
+              role="separator"
+              tabIndex={0}
+              aria-label={`Resize ${row.attrName} branch`}
+              aria-orientation="vertical"
+              aria-controls={controlsId}
+              aria-valuemin={0}
+              aria-valuemax={
+                branch.current?.offsetParent instanceof HTMLElement ? branch.current.offsetParent.clientWidth : 10000
+              }
+              aria-valuenow={Math.round(split.layout.widthPx ?? branch.current?.offsetWidth ?? 0)}
+              className="rune-structure-member__split"
+              onPointerDown={(event) => split.start(event, 'resize')}
+              onKeyDown={(event) => split.keyboard(event, 'resize')}
+              {...split.pointerEvents}
+            />
+          )}
+          {child ? (
+            <StructureCard key={childId} node={child} ancestors={instancePath} split />
+          ) : (
+            <p className="rune-structure-reference">Reference already shown in this branch.</p>
+          )}
+        </div>
+      )}
+      {expanded && child && (
+        <svg className="rune-structure-connector" aria-hidden="true">
+          <path />
+        </svg>
+      )}
+      {navigation.menu}
+    </li>
+  );
+}
+
+function StructureCard({
+  node,
+  ancestors,
+  split = false
+}: {
+  node: StructureNode;
+  ancestors: readonly string[];
+  split?: boolean;
+}) {
+  const context = useDocument();
+  const isBase = node.kind === 'base';
+  const name = isBase ? node.baseTypeName : node.name;
+  const namespace = isBase ? node.baseTypeNamespaceUri : node.namespaceUri;
+  const navigationId = isBase ? node.baseTypeId : node.id;
+  const instanceId = node.instanceId ?? node.id;
+  const path = useMemo(() => [...ancestors, instanceId], [ancestors, instanceId]);
+  const navigation = useTypeNavigationMenu({
+    onNavigate: context.onNavigateToEnumType,
+    onInspect: context.onInspectType
+  });
+  const titleId = useId();
+  const frame = useRef<HTMLElement>(null);
+  const constrained = ancestors.length > 0;
+  const motion = useBlockLayout(instanceId, constrained, frame, split);
+  const helpId = useId();
+  const hydrating = !isBase && node.deferred && context.pendingHydrationNamespaces?.includes(namespace);
+  const rows =
+    node.kind === 'data' ? node.rows : isBase ? node.baseRows : node.kind === 'function' ? node.inputRows : [];
+  const meta = node.kind === 'data' || node.kind === 'choice' || node.kind === 'function' ? node : {};
+  return (
+    <section
+      ref={frame}
+      className={`rune-structure-card${context.arrivalNodeId === node.id ? ' rune-navigation-arrival' : ''}`}
+      style={
+        split
+          ? undefined
+          : constrained
+            ? {
+                marginInlineStart: split ? 0 : motion.layout.x,
+                marginBlockStart: motion.layout.y,
+                maxWidth: split ? '100%' : `calc(100% - ${motion.layout.x}px)`
+              }
+            : { translate: `${motion.layout.x}px ${motion.layout.y}px` }
+      }
+      data-kind={node.kind}
+      data-canonical-id={node.id}
+      data-instance-id={instanceId}
+      aria-labelledby={titleId}
+    >
+      <header
+        data-structure-drag-handle="true"
+        className="rune-structure-card__header"
+        {...navigation.targetProps(navigationId, `${name} type actions`)}
+        tabIndex={0}
+        aria-describedby={helpId}
+        onPointerDown={(event) => {
+          if (
+            event.target instanceof Element &&
+            !event.target.closest('button,input,textarea,[contenteditable="true"]')
+          )
+            motion.start(event, 'move');
+        }}
+        {...motion.pointerEvents}
+        onKeyDown={(event) => {
+          navigation.onKeyDown(event, navigationId);
+          if (!event.defaultPrevented && event.target === event.currentTarget) motion.keyboard(event, 'move');
+        }}
+      >
+        {navigationId && context.onNodeSelect ? (
+          <button
+            className="rune-structure-card__title"
+            type="button"
+            id={titleId}
+            title={`${namespace}.${name}`}
+            onClick={() => context.onNodeSelect?.(navigationId)}
+          >
+            {name}
+          </button>
+        ) : (
+          <span className="rune-structure-card__title" id={titleId}>
+            {name}
+          </span>
+        )}
+        <StructureMetaIndicators {...meta} />
+        {hydrating && (
+          <span role="status" className="rune-structure-card__loading">
+            <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            <span className="sr-only">Loading referenced namespace</span>
+          </span>
+        )}
+        <span className="rune-structure-card__kind">{isBase ? 'Inherited' : node.kind}</span>
+      </header>
+      {rows.length > 0 && (
+        <StructureMembers>
+          {rows.map((row) => (
+            <StructureMember key={row.attrName} row={row} owner={node} instancePath={path} inherited={isBase} />
+          ))}
+        </StructureMembers>
+      )}
+      {node.kind === 'choice' && (
+        <StructureMembers>
+          {node.options.map((option) => (
+            <StructureMember
+              key={option.typeName}
+              row={{
+                ...option,
+                typeKind: option.typeKind === 'Builtin' ? 'BasicType' : option.typeKind,
+                attrName: option.typeName,
+                cardinality: '',
+                isOptional: false,
+                isInherited: false
+              }}
+              owner={node}
+              instancePath={path}
+              choice
+            />
+          ))}
+        </StructureMembers>
+      )}
+      {node.kind === 'enum' && (
+        <ol className="rune-structure-enum">
+          {node.values.slice(0, ENUM_PREVIEW_LIMIT).map((value, index) => (
+            <li key={`${value}:${index}`}>{value}</li>
+          ))}
+        </ol>
+      )}
+      {node.kind === 'enum' && node.values.length > ENUM_PREVIEW_LIMIT && context.onInspectType && (
+        <button type="button" className="rune-structure-enum__more" onClick={() => context.onInspectType?.(node.id)}>
+          {enumPreviewLabel(node.values.length)}
+          <ArrowUpRight className="size-3.5" aria-hidden="true" />
+        </button>
+      )}
+      {node.kind === 'function' && node.outputRow && (
+        <StructureMembers output>
+          <StructureMember row={node.outputRow} owner={node} instancePath={path} output />
+        </StructureMembers>
+      )}
+      {isBase && context.graph.nodes.get(node.childNodeId) && (
+        <div className="rune-structure-derived">
+          <StructureCard key={node.childNodeId} node={context.graph.nodes.get(node.childNodeId)!} ancestors={path} />
+        </div>
+      )}
+      <span id={helpId} className="sr-only">
+        Drag this header to move the block. Arrow keys move, Shift moves farther, Home resets.
+      </span>
+      {navigation.menu}
+    </section>
+  );
+}
+
+const StructureDocument = memo(function StructureDocument({ context }: { context: DocumentContextValue }) {
+  const root = context.graph.nodes.get(context.graph.rootNodeId);
+  if (!root) return null;
+  return (
+    <DocumentContext.Provider value={context}>
+      <div className="rune-structure-tools" role="toolbar" aria-label="Structure canvas">
+        <button type="button" onClick={() => context.layouts.getState().reset()}>
+          <LocateFixed className="size-3.5" aria-hidden="true" />
+          Reset layout
+        </button>
+      </div>
+      <div className="rune-structure-stage">
+        <StructureCard key={context.graph.rootNodeId} node={root} ancestors={EMPTY_PATH} />
+      </div>
+    </DocumentContext.Provider>
+  );
+});
+
+interface BlockLayout {
+  x: number;
+  y: number;
+  widthPx?: number;
+  placed?: boolean;
+}
+const DEFAULT_LAYOUT: BlockLayout = { x: 0, y: 0 };
+function createBlockLayouts() {
+  return createStore<{
+    layouts: ReadonlyMap<string, BlockLayout>;
+    update(id: string, value: BlockLayout): void;
+    reset(): void;
+  }>((set) => ({
+    layouts: new Map(),
+    update: (id, value) => set((state) => ({ layouts: new Map(state.layouts).set(id, value) })),
+    reset: () => set({ layouts: new Map() })
+  }));
+}
+
+function availableBlockWidth(element: HTMLElement): number {
+  const parent = element.parentElement;
+  if (!parent) return element.offsetWidth;
+  const style = getComputedStyle(parent);
+  return Math.max(1, parent.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0));
+}
+
+function blockRect(element: HTMLElement): CanvasRect {
+  return { x: element.offsetLeft, y: element.offsetTop, width: element.offsetWidth, height: element.offsetHeight };
+}
+function floatingCanvas(element: HTMLElement): HTMLElement | null {
+  return element.closest<HTMLElement>('ol.rune-structure-members');
+}
+function floatingOrigin(element: HTMLElement, layout: BlockLayout): BlockLayout {
+  const branch = element.classList.contains('rune-structure-member__child')
+    ? element
+    : element.closest<HTMLElement>('.rune-structure-member__child');
+  return { ...layout, x: branch?.offsetLeft ?? layout.x, y: branch?.offsetTop ?? layout.y, placed: true };
+}
+function floatingChange(
+  origin: BlockLayout,
+  mode: 'move' | 'resize',
+  dx: number,
+  dy: number,
+  width: number,
+  available: number,
+  element: HTMLElement
+): BlockLayout {
+  const branch = element.classList.contains('rune-structure-member__child')
+    ? element
+    : element.closest<HTMLElement>('.rune-structure-member__child');
+  const canvas = floatingCanvas(element);
+  const peers = Array.from(canvas?.querySelectorAll<HTMLElement>(':scope > li > .rune-structure-member__child') ?? [])
+    .filter((peer) => peer !== branch)
+    .map(blockRect);
+  const previous = { x: origin.x, y: origin.y, width, height: branch?.offsetHeight ?? element.offsetHeight };
+  const right = origin.x + width;
+  const nextWidth = mode === 'resize' ? Math.max(Math.min(160, available), Math.min(right, width - dx)) : width;
+  const desired = {
+    ...previous,
+    x: mode === 'resize' ? Math.max(0, right - nextWidth) : origin.x + dx,
+    y: mode === 'move' ? origin.y + dy : origin.y,
+    width: nextWidth
+  };
+  const placed = placeStructureBlock(desired, previous, peers, available, mode);
+  return { ...origin, placed: true, x: placed.x, y: placed.y, ...(mode === 'resize' ? { widthPx: placed.width } : {}) };
+}
+
+/** User-authored placement only; browser layout still owns all descendant geometry. */
+function useBlockLayout(id: string, constrained: boolean, frame: React.RefObject<HTMLElement | null>, split = false) {
+  const { layouts } = useDocument();
+  const layout = useStore(layouts, (state) => state.layouts.get(id) ?? DEFAULT_LAYOUT);
+  const drag = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    mode: 'move' | 'resize';
+    origin: BlockLayout;
+    width: number;
+    available: number;
+  } | null>(null);
+  const update = (value: BlockLayout) => layouts.getState().update(id, value);
+  const start = (event: React.PointerEvent<HTMLElement>, mode: 'move' | 'resize') => {
+    const element = frame.current;
+    if (event.button !== 0 || !element) return;
+    event.preventDefault();
+    event.stopPropagation();
+    drag.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      mode,
+      origin: split ? floatingOrigin(element, layout) : layout,
+      width: element.getBoundingClientRect().width,
+      available: split
+        ? (floatingCanvas(element)?.clientWidth ?? availableBlockWidth(element))
+        : availableBlockWidth(element)
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const move = (event: React.PointerEvent<HTMLElement>) => {
+    const active = drag.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    const dx = event.clientX - active.x,
+      dy = event.clientY - active.y;
+    if (split) {
+      update({
+        ...floatingChange(active.origin, active.mode, dx, dy, active.width, active.available, frame.current!)
+      });
+    } else {
+      update({
+        ...active.origin,
+        x: constrained
+          ? Math.max(0, Math.min(Math.max(0, active.available - 160), active.origin.x + dx))
+          : active.origin.x + dx,
+        y: constrained ? Math.max(0, active.origin.y + dy) : active.origin.y + dy
+      });
+    }
+  };
+  const end = (event: React.PointerEvent<HTMLElement>) => {
+    if (drag.current?.pointerId !== event.pointerId) return;
+    drag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const keyboard = (event: React.KeyboardEvent<HTMLElement>, mode: 'move' | 'resize') => {
+    const step = event.shiftKey ? 32 : 8;
+    const delta: Record<string, { x: number; y: number }> = {
+      ArrowLeft: { x: -step, y: 0 },
+      ArrowRight: { x: step, y: 0 },
+      ArrowUp: { x: 0, y: -step },
+      ArrowDown: { x: 0, y: step }
+    };
+    if (event.key === 'Home') {
+      event.preventDefault();
+      update(DEFAULT_LAYOUT);
+      return;
+    }
+    const offset = delta[event.key];
+    if (!offset || (mode === 'resize' && offset.x === 0)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const element = frame.current;
+    if (split && element) {
+      const available = floatingCanvas(element)?.clientWidth ?? element.offsetWidth;
+      update(
+        floatingChange(
+          floatingOrigin(element, layout),
+          mode,
+          offset.x,
+          offset.y,
+          element.getBoundingClientRect().width,
+          available,
+          element
+        )
+      );
+    } else {
+      const maxX = Math.max(0, (element ? availableBlockWidth(element) : 160) - 160);
+      update({
+        ...layout,
+        x: constrained ? Math.max(0, Math.min(maxX, layout.x + offset.x)) : layout.x + offset.x,
+        y: constrained ? Math.max(0, layout.y + offset.y) : layout.y + offset.y
+      });
+    }
+  };
+  return {
+    layout,
+    start,
+    keyboard,
+    pointerEvents: {
+      onPointerMove: move,
+      onPointerUp: end,
+      onPointerCancel: end,
+      onLostPointerCapture: () => {
+        drag.current = null;
+      }
+    }
+  };
+}
+
+/** A focused DOM hierarchy with a single movable root. */
+export function StructureView(props: StructureViewProps): React.ReactElement {
+  const { focusedTypeId, adapterDoc, navigationRevision, unsupportedSelectedType } = props;
+  const expansionMap = props.expansionMap ?? EMPTY_EXPANSIONS;
+  const [layouts] = useState(createBlockLayouts);
+  const graph = useMemo(
+    () => (focusedTypeId && adapterDoc ? buildStructureGraph(adapterDoc, { focusedTypeId, expansionMap }) : undefined),
+    [focusedTypeId, adapterDoc, expansionMap]
+  );
+  const { arrivalNodeId, emphasizeArrival, cancelArrival } = useNavigationArrival();
+  const context = useMemo(
+    () => (graph ? { ...props, graph, expansionMap, layouts, arrivalNodeId } : undefined),
+    [
+      graph,
+      arrivalNodeId,
+      expansionMap,
+      layouts,
+      props.focusedTypeId,
+      props.cellComponents,
+      props.onToggleExpansion,
+      props.onNodeSelect,
+      props.onNavigateToEnumType,
+      props.onInspectType,
+      props.structureDiagnostics,
+      props.pendingHydrationNamespaces
+    ]
+  );
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focusedTypeId && adapterDoc && navigationRevision !== undefined)
+      emphasizeArrival(focusedTypeId, navigationRevision);
+    return cancelArrival;
+  }, [focusedTypeId, adapterDoc, navigationRevision, emphasizeArrival, cancelArrival]);
+  useEffect(() => {
+    host.current?.scrollTo?.({ top: 0, left: 0 });
+  }, [focusedTypeId]);
+  if (!focusedTypeId || !adapterDoc) {
+    if (unsupportedSelectedType)
+      return (
+        <div data-testid="structure-unsupported-kind-state" className="rune-structure-empty">
           <p>
-            <strong className="text-foreground">{unsupportedSelectedType.name}</strong> is a{' '}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{unsupportedSelectedType.kind}</code> type
-            and is not supported in Structure View.
+            <strong>{unsupportedSelectedType.name}</strong> is a <code>{unsupportedSelectedType.kind}</code> type and is
+            not supported in Structure View.
           </p>
-          <p className="text-xs">Pick a Data, Choice, or Enum type from the Namespace Explorer to see its structure.</p>
+          <p>Pick a Data, Choice, or Enum type from the Namespace Explorer to see its structure.</p>
         </div>
       );
-    }
     return (
-      <div
-        data-testid="structure-empty-state"
-        className="flex h-full items-center justify-center px-6 py-8 text-center text-sm text-muted-foreground"
-      >
+      <div data-testid="structure-empty-state" className="rune-structure-empty">
         Select a type from the Type explorer to view its structure.
       </div>
     );
   }
-
-  // Detect stale selections upfront — cheaper than building+laying out an empty
-  // graph and gives a precise, user-friendly message instead of a blank canvas.
-  // Phase 14e/A: Data, Choice, and Enum roots all render; only an unknown id
-  // (deleted/renamed type) reaches the unsupported branch.
-  const rootNode = adapterDoc.nodes.find((n) => n.id === focusedTypeId);
-  if (!rootNode) {
+  if (!graph?.nodes.size)
     return (
-      <div
-        data-testid="structure-unsupported-root-state"
-        className="flex h-full items-center justify-center px-6 py-8 text-center text-sm text-muted-foreground"
-      >
+      <div data-testid="structure-unsupported-root-state" className="rune-structure-empty">
         The selected type is no longer available. Select a type from the Namespace Explorer.
       </div>
     );
-  }
-
   return (
-    <ReactFlowProvider>
-      <StructureFlowInner
-        consumedArrivalRef={consumedArrivalRef}
-        focusedTypeId={focusedTypeId}
-        navigationRevision={navigationRevision}
-        adapterDoc={adapterDoc}
-        expansionMap={expansionMap ?? EMPTY_EXPANSION_MAP}
-        cellComponents={cellComponents}
-        onToggleExpansion={onToggleExpansion}
-        onNodeSelect={onNodeSelect}
-        onNavigateToEnumType={onNavigateToEnumType}
-        onInspectType={onInspectType}
-        structureDiagnostics={structureDiagnostics}
-        pendingHydrationNamespaces={pendingHydrationNamespaces ?? EMPTY_PENDING_HYDRATION}
-      />
-    </ReactFlowProvider>
+    <div
+      ref={host}
+      data-testid="structure-view-flow"
+      className="rune-structure-document studio-scroll"
+      data-canonical-id={focusedTypeId}
+      role="region"
+      aria-label="Type structure"
+    >
+      {context && <StructureDocument context={context} />}
+    </div>
   );
 }

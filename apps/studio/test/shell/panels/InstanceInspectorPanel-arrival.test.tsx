@@ -159,3 +159,17 @@ it('keeps the original cue lifetime across schema refresh and disposes it when t
   );
   expect(field).not.toHaveClass('navigation-arrival');
 });
+
+it('lands on the nearest collection item when a requested detail field is closed', () => {
+  const instanceId = useInstanceStore.getState().createInstance('test.Trade', 'Trade');
+  render(
+    <InstanceInspectorPanel
+      instanceId={instanceId}
+      focusedPayloadPointer="/party/contacts/0/email"
+      focusRequestId={1}
+    />
+  );
+  act(() => vi.advanceTimersByTime(16));
+  expect(screen.getByLabelText('Party').parentElement).toHaveClass('navigation-arrival');
+  expect(screen.getByLabelText('Party')).toHaveFocus();
+});

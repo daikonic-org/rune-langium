@@ -75,10 +75,22 @@ for (const width of [1280, 800]) {
     for (const label of ['Export target', 'Export layout']) {
       const select = settings.getByLabel(label, { exact: true });
       const control = select.locator('..');
-      const box = (await select.boundingBox())!;
-      const arrow = (await control.locator('svg').boundingBox())!;
-      expect(Math.abs(arrow.y + arrow.height / 2 - box.y - box.height / 2)).toBeLessThan(1);
-      expect(box.x + box.width - arrow.x - arrow.width).toBeGreaterThanOrEqual(8);
+      // Read both rectangles in one frame while the perspective entry animation runs.
+      await expect
+        .poll(() =>
+          control.evaluate((el) => {
+            const box = el.querySelector('select')!.getBoundingClientRect();
+            const arrow = el.querySelector('svg')!.getBoundingClientRect();
+            return Math.abs(arrow.y + arrow.height / 2 - box.y - box.height / 2);
+          })
+        )
+        .toBeLessThan(1);
+      const rightInset = await control.evaluate((el) => {
+        const box = el.querySelector('select')!.getBoundingClientRect();
+        const arrow = el.querySelector('svg')!.getBoundingClientRect();
+        return box.right - arrow.right;
+      });
+      expect(rightInset).toBeGreaterThanOrEqual(8);
     }
     await settings.getByLabel('Export layout', { exact: true }).selectOption('single-file');
     await expect(settings.getByLabel('Export layout', { exact: true })).toHaveValue('single-file');

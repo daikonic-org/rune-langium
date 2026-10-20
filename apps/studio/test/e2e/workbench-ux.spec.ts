@@ -58,10 +58,10 @@ for (const width of [1280, 800]) {
     const structure = page.getByTestId('structure-view-flow');
     await expect(structure).toContainText('Party');
     await page.getByRole('button', { name: 'Source', exact: true }).click();
-    await expectContainedInPane(structure.locator('.react-flow__node').first(), structure);
+    await expectContainedInPane(structure.locator('.rune-structure-card').first(), structure);
     await typeNavigationButton(page, 'demo.Trade').click();
     await expect(structure).toContainText('Trade');
-    await expectContainedInPane(structure.locator('.react-flow__node').first(), structure);
+    await expectContainedInPane(structure.locator('.rune-structure-card').first(), structure);
     await page.getByRole('button', { name: 'Graph', exact: true }).click();
     await page.getByRole('button', { name: 'Filter visible types and relationships', exact: true }).click();
     await page.getByRole('button', { name: 'Data', exact: true }).click();
