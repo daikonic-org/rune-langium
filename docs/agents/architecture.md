@@ -379,6 +379,15 @@ count shared by both renderers and layout estimates. Full model values remain
 intact. Hosts may supply `onInspectType` to reveal complete details; Studio opens
 the existing Inspector without toggling an already open pane closed. Inspector
 pagination remains the complete-list owner.
+Explicit Inspector section requests carry increasing revisions. A mounted frame
+consumes each revision once, so temporarily clearing the node-scoped context and
+returning to that node cannot replay an old disclosure over a manual tab choice.
+
+Inherited overrides retain the declaring ancestor's namespace and file imports.
+Core's `buildImportScope` and `importScopeCandidates` supply the same ordered
+lookup facts to the language scope and projected type resolution. Copying an
+inherited reference excludes the global bare-name fallback; unresolved text and
+builtins remain authored text instead of picking an unrelated loaded declaration.
 
 The Inspector uses one declaration form and generated canonical schema. `InspectorFrame` composes the common header, inheritance picker, appropriate tabs and `InspectorFooter`; `InspectorDetailsPane` shows metadata for the selected child below the member rows. Fill sections retain their minimum content height: a short Inspector scrolls the form rather than compressing signature fields or clipping the embedded editor. Attributes/function inputs share `AttributeRow` and the same complete Attribute draft factory. Enum identifiers remain inline; enum `display` belongs in selected-value details. `MetadataSection`, `AnnotationSection` and `SynonymEditor` bind root or child paths through `MetadataTargetContext`; readonly rich items use the authoritative Rune renderer.
 

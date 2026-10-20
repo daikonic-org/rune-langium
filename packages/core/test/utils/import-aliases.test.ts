@@ -1,9 +1,29 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { describe, it, expect } from 'vitest';
-import { buildImportAliasMap, importAliasCandidates } from '../../src/naming/import-aliases.js';
+import {
+  buildImportAliasMap,
+  importAliasCandidates,
+  buildImportScope,
+  importScopeCandidates
+} from '../../src/naming/import-aliases.js';
 
 describe('namespace import aliases', () => {
+  it('keeps bare lookup in the file namespace and unaliased imports', () => {
+    const scope = buildImportScope('parent', [
+      { importedNamespace: 'explicit.Amount' },
+      { importedNamespace: 'wildcard.*' },
+      { importedNamespace: 'aliasOnly.*', namespaceAlias: 'model' }
+    ]);
+    expect(importScopeCandidates('Amount', scope)).toEqual([
+      'explicit.Amount',
+      'parent.Amount',
+      'wildcard.Amount',
+      'Amount'
+    ]);
+    expect(importScopeCandidates('model.Amount', scope)).toEqual(['model.Amount', 'aliasOnly.Amount']);
+    expect(importScopeCandidates('other.Amount', scope)).toEqual(['other.Amount']);
+  });
   it('retains every prefix sharing one alias in source order', () => {
     const map = buildImportAliasMap([
       { importedNamespace: 'fpml.asset.*', namespaceAlias: 'fpml' },

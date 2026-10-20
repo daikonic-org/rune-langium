@@ -314,6 +314,7 @@ export function buildMergedEnumValueList(
 
 export interface EffectiveEntry {
   imports?: readonly NamespaceImport[];
+  namespace?: string;
   id: string;
   name: string;
   source: 'local' | 'inherited';
@@ -392,6 +393,7 @@ export function useEffectiveMembers(
             cardinality: formatCardinality(m.card),
             displayName: m.display ?? m.displayName,
             ancestorName: group.ancestorName,
+            namespace: group.namespace,
             ...(group.imports ? { imports: group.imports } : {}),
             inheritanceDepth: depth + 1,
             isOverride: false,

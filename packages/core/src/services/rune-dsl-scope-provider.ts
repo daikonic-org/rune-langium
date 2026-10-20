@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { buildImportAliasMap, importAliasCandidates } from '../naming/import-aliases.js';
+import { buildImportAliasMap, buildImportScope, importScopeCandidates } from '../naming/import-aliases.js';
 import type { AstNode, AstNodeDescription, ReferenceInfo, Scope, LangiumCoreServices } from 'langium';
 import { AstUtils, EMPTY_SCOPE, DefaultScopeProvider, MapScope, stream } from 'langium';
 import {
@@ -92,9 +92,9 @@ import type {
 class AliasResolvingScope implements Scope {
   constructor(
     private readonly base: Scope,
-    private readonly aliasMap: Map<string, string[]>,
-    private readonly namespaces: string[] = [],
-    private readonly imports: Map<string, string> = new Map()
+    private readonly aliasMap: ReadonlyMap<string, readonly string[]>,
+    private readonly namespaces: readonly string[] = [],
+    private readonly imports: ReadonlyMap<string, string> = new Map()
   ) {}
 
   getElement(name: string): AstNodeDescription | undefined {
@@ -115,15 +115,12 @@ class AliasResolvingScope implements Scope {
     return this.base.getAllElements();
   }
 
-  private candidateNames(name: string): Set<string> {
-    const candidates = new Set<string>();
-    if (!name.includes('.')) {
-      const explicit = this.imports.get(name);
-      if (explicit) candidates.add(explicit);
-      for (const namespace of this.namespaces) candidates.add(`${namespace}.${name}`);
-    }
-    for (const candidate of importAliasCandidates(name, this.aliasMap)) candidates.add(candidate);
-    return candidates;
+  private candidateNames(name: string): string[] {
+    return importScopeCandidates(name, {
+      aliases: this.aliasMap,
+      namespaces: this.namespaces,
+      explicitImports: this.imports
+    });
   }
 }
 
@@ -1281,18 +1278,8 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
     const model = AstUtils.getContainerOfType(context.container, (n): n is RosettaModel => n.$type === 'RosettaModel');
     if (!model) return base;
 
-    const namespaces = [
-      model.name,
-      ...model.imports
-        .filter((entry) => !entry.namespaceAlias && entry.importedNamespace.endsWith('.*'))
-        .map((entry) => entry.importedNamespace.slice(0, -2))
-    ];
-    const imports = new Map(
-      model.imports
-        .filter((entry) => !entry.namespaceAlias && !entry.importedNamespace.endsWith('.*'))
-        .map((entry) => [entry.importedNamespace.split('.').pop()!, entry.importedNamespace])
-    );
-    return new AliasResolvingScope(base, buildImportAliasMap(model.imports), namespaces, imports);
+    const scope = buildImportScope(model.name, model.imports);
+    return new AliasResolvingScope(base, scope.aliases, scope.namespaces, scope.explicitImports);
   }
 
   /**

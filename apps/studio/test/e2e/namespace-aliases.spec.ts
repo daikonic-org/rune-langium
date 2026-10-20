@@ -37,3 +37,30 @@ test('repeated namespace aliases retain type kinds and canonical navigation', as
   await inspector.getByRole('button', { name: 'Go to fpml.Asset', exact: true }).click();
   await expect(page.locator('[data-slot="editor-form-panel"]')).toHaveAttribute('aria-label', 'Edit Asset');
 });
+
+test('an inherited override retains its parent import scope in the saved source', async ({ page }) => {
+  await page.goto('./');
+  const files = [
+    ['wrong', 'namespace wrong\ntype Amount:\n value string (1..1)\n'],
+    ['actual', 'namespace actual\ntype Amount:\n value string (1..1)\n'],
+    ['parent', 'namespace parent\nimport actual.*\nimport wrong.* as other\ntype Base:\n amount Amount (1..1)\n'],
+    ['child', 'namespace child\nimport parent.*\ntype Child extends Base:\n']
+  ];
+  await page.locator('input[type=file][accept=".rosetta"]').setInputFiles(
+    files.map(([name, content]) => ({
+      name: `${name}.rosetta`,
+      mimeType: 'text/plain',
+      buffer: Buffer.from(content!)
+    }))
+  );
+  await page.getByTestId('namespace-search').fill('Child');
+  await typeNavigationButton(page, 'child.Child').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  const inspector = page.locator('[data-slot="editor-form-panel"]');
+  await inspector.getByRole('button', { name: 'Override inherited attribute amount from Base', exact: true }).click();
+  await expect(inspector.locator('[data-slot="attribute-row"]')).toContainText('actual.Amount');
+  const source = page.getByRole('button', { name: 'Source', exact: true });
+  if ((await source.getAttribute('aria-pressed')) !== 'true') await source.click();
+  await expect(page.locator('.cm-content').filter({ hasText: 'type Child' })).toContainText('amount actual.Amount');
+});

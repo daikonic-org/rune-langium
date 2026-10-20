@@ -11,7 +11,12 @@
  */
 
 import { createContext, useContext } from 'react';
-import { buildImportAliasMap, importAliasCandidates } from '@rune-langium/core';
+import {
+  buildImportAliasMap,
+  importAliasCandidates,
+  buildImportScope,
+  importScopeCandidates
+} from '@rune-langium/core';
 import type { NamespaceImport } from '@rune-langium/core';
 import type { NavigateToNodeCallback } from '../../types.js';
 import { isTypeNodeId, nameFromNodeId, qualifiedNameFromNodeId } from '../../store/node-projection.js';
@@ -33,16 +38,24 @@ export interface TypeLinkProps {
  * Resolve a short type name to a kind-aware graph node ID.
  * Exact Rune-qualified-name match first; then exact last-segment match via nameFromNodeId to avoid
  * namespace-segment collisions (e.g. "a.Foo.Bar" must NOT match typeName="Foo").
+ * Providing a namespace restricts lookup to that file scope and disables the global bare-name fallback.
  */
 export function resolveNodeId(
   typeName: string,
   allNodeIds: readonly string[] | ReadonlySet<string>,
-  imports: readonly NamespaceImport[] = []
+  imports: readonly NamespaceImport[] = [],
+  namespace?: string
 ): string | undefined {
-  for (const candidate of importAliasCandidates(typeName, buildImportAliasMap(imports))) {
+  const candidates =
+    namespace === undefined
+      ? importAliasCandidates(typeName, buildImportAliasMap(imports))
+      : importScopeCandidates(typeName, buildImportScope(namespace, imports));
+  for (const candidate of candidates) {
+    // A scoped copy must never resolve against an unrelated bare-name export.
+    if (namespace !== undefined && !typeName.includes('.') && candidate === typeName) continue;
     for (const id of allNodeIds) if (isTypeNodeId(id) && qualifiedNameFromNodeId(id) === candidate) return id;
   }
-  if (typeName.includes('.')) return undefined;
+  if (namespace !== undefined || typeName.includes('.')) return undefined;
   for (const id of allNodeIds) if (isTypeNodeId(id) && nameFromNodeId(id) === typeName) return id;
   return undefined;
 }

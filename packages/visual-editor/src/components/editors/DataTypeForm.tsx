@@ -352,13 +352,11 @@ function DataTypeForm({
               onOverride={() =>
                 handleOverrideInherited({
                   name: entry.name,
-                  typeName: entry.imports?.some((imp) => imp.namespaceAlias)
-                    ? qualifiedNameFromNodeId(
-                        resolveNodeId(entry.typeName ?? 'string', allNodeIds ?? [], entry.imports) ??
-                          entry.typeName ??
-                          'string'
-                      )
-                    : (entry.typeName ?? 'string'),
+                  typeName: qualifiedNameFromNodeId(
+                    resolveNodeId(entry.typeName ?? 'string', allNodeIds ?? [], entry.imports, entry.namespace) ??
+                      entry.typeName ??
+                      'string'
+                  ),
                   cardinality: entry.cardinality ?? '(1..1)'
                 })
               }

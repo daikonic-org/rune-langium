@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
 
 export interface InspectorSectionRequest {
@@ -39,8 +39,15 @@ export function InspectorFrame({
 }: InspectorFrameProps) {
   const sectionRequest = useContext(InspectorSectionRequestContext);
   const [selected, setSelected] = useState(sectionRequest?.sectionId ?? sections[0]?.id);
+  const consumedRevision = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (sectionRequest) setSelected(sectionRequest.sectionId);
+    if (
+      sectionRequest &&
+      (consumedRevision.current === undefined || sectionRequest.revision > consumedRevision.current)
+    ) {
+      consumedRevision.current = sectionRequest.revision;
+      setSelected(sectionRequest.sectionId);
+    }
   }, [sectionRequest]);
   const active = sections.find((section) => section.id === selected) ?? sections[0];
   const [mountedSections, setMountedSections] = useState(() => new Set<string>());
