@@ -278,9 +278,9 @@ export const FormPreviewPanel = withInstrumentation(
     );
 
     const handleFieldBlur = useCallback(() => {
-      if (!schema || !activeSample || schema.kind === 'function') return;
+      if (isControlled || !schema || !activeSample || schema.kind === 'function') return;
       applyValidation(activeSample.values, true);
-    }, [activeSample, applyValidation, schema]);
+    }, [activeSample, applyValidation, isControlled, schema]);
 
     const handleFieldChange = useCallback(
       (fieldPath: string, value: unknown, arrayIndices?: number[], validate = false) => {

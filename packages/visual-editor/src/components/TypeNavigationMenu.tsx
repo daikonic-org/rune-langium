@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+
+import { useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
+import { DropdownMenuItem } from '@rune-langium/design-system/ui/dropdown-menu';
+import type { NavigateToNodeCallback } from '../types.js';
+import { PointerMenu } from './PointerMenu.js';
+
+interface TypeNavigationActions {
+  onNavigate?: NavigateToNodeCallback;
+  onInspect?: NavigateToNodeCallback;
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('input, textarea, [contenteditable="true"]'));
+}
+
+function menuOrigin(event: MouseEvent | KeyboardEvent) {
+  return event.target instanceof Element
+    ? (event.target.closest('button, [tabindex]') ?? event.currentTarget)
+    : event.currentTarget;
+}
+
+export function TypeNavigationMenuItems({
+  nodeId,
+  onNavigate,
+  onInspect,
+  onClose
+}: TypeNavigationActions & { nodeId: string; onClose(): void }) {
+  const activate = (action: NavigateToNodeCallback) => {
+    onClose();
+    action(nodeId);
+  };
+  return (
+    <>
+      {onNavigate && <DropdownMenuItem onClick={() => activate(onNavigate)}>Go to type</DropdownMenuItem>}
+      {onInspect && <DropdownMenuItem onClick={() => activate(onInspect)}>Inspect type</DropdownMenuItem>}
+    </>
+  );
+}
+
+/** Targets must already be resolved by the owning link, tree or Structure adapter. */
+export function useTypeNavigationMenu(actions: TypeNavigationActions) {
+  const [target, setTarget] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const origin = useRef<Element | null>(null);
+  const close = () => {
+    setTarget(null);
+    if (origin.current instanceof HTMLElement && origin.current.isConnected)
+      origin.current.focus({ preventScroll: true });
+  };
+  const open = (event: MouseEvent, nodeId: string | undefined) => {
+    if (!nodeId || (!actions.onNavigate && !actions.onInspect) || isEditableTarget(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    origin.current = menuOrigin(event);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setTarget({ nodeId, x: event.clientX || bounds.left, y: event.clientY || bounds.bottom });
+  };
+  const onKeyDown = (event: KeyboardEvent, nodeId: string | undefined) => {
+    if (
+      !nodeId ||
+      (!actions.onNavigate && !actions.onInspect) ||
+      isEditableTarget(event.target) ||
+      (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10'))
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    origin.current = menuOrigin(event);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setTarget({ nodeId, x: bounds.left, y: bounds.bottom });
+  };
+  const menu = target ? (
+    <PointerMenu position={target} onClose={close} testId="type-navigation-menu">
+      <TypeNavigationMenuItems nodeId={target.nodeId} {...actions} onClose={close} />
+    </PointerMenu>
+  ) : null;
+  const targetProps = (nodeId: string | undefined) => ({
+    onContextMenu: (event: MouseEvent) => open(event, nodeId),
+    onKeyDown: (event: KeyboardEvent) => onKeyDown(event, nodeId)
+  });
+  return { open, onKeyDown, menu, targetProps };
+}

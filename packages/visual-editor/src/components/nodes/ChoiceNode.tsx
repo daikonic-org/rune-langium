@@ -40,6 +40,7 @@ import {
   useNodeMetaImports
 } from './NavigationContext.js';
 import { BaseFlowNode } from './BaseFlowNode.js';
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { StructureMetaIndicators } from './StructureMetaIndicators.js';
 import type { RangeDiagnostic } from '../../hooks/useDiagnosticsForRange.js';
 import { STRUCTURE_LAYOUT_CONSTANTS } from '../../layout/structure-layout.js';
@@ -240,6 +241,8 @@ function StructureChoiceArmRow({
   nodeId,
   onNavigateToEnumType
 }: StructureChoiceArmRowProps): React.ReactElement {
+  const { onInspectType } = useNavigation();
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToEnumType, onInspect: onInspectType });
   const isEnum = arm.typeKind === 'Enum';
   const isUnresolved = arm.typeKind === 'Unresolved';
 
@@ -248,74 +251,78 @@ function StructureChoiceArmRow({
   const unresolvedTitle = `Type ${arm.typeName} not found in this namespace or its imports`;
 
   return (
-    <div className={rowClass} data-attr={arm.typeName}>
-      {TypeCell ? (
-        // Cells receive the canonical node id (data.id), not the
-        // React Flow wrapper id — matches DataNode's contract so
-        // updateAttributeType (or the analogous arm-retype action)
-        // looks up by canonical id consistently.
-        <TypeCell
-          typeName={arm.typeName}
-          typeKind={armKindToRowKind(arm.typeKind)}
-          nodeId={nodeId}
-          attrName={arm.typeName}
-        />
-      ) : (
-        <TypeChip as="span" typeName={arm.typeName || '?'} typeKind={armKindToRowKind(arm.typeKind)} />
-      )}
-      {/* Spec §3.3 — enum-nav glyph (↗) for Enum arms. */}
-      {isEnum && onNavigateToEnumType && arm.targetNodeId ? (
-        <RowGlyph
-          as="button"
-          variant="enum-nav"
-          type="button"
-          className="nodrag nopan"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onNavigateToEnumType(arm.targetNodeId!);
-          }}
-          aria-label={`Navigate to ${arm.typeName}`}
-          title={`Navigate to ${arm.typeName}`}
-          data-testid={`enum-nav-arm-${arm.typeName}`}
-        >
-          ↗
-        </RowGlyph>
-      ) : null}
-      {/* Spec §3.3 — unresolved-type indicator (?) for Unresolved arms. */}
-      {isUnresolved ? (
-        <RowGlyph
-          variant="unresolved"
-          title={unresolvedTitle}
-          aria-label={`Unresolved type: ${arm.typeName}`}
-          role="img"
-          data-testid={`unresolved-arm-${arm.typeName}`}
-        >
-          ?
-        </RowGlyph>
-      ) : null}
-      {/* Expand/collapse moved to right edge with +/− icons —
+    <>
+      <div className={rowClass} data-attr={arm.typeName} {...navigation.targetProps(arm.targetNodeId)}>
+        {TypeCell ? (
+          // Cells receive the canonical node id (data.id), not the
+          // React Flow wrapper id — matches DataNode's contract so
+          // updateAttributeType (or the analogous arm-retype action)
+          // looks up by canonical id consistently.
+          <TypeCell
+            typeName={arm.typeName}
+            typeKind={armKindToRowKind(arm.typeKind)}
+            nodeId={nodeId}
+            attrName={arm.typeName}
+          />
+        ) : (
+          <TypeChip as="span" typeName={arm.typeName || '?'} typeKind={armKindToRowKind(arm.typeKind)} />
+        )}
+        {/* Spec §3.3 — enum-nav glyph (↗) for Enum arms. */}
+        {isEnum && onNavigateToEnumType && arm.targetNodeId ? (
+          <RowGlyph
+            as="button"
+            variant="enum-nav"
+            type="button"
+            className="nodrag nopan"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigateToEnumType(arm.targetNodeId!);
+            }}
+            aria-label={`Navigate to ${arm.typeName}`}
+            title={`Navigate to ${arm.typeName}`}
+            data-testid={`enum-nav-arm-${arm.typeName}`}
+          >
+            ↗
+          </RowGlyph>
+        ) : null}
+        {/* Spec §3.3 — unresolved-type indicator (?) for Unresolved arms. */}
+        {isUnresolved ? (
+          <RowGlyph
+            variant="unresolved"
+            title={unresolvedTitle}
+            aria-label={`Unresolved type: ${arm.typeName}`}
+            role="img"
+            data-testid={`unresolved-arm-${arm.typeName}`}
+          >
+            ?
+          </RowGlyph>
+        ) : null}
+        {/* Expand/collapse moved to right edge with +/− icons —
           matches DataNode and the form-preview Add/Remove treatment. */}
-      {expandable ? (
-        <button
-          type="button"
-          className="rune-row-expand rune-row-expand--right nodrag nopan"
-          onClick={handleToggle}
-          aria-expanded={isExpanded}
-          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${arm.typeName}`}
-          data-testid={`choice-arm-expand-${arm.typeName}`}
-        >
-          {isExpanded ? <Minus size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
-        </button>
-      ) : null}
-      {/* structure variant: no Handle — layout emits zero edges; nodesConnectable=false */}
-    </div>
+        {expandable ? (
+          <button
+            type="button"
+            className="rune-row-expand rune-row-expand--right nodrag nopan"
+            onClick={handleToggle}
+            aria-expanded={isExpanded}
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${arm.typeName}`}
+            data-testid={`choice-arm-expand-${arm.typeName}`}
+          >
+            {isExpanded ? <Minus size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
+          </button>
+        ) : null}
+        {/* structure variant: no Handle — layout emits zero edges; nodesConnectable=false */}
+      </div>
+      {navigation.menu}
+    </>
   );
 }
 
 export const ChoiceNode = memo(function ChoiceNode({ data, selected, id }: NodeProps) {
   const d = data as unknown as AnyGraphNode;
-  const { onNavigateToType, allNodeIds, layoutDirection, pendingHydrationNamespaces } = useNavigation();
+  const { onNavigateToType, onInspectType, allNodeIds, layoutDirection, pendingHydrationNamespaces } = useNavigation();
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToType, onInspect: onInspectType });
   const handles = getHandlePositions(layoutDirection);
   // Validation errors live on the node.meta sibling (not on data).
   const nodeErrors = useNodeMetaErrors(id);
@@ -457,50 +464,54 @@ export const ChoiceNode = memo(function ChoiceNode({ data, selected, id }: NodeP
   const summary = members.length === 0 ? 'No options' : `${members.length} option${members.length === 1 ? '' : 's'}`;
 
   return (
-    <BaseFlowNode
-      id={id}
-      kind="choice"
-      name={d.name}
-      className="rune-node-choice"
-      selected={selected}
-      dataSummary={summary}
-      handles={handles}
-    >
-      <div className="rune-node-summary">{summary}</div>
-      <div className="rune-node-body">
-        {members.length > 0 && (
-          <div className="rune-node-members">
-            {members.map((member: any, i: number) => {
-              const typeName = getTypeRefText(member.typeCall);
-              const displayName = typeName ?? member.name;
-              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
-              return (
-                <div key={typeName ?? member.name ?? i} className="rune-node-member">
-                  {targetId && onNavigateToType ? (
-                    <button
-                      type="button"
-                      className="rune-node-member-name nodrag nopan"
-                      data-navigable
-                      onClick={(e) => handleTypeClick(e, targetId)}
-                    >
-                      {displayName}
-                    </button>
-                  ) : (
-                    <span className="rune-node-member-name">{displayName}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {nodeErrors.length > 0 && (
-          <div className="rune-node-errors">
-            {nodeErrors.map((err, i) => (
-              <div key={`${err.ruleId ?? 'err'}:${err.message}:${i}`}>{err.message}</div>
-            ))}
-          </div>
-        )}
-      </div>
-    </BaseFlowNode>
+    <>
+      <BaseFlowNode
+        id={id}
+        kind="choice"
+        name={d.name}
+        className="rune-node-choice"
+        selected={selected}
+        dataSummary={summary}
+        handles={handles}
+      >
+        <div className="rune-node-summary">{summary}</div>
+        <div className="rune-node-body">
+          {members.length > 0 && (
+            <div className="rune-node-members">
+              {members.map((member: any, i: number) => {
+                const typeName = getTypeRefText(member.typeCall);
+                const displayName = typeName ?? member.name;
+                const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
+                return (
+                  <div key={typeName ?? member.name ?? i} className="rune-node-member">
+                    {targetId && onNavigateToType ? (
+                      <button
+                        type="button"
+                        className="rune-node-member-name nodrag nopan"
+                        data-navigable
+                        onClick={(e) => handleTypeClick(e, targetId)}
+                        {...navigation.targetProps(targetId)}
+                      >
+                        {displayName}
+                      </button>
+                    ) : (
+                      <span className="rune-node-member-name">{displayName}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {nodeErrors.length > 0 && (
+            <div className="rune-node-errors">
+              {nodeErrors.map((err, i) => (
+                <div key={`${err.ruleId ?? 'err'}:${err.message}:${i}`}>{err.message}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </BaseFlowNode>
+      {navigation.menu}
+    </>
   );
 });

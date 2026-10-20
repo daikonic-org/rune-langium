@@ -17,6 +17,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TypeLink, TypeReferenceImports } from '../../src/components/editors/TypeLink.js';
+import { TypeReferenceField } from '../../src/components/editors/TypeReferenceField.js';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -134,6 +135,44 @@ describe('TypeLink', () => {
 });
 
 describe('file-local alias navigation', () => {
+  it('allows keyboard navigation from a read-only Inspector reference without editing its type', async () => {
+    const navigate = vi.fn();
+    const select = vi.fn();
+    render(
+      <TypeReferenceField
+        value="context.Other#Data"
+        displayName="context.Other"
+        allNodeIds={['context.Other#Data']}
+        onSelect={select}
+        onNavigateToNode={navigate}
+        readOnly
+      />
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Go to context.Other' }), { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type', exact: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('context.Other#Data');
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it('uses the same alias-resolved destination from its context menu', async () => {
+    const navigate = vi.fn();
+    render(
+      <TypeReferenceImports.Provider value={[{ importedNamespace: 'fpml.option.*', namespaceAlias: 'fpml' }]}>
+        <TypeLink
+          typeName="fpml.Exercise"
+          allNodeIds={['unrelated.Exercise#Data', 'fpml.option.Exercise#Data']}
+          onNavigateToNode={navigate}
+        />
+      </TypeReferenceImports.Provider>
+    );
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'fpml.Exercise', exact: true }), {
+      clientX: 100,
+      clientY: 100
+    });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type', exact: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('fpml.option.Exercise#Data');
+  });
+
   it('tries all namespaces for one alias and rejects unrelated same-name targets', () => {
     const navigate = vi.fn();
     render(

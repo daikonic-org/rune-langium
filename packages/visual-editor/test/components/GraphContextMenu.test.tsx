@@ -8,6 +8,29 @@ import { GraphContextMenu } from '../../src/components/GraphContextMenu.js';
 import { useEditorStore } from '../../src/store/editor-store.js';
 
 describe('GraphContextMenu with real menu primitives', () => {
+  it('navigates and inspects the canonical node through the owning callbacks', async () => {
+    const model = await parse('namespace context\ntype Example:\n value string (0..1)\n');
+    useEditorStore.getState().loadModels(model.value);
+    const node = useEditorStore.getState().nodes[0]!;
+    const onNavigate = vi.fn();
+    const onInspect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <GraphContextMenu
+        state={{ x: 100, y: 100, node }}
+        layoutEngine="dagre"
+        onClose={onClose}
+        onNavigate={onNavigate}
+        onInspect={onInspect}
+      />
+    );
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type', exact: true }));
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(node.id);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Inspect type', exact: true }));
+    expect(onInspect).toHaveBeenCalledExactlyOnceWith(node.id);
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('labels node actions and sends hide to the editor store', async () => {
     const model = await parse('namespace context\ntype Example:\n value string (0..1)\n');
     useEditorStore.getState().loadModels(model.value);

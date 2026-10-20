@@ -26,7 +26,7 @@ function ToastViewport({ className, ...props }: React.ComponentProps<typeof Toas
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
       className={cn(
-        'fixed right-0 bottom-0 z-[70] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:max-w-[420px]',
+        'pointer-events-none fixed right-0 bottom-0 z-[70] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:max-w-[420px]',
         className
       )}
       {...props}

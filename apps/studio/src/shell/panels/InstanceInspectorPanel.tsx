@@ -12,6 +12,7 @@ import { downloadFile, sanitizeDownloadFilename } from '../../services/export.js
 import { viewTypeInExplore } from '../../services/explore-navigation.js';
 import { payloadPointerToFieldPath } from '../../services/instance-payload-graph.js';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@rune-langium/design-system/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
 import { InstanceFormPanel } from './InstanceFormPanel.js';
 import { InstanceFunctionPanel } from './InstanceFunctionPanel.js';
@@ -42,6 +43,7 @@ export const InstanceInspectorPanel = withInstrumentation(
     const view = usePrototypeViewStore((s) => s.state);
     const patchView = usePrototypeViewStore((s) => s.patch);
     const [functionState, setFunctionState] = useState<FunctionSessionState>();
+    const [validationExpanded, setValidationExpanded] = useState(false);
 
     const destinationRef = useRef<HTMLDivElement>(null);
     const schema = useInstanceStore((s) => (record ? s.schemas.get(record.typeFqn) : undefined));
@@ -91,8 +93,8 @@ export const InstanceInspectorPanel = withInstrumentation(
     const payload = functionPayload ?? { kind: 'instance' as const, value: record.data };
 
     return (
-      <div ref={destinationRef} className="flex h-full min-h-0 flex-col text-sm">
-        <header className="border-b border-border px-3 py-2">
+      <div ref={destinationRef} className="@container flex h-full min-h-0 flex-col overflow-hidden text-sm">
+        <header className="shrink-0 border-b border-border px-3 py-2">
           <h2 className="truncate text-sm font-semibold">{record.name}</h2>
           <p className="truncate text-xs text-muted-foreground">{record.typeFqn}</p>
           <Button
@@ -113,63 +115,87 @@ export const InstanceInspectorPanel = withInstrumentation(
             </button>
           ) : null}
         </header>
-        <section className="px-3 pt-2">
-          <h3 className="font-semibold">Validation</h3>
-          {validationStatus === 'pending' || !validationStatus ? (
-            <p className="text-muted-foreground">Checking…</p>
-          ) : validationStatus === 'unavailable' ? (
-            <>
-              <p className="text-muted-foreground">{schemaError?.message ?? 'Instance validation is unavailable.'}</p>
-              <button type="button" className="mt-1 text-xs underline" onClick={() => void retryInstance(instanceId)}>
-                Retry validation
-              </button>
-            </>
-          ) : diagnostics.length === 0 ? (
-            <p className="text-muted-foreground">Valid</p>
-          ) : (
-            <ul>
-              {diagnostics.map((d, i) => (
-                <li key={`${d.path}-${i}`}>
-                  <span>{d.path}</span>: <span>{d.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section className="px-3 pt-2">
-          <h3 className="font-semibold">Provenance</h3>
-          <p className="text-muted-foreground">{record.provenance?.codec ?? 'manual'}</p>
-        </section>
-        <Tabs
-          value={view.inspectorTab}
-          onValueChange={(value) => patchView({ inspectorTab: value as 'form' | 'functions' })}
-          className="mt-3 flex min-h-0 flex-1 flex-col"
-        >
-          <TabsList className="mx-3 shrink-0 self-start">
-            <TabsTrigger value="form">Form</TabsTrigger>
-            <TabsTrigger value="functions">Functions</TabsTrigger>
-          </TabsList>
-          <TabsContent value="form" className="min-h-0 flex-1 overflow-auto">
-            <InstanceFormPanel key={record.id} instanceId={record.id} />
-          </TabsContent>
-          <TabsContent value="functions" className="min-h-0 flex-1">
-            <InstanceFunctionPanel instanceId={record.id} onStateChange={setFunctionState} />
-          </TabsContent>
-        </Tabs>
-        <InstancePayloadPanel
-          payload={payload}
-          onExport={async () => {
-            if (payload.kind === 'instance') await flushInstance(record.id);
-            downloadFile(
-              JSON.stringify(payload.value, null, 2),
-              sanitizeDownloadFilename(
-                `${record.name}${payload.kind === 'instance' ? '' : `-${payload.kind}`}.json`,
-                'payload.json'
-              ),
-              'application/json'
-            );
-          }}
-        />
+        <div className="studio-scroll grid min-h-0 flex-1 grid-cols-1 overflow-auto @3xl:grid-cols-[minmax(0,1fr)_18rem] @3xl:grid-rows-[minmax(0,1fr)] @3xl:overflow-hidden">
+          <Tabs
+            value={view.inspectorTab}
+            onValueChange={(value) => patchView({ inspectorTab: value as 'form' | 'functions' })}
+            className="flex min-h-64 min-w-0 flex-col py-3 @3xl:min-h-0"
+          >
+            <TabsList className="mx-3 shrink-0 self-start">
+              <TabsTrigger value="form">Form</TabsTrigger>
+              <TabsTrigger value="functions">Functions</TabsTrigger>
+            </TabsList>
+            <TabsContent value="form" className="min-h-0 flex-1 overflow-auto">
+              <InstanceFormPanel key={record.id} instanceId={record.id} />
+            </TabsContent>
+            <TabsContent value="functions" className="min-h-0 flex-1 overflow-auto">
+              <InstanceFunctionPanel instanceId={record.id} onStateChange={setFunctionState} />
+            </TabsContent>
+          </Tabs>
+          <aside
+            aria-label="Instance details"
+            className="min-w-0 border-t border-border @3xl:overflow-auto @3xl:border-t-0 @3xl:border-l"
+          >
+            <section aria-label="Instance validation" className="px-3 pt-2">
+              <h3 className="mb-1 font-semibold">Validation</h3>
+              {validationStatus === 'pending' || !validationStatus ? (
+                <p role="status" className="text-muted-foreground">
+                  Checking…
+                </p>
+              ) : validationStatus === 'unavailable' ? (
+                <>
+                  <p className="text-muted-foreground">
+                    {schemaError?.message ?? 'Instance validation is unavailable.'}
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-1 text-xs underline"
+                    onClick={() => void retryInstance(instanceId)}
+                  >
+                    Retry validation
+                  </button>
+                </>
+              ) : diagnostics.length === 0 ? (
+                <p role="status" className="text-muted-foreground">
+                  Valid
+                </p>
+              ) : (
+                <Collapsible open={validationExpanded} onOpenChange={setValidationExpanded}>
+                  <CollapsibleTrigger render={<Button variant="ghost" size="xs" />}>
+                    {diagnostics.length} {diagnostics.length === 1 ? 'issue' : 'issues'}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <ul className="studio-scroll mt-2 max-h-32 space-y-1 overflow-auto break-words text-xs text-destructive">
+                      {diagnostics.map((d, i) => (
+                        <li key={`${d.path}-${i}`}>
+                          <span>{d.path}</span>: <span>{d.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </section>
+            <section className="flex flex-wrap items-center gap-x-2 px-3 pt-2 text-xs">
+              <h3 className="font-medium">Provenance</h3>
+              <p className="text-muted-foreground">{record.provenance?.codec ?? 'manual'}</p>
+            </section>
+            <InstancePayloadPanel
+              payload={payload}
+              onExport={async () => {
+                if (payload.kind === 'instance') await flushInstance(record.id);
+                downloadFile(
+                  JSON.stringify(payload.value, null, 2),
+                  sanitizeDownloadFilename(
+                    `${record.name}${payload.kind === 'instance' ? '' : `-${payload.kind}`}.json`,
+                    'payload.json'
+                  ),
+                  'application/json'
+                );
+              }}
+            />
+          </aside>
+        </div>
       </div>
     );
   },

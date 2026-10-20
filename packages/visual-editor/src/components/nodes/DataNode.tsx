@@ -25,6 +25,7 @@ import {
   useNodeMetaImports
 } from './NavigationContext.js';
 import { BaseFlowNode } from './BaseFlowNode.js';
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { StructureMetaIndicators } from './StructureMetaIndicators.js';
 import { useDiagnosticsForRange, diagnosticSeverityClass } from '../../hooks/useDiagnosticsForRange.js';
 import type { RangeDiagnostic } from '../../hooks/useDiagnosticsForRange.js';
@@ -257,6 +258,8 @@ function StructureDataRow({
   onNavigateToEnumType,
   structureDiagnostics
 }: StructureDataRowProps): React.ReactElement {
+  const { onInspectType } = useNavigation();
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToEnumType, onInspect: onInspectType });
   const diagnostic = useDiagnosticsForRange(row.astRange, structureDiagnostics);
   const isEnum = row.typeKind === 'Enum';
   const isUnresolved = row.typeKind === 'Unresolved';
@@ -272,87 +275,91 @@ function StructureDataRow({
     // second line beneath. `.rune-node-row__main` is the stacked column; the
     // expand control stays a direct child of `.rune-node-row` so it centers
     // vertically across both lines.
-    <div className={rowClass} data-attr={row.attrName}>
-      <div className="rune-node-row__main">
-        <div className="rune-node-row__name-line">
-          {NameCell ? (
-            <NameCell value={row.attrName} nodeId={nodeId} attrName={row.attrName} />
-          ) : (
-            <span className="rune-cell-name">{row.attrName}</span>
-          )}
+    <>
+      <div className={rowClass} data-attr={row.attrName} {...navigation.targetProps(row.targetNodeId)}>
+        <div className="rune-node-row__main">
+          <div className="rune-node-row__name-line">
+            {NameCell ? (
+              <NameCell value={row.attrName} nodeId={nodeId} attrName={row.attrName} />
+            ) : (
+              <span className="rune-cell-name">{row.attrName}</span>
+            )}
+          </div>
+          <div className="rune-node-row__type-line">
+            {TypeCell ? (
+              <TypeCell typeName={row.typeName} typeKind={row.typeKind} nodeId={nodeId} attrName={row.attrName} />
+            ) : (
+              // row.typeName is string (not undefined) per StructureRow; render '?' if empty.
+              <TypeChip as="span" typeName={row.typeName || '?'} typeKind={row.typeKind} />
+            )}
+            {/* Spec §3.3 — enum-nav glyph (↗): navigate into the enum type as root. */}
+            {isEnum && onNavigateToEnumType && row.targetNodeId ? (
+              <RowGlyph
+                as="button"
+                variant="enum-nav"
+                type="button"
+                className="nodrag nopan"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onNavigateToEnumType(row.targetNodeId!);
+                }}
+                aria-label={`Navigate to ${row.typeName}`}
+                title={`Navigate to ${row.typeName}`}
+                data-testid={`enum-nav-${row.attrName}`}
+              >
+                ↗
+              </RowGlyph>
+            ) : null}
+            {/* Spec §3.3 — unresolved-ref indicator (?): shows LSP error as tooltip. */}
+            {isUnresolved ? (
+              <RowGlyph
+                variant="unresolved"
+                title={unresolvedTitle}
+                aria-label={`Unresolved type: ${row.typeName}`}
+                role="img"
+                data-testid={`unresolved-${row.attrName}`}
+              >
+                ?
+              </RowGlyph>
+            ) : null}
+            {CardCell ? (
+              <CardCell value={row.cardinality} nodeId={nodeId} attrName={row.attrName} />
+            ) : (
+              <span className="rune-cell-card">{row.cardinality}</span>
+            )}
+          </div>
         </div>
-        <div className="rune-node-row__type-line">
-          {TypeCell ? (
-            <TypeCell typeName={row.typeName} typeKind={row.typeKind} nodeId={nodeId} attrName={row.attrName} />
-          ) : (
-            // row.typeName is string (not undefined) per StructureRow; render '?' if empty.
-            <TypeChip as="span" typeName={row.typeName || '?'} typeKind={row.typeKind} />
-          )}
-          {/* Spec §3.3 — enum-nav glyph (↗): navigate into the enum type as root. */}
-          {isEnum && onNavigateToEnumType && row.targetNodeId ? (
-            <RowGlyph
-              as="button"
-              variant="enum-nav"
-              type="button"
-              className="nodrag nopan"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onNavigateToEnumType(row.targetNodeId!);
-              }}
-              aria-label={`Navigate to ${row.typeName}`}
-              title={`Navigate to ${row.typeName}`}
-              data-testid={`enum-nav-${row.attrName}`}
-            >
-              ↗
-            </RowGlyph>
-          ) : null}
-          {/* Spec §3.3 — unresolved-ref indicator (?): shows LSP error as tooltip. */}
-          {isUnresolved ? (
-            <RowGlyph
-              variant="unresolved"
-              title={unresolvedTitle}
-              aria-label={`Unresolved type: ${row.typeName}`}
-              role="img"
-              data-testid={`unresolved-${row.attrName}`}
-            >
-              ?
-            </RowGlyph>
-          ) : null}
-          {CardCell ? (
-            <CardCell value={row.cardinality} nodeId={nodeId} attrName={row.attrName} />
-          ) : (
-            <span className="rune-cell-card">{row.cardinality}</span>
-          )}
-        </div>
-      </div>
-      {/* Expand/collapse control moved to the RIGHT edge of the row
+        {/* Expand/collapse control moved to the RIGHT edge of the row
           (was leading-edge before this iteration) and switched from a
           chevron to a +/− icon to match the form-preview Add/Remove
           treatment. Plus = "expand (add the child structure to view)",
           Minus = "collapse (remove it)". `nodrag nopan` keeps React
           Flow from treating the click as a canvas gesture. */}
-      {expandable ? (
-        <button
-          type="button"
-          className="rune-row-expand rune-row-expand--right nodrag nopan"
-          onClick={handleToggle}
-          aria-expanded={isExpanded}
-          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${row.attrName}`}
-          data-testid={`expand-row-${row.attrName}`}
-        >
-          {isExpanded ? <Minus size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
-        </button>
-      ) : null}
-      {/* structure variant: no Handle — layout emits zero edges; nodesConnectable=false */}
-    </div>
+        {expandable ? (
+          <button
+            type="button"
+            className="rune-row-expand rune-row-expand--right nodrag nopan"
+            onClick={handleToggle}
+            aria-expanded={isExpanded}
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${row.attrName}`}
+            data-testid={`expand-row-${row.attrName}`}
+          >
+            {isExpanded ? <Minus size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
+          </button>
+        ) : null}
+        {/* structure variant: no Handle — layout emits zero edges; nodesConnectable=false */}
+      </div>
+      {navigation.menu}
+    </>
   );
 }
 
 export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps) {
   const d = data as unknown as AnyGraphNode;
   const members = ((d as any).attributes ?? []) as any[];
-  const { onNavigateToType, allNodeIds, layoutDirection, pendingHydrationNamespaces } = useNavigation();
+  const { onNavigateToType, onInspectType, allNodeIds, layoutDirection, pendingHydrationNamespaces } = useNavigation();
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToType, onInspect: onInspectType });
   const handles = getHandlePositions(layoutDirection);
   // Validation errors live on the node.meta sibling (not on data) — read
   // them out of the ReactFlow store by node id.
@@ -504,56 +511,60 @@ export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps
   }
 
   return (
-    <BaseFlowNode
-      id={id}
-      kind="data"
-      name={d.name}
-      className="rune-node-data"
-      selected={selected}
-      dataSummary={summary}
-      handles={handles}
-    >
-      <div className="rune-node-summary">{summary}</div>
-      <div className="rune-node-body">
-        {members.length > 0 && (
-          <div className="rune-node-members">
-            {members.map((member: any) => {
-              const typeName = getTypeRefText(member.typeCall);
-              const card = formatCardinality(member.card);
-              const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
-              return (
-                <div
-                  key={member.name}
-                  className={`rune-node-member${member.override ? ' rune-node-member-override' : ''}`}
-                >
-                  <span className="rune-node-member-name">{member.name}</span>
-                  {typeName &&
-                    (targetId && onNavigateToType ? (
-                      <button
-                        type="button"
-                        className="rune-node-member-type nodrag nopan"
-                        data-navigable
-                        onClick={(e) => handleTypeClick(e, targetId)}
-                      >
-                        {typeName}
-                      </button>
-                    ) : (
-                      <span className="rune-node-member-type">{typeName}</span>
-                    ))}
-                  {card && <span className="rune-node-member-cardinality">{card}</span>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {nodeErrors.length > 0 && (
-          <div className="rune-node-errors">
-            {nodeErrors.map((err, i) => (
-              <div key={`${err.ruleId ?? 'err'}:${err.message}:${i}`}>{err.message}</div>
-            ))}
-          </div>
-        )}
-      </div>
-    </BaseFlowNode>
+    <>
+      <BaseFlowNode
+        id={id}
+        kind="data"
+        name={d.name}
+        className="rune-node-data"
+        selected={selected}
+        dataSummary={summary}
+        handles={handles}
+      >
+        <div className="rune-node-summary">{summary}</div>
+        <div className="rune-node-body">
+          {members.length > 0 && (
+            <div className="rune-node-members">
+              {members.map((member: any) => {
+                const typeName = getTypeRefText(member.typeCall);
+                const card = formatCardinality(member.card);
+                const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
+                return (
+                  <div
+                    key={member.name}
+                    className={`rune-node-member${member.override ? ' rune-node-member-override' : ''}`}
+                  >
+                    <span className="rune-node-member-name">{member.name}</span>
+                    {typeName &&
+                      (targetId && onNavigateToType ? (
+                        <button
+                          type="button"
+                          className="rune-node-member-type nodrag nopan"
+                          data-navigable
+                          onClick={(e) => handleTypeClick(e, targetId)}
+                          {...navigation.targetProps(targetId)}
+                        >
+                          {typeName}
+                        </button>
+                      ) : (
+                        <span className="rune-node-member-type">{typeName}</span>
+                      ))}
+                    {card && <span className="rune-node-member-cardinality">{card}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {nodeErrors.length > 0 && (
+            <div className="rune-node-errors">
+              {nodeErrors.map((err, i) => (
+                <div key={`${err.ruleId ?? 'err'}:${err.message}:${i}`}>{err.message}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </BaseFlowNode>
+      {navigation.menu}
+    </>
   );
 });
