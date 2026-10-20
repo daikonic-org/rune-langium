@@ -484,7 +484,7 @@ export const ChoiceNode = memo(function ChoiceNode({ data, selected, id }: NodeP
                 const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
                 return (
                   <div key={typeName ?? member.name ?? i} className="rune-node-member">
-                    {targetId && onNavigateToType ? (
+                    {targetId && navigation.hasActions ? (
                       <button
                         type="button"
                         className="rune-node-member-name nodrag nopan"

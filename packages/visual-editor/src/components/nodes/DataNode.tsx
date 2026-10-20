@@ -536,7 +536,7 @@ export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps
                   >
                     <span className="rune-node-member-name">{member.name}</span>
                     {typeName &&
-                      (targetId && onNavigateToType ? (
+                      (targetId && navigation.hasActions ? (
                         <button
                           type="button"
                           className="rune-node-member-type nodrag nopan"
