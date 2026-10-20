@@ -11,7 +11,9 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { NavigationContext } from '../../../src/components/nodes/NavigationContext.js';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -118,4 +120,46 @@ describe('FunctionNode — structure variant (Phase C)', () => {
     expect(container.querySelector('.rune-node-func-output-sep')).toBeNull();
     expect(screen.getByText('notional')).toBeInTheDocument();
   });
+});
+
+describe('Function reference keyboard navigation', () => {
+  it.each([
+    ['rate', 'Rate', 'cdm.calc.Rate#Data', 'F10', true, 'Go to type'],
+    ['amount', 'Money', 'cdm.calc.Money#Data', 'ContextMenu', false, 'Inspect type']
+  ])(
+    'reaches %s by Tab and opens its resolved reference actions',
+    async (name, typeName, target, key, shiftKey, action) => {
+      const user = userEvent.setup();
+      const navigate = vi.fn();
+      const inspect = vi.fn();
+      const resolvedData = {
+        ...data,
+        inputRows: inputRows.map((row) =>
+          row.attrName === 'rate' ? { ...row, targetNodeId: 'cdm.calc.Rate#Data' } : row
+        ),
+        outputRow: { ...outputRow, targetNodeId: 'cdm.calc.Money#Data' }
+      };
+      renderInFlow(
+        <NavigationContext.Provider
+          value={{
+            allNodeIds: new Set(),
+            layoutDirection: 'TB',
+            pendingHydrationNamespaces: [],
+            onNavigateToType: navigate,
+            onInspectType: inspect
+          }}
+        >
+          <FunctionNode data={resolvedData as any} selected={false} id="cdm.calc.FixedAmount" type="function" />
+        </NavigationContext.Provider>
+      );
+      const row = screen.getByRole('group', { name: `${name}: ${typeName}` });
+      for (let i = 0; i < 10 && document.activeElement !== row; i++) await user.tab();
+      expect(row).toHaveFocus();
+      fireEvent.keyDown(row, { key, shiftKey });
+      fireEvent.click(await screen.findByRole('menuitem', { name: action, exact: true }));
+      expect(action === 'Go to type' ? navigate : inspect).toHaveBeenCalledExactlyOnceWith(target);
+      expect(row).toHaveFocus();
+      expect(screen.getByText('notional').closest('[data-attr]')).not.toHaveAttribute('tabindex');
+    }
+  );
 });

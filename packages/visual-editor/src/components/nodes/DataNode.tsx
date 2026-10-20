@@ -276,7 +276,11 @@ function StructureDataRow({
     // expand control stays a direct child of `.rune-node-row` so it centers
     // vertically across both lines.
     <>
-      <div className={rowClass} data-attr={row.attrName} {...navigation.targetProps(row.targetNodeId)}>
+      <div
+        className={`${rowClass} focus-visible:outline-2 focus-visible:outline-ring`}
+        data-attr={row.attrName}
+        {...navigation.targetProps(row.targetNodeId, TypeCell ? undefined : `${row.attrName}: ${row.typeName}`)}
+      >
         <div className="rune-node-row__main">
           <div className="rune-node-row__name-line">
             {NameCell ? (
@@ -536,7 +540,7 @@ export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps
                   >
                     <span className="rune-node-member-name">{member.name}</span>
                     {typeName &&
-                      (targetId && onNavigateToType ? (
+                      (targetId && navigation.hasActions ? (
                         <button
                           type="button"
                           className="rune-node-member-type nodrag nopan"

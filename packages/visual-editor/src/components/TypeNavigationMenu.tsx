@@ -43,13 +43,14 @@ export function TypeNavigationMenuItems({
 export function useTypeNavigationMenu(actions: TypeNavigationActions) {
   const [target, setTarget] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const origin = useRef<Element | null>(null);
+  const hasActions = Boolean(actions.onNavigate || actions.onInspect);
   const close = () => {
     setTarget(null);
     if (origin.current instanceof HTMLElement && origin.current.isConnected)
       origin.current.focus({ preventScroll: true });
   };
   const open = (event: MouseEvent, nodeId: string | undefined) => {
-    if (!nodeId || (!actions.onNavigate && !actions.onInspect) || isEditableTarget(event.target)) return;
+    if (!nodeId || !hasActions || isEditableTarget(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
     origin.current = menuOrigin(event);
@@ -59,7 +60,7 @@ export function useTypeNavigationMenu(actions: TypeNavigationActions) {
   const onKeyDown = (event: KeyboardEvent, nodeId: string | undefined) => {
     if (
       !nodeId ||
-      (!actions.onNavigate && !actions.onInspect) ||
+      !hasActions ||
       isEditableTarget(event.target) ||
       (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10'))
     )
@@ -76,11 +77,11 @@ export function useTypeNavigationMenu(actions: TypeNavigationActions) {
     </PointerMenu>
   ) : null;
   const targetProps = (nodeId: string | undefined, label?: string) => ({
-    ...(nodeId && label && (actions.onNavigate || actions.onInspect)
+    ...(nodeId && label && hasActions
       ? { role: 'group', tabIndex: 0, 'aria-label': label, 'aria-haspopup': 'menu' as const }
       : {}),
     onContextMenu: (event: MouseEvent) => open(event, nodeId),
     onKeyDown: (event: KeyboardEvent) => onKeyDown(event, nodeId)
   });
-  return { open, onKeyDown, menu, targetProps };
+  return { open, onKeyDown, menu, targetProps, hasActions };
 }

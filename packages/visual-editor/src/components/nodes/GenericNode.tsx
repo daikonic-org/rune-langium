@@ -83,7 +83,7 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
           {parentName && (
             <div className="rune-node-parent">
               <span className="rune-node-parent-label">→ </span>
-              {parentTargetId && onNavigateToType ? (
+              {parentTargetId && navigation.hasActions ? (
                 <button
                   type="button"
                   className="nodrag nopan"
@@ -111,7 +111,7 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
                   >
                     <span className="rune-node-member-name">{member.name}</span>
                     {typeName &&
-                      (targetId && onNavigateToType ? (
+                      (targetId && navigation.hasActions ? (
                         <button
                           type="button"
                           className="rune-node-member-type nodrag nopan"
@@ -134,7 +134,7 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
             <div className="rune-node-members" style={{ borderTop: '1px solid var(--border)' }}>
               <div className="rune-node-member">
                 <span className="rune-node-member-name">output</span>
-                {outputTargetId && onNavigateToType ? (
+                {outputTargetId && navigation.hasActions ? (
                   <button
                     type="button"
                     className="rune-node-member-type nodrag nopan"

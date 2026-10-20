@@ -2,6 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { NavigationContext } from '../../../src/components/nodes/NavigationContext.js';
 import { GroupContainerNode } from '../../../src/components/nodes/GroupContainerNode.js';
 import { expansionKey } from '../../../src/types/structure-view.js';
 import type { StructureRow, StructureExpansionKey } from '../../../src/types/structure-view.js';
@@ -296,5 +297,53 @@ describe('GroupContainerNode — Phase 14d fix — per-instance parity', () => {
       />
     );
     expect(screen.getByTestId('base-expand-row-party')).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+describe('Inherited Structure reference actions', () => {
+  it.each([
+    ['TradeBase type actions', 'cdm.base.TradeBase#Data', 'Go to type', 'mouse'],
+    ['economics: Economics', 'cdm.trade.Economics#Data', 'Inspect type', 'mouse'],
+    ['TradeBase type actions', 'cdm.base.TradeBase#Data', 'Inspect type', 'keyboard'],
+    ['economics: Economics', 'cdm.trade.Economics#Data', 'Go to type', 'keyboard']
+  ])('routes %s to its canonical target with %s', async (name, target, action, input) => {
+    const navigate = vi.fn();
+    const inspect = vi.fn();
+    const wrapperContextMenu = vi.fn();
+    render(
+      <NavigationContext.Provider
+        value={{
+          allNodeIds: new Set(),
+          layoutDirection: 'TB',
+          pendingHydrationNamespaces: [],
+          onNavigateToType: navigate,
+          onInspectType: inspect
+        }}
+      >
+        <div onContextMenu={wrapperContextMenu}>
+          <GroupContainerNode
+            data={{
+              scope: 'base-type',
+              baseTypeId: 'cdm.base.TradeBase#Data',
+              baseTypeName: BASE_TYPE_NAME,
+              baseTypeNamespaceUri: NS,
+              baseRows: [{ ...dataRow, targetNodeId: 'cdm.trade.Economics#Data' }, enumRow]
+            }}
+            id={BASE_CONTAINER_ID}
+            // @ts-expect-error — NodeProps fields not all needed for unit test
+          />
+        </div>
+      </NavigationContext.Provider>
+    );
+    const reference = screen.getByRole('group', { name });
+    reference.focus();
+    expect(reference).toHaveFocus();
+    if (input === 'mouse') fireEvent.contextMenu(reference, { clientX: 80, clientY: 90 });
+    else fireEvent.keyDown(reference, { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: action, exact: true }));
+    expect(action === 'Go to type' ? navigate : inspect).toHaveBeenCalledExactlyOnceWith(target);
+    expect(wrapperContextMenu).not.toHaveBeenCalled();
+    expect(reference).toHaveFocus();
+    expect(screen.getByText('tradeID').closest('[data-attr]')).not.toHaveAttribute('tabindex');
   });
 });

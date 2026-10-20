@@ -252,7 +252,11 @@ function StructureChoiceArmRow({
 
   return (
     <>
-      <div className={rowClass} data-attr={arm.typeName} {...navigation.targetProps(arm.targetNodeId)}>
+      <div
+        className={`${rowClass} focus-visible:outline-2 focus-visible:outline-ring`}
+        data-attr={arm.typeName}
+        {...navigation.targetProps(arm.targetNodeId, TypeCell ? undefined : arm.typeName)}
+      >
         {TypeCell ? (
           // Cells receive the canonical node id (data.id), not the
           // React Flow wrapper id — matches DataNode's contract so
@@ -484,7 +488,7 @@ export const ChoiceNode = memo(function ChoiceNode({ data, selected, id }: NodeP
                 const targetId = typeName ? resolveTypeNodeId(typeName, allNodeIds, imports) : undefined;
                 return (
                   <div key={typeName ?? member.name ?? i} className="rune-node-member">
-                    {targetId && onNavigateToType ? (
+                    {targetId && navigation.hasActions ? (
                       <button
                         type="button"
                         className="rune-node-member-name nodrag nopan"
