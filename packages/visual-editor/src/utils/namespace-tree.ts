@@ -36,6 +36,8 @@ export type FlatTreeRow =
       typeKind: TypeKind;
       namespace: string;
       hidden: boolean;
+      /** Additional visible namespace/identity context; reserves a second row line. */
+      qualifier?: string;
       /** Nesting depth within a segmented tree (0 = top level). Only set by
        *  flattenSegmentedTree; absent/undefined for rows from flattenNamespaceTree. */
       depth?: number;

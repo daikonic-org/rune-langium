@@ -35,6 +35,17 @@ styling. Open-file buttons expose their selection with `aria-pressed`; their
 strip scrolls instead of compressing every filename. File tabs use a quieter
 surface and active underline while the workspace picker retains its appearance.
 
+The Type explorer and Inspector type picker share namespace presentation: relative
+compressed labels, 8 px ancestor guides, bounded indentation, explicit namespace
+focus and ancestor breadcrumbs. Compression never crosses a declaration or branch.
+Name collisions receive the shortest distinguishing namespace suffix, then kind
+and actual declaration ID when needed; display labels never replace identity.
+Qualified rows reserve a second line in the virtualizer, whose keys include the
+row identity and height-affecting qualifier. Namespace focus changes only the
+local navigation scope, preserving graph visibility and canonical export inclusion.
+Both surfaces share the inset active-row highlight and retain their existing
+buttons, kind glyphs and native drag behavior.
+
 - Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.4; check manifests before changing versions.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.

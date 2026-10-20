@@ -23,9 +23,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@rune-
 import { KindBadge, KIND_LABEL } from '../KindBadge.js';
 import {
   NamespaceSegmentHeaderRow,
-  NAMESPACE_TREE_INDENT_BASE as TREE_INDENT_BASE,
   NAMESPACE_TREE_TYPE_INDENT as TREE_TYPE_INDENT
 } from '../NamespaceSegmentHeaderRow.js';
+import { NamespaceBreadcrumb, NamespaceTreeGuides } from '../NamespaceTreeChrome.js';
+import { namespaceTreeIndent, namespaceTypeLabels } from '../../utils/namespace-tree-presentation.js';
+import type { NamespaceTypeLabel } from '../../utils/namespace-tree-presentation.js';
 import type { TypeKind } from '../../types.js';
 import type { NodeRepository } from '../../store/node-repository.js';
 import { NODE_TYPE_TO_AST_TYPE } from '../../adapters/model-helpers.js';
@@ -43,13 +45,10 @@ import type { FlatTreeRow } from '../../utils/namespace-tree.js';
 import type { SegmentNode } from '../../utils/namespace-tree.js';
 import { selectionState, toggleVisible } from '../../utils/explorer-selection.js';
 import type { ExplorerSelection } from '../../utils/explorer-selection.js';
+import { useNamespaceScope } from '../../hooks/useNamespaceScope.js';
 import { useVirtualTree } from '../../hooks/useVirtualTree.js';
 import { TYPE_REF_PAYLOAD_MIME, typeRefMimeForKind } from '../../types/structure-view.js';
 import type { TypeRefPayload, TypeRefKind } from '../../types/structure-view.js';
-
-// Flat-tree indent geometry is shared with the inspector tree picker; the SSoT
-// lives in NamespaceSegmentHeaderRow. Aliased to the original local names to
-// keep the call sites below unchanged.
 
 // ---------------------------------------------------------------------------
 // Props
@@ -256,11 +255,22 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
     return treeExpanded;
   }, [searchQuery, treeExpanded, segmentedRoots]);
 
+  const { activeFocus, scopedRoots, focusNamespace } = useNamespaceScope(
+    segmentedRoots,
+    searchQuery,
+    scrollRef,
+    setTreeExpanded
+  );
+  const typeLabels = useMemo(
+    () => namespaceTypeLabels(segmentedRootsRaw, !!searchQuery.trim()),
+    [segmentedRootsRaw, searchQuery]
+  );
+
   // Apply search filter to the segmented tree.
   const filteredRoots = useMemo(() => {
-    if (!searchQuery.trim()) return segmentedRoots;
-    return filterSegmentedTree(segmentedRoots, searchQuery);
-  }, [segmentedRoots, searchQuery]);
+    if (!searchQuery.trim()) return scopedRoots;
+    return filterSegmentedTree(scopedRoots, searchQuery);
+  }, [scopedRoots, searchQuery]);
 
   // Flatten for virtualization.
   const flatRows = useMemo((): FlatTreeRow[] => {
@@ -270,12 +280,12 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
       // The explorer omits per-namespace kind summaries. Clear the display
       // metadata too so virtualization reserves only the header's height.
       if (row.kind === 'segment') return { ...row, kindCounts: {} };
-      if (row.kind === 'type' && hiddenNodeIds.has(row.nodeId)) {
-        return { ...row, hidden: true };
+      if (row.kind === 'type') {
+        return { ...row, hidden: hiddenNodeIds.has(row.nodeId), qualifier: typeLabels.get(row.nodeId)?.qualifier };
       }
       return row;
     });
-  }, [filteredRoots, effectiveTreeExpanded, hiddenNodeIds]);
+  }, [filteredRoots, effectiveTreeExpanded, hiddenNodeIds, typeLabels]);
 
   const selectionIds = useMemo(() => {
     const byNode = new Map<string, string>();
@@ -516,6 +526,8 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
           })}
         </div>
 
+        <NamespaceBreadcrumb path={activeFocus} onFocus={focusNamespace} />
+
         {/* Virtualized Tree.
          *
          * `studio-scroll` is the shared scrollbar-chrome class defined in
@@ -523,7 +535,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
          * scrollbar-* properties so the scrollbar is fully draggable and
          * click-to-page works — see PR commit message for the click-through
          * root cause (was: wrapped in a redundant Radix ScrollArea). */}
-        <div ref={scrollRef} className="studio-scroll flex-1 overflow-auto" data-testid="namespace-tree">
+        <div ref={scrollRef} className="studio-scroll min-h-0 flex-1 overflow-auto py-1" data-testid="namespace-tree">
           {flatRows.length === 0 && (
             <p className="px-3 py-4 text-xs text-center text-muted-foreground">
               {searchQuery ? 'No matching types or namespaces' : 'No types loaded'}
@@ -565,6 +577,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                     ) : row.kind === 'segment' ? (
                       <SegmentHeaderRow
                         row={row}
+                        onFocus={() => focusNamespace(row.fullPath)}
                         onToggleTreeExpand={() => toggleTreeExpand(row.fullPath)}
                         selectionIds={namespaceSelection.get(row.fullPath)?.ids ?? []}
                         selectionNamespaces={namespaceSelection.get(row.fullPath)?.namespaces ?? []}
@@ -575,6 +588,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                     ) : row.kind === 'type' ? (
                       <TypeItemRow
                         row={row}
+                        label={typeLabels.get(row.nodeId)}
                         isGraphVisible={expandedNamespaces.has(row.namespace)}
                         isSelected={row.nodeId === selectedNodeId}
                         refCount={hiddenRefCounts?.get(row.nodeId) ?? 0}
@@ -667,6 +681,7 @@ function NamespaceHeaderRow({ row, isGraphVisible, onToggleTreeExpand }: Namespa
 interface SegmentHeaderRowProps {
   row: Extract<FlatTreeRow, { kind: 'segment' }>;
   onToggleTreeExpand: () => void;
+  onFocus: () => void;
   selectionIds: readonly string[];
   selectionNamespaces: readonly string[];
   selectedIds: ReadonlySet<string>;
@@ -677,6 +692,7 @@ interface SegmentHeaderRowProps {
 function SegmentHeaderRow({
   row,
   onToggleTreeExpand,
+  onFocus,
   selectionIds,
   selectionNamespaces,
   selectedIds,
@@ -688,12 +704,14 @@ function SegmentHeaderRow({
     <NamespaceSegmentHeaderRow
       data-testid={`ns-seg-${row.fullPath}`}
       fullPath={row.fullPath}
-      truncateFrom="start"
+      label={row.segment || '(default)'}
+      onFocus={onFocus}
+      truncateFrom="end"
       expanded={row.expanded}
       count={row.totalCount}
       depth={row.depth}
       onToggle={onToggleTreeExpand}
-      indentPx={TREE_INDENT_BASE}
+      indentPx={namespaceTreeIndent(row.depth)}
       leading={
         showSelection ? (
           <Checkbox
@@ -716,6 +734,7 @@ function SegmentHeaderRow({
 // ---------------------------------------------------------------------------
 
 interface TypeItemRowProps {
+  label?: NamespaceTypeLabel;
   row: Extract<FlatTreeRow, { kind: 'type' }>;
   isGraphVisible: boolean;
   isSelected: boolean;
@@ -736,6 +755,7 @@ interface TypeItemRowProps {
 
 function TypeItemRow({
   row,
+  label,
   // isGraphVisible / isDragSource / onSetDragSource intentionally
   // unused: the dim "hidden in graph" treatment and click-to-mark-as-
   // drag-source feature were removed by user iteration so the only
@@ -816,22 +836,19 @@ function TypeItemRow({
   const toggleSelection = () => setSelectionChecked(!isExplicit);
   const highlight = selection === undefined && isSelected;
 
-  // Flat layout: the tree carries `depth` for structure/expansion, but type
-  // rows do NOT step right with depth. They get a single fixed membership
-  // indent past the segment header's baseline so they read as belonging to the
-  // header above — independent of how deep that header sits in the hierarchy.
   return (
     <div
-      className={`studio-type-row group relative flex ${selection ? 'cursor-pointer' : 'cursor-grab'} items-center gap-1.5 px-2 py-0.5 text-xs text-foreground hover:bg-accent/50${
+      className={`rune-namespace-type-row studio-type-row group relative flex h-full ${selection ? 'cursor-pointer' : 'cursor-grab'} items-center gap-1.5 px-2 py-0.5 text-xs text-foreground hover:bg-accent/50${
         highlight ? ' studio-type-row--selected' : ''
       }${!selection && justNavigated ? ' studio-type-row--just-navigated' : ''}`}
-      style={{ paddingLeft: `${TREE_INDENT_BASE + TREE_TYPE_INDENT}px` }}
+      style={{ paddingLeft: `${namespaceTreeIndent(Math.max(0, (row.depth ?? 1) - 1)) + TREE_TYPE_INDENT}px` }}
+      aria-current={highlight ? 'true' : undefined}
       data-testid={`ns-type-${row.nodeId}`}
       draggable
       onDragStart={handleDragStart}
       onClick={selection ? toggleSelection : undefined}
     >
-      {highlight && <span className="studio-type-pip" />}
+      <NamespaceTreeGuides depth={row.depth ?? 1} />
 
       {selection !== undefined && selectionId !== undefined && (
         <>
@@ -861,11 +878,8 @@ function TypeItemRow({
       <button
         type="button"
         className="min-w-0 flex-1 truncate text-left underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
-        title={
-          selection
-            ? `Toggle ${row.name} inclusion`
-            : `Open ${row.name} [${KIND_LABEL[row.typeKind]}] — drag the row to a type field`
-        }
+        title={label?.fullLabel ?? `${row.namespace}.${row.name}`}
+        aria-label={label?.qualifier ? `${row.name} ${label.qualifier}` : row.name}
         data-testid={`ns-type-link-${row.nodeId}`}
         onClick={
           selection
@@ -877,7 +891,13 @@ function TypeItemRow({
         }
         onKeyDown={handleNavKeyDown}
       >
-        {row.name}
+        <span className="block truncate">{row.name}</span>
+        {label?.qualifier && (
+          <>
+            {' '}
+            <span className="block truncate text-3xs text-muted-foreground">{label.qualifier}</span>
+          </>
+        )}
       </button>
 
       {refCount > 0 && (

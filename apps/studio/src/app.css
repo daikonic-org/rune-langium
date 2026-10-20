@@ -917,12 +917,6 @@ html {
     border-radius: var(--radius-xs);
   }
 
-  /* Explorer selected row — gradient wash from primary (left-to-right fade) */
-  .studio-app .studio-type-row--selected {
-    background: linear-gradient(90deg, color-mix(in oklch, var(--primary), transparent 88%), transparent);
-    color: var(--foreground);
-  }
-
   /* Navigation feedback: when the user clicks the row's nav arrow, the
    * row briefly pulses with a primary-accent ring so the click registers
    * visually before focus shifts to the navigated target. The row state
