@@ -558,6 +558,22 @@ function StructureFlowInner({
   // real dimensions again so the measurement pass re-runs on reveal.
   const [visibilityTick, setVisibilityTick] = useState(0);
   const [viewportTick, setViewportTick] = useState(0);
+  useEffect(() => {
+    const fonts = document.fonts;
+    if (!fonts) return;
+    let active = true;
+    const remeasure = () => {
+      if (active) setVisibilityTick((tick) => tick + 1);
+    };
+    // Fixed node widths cannot observe the intrinsic growth when fallback
+    // text is replaced by the loaded UI/monospace fonts.
+    void fonts.ready.then(remeasure);
+    fonts.addEventListener('loadingdone', remeasure);
+    return () => {
+      active = false;
+      fonts.removeEventListener('loadingdone', remeasure);
+    };
+  }, []);
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || nodes.length === 0) return;

@@ -238,16 +238,13 @@ describe('NamespaceExplorerPanel', () => {
     expect(screen.getByText('No types loaded')).toBeTruthy();
   });
 
-  it('calls onExpandAll when expand-all button clicked', () => {
-    const { props } = renderPanel();
-    fireEvent.click(screen.getByTestId('expand-all'));
-    expect(props.onExpandAll).toHaveBeenCalledOnce();
-  });
-
-  it('calls onCollapseAll when collapse-all button clicked', () => {
-    const { props } = renderPanel();
-    fireEvent.click(screen.getByTestId('collapse-all'));
-    expect(props.onCollapseAll).toHaveBeenCalledOnce();
+  it('keeps the count in a quiet footer and omits global visibility shortcuts', () => {
+    renderPanel();
+    expect(screen.getByRole('contentinfo', { name: 'Available types' })).toContainElement(
+      screen.getByTestId('namespace-explorer-count')
+    );
+    expect(screen.queryByTestId('expand-all')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('collapse-all')).not.toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------

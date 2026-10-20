@@ -23,7 +23,7 @@
   /* ── Custom property overrides ──────────────────────────────────── */
   .studio-app .rune-dock-theme {
     --dv-tabs-and-actions-container-font-size: 11px;
-    --dv-tabs-and-actions-container-height: 24px;
+    --dv-tabs-and-actions-container-height: var(--studio-panel-header-height, 24px);
     --dv-tabs-and-actions-container-background-color:
       color-mix(in srgb, var(--card) 92%, var(--background) 8%);
     --dv-sash-color: rgba(148, 163, 184, 0.42);
@@ -321,8 +321,8 @@
 .studio-app .rune-dock-theme .dv-tabs-and-actions-container {
   display: flex;
   align-items: center;
-  min-height: 34px;
-  padding: 3px 6px 4px;
+  min-height: var(--studio-panel-header-height, 34px);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background:
     linear-gradient(

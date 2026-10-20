@@ -1297,16 +1297,17 @@ button[data-navigable]:focus-visible {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  flex: 1;
-  /* Inter-line gap matches the horizontal type↔cardinality gap on the
-     type-line (both var(--space-1) = 4px), so the stacked name/type lines
-     breathe by the same amount the type and cardinality do. DATA_ROW_HEIGHT
-     (36) = name line + this gap + type/card line. */
-  gap: var(--space-1);
+  flex: 1 1 auto;
+  /* Keep the two lines grouped while reserving padding inside the row frame. */
+  gap: calc(var(--space-1) / 2);
 }
 
 .rune-node-row__name-line {
   min-width: 0;
+}
+
+.rune-node-row__name-line .rune-cell-name {
+  padding-inline: calc(var(--rune-chip-padding-x) + var(--hairline));
 }
 
 .rune-node-row__type-line {
@@ -1314,6 +1315,16 @@ button[data-navigable]:focus-visible {
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+}
+
+.rune-node-row__type-line .rune-cell-type-wrap,
+.rune-cell-card-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rune-cell-card-wrap {
+  flex-shrink: 0;
 }
 
 /* ── Function node output row (Phase C) ───────────────────────────
@@ -1590,6 +1601,7 @@ button[data-navigable]:focus-visible {
 .rune-cell-card {
   display: inline-flex;
   align-items: center;
+  gap: calc(var(--space-1) / 2);
   padding: var(--rune-chip-padding-y) var(--rune-pill-padding-x);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);

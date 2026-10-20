@@ -50,6 +50,7 @@ import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
 import { InspectorFooter } from './inspector/InspectorFooter.js';
+import { InspectorTypeField } from './inspector/InspectorTypeField.js';
 import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
 import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
 import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
@@ -584,7 +585,7 @@ function FunctionForm({
                             Inputs ({fields.length})
                           </FieldLegend>
 
-                          <FieldGroup className="gap-0.5">
+                          <FieldGroup role="list" className="gap-0.5">
                             {fields.map((field, index) => (
                               <AttributeRow
                                 key={field.id}
@@ -657,26 +658,22 @@ function FunctionForm({
                           )}
                         </FieldSet>
                         {/* Output Type */}
-                        <FieldSet
-                          className="shrink-0 gap-1.5"
-                          onFocusCapture={() => targets.selection.select('$output')}
-                          onClick={() => targets.selection.select('$output')}
-                        >
-                          <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                            Output Type
-                          </FieldLegend>
-                          <TypeReferenceField
-                            value={outputValue}
-                            displayName={outputType}
-                            options={availableTypes}
-                            onSelect={handleOutputTypeSelect}
-                            placeholder="Select output type..."
-                            emptyLabel="No output type"
-                            onNavigateToNode={onNavigateToNode}
-                            allNodeIds={allNodeIds}
-                            disabled={isReadOnly}
-                          />
-                        </FieldSet>
+                        <InspectorTypeField
+                          label="Output Type"
+                          fieldsetProps={{
+                            onFocusCapture: () => targets.selection.select('$output'),
+                            onClick: () => targets.selection.select('$output')
+                          }}
+                          value={outputValue}
+                          displayName={outputType}
+                          options={availableTypes}
+                          onSelect={handleOutputTypeSelect}
+                          placeholder="Select output type..."
+                          emptyLabel="No output type"
+                          onNavigateToNode={onNavigateToNode}
+                          allNodeIds={allNodeIds}
+                          disabled={isReadOnly}
+                        />
                         {/* Function Body — aliases + operations, each with its own
               expression editor (R10 / FR-010 — bespoke UX preserved). */}
                         <InheritedMembersSection

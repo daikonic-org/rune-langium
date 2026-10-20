@@ -13,10 +13,9 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import type { JSX, DragEvent, MouseEvent, KeyboardEvent } from 'react';
-import { ArrowUpRight, ChevronRight, ChevronDown, PlusSquare, MinusSquare, Link, Search } from 'lucide-react';
+import { ArrowUpRight, ChevronRight, ChevronDown, Link, Search } from 'lucide-react';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { IconButtonGroup } from '@rune-langium/design-system/ui/icon-button-group';
 import { NumberChiclet } from '@rune-langium/design-system/ui/number-chiclet';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@rune-langium/design-system/ui/tooltip';
@@ -63,10 +62,10 @@ export interface NamespaceExplorerPanelProps {
   hiddenNodeIds: Set<string>;
   /** Toggle a namespace's visibility on the graph. */
   onToggleNamespace: (namespace: string) => void;
-  /** Expand all namespaces. */
-  onExpandAll: () => void;
-  /** Collapse all namespaces. */
-  onCollapseAll: () => void;
+  /** @deprecated Global visibility controls moved out of the explorer. */
+  onExpandAll?: () => void;
+  /** @deprecated Global visibility controls moved out of the explorer. */
+  onCollapseAll?: () => void;
   /** Called when the type name or navigation arrow is activated to select it in the graph. */
   onSelectNode?: (nodeId: string) => void;
   /** Currently selected node ID (for highlighting). */
@@ -185,8 +184,6 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   // EditorPage) don't need to thread different props for the panel vs.
   // the Graph filter menu that still consumes the action.
   onToggleNamespace: _onToggleNamespace,
-  onExpandAll,
-  onCollapseAll,
   onSelectNode,
   className,
   showHeading = true,
@@ -410,9 +407,6 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
               ? 'Click a row to include or exclude it. Use the arrow to open.'
               : 'Click name or arrow to open. Drag a row to a type field.'}
           </p>
-          <div className="mt-1.5 flex">
-            <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
-          </div>
         </div>
 
         {/* Toolbar */}
@@ -429,42 +423,6 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
               data-testid="namespace-search"
             />
           </div>
-          <IconButtonGroup>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={onExpandAll}
-                    data-testid="expand-all"
-                    className="rounded-full text-muted-foreground hover:bg-background/80 hover:text-foreground"
-                  >
-                    <PlusSquare className="size-3.5" />
-                    <span className="sr-only">Show all</span>
-                  </Button>
-                }
-              />
-              <TooltipContent>Show all namespaces on graph</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={onCollapseAll}
-                    data-testid="collapse-all"
-                    className="rounded-full text-muted-foreground hover:bg-background/80 hover:text-foreground"
-                  >
-                    <MinusSquare className="size-3.5" />
-                    <span className="sr-only">Hide all</span>
-                  </Button>
-                }
-              />
-              <TooltipContent>Hide all namespaces from graph</TooltipContent>
-            </Tooltip>
-          </IconButtonGroup>
         </div>
 
         {selection !== undefined && (
@@ -607,6 +565,9 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
             </div>
           )}
         </div>
+        <footer aria-label="Available types" className="shrink-0 border-t px-3 py-2">
+          <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
+        </footer>
       </div>
     </TooltipProvider>
   );

@@ -25,6 +25,9 @@ with normal tracking; 12 px for supporting text and 16 px semibold for section
 headings. Keep source/code in JetBrains Mono and the brand wordmark in Outfit.
 Use rem-based tokens and preserve user text scaling. Dividers use `--border`,
 inputs use the stronger `--input`, and widths use `--hairline` throughout.
+Dock headers and the center selector share `--studio-panel-header-height`
+(2.3125rem); allow the selector to grow when its controls wrap. Keep the Explorer
+availability count in its bottom footer, separate from search and breadcrumbs.
 
 **Studio patterns (copy these).**
 - Panel section label: `text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground`.

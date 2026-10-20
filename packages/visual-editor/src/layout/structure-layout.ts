@@ -33,11 +33,8 @@ import type {
 /**
  * Single source of truth for Structure View layout constants.
  *
- * **If you change a value here, mirror it in the CSS custom properties
- * declared in `src/styles.css` (the `:root` block near the top of the
- * Structure View section).  The unit test
- * `test/layout/structure-css-ssot.test.ts` enforces parity and will
- * fail CI if the two drift apart.**
+ * STRUCTURE_LAYOUT_CSS_VARS derives the CSS geometry directly from these
+ * values. Structure roots inject that map for styles.css to consume.
  */
 export const STRUCTURE_LAYOUT_CONSTANTS = {
   /**
@@ -51,9 +48,8 @@ export const STRUCTURE_LAYOUT_CONSTANTS = {
    * row box (`box-sizing: border-box`). XMLSpy-style: each Data row is TWO
    * lines of `--text-2xs` — the attribute NAME on top, the type-chip +
    * cardinality on a second line beneath — wrapped in a hairline-bordered card.
-   * 44 = content (name line 18 + var(--space-1) inter-line gap 4 + type/card
-   * line ~18.5 ≈ 40.5) + 2×1px row padding + 2×0.5px hairline border ≈ 43.5,
-   * rounded to 44. Rows are framed (border + padding + radius) and separated by
+   * 44 accommodates the name and control lines, a half-space inter-line gap,
+   * 2×DATA_ROW_PADDING_Y and the hairline border. Rows are framed and separated by
    * DATA_ROW_GAP; the rows stack also carries DATA_ROWS_PADDING top & bottom.
    * Choice/Enum stay on ROW_HEIGHT (28, single-line, unframed). Base-container
    * inherited rows are Data attribute rows, so they use this height too.
@@ -81,13 +77,13 @@ export const STRUCTURE_LAYOUT_CONSTANTS = {
    * DATA_ROW_HEIGHT (border-box) budgets content + 2×DATA_ROW_PADDING_Y +
    * 2×hairline border. CSS mirror: `--rune-data-row-padding-y`.
    */
-  DATA_ROW_PADDING_Y: 1,
+  DATA_ROW_PADDING_Y: 2,
   /**
    * Horizontal padding inside each framed row card (left & right). CSS mirror:
    * `--rune-data-row-padding-x`. (Width has estimate slack, so this is not as
    * tightly layout-coupled as the Y padding, but kept in the SSoT for parity.)
    */
-  DATA_ROW_PADDING_X: 2,
+  DATA_ROW_PADDING_X: 4,
   HEADER_HEIGHT: 28,
   /**
    * Minimum rows-column width — a TIGHT floor now that framed rows shrink-wrap
