@@ -54,9 +54,9 @@ function FunctionRow({ row, isOutput }: { row: StructureRow; isOutput?: boolean 
   return (
     <>
       <div
-        className={`rune-node-row${isOutput ? ' rune-node-row--output' : ''}`}
+        className={`rune-node-row focus-visible:outline-2 focus-visible:outline-ring${isOutput ? ' rune-node-row--output' : ''}`}
         data-attr={row.attrName}
-        {...navigation.targetProps(row.targetNodeId)}
+        {...navigation.targetProps(row.targetNodeId, `${row.attrName}: ${row.typeName}`)}
       >
         <div className="rune-node-row__main">
           <div className="rune-node-row__name-line">

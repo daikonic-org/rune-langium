@@ -7,6 +7,8 @@ import type { StructureExpansionKey, StructureRow } from '../../types/structure-
 import { expansionKey } from '../../types/structure-view.js';
 import { STRUCTURE_LAYOUT_CONSTANTS } from '../../layout/structure-layout.js';
 import { TypeChip } from '../editors/structure/TypeChip.js';
+import { useNavigation } from './NavigationContext.js';
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 
 export interface GroupContainerInheritanceData extends Record<string, unknown> {
   scope: 'inheritance';
@@ -17,6 +19,8 @@ export interface GroupContainerInheritanceData extends Record<string, unknown> {
 
 export interface GroupContainerBaseTypeData extends Record<string, unknown> {
   scope: 'base-type';
+  /** Canonical declaration ID, distinct from the synthetic wrapper ID. */
+  baseTypeId?: string;
   baseTypeName: string;
   /** Namespace URI of the base type — needed to build the StructureExpansionKey for each row. */
   baseTypeNamespaceUri: string;
@@ -161,6 +165,8 @@ function RowConnectorOverlay({
 }
 
 export function GroupContainerNode({ data, id }: NodeProps<GroupContainerNodeType>): React.ReactElement {
+  const { onNavigateToType, onInspectType } = useNavigation();
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToType, onInspect: onInspectType });
   if (data.scope === 'inheritance') {
     return (
       <div className="rune-graph-group">
@@ -187,6 +193,7 @@ export function GroupContainerNode({ data, id }: NodeProps<GroupContainerNodeTyp
   // looks for, leaving the chevron's "expanded" state visually correct but never
   // actually rendering the child.
   const {
+    baseTypeId,
     baseTypeName,
     baseTypeNamespaceUri,
     baseRows,
@@ -212,7 +219,10 @@ export function GroupContainerNode({ data, id }: NodeProps<GroupContainerNodeTyp
 
   return (
     <div className="rune-graph-group rune-graph-group--base">
-      <div className="rune-graph-group__header">
+      <div
+        className="rune-graph-group__header focus-visible:outline-2 focus-visible:outline-ring"
+        {...navigation.targetProps(baseTypeId, `${baseTypeName} type actions`)}
+      >
         {/* Header reads name-left / kind-pill-right; matches the inner
             DataNode/ChoiceNode/EnumNode header treatment (kind badge
             pushed to the right via .rune-node-kind-badge { margin-left:
@@ -241,8 +251,9 @@ export function GroupContainerNode({ data, id }: NodeProps<GroupContainerNodeTyp
           return (
             <div
               key={row.attrName}
-              className={`rune-node-row${expandable ? ' has-expansion' : ''}`}
+              className={`rune-node-row focus-visible:outline-2 focus-visible:outline-ring${expandable ? ' has-expansion' : ''}`}
               data-attr={row.attrName}
+              {...navigation.targetProps(row.targetNodeId, `${row.attrName}: ${row.typeName}`)}
             >
               <div className="rune-node-row__main">
                 <div className="rune-node-row__name-line">
@@ -274,6 +285,7 @@ export function GroupContainerNode({ data, id }: NodeProps<GroupContainerNodeTyp
           Choice; geometry differs because base inserts BASE_PADDING and
           may have a wider gutter when the derived child is wider than the
           inherited rows (see placeBaseChildren). */}
+      {navigation.menu}
       {connectorGeometry ? (
         <RowConnectorOverlay
           rowOffsets={rowOffsets}

@@ -1240,6 +1240,7 @@ describe('buildStructureGraph — cross-namespace references', () => {
     expect(base.kind).toBe('base');
     expect(base.baseTypeName).toBe('TradeBase');
     expect(base.baseTypeNamespaceUri).toBe('cdm.base');
+    expect(base.baseTypeId).toBe('cdm.base.TradeBase');
     expect(base.baseRows.map((r) => r.attrName)).toEqual(['tradeID']);
   });
 

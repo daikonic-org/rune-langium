@@ -149,3 +149,65 @@ test('graph right-click menus open at the pointer and execute visibility actions
   await expect(menu).not.toBeVisible();
   expect(menuErrors).toEqual([]);
 });
+
+test('inherited Structure headers and rows expose canonical context actions', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'inherited-navigation.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'namespace context\ntype Other:\n value string (0..1)\ntype Parent:\n other Other (0..1)\ntype Child extends Parent:\n label string (0..1)\n'
+    )
+  });
+  const child = page.getByTestId('ns-type-link-context.Child#Data');
+  await expect(child).toBeVisible();
+  await dismissLocalTransportNotices(page);
+  await child.click();
+  const structure = page.locator('[data-pane="structure"]');
+  const menu = page.getByTestId('type-navigation-menu');
+  const baseHeader = structure.getByRole('group', { name: 'Parent type actions' });
+  await expect(baseHeader).toBeVisible();
+  await baseHeader.click({ button: 'right' });
+  await menu.getByRole('menuitem', { name: 'Inspect type' }).click();
+  await expect(page.getByRole('complementary', { name: 'Edit Parent' })).toBeVisible();
+  await child.click();
+  const inherited = structure.getByRole('group', { name: 'other: Other' });
+  await inherited.focus();
+  await inherited.press('Shift+F10');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(inherited).toBeFocused();
+  await inherited.press('Shift+F10');
+  await menu.getByRole('menuitem', { name: 'Inspect type' }).click();
+  await expect(page.getByRole('complementary', { name: 'Edit Other' })).toBeVisible();
+});
+
+test('Function input and output references expose keyboard context actions', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'function-navigation.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'namespace context\ntype Other:\n value string (0..1)\nfunc Identity:\n inputs:\n  input Other (1..1)\n output:\n  result Other (1..1)\n set result: input\n'
+    )
+  });
+  const identity = page.getByTestId('ns-type-link-context.Identity#RosettaFunction');
+  await expect(identity).toBeVisible();
+  await dismissLocalTransportNotices(page);
+  await identity.click();
+  const structure = page.locator('[data-pane="structure"]');
+  const menu = page.getByTestId('type-navigation-menu');
+  for (const name of ['input: Other', 'result: Other']) {
+    await identity.click();
+    const reference = structure.getByRole('group', { name });
+    await expect(reference).toBeVisible();
+    await reference.focus();
+    await reference.press('Shift+F10');
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(reference).toBeFocused();
+    await reference.press('Shift+F10');
+    await menu.getByRole('menuitem', { name: 'Inspect type' }).click();
+    await expect(page.getByRole('complementary', { name: 'Edit Other' })).toBeVisible();
+  }
+});

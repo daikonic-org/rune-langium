@@ -737,6 +737,7 @@ function materializeDataWithInheritance(
       id: baseCanonicalId,
       instanceId: baseRfId,
       kind: 'base',
+      baseTypeId: baseNode.id,
       baseTypeName: baseNode.name,
       baseTypeNamespaceUri: baseNode.namespace,
       baseRows,
