@@ -108,10 +108,12 @@ incremental placement. Generated Python runtime source did not change on build.
 Visual-editor API references were regenerated through TypeDoc; generated AST,
 domain and Zod schema sources were not hand-edited.
 
-Full-workspace types are blocked by the separate uncommitted edit in
+Full-workspace `pnpm run type-check` passes for cleanup commit `de889e70` in
+the clean publishing verification checkout after forced affected-package builds.
+The original working checkout remains blocked by the separate uncommitted edit in
 `packages/lsp-server/src/model-index.ts:166` (`TextDocumentProvider.all`). The LSP
 package type check passes in the unchanged verification checkout at the same
-HEAD. A legacy Graph browser journey also has baseline setup/visibility failures:
+pre-cleanup HEAD. A legacy Graph browser journey also has baseline setup/visibility failures:
 Focus-off shows only standard-library nodes in both the changed checkout and an
 unchanged checkout. Its test file was left unchanged; full Graph browser
 acceptance is not claimed.
@@ -124,7 +126,7 @@ Fresh isolated Vite builds, uncompressed bytes for the main index artifacts:
 | --- | ---: | ---: | ---: |
 | JavaScript | 7,856,704 | 7,834,235 | 22,469 |
 | CSS | 413,180 | 404,342 | 8,838 |
-| Source map | 26,783,397 | 26,615,686 | 167,711 |
+| Source map | 26,783,397 | 26,608,933 | 174,464 |
 
 The source map still exceeds Pages' 25 MiB per-file limit (26,214,400 bytes).
 This cleanup does not resolve that existing packaging blocker. Builds and logs
