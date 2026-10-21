@@ -746,6 +746,41 @@ describe('FormPreviewPanel', () => {
       fireEvent.change(screen.getByLabelText('Day'), { target: { value: '' } });
       expect(onValuesChange).toHaveBeenLastCalledWith({ day: '', timestamp: '' });
     });
+    describe.each([
+      ['time', '09:08:00', '', ''],
+      ['dateTime', '2026-10-11T09:08:00', '2026-10-11T', ''],
+      ['zonedDateTime', '2026-10-11T09:08:00+05:30[Asia/Kolkata]', '2026-10-11T', '+05:30[Asia/Kolkata]']
+    ] as const)('%s fractional-seconds picker', (format, initial, prefix, suffix) => {
+      it.each([
+        ['1.5', '01.5'],
+        ['0.125', '00.125'],
+        ['1.123456789', '01.123456789']
+      ])('publishes valid ISO seconds for %s', async (seconds, expected) => {
+        const onValuesChange = vi.fn();
+        render(
+          <FormPreviewPanel
+            schema={{
+              schemaVersion: 1,
+              targetId: 'test.Temporal',
+              title: 'Temporal',
+              status: 'ready',
+              fields: [{ path: 'clock', label: 'Clock', kind: 'string', format, required: true }]
+            }}
+            status={{ state: 'ready' }}
+            values={{ clock: initial }}
+            onValuesChange={onValuesChange}
+          />
+        );
+        const user = userEvent.setup();
+        await user.click(screen.getByRole('button', { name: 'Open Clock picker' }));
+        const second = screen.getByRole('textbox', { name: 'Clock second' });
+        await user.clear(second);
+        await user.type(second, seconds);
+        await user.click(screen.getByRole('button', { name: 'Set time' }));
+        expect(onValuesChange).toHaveBeenLastCalledWith({ clock: `${prefix}09:08:${expected}${suffix}` });
+      });
+    });
+
     it('uses styled time/local pickers, retains seconds and exposes zoned ISO editing', async () => {
       const schema: FormPreviewSchema = {
         schemaVersion: 1,

@@ -163,7 +163,9 @@ export const TemporalPreviewInput = withInstrumentation(
                     size="sm"
                     className="w-full"
                     onClick={() => {
-                      const time = `${timeDraft.hour.padStart(2, '0')}:${timeDraft.minute.padStart(2, '0')}:${timeDraft.second.padStart(2, '0')}`;
+                      const seconds = timeDraft.second.split('.');
+                      seconds[0] = (seconds[0] ?? '').padStart(2, '0');
+                      const time = `${timeDraft.hour.padStart(2, '0')}:${timeDraft.minute.padStart(2, '0')}:${seconds.join('.')}`;
                       updatePicker(
                         format === 'time'
                           ? time
