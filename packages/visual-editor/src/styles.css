@@ -1279,6 +1279,15 @@ button.rune-structure-card__title:focus-visible {
   background: color-mix(in oklch, var(--structure-kind) 5%, transparent);
 }
 
+.rune-structure-member[data-choice] > .rune-structure-member__row {
+  min-height: var(--space-6);
+  column-gap: var(--space-1);
+}
+.rune-structure-member[data-choice] > .rune-structure-member__row > .rune-structure-member__type,
+.rune-structure-member[data-choice] > .rune-structure-member__row > .rune-structure-member__toggle {
+  grid-row: 1;
+}
+
 .rune-structure-member__name,
 .rune-structure-member__type {
   display: flex;
@@ -1382,25 +1391,53 @@ button.rune-structure-card__title:focus-visible {
 .rune-structure-derived {
   padding: var(--structure-inset);
 }
-.rune-structure-enum > li {
-  padding-block: calc(var(--space-1) / 2);
-  overflow-wrap: anywhere;
+.rune-structure-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) calc(var(--structure-inset) * 3) 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  font-weight: 500;
 }
-.rune-structure-members--output {
+.rune-structure-section-title > span {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.rune-structure-section-title[data-output] {
   border-top: var(--hairline) solid var(--border);
+}
+.rune-structure-enum {
+  padding-inline: var(--structure-inset);
+}
+.rune-structure-enum > li {
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  overflow-wrap: anywhere;
 }
 .rune-structure-reference {
   margin: 0;
-  padding: var(--structure-inset);
+  padding: var(--structure-inset) calc(var(--structure-inset) * 3);
   color: var(--muted-foreground);
 }
 .rune-structure-enum__more {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: var(--space-1);
-  margin: var(--space-2) var(--space-3);
+  padding: var(--structure-inset) calc(var(--structure-inset) * 3);
+  border-top: var(--hairline) solid var(--border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   color: var(--structure-kind);
   font: inherit;
+  text-align: start;
+}
+.rune-structure-enum__more:hover {
+  background: color-mix(in oklch, var(--structure-kind) 5%, transparent);
+}
+.rune-structure-enum__more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
 }
 
 .rune-structure-empty {

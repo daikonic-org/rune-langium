@@ -29,7 +29,9 @@ for (const width of [1280, 800]) {
       const toggle = page.getByRole('button', { name: mode, exact: true });
       if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
       await dismissLocalTransportNotices(page);
-      const card = page.locator(`.rune-node-enum${mode === 'Structure' ? '--structure' : ''}`).first();
+      const card = page
+        .locator(mode === 'Structure' ? '.rune-structure-card[data-kind="enum"]' : '.rune-node-enum')
+        .first();
       await expect(card.getByRole('button', { name: 'View all 201 values' })).toBeVisible();
       await expect(card.getByText('Value8', { exact: true })).toHaveCount(0);
       await expect.poll(async () => (await card.boundingBox())!.height).toBeLessThan(500);
@@ -74,7 +76,7 @@ test('the pinned CDM CommodityBusinessCalendarEnum fits as a readable summary', 
   await page.getByTestId('namespace-search').fill('CommodityBusinessCalendarEnum');
   await typeNavigationButton(page, 'cdm.base.datetime.CommodityBusinessCalendarEnum', 'RosettaEnumeration').click();
   await dismissLocalTransportNotices(page);
-  const card = page.locator('.rune-node-enum--structure');
+  const card = page.locator('.rune-structure-card[data-kind="enum"]');
   await expect(card.getByText('ADSM', { exact: true })).toBeVisible();
   await expect(card.getByRole('button', { name: /^View all \d+ values$/ })).toBeVisible();
   await expect.poll(async () => (await card.boundingBox())!.height).toBeLessThan(500);

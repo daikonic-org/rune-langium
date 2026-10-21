@@ -147,6 +147,13 @@ describe('Structure document', () => {
     expect(inspect).toHaveBeenCalledWith('demo.Status');
   });
 
+  it('keeps all enum values available when there is no Inspector callback', () => {
+    render(<StructureView focusedTypeId="demo.Status" adapterDoc={doc} />);
+    expect(screen.getByRole('list', { name: 'Values' }).children).toHaveLength(12);
+    expect(screen.getByText('Value11')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View all 12 values' })).not.toBeInTheDocument();
+  });
+
   it('keeps injected editors, readonly inherited cells and canonical header selection', () => {
     const name = vi.fn(({ value }: { value: string }) => <span>{value}</span>);
     const type = vi.fn(({ typeName }: { typeName: string }) => <span>{typeName}</span>);
@@ -203,6 +210,9 @@ describe('Structure document', () => {
         onInspectType={inspect}
       />
     );
+    expect(screen.getByRole('list', { name: 'Inputs' })).toHaveTextContent('trade');
+    expect(screen.getByRole('list', { name: 'Output' })).toHaveTextContent('result');
+    expect(screen.queryByRole('button', { name: 'Expand trade' })).not.toBeInTheDocument();
     const input = screen.getByRole('button', { name: 'Navigate to Trade' });
     input.focus();
     fireEvent.click(input);

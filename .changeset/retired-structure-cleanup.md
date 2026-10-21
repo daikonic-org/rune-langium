@@ -17,3 +17,8 @@ commands now share recursive Rune file discovery with unchanged input semantics.
 Allow Graph overviews below the previous 50% zoom floor and keep selected-type
 camera fitting in the graph, preventing Studio's duplicate whole-graph fit from
 overwriting readable navigation.
+
+Clarify function input/output sections, tighten choice and enum rendering, and
+use the shared bottom inset for Structure canvas height. Keep every enum value
+reachable without an Inspector callback and omit unsupported function expansion
+controls while retaining referenced-type navigation.

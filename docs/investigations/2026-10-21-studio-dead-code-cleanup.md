@@ -89,7 +89,7 @@ changed by this cleanup.
 
 | Command / scope | Result |
 | --- | --- |
-| `pnpm --filter @rune-langium/visual-editor test` | 1,568 pass |
+| `pnpm --filter @rune-langium/visual-editor test` | 1,569 pass |
 | `pnpm --filter @rune-langium/studio test` | 2,120 pass, 2 existing skips |
 | `PYTHON_BINARY=/Users/pmouli/.local/bin/python3.14 pnpm --filter @rune-langium/codegen test` | 2,336 pass, 1 skip, 8 TODOs |
 | `pnpm exec vitest run packages/cli/test packages/worker-core/test` | 30 pass |
@@ -159,6 +159,36 @@ the inherited-type badge. The three existing Structure
 browser journeys (including axe, drag, resize and collision checks), 18 focused
 component tests, visual-editor lint/CSS lint and formatting pass. Screenshots
 were inspected. Local evidence is `/tmp/rune-pr627-header-*`.
+
+## Structure kind rendering and shared bottom spacing
+
+Functions now distinguish Inputs and Output; choice options and enum values use
+compact section labels and consistent member insets. Choice controls fit a single
+row. Long-enum disclosure has a full-width footer with the existing Inspector
+navigation. Without an Inspector callback, all enum values remain visible instead
+of hiding values after the eighth. Function signature references
+retain navigation and context menus but no longer show expand chevrons: the
+adapter does not materialize nested function input/output branches.
+
+Every measured members canvas now ends at the last row or expanded child plus
+its computed CSS bottom inset, replacing the additional fixed 16px reserve.
+Data, inherited, choice and function members share this measurement. Local
+measurements across 1461/900/390px show about 4–6px below the final row/branch;
+peer collision spacing and native child sizing are unchanged.
+
+The full visual-editor suite passes 1,569 tests and Studio passes 2,120 with two
+existing skips. New semantic checks cover function input/output lists, unsupported
+function expansion controls and complete enum rendering without Inspector access.
+The three Structure spacing journeys and five long-enum journeys pass without
+retries, including the pinned CDM enum and Graph/Structure Inspector disclosure.
+The long-enum journeys now select the actual DOM Structure card. Fifteen local
+kind/viewport cases (data, expanded choice, enum, function and zero-input function
+at three widths) also pass overflow, padding, keyboard-reference and axe checks;
+all screenshots were inspected. Build, lint/CSS and formatting pass. The
+Impeccable detector reports five existing Graph/diagnostic accent stripes outside
+the changed Structure styles; it does not identify a new Structure warning.
+Evidence is `/tmp/rune-structure-kinds-*` and `/tmp/rune-structure-{Cash,Payment,Status,Calculate}-*.png`.
+Hosted LSP and production deployment were not exercised.
 
 ## Bundle comparison
 

@@ -556,6 +556,11 @@ metadata indicators, diagnostics and type-navigation menus as the surrounding
 workbench. Inherited cells and function signatures remain readonly; resolved
 references expose real navigation buttons and context actions, including the
 canonical inherited `baseTypeId` rather than a synthetic wrapper identity.
+Function cards label Inputs and Output explicitly and expose navigation, without
+expansion chevrons for signature rows the adapter does not materialize. Choice
+options and enum values share compact section labels and member insets. Enums
+limit their preview only when an Inspector callback makes the complete list
+reachable; embedded views without that callback display every value.
 
 Each wide parent card owns a local DOM canvas. Properties stay compact; expanded
 child cards move independently by their headers, with an aria-hidden cubic Bézier connector
@@ -565,6 +570,8 @@ text scale or moves the camera. Arrival and keyboard focus emphasize the interio
 card. Graph kind colors and header backgrounds are retained; members are unboxed.
 The local `--structure-inset` in visual-editor styles controls shared card padding;
 minimum row height and the peer collision gap remain independent of this density setting.
+Canvas height ends at the last row or expanded child plus the computed bottom
+inset; it does not add a second fixed padding reserve.
 
 Cards default to intrinsic content width capped by their container; inline-size containment is deliberately avoided. An edge separator sets an explicit pixel width, leaving height to native content; Reset restores automatic sizing. Placement
 uses instance-scoped state, survives collapse and resets without changing source.
