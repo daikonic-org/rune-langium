@@ -46,9 +46,10 @@
  */
 
 import { execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { copyPagesAssets, validatePagesAssets } from './pages-assets.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(__dirname, '..');
@@ -99,8 +100,7 @@ function copyDir(from, to, label) {
   // Ensure only the parent of `to` exists; cpSync creates `to` itself and
   // copies `from`'s contents into it. Pre-creating `to` can cause some Node
   // versions to nest the source under `to/<basename(from)>`.
-  mkdirSync(dirname(to), { recursive: true });
-  cpSync(from, to, { recursive: true });
+  copyPagesAssets(from, to);
   console.log(`[build-combined] copied ${label}: ${from} → ${to}`);
 }
 
@@ -141,6 +141,11 @@ run('Building Rune Studio (base=/rune-studio/studio/)', 'pnpm --filter @rune-lan
 copyDir(siteRoot, subpathDist, 'site → /rune-studio/');
 copyDir(docsRawDist, join(subpathDist, 'docs'), 'vitepress → /rune-studio/docs/');
 copyDir(studioDist, join(subpathDist, 'studio'), 'studio → /rune-studio/studio/');
+
+const largestAsset = validatePagesAssets(combinedDist);
+if (largestAsset) {
+  console.log(`[build-combined] Pages assets verified; largest: ${largestAsset.path} (${largestAsset.size} bytes)`);
+}
 
 // SPA deep-link fallback is handled by the Pages Function at
 // apps/studio/functions/rune-studio/studio/[[catchall]].ts (see that file for

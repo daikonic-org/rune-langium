@@ -8,6 +8,7 @@
     "dev": "pnpm run docs:api && vitepress dev",
     "build": "pnpm run docs:api && vitepress build",
     "build:combined": "node scripts/build-combined.mjs",
+    "test": "node --test scripts/pages-assets.test.mjs",
     "preview": "vitepress preview"
   },
   "dependencies": {
