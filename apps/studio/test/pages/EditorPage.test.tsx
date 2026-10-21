@@ -2757,15 +2757,162 @@ describe('EditorPage StructureView cell-editor wiring (Phase 5/8 regression guar
     expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([money, quantity]);
   });
 
+  it.each([0, 1])(
+    'shares publication tracking with selection across parser resets (initial nonce %s)',
+    async (initialNonce) => {
+      vi.useFakeTimers();
+      try {
+        const workspaceService = await import('../../src/services/workspace.js');
+        const link = vi.mocked(workspaceService.linkDocument);
+        link.mockReset();
+        const money = {
+          name: 'cdm.observable.asset',
+          elements: []
+        } as unknown as import('@rune-langium/core').RosettaModel;
+        const quantity = {
+          name: 'cdm.base.math',
+          elements: []
+        } as unknown as import('@rune-langium/core').RosettaModel;
+        link.mockImplementation(async (path) => ({
+          linked: true,
+          errors: [],
+          newModels: [path === 'money.rosetta' ? money : quantity]
+        }));
+        editorStoreState.nodes = [
+          {
+            id: 'cdm.observable.asset.Money',
+            data: { $type: 'Data', name: 'Money' },
+            meta: { namespace: 'cdm.observable.asset', errors: [], hasExternalRefs: false }
+          },
+          {
+            id: 'cdm.base.math.Quantity',
+            data: { $type: 'Data', name: 'Quantity' },
+            meta: { namespace: 'cdm.base.math', errors: [], hasExternalRefs: false }
+          }
+        ];
+        editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+        editorStoreState.hydrationNonce = initialNonce;
+        editorStoreState.hydratedNamespaces = ['cdm.observable.asset'];
+        const workspace = {
+          workspaceId: 'ws-selection-publication',
+          models: [],
+          files: [],
+          fileCount: 0,
+          deferredExports: [
+            {
+              filePath: 'money.rosetta',
+              namespace: 'cdm.observable.asset',
+              exports: [{ type: 'Data', name: 'Money' }]
+            },
+            { filePath: 'math.rosetta', namespace: 'cdm.base.math', exports: [{ type: 'Data', name: 'Quantity' }] }
+          ]
+        };
+        const { rerenderEditorPage } = renderEditorPage(workspace);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(200);
+        });
+        expect(link.mock.calls.map(([path]) => path)).toEqual(['money.rosetta']);
+
+        editorStoreState.hydrationNonce = 2;
+        editorStoreState.hydratedNamespaces = ['cdm.observable.asset', 'cdm.base.math'];
+        editorStoreState.selectedNodeId = 'cdm.base.math.Quantity';
+        await act(async () => {
+          rerenderEditorPage(workspace);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(200);
+        });
+
+        editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+        await act(async () => {
+          rerenderEditorPage(workspace);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(200);
+        });
+        expect(link.mock.calls.map(([path]) => path)).toEqual(['money.rosetta', 'math.rosetta']);
+        expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([money, quantity]);
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it('replaces transitive corpus snapshots by document URI without merging namespace peers', async () => {
+    const workspaceService = await import('../../src/services/workspace.js');
+    const link = vi.mocked(workspaceService.linkDocument);
+    link.mockReset();
+    const first = {
+      name: 'cdm.observable.asset',
+      elements: [],
+      $textRegion: { documentURI: 'file:///money.rosetta' }
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    const sameNamespacePeer = {
+      ...first,
+      $textRegion: { documentURI: 'file:///other.rosetta' }
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    const refreshedFirst = { ...first, definition: 'Refreshed through a transitive link' };
+    const dependency = {
+      name: 'cdm.base.math',
+      elements: [],
+      $textRegion: { documentURI: 'file:///math.rosetta' }
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    link.mockImplementation(async (path) => ({
+      linked: true,
+      errors: [],
+      newModels:
+        path === 'money.rosetta'
+          ? [first, sameNamespacePeer]
+          : path === 'math.rosetta'
+            ? [refreshedFirst, dependency]
+            : []
+    }));
+    editorStoreState.nodes = [
+      {
+        id: 'cdm.observable.asset.Money',
+        data: { $type: 'Data', name: 'Money' },
+        meta: { namespace: 'cdm.observable.asset', errors: [], hasExternalRefs: false }
+      }
+    ];
+    editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+    editorStoreState.hydrationNonce = 1;
+    editorStoreState.hydratedNamespaces = ['cdm.observable.asset'];
+    const workspace = {
+      workspaceId: 'ws-transitive-publication',
+      models: [],
+      files: [],
+      fileCount: 0,
+      deferredExports: [
+        { filePath: 'money.rosetta', namespace: 'cdm.observable.asset', exports: [{ type: 'Data', name: 'Money' }] },
+        { filePath: 'other.rosetta', namespace: 'cdm.observable.asset', exports: [{ type: 'Data', name: 'Other' }] },
+        { filePath: 'math.rosetta', namespace: 'cdm.base.math', exports: [{ type: 'Data', name: 'Quantity' }] }
+      ]
+    };
+    const { rerenderEditorPage } = renderEditorPage(workspace);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([first, sameNamespacePeer]);
+    editorStoreState.hydrationNonce = 2;
+    editorStoreState.hydratedNamespaces = ['cdm.observable.asset', 'cdm.base.math'];
+    await act(async () => {
+      rerenderEditorPage(workspace);
+      await Promise.resolve();
+    });
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([refreshedFirst, sameNamespacePeer, dependency]);
+    expect(link.mock.calls.map(([path]) => path)).toEqual(['money.rosetta', 'other.rosetta', 'math.rosetta']);
+  });
+
   it('retries failed hydrated documents from Structure without republishing successful peers', async () => {
     const workspaceService = await import('../../src/services/workspace.js');
     const link = vi.mocked(workspaceService.linkDocument);
     link.mockReset();
     const first = {
       name: 'cdm.observable.asset',
-      elements: []
+      elements: [],
+      $textRegion: { documentURI: 'file:///money.rosetta' }
     } as unknown as import('@rune-langium/core').RosettaModel;
-    const second = { ...first };
+    const second = { ...first, $textRegion: { documentURI: 'file:///other.rosetta' } } as unknown as typeof first;
     let retry = false;
     link.mockImplementation(async (path) => ({
       linked: path === 'money.rosetta' || retry,
