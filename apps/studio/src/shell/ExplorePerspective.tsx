@@ -582,7 +582,7 @@ export const ExplorePerspective = withInstrumentation(
     const linkDocumentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Accumulates corpus models returned by linkDocument so they can be merged into
     // the graph. Reset when a new workspace is loaded.
-    const corpusModelsRef = useRef<RosettaModel[]>([]);
+    const corpusModelsRef = useRef(new Map<string, RosettaModel>());
     const corpusGenerationRef = useRef(0);
     const workspaceIdRef = useRef(workspaceId);
     const modelsRef = useRef(models);
@@ -760,7 +760,7 @@ export const ExplorePerspective = withInstrumentation(
       // makes Structure/Inspector populate for a frame and then drop back to the
       // deferred placeholder graph.
       if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
-      corpusModelsRef.current = [];
+      corpusModelsRef.current = new Map();
       corpusGenerationRef.current += 1;
     }, [workspaceId]);
 
@@ -775,8 +775,19 @@ export const ExplorePerspective = withInstrumentation(
       // rerenders because the routed parser does not echo them back in
       // `workspace.models`.
       useEditorStore.getState().loadDeferredExports(deferredExports);
-      useEditorStore.getState().loadModels([...models, ...corpusModelsRef.current] as unknown[]);
+      useEditorStore.getState().loadModels([...models, ...corpusModelsRef.current.values()] as unknown[]);
     }, [models, deferredExports, workspaceId]);
+
+    const publishCorpusModels = useCallback((newModels: RosettaModel[]) => {
+      if (newModels.length === 0) return;
+      for (const model of newModels) {
+        // Canonical wire snapshots retain documentURI. Older regionless snapshots
+        // use their entire contents, never the namespace shared by several files.
+        const identity = model.$textRegion?.documentURI ?? JSON.stringify(model);
+        corpusModelsRef.current.set(identity, model);
+      }
+      useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current.values()] as unknown[]);
+    }, []);
 
     const selectedNodeData: AnyGraphNode | null = useMemo(() => {
       if (!selectedNodeId) return null;
@@ -944,14 +955,7 @@ export const ExplorePerspective = withInstrumentation(
             if (corpusGenerationRef.current !== requestGeneration || workspaceIdRef.current !== requestWorkspaceId) {
               return;
             }
-            if (result.newModels.length > 0) {
-              corpusModelsRef.current = [...corpusModelsRef.current, ...result.newModels];
-              // loadModels now re-merges the deferred-export placeholder nodes
-              // automatically from store state — no need to call
-              // loadDeferredExports after this. The store-owned deferredExports
-              // state was populated when /api/parse responded.
-              useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current] as unknown[]);
-            }
+            publishCorpusModels(result.newModels);
             publishingFilesRef.current.delete(filePath);
             if (
               result.linked &&
@@ -1009,10 +1013,7 @@ export const ExplorePerspective = withInstrumentation(
       void Promise.all(filePaths.map((fp) => linkDocument(fp))).then((results) => {
         if (corpusGenerationRef.current !== requestGeneration || workspaceIdRef.current !== requestWorkspaceId) return;
         const newModels = results.flatMap((r) => r.newModels);
-        if (newModels.length > 0) {
-          corpusModelsRef.current = [...corpusModelsRef.current, ...newModels];
-          useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current] as unknown[]);
-        }
+        publishCorpusModels(newModels);
         for (const [index, filePath] of filePaths.entries()) {
           publishingFilesRef.current.delete(filePath);
           const namespace = fileNamespaces.get(filePath)!;
