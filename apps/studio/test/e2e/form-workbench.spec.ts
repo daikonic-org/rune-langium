@@ -193,3 +193,32 @@ test('Choice Inspector shares compact gutters, chips and flat documentation', as
   await page.screenshot({ path: info.outputPath('choice-inspector-polish.png') });
   expect((await new AxeBuilder({ page }).include('[data-slot="choice-form"]').analyze()).violations).toEqual([]);
 });
+
+for (const action of ['disclosure', 'ISO mode'] as const) {
+  test(`a ${action} click validates an initially unchecked sample without losing the click`, async ({ page }) => {
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'blur.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(
+        'namespace blur\ntype Child:\n note string (0..1)\ntype Probe:\n quantity int (1..1)\n child Child (1..1)\n clock time (0..1)\n'
+      )
+    });
+    await page.getByTestId('ns-type-link-blur.Probe#Data').click();
+    const form = page.getByTestId('panel-formPreview');
+    const quantity = form.getByLabel('Quantity', { exact: true });
+    await expect(quantity).toBeVisible();
+    await dismissLocalTransportNotices(page);
+    await quantity.fill('1.5');
+    await expect(form.getByText('Ready to validate sample', { exact: true })).toBeVisible();
+    const button = form.getByRole('button', {
+      name: action === 'disclosure' ? 'Child' : 'Edit ISO value',
+      exact: true
+    });
+    await button.click();
+    if (action === 'disclosure') await expect(button).toHaveAttribute('aria-expanded', 'false');
+    else await expect(form.getByRole('button', { name: 'Use picker', exact: true })).toBeVisible();
+    await expect(form.getByText('Ready to validate sample', { exact: true })).toHaveCount(0);
+    await expect(form.getByRole('alert').first()).toContainText('Invalid sample');
+  });
+}

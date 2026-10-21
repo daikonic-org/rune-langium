@@ -200,6 +200,8 @@ describe('FormPreviewPanel', () => {
     fireEvent.change(field, { target: { value: '2' } });
     const validRequestId = postMessage.mock.lastCall![0].requestId;
     expect(screen.getByText('Validating sample')).toBeInTheDocument();
+    fireEvent.blur(field);
+    expect(postMessage).toHaveBeenCalledTimes(2);
     expect(screen.queryByText('Valid sample')).not.toBeInTheDocument();
     act(() => usePreviewStore.getState().receiveValidateResult(invalidRequestId, []));
     expect(screen.queryByText('Valid sample')).not.toBeInTheDocument();
@@ -207,6 +209,97 @@ describe('FormPreviewPanel', () => {
     expect(screen.getByText('Valid sample')).toBeInTheDocument();
     expect(screen.queryByText('Expected integer')).not.toBeInTheDocument();
   });
+
+  it.each(['object disclosure', 'ISO mode'] as const)(
+    'validates an unchecked edit when focus moves to %s',
+    async (action) => {
+      const postMessage = vi.fn();
+      usePreviewStore.getState().setWorkerRef({ postMessage } as unknown as Worker);
+      const model: FormPreviewSchema = {
+        ...numericSchema,
+        fields: [
+          ...numericSchema.fields,
+          {
+            path: 'party',
+            label: 'Counterparty',
+            kind: 'object',
+            required: true,
+            children: [{ path: 'party.name', label: 'Name', kind: 'string', required: false }]
+          },
+          { path: 'clock', label: 'Clock', kind: 'string', format: 'time', required: false }
+        ]
+      };
+      render(<FormPreviewPanel schema={model} status={{ state: 'ready' }} />);
+      const user = userEvent.setup();
+      const quantity = screen.getByLabelText('Quantity');
+      await user.click(quantity);
+      fireEvent.change(quantity, { target: { value: '1.5' } });
+      expect(usePreviewStore.getState().samples.get(model.targetId)?.validated).toBe(false);
+      expect(postMessage).not.toHaveBeenCalled();
+      await user.click(
+        screen.getByRole('button', {
+          name: action === 'object disclosure' ? 'Counterparty' : 'Edit ISO value',
+          exact: true
+        })
+      );
+      if (action === 'object disclosure') {
+        expect(screen.getByRole('button', { name: 'Counterparty', exact: true })).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        );
+      } else {
+        expect(screen.getByRole('button', { name: 'Use picker' })).toBeInTheDocument();
+      }
+      expect(postMessage).toHaveBeenCalledOnce();
+      const request = postMessage.mock.lastCall![0];
+      expect(request).toMatchObject({ type: 'instance:validate', data: { quantity: 1.5 } });
+      expect(screen.getByText('Validating sample')).toBeInTheDocument();
+      act(() =>
+        usePreviewStore
+          .getState()
+          .receiveValidateResult(request.requestId, [{ path: 'quantity', message: 'Expected integer' }])
+      );
+      expect(screen.getByText('Invalid sample (1 issue)')).toBeInTheDocument();
+    }
+  );
+
+  it.each(['add', 'remove'] as const)(
+    'validates the post-%s list transaction once after an unchecked edit',
+    async (action) => {
+      const postMessage = vi.fn();
+      usePreviewStore.getState().setWorkerRef({ postMessage } as unknown as Worker);
+      const model: FormPreviewSchema = {
+        ...numericSchema,
+        fields: [
+          ...numericSchema.fields,
+          {
+            path: 'tags',
+            label: 'Tags',
+            kind: 'array',
+            required: false,
+            children: [{ path: 'tags[]', label: 'Tag', kind: 'string', required: false }]
+          }
+        ]
+      };
+      usePreviewStore
+        .getState()
+        .ensureSample(model.targetId, { quantity: 0, tags: action === 'remove' ? ['old'] : [] });
+      render(<FormPreviewPanel schema={model} status={{ state: 'ready' }} />);
+      const user = userEvent.setup();
+      const quantity = screen.getByLabelText('Quantity');
+      await user.click(quantity);
+      fireEvent.change(quantity, { target: { value: '1.5' } });
+      await user.click(
+        screen.getByRole('button', { name: action === 'add' ? 'Add Tags item' : 'Remove Tag 1', exact: true })
+      );
+      expect(postMessage).toHaveBeenCalledOnce();
+      expect(postMessage.mock.lastCall![0]).toMatchObject({
+        type: 'instance:validate',
+        data: { quantity: 1.5, tags: action === 'add' ? [''] : [] }
+      });
+      expect(usePreviewStore.getState().samples.get(model.targetId)?.validated).toBe(true);
+    }
+  );
 
   it('shows validation errors that are not attached to a field', () => {
     const postMessage = vi.fn();

@@ -308,15 +308,16 @@ export const FormPreviewPanel = withInstrumentation(
 
     const handleFieldBlur = useCallback(
       (event?: FocusEvent<HTMLElement>) => {
-        // Structural actions validate their own transaction. Avoid moving their click target
+        // Explicitly marked list actions validate their own transaction. Avoid moving their click target
         // with a blur-result error immediately before the button's click is dispatched.
         if (
           event?.relatedTarget instanceof HTMLElement &&
-          event.relatedTarget.closest('button') &&
+          event.relatedTarget.closest('[data-preview-validates]') &&
           event.currentTarget.closest('.preview-fields')?.contains(event.relatedTarget)
         )
           return;
-        if (isControlled || !schema || !activeSample || schema.kind === 'function') return;
+        // Subsequent edits already validate their latest payload in handleFieldChange.
+        if (isControlled || !schema || !activeSample || activeSample.validated || schema.kind === 'function') return;
         applyValidation(activeSample.values, true);
       },
       [activeSample, applyValidation, isControlled, schema]
@@ -1053,6 +1054,7 @@ function PreviewArrayField({
           type="button"
           variant="ghost"
           size="xs"
+          data-preview-validates
           onClick={() => controls.onArrayAdd(field, controls.arrayIndices)}
           aria-label={`Add ${field.label} item`}
         >
@@ -1086,6 +1088,7 @@ function PreviewArrayField({
                 type="button"
                 variant="ghost"
                 size="icon-xs"
+                data-preview-validates
                 onClick={() => remove(index)}
                 aria-label={`Remove ${child.label} ${index + 1}`}
                 title={`Remove ${child.label} ${index + 1}`}
