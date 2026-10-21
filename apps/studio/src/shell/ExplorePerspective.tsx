@@ -30,6 +30,7 @@ import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
 import { CuratedDeclarationInspector } from './panels/CuratedDeclarationInspector.js';
 import { useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
+import type { AstNodeWithTextRegion } from 'langium';
 import {
   RuneTypeGraph,
   NamespaceExplorerPanel,
@@ -783,7 +784,7 @@ export const ExplorePerspective = withInstrumentation(
       for (const model of newModels) {
         // Canonical wire snapshots retain documentURI. Older regionless snapshots
         // use their entire contents, never the namespace shared by several files.
-        const identity = model.$textRegion?.documentURI ?? JSON.stringify(model);
+        const identity = (model as AstNodeWithTextRegion).$textRegion?.documentURI ?? JSON.stringify(model);
         corpusModelsRef.current.set(identity, model);
       }
       useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current.values()] as unknown[]);
