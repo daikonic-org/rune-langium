@@ -952,6 +952,10 @@ export const ExplorePerspective = withInstrumentation(
     // in-flight response belongs to the workspace even if selection or hydration
     // advances. Only a workspace generation change may discard it.
     const hydrationNonce = useEditorStore((s) => s.hydrationNonce);
+    const publishedHydratedNamespacesRef = useRef(new Set<string>());
+    useEffect(() => {
+      publishedHydratedNamespacesRef.current = new Set();
+    }, [workspaceId]);
     // Track which (nonce, namespace) pairs have already been re-linked so that
     // switching between nodes in the same namespace on the same nonce doesn't
     // issue redundant linkDocument round-trips.
@@ -962,7 +966,7 @@ export const ExplorePerspective = withInstrumentation(
 
     useEffect(() => {
       if (hydrationNonce === 0 || !selectedNodeId) return;
-      // Link ALL files for hydrated namespaces and the selected namespace. The curated artifact
+      // Link ALL files for newly hydrated namespaces and the selected namespace. The curated artifact
       // format aggregates namespace-level exports onto the first document's export
       // list, so per-type file mapping (nodeIdToFilePath) is unreliable — it may
       // resolve to the enum file even when a data type is selected. Linking every
@@ -972,13 +976,17 @@ export const ExplorePerspective = withInstrumentation(
       const filePathSet = new Set<string>();
       for (const e of deferredExportsRef.current) {
         if (!namespaces.has(e.namespace)) continue;
+        if (publishedHydratedNamespacesRef.current.has(e.namespace)) continue;
         if (relinkedRef.current.has(`${hydrationNonce}:${e.namespace}`)) continue;
         if (!e.filePath || e.filePath.startsWith('system://')) continue;
         filePathSet.add(e.filePath);
       }
       const filePaths = [...filePathSet];
       if (filePaths.length === 0) return;
-      for (const namespace of namespaces) relinkedRef.current.add(`${hydrationNonce}:${namespace}`);
+      for (const namespace of namespaces) {
+        relinkedRef.current.add(`${hydrationNonce}:${namespace}`);
+        if (hydratedNamespaces.includes(namespace)) publishedHydratedNamespacesRef.current.add(namespace);
+      }
       const requestWorkspaceId = workspaceId;
       const requestGeneration = corpusGenerationRef.current;
       void Promise.all(filePaths.map((fp) => linkDocument(fp))).then((results) => {

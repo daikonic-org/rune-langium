@@ -2690,6 +2690,72 @@ describe('EditorPage StructureView cell-editor wiring (Phase 5/8 regression guar
     expect(editorStoreState.selectedNodeId).toBe('cdm.observable.asset.Money');
   });
 
+  it('publishes each hydrated namespace once across progressive rounds and resets for a new workspace', async () => {
+    const workspaceService = await import('../../src/services/workspace.js');
+    const link = vi.mocked(workspaceService.linkDocument);
+    link.mockReset();
+    const quantity = { name: 'cdm.base.math', elements: [] } as unknown as import('@rune-langium/core').RosettaModel;
+    const money = {
+      name: 'cdm.observable.asset',
+      elements: []
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    link.mockImplementation(async (path) => ({
+      linked: true,
+      errors: [],
+      newModels: [path === 'math.rosetta' ? quantity : money]
+    }));
+    editorStoreState.nodes = [
+      {
+        id: 'cdm.observable.asset.Money',
+        data: { $type: 'Data', name: 'Money' },
+        meta: { namespace: 'cdm.observable.asset', errors: [], hasExternalRefs: false }
+      }
+    ];
+    editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+    editorStoreState.hydrationNonce = 1;
+    editorStoreState.hydratedNamespaces = ['cdm.observable.asset'];
+    const workspace = {
+      workspaceId: 'ws-progressive',
+      models: [],
+      files: [],
+      fileCount: 0,
+      deferredExports: [
+        { filePath: 'money.rosetta', namespace: 'cdm.observable.asset', exports: [{ type: 'Data', name: 'Money' }] },
+        { filePath: 'math.rosetta', namespace: 'cdm.base.math', exports: [{ type: 'Data', name: 'Quantity' }] }
+      ]
+    };
+    const { rerenderEditorPage } = renderEditorPage(workspace);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([money]);
+    editorStoreState.hydrationNonce = 2;
+    editorStoreState.hydratedNamespaces = ['cdm.observable.asset', 'cdm.base.math'];
+    await act(async () => {
+      rerenderEditorPage(workspace);
+      await Promise.resolve();
+    });
+    expect(link.mock.calls.map(([path]) => path)).toEqual(['money.rosetta', 'math.rosetta']);
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([money, quantity]);
+    editorStoreState.hydrationNonce = 3;
+    await act(async () => {
+      rerenderEditorPage(workspace);
+      await Promise.resolve();
+    });
+    expect(link).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      rerenderEditorPage({ ...workspace, workspaceId: 'ws-next' });
+      await Promise.resolve();
+    });
+    expect(link.mock.calls.map(([path]) => path)).toEqual([
+      'money.rosetta',
+      'math.rosetta',
+      'money.rosetta',
+      'math.rosetta'
+    ]);
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([money, quantity]);
+  });
+
   it('retains a consumed link result when selection and hydration advance in the same workspace', async () => {
     const workspaceService = await import('../../src/services/workspace.js');
     const link = vi.mocked(workspaceService.linkDocument);
