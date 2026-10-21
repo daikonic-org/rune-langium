@@ -78,11 +78,7 @@ validateIdentifier(name: string): string | null
 **Returns:** `string | null`
 
 ### `validateExpression`
-Validate an expression string.
-
-This is a lightweight client-side check. Full parsing validation
-runs in the web worker parse pipeline. This function performs basic
-structural checks (balanced parentheses, non-empty).
+Validate expression syntax with the canonical Rune parser, without linking workspace symbols.
 ```ts
 validateExpression(expression: string): ExpressionValidationResult
 ```

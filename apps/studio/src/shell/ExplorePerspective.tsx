@@ -2653,10 +2653,7 @@ export const ExplorePerspective = withInstrumentation(
       [storeNodes]
     );
 
-    // Memoize cell components to preserve prop identity across renders — avoids
-    // unnecessary ReactFlow reconciliation when unrelated EditorPage state changes.
-    // InheritanceCell is not included here because GroupContainerNode (the base-type
-    // wrap) does not expose a cell-injection API; that wiring is a future addition.
+    // Stable editors preserve member drafts across unrelated host renders.
     const structureCellComponents = useMemo(
       () => ({
         name: NameCell,
@@ -2693,9 +2690,9 @@ export const ExplorePerspective = withInstrumentation(
     //      conversion — offset → line — would need binary search; the previous
     //      comment claimed binary search here in error. Copilot caught it.)
     //   4. Map each LspDiagnostic to a RangeDiagnostic and pass the resulting
-    //      array into StructureView. DataNode calls useDiagnosticsForRange per row.
+    //      array into StructureView, which matches diagnostics to each member row.
     //
-    // Keeping the conversion here (rather than in a hook or in DataNode) lets
+    // Keeping the conversion here (rather than in each member row) lets
     // the memoized lineOffsets array amortize the cost across all rows in one
     // render pass instead of recomputing it once per row.
     //

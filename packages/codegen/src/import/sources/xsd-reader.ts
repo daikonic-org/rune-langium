@@ -45,6 +45,7 @@ import type {
   SourceModel,
   SourceType
 } from '../source-model.js';
+import { sanitizeIdentifier, dedupeIdentifier, sanitizeNamespaceSegment } from '../identifiers.js';
 import { pushDiagnostic, type ImportDiagnostic } from '../diagnostics.js';
 
 // --- XSD namespace + tag resolution -----------------------------------------
@@ -174,13 +175,6 @@ const BUILTIN_TYPE_MAP: Readonly<Record<string, string>> = {
 
 // --- naming ------------------------------------------------------------------
 
-function sanitizeIdentifier(raw: string, fallback: string): string {
-  let cleaned = raw.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  if (cleaned.length === 0) cleaned = fallback;
-  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
-  return cleaned;
-}
-
 /** XSD complexType/simpleType names are used verbatim as Rune type/enum names when already ValidID-safe; sanitized otherwise. */
 function toTypeName(name: string): string {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : sanitizeIdentifier(name, 'Type');
@@ -189,24 +183,6 @@ function toTypeName(name: string): string {
 /** XSD element/attribute names are used verbatim when already ValidID-safe; sanitized otherwise (matches json-schema-reader.ts's `toAttributeName`). */
 function toAttributeName(name: string): string {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : sanitizeIdentifier(name, 'value');
-}
-
-function sanitizeEnumValue(raw: string): string {
-  let cleaned = raw.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  if (cleaned.length === 0) cleaned = 'VALUE';
-  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
-  return cleaned;
-}
-
-function dedupeIdentifier(base: string, used: Set<string>): string {
-  let candidate = base;
-  let suffix = 2;
-  while (used.has(candidate)) {
-    candidate = `${base}_${suffix}`;
-    suffix += 1;
-  }
-  used.add(candidate);
-  return candidate;
 }
 
 // --- cardinality ---------------------------------------------------------
@@ -383,7 +359,7 @@ function buildEnumFromSimpleType(named: NamedSimpleType): SourceEnum {
   const used = new Set<string>();
   const values = (named.facets.enumerationValues ?? []).map((ev) => {
     const original = String(ev['@_value'] ?? '');
-    const name = dedupeIdentifier(sanitizeEnumValue(original), used);
+    const name = dedupeIdentifier(sanitizeIdentifier(original, 'VALUE'), used);
     return {
       name,
       sourceKey: original,
@@ -714,11 +690,6 @@ const NAMESPACE_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 function isValidNamespace(ns: string): boolean {
   return NAMESPACE_RE.test(ns);
-}
-
-function sanitizeNamespaceSegment(s: string): string {
-  const cleaned = s.replace(/[^A-Za-z0-9_]/g, '');
-  return /^[A-Za-z_]/.test(cleaned) ? cleaned : '';
 }
 
 /** Derives a Rune-safe dotted namespace from `--namespace` (always wins) or `targetNamespace` (best-effort sanitization — XSD's targetNamespace is typically a bare URN/URL with no guaranteed reverse-DNS structure, unlike JSON Schema's `$id`). */

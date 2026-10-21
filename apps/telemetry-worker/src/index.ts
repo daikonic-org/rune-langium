@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { jsonResponse } from '@rune-langium/worker-core/http';
 // Workers Builds auto-deploy smoke test (2026-08-21) — no functional change.
 
 /**
@@ -233,13 +234,6 @@ function corsHeaders(origin: string | null, allowed: string): Record<string, str
 }
 
 // ---------- Helpers ----------
-
-function jsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...extraHeaders }
-  });
-}
 
 function emptyResponse(status: number, extraHeaders: Record<string, string> = {}): Response {
   return new Response(null, { status, headers: extraHeaders });

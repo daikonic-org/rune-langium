@@ -10,10 +10,10 @@
  * `'single-file'`.
  */
 
-import { stripBundledImports } from './bundle-imports.js';
+import { stripBundledImports, stripPerNamespaceHeader } from './bundle-imports.js';
 import type { GeneratorOutput } from '../types.js';
 import type { LanguageProfile } from './language-profile.js';
-import { RUNTIME_HELPER_SOURCE, RUNTIME_SIDECAR_HELPER_LINES, RUNE_HELPER_NAMES } from '../helpers.js';
+import { RUNTIME_HELPER_SOURCE, RUNTIME_SIDECAR_HELPER_LINES } from '../helpers.js';
 import { RUNE_EXTEND_CHOICE_HELPER_SIDECAR_SOURCE } from './zod-runtime-helpers.js';
 
 /**
@@ -106,33 +106,6 @@ function makeSingleFileContent(perNs: ReadonlyArray<GeneratorOutput>): string {
     }
   }
   return sections.join('\n');
-}
-
-/**
- * Remove the per-namespace file header from `content` produced by
- * `ZodNamespaceEmitter` with `suppressBoilerplate: true`. The header
- * shape is fixed: SPDX line + generated comment + source-namespace
- * line + blank + `import { z }` + `import { ... } from './runtime.zod.js'`
- * + blank. After that the body begins.
- *
- * Returns the body, trimming any trailing blank line. If the expected
- * header pattern isn't found (defensive — should never happen with the
- * current emitter), returns the content unchanged so concatenation
- * still produces something usable.
- */
-function stripPerNamespaceHeader(content: string): string {
-  const lines = content.split('\n');
-  let bodyStart = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]?.startsWith(`import { ${RUNE_HELPER_NAMES[0]},`)) {
-      bodyStart = i + 1;
-      // Skip the trailing blank line after the import block.
-      if (bodyStart < lines.length && lines[bodyStart] === '') bodyStart += 1;
-      break;
-    }
-  }
-  if (bodyStart === 0) return content; // header not found — return as-is
-  return lines.slice(bodyStart).join('\n').trimEnd();
 }
 
 export const zodProfile: LanguageProfile<'zod'> = {

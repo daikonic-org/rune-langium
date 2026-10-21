@@ -97,17 +97,3 @@ Default store instance for use with RuneTypeGraph.
 ```ts
 const useEditorStore: UseBoundStore<Write<StoreApi<EditorStore>, { temporal: StoreApi }>>
 ```
-
-## layout
-
-### `STRUCTURE_LAYOUT_CONSTANTS`
-Single source of truth for Structure View layout constants.
-
-**If you change a value here, mirror it in the CSS custom properties
-declared in `src/styles.css` (the `:root` block near the top of the
-Structure View section).  The unit test
-`test/layout/structure-css-ssot.test.ts` enforces parity and will
-fail CI if the two drift apart.**
-```ts
-const STRUCTURE_LAYOUT_CONSTANTS: { ROW_HEIGHT: 28; DATA_ROW_HEIGHT: 44; DATA_ROW_GAP: 3; DATA_ROWS_PADDING: 4; DATA_ROW_PADDING_Y: 1; DATA_ROW_PADDING_X: 2; HEADER_HEIGHT: 28; COL_WIDTH: 96; COL_WIDTH_MAX: 600; COL_GAP: 32; ROW_GAP: 8; BASE_PADDING: 4; NODE_PADDING: 4; FUNCTION_OUTPUT_SEP_HEIGHT: 9 }
-```

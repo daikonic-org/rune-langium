@@ -18,6 +18,7 @@
  * @see specs/011-export-code-cf/contracts/http-generate.md (hosted)
  */
 
+import { isRecord } from './message-guards.js';
 import type { FormPreviewSchema, GeneratedProjection, ProjectionSubject } from '@rune-langium/codegen/export';
 
 export interface ProjectionRequest {
@@ -304,10 +305,6 @@ const PREVIEW_STALE_REASONS = new Set<PreviewStaleMessage['reason']>([
   'unsupported-target',
   'no-files'
 ]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
 
 // `files[].content`/`serializedModelJson` are raw model source text — never
 // captured; only a count plus the app-minted requestId.

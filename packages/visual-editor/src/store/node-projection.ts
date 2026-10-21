@@ -187,15 +187,6 @@ export function ensureMemberArray(node: { $type?: string } & Record<string, unkn
   return node[field] as unknown[];
 }
 
-/** Iterate the members of a node (no-op when the kind has no member container). */
-export function forEachMember(
-  node: { $type?: string } & Record<string, unknown>,
-  fn: (member: unknown, index: number) => void
-): void {
-  const got = getMemberArray(node);
-  if (got) got.members.forEach(fn);
-}
-
 // ---------------------------------------------------------------------------
 // V5/V6 array↔Map derivation primitives
 // ---------------------------------------------------------------------------

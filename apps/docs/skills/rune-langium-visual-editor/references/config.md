@@ -183,6 +183,12 @@ callback) would silently lose the curated namespaces that
 
 **Required:** yes
 
+#### selectionRekey
+
+Rename-only identity change from the last explicit selection, preserved across model refreshes.
+
+**Type:** `{ from: string; to: string; intermediateIds?: string[] }`
+
 #### searchQuery
 
 **Type:** `string`
@@ -336,7 +342,7 @@ registered on `dataTransfer`:
 Drag sources following the recommended dual-MIME contract get the strict
 behavior; single-MIME sources still work but lose dragover-time filtering.
 
-**Type:** `readonly ("Data" | "Choice" | "Annotation" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func")[]`
+**Type:** `readonly ("Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func" | "Annotation")[]`
 
 **Required:** yes
 

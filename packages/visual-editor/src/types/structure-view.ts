@@ -348,22 +348,6 @@ export type StructureNode =
   | StructureEnumNode
   | StructureFunctionNode;
 
-/**
- * DOM-measured natural widths for one structure node, keyed by instance id in
- * `StructureGraphInput.measuredWidths`. Produced by the post-render
- * measurement pass in StructureView (measure-then-layout): each rendered
- * node's rows column and header are briefly forced to `max-content` inside a
- * layout effect (no paint in between) and their natural `offsetWidth` is
- * recorded. When present these values replace the character-count estimates
- * in the sizing pass, so the re-layout hugs real rendered content.
- */
-export interface MeasuredNodeWidths {
-  /** Natural width of the rows column (`.rune-node-rows` / base-rows), border-box. */
-  readonly rowsColWidth?: number;
-  /** Natural width of the node header (`.rune-node-header`), border-box. */
-  readonly headerWidth?: number;
-}
-
 /** Full graph input produced by the adapter. */
 export interface StructureGraphInput {
   /**
@@ -382,12 +366,4 @@ export interface StructureGraphInput {
    * Look up a node's shared canonical metadata via `.id`.
    */
   readonly nodes: ReadonlyMap<string, StructureNode>;
-  /**
-   * Optional DOM-measured widths keyed by instance id. When a node has an
-   * entry here, the sizing pass uses the measured value (clamped to the same
-   * [COL_WIDTH, COL_WIDTH_MAX] envelope) instead of the character-count
-   * estimate. Nodes without an entry fall back to estimates, so a partially
-   * measured graph still lays out correctly.
-   */
-  readonly measuredWidths?: ReadonlyMap<string, MeasuredNodeWidths>;
 }

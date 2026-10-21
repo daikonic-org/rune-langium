@@ -23,6 +23,7 @@ import { parse as parseYaml } from 'yaml';
 import type { z } from 'zod';
 import type { OpenAPIV3, OpenAPIV3_1 } from 'openapi-types';
 import type { SourceFunc, SourceFuncParam, SourceModel } from '../source-model.js';
+import { sanitizeIdentifier } from '../identifiers.js';
 import { pushDiagnostic, type ImportDiagnostic } from '../diagnostics.js';
 import { readJsonSchema } from './json-schema-reader.js';
 import type { OpenApiImportOptionsSchema } from '../../options/openapi-import-options.js';
@@ -191,24 +192,6 @@ function readOutputFromResponses(
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
 
 /**
- * Sanitizes an `operationId` into a Rune-safe (`ValidID`-shaped) func name —
- * REGRESSION FIX (review finding): `SourceFunc.name`'s own doc comment
- * ("Rune-safe func name (from `operationId`, sanitized)") already promised
- * this, but the code stored the raw `operationId` unsanitized. This is the
- * same class of bug PR #373 fixed for hyphenated `$defs` keys — matches
- * `json-schema-reader.ts`'s own (private) `sanitizeEnumValue` convention
- * exactly (strip everything outside `[A-Za-z0-9_]`, collapse to `_`, trim
- * leading/trailing `_`, prefix a leading digit or empty result), reproduced
- * locally rather than importing that private helper.
- */
-function sanitizeFuncName(operationId: string): string {
-  let cleaned = operationId.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  if (cleaned.length === 0) cleaned = 'Operation';
-  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
-  return cleaned;
-}
-
-/**
  * Reads every `paths.*.{method}` operation into a `SourceFunc` (spec.md
  * Phase 2b Implementation Addendum decision 4's inbound half):
  * `operationId` → sanitized func name; `requestBody` → inputs;
@@ -255,7 +238,7 @@ function readOperations(paths: Record<string, Record<string, unknown>>, diagnost
         (typeof op['description'] === 'string' && op['description']) ||
         undefined;
 
-      let name = sanitizeFuncName(operationId);
+      let name = sanitizeIdentifier(operationId, 'Operation');
       if (usedNames.has(name)) {
         let suffix = 2;
         while (usedNames.has(`${name}_${suffix}`)) suffix += 1;

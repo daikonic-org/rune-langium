@@ -10,10 +10,10 @@
  * generated funcs), so the sidecar pattern applies here too.
  */
 
-import { stripBundledImports } from './bundle-imports.js';
+import { stripBundledImports, stripPerNamespaceHeader } from './bundle-imports.js';
 import type { GeneratorOutput } from '../types.js';
 import type { LanguageProfile } from './language-profile.js';
-import { runtimeHelperSource, RUNE_HELPER_NAMES, buildRuntimeHelperImportLine } from '../helpers.js';
+import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
 import { CallableNames } from './callable-names.js';
 import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
 import type { NamespaceRegistry } from './namespace-registry.js';
@@ -121,26 +121,6 @@ function makeSingleFileContent(perNs: ReadonlyArray<GeneratorOutput>, registry: 
     }
   }
   return sections.join('\n');
-}
-
-/**
- * Strip the per-namespace header from content produced with
- * `suppressBoilerplate: true`. The header shape is: SPDX + generated
- * + source-namespace + blank + helper import +
- * blank. The body begins after that.
- */
-function stripPerNamespaceHeader(content: string): string {
-  const lines = content.split('\n');
-  let bodyStart = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]?.startsWith(`import { ${RUNE_HELPER_NAMES[0]},`)) {
-      bodyStart = i + 1;
-      if (bodyStart < lines.length && lines[bodyStart] === '') bodyStart += 1;
-      break;
-    }
-  }
-  if (bodyStart === 0) return content;
-  return lines.slice(bodyStart).join('\n').trimEnd();
 }
 
 export const typescriptProfile: LanguageProfile<'typescript'> = {

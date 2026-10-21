@@ -233,7 +233,7 @@ describe('buildSegmentedNamespaceTree', () => {
   // Entry extraction parity
   // -------------------------------------------------------------------------
 
-  it('produces nodeId = "<ns>.<name>" (same as buildNamespaceTree)', () => {
+  it('produces nodeId = "<ns>.<name>"', () => {
     const roots = buildSegmentedNamespaceTree(repoOf([makeNode('com.example', 'MyType')]));
     const ns = findByPath(roots, 'com.example')!;
     expect(ns.types[0]!.nodeId).toBe('com.example.MyType');
@@ -806,15 +806,6 @@ describe('nodes/options with a missing name', () => {
     const model = findByPath(roots, 'com.rosetta.model')!;
     expect(model.types.map((t) => t.name)).toEqual(['Trade']);
   });
-
-  it('buildNamespaceTree (flat variant) drops a nameless node instead of throwing', async () => {
-    const { buildNamespaceTree } = await import('../../src/utils/namespace-tree.js');
-    const nodes = [makeNode('com.rosetta.model', 'Trade', 'data'), namelessNode('com.rosetta.model')];
-    expect(() => buildNamespaceTree(nodes)).not.toThrow();
-    const tree = buildNamespaceTree(nodes);
-    expect(tree[0]!.types.map((t) => t.name)).toEqual(['Trade']);
-  });
-
   it('buildSegmentedNamespaceTreeFromOptions drops an option with an empty label instead of throwing', () => {
     const options: TypeOption[] = [
       { value: 'com.rosetta.model.Trade', label: 'Trade', kind: 'data', namespace: 'com.rosetta.model' },
@@ -831,13 +822,6 @@ describe('nodes/options with a missing name', () => {
     const roots = buildSegmentedNamespaceTree(repoOf(nodes));
     expect(findByPath(roots, 'com.rosetta.model')).toBeDefined();
     expect(findByPath(roots, 'com.rosetta.empty')).toBeUndefined();
-  });
-
-  it('buildNamespaceTree (flat variant) omits a namespace left with zero entries after dropping its only (nameless) node', async () => {
-    const { buildNamespaceTree } = await import('../../src/utils/namespace-tree.js');
-    const nodes = [makeNode('com.rosetta.model', 'Trade', 'data'), namelessNode('com.rosetta.empty')];
-    const tree = buildNamespaceTree(nodes);
-    expect(tree.map((entry) => entry.namespace)).toEqual(['com.rosetta.model']);
   });
 });
 

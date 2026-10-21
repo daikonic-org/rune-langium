@@ -16,10 +16,10 @@ will still trigger drop, but accept-policy filtering moves to drop time —
 the hook can't filter by kind during dragover, so hover may briefly show
 "accepting" before the drop is rejected if the payload kind isn't in `accept`.
 ```ts
-typeRefMimeForKind(kind: "Data" | "Choice" | "Annotation" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func"): string
+typeRefMimeForKind(kind: "Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func" | "Annotation"): string
 ```
 **Parameters:**
-- `kind: "Data" | "Choice" | "Annotation" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func"`
+- `kind: "Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func" | "Annotation"`
 **Returns:** `string`
 
 ### `isTypeRefPayload`

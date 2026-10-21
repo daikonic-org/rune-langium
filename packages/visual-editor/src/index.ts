@@ -26,12 +26,6 @@ export type { KindBadgeProps } from './components/KindBadge.js';
 export { TypeHeader } from './components/TypeHeader.js';
 export type { TypeHeaderProps } from './components/TypeHeader.js';
 
-// Shared read-only field components (for panel surfaces)
-export { DefinitionField } from './components/DefinitionField.js';
-export type { DefinitionFieldProps } from './components/DefinitionField.js';
-export { ExtendsField } from './components/ExtendsField.js';
-export type { ExtendsFieldProps } from './components/ExtendsField.js';
-
 // Panel components (for custom layouts)
 export { OtherForm } from './components/panels/OtherForm.js';
 export type { OtherFormProps } from './components/panels/OtherForm.js';
@@ -110,7 +104,6 @@ export type {
   RuneTypeGraphRef,
   TypeGraphNode,
   TypeGraphEdge,
-  NamespaceTreeNode,
   NamespaceTypeEntry,
   VisibilityState,
   NavigateToNodeCallback
@@ -128,8 +121,6 @@ export {
   getRefText,
   annotationsToDisplay,
   conditionsToDisplay,
-  classExprSynonymsToStrings,
-  enumSynonymsToStrings,
   AST_TYPE_TO_NODE_TYPE,
   NODE_TYPE_TO_AST_TYPE,
   resolveNodeKind
@@ -142,7 +133,6 @@ export { computeGroupedLayout, findInheritanceGroups } from './layout/grouped-la
 export type { GroupInfo } from './layout/grouped-layout.js';
 
 // Namespace tree utilities
-export { buildNamespaceTree, filterNamespaceTree } from './utils/namespace-tree.js';
 export { buildTypeOptions } from './utils/type-options.js';
 
 // Node-id utilities
@@ -161,7 +151,6 @@ export { selectNodeRepository } from './store/node-repository.js';
 export type { NodeRepository, NodeOf } from './store/node-repository.js';
 
 // History / undo-redo
-export { useTemporalStore, useCanUndo, useCanRedo, useUndo, useRedo } from './store/history.js';
 export type { TrackedState } from './store/history.js';
 
 // Expression builder
@@ -203,7 +192,7 @@ export { StructureView } from './components/StructureView.js';
 export type { StructureViewProps, StructureCellComponents } from './components/StructureView.js';
 
 // Structure View adapter (Phase 2 / 14e)
-export { buildStructureGraph, findByCanonicalId, findAllByCanonicalId } from './adapters/structure-graph-adapter.js';
+export { buildStructureGraph } from './adapters/structure-graph-adapter.js';
 export type {
   AdapterDocument,
   AdapterNode,
@@ -212,10 +201,6 @@ export type {
   AdapterCardinality,
   BuildOptions
 } from './adapters/structure-graph-adapter.js';
-
-// Structure View layout (Phase 3)
-export { layoutStructureGraph, STRUCTURE_LAYOUT_CONSTANTS } from './layout/structure-layout.js';
-export type { LayoutResult } from './layout/structure-layout.js';
 
 // Structure cells (Phase 5)
 export { NameCell } from './components/editors/structure/NameCell.js';
@@ -226,9 +211,6 @@ export { TypeChip } from './components/editors/structure/TypeChip.js';
 export type { TypeChipProps, TypeChipKind } from './components/editors/structure/TypeChip.js';
 export { TypePickerCell } from './components/editors/structure/TypePickerCell.js';
 export type { TypePickerCellProps } from './components/editors/structure/TypePickerCell.js';
-export { InheritanceCell } from './components/editors/structure/InheritanceCell.js';
-export type { InheritanceCellProps } from './components/editors/structure/InheritanceCell.js';
-
 export { expressionScopeFromEntries } from './adapters/expression-scope.js';
 
 export { createEditorCommitRegistry } from './hooks/editor-commit-lifecycle.js';

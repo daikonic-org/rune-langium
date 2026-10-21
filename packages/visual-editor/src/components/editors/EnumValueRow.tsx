@@ -22,6 +22,7 @@ import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.
 import { SynonymEditor } from './SynonymEditor.js';
 import { MetadataScalar } from './MetadataSection.js';
 import type { SourceRefOption } from '../../types.js';
+import { rowReorderHandlers } from './row-reorder.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -125,25 +126,6 @@ function EnumValueRow({
   );
 
   // ---- Drag reorder --------------------------------------------------------
-
-  function handleDragStart(e: React.DragEvent) {
-    e.dataTransfer.setData('text/plain', String(index));
-    e.dataTransfer.effectAllowed = 'move';
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const fromIndex = Number(e.dataTransfer.getData('text/plain'));
-    if (!Number.isNaN(fromIndex) && fromIndex !== index) {
-      onReorder(fromIndex, index);
-    }
-  }
-
   const showSynonymSection =
     !metadataInDetails && ((enumSynonyms?.length ?? 0) > 0 || (!effectiveReadOnly && synonymSourceOptions.length > 0));
 
@@ -156,9 +138,7 @@ function EnumValueRow({
       className={INSPECTOR_ROW_CLASS}
       role="listitem"
       draggable={!effectiveReadOnly}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      {...rowReorderHandlers(index, onReorder)}
     >
       {/* Main row: handle | name | display | badge | action button */}
       <div className="flex items-center gap-1.5">

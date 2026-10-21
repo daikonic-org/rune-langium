@@ -55,11 +55,12 @@ CardinalityPicker(__namedParameters: CardinalityPickerProps): ReactNode
 **Returns:** `ReactNode`
 
 ### `MetadataSection`
+Editable and inspection-only targets share the canonical construct capabilities.
 ```ts
-MetadataSection(__namedParameters: MetadataSectionProps): ReactNode
+MetadataSection(props: MetadataSectionProps): ReactNode
 ```
 **Parameters:**
-- `__namedParameters: MetadataSectionProps`
+- `props: MetadataSectionProps`
 **Returns:** `ReactNode`
 
 ### `AttributeRow`
@@ -150,10 +151,28 @@ TypePickerCell(__namedParameters: TypePickerCellProps): ReactElement
 - `__namedParameters: TypePickerCellProps`
 **Returns:** `ReactElement`
 
-### `InheritanceCell`
+### `InspectorFrame`
+Layout only: providers and editor sessions stay owned by their declaration.
 ```ts
-InheritanceCell(__namedParameters: InheritanceCellProps): ReactElement
+InspectorFrame(__namedParameters: InspectorFrameProps): Element
 ```
 **Parameters:**
-- `__namedParameters: InheritanceCellProps`
-**Returns:** `ReactElement`
+- `__namedParameters: InspectorFrameProps`
+**Returns:** `Element`
+
+### `InspectorDetailsPane`
+A bounded local layout preference; no model, draft or persistence ownership.
+```ts
+InspectorDetailsPane(__namedParameters: InspectorDetailsPaneProps): Element
+```
+**Parameters:**
+- `__namedParameters: InspectorDetailsPaneProps`
+**Returns:** `Element`
+
+### `InspectorInheritanceField`
+```ts
+InspectorInheritanceField(__namedParameters: TypeReferenceFieldProps & { label?: string }): Element
+```
+**Parameters:**
+- `__namedParameters: TypeReferenceFieldProps & { label?: string }`
+**Returns:** `Element`

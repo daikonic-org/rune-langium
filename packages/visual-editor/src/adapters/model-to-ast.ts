@@ -14,6 +14,7 @@
 
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
 import { nameFromNodeId } from '../store/node-projection.js';
+import { buildInheritanceMap } from '../utils/inheritance.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,20 +39,6 @@ export type SyntheticElement = unknown;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Build inheritance lookup from edges.
- */
-function buildInheritanceMap(edges: TypeGraphEdge[]): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const edge of edges) {
-    if (edge.data?.kind === 'extends' || edge.data?.kind === 'enum-extends') {
-      map.set(edge.source, edge.target);
-    }
-  }
-  return map;
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------

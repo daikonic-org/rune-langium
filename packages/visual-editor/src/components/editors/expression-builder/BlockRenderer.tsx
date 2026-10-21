@@ -11,7 +11,7 @@
  */
 
 import { memo, useCallback, useState, type DragEvent } from 'react';
-import { EXPRESSION_DRAG_TYPE } from '../../../hooks/useDragDrop.js';
+import { EXPRESSION_DRAG_TYPE } from '../../../hooks/expression-drag.js';
 import type { ExpressionNode } from '../../../schemas/expression-node-schema.js';
 import { BinaryBlock } from './blocks/BinaryBlock.js';
 import { UnaryBlock } from './blocks/UnaryBlock.js';

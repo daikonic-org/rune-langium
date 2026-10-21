@@ -21,7 +21,7 @@ import { useMemo } from 'react';
  * A diagnostic whose range has been converted from LSP line/character
  * coordinates to character offsets in the source document. EditorPage
  * performs this conversion via a memoized lineOffsets array before passing
- * the resulting array into StructureView → DataNode.
+ * the resulting array into StructureView member rows.
  */
 export interface RangeDiagnostic {
   readonly start: number;

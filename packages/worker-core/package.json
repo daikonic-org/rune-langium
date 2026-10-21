@@ -2,7 +2,7 @@
   "name": "@rune-langium/worker-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared cross-cutting utilities for rune-langium's plain Cloudflare Workers (lsp-worker, codegen-worker, telemetry-worker, curated-mirror-worker). Ships structured logging (./log) — a pino/browser logger with this fleet's shared redact-path baseline, real redaction, and console.log(obj) convention baked in — and origin-allowlist matching with CF Pages preview wildcard support (./origin), with room to grow other shared Worker concerns as sibling modules.",
+  "description": "Shared Cloudflare Worker infrastructure: structured logging and redaction (./log), origin allowlist matching (./origin), and JSON/CORS responses (./http).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,6 +18,10 @@
     "./origin": {
       "types": "./dist/origin.d.ts",
       "import": "./dist/origin.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.js"
     }
   },
   "files": [

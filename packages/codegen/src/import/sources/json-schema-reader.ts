@@ -35,6 +35,7 @@
 
 import type { JSONSchema7, JSONSchema7Definition } from 'json-schema';
 import type { ConstraintIR, SourceEnum, SourceModel, SourceType, SourceAttribute } from '../source-model.js';
+import { sanitizeIdentifier, dedupeIdentifier, sanitizeNamespaceSegment } from '../identifiers.js';
 import { pushDiagnostic, type ImportDiagnostic } from '../diagnostics.js';
 
 // --- JSON Schema shape ---------------------------------------------------
@@ -284,18 +285,13 @@ function namespaceFromId(id: string): string | undefined {
       .replace(/\.(json|schema\.json)$/i, '')
       .split('/')
       .filter(Boolean);
-    const segments = [...hostSegments, ...pathSegments].map(sanitizeSegment).filter(Boolean);
+    const segments = [...hostSegments, ...pathSegments].map(sanitizeNamespaceSegment).filter(Boolean);
     return segments.length > 0 ? segments.join('.') : undefined;
   } catch {
     // Not a URL — treat the whole $id as a single dotted path candidate.
-    const segments = id.split(/[./]/).map(sanitizeSegment).filter(Boolean);
+    const segments = id.split(/[./]/).map(sanitizeNamespaceSegment).filter(Boolean);
     return segments.length > 0 ? segments.join('.') : undefined;
   }
-}
-
-function sanitizeSegment(s: string): string {
-  const cleaned = s.replace(/[^A-Za-z0-9_]/g, '');
-  return /^[A-Za-z_]/.test(cleaned) ? cleaned : '';
 }
 
 const NAMESPACE_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
@@ -325,7 +321,7 @@ function readEnumDef(key: string, def: JsonSchemaNode, diagnostics: ImportDiagno
   const values = rawValues.map((raw) => {
     const original = String(raw);
     const displayName = displayMap?.[original];
-    const name = dedupeIdentifier(sanitizeEnumValue(original), used);
+    const name = dedupeIdentifier(sanitizeIdentifier(original, 'VALUE'), used);
     return {
       name,
       // sourceKey is ALWAYS the original literal — the enum-value synonym
@@ -353,25 +349,6 @@ function readEnumDef(key: string, def: JsonSchemaNode, diagnostics: ImportDiagno
   // hard-invariant breach (reviewer finding). The original key survives via
   // `sourceKey` (the enum-level synonym), so nothing is lost by sanitizing.
   return { name: toTypeName(key), sourceKey: key, values };
-}
-
-/** Sanitizes a non-ValidID-safe enum literal into a Rune-safe identifier (scenario 3: `"ACT/360"` → `ACT_360`). */
-function sanitizeEnumValue(raw: string): string {
-  let cleaned = raw.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  if (cleaned.length === 0) cleaned = 'VALUE';
-  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
-  return cleaned;
-}
-
-function dedupeIdentifier(base: string, used: Set<string>): string {
-  let candidate = base;
-  let suffix = 2;
-  while (used.has(candidate)) {
-    candidate = `${base}_${suffix}`;
-    suffix += 1;
-  }
-  used.add(candidate);
-  return candidate;
 }
 
 // --- $ref resolution (internal $defs/definitions only) ---------------------
@@ -700,10 +677,10 @@ function resolveTypeName(
 
 /** JSON Schema def keys are used verbatim as Rune type/enum names when already ValidID-safe (the common case); sanitized otherwise. */
 function toTypeName(key: string): string {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? key : sanitizeEnumValue(key);
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? key : sanitizeIdentifier(key, 'VALUE');
 }
 
 /** JSON property names are used verbatim when already ValidID-safe camelCase-ish identifiers; sanitized otherwise. */
 function toAttributeName(propName: string): string {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(propName) ? propName : sanitizeEnumValue(propName);
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(propName) ? propName : sanitizeIdentifier(propName, 'VALUE');
 }

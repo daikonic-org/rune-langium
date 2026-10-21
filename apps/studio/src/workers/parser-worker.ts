@@ -10,6 +10,7 @@
  * and returns parsed results.
  */
 
+import { isRecord } from '../services/message-guards.js';
 import {
   getExpressionScope,
   getExpressionRegions,
@@ -248,10 +249,6 @@ serializer = RuneDsl.serializer.JsonSerializer;
 // Track the active Langium services used by the most recent parseWorkspace.
 let activeBuilder: typeof builder = builder;
 let activeLangiumDocs = RuneDsl.shared.workspace.LangiumDocuments;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
 
 export const isParseResponse = withInstrumentation(
   function isParseResponse(value: unknown): value is ParseResponse {

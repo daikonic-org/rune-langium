@@ -77,13 +77,6 @@ function readTarString(block, start, end) {
   return new TextDecoder('utf-8').decode(sub.subarray(0, last));
 }
 
-function isAllZero(block) {
-  for (let i = 0; i < block.length; i++) {
-    if (block[i] !== 0) return false;
-  }
-  return true;
-}
-
 function extractRosettaFiles(tarGzBytes) {
   const tar = new Uint8Array(gunzipSync(Buffer.from(tarGzBytes)));
   const decoder = new TextDecoder('utf-8');
@@ -93,7 +86,7 @@ function extractRosettaFiles(tarGzBytes) {
 
   while (offset + BLOCK <= tar.byteLength) {
     const header = tar.subarray(offset, offset + BLOCK);
-    if (isAllZero(header)) break;
+    if (header.every((byte) => byte === 0)) break;
 
     const name = readTarString(header, 0, 100);
     const sizeOctal = readTarString(header, 124, 136).trim();

@@ -22,11 +22,11 @@
  * unit-tested in isolation — see edit-reconcile.test.ts.
  */
 
-import { create, apply, type Patches, type Patch } from 'mutative';
+import { apply, type Patches, type Patch } from 'mutative';
 import { parseExpression, parsedAdapter } from '@rune-langium/core';
 import { RAW_DSL_TYPE } from '@rune-langium/codegen/rosetta';
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
-import { toNodesById, toEdgesById, nodesFromMap, edgesFromMap } from './node-projection.js';
+import { toNodesById, toEdgesById } from './node-projection.js';
 
 /** Id-keyed projection of the editable graph — the unit Mutative patches address. */
 export interface GraphDraft {
@@ -39,24 +39,6 @@ export type GraphEditRecipe = (draft: GraphDraft) => void;
 
 export function projectGraph(nodes: readonly TypeGraphNode[], edges: readonly TypeGraphEdge[]): GraphDraft {
   return { nodes: toNodesById(nodes), edges: toEdgesById(edges) };
-}
-
-export function flattenGraph(draft: GraphDraft): { nodes: TypeGraphNode[]; edges: TypeGraphEdge[] } {
-  return { nodes: nodesFromMap(draft.nodes), edges: edgesFromMap(draft.edges) };
-}
-
-/**
- * Run a user edit through Mutative on the id-keyed projection, returning the
- * new arrays AND the id-rooted patches describing the change. The caller
- * accumulates the patches as pending user intent.
- */
-export function commitGraphEdit(
-  nodes: readonly TypeGraphNode[],
-  edges: readonly TypeGraphEdge[],
-  recipe: GraphEditRecipe
-): { nodes: TypeGraphNode[]; edges: TypeGraphEdge[]; patches: Patches } {
-  const [next, patches] = create(projectGraph(nodes, edges), recipe, { enablePatches: true });
-  return { ...flattenGraph(next), patches };
 }
 
 /** Cheap structural equality for patch values (small, JSON-safe graph data). */

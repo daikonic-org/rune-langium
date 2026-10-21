@@ -4,8 +4,8 @@
 
 ### `OtherForm`
 ```ts
-OtherForm(__namedParameters: OtherFormProps): Element | null
+OtherForm(props: OtherFormProps): Element | null
 ```
 **Parameters:**
-- `__namedParameters: OtherFormProps`
+- `props: OtherFormProps`
 **Returns:** `Element | null`

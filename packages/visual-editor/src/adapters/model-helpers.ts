@@ -222,41 +222,6 @@ export function conditionsToDisplay(
 // ---------------------------------------------------------------------------
 // Synonyms
 // ---------------------------------------------------------------------------
-
-interface ClassSynonymShape {
-  value?: { name?: string; path?: string };
-}
-
-interface EnumSynonymShape {
-  body?: { values?: Array<{ name?: string; path?: string }> };
-}
-
-/** Extract display strings from Data/Choice class synonyms. */
-export function classExprSynonymsToStrings(synonyms: ClassSynonymShape[] | undefined): string[] {
-  if (!synonyms) return [];
-  const result: string[] = [];
-  for (const s of synonyms) {
-    const name = s.value?.name;
-    const path = s.value?.path;
-    if (!name) continue;
-    result.push(path ? `${name}->${path}` : name);
-  }
-  return result;
-}
-
-/** Extract display strings from Enum synonyms. */
-export function enumSynonymsToStrings(synonyms: EnumSynonymShape[] | undefined): string[] {
-  if (!synonyms) return [];
-  const result: string[] = [];
-  for (const s of synonyms) {
-    for (const v of s.body?.values ?? []) {
-      if (!v.name) continue;
-      result.push(v.path ? `${v.name}->${v.path}` : v.name);
-    }
-  }
-  return result;
-}
-
 // ---------------------------------------------------------------------------
 // Member list access (type-aware)
 // ---------------------------------------------------------------------------

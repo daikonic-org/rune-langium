@@ -15,9 +15,8 @@ import { emitNamespaceWithContract, type NamespaceEmitterOptions } from './names
 import type { NamespaceRegistry } from './namespace-registry.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { dialectFor, type Dialect } from './sql-dialect.js';
-import { BaseNamespaceEmitter } from './base-namespace-emitter.js';
-import { decodeCardinality } from './base-namespace-emitter.js';
-import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
+import { BaseNamespaceEmitter, decodeCardinality } from './base-namespace-emitter.js';
+import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
 import { debug } from '../instrument.js';
 
 /** One attribute's resolved SQL modeling kind — FK column (Data), CHECK-constrained column (Enum), or a plain scalar column (builtin, possibly unresolved). */
@@ -25,32 +24,6 @@ type ResolvedAttrType =
   | { kind: 'data'; node: Data }
   | { kind: 'enum'; node: RosettaEnumeration }
   | { kind: 'scalar'; builtin: string | undefined; resolved: boolean };
-
-/**
- * Wrap a bare `ReadonlyMap<string, N>` (`NamespaceWalkResult`'s own lookup
- * maps) into the `{node, sourceUri}`-entry shape `resolveTypeCallTarget`
- * requires — same adapter pattern as zod-emitter.ts/xsd-emitter.ts.
- */
-function wrapTypeIndexEntries<N>(
-  map: ReadonlyMap<string, N>,
-  sourceUri: string
-): ReadonlyMap<string, TypeIndexEntry<N>> {
-  const wrapped = new Map<string, TypeIndexEntry<N>>();
-  for (const [name, node] of map) {
-    wrapped.set(name, { node, sourceUri });
-  }
-  return wrapped;
-}
-
-/** Adapt `NamespaceWalkResult`'s bare lookup maps to the `TypeIndexLookup` shape `resolveTypeCallTarget` expects. */
-function toTypeIndexLookup(model: NamespaceWalkResult, sourceUri: string): TypeIndexLookup {
-  return {
-    enumByName: wrapTypeIndexEntries(model.enumByName, sourceUri),
-    dataByName: wrapTypeIndexEntries(model.dataByName, sourceUri),
-    choiceByName: wrapTypeIndexEntries(model.choiceByName, sourceUri),
-    typeAliasByName: wrapTypeIndexEntries(model.typeAliasByName, sourceUri)
-  };
-}
 
 export class SqlNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly dialect: Dialect;

@@ -5,8 +5,8 @@
 // var(--rune-*) custom properties declared in styles.css.
 //
 // See test/layout/structure-css-ssot.test.ts (Part A) for the parity check
-// that these custom props match `STRUCTURE_LAYOUT_CONSTANTS` in
-// src/layout/structure-layout.ts.
+// that these custom props match `GRAPH_NODE_GEOMETRY` in
+// src/layout/graph-node-geometry.ts.
 
 import stylelint from 'stylelint';
 
@@ -14,7 +14,7 @@ const ruleName = 'rune/no-literal-layout-px';
 
 const messages = stylelint.utils.ruleMessages(ruleName, {
   literalPx: (selector, prop, value) =>
-    `Layout-coupled property "${prop}: ${value}" on geometry class "${selector}" must use var(--rune-*) custom property (see structure-layout.ts SSoT).`
+    `Layout-coupled property "${prop}: ${value}" on geometry class "${selector}" must use var(--rune-*) custom property (see graph-node-geometry.ts).`
 });
 
 const meta = {
@@ -22,7 +22,7 @@ const meta = {
 };
 
 // Only the structure-view geometry classes that are layout-coupled to
-// STRUCTURE_LAYOUT_CONSTANTS.  Mirrors the pattern in the vitest parity
+// GRAPH_NODE_GEOMETRY.  Mirrors the pattern in the vitest parity
 // checker (test/layout/structure-css-ssot.test.ts Part A) so both tools
 // agree on scope.
 const GEOMETRY_CLASS_PATTERN =
@@ -67,7 +67,7 @@ function isViolation(value) {
   if (/^(auto|none|inherit|initial|revert|unset)$/.test(value)) return false;
   // Only exempt var(--rune-*, ...) calls — design-system token vars (e.g.
   // var(--space-2, 8px)) must NOT be used for layout-coupled properties on
-  // .rune-* selectors because they bypass the STRUCTURE_LAYOUT_CONSTANTS
+  // .rune-* selectors because they bypass the GRAPH_NODE_GEOMETRY
   // coupling. New geometry values must be promoted to --rune-* SSoT first.
   //
   // Regex breakdown:

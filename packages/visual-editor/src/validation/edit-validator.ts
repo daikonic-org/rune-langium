@@ -18,20 +18,11 @@
 
 import { parseExpression } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge, ValidationError } from '../types.js';
+import { buildInheritanceMap } from '../utils/inheritance.js';
 
 // ---------------------------------------------------------------------------
 // Circular inheritance detection (S-02)
 // ---------------------------------------------------------------------------
-
-function buildParentMap(edges: TypeGraphEdge[]): Map<string, string> {
-  const parentMap = new Map<string, string>();
-  for (const edge of edges) {
-    if (edge.data?.kind === 'extends' || edge.data?.kind === 'enum-extends') {
-      parentMap.set(edge.source, edge.target);
-    }
-  }
-  return parentMap;
-}
 
 function reachesAncestor(childId: string, parentId: string, parentMap: ReadonlyMap<string, string>): boolean {
   const visited = new Set<string>();
@@ -53,7 +44,7 @@ function reachesAncestor(childId: string, parentId: string, parentMap: ReadonlyM
  */
 export function detectCircularInheritance(childId: string, parentId: string, edges: TypeGraphEdge[]): boolean {
   if (childId === parentId) return true;
-  return reachesAncestor(childId, parentId, buildParentMap(edges));
+  return reachesAncestor(childId, parentId, buildInheritanceMap(edges));
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +247,7 @@ export function validateGraph(nodes: TypeGraphNode[], edges: TypeGraphEdge[]): V
   }
 
   // Check for circular inheritance
-  const parentMap = buildParentMap(edges);
+  const parentMap = buildInheritanceMap(edges);
 
   for (const [childId, parentId] of parentMap) {
     if (reachesAncestor(childId, parentId, parentMap)) {

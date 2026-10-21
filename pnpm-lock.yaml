@@ -193,6 +193,9 @@ importers:
 
   apps/github-auth-worker:
     dependencies:
+      '@rune-langium/worker-core':
+        specifier: workspace:*
+        version: link:../../packages/worker-core
       pino:
         specifier: ^10.4.0
         version: 10.4.0

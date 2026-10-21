@@ -59,7 +59,7 @@ import {
 import type { NamespaceRegistry } from './namespace-registry.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { jsonSchemaProfile } from './json-schema-profile.js';
-import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
+import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
 import { debug } from '../instrument.js';
 
 /** JSON Schema 2020-12 meta-schema URI. */
@@ -106,38 +106,6 @@ const JSON_BUILTIN_TYPE_MAP: Readonly<Record<string, object>> = mergeProfileType
   string,
   object
 >;
-
-/**
- * Wrap a bare `ReadonlyMap<string, N>` (this emitter's own `EmissionContext`
- * lookup maps) into the `{node, sourceUri}`-entry shape `resolveTypeCallTarget`
- * (Task 1, type-ref-resolver.ts) requires. Mirrors zod-emitter.ts's identical
- * adapter — see that file for the full rationale.
- */
-function wrapTypeIndexEntries<N>(
-  map: ReadonlyMap<string, N>,
-  sourceUri: string
-): ReadonlyMap<string, TypeIndexEntry<N>> {
-  const wrapped = new Map<string, TypeIndexEntry<N>>();
-  for (const [name, node] of map) {
-    wrapped.set(name, { node, sourceUri });
-  }
-  return wrapped;
-}
-
-/**
- * Adapt this emitter's `EmissionContext` (bare unwrapped lookup maps) to the
- * `TypeIndexLookup` shape `resolveTypeCallTarget` expects. `sourceUri` is
- * `fallbackSourceUri` — a real document URI (`model.docs[0]?.uri`), unlike
- * zod-emitter's `ctx.namespace` stand-in.
- */
-function toTypeIndexLookup(ctx: EmissionContext, sourceUri: string): TypeIndexLookup {
-  return {
-    enumByName: wrapTypeIndexEntries(ctx.enumByName, sourceUri),
-    dataByName: wrapTypeIndexEntries(ctx.dataByName, sourceUri),
-    choiceByName: wrapTypeIndexEntries(ctx.choiceByName, sourceUri),
-    typeAliasByName: wrapTypeIndexEntries(ctx.typeAliasByName, sourceUri)
-  };
-}
 
 function buildEmissionContext(
   model: NamespaceWalkResult,

@@ -417,24 +417,13 @@ function buildFunctionNode(node: AdapterNode, doc: AdapterDocument, instanceId: 
   };
 }
 
-/**
- * Compose the React Flow instance id a layout placement would assign to an
- * expansion child. Mirrors the layout's `makeInstanceId` so the adapter and
- * layout agree on what `data.instancePath` should look like in renderer chevrons.
- *
- * Layout source of truth: `packages/visual-editor/src/layout/structure-layout.ts:339`.
- *
- * Phase 14e: this is also the key the adapter uses for `out` entries — each
- * unique (parentInstanceId × attrName × canonicalTarget) gets its own
- * StructureNode in the per-instance graph.
- */
+/** Instance identity for one expanded property within its owning branch. */
 function adapterChildInstanceId(parentInstanceId: string, attrName: string, targetCanonicalId: string): string {
   return `${parentInstanceId}::${attrName}::${targetCanonicalId}`;
 }
 
 /**
- * Compose the instance id of a base container nested one level deeper than its
- * outer instance (via the layout's `__derived` slot).
+ * Compose the derived declaration identity inside an inherited base container.
  */
 function adapterDerivedInstanceId(outerInstanceId: string, innerCanonicalId: string): string {
   return `${outerInstanceId}::__derived::${innerCanonicalId}`;
@@ -984,34 +973,4 @@ export function buildStructureGraph(doc: AdapterDocument, opts: BuildOptions): S
 
   // Defensive fallback — unknown $type echoes the focused id with empty nodes.
   return { rootNodeId: root.id, nodes };
-}
-
-/**
- * Find the first StructureNode whose canonical id matches.
- *
- * Phase 14e: `StructureGraphInput.nodes` is keyed by INSTANCE id (per-instance
- * materialization). Callers that need to look up a node by its canonical id —
- * tests, AST navigation, cell editors — use this helper instead of `nodes.get`.
- *
- * If multiple visible instances share the canonical id (e.g. `buyer.Party`
- * and `seller.Party`), the FIRST entry in iteration order is returned. Use
- * `findAllByCanonicalId` for the full list.
- */
-export function findByCanonicalId(
-  nodes: ReadonlyMap<string, StructureNode>,
-  canonicalId: string
-): StructureNode | undefined {
-  for (const node of nodes.values()) {
-    if (node.id === canonicalId) return node;
-  }
-  return undefined;
-}
-
-/** Return all StructureNodes whose canonical id matches. */
-export function findAllByCanonicalId(nodes: ReadonlyMap<string, StructureNode>, canonicalId: string): StructureNode[] {
-  const out: StructureNode[] = [];
-  for (const node of nodes.values()) {
-    if (node.id === canonicalId) out.push(node);
-  }
-  return out;
 }

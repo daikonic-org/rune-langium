@@ -533,16 +533,6 @@ export interface RuneTypeGraphRef {
 // Namespace Explorer Types
 // ---------------------------------------------------------------------------
 
-export interface NamespaceTreeNode {
-  namespace: string;
-  types: NamespaceTypeEntry[];
-  totalCount: number;
-  dataCount: number;
-  choiceCount: number;
-  enumCount: number;
-  funcCount: number;
-}
-
 export interface NamespaceTypeEntry {
   nodeId: string;
   name: string;

@@ -19,7 +19,7 @@
  *   dragover time, not just at drop time.
  * - `dropEffect` writes can throw in some strict-mode test stubs; we guard
  *   the assignment defensively without altering the public contract.
- * - The `enterCountRef` pattern (mirrored from useDragDrop.ts) prevents
+ * - The `enterCountRef` pattern (shared by nested native drop targets) prevents
  *   `isOver` from flickering when the pointer crosses child element boundaries
  *   inside the drop zone.
  *
@@ -86,7 +86,7 @@ export function useTypeRefDrop(opts: UseTypeRefDropOptions): UseTypeRefDropResul
   const [isOver, setIsOver] = useState(false);
 
   // enterCountRef prevents isOver from flickering when the pointer crosses
-  // child element boundaries inside the drop zone (mirrors useDragDrop.ts).
+  // child element boundaries inside the drop zone .
   const enterCountRef = useRef(0);
 
   // Memoize the acceptable MIME set so the dragover/dragenter handlers can do

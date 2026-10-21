@@ -6,12 +6,12 @@
 Returns a debounced callback that auto-saves the latest value after
 `delay` milliseconds of inactivity. Flushes on unmount.
 ```ts
-useAutoSave<T>(onCommit: (value: T) => void, delay: number): (value: T) => void
+useAutoSave<T>(onCommit: (value: T) => boolean | void, delay: number): (value: T) => void & { flush: any }
 ```
 **Parameters:**
-- `onCommit: (value: T) => void` — Callback invoked with the latest value on commit.
+- `onCommit: (value: T) => boolean | void` — Callback invoked with the latest value on commit.
 - `delay: number` — default: `500` — Debounce delay in milliseconds (default 500).
-**Returns:** `(value: T) => void` — A debounced setter function.
+**Returns:** `(value: T) => void & { flush: any }` — A debounced setter function.
 
 ### `useLatestRef`
 ```ts
@@ -20,6 +20,15 @@ useLatestRef<T>(value: T): RefObject<T>
 **Parameters:**
 - `value: T`
 **Returns:** `RefObject<T>`
+
+### `useNavigationArrival`
+Brief destination emphasis, independent of selection and camera auto-fitting.
+```ts
+useNavigationArrival(consumedArrivalRef?: RefObject<NavigationArrival | undefined>): { arrivalNodeId: string | null; emphasizeArrival: (nodeId: string, revision?: number) => void; cancelArrival: () => void }
+```
+**Parameters:**
+- `consumedArrivalRef: RefObject<NavigationArrival | undefined>` (optional)
+**Returns:** `{ arrivalNodeId: string | null; emphasizeArrival: (nodeId: string, revision?: number) => void; cancelArrival: () => void }`
 
 ### `useStableKey`
 ```ts
@@ -67,17 +76,13 @@ useDiagnosticsForRange(astRange: { start: number; end: number } | undefined, dia
 **Returns:** `RangeDiagnostic | undefined`
 
 ### `useModelSourceSync`
-Fires `onModelChanged` (serialized source keyed by namespace name) whenever
-`nodes` or `edges` change in content — independent of which visual pane is
-currently mounted.
 ```ts
-useModelSourceSync(nodes: TypeGraphNode[], edges: TypeGraphEdge[], onModelChanged?: (serialized: Map<string, string>) => void | Promise<void>, parseEpoch: number, patches: Patches, originalSourceByNamespace: Map<string, string>, inversePatches: Patches): void
+useModelSourceSync(nodes: TypeGraphNode[], edges: TypeGraphEdge[], onModelChanged?: (serialized: Map<string, string>) => void | Promise<void>, parseEpoch: number, patches: Patches, originalSourceByNamespace: Map<string, string>, inversePatches: Patches): SourceSyncHandle
 ```
 **Parameters:**
-- `nodes: TypeGraphNode[]` — Current nodes from the editor store.
-- `edges: TypeGraphEdge[]` — Current edges from the editor store.
-- `onModelChanged: (serialized: Map<string, string>) => void | Promise<void>` (optional) — Callback invoked with a `Map&lt;namespace, serializedText&gt;`
-  on each content change after the initial mount.
+- `nodes: TypeGraphNode[]`
+- `edges: TypeGraphEdge[]`
+- `onModelChanged: (serialized: Map<string, string>) => void | Promise<void>` (optional)
 - `parseEpoch: number` — default: `0` — The editor store's `parseEpoch` — bumped ONLY when the graph is (re)built
 from a parse result. Used to gate serialization: a `nodes`/`edges` change
 that arrives together with a `parseEpoch` bump came FROM the source (a
@@ -97,3 +102,10 @@ empty output (no write-back).
 Used to derive the source byte ranges of genuinely-deleted elements so
 those ranges are omitted from the assembled output. Defaults to [] so
 legacy/test callers without deletion support keep the old behavior.
+**Returns:** `SourceSyncHandle`
+
+### `createEditorCommitRegistry`
+```ts
+createEditorCommitRegistry(): EditorCommitRegistry
+```
+**Returns:** `EditorCommitRegistry`

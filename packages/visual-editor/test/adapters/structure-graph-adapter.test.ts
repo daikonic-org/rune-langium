@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { findByCanonicalId, findAllByCanonicalId } from '../helpers/structure-lookup.js';
 import { describe, it, expect } from 'vitest';
-import {
-  buildStructureGraph,
-  findByCanonicalId,
-  findAllByCanonicalId
-} from '../../src/adapters/structure-graph-adapter.js';
+import { buildStructureGraph } from '../../src/adapters/structure-graph-adapter.js';
 import {
   type StructureBaseContainer,
   type StructureChoiceNode,

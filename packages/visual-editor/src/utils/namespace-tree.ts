@@ -1,18 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-/**
- * Namespace tree builder — groups graph nodes by namespace
- * for the NamespaceExplorerPanel.
- *
- * Exports two tree representations:
- *   1. Flat (buildNamespaceTree) — groups by full dotted namespace string.
- *      Used by the current NamespaceExplorerPanel + flattenNamespaceTree.
- *   2. Segmented (buildSegmentedNamespaceTree) — nests namespaces by segment.
- *      Foundation for the shared hierarchical NamespaceTree picker.
- */
+/** Shared segmented namespace tree for the explorer and type picker. */
 
-import type { TypeGraphNode, TypeKind, NamespaceTreeNode, NamespaceTypeEntry, TypeOption } from '../types.js';
+import type { TypeGraphNode, TypeKind, NamespaceTypeEntry, TypeOption } from '../types.js';
 import { resolveNodeKind } from '../adapters/model-helpers.js';
 import type { NodeRepository } from '../store/node-repository.js';
 
@@ -38,8 +29,7 @@ export type FlatTreeRow =
       hidden: boolean;
       /** Additional visible namespace/identity context; reserves a second row line. */
       qualifier?: string;
-      /** Nesting depth within a segmented tree (0 = top level). Only set by
-       *  flattenSegmentedTree; absent/undefined for rows from flattenNamespaceTree. */
+      /** Nesting depth within the segmented tree (0 = top level). */
       depth?: number;
     }
   | {
@@ -72,133 +62,6 @@ export function countEntriesByKind(entries: readonly NamespaceTypeEntry[]): Part
   return counts;
 }
 
-/**
- * Build a sorted list of namespace tree entries from graph nodes.
- *
- * Groups nodes by `namespace`, counts per kind, and sorts
- * both namespaces and their child types alphabetically.
- *
- * Takes a `TypeGraphNode[]` (not a `NodeRepository`): this is a public,
- * exported utility with no in-repo callers, so its node-array signature is
- * kept stable. The internal, panel-facing `buildSegmentedNamespaceTree` is the
- * one sourced from the repository.
- */
-export function buildNamespaceTree(nodes: TypeGraphNode[]): NamespaceTreeNode[] {
-  const nsMap = new Map<string, NamespaceTypeEntry[]>();
-  for (const node of nodes) {
-    const entry = extractTypeEntry(node);
-    if (!entry) continue;
-    let bucket = nsMap.get(node.meta.namespace);
-    if (bucket === undefined) {
-      bucket = [];
-      nsMap.set(node.meta.namespace, bucket);
-    }
-    bucket.push(entry);
-  }
-  const tree: NamespaceTreeNode[] = [];
-  for (const [namespace, types] of nsMap) {
-    types.sort((a, b) => a.name.localeCompare(b.name));
-    tree.push({
-      namespace,
-      types,
-      totalCount: types.length,
-      dataCount: types.filter((t) => t.kind === 'data').length,
-      choiceCount: types.filter((t) => t.kind === 'choice').length,
-      enumCount: types.filter((t) => t.kind === 'enum').length,
-      funcCount: types.filter((t) => t.kind === 'func').length
-    });
-  }
-  tree.sort((a, b) => a.namespace.localeCompare(b.namespace));
-  return tree;
-}
-
-/**
- * Escape special regex characters in a string.
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Filter namespace tree entries by a search query.
- *
- * Matches against both namespace name and type names.
- * Returns tree entries with only matching types (or the full
- * namespace if the namespace name itself matches).
- */
-export function filterNamespaceTree(tree: NamespaceTreeNode[], query: string): NamespaceTreeNode[] {
-  if (!query.trim()) return tree;
-
-  const escapedQuery = escapeRegex(query);
-  const regex = new RegExp(escapedQuery, 'i');
-  const results: NamespaceTreeNode[] = [];
-
-  for (const entry of tree) {
-    // If namespace name matches, include all types
-    if (regex.test(entry.namespace)) {
-      results.push(entry);
-      continue;
-    }
-
-    // Otherwise filter to matching types
-    const matchingTypes = entry.types.filter((t) => regex.test(t.name));
-    if (matchingTypes.length > 0) {
-      results.push({
-        ...entry,
-        types: matchingTypes,
-        totalCount: matchingTypes.length,
-        dataCount: matchingTypes.filter((t) => t.kind === 'data').length,
-        choiceCount: matchingTypes.filter((t) => t.kind === 'choice').length,
-        enumCount: matchingTypes.filter((t) => t.kind === 'enum').length,
-        funcCount: matchingTypes.filter((t) => t.kind === 'func').length
-      });
-    }
-  }
-
-  return results;
-}
-
-/**
- * Flatten the namespace tree into a single array of rows for virtualized rendering.
- *
- * Each namespace becomes a header row; its child types become individual rows
- * (only when the namespace is expanded). Hidden nodes and search filtering are applied.
- */
-export function flattenNamespaceTree(
-  tree: NamespaceTreeNode[],
-  expandedNamespaces: Set<string>,
-  hiddenNodeIds: Set<string>,
-  searchQuery?: string
-): FlatTreeRow[] {
-  const filtered = searchQuery ? filterNamespaceTree(tree, searchQuery) : tree;
-  const rows: FlatTreeRow[] = [];
-
-  for (const entry of filtered) {
-    const expanded = expandedNamespaces.has(entry.namespace);
-    rows.push({
-      kind: 'namespace',
-      namespace: entry.namespace,
-      typeCount: entry.totalCount,
-      expanded
-    });
-
-    if (expanded) {
-      for (const type of entry.types) {
-        rows.push({
-          kind: 'type',
-          nodeId: type.nodeId,
-          name: type.name,
-          typeKind: type.kind,
-          namespace: entry.namespace,
-          hidden: hiddenNodeIds.has(type.nodeId)
-        });
-      }
-    }
-  }
-
-  return rows;
-}
-
 // ---------------------------------------------------------------------------
 // Segmented namespace tree
 // ---------------------------------------------------------------------------
@@ -229,8 +92,7 @@ export interface SegmentNode {
 }
 
 /**
- * Extract a `NamespaceTypeEntry` from a graph node using the same logic as
- * `buildNamespaceTree`, so both builders produce identical entry objects.
+ * Extract a namespace entry from a hydrated graph node.
  *
  * Returns `undefined` when `node.data` has no real (non-empty string) `name`
  * — e.g. a not-yet-hydrated curated stub node, or any domain `$type` whose

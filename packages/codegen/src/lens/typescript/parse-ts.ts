@@ -13,14 +13,11 @@
  */
 import type { Node as TsNode } from 'web-tree-sitter';
 import type { RosettaExpression } from '@rune-langium/core';
-import type { LensResult, RefusalReason } from '../language-lens.js';
+import type { LensResult } from '../language-lens.js';
 import { createTsParser, type WasmSource } from './ts-grammar-loader.js';
+import { OutOfSubset, refusal, child, field } from '../parse-helpers.js';
 import { isRuneValidId } from '../valid-id.js';
 import { TS_RESERVED_WORDS } from '../reserved-words.js';
-
-function refusal(kind: RefusalReason['kind'], message: string, offset: number, length: number): LensResult {
-  return { ok: false, reason: { kind, message, offset, length } };
-}
 
 /**
  * `wasmSource` is threaded straight through to `createTsParser` — omit it
@@ -61,18 +58,9 @@ export async function parseTs(text: string, wasmSource?: WasmSource): Promise<Le
     return { ok: true, node: toRosetta(expr) };
   } catch (e) {
     if (e instanceof OutOfSubset) {
-      return refusal('out-of-subset', e.message, e.tsNode.startIndex, e.tsNode.endIndex - e.tsNode.startIndex);
+      return refusal('out-of-subset', e.message, e.node.startIndex, e.node.endIndex - e.node.startIndex);
     }
     throw e;
-  }
-}
-
-class OutOfSubset extends Error {
-  constructor(
-    message: string,
-    public readonly tsNode: TsNode
-  ) {
-    super(message);
   }
 }
 
@@ -80,18 +68,6 @@ const COMPARISON_FROM_TS: Record<string, string> = { '<': '<', '<=': '<=', '>': 
 const EQUALITY_FROM_TS: Record<string, string> = { '===': '=', '!==': '<>' };
 const LOGICAL_FROM_TS: Record<string, string> = { '&&': 'and', '||': 'or' };
 const ARITHMETIC_FROM_TS: Record<string, string> = { '+': '+', '-': '-', '*': '*', '/': '/' };
-
-function child(node: TsNode, i: number): TsNode {
-  const c = node.child(i);
-  if (!c) throw new OutOfSubset('malformed expression', node);
-  return c;
-}
-
-function field(node: TsNode, name: string): TsNode {
-  const c = node.childForFieldName(name);
-  if (!c) throw new OutOfSubset(`malformed '${node.type}' (missing ${name})`, node);
-  return c;
-}
 
 /**
  * Shared by `case 'number':` and `case 'unary_expression':` (negative

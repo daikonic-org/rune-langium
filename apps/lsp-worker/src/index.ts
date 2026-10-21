@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { jsonResponse } from '@rune-langium/worker-core/http';
 // Workers Builds auto-deploy smoke test (2026-08-21) — no functional change.
 
 /**
@@ -87,13 +88,6 @@ const SessionRequestBody = z
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────────────────
-
-function jsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...extraHeaders }
-  });
-}
 
 // Only /api/lsp/session needs this: it's the one route sent with
 // `Content-Type: application/json`, which triggers a browser CORS

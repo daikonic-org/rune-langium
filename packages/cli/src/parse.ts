@@ -1,36 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { readFile, readdir, stat } from 'node:fs/promises';
-import { resolve, relative, extname } from 'node:path';
+import { discoverFiles } from './discover-files.js';
+import { readFile } from 'node:fs/promises';
+import { relative } from 'node:path';
 import { parse } from '@rune-langium/core';
 import type { ParseResult } from '@rune-langium/core';
 import { URI } from 'langium';
 
 export interface ParseCommandOptions {
   json?: boolean;
-}
-
-/**
- * Discover `.rosetta` files from a list of file/directory paths.
- */
-async function discoverFiles(paths: string[]): Promise<string[]> {
-  const files: string[] = [];
-  for (const p of paths) {
-    const resolved = resolve(p);
-    const s = await stat(resolved);
-    if (s.isDirectory()) {
-      const entries = await readdir(resolved, { recursive: true });
-      for (const entry of entries) {
-        if (extname(entry) === '.rosetta') {
-          files.push(resolve(resolved, entry));
-        }
-      }
-    } else if (extname(resolved) === '.rosetta') {
-      files.push(resolved);
-    }
-  }
-  return files;
 }
 
 /**

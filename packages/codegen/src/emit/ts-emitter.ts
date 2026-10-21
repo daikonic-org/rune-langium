@@ -100,7 +100,7 @@ import {
 
 import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
 import { CallableNames, callableExportName, type CallableDeclaration } from './callable-names.js';
-import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
+import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
 import {
   extractFuncs,
   functionInputs,
@@ -177,43 +177,6 @@ const TS_TYPEOF_MAP: Readonly<Record<string, string>> = buildTsTypeofMap();
 // Emission context constructor helper
 // ---------------------------------------------------------------------------
 
-/**
- * Wrap a bare `ReadonlyMap<string, N>` (this emitter's own `EmissionContext`
- * lookup maps) into the `{node, sourceUri}`-entry shape `resolveTypeCallTarget`
- * (Task 1, type-ref-resolver.ts) requires. Every entry shares one fallback
- * `sourceUri` — this emitter never consumes the per-entry `sourceUri` in its
- * own rendering (only `preview-schema.ts`'s later migration needs real
- * per-entry source URIs for recursive structural expansion), so a single
- * shared value for the whole namespace is correct here. Mirrors
- * zod-emitter.ts's identically-named helper.
- */
-function wrapTypeIndexEntries<N>(
-  map: ReadonlyMap<string, N>,
-  sourceUri: string
-): ReadonlyMap<string, TypeIndexEntry<N>> {
-  const wrapped = new Map<string, TypeIndexEntry<N>>();
-  for (const [name, node] of map) {
-    wrapped.set(name, { node, sourceUri });
-  }
-  return wrapped;
-}
-
-/**
- * Adapt this emitter's `EmissionContext` (bare unwrapped lookup maps) to the
- * `TypeIndexLookup` shape `resolveTypeCallTarget` expects. Built once per
- * namespace emission (the underlying maps are immutable for the lifetime of
- * one `TsNamespaceEmitter` instance).
- */
-function toTypeIndexLookup(ctx: EmissionContext): TypeIndexLookup {
-  const sourceUri = ctx.namespace;
-  return {
-    enumByName: wrapTypeIndexEntries(ctx.enumByName, sourceUri),
-    dataByName: wrapTypeIndexEntries(ctx.dataByName, sourceUri),
-    choiceByName: wrapTypeIndexEntries(ctx.choiceByName, sourceUri),
-    typeAliasByName: wrapTypeIndexEntries(ctx.typeAliasByName, sourceUri)
-  };
-}
-
 function buildEmissionContext(
   model: NamespaceWalkResult,
   registry: NamespaceRegistry,
@@ -279,7 +242,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   ) {
     super(model, options, registry);
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
-    this.typeIndex = toTypeIndexLookup(this.ctx);
+    this.typeIndex = toTypeIndexLookup(this.ctx, this.ctx.namespace);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
     this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';

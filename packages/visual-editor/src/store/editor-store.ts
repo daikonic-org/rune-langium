@@ -11,7 +11,7 @@
  * - **Domain state** — validated `ValidationError[]`, layout options, namespace visibility
  *
  * State mutations go through `EditorActions`. The store is wrapped with `zundo`
- * temporal middleware — undo/redo is tracked via `useTemporalStore`.
+ * temporal middleware — undo/redo is tracked by the temporal store.
  *
  * The default export `useEditorStore` is a singleton store.
  * Use `createEditorStore()` to create an isolated store instance for embedding
@@ -53,7 +53,12 @@ import { RAW_DSL_TYPE } from '@rune-langium/codegen/rosetta';
 import { astToModel } from '../adapters/ast-to-model.js';
 import { computeLayout, clearLayoutCache } from '../layout/dagre-layout.js';
 import { validateGraph } from '../validation/edit-validator.js';
-import { AST_TYPE_TO_NODE_TYPE, NODE_TYPE_TO_AST_TYPE, formatCardinality } from '../adapters/model-helpers.js';
+import {
+  AST_TYPE_TO_NODE_TYPE,
+  NODE_TYPE_TO_AST_TYPE,
+  formatCardinality,
+  parseCardinality
+} from '../adapters/model-helpers.js';
 import type { TrackedState } from './history.js';
 import { create as mutativeCreate } from 'mutative';
 import type { Patches } from 'mutative';
@@ -569,15 +574,6 @@ let nodeCounter = 0;
 /** Sequence counter to cancel in-flight progressive namespace expansion. */
 let expandSeq = 0;
 
-function parseCardinalityString(card: string): { inf: number; sup?: number; unbounded: boolean } {
-  const match = card.match(/\(?(\d+)\.\.(\*|\d+)\)?/);
-  if (!match) return { inf: 1, sup: 1, unbounded: false };
-  const inf = parseInt(match[1]!, 10);
-  if (match[2] === '*') return { inf, unbounded: true };
-  const sup = parseInt(match[2]!, 10);
-  return { inf, sup, unbounded: false };
-}
-
 function formatCardinalityString(card: string): string {
   // Normalize to (inf..sup) format
   if (card.startsWith('(') && card.endsWith(')')) {
@@ -875,7 +871,7 @@ const initialState: EditorState = {
  * in the same React tree — each graph must own a separate store.
  *
  * The store is wrapped with `zundo` temporal middleware for undo/redo support.
- * Access undo/redo via `useTemporalStore`.
+ * Access undo/redo via `useEditorStore.temporal`.
  *
  * @useWhen
  * - Rendering two or more `RuneTypeGraph` components simultaneously (different
@@ -1294,7 +1290,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
 
           // no 1:1 generated accessor: kind-agnostic (Data+Annotation) + edge-coupled + name-based remove
           addAttribute(nodeId: string, attrName: string, typeName: string, cardinality: string) {
-            const card = parseCardinalityString(cardinality);
+            const card = parseCardinality(cardinality);
             const newAttr = createAttributeDraft(attrName, typeName, card);
 
             const { nodes, nodesById } = get();
@@ -1494,7 +1490,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
           },
 
           updateCardinality(nodeId: string, attrName: string, cardinality: string) {
-            const card = parseCardinalityString(cardinality);
+            const card = parseCardinality(cardinality);
             mutateGraph(set, get, (draft) => {
               const n = draft.nodes.get(nodeId);
               if (!n) return;
@@ -1564,7 +1560,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             // through `mutateGraph` (like the field-level attribute actions) so an
             // edit made just before its own reparse lands is captured as a pending
             // patch and replayed, not dropped. See `edit-reconcile.ts`.
-            const card = parseCardinalityString(cardinality);
+            const card = parseCardinality(cardinality);
             const { nodes, nodesById, edges } = get();
             const oldEdgeIds: string[] = [];
             for (const e of edges) {
@@ -1841,7 +1837,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             cardinality: string,
             targetTypeId?: string
           ) {
-            const card = parseCardinalityString(cardinality);
+            const card = parseCardinality(cardinality);
             // Resolve the qualified $refText using the same disambiguation logic
             // as updateAttributeType (spec 020 Phase 13, Finding 3).  When a
             // canonical targetTypeId is supplied and the node exists, qualify the

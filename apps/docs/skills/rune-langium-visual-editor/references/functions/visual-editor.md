@@ -10,7 +10,7 @@ Use this when embedding multiple independent `RuneTypeGraph` components
 in the same React tree — each graph must own a separate store.
 
 The store is wrapped with `zundo` temporal middleware for undo/redo support.
-Access undo/redo via `useTemporalStore`.
+Access undo/redo via `useEditorStore.temporal`.
 ```ts
 createEditorStore(overrides?: Partial<EditorState>): UseBoundStore<Write<StoreApi<EditorStore>, { temporal: StoreApi }>>
 ```

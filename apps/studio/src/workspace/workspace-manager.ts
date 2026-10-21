@@ -28,6 +28,7 @@ import { cloneRepository } from '../services/git-backing.js';
 import { storeWorkspaceToken } from '../services/github-auth.js';
 import { LAYOUT_SCHEMA_VERSION } from '../shell/layout-factory.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
+import { generateUlid } from '../services/ulid.js';
 
 export interface WorkspaceManagerOptions {
   opfsRoot: FileSystemDirectoryHandle;
@@ -221,37 +222,4 @@ export class WorkspaceManager {
   isReadOnly(id: string): boolean {
     return this.readonlyState.get(id) ?? false;
   }
-}
-
-// ---------- ULID ----------
-//
-// 26-char Crockford-base32 ULID. We only use it for workspace ids so we
-// don't need full monotonicity guarantees — just stable, sortable, URL-safe.
-// Implementation crib: https://github.com/ulid/spec
-
-const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-function generateUlid(): string {
-  const time = Date.now();
-  const timePart = encodeBase32(time, 10);
-  const randPart = randomBase32(16);
-  return timePart + randPart;
-}
-
-function encodeBase32(num: number, length: number): string {
-  let out = '';
-  let n = num;
-  for (let i = 0; i < length; i++) {
-    out = CROCKFORD[n & 31] + out;
-    n = Math.floor(n / 32);
-  }
-  return out;
-}
-
-function randomBase32(length: number): string {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  let out = '';
-  for (const b of bytes) out += CROCKFORD[b & 31];
-  return out;
 }

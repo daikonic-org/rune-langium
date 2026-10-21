@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { corsJsonResponse as json } from '@rune-langium/worker-core/http';
 /**
  * Read-side HTTP routing for the curated mirror.
  *
@@ -138,17 +139,6 @@ function etagMatches(ifNoneMatch: string, etag: string): boolean {
     .map((s) => s.replace(/^W\//, ''));
   const stripped = etag.replace(/^W\//, '');
   return candidates.includes(stripped);
-}
-
-function json(status: number, body: unknown, origin: string): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': origin,
-      Vary: 'Origin'
-    }
-  });
 }
 
 function errMessage(err: unknown): string {

@@ -10,14 +10,11 @@
  */
 import type { Node as PyNode } from 'web-tree-sitter';
 import type { RosettaExpression } from '@rune-langium/core';
-import type { LensResult, RefusalReason } from '../language-lens.js';
+import type { LensResult } from '../language-lens.js';
 import { createPyParser, type WasmSource } from './py-grammar-loader.js';
+import { OutOfSubset, refusal, child, field } from '../parse-helpers.js';
 import { isRuneValidId } from '../valid-id.js';
 import { PY_RESERVED_WORDS } from '../reserved-words.js';
-
-function refusal(kind: RefusalReason['kind'], message: string, offset: number, length: number): LensResult {
-  return { ok: false, reason: { kind, message, offset, length } };
-}
 
 export async function parsePy(text: string, wasmSource?: WasmSource): Promise<LensResult> {
   const parser = await createPyParser(wasmSource);
@@ -55,18 +52,9 @@ export async function parsePy(text: string, wasmSource?: WasmSource): Promise<Le
     return { ok: true, node: toRosetta(expr) };
   } catch (e) {
     if (e instanceof OutOfSubset) {
-      return refusal('out-of-subset', e.message, e.pyNode.startIndex, e.pyNode.endIndex - e.pyNode.startIndex);
+      return refusal('out-of-subset', e.message, e.node.startIndex, e.node.endIndex - e.node.startIndex);
     }
     throw e;
-  }
-}
-
-class OutOfSubset extends Error {
-  constructor(
-    message: string,
-    public readonly pyNode: PyNode
-  ) {
-    super(message);
   }
 }
 
@@ -74,18 +62,6 @@ const COMPARISON_FROM_PY: Record<string, string> = { '<': '<', '<=': '<=', '>': 
 const EQUALITY_FROM_PY: Record<string, string> = { '==': '=', '!=': '<>' };
 const LOGICAL_FROM_PY: Record<string, string> = { and: 'and', or: 'or' };
 const ARITHMETIC_FROM_PY: Record<string, string> = { '+': '+', '-': '-', '*': '*', '/': '/' };
-
-function child(node: PyNode, i: number): PyNode {
-  const c = node.child(i);
-  if (!c) throw new OutOfSubset('malformed expression', node);
-  return c;
-}
-
-function field(node: PyNode, name: string): PyNode {
-  const c = node.childForFieldName(name);
-  if (!c) throw new OutOfSubset(`malformed '${node.type}' (missing ${name})`, node);
-  return c;
-}
 
 /**
  * Shared by `case 'integer'/'float':` and the unary negative-literal case —
