@@ -87,6 +87,7 @@ export const TypeChip = React.forwardRef<HTMLButtonElement, TypeChipProps>(funct
       {...(isButton ? { type: 'button', disabled } : {})}
       data-slot="type-chip"
       data-kind={typeKind}
+      title={typeName}
       style={
         {
           ...kindVars[typeKind],

@@ -298,6 +298,7 @@ export interface StructureBaseContainer {
   readonly baseTypeId?: string;
   readonly baseTypeName: string;
   readonly baseTypeNamespaceUri: string;
+  readonly deferred?: boolean;
   readonly baseRows: ReadonlyArray<StructureRow>;
   /** INSTANCE id of the child Data node inside this base container. */
   readonly childNodeId: string;

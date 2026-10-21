@@ -27,6 +27,8 @@ import { TypeChip, typeChipKind } from './structure/TypeChip.js';
 import { useTypeRefDrop } from '../../hooks/useTypeRefDrop.js';
 import { TYPE_REF_KINDS, type TypeRefPayload } from '../../types/structure-view.js';
 import type { NavigateToNodeCallback, TypeKind, TypeOption } from '../../types.js';
+import { AST_TYPE_TO_NODE_TYPE } from '../../adapters/model-helpers.js';
+import { isTypeNodeId, TYPE_DECLARATION_KINDS } from '../../store/node-projection.js';
 
 export interface TypeReferenceFieldProps {
   value: string | null;
@@ -44,18 +46,12 @@ export interface TypeReferenceFieldProps {
   className?: string;
 }
 
-// Default whole-field drop kinds when a caller supplies no `filterKinds` —
-// the historical attribute-type-ref set (an attribute can never be typed
-// as a Func or Annotation). Callers that DO supply `filterKinds` are not
-// capped by this list — see `acceptKinds` below.
-const ATTR_DROP_KINDS: ReadonlyArray<TypeRefPayload['kind']> = [
-  'Data',
-  'Choice',
-  'Enum',
-  'BasicType',
-  'Record',
-  'TypeAlias'
-];
+// One semantic policy for option resolution, picking and drag/drop. Function
+// parent fields supply an explicit filterKinds instead of the type default.
+const DEFAULT_REFERENCE_KINDS = new Set([
+  ...TYPE_DECLARATION_KINDS.map((kind) => AST_TYPE_TO_NODE_TYPE[kind]),
+  'builtin'
+]);
 
 export function TypeReferenceField({
   value,
@@ -74,31 +70,43 @@ export function TypeReferenceField({
 }: TypeReferenceFieldProps) {
   const [open, setOpen] = useState(false);
   const imports = useContext(TypeReferenceImports);
+  const referenceOptions = useMemo(
+    () =>
+      options?.filter((option) =>
+        filterKinds?.length ? filterKinds.includes(option.kind) : DEFAULT_REFERENCE_KINDS.has(option.kind)
+      ),
+    [options, filterKinds]
+  );
 
   const selected = useMemo(() => {
-    const byValue = options?.find((option) => option.value === value);
+    const byValue = referenceOptions?.find((option) => option.value === value);
     if (byValue) return byValue;
     if (displayName) {
-      const byLabel = options?.find((option) => option.label === displayName);
+      const byLabel = referenceOptions?.find((option) => option.label === displayName);
       if (byLabel) return byLabel;
       // Qualified authored references retain the canonical option's kind even
       // when its display label is bare (e.g. two namespaces both define Status).
-      const nodeId = resolveNodeId(displayName, options?.map((option) => option.value) ?? [], imports);
-      return options?.find((option) => option.value === nodeId) ?? null;
+      const nodeId = resolveNodeId(displayName, referenceOptions?.map((option) => option.value) ?? [], imports);
+      return referenceOptions?.find((option) => option.value === nodeId) ?? null;
     }
     return null;
-  }, [displayName, options, value, imports]);
+  }, [displayName, referenceOptions, value, imports]);
 
-  const effectiveValue = value ?? selected?.value ?? null;
+  const effectiveValue = value?.includes('#') || value?.includes('.') ? value : (selected?.value ?? value);
   const typeLabel = displayName ?? selected?.label ?? '';
   const chipKind = typeChipKind(selected?.kind);
 
   const resolvedNodeId = useMemo(() => {
     if (!allNodeIds?.length) return undefined;
-    if (effectiveValue && allNodeIds.includes(effectiveValue)) return effectiveValue;
+    if (
+      effectiveValue &&
+      allNodeIds.includes(effectiveValue) &&
+      (selected?.value === effectiveValue || isTypeNodeId(effectiveValue))
+    )
+      return effectiveValue;
     const reference = effectiveValue?.startsWith('builtin::') ? typeLabel : (effectiveValue ?? typeLabel);
     return reference ? resolveNodeId(reference, allNodeIds, imports) : undefined;
-  }, [allNodeIds, effectiveValue, typeLabel, imports]);
+  }, [allNodeIds, effectiveValue, typeLabel, imports, selected]);
   const canNavigate = Boolean(onNavigateToNode && resolvedNodeId);
   const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToNode });
 
@@ -122,16 +130,11 @@ export function TypeReferenceField({
   // resolution; forward it directly, matching a click in the picker.
   const acceptKinds = useMemo<ReadonlyArray<TypeRefPayload['kind']>>(() => {
     if (disabled || readOnly) return [];
-    if (!filterKinds || filterKinds.length === 0) return ATTR_DROP_KINDS;
+    const kinds = filterKinds?.length ? new Set(filterKinds) : DEFAULT_REFERENCE_KINDS;
     const toTypeKind = (k: TypeRefPayload['kind']): TypeKind =>
       k === 'BasicType' ? 'basicType' : k === 'TypeAlias' ? 'typeAlias' : (k.toLowerCase() as TypeKind);
-    // An explicit `filterKinds` is the caller's own authorization for which
-    // drop kinds are semantically valid on THIS field — it must not be
-    // capped by ATTR_DROP_KINDS's attribute-type-ref default (which
-    // deliberately excludes Func/Annotation). Derive from the full
-    // TYPE_REF_KINDS set instead, so e.g. FunctionForm's Extends field
-    // (filterKinds: ['func']) can accept a dropped Function.
-    return TYPE_REF_KINDS.filter((k) => filterKinds.includes(toTypeKind(k)));
+    // Explicit filters also authorize function-parent drops.
+    return TYPE_REF_KINDS.filter((k) => kinds.has(toTypeKind(k)));
   }, [disabled, readOnly, filterKinds]);
 
   const handleDrop = useCallback((payload: TypeRefPayload) => onSelect(payload.typeId), [onSelect]);
@@ -197,7 +200,7 @@ export function TypeReferenceField({
             />
             <PopoverContent align="start" sideOffset={4} className="w-auto p-0">
               <NamespaceTreePicker
-                options={options ?? []}
+                options={referenceOptions ?? []}
                 value={effectiveValue}
                 onSelect={handleSelect}
                 filterKinds={filterKinds}

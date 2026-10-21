@@ -62,6 +62,8 @@ export interface StructureViewProps {
   readonly onInspectType?: (typeId: string) => void;
   readonly structureDiagnostics?: readonly RangeDiagnostic[];
   readonly pendingHydrationNamespaces?: ReadonlyArray<string>;
+  /** Request details for a visible deferred root, inherited base or expanded child. */
+  readonly onRequestNamespaceHydration?: (namespace: string) => void;
 }
 
 const EMPTY_EXPANSIONS: ReadonlyMap<string, boolean> = new Map();
@@ -266,7 +268,7 @@ function StructureMember({
               <CircleHelp className="size-3.5" />
             </span>
           )}
-          {row.targetNodeId && context.onNavigateToEnumType && (
+          {row.targetNodeId && context.onNavigateToEnumType && !(expanded && child) && (
             <button
               type="button"
               className="rune-structure-icon"
@@ -377,12 +379,17 @@ function StructureCard({
   const constrained = ancestors.length > 0;
   const motion = useBlockLayout(instanceId, constrained, frame, split);
   const helpId = useId();
-  const hydrating = !isBase && node.deferred && context.pendingHydrationNamespaces?.includes(namespace);
+  const hydrating = node.deferred && context.pendingHydrationNamespaces?.includes(namespace);
+  const requestHydration = context.onRequestNamespaceHydration;
+  useEffect(() => {
+    if (node.deferred) requestHydration?.(namespace);
+  }, [node.deferred, namespace, requestHydration]);
   const rows =
     node.kind === 'data' ? node.rows : isBase ? node.baseRows : node.kind === 'function' ? node.inputRows : [];
   const meta = node.kind === 'data' || node.kind === 'choice' || node.kind === 'function' ? node : {};
   return (
     <section
+      aria-busy={Boolean(hydrating)}
       ref={frame}
       className={`rune-structure-card${context.arrivalNodeId === node.id ? ' rune-navigation-arrival' : ''}`}
       style={
@@ -420,21 +427,9 @@ function StructureCard({
           if (!event.defaultPrevented && event.target === event.currentTarget) motion.keyboard(event, 'move');
         }}
       >
-        {navigationId && context.onNodeSelect ? (
-          <button
-            className="rune-structure-card__title"
-            type="button"
-            id={titleId}
-            title={`${namespace}.${name}`}
-            onClick={() => context.onNodeSelect?.(navigationId)}
-          >
-            {name}
-          </button>
-        ) : (
-          <span className="rune-structure-card__title" id={titleId}>
-            {name}
-          </span>
-        )}
+        <span className="rune-structure-card__title" id={titleId} title={`${namespace}.${name}`}>
+          {name}
+        </span>
         <StructureMetaIndicators {...meta} />
         {hydrating && (
           <span role="status" className="rune-structure-card__loading">
@@ -442,8 +437,31 @@ function StructureCard({
             <span className="sr-only">Loading referenced namespace</span>
           </span>
         )}
+        {navigationId &&
+          navigationId !== context.focusedTypeId &&
+          (context.onNavigateToEnumType || context.onNodeSelect) && (
+            <button
+              type="button"
+              className="rune-structure-icon"
+              aria-label={`Navigate to ${name}`}
+              title={`Navigate to ${name}`}
+              onClick={() => (context.onNavigateToEnumType ?? context.onNodeSelect)?.(navigationId)}
+            >
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            </button>
+          )}
         <span className="rune-structure-card__kind">{isBase ? 'Inherited' : node.kind}</span>
       </header>
+      {node.deferred && (
+        <p className="rune-structure-reference" role="status">
+          {hydrating ? `Loading ${name} details…` : `${name} details have not loaded.`}
+          {!hydrating && requestHydration && (
+            <button type="button" className="rune-structure-retry" onClick={() => requestHydration(namespace)}>
+              Load details
+            </button>
+          )}
+        </p>
+      )}
       {node.kind === 'function' && <StructureSectionTitle label="Inputs" count={rows.length} />}
       {node.kind === 'function' && rows.length === 0 && <p className="rune-structure-reference">No inputs</p>}
       {rows.length > 0 && (
@@ -452,6 +470,13 @@ function StructureCard({
             <StructureMember key={row.attrName} row={row} owner={node} instancePath={path} inherited={isBase} />
           ))}
         </StructureMembers>
+      )}
+      {node.kind === 'data' && !node.deferred && rows.length === 0 && (
+        <p className="rune-structure-reference italic">
+          {ancestors.some((id) => context.graph.nodes.get(id)?.kind === 'base')
+            ? 'No additional attributes'
+            : 'No attributes'}
+        </p>
       )}
       {node.kind === 'choice' && (
         <>
@@ -740,7 +765,8 @@ export function StructureView(props: StructureViewProps): React.ReactElement {
       props.onNavigateToEnumType,
       props.onInspectType,
       props.structureDiagnostics,
-      props.pendingHydrationNamespaces
+      props.pendingHydrationNamespaces,
+      props.onRequestNamespaceHydration
     ]
   );
   const host = useRef<HTMLDivElement>(null);

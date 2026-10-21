@@ -67,7 +67,7 @@ for (const width of [1323, 900, 390]) {
     await expect(page.getByRole('listbox', { name: 'Cardinality presets' })).toBeVisible();
     await page.getByRole('option', { name: '0..1', exact: true }).click();
     await expect(document.getByRole('button', { name: 'Cardinality 0..1', exact: true }).first()).toBeVisible();
-    const base = document.getByRole('button', { name: 'Base', exact: true });
+    const base = document.getByRole('group', { name: 'Base type actions', exact: true });
     await base.focus();
     await page.keyboard.press('Shift+F10');
     await expect(page.getByRole('menuitem', { name: 'Inspect type', exact: true })).toBeVisible();
@@ -83,7 +83,7 @@ for (const width of [1323, 900, 390]) {
     await document.getByRole('button', { name: 'Reset layout', exact: true }).click();
     await expect(stage).toHaveCSS('translate', '0px');
     if (width === 1323) {
-      const bounds = (await mover.boundingBox())!;
+      const bounds = (await mover.locator('.rune-structure-card__title').boundingBox())!;
       await page.mouse.move(bounds.x + bounds.width - 20, bounds.y + bounds.height / 2);
       await page.mouse.down();
       await page.mouse.move(bounds.x + bounds.width - 20 + 24, bounds.y + bounds.height / 2 + 16, { steps: 3 });

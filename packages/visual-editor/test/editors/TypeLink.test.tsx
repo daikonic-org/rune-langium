@@ -196,6 +196,31 @@ describe('file-local alias navigation', () => {
 });
 
 describe('Inspector canonical reference destinations', () => {
+  it.each(['data', 'enum'] as const)('ignores a same-named function when resolving a %s reference', (kind) => {
+    const navigate = vi.fn();
+    const functionId = 'cdm.CalculationPeriod#RosettaFunction';
+    const typeId = `cdm.CalculationPeriod#${kind === 'data' ? 'Data' : 'RosettaEnumeration'}`;
+    const { container } = render(
+      <TypeReferenceField
+        value="CalculationPeriod"
+        displayName="CalculationPeriod"
+        options={[
+          { value: functionId, label: 'CalculationPeriod', kind: 'func' },
+          { value: typeId, label: 'CalculationPeriod', kind }
+        ]}
+        allNodeIds={[functionId, typeId]}
+        onSelect={vi.fn()}
+        onNavigateToNode={navigate}
+        readOnly
+      />
+    );
+    expect(container.querySelector('[data-slot="type-picker-trigger"]')).toHaveAttribute(
+      'data-kind',
+      kind === 'data' ? 'Data' : 'Enum'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Go to CalculationPeriod', exact: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(typeId);
+  });
   it.each([
     ['b.Status#Data', ['a.Status#Data', 'b.Status#Data'], false],
     ['b.Status#Data', ['a.Status#Data', 'b.Status#Data'], true],

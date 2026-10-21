@@ -4,12 +4,13 @@
 import { createRuneDslServices, serializeRuneModel } from '@rune-langium/core';
 import { URI } from 'langium';
 
-export async function declarationDocuments() {
-  const { RuneDsl } = createRuneDslServices();
-  const sources = [
+export async function declarationDocuments(
+  sources: readonly (readonly [string, string])[] = [
     ['base', 'namespace example.base\n\ntype Base:\n  inherited string (1..1)\n'],
     ['selected', 'namespace example.selected\nimport example.base.*\n\ntype Selected extends Base:\n  own int (0..1)\n']
-  ];
+  ]
+) {
+  const { RuneDsl } = createRuneDslServices();
   const documents = sources.map(([name, source]) =>
     RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(source!, URI.parse(`file:///cdm/${name}.rosetta`))
   );
@@ -18,8 +19,14 @@ export async function declarationDocuments() {
     uri: `cdm/${sources[index]![0]}.rosetta`,
     content: '',
     bundleId: 'cdm',
-    namespace: index ? 'example.selected' : 'example.base',
+    namespace: doc.parseResult.value.name,
     serializedModel: serializeRuneModel(RuneDsl.serializer.JsonSerializer, doc.parseResult.value),
-    exports: [{ type: 'Data', name: index ? 'example.selected.Selected' : 'example.base.Base', path: '/elements@0' }]
+    exports: doc.parseResult.value.elements
+      .filter((element) => 'name' in element)
+      .map((element, index) => ({
+        type: element.$type,
+        name: `${doc.parseResult.value.name}.${'name' in element ? element.name : ''}`,
+        path: `/elements@${index}`
+      }))
   }));
 }

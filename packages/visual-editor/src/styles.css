@@ -1163,6 +1163,7 @@ button[data-navigable]:focus-visible {
 .rune-structure-card__header {
   display: flex;
   min-width: 0;
+  min-height: var(--space-8);
   align-items: center;
   gap: var(--space-2);
   padding: var(--structure-inset) calc(var(--structure-inset) * 1.5);
@@ -1182,17 +1183,6 @@ button[data-navigable]:focus-visible {
   font-weight: 600;
   text-align: start;
   overflow-wrap: anywhere;
-}
-
-button.rune-structure-card__title {
-  cursor: pointer;
-}
-button.rune-structure-card__title:hover {
-  color: var(--structure-kind);
-}
-button.rune-structure-card__title:focus-visible {
-  outline: var(--hairline) solid var(--ring);
-  outline-offset: var(--space-1);
 }
 
 .rune-structure-card__kind {
@@ -1232,9 +1222,6 @@ button.rune-structure-card__title:focus-visible {
   max-width: 100%;
   min-width: 0;
   margin-block-end: calc(var(--space-1) / 2);
-}
-.rune-structure-members:has(> [data-expanded='true']) > .rune-structure-member {
-  max-width: min(100%, 14rem);
 }
 .rune-structure-connector {
   position: absolute;
@@ -1310,10 +1297,18 @@ button.rune-structure-card__title:focus-visible {
   font-size: var(--text-sm);
 }
 .rune-structure-member__type .rune-cell-type-chip {
+  display: block;
   max-width: 100%;
   font-size: var(--text-sm);
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: start;
+}
+.rune-structure-retry {
+  margin-inline-start: var(--space-2);
+  color: var(--foreground);
+  text-decoration: underline;
 }
 .rune-structure-icon {
   display: inline-flex;

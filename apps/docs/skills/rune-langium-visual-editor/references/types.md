@@ -170,6 +170,7 @@ outer type) share the canonical id but differ in `instanceId`.
 - `baseTypeId: string` (optional) — Canonical declaration ID, distinct from the synthetic wrapper ID.
 - `baseTypeName: string`
 - `baseTypeNamespaceUri: string`
+- `deferred: boolean` (optional)
 - `baseRows: readonly StructureRow[]`
 - `childNodeId: string` — INSTANCE id of the child Data node inside this base container.
 - `expansions: ReadonlyMap<string, string>` — Containment edges from this base level's inherited rows into expanded
