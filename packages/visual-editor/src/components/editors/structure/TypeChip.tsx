@@ -98,8 +98,8 @@ export const TypeChip = React.forwardRef<HTMLButtonElement, TypeChipProps>(funct
         // `rune-cell-type-chip` = the contextual-CSS + test hook (see header).
         'rune-cell-type-chip',
         // Intrinsic look: mono pill, kind-tinted surface.
-        'inline-flex items-end justify-end rounded-sm border border-transparent',
-        'px-(--rune-chip-padding-x) py-(--rune-chip-padding-y) font-mono text-xs not-italic',
+        'inline-flex items-center justify-center rounded-sm border border-transparent',
+        'px-(--rune-chip-padding-x) py-(--rune-chip-padding-y) font-mono text-xs leading-none not-italic',
         'bg-(--type-chip-bg) text-(color:--type-chip-fg) transition-colors duration-[120ms]',
         // Interactive affordance only for an ENABLED button. A disabled button
         // gets not-allowed explicitly (the global `:disabled` baseline is

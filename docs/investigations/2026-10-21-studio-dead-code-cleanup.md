@@ -205,6 +205,23 @@ JSON/output-directory resolution and absence of the removed namespace, history,
 synonym and import-diagnostic APIs in both indexes. Unrelated generated Core skill
 changes were excluded. Evidence: `/tmp/rune-pr627-llm-regenerate.log`.
 
+## Type pill text alignment
+
+TypeChip's shared intrinsic layout used end alignment and the default text-size
+line height. The row boxes were centered, but the type and adjacent cardinality
+text used different metrics. The shared chip now centers both axes with unit
+line height; Structure's type row uses the same line height. Browser text-range
+measurements confirm matching text and box centers, including matching type and
+cardinality centers. Inspector attribute and choice-option screenshots were
+inspected as well as desktop/intermediate/narrow Structure examples.
+
+The visual-editor suite passes 1,569 tests; the four focused cell/Structure files
+pass 24 tests. All 15 local kind/width
+cases (including axe) and three nested-layout browser journeys pass after the
+change. Existing detector findings remain limited to the five Graph/diagnostic
+accent stripes. Evidence is `/tmp/rune-type-chip-center-*` and
+`/tmp/rune-chip-{before,after,inspector-*}.*`.
+
 ## Bundle comparison
 
 Fresh isolated Vite builds measured at `a505e067`, including the Graph follow-up

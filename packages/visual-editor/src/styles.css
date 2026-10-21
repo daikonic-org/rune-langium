@@ -1300,6 +1300,7 @@ button.rune-structure-card__title:focus-visible {
 .rune-structure-member__type {
   grid-column: 1;
   justify-content: start;
+  line-height: 1;
 }
 .rune-structure-member__name .rune-cell-name {
   padding-inline: var(--rune-chip-padding-x);

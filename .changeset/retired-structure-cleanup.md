@@ -22,3 +22,5 @@ Clarify function input/output sections, tighten choice and enum rendering, and
 use the shared bottom inset for Structure canvas height. Keep every enum value
 reachable without an Inspector callback and omit unsupported function expansion
 controls while retaining referenced-type navigation.
+
+Center shared type-pill text and align Structure type/cardinality line heights.

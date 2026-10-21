@@ -568,6 +568,9 @@ to the owning property. Parent available width determines whether properties and
 scrolling replaces viewport culling and auto-fit transforms; expansion never changes
 text scale or moves the camera. Arrival and keyboard focus emphasize the interior
 card. Graph kind colors and header backgrounds are retained; members are unboxed.
+The shared `TypeChip` centers its contents with a compact unit line height.
+Structure type/cardinality rows use that same line height, keeping text aligned
+across bordered pills, plain cardinality text and navigation controls.
 The local `--structure-inset` in visual-editor styles controls shared card padding;
 minimum row height and the peer collision gap remain independent of this density setting.
 Canvas height ends at the last row or expanded child plus the computed bottom
