@@ -342,7 +342,7 @@ registered on `dataTransfer`:
 Drag sources following the recommended dual-MIME contract get the strict
 behavior; single-MIME sources still work but lose dragover-time filtering.
 
-**Type:** `readonly ("Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func" | "Annotation")[]`
+**Type:** `readonly ("Data" | "Choice" | "Annotation" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func")[]`
 
 **Required:** yes
 

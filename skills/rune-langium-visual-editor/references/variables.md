@@ -1,56 +1,82 @@
 # Variables & Constants
 
-## RuneTypeGraph
+## types
+
+### `TYPE_REF_PAYLOAD_MIME`
+MIME type used for drag-drop payloads.
+```ts
+const TYPE_REF_PAYLOAD_MIME: "application/x-rune-type-ref"
+```
+
+### `TYPE_REF_KINDS`
+Every type kind a namespace-explorer row can carry. ALL kinds are draggable
+(so no row falls back to text-selection on a drag attempt); drop targets gate
+what they accept via their `accept` list. `Data`/`Choice`/`Enum`/`BasicType`/
+`Record`/`TypeAlias` are valid attribute type-refs; `Func`/`Annotation` are
+draggable but accepted by no target (they show the no-drop cursor).
+```ts
+const TYPE_REF_KINDS: readonly ["Data", "Choice", "Enum", "BasicType", "Record", "TypeAlias", "Func", "Annotation"]
+```
+
+### `BUILTIN_TYPES`
+Built-in type names available in com.rosetta.model.
+Covers all basic types, record types, and type aliases (spec §1.1):
+  - Basic types:   boolean, number, string, time, pattern
+  - Record types:  date, dateTime, zonedDateTime
+  - Type aliases:  int, productType, eventType, calculation
+```ts
+const BUILTIN_TYPES: readonly ["boolean", "number", "string", "time", "pattern", "date", "dateTime", "zonedDateTime", "int", "productType", "eventType", "calculation"]
+```
+
+## components
 
 ### `RuneTypeGraph`
 ```ts
 const RuneTypeGraph: ForwardRefExoticComponent<RuneTypeGraphProps & RefAttributes<RuneTypeGraphRef>>
 ```
 
-## EditorFormPanel
+### `KIND_LABEL`
+Canonical kind → full label. The ONE source for kind labels.
+```ts
+const KIND_LABEL: Record<TypeKind, string>
+```
+
+### `KIND_LETTER`
+Canonical kind → single-letter classifier for the compact glyph shape.
+```ts
+const KIND_LETTER: Record<TypeKind, string>
+```
+
+## components/panels
 
 ### `EditorFormPanel`
 ```ts
-const EditorFormPanel: NamedExoticComponent<EditorFormPanelProps>
+const EditorFormPanel: MemoExoticComponent<(__namedParameters: EditorFormPanelProps) => Element>
 ```
-
-## NamespaceExplorerPanel
 
 ### `NamespaceExplorerPanel`
 ```ts
-const NamespaceExplorerPanel: NamedExoticComponent<NamespaceExplorerPanelProps>
+const NamespaceExplorerPanel: MemoExoticComponent<(__namedParameters: NamespaceExplorerPanelProps) => Element>
 ```
 
-## TypeCreator
+## components/editors
 
 ### `TypeCreator`
 ```ts
-const TypeCreator: NamedExoticComponent<TypeCreatorProps>
+const TypeCreator: MemoExoticComponent<(__namedParameters: TypeCreatorProps) => Element>
 ```
-
-## AttributeEditor
 
 ### `AttributeEditor`
 ```ts
-const AttributeEditor: NamedExoticComponent<AttributeEditorProps>
+const AttributeEditor: MemoExoticComponent<(__namedParameters: AttributeEditorProps) => Element>
 ```
 
-## CardinalityEditor
-
-### `CardinalityEditor`
+### `TypeChip`
 ```ts
-const CardinalityEditor: NamedExoticComponent<CardinalityEditorProps>
+const TypeChip: ForwardRefExoticComponent<Omit<TypeChipProps, "ref"> & RefAttributes<HTMLButtonElement>>
 ```
 
-## types
-
-### `BUILTIN_TYPES`
-Built-in primitive types available in the Rune DSL.
-```ts
-const BUILTIN_TYPES: readonly ["string", "int", "number", "boolean", "date", "time", "dateTime", "zonedDateTime"]
-```
-
-## model-helpers
+## adapters
 
 ### `AST_TYPE_TO_NODE_TYPE`
 Kind-to-ReactFlow-type mapping. Used to set `Node.type` for
@@ -64,7 +90,7 @@ const AST_TYPE_TO_NODE_TYPE: Record<string, string>
 const NODE_TYPE_TO_AST_TYPE: Record<string, string>
 ```
 
-## editor-store
+## store
 
 ### `useEditorStore`
 Default store instance for use with RuneTypeGraph.

@@ -24,7 +24,7 @@ Drag sources MUST set both fields.
 - `namespaceUri: string`
 - `typeId: string` — Canonical node id in `ns.Name` format. Used by setInheritance.
 - `typeName: string` — Bare AST/display name used in $refText writes. Used by updateAttributeType.
-- `kind: "Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func" | "Annotation"`
+- `kind: "Data" | "Choice" | "Annotation" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func"`
 
 ### `StructureExpansionKey`
 Key used in the expansion map; encodes namespace + type + attribute, plus

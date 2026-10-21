@@ -141,10 +141,30 @@ Graph fix. Local evidence is `/tmp/rune-graph-fix-*`. Existing release configura
 and Pages source-map packaging remain separate; package release is deferred by
 the user.
 
+## Review follow-up: skills and Structure headers
+
+Refreshed the tracked root visual-editor agent skill from the authoritative
+TypeDoc/Skillit output, removing the obsolete flat function reference. All 15
+files match the docs-site bundle byte for byte; removed namespace/history/synonym
+exports are absent and local Markdown links resolve. The workflow now calls out
+refreshing both distributed copies after public API changes. TypeDoc completed
+with no errors and its existing unresolved `WebSocketTransport` link warning.
+
+Structure headers now use one flexible gap after the title, keeping metadata
+icons next to the kind badge instead of splitting free space on both sides.
+Root and nested headers retain the same vertical center and an 8px icon-to-badge
+gap at 1461, 900 and 390px; popovers still work. Kind pills center their
+text with an explicit compact line height and equal block padding, including
+the inherited-type badge. The three existing Structure
+browser journeys (including axe, drag, resize and collision checks), 18 focused
+component tests, visual-editor lint/CSS lint and formatting pass. Screenshots
+were inspected. Local evidence is `/tmp/rune-pr627-header-*`.
+
 ## Bundle comparison
 
-Fresh isolated Vite builds, including the Graph follow-up, uncompressed bytes
-for the main index artifacts:
+Fresh isolated Vite builds measured at `a505e067`, including the Graph follow-up
+and before the small header alignment change, uncompressed bytes for the main
+index artifacts:
 
 | Artifact | Before | After | Saved |
 | --- | ---: | ---: | ---: |
