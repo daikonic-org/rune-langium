@@ -1908,24 +1908,9 @@ html {
 .studio-brand__mark {
   width: 22px;
   height: 22px;
-  border: var(--hairline) solid color-mix(in srgb, var(--primary) 42%, transparent);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--primary);
-  background:
-    linear-gradient(
-      155deg,
-      color-mix(in srgb, var(--primary) 16%, transparent),
-      color-mix(in srgb, var(--secondary) 10%, transparent)
-    );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
-    0 10px 24px -18px color-mix(in srgb, var(--primary) 42%, transparent);
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 0 0.6px color-mix(in srgb, var(--foreground) 75%, transparent));
   flex-shrink: 0;
 }
 
@@ -1940,7 +1925,6 @@ html {
 .studio-app-header--compact .studio-brand__mark {
   width: 20px;
   height: 20px;
-  font-size: var(--text-2xs);
 }
 
 .studio-app-header--compact .studio-brand__name {

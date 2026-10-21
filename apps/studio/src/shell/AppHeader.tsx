@@ -33,6 +33,7 @@ import { listRecents, type RecentWorkspaceRecord } from '../workspace/persistenc
 import { resolveConflict } from '../services/git-sync.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { useDesignPreviewStore } from '../store/design-preview-store.js';
+import brandLogo from '../assets/rune-studio-logo.svg';
 
 function subscribeHeaderWidth(listener: () => void) {
   window.addEventListener('resize', listener);
@@ -179,7 +180,7 @@ export const AppHeader = withInstrumentation(
       <header className="studio-topbar" aria-label="Studio workspace header" data-testid="app-header">
         <div className="studio-topbar__left">
           <div className="studio-brand">
-            <div className="studio-brand__mark">R</div>
+            <img className="studio-brand__mark" src={brandLogo} alt="" width={22} height={22} draggable={false} />
             <span className="studio-brand__name">Rune Studio</span>
           </div>
           {showSwitcher && workspace && workspaceActions && (
