@@ -915,6 +915,13 @@ export const ExplorePerspective = withInstrumentation(
       // react-doctor/effect-needs-cleanup: intentional — pure state update, no subscription.
     }, [selectedNodeId]);
 
+    const publishedHydratedFilesRef = useRef(new Set<string>());
+    const publishingFilesRef = useRef(new Set<string>());
+    useEffect(() => {
+      publishedHydratedFilesRef.current = new Set();
+      publishingFilesRef.current = new Set();
+    }, [workspaceId]);
+
     // Link the selected graph node document on demand.
     const prevSelectedRef = useRef<string | null>(null);
     useEffect(() => {
@@ -931,12 +938,10 @@ export const ExplorePerspective = withInstrumentation(
         const requestGeneration = corpusGenerationRef.current;
         if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
         linkDocumentTimerRef.current = setTimeout(() => {
+          if (publishedHydratedFilesRef.current.has(filePath) || publishingFilesRef.current.has(filePath)) return;
+          publishingFilesRef.current.add(filePath);
           void linkDocument(filePath).then((result) => {
-            if (
-              corpusGenerationRef.current !== requestGeneration ||
-              workspaceIdRef.current !== requestWorkspaceId ||
-              result.newModels.length === 0
-            ) {
+            if (corpusGenerationRef.current !== requestGeneration || workspaceIdRef.current !== requestWorkspaceId) {
               return;
             }
             if (result.newModels.length > 0) {
@@ -946,6 +951,13 @@ export const ExplorePerspective = withInstrumentation(
               // loadDeferredExports after this. The store-owned deferredExports
               // state was populated when /api/parse responded.
               useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current] as unknown[]);
+            }
+            publishingFilesRef.current.delete(filePath);
+            if (
+              result.linked &&
+              useEditorStore.getState().hydratedNamespaces.includes(selectedNodeMeta?.namespace ?? '')
+            ) {
+              publishedHydratedFilesRef.current.add(filePath);
             }
           });
         }, 150);
@@ -963,12 +975,6 @@ export const ExplorePerspective = withInstrumentation(
     // in-flight response belongs to the workspace even if selection or hydration
     // advances. Only a workspace generation change may discard it.
     const hydrationNonce = useEditorStore((s) => s.hydrationNonce);
-    const publishedHydratedFilesRef = useRef(new Set<string>());
-    const publishingFilesRef = useRef(new Set<string>());
-    useEffect(() => {
-      publishedHydratedFilesRef.current = new Set();
-      publishingFilesRef.current = new Set();
-    }, [workspaceId]);
     // Track which (nonce, namespace) pairs have already been re-linked so that
     // switching between nodes in the same namespace on the same nonce doesn't
     // issue redundant linkDocument round-trips.
