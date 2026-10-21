@@ -795,7 +795,18 @@ export const ExplorePerspective = withInstrumentation(
     // dispatching the stub into a form with no fields — see EditorFormPanel's
     // `isHydrating` prop.
     const pendingHydrationNamespaces = useEditorStore((s) => s.pendingHydrationNamespaces);
-    const requestStructureHydration = useEditorStore((s) => s.requestNamespaceHydration);
+    const requestNamespaceHydration = useEditorStore((s) => s.requestNamespaceHydration);
+    const [structureHydrationRetry, setStructureHydrationRetry] = useState(0);
+    const requestStructureHydration = useCallback(
+      (namespace: string) => {
+        if (useEditorStore.getState().hydratedNamespaces.includes(namespace)) {
+          setStructureHydrationRetry((revision) => revision + 1);
+        } else {
+          requestNamespaceHydration(namespace);
+        }
+      },
+      [requestNamespaceHydration]
+    );
     const hydratedNamespaces = useEditorStore((s) => s.hydratedNamespaces);
     const selectedNodeIsHydrating = useMemo(
       () => Boolean(selectedNodeMeta?.deferred && pendingHydrationNamespaces.includes(selectedNodeMeta.namespace)),
@@ -952,9 +963,11 @@ export const ExplorePerspective = withInstrumentation(
     // in-flight response belongs to the workspace even if selection or hydration
     // advances. Only a workspace generation change may discard it.
     const hydrationNonce = useEditorStore((s) => s.hydrationNonce);
-    const publishedHydratedNamespacesRef = useRef(new Set<string>());
+    const publishedHydratedFilesRef = useRef(new Set<string>());
+    const publishingFilesRef = useRef(new Set<string>());
     useEffect(() => {
-      publishedHydratedNamespacesRef.current = new Set();
+      publishedHydratedFilesRef.current = new Set();
+      publishingFilesRef.current = new Set();
     }, [workspaceId]);
     // Track which (nonce, namespace) pairs have already been re-linked so that
     // switching between nodes in the same namespace on the same nonce doesn't
@@ -962,7 +975,7 @@ export const ExplorePerspective = withInstrumentation(
     const relinkedRef = useRef(new Set<string>());
     useEffect(() => {
       relinkedRef.current = new Set();
-    }, [hydrationNonce, workspaceId]);
+    }, [hydrationNonce, structureHydrationRetry, workspaceId]);
 
     useEffect(() => {
       if (hydrationNonce === 0 || !selectedNodeId) return;
@@ -973,31 +986,39 @@ export const ExplorePerspective = withInstrumentation(
       // deferred file in the namespace ensures every model (enum, data, choice)
       // gets deserialized and merged into the graph.
       const namespaces = new Set([...hydratedNamespaces, splitNodeId(selectedNodeId).namespace]);
-      const filePathSet = new Set<string>();
+      const fileNamespaces = new Map<string, string>();
       for (const e of deferredExportsRef.current) {
         if (!namespaces.has(e.namespace)) continue;
-        if (publishedHydratedNamespacesRef.current.has(e.namespace)) continue;
+        if (publishedHydratedFilesRef.current.has(e.filePath) || publishingFilesRef.current.has(e.filePath)) continue;
         if (relinkedRef.current.has(`${hydrationNonce}:${e.namespace}`)) continue;
         if (!e.filePath || e.filePath.startsWith('system://')) continue;
-        filePathSet.add(e.filePath);
+        fileNamespaces.set(e.filePath, e.namespace);
       }
-      const filePaths = [...filePathSet];
+      const filePaths = [...fileNamespaces.keys()];
       if (filePaths.length === 0) return;
-      for (const namespace of namespaces) {
-        relinkedRef.current.add(`${hydrationNonce}:${namespace}`);
-        if (hydratedNamespaces.includes(namespace)) publishedHydratedNamespacesRef.current.add(namespace);
-      }
+      for (const namespace of fileNamespaces.values()) relinkedRef.current.add(`${hydrationNonce}:${namespace}`);
+      for (const filePath of filePaths) publishingFilesRef.current.add(filePath);
       const requestWorkspaceId = workspaceId;
       const requestGeneration = corpusGenerationRef.current;
       void Promise.all(filePaths.map((fp) => linkDocument(fp))).then((results) => {
         if (corpusGenerationRef.current !== requestGeneration || workspaceIdRef.current !== requestWorkspaceId) return;
         const newModels = results.flatMap((r) => r.newModels);
-        if (newModels.length === 0) return;
-        corpusModelsRef.current = [...corpusModelsRef.current, ...newModels];
-        useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current] as unknown[]);
+        if (newModels.length > 0) {
+          corpusModelsRef.current = [...corpusModelsRef.current, ...newModels];
+          useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current] as unknown[]);
+        }
+        for (const [index, filePath] of filePaths.entries()) {
+          publishingFilesRef.current.delete(filePath);
+          const namespace = fileNamespaces.get(filePath)!;
+          if (results[index]?.linked && useEditorStore.getState().hydratedNamespaces.includes(namespace)) {
+            publishedHydratedFilesRef.current.add(filePath);
+          } else {
+            relinkedRef.current.delete(`${hydrationNonce}:${namespace}`);
+          }
+        }
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, workspaceId]);
+    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, structureHydrationRetry, workspaceId]);
 
     const functionScope: FunctionScope = useMemo(() => {
       const d = selectedNodeData as any;

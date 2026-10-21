@@ -151,6 +151,7 @@ const {
           navigationRevision?: number;
           focusedTypeId?: string;
           adapterDoc?: unknown;
+          onRequestNamespaceHydration?: (namespace: string) => void;
           cellComponents?: {
             name?: unknown;
             type?: unknown;
@@ -2754,6 +2755,61 @@ describe('EditorPage StructureView cell-editor wiring (Phase 5/8 regression guar
       'math.rosetta'
     ]);
     expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([money, quantity]);
+  });
+
+  it('retries failed hydrated documents from Structure without republishing successful peers', async () => {
+    const workspaceService = await import('../../src/services/workspace.js');
+    const link = vi.mocked(workspaceService.linkDocument);
+    link.mockReset();
+    const first = {
+      name: 'cdm.observable.asset',
+      elements: []
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    const second = { ...first };
+    let retry = false;
+    link.mockImplementation(async (path) => ({
+      linked: path === 'money.rosetta' || retry,
+      errors: [],
+      newModels: path === 'money.rosetta' ? [first] : retry ? [second] : []
+    }));
+    editorStoreState.nodes = [
+      {
+        id: 'cdm.observable.asset.Money',
+        data: { $type: 'Data', name: 'Money' },
+        meta: { namespace: 'cdm.observable.asset', errors: [], hasExternalRefs: false }
+      }
+    ];
+    editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+    editorStoreState.hydrationNonce = 1;
+    editorStoreState.hydratedNamespaces = ['cdm.observable.asset'];
+    renderEditorPage({
+      workspaceId: 'ws-retry',
+      models: [],
+      files: [],
+      fileCount: 0,
+      deferredExports: [
+        { filePath: 'money.rosetta', namespace: 'cdm.observable.asset', exports: [{ type: 'Data', name: 'Money' }] },
+        { filePath: 'other.rosetta', namespace: 'cdm.observable.asset', exports: [{ type: 'Data', name: 'Other' }] }
+      ]
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([first]);
+    expect(link.mock.calls.map(([path]) => path)).toEqual(['money.rosetta', 'other.rosetta']);
+    retry = true;
+    await act(async () => {
+      structureViewMockState.latestProps?.onRequestNamespaceHydration?.('cdm.observable.asset');
+      await Promise.resolve();
+    });
+    expect(link.mock.calls.map(([path]) => path)).toEqual(['money.rosetta', 'other.rosetta', 'other.rosetta']);
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([first, second]);
+    expect(editorStoreState.requestNamespaceHydration).not.toHaveBeenCalled();
+    await act(async () => {
+      structureViewMockState.latestProps?.onRequestNamespaceHydration?.('cdm.observable.asset');
+      await Promise.resolve();
+    });
+    expect(link).toHaveBeenCalledTimes(3);
   });
 
   it('retains a consumed link result when selection and hydration advance in the same workspace', async () => {
