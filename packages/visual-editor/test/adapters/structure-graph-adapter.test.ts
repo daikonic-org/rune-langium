@@ -34,6 +34,33 @@ const fixtureSimple = {
 };
 
 describe('buildStructureGraph — standalone Data type', () => {
+  it.each(['Data', 'Enum'] as const)('resolves %s references independently of same-named functions', (kind) => {
+    const functionId = 'cdm.CalculationPeriod#RosettaFunction';
+    const typeId = `cdm.CalculationPeriod#${kind}`;
+    const owner = {
+      id: 'cdm.Payment',
+      name: 'Payment',
+      namespace: 'cdm',
+      $type: 'Data' as const,
+      attributes: [
+        { name: 'period', typeCall: 'CalculationPeriod' },
+        { name: 'qualifiedPeriod', typeCall: 'cdm.CalculationPeriod' }
+      ]
+    };
+    const graph = buildStructureGraph(
+      {
+        namespaces: [{ uri: 'cdm' }],
+        nodes: [
+          { id: functionId, name: 'CalculationPeriod', namespace: 'cdm', $type: 'Function' },
+          { id: typeId, name: 'CalculationPeriod', namespace: 'cdm', $type: kind },
+          owner
+        ]
+      },
+      { focusedTypeId: owner.id, expansionMap: new Map() }
+    );
+    const root = graph.nodes.get(graph.rootNodeId) as StructureDataNode;
+    for (const row of root.rows) expect(row).toMatchObject({ typeKind: kind, targetNodeId: typeId });
+  });
   it('produces a single root node with rows for each attribute', () => {
     const result = buildStructureGraph(fixtureSimple, {
       focusedTypeId: 'cdm.trade.Trade',

@@ -60,6 +60,98 @@ const key = (typeId: string, attrName: string, instancePath: readonly string[]):
 afterEach(() => vi.useRealTimers());
 
 describe('Structure document', () => {
+  it('requests only visible deferred children and updates their contents after hydration', () => {
+    const hydrate = vi.fn();
+    const deferredDoc: AdapterDocument = {
+      namespaces: [{ uri: 'demo' }, { uri: 'curated' }],
+      nodes: [
+        data('Trade', [attr('paymentCalculationPeriod', 'curated.PaymentCalculationPeriod')]),
+        data('PaymentCalculationPeriod', [], {
+          id: 'curated.PaymentCalculationPeriod',
+          namespace: 'curated',
+          deferred: true
+        })
+      ]
+    };
+    const expanded = new Map([[expansionKey(key('Trade', 'paymentCalculationPeriod', ['demo.Trade'])), true]]);
+    const result = render(
+      <StructureView focusedTypeId="demo.Trade" adapterDoc={deferredDoc} onRequestNamespaceHydration={hydrate} />
+    );
+    expect(hydrate).not.toHaveBeenCalled();
+    result.rerender(
+      <StructureView
+        focusedTypeId="demo.Trade"
+        adapterDoc={deferredDoc}
+        expansionMap={expanded}
+        onRequestNamespaceHydration={hydrate}
+        pendingHydrationNamespaces={['curated']}
+      />
+    );
+    expect(hydrate).toHaveBeenCalledExactlyOnceWith('curated');
+    expect(screen.getByRole('region', { name: 'PaymentCalculationPeriod', exact: true })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    );
+    expect(screen.getByText('Loading PaymentCalculationPeriod details…')).toBeInTheDocument();
+    const hydratedDoc = {
+      ...deferredDoc,
+      nodes: [
+        deferredDoc.nodes[0]!,
+        data('PaymentCalculationPeriod', [attr('unadjustedPaymentDate', 'date')], {
+          id: 'curated.PaymentCalculationPeriod',
+          namespace: 'curated'
+        })
+      ]
+    };
+    result.rerender(
+      <StructureView
+        focusedTypeId="demo.Trade"
+        adapterDoc={hydratedDoc}
+        expansionMap={expanded}
+        onRequestNamespaceHydration={hydrate}
+      />
+    );
+    expect(screen.getByText('unadjustedPaymentDate')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'PaymentCalculationPeriod', exact: true })).toHaveAttribute(
+      'aria-busy',
+      'false'
+    );
+    expect(hydrate).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates inherited Quantity without leaving Money and explains its empty local body', () => {
+    const hydrate = vi.fn();
+    const inheritedDoc: AdapterDocument = {
+      namespaces: [{ uri: 'demo' }, { uri: 'math' }],
+      nodes: [
+        data('Money', [], { extends: 'math.Quantity' }),
+        data('Quantity', [], { id: 'math.Quantity', namespace: 'math', deferred: true })
+      ]
+    };
+    const result = render(
+      <StructureView focusedTypeId="demo.Money" adapterDoc={inheritedDoc} onRequestNamespaceHydration={hydrate} />
+    );
+    expect(hydrate).toHaveBeenCalledExactlyOnceWith('math');
+    expect(screen.getByText('Quantity details have not loaded.')).toBeInTheDocument();
+    expect(screen.getByText('No additional attributes')).toHaveClass('italic');
+    fireEvent.click(screen.getByRole('button', { name: 'Load details' }));
+    expect(hydrate).toHaveBeenCalledTimes(2);
+    result.rerender(
+      <StructureView
+        focusedTypeId="demo.Money"
+        adapterDoc={{
+          ...inheritedDoc,
+          nodes: [
+            inheritedDoc.nodes[0]!,
+            data('Quantity', [attr('value', 'number')], { id: 'math.Quantity', namespace: 'math' })
+          ]
+        }}
+        onRequestNamespaceHydration={hydrate}
+      />
+    );
+    expect(screen.getByText('value')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load details' })).not.toBeInTheDocument();
+  });
   it('shows the empty, unsupported and stale states', () => {
     const result = render(<StructureView focusedTypeId={undefined} adapterDoc={undefined} />);
     expect(screen.getByTestId('structure-empty-state')).toHaveTextContent('Select a type');
@@ -168,9 +260,8 @@ describe('Structure document', () => {
       />
     );
     expect(name.mock.calls.map(([props]) => props.value)).toEqual(['name', 'address']);
-    fireEvent.click(screen.getByRole('button', { name: 'Party', exact: true }));
-    expect(select).toHaveBeenLastCalledWith('demo.Party');
-    fireEvent.click(screen.getByRole('button', { name: 'Base', exact: true }));
+    expect(screen.queryByRole('button', { name: 'Party', exact: true })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate to Base', exact: true }));
     expect(select).toHaveBeenLastCalledWith('demo.Base');
     expect(type).toHaveBeenCalled();
     expect(cardCell).toHaveBeenCalled();

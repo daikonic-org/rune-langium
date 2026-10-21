@@ -583,6 +583,7 @@ export const ExplorePerspective = withInstrumentation(
     // Accumulates corpus models returned by linkDocument so they can be merged into
     // the graph. Reset when a new workspace is loaded.
     const corpusModelsRef = useRef<RosettaModel[]>([]);
+    const corpusGenerationRef = useRef(0);
     const workspaceIdRef = useRef(workspaceId);
     const modelsRef = useRef(models);
     const navigationHistoryRef = useRef<string[]>([]);
@@ -760,6 +761,7 @@ export const ExplorePerspective = withInstrumentation(
       // deferred placeholder graph.
       if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
       corpusModelsRef.current = [];
+      corpusGenerationRef.current += 1;
     }, [workspaceId]);
 
     useEffect(() => {
@@ -793,6 +795,7 @@ export const ExplorePerspective = withInstrumentation(
     // dispatching the stub into a form with no fields — see EditorFormPanel's
     // `isHydrating` prop.
     const pendingHydrationNamespaces = useEditorStore((s) => s.pendingHydrationNamespaces);
+    const requestStructureHydration = useEditorStore((s) => s.requestNamespaceHydration);
     const hydratedNamespaces = useEditorStore((s) => s.hydratedNamespaces);
     const selectedNodeIsHydrating = useMemo(
       () => Boolean(selectedNodeMeta?.deferred && pendingHydrationNamespaces.includes(selectedNodeMeta.namespace)),
@@ -912,13 +915,17 @@ export const ExplorePerspective = withInstrumentation(
       // Trigger on-demand linking for the selected node's document (ADR 007 Phase 2).
       // Skip system:// URIs (base types are always parsed, never deferred).
       // Debounced so rapid keyboard navigation doesn't queue many worker requests.
-      let cancelled = false;
       if (filePath && !filePath.startsWith('system://')) {
         const requestWorkspaceId = workspaceId;
+        const requestGeneration = corpusGenerationRef.current;
         if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
         linkDocumentTimerRef.current = setTimeout(() => {
           void linkDocument(filePath).then((result) => {
-            if (cancelled || workspaceIdRef.current !== requestWorkspaceId || result.newModels.length === 0) {
+            if (
+              corpusGenerationRef.current !== requestGeneration ||
+              workspaceIdRef.current !== requestWorkspaceId ||
+              result.newModels.length === 0
+            ) {
               return;
             }
             if (result.newModels.length > 0) {
@@ -933,26 +940,17 @@ export const ExplorePerspective = withInstrumentation(
         }, 150);
       }
       return () => {
-        cancelled = true;
         if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedNodeId, selectedNodeData, workspaceId]);
 
-    // Re-link the selected node after an on-demand hydration completes.
+    // Publish hydrated namespaces into the UI, including expanded children and bases.
     //
-    // The selection effect above fires once when the node is first selected and
-    // calls linkDocument 150ms later. If the node's namespace wasn't in the
-    // worker yet (deferred / curated), that link fails silently — the worker has
-    // no AST for the file yet. The on-demand hydration parse then completes and
-    // triggers markNamespacesHydrated, which bumps hydrationNonce. This effect
-    // reacts to that nonce change and re-links immediately (no 150ms debounce
-    // needed — we're not racing file edits here, the worker is fully ready).
-    // linkDocument is safe to re-run for an already-linked selection, but this
-    // effect must not depend on the selected node object's identity. `loadModels`
-    // can rebuild placeholder node objects during hydration, and keying this
-    // effect on `selectedNodeData` would cancel the first successful re-link and
-    // immediately issue a second one that returns `newModels: []`.
+    // Hydration makes documents available in the worker; linkDocument publishes
+    // their models to the graph store. Its newModels are delivered once, so an
+    // in-flight response belongs to the workspace even if selection or hydration
+    // advances. Only a workspace generation change may discard it.
     const hydrationNonce = useEditorStore((s) => s.hydrationNonce);
     // Track which (nonce, namespace) pairs have already been re-linked so that
     // switching between nodes in the same namespace on the same nonce doesn't
@@ -964,39 +962,34 @@ export const ExplorePerspective = withInstrumentation(
 
     useEffect(() => {
       if (hydrationNonce === 0 || !selectedNodeId) return;
-      // Link ALL files for the selected node's namespace. The curated artifact
+      // Link ALL files for hydrated namespaces and the selected namespace. The curated artifact
       // format aggregates namespace-level exports onto the first document's export
       // list, so per-type file mapping (nodeIdToFilePath) is unreliable — it may
       // resolve to the enum file even when a data type is selected. Linking every
       // deferred file in the namespace ensures every model (enum, data, choice)
       // gets deserialized and merged into the graph.
-      const { namespace } = splitNodeId(selectedNodeId);
-      if (!namespace) return;
-      const relinkedKey = `${hydrationNonce}:${namespace}`;
-      if (relinkedRef.current.has(relinkedKey)) return;
-      relinkedRef.current.add(relinkedKey);
+      const namespaces = new Set([...hydratedNamespaces, splitNodeId(selectedNodeId).namespace]);
       const filePathSet = new Set<string>();
       for (const e of deferredExportsRef.current) {
-        if (e.namespace !== namespace) continue;
+        if (!namespaces.has(e.namespace)) continue;
+        if (relinkedRef.current.has(`${hydrationNonce}:${e.namespace}`)) continue;
         if (!e.filePath || e.filePath.startsWith('system://')) continue;
         filePathSet.add(e.filePath);
       }
       const filePaths = [...filePathSet];
       if (filePaths.length === 0) return;
+      for (const namespace of namespaces) relinkedRef.current.add(`${hydrationNonce}:${namespace}`);
       const requestWorkspaceId = workspaceId;
-      let cancelled = false;
+      const requestGeneration = corpusGenerationRef.current;
       void Promise.all(filePaths.map((fp) => linkDocument(fp))).then((results) => {
-        if (cancelled || workspaceIdRef.current !== requestWorkspaceId) return;
+        if (corpusGenerationRef.current !== requestGeneration || workspaceIdRef.current !== requestWorkspaceId) return;
         const newModels = results.flatMap((r) => r.newModels);
         if (newModels.length === 0) return;
         corpusModelsRef.current = [...corpusModelsRef.current, ...newModels];
         useEditorStore.getState().loadModels([...modelsRef.current, ...corpusModelsRef.current] as unknown[]);
       });
-      return () => {
-        cancelled = true;
-      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hydrationNonce, selectedNodeId, workspaceId]);
+    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, workspaceId]);
 
     const functionScope: FunctionScope = useMemo(() => {
       const d = selectedNodeData as any;
@@ -2763,6 +2756,7 @@ export const ExplorePerspective = withInstrumentation(
             }}
             structureDiagnostics={structureDiagnostics}
             pendingHydrationNamespaces={pendingHydrationNamespaces}
+            onRequestNamespaceHydration={requestStructureHydration}
           />
         </div>
       ),
@@ -2778,7 +2772,8 @@ export const ExplorePerspective = withInstrumentation(
         handleStructureNavigateToEnumType,
         requestInspectorMembers,
         structureDiagnostics,
-        pendingHydrationNamespaces
+        pendingHydrationNamespaces,
+        requestStructureHydration
       ]
     );
 

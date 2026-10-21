@@ -208,6 +208,7 @@ function classifyType(typeName: string, doc: AdapterDocument, caller?: AdapterNo
 // handle both forms here so the qualified-name source-drop path (Phase 9)
 // resolves correctly.
 function findNodeByName(typeName: string, doc: AdapterDocument, caller?: AdapterNode): AdapterNode | undefined {
+  const types = doc.nodes.filter((node) => node.$type !== 'Function');
   // Qualified-ref form: "<ns.segments>.<TypeName>". Split on the last dot:
   // everything before is the namespace, everything after is the simple name.
   // A failed qualified lookup is authoritative — type names can't contain
@@ -219,9 +220,7 @@ function findNodeByName(typeName: string, doc: AdapterDocument, caller?: Adapter
     const imports = caller?.imports ?? [];
     for (const candidate of importAliasCandidates(typeName, buildImportAliasMap(imports))) {
       const dot = candidate.lastIndexOf('.');
-      const match = doc.nodes.find(
-        (n) => n.name === candidate.slice(dot + 1) && n.namespace === candidate.slice(0, dot)
-      );
+      const match = types.find((n) => n.name === candidate.slice(dot + 1) && n.namespace === candidate.slice(0, dot));
       if (match) return match;
     }
     return undefined;
@@ -229,7 +228,7 @@ function findNodeByName(typeName: string, doc: AdapterDocument, caller?: Adapter
 
   // Unqualified path: name match, optionally prefer same-namespace caller.
   let firstMatch: AdapterNode | undefined;
-  for (const n of doc.nodes) {
+  for (const n of types) {
     if (n.name !== typeName) continue;
     if (caller && n.namespace === caller.namespace) return n;
     if (!firstMatch) firstMatch = n;
@@ -727,6 +726,7 @@ function materializeDataWithInheritance(
       baseTypeId: baseNode.id,
       baseTypeName: baseNode.name,
       baseTypeNamespaceUri: baseNode.namespace,
+      deferred: baseNode.deferred,
       baseRows,
       childNodeId: childInstanceId,
       expansions: baseExpansions

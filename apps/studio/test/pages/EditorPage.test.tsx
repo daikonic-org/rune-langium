@@ -2653,6 +2653,92 @@ describe('EditorPage StructureView cell-editor wiring (Phase 5/8 regression guar
     }
   });
 
+  it('publishes hydrated dependency namespaces while keeping Money selected', async () => {
+    const workspaceService = await import('../../src/services/workspace.js');
+    const link = vi.mocked(workspaceService.linkDocument);
+    link.mockReset();
+    const quantity = { name: 'cdm.base.math', elements: [] } as unknown as import('@rune-langium/core').RosettaModel;
+    link.mockImplementation(async (path) => ({
+      linked: true,
+      errors: [],
+      newModels: path === 'math.rosetta' ? [quantity] : []
+    }));
+    editorStoreState.nodes = [
+      {
+        id: 'cdm.observable.asset.Money',
+        data: { $type: 'Data', name: 'Money' },
+        meta: { namespace: 'cdm.observable.asset', errors: [], hasExternalRefs: false }
+      }
+    ];
+    editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+    editorStoreState.hydrationNonce = 1;
+    editorStoreState.hydratedNamespaces = ['cdm.base.math'];
+    renderEditorPage({
+      workspaceId: 'ws-money',
+      models: [],
+      files: [],
+      fileCount: 0,
+      deferredExports: [
+        { filePath: 'math.rosetta', namespace: 'cdm.base.math', exports: [{ type: 'Data', name: 'Quantity' }] }
+      ]
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(link).toHaveBeenCalledWith('math.rosetta');
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([quantity]);
+    expect(editorStoreState.selectedNodeId).toBe('cdm.observable.asset.Money');
+  });
+
+  it('retains a consumed link result when selection and hydration advance in the same workspace', async () => {
+    const workspaceService = await import('../../src/services/workspace.js');
+    const link = vi.mocked(workspaceService.linkDocument);
+    link.mockReset();
+    const model = {
+      name: 'cdm.observable.asset',
+      elements: []
+    } as unknown as import('@rune-langium/core').RosettaModel;
+    let finish!: (value: { linked: boolean; errors: []; newModels: (typeof model)[] }) => void;
+    link.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    link.mockResolvedValue({ linked: true, errors: [], newModels: [] });
+    editorStoreState.nodes = [
+      {
+        id: 'cdm.observable.asset.Money',
+        data: { $type: 'Data', name: 'Money' },
+        meta: { namespace: 'cdm.observable.asset', errors: [], hasExternalRefs: false }
+      }
+    ];
+    editorStoreState.selectedNodeId = 'cdm.observable.asset.Money';
+    editorStoreState.hydrationNonce = 1;
+    const workspace = {
+      workspaceId: 'ws-money',
+      models: [],
+      files: [],
+      fileCount: 0,
+      deferredExports: [
+        { filePath: 'money.rosetta', namespace: 'cdm.observable.asset', exports: [{ type: 'Data', name: 'Money' }] }
+      ]
+    };
+    const { rerenderEditorPage } = renderEditorPage(workspace);
+    expect(link).toHaveBeenCalledWith('money.rosetta');
+    editorStoreState.selectedNodeId = 'cdm.base.math.Quantity';
+    editorStoreState.hydrationNonce = 2;
+    await act(async () => {
+      rerenderEditorPage(workspace);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      finish({ linked: true, errors: [], newModels: [model] });
+      await Promise.resolve();
+    });
+    expect(editorStoreState.loadModels).toHaveBeenLastCalledWith([model]);
+  });
+
   it('ignores stale curated link results that resolve after the workspace changes', async () => {
     vi.useFakeTimers();
     try {

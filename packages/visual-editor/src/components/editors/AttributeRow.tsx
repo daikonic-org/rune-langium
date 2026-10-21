@@ -39,7 +39,7 @@ import {
   type InspectorRowProps
 } from './inspector/inspector-row.js';
 
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -226,17 +226,6 @@ function AttributeRow({
   // the array is promoted to z2f-driven rendering — at which point the
   // upstream `<ArrayReorderHandle>` mounts alongside (or replaces) this
   // gesture surface but the `onReorder` route is unchanged.
-  // ---- Resolve typeName (label) to option value for TypeSelector ----------
-
-  const typeValue = useMemo(() => {
-    const name = typeName ?? '';
-    // Try exact value match first, then label match
-    const byValue = availableTypes.find((o) => o.value === name);
-    if (byValue) return byValue.value;
-    const byLabel = availableTypes.find((o) => o.label === name);
-    return byLabel?.value ?? name;
-  }, [typeName, availableTypes]);
-
   // ---- Render --------------------------------------------------------------
 
   return (
@@ -285,7 +274,7 @@ function AttributeRow({
       {/* Type selector + navigation link */}
       <div data-slot="attribute-type" className="min-w-0">
         <TypeReferenceField
-          value={typeValue}
+          value={typeName ?? null}
           displayName={typeName}
           options={availableTypes}
           onSelect={handleTypeSelect}
