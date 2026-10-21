@@ -10,18 +10,15 @@
  */
 
 import dagre from '@dagrejs/dagre';
+import { getNodeWidth, getNodeHeight } from './node-dimensions.js';
 import type { TypeGraphNode, TypeGraphEdge, LayoutOptions } from '../types.js';
 import { computeGroupedLayout } from './grouped-layout.js';
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, getNodeHeight, getNodeWidth } from './node-dimensions.js';
-
-/** Default layout options. */
-const DEFAULT_LAYOUT_OPTIONS: Required<LayoutOptions> = {
-  engine: 'dagre',
-  direction: 'TB',
-  nodeSeparation: 50,
-  rankSeparation: 100,
-  groupByInheritance: false
-};
+import {
+  buildDagreGraph,
+  dagrePositions,
+  layoutNodeDimensions,
+  DEFAULT_GRAPH_LAYOUT_OPTIONS as DEFAULT_LAYOUT_OPTIONS
+} from './dagre-graph.js';
 
 // ---------------------------------------------------------------------------
 // Layout position cache
@@ -97,47 +94,17 @@ export function computeLayout(
 
   const opts = ensureCompatibleLayoutCache(options);
 
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({
-    rankdir: opts.direction,
-    nodesep: opts.nodeSeparation,
-    ranksep: opts.rankSeparation,
-    marginx: 20,
-    marginy: 20
-  });
-
-  // Add nodes with estimated dimensions
-  for (const node of nodes) {
-    g.setNode(node.id, {
-      width: getNodeWidth(node),
-      height: getNodeHeight(node)
-    });
-  }
-
-  // Add edges
-  for (const edge of edges) {
-    g.setEdge(edge.source, edge.target);
-  }
+  const g = buildDagreGraph(layoutNodeDimensions(nodes), edges, opts);
 
   // Compute layout
   dagre.layout(g);
 
-  // Apply positions — dagre centers nodes, ReactFlow uses top-left
-  // Also update the position cache for future reuse
+  const positions = dagrePositions(g, nodes);
   return nodes.map((node) => {
-    const dagreNode = g.node(node.id);
-    if (!dagreNode) return node;
-
-    const pos = {
-      x: dagreNode.x - (dagreNode.width ?? DEFAULT_NODE_WIDTH) / 2,
-      y: dagreNode.y - (dagreNode.height ?? DEFAULT_NODE_HEIGHT) / 2
-    };
-
-    // Cache the computed position
-    positionCache.set(node.id, pos);
-
-    return { ...node, position: pos };
+    const position = positions[node.id];
+    if (!position) return node;
+    positionCache.set(node.id, position);
+    return { ...node, position };
   });
 }
 

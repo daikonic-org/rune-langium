@@ -52,6 +52,33 @@ export interface TypeIndexLookup {
   typeAliasByName: ReadonlyMap<string, TypeIndexEntry<RosettaTypeAlias>>;
 }
 
+/** Bare namespace maps accepted from emitter contexts and namespace walks. */
+interface BareTypeIndex {
+  enumByName: ReadonlyMap<string, RosettaEnumeration>;
+  dataByName: ReadonlyMap<string, Data>;
+  choiceByName: ReadonlyMap<string, Choice>;
+  typeAliasByName: ReadonlyMap<string, RosettaTypeAlias>;
+}
+
+function wrapTypeIndexEntries<N>(
+  map: ReadonlyMap<string, N>,
+  sourceUri: string
+): ReadonlyMap<string, TypeIndexEntry<N>> {
+  const wrapped = new Map<string, TypeIndexEntry<N>>();
+  for (const [name, node] of map) wrapped.set(name, { node, sourceUri });
+  return wrapped;
+}
+
+/** Attach the emitter's fallback source URI without mutating its namespace maps. */
+export function toTypeIndexLookup(model: BareTypeIndex, sourceUri: string): TypeIndexLookup {
+  return {
+    enumByName: wrapTypeIndexEntries(model.enumByName, sourceUri),
+    dataByName: wrapTypeIndexEntries(model.dataByName, sourceUri),
+    choiceByName: wrapTypeIndexEntries(model.choiceByName, sourceUri),
+    typeAliasByName: wrapTypeIndexEntries(model.typeAliasByName, sourceUri)
+  };
+}
+
 export function nodeSourceUri(node: { $container?: unknown } | undefined, fallback: string): string {
   const withDoc = node as { $container?: { $document?: { uri?: { toString(): string } } } } | undefined;
   return withDoc?.$container?.$document?.uri?.toString() ?? fallback;

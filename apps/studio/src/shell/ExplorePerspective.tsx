@@ -732,29 +732,6 @@ export const ExplorePerspective = withInstrumentation(
       [syncResponsiveGraphLayout]
     );
 
-    useEffect(() => {
-      if (!selectedNodeId) return;
-      if (!storeNodes.some((node) => node.id === selectedNodeId)) return;
-      // Skip while focus mode is isolating a subgraph (hiddenNodeIds non-empty):
-      // RuneTypeGraph's own internal focus-fit effect already relayouts and
-      // centers on the focused selection using the correct, freshly-filtered
-      // node set. This effect's `graphRef.relayout()` call operates on
-      // RuneTypeGraph's full internal node list — dispatched from this
-      // separate component's effect reacting to the SAME `selectedNodeId`
-      // change, it can fire in the same render pass as (and after) the
-      // internal focus-fit effect and clobber its correct, focus-filtered
-      // result back to the unfiltered graph. This was the remaining cause of
-      // a freshly focus-selected node (e.g. a type from a just-uploaded file)
-      // never rendering, even after the RuneTypeGraph-internal race was
-      // fixed (2026-08-07).
-      if (focusMode && hiddenNodeIds.size > 0) return;
-      graphRef.current?.relayout({
-        engine: useEditorStore.getState().layoutOptions.engine ?? 'elk',
-        direction: getResponsiveGraphDirection(),
-        groupByInheritance: groupedLayoutRef.current
-      });
-    }, [focusMode, getResponsiveGraphDirection, hiddenNodeIds, selectedNodeId, storeNodes]);
-
     const resolvedModelFiles = useMemo(() => {
       if (parsedModels && parsedModels.length > 0) {
         return parsedModels;
@@ -2653,10 +2630,7 @@ export const ExplorePerspective = withInstrumentation(
       [storeNodes]
     );
 
-    // Memoize cell components to preserve prop identity across renders — avoids
-    // unnecessary ReactFlow reconciliation when unrelated EditorPage state changes.
-    // InheritanceCell is not included here because GroupContainerNode (the base-type
-    // wrap) does not expose a cell-injection API; that wiring is a future addition.
+    // Stable editors preserve member drafts across unrelated host renders.
     const structureCellComponents = useMemo(
       () => ({
         name: NameCell,
@@ -2693,9 +2667,9 @@ export const ExplorePerspective = withInstrumentation(
     //      conversion — offset → line — would need binary search; the previous
     //      comment claimed binary search here in error. Copilot caught it.)
     //   4. Map each LspDiagnostic to a RangeDiagnostic and pass the resulting
-    //      array into StructureView. DataNode calls useDiagnosticsForRange per row.
+    //      array into StructureView, which matches diagnostics to each member row.
     //
-    // Keeping the conversion here (rather than in a hook or in DataNode) lets
+    // Keeping the conversion here (rather than in each member row) lets
     // the memoized lineOffsets array amortize the cost across all rows in one
     // render pass instead of recomputing it once per row.
     //

@@ -76,7 +76,7 @@ Project: "Daikonic Studio Components" (`projectId` in config.json). Package shap
 - `[RENDER_THIN]` Dialog / InteractiveDialog: 0px measured height because content portals to body with fixed positioning — screenshots verified rendering correctly (benign).
 - Review/capture cells are a fixed ~670x520 frame; compact components (Separator, IconButtonGroup, AppSwitcher, Kbd) sit top-left in empty dark space — cosmetic.
 - Disabled primary Button label is low-contrast on the dark surface (DS design choice, opacity 0.5) — not changed.
-- `[TOKENS_MISSING]` ~15: `--type-chip-bg/-fg`, `--rune-chip-padding-*` (set inline by TypeChip/chip components) and `--rune-header-height`, `--rune-node-padding`, `--rune-col-width`, `--rune-row-*` (set at runtime by visual-editor `layout/structure-layout.ts`). Expected.
+- `[TOKENS_MISSING]` ~15: `--type-chip-bg/-fg`, `--rune-chip-padding-*` (set inline by TypeChip/chip components) and `--rune-header-height` (set at runtime by visual-editor `layout/graph-node-geometry.ts`). Expected.
 - `[DOCS_UNMAPPED]` for the 5 VE components — prompt.md synthesized from dtsPropsFor + JSDoc + previews. Expected.
 
 ## Re-sync risks

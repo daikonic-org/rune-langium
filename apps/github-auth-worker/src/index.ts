@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { corsJsonResponse as json } from '@rune-langium/worker-core/http';
 // Workers Builds auto-deploy smoke test (2026-08-21) — no functional change.
 
 /**
@@ -52,17 +53,6 @@ function evictExpiredPolls(now: number): void {
 
 export function _resetPollLimitForTesting(): void {
   lastPollAt.clear();
-}
-
-function json(status: number, body: unknown, origin: string): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': origin,
-      Vary: 'Origin'
-    }
-  });
 }
 
 function originOk(req: Request, allowed: string): boolean {

@@ -167,6 +167,7 @@ Multiple instances of the same wrapper (one per visible occurrence of the
 outer type) share the canonical id but differ in `instanceId`.
 - `instanceId: string` (optional) — Per-instance discriminator (Phase 14e); see `StructureDataNode.instanceId`.
 - `kind: "base"`
+- `baseTypeId: string` (optional) — Canonical declaration ID, distinct from the synthetic wrapper ID.
 - `baseTypeName: string`
 - `baseTypeNamespaceUri: string`
 - `baseRows: readonly StructureRow[]`
@@ -204,18 +205,6 @@ like a simple Data node with no children column.
 StructureDataNode | StructureChoiceNode | StructureBaseContainer | StructureEnumNode | StructureFunctionNode
 ```
 
-### `MeasuredNodeWidths`
-DOM-measured natural widths for one structure node, keyed by instance id in
-`StructureGraphInput.measuredWidths`. Produced by the post-render
-measurement pass in StructureView (measure-then-layout): each rendered
-node's rows column and header are briefly forced to `max-content` inside a
-layout effect (no paint in between) and their natural `offsetWidth` is
-recorded. When present these values replace the character-count estimates
-in the sizing pass, so the re-layout hugs real rendered content.
-**Properties:**
-- `rowsColWidth: number` (optional) — Natural width of the rows column (`.rune-node-rows` / base-rows), border-box.
-- `headerWidth: number` (optional) — Natural width of the node header (`.rune-node-header`), border-box.
-
 ### `StructureGraphInput`
 Full graph input produced by the adapter.
 **Properties:**
@@ -229,11 +218,6 @@ materializes whichever the focused type resolves to.
 - `nodes: ReadonlyMap<string, StructureNode>` — Per-instance node map. Keys are `StructureNode.instanceId`; each visible
 occurrence of a type is its own entry with its own `expansions` map.
 Look up a node's shared canonical metadata via `.id`.
-- `measuredWidths: ReadonlyMap<string, MeasuredNodeWidths>` (optional) — Optional DOM-measured widths keyed by instance id. When a node has an
-entry here, the sizing pass uses the measured value (clamped to the same
-[COL_WIDTH, COL_WIDTH_MAX] envelope) instead of the character-count
-estimate. Nodes without an entry fall back to estimates, so a partially
-measured graph still lays out correctly.
 
 ### `DomainNodeData`
 Domain payload of an editor graph node — the discriminated union (on
@@ -255,14 +239,13 @@ DomainNodeData
 ```
 
 ### `GraphNodeMeta`
-UI/editor metadata for a graph node, held on `node.meta` — a sibling of the
-pure-domain `node.data` payload. `position` is NOT here — it already lives
-on the ReactFlow node itself.
 **Properties:**
 - `namespace: string`
+- `imports: readonly NamespaceImport[]` (optional) — File-local import bindings for authored reference labels and navigation.
 - `errors: ValidationError[]`
 - `isReadOnly: boolean` (optional)
 - `hasExternalRefs: boolean`
+- `annotationDefinitions: Readonly<Record<string, { name: string; namespace: string }>>` (optional) — Derived linked scope facts; never part of the authored domain payload.
 - `comments: string` (optional) — UI-only annotation (not from AST).
 - `deferred: boolean` (optional) — True only on deferred-export placeholder nodes (list-only curated types
  not yet hydrated). Drives on-demand hydration gating in the explorer.
@@ -316,6 +299,14 @@ the actual editor implementation (e.g. CodeMirror, Monaco) via a
 - `error: string | null` (optional) — Validation error message (null when valid).
 - `placeholder: string` (optional) — Placeholder text shown when the editor is empty.
 - `expressionAst: unknown` (optional) — Raw AST expression object — enables direct tree conversion without reparsing text.
+- `readOnly: boolean` (optional)
+- `target: { nodeId: string; kind: "precondition" | "postcondition"; index: number }` (optional)
+- `draftCondition: { nodeId: string; kind: "precondition" | "postcondition" }` (optional) — Scope for a new condition draft; no expression source region exists yet.
+
+### `FunctionBodyEditorSlotProps`
+**Properties:**
+- `nodeId: string`
+- `readOnly: boolean`
 
 ### `TypeOption`
 A type option for searchable type selectors.
@@ -329,5 +320,17 @@ A type option for searchable type selectors.
 Option for the synonym-source reference picker.
 **Properties:**
 - `value: string` — Canonical id of the source declaration (e.g. `ns.FpML`).
+- `label: string` — Display name (bare source name).
+- `namespace: string` (optional) — Namespace for cross-namespace qualification.
+
+### `CommonFormActions`
+Actions shared by all type kinds.
+**Properties:**
+- `captureMetadataTarget: (nodeId: string, path: MetadataPath) => MetadataTarget | undefined` (optional)
+- `applyMetadataCommand: (target: MetadataTarget, command: MetadataCommand) => MetadataEditResult` (optional)
+
+### `DataFormActions`
+Data type–specific editor actions.
+**Properties:**
 
 <!-- truncated -->

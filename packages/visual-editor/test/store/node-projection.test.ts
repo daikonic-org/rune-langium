@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { makeNodeId, nameFromNodeId, qualifiedNameFromNodeId, splitNodeId } from '../../src/store/node-projection.js';
 import { makeEdgeId, parseEdgeId } from '../../src/store/node-projection.js';
 import { astRelevantProjection } from '../../src/store/node-projection.js';
-import { getMemberArray, ensureMemberArray, forEachMember } from '../../src/store/node-projection.js';
+import { getMemberArray, ensureMemberArray } from '../../src/store/node-projection.js';
 import { toNodesById, nodesFromMap, toEdgesById, edgesFromMap } from '../../src/store/node-projection.js';
 
 describe('node-projection id builders (V1, dot form)', () => {
@@ -111,11 +111,6 @@ describe('node-projection member accessors (V4)', () => {
     const arr = ensureMemberArray(node as never);
     expect(arr).toEqual([]);
     expect(node.attributes).toBe(arr);
-  });
-  it('forEachMember iterates the member array', () => {
-    const seen: unknown[] = [];
-    forEachMember({ $type: 'Data', attributes: ['a', 'b'] } as never, (m: unknown) => seen.push(m));
-    expect(seen).toEqual(['a', 'b']);
   });
 });
 

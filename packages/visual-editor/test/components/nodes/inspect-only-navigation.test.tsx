@@ -6,6 +6,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { DataNode } from '../../../src/components/nodes/DataNode.js';
 import { ChoiceNode } from '../../../src/components/nodes/ChoiceNode.js';
+import { StructureView } from '../../../src/components/StructureView.js';
 import { GenericNode } from '../../../src/components/nodes/GenericNode.js';
 import { NavigationContext } from '../../../src/components/nodes/NavigationContext.js';
 
@@ -75,41 +76,29 @@ describe.each(fixtures)('$name context actions', ({ Component, data }) => {
 describe.each(['Record', 'TypeAlias'] as const)('static Structure %s keyboard actions', (kind) => {
   it.each(['data', 'choice'] as const)('makes a terminal reference reachable in a %s node', async (ownerKind) => {
     const inspect = vi.fn();
-    const Component = ownerKind === 'data' ? DataNode : ChoiceNode;
-    const row = {
-      attrName: 'value',
-      typeName: 'Other',
-      typeKind: kind,
-      targetNodeId: targetId,
-      cardinality: '0..1',
-      isOptional: true,
-      isInherited: false
+    const adapterDoc = {
+      namespaces: [{ uri: 'context' }],
+      nodes: [
+        {
+          id: 'context.Example',
+          name: 'Example',
+          namespace: 'context',
+          $type: ownerKind === 'data' ? 'Data' : 'Choice',
+          attributes: [{ name: 'value', typeCall: { type: { $refText: 'Other' } } }],
+          choiceOptions: [{ typeCall: 'Other' }]
+        },
+        {
+          id: targetId,
+          name: 'Other',
+          namespace: 'context',
+          $type: kind === 'Record' ? 'RosettaRecordType' : 'RosettaTypeAlias'
+        }
+      ]
     };
-    const data = {
-      id: 'context.Example',
-      name: 'Example',
-      namespaceUri: 'context',
-      variant: 'structure',
-      kind: ownerKind,
-      rows: [row],
-      options: [row],
-      expansions: new Map()
-    };
-    render(
-      <ReactFlowProvider>
-        <NavigationContext.Provider
-          value={{
-            allNodeIds: new Set([targetId]),
-            layoutDirection: 'TB',
-            pendingHydrationNamespaces: [],
-            onInspectType: inspect
-          }}
-        >
-          <Component data={data as any} id="context.Example" type={ownerKind} />
-        </NavigationContext.Provider>
-      </ReactFlowProvider>
-    );
-    const reference = screen.getByRole('group', { name: ownerKind === 'data' ? 'value: Other' : 'Other' });
+    render(<StructureView focusedTypeId="context.Example" adapterDoc={adapterDoc as any} onInspectType={inspect} />);
+    const reference = screen.getByRole('group', {
+      name: ownerKind === 'data' ? 'value type Other' : 'Other type Other'
+    });
     expect(reference).toHaveAttribute('tabindex', '0');
     reference.focus();
     fireEvent.keyDown(reference, { key: 'ContextMenu' });

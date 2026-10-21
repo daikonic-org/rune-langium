@@ -67,7 +67,7 @@ export const extractTarGz = withInstrumentation(
     let offset = 0;
     while (offset + BLOCK <= tar.byteLength) {
       const headerBlock = tar.subarray(offset, offset + BLOCK);
-      if (isAllZero(headerBlock)) {
+      if (headerBlock.every((byte) => byte === 0)) {
         // Two zero blocks signal end-of-archive; one is enough for us to stop.
         break;
       }
@@ -176,13 +176,6 @@ function withCause(err: Error, cause: unknown): Error {
   // the studio targets ES2020 to keep the bundle lean.
   (err as Error & { cause?: unknown }).cause = cause;
   return err;
-}
-
-function isAllZero(block: Uint8Array): boolean {
-  for (let i = 0; i < block.length; i++) {
-    if (block[i] !== 0) return false;
-  }
-  return true;
 }
 
 export interface TarEntry {

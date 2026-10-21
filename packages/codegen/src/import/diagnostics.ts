@@ -33,8 +33,3 @@ export function pushDiagnostic(
     ...(opts?.sourceKey !== undefined && { sourceKey: opts.sourceKey })
   });
 }
-
-/** Returns true if any diagnostic has severity 'error' (mirrors ../diagnostics.ts's `hasFatalDiagnostics`). */
-export function hasFatalImportDiagnostics(diags: readonly ImportDiagnostic[]): boolean {
-  return diags.some((d) => d.severity === 'error');
-}

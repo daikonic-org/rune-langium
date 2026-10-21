@@ -2376,7 +2376,8 @@ describe('EditorPage workspace chrome', () => {
     expect(runeTypeGraphMockState.relayout).not.toHaveBeenCalled();
   });
 
-  it('re-runs responsive relayout when a node becomes selected', async () => {
+  it('preserves the graph-owned selection camera after responsive layout', async () => {
+    editorStoreState.focusMode = false;
     const { rerenderEditorPage } = renderEditorPage({
       models: [],
       files: [
@@ -2405,6 +2406,7 @@ describe('EditorPage workspace chrome', () => {
     });
 
     runeTypeGraphMockState.relayout.mockClear();
+    runeTypeGraphMockState.fitView.mockClear();
     editorStoreState.nodes = [
       {
         id: 'cdm.base.datetime.BusinessCenter',
@@ -2426,13 +2428,9 @@ describe('EditorPage workspace chrome', () => {
       ]
     });
 
-    await waitFor(() => {
-      expect(runeTypeGraphMockState.relayout).toHaveBeenCalledWith({
-        engine: 'dagre',
-        direction: 'TB',
-        groupByInheritance: false
-      });
-    });
+    expect(runeTypeGraphMockState.latestConfig?.layout?.direction).toBe('TB');
+    expect(runeTypeGraphMockState.relayout).not.toHaveBeenCalled();
+    expect(runeTypeGraphMockState.fitView).not.toHaveBeenCalled();
   });
 });
 

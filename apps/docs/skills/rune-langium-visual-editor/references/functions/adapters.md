@@ -81,24 +81,6 @@ conditionsToDisplay(conditions: ConditionShape[] | undefined, postConditions?: C
 - `postConditions: ConditionShape[]` (optional)
 **Returns:** `ConditionDisplayInfo[]`
 
-### `classExprSynonymsToStrings`
-Extract display strings from Data/Choice class synonyms.
-```ts
-classExprSynonymsToStrings(synonyms: ClassSynonymShape[] | undefined): string[]
-```
-**Parameters:**
-- `synonyms: ClassSynonymShape[] | undefined`
-**Returns:** `string[]`
-
-### `enumSynonymsToStrings`
-Extract display strings from Enum synonyms.
-```ts
-enumSynonymsToStrings(synonyms: EnumSynonymShape[] | undefined): string[]
-```
-**Parameters:**
-- `synonyms: EnumSynonymShape[] | undefined`
-**Returns:** `string[]`
-
 ### `resolveNodeKind`
 Resolve the React-Flow node-kind (`'data' | 'choice' | 'enum' | ...`) for
 a node or its data payload.
@@ -126,30 +108,11 @@ buildStructureGraph(doc: AdapterDocument, opts: BuildOptions): StructureGraphInp
 - `opts: BuildOptions`
 **Returns:** `StructureGraphInput`
 
-### `findByCanonicalId`
-Find the first StructureNode whose canonical id matches.
-
-Phase 14e: `StructureGraphInput.nodes` is keyed by INSTANCE id (per-instance
-materialization). Callers that need to look up a node by its canonical id —
-tests, AST navigation, cell editors — use this helper instead of `nodes.get`.
-
-If multiple visible instances share the canonical id (e.g. `buyer.Party`
-and `seller.Party`), the FIRST entry in iteration order is returned. Use
-`findAllByCanonicalId` for the full list.
+### `expressionScopeFromEntries`
+Presentation groups for canonical core scope descriptions.
 ```ts
-findByCanonicalId(nodes: ReadonlyMap<string, StructureNode>, canonicalId: string): StructureNode | undefined
+expressionScopeFromEntries(entries: readonly ExpressionScopeEntry[]): FunctionScope
 ```
 **Parameters:**
-- `nodes: ReadonlyMap<string, StructureNode>`
-- `canonicalId: string`
-**Returns:** `StructureNode | undefined`
-
-### `findAllByCanonicalId`
-Return all StructureNodes whose canonical id matches.
-```ts
-findAllByCanonicalId(nodes: ReadonlyMap<string, StructureNode>, canonicalId: string): StructureNode[]
-```
-**Parameters:**
-- `nodes: ReadonlyMap<string, StructureNode>`
-- `canonicalId: string`
-**Returns:** `StructureNode[]`
+- `entries: readonly ExpressionScopeEntry[]`
+**Returns:** `FunctionScope`

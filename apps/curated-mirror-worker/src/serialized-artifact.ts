@@ -130,7 +130,7 @@ function readRosettaFilesFromTarGz(archiveBytes: Uint8Array): Array<{ path: stri
   let offset = 0;
   while (offset + BLOCK <= tar.byteLength) {
     const headerBlock = tar.subarray(offset, offset + BLOCK);
-    if (isAllZero(headerBlock)) break;
+    if (headerBlock.every((byte) => byte === 0)) break;
     const entry = parseTarEntry(headerBlock, offset + BLOCK);
     offset += BLOCK;
 
@@ -216,11 +216,4 @@ function cleanPath(raw: string): string {
     }
   }
   return path;
-}
-
-function isAllZero(block: Uint8Array): boolean {
-  for (let i = 0; i < block.length; i++) {
-    if (block[i] !== 0) return false;
-  }
-  return true;
 }

@@ -29,6 +29,7 @@ import { OpfsFs } from '../../opfs/opfs-fs.js';
 import { saveSetting, saveWorkspace, type WorkspaceRecord } from '../persistence.js';
 import { LAYOUT_SCHEMA_VERSION } from '../../shell/layout-factory.js';
 import { withInstrumentation, Capture } from '../../services/instrumentation/core.js';
+import { generateUlid } from '../../services/ulid.js';
 
 export const LEGACY_DB_NAMES = ['fs', 'lightning-fs-cache'] as const;
 
@@ -328,28 +329,4 @@ function errMessage(err: unknown): string {
   if (!err) return '';
   if (err instanceof Error) return err.message;
   return String(err);
-}
-
-// ---------- ULID ----------
-//
-// Duplicated rather than imported from workspace-manager because this
-// migration runs before workspace-manager is initialised. Single-tab
-// one-shot migration — collision risk on the millisecond-prefix is
-// effectively zero. Do not lift this to a hot path without adding the
-// 80-bit monotonic counter ULIDs normally carry.
-
-const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-function generateUlid(): string {
-  let time = Date.now();
-  let timePart = '';
-  for (let i = 0; i < 10; i++) {
-    timePart = CROCKFORD[time & 31] + timePart;
-    time = Math.floor(time / 32);
-  }
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  let randPart = '';
-  for (const b of bytes) randPart += CROCKFORD[b & 31];
-  return timePart + randPart;
 }

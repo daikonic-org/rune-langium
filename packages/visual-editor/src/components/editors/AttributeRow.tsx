@@ -51,6 +51,7 @@ import { CardinalityPicker } from './CardinalityPicker.js';
 import { formatCardinality, parseCardinality } from '../../adapters/model-helpers.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
 import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
+import { rowReorderHandlers } from './row-reorder.js';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -225,25 +226,6 @@ function AttributeRow({
   // the array is promoted to z2f-driven rendering — at which point the
   // upstream `<ArrayReorderHandle>` mounts alongside (or replaces) this
   // gesture surface but the `onReorder` route is unchanged.
-
-  function handleDragStart(e: React.DragEvent) {
-    e.dataTransfer.setData('text/plain', String(index));
-    e.dataTransfer.effectAllowed = 'move';
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const fromIndex = Number(e.dataTransfer.getData('text/plain'));
-    if (!Number.isNaN(fromIndex) && fromIndex !== index) {
-      onReorder(fromIndex, index);
-    }
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }
-
   // ---- Resolve typeName (label) to option value for TypeSelector ----------
 
   const typeValue = useMemo(() => {
@@ -265,9 +247,7 @@ function AttributeRow({
       data-index={index}
       className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} ${isOverride ? 'opacity-60' : ''}`}
       draggable={!effectiveReadOnly}
-      onDragStart={handleDragStart}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
+      {...rowReorderHandlers(index, onReorder)}
     >
       {/* Drag handle */}
       <span

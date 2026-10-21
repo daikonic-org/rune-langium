@@ -81,7 +81,15 @@ function useDocument() {
 }
 
 /** Native child sizes determine the local canvas extent; placement never touches model state. */
-function StructureMembers({ children, output = false }: { children: React.ReactNode; output?: boolean }) {
+function StructureMembers({
+  children,
+  output = false,
+  label
+}: {
+  children: React.ReactNode;
+  output?: boolean;
+  label?: string;
+}) {
   const canvas = useRef<HTMLOListElement>(null);
   const { layouts } = useDocument();
   useLayoutEffect(() => {
@@ -156,7 +164,8 @@ function StructureMembers({ children, output = false }: { children: React.ReactN
           connector.setAttribute('d', `M ${x} ${y} C ${controlX} ${y}, ${controlX} ${targetY}, ${targetX} ${targetY}`);
         }
       }
-      const minHeight = `${extent + 16}px`;
+      const bottomInset = Number.parseFloat(getComputedStyle(element).paddingBottom) || 0;
+      const minHeight = `${extent + bottomInset}px`;
       if (element.style.minHeight !== minHeight) element.style.minHeight = minHeight;
     };
     measure();
@@ -177,7 +186,7 @@ function StructureMembers({ children, output = false }: { children: React.ReactN
     };
   }, [children, layouts, output]);
   return (
-    <ol ref={canvas} className={`rune-structure-members${output ? ' rune-structure-members--output' : ''}`}>
+    <ol ref={canvas} aria-label={label} className="rune-structure-members">
       {children}
     </ol>
   );
@@ -202,7 +211,7 @@ function StructureMember({
   const namespaceUri = owner.kind === 'base' ? owner.baseTypeNamespaceUri : owner.namespaceUri;
   const typeId = owner.kind === 'base' ? owner.baseTypeName : owner.name;
   const key: StructureExpansionKey = { namespaceUri, typeId, attrName: row.attrName, instancePath };
-  const expandable = !output && (row.typeKind === 'Data' || row.typeKind === 'Choice');
+  const expandable = owner.kind !== 'function' && !output && (row.typeKind === 'Data' || row.typeKind === 'Choice');
   const expanded = expandable && context.expansionMap?.get(expansionKey(key)) === true;
   const childId = 'expansions' in owner ? owner.expansions.get(row.attrName) : undefined;
   const child = childId ? context.graph.nodes.get(childId) : undefined;
@@ -219,7 +228,7 @@ function StructureMember({
   const branch = useRef<HTMLDivElement>(null);
   const split = useBlockLayout(childId ?? controlsId, true, branch, true);
   return (
-    <li className="rune-structure-member" data-expanded={expanded || undefined}>
+    <li className="rune-structure-member" data-expanded={expanded || undefined} data-choice={choice || undefined}>
       <div
         className={`rune-structure-member__row ${diagnostic ? diagnosticSeverityClass(diagnostic.severity) : ''}`}
         data-attr={row.attrName}
@@ -334,6 +343,15 @@ function StructureMember({
   );
 }
 
+function StructureSectionTitle({ label, count, output }: { label: string; count?: number; output?: boolean }) {
+  return (
+    <p className="rune-structure-section-title" data-output={output || undefined}>
+      {label}
+      {count !== undefined && <span>{count}</span>}
+    </p>
+  );
+}
+
 function StructureCard({
   node,
   ancestors,
@@ -426,39 +444,49 @@ function StructureCard({
         )}
         <span className="rune-structure-card__kind">{isBase ? 'Inherited' : node.kind}</span>
       </header>
+      {node.kind === 'function' && <StructureSectionTitle label="Inputs" count={rows.length} />}
+      {node.kind === 'function' && rows.length === 0 && <p className="rune-structure-reference">No inputs</p>}
       {rows.length > 0 && (
-        <StructureMembers>
+        <StructureMembers label={node.kind === 'function' ? 'Inputs' : undefined}>
           {rows.map((row) => (
             <StructureMember key={row.attrName} row={row} owner={node} instancePath={path} inherited={isBase} />
           ))}
         </StructureMembers>
       )}
       {node.kind === 'choice' && (
-        <StructureMembers>
-          {node.options.map((option) => (
-            <StructureMember
-              key={option.typeName}
-              row={{
-                ...option,
-                typeKind: option.typeKind === 'Builtin' ? 'BasicType' : option.typeKind,
-                attrName: option.typeName,
-                cardinality: '',
-                isOptional: false,
-                isInherited: false
-              }}
-              owner={node}
-              instancePath={path}
-              choice
-            />
-          ))}
-        </StructureMembers>
+        <>
+          <StructureSectionTitle label="Options" count={node.options.length} />
+          {node.options.length === 0 && <p className="rune-structure-reference">No options</p>}
+          <StructureMembers label="Options">
+            {node.options.map((option) => (
+              <StructureMember
+                key={option.typeName}
+                row={{
+                  ...option,
+                  typeKind: option.typeKind === 'Builtin' ? 'BasicType' : option.typeKind,
+                  attrName: option.typeName,
+                  cardinality: '',
+                  isOptional: false,
+                  isInherited: false
+                }}
+                owner={node}
+                instancePath={path}
+                choice
+              />
+            ))}
+          </StructureMembers>
+        </>
       )}
       {node.kind === 'enum' && (
-        <ol className="rune-structure-enum">
-          {node.values.slice(0, ENUM_PREVIEW_LIMIT).map((value, index) => (
-            <li key={`${value}:${index}`}>{value}</li>
-          ))}
-        </ol>
+        <>
+          <StructureSectionTitle label="Values" count={node.values.length} />
+          {node.values.length === 0 && <p className="rune-structure-reference">No values</p>}
+          <ol className="rune-structure-enum" aria-label="Values">
+            {(context.onInspectType ? node.values.slice(0, ENUM_PREVIEW_LIMIT) : node.values).map((value, index) => (
+              <li key={`${value}:${index}`}>{value}</li>
+            ))}
+          </ol>
+        </>
       )}
       {node.kind === 'enum' && node.values.length > ENUM_PREVIEW_LIMIT && context.onInspectType && (
         <button type="button" className="rune-structure-enum__more" onClick={() => context.onInspectType?.(node.id)}>
@@ -466,10 +494,17 @@ function StructureCard({
           <ArrowUpRight className="size-3.5" aria-hidden="true" />
         </button>
       )}
-      {node.kind === 'function' && node.outputRow && (
-        <StructureMembers output>
-          <StructureMember row={node.outputRow} owner={node} instancePath={path} output />
-        </StructureMembers>
+      {node.kind === 'function' && (
+        <>
+          <StructureSectionTitle label="Output" output />
+          {node.outputRow ? (
+            <StructureMembers output label="Output">
+              <StructureMember row={node.outputRow} owner={node} instancePath={path} output />
+            </StructureMembers>
+          ) : (
+            <p className="rune-structure-reference">No output declared</p>
+          )}
+        </>
       )}
       {isBase && context.graph.nodes.get(node.childNodeId) && (
         <div className="rune-structure-derived">

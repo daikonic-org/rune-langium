@@ -40,7 +40,7 @@ import {
   choiceOptionFieldName
 } from './base-namespace-emitter.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
-import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
+import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
 import { fieldMetadataKind, metadataObjectType } from '../expr/metadata-runtime.js';
 import { zodProfile } from './zod-profile.js';
 import { typescriptProfile } from './typescript-profile.js';
@@ -175,42 +175,6 @@ const ZOD_TS_TYPE_MAP: Readonly<Record<string, string>> = {
   zonedDateTime: 'string'
 };
 
-/**
- * Wrap a bare `ReadonlyMap<string, N>` (this emitter's own `EmissionContext`
- * lookup maps) into the `{node, sourceUri}`-entry shape `resolveTypeCallTarget`
- * (Task 1, type-ref-resolver.ts) requires. Every entry shares one fallback
- * `sourceUri` — this emitter never consumes the per-entry `sourceUri` in its
- * own rendering (only `preview-schema.ts`'s later migration needs real
- * per-entry source URIs for recursive structural expansion), so a single
- * shared value for the whole namespace is correct here.
- */
-function wrapTypeIndexEntries<N>(
-  map: ReadonlyMap<string, N>,
-  sourceUri: string
-): ReadonlyMap<string, TypeIndexEntry<N>> {
-  const wrapped = new Map<string, TypeIndexEntry<N>>();
-  for (const [name, node] of map) {
-    wrapped.set(name, { node, sourceUri });
-  }
-  return wrapped;
-}
-
-/**
- * Adapt this emitter's `EmissionContext` (bare unwrapped lookup maps) to the
- * `TypeIndexLookup` shape `resolveTypeCallTarget` expects. Built once per
- * namespace emission (the underlying maps are immutable for the lifetime of
- * one `ZodNamespaceEmitter` instance).
- */
-function toTypeIndexLookup(ctx: EmissionContext): TypeIndexLookup {
-  const sourceUri = ctx.namespace;
-  return {
-    enumByName: wrapTypeIndexEntries(ctx.enumByName, sourceUri),
-    dataByName: wrapTypeIndexEntries(ctx.dataByName, sourceUri),
-    choiceByName: wrapTypeIndexEntries(ctx.choiceByName, sourceUri),
-    typeAliasByName: wrapTypeIndexEntries(ctx.typeAliasByName, sourceUri)
-  };
-}
-
 function buildEmissionContext(
   model: NamespaceWalkResult,
   registry: NamespaceRegistry,
@@ -276,7 +240,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       }
       this.ctx = { ...this.ctx, builtinTypeMap };
     }
-    this.typeIndex = toTypeIndexLookup(this.ctx);
+    this.typeIndex = toTypeIndexLookup(this.ctx, this.ctx.namespace);
   }
 
   emitHeader(): void {

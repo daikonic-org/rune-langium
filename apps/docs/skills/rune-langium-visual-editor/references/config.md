@@ -183,6 +183,12 @@ callback) would silently lose the curated namespaces that
 
 **Required:** yes
 
+#### selectionRekey
+
+Rename-only identity change from the last explicit selection, preserved across model refreshes.
+
+**Type:** `{ from: string; to: string; intermediateIds?: string[] }`
+
 #### searchQuery
 
 **Type:** `string`

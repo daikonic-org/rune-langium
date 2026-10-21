@@ -46,6 +46,12 @@ local navigation scope, preserving graph visibility and canonical export inclusi
 Both surfaces share the inset active-row highlight and retain their existing
 buttons, kind glyphs and native drag behavior.
 
+Graph selection and focus camera movement belong to `RuneTypeGraph`. Studio
+owns explicit Fit View/re-layout actions and responsive container changes, and
+must not re-fit the entire graph on every selection. The graph permits zoom down
+to 5% so Fit View can include tall/wide namespaces while retaining viewport
+culling; selecting a type restores a readable detail view.
+
 Declaration context menus share pointer placement and navigation actions across
 the Type explorer, Graph, Structure and Inspector type references. Each owner
 supplies an already-resolved canonical ID and its existing navigation callbacks;
@@ -227,7 +233,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Inspector section placement is owned by `visual-editor/src/components/forms/sections/config.ts`. Generated form config derives its field assignments from that layout; custom Inspector tabs resolve the same sections with the upstream `SectionRenderer`. Placement includes inherited AST metadata and UI-only comments, which are not all enumerated by the generated schema walker. Standalone section callback props remain a public API.
 - Inspector forms own one 6px outer inset through `INSPECTOR_FORM_CLASS`; the center pane adds none, and headers/sections use 6px vertical spacing without repeating horizontal padding. Fields and embedded editors retain their own text inset; metadata textarea focus rings draw inside their borders so scroll edges cannot clip the side highlight. Inspector member rows share name-field geometry through `INSPECTOR_ROW_NAME_CLASS`, keeping attributes/function inputs and enum members at the same text size and padding. Inherited rows use the same typography with muted names, and consume the same type options as local rows so reference chips retain canonical kind colors. Member-details headings derive from the canonical root kind (Attribute, Member, Option, or Input), and icon-only controls retain accessible names. Inspector navigation uses the same one-second outline fade as graph/structure, inset to avoid clipping; reduced motion retains a static cue until cleanup. Dockview leaf views own symmetric gaps; shell/grid wrappers add no padding or one-sided margins. Center panes have no outer padding. Graph's drawing wrapper retains its 6px inset around React Flow; Structure owns a normal scrollable document inset and does not mount React Flow. `DockShell` measures the center stack for location-path alignment and updates it on native layout changes and resize.
 - Inspector type-label rows use `InspectorTypeField` for Wrapped type, Output Type, and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
-- Structure remeasures intrinsic node widths when web fonts finish loading, since fixed node boxes cannot observe fallback-font replacement. Framed row padding derives from `STRUCTURE_LAYOUT_CONSTANTS`; type and cardinality wrappers use flex alignment so inline baselines cannot push controls into the frame.
+- Structure sizes cards through native DOM layout, capped by the owning canvas. Shared type and cardinality wrappers align controls without fixed row measurements.
 - Explore side panels use the shared `PanelCollapseButton` chrome from the utility tray. Dedicated grid groups resize to a constrained rail, rotate headers vertically while hidden, and retain mounted drafts and the session's expanded width in workbench-owned state across header remounts. Single-tab side groups retain header actions, with the chevron above titles when collapsed. Explore restores dedicated split Form/Code columns into one preview group without replacing panels, caps its initial width at the shared 320px default after dimensions are available, and leaves later manual resizing alone; mixed groups containing the main task are preserved. The dock title supplies Studio's sole Type explorer heading; groups sharing the main task on narrow layouts are never hidden wholesale. Preview edge groups use their native collapse API, with explicit show/hide choices kept open across focus changes.
 - Non-React consumers use `@rune-langium/visual-editor/model` for graph state and `/identifiers` for identifier helpers. Workers must not import the full UI barrel. The render gate accepts regenerated schemas into its existing registry during development, preserving workspace consumers while React refreshes the Inspector.
 
@@ -550,6 +556,11 @@ metadata indicators, diagnostics and type-navigation menus as the surrounding
 workbench. Inherited cells and function signatures remain readonly; resolved
 references expose real navigation buttons and context actions, including the
 canonical inherited `baseTypeId` rather than a synthetic wrapper identity.
+Function cards label Inputs and Output explicitly and expose navigation, without
+expansion chevrons for signature rows the adapter does not materialize. Choice
+options and enum values share compact section labels and member insets. Enums
+limit their preview only when an Inspector callback makes the complete list
+reachable; embedded views without that callback display every value.
 
 Each wide parent card owns a local DOM canvas. Properties stay compact; expanded
 child cards move independently by their headers, with an aria-hidden cubic Bézier connector
@@ -557,8 +568,13 @@ to the owning property. Parent available width determines whether properties and
 scrolling replaces viewport culling and auto-fit transforms; expansion never changes
 text scale or moves the camera. Arrival and keyboard focus emphasize the interior
 card. Graph kind colors and header backgrounds are retained; members are unboxed.
+The shared `TypeChip` centers its contents with a compact unit line height.
+Structure type/cardinality rows use that same line height, keeping text aligned
+across bordered pills, plain cardinality text and navigation controls.
 The local `--structure-inset` in visual-editor styles controls shared card padding;
 minimum row height and the peer collision gap remain independent of this density setting.
+Canvas height ends at the last row or expanded child plus the computed bottom
+inset; it does not add a second fixed padding reserve.
 
 Cards default to intrinsic content width capped by their container; inline-size containment is deliberately avoided. An edge separator sets an explicit pixel width, leaving height to native content; Reset restores automatic sizing. Placement
 uses instance-scoped state, survives collapse and resets without changing source.
@@ -568,6 +584,36 @@ in another parent canvas. A ResizeObserver measures native child extents for bou
 local canvas height and connectors; it does not fit, scale or recursively size cards.
 User placement is separate from canonical adapter identities and field order.
 Root instance keys prevent an inline
-draft from migrating to another selected type. Graph still uses XYFlow; the public
-legacy structure layout exports remain available for compatibility and graph node
-geometry. The private Structure width-measurement pipeline is removed.
+draft from migrating to another selected type. Graph still uses XYFlow with Graph-only renderers. Retired Structure renderer
+variants and placement APIs are removed; Graph inheritance-group header geometry
+lives in `layout/graph-node-geometry.ts`. Structure owns no XYFlow renderer or
+legacy width-measurement pipeline.
+
+Editor row reordering and cardinality parsing share one implementation each.
+Serialization and edit validation share the same inheritance-edge parent lookup;
+reference edges do not enter that map. Test-only graph lookup and patch fixtures
+live under tests rather than the public runtime API.
+
+Dagre graph construction and coordinate conversion are shared by synchronous,
+worker and main-thread fallback adapters; scheduling, cancellation and cache
+ownership stay with those adapters. Studio workspace creation, migration and
+LSP session routing share the same 26-character Crockford ULID generator.
+
+CLI parse, validate and generate commands share recursive `.rosetta` discovery
+in `packages/cli/src/discover-files.ts`. It preserves input order, repeated
+paths and missing-path errors rather than applying command-specific filtering.
+
+Codegen import readers share identifier sanitization and collision reservation
+in `import/identifiers.ts`; fallback names remain explicit at each call site.
+JSON Schema and XSD share deletion-based namespace sanitization; OpenAPI retains
+its distinct replacement-based policy. All six namespace emitters build their
+fallback URI entries with `emit/type-ref-resolver.ts::toTypeIndexLookup`.
+TypeScript and Zod bundle profiles share preamble removal in `emit/bundle-imports.ts`.
+Python and TypeScript lenses share grammar-neutral tree/refusal helpers and a
+source-reference grammar cache factory; each grammar owns a separate cache.
+SQL retains its default-source-only cache policy and pinned grammar.
+
+Workers share JSON response construction through `@rune-langium/worker-core/http`.
+`jsonResponse` preserves caller headers and status; `corsJsonResponse` adds the
+already-checked origin and `Vary: Origin`. Route handlers remain responsible for
+origin authorization before constructing a CORS response.

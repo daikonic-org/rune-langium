@@ -40,7 +40,7 @@ import type { WasmSource } from './sources/sql-grammar-loader.js';
 export { runImport } from './cli.js';
 export type { ImportCommandOptions } from './cli.js';
 export type { ImportDiagnostic, ImportDiagnosticOpts } from './diagnostics.js';
-export { pushDiagnostic, hasFatalImportDiagnostics } from './diagnostics.js';
+export { pushDiagnostic } from './diagnostics.js';
 export { JsonSchemaImportOptionsSchema } from '../options/json-schema-import-options.js';
 export { OpenApiImportOptionsSchema } from '../options/openapi-import-options.js';
 export { SqlImportOptionsSchema } from '../options/sql-import-options.js';

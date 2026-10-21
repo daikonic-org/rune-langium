@@ -1,11 +1,534 @@
 # @rune-langium/docs
 
-> Documentation site for rune-langium
+> Documentation site and generated agent skills for rune-langium APIs
 
 ## @rune-langium/core
 
+> Parse `.rosetta` source into typed ASTs, build cross-file workspaces, and
+serialize models back to source text.
+
 ### API
 
+- `createRepository`
+- `createDomainRepository`
+- `getAttributes`
+- `addAttribute`
+- `insertAttributeAt`
+- `removeAttributeAt`
+- `setAttributeAt`
+- `moveAttributeAt`
+- `removeAttribute`
+- `setAttribute`
+- `setAttribute`
+- `setAttribute`
+- `setQualPath`
+- `clearQualPath`
+- `setAnnotation`
+- `setAttribute`
+- `clearAttribute`
+- `getQualifiers`
+- `addQualifier`
+- `insertQualifierAt`
+- `removeQualifierAt`
+- `setQualifierAt`
+- `moveQualifierAt`
+- `setType`
+- `setTypeCall`
+- `getTypeCallArgs`
+- `addTypeCallArg`
+- `insertTypeCallArgAt`
+- `removeTypeCallArgAt`
+- `setTypeCallArgAt`
+- `moveTypeCallArgAt`
+- `setCard`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getSynonyms`
+- `addSynonym`
+- `insertSynonymAt`
+- `removeSynonymAt`
+- `setSynonymAt`
+- `moveSynonymAt`
+- `getLabels`
+- `addLabel`
+- `insertLabelAt`
+- `removeLabelAt`
+- `setLabelAt`
+- `moveLabelAt`
+- `getRuleReferences`
+- `addRuleReference`
+- `insertRuleReferenceAt`
+- `removeRuleReferenceAt`
+- `setRuleReferenceAt`
+- `moveRuleReferenceAt`
+- `getAttributes`
+- `addAttribute`
+- `insertAttributeAt`
+- `removeAttributeAt`
+- `setAttributeAt`
+- `moveAttributeAt`
+- `removeAttribute`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getSynonyms`
+- `addSynonym`
+- `insertSynonymAt`
+- `removeSynonymAt`
+- `setSynonymAt`
+- `moveSynonymAt`
+- `setTypeCall`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getSynonyms`
+- `addSynonym`
+- `insertSynonymAt`
+- `removeSynonymAt`
+- `setSynonymAt`
+- `moveSynonymAt`
+- `getLabels`
+- `addLabel`
+- `insertLabelAt`
+- `removeLabelAt`
+- `setLabelAt`
+- `moveLabelAt`
+- `getRuleReferences`
+- `addRuleReference`
+- `insertRuleReferenceAt`
+- `removeRuleReferenceAt`
+- `setRuleReferenceAt`
+- `moveRuleReferenceAt`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `setKey`
+- `setSuperType`
+- `clearSuperType`
+- `getAttributes`
+- `addAttribute`
+- `insertAttributeAt`
+- `removeAttributeAt`
+- `setAttributeAt`
+- `moveAttributeAt`
+- `removeAttribute`
+- `getConditions`
+- `addCondition`
+- `insertConditionAt`
+- `removeConditionAt`
+- `setConditionAt`
+- `moveConditionAt`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getSynonyms`
+- `addSynonym`
+- `insertSynonymAt`
+- `removeSynonymAt`
+- `setSynonymAt`
+- `moveSynonymAt`
+- `setFunction`
+- `clearFunction`
+- `getParameters`
+- `addParameter`
+- `insertParameterAt`
+- `removeParameterAt`
+- `setParameterAt`
+- `moveParameterAt`
+- `setFunction`
+- `clearFunction`
+- `setFunction`
+- `clearFunction`
+- `setFunction`
+- `clearFunction`
+- `setAssignRoot`
+- `setPath`
+- `clearPath`
+- `setFunction`
+- `clearFunction`
+- `setBody`
+- `getSegments`
+- `addSegment`
+- `insertSegmentAt`
+- `removeSegmentAt`
+- `setSegmentAt`
+- `moveSegmentAt`
+- `setReceiver`
+- `setAttribute`
+- `getParameters`
+- `addParameter`
+- `insertParameterAt`
+- `removeParameterAt`
+- `setParameterAt`
+- `moveParameterAt`
+- `setValue`
+- `clearValue`
+- `setMetaValue`
+- `clearMetaValue`
+- `setTypeRef`
+- `getConstructorTypeArgs`
+- `addConstructorTypeArg`
+- `insertConstructorTypeArgAt`
+- `removeConstructorTypeArgAt`
+- `setConstructorTypeArgAt`
+- `moveConstructorTypeArgAt`
+- `getValues`
+- `addValue`
+- `insertValueAt`
+- `removeValueAt`
+- `setValueAt`
+- `moveValueAt`
+- `setBody`
+- `clearBody`
+- `setData`
+- `setFeature`
+- `clearFeature`
+- `setDocReference`
+- `getRationales`
+- `addRationale`
+- `insertRationaleAt`
+- `removeRationaleAt`
+- `setRationaleAt`
+- `moveRationaleAt`
+- `setParent`
+- `clearParent`
+- `getEnumValues`
+- `addEnumValue`
+- `insertEnumValueAt`
+- `removeEnumValueAt`
+- `setEnumValueAt`
+- `moveEnumValueAt`
+- `removeEnumValue`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getSynonyms`
+- `addSynonym`
+- `insertSynonymAt`
+- `removeSynonymAt`
+- `setSynonymAt`
+- `moveSynonymAt`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getEnumSynonyms`
+- `addEnumSynonym`
+- `insertEnumSynonymAt`
+- `removeEnumSynonymAt`
+- `setEnumSynonymAt`
+- `moveEnumSynonymAt`
+- `setEnumeration`
+- `setValue`
+- `setData`
+- `getExternalClassSynonyms`
+- `addExternalClassSynonym`
+- `insertExternalClassSynonymAt`
+- `removeExternalClassSynonymAt`
+- `setExternalClassSynonymAt`
+- `moveExternalClassSynonymAt`
+- `getRegularAttributes`
+- `addRegularAttribute`
+- `insertRegularAttributeAt`
+- `removeRegularAttributeAt`
+- `setRegularAttributeAt`
+- `moveRegularAttributeAt`
+- `setValue`
+- `clearValue`
+- `setMetaValue`
+- `setEnumeration`
+- `getRegularValues`
+- `addRegularValue`
+- `insertRegularValueAt`
+- `removeRegularValueAt`
+- `setRegularValueAt`
+- `moveRegularValueAt`
+- `setEnumRef`
+- `getExternalEnumSynonyms`
+- `addExternalEnumSynonym`
+- `insertExternalEnumSynonymAt`
+- `removeExternalEnumSynonymAt`
+- `setExternalEnumSynonymAt`
+- `moveExternalEnumSynonymAt`
+- `setTypeCall`
+- `getParameters`
+- `addParameter`
+- `insertParameterAt`
+- `removeParameterAt`
+- `setParameterAt`
+- `moveParameterAt`
+- `setAttributeRef`
+- `getExternalSynonyms`
+- `addExternalSynonym`
+- `insertExternalSynonymAt`
+- `removeExternalSynonymAt`
+- `setExternalSynonymAt`
+- `moveExternalSynonymAt`
+- `getExternalRuleReferences`
+- `addExternalRuleReference`
+- `insertExternalRuleReferenceAt`
+- `removeExternalRuleReferenceAt`
+- `setExternalRuleReferenceAt`
+- `moveExternalRuleReferenceAt`
+- `getExternalClasses`
+- `addExternalClasse`
+- `insertExternalClasseAt`
+- `removeExternalClasseAt`
+- `setExternalClasseAt`
+- `moveExternalClasseAt`
+- `getExternalEnums`
+- `addExternalEnum`
+- `insertExternalEnumAt`
+- `removeExternalEnumAt`
+- `setExternalEnumAt`
+- `moveExternalEnumAt`
+- `setBody`
+- `setFeature`
+- `clearFeature`
+- `setDispatchAttribute`
+- `clearDispatchAttribute`
+- `setDispatchValue`
+- `clearDispatchValue`
+- `setSuperFunction`
+- `clearSuperFunction`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `getInputs`
+- `addInput`
+- `insertInputAt`
+- `removeInputAt`
+- `setInputAt`
+- `moveInputAt`
+- `removeInput`
+- `setOutput`
+- `clearOutput`
+- `getShortcuts`
+- `addShortcut`
+- `insertShortcutAt`
+- `removeShortcutAt`
+- `setShortcutAt`
+- `moveShortcutAt`
+- `getConditions`
+- `addCondition`
+- `insertConditionAt`
+- `removeConditionAt`
+- `setConditionAt`
+- `moveConditionAt`
+- `getOperations`
+- `addOperation`
+- `insertOperationAt`
+- `removeOperationAt`
+- `setOperationAt`
+- `moveOperationAt`
+- `getPostConditions`
+- `addPostCondition`
+- `insertPostConditionAt`
+- `removePostConditionAt`
+- `setPostConditionAt`
+- `movePostConditionAt`
+- `setPath`
+- `getInstances`
+- `addInstance`
+- `insertInstanceAt`
+- `removeInstanceAt`
+- `setInstanceAt`
+- `moveInstanceAt`
+- `setWhen`
+- `clearWhen`
+- `setPath`
+- `setArgument`
+- `setLeft`
+- `setArgument`
+- `setFunc`
+- `setPredicatePath`
+- `clearPredicatePath`
+- `setTypeCall`
+- `setScope`
+- `clearScope`
+- `getImports`
+- `addImport`
+- `insertImportAt`
+- `removeImportAt`
+- `setImportAt`
+- `moveImportAt`
+- `getConfigurations`
+- `addConfiguration`
+- `insertConfigurationAt`
+- `removeConfigurationAt`
+- `setConfigurationAt`
+- `moveConfigurationAt`
+- `setTypeCall`
+- `setRosettaClass`
+- `setTypeCall`
+- `getFeatures`
+- `addFeature`
+- `insertFeatureAt`
+- `removeFeatureAt`
+- `setFeatureAt`
+- `moveFeatureAt`
+- `setRegulatoryBody`
+- `setInputType`
+- `setReportingStandard`
+- `clearReportingStandard`
+- `setReportType`
+- `setRuleSource`
+- `clearRuleSource`
+- `setInput`
+- `clearInput`
+- `getReferences`
+- `addReference`
+- `insertReferenceAt`
+- `removeReferenceAt`
+- `setReferenceAt`
+- `moveReferenceAt`
+- `setSegment`
+- `setSymbol`
+- `setBody`
+- `setMerge`
+- `clearMerge`
+- `setMappingLogic`
+- `clearMappingLogic`
+- `getValues`
+- `addValue`
+- `insertValueAt`
+- `removeValueAt`
+- `setValueAt`
+- `moveValueAt`
+- `getExternalClasses`
+- `addExternalClasse`
+- `insertExternalClasseAt`
+- `removeExternalClasseAt`
+- `setExternalClasseAt`
+- `moveExternalClasseAt`
+- `getExternalEnums`
+- `addExternalEnum`
+- `insertExternalEnumAt`
+- `removeExternalEnumAt`
+- `setExternalEnumAt`
+- `moveExternalEnumAt`
+- `getParameters`
+- `addParameter`
+- `insertParameterAt`
+- `removeParameterAt`
+- `setParameterAt`
+- `moveParameterAt`
+- `setTypeCall`
+- `getConditions`
+- `addCondition`
+- `insertConditionAt`
+- `removeConditionAt`
+- `setConditionAt`
+- `moveConditionAt`
+- `setReportingRule`
+- `clearReportingRule`
+- `setFormat`
+- `getAnnotations`
+- `addAnnotation`
+- `insertAnnotationAt`
+- `removeAnnotationAt`
+- `setAnnotationAt`
+- `moveAnnotationAt`
+- `setFeature`
+- `setNext`
+- `clearNext`
+- `setFunction`
+- `clearFunction`
+- `setReferenceGuard`
+- `clearReferenceGuard`
+- `setGuard`
+- `clearGuard`
+- `getCases`
+- `addCase`
+- `insertCaseAt`
+- `removeCaseAt`
+- `setCaseAt`
+- `moveCaseAt`
+- `setFunction`
+- `clearFunction`
+- `setEnumeration`
+- `setType`
+- `getArguments`
+- `addArgument`
+- `insertArgumentAt`
+- `removeArgumentAt`
+- `setArgumentAt`
+- `moveArgumentAt`
+- `setParameter`
+- `setTypeCall`
+- `setKey`
+- `getEntries`
+- `addEntrie`
+- `insertEntrieAt`
+- `removeEntrieAt`
+- `setEntrieAt`
+- `moveEntrieAt`
 - `isAnnotation`
 - `isAnnotationDeepPath`
 - `isAnnotationPath`
@@ -15,6 +538,7 @@
 - `isAnnotationRef`
 - `isArithmeticOperation`
 - `isAsKeyOperation`
+- `isAsOperation`
 - `isAssignPathRoot`
 - `isAttribute`
 - `isAttributeOrChoiceOption`
@@ -136,6 +660,7 @@
 - `isRosettaTypeAlias`
 - `isRosettaTypedFeature`
 - `isRuleReferenceAnnotation`
+- `isSchema`
 - `isSegment`
 - `isShortcutDeclaration`
 - `isSortOperation`
@@ -163,13 +688,27 @@
 - `parse`: Parse a Rosetta DSL source string into a typed AST.
 - `parseWorkspace`: Parse multiple Rosetta DSL source strings as a workspace.
 Cross-references between documents will be resolved after all documents are built.
+- `parseExpression`: Synchronously parse a bare Rune DSL expression snippet (e.g. a Condition,
+Operation, or ShortcutDeclaration body) into a typed `RosettaExpression`.
+- `addLegacyAnnotations`: Add missing legacy declarations to the runtime annotation document before linking.
 - `createRuneDslServices`: Create the full set of services required for the Rune DSL language.
 - `createRuneDslParser`: Factory function that creates and fully initializes a RuneDslParser.
 - `insertImplicitBrackets`: Scans Rune DSL source text and inserts `[` and `]` around bare expressions
 that follow `extract`, `filter`, or `reduce` operators.
-- `serializeModel`: Serialize a single `RosettaModel` AST node back to `.rosetta` source text.
-- `serializeElement`: Serialize a single AST element (`Data`, `Choice`, or `RosettaEnumeration`) to text.
-- `serializeModels`: Serialize multiple `RosettaModel` nodes, returning a `Map` of namespace → source text.
+- `compactLspModelJson`: Keep semantic AST data and declaration ranges, without dependency token spans.
+- `readLspModelMetadata`: Read canonical import and resolved-reference edges, including function bodies.
+- `runeBigIntReplacer`: Canonical BigInt JSON replacer for Rune wire serialization: bigint → Number.
+- `serializeRuneModel`: Serialize a Rune AST model to its canonical wire JSON string.
+- `preserveCstText`: Copy `$cstNode.
+- `deserializeRuneModel`: Deserialize a serialized Rune AST JSON string back to a `RosettaModel`.
+- `hydrateModelDocument`: Deserialize a serialized Rune AST and build a `LangiumDocument`, optionally
+registering it.
+- `hydrateModelDocuments`: Hydrate and link one shared object graph, regardless of reference depth or input order.
+- `getNodeSourceRegion`: Original UTF-16 range, shared by parsed and serialized model consumers.
+- `getFunctionImplementationRegion`: Implementation range excludes the signature and retains preceding body comments.
+- `getExpressionRegions`: Root expressions in grammar order; indexes address their original owner arrays.
+- `findExpressionOwner`: Resolve declaration identity, using the unique base for a function dispatch group.
+- `getExpressionOwners`: Unique owners across files, grouped by namespace, declaration name and kind.
 - `isOptional`: Whether the cardinality allows zero occurrences (inf == 0).
 - `isSingular`: Whether the cardinality forces exactly one (inf == 1 && sup == 1).
 - `isPlural`: Whether the cardinality allows more than one instance (sup > 1 or unbounded).
@@ -177,83 +716,169 @@ that follow `extract`, `filter`, or `reduce` operators.
 - `toConstraintString`: Produce a human-readable constraint string like "(1..1)", "(0..*)", etc.
 - `getOptions`: Get the list of choice options from a Choice type.
 - `getEffectiveConditions`: Get conditions that are defined on the Data types within a Choice's options.
+- `getChoiceOptionPaths`: Declared option paths, including nested choices; data fields are not choice arms.
+- `choiceOptionFieldName`
+- `assertValidDocuments`: Publication requires syntax-correct documents with every reference linked.
 - `hasGeneratedInput`: Check if an expression node has a generated (synthetic) input marker.
 - `setGeneratedInputIfAbsent`: Set the generated input marker on an expression node if not already set.
 Returns `true` if the marker was set, `false` if it was already present.
-- `getFunctionInputs`: Get all input attributes from a RosettaFunction.
-- `getFunctionOutput`: Get the output attribute from a RosettaFunction.
+- `getFunctionSignature`: Resolve a dispatch overload to its namespace's base declaration.
+- `getOperationArgument`: Resolve an explicit operation input or the input of its enclosing pipeline.
+- `resolveOperationType`: Shared operator result-type propagation; symbol lookup belongs to the caller.
+- `resolveTypeAliases`: Resolve a declared type without looping through recursive aliases.
+- `getFunctionInputs`: Get effective input attributes, including inheritance and dispatch signatures.
+- `getFunctionOutput`: Get the effective output attribute, including dispatch signatures and inheritance.
+- `getElementNamespace`: Return the dot-separated namespace string for an element whose direct
+`$container` is a `RosettaModel`.
+- `collectNamespaceDependencies`: Walk every parsed document and return a per-namespace dependency map:
+`Map<sourceNamespace, Set<targetNamespace>>`.
+- `closeNamespaceDependencies`: Compute the transitive closure of a single source namespace through the
+dep map produced by `collectNamespaceDependencies`.
+- `qualifiedExportPath`: The canonical Langium scope key for a top-level exported element:
+`${namespace}.
+- `namespaceFromSource`: Extract the namespace from raw `.rosetta` source text. Returns `''` when no
+`namespace` declaration is present (matching the historical callers).
+- `namespaceFromModelName`: Normalize a `RosettaModel.
+- `indexById`: Build an id→item Map, insertion order preserved. Defaults the key to `item.id`.
+- `fromIndex`: Derive the value array from an id→item Map (insertion order).
+- `getEnumValues`: Effective enum members, with child declarations overriding inherited names.
+- `getExpressionScope`: Describe the existing language-service scope at an expression, without a second resolver.
+- `getSourceComments`: Hidden comment tokens, in UTF-16 source coordinates; string literals are not comments.
+- `getAnnotationDefinitions`: Scope facts from the actual linked references, without rebuilding import/name resolution.
+- `buildImportAliasMap`: One alias may intentionally contribute several namespace prefixes.
+- `importAliasCandidates`: Shared by language scopes and views; a real qualified name keeps precedence.
+- `buildImportScope`: File-local scope facts shared by language lookup and projected references.
+- `importScopeCandidates`: Ordered names for a file scope; bare fallback is for the language's outer scope.
+- `DuplicateKeyError`
 - `RuneDslAstReflection`
+- `RuneDslIndexManager`: Extended IndexManager that supports external registration of exported
+symbols without requiring a full document build.
+- `RuneDslLinker`: Langium linker that lazily materializes corpus documents stored in a
+`DeferredModelProvider` the first time a cross-reference to them is resolved.
 - `RuneDslScopeProvider`: Custom scope provider for the Rune DSL.
 - `RuneDslValidator`: Custom validator for the Rune DSL.
-- `RuneDslParser`: Custom Langium parser for the Rune DSL that pre-processes input text to insert
-implicit `[` and `]` brackets around bare expressions after `extract...
+- `RuneStoreHydrator`: Hydrator variant for the Rune store substrate.
+- `RuneDslParser`: Custom Langium parser for the Rune DSL that normalizes lexer input to insert
+implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RuneDslTerminals`
-- `Annotation`
-- `AnnotationDeepPath`
-- `AnnotationPath`
-- `AnnotationPathAttributeReference`
 - `AnnotationPathExpression`
-- `AnnotationQualifier`
-- `AnnotationRef`
 - `ArithmeticOperation`
 - `AsKeyOperation`
 - `AssignPathRoot`
-- `Attribute`
 - `AttributeOrChoiceOption`
-- `Choice`
 - `ChoiceOperation`
-- `ChoiceOption`
 - `ClosureParameter`
 - `ComparisonOperation`
-- `Condition`
-- `ConstructorKeyValuePair`
-- `Data`
 - `DataOrChoice`
 - `DefaultOperation`
 - `DistinctOperation`
 - `DocumentRationale`
 - `EqualityOperation`
-- `FilterOperation`
 - `FirstOperation`
 - `FlattenOperation`
 - `Import`
-- `InlineFunction`
 - `JoinOperation`
 - `LabelAnnotation`
 - `LastOperation`
 - `ListLiteral`
 - `LogicalOperation`
-- `MapOperation`
-- `MaxOperation`
-- `MinOperation`
 - `OneOfOperation`
-- `Operation`
-- `ReduceOperation`
-- `RegulatoryDocumentReference`
 - `ReverseOperation`
 - `RosettaAbsentExpression`
-- `RosettaAttributeReference`
-- `RosettaBasicType`
 - `RosettaBody`
 - `RosettaBooleanLiteral`
 - `RosettaCallableWithArgs`
 - `RosettaCardinality`
-- `RosettaClassSynonym`
 - `RosettaConditionalExpression`
-- `RosettaConstructorExpression`
 - `RosettaContainsExpression`
-- `RosettaCorpus`
 - `RosettaCountOperation`
-- `RosettaDataReference`
-- `RosettaDeepFeatureCall`
 - `RosettaDisjointExpression`
-- `RosettaDocReference`
-- `RosettaEnumeration`
 - `RosettaEnumSynonym`
-- `RosettaEnumValue`
-- `RosettaEnumValueReference`
 - `RosettaExistsExpression`
 - `RosettaExpression`
+- `RosettaFeature`
+- `RosettaImplicitVariable`
+- `RosettaIntLiteral`
+- `RosettaLiteral`
+- `RosettaMapPathValue`
+- `RosettaMappingPathTests`
+- `RosettaMapTest`
+- `RosettaMapTestExpression`
+- `RosettaMergeSynonymValue`
+- `RosettaNumberLiteral`
+- `RosettaOnlyElement`
+- `RosettaOnlyExistsExpression`
+- `RosettaRootElement`
+- `RosettaScope`
+- `RosettaSegment`
+- `RosettaStringLiteral`
+- `RosettaSuperCall`
+- `RosettaSymbol`
+- `RosettaSynonymValueBase`
+- `RosettaType`
+- `RosettaTypedFeature`
+- `ShortcutDeclaration`
+- `SumOperation`
+- `SwitchCaseTarget`
+- `ToDateOperation`
+- `ToDateTimeOperation`
+- `ToIntOperation`
+- `ToNumberOperation`
+- `ToStringOperation`
+- `ToTimeOperation`
+- `ToZonedDateTimeOperation`
+- `reflection`
+- `BASE_TYPE_FILES`: System file descriptors for base types.
+- `BASICTYPES_ROSETTA`: Built-in Rune DSL base type definitions.
+- `ANNOTATIONS_ROSETTA`
+- `RuneDslModule`: Dependency-injection module for the Rune DSL language.
+- `RuneDslSharedModule`: Shared services module that overrides Langium's default IndexManager with
+`RuneDslIndexManager`, enabling external registration of exported symbols...
+- `RuneDslLanguageMetaData`
+- `RuneDslGeneratedModule`
+- `RuneDslGeneratedSharedModule`
+- `parsedAdapter`
+- `curatedAdapter`
+- `LSP_MODEL_SYNC_METHOD`
+- `LSP_REQUEST_TIMEOUT_MS`: Request budget includes reconstruction of dependency models after cold wake.
+- `RUNE_SERIALIZE_OPTIONS`: The Langium serialize option triple for the canonical Rune wire form.
+
+## Optional
+
+### Types
+
+- `Annotation`
+- `AnnotationDeepPath`
+- `AnnotationPath`
+- `AnnotationPathAttributeReference`
+- `AnnotationQualifier`
+- `AnnotationRef`
+- `AsOperation`
+- `Attribute`
+- `Choice`
+- `ChoiceOption`
+- `Condition`
+- `ConstructorKeyValuePair`
+- `Data`
+- `FilterOperation`
+- `InlineFunction`
+- `MapOperation`
+- `MaxOperation`
+- `MinOperation`
+- `Operation`
+- `ReduceOperation`
+- `RegulatoryDocumentReference`
+- `RosettaAttributeReference`
+- `RosettaBasicType`
+- `RosettaClassSynonym`
+- `RosettaConstructorExpression`
+- `RosettaCorpus`
+- `RosettaDataReference`
+- `RosettaDeepFeatureCall`
+- `RosettaDocReference`
+- `RosettaEnumeration`
+- `RosettaEnumValue`
+- `RosettaEnumValueReference`
 - `RosettaExternalClass`
 - `RosettaExternalClassSynonym`
 - `RosettaExternalEnum`
@@ -262,109 +887,59 @@ implicit `[` and `]` brackets around bare expressions after `extract...
 - `RosettaExternalRegularAttribute`
 - `RosettaExternalRuleSource`
 - `RosettaExternalSynonym`
-- `RosettaFeature`
 - `RosettaFeatureCall`
 - `RosettaFunction`
-- `RosettaImplicitVariable`
-- `RosettaIntLiteral`
-- `RosettaLiteral`
 - `RosettaMapPath`
-- `RosettaMapPathValue`
 - `RosettaMapping`
 - `RosettaMappingInstance`
-- `RosettaMappingPathTests`
 - `RosettaMapRosettaPath`
-- `RosettaMapTest`
 - `RosettaMapTestAbsentExpression`
 - `RosettaMapTestEqualityOperation`
 - `RosettaMapTestExistsExpression`
-- `RosettaMapTestExpression`
 - `RosettaMapTestFunc`
-- `RosettaMergeSynonymValue`
 - `RosettaMetaType`
 - `RosettaModel`
-- `RosettaNumberLiteral`
-- `RosettaOnlyElement`
-- `RosettaOnlyExistsExpression`
 - `RosettaParameter`
-- `RosettaQualifiableConfiguration`
 - `RosettaRecordFeature`
 - `RosettaRecordType`
 - `RosettaReport`
-- `RosettaRootElement`
 - `RosettaRule`
-- `RosettaScope`
-- `RosettaSegment`
 - `RosettaSegmentRef`
-- `RosettaStringLiteral`
-- `RosettaSuperCall`
-- `RosettaSymbol`
 - `RosettaSymbolReference`
 - `RosettaSynonym`
 - `RosettaSynonymBody`
 - `RosettaSynonymSource`
-- `RosettaSynonymValueBase`
-- `RosettaType`
 - `RosettaTypeAlias`
-- `RosettaTypedFeature`
 - `RuleReferenceAnnotation`
+- `Schema`
 - `Segment`
-- `ShortcutDeclaration`
 - `SortOperation`
-- `SumOperation`
 - `SwitchCaseGuard`
 - `SwitchCaseOrDefault`
-- `SwitchCaseTarget`
 - `SwitchOperation`
 - `ThenOperation`
-- `ToDateOperation`
-- `ToDateTimeOperation`
 - `ToEnumOperation`
-- `ToIntOperation`
-- `ToNumberOperation`
-- `ToStringOperation`
-- `ToTimeOperation`
-- `ToZonedDateTimeOperation`
 - `TypeCall`
 - `TypeCallArgument`
 - `TypeParameter`
 - `WithMetaEntry`
 - `WithMetaOperation`
-- `reflection`
-- `RuneDslModule`: Dependency-injection module for the Rune DSL language.
-- `RuneDslLanguageMetaData`
-- `RuneDslGeneratedModule`
-- `RuneDslGeneratedSharedModule`
-
-## Optional
-
-### Types
-
+- `Repository`
+- `AnyDomain`
+- `DomainRepository`
 - `RuneDslTerminalNames`
 - `RuneDslKeywordNames`
 - `RuneDslTokenNames`
-- `Annotation`
-- `AnnotationDeepPath`
-- `AnnotationPath`
-- `AnnotationPathAttributeReference`
 - `AnnotationPathExpression`
-- `AnnotationQualifier`
-- `AnnotationRef`
 - `ArithmeticOperation`
 - `AsKeyOperation`
 - `AssignPathRoot`
-- `Attribute`
 - `AttributeOrChoiceOption`
 - `BigDecimal`
 - `CardinalityModifier`
-- `Choice`
 - `ChoiceOperation`
-- `ChoiceOption`
 - `ClosureParameter`
 - `ComparisonOperation`
-- `Condition`
-- `ConstructorKeyValuePair`
-- `Data`
 - `DataOrChoice`
 - `DefaultOperation`
 - `DistinctOperation`
@@ -372,179 +947,139 @@ implicit `[` and `]` brackets around bare expressions after `extract...
 - `EqualityOperation`
 - `ExistsModifier`
 - `ExternalValueOperator`
-- `FilterOperation`
 - `FirstOperation`
 - `FlattenOperation`
 - `Import`
-- `InlineFunction`
 - `Integer`
 - `JoinOperation`
 - `LabelAnnotation`
 - `LastOperation`
 - `ListLiteral`
 - `LogicalOperation`
-- `MapOperation`
-- `MaxOperation`
-- `MinOperation`
 - `Necessity`
 - `OneOfOperation`
-- `Operation`
 - `QualifiedName`
 - `QualifiedNameWithWildcard`
-- `ReduceOperation`
-- `RegulatoryDocumentReference`
 - `ReverseOperation`
 - `RosettaAbsentExpression`
-- `RosettaAttributeReference`
-- `RosettaBasicType`
 - `RosettaBody`
 - `RosettaBooleanLiteral`
 - `RosettaCallableWithArgs`
 - `RosettaCardinality`
-- `RosettaClassSynonym`
 - `RosettaConditionalExpression`
-- `RosettaConstructorExpression`
 - `RosettaContainsExpression`
-- `RosettaCorpus`
 - `RosettaCountOperation`
-- `RosettaDataReference`
-- `RosettaDeepFeatureCall`
 - `RosettaDisjointExpression`
-- `RosettaDocReference`
-- `RosettaEnumeration`
 - `RosettaEnumSynonym`
-- `RosettaEnumValue`
-- `RosettaEnumValueReference`
 - `RosettaExistsExpression`
 - `RosettaExpression`
-- `RosettaExternalClass`
-- `RosettaExternalClassSynonym`
-- `RosettaExternalEnum`
-- `RosettaExternalEnumValue`
-- `RosettaExternalFunction`
-- `RosettaExternalRegularAttribute`
-- `RosettaExternalRuleSource`
-- `RosettaExternalSynonym`
 - `RosettaFeature`
-- `RosettaFeatureCall`
-- `RosettaFunction`
 - `RosettaImplicitVariable`
 - `RosettaIntLiteral`
 - `RosettaLiteral`
-- `RosettaMapPath`
 - `RosettaMapPathValue`
-- `RosettaMapping`
-- `RosettaMappingInstance`
 - `RosettaMappingPathTests`
-- `RosettaMapRosettaPath`
 - `RosettaMapTest`
-- `RosettaMapTestAbsentExpression`
-- `RosettaMapTestEqualityOperation`
-- `RosettaMapTestExistsExpression`
 - `RosettaMapTestExpression`
-- `RosettaMapTestFunc`
 - `RosettaMergeSynonymValue`
-- `RosettaMetaType`
-- `RosettaModel`
 - `RosettaNumberLiteral`
 - `RosettaOnlyElement`
 - `RosettaOnlyExistsExpression`
-- `RosettaParameter`
-- `RosettaQualifiableConfiguration`
 - `RosettaQualifiableType`
-- `RosettaRecordFeature`
-- `RosettaRecordType`
-- `RosettaReport`
 - `RosettaRootElement`
-- `RosettaRule`
 - `RosettaScope`
 - `RosettaSegment`
-- `RosettaSegmentRef`
 - `RosettaStringLiteral`
 - `RosettaSuperCall`
 - `RosettaSymbol`
-- `RosettaSymbolReference`
-- `RosettaSynonym`
-- `RosettaSynonymBody`
 - `RosettaSynonymRef`
-- `RosettaSynonymSource`
 - `RosettaSynonymValueBase`
 - `RosettaType`
-- `RosettaTypeAlias`
 - `RosettaTypedFeature`
-- `RuleReferenceAnnotation`
-- `Segment`
 - `ShortcutDeclaration`
-- `SortOperation`
 - `SumOperation`
-- `SwitchCaseGuard`
-- `SwitchCaseOrDefault`
 - `SwitchCaseTarget`
-- `SwitchOperation`
-- `ThenOperation`
 - `ToDateOperation`
 - `ToDateTimeOperation`
-- `ToEnumOperation`
 - `ToIntOperation`
 - `ToNumberOperation`
 - `ToStringOperation`
 - `ToTimeOperation`
 - `ToZonedDateTimeOperation`
-- `TypeCall`
-- `TypeCallArgument`
-- `TypeParameter`
 - `TypeParameterValidID`
 - `ValidID`
-- `WithMetaEntry`
-- `WithMetaOperation`
 - `RuneDslAstType`
 - `ParseResult`: Result of parsing a Rosetta DSL source string.
+- `ExpressionParseResult`: Result of parsing a bare Rune DSL expression snippet.
 - `RuneDslServices`: Union type for all services available in the Rune DSL language.
+- `DeferredModelProvider`: Contract for on-demand corpus document materialization (ADR 007).
+- `Dehydrated`: Lossless editable wire model for a Langium AST node.
+- `LspModelUpdate`: Incremental semantic documents followed by the complete current URI set.
+- `HydrateServices`
+- `SourceRegion`
+- `ExpressionRegion`
+- `IntrinsicTypeName`: Operator-defined types have an identity even without a declaration reference.
+- `ExpressionScopeEntry`
+- `SourceComment`
+- `AnnotationDefinitionIdentity`
+- `NamespaceImport`: File-local namespace imports, without runtime AST linkage.
+- `ImportScope`
 
 ## @rune-langium/cli
 
+> Command-line entry points for parsing, validating, and generating code from
+Rune DSL workspaces.
+
 ## @rune-langium/lsp-server
+
+> Embed a Rune DSL language server behind a WebSocket or custom connection
+adapter.
 
 ### API
 
 - `createRuneLspServer`: Create a fully-wired Rune DSL LSP server backed by `@lspeasy/server`.
 - `createConnectionAdapter`: Create a `vscode-languageserver`-compatible `Connection` backed by an
 `@lspeasy/server` `LSPServer`.
+- `DurableObjectWebSocketTransport`
+- `RuneDocumentUpdateHandler`
+- `LSP_MODEL_SYNC_METHOD`: @rune-langium/lsp-server — LSP server for Rune DSL powered by Langium
+and @lspeasy/server.
+- `LSP_REQUEST_TIMEOUT_MS`: Request budget includes reconstruction of dependency models after cold wake.
 
 ## Optional
 
 ### Types
 
+- `LspModelUpdate`: Incremental semantic documents followed by the complete current URI set.
 - `RuneLspServer`: A fully-wired Rune DSL LSP server instance.
 
 ## @rune-langium/codegen
 
-### API
-
-- `isKnownGenerator`: Check whether a language ID corresponds to a known generator.
-- `getGenerator`: Get generator metadata by ID.
-- `KNOWN_GENERATORS`: Known generators bundled with `rosetta-code-generators` and `rune-dsl`.
-
-## Optional
-
-### Types
-
-- `CodeGenerationRequest`: Request to generate code from one or more Rune DSL model files.
-- `CodeGenerationResult`: Result of a code generation run.
-- `GeneratedFile`: A single generated output file.
-- `GenerationError`: An error encountered during code generation for a specific DSL construct.
-- `GeneratorInfo`: Metadata about a known code generator.
+> The main barrel (`@rune-langium/codegen`, i.e. this file, resolved via
+package.json's `"."` export) is intentionally empty.
 
 ## @rune-langium/visual-editor
 
+> ReactFlow-based graph and form components for exploring and editing Rune DSL
+models in the browser.
+
 ### API
 
-- `DetailPanel`
+- `typeRefMimeForKind`: Kind-scoped MIME variant so drop targets can filter by `accept` during
+dragover, when the browser security model makes `getData` return empty.
+- `isTypeRefPayload`: Type guard for parsed drag payloads.
+- `expansionKey`: Serialise an expansion key for use as a Map / Record key.
+- `KindBadge`
+- `TypeHeader`
+- `OtherForm`
+- `selectionState`: Returns the checkbox state for a collection of selection IDs.
+- `toggleVisible`: Adds or removes only the supplied IDs, preserving every other selection.
 - `TypeSelector`: Searchable type selector with kind-colored badges.
 - `getKindBadgeClasses`: Returns badge CSS classes for a given type kind.
+- `getKindDotClass`
 - `getKindLabel`: Returns a human-readable label for a type kind.
-- `CardinalityPicker`: Cardinality picker as a compact dropdown with 4 presets and a custom option.
-- `MetadataSection`: Collapsible metadata section with description, comments, and synonym fields.
+- `CardinalityPicker`
+- `MetadataSection`: Editable and inspection-only targets share the canonical construct capabilities.
 - `AttributeRow`
 - `DataTypeForm`
 - `EnumValueRow`
@@ -559,10 +1094,9 @@ Groups nodes by namespace and produces one model per namespace.
 - `parseCardinality`: Parse a cardinality display string back to structured form.
 - `getTypeRefText`: Get the display name of a type reference (e.g. from a TypeCall).
 - `getRefText`: Get display text from a Reference-like object.
-- `annotationsToDisplay`: Convert AstNodeModel<AnnotationRef>[] to display-friendly objects.
+- `annotationsToDisplay`: Convert Dehydrated<AnnotationRef>[] to display-friendly objects.
 - `conditionsToDisplay`: Convert condition models to display-friendly objects.
-- `classExprSynonymsToStrings`: Extract display strings from Data/Choice class synonyms.
-- `enumSynonymsToStrings`: Extract display strings from Enum synonyms.
+- `resolveNodeKind`: Resolve the React-Flow node-kind (`'data' | 'choice' | 'enum' | .
 - `computeLayout`: Compute layout positions for ReactFlow nodes using dagre.
 
 Returns a new array of nodes with updated positions.
@@ -574,18 +1108,26 @@ Does not mutate the input.
 - `computeGroupedLayout`: Layout each group independently with dagre, then arrange
 groups in a grid pattern.
 - `findInheritanceGroups`: Find inheritance-connected groups among the given nodes.
-- `buildNamespaceTree`: Build a sorted list of namespace tree entries from graph nodes.
-- `filterNamespaceTree`: Filter namespace tree entries by a search query.
+- `buildTypeOptions`: Projects the editor's canonical node repository into type-selector options.
+- `isTypeNodeId`: Whether a graph-node id names a declaration valid in a Rune type reference.
+- `makeNodeId`: Build a kind-aware graph-node id from a Rune qualified name and AST kind.
+- `nameFromNodeId`: The trailing simple name of a node id (everything after the last dot).
+- `qualifiedNameFromNodeId`: Recover the Rune qualified name from a graph-node id.
+- `splitNodeId`: Split a node id into `{ namespace, name }` by the last dot; namespace is '' when absent.
 - `createEditorStore`: Create an isolated zustand editor store instance.
-- `useTemporalStore`: Access the temporal (undo/redo) store attached to the editor store.
-- `useCanUndo`: Whether there are past states to undo to.
-- `useCanRedo`: Whether there are future states to redo to.
-- `useUndo`: Returns the undo function from the temporal store.
-- `useRedo`: Returns the redo function from the temporal store.
+- `selectNodeRepository`: Returns a node repository derived from `nodesById`, memoized on the Map's
+identity.
 - `ExpressionBuilder`
 - `useAutoSave`: Returns a debounced callback that auto-saves the latest value after
 `delay` milliseconds of inactivity. Flushes on unmount.
+- `useLatestRef`
+- `useNavigationArrival`: Brief destination emphasis, independent of selection and camera auto-fitting.
+- `useStableKey`
 - `useExpressionAutocomplete`
+- `useTypeRefDrop`
+- `useDiagnosticsForRange`: Returns the highest-severity `RangeDiagnostic` whose range overlaps the
+given `astRange`, or `undefined` when no overlap exists.
+- `useModelSourceSync`
 - `detectCircularInheritance`: Detect whether setting `childId extends parentId` would create a cycle.
 - `detectDuplicateName`: Check if a name already exists in the given namespace.
 - `validateCardinality`: Validate a cardinality string.
@@ -596,30 +1138,62 @@ Returns null if valid, or an error message string if invalid.
 - `validateIdentifier`: Validate that a name conforms to Rune DSL identifier rules.
 
 Returns null if valid, or an error message string if invalid.
-- `validateExpression`: Validate an expression string.
+- `validateExpression`: Validate expression syntax with the canonical Rune parser, without linking workspace symbols.
 - `validateGraph`: Run all validations on the current graph state and return errors.
+- `StructureView`: A focused DOM hierarchy with a single movable root.
+- `buildStructureGraph`
+- `NameCell`
+- `CardinalityCell`
+- `TypePickerCell`
+- `expressionScopeFromEntries`: Presentation groups for canonical core scope descriptions.
+- `createEditorCommitRegistry`
+- `InspectorFrame`: Layout only: providers and editor sessions stay owned by their declaration.
+- `InspectorDetailsPane`: A bounded local layout preference; no model, draft or persistence ownership.
+- `InspectorInheritanceField`
+- `TYPE_REF_PAYLOAD_MIME`: MIME type used for drag-drop payloads.
+- `TYPE_REF_KINDS`: Every type kind a namespace-explorer row can carry.
 - `RuneTypeGraph`
+- `KIND_LABEL`: Canonical kind → full label. The ONE source for kind labels.
+- `KIND_LETTER`: Canonical kind → single-letter classifier for the compact glyph shape.
 - `EditorFormPanel`
 - `NamespaceExplorerPanel`
 - `TypeCreator`
 - `AttributeEditor`
-- `CardinalityEditor`
-- `BUILTIN_TYPES`: Built-in primitive types available in the Rune DSL.
+- `BUILTIN_TYPES`: Built-in type names available in com.
 - `AST_TYPE_TO_NODE_TYPE`: Kind-to-ReactFlow-type mapping. Used to set `Node.type` for
 component selection, and for display badges.
 - `NODE_TYPE_TO_AST_TYPE`
 - `useEditorStore`: Default store instance for use with RuneTypeGraph.
+- `TypeChip`
 
 ## Optional
 
 ### Types
 
-- `DetailPanelProps`
+- `TypeRefKind`
+- `TypeRefPayload`: Drag payload emitted by NamespaceExplorer items and consumed by drop targets.
+- `StructureExpansionKey`: Key used in the expansion map; encodes namespace + type + attribute, plus
+an optional per-instance discriminator.
+- `StructureConditionMeta`: Display-shaped condition meta surfaced on a Data / Choice / Function node's
+header indicator (Phase A; Function added in Phase C — its `conditions`...
+- `StructureRow`: Single row inside a Data node, as the Structure View sees it.
+- `StructureDataNode`: A Data node in the Structure View graph.
+- `StructureChoiceArm`: A Choice arm — represents one option in a Choice.
+- `StructureChoiceNode`: A Choice node in the Structure View graph.
+- `StructureEnumNode`: A read-only Enum node in the Structure View graph (Phase 14e/A).
+- `StructureBaseContainer`: A base-type GroupContainer wrap.
+- `StructureFunctionNode`: A read-only Function node in the Structure View graph (Phase C).
+- `StructureNode`
+- `StructureGraphInput`: Full graph input produced by the adapter.
+- `KindBadgeProps`
+- `TypeHeaderProps`
+- `OtherFormProps`
 - `EditorFormPanelProps`
 - `NamespaceExplorerPanelProps`
+- `ExplorerSelection`: Controlled selection state for a namespace explorer.
+- `ExplorerSelectionAction`: Describes a whole-namespace selection operation for consumers that persist roots.
 - `TypeCreatorProps`
 - `AttributeEditorProps`
-- `CardinalityEditorProps`
 - `TypeSelectorProps`
 - `TypeSelectorTriggerProps`
 - `TypeSelectorPopoverProps`
@@ -633,57 +1207,74 @@ component selection, and for display badges.
 - `ChoiceOptionRowProps`
 - `ChoiceFormProps`
 - `FunctionFormProps`
-- `AstNodeModel`: Mapped type that plucks and recursively serializes fields from any
-Langium AST node type.
-- `AstNodeShape`: Structural constraint matching Langium's AstNode interface.
-Used instead of importing langium directly (it's not a visual-editor dependency).
-- `GraphNode`: Top-level graph node data: AstNodeModel with graph/editor metadata.
-Used for elements rendered by ReactFlow (Data, Choice, Enum, Function, etc.).
-- `AnyGraphNode`: Union of all GraphNode variants for top-level elements.
-- `GraphMetadata`
+- `Dehydrated`: Lossless editable wire model for a Langium AST node.
+- `DomainNodeData`: Domain payload of an editor graph node — the discriminated union (on
+`$type`) of `Dehydrated<T>` over every top-level element kind the editor
+renders.
+- `AnyGraphNode`: Union of all node-data variants for top-level elements.
+- `GraphNodeMeta`
 - `RootAstElement`: Union of all top-level AST element types that appear as graph nodes.
 - `TypeKind`: Short kind strings used for UI dispatch, badge rendering, and form actions.
 - `EdgeKind`
 - `EdgeData`: Data payload for graph edges.
 - `ValidationError`
 - `ExpressionEditorSlotProps`: Props provided to the expression editor render-prop slot.
+- `FunctionBodyEditorSlotProps`
 - `TypeOption`: A type option for searchable type selectors.
+- `SourceRefOption`: Option for the synonym-source reference picker.
 - `CommonFormActions`: Actions shared by all type kinds.
 - `DataFormActions`: Data type–specific editor actions.
 - `EnumFormActions`: Enum-specific editor actions.
 - `ChoiceFormActions`: Choice-specific editor actions.
 - `FuncFormActions`: Function-specific editor actions.
+- `TypeAliasFormActions`: TypeAlias-specific editor actions.
 - `FormActionsKindMap`: Maps each `TypeKind` to its form actions interface.
 - `AllEditorFormActions`: Intersection of all kind-specific actions (every method available).
 - `EditorFormActions`: Kind-aware editor form actions.
-- `GraphFilters`: Visibility filter state for the type graph.
 - `LayoutDirection`
-- `LayoutOptions`
-- `NodeStyleConfig`
-- `EdgeStyleConfig`
-- `RuneTypeGraphConfig`: Configuration props for the `RuneTypeGraph` component.
 - `RuneTypeGraphCallbacks`: Event callbacks for the `RuneTypeGraph` component.
 - `RuneTypeGraphProps`: Props for the `RuneTypeGraph` React component.
 - `RuneTypeGraphRef`: Imperative ref handle for `RuneTypeGraph`.
-- `TypeGraphNode`
+- `TypeGraphNode`: Editor graph node.
 - `TypeGraphEdge`
-- `NamespaceTreeNode`
 - `NamespaceTypeEntry`
 - `VisibilityState`
 - `NavigateToNodeCallback`: Callback for navigating to a type definition by node ID (namespace::name).
 - `ModelOutput`: A serializer-compatible model object.
-Same shape as the legacy SyntheticModel but typed against AstNodeModel.
+Same shape as the legacy SyntheticModel; elements are Dehydrated<T> clones.
 - `SyntheticModel`
 - `SyntheticElement`
 - `GroupInfo`
 - `EditorStore`: Combined zustand store type (state + actions).
-- `EditorState`: Snapshot of visual editor state tracked by the zustand store.
 - `EditorActions`
-- `TrackedState`: Fields tracked by undo/redo.
-UI state (selection, viewport) is NOT tracked.
+- `DeferredExportEntry`
+- `NodeRepository`: Typed, read-only lookup surface over the editor's nodes.
+- `NodeOf`: A graph node whose domain payload is narrowed to the `$type` named by `K`.
+- `TrackedState`: Fields tracked by undo/redo (Phase 3B, Task 6).
 - `ExpressionBuilderProps`: Props provided to the expression editor render-prop slot.
 - `FunctionScope`
 - `FunctionScopeEntry`
 - `CompletionItem`
 - `UseExpressionAutocompleteResult`
+- `UseTypeRefDropResult`
+- `RangeDiagnostic`: A diagnostic whose range has been converted from LSP line/character
+coordinates to character offsets in the source document.
 - `ExpressionValidationResult`: Result of validating a Rune DSL expression.
+- `StructureViewProps`: Shared host contract for the focused document and its existing editor slots.
+- `StructureCellComponents`
+- `AdapterDocument`
+- `AdapterNode`
+- `AdapterAttribute`
+- `AdapterChoiceOption`: Mirrors the real ChoiceOption AST shape: only `typeCall`, no `name`, no `card`.
+- `AdapterCardinality`: Canonical cardinality shape mirroring `model-helpers.
+- `NameCellProps`
+- `CardinalityCellProps`
+- `TypeChipProps`
+- `TypeChipKind`
+- `TypePickerCellProps`
+- `EditorCommitRegistry`
+- `SourceSyncHandle`
+- `SourceSyncSnapshot`: Fires `onModelChanged` (serialized source keyed by namespace name) whenever
+`nodes` or `edges` change in content — independent of which visual pane...
+- `InspectorFrameProps`
+- `InspectorSection`

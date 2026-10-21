@@ -17,15 +17,13 @@ import ELK from 'elkjs/lib/elk.bundled.js';
 import type { TypeGraphNode, TypeGraphEdge, LayoutOptions } from '../types.js';
 import { computeGroupedLayout } from './grouped-layout.js';
 import type { WorkerRequest, WorkerResponse } from './dagre-worker-script.js';
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, getNodeHeight, getNodeWidth } from './node-dimensions.js';
-
-const DEFAULT_LAYOUT_OPTIONS: Required<LayoutOptions> = {
-  engine: 'dagre',
-  direction: 'TB',
-  nodeSeparation: 50,
-  rankSeparation: 100,
-  groupByInheritance: false
-};
+import { getNodeHeight, getNodeWidth } from './node-dimensions.js';
+import {
+  buildDagreGraph,
+  dagrePositions,
+  layoutNodeDimensions,
+  DEFAULT_GRAPH_LAYOUT_OPTIONS as DEFAULT_LAYOUT_OPTIONS
+} from './dagre-graph.js';
 
 const elk = new ELK();
 
@@ -88,11 +86,7 @@ function runInWorker(
   const id = ++requestId;
   const request: WorkerRequest = {
     id,
-    nodes: nodes.map((n) => ({
-      id: n.id,
-      width: getNodeWidth(n),
-      height: getNodeHeight(n)
-    })),
+    nodes: layoutNodeDimensions(nodes),
     edges: edges.map((e) => ({ source: e.source, target: e.target })),
     direction: opts.direction,
     nodeSeparation: opts.nodeSeparation,
@@ -231,26 +225,7 @@ async function computeLayoutMainThread(
   opts: Required<LayoutOptions>,
   seq: number
 ): Promise<TypeGraphNode[] | null> {
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({
-    rankdir: opts.direction,
-    nodesep: opts.nodeSeparation,
-    ranksep: opts.rankSeparation,
-    marginx: 20,
-    marginy: 20
-  });
-
-  for (const node of nodes) {
-    g.setNode(node.id, {
-      width: getNodeWidth(node),
-      height: getNodeHeight(node)
-    });
-  }
-
-  for (const edge of edges) {
-    g.setEdge(edge.source, edge.target);
-  }
+  const g = buildDagreGraph(layoutNodeDimensions(nodes), edges, opts);
 
   await yieldToMainThread();
   if (layoutSeq !== seq) return null;
@@ -260,17 +235,8 @@ async function computeLayoutMainThread(
   await yieldToMainThread();
   if (layoutSeq !== seq) return null;
 
-  return nodes.map((node) => {
-    const dagreNode = g.node(node.id);
-    if (!dagreNode) return node;
-    return {
-      ...node,
-      position: {
-        x: dagreNode.x - (dagreNode.width ?? DEFAULT_NODE_WIDTH) / 2,
-        y: dagreNode.y - (dagreNode.height ?? DEFAULT_NODE_HEIGHT) / 2
-      }
-    };
-  });
+  const positions = dagrePositions(g, nodes);
+  return nodes.map((node) => (positions[node.id] ? { ...node, position: positions[node.id]! } : node));
 }
 
 /**

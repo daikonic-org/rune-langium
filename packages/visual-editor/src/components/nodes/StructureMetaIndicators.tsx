@@ -44,7 +44,7 @@ export function StructureMetaIndicators({
   if (!hasDoc && !hasConditions && !hasAnnotations) return null;
 
   return (
-    <span data-slot="structure-meta-indicators" className="ml-auto inline-flex items-center gap-1">
+    <span data-slot="structure-meta-indicators" className="inline-flex shrink-0 items-center gap-1">
       {hasDoc ? (
         <Popover>
           <PopoverTrigger

@@ -30,6 +30,7 @@
 import type { Node, Parser } from 'web-tree-sitter';
 import type { z } from 'zod';
 import type { ConstraintIR, Literal, SourceAttribute, SourceEnum, SourceModel, SourceType } from '../source-model.js';
+import { sanitizeIdentifier, dedupeIdentifier } from '../identifiers.js';
 import { pushDiagnostic, type ImportDiagnostic } from '../diagnostics.js';
 import { createSqlParser, type WasmSource } from './sql-grammar-loader.js';
 import type { SqlNodeKind, SqlNodeFields } from './generated/sql-node-types.js';
@@ -60,7 +61,7 @@ function typedField<K extends SqlNodeKind>(node: Node, _kind: K, field: SqlNodeF
 /** `trade_event` -> `TradeEvent`; also tolerates already-PascalCase / camelCase input (splits on `_` only, capitalizing each segment). */
 function toPascalCase(snake: string): string {
   const parts = snake.split(/[_\s]+/).filter(Boolean);
-  if (parts.length === 0) return sanitizeFallback(snake);
+  if (parts.length === 0) return sanitizeIdentifier(snake, 'Value');
   return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('');
 }
 
@@ -68,32 +69,6 @@ function toPascalCase(snake: string): string {
 function toCamelCase(snake: string): string {
   const pascal = toPascalCase(snake);
   return pascal.length === 0 ? pascal : pascal.charAt(0).toLowerCase() + pascal.slice(1);
-}
-
-function sanitizeFallback(raw: string): string {
-  let cleaned = raw.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  if (cleaned.length === 0) cleaned = 'Value';
-  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
-  return cleaned;
-}
-
-/** Sanitizes a non-ValidID-safe enum literal (e.g. `"ACT/360"`) into a Rune-safe identifier — same rule `json-schema-reader.ts`'s `sanitizeEnumValue` applies. */
-function sanitizeEnumValue(raw: string): string {
-  let cleaned = raw.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  if (cleaned.length === 0) cleaned = 'VALUE';
-  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
-  return cleaned;
-}
-
-function dedupeIdentifier(base: string, used: Set<string>): string {
-  let candidate = base;
-  let suffix = 2;
-  while (used.has(candidate)) {
-    candidate = `${base}_${suffix}`;
-    suffix += 1;
-  }
-  used.add(candidate);
-  return candidate;
 }
 
 // --- column type -> Rune builtin ----------------------------------------
@@ -973,7 +948,7 @@ function buildEnumFromCheck(
   const used = new Set<string>();
   const values = literals.map((lit) => {
     const original = unquoteSqlLiteral(lit.text);
-    const name = dedupeIdentifier(sanitizeEnumValue(original), used);
+    const name = dedupeIdentifier(sanitizeIdentifier(original, 'VALUE'), used);
     return {
       name,
       sourceKey: original,

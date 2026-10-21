@@ -3,35 +3,18 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation, Capture } from './instrumentation/core.js';
+import { generateUlid } from './ulid.js';
 
 const LSP_SESSION_ID_KEY = 'rune-studio:lsp-session-id';
-const CROCKFORD_BASE32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-function makeLspSessionUlid(): string {
-  // 10-char time component + 16-char random component = 26 chars.
-  // Not monotonic across calls — single ULID per tab is fine for DO routing.
-  let time = '';
-  let now = Date.now();
-  for (let i = 0; i < 10; i++) {
-    time = CROCKFORD_BASE32[now & 31] + time;
-    now = Math.floor(now / 32);
-  }
-  const rand = new Uint8Array(16);
-  crypto.getRandomValues(rand);
-  let randPart = '';
-  for (const b of rand) randPart += CROCKFORD_BASE32[b & 31];
-  return time + randPart;
-}
-
 export const getLspSessionId = withInstrumentation(
   function getLspSessionId(): string {
     if (typeof window === 'undefined' || typeof window.sessionStorage === 'undefined') {
-      return makeLspSessionUlid();
+      return generateUlid();
     }
     try {
       const existing = window.sessionStorage.getItem(LSP_SESSION_ID_KEY);
       if (existing && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(existing)) return existing;
-      const fresh = makeLspSessionUlid();
+      const fresh = generateUlid();
       window.sessionStorage.setItem(LSP_SESSION_ID_KEY, fresh);
       return fresh;
     } catch {
@@ -39,7 +22,7 @@ export const getLspSessionId = withInstrumentation(
       // on read (getItem), not just setItem. Non-fatal: the caller still gets a
       // unique-for-this-call id, it just won't persist across reloads (the DO is
       // isolated per-mount instead of per-tab).
-      return makeLspSessionUlid();
+      return generateUlid();
     }
     // Output is a random per-tab session correlator (crypto.getRandomValues),
     // never derived from user/model content — safe to capture verbatim.

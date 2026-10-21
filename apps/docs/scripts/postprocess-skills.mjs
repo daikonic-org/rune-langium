@@ -41,6 +41,14 @@ for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
   writeFileSync(skillPath, content);
 }
 
+for (const fileName of ['llms.txt', 'llms-full.txt']) {
+  const indexPath = join(docsRoot, 'public', fileName);
+  if (existsSync(indexPath)) {
+    const content = readFileSync(indexPath, 'utf8');
+    writeFileSync(indexPath, content.replace(/[\t ]+$/gm, ''));
+  }
+}
+
 function rewriteReferenceLink(content, skillDir, section) {
   const markdownRef = `references/${section}.md`;
   const directoryRef = `references/${section}/`;

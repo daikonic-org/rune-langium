@@ -54,7 +54,7 @@ import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-wal
 import { recognizeCondition } from './constraint-recognizer.js';
 import type { ConstraintIR } from '../import/source-model.js';
 import { debug } from '../instrument.js';
-import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
+import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
 
 const XSD_NS = 'http://www.w3.org/2001/XMLSchema';
 
@@ -144,41 +144,6 @@ function renderRestrictedSimpleType(rt: RestrictedSimpleType): string {
     `</xs:simpleType>`
   ];
   return lines.join('\n');
-}
-
-/**
- * Wrap a bare `ReadonlyMap<string, N>` (`NamespaceWalkResult`'s own
- * `enumByName`/`dataByName`/`choiceByName`/`typeAliasByName` lookup maps,
- * namespace-walker.ts:28-43) into the `{node, sourceUri}`-entry shape
- * `resolveTypeCallTarget` (Task 1, type-ref-resolver.ts) requires — the same
- * adapter pattern as zod-emitter.ts's own `wrapTypeIndexEntries`, but
- * reading from `model: NamespaceWalkResult` directly since this emitter,
- * unlike zod/ts/json-schema, has no local `EmissionContext` wrapper.
- */
-function wrapTypeIndexEntries<N>(
-  map: ReadonlyMap<string, N>,
-  sourceUri: string
-): ReadonlyMap<string, TypeIndexEntry<N>> {
-  const wrapped = new Map<string, TypeIndexEntry<N>>();
-  for (const [name, node] of map) {
-    wrapped.set(name, { node, sourceUri });
-  }
-  return wrapped;
-}
-
-/**
- * Adapt `NamespaceWalkResult`'s bare unwrapped lookup maps to the
- * `TypeIndexLookup` shape `resolveTypeCallTarget` expects. Built once per
- * namespace emission (the underlying maps are immutable for the lifetime of
- * one `XsdNamespaceEmitter` instance).
- */
-function toTypeIndexLookup(model: NamespaceWalkResult, sourceUri: string): TypeIndexLookup {
-  return {
-    enumByName: wrapTypeIndexEntries(model.enumByName, sourceUri),
-    dataByName: wrapTypeIndexEntries(model.dataByName, sourceUri),
-    choiceByName: wrapTypeIndexEntries(model.choiceByName, sourceUri),
-    typeAliasByName: wrapTypeIndexEntries(model.typeAliasByName, sourceUri)
-  };
 }
 
 export function emitNamespace(

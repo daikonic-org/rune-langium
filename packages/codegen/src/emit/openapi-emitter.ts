@@ -29,7 +29,7 @@ import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-wal
 import { emitNamespace as emitJsonSchemaNamespace } from './json-schema-emitter.js';
 import { jsonSchemaProfile } from './json-schema-profile.js';
 import { extractFuncs, type RuneFunc, type RuneFuncParam } from '../types/func.js';
-import { resolveTypeCallTarget, type TypeIndexEntry, type TypeIndexLookup } from './type-ref-resolver.js';
+import { resolveTypeCallTarget, toTypeIndexLookup } from './type-ref-resolver.js';
 import { recognizeCondition, constraintIRToJsonSchemaKeywords } from './constraint-recognizer.js';
 import { OpenApiOptionsSchema, resolveCrudTypeNames, type OpenApiOptions } from '../options/openapi-options.js';
 import { debug } from '../instrument.js';
@@ -55,36 +55,6 @@ function rewriteDefsRefsToComponents(node: unknown): unknown {
     return [k, rewriteDefsRefsToComponents(v)];
   });
   return Object.fromEntries(entries);
-}
-
-/**
- * Wrap a bare `ReadonlyMap<string, N>` (`NamespaceWalkResult`'s own lookup
- * maps) into the `{node, sourceUri}`-entry shape `resolveTypeCallTarget`
- * (type-ref-resolver.ts) requires — same adapter shape `zod-emitter.ts`/
- * `ts-emitter.ts` each already built for their own migrations. This emitter
- * doesn't consume per-entry `sourceUri` in its own rendering, so a single
- * shared value for the whole namespace is correct here.
- */
-function wrapTypeIndexEntries<N>(
-  map: ReadonlyMap<string, N>,
-  sourceUri: string
-): ReadonlyMap<string, TypeIndexEntry<N>> {
-  const wrapped = new Map<string, TypeIndexEntry<N>>();
-  for (const [name, node] of map) {
-    wrapped.set(name, { node, sourceUri });
-  }
-  return wrapped;
-}
-
-/** Adapt a `NamespaceWalkResult` (bare unwrapped lookup maps) to the `TypeIndexLookup` shape `resolveTypeCallTarget` expects. */
-function toTypeIndexLookup(model: NamespaceWalkResult): TypeIndexLookup {
-  const sourceUri = model.namespace;
-  return {
-    enumByName: wrapTypeIndexEntries(model.enumByName, sourceUri),
-    dataByName: wrapTypeIndexEntries(model.dataByName, sourceUri),
-    choiceByName: wrapTypeIndexEntries(model.choiceByName, sourceUri),
-    typeAliasByName: wrapTypeIndexEntries(model.typeAliasByName, sourceUri)
-  };
 }
 
 /**
@@ -122,7 +92,7 @@ function resolveParamItemSchema(
   if (alias) {
     return resolveTypeCallTarget(
       alias.typeCall,
-      toTypeIndexLookup(model),
+      toTypeIndexLookup(model, model.namespace),
       {
         onPrimitive: (basicTypeName) => {
           const mapped = JSON_BUILTIN_TYPE_MAP[basicTypeName];

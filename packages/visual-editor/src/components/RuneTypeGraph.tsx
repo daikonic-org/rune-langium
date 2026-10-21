@@ -72,7 +72,7 @@ import { computeLayout, computeLayoutIncremental } from '../layout/dagre-layout.
 import { computeLayoutAsync, cancelAsyncLayout } from '../layout/layout-worker.js';
 import { findInheritanceGroups } from '../layout/grouped-layout.js';
 import { getNodeHeight, getNodeWidth } from '../layout/node-dimensions.js';
-import { STRUCTURE_LAYOUT_CSS_VARS } from '../layout/structure-layout.js';
+import { GRAPH_NODE_CSS_VARS } from '../layout/graph-node-geometry.js';
 import { shouldReplaceLayoutPositions } from './layout-sync.js';
 import { modelsToAst } from '../adapters/model-to-ast.js';
 import { indexById } from '@rune-langium/core';
@@ -1062,7 +1062,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
   );
 
   return (
-    <div className={cn('rune-type-graph', densityClass, className)} style={STRUCTURE_LAYOUT_CSS_VARS as CSSProperties}>
+    <div className={cn('rune-type-graph', densityClass, className)} style={GRAPH_NODE_CSS_VARS as CSSProperties}>
       {breadcrumbItems.length > 0 && (
         <div className="rune-graph-breadcrumbs" aria-label="Graph navigation context">
           {breadcrumbItems.map((item, index) => (
@@ -1097,6 +1097,8 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
           edgeTypes={edgeTypes}
           fitView
           onlyRenderVisibleElements
+          // The default 0.5 floor cannot fit tall namespace graphs.
+          minZoom={0.05}
           nodesDraggable={!mergedConfig.readOnly}
           nodesConnectable={!mergedConfig.readOnly}
           elementsSelectable

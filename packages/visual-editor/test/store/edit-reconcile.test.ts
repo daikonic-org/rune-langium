@@ -10,13 +10,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Patch } from 'mutative';
-import {
-  commitGraphEdit,
-  reconcileParse,
-  projectGraph,
-  patchAlreadySatisfied
-} from '../../src/store/edit-reconcile.js';
+import { create, type Patch } from 'mutative';
+import type { GraphEditRecipe } from '../../src/store/edit-reconcile.js';
+import { reconcileParse, projectGraph, patchAlreadySatisfied } from '../../src/store/edit-reconcile.js';
 import { nodesFromMap } from '../../src/store/node-projection.js';
 import type { TypeGraphNode, TypeGraphEdge } from '../../src/types.js';
 
@@ -226,3 +222,8 @@ describe('edit-reconcile', () => {
     expect(remainingPatches.length).toBeGreaterThan(0);
   });
 });
+
+function commitGraphEdit(nodes: TypeGraphNode[], edges: TypeGraphEdge[], recipe: GraphEditRecipe) {
+  const [next, patches] = create(projectGraph(nodes, edges), recipe, { enablePatches: true });
+  return { nodes: [...next.nodes.values()], edges: [...next.edges.values()], patches };
+}
