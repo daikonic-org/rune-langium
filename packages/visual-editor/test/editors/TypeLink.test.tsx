@@ -184,6 +184,7 @@ describe('file-local alias navigation', () => {
       >
         <TypeLink
           typeName="fpml.Exercise"
+          typeKind="Data"
           allNodeIds={['unrelated.Exercise', 'fpml.option.Exercise#Data']}
           onNavigateToNode={navigate}
         />

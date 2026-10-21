@@ -30,6 +30,7 @@ export interface BlockRendererProps {
   node: ExpressionNode;
   selectedNodeId?: string | null;
   onSelect?: (nodeId: string) => void;
+  onEditReference?: (nodeId: string) => void;
   onActivatePlaceholder?: (nodeId: string) => void;
   onDragNode?: (draggedNodeId: string, targetNodeId: string) => void;
   depth?: number;
@@ -113,6 +114,7 @@ function BlockRendererInner({
   selectedNodeId,
   onSelect,
   onActivatePlaceholder,
+  onEditReference,
   onDragNode,
   depth = 0
 }: BlockRendererProps) {
@@ -137,6 +139,7 @@ function BlockRendererInner({
             node={child}
             selectedNodeId={selectedNodeId}
             onSelect={onSelect}
+            onEditReference={onEditReference}
             onActivatePlaceholder={onActivatePlaceholder}
             onDragNode={onDragNode}
             depth={depth + 1}
@@ -144,7 +147,7 @@ function BlockRendererInner({
         </span>
       );
     },
-    [selectedNodeId, onSelect, onActivatePlaceholder, onDragNode, depth]
+    [selectedNodeId, onSelect, onActivatePlaceholder, onEditReference, onDragNode, depth]
   );
 
   let content: React.ReactNode;
@@ -171,11 +174,11 @@ function BlockRendererInner({
   ) {
     content = <LiteralBlock node={node} />;
   } else if ($type === 'RosettaSymbolReference' || $type === 'RosettaImplicitVariable') {
-    content = <ReferenceBlock node={node} />;
+    content = <ReferenceBlock node={node} onEdit={onEditReference} />;
   } else if ($type === 'ListLiteral') {
     content = <ListBlock node={node} renderChild={renderChild} />;
   } else if ($type === 'RosettaSuperCall') {
-    content = <ReferenceBlock node={node} />;
+    content = <ReferenceBlock node={node} onEdit={onEditReference} />;
   } else if ($type === 'ChoiceOperation') {
     content = <UnaryBlock node={node} renderChild={renderChild} />;
   } else if ($type === 'Placeholder') {

@@ -322,7 +322,12 @@ export function TypeSelector({
         onValueChange={(val) => handleSelect(val === NONE_SENTINEL ? null : val)}
         disabled={disabled}
       >
-        <SelectTrigger data-slot="type-selector" className={`h-7 text-xs px-2 ${triggerClassName ?? ''}`.trim()}>
+        <SelectTrigger
+          aria-label={placeholder}
+          size="sm"
+          data-slot="type-selector"
+          className={`data-[size=sm]:h-6 py-0 text-xs px-2 ${triggerClassName ?? ''}`.trim()}
+        >
           <SelectValue placeholder={allowClear ? '— None —' : placeholder} />
         </SelectTrigger>
         <SelectContent className="rune-type-selector__content">

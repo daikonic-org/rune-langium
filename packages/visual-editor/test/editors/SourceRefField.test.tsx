@@ -26,3 +26,8 @@ describe('SourceRefField', () => {
     expect(screen.getByText('Pick source…')).toBeInTheDocument();
   });
 });
+
+it('retains the written reference while its options are unavailable', () => {
+  render(<SourceRefField value="address" options={[]} disabled onSelect={vi.fn()} />);
+  expect(screen.getByRole('button', { name: 'address' })).toBeDisabled();
+});

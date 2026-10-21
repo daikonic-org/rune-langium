@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { useContext } from 'react';
+import userEvent from '@testing-library/user-event';
 import { useActivityStore } from '../../../src/store/activity-store.js';
 import { ActivityPanel } from '../../../src/shell/panels/ActivityPanel.js';
 import {
@@ -12,6 +13,7 @@ import {
 } from '../../../src/shell/utility-header-actions-context.js';
 
 afterEach(() => {
+  cleanup();
   useActivityStore.setState({ entries: [] });
 });
 
@@ -41,19 +43,17 @@ describe('ActivityPanel namespace filter', () => {
     expect(screen.getByText('connected')).toBeInTheDocument();
   });
 
-  it('filters entries by the selected namespace', () => {
+  it('filters entries and shows an empty state for an unmatched namespace', async () => {
     useActivityStore.getState().addActivity('codegen', true, 'generated');
     useActivityStore.getState().addActivity('lsp', true, 'connected');
     renderActivityPanel();
-    fireEvent.change(screen.getByTestId('activity-namespace-filter'), { target: { value: 'codegen' } });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: 'Filter activity by namespace' }));
+    await user.click(await screen.findByRole('option', { name: 'codegen', exact: true }));
     expect(screen.getByText('generated')).toBeInTheDocument();
     expect(screen.queryByText('connected')).not.toBeInTheDocument();
-  });
-
-  it('shows a filter-specific empty state when no entries match', () => {
-    useActivityStore.getState().addActivity('lsp', true, 'connected');
-    renderActivityPanel();
-    fireEvent.change(screen.getByTestId('activity-namespace-filter'), { target: { value: 'git' } });
+    await user.click(screen.getByRole('combobox', { name: 'Filter activity by namespace' }));
+    await user.click(await screen.findByRole('option', { name: 'git', exact: true }));
     expect(screen.getByText('No activity matches this filter.')).toBeInTheDocument();
   });
 

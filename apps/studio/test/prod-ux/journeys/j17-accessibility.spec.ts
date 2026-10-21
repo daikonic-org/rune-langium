@@ -70,7 +70,7 @@ test.describe('J17 — Accessibility sweep', () => {
 
     await page.getByTestId('rail-explore').click();
     await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
-    await page.getByRole('button', { name: 'Import' }).click();
+    await page.getByRole('button', { name: 'Import Model' }).click();
     await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
     results.push(await sweepAxe(page, 'import-dialog', artifactDir));
     await evidence.checkpoint('axe-import-dialog');

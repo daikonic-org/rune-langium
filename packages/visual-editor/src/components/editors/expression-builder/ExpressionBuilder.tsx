@@ -14,6 +14,7 @@
  */
 
 import { useState, useCallback, useRef, type ReactNode } from 'react';
+import { Textarea } from '@rune-langium/design-system/ui/textarea';
 import type { ExpressionEditorSlotProps } from '../../../types.js';
 import type { ExpressionNode } from '../../../schemas/expression-node-schema.js';
 import type { FunctionScope } from '../../../store/expression-store.js';
@@ -84,7 +85,7 @@ export function ExpressionBuilder({
     defaultMode
   });
 
-  const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  const [referenceTargetId, setReferenceTargetId] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -123,19 +124,29 @@ export function ExpressionBuilder({
   );
 
   const handleOpenReferencePicker = useCallback(() => {
+    setReferenceTargetId(paletteAnchorId);
     closePalette();
-    setReferencePickerOpen(true);
-  }, [closePalette]);
+  }, [paletteAnchorId, closePalette]);
+
+  const handleEditReference = useCallback(
+    (nodeId: string) => {
+      selectNode(nodeId);
+      setReferenceTargetId(nodeId);
+      closePalette();
+    },
+    [selectNode, closePalette]
+  );
 
   const handlePaletteSelect = useCallback(
     (node: ExpressionNode) => {
-      if (paletteAnchorId) {
-        replaceNode(paletteAnchorId, node);
+      const targetId = referenceTargetId ?? paletteAnchorId;
+      if (targetId) {
+        replaceNode(targetId, node);
       }
       closePalette();
-      setReferencePickerOpen(false);
+      setReferenceTargetId(null);
     },
-    [paletteAnchorId, replaceNode, closePalette]
+    [referenceTargetId, paletteAnchorId, replaceNode, closePalette]
   );
 
   const handlePaletteClose = useCallback(() => {
@@ -143,7 +154,7 @@ export function ExpressionBuilder({
   }, [closePalette]);
 
   const handleReferenceClose = useCallback(() => {
-    setReferencePickerOpen(false);
+    setReferenceTargetId(null);
   }, []);
 
   // Context-aware operator filtering
@@ -192,6 +203,7 @@ export function ExpressionBuilder({
               node={tree}
               selectedNodeId={selectedNodeId}
               onSelect={selectNode}
+              onEditReference={handleEditReference}
               onActivatePlaceholder={handleActivatePlaceholder}
               onDragNode={onDragNode}
             />
@@ -203,7 +215,7 @@ export function ExpressionBuilder({
               onOpenReferencePicker={handleOpenReferencePicker}
             />
             <ReferencePicker
-              open={referencePickerOpen}
+              open={referenceTargetId !== null}
               scope={scope}
               onSelect={handlePaletteSelect}
               onClose={handleReferenceClose}
@@ -225,8 +237,9 @@ export function ExpressionBuilder({
             onBlur: handleTextBlur
           })
         ) : (
-          <textarea
-            className="min-h-20 w-full rounded border border-input bg-background p-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          <Textarea
+            aria-label="Expression draft"
+            className="min-h-20 resize-y font-mono"
             value={textValue}
             onChange={handleTextChange}
             onBlur={handleTextBlur}

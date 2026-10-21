@@ -42,7 +42,7 @@ export const InstancePayloadPanel = withInstrumentation(
     }
 
     return (
-      <section aria-label="Instance payload" className="border-t border-border p-3">
+      <section aria-label="Instance payload" className="border-t border-border px-panel-x py-panel-y">
         <header className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">{title}</h3>
           <div className="flex gap-1.5">

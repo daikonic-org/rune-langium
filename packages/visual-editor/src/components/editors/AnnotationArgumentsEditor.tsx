@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { X } from 'lucide-react';
 import { useFormContext, useFieldArray, useWatch } from 'react-hook-form';
 import { EditorController } from '../forms/EditorFormProvider.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
@@ -122,26 +123,45 @@ function AnnotationQualifiers({
       {fields.map((row, qualifierIndex) => {
         const name = `${itemPath}.qualifiers.${qualifierIndex}`;
         return (
-          <div key={row.id} className="space-y-1 rounded border border-border p-2">
-            <EditorController
-              control={control}
-              name={`${name}.qualName`}
-              shouldUnregister={false}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  aria-label={`Qualifier ${qualifierIndex + 1} name`}
-                  onBlur={() => {
-                    field.onBlur();
-                    commit();
-                  }}
-                />
-              )}
-            />
-            <label className="flex items-center gap-2 text-xs">
+          <div key={row.id} className="space-y-2 border-t border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium">Qualifier {qualifierIndex + 1}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Remove qualifier ${qualifierIndex + 1}`}
+                title="Remove qualifier"
+                onClick={() => {
+                  remove(qualifierIndex);
+                  commit();
+                }}
+              >
+                <X className="size-3" aria-hidden="true" />
+              </Button>
+            </div>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Name
+              <EditorController
+                control={control}
+                name={`${name}.qualName`}
+                shouldUnregister={false}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    aria-label={`Qualifier ${qualifierIndex + 1} name`}
+                    onBlur={() => {
+                      field.onBlur();
+                      commit();
+                    }}
+                  />
+                )}
+              />
+            </label>
+            <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               Value kind
               <select
+                className="h-6 min-w-0 rounded-md border border-input bg-background px-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 value={paths[qualifierIndex]?.qualPath ? 'path' : 'value'}
                 onChange={(event) => {
                   setValue(`${name}.qualValue`, event.target.value === 'value' ? '' : undefined, { shouldDirty: true });
@@ -165,33 +185,26 @@ function AnnotationQualifiers({
             {paths[qualifierIndex]?.qualPath ? (
               <QualifierPathField prefix={name} nodes={nodes} onCommit={commit} />
             ) : (
-              <EditorController
-                control={control}
-                name={`${name}.qualValue`}
-                shouldUnregister={false}
-                render={({ field }) => (
-                  <Input
-                    {...field}
-                    value={field.value ?? ''}
-                    aria-label={`Qualifier ${qualifierIndex + 1} value`}
-                    onBlur={() => {
-                      field.onBlur();
-                      commit();
-                    }}
-                  />
-                )}
-              />
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                Value
+                <EditorController
+                  control={control}
+                  name={`${name}.qualValue`}
+                  shouldUnregister={false}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      aria-label={`Qualifier ${qualifierIndex + 1} value`}
+                      onBlur={() => {
+                        field.onBlur();
+                        commit();
+                      }}
+                    />
+                  )}
+                />
+              </label>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                remove(qualifierIndex);
-                commit();
-              }}
-            >
-              Remove qualifier
-            </Button>
           </div>
         );
       })}
@@ -248,11 +261,10 @@ export function AnnotationArgumentsEditor({
   return (
     <fieldset
       disabled={readOnly}
-      className="space-y-2 rounded border border-border p-2"
+      className="min-w-0 space-y-3 border-t border-border pt-3"
       aria-label="Annotation arguments"
     >
-      <MetadataItemPreview item={draft} label="Full annotation" />
-      <div role="group" aria-label="Annotation attribute" className="space-y-1">
+      <div role="group" aria-label="Annotation attribute" className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground">Attribute</span>
         <EditorController
           control={control}
@@ -276,16 +288,22 @@ export function AnnotationArgumentsEditor({
           <Button
             variant="ghost"
             size="sm"
+            aria-label="Clear attribute"
+            title="Clear attribute"
+            className="ml-auto"
             onClick={() => {
               setValue(`${itemPath}.attribute`, undefined, { shouldDirty: true });
               commit();
             }}
           >
-            Clear attribute
+            <X className="size-3" aria-hidden="true" />
           </Button>
         )}
       </div>
       <AnnotationQualifiers key={itemPath} itemPath={itemPath} nodes={nodes} commit={commit} />
+      <div className="border-t border-border pt-2 text-muted-foreground">
+        <MetadataItemPreview item={draft} label="Full annotation" />
+      </div>
     </fieldset>
   );
 }

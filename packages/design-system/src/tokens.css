@@ -160,6 +160,11 @@
   --space-8: 32px;
   --space-9: 36px;
   --space-10: 40px;
+  /* Shared panel/section insets; override these once to tune workbench density. */
+  --panel-padding-inline: var(--space-3);
+  --panel-padding-block: var(--space-2);
+  --inspector-padding-inline: var(--space-2);
+  --field-label-gap: var(--space-1);
   /* --text-md (0.9375rem) now lives in theme.css's @theme block so it also
    * generates a `text-md` utility (and still emits --text-md to :root). */
   --sidebar-width-default: 280px;

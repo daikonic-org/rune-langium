@@ -159,7 +159,7 @@ export function AnnotationSection({
   return (
     <div data-slot="annotation-section" className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground px-1">Annotations</span>
+        <span className="text-xs font-medium text-muted-foreground">Annotations</span>
         {!effectiveReadOnly && addable.length > 0 && (
           <Button
             variant="ghost"
@@ -174,7 +174,7 @@ export function AnnotationSection({
       </div>
 
       {/* Existing annotations */}
-      <div className="flex flex-wrap gap-1 px-1">
+      <div className="flex flex-wrap gap-1">
         {annotations.map((ann, i) => (
           <Badge key={getKey(ann)} variant="annotation" className="gap-1 text-3xs h-5 pl-1.5 pr-1">
             [{ann.name}]{ann.attribute && <span className="opacity-60">.{ann.attribute}</span>}

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { ExpressionBuilder } from '../../src/components/editors/expression-builder/ExpressionBuilder.js';
 import type { FunctionScope } from '../../src/store/expression-store.js';
 
@@ -108,4 +108,37 @@ describe('ExpressionBuilder', () => {
     fireEvent.blur(textarea);
     expect(onChange).toHaveBeenCalledWith('trade -> price + 1');
   });
+});
+
+it('changes an existing nested reference using the scoped picker without replacing its surrounding expression', async () => {
+  const onChange = vi.fn();
+  const scope = { ...testScope, attributes: [{ name: 'currency' }, { name: 'settlementCurrency' }] };
+  const view = render(<ExpressionBuilder value='currency = "USD"' scope={scope} onChange={onChange} />);
+  fireEvent.click(view.getByRole('button', { name: 'Edit reference currency' }));
+  const replacement = await screen.findByTestId('ref-option-settlementCurrency');
+  fireEvent.pointerDown(replacement, { pointerType: 'mouse' });
+  fireEvent.click(replacement);
+  await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('settlementCurrency = "USD"'));
+  fireEvent.keyDown(view.getByTestId('expression-builder'), { key: 'z', ctrlKey: true });
+  await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('currency = "USD"'));
+});
+
+it('keeps the placeholder destination across the operator-to-reference picker handoff', async () => {
+  const onChange = vi.fn();
+  const view = render(<ExpressionBuilder value="" scope={testScope} onChange={onChange} />);
+  fireEvent.click(view.container.querySelector('[data-block="placeholder"]')!);
+  fireEvent.click(await screen.findByTestId('palette-open-reference'));
+  const replacement = await screen.findByTestId('ref-option-trade');
+  fireEvent.pointerDown(replacement, { pointerType: 'mouse' });
+  fireEvent.click(replacement);
+  await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('trade'));
+});
+
+it('cancels a reference picker without changing the draft', async () => {
+  const onChange = vi.fn();
+  const view = render(<ExpressionBuilder value="trade" scope={testScope} onChange={onChange} />);
+  fireEvent.click(view.getByRole('button', { name: 'Edit reference trade' }));
+  await screen.findByTestId('reference-picker');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(onChange).not.toHaveBeenCalled();
 });

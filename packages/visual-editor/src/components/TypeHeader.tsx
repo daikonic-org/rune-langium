@@ -21,8 +21,8 @@ import { useEditorActionsContext } from './forms/sections/EditorActionsContext.j
 import type { TypeKind } from '../types.js';
 
 /** One shared Inspector inset; headers and sections do not repeat horizontal padding. */
-export const INSPECTOR_FORM_HEADER_CLASS = 'px-0 py-1.5 mb-1.5';
-export const INSPECTOR_FORM_CLASS = 'box-border h-full min-h-0 p-1.5';
+export const INSPECTOR_FORM_HEADER_CLASS = 'py-panel-y mb-1.5';
+export const INSPECTOR_FORM_CLASS = 'box-border h-full min-h-0 px-inspector-x';
 
 export interface TypeHeaderProps {
   kind: TypeKind;
@@ -63,7 +63,7 @@ export function TypeHeader({
   return (
     <div
       data-slot="type-header"
-      className={cn('sticky top-0 z-10 flex items-center gap-2 border-b bg-muted px-4 py-2', className)}
+      className={cn('sticky top-0 z-10 flex items-center gap-2 border-b bg-muted px-0 py-panel-y', className)}
     >
       <div className="flex min-w-0 flex-1 flex-col">
         {namespace && (

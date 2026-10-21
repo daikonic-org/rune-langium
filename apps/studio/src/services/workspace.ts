@@ -1123,7 +1123,7 @@ export const requestExpressionScope = withInstrumentation(
   async function requestExpressionScope(
     uri: string,
     nodeId: string,
-    region: SourceRegion,
+    region: SourceRegion | { draftCondition: 'precondition' | 'postcondition' },
     files?: readonly WorkspaceFile[]
   ): Promise<ExpressionScopeEntry[]> {
     const snapshot = files
@@ -1140,7 +1140,7 @@ export const requestExpressionScope = withInstrumentation(
       uri: pathToUri(uri),
       name: nameFromNodeId(nodeId),
       kind: kindFromNodeId(nodeId),
-      region,
+      ...('draftCondition' in region ? region : { region }),
       files: snapshot
     });
     if (response.type !== 'expressionScopeResult') throw new Error('Unexpected expression scope response');

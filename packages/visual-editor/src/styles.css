@@ -1737,3 +1737,374 @@ button[data-navigable]:focus-visible {
   background: color-mix(in oklab, var(--accent) 65%, transparent);
   border-color: var(--border);
 }
+
+/* Structure document: natural layout, scoped independently of Graph. */
+.rune-structure-document {
+  --structure-inset: var(--space-1);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--space-2);
+  box-sizing: border-box;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+}
+
+.rune-structure-card {
+  --structure-preferred-width: initial;
+  --structure-kind: var(--color-data-text);
+  --structure-header: var(--color-data-bg);
+  min-width: 0;
+  width: var(--structure-preferred-width, max-content);
+  max-width: 100%;
+  margin-inline: auto;
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+
+.rune-structure-card[data-kind='choice'] {
+  --structure-kind: var(--color-choice-text);
+  --structure-header: var(--color-choice-bg);
+}
+.rune-structure-card[data-kind='enum'] {
+  --structure-kind: var(--color-enum-text);
+  --structure-header: var(--color-enum-bg);
+}
+.rune-structure-card[data-kind='function'] {
+  --structure-kind: var(--color-func-text);
+  --structure-header: var(--color-func-bg);
+}
+.rune-structure-card[data-kind='base'] {
+  --structure-kind: var(--color-base-type);
+  --structure-header: var(--color-base-type-bg);
+  background: color-mix(in oklch, var(--structure-kind) 4%, var(--card));
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--structure-kind) 45%, var(--border));
+}
+
+.rune-structure-card__header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--structure-inset) calc(var(--structure-inset) * 1.5);
+  border-bottom: var(--hairline) solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--structure-header);
+}
+
+.rune-structure-card__title {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--structure-kind);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+button.rune-structure-card__title {
+  cursor: pointer;
+}
+button.rune-structure-card__title:hover {
+  color: var(--structure-kind);
+}
+button.rune-structure-card__title:focus-visible {
+  outline: var(--hairline) solid var(--ring);
+  outline-offset: var(--space-1);
+}
+
+.rune-structure-card__kind {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  color: var(--structure-kind);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid color-mix(in oklch, var(--structure-kind) 40%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.rune-structure-card__loading {
+  display: inline-flex;
+  color: var(--muted-foreground);
+}
+.rune-structure-members, .rune-structure-enum {
+  margin: 0;
+  padding: var(--structure-inset) var(--space-2);
+  list-style: none;
+}
+
+.rune-structure-members {
+  position: relative;
+  display: flow-root;
+  padding: var(--structure-inset);
+}
+
+.rune-structure-member {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  margin-block-end: calc(var(--space-1) / 2);
+}
+.rune-structure-members:has(> [data-expanded='true']) > .rune-structure-member {
+  max-width: min(100%, 14rem);
+}
+.rune-structure-connector {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.rune-structure-connector path {
+  fill: none;
+  stroke: color-mix(in oklch, var(--structure-kind) 60%, var(--border));
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.rune-structure-member:is(:hover, :focus-within) > .rune-structure-connector > path {
+  stroke: var(--structure-kind);
+  stroke-width: 2px;
+}
+
+.rune-structure-member + .rune-structure-member {
+  border-top: var(--hairline) solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+
+.rune-structure-member__row {
+  width: max-content;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: calc(var(--space-6) + var(--space-2));
+  align-content: center;
+  align-items: center;
+  gap: calc(var(--space-1) / 2) var(--space-2);
+  padding: calc(var(--space-1) / 2) var(--structure-inset);
+  border-radius: var(--radius-sm);
+}
+
+.rune-structure-member__row:hover,
+.rune-structure-member__row:focus-within {
+  background: color-mix(in oklch, var(--structure-kind) 5%, transparent);
+}
+
+.rune-structure-member__name,
+.rune-structure-member__type {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.rune-structure-member__type {
+  grid-column: 1;
+  justify-content: start;
+}
+.rune-structure-member__name .rune-cell-name {
+  padding-inline: var(--rune-chip-padding-x);
+  font: inherit;
+}
+.rune-structure-member__type .rune-cell-card {
+  font-size: var(--text-sm);
+}
+.rune-structure-member__type .rune-cell-type-chip {
+  max-width: 100%;
+  font-size: var(--text-sm);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.rune-structure-icon {
+  display: inline-flex;
+  width: var(--space-6);
+  height: var(--space-6);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.rune-structure-icon:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.rune-structure-icon:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.rune-structure-member__toggle {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.rune-structure-member__toggle[aria-expanded='true'] {
+  color: var(--structure-kind);
+}
+.rune-structure-member__toggle[aria-expanded='true'] > svg {
+  rotate: 90deg;
+}
+.rune-structure-member__child {
+  position: absolute;
+  width: max-content;
+  max-width: calc(100% - var(--space-4));
+  min-width: 0;
+  left: var(--structure-default-x, 44%);
+  top: var(--structure-default-y, var(--space-2));
+  z-index: 1;
+}
+.rune-structure-member__child > .rune-structure-card {
+  width: auto;
+  max-width: none;
+}
+.rune-structure-member__split {
+  display: block;
+  position: absolute;
+  inset-inline-start: -5px;
+  bottom: 0;
+  width: 10px;
+  z-index: 1;
+  cursor: col-resize;
+  touch-action: none;
+}
+.rune-structure-member__split::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 5px;
+  top: 0;
+  bottom: 0;
+  width: var(--hairline);
+  background: color-mix(in oklch, var(--structure-kind) 45%, var(--border));
+}
+.rune-structure-member__split:hover::after,
+.rune-structure-member__split:focus-visible::after {
+  width: 2px;
+  background: var(--ring);
+}
+.rune-structure-member__split:focus-visible {
+  outline: none;
+}
+
+.rune-structure-derived {
+  padding: var(--structure-inset);
+}
+.rune-structure-enum > li {
+  padding-block: calc(var(--space-1) / 2);
+  overflow-wrap: anywhere;
+}
+.rune-structure-members--output {
+  border-top: var(--hairline) solid var(--border);
+}
+.rune-structure-reference {
+  margin: 0;
+  padding: var(--structure-inset);
+  color: var(--muted-foreground);
+}
+.rune-structure-enum__more {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-2) var(--space-3);
+  color: var(--structure-kind);
+  font: inherit;
+}
+
+.rune-structure-empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.rune-structure-card[data-compact] > .rune-structure-members > .rune-structure-member {
+  width: 100%;
+  max-width: 100%;
+}
+.rune-structure-card[data-compact] > .rune-structure-members > li > .rune-structure-member__child {
+  position: relative;
+  max-width: 100%;
+  left: 0 !important;
+  top: 0 !important;
+  margin-block: var(--space-2) var(--space-3);
+}
+.rune-structure-card[data-compact] > .rune-structure-members > li > .rune-structure-connector,
+.rune-structure-card[data-compact] > .rune-structure-members > li > .rune-structure-member__child > .rune-structure-member__split {
+  display: none;
+}
+
+/* The card is the header's visible keyboard-focus target. */
+.rune-structure-card__header:focus-visible {
+  outline: none;
+}
+
+.rune-structure-card:has(> .rune-structure-card__header:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.rune-structure-member__type .rune-cell-type-wrap {
+  max-width: 100%;
+}
+
+.rune-structure-tools {
+  display: flex;
+  width: fit-content;
+  gap: var(--space-1);
+  margin-block-end: var(--space-3);
+  padding: var(--space-1);
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+.rune-structure-tools > button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-6);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+[data-structure-drag-handle] {
+  cursor: grab;
+  touch-action: none;
+}
+
+.rune-structure-tools > button:hover {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+.rune-structure-tools > button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.rune-structure-stage {
+  min-width: 0;
+  padding-block-end: var(--space-4);
+}

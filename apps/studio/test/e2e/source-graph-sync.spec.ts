@@ -83,10 +83,10 @@ test.describe('Source ↔ Graph ↔ Form Sync', () => {
   test('graph should render nodes for the selected type and its neighbors', async ({ page }) => {
     await openPane(page, 'Graph');
     await navigateToType(page, 'Customer');
-    await expect(page.getByTestId('rf__node-sync.test.Customer')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('rf__node-sync.test.Customer#Data')).toBeVisible({ timeout: 10000 });
 
     await navigateToType(page, 'Tier');
-    await expect(page.getByTestId('rf__node-sync.test.Tier')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('rf__node-sync.test.Tier#RosettaEnumeration')).toBeVisible({ timeout: 10000 });
   });
 
   test('selecting a node should open the source editor at its declaration', async ({ page }) => {
@@ -102,12 +102,12 @@ test.describe('Source ↔ Graph ↔ Form Sync', () => {
     await openPane(page, 'Graph');
 
     await navigateToType(page, 'Customer');
-    const customerNode = page.getByTestId('rf__node-sync.test.Customer');
+    const customerNode = page.getByTestId('rf__node-sync.test.Customer#Data');
     await expect(customerNode).toBeVisible({ timeout: 10000 });
     await expect(customerNode.getByText('name')).toBeVisible();
 
     await navigateToType(page, 'Tier');
-    const tierNode = page.getByTestId('rf__node-sync.test.Tier');
+    const tierNode = page.getByTestId('rf__node-sync.test.Tier#RosettaEnumeration');
     await expect(tierNode).toBeVisible({ timeout: 10000 });
     await expect(tierNode.getByText('Gold')).toBeVisible();
     await expect(tierNode.getByText('Silver')).toBeVisible();

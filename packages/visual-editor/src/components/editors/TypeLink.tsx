@@ -12,6 +12,7 @@
 
 import { createContext, useContext } from 'react';
 import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
+import { TypeChip, type TypeChipKind } from './structure/TypeChip.js';
 import {
   buildImportAliasMap,
   importAliasCandidates,
@@ -33,6 +34,8 @@ export interface TypeLinkProps {
   allNodeIds?: string[];
   /** Additional CSS classes. */
   className?: string;
+  /** Use the canonical type chip while retaining navigation behavior. */
+  typeKind?: TypeChipKind;
 }
 
 /**
@@ -61,7 +64,7 @@ export function resolveNodeId(
   return undefined;
 }
 
-export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: TypeLinkProps) {
+export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className, typeKind }: TypeLinkProps) {
   const imports = useContext(TypeReferenceImports);
   const resolvedNodeId = typeName && allNodeIds ? resolveNodeId(typeName, allNodeIds, imports) : undefined;
   const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToNode });
@@ -69,6 +72,8 @@ export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: 
 
   // If no navigation callback, render as plain text
   if (!onNavigateToNode) {
+    if (typeKind)
+      return <TypeChip as="span" typeName={typeName} typeKind={typeKind} data-slot="type-link" className={className} />;
     return (
       <span data-slot="type-link" className={className}>
         {typeName}
@@ -85,20 +90,27 @@ export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: 
     }
   };
 
+  const linkProps = {
+    'data-slot': 'type-link',
+    onClick: handleClick,
+    onContextMenu: (event: React.MouseEvent<HTMLElement>) => navigation.open(event, resolvedNodeId),
+    onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => navigation.onKeyDown(event, resolvedNodeId),
+    title: isResolvable ? `Go to ${typeName}` : typeName,
+    disabled: !isResolvable
+  };
   return (
     <>
-      <button
-        type="button"
-        data-slot="type-link"
-        onClick={handleClick}
-        onContextMenu={(event) => navigation.open(event, resolvedNodeId)}
-        onKeyDown={(event) => navigation.onKeyDown(event, resolvedNodeId)}
-        className={`${className ?? ''} ${isResolvable ? 'text-primary hover:underline cursor-pointer' : ''}`.trim()}
-        title={isResolvable ? `Go to ${typeName}` : typeName}
-        disabled={!isResolvable}
-      >
-        {typeName}
-      </button>
+      {typeKind ? (
+        <TypeChip {...linkProps} typeName={typeName} typeKind={typeKind} className={className} />
+      ) : (
+        <button
+          {...linkProps}
+          type="button"
+          className={`${className ?? ''} ${isResolvable ? 'text-primary hover:underline cursor-pointer' : ''}`.trim()}
+        >
+          {typeName}
+        </button>
+      )}
       {navigation.menu}
     </>
   );

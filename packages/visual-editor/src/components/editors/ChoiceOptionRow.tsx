@@ -12,7 +12,7 @@
 
 import { INSPECTOR_ROW_CLASS, inspectorRowAttributes, type InspectorRowProps } from './inspector/inspector-row.js';
 
-import { getKindBadgeClasses } from './TypeSelector.js';
+import { typeChipKind } from './structure/TypeChip.js';
 import { TypeLink } from './TypeLink.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { X } from 'lucide-react';
@@ -76,7 +76,8 @@ function ChoiceOptionRow({
         typeName={typeName}
         onNavigateToNode={onNavigateToNode}
         allNodeIds={allNodeIds}
-        className={`shrink-0 ${getKindBadgeClasses(kind)}`}
+        className="shrink-0"
+        typeKind={typeChipKind(kind)}
       />
 
       {matchedType?.namespace && (

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useState, useId, useEffect } from 'react';
+import { useId, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { EditorController } from '../forms/EditorFormProvider.js';
 import { Field, FieldLabel, FieldGroup } from '@rune-langium/design-system/ui/field';
@@ -134,7 +134,6 @@ function FormMetadataSection(props: MetadataSectionProps): React.ReactNode {
   const { getValues } = useFormContext();
   const ctx = useEditorActionsContext();
   const binding = useMetadataTarget();
-  const [expanded, setExpanded] = useState(true);
   const readOnly = Boolean(props.readOnly || ctx?.readOnly || binding?.readOnly);
   const prefix = binding?.formPrefix;
   const path = (field: string) => [prefix, field].filter(Boolean).join('.');
@@ -142,77 +141,65 @@ function FormMetadataSection(props: MetadataSectionProps): React.ReactNode {
   const kind = caps?.synonymKind ?? (getValues('$type') === 'RosettaEnumeration' ? 'body' : 'class');
   const sources = props.synonymSourceOptions ?? ctx?.synonymSourceOptions ?? EMPTY_SOURCES;
   return (
-    <div data-slot="metadata-section" className="mt-1.5 border-t border-border pt-1.5">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        aria-expanded={expanded}
-        className="flex w-full items-center justify-between text-sm font-medium"
-      >
-        <span>Metadata</span>
-        <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
-      </button>
-      {expanded && (
-        <FieldGroup className="mt-1.5 gap-3">
-          {(!caps || caps.definition) && (
-            <MetadataScalar
-              name={path('definition')}
-              kind="definition"
-              label="Documentation"
-              slot="metadata-description"
-              readOnly={readOnly}
-              binding={binding}
-              onCommit={
-                props.onDefinitionCommit ??
-                (ctx ? (value) => ctx.actions.updateDefinition(ctx.nodeId, value) : undefined)
-              }
-            />
-          )}
-          {caps?.display && (
-            <MetadataScalar
-              name={path('display')}
-              kind="display"
-              label="Display name"
-              slot="metadata-display"
-              readOnly={readOnly}
-              binding={binding}
-            />
-          )}
-          {(props.includeComments ?? !(binding || ctx?.sourceCommentsOnly)) && (
-            <MetadataScalar
-              name="comments"
-              kind="comments"
-              label="Comments"
-              slot="metadata-comments"
-              readOnly={readOnly}
-              onCommit={
-                props.onCommentsCommit ?? (ctx ? (value) => ctx.actions.updateComments(ctx.nodeId, value) : undefined)
-              }
-            />
-          )}
-          {(!caps || caps.synonymField) && (
-            <SynonymEditor
-              formPrefix={prefix}
-              field={caps?.synonymField ?? 'synonyms'}
-              kind={kind}
-              nodeId={ctx?.nodeId}
-              sourceOptions={sources}
-              readOnly={readOnly}
+    <div data-slot="metadata-section" className="border-t border-border py-panel-y">
+      <FieldGroup className="gap-3">
+        {(!caps || caps.definition) && (
+          <MetadataScalar
+            name={path('definition')}
+            kind="definition"
+            label="Documentation"
+            slot="metadata-description"
+            readOnly={readOnly}
+            binding={binding}
+            onCommit={
+              props.onDefinitionCommit ?? (ctx ? (value) => ctx.actions.updateDefinition(ctx.nodeId, value) : undefined)
+            }
+          />
+        )}
+        {caps?.display && (
+          <MetadataScalar
+            name={path('display')}
+            kind="display"
+            label="Display name"
+            slot="metadata-display"
+            readOnly={readOnly}
+            binding={binding}
+          />
+        )}
+        {(props.includeComments ?? !(binding || ctx?.sourceCommentsOnly)) && (
+          <MetadataScalar
+            name="comments"
+            kind="comments"
+            label="Comments"
+            slot="metadata-comments"
+            readOnly={readOnly}
+            onCommit={
+              props.onCommentsCommit ?? (ctx ? (value) => ctx.actions.updateComments(ctx.nodeId, value) : undefined)
+            }
+          />
+        )}
+        {(!caps || caps.synonymField) && (
+          <SynonymEditor
+            formPrefix={prefix}
+            field={caps?.synonymField ?? 'synonyms'}
+            kind={kind}
+            nodeId={ctx?.nodeId}
+            sourceOptions={sources}
+            readOnly={readOnly}
 
-              onAdd={
-                props.onSynonymAdd ??
-                (!binding?.guarded && ctx
-                  ? (source, value) => ctx.actions.addSynonym(ctx.nodeId, source, value)
-                  : undefined)
-              }
-              onRemove={
-                props.onSynonymRemove ??
-                (!binding?.guarded && ctx ? (index) => ctx.actions.removeSynonym(ctx.nodeId, index) : undefined)
-              }
-            />
-          )}
-        </FieldGroup>
-      )}
+            onAdd={
+              props.onSynonymAdd ??
+              (!binding?.guarded && ctx
+                ? (source, value) => ctx.actions.addSynonym(ctx.nodeId, source, value)
+                : undefined)
+            }
+            onRemove={
+              props.onSynonymRemove ??
+              (!binding?.guarded && ctx ? (index) => ctx.actions.removeSynonym(ctx.nodeId, index) : undefined)
+            }
+          />
+        )}
+      </FieldGroup>
     </div>
   );
 }
@@ -226,7 +213,7 @@ function ReadonlyMetadataSection({
 }) {
   const caps = getMetadataCapabilities(node);
   return (
-    <div data-slot="metadata-section" className="space-y-3 border-t border-border pt-1.5">
+    <div data-slot="metadata-section" className="space-y-3 border-t border-border py-panel-y">
       {caps.definition && (
         <Field>
           <FieldLabel>Documentation</FieldLabel>

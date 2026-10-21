@@ -25,6 +25,7 @@
  * explorer sidebar merge into the dockable shell, reducing chrome (T091).
  */
 
+import { DraftConditionEditor } from '../components/editing/DraftConditionEditor.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
 import { CuratedDeclarationInspector } from './panels/CuratedDeclarationInspector.js';
@@ -2443,7 +2444,14 @@ export const ExplorePerspective = withInstrumentation(
 
     const renderExpressionEditor = useCallback(
       (props: ExpressionEditorSlotProps) =>
-        props.target ? (
+        props.draftCondition ? (
+          <DraftConditionEditor
+            key={`${workspaceId}:${props.draftCondition.nodeId}`}
+            {...props}
+            filePath={selectedExpressionFile?.path}
+            files={files}
+          />
+        ) : props.target ? (
           <ExpressionWorkspace
             key={`${workspaceId}:${props.target.nodeId}:${props.target.kind}:${props.target.index}`}
             nodeId={props.target.nodeId}

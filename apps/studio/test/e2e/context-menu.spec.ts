@@ -44,7 +44,7 @@ test('declarations and type references offer canonical right-click navigation', 
   await expect(menu).toBeVisible();
   await menu.getByRole('menuitem', { name: 'Go to type', exact: true }).click();
   const structure = page.locator('[data-pane="structure"]');
-  const node = structure.locator('.react-flow__node').filter({ hasText: 'Example' }).first();
+  const node = structure.getByRole('region', { name: 'Example', exact: true });
   await expect(node).toBeVisible();
   await node.locator('[data-attr="other"]').click({ button: 'right' });
   await expect(menu).toBeVisible();
@@ -56,7 +56,7 @@ test('declarations and type references offer canonical right-click navigation', 
   await menu.getByRole('menuitem', { name: 'Inspect type' }).click();
   await expect(page.getByRole('complementary', { name: 'Edit Other' })).toBeVisible();
   await row.click();
-  await node.locator('.rune-node-header').click({ button: 'right' });
+  await node.getByRole('group', { name: 'Example type actions', exact: true }).click({ button: 'right' });
   await expect(menu.getByRole('menuitem', { name: 'Inspect type' })).toBeVisible();
   await menu.getByRole('menuitem', { name: 'Inspect type' }).click();
   const inspector = page.getByRole('complementary', { name: 'Edit Example' });
@@ -171,7 +171,7 @@ test('inherited Structure headers and rows expose canonical context actions', as
   await menu.getByRole('menuitem', { name: 'Inspect type' }).click();
   await expect(page.getByRole('complementary', { name: 'Edit Parent' })).toBeVisible();
   await child.click();
-  const inherited = structure.getByRole('group', { name: 'other: Other' });
+  const inherited = structure.getByRole('group', { name: 'other type Other', exact: true });
   await inherited.focus();
   await inherited.press('Shift+F10');
   await expect(menu).toBeVisible();
@@ -197,7 +197,7 @@ test('Function input and output references expose keyboard context actions', asy
   await identity.click();
   const structure = page.locator('[data-pane="structure"]');
   const menu = page.getByTestId('type-navigation-menu');
-  for (const name of ['input: Other', 'result: Other']) {
+  for (const name of ['input type Other', 'result type Other']) {
     await identity.click();
     const reference = structure.getByRole('group', { name });
     await expect(reference).toBeVisible();

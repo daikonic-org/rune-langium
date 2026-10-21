@@ -25,6 +25,10 @@
 
 /* ── shadcn semantic bridge ─────────────────────────────────────── */
 @theme inline {
+  --spacing-panel-x: var(--panel-padding-inline);
+  --spacing-panel-y: var(--panel-padding-block);
+  --spacing-inspector-x: var(--inspector-padding-inline);
+  --spacing-field-gap: var(--field-label-gap);
   /* Font families — `inline` so the generated `font-sans`/`font-mono`/
    * `font-display` utilities inline `var(--font-family-*)` (the brand stacks in
    * tokens.css) rather than emitting a competing `--font-*` into a layered

@@ -58,7 +58,7 @@ export function InspectorFrame({
   return (
     <div data-slot="inspector-frame" className="flex h-full min-h-0 flex-col overflow-auto">
       <div className="shrink-0">{header}</div>
-      {inheritance && <div className="shrink-0 pb-1.5">{inheritance}</div>}
+      {inheritance && <div className="shrink-0 pb-panel-y">{inheritance}</div>}
       {sections.length > 1 ? (
         <Tabs
           value={active?.id}
@@ -72,7 +72,7 @@ export function InspectorFrame({
         >
           <TabsList size="sm" className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start">
             {sections.map((section) => (
-              <TabsTrigger key={section.id} value={section.id}>
+              <TabsTrigger key={section.id} value={section.id} className="px-2">
                 {section.label}
               </TabsTrigger>
             ))}
@@ -83,7 +83,7 @@ export function InspectorFrame({
                 key={section.id}
                 value={section.id}
                 keepMounted={mountedSections.has(section.id)}
-                className={`studio-scroll mt-0 flex-1 overflow-auto py-1.5 data-[hidden]:hidden ${section.fill ? 'flex min-h-min flex-col gap-1.5' : 'min-h-0'}`}
+                className={`studio-scroll mt-0 flex-1 overflow-auto py-panel-y data-[hidden]:hidden ${section.fill ? 'flex min-h-min flex-col gap-1.5' : 'min-h-0'}`}
               >
                 {section.content}
               </TabsContent>
@@ -93,14 +93,14 @@ export function InspectorFrame({
         </Tabs>
       ) : (
         <>
-          <div data-slot="inspector-main" className="studio-scroll min-h-0 flex-1 overflow-auto py-1.5">
+          <div data-slot="inspector-main" className="studio-scroll min-h-0 flex-1 overflow-auto py-panel-y">
             {active?.content}
           </div>
           {active?.members ? details : null}
         </>
       )}
       {footer && (
-        <footer data-slot="inspector-footer" className="shrink-0 border-t border-border pt-1.5">
+        <footer data-slot="inspector-footer" className="shrink-0 border-t border-border py-panel-y">
           {footer}
         </footer>
       )}

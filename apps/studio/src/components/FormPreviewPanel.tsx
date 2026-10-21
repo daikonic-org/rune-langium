@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type FocusEvent,
   type ReactElement
 } from 'react';
 import {
@@ -26,11 +27,24 @@ import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { Input } from '@rune-langium/design-system/ui/input';
-import { FieldSet, FieldLegend } from '@rune-langium/design-system/ui/field';
-import { RadioGroup, RadioGroupItem } from '@rune-langium/design-system/ui/radio-group';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Disclosure
+} from '@rune-langium/design-system/ui/collapsible';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@rune-langium/design-system/ui/dialog';
+import { PreviewObjectGrid, type PreviewGridColumn, type PreviewGridRow } from './PreviewObjectGrid.js';
+import './form-preview.css';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, ArrowUpRight, ArrowLeft, ChevronRight } from 'lucide-react';
 import {
   usePreviewStore,
   type FormPreviewTarget,
@@ -49,6 +63,13 @@ import {
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 const PreviewDefinitions = createContext<FormPreviewSchema['definitions']>(undefined);
+interface PreviewDetailEntry {
+  field: PreviewField;
+  arrayIndices?: number[];
+}
+const PreviewDetailNavigation = createContext<{
+  open(field: PreviewField, arrayIndices: number[] | undefined, origin: HTMLElement): void;
+} | null>(null);
 
 export interface PreviewPresentation {
   mode: 'scratch' | 'instance';
@@ -107,6 +128,14 @@ export const FormPreviewPanel = withInstrumentation(
     onCreateInstance
   }: FormPreviewPanelProps): ReactElement {
     const isControlled = values !== undefined;
+    const [detailState, setDetailState] = useState<{ targetId: string; stack: PreviewDetailEntry[] }>({
+      targetId: '',
+      stack: []
+    });
+    const detailOrigin = useRef<HTMLElement | null>(null);
+    useEffect(() => {
+      setDetailState({ targetId: schema?.targetId ?? '', stack: [] });
+    }, [schema?.targetId]);
     const ensureSample = usePreviewStore((s) => s.ensureSample);
     const updateSampleValues = usePreviewStore((s) => s.updateSampleValues);
     const dispatchValidate = usePreviewStore((s) => s.dispatchValidate);
@@ -277,10 +306,22 @@ export const FormPreviewPanel = withInstrumentation(
       [dispatchValidate, isControlled, onValuesChange, schema, updateSampleValues]
     );
 
-    const handleFieldBlur = useCallback(() => {
-      if (isControlled || !schema || !activeSample || schema.kind === 'function') return;
-      applyValidation(activeSample.values, true);
-    }, [activeSample, applyValidation, isControlled, schema]);
+    const handleFieldBlur = useCallback(
+      (event?: FocusEvent<HTMLElement>) => {
+        // Explicitly marked list actions validate their own transaction. Avoid moving their click target
+        // with a blur-result error immediately before the button's click is dispatched.
+        if (
+          event?.relatedTarget instanceof HTMLElement &&
+          event.relatedTarget.closest('[data-preview-validates]') &&
+          event.currentTarget.closest('.preview-fields')?.contains(event.relatedTarget)
+        )
+          return;
+        // Subsequent edits already validate their latest payload in handleFieldChange.
+        if (isControlled || !schema || !activeSample || activeSample.validated || schema.kind === 'function') return;
+        applyValidation(activeSample.values, true);
+      },
+      [activeSample, applyValidation, isControlled, schema]
+    );
 
     const handleFieldChange = useCallback(
       (fieldPath: string, value: unknown, arrayIndices?: number[], validate = false) => {
@@ -322,6 +363,15 @@ export const FormPreviewPanel = withInstrumentation(
         const current = getValueAtPath(activeSample.values, segments);
         const items = Array.isArray(current) ? [...current] : [];
         items.splice(index, 1);
+        const arrayPath = formatFieldPath(field.path, arrayIndices);
+        setDetailState((current) => {
+          const affected = current.stack.findIndex((entry) => {
+            const path = formatFieldPath(entry.field.path, entry.arrayIndices);
+            const rest = path.startsWith(`${arrayPath}[`) ? path.slice(arrayPath.length + 1) : '';
+            return rest !== '' && Number.parseInt(rest, 10) >= index;
+          });
+          return affected < 0 ? current : { ...current, stack: current.stack.slice(0, affected) };
+        });
         const nextValues = setValueAtPath(activeSample.values, segments, items) as Record<string, unknown>;
         applyValidation(nextValues, true);
       },
@@ -432,7 +482,7 @@ export const FormPreviewPanel = withInstrumentation(
         <section
           aria-label="Form preview"
           data-testid="panel-formPreview"
-          className="studio-scroll flex h-full flex-col overflow-auto p-3 mr-[0px]"
+          className="studio-scroll flex h-full flex-col overflow-auto px-panel-x py-panel-y"
         >
           {isWaiting ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -469,7 +519,7 @@ export const FormPreviewPanel = withInstrumentation(
         className="studio-scroll flex h-full flex-col overflow-auto"
       >
         {presentation.showHeader ? (
-          <header className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+          <header className="flex items-center justify-between gap-3 border-b border-border px-panel-x py-panel-y">
             <h2 className="truncate text-sm font-semibold">{schema.title}</h2>
             <div className="flex shrink-0 items-center gap-1.5">
               <Button type="button" variant="ghost" size="xs" onClick={handleCopySample}>
@@ -499,123 +549,154 @@ export const FormPreviewPanel = withInstrumentation(
         <p
           role={status.state === 'invalid' ? 'alert' : 'status'}
           aria-live="polite"
-          className="px-3 pt-2 text-xs text-muted-foreground"
+          className="px-panel-x pt-panel-y text-xs text-muted-foreground"
         >
           {summaryMessage}
         </p>
         {activeSample?.validated && activeSample.errors[''] ? (
-          <p role="alert" className="px-3 pt-1 text-xs text-destructive">
+          <p role="alert" className="px-panel-x pt-panel-y text-xs text-destructive">
             {activeSample.errors['']}
           </p>
         ) : null}
         <PreviewDefinitions value={schema.definitions}>
-          <form className="preview-panel__body studio-scroll space-y-3 overflow-auto p-3">
-            {schema.kind === 'choice' ? (
-              <ChoiceFieldGroup
-                fields={schema.fields}
-                sample={activeSample}
-                lookupFieldSource={lookupFieldSource}
-                isResolvingReferences={isResolvingReferences}
-                onFieldBlur={handleFieldBlur}
-                onFieldChange={handleFieldChange}
-                onArrayAdd={handleArrayAdd}
-                onArrayRemove={handleArrayRemove}
-                onObjectToggle={handleObjectToggle}
-                onArmSelect={handleArmSelect}
-              />
-            ) : (
-              <>
-                {rootArmFields.length > 0 ? (
-                  <ChoiceFieldGroup
-                    fields={rootArmFields}
-                    sample={activeSample}
-                    lookupFieldSource={lookupFieldSource}
-                    isResolvingReferences={isResolvingReferences}
-                    onFieldBlur={handleFieldBlur}
-                    onFieldChange={handleFieldChange}
-                    onArrayAdd={handleArrayAdd}
-                    onArrayRemove={handleArrayRemove}
-                    onObjectToggle={handleObjectToggle}
-                    onArmSelect={handleArmSelect}
-                  />
-                ) : null}
-                {rootOtherFields.map((field) => (
-                  <PreviewFieldControl
-                    key={field.path}
-                    field={field}
-                    sample={activeSample}
-                    lookupFieldSource={lookupFieldSource}
-                    isResolvingReferences={isResolvingReferences}
-                    onFieldBlur={handleFieldBlur}
-                    onFieldChange={handleFieldChange}
-                    onArrayAdd={handleArrayAdd}
-                    onArrayRemove={handleArrayRemove}
-                    onObjectToggle={handleObjectToggle}
-                    onArmSelect={handleArmSelect}
-                  />
-                ))}
-              </>
-            )}
-            {isResolvingReferences || unsupportedSummary ? (
-              isResolvingReferences ? (
-                <div role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Spinner className="size-3 shrink-0" />
-                  <span>
-                    Resolving reference… ({hydrationRetriesRemaining}{' '}
-                    {hydrationRetriesRemaining === 1 ? 'retry' : 'retries'} left)
-                  </span>
-                </div>
+          <PreviewDetailNavigation
+            value={{
+              open: (field, arrayIndices, origin) => {
+                if (detailState.targetId !== schema.targetId || detailState.stack.length === 0)
+                  detailOrigin.current = origin;
+                setDetailState((current) => ({
+                  targetId: schema.targetId,
+                  stack: [...(current.targetId === schema.targetId ? current.stack : []), { field, arrayIndices }]
+                }));
+              }
+            }}
+          >
+            <form className="preview-fields preview-panel__body studio-scroll space-y-3 overflow-auto px-panel-x py-panel-y">
+              {schema.kind === 'choice' ? (
+                <ChoiceFieldGroup
+                  fields={schema.fields}
+                  sample={activeSample}
+                  lookupFieldSource={lookupFieldSource}
+                  isResolvingReferences={isResolvingReferences}
+                  onFieldBlur={handleFieldBlur}
+                  onFieldChange={handleFieldChange}
+                  onArrayAdd={handleArrayAdd}
+                  onArrayRemove={handleArrayRemove}
+                  onObjectToggle={handleObjectToggle}
+                  onArmSelect={handleArmSelect}
+                />
               ) : (
-                <div role="status" className="text-xs text-muted-foreground">
-                  Unsupported preview features: {unsupportedSummary}
-                </div>
-              )
-            ) : null}
-            {schema.kind === 'function' ? (
-              <div className="preview-panel__function-controls border-t border-border pt-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  disabled={executionState === 'running'}
-                  onClick={handleRun}
-                >
-                  {executionState === 'running' ? 'Executing…' : 'Run'}
-                </Button>
-                {executionError ? (
-                  <div className="execution-error mt-2 text-xs">
-                    <span className="text-xs font-medium text-destructive">Error:</span>{' '}
-                    <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
+                <>
+                  {rootArmFields.length > 0 ? (
+                    <ChoiceFieldGroup
+                      fields={rootArmFields}
+                      sample={activeSample}
+                      lookupFieldSource={lookupFieldSource}
+                      isResolvingReferences={isResolvingReferences}
+                      onFieldBlur={handleFieldBlur}
+                      onFieldChange={handleFieldChange}
+                      onArrayAdd={handleArrayAdd}
+                      onArrayRemove={handleArrayRemove}
+                      onObjectToggle={handleObjectToggle}
+                      onArmSelect={handleArmSelect}
+                    />
+                  ) : null}
+                  {rootOtherFields.map((field) => (
+                    <PreviewFieldControl
+                      key={field.path}
+                      field={field}
+                      sample={activeSample}
+                      lookupFieldSource={lookupFieldSource}
+                      isResolvingReferences={isResolvingReferences}
+                      onFieldBlur={handleFieldBlur}
+                      onFieldChange={handleFieldChange}
+                      onArrayAdd={handleArrayAdd}
+                      onArrayRemove={handleArrayRemove}
+                      onObjectToggle={handleObjectToggle}
+                      onArmSelect={handleArmSelect}
+                    />
+                  ))}
+                </>
+              )}
+              {isResolvingReferences || unsupportedSummary ? (
+                isResolvingReferences ? (
+                  <div role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Spinner className="size-3 shrink-0" />
+                    <span>
+                      Resolving reference… ({hydrationRetriesRemaining}{' '}
+                      {hydrationRetriesRemaining === 1 ? 'retry' : 'retries'} left)
+                    </span>
                   </div>
-                ) : null}
-                {executionResult !== undefined ? (
-                  <div className="execution-result mt-2">
-                    <span className="text-2xs font-medium text-muted-foreground">Output:</span>
-                    <pre className="preview-panel__sample-output studio-scroll mt-0.5 overflow-auto p-2 text-2xs leading-5 text-foreground">
-                      {JSON.stringify(executionResult, null, 2)}
-                    </pre>
+                ) : (
+                  <div role="status" className="text-xs text-muted-foreground">
+                    Unsupported preview features: {unsupportedSummary}
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-            {presentation.showPayload ? (
-              <details className="preview-panel__sample" data-testid="sample-data-view" open>
-                <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-foreground">Sample data</summary>
-                <div className="space-y-2 border-t border-border p-2">
-                  <pre
-                    aria-label="Sample data output"
-                    className="preview-panel__sample-output studio-scroll max-h-56 overflow-auto p-2 text-2xs leading-5 text-foreground"
-                    data-testid="sample-data-output"
+                )
+              ) : null}
+              {schema.kind === 'function' ? (
+                <div className="preview-panel__function-controls border-t border-border pt-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    disabled={executionState === 'running'}
+                    onClick={handleRun}
                   >
-                    {activeSample?.serialized ?? '{}'}
-                  </pre>
-                  <p role="status" aria-live="polite" className="text-2xs text-muted-foreground">
-                    {copyFeedback ?? 'Sample data stays in-memory until you explicitly copy it.'}
-                  </p>
+                    {executionState === 'running' ? 'Executing…' : 'Run'}
+                  </Button>
+                  {executionError ? (
+                    <div className="execution-error mt-2 text-xs">
+                      <span className="text-xs font-medium text-destructive">Error:</span>{' '}
+                      <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
+                    </div>
+                  ) : null}
+                  {executionResult !== undefined ? (
+                    <div className="execution-result mt-2">
+                      <span className="text-2xs font-medium text-muted-foreground">Output:</span>
+                      <pre className="preview-panel__sample-output studio-scroll mt-0.5 overflow-auto p-2 text-2xs leading-5 text-foreground">
+                        {JSON.stringify(executionResult, null, 2)}
+                      </pre>
+                    </div>
+                  ) : null}
                 </div>
-              </details>
-            ) : null}
-          </form>
+              ) : null}
+              {presentation.showPayload ? (
+                <Disclosure label="Sample data" className="preview-panel__sample" data-testid="sample-data-view" open>
+                  <div className="space-y-2 border-t border-border p-2">
+                    <pre
+                      aria-label="Sample data output"
+                      className="preview-panel__sample-output studio-scroll max-h-56 overflow-auto p-2 text-2xs leading-5 text-foreground"
+                      data-testid="sample-data-output"
+                    >
+                      {activeSample?.serialized ?? '{}'}
+                    </pre>
+                    <p role="status" aria-live="polite" className="text-2xs text-muted-foreground">
+                      {copyFeedback ?? 'Sample data stays in-memory until you explicitly copy it.'}
+                    </p>
+                  </div>
+                </Disclosure>
+              ) : null}
+            </form>
+            <PreviewDetailsDialog
+              stack={detailState.targetId === schema.targetId ? detailState.stack : []}
+              returnFocus={detailOrigin}
+              onClose={() => setDetailState({ targetId: schema.targetId, stack: [] })}
+              onBack={(index) =>
+                setDetailState((current) => ({ ...current, stack: current.stack.slice(0, index + 1) }))
+              }
+              controls={{
+                sample: activeSample,
+                lookupFieldSource,
+                isResolvingReferences,
+                onFieldBlur: handleFieldBlur,
+                onFieldChange: handleFieldChange,
+                onArrayAdd: handleArrayAdd,
+                onArrayRemove: handleArrayRemove,
+                onObjectToggle: handleObjectToggle,
+                onArmSelect: handleArmSelect
+              }}
+            />
+          </PreviewDetailNavigation>
         </PreviewDefinitions>
       </section>
     );
@@ -627,7 +708,7 @@ export const FormPreviewPanel = withInstrumentation(
 // Data-extends-Choice schema whose own top-level `kind` isn't `'choice'`)
 // and inside `PreviewFieldControl`'s object-field branch (a NESTED
 // Data-extends-Choice reference) so arm fields render through
-// `ChoiceFieldGroup`'s single-selection radio UI instead of as ordinary
+// `ChoiceFieldGroup`'s single-selection dropdown instead of as ordinary
 // always-present fields. Imported from preview-validator.ts, which also
 // needs it (and the choice-aware default-value builders below) to keep
 // `usePreviewStore`'s sample seeding/reconciliation in agreement with this
@@ -638,15 +719,16 @@ export const FormPreviewPanel = withInstrumentation(
 // with what this component would have seeded).
 
 // ---------------------------------------------------------------------------
-// ChoiceFieldGroup — renders choice schemas as a radio group
+// ChoiceFieldGroup — renders choice schemas as a dropdown
 // ---------------------------------------------------------------------------
 
 interface ChoiceFieldGroupProps {
   fields: PreviewField[];
+  label?: string;
   sample?: PreviewSampleState;
   lookupFieldSource: (fieldPath: string) => PreviewSourceMapEntry | undefined;
   isResolvingReferences: boolean;
-  onFieldBlur: () => void;
+  onFieldBlur: (event?: FocusEvent<HTMLElement>) => void;
   onFieldChange: (fieldPath: string, value: unknown, arrayIndices?: number[], validate?: boolean) => void;
   onArrayAdd: (field: PreviewField, arrayIndices?: number[]) => void;
   onArrayRemove: (field: PreviewField, index: number, arrayIndices?: number[]) => void;
@@ -655,102 +737,57 @@ interface ChoiceFieldGroupProps {
   arrayIndices?: number[];
 }
 
-function ChoiceFieldGroup({
-  fields,
-  sample,
-  lookupFieldSource,
-  isResolvingReferences,
-  onFieldBlur,
-  onFieldChange,
-  onArrayAdd,
-  onArrayRemove,
-  onObjectToggle,
-  onArmSelect,
-  arrayIndices
-}: ChoiceFieldGroupProps): ReactElement {
-  const groupId = useId();
-  // Determine which option is currently active by checking which field has a
-  // value present in the sample — no fallback to `fields[0]`. Every REAL
-  // sample (uncontrolled, via usePreviewStore's Choice-aware
-  // receivePreviewResult/ensureSample seeding, or a controlled caller that
-  // seeds real defaults) already has the first arm's key present, so this
-  // lookup finds a match without needing one. A fallback here would
-  // fabricate a visually "selected" radio for a genuinely empty sample —
-  // e.g. a freshly created controlled instance whose `values` starts as
-  // `{}` before any default is seeded — contradicting the underlying data
-  // (Codex review round 2 on PR #444). No arm selected is the honest
-  // rendering of that state.
-  const activeField = fields.find((f) => {
-    const v = getValueAtPath(sample?.values ?? {}, pathToSegments(f.path, arrayIndices));
-    return v !== undefined;
-  });
-
-  const handleOptionChange = (field: PreviewField) => {
-    // Single atomic transformation via onArmSelect — see its definition
-    // for why composing this from separate onObjectToggle/onFieldChange/
-    // onFieldBlur calls (each re-reading the same not-yet-updated sample)
-    // silently discarded all but the last one's effect (issue #434).
-    onArmSelect(fields, field, arrayIndices);
-  };
-
+function ChoiceFieldGroup({ fields, label = 'Choose one option', ...controls }: ChoiceFieldGroupProps): ReactElement {
+  const id = useId();
+  const details = useContext(PreviewDetailNavigation);
+  const activeField = fields.find(
+    (field) =>
+      getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices)) !== undefined
+  );
   return (
-    <FieldSet className="gap-2 p-2">
-      <FieldLegend variant="label" className="text-muted-foreground">
-        Choose one option
-      </FieldLegend>
-      <RadioGroup
-        value={activeField?.path ?? ''}
-        onValueChange={(path) => {
-          const field = fields.find((f) => f.path === path);
-          if (field) handleOptionChange(field);
-        }}
-      >
-        {fields.map((field) => {
-          const radioId = `${groupId}-${field.path}`;
-          const isActive = activeField?.path === field.path;
-          return (
-            <div key={field.path} className="space-y-1">
-              <label htmlFor={radioId} className="flex items-center gap-2 text-xs font-medium">
-                <RadioGroupItem id={radioId} value={field.path} />
+    <div className="preview-choice">
+      <span id={id} className="preview-field__label">
+        {label}
+      </span>
+      <div className="preview-choice__selector">
+        <Select
+          value={activeField?.path ?? null}
+          onValueChange={(path) => {
+            const field = fields.find((candidate) => candidate.path === path);
+            if (field && field.path !== activeField?.path) controls.onArmSelect(fields, field, controls.arrayIndices);
+          }}
+        >
+          <SelectTrigger aria-labelledby={id} className="w-full">
+            <SelectValue placeholder="Choose an option" />
+          </SelectTrigger>
+          <SelectContent>
+            {fields.map((field) => (
+              <SelectItem key={field.path} value={field.path}>
                 {field.label}
-              </label>
-              {isActive && (field.kind === 'object' || field.kind === 'array') && field.children ? (
-                <ChoiceArmChildren
-                  field={field}
-                  sample={sample}
-                  lookupFieldSource={lookupFieldSource}
-                  isResolvingReferences={isResolvingReferences}
-                  onFieldBlur={onFieldBlur}
-                  onFieldChange={onFieldChange}
-                  onArrayAdd={onArrayAdd}
-                  onArrayRemove={onArrayRemove}
-                  onObjectToggle={onObjectToggle}
-                  onArmSelect={onArmSelect}
-                  arrayIndices={arrayIndices}
-                />
-              ) : isActive && field.kind !== 'object' && field.kind !== 'array' ? (
-                <div className="ml-5 border-l border-border pl-3">
-                  <PreviewFieldControl
-                    field={field}
-                    sample={sample}
-                    lookupFieldSource={lookupFieldSource}
-                    isResolvingReferences={isResolvingReferences}
-                    onFieldBlur={onFieldBlur}
-                    onFieldChange={onFieldChange}
-                    onArrayAdd={onArrayAdd}
-                    onArrayRemove={onArrayRemove}
-                    onObjectToggle={onObjectToggle}
-                    onArmSelect={onArmSelect}
-                    arrayIndices={arrayIndices}
-                    isChoiceArm
-                  />
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </RadioGroup>
-    </FieldSet>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {activeField && (activeField.kind === 'object' || activeField.kind === 'array') && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Open ${activeField.label} details`}
+            onClick={(event) => details?.open(activeField, controls.arrayIndices, event.currentTarget)}
+          >
+            <ArrowUpRight className="size-3.5" aria-hidden="true" />
+          </Button>
+        )}
+      </div>
+      {activeField ? (
+        activeField.kind === 'object' ? (
+          <ChoiceArmChildren field={activeField} {...controls} />
+        ) : (
+          <PreviewFieldControl field={activeField} {...controls} isChoiceArm />
+        )
+      ) : null}
+    </div>
   );
 }
 
@@ -759,7 +796,7 @@ interface ChoiceArmChildrenProps {
   sample?: PreviewSampleState;
   lookupFieldSource: (fieldPath: string) => PreviewSourceMapEntry | undefined;
   isResolvingReferences: boolean;
-  onFieldBlur: () => void;
+  onFieldBlur: (event?: FocusEvent<HTMLElement>) => void;
   onFieldChange: (fieldPath: string, value: unknown, arrayIndices?: number[], validate?: boolean) => void;
   onArrayAdd: (field: PreviewField, arrayIndices?: number[]) => void;
   onArrayRemove: (field: PreviewField, index: number, arrayIndices?: number[]) => void;
@@ -798,7 +835,7 @@ function ChoiceArmChildren({
   const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], choiceArmPaths);
   if (armFields.length === 0 && otherFields.length === 0) return null;
   return (
-    <div className="ml-5 space-y-1.5 border-l border-border pl-3">
+    <div className="preview-object__fields">
       {armFields.length > 0 ? (
         <ChoiceFieldGroup
           fields={armFields}
@@ -839,7 +876,7 @@ interface PreviewFieldControlProps {
   sample?: PreviewSampleState;
   lookupFieldSource: (fieldPath: string) => PreviewSourceMapEntry | undefined;
   isResolvingReferences: boolean;
-  onFieldBlur: () => void;
+  onFieldBlur: (event?: FocusEvent<HTMLElement>) => void;
   onFieldChange: (fieldPath: string, value: unknown, arrayIndices?: number[], validate?: boolean) => void;
   onArrayAdd: (field: PreviewField, arrayIndices?: number[]) => void;
   onArrayRemove: (field: PreviewField, index: number, arrayIndices?: number[]) => void;
@@ -847,6 +884,292 @@ interface PreviewFieldControlProps {
   onArmSelect: (arms: PreviewField[], selected: PreviewField, arrayIndices?: number[]) => void;
   arrayIndices?: number[];
   isChoiceArm?: boolean;
+}
+
+function PreviewObjectField({
+  field,
+  ...controls
+}: PreviewFieldControlProps & { field: Extract<PreviewField, { kind: 'object' }> }): ReactElement {
+  const id = useId();
+  const [expanded, setExpanded] = useState(true);
+  const details = useContext(PreviewDetailNavigation);
+  const fieldPath = formatFieldPath(field.path, controls.arrayIndices);
+  const value = getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices));
+  const present = value !== undefined;
+  const materialized = field.definitionId ? present : field.required || present;
+  const label = resolvedFieldLabel(field, controls.arrayIndices);
+  const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
+  return (
+    <div role="group" aria-labelledby={id} data-field-path={fieldPath} tabIndex={-1} className="preview-object">
+      <Collapsible open={expanded && materialized} onOpenChange={setExpanded}>
+        <div className="preview-section-heading">
+          <CollapsibleTrigger
+            disabled={!materialized}
+            render={<button type="button" className="preview-object__disclosure" />}
+          >
+            <ChevronRight
+              className={`size-3.5 shrink-0 transition-transform ${expanded && materialized ? 'rotate-90' : ''}`}
+              aria-hidden="true"
+            />
+            <span id={id}>{label}</span>
+          </CollapsibleTrigger>
+          <div className="flex shrink-0 items-center gap-1">
+            {materialized && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Open ${label} details`}
+                title={`Open ${label} details`}
+                onClick={(event) => details?.open(field, controls.arrayIndices, event.currentTarget)}
+              >
+                <ArrowUpRight className="size-3.5" aria-hidden="true" />
+              </Button>
+            )}
+            {(!field.required || (field.definitionId && !present)) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => {
+                  controls.onObjectToggle(field, !present, controls.arrayIndices);
+                  setExpanded(!present);
+                }}
+                aria-label={present ? `Remove ${label}` : `Add ${label}`}
+                title={present ? `Remove ${label}` : `Add ${label}`}
+              >
+                {present ? (
+                  <Minus className="size-3" aria-hidden="true" />
+                ) : (
+                  <Plus className="size-3" aria-hidden="true" />
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+        {!materialized && <p className="preview-object__summary">Not added</p>}
+        {materialized && !expanded && <p className="preview-object__summary">{previewValueText(value)}</p>}
+        <CollapsibleContent>
+          <ChoiceArmChildren field={field} {...controls} />
+        </CollapsibleContent>
+      </Collapsible>
+      {error && <FieldError message={error} />}
+    </div>
+  );
+}
+
+function previewValueText(value: unknown): string {
+  if (value === undefined || value === null || value === '') return 'Not set';
+  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? '' : 's'}`;
+  if (typeof value === 'object') {
+    const count = Object.values(value).filter((child) => child !== undefined && child !== null && child !== '').length;
+    return `${count} field${count === 1 ? '' : 's'} set`;
+  }
+  return String(value);
+}
+
+function PreviewArrayField({
+  field,
+  ...controls
+}: PreviewFieldControlProps & { field: Extract<PreviewField, { kind: 'array' }> }): ReactElement {
+  const id = useId();
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const definitions = useContext(PreviewDefinitions);
+  const details = useContext(PreviewDetailNavigation);
+  const fieldPath = formatFieldPath(field.path, controls.arrayIndices);
+  const value = getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices));
+  const items = Array.isArray(value) ? value : [];
+  const child = field.children?.[0] && expandPreviewField(field.children[0], definitions);
+  const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
+  const remove = (index: number) => {
+    controls.onArrayRemove(field, index, controls.arrayIndices);
+    setSelectedIndex((current) =>
+      current === index ? null : current !== null && current > index ? current - 1 : current
+    );
+  };
+  const { armFields, otherFields } = splitChoiceArmFields(
+    child?.kind === 'object' ? (child.children ?? []) : [],
+    child?.kind === 'object' ? child.choiceArmPaths : undefined
+  );
+  const scalarColumns = otherFields
+    .filter((column) => !['object', 'array', 'unknown'].includes(column.kind))
+    .slice(0, armFields.length ? 2 : 3);
+  const columns: PreviewGridColumn[] = [
+    ...(armFields.length ? [{ path: '$choice', label: 'Type' }] : []),
+    ...scalarColumns.map((column) => ({ path: column.path, label: column.label }))
+  ];
+  if (!columns.length) columns.push({ path: '$summary', label: 'Value' });
+  const rows: PreviewGridRow[] = child
+    ? items.map((_, index) => {
+        const indices = [...(controls.arrayIndices ?? []), index];
+        const path = formatFieldPath(child.path, indices);
+        const activeArm = armFields.find(
+          (arm) => getValueAtPath(controls.sample?.values ?? {}, pathToSegments(arm.path, indices)) !== undefined
+        );
+        const cells = columns.map((column) => {
+          const cellPath =
+            column.path === '$choice'
+              ? formatFieldPath(activeArm?.path ?? child.path, indices)
+              : column.path === '$summary'
+                ? path
+                : formatFieldPath(column.path, indices);
+          const cellValue =
+            column.path === '$choice'
+              ? activeArm?.label
+              : getValueAtPath(
+                  controls.sample?.values ?? {},
+                  pathToSegments(column.path === '$summary' ? child.path : column.path, indices)
+                );
+          return {
+            path: cellPath,
+            text: previewValueText(cellValue),
+            empty: cellValue === undefined || cellValue === null || cellValue === '',
+            error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined
+          };
+        });
+        return {
+          path,
+          label: `${field.label} ${index + 1}`,
+          cells,
+          issues: controls.sample?.validated
+            ? Object.keys(controls.sample.errors).filter(
+                (key) => key === path || key.startsWith(`${path}.`) || key.startsWith(`${path}[`)
+              ).length
+            : 0
+        };
+      })
+    : [];
+  return (
+    <div role="group" aria-labelledby={id} data-field-path={fieldPath} tabIndex={-1} className="preview-collection">
+      <div className="preview-section-heading">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span id={id} className="preview-field__label">
+            {field.label}
+          </span>
+          <span className="preview-collection__count">
+            {items.length} {items.length === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          data-preview-validates
+          onClick={() => controls.onArrayAdd(field, controls.arrayIndices)}
+          aria-label={`Add ${field.label} item`}
+        >
+          <Plus className="size-3.5" aria-hidden="true" />
+          Add
+        </Button>
+      </div>
+      {child?.kind === 'object' ? (
+        <PreviewObjectGrid
+          label={field.label}
+          columns={columns}
+          rows={rows}
+          selectedIndex={selectedIndex !== null && selectedIndex < items.length ? selectedIndex : null}
+          onSelect={setSelectedIndex}
+          onOpen={(index, origin) => {
+            setSelectedIndex(index);
+            details?.open(child, [...(controls.arrayIndices ?? []), index], origin);
+          }}
+          onRemove={remove}
+        />
+      ) : child ? (
+        <div className="preview-scalar-list">
+          {items.map((_, index) => (
+            <div className="preview-scalar-list__row" key={`${field.path}-${index}`}>
+              <PreviewFieldControl
+                field={child}
+                {...controls}
+                arrayIndices={[...(controls.arrayIndices ?? []), index]}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                data-preview-validates
+                onClick={() => remove(index)}
+                aria-label={`Remove ${child.label} ${index + 1}`}
+                title={`Remove ${child.label} ${index + 1}`}
+              >
+                <Minus className="size-3" aria-hidden="true" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {child?.kind !== 'object' && items.length === 0 && <p className="preview-object-grid__empty">No items yet.</p>}
+      {error && <FieldError message={error} />}
+    </div>
+  );
+}
+
+function PreviewDetailsDialog({
+  stack,
+  returnFocus,
+  onClose,
+  onBack,
+  controls
+}: {
+  stack: PreviewDetailEntry[];
+  returnFocus: { current: HTMLElement | null };
+  onClose(): void;
+  onBack(index: number): void;
+  controls: Omit<PreviewFieldControlProps, 'field' | 'arrayIndices' | 'isChoiceArm'>;
+}): ReactElement | null {
+  const active = stack[stack.length - 1];
+  if (!active) return null;
+  const title = resolvedFieldLabel(active.field, active.arrayIndices);
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="preview-detail-dialog" finalFocus={returnFocus}>
+        <DialogHeader className="preview-detail-dialog__header">
+          {stack.length > 1 && (
+            <nav aria-label="Item detail path" className="preview-detail-dialog__path">
+              <Button type="button" variant="ghost" size="xs" onClick={() => onBack(stack.length - 2)}>
+                <ArrowLeft className="size-3.5" aria-hidden="true" />
+                Back
+              </Button>
+              {stack.slice(0, -1).map((entry, index) => (
+                <Button
+                  key={`${entry.field.path}-${index}`}
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => onBack(index)}
+                >
+                  {resolvedFieldLabel(entry.field, entry.arrayIndices)}
+                </Button>
+              ))}
+            </nav>
+          )}
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="font-mono text-xs">
+            {formatFieldPath(active.field.path, active.arrayIndices)}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="preview-detail-dialog__body preview-fields studio-scroll">
+          {active.field.kind === 'object' ? (
+            <ChoiceArmChildren field={active.field} {...controls} arrayIndices={active.arrayIndices} />
+          ) : (
+            <PreviewFieldControl field={active.field} {...controls} arrayIndices={active.arrayIndices} />
+          )}
+        </div>
+        <footer className="preview-detail-dialog__footer">
+          <span>Changes apply as you edit.</span>
+          <Button type="button" size="sm" onClick={onClose}>
+            Done
+          </Button>
+        </footer>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function PreviewFieldControl({
@@ -864,154 +1187,25 @@ function PreviewFieldControl({
   isChoiceArm = false
 }: PreviewFieldControlProps): ReactElement {
   const definitions = useContext(PreviewDefinitions);
+  const inputId = useId();
   const field = expandPreviewField(inputField, definitions);
   const fieldPath = formatFieldPath(field.path, arrayIndices);
   const fieldError = sample?.validated ? sample.errors[fieldPath] : undefined;
 
-  if (field.kind === 'object') {
-    const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
-    const isPresent = value !== undefined;
-    const renderChildren = field.definitionId ? isPresent : field.required || isPresent;
-    const objectLabel = resolvedFieldLabel(field, arrayIndices);
-    // A NESTED Data-extends-Choice reference (issue #434) — route its
-    // Choice-ancestor-derived arm children through ChoiceFieldGroup's
-    // single-selection radio UI, same as the schema-root case above; the
-    // Data type's own (non-arm) attributes still render as plain fields.
-    const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], field.choiceArmPaths);
-    return (
-      <FieldSet data-field-path={fieldPath} tabIndex={-1} className="gap-1.5 p-2">
-        <FieldLegend variant="label" className="text-muted-foreground">
-          {/* Inline +/- icon button replaces the verbose
-              "Add <FieldLabel>" / "Remove <FieldLabel>" text — the
-              field label itself already names the section, so the
-              button only needs to convey the operation. Icon-only
-              buttons keep dense forms readable; aria-label preserves
-              the original phrasing for screen readers. The "Section
-              omitted from the sample" caption was removed too — the
-              empty section (no nested children rendered) is enough
-              affordance that the section isn't populated. */}
-          <span className="inline-flex items-center gap-1.5">
-            {objectLabel}
-            {!field.required || (field.definitionId && !isPresent) ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => onObjectToggle(field, !isPresent, arrayIndices)}
-                aria-label={isPresent ? `Remove ${objectLabel}` : `Add ${objectLabel}`}
-                title={isPresent ? `Remove ${objectLabel}` : `Add ${objectLabel}`}
-              >
-                {isPresent ? <Minus className="size-3" /> : <Plus className="size-3" />}
-              </Button>
-            ) : null}
-          </span>
-        </FieldLegend>
-        {renderChildren && armFields.length > 0 ? (
-          <ChoiceFieldGroup
-            fields={armFields}
-            sample={sample}
-            lookupFieldSource={lookupFieldSource}
-            isResolvingReferences={isResolvingReferences}
-            onFieldBlur={onFieldBlur}
-            onFieldChange={onFieldChange}
-            onArrayAdd={onArrayAdd}
-            onArrayRemove={onArrayRemove}
-            onObjectToggle={onObjectToggle}
-            onArmSelect={onArmSelect}
-            arrayIndices={arrayIndices}
-          />
-        ) : null}
-        {renderChildren &&
-          otherFields.map((child) => (
-            <PreviewFieldControl
-              key={`${child.path}-${arrayIndices?.join('-') ?? 'root'}`}
-              field={child}
-              sample={sample}
-              lookupFieldSource={lookupFieldSource}
-              isResolvingReferences={isResolvingReferences}
-              onFieldBlur={onFieldBlur}
-              onFieldChange={onFieldChange}
-              onArrayAdd={onArrayAdd}
-              onArrayRemove={onArrayRemove}
-              onObjectToggle={onObjectToggle}
-              onArmSelect={onArmSelect}
-              arrayIndices={arrayIndices}
-            />
-          ))}
-        {fieldError ? <FieldError message={fieldError} /> : null}
-      </FieldSet>
-    );
-  }
-
-  if (field.kind === 'array') {
-    const values = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
-    const items = Array.isArray(values) ? values : [];
-    const arrayError = sample?.validated ? sample.errors[formatFieldPath(field.path, arrayIndices)] : undefined;
-    const [child] = field.children ?? [];
-
-    return (
-      <FieldSet data-field-path={fieldPath} tabIndex={-1} className="gap-1.5 p-2">
-        <FieldLegend variant="label" className="text-muted-foreground">
-          {/* Inline + icon button for "add another item to the array",
-              same pattern as the optional-object section. aria-label
-              preserves the original "Add <Field> item" phrasing for
-              screen readers. */}
-          <span className="inline-flex items-center gap-1.5">
-            {field.label}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => onArrayAdd(field, arrayIndices)}
-              aria-label={`Add ${field.label} item`}
-              title={`Add ${field.label} item`}
-            >
-              <Plus className="size-3" />
-            </Button>
-          </span>
-        </FieldLegend>
-        {arrayError ? <FieldError message={arrayError} /> : null}
-        {child
-          ? items.map((_, index) => (
-              <div key={`${field.path}-item-${index}`} className="space-y-1 p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-2xs text-muted-foreground inline-flex items-center gap-1.5">
-                    {child.label} {index + 1}
-                    {/* − icon replaces the verbose "Remove <Field> N"
-                        text per the same +/- treatment as the section
-                        toggle and the array add. aria-label keeps the
-                        full phrasing for screen readers. */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => onArrayRemove(field, index, arrayIndices)}
-                      aria-label={`Remove ${child.label} ${index + 1}`}
-                      title={`Remove ${child.label} ${index + 1}`}
-                    >
-                      <Minus className="size-3" />
-                    </Button>
-                  </span>
-                </div>
-                <PreviewFieldControl
-                  field={child}
-                  sample={sample}
-                  lookupFieldSource={lookupFieldSource}
-                  isResolvingReferences={isResolvingReferences}
-                  onFieldBlur={onFieldBlur}
-                  onFieldChange={onFieldChange}
-                  onArrayAdd={onArrayAdd}
-                  onArrayRemove={onArrayRemove}
-                  onObjectToggle={onObjectToggle}
-                  onArmSelect={onArmSelect}
-                  arrayIndices={[...(arrayIndices ?? []), index]}
-                />
-              </div>
-            ))
-          : null}
-      </FieldSet>
-    );
-  }
+  const controls = {
+    sample,
+    lookupFieldSource,
+    isResolvingReferences,
+    onFieldBlur,
+    onFieldChange,
+    onArrayAdd,
+    onArrayRemove,
+    onObjectToggle,
+    onArmSelect,
+    arrayIndices
+  };
+  if (field.kind === 'object') return <PreviewObjectField field={field} {...controls} />;
+  if (field.kind === 'array') return <PreviewArrayField field={field} {...controls} />;
 
   if (field.kind === 'enum') {
     const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
@@ -1021,15 +1215,15 @@ function PreviewFieldControl({
     // the sample value so an unset optional enum remains absent for Zod.
     const CLEAR_SENTINEL = '__rune_enum_unset__';
     return (
-      <div className="block text-xs font-medium">
-        <span className="block">{fieldLabel}</span>
+      <div className="preview-field">
+        <span className="preview-field__label">{fieldLabel}</span>
         <Select
           value={stringValue}
           onValueChange={(next) => {
             onFieldChange(field.path, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
           }}
         >
-          <SelectTrigger size="sm" aria-label={fieldLabel} className="mt-0.5 w-full text-xs">
+          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full">
             <SelectValue placeholder={field.required || isChoiceArm ? undefined : 'Select…'} />
           </SelectTrigger>
           <SelectContent>
@@ -1069,8 +1263,9 @@ function PreviewFieldControl({
 
   if (field.kind === 'boolean') {
     return (
-      <label data-field-path={fieldPath} className="flex items-center gap-2 text-xs font-medium">
+      <div data-field-path={fieldPath} className="preview-boolean">
         <Checkbox
+          id={inputId}
           aria-label={resolvedFieldLabel(field, arrayIndices)}
           checked={Boolean(value)}
           // A checkbox toggle is a discrete commit — onFieldChange commits the
@@ -1079,29 +1274,34 @@ function PreviewFieldControl({
           // (stale) and would validate the old state (Codex/Copilot PR #225).
           onCheckedChange={(checked) => onFieldChange(field.path, checked === true, arrayIndices)}
         />
-        <span>{resolvedFieldLabel(field, arrayIndices)}</span>
+        <label htmlFor={inputId} className="preview-field__label">
+          {resolvedFieldLabel(field, arrayIndices)}
+        </label>
         {fieldError ? <FieldError message={fieldError} /> : null}
-      </label>
+      </div>
     );
   }
 
   return (
-    <label data-field-path={fieldPath} className="block text-xs font-medium">
-      <span>{resolvedFieldLabel(field, arrayIndices)}</span>
+    <div data-field-path={fieldPath} className="preview-field">
+      <label htmlFor={inputId} className="preview-field__label">
+        {resolvedFieldLabel(field, arrayIndices)}
+      </label>
       {field.format ? (
         <TemporalPreviewInput
+          id={inputId}
           format={field.format}
           label={resolvedFieldLabel(field, arrayIndices)}
           value={typeof value === 'string' ? value : ''}
-          onChange={(next) => onFieldChange(field.path, next, arrayIndices)}
+          onChange={(next, validate) => onFieldChange(field.path, next, arrayIndices, validate)}
           onBlur={onFieldBlur}
         />
       ) : (
         <Input
+          id={inputId}
           aria-label={resolvedFieldLabel(field, arrayIndices)}
           type={inputType}
           value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
-          className="mt-0.5 h-7 text-xs"
           onChange={(event) => onFieldChange(field.path, getInputValue(field, event), arrayIndices)}
           onBlur={onFieldBlur}
         />
@@ -1113,7 +1313,7 @@ function PreviewFieldControl({
           }
         />
       ) : null}
-    </label>
+    </div>
   );
 }
 
@@ -1221,7 +1421,8 @@ function basenameFromUri(uri: string): string {
 }
 
 function resolvedFieldLabel(field: PreviewField, arrayIndices?: number[]): string {
-  const arrayIndex = arrayIndices && arrayIndices.length > 0 ? arrayIndices[arrayIndices.length - 1] : undefined;
+  const arrayIndex =
+    field.path.endsWith('[]') && arrayIndices?.length ? arrayIndices[arrayIndices.length - 1] : undefined;
   return arrayIndex === undefined ? field.label : `${field.label} ${arrayIndex + 1}`;
 }
 

@@ -392,6 +392,7 @@ export function createExpressionStore(
       {
         // Only track tree changes for undo/redo (not UI state)
         partialize: (state) => ({ tree: state.tree }),
+        equality: (previous, current) => previous.tree === current.tree,
         limit: 50
       }
     )
