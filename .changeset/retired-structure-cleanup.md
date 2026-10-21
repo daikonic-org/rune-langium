@@ -1,0 +1,15 @@
+---
+'@rune-langium/visual-editor': minor
+'@rune-langium/codegen': minor
+'@rune-langium/cli': patch
+---
+
+Remove retired XYFlow Structure renderers, layout exports, unused editor/history
+helpers and test-only graph lookup APIs from the visual-editor runtime. Use the
+current DOM StructureView and canonical editor store APIs instead. Consolidate
+Dagre geometry, row reordering, cardinality and inheritance helpers.
+
+Share codegen importer identifier policies, emitter lookup adaptation, bundled
+preamble removal and Python/TypeScript lens mechanics. Remove the unused import
+hasFatalImportDiagnostics export and internal namespace-symbol lookup. CLI
+commands now share recursive Rune file discovery with unchanged input semantics.
