@@ -1191,6 +1191,11 @@ function PreviewFieldControl({
   const field = expandPreviewField(inputField, definitions);
   const fieldPath = formatFieldPath(field.path, arrayIndices);
   const fieldError = sample?.validated ? sample.errors[fieldPath] : undefined;
+  const errorId = `${inputId}-error`;
+  const validationAttributes = {
+    'aria-invalid': fieldError ? true : undefined,
+    'aria-describedby': fieldError ? errorId : undefined
+  };
 
   const controls = {
     sample,
@@ -1223,7 +1228,7 @@ function PreviewFieldControl({
             onFieldChange(field.path, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
           }}
         >
-          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full">
+          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full" {...validationAttributes}>
             <SelectValue placeholder={field.required || isChoiceArm ? undefined : 'Select…'} />
           </SelectTrigger>
           <SelectContent>
@@ -1239,7 +1244,7 @@ function PreviewFieldControl({
             ))}
           </SelectContent>
         </Select>
-        {fieldError ? <FieldError message={fieldError} /> : null}
+        {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );
   }
@@ -1267,6 +1272,7 @@ function PreviewFieldControl({
         <Checkbox
           id={inputId}
           aria-label={resolvedFieldLabel(field, arrayIndices)}
+          {...validationAttributes}
           checked={Boolean(value)}
           // A checkbox toggle is a discrete commit — onFieldChange commits the
           // new value and the controlled re-render re-validates. Don't also
@@ -1277,7 +1283,7 @@ function PreviewFieldControl({
         <label htmlFor={inputId} className="preview-field__label">
           {resolvedFieldLabel(field, arrayIndices)}
         </label>
-        {fieldError ? <FieldError message={fieldError} /> : null}
+        {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );
   }
@@ -1290,6 +1296,7 @@ function PreviewFieldControl({
       {field.format ? (
         <TemporalPreviewInput
           id={inputId}
+          {...validationAttributes}
           format={field.format}
           label={resolvedFieldLabel(field, arrayIndices)}
           value={typeof value === 'string' ? value : ''}
@@ -1299,6 +1306,7 @@ function PreviewFieldControl({
       ) : (
         <Input
           id={inputId}
+          {...validationAttributes}
           aria-label={resolvedFieldLabel(field, arrayIndices)}
           type={inputType}
           value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
@@ -1308,6 +1316,7 @@ function PreviewFieldControl({
       )}
       {fieldError ? (
         <FieldError
+          id={errorId}
           message={
             field.format && fieldError.includes('Invalid string:') ? TEMPORAL_INPUT_HELP[field.format] : fieldError
           }
@@ -1317,9 +1326,9 @@ function PreviewFieldControl({
   );
 }
 
-function FieldError({ message }: { message: string }): ReactElement {
+function FieldError({ id, message }: { id?: string; message: string }): ReactElement {
   return (
-    <p role="alert" className="mt-1 text-xs text-destructive">
+    <p id={id} role="alert" className="mt-1 text-xs text-destructive">
       {message}
     </p>
   );

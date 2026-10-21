@@ -81,6 +81,10 @@ individual section padding. Nested sections inherit the owning horizontal gutter
 and use only the block inset, avoiding doubled indentation. Compact Inspector
 forms use `--inspector-padding-inline` (8 px); their header owns no second gutter.
 `--field-label-gap` (4 px) is shared by design-system Field and Preview controls.
+Preview and Prototype share validated field state: invalid controls use a semantic
+red-tinted background and border, `aria-invalid`, and an associated inline error.
+Temporal controls forward the same state; corrected fields clear both cues.
+Worker diagnostics remain the sole source of validation results.
 Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.

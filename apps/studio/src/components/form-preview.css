@@ -19,6 +19,11 @@
 .preview-fields :is([data-slot="input"], [data-slot="select-trigger"]) {
   min-width: 0;
 }
+:is(.preview-fields, .preview-detail-dialog__body)
+  :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="checkbox"])[aria-invalid="true"] {
+  background: color-mix(in srgb, var(--destructive) 20%, var(--background));
+  border-color: color-mix(in oklch, var(--destructive) 70%, var(--input));
+}
 :is(.preview-fields, .preview-detail-dialog__body) [data-slot="select-trigger"] {
   height: var(--space-6);
   padding: 0 calc(var(--space-1) * 1.5);
@@ -153,6 +158,7 @@
   color: var(--muted-foreground);
 }
 .preview-object-grid td[data-invalid] {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
   color: color-mix(in oklch, var(--destructive) 70%, var(--foreground));
 }
 .preview-object-grid__empty {
