@@ -190,6 +190,21 @@ the changed Structure styles; it does not identify a new Structure warning.
 Evidence is `/tmp/rune-structure-kinds-*` and `/tmp/rune-structure-{Cash,Payment,Status,Calculate}-*.png`.
 Hosted LSP and production deployment were not exercised.
 
+## Tracked LLM indexes
+
+A further review identified stale checked-in `apps/docs/public/llms.txt` and
+`llms-full.txt`. Skillit treats `llmsTxtOutDir` as a working-directory-relative
+string: the old `../../public` setting wrote fresh ignored repository-root files
+while leaving the distributed docs indexes unchanged. The package's generator
+runs from `apps/docs`; changing the setting to `public` regenerates both tracked
+indexes from current public entry points. The postprocessor trims generated
+trailing whitespace; its normalized output matches raw generation apart from
+that whitespace and is idempotent. The generation completed with zero
+errors and the existing external `WebSocketTransport` link warning. Validated
+JSON/output-directory resolution and absence of the removed namespace, history,
+synonym and import-diagnostic APIs in both indexes. Unrelated generated Core skill
+changes were excluded. Evidence: `/tmp/rune-pr627-llm-regenerate.log`.
+
 ## Bundle comparison
 
 Fresh isolated Vite builds measured at `a505e067`, including the Graph follow-up
