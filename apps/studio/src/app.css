@@ -1906,11 +1906,10 @@ html {
 }
 
 .studio-brand__mark {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 0 0.6px color-mix(in srgb, var(--foreground) 75%, transparent));
   flex-shrink: 0;
 }
 
@@ -1923,8 +1922,8 @@ html {
 }
 
 .studio-app-header--compact .studio-brand__mark {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .studio-app-header--compact .studio-brand__name {

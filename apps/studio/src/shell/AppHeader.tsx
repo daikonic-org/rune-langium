@@ -180,7 +180,7 @@ export const AppHeader = withInstrumentation(
       <header className="studio-topbar" aria-label="Studio workspace header" data-testid="app-header">
         <div className="studio-topbar__left">
           <div className="studio-brand">
-            <img className="studio-brand__mark" src={brandLogo} alt="" width={22} height={22} draggable={false} />
+            <img className="studio-brand__mark" src={brandLogo} alt="" width={26} height={26} draggable={false} />
             <span className="studio-brand__name">Rune Studio</span>
           </div>
           {showSwitcher && workspace && workspaceActions && (
