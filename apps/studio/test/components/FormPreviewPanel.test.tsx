@@ -1332,6 +1332,30 @@ describe('FormPreviewPanel', () => {
   });
 
   describe('controlled mode error display (errors/valid/validated props)', () => {
+    it('forwards edits once without rewriting the instance when focus leaves a field', () => {
+      const onValuesChange = vi.fn();
+      const { rerender } = render(
+        <FormPreviewPanel
+          schema={validationTradeSchema}
+          status={{ state: 'ready', targetId: validationTradeSchema.targetId }}
+          values={{ tradeId: '' }}
+          onValuesChange={onValuesChange}
+        />
+      );
+      fireEvent.change(screen.getByRole('textbox', { name: 'Trade id' }), { target: { value: 'T1' } });
+      expect(onValuesChange).toHaveBeenCalledExactlyOnceWith({ tradeId: 'T1' });
+      rerender(
+        <FormPreviewPanel
+          schema={validationTradeSchema}
+          status={{ state: 'ready', targetId: validationTradeSchema.targetId }}
+          values={{ tradeId: 'T1' }}
+          onValuesChange={onValuesChange}
+        />
+      );
+      fireEvent.blur(screen.getByRole('textbox', { name: 'Trade id' }));
+      expect(onValuesChange).toHaveBeenCalledTimes(1);
+    });
+
     it('shows an inline field error sourced from the errors prop, gated by validated', () => {
       const { rerender } = render(
         <FormPreviewPanel

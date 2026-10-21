@@ -1105,7 +1105,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
           {mergedConfig.showControls && <Controls />}
           {mergedConfig.showMinimap && <MiniMap />}
           {mergedConfig.showLegend && (
-            <Panel position="top-right">
+            <Panel position="top-right" style={{ pointerEvents: 'none' }}>
               <GraphLegend />
             </Panel>
           )}
@@ -1120,6 +1120,8 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         layoutEngine={runtimeLayoutEngine}
         onLayoutEngineChange={handleLayoutEngineChange}
         onClose={handleCloseContextMenu}
+        onNavigate={callbacks?.onNavigateToType}
+        onInspect={callbacks?.onInspectType}
       />
     </div>
   );

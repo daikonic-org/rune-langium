@@ -17,6 +17,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TypeLink, TypeReferenceImports } from '../../src/components/editors/TypeLink.js';
+import { TypeReferenceField } from '../../src/components/editors/TypeReferenceField.js';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -134,6 +135,44 @@ describe('TypeLink', () => {
 });
 
 describe('file-local alias navigation', () => {
+  it('allows keyboard navigation from a read-only Inspector reference without editing its type', async () => {
+    const navigate = vi.fn();
+    const select = vi.fn();
+    render(
+      <TypeReferenceField
+        value="context.Other#Data"
+        displayName="context.Other"
+        allNodeIds={['context.Other#Data']}
+        onSelect={select}
+        onNavigateToNode={navigate}
+        readOnly
+      />
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Go to context.Other' }), { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type', exact: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('context.Other#Data');
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it('uses the same alias-resolved destination from its context menu', async () => {
+    const navigate = vi.fn();
+    render(
+      <TypeReferenceImports.Provider value={[{ importedNamespace: 'fpml.option.*', namespaceAlias: 'fpml' }]}>
+        <TypeLink
+          typeName="fpml.Exercise"
+          allNodeIds={['unrelated.Exercise#Data', 'fpml.option.Exercise#Data']}
+          onNavigateToNode={navigate}
+        />
+      </TypeReferenceImports.Provider>
+    );
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'fpml.Exercise', exact: true }), {
+      clientX: 100,
+      clientY: 100
+    });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type', exact: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('fpml.option.Exercise#Data');
+  });
+
   it('tries all namespaces for one alias and rejects unrelated same-name targets', () => {
     const navigate = vi.fn();
     render(
@@ -152,5 +191,52 @@ describe('file-local alias navigation', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'fpml.Exercise', exact: true }));
     expect(navigate).toHaveBeenCalledWith('fpml.option.Exercise#Data');
+  });
+});
+
+describe('Inspector canonical reference destinations', () => {
+  it.each([
+    ['b.Status#Data', ['a.Status#Data', 'b.Status#Data'], false],
+    ['b.Status#Data', ['a.Status#Data', 'b.Status#Data'], true],
+    ['b.Status#RosettaEnumeration', ['b.Status#Data', 'b.Status#RosettaEnumeration'], true]
+  ] as const)('keeps the selected %s identity for the arrow and keyboard menu', async (value, allIds, readOnly) => {
+    const navigate = vi.fn();
+    const select = vi.fn();
+    render(
+      <TypeReferenceField
+        value={value}
+        displayName="Status"
+        allNodeIds={[...allIds]}
+        onSelect={select}
+        onNavigateToNode={navigate}
+        readOnly={readOnly}
+      />
+    );
+    const arrow = screen.getByRole('button', { name: 'Go to Status', exact: true });
+    fireEvent.click(arrow);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(value);
+    navigate.mockClear();
+    fireEvent.keyDown(arrow, { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type', exact: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(value);
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it('does not redirect an unavailable canonical value to a same-named declaration', () => {
+    const navigate = vi.fn();
+    const { container } = render(
+      <TypeReferenceField
+        value="b.Status#Data"
+        displayName="Status"
+        allNodeIds={['a.Status#Data']}
+        onSelect={vi.fn()}
+        onNavigateToNode={navigate}
+        readOnly
+      />
+    );
+    expect(screen.queryByRole('button', { name: 'Go to Status', exact: true })).not.toBeInTheDocument();
+    fireEvent.contextMenu(container.querySelector('[data-slot="type-reference"]')!);
+    expect(screen.queryByTestId('type-navigation-menu')).not.toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

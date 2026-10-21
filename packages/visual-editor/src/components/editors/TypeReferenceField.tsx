@@ -17,6 +17,7 @@
 
 import { useCallback, useMemo, useState, useContext } from 'react';
 import { ArrowUpRight } from 'lucide-react';
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { cn } from '@rune-langium/design-system/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { RowGlyph } from '@rune-langium/design-system/ui/row-glyph';
@@ -110,10 +111,13 @@ export function TypeReferenceField({
   const chipKind = toChipKind(selected?.kind);
 
   const resolvedNodeId = useMemo(() => {
-    if (!typeLabel || !allNodeIds?.length) return undefined;
-    return resolveNodeId(typeLabel, allNodeIds, imports);
-  }, [allNodeIds, typeLabel, imports]);
+    if (!allNodeIds?.length) return undefined;
+    if (effectiveValue && allNodeIds.includes(effectiveValue)) return effectiveValue;
+    const reference = effectiveValue?.startsWith('builtin::') ? typeLabel : (effectiveValue ?? typeLabel);
+    return reference ? resolveNodeId(reference, allNodeIds, imports) : undefined;
+  }, [allNodeIds, effectiveValue, typeLabel, imports]);
   const canNavigate = Boolean(onNavigateToNode && resolvedNodeId);
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToNode });
 
   const handleNavigate = useCallback(() => {
     if (resolvedNodeId && onNavigateToNode) {
@@ -166,58 +170,63 @@ export function TypeReferenceField({
   ) : null;
 
   return (
-    <div
-      data-slot="type-reference"
-      data-empty={typeLabel ? 'false' : 'true'}
-      data-readonly={readOnly ? 'true' : 'false'}
-      data-drop-over={isOver ? 'true' : undefined}
-      className={cn('rune-type-reference', className)}
-      {...(readOnly ? {} : dragOverHandlers)}
-    >
-      {readOnly ? (
-        typeLabel ? (
-          <TypeChip
-            typeName={typeLabel}
-            typeKind={chipKind}
-            disabled
-            data-slot="type-picker-trigger"
-            className="truncate"
-          />
-        ) : (
-          <span className="rune-type-reference__placeholder">{emptyLabel ?? placeholder}</span>
-        )
-      ) : (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger
-            disabled={disabled}
-            render={
-              typeLabel ? (
-                <TypeChip
-                  typeName={typeLabel}
-                  typeKind={chipKind}
-                  data-slot="type-picker-trigger"
-                  className="truncate"
-                />
-              ) : (
-                <button type="button" data-slot="type-picker-trigger" className="rune-type-reference__placeholder">
-                  {emptyLabel ?? placeholder}
-                </button>
-              )
-            }
-          />
-          <PopoverContent align="start" sideOffset={4} className="w-auto p-0">
-            <NamespaceTreePicker
-              options={options ?? []}
-              value={effectiveValue}
-              onSelect={handleSelect}
-              filterKinds={filterKinds}
-              allowClear={allowClear}
+    <>
+      <div
+        data-slot="type-reference"
+        onContextMenu={(event) => navigation.open(event, resolvedNodeId)}
+        onKeyDown={(event) => navigation.onKeyDown(event, resolvedNodeId)}
+        data-empty={typeLabel ? 'false' : 'true'}
+        data-readonly={readOnly ? 'true' : 'false'}
+        data-drop-over={isOver ? 'true' : undefined}
+        className={cn('rune-type-reference', className)}
+        {...(readOnly ? {} : dragOverHandlers)}
+      >
+        {readOnly ? (
+          typeLabel ? (
+            <TypeChip
+              typeName={typeLabel}
+              typeKind={chipKind}
+              disabled
+              data-slot="type-picker-trigger"
+              className="truncate"
             />
-          </PopoverContent>
-        </Popover>
-      )}
+          ) : (
+            <span className="rune-type-reference__placeholder">{emptyLabel ?? placeholder}</span>
+          )
+        ) : (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger
+              disabled={disabled}
+              render={
+                typeLabel ? (
+                  <TypeChip
+                    typeName={typeLabel}
+                    typeKind={chipKind}
+                    data-slot="type-picker-trigger"
+                    className="truncate"
+                  />
+                ) : (
+                  <button type="button" data-slot="type-picker-trigger" className="rune-type-reference__placeholder">
+                    {emptyLabel ?? placeholder}
+                  </button>
+                )
+              }
+            />
+            <PopoverContent align="start" sideOffset={4} className="w-auto p-0">
+              <NamespaceTreePicker
+                options={options ?? []}
+                value={effectiveValue}
+                onSelect={handleSelect}
+                filterKinds={filterKinds}
+                allowClear={allowClear}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
 
-      {navButton}
-    </div>
+        {navButton}
+      </div>
+      {navigation.menu}
+    </>
   );
 }

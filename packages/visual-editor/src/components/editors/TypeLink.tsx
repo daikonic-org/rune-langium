@@ -11,6 +11,7 @@
  */
 
 import { createContext, useContext } from 'react';
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import {
   buildImportAliasMap,
   importAliasCandidates,
@@ -62,6 +63,8 @@ export function resolveNodeId(
 
 export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: TypeLinkProps) {
   const imports = useContext(TypeReferenceImports);
+  const resolvedNodeId = typeName && allNodeIds ? resolveNodeId(typeName, allNodeIds, imports) : undefined;
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToNode });
   if (!typeName) return null;
 
   // If no navigation callback, render as plain text
@@ -74,7 +77,6 @@ export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: 
   }
 
   // Resolve once per render — avoids duplicate linear scans
-  const resolvedNodeId = allNodeIds ? resolveNodeId(typeName, allNodeIds, imports) : undefined;
   const isResolvable = !!resolvedNodeId;
 
   const handleClick = () => {
@@ -84,15 +86,20 @@ export function TypeLink({ typeName, onNavigateToNode, allNodeIds, className }: 
   };
 
   return (
-    <button
-      type="button"
-      data-slot="type-link"
-      onClick={handleClick}
-      className={`${className ?? ''} ${isResolvable ? 'text-primary hover:underline cursor-pointer' : ''}`.trim()}
-      title={isResolvable ? `Go to ${typeName}` : typeName}
-      disabled={!isResolvable}
-    >
-      {typeName}
-    </button>
+    <>
+      <button
+        type="button"
+        data-slot="type-link"
+        onClick={handleClick}
+        onContextMenu={(event) => navigation.open(event, resolvedNodeId)}
+        onKeyDown={(event) => navigation.onKeyDown(event, resolvedNodeId)}
+        className={`${className ?? ''} ${isResolvable ? 'text-primary hover:underline cursor-pointer' : ''}`.trim()}
+        title={isResolvable ? `Go to ${typeName}` : typeName}
+        disabled={!isResolvable}
+      >
+        {typeName}
+      </button>
+      {navigation.menu}
+    </>
   );
 }

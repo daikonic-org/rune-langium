@@ -27,6 +27,7 @@ import { buildStructureGraph } from '../adapters/structure-graph-adapter.js';
 import { layoutStructureGraph, STRUCTURE_LAYOUT_CSS_VARS } from '../layout/structure-layout.js';
 import { nodeTypes } from './nodes/index.js';
 import { NavigationContext } from './nodes/NavigationContext.js';
+import { useTypeNavigationMenu } from './TypeNavigationMenu.js';
 import type { MeasuredNodeWidths, StructureExpansionKey, StructureRow } from '../types/structure-view.js';
 import { measureStructureNodeWidths } from './measure-structure-widths.js';
 import type { RangeDiagnostic } from '../hooks/useDiagnosticsForRange.js';
@@ -411,6 +412,7 @@ function StructureFlowInner({
   // the underlying content is unchanged. Preserving the previous node
   // reference where the data shallow-equals the new one limits the
   // re-render fan-out to the actually-changed nodes.
+  const navigationMenu = useTypeNavigationMenu({ onNavigate: onNavigateToEnumType, onInspect: onInspectType });
   const prevNodesRef = useRef<ReadonlyArray<Node>>([]);
 
   // ── Measure-then-layout ────────────────────────────────────────────────
@@ -673,11 +675,12 @@ function StructureFlowInner({
   const navigationCtx = useMemo(
     () => ({
       allNodeIds: EMPTY_ALL_NODE_IDS,
+      onNavigateToType: onNavigateToEnumType,
       onInspectType,
       layoutDirection: 'TB' as const,
       pendingHydrationNamespaces
     }),
-    [pendingHydrationNamespaces, onInspectType]
+    [pendingHydrationNamespaces, onInspectType, onNavigateToEnumType]
   );
 
   return (
@@ -715,6 +718,10 @@ function StructureFlowInner({
           // contents (header → base type, child → derived type) are accessed
           // via clicking either of those nodes directly; the wrapper itself
           // doesn't represent a navigable selection target.
+          onNodeContextMenu={(event, node) => {
+            if (node.type === 'structureBase') return;
+            navigationMenu.open(event, (node.data as { id?: string }).id);
+          }}
           onNodeClick={(_, node) => {
             if (node.type === 'structureBase') return;
             const canonicalId = (node.data as { id?: string } | undefined)?.id ?? node.id;
@@ -722,6 +729,7 @@ function StructureFlowInner({
           }}
         />
       </div>
+      {navigationMenu.menu}
     </NavigationContext.Provider>
   );
 }

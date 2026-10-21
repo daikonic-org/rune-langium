@@ -246,9 +246,7 @@ function buildRow(
   const typeName = typeRefText(attr);
   const typeKind = classifyType(typeName, doc, caller);
   const target =
-    typeKind !== 'BasicType' && typeKind !== 'Unresolved' && typeKind !== 'Record' && typeKind !== 'TypeAlias'
-      ? findNodeByName(typeName, doc, caller)
-      : undefined;
+    typeKind !== 'BasicType' && typeKind !== 'Unresolved' ? findNodeByName(typeName, doc, caller) : undefined;
   const cardinality = formatCardinality(attr.card);
   return {
     attrName: attr.name ?? '',
@@ -737,6 +735,7 @@ function materializeDataWithInheritance(
       id: baseCanonicalId,
       instanceId: baseRfId,
       kind: 'base',
+      baseTypeId: baseNode.id,
       baseTypeName: baseNode.name,
       baseTypeNamespaceUri: baseNode.namespace,
       baseRows,

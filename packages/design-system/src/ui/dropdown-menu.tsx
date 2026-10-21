@@ -35,7 +35,15 @@ function DropdownMenuContent({
   Pick<React.ComponentProps<typeof Menu.Positioner>, 'align' | 'side' | 'sideOffset'>) {
   return (
     <Menu.Portal>
-      <Menu.Positioner align={align} side={side} sideOffset={sideOffset}>
+      {/* Like Select and Popover, the positioned portal must own its stacking
+          layer so dock sashes and dialog content cannot intercept menu clicks. */}
+      <Menu.Positioner
+        data-slot="dropdown-menu-positioner"
+        className="z-[60]"
+        align={align}
+        side={side}
+        sideOffset={sideOffset}
+      >
         <Menu.Popup
           data-slot="dropdown-menu-content"
           className={cn(
@@ -193,7 +201,7 @@ function DropdownMenuSubTrigger({
 function DropdownMenuSubContent({ className, ...props }: React.ComponentProps<typeof Menu.Popup>) {
   return (
     <Menu.Portal>
-      <Menu.Positioner>
+      <Menu.Positioner data-slot="dropdown-menu-sub-positioner" className="z-[60]">
         <Menu.Popup
           data-slot="dropdown-menu-sub-content"
           className={cn(

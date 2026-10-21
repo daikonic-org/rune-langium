@@ -46,6 +46,19 @@ local navigation scope, preserving graph visibility and canonical export inclusi
 Both surfaces share the inset active-row highlight and retain their existing
 buttons, kind glyphs and native drag behavior.
 
+Declaration context menus share pointer placement and navigation actions across
+the Type explorer, Graph, Structure and Inspector type references. Each owner
+supplies an already-resolved canonical ID and its existing navigation callbacks;
+Structure instance paths are never used as declaration targets. Editable source
+and text fields retain the native browser menu. Shared DropdownMenu positioners
+own the same explicit overlay layer as Select and Popover so dock resize handles
+cannot intercept menu actions.
+Pointer anchors portal to the document body to avoid React Flow's transformed
+coordinate space, and menu events do not bubble into their owning node. Empty
+toast viewport space passes pointer events through; visible toast cards remain
+interactive.
+The graph's informational legend also passes pointer events to the canvas.
+
 Studio's body-level visual profile applies to every perspective and portaled
 overlay: Inter UI text uses normal tracking and a 13 px default at the standard
 root size, with a shared compact label scale, readable line height and rem-based
@@ -94,6 +107,13 @@ hydration alone is not generation readiness.
 - The opt-in development-only `?design-preview` controls use a page-session store. `WorkbenchHost` owns the shared auxiliary edge policy for Explore (Types, Form/Code, utilities), Prototype (Instances/payload graph), and Export (Settings/output). New auxiliary edges start pinned; existing expanded/collapsed arrangements retain their state. Explore side tabs select views and chevrons own visibility; other auxiliary tabs retain native toggling. Group focus must not pre-expand an edge on pointer-down. Opening or unpinning one edge preserves opposite open edges; unpinned panels collapse on return to the main grid. API navigation uses Dockview's activation origin and keyboard tabs expand after native selection. New side edges retain horizontal panel headers while expanded and rotate to vertical strips only when collapsed. Preview layout changes must not persist; toggling off restores the original Dockview snapshot with panel reuse. `DockLayout` applies Rune's shared theme to the outer shell as well as the grid so edge panels inherit the same rounded chrome. The Explore location path is always available in production, derives from editor selection and canonical namespace/declaration name, and owns its styles in the normal app stylesheet rather than the development preview bundle. Native collapse/expand is available in the installed free package; overlay peek auto-hide requires the separate enterprise module.
 - Close transports during reconnect/disposal so server-side sessions and documents can be released.
 - The LSP connection adapter converts returned or thrown vscode `ResponseError` values into thrown lspeasy protocol errors for ordinary request handlers. Cancellation must travel in JSON-RPC's error field, never as a successful completion payload.
+
+Prototype's instance Inspector uses its container width to place validation,
+provenance and payload beside Form/Functions in wide panes, and below them in
+narrow panes. Diagnostics are disclosed in a bounded scroll area; they never
+claim the form's remaining height. Controlled previews forward edits to their
+owning instance/function session once; blur must not rewrite unchanged values
+and restart readiness/validation while an adjacent action is being clicked.
 
 ## Curated Artifact Cache
 

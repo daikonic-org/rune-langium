@@ -25,6 +25,7 @@ import { TypeChip } from '../editors/structure/TypeChip.js';
 import type { StructureFunctionNode, StructureRow } from '../../types/structure-view.js';
 import { BaseFlowNode } from './BaseFlowNode.js';
 import { useNavigation } from './NavigationContext.js';
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { StructureMetaIndicators } from './StructureMetaIndicators.js';
 
 interface StructureFunctionNodeData extends StructureFunctionNode {
@@ -48,23 +49,32 @@ function isStructureFunction(d: unknown): d is StructureFunctionNodeData {
  * inputs/output are plain shape display in this cut.
  */
 function FunctionRow({ row, isOutput }: { row: StructureRow; isOutput?: boolean }): React.ReactElement {
+  const { onNavigateToType, onInspectType } = useNavigation();
+  const navigation = useTypeNavigationMenu({ onNavigate: onNavigateToType, onInspect: onInspectType });
   return (
-    <div className={`rune-node-row${isOutput ? ' rune-node-row--output' : ''}`} data-attr={row.attrName}>
-      <div className="rune-node-row__main">
-        <div className="rune-node-row__name-line">
-          {isOutput ? (
-            <span className="rune-node-row__output-arrow" aria-hidden="true">
-              →
-            </span>
-          ) : null}
-          <span className="rune-cell-name">{row.attrName}</span>
-        </div>
-        <div className="rune-node-row__type-line">
-          <TypeChip as="span" typeName={row.typeName || '?'} typeKind={row.typeKind} />
-          <span className="rune-cell-card">{row.cardinality}</span>
+    <>
+      <div
+        className={`rune-node-row focus-visible:outline-2 focus-visible:outline-ring${isOutput ? ' rune-node-row--output' : ''}`}
+        data-attr={row.attrName}
+        {...navigation.targetProps(row.targetNodeId, `${row.attrName}: ${row.typeName}`)}
+      >
+        <div className="rune-node-row__main">
+          <div className="rune-node-row__name-line">
+            {isOutput ? (
+              <span className="rune-node-row__output-arrow" aria-hidden="true">
+                →
+              </span>
+            ) : null}
+            <span className="rune-cell-name">{row.attrName}</span>
+          </div>
+          <div className="rune-node-row__type-line">
+            <TypeChip as="span" typeName={row.typeName || '?'} typeKind={row.typeKind} />
+            <span className="rune-cell-card">{row.cardinality}</span>
+          </div>
         </div>
       </div>
-    </div>
+      {navigation.menu}
+    </>
   );
 }
 

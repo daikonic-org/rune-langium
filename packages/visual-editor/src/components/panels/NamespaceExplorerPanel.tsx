@@ -11,6 +11,7 @@
  * and shadcn/ui primitives with lucide-react icons.
  */
 
+import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import type { JSX, DragEvent, MouseEvent, KeyboardEvent } from 'react';
 import { ArrowUpRight, ChevronRight, ChevronDown, Link, Search } from 'lucide-react';
@@ -736,6 +737,7 @@ function TypeItemRow({
   // avoids the WebKit fallback where a non-draggable row text/region-selects on
   // a drag attempt. Whether a drop is valid is decided by each target's
   // `accept` list (Func/Annotation are draggable but accepted nowhere).
+  const navigation = useTypeNavigationMenu({ onNavigate: onSelectNode });
   const payload: TypeRefPayload = {
     rune: 'type-ref',
     // FlatTreeRow uses 'namespace' (the namespace string); TypeRefPayload
@@ -780,11 +782,15 @@ function TypeItemRow({
   // Keep the row's keydown from also firing when the nav button has focus
   // and Enter/Space is pressed — the button's own click activation already
   // covers that path.
-  const handleNavKeyDown = useCallback((e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.stopPropagation();
-    }
-  }, []);
+  const handleNavKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>) => {
+      navigation.onKeyDown(e, row.nodeId);
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.stopPropagation();
+      }
+    },
+    [navigation, row.nodeId]
+  );
 
   const requiredBy = selectionId === undefined ? undefined : selection?.requiredBy.get(selectionId);
   const isRequired = requiredBy !== undefined && requiredBy.length > 0;
@@ -798,97 +804,101 @@ function TypeItemRow({
   const highlight = selection === undefined && isSelected;
 
   return (
-    <div
-      className={`rune-namespace-type-row studio-type-row group relative flex h-full ${selection ? 'cursor-pointer' : 'cursor-grab'} items-center gap-1.5 px-2 py-0.5 text-xs text-foreground hover:bg-accent/50${
-        highlight ? ' studio-type-row--selected' : ''
-      }${!selection && justNavigated ? ' studio-type-row--just-navigated' : ''}`}
-      style={{ paddingLeft: `${namespaceTreeIndent(Math.max(0, (row.depth ?? 1) - 1)) + TREE_TYPE_INDENT}px` }}
-      aria-current={highlight ? 'true' : undefined}
-      data-testid={`ns-type-${row.nodeId}`}
-      draggable
-      onDragStart={handleDragStart}
-      onClick={selection ? toggleSelection : undefined}
-    >
-      <NamespaceTreeGuides depth={row.depth ?? 1} />
-
-      {selection !== undefined && selectionId !== undefined && (
-        <>
-          <Checkbox
-            checked={isSelectionChecked}
-            disabled={isRequired && !isExplicit}
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            onCheckedChange={(checked) => setSelectionChecked(checked === true)}
-            aria-label={isRequired ? `${row.name}, required by ${requiredBy.join(', ')}` : `Select ${row.name}`}
-            data-testid={`ns-type-checkbox-${row.nodeId}`}
-          />
-          {isRequired && (
-            <span
-              aria-label={`Required by ${requiredBy.join(', ')}`}
-              title={`Required by ${requiredBy.join(', ')}`}
-              className="text-muted-foreground"
-            >
-              <Link className="size-3" />
-            </span>
-          )}
-        </>
-      )}
-
-      <KindBadge kind={row.typeKind} shape="glyph" />
-
-      <button
-        type="button"
-        className="min-w-0 flex-1 truncate text-left underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
-        title={label?.fullLabel ?? `${row.namespace}.${row.name}`}
-        aria-label={label?.qualifier ? `${row.name} ${label.qualifier}` : row.name}
-        data-testid={`ns-type-link-${row.nodeId}`}
-        onClick={
-          selection
-            ? (event) => {
-                event.stopPropagation();
-                toggleSelection();
-              }
-            : handleNavClick
-        }
-        onKeyDown={handleNavKeyDown}
+    <>
+      <div
+        className={`rune-namespace-type-row studio-type-row group relative flex h-full ${selection ? 'cursor-pointer' : 'cursor-grab'} items-center gap-1.5 px-2 py-0.5 text-xs text-foreground hover:bg-accent/50${
+          highlight ? ' studio-type-row--selected' : ''
+        }${!selection && justNavigated ? ' studio-type-row--just-navigated' : ''}`}
+        style={{ paddingLeft: `${namespaceTreeIndent(Math.max(0, (row.depth ?? 1) - 1)) + TREE_TYPE_INDENT}px` }}
+        aria-current={highlight ? 'true' : undefined}
+        data-testid={`ns-type-${row.nodeId}`}
+        onContextMenu={(event) => navigation.open(event, row.nodeId)}
+        draggable
+        onDragStart={handleDragStart}
+        onClick={selection ? toggleSelection : undefined}
       >
-        <span className="block truncate">{row.name}</span>
-        {label?.qualifier && (
+        <NamespaceTreeGuides depth={row.depth ?? 1} />
+
+        {selection !== undefined && selectionId !== undefined && (
           <>
-            {' '}
-            <span className="block truncate text-3xs text-muted-foreground">{label.qualifier}</span>
+            <Checkbox
+              checked={isSelectionChecked}
+              disabled={isRequired && !isExplicit}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              onCheckedChange={(checked) => setSelectionChecked(checked === true)}
+              aria-label={isRequired ? `${row.name}, required by ${requiredBy.join(', ')}` : `Select ${row.name}`}
+              data-testid={`ns-type-checkbox-${row.nodeId}`}
+            />
+            {isRequired && (
+              <span
+                aria-label={`Required by ${requiredBy.join(', ')}`}
+                title={`Required by ${requiredBy.join(', ')}`}
+                className="text-muted-foreground"
+              >
+                <Link className="size-3" />
+              </span>
+            )}
           </>
         )}
-      </button>
 
-      {refCount > 0 && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-                <Link className="size-3" />
-                <span className="text-3xs">{refCount}</span>
-              </span>
-            }
-          />
-          <TooltipContent>{refCount} hidden reference(s)</TooltipContent>
-        </Tooltip>
-      )}
+        <KindBadge kind={row.typeKind} shape="glyph" />
 
-      {/* The arrow uses the same navigation action as the name. */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={handleNavClick}
-        onKeyDown={handleNavKeyDown}
-        aria-label={`Navigate to ${row.name}`}
-        data-testid={`ns-type-nav-${row.nodeId}`}
-        className="ml-auto size-6 border border-border/60 opacity-40 transition-opacity hover:border-border hover:!opacity-100 focus:opacity-100 group-hover:opacity-80"
-        tabIndex={0}
-      >
-        <ArrowUpRight className="size-3.5" />
-      </Button>
-    </div>
+        <button
+          type="button"
+          className="min-w-0 flex-1 truncate text-left underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
+          title={label?.fullLabel ?? `${row.namespace}.${row.name}`}
+          aria-label={label?.qualifier ? `${row.name} ${label.qualifier}` : row.name}
+          data-testid={`ns-type-link-${row.nodeId}`}
+          onClick={
+            selection
+              ? (event) => {
+                  event.stopPropagation();
+                  toggleSelection();
+                }
+              : handleNavClick
+          }
+          onKeyDown={handleNavKeyDown}
+        >
+          <span className="block truncate">{row.name}</span>
+          {label?.qualifier && (
+            <>
+              {' '}
+              <span className="block truncate text-3xs text-muted-foreground">{label.qualifier}</span>
+            </>
+          )}
+        </button>
+
+        {refCount > 0 && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+                  <Link className="size-3" />
+                  <span className="text-3xs">{refCount}</span>
+                </span>
+              }
+            />
+            <TooltipContent>{refCount} hidden reference(s)</TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* The arrow uses the same navigation action as the name. */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={handleNavClick}
+          onKeyDown={handleNavKeyDown}
+          aria-label={`Navigate to ${row.name}`}
+          data-testid={`ns-type-nav-${row.nodeId}`}
+          className="ml-auto size-6 border border-border/60 opacity-40 transition-opacity hover:border-border hover:!opacity-100 focus:opacity-100 group-hover:opacity-80"
+          tabIndex={0}
+        >
+          <ArrowUpRight className="size-3.5" />
+        </Button>
+      </div>
+      {navigation.menu}
+    </>
   );
 }

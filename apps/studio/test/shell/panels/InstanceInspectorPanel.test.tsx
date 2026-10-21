@@ -46,7 +46,9 @@ describe('InstanceInspectorPanel', () => {
     expect(screen.getByRole('heading', { name: 'My Party' })).toBeVisible();
     expect(screen.getByRole('status', { name: 'Save status' })).toHaveTextContent('Saved');
     expect(screen.getByText(/"Acme"/)).toBeInTheDocument();
-    expect(screen.getByText('too short')).toBeInTheDocument();
+    expect(screen.queryByText('too short')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '1 issue' }));
+    expect(screen.getByText('too short')).toBeVisible();
     expect(screen.getAllByLabelText('Instance payload')).toHaveLength(1);
     expect(screen.queryByText('Raw JSON')).not.toBeInTheDocument();
   });
