@@ -113,22 +113,46 @@ the clean publishing verification checkout after forced affected-package builds.
 The original working checkout remains blocked by the separate uncommitted edit in
 `packages/lsp-server/src/model-index.ts:166` (`TextDocumentProvider.all`). The LSP
 package type check passes in the unchanged verification checkout at the same
-pre-cleanup HEAD. A legacy Graph browser journey also has baseline setup/visibility failures:
-Focus-off shows only standard-library nodes in both the changed checkout and an
-unchanged checkout. Its test file was left unchanged; full Graph browser
-acceptance is not claimed.
+pre-cleanup HEAD.
+
+## Follow-up Graph viewport fix
+
+The previously recorded Graph browser failure is now resolved. The nodes were
+present in the store and local Graph state; React Flow's default 50% minimum zoom
+kept Fit View from including the tall graph, and viewport culling omitted the
+imported types below the visible area. A 5% floor lets the graph fit without
+removing culling. A second Studio selection effect also re-laid out and fitted the
+whole graph immediately after the graph's own selected-node fit, overwriting
+readable navigation. Removing that duplicate effect leaves camera ownership in
+`RuneTypeGraph`; existing measurement safeguards remain unchanged.
+
+The new viewport regression failed before the zoom-floor change. A separate
+readable-navigation assertion failed until the redundant Studio fit was removed.
+All **11 Graph interaction browser checks** then passed without retries: canonical
+node rendering, inheritance edges, selection, Fit View, readable explorer
+navigation, re-layout, multi-file models, attributes and panning, plus overview
+fits at 900px and 390px. The 390px case uses the existing explorer/preview collapse
+controls. All four final screenshots were inspected. This is local browser
+coverage; a hosted LSP was not running during these journeys.
+
+Both affected full test suites (1,568 visual-editor and 2,120 Studio tests with two
+existing skips), affected-package types and root lint/CSS checks pass after the
+Graph fix. Local evidence is `/tmp/rune-graph-fix-*`. Existing release configuration
+and Pages source-map packaging remain separate; package release is deferred by
+the user.
 
 ## Bundle comparison
 
-Fresh isolated Vite builds, uncompressed bytes for the main index artifacts:
+Fresh isolated Vite builds, including the Graph follow-up, uncompressed bytes
+for the main index artifacts:
 
 | Artifact | Before | After | Saved |
 | --- | ---: | ---: | ---: |
-| JavaScript | 7,856,704 | 7,834,235 | 22,469 |
+| JavaScript | 7,856,704 | 7,834,018 | 22,686 |
 | CSS | 413,180 | 404,342 | 8,838 |
-| Source map | 26,783,397 | 26,608,933 | 174,464 |
+| Source map | 26,783,397 | 26,614,125 | 169,272 |
 
 The source map still exceeds Pages' 25 MiB per-file limit (26,214,400 bytes).
 This cleanup does not resolve that existing packaging blocker. Builds and logs
-are isolated under `/tmp/rune-cleanup-*`; the earlier production UX evidence and
+are isolated under `/tmp/rune-cleanup-*` and `/tmp/rune-graph-fix-*`; the earlier production UX evidence and
 owner checkouts were preserved. No deployment was performed.

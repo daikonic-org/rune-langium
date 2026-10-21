@@ -46,6 +46,12 @@ local navigation scope, preserving graph visibility and canonical export inclusi
 Both surfaces share the inset active-row highlight and retain their existing
 buttons, kind glyphs and native drag behavior.
 
+Graph selection and focus camera movement belong to `RuneTypeGraph`. Studio
+owns explicit Fit View/re-layout actions and responsive container changes, and
+must not re-fit the entire graph on every selection. The graph permits zoom down
+to 5% so Fit View can include tall/wide namespaces while retaining viewport
+culling; selecting a type restores a readable detail view.
+
 Declaration context menus share pointer placement and navigation actions across
 the Type explorer, Graph, Structure and Inspector type references. Each owner
 supplies an already-resolved canonical ID and its existing navigation callbacks;

@@ -732,29 +732,6 @@ export const ExplorePerspective = withInstrumentation(
       [syncResponsiveGraphLayout]
     );
 
-    useEffect(() => {
-      if (!selectedNodeId) return;
-      if (!storeNodes.some((node) => node.id === selectedNodeId)) return;
-      // Skip while focus mode is isolating a subgraph (hiddenNodeIds non-empty):
-      // RuneTypeGraph's own internal focus-fit effect already relayouts and
-      // centers on the focused selection using the correct, freshly-filtered
-      // node set. This effect's `graphRef.relayout()` call operates on
-      // RuneTypeGraph's full internal node list — dispatched from this
-      // separate component's effect reacting to the SAME `selectedNodeId`
-      // change, it can fire in the same render pass as (and after) the
-      // internal focus-fit effect and clobber its correct, focus-filtered
-      // result back to the unfiltered graph. This was the remaining cause of
-      // a freshly focus-selected node (e.g. a type from a just-uploaded file)
-      // never rendering, even after the RuneTypeGraph-internal race was
-      // fixed (2026-08-07).
-      if (focusMode && hiddenNodeIds.size > 0) return;
-      graphRef.current?.relayout({
-        engine: useEditorStore.getState().layoutOptions.engine ?? 'elk',
-        direction: getResponsiveGraphDirection(),
-        groupByInheritance: groupedLayoutRef.current
-      });
-    }, [focusMode, getResponsiveGraphDirection, hiddenNodeIds, selectedNodeId, storeNodes]);
-
     const resolvedModelFiles = useMemo(() => {
       if (parsedModels && parsedModels.length > 0) {
         return parsedModels;

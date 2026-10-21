@@ -1097,6 +1097,8 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
           edgeTypes={edgeTypes}
           fitView
           onlyRenderVisibleElements
+          // The default 0.5 floor cannot fit tall namespace graphs.
+          minZoom={0.05}
           nodesDraggable={!mergedConfig.readOnly}
           nodesConnectable={!mergedConfig.readOnly}
           elementsSelectable

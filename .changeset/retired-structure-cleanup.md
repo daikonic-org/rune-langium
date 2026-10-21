@@ -13,3 +13,7 @@ Share codegen importer identifier policies, emitter lookup adaptation, bundled
 preamble removal and Python/TypeScript lens mechanics. Remove the unused import
 hasFatalImportDiagnostics export and internal namespace-symbol lookup. CLI
 commands now share recursive Rune file discovery with unchanged input semantics.
+
+Allow Graph overviews below the previous 50% zoom floor and keep selected-type
+camera fitting in the graph, preventing Studio's duplicate whole-graph fit from
+overwriting readable navigation.
