@@ -162,7 +162,9 @@ import belongs to the grid, and single-input import belongs to each node.
 `useWorkflowValidation` requests canonical worker validation on a separate session
 channel. Input identity, request cancellation, factory identity and model snapshots
 fence obsolete replies. Per-input type diagnostics and whole-function checks gate
-Execute together. `typescript.inputChecks` emits opt-in precondition-only exports
+Execute together. Validation status popovers can retry failed requests without
+editing inputs; the function status retries all unavailable checks together.
+`typescript.inputChecks` emits opt-in precondition-only exports
 through the same aliases/precondition emitter and dispatch selector used by actual
 execution. These exports never run assignments or postconditions. Ordinary exports
 are unchanged. Function schemas expose the declared result field, including scalar

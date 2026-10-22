@@ -38,7 +38,11 @@ import { useWorkspaceOptional } from '../providers/workspace-context.js';
 import { isInstanceBindableToField } from '../../services/function-input-binding.js';
 import { resolveFunctionOutputTarget } from '../../services/function-output-target.js';
 import { workflowFieldSchema, workflowFieldType, workflowFieldChipKind } from '../../services/workflow-fields.js';
-import { useWorkflowValidation, type WorkflowValidation as Validation } from '../../services/workflow-validation.js';
+import {
+  useWorkflowValidation,
+  workflowValidationRetry,
+  type WorkflowValidation as Validation
+} from '../../services/workflow-validation.js';
 import { downloadFile, sanitizeDownloadFilename } from '../../services/export.js';
 import { requestPrototype } from '../../services/prototype-navigation.js';
 import { usePrototypeViewStore, normalizeWorkflowWidths } from '../../store/prototype-view-store.js';
@@ -115,7 +119,8 @@ function InputNode({
           ? ('invalid' as const)
           : ('valid' as const),
     diagnostics,
-    message: own.message ?? full.message
+    message: own.message ?? full.message,
+    retry: workflowValidationRetry([own, full])
   };
   const validationKey = JSON.stringify(validation);
   useEffect(
@@ -254,7 +259,8 @@ export const PrototypeWorkflow = withInstrumentation(
               ? 'invalid'
               : functionValidation.state,
         diagnostics,
-        message: unavailable?.message
+        message: unavailable?.message,
+        retry: workflowValidationRetry(checks)
       };
     }, [functionValidation, objectFields, inputChecks, state.inputs]);
     const outputTarget = useMemo(

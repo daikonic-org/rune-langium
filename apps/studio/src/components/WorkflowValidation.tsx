@@ -62,6 +62,11 @@ export const WorkflowValidation = withInstrumentation(
           <p role="status" className="mt-2 text-xs">
             {validation.message ?? summary}
           </p>
+          {validation.state === 'unavailable' && validation.retry ? (
+            <Button variant="outline" size="xs" className="mt-2" onClick={validation.retry}>
+              Retry validation
+            </Button>
+          ) : null}
           {validation.diagnostics.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {validation.diagnostics.map((diagnostic, index) => (

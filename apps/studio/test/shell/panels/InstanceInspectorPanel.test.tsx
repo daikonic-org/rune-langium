@@ -126,6 +126,41 @@ it('retries a transient draft schema failure without remounting or losing the in
   expect(dispose).toHaveBeenCalled();
   expect(useInstanceStore.getState().instances.stored?.data).toEqual({ amount: 1250, currency: 'USD' });
 });
+it('retries all unavailable workflow checks without editing the current input values', async () => {
+  let recovered = false;
+  const check = vi.fn(async () => {
+    if (!recovered) throw new Error('validation unavailable');
+    return [];
+  });
+  const retryFactory = () => ({ ...factory(), validate: check });
+  render(
+    <PreviewSessionContext value={retryFactory}>
+      <InstanceInspectorPanel instanceId="stored" />
+    </PreviewSessionContext>
+  );
+  await screen.findByRole('region', { name: 'input fields' });
+  fireEvent.click(screen.getByText('Choose Add'));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByText('value', { exact: true }));
+  const other = await screen.findByRole('region', { name: 'other fields' });
+  fireEvent.change(within(other).getByRole('spinbutton', { name: 'Amount' }), { target: { value: '25' } });
+  fireEvent.change(within(other).getByRole('textbox', { name: 'Currency' }), { target: { value: 'USD' } });
+  for (const name of ['value', 'other', 'Add'])
+    await screen.findByRole('button', { name: `${name}: Validation unavailable · View validation` });
+  expect(screen.getByRole('button', { name: 'Execute' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Add: Validation unavailable · View validation' }));
+  recovered = true;
+  check.mockClear();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry validation' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Execute' })).toBeEnabled());
+  expect(check).toHaveBeenCalledTimes(3);
+  fireEvent.click(screen.getByRole('button', { name: 'Execute' }));
+  await waitFor(() => expect(screen.getByTestId('instance-payload-output')).toHaveTextContent('1275'));
+  expect(execute).toHaveBeenCalledWith(
+    'test.Add',
+    { value: { amount: 1250, currency: 'USD' }, other: { amount: 25, currency: 'USD' } },
+    expect.any(AbortSignal)
+  );
+});
 it('assigns equal inputs, validates conditions separately, executes and invalidates output on edit', async () => {
   setup();
   await screen.findByRole('region', { name: 'input fields' });
