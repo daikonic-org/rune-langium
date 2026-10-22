@@ -84,26 +84,27 @@ export const WorkspaceTypePicker = withInstrumentation(
           }}
           allowClear={allowClear}
           filterKinds={filterKinds}
-          renderTrigger={({ selected, placeholder, onToggle, disabled }) => (
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={label}
-                  disabled={disabled}
-                  onClick={onToggle}
-                >
-                  <span className="truncate">
-                    {selected
-                      ? `${selected.label}${selected.namespace ? ` — ${selected.namespace}` : ''}`
-                      : placeholder}
-                  </span>
-                  <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
-                </button>
-              }
-            />
-          )}
+          renderTrigger={({ selected, placeholder, onToggle, disabled }) => {
+            const displayLabel = selected
+              ? `${selected.label}${selected.namespace ? ` — ${selected.namespace}` : ''}`
+              : placeholder;
+            return (
+              <PopoverTrigger
+                render={
+                  <button
+                    type="button"
+                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={selected ? `${label}: ${displayLabel}` : label}
+                    disabled={disabled}
+                    onClick={onToggle}
+                  >
+                    <span className="truncate">{displayLabel}</span>
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
+                  </button>
+                }
+              />
+            );
+          }}
           renderPopover={({ groups, onSelect: selectOption, allowClear: canClear }) => {
             const commandGroups: CommandEntryGroup<TypeOption | null>[] = [
               ...groups.map((group) => ({

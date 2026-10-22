@@ -5,7 +5,6 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { InstanceInspectorPanel } from '../../../src/shell/panels/InstanceInspectorPanel.js';
 import { useInstanceStore } from '../../../src/store/instance-store.js';
-import { usePrototypeViewStore } from '../../../src/store/prototype-view-store.js';
 
 const formState = vi.hoisted(() => ({ available: true }));
 
@@ -18,13 +17,29 @@ vi.mock('../../../src/shell/panels/InstanceFormPanel.js', () => ({
     ) : null
 }));
 
+vi.mock('../../../src/shell/panels/InstanceFunctionPanel.js', () => ({
+  InstanceFunctionPanel: () => (
+    <div data-field-path="functionOnly">
+      <input aria-label="Function-only parameter" />
+    </div>
+  )
+}));
+
+it('does not treat function parameters as payload navigation destinations', () => {
+  const instanceId = useInstanceStore.getState().createInstance('test.Trade', 'Trade');
+  render(<InstanceInspectorPanel instanceId={instanceId} focusedPayloadPointer="/functionOnly" focusRequestId={1} />);
+  act(() => vi.advanceTimersByTime(16));
+  expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Function-only parameter')).not.toHaveFocus();
+  expect(document.querySelector('.navigation-arrival')).toBeNull();
+});
+
 beforeEach(() => {
   formState.available = true;
   vi.useFakeTimers();
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(callback, 16));
   vi.stubGlobal('cancelAnimationFrame', clearTimeout);
   Element.prototype.scrollIntoView = vi.fn();
-  usePrototypeViewStore.getState().patch({ inspectorTab: 'form' });
 });
 afterEach(() => {
   cleanup();
@@ -86,7 +101,7 @@ function deliverSchema() {
   });
 }
 
-it('does not refocus, scroll, reopen the form tab, or cue again after schema regeneration', () => {
+it('does not refocus, scroll, or cue again after schema regeneration', () => {
   const instanceId = useInstanceStore.getState().createInstance('test.Trade', 'Trade');
   render(<InstanceInspectorPanel instanceId={instanceId} focusedPayloadPointer="/party" focusRequestId={1} />);
   act(() => vi.advanceTimersByTime(1016));
@@ -94,10 +109,9 @@ it('does not refocus, scroll, reopen the form tab, or cue again after schema reg
   document.body.append(outside);
   outside.focus();
   vi.mocked(Element.prototype.scrollIntoView).mockClear();
-  act(() => usePrototypeViewStore.getState().patch({ inspectorTab: 'functions' }));
   act(deliverSchema);
   act(() => vi.advanceTimersByTime(16));
-  expect(usePrototypeViewStore.getState().state.inspectorTab).toBe('functions');
+  expect(screen.getByLabelText('Party')).toBeVisible();
   expect(outside).toHaveFocus();
   expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   expect(document.querySelector('.navigation-arrival')).toBeNull();

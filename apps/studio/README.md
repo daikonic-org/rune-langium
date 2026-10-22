@@ -102,6 +102,17 @@ Explore's location path is part of the normal interface, including production.
 It shows the selected declaration after its namespace, aligns with the center
 stack, and truncates from the beginning when space is tight.
 
+### Applying functions in Prototype
+
+The selected instance stays editable while you choose a function in the adjacent
+**Functions** panel. Its compatible input receives the latest instance data; when
+several inputs match, choose the **Instance parameter**. Open **…** for additional
+parameters, then **Apply**. Results appear in the payload panel without changing
+the original instance. A single object result can be saved as a new instance.
+
+**New…** beside **Edit layout** opens the same new-instance dialog as the toolbar.
+Narrow panes stack the form, Functions, and validation/payload in reading order.
+
 ### Form layouts and formats
 
 Use **Edit layout** in Form Preview or Prototype to drag fields into reading

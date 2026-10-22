@@ -36,6 +36,35 @@ describe('createFunctionSession', () => {
     expect(session.getState()).toMatchObject({ functionFqn: 'test.Second', result: undefined, status: 'idle' });
   });
 
+  it('initializes additional inputs with the shared schema defaults', async () => {
+    const client: PreviewSessionClient = {
+      schema: vi.fn().mockResolvedValue({
+        schemaVersion: 1,
+        targetId: 'test.BuildTrade',
+        title: 'Build trade',
+        status: 'ready',
+        kind: 'function',
+        fields: [
+          { path: 'names', label: 'Names', kind: 'array', required: false, children: [] },
+          { path: 'enabled', label: 'Enabled', kind: 'boolean', required: true },
+          {
+            path: 'status',
+            label: 'Status',
+            kind: 'enum',
+            required: true,
+            enumValues: [{ value: 'Draft', label: 'Draft' }]
+          }
+        ]
+      }),
+      execute: vi.fn(),
+      dispose: vi.fn()
+    };
+    const session = createFunctionSession(client);
+    await session.selectFunction('test.BuildTrade');
+    expect(session.getState().inputs).toEqual({ names: [], enabled: false, status: 'Draft' });
+    session.dispose();
+  });
+
   it('wraps an instance when binding it to a collection input', async () => {
     const client: PreviewSessionClient = {
       schema: vi.fn().mockResolvedValue({
@@ -44,7 +73,14 @@ describe('createFunctionSession', () => {
         title: 'Build trade',
         status: 'ready',
         kind: 'function',
-        fields: [{ path: 'parties', label: 'Parties', kind: 'array', item: { kind: 'object', fields: [] } }]
+        fields: [
+          {
+            path: 'parties',
+            label: 'Parties',
+            kind: 'array',
+            children: [{ path: 'parties[]', kind: 'object', children: [] }]
+          }
+        ]
       }),
       execute: vi.fn(),
       dispose: vi.fn()
@@ -69,7 +105,7 @@ describe('createFunctionSession', () => {
         title: 'Build trade',
         status: 'ready',
         kind: 'function',
-        fields: [{ path: 'party', label: 'Party', kind: 'object', fields: [] }]
+        fields: [{ path: 'party', label: 'Party', kind: 'object', children: [] }]
       }),
       execute: vi.fn().mockResolvedValue({ result: 'old' }),
       dispose: vi.fn()

@@ -13,7 +13,8 @@ import {
   useState,
   type ChangeEvent,
   type FocusEvent,
-  type ReactElement
+  type ReactElement,
+  type ReactNode
 } from 'react';
 import {
   expandPreviewField,
@@ -77,6 +78,8 @@ export interface PreviewPresentation {
   mode: 'scratch' | 'instance';
   showPayload: boolean;
   showHeader: boolean;
+  showLayoutToolbar?: boolean;
+  showExecutionControls?: boolean;
 }
 
 export type PayloadView =
@@ -96,6 +99,7 @@ const SCRATCH_PRESENTATION: PreviewPresentation = {
 };
 
 export interface FormPreviewPanelProps {
+  ariaLabel?: string;
   schema?: FormPreviewSchema;
   status: PreviewStatus;
   target?: FormPreviewTarget;
@@ -111,11 +115,13 @@ export interface FormPreviewPanelProps {
   valid?: boolean;
   validated?: boolean;
   presentation?: PreviewPresentation;
+  layoutToolbarStart?: ReactNode;
   onCreateInstance?: (seed: InstanceSeed) => void;
 }
 
 export const FormPreviewPanel = withInstrumentation(
   function FormPreviewPanel({
+    ariaLabel = 'Form preview',
     schema,
     status,
     target: _target,
@@ -127,7 +133,8 @@ export const FormPreviewPanel = withInstrumentation(
     valid: controlledValid,
     validated: controlledValidated,
     presentation = SCRATCH_PRESENTATION,
-    onCreateInstance
+    onCreateInstance,
+    layoutToolbarStart
   }: FormPreviewPanelProps): ReactElement {
     const isControlled = values !== undefined;
     const [detailState, setDetailState] = useState<{ targetId: string; stack: PreviewDetailEntry[] }>({
@@ -482,10 +489,11 @@ export const FormPreviewPanel = withInstrumentation(
       const isWaiting = status.state === 'waiting' && status.targetId;
       return (
         <section
-          aria-label="Form preview"
+          aria-label={ariaLabel}
           data-testid="panel-formPreview"
           className="studio-scroll flex h-full flex-col overflow-auto px-panel-x py-panel-y"
         >
+          {layoutToolbarStart}
           {isWaiting ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner className="size-3.5 shrink-0" />
@@ -516,7 +524,7 @@ export const FormPreviewPanel = withInstrumentation(
     return (
       <section
         role="region"
-        aria-label="Form preview"
+        aria-label={ariaLabel}
         data-testid="panel-formPreview"
         className="studio-scroll flex h-full flex-col overflow-auto"
       >
@@ -548,20 +556,21 @@ export const FormPreviewPanel = withInstrumentation(
             </div>
           </header>
         ) : null}
-        <p
-          role={status.state === 'invalid' ? 'alert' : 'status'}
-          aria-live="polite"
-          className="px-panel-x pt-panel-y text-xs text-muted-foreground"
-        >
-          {summaryMessage}
-        </p>
-        {activeSample?.validated && activeSample.errors[''] ? (
-          <p role="alert" className="px-panel-x pt-panel-y text-xs text-destructive">
-            {activeSample.errors['']}
-          </p>
-        ) : null}
         <PreviewDefinitions value={schema.definitions}>
-          <FormPresentation>
+          <FormPresentation toolbarStart={layoutToolbarStart} showToolbar={presentation.showLayoutToolbar}>
+            <p
+              role={status.state === 'invalid' ? 'alert' : 'status'}
+              aria-live="polite"
+              className="px-panel-x pt-panel-y text-xs text-muted-foreground"
+            >
+              {summaryMessage}
+            </p>
+            {activeSample?.validated && activeSample.errors[''] ? (
+              <p role="alert" className="px-panel-x pt-panel-y text-xs text-destructive">
+                {activeSample.errors['']}
+              </p>
+            ) : null}
+
             <PreviewDetailNavigation
               value={{
                 open: (field, arrayIndices, origin) => {
@@ -643,7 +652,7 @@ export const FormPreviewPanel = withInstrumentation(
                     </div>
                   )
                 ) : null}
-                {schema.kind === 'function' ? (
+                {schema.kind === 'function' && presentation.showExecutionControls !== false ? (
                   <div className="preview-panel__function-controls border-t border-border pt-3">
                     <Button
                       type="button"

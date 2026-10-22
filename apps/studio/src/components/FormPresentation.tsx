@@ -39,14 +39,22 @@ const PresentationContext = createContext<{
 }>({ preferences: { layouts: {}, formats: {} }, editing: false, update() {} });
 
 export const FormPresentation = withInstrumentation(
-  function FormPresentation({ children }: { children: ReactNode }) {
+  function FormPresentation({
+    children,
+    toolbarStart,
+    showToolbar = true
+  }: {
+    children: ReactNode;
+    toolbarStart?: ReactNode;
+    showToolbar?: boolean;
+  }) {
     const workspaceId = useWorkspaceOptional()?.workspaceId;
     const entry = useFormPresentationStore((state) => state.workspaces[formWorkspaceKey(workspaceId)]);
     const load = useFormPresentationStore((state) => state.load);
     const update = useFormPresentationStore((state) => state.update);
     const retry = useFormPresentationStore((state) => state.retry);
     const setEditing = useFormPresentationStore((state) => state.setEditing);
-    const editing = entry?.editing === true;
+    const editing = showToolbar && entry?.editing === true;
     useEffect(() => {
       void load(workspaceId);
     }, [workspaceId, load]);
@@ -58,30 +66,33 @@ export const FormPresentation = withInstrumentation(
           update: (change) => update(workspaceId, change)
         }}
       >
-        <div className="preview-layout-toolbar">
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            disabled={!entry?.loaded || (!!entry.error && entry.revision === 0)}
-            aria-pressed={editing}
-            onClick={() => setEditing(workspaceId, !editing)}
-          >
-            <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-            {editing ? 'Done editing' : 'Edit layout'}
-          </Button>
-          {editing && (
-            <span role="status">
-              {!workspaceId
-                ? 'Session preferences'
-                : entry?.saving
-                  ? 'Saving…'
-                  : entry?.revision && !entry.error
-                    ? 'Saved in this workspace'
-                    : 'Workspace preferences'}
-            </span>
-          )}
-        </div>
+        {showToolbar && (
+          <div className="preview-layout-toolbar">
+            {toolbarStart}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              disabled={!entry?.loaded || (!!entry.error && entry.revision === 0)}
+              aria-pressed={editing}
+              onClick={() => setEditing(workspaceId, !editing)}
+            >
+              <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+              {editing ? 'Done editing' : 'Edit layout'}
+            </Button>
+            {editing && (
+              <span role="status">
+                {!workspaceId
+                  ? 'Session preferences'
+                  : entry?.saving
+                    ? 'Saving…'
+                    : entry?.revision && !entry.error
+                      ? 'Saved in this workspace'
+                      : 'Workspace preferences'}
+              </span>
+            )}
+          </div>
+        )}
         {editing && (
           <p className="preview-layout-help">
             Drag fields to arrange them. Use arrow keys on a handle to move a field. Formats apply to every use of the

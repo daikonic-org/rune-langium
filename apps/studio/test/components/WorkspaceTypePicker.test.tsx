@@ -58,7 +58,7 @@ describe('WorkspaceTypePicker', () => {
       <WorkspaceTypePicker value={null} onSelect={onSelect} filterKinds={['data', 'choice']} label="Instance type" />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Instance type' }));
+    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
     await user.type(await screen.findByRole('combobox', { name: 'Search instance type' }), 'Party');
     await user.click(screen.getByRole('option', { name: /Party.*test\.two/ }));
 
@@ -82,7 +82,7 @@ describe('WorkspaceTypePicker', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Instance type' }));
+    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
     const input = await screen.findByRole('combobox', { name: 'Search instance type' });
     expect(input).toHaveFocus();
     await act(async () => {
@@ -90,11 +90,11 @@ describe('WorkspaceTypePicker', () => {
     });
     await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: 'Instance type' }));
+    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onSelect).toHaveBeenCalledWith('test.one.Party');
 
-    await user.click(screen.getByRole('button', { name: 'Instance type' }));
+    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
     await user.click(await screen.findByRole('option', { name: 'Clear selection' }));
     expect(onSelect).toHaveBeenLastCalledWith(null);
   });
@@ -115,7 +115,8 @@ describe('WorkspaceTypePicker', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Function' }));
+    expect(screen.getByRole('button', { name: 'Function: Party — test.one' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /^Function/ }));
     await user.keyboard('{ArrowDown}{Enter}');
 
     expect(onSelectOption).toHaveBeenCalledWith(

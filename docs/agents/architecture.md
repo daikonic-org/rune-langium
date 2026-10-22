@@ -146,10 +146,16 @@ hydration alone is not generation readiness.
 - Close transports during reconnect/disposal so server-side sessions and documents can be released.
 - The LSP connection adapter converts returned or thrown vscode `ResponseError` values into thrown lspeasy protocol errors for ordinary request handlers. Cancellation must travel in JSON-RPC's error field, never as a successful completion payload.
 
-Prototype's instance Inspector uses its container width to place validation,
-provenance and payload beside Form/Functions in wide panes, and below them in
-narrow panes. Diagnostics are disclosed in a bounded scroll area; they never
-claim the form's remaining height. Controlled previews forward edits to their
+Prototype's instance Inspector keeps the current instance form visible. Its
+container width places data, Functions, then validation/provenance/payload in
+three columns or stacks them in that order. New… reuses the existing creation
+dialog beside Edit layout. Functions automatically bind a sole compatible input
+through the shared matcher; ambiguous bindings require explicit selection.
+Additional parameters use the shared renderer behind …, without another Run or
+layout toolbar. Instance edits refresh the binding and invalidate stale results;
+Apply never overwrites instance data. Only successful results replace the payload
+view, and singular object results can seed the existing creation flow.
+Diagnostics are disclosed in a bounded scroll area; they never claim the form's remaining height. Controlled previews forward edits to their
 owning instance/function session once; blur must not rewrite unchanged values
 and restart readiness/validation while an adjacent action is being clicked.
 

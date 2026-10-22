@@ -12,7 +12,7 @@ export interface PrototypeViewState {
   query: string;
   typeFqn: string | null;
   nativeLayout?: unknown;
-  inspectorTab: 'form' | 'functions';
+
   graphVisible: boolean;
 }
 
@@ -20,7 +20,7 @@ export const DEFAULT_PROTOTYPE_VIEW: PrototypeViewState = {
   selectedId: null,
   query: '',
   typeFqn: null,
-  inspectorTab: 'form',
+
   graphVisible: false
 };
 

@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { FormPreviewPanel } from '../../components/FormPreviewPanel.js';
 import { useInstanceStore } from '../../store/instance-store.js';
 import type { PreviewStatus } from '../../store/preview-store.js';
@@ -10,10 +11,11 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 export interface InstanceFormPanelProps {
   instanceId: string;
+  onNewInstance?(): void;
 }
 
 export const InstanceFormPanel = withInstrumentation(
-  function InstanceFormPanel({ instanceId }: InstanceFormPanelProps): ReactElement {
+  function InstanceFormPanel({ instanceId, onNewInstance }: InstanceFormPanelProps): ReactElement {
     const record = useInstanceStore((s) => s.instances[instanceId]);
     const schema = useInstanceStore((s) => (record ? s.schemas.get(record.typeFqn) : undefined));
     const schemaError = useInstanceStore((s) => (record ? s.schemaErrors.get(record.typeFqn) : undefined));
@@ -63,9 +65,15 @@ export const InstanceFormPanel = withInstrumentation(
           }
         : { errors: {}, valid: false, validated: false };
 
+    const newInstanceAction = onNewInstance ? (
+      <Button type="button" variant="ghost" size="xs" onClick={onNewInstance}>
+        New…
+      </Button>
+    ) : undefined;
     if (validationStatus === 'unavailable') {
       return (
-        <section aria-label="Instance form" className="space-y-3 p-3 text-sm text-muted-foreground">
+        <section className="space-y-3 p-3 text-sm text-muted-foreground">
+          {newInstanceAction}
           <p>{schemaError?.message ?? 'Instance validation is unavailable.'}</p>
           <button type="button" className="rounded border px-2 py-1" onClick={() => void retryInstance(instanceId)}>
             Retry
@@ -76,6 +84,7 @@ export const InstanceFormPanel = withInstrumentation(
 
     return (
       <FormPreviewPanel
+        layoutToolbarStart={newInstanceAction}
         schema={schema}
         status={status}
         values={record.data as Record<string, unknown>}

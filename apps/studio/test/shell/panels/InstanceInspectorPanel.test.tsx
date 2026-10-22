@@ -8,6 +8,10 @@ import { useInstanceStore } from '../../../src/store/instance-store.js';
 import { usePrototypeViewStore } from '../../../src/store/prototype-view-store.js';
 import { useExploreNavigationStore } from '../../../src/services/explore-navigation.js';
 
+vi.mock('../../../src/shell/panels/InstanceFormPanel.js', () => ({
+  InstanceFormPanel: () => <div>Instance fields</div>
+}));
+
 describe('InstanceInspectorPanel', () => {
   beforeEach(() => {
     useInstanceStore.setState({
@@ -22,7 +26,7 @@ describe('InstanceInspectorPanel', () => {
         selectedId: null,
         query: '',
         typeFqn: null,
-        inspectorTab: 'functions',
+
         graphVisible: false
       }
     });

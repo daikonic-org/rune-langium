@@ -1,7 +1,10 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
+import { MoreHorizontal } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@rune-langium/design-system/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { WorkspaceTypePicker } from '../../components/WorkspaceTypePicker.js';
 import { FormPreviewPanel } from '../../components/FormPreviewPanel.js';
@@ -38,10 +41,18 @@ function InstanceFunctionSession({
   const workspaceId = workspace?.workspaceId;
   const factory = usePreviewSessionFactory();
   const instance = useInstanceStore((state) => state.instances[instanceId]);
-  const sessionRef = useRef<FunctionSession | undefined>(undefined);
-  if (!sessionRef.current && factory) sessionRef.current = createFunctionSession(factory());
-  const session = sessionRef.current;
-  useEffect(() => () => session?.dispose(), [session]);
+  const [session, setSession] = useState<FunctionSession>();
+  useEffect(() => {
+    if (!factory) {
+      setSession(undefined);
+      return;
+    }
+    // A session owns worker listeners. Create and dispose them together so
+    // StrictMode's setup/cleanup replay cannot retain a disposed client.
+    const next = createFunctionSession(factory());
+    setSession(next);
+    return () => next.dispose();
+  }, [factory]);
   const state = useSyncExternalStore(
     (listener) => session?.subscribe(listener) ?? (() => undefined),
     () => session?.getState() ?? NO_SESSION_STATE
@@ -60,21 +71,75 @@ function InstanceFunctionSession({
     state.result !== null &&
     typeof state.result === 'object' &&
     !Array.isArray(state.result);
+  const [parametersOpen, setParametersOpen] = useState(false);
+  const bindableFields = useMemo(
+    () =>
+      instance
+        ? (state.schema?.fields.filter((field) =>
+            isInstanceBindableToField(instance, field, workspace?.models ?? [])
+          ) ?? [])
+        : [],
+    [instance?.typeFqn, state.schema, workspace?.models]
+  );
+  const parameter =
+    bindableFields.find((field) => field.path === state.boundParameter) ??
+    (bindableFields.length === 1 ? bindableFields[0] : undefined);
+  const lastBinding = useRef<
+    { session: FunctionSession; schema: typeof state.schema; parameter: string; data: unknown } | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!session || !instance || !parameter) return;
+    const previous = lastBinding.current;
+    if (
+      previous &&
+      previous.session === session &&
+      previous.schema === state.schema &&
+      previous.parameter === parameter.path &&
+      previous.data === instance.data
+    )
+      return;
+    lastBinding.current = { session, schema: state.schema, parameter: parameter.path, data: instance.data };
+    // Rebinding uses the same invalidation path as editing parameters: an old
+    // in-flight result can never replace the result for newer instance data.
+    session.bindInstance(parameter.path, instance);
+  }, [session, instance?.data, parameter?.path, state.schema]);
+  const extraSchema = useMemo(
+    () =>
+      state.schema
+        ? {
+            ...state.schema,
+            fields: state.schema.fields.filter((field) => field.path !== parameter?.path)
+          }
+        : undefined,
+    [state.schema, parameter?.path]
+  );
+  const needsBinding = !!state.schema?.fields.length && !parameter;
+  const hasExtraParameters = !!extraSchema?.fields.length && !needsBinding;
   if (!factory || !session)
-    return <p className="p-3 text-sm text-muted-foreground">Function execution is preparing…</p>;
+    return (
+      <section className="space-y-2 p-3">
+        <h3 className="font-semibold">Functions</h3>
+        <p className="text-sm text-muted-foreground">Function execution is preparing…</p>
+      </section>
+    );
   return (
     <section className="space-y-3 p-3" aria-label="Function session">
+      <h3 className="font-semibold">Functions</h3>
       <WorkspaceTypePicker
         label="Choose a function"
         value={state.functionFqn}
         onSelect={() => undefined}
-        onSelectOption={(option) =>
-          option && void session.selectFunction(qualifiedNameFromNodeId(option.value), option.value)
-        }
+        onSelectOption={(option) => {
+          if (!option) return;
+          setParametersOpen(false);
+          void session.selectFunction(qualifiedNameFromNodeId(option.value), option.value);
+        }}
         filterKinds={['func']}
       />
-      {!state.functionFqn ? <p className="text-sm text-muted-foreground">Choose a function to run.</p> : null}
-      {state.status === 'running' ? (
+      {!state.functionFqn ? (
+        <p className="text-xs text-muted-foreground">Apply a function to this instance’s data.</p>
+      ) : null}
+      {state.status === 'running' && !state.schema ? (
         <p role="status" className="text-sm text-muted-foreground">
           Loading function…
         </p>
@@ -86,33 +151,83 @@ function InstanceFunctionSession({
       ) : null}
       {state.schema ? (
         <>
-          {instance ? (
-            <div className="flex flex-wrap gap-1.5">
-              {state.schema.fields
-                .filter((field) => isInstanceBindableToField(instance, field, workspace?.models ?? []))
-                .map((field) => (
-                  <Button
-                    key={field.path}
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => session.bindInstance(field.path, instance)}
-                  >
-                    Use {instance.name} for {field.label}
-                  </Button>
+          {bindableFields.length > 1 ? (
+            <Select
+              value={state.boundParameter}
+              onValueChange={(path) => instance && session.bindInstance(path, instance)}
+            >
+              <SelectTrigger aria-label="Instance parameter">
+                <SelectValue placeholder="Use data for…" />
+              </SelectTrigger>
+              <SelectContent>
+                {bindableFields.map((field) => (
+                  <SelectItem key={field.path} value={field.path}>
+                    {field.label}
+                  </SelectItem>
                 ))}
-            </div>
+              </SelectContent>
+            </Select>
           ) : null}
-          <FormPreviewPanel
-            schema={state.schema}
-            status={{ state: 'ready', targetId: state.schema.targetId }}
-            values={state.inputs}
-            onValuesChange={(inputs) => session.setInputs(inputs)}
-            presentation={{ mode: 'instance', showHeader: false, showPayload: false }}
-          />
-          <Button type="button" size="sm" disabled={state.status === 'running'} onClick={() => void session.run()}>
-            {state.status === 'running' ? 'Running…' : 'Run'}
-          </Button>
+          {parameter && instance ? (
+            <p className="text-xs text-muted-foreground">
+              Using {instance.name} as {parameter.label}.
+            </p>
+          ) : null}
+          {needsBinding ? (
+            <p className="text-xs text-muted-foreground">
+              {bindableFields.length
+                ? 'Choose which parameter receives this instance.'
+                : 'This function has no parameter that accepts this instance’s type.'}
+            </p>
+          ) : null}
+          <Collapsible open={parametersOpen} onOpenChange={setParametersOpen}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                disabled={state.status === 'running' || needsBinding}
+                onClick={() => {
+                  if (parameter && instance) session.bindInstance(parameter.path, instance);
+                  void session.run();
+                }}
+              >
+                {state.status === 'running' ? 'Applying…' : 'Apply'}
+              </Button>
+              {hasExtraParameters ? (
+                <CollapsibleTrigger
+                  render={<Button type="button" variant="ghost" size="sm" aria-label="Additional parameters" />}
+                >
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                </CollapsibleTrigger>
+              ) : null}
+            </div>
+            {hasExtraParameters ? (
+              <>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {extraSchema?.fields.length} additional{' '}
+                  {extraSchema?.fields.length === 1 ? 'parameter' : 'parameters'}
+                </p>
+                <CollapsibleContent>
+                  <div className="mt-3 border-t border-border pt-3" role="region" aria-label="Additional parameters">
+                    <FormPreviewPanel
+                      ariaLabel="Function parameters"
+                      schema={extraSchema}
+                      status={{ state: 'ready', targetId: state.schema.targetId }}
+                      values={state.inputs}
+                      onValuesChange={(inputs) => session.setInputs(inputs)}
+                      presentation={{
+                        mode: 'instance',
+                        showHeader: false,
+                        showPayload: false,
+                        showLayoutToolbar: false,
+                        showExecutionControls: false
+                      }}
+                    />
+                  </div>
+                </CollapsibleContent>
+              </>
+            ) : null}
+          </Collapsible>
         </>
       ) : null}
       {state.status === 'succeeded' ? (

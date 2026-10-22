@@ -49,7 +49,7 @@ describe('PrototypePerspective', () => {
         selectedId: null,
         query: '',
         typeFqn: null,
-        inspectorTab: 'form',
+
         graphVisible: false
       }
     });
@@ -84,12 +84,23 @@ describe('PrototypePerspective', () => {
     expect(screen.getByText(/select or create an instance to inspect it/i)).toBeInTheDocument();
   });
 
-  it('selecting a grid row opens its Form tab by default', async () => {
+  it('selecting a grid row keeps the form and Functions visible', async () => {
     const id = useInstanceStore.getState().createInstance('test.Party', 'Acme');
     await renderPerspective();
     fireEvent.click(screen.getByRole('row', { name: /Acme/ }));
     expect(usePrototypeViewStore.getState().state.selectedId).toBe(id);
-    expect(screen.getByRole('tab', { name: 'Form' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('region', { name: 'Instance form' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Functions' })).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'Form' })).not.toBeInTheDocument();
+  });
+
+  it('opens the existing new-instance dialog from New… beside the form', async () => {
+    useInstanceStore.getState().createInstance('test.Party', 'Acme');
+    await renderPerspective();
+    fireEvent.click(screen.getByRole('row', { name: /Acme/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'New…', exact: true }));
+    expect(await screen.findByRole('heading', { name: 'New instance' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Instance type' })).toBeVisible();
   });
 
   it('registers Inspector, Instances, and Payload graph panels with the shared host', async () => {
@@ -203,7 +214,7 @@ describe('PrototypePerspective', () => {
     act(() => requestPrototype('workspace-a', { kind: 'open', instanceId: id }));
 
     await vi.waitFor(() => expect(usePrototypeViewStore.getState().state.selectedId).toBe(id));
-    expect(usePrototypeViewStore.getState().state.inspectorTab).toBe('form');
+    expect(screen.getByRole('region', { name: 'Instance form' })).toBeVisible();
   });
 
   it('applies an opening intent after delayed workspace preferences restore', async () => {
@@ -227,6 +238,6 @@ describe('PrototypePerspective', () => {
     await screen.findByTestId('mock-prototype-workbench');
 
     expect(usePrototypeViewStore.getState().state.selectedId).toBe(id);
-    expect(usePrototypeViewStore.getState().state.inspectorTab).toBe('form');
+    expect(screen.getByRole('region', { name: 'Instance form' })).toBeVisible();
   });
 });

@@ -83,7 +83,7 @@ export const InstanceGridPanel = withInstrumentation(
     };
 
     return (
-      <section data-testid="prototype-grid" className="flex h-full min-h-0 flex-col" aria-label="Instances">
+      <section data-testid="prototype-grid" className="flex h-full min-h-0 flex-col" aria-label="Instance table">
         <div className="flex flex-wrap gap-2 border-b border-border p-2">
           <Input
             aria-label="Search instances"
@@ -161,8 +161,7 @@ export const InstanceGridPanel = withInstrumentation(
                         onClick={(event) => {
                           event.stopPropagation();
                           patch({
-                            selectedId: duplicateInstance(record.id),
-                            inspectorTab: 'form'
+                            selectedId: duplicateInstance(record.id)
                           });
                         }}
                       >

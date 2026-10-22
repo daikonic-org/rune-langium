@@ -3,6 +3,7 @@
 
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
+import { buildDefaultValues, resolveArmPaths } from '../services/preview-validator.js';
 import type { PreviewSessionClient } from '../services/preview-session-client.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -73,7 +74,7 @@ export const createFunctionSession = withInstrumentation(
         try {
           const schema = await client.schema(schemaTargetId, controller.signal);
           if (disposed || version !== selectionVersion) return;
-          patch({ schema, status: 'idle' });
+          patch({ schema, inputs: buildDefaultValues(schema.fields, resolveArmPaths(schema)), status: 'idle' });
         } catch (error) {
           if (disposed || version !== selectionVersion || controller.signal.aborted) return;
           patch({ status: 'failed', error: error instanceof Error ? error.message : String(error) });

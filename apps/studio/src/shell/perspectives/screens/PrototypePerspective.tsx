@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from 'react';
 import type { DockviewApi } from 'dockview-react';
 import type { WorkbenchDefinition } from '../../workbench-types.js';
 import { WorkbenchHost } from '../../WorkbenchHost.js';
@@ -44,6 +44,10 @@ export const PrototypePerspective = withInstrumentation(
     const consumePrototypeIntent = usePrototypeNavigationStore((state) => state.consume);
     const [creating, setCreating] = useState(false);
     const [seed, setSeed] = useState<Parameters<typeof InstanceCreateDialog>[0]['seed']>();
+    const beginCreate = useCallback(() => {
+      setSeed(undefined);
+      setCreating(true);
+    }, []);
     const [importError, setImportError] = useState<string | null>(null);
     const [payloadFocus, setPayloadFocus] = useState<{ pointer: string; revision: number }>();
     const [activationReady, setActivationReady] = useState(false);
@@ -71,7 +75,7 @@ export const PrototypePerspective = withInstrumentation(
           setSeed(intent.seed);
           setCreating(true);
         }
-        if (intent?.kind === 'open') patch({ selectedId: intent.instanceId, inspectorTab: 'form' });
+        if (intent?.kind === 'open') patch({ selectedId: intent.instanceId });
         setActivationReady(true);
       });
       return () => {
@@ -87,6 +91,7 @@ export const PrototypePerspective = withInstrumentation(
           'prototype.inspector': () =>
             view.selectedId ? (
               <InstanceInspectorPanel
+                onNewInstance={beginCreate}
                 instanceId={view.selectedId}
                 focusedPayloadPointer={payloadFocus?.pointer}
                 focusRequestId={payloadFocus?.revision}
@@ -141,7 +146,7 @@ export const PrototypePerspective = withInstrumentation(
           if (view.graphVisible) addPayloadGraph(api, width);
         }
       }),
-      [payloadFocus, selectedRecord, view.graphVisible, view.selectedId]
+      [beginCreate, payloadFocus, selectedRecord, view.graphVisible, view.selectedId]
     );
 
     const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -183,14 +188,7 @@ export const PrototypePerspective = withInstrumentation(
             >
               Payload graph
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setSeed(undefined);
-                setCreating(true);
-              }}
-            >
+            <Button type="button" size="sm" onClick={beginCreate}>
               New instance
             </Button>
           </div>
@@ -219,7 +217,7 @@ export const PrototypePerspective = withInstrumentation(
           seed={seed}
           open={creating}
           onClose={() => setCreating(false)}
-          onCreated={(id) => patch({ selectedId: id, inspectorTab: 'form' })}
+          onCreated={(id) => patch({ selectedId: id })}
         />
       </section>
     );

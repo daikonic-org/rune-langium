@@ -21,7 +21,7 @@ describe('InstanceGridPanel', () => {
         selectedId: null,
         query: '',
         typeFqn: null,
-        inspectorTab: 'form',
+
         graphVisible: false
       }
     });
