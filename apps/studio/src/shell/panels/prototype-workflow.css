@@ -30,7 +30,7 @@
   min-height: 0;
   overflow: auto;
   padding: var(--space-3);
-  background: radial-gradient(circle,var(--border) .7px,transparent .8px) 0 0/18px 18px;
+  background: radial-gradient(circle,var(--glass-dot-grid) 1px,transparent 1px) 0 0/22px 22px, var(--canvas-background);
 }
 
 .workflow-inputs {
@@ -59,9 +59,7 @@
   --workflow-kind: var(--color-data-text);
   --workflow-header: var(--color-data-bg);
   min-width: 0;
-  border: var(--hairline) solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--card);
+  border-color: color-mix(in oklch, var(--workflow-kind) 25%, transparent);
   overflow: clip;
 }
 
@@ -211,7 +209,7 @@
 }
 
 .workflow-stage--panels {
-  background: var(--background);
+  background: var(--canvas-background);
   grid-template-columns: minmax(220px,var(--workflow-input-width)) 12px minmax(250px,var(--workflow-function-width)) 12px minmax(220px,1fr);
 }
 

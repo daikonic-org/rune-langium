@@ -174,6 +174,8 @@ Prototype node headers reuse Structure's kind palettes and shared `TypeChip` ref
 its compact chooser uses the same chip with canonical repository identity. Function
 references use the function palette, while unknown references retain unresolved styling.
 Node insets and controls follow the shared compact Inspector spacing scale.
+Graph and Prototype share the `--canvas-background` vignette token; Prototype
+nodes use the existing `studio-card` depth treatment and subtle kind-tinted edges.
 
 Workflow and Object builder share one session and renderer. Their view selector,
 Add and Payload graph actions occupy a single Prototype toolbar. Smooth SVG connectors are layout

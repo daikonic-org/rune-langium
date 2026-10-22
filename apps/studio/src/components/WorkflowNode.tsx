@@ -58,7 +58,7 @@ export const WorkflowNode = withInstrumentation(
       <section
         ref={root}
         aria-label={`${name} ${kind}`}
-        className={`workflow-node workflow-node--${kind}`}
+        className={`workflow-node studio-card workflow-node--${kind}`}
         data-workflow-node={name}
         data-workflow-source={sourceId}
         data-type-kind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
