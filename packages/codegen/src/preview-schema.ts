@@ -182,7 +182,7 @@ export function generatePreviewSchemas(
     ]);
   for (const schema of schemas) {
     const definitions: NonNullable<FormPreviewSchema['definitions']> = Object.create(null);
-    const pending = references(schema.fields);
+    const pending = references(schema.result ? [...schema.fields, schema.result] : schema.fields);
     const unsupported = new Set(schema.unsupportedFeatures);
     for (let index = 0; index < pending.length; index++) {
       const id = pending[index]!;

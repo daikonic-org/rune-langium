@@ -102,6 +102,27 @@ test('validates each input and function preconditions before explicit execution'
   ).toBeFocused();
 });
 
+test('toggles the payload graph without resetting workflow inputs or its result', async ({ page }) => {
+  await openWorkflow(page);
+  await sum(page);
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+  const graph = page.getByRole('region', { name: 'Payload graph', exact: true });
+  const toggle = page.getByRole('button', { name: 'Payload graph', exact: true });
+  await expect(graph).toHaveCount(0);
+  for (let iteration = 0; iteration < 2; iteration++) {
+    await toggle.click();
+    await expect(graph).toBeVisible();
+    await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+    await toggle.click();
+    await expect(graph).toHaveCount(0);
+    await expect(
+      page.getByRole('region', { name: 'value fields' }).getByRole('spinbutton', { name: 'Amount' })
+    ).toHaveValue('1250');
+    await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+  }
+});
+
 test('preserves compatible input drafts and supports primitive parameters, scalar output and bypass', async ({
   page
 }) => {

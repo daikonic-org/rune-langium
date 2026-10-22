@@ -264,11 +264,26 @@ export const WorkbenchHost = withInstrumentation(
       };
     }, [collapseAuxiliary]);
 
+    useEffect(() => {
+      const api = apiRef.current;
+      if (api) definition.reconcile?.(api, viewportWidth());
+    }, [definition]);
+
+    const panelBridges = useRef(new Map<string, React.FC<IDockviewPanelProps>>());
     const panelNames = Object.keys(definition.panels).sort().join('\u0000');
     const components = useMemo(
       () =>
         Object.fromEntries(
-          panelNames ? panelNames.split('\u0000').map((name) => [name, createDockviewPanelBridge(name)]) : []
+          panelNames
+            ? panelNames.split('\u0000').map((name) => {
+                let bridge = panelBridges.current.get(name);
+                if (!bridge) {
+                  bridge = createDockviewPanelBridge(name);
+                  panelBridges.current.set(name, bridge);
+                }
+                return [name, bridge];
+              })
+            : []
         ),
       [panelNames]
     );

@@ -191,6 +191,28 @@ type F: value string (1..1)
     expect(schema!.status).toBe('ready');
   });
 
+  it('expands output-only recursive definitions in a serialized function schema', async () => {
+    const doc = await parseModel(`namespace test.results
+type Node:
+ name string (1..1)
+ child Node (0..1)
+func Create:
+ inputs: name string (1..1)
+ output: result Node (1..1)
+ set result: Node { name: name }
+`);
+    const [generated] = generatePreviewSchemas(doc, { targetId: 'test.results.Create' });
+    const schema = JSON.parse(JSON.stringify(generated)) as NonNullable<typeof generated>;
+    expect(schema.definitions?.['test.results.Node']).toBeDefined();
+    let field = schema.result!;
+    for (let depth = 0; depth < 5; depth++) {
+      const expanded = expandPreviewField(field, schema.definitions);
+      if (expanded.kind !== 'object') throw new Error('Expected output Node');
+      expect(expanded.children[0]).toMatchObject({ path: `${field.path}.name`, kind: 'string' });
+      field = expanded.children[1]!;
+    }
+  });
+
   it.each([false, true])(
     'uses inherited and dispatch signatures regardless of document order (reverse=%s)',
     async (reverse) => {
