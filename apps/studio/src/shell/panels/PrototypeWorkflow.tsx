@@ -585,22 +585,6 @@ export const PrototypeWorkflow = withInstrumentation(
             {drag.label}
           </div>
         ) : null}
-        <div className="workflow-toolbar">
-          <span className="text-xs text-muted-foreground">Inputs → optional function → output</span>
-          <div className="ml-auto flex gap-1">
-            {(['panels', 'flow'] as const).map((v) => (
-              <Button
-                key={v}
-                variant="ghost"
-                size="xs"
-                aria-pressed={mode === v}
-                onClick={() => patch({ workflowView: v })}
-              >
-                {v === 'flow' ? 'Flow' : 'Panels'}
-              </Button>
-            ))}
-          </div>
-        </div>
         <div
           ref={stage}
           className={`workflow-stage workflow-stage--${mode}`}

@@ -124,7 +124,7 @@ accepts one JSON object or an array for the chosen type; imported objects stay i
 the grid until explicitly bound. Workflow edits use detached copies and do not
 overwrite their stored sources.
 
-Flow uses smooth connectors and constrained node positions. Panels offers the
+Workflow uses smooth connectors and constrained node positions. Object builder offers the
 same data and controls with dividers. Divider widths and view choice are saved
 per workspace. Narrow panes stack the nodes in reading order. A visited Prototype
 stays mounted while using other perspectives in the same workspace; workspace

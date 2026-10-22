@@ -158,9 +158,21 @@ export const PrototypePerspective = withInstrumentation(
 
     return (
       <section data-testid="prototype-perspective" className="flex h-full min-h-0 flex-col">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <p className="text-sm text-muted-foreground">Persistent instances</p>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="workflow-toolbar">
+          <div role="group" aria-label="Prototype view" className="flex gap-1">
+            {(['flow', 'panels'] as const).map((mode) => (
+              <Button
+                key={mode}
+                variant="ghost"
+                size="xs"
+                aria-pressed={(view.workflowView ?? 'flow') === mode}
+                onClick={() => patch({ workflowView: mode })}
+              >
+                {mode === 'flow' ? 'Workflow' : 'Object builder'}
+              </Button>
+            ))}
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="ghost"

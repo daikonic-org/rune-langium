@@ -175,7 +175,8 @@ its compact chooser uses the same chip with canonical repository identity. Funct
 references use the function palette, while unknown references retain unresolved styling.
 Node insets and controls follow the shared compact Inspector spacing scale.
 
-Flow and Panels share one session and renderer. Smooth SVG connectors are layout
+Workflow and Object builder share one session and renderer. Their view selector,
+Add and Payload graph actions occupy a single Prototype toolbar. Smooth SVG connectors are layout
 presentation over nested DOM; no independent graph semantics or canvas engine is
 introduced. Bounded pointer/keyboard dividers persist widths per workspace; narrow
 containers stack nodes. `PerspectiveHost` lazily retains Prototype after a visit

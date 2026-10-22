@@ -196,11 +196,17 @@ test('drags a function, resizes columns and retains the workflow across perspect
   await page.mouse.up();
   await expect(divider).not.toHaveAttribute('aria-valuenow', '24');
   const resized = await divider.getAttribute('aria-valuenow');
-  await page.getByRole('button', { name: 'Panels', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Panels', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Object builder', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Object builder', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('rail-prototype').click();
   await expect(page.getByTestId('instance-payload-output')).toContainText('2500');
-  await expect(page.getByRole('button', { name: 'Panels', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Object builder', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
   await expect(divider).toHaveAttribute('aria-valuenow', resized!);
 });

@@ -81,6 +81,10 @@ describe('PrototypePerspective', () => {
     await renderPerspective();
     expect(screen.getByRole('region', { name: 'Prototype workflow' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Import JSON' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Persistent instances')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Workflow', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Object builder', exact: true }));
+    expect(screen.getByRole('button', { name: 'Object builder', exact: true })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
     expect(await screen.findByRole('heading', { name: 'New instance' })).toBeVisible();
   });
