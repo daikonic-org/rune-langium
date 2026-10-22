@@ -38,6 +38,7 @@ describe('createFunctionSession', () => {
 
   it('initializes additional inputs with the shared schema defaults', async () => {
     const client: PreviewSessionClient = {
+      validate: vi.fn().mockResolvedValue([]),
       schema: vi.fn().mockResolvedValue({
         schemaVersion: 1,
         targetId: 'test.BuildTrade',
@@ -67,6 +68,7 @@ describe('createFunctionSession', () => {
 
   it('wraps an instance when binding it to a collection input', async () => {
     const client: PreviewSessionClient = {
+      validate: vi.fn().mockResolvedValue([]),
       schema: vi.fn().mockResolvedValue({
         schemaVersion: 1,
         targetId: 'test.BuildTrade',
@@ -99,6 +101,7 @@ describe('createFunctionSession', () => {
 
   it('invalidates a completed result after changing inputs or binding an instance', async () => {
     const client: PreviewSessionClient = {
+      validate: vi.fn().mockResolvedValue([]),
       schema: vi.fn().mockResolvedValue({
         schemaVersion: 1,
         targetId: 'test.BuildTrade',
@@ -126,5 +129,50 @@ describe('createFunctionSession', () => {
     } as InstanceRecord);
 
     expect(session.getState()).toMatchObject({ result: undefined, status: 'idle' });
+  });
+});
+
+it('clearing the function fences a pending schema response', async () => {
+  let resolve!: (value: unknown) => void;
+  const client = {
+    schema: vi.fn(
+      () =>
+        new Promise((r) => {
+          resolve = r;
+        })
+    ),
+    validate: vi.fn(),
+    execute: vi.fn(),
+    dispose: vi.fn()
+  };
+  const session = createFunctionSession(client as never);
+  const selection = session.selectFunction('test.Run');
+  await session.selectFunction(null);
+  resolve({ schemaVersion: 1, targetId: 'test.Run', title: 'Run', status: 'ready', fields: [] });
+  await selection;
+  expect(session.getState()).toMatchObject({ functionFqn: null, schema: undefined, status: 'idle', inputs: {} });
+});
+
+it('clearing a loaded function removes its schema and prior error metadata', async () => {
+  const client = {
+    schema: vi.fn(async () => ({ schemaVersion: 1, targetId: 'test.Run', title: 'Run', status: 'ready', fields: [] })),
+    validate: vi.fn(),
+    execute: vi.fn(async () => {
+      throw Error('Failed');
+    }),
+    dispose: vi.fn()
+  };
+  const session = createFunctionSession(client as never);
+  await session.selectFunction('test.Run');
+  await session.run();
+  await session.selectFunction(null);
+  expect(session.getState()).toEqual({
+    functionFqn: null,
+    boundParameter: null,
+    inputs: {},
+    result: undefined,
+    status: 'idle',
+    error: undefined,
+    schema: undefined
   });
 });

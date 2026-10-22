@@ -42,11 +42,15 @@ export const FormPresentation = withInstrumentation(
   function FormPresentation({
     children,
     toolbarStart,
-    showToolbar = true
+    showToolbar = true,
+    editing: controlledEditing,
+    onEditingChange
   }: {
     children: ReactNode;
     toolbarStart?: ReactNode;
     showToolbar?: boolean;
+    editing?: boolean;
+    onEditingChange?(editing: boolean): void;
   }) {
     const workspaceId = useWorkspaceOptional()?.workspaceId;
     const entry = useFormPresentationStore((state) => state.workspaces[formWorkspaceKey(workspaceId)]);
@@ -54,7 +58,7 @@ export const FormPresentation = withInstrumentation(
     const update = useFormPresentationStore((state) => state.update);
     const retry = useFormPresentationStore((state) => state.retry);
     const setEditing = useFormPresentationStore((state) => state.setEditing);
-    const editing = showToolbar && entry?.editing === true;
+    const editing = controlledEditing ?? (showToolbar && entry?.editing === true);
     useEffect(() => {
       void load(workspaceId);
     }, [workspaceId, load]);
@@ -75,7 +79,7 @@ export const FormPresentation = withInstrumentation(
               size="xs"
               disabled={!entry?.loaded || (!!entry.error && entry.revision === 0)}
               aria-pressed={editing}
-              onClick={() => setEditing(workspaceId, !editing)}
+              onClick={() => (onEditingChange ? onEditingChange(!editing) : setEditing(workspaceId, !editing))}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden="true" />
               {editing ? 'Done editing' : 'Edit layout'}

@@ -1,3 +1,4 @@
+// @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
@@ -9,12 +10,31 @@ import { createActivationGuard } from './activation-guard.js';
 
 export interface PrototypeViewState {
   selectedId: string | null;
+  bindingRequestId?: number;
   query: string;
   typeFqn: string | null;
   nativeLayout?: unknown;
 
   graphVisible: boolean;
+  workflowView?: 'flow' | 'panels';
+  workflowWidths?: number[];
 }
+
+export const normalizeWorkflowWidths = withInstrumentation(
+  function normalizeWorkflowWidths(value: unknown): [number, number] {
+    return Array.isArray(value) &&
+      value.length === 2 &&
+      value.every((width) => typeof width === 'number' && Number.isFinite(width) && width >= 22 && width <= 40) &&
+      value[0] + value[1] <= 76
+      ? [value[0], value[1]]
+      : [32, 28];
+  },
+  {
+    op: 'normalizeWorkflowWidths',
+    sanitize: () => '[workflow widths]',
+    sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' })
+  }
+);
 
 export const DEFAULT_PROTOTYPE_VIEW: PrototypeViewState = {
   selectedId: null,
@@ -57,7 +77,14 @@ export const usePrototypeViewStore = create<PrototypeViewStore>((set, get) => ({
     set({ workspaceId, state: DEFAULT_PROTOTYPE_VIEW });
     const restored = await readWorkbenchSettings(workspaceId, 'prototype-view', DEFAULT_PROTOTYPE_VIEW);
     if (activation.isCurrent(generation) && get().workspaceId === workspaceId) {
-      set({ state: { ...DEFAULT_PROTOTYPE_VIEW, ...restored } });
+      set({
+        state: {
+          ...DEFAULT_PROTOTYPE_VIEW,
+          ...restored,
+          workflowWidths: normalizeWorkflowWidths(restored.workflowWidths),
+          workflowView: restored.workflowView === 'panels' ? 'panels' : 'flow'
+        }
+      });
     }
   },
   patch(patch) {

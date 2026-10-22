@@ -123,6 +123,7 @@ interface PreviewExecuteMessage {
 }
 
 interface InstanceValidateMessage {
+  functionInputs?: boolean;
   type: 'instance:validate';
   typeFqn: string;
   data: Record<string, unknown>;
@@ -1011,7 +1012,12 @@ function serializePreviewOutput(value: unknown, seen = new WeakMap<object, unkno
   return result;
 }
 
-async function executeFunction(funcName: string, inputs: Record<string, unknown>, requestId: string): Promise<void> {
+async function executeFunction(
+  funcName: string,
+  inputs: Record<string, unknown>,
+  requestId: string,
+  checksOnly = false
+): Promise<void> {
   const scope = self as unknown as DedicatedWorkerGlobalScope;
   const functionFqn = qualifiedNameFromNodeId(funcName);
 
@@ -1027,9 +1033,9 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
         ? (
             await getOrComputeAsync(
               previewGenerateCache,
-              'generate:typescript',
+              'generate:typescript:input-checks',
               () => documentsVersion,
-              () => generate(documents, { target: 'typescript' })
+              () => generate(documents, { target: 'typescript', typescript: { inputChecks: true } })
             )
           ).value
         : [];
@@ -1045,12 +1051,14 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
     let selectedModulePath: string | undefined;
     let selectedTargetId = functionFqn;
     let selectedExportName: string | undefined;
+    let inputCheckExportName: string | undefined;
     let parameterNames: readonly string[] = [];
     for (const result of results) {
       const ns = result.relativePath.replace(/\//g, '.').replace(/\.ts$/, '');
       const func = result.funcs.find((f) => f.name === functionFqn || `${ns}.${f.name}` === functionFqn);
       if (func) {
         selectedExportName = func.exportName ?? func.name;
+        inputCheckExportName = func.inputCheckExportName;
         parameterNames = func.parameterNames;
         selectedModulePath = result.relativePath;
         selectedTargetId = `${ns}.${func.name}`;
@@ -1058,15 +1066,7 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
       }
     }
 
-    if (selectedModulePath === undefined) {
-      scope.postMessage({
-        type: 'preview:execute-error',
-        requestId,
-        funcName,
-        error: `Function '${functionFqn}' not found in generated code. Ensure the model has a valid func declaration and no parse errors.`
-      });
-      return;
-    }
+    if (selectedModulePath === undefined) throw new Error(`Function '${functionFqn}' not found in generated code.`);
 
     const { value: compiled } = getOrCompute(
       standaloneValidatorCache,
@@ -1085,6 +1085,14 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
     );
     const validation = compiled.validator.safeParse(adaptedInputs);
     if (!validation.success) {
+      if (checksOnly) {
+        scope.postMessage({
+          type: 'instance:validateResult',
+          requestId,
+          diagnostics: translateValidationIssues(validation.error.issues, [])
+        });
+        return;
+      }
       throw new Error(
         validation.error.issues.map((issue) => `${formatIssuePath(issue.path)}: ${issue.message}`).join('; ')
       );
@@ -1096,7 +1104,8 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
     // comment.
     const modules = createGeneratedModuleLoader(results);
     const exports = modules.load(selectedModulePath);
-    const bareName = selectedExportName ?? funcName;
+    const bareName = checksOnly ? inputCheckExportName : (selectedExportName ?? funcName);
+    if (!bareName) throw new Error('Function input checks are unavailable.');
     const functionValue = exports[bareName];
     if (typeof functionValue !== 'function') {
       throw new Error(`Generated module '${selectedModulePath}' does not export function '${bareName}'.`);
@@ -1111,6 +1120,10 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
       '$rune$function.functionValue(...$rune$function.args)'
     );
 
+    if (checksOnly) {
+      scope.postMessage({ type: 'instance:validateResult', requestId, diagnostics: [] });
+      return;
+    }
     scope.postMessage({
       type: 'preview:execute-result',
       requestId,
@@ -1118,6 +1131,16 @@ async function executeFunction(funcName: string, inputs: Record<string, unknown>
       output: serializePreviewOutput(output)
     });
   } catch (e) {
+    if (checksOnly) {
+      const message = e instanceof Error ? e.message : String(e);
+      scope.postMessage({
+        type: 'instance:validateResult',
+        requestId,
+        ...(message.startsWith('Diagnostic:') ? {} : { unavailable: message }),
+        diagnostics: [{ path: '', message }]
+      });
+      return;
+    }
     scope.postMessage({
       type: 'preview:execute-error',
       requestId,
@@ -1281,7 +1304,10 @@ if (isWorkerGlobalScope()) {
         previewStages.generateProjection(msg).catch(console.error);
       } else if (msg.type === 'instance:validate') {
         const { typeFqn, data, requestId } = msg;
-        validateInstance(typeFqn, data, requestId).catch(console.error);
+        (msg.functionInputs
+          ? executeFunction(typeFqn, data, requestId, true)
+          : validateInstance(typeFqn, data, requestId)
+        ).catch(console.error);
       } else if (msg.type === 'instance:generateSchema') {
         const { typeFqn, requestId } = msg;
         runInstanceSchema(typeFqn, requestId).catch(console.error);

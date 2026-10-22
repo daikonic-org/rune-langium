@@ -233,6 +233,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly projections: EmittedProjection[] = [];
   private readonly callableNames: CallableNames;
   private readonly singleFile: boolean;
+  private readonly inputChecks: boolean;
   private readonly localCallableAliases = new Map<string, string>();
 
   constructor(
@@ -246,6 +247,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
     this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';
+    this.inputChecks = options.typescript?.inputChecks === true;
   }
 
   private readonly emittedData = new Set<Data>();
@@ -436,7 +438,28 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       });
       this.ctx.sourceMap.push(...sources.map((entry) => ({ ...entry, outputLine: outputLine + entry.outputLine })));
 
+      const inputCheckExportName = this.inputChecks ? `$rune$check$${group[0]!.name}` : undefined;
+      if (inputCheckExportName) {
+        this.sections.push(
+          renderFuncDispatchGroup(group, {
+            renderSignature: (base) =>
+              `export function ${inputCheckExportName}(${TsNamespaceEmitter.buildFuncParameters(base)}): void`,
+            renderSelector: (_base, attribute) => attrAccessExpr(attribute, funcCtx),
+            renderBody: (variant) => [
+              ...(variant.preConditions.length
+                ? TsNamespaceEmitter.emitFuncInputChecks(variant, {
+                    ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, this.ctx.diagnostics),
+                    callableName: this.callableName,
+                    typeNameResolver: this.typeName
+                  })
+                : []),
+              '  return;'
+            ]
+          })
+        );
+      }
       this.generatedFuncs.push({
+        ...(inputCheckExportName ? { inputCheckExportName } : {}),
         name: func.name,
         exportName: group[0]!.name,
         parameterNames: func.inputs.map((input) => input.name),
@@ -2032,6 +2055,28 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   /**
    * T124: Compose the complete function body.
    */
+  private static emitFuncOutputInitialization(func: RuneFunc, ctx: FuncBodyContext): string[] {
+    const result = ctx.localBindings!.get(func.output.name)!;
+    const outputTs = TsNamespaceEmitter.funcParamType(func.output);
+    return ctx.outputAccumulator === 'array'
+      ? [`  let ${result}${ctx.projection ? '' : `: ${outputTs}[]`} = [];`]
+      : [`  let ${result}${ctx.projection ? '' : `: ${outputTs} | undefined`};`];
+  }
+
+  private static emitFuncInputChecks(func: RuneFunc, ctx: FuncBodyContext): string[] {
+    return [
+      ...(func.isAbstract ? [] : TsNamespaceEmitter.emitFuncOutputInitialization(func, ctx)),
+      ...TsNamespaceEmitter.emitFuncPrelude(func, ctx)
+    ];
+  }
+
+  private static emitFuncPrelude(func: RuneFunc, ctx: FuncBodyContext): string[] {
+    return [
+      ...func.aliases.map((alias) => TsNamespaceEmitter.emitFuncAlias(alias, ctx)),
+      ...TsNamespaceEmitter.emitFuncConditions(func.preConditions, func, ctx)
+    ];
+  }
+
   private static emitFuncBody(func: RuneFunc, ctx: FuncBodyContext): string[] {
     const bodyLines: string[] = [];
     const result = ctx.localBindings!.get(func.output.name)!;
@@ -2070,13 +2115,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       // Same alias-before-precondition ordering as the non-abstract path
       // below — an abstract func (no set/add body) can still declare
       // aliases per the grammar, and a pre-condition may reference one.
-      for (const alias of func.aliases) {
-        bodyLines.push(TsNamespaceEmitter.emitFuncAlias(alias, ctx));
-      }
-      const preConds = TsNamespaceEmitter.emitFuncConditions(func.preConditions, func, ctx);
-      for (const block of preConds) {
-        bodyLines.push(block);
-      }
+      bodyLines.push(...TsNamespaceEmitter.emitFuncPrelude(func, ctx));
       bodyLines.push(`  throw new Error('Diagnostic: ${func.name} — not_implemented');`);
       ctx.diagnostics.push({
         severity: 'info',
@@ -2086,12 +2125,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       return bodyLines;
     }
 
-    const outputTs = TsNamespaceEmitter.funcParamType(func.output);
-    if (ctx.outputAccumulator === 'array') {
-      bodyLines.push(`  let ${result}${ctx.projection ? '' : `: ${outputTs}[]`} = [];`);
-    } else {
-      bodyLines.push(`  let ${result}${ctx.projection ? '' : `: ${outputTs} | undefined`};`);
-    }
+    bodyLines.push(...TsNamespaceEmitter.emitFuncOutputInitialization(func, ctx));
 
     // Aliases before pre-conditions: the grammar (rune-dsl.langium's
     // RosettaFunction rule) fixes source order as shortcuts* conditions*
@@ -2101,14 +2135,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // optionPayout exists`). Emitting pre-conditions first referenced an
     // alias's `const` binding before its declaration (a TDZ ReferenceError
     // in the generated output).
-    for (const alias of func.aliases) {
-      bodyLines.push(TsNamespaceEmitter.emitFuncAlias(alias, ctx));
-    }
-
-    const preConds = TsNamespaceEmitter.emitFuncConditions(func.preConditions, func, ctx);
-    for (const block of preConds) {
-      bodyLines.push(block);
-    }
+    bodyLines.push(...TsNamespaceEmitter.emitFuncPrelude(func, ctx));
 
     for (const assignment of func.assignments) {
       bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));

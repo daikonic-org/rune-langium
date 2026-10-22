@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { DockviewApi } from 'dockview-react';
 import type { WorkbenchDefinition } from '../../workbench-types.js';
 import { WorkbenchHost } from '../../WorkbenchHost.js';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { jsonCodec } from '@rune-langium/codegen/instances';
 import { InstanceCreateDialog } from '../../../components/InstanceCreateDialog.js';
 import { usePrototypeViewStore } from '../../../store/prototype-view-store.js';
 import { useWorkspaceOptional } from '../../providers/workspace-context.js';
@@ -48,10 +47,8 @@ export const PrototypePerspective = withInstrumentation(
       setSeed(undefined);
       setCreating(true);
     }, []);
-    const [importError, setImportError] = useState<string | null>(null);
     const [payloadFocus, setPayloadFocus] = useState<{ pointer: string; revision: number }>();
     const [activationReady, setActivationReady] = useState(false);
-    const importInputRef = useRef<HTMLInputElement>(null);
     const activationRef = useRef<{ workspaceId: string; promise: Promise<void> } | undefined>(undefined);
     const selectedRecord = useInstanceStore((state) =>
       view.selectedId ? state.instances[view.selectedId] : undefined
@@ -88,19 +85,15 @@ export const PrototypePerspective = withInstrumentation(
       () => ({
         id: 'prototype',
         panels: {
-          'prototype.inspector': () =>
-            view.selectedId ? (
-              <InstanceInspectorPanel
-                onNewInstance={beginCreate}
-                instanceId={view.selectedId}
-                focusedPayloadPointer={payloadFocus?.pointer}
-                focusRequestId={payloadFocus?.revision}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center p-3 text-sm text-muted-foreground">
-                Select or create an instance to inspect it.
-              </div>
-            ),
+          'prototype.inspector': () => (
+            <InstanceInspectorPanel
+              key={workspace?.workspaceId}
+              instanceId={view.selectedId ?? undefined}
+              bindingRequestId={view.bindingRequestId}
+              focusedPayloadPointer={payloadFocus?.pointer}
+              focusRequestId={payloadFocus?.revision}
+            />
+          ),
           'prototype.grid': () => <InstanceGridPanel />,
           ...(view.graphVisible
             ? {
@@ -121,7 +114,7 @@ export const PrototypePerspective = withInstrumentation(
             : {})
         },
         titles: {
-          'prototype.inspector': 'Inspector',
+          'prototype.inspector': 'Workflow',
           'prototype.grid': 'Instances',
           ...(view.graphVisible ? { 'prototype.payloadGraph': 'Payload graph' } : {})
         },
@@ -129,56 +122,45 @@ export const PrototypePerspective = withInstrumentation(
           const inspector = api.addPanel({
             id: 'prototype.inspector',
             component: 'prototype.inspector',
-            title: 'Inspector'
+            title: 'Workflow'
           });
           if (view.graphVisible) addPayloadGraph(api, width);
           api.addPanel({
             id: 'prototype.grid',
             component: 'prototype.grid',
             title: 'Instances',
+            initialHeight: 190,
             position:
               width < 768
                 ? { referenceGroup: inspector.group, direction: 'within' }
                 : { referencePanel: inspector.id, direction: 'below' }
           });
+          inspector.api.setActive();
         },
         reconcile(api, width) {
           if (view.graphVisible) addPayloadGraph(api, width);
+          else {
+            const graph = api.getPanel('prototype.payloadGraph');
+            if (graph) api.removePanel(graph);
+          }
         }
       }),
-      [beginCreate, payloadFocus, selectedRecord, view.graphVisible, view.selectedId]
+      [
+        beginCreate,
+        payloadFocus,
+        selectedRecord,
+        view.graphVisible,
+        view.selectedId,
+        view.bindingRequestId,
+        workspace?.workspaceId
+      ]
     );
-
-    const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (!file) return;
-      const result = jsonCodec.import(await file.text(), view.typeFqn ?? '');
-      if (result.diagnostics.length > 0 || result.data === undefined) {
-        setImportError(result.diagnostics.map((diagnostic) => diagnostic.message).join(' '));
-        return;
-      }
-      setImportError(null);
-      setSeed({ data: result.data, ...(view.typeFqn ? { typeFqn: view.typeFqn } : {}) });
-      setCreating(true);
-    };
 
     return (
       <section data-testid="prototype-perspective" className="flex h-full min-h-0 flex-col">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
           <p className="text-sm text-muted-foreground">Persistent instances</p>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json,.json"
-              aria-label="Import JSON"
-              className="sr-only"
-              onChange={importJson}
-            />
-            <Button type="button" variant="ghost" size="sm" onClick={() => importInputRef.current?.click()}>
-              Import JSON
-            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -189,14 +171,13 @@ export const PrototypePerspective = withInstrumentation(
               Payload graph
             </Button>
             <Button type="button" size="sm" onClick={beginCreate}>
-              New instance
+              Add
             </Button>
           </div>
         </div>
         <div className="min-h-0 flex-1">
           {activationReady ? (
             <WorkbenchHost
-              key={view.graphVisible ? 'with-payload-graph' : 'without-payload-graph'}
               definition={definition}
               initialNativeLayout={view.nativeLayout}
               onNativeLayoutChange={(nativeLayout) => patch({ nativeLayout })}
@@ -208,11 +189,6 @@ export const PrototypePerspective = withInstrumentation(
             </p>
           )}
         </div>
-        {importError ? (
-          <p role="alert" className="border-t border-border p-2 text-sm text-destructive">
-            {importError}
-          </p>
-        ) : null}
         <InstanceCreateDialog
           seed={seed}
           open={creating}

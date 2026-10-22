@@ -1091,6 +1091,22 @@ function buildFunctionSchema(
       )
     : undefined;
 
+  const result = output
+    ? buildField(output, {
+        namespace,
+        unsupportedFeatures,
+        sourceMap,
+        sourceUri: AstUtils.getDocument(output).uri.toString(),
+        maxDepth: DEFAULT_MAX_DEPTH,
+        depth: 0,
+        path: output.name,
+        label: humanizeLabel(output.name),
+        seenTypes: new Set(),
+        cyclicTypes,
+        assignableTypes
+      })
+    : undefined;
+
   return {
     schemaVersion: SCHEMA_VERSION,
     targetId,
@@ -1098,6 +1114,7 @@ function buildFunctionSchema(
     kind: 'function',
     status: hasReportableUnsupportedFeature(unsupportedFeatures) ? 'unsupported' : 'ready',
     fields: inputFields,
+    ...(result ? { result } : {}),
     ...(functionOutputDescriptor ? { functionOutput: functionOutputDescriptor } : {}),
     ...(sourceMap.length > 0 ? { sourceMap } : {}),
     ...(unsupportedFeatures.size > 0 ? { unsupportedFeatures: Array.from(unsupportedFeatures).sort() } : {})

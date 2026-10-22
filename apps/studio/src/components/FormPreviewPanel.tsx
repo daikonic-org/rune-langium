@@ -80,6 +80,8 @@ export interface PreviewPresentation {
   showHeader: boolean;
   showLayoutToolbar?: boolean;
   showExecutionControls?: boolean;
+  showStatusSummary?: boolean;
+  readOnly?: boolean;
 }
 
 export type PayloadView =
@@ -116,6 +118,9 @@ export interface FormPreviewPanelProps {
   validated?: boolean;
   presentation?: PreviewPresentation;
   layoutToolbarStart?: ReactNode;
+  layoutEditing?: boolean;
+  onLayoutEditingChange?(editing: boolean): void;
+  layoutParentPath?: string;
   onCreateInstance?: (seed: InstanceSeed) => void;
 }
 
@@ -134,7 +139,10 @@ export const FormPreviewPanel = withInstrumentation(
     validated: controlledValidated,
     presentation = SCRATCH_PRESENTATION,
     onCreateInstance,
-    layoutToolbarStart
+    layoutToolbarStart,
+    layoutEditing,
+    onLayoutEditingChange,
+    layoutParentPath
   }: FormPreviewPanelProps): ReactElement {
     const isControlled = values !== undefined;
     const [detailState, setDetailState] = useState<{ targetId: string; stack: PreviewDetailEntry[] }>({
@@ -557,14 +565,21 @@ export const FormPreviewPanel = withInstrumentation(
           </header>
         ) : null}
         <PreviewDefinitions value={schema.definitions}>
-          <FormPresentation toolbarStart={layoutToolbarStart} showToolbar={presentation.showLayoutToolbar}>
-            <p
-              role={status.state === 'invalid' ? 'alert' : 'status'}
-              aria-live="polite"
-              className="px-panel-x pt-panel-y text-xs text-muted-foreground"
-            >
-              {summaryMessage}
-            </p>
+          <FormPresentation
+            toolbarStart={layoutToolbarStart}
+            showToolbar={presentation.showLayoutToolbar}
+            editing={layoutEditing}
+            onEditingChange={onLayoutEditingChange}
+          >
+            {presentation.showStatusSummary !== false && (
+              <p
+                role={status.state === 'invalid' ? 'alert' : 'status'}
+                aria-live="polite"
+                className="px-panel-x pt-panel-y text-xs text-muted-foreground"
+              >
+                {summaryMessage}
+              </p>
+            )}
             {activeSample?.validated && activeSample.errors[''] ? (
               <p role="alert" className="px-panel-x pt-panel-y text-xs text-destructive">
                 {activeSample.errors['']}
@@ -588,41 +603,26 @@ export const FormPreviewPanel = withInstrumentation(
                 className="preview-fields preview-panel__body studio-scroll space-y-3 overflow-auto px-panel-x py-panel-y"
               >
                 {schema.kind === 'choice' ? (
-                  <ChoiceFieldGroup
-                    fields={schema.fields}
-                    sample={activeSample}
-                    lookupFieldSource={lookupFieldSource}
-                    isResolvingReferences={isResolvingReferences}
-                    onFieldBlur={handleFieldBlur}
-                    onFieldChange={handleFieldChange}
-                    onArrayAdd={handleArrayAdd}
-                    onArrayRemove={handleArrayRemove}
-                    onObjectToggle={handleObjectToggle}
-                    onArmSelect={handleArmSelect}
-                  />
+                  <fieldset disabled={presentation.readOnly} className="contents">
+                    <ChoiceFieldGroup
+                      fields={schema.fields}
+                      sample={activeSample}
+                      lookupFieldSource={lookupFieldSource}
+                      isResolvingReferences={isResolvingReferences}
+                      onFieldBlur={handleFieldBlur}
+                      onFieldChange={handleFieldChange}
+                      onArrayAdd={handleArrayAdd}
+                      onArrayRemove={handleArrayRemove}
+                      onObjectToggle={handleObjectToggle}
+                      onArmSelect={handleArmSelect}
+                    />
+                  </fieldset>
                 ) : (
                   <>
                     {rootArmFields.length > 0 ? (
-                      <ChoiceFieldGroup
-                        fields={rootArmFields}
-                        sample={activeSample}
-                        lookupFieldSource={lookupFieldSource}
-                        isResolvingReferences={isResolvingReferences}
-                        onFieldBlur={handleFieldBlur}
-                        onFieldChange={handleFieldChange}
-                        onArrayAdd={handleArrayAdd}
-                        onArrayRemove={handleArrayRemove}
-                        onObjectToggle={handleObjectToggle}
-                        onArmSelect={handleArmSelect}
-                      />
-                    ) : null}
-                    <PreviewLayoutGroup
-                      symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
-                      fields={rootOtherFields}
-                      renderField={(field) => (
-                        <PreviewFieldControl
-                          key={field.path}
-                          field={field}
+                      <fieldset disabled={presentation.readOnly} className="contents">
+                        <ChoiceFieldGroup
+                          fields={rootArmFields}
                           sample={activeSample}
                           lookupFieldSource={lookupFieldSource}
                           isResolvingReferences={isResolvingReferences}
@@ -633,6 +633,28 @@ export const FormPreviewPanel = withInstrumentation(
                           onObjectToggle={handleObjectToggle}
                           onArmSelect={handleArmSelect}
                         />
+                      </fieldset>
+                    ) : null}
+                    <PreviewLayoutGroup
+                      symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
+                      parentPath={layoutParentPath}
+                      fields={rootOtherFields}
+                      renderField={(field) => (
+                        <fieldset disabled={presentation.readOnly} className="contents">
+                          <PreviewFieldControl
+                            key={field.path}
+                            field={field}
+                            sample={activeSample}
+                            lookupFieldSource={lookupFieldSource}
+                            isResolvingReferences={isResolvingReferences}
+                            onFieldBlur={handleFieldBlur}
+                            onFieldChange={handleFieldChange}
+                            onArrayAdd={handleArrayAdd}
+                            onArrayRemove={handleArrayRemove}
+                            onObjectToggle={handleObjectToggle}
+                            onArmSelect={handleArmSelect}
+                          />
+                        </fieldset>
                       )}
                     />
                   </>
@@ -1252,7 +1274,7 @@ function PreviewFieldControl({
     // the sample value so an unset optional enum remains absent for Zod.
     const CLEAR_SENTINEL = '__rune_enum_unset__';
     return (
-      <div className="preview-field">
+      <div className="preview-field" data-field-path={field.path}>
         <span className="preview-field__label">{fieldLabel}</span>
         <Select
           value={stringValue}

@@ -70,3 +70,18 @@ describe('PerspectiveHost', () => {
     expect(screen.getByTestId('prototype-perspective')).toBeTruthy();
   });
 });
+
+it('keeps a visited Prototype mounted across perspective switches and disposes it across workspaces', async () => {
+  usePerspectiveStore.setState({ activePerspective: 'prototype' });
+  const { rerender } = render(<PerspectiveHost hasWorkspace hasExploreContent workspaceId="first" />);
+  const prototype = screen.getByTestId('prototype-perspective');
+  act(() => usePerspectiveStore.getState().setActivePerspective('settings'));
+  expect(screen.getByTestId('prototype-perspective')).toBe(prototype);
+  expect(prototype).not.toBeVisible();
+  act(() => usePerspectiveStore.getState().setActivePerspective('prototype'));
+  expect(screen.getByTestId('prototype-perspective')).toBe(prototype);
+  expect(prototype).toBeVisible();
+  act(() => usePerspectiveStore.getState().setActivePerspective('settings'));
+  rerender(<PerspectiveHost hasWorkspace hasExploreContent workspaceId="second" />);
+  expect(screen.queryByTestId('prototype-perspective')).not.toBeInTheDocument();
+});

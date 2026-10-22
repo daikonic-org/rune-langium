@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement, type PointerEvent } from 'react';
 import {
   TypeSelector,
   buildTypeOptions,
@@ -33,6 +33,8 @@ export interface WorkspaceTypePickerProps {
   filterKinds: TypeKind[];
   allowClear?: boolean;
   label: string;
+  optionFilter?(option: TypeOption): boolean;
+  onOptionPointerDown?(event: PointerEvent, option: TypeOption): void;
 }
 
 /**
@@ -48,11 +50,16 @@ export const WorkspaceTypePicker = withInstrumentation(
     onSelectOption,
     filterKinds,
     allowClear = false,
-    label
+    label,
+    optionFilter,
+    onOptionPointerDown
   }: WorkspaceTypePickerProps): ReactElement {
     const nodesById = useEditorStore((state) => state.nodesById);
     const repository = selectNodeRepository(nodesById);
-    const options = useMemo(() => buildTypeOptions(repository, false), [repository]);
+    const options = useMemo(
+      () => buildTypeOptions(repository, false).filter((option) => !optionFilter || optionFilter(option)),
+      [repository, optionFilter]
+    );
     const selectedValue = useMemo(() => {
       if (!value) return value;
       const allowedKinds = filterKinds.length ? new Set(filterKinds) : undefined;
@@ -65,6 +72,7 @@ export const WorkspaceTypePicker = withInstrumentation(
       );
     }, [filterKinds, options, value]);
     const [popoverKey, setPopoverKey] = useState(0);
+    useEffect(() => setPopoverKey((key) => key + 1), [value]);
     const searchLabel = `Search ${label.toLocaleLowerCase()}`;
 
     const resetPopover = () => {
@@ -135,7 +143,12 @@ export const WorkspaceTypePicker = withInstrumentation(
                           if (!option) return null;
                           const optionLabel = `${option.label}${option.namespace ? ` — ${option.namespace}` : ''}`;
                           return (
-                            <CommandItem key={option.value} value={item} aria-label={optionLabel}>
+                            <CommandItem
+                              key={option.value}
+                              value={item}
+                              aria-label={optionLabel}
+                              onPointerDown={(event) => onOptionPointerDown?.(event, option)}
+                            >
                               <span
                                 className={`size-2 shrink-0 rounded-full ${getKindDotClass(option.kind)}`}
                                 aria-hidden="true"

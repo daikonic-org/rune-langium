@@ -60,6 +60,8 @@ export interface ZodOptions {
 }
 
 export interface TypescriptOptions {
+  /** Emit reusable precondition-only entry points for interactive workflows. */
+  inputChecks?: boolean;
   /** Same library/server default split as `ZodOptions.layout`. */
   layout?: 'per-namespace' | 'barrel' | 'single-file';
 }
@@ -209,6 +211,8 @@ export interface GeneratorDiagnostic {
 export interface GeneratedFunc {
   /** Rune input names in positional API order; used by named form adapters. */
   parameterNames: string[];
+  /** Generated precondition-only export, when inputChecks is enabled. */
+  inputCheckExportName?: string;
   /** Actual module export when the Rune name collides with a type declaration. */
   exportName?: string;
   /** The func's identifier as declared in the Rune model. */
@@ -362,6 +366,8 @@ export interface FormPreviewSchema {
    * workspace model list.
    */
   functionOutput?: FunctionPreviewOutput;
+  /** Declared output field, including scalar results and the Rune return name. */
+  result?: PreviewField;
   unsupportedFeatures?: string[];
   sourceMap?: PreviewSourceMapEntry[];
   /**

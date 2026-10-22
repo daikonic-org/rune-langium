@@ -102,16 +102,34 @@ Explore's location path is part of the normal interface, including production.
 It shows the selected declaration after its namespace, aligns with the center
 stack, and truncates from the beginning when space is tight.
 
-### Applying functions in Prototype
+### Prototype workflows
 
-The selected instance stays editable while you choose a function in the adjacent
-**Functions** panel. Its compatible input receives the latest instance data; when
-several inputs match, choose the **Instance parameter**. Open **…** for additional
-parameters, then **Apply**. Results appear in the payload panel without changing
-the original instance. A single object result can be saved as a new instance.
+Prototype presents equal input nodes, an optional function, and a separate output.
+Parameter and return-variable names lead the headers; declared types are secondary.
+Select a compatible function in the compact chooser, or drag its name onto the
+function node. Object parameters have their own nodes; primitive parameters stay
+inline. **Execute** runs the function explicitly. Without a function, the input
+is the output. Input edits invalidate prior results; scalar and object results
+remain separate from the stored source objects. **Save as instance…** saves an
+object result, including a passthrough input, through the existing creation dialog.
 
-**New…** beside **Edit layout** opens the same new-instance dialog as the toolbar.
-Narrow panes stack the form, Functions, and validation/payload in reading order.
+Each input has a clickable validation status. The function status combines input
+requirements and applicable preconditions, independently of execution. Pending
+and unavailable checks stay distinct from passing checks. A diagnostic can focus
+its field. Validation never runs function assignments or postconditions.
+
+**Add** creates an object in the main header. Node menus contain **Edit layout**,
+**Import input…**, and compatible stored-object bindings. Grid **Import objects…**
+accepts one JSON object or an array for the chosen type; imported objects stay in
+the grid until explicitly bound. Workflow edits use detached copies and do not
+overwrite their stored sources.
+
+Flow uses smooth connectors and constrained node positions. Panels offers the
+same data and controls with dividers. Divider widths and view choice are saved
+per workspace. Narrow panes stack the nodes in reading order. A visited Prototype
+stays mounted while using other perspectives in the same workspace; workspace
+changes dispose its active sessions. Workflows and execution results are session
+state; reloading restores stored objects and presentation preferences.
 
 ### Form layouts and formats
 

@@ -258,3 +258,14 @@ Keep these subpaths explicit when updating formatter packages so a cold developm
 session does not trigger a late dependency reload. Validate with `pnpm --filter
 @rune-langium/studio run test:z2f-hmr` and the expression browser journey's Python
 view; production formatter imports remain lazy.
+
+## Prototype workflow verification
+
+For Flow changes, run Studio's `workflow-validation`, `preview-session-client`,
+`function-session-store`, `InstanceInspectorPanel`, arrival and Prototype perspective
+unit suites, plus `packages/codegen/test/emit/function-input-checks.test.ts`.
+`PLAYWRIGHT_BASE_URL=http://127.0.0.1:<owned-port> pnpm --filter @rune-langium/studio exec playwright test test/e2e/prototype-workbench.spec.ts --retries=0`
+checks real worker preconditions/execution, stale output invalidation, primitive and
+scalar returns, bypass, bulk import and equal bindings, and viewport/axe checks.
+Rebuild codegen before Studio consumes new generated metadata. Preserve user-owned
+servers and worktrees. Local checks do not establish deployed acceptance.

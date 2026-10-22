@@ -9,15 +9,23 @@ import {
   isInstanceGenerateSchemaStaleMessage,
   isPreviewExecuteErrorMessage,
   isPreviewExecuteResultMessage,
+  isInstanceValidateResultMessage,
   isProjectionResultMessage,
   isProjectionErrorMessage,
   type ProjectionRequest
 } from './codegen-service.js';
 import type { InstanceReadiness } from './instance-readiness.js';
+import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { withInstrumentation } from './instrumentation/core.js';
 
 export interface PreviewSessionClient {
   schema(typeFqn: string, signal: AbortSignal): Promise<FormPreviewSchema>;
+  validate(
+    typeFqn: string,
+    data: Record<string, unknown>,
+    signal: AbortSignal,
+    functionInputs?: boolean
+  ): Promise<ValidationDiagnostic[]>;
   execute(functionFqn: string, inputs: Record<string, unknown>, signal: AbortSignal): Promise<unknown>;
   project(
     language: GeneratedProjection['language'],
@@ -66,7 +74,11 @@ export const createPreviewSessionClient = withInstrumentation(
 
     function onMessage(event: MessageEvent<unknown>): void {
       const msg = event.data;
-      if (isPreviewExecuteResultMessage(msg)) settle(msg.requestId, (entry) => entry.resolve(msg.output));
+      if (isInstanceValidateResultMessage(msg))
+        settle(msg.requestId, (entry) =>
+          msg.unavailable ? entry.reject(new Error(msg.unavailable)) : entry.resolve(msg.diagnostics)
+        );
+      else if (isPreviewExecuteResultMessage(msg)) settle(msg.requestId, (entry) => entry.resolve(msg.output));
       else if (isPreviewExecuteErrorMessage(msg)) settle(msg.requestId, (entry) => entry.reject(new Error(msg.error)));
       else if (isInstanceGenerateSchemaResultMessage(msg)) settle(msg.requestId, (entry) => entry.resolve(msg.schema));
       else if (isInstanceGenerateSchemaStaleMessage(msg))
@@ -123,6 +135,10 @@ export const createPreviewSessionClient = withInstrumentation(
         );
         if (await readiness.hydrateSchemaDependencies(schema, signal)) return this.schema(typeFqn, signal);
         return schema;
+      },
+      async validate(typeFqn, data, signal, functionInputs = false) {
+        await readiness.ensure(typeFqn, signal);
+        return request({ type: 'instance:validate', typeFqn, data, functionInputs }, signal, 30_000);
       },
       async execute(functionFqn, inputs, signal) {
         await readiness.ensure(functionFqn, signal);

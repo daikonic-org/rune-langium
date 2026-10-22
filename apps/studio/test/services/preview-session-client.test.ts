@@ -133,3 +133,28 @@ describe('createPreviewSessionClient', () => {
     await expect(result).rejects.toThrow('Function execution worker is unavailable.');
   });
 });
+
+it('correlates input-check replies independently and reports unavailable validation', async () => {
+  const worker = new FakeWorker();
+  const client = createPreviewSessionClient(worker as unknown as Worker, readiness());
+  const promise = client.validate('test.Run', { value: 1 }, new AbortController().signal, true);
+  await vi.waitFor(() => expect(worker.posted).toHaveLength(1));
+  expect(worker.posted[0]).toMatchObject({ type: 'instance:validate', typeFqn: 'test.Run', functionInputs: true });
+  worker.reply({
+    type: 'instance:validateResult',
+    requestId: worker.posted[0]!.requestId,
+    diagnostics: [{ path: 'value', message: 'Required' }]
+  });
+  await expect(promise).resolves.toEqual([{ path: 'value', message: 'Required' }]);
+  const failure = client.validate('test.Run', {}, new AbortController().signal, true);
+  const rejection = expect(failure).rejects.toThrow('Not linked');
+  await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+  worker.reply({
+    type: 'instance:validateResult',
+    requestId: worker.posted[1]!.requestId,
+    diagnostics: [],
+    unavailable: 'Not linked'
+  });
+  await rejection;
+  client.dispose();
+});

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { WorkflowImport } from '../../components/WorkflowImport.js';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
@@ -92,6 +93,22 @@ export const InstanceGridPanel = withInstrumentation(
             placeholder="Search name or type"
             className="h-8 min-w-48 flex-1"
           />
+          <WorkflowImport
+            multiple
+            label="Import objects…"
+            typeFqn={view.typeFqn ?? undefined}
+            onImport={(values, typeFqn) => {
+              if (!typeFqn) throw new Error('Choose an object type.');
+              values.forEach((data, index) =>
+                useInstanceStore
+                  .getState()
+                  .createInstance(typeFqn, `Imported ${typeFqn.split('.').slice(-1)[0]} ${index + 1}`, {
+                    data,
+                    provenance: { codec: 'json', importedAt: Date.now() }
+                  })
+              );
+            }}
+          />
           <div className="w-64 max-w-full">
             <WorkspaceTypePicker
               label="Filter instance type"
@@ -131,11 +148,11 @@ export const InstanceGridPanel = withInstrumentation(
                   tabIndex={0}
                   aria-selected={record.id === view.selectedId}
                   className="cursor-pointer border-t border-border/60 hover:bg-accent aria-[selected=true]:bg-accent"
-                  onClick={() => patch({ selectedId: record.id })}
+                  onClick={() => patch({ selectedId: record.id, bindingRequestId: (view.bindingRequestId ?? 0) + 1 })}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      patch({ selectedId: record.id });
+                      patch({ selectedId: record.id, bindingRequestId: (view.bindingRequestId ?? 0) + 1 });
                     }
                   }}
                 >

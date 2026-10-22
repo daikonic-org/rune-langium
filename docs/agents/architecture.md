@@ -146,18 +146,37 @@ hydration alone is not generation readiness.
 - Close transports during reconnect/disposal so server-side sessions and documents can be released.
 - The LSP connection adapter converts returned or thrown vscode `ResponseError` values into thrown lspeasy protocol errors for ordinary request handlers. Cancellation must travel in JSON-RPC's error field, never as a successful completion payload.
 
-Prototype's instance Inspector keeps the current instance form visible. Its
-container width places data, Functions, then validation/provenance/payload in
-three columns or stacks them in that order. New… reuses the existing creation
-dialog beside Edit layout. Functions automatically bind a sole compatible input
-through the shared matcher; ambiguous bindings require explicit selection.
-Additional parameters use the shared renderer behind …, without another Run or
-layout toolbar. Instance edits refresh the binding and invalidate stale results;
-Apply never overwrites instance data. Only successful results replace the payload
-view, and singular object results can seed the existing creation flow.
-Diagnostics are disclosed in a bounded scroll area; they never claim the form's remaining height. Controlled previews forward edits to their
-owning instance/function session once; blur must not rewrite unchanged values
-and restart readiness/validation while an adjacent action is being clicked.
+Prototype's `PrototypeWorkflow` owns equal, detached input drafts and one optional
+`FunctionSession`. `WorkflowNode` composes the existing controlled FormPreview
+renderer; object parameters render separately and primitive inputs remain inline.
+Node-local layout editing uses the shared symbol-associated presentation store.
+The instance grid stores reusable objects; selecting one requests an explicit
+compatible parameter binding. Drafts never mutate stored objects. Batch JSON
+import belongs to the grid, and single-input import belongs to each node.
+
+`useWorkflowValidation` requests canonical worker validation on a separate session
+channel. Input identity, request cancellation, factory identity and model snapshots
+fence obsolete replies. Per-input type diagnostics and whole-function checks gate
+Execute together. `typescript.inputChecks` emits opt-in precondition-only exports
+through the same aliases/precondition emitter and dispatch selector used by actual
+execution. These exports never run assignments or postconditions. Ordinary exports
+are unchanged. Function schemas expose the declared result field, including scalar
+outputs and return-variable names; result values never infer their own type.
+
+Input edits and function selection invalidate execution results. Clearing a
+function fences outstanding schema and execution requests. Pending, failed or
+unavailable transformations cannot fall back to the input payload as though it
+were a result. A valid no-function input is an explicit passthrough state. Only
+singular declared object results can seed a stored instance. Source-specific payload
+arrival remains scoped to an input bound from the selected grid object.
+
+Flow and Panels share one session and renderer. Smooth SVG connectors are layout
+presentation over nested DOM; no independent graph semantics or canvas engine is
+introduced. Bounded pointer/keyboard dividers persist widths per workspace; narrow
+containers stack nodes. `PerspectiveHost` lazily retains Prototype after a visit
+in the current workspace so perspective changes do not destroy drafts. Workspace
+changes dispose it. Workflow data/results are not serialized as presentation
+preferences. Validators and schema clients own and dispose their worker listeners.
 
 ## Curated Artifact Cache
 
