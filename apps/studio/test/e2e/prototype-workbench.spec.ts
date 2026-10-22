@@ -50,7 +50,19 @@ func OptionalMoney:
   value Money (0..1)
  output:
   result string (1..1)
- set result: "done"`;
+ set result: "done"
+func StringList:
+ inputs: items string (0..*)
+ output: result string (0..*)
+ set result: items
+func StringListCopy:
+ inputs: items string (0..*)
+ output: result string (0..*)
+ set result: items
+func NumberList:
+ inputs: items number (0..*)
+ output: result number (0..*)
+ set result: items`;
 
 async function openWorkflow(page: Page) {
   await page.goto('./');
@@ -143,6 +155,25 @@ test('executes with an absent optional object and validates its members once sup
   await expect(execute).toBeEnabled();
   await execute.click();
   await expect(page.getByTestId('instance-payload-output')).toHaveText('"done"');
+});
+
+test('retains compatible list inputs but resets lists when their element type changes', async ({ page }) => {
+  await openWorkflow(page);
+  await choose(page, 'StringList');
+  await page.getByRole('button', { name: 'items node actions' }).click();
+  await page.getByRole('button', { name: 'Import input…', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Import JSON data' }).fill('["kept"]');
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await choose(page, 'StringListCopy');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('kept');
+  await choose(page, 'NumberList');
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.getByTestId('instance-payload-output')).toHaveText('[]');
 });
 
 test('preserves compatible input drafts and supports primitive parameters, scalar output and bypass', async ({

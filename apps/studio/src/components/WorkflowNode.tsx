@@ -27,6 +27,7 @@ export const WorkflowNode = withInstrumentation(
     actions,
     source,
     sourceId,
+    sourcePath,
     kind = 'input',
     children,
     parentPath,
@@ -44,6 +45,7 @@ export const WorkflowNode = withInstrumentation(
     validation?: Validation;
     actions?: ReactNode;
     sourceId?: string;
+    sourcePath?: string;
     source?: string;
     kind?: 'input' | 'function' | 'output';
     children?: ReactNode;
@@ -64,6 +66,7 @@ export const WorkflowNode = withInstrumentation(
         className={`workflow-node studio-card workflow-node--${kind}`}
         data-workflow-node={name}
         data-workflow-source={sourceId}
+        data-workflow-source-path={sourcePath}
         data-type-kind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
       >
         <header>

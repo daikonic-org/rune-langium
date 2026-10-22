@@ -4,17 +4,35 @@ import { useRef } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useWorkflowArrival } from '../../../src/services/workflow-arrival.js';
-function Arrival({ revision = 1, available = true }: { revision?: number; available?: boolean }) {
+function Arrival({
+  revision = 1,
+  available = true,
+  pointer = '/name',
+  prefix = 'value',
+  collapsed = false
+}: {
+  revision?: number;
+  available?: boolean;
+  pointer?: string;
+  prefix?: string;
+  collapsed?: boolean;
+}) {
   const root = useRef<HTMLDivElement>(null);
-  useWorkflowArrival(root, 'stored', '/name', revision, available);
+  useWorkflowArrival(root, 'stored', pointer, revision, available);
   return (
     <div ref={root}>
       <div data-field-path="name">
         <input aria-label="Unbound field" />
       </div>
       {available ? (
-        <section data-workflow-source="stored">
-          <div data-field-path="value.name">
+        <section data-workflow-source="stored" data-workflow-source-path={prefix}>
+          <div data-field-path={collapsed ? `${prefix}.items` : `${prefix}.name`}>
+            {collapsed ? <button>Collection action</button> : null}
+            {collapsed ? (
+              <div data-field-path={`${prefix}.items[0]`}>
+                <button>Open bound row</button>
+              </div>
+            ) : null}
             <input aria-label="Bound field" />
           </div>
         </section>
@@ -27,6 +45,13 @@ beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(cb, 16));
   vi.stubGlobal('cancelAnimationFrame', clearTimeout);
   Element.prototype.scrollIntoView = vi.fn();
+});
+it.each(['party', 'parties[0]'])('focuses the closest collapsed row within binding %s', (prefix) => {
+  render(<Arrival pointer="/items/0/nested" prefix={prefix} collapsed />);
+  act(() => vi.advanceTimersByTime(16));
+  expect(screen.getByRole('button', { name: 'Open bound row' })).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Collection action' })).not.toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Open bound row' }).parentElement).toHaveClass('navigation-arrival');
 });
 afterEach(() => {
   vi.useRealTimers();

@@ -170,12 +170,15 @@ execution. These exports never run assignments or postconditions. Ordinary expor
 are unchanged. Function schemas expose the declared result field, including scalar
 outputs and return-variable names; result values never infer their own type.
 
-Input edits and function selection invalidate execution results. Clearing a
+Function switching retains values and source bindings only for compatible field
+and array-item identities. Input edits and function selection invalidate execution results. Clearing a
 function fences outstanding schema and execution requests. Pending, failed or
 unavailable transformations cannot fall back to the input payload as though it
 were a result. A valid no-function input is an explicit passthrough state. Only
 singular declared object results can seed a stored instance. Source-specific payload
-arrival remains scoped to an input bound from the selected grid object.
+arrival remains scoped to an input bound from the selected grid object. Its
+explicit binding path normalizes both exact field and nearest-ancestor navigation,
+including the first item when a stored object is bound to a list parameter.
 
 Prototype node headers reuse Structure's kind palettes and shared `TypeChip` references;
 its compact chooser uses the same chip with canonical repository identity. Function

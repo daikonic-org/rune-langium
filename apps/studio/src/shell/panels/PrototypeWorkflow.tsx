@@ -150,6 +150,7 @@ function InputNode({
       parentPath={field.kind === 'object' ? field.path : undefined}
       source={source ?? 'Manual input'}
       sourceId={sourceId}
+      sourcePath={field.kind === 'array' ? `${field.path}[0]` : field.path}
       onBind={onBind}
     />
   );
@@ -435,9 +436,12 @@ export const PrototypeWorkflow = withInstrumentation(
       previousInputs.current = undefined;
       if (previous) {
         const fields = state.schema.fields.filter((field) =>
-          previous.schema.fields.some(
-            (old) => old.path === field.path && old.kind === field.kind && old.typeSymbol === field.typeSymbol
-          )
+          previous.schema.fields.some((old) => {
+            if (old.path !== field.path || old.kind !== field.kind) return false;
+            const before = old.kind === 'array' ? old.children[0] : old;
+            const after = field.kind === 'array' ? field.children[0] : field;
+            return before.kind === after.kind && before.typeSymbol === after.typeSymbol;
+          })
         );
         if (fields.length) {
           session.setInputs({
@@ -447,7 +451,8 @@ export const PrototypeWorkflow = withInstrumentation(
           setSources(
             Object.fromEntries(fields.map((field) => [field.path, previous.sources[field.path] ?? 'Workflow input']))
           );
-          setSourceIds(previous.sourceIds);
+          const retained = new Set(fields.map((field) => field.path));
+          setSourceIds(Object.fromEntries(Object.entries(previous.sourceIds).filter(([path]) => retained.has(path))));
           pendingSeed.current = undefined;
           return;
         }

@@ -33,12 +33,21 @@ export const useWorkflowArrival = withInstrumentation(
         const owner = [...(root.current?.querySelectorAll<HTMLElement>('[data-workflow-source]') ?? [])].find(
           (el) => el.dataset.workflowSource === instanceId
         );
-        const fields = [...(owner?.querySelectorAll<HTMLElement>('[data-field-path]') ?? [])];
-        const field =
-          fields.find((el) => el.dataset.fieldPath === path || el.dataset.fieldPath?.endsWith('.' + path)) ??
+        const prefix = owner?.dataset.workflowSourcePath;
+        const fields = [...(owner?.querySelectorAll<HTMLElement>('[data-field-path]') ?? [])].flatMap((element) => {
+          const fieldPath = element.dataset.fieldPath!;
+          if (!prefix) return [{ element, path: fieldPath }];
+          if (fieldPath === prefix) return [{ element, path: '' }];
+          if (fieldPath.startsWith(`${prefix}.`)) return [{ element, path: fieldPath.slice(prefix.length + 1) }];
+          if (fieldPath.startsWith(`${prefix}[`)) return [{ element, path: fieldPath.slice(prefix.length) }];
+          return [];
+        });
+        const match =
+          fields.find((field) => field.path === path) ??
           fields
-            .filter((el) => path.startsWith(`${el.dataset.fieldPath}.`) || path.startsWith(`${el.dataset.fieldPath}[`))
-            .sort((a, b) => b.dataset.fieldPath!.length - a.dataset.fieldPath!.length)[0];
+            .filter((field) => !field.path || path.startsWith(`${field.path}.`) || path.startsWith(`${field.path}[`))
+            .sort((a, b) => b.path.length - a.path.length)[0];
+        const field = match?.element;
         if (!field) return;
         consumed.current = request;
         field.scrollIntoView({ block: 'center' });
