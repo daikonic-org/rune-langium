@@ -5,13 +5,13 @@ import * as React from 'react';
 import { cn } from '@rune-langium/design-system/utils';
 import type { TypeOption } from '../../../types.js';
 
-export type TypeChipKind = 'Data' | 'Choice' | 'Enum' | 'BasicType' | 'Record' | 'TypeAlias' | 'Unresolved';
+export type TypeChipKind = 'Data' | 'Choice' | 'Enum' | 'BasicType' | 'Record' | 'TypeAlias' | 'Func' | 'Unresolved';
 
-// Map a TypeOption kind to the canonical TypeChip color variant. Func/Annotation
-// (and an unknown/missing kind) fall to 'Unresolved' — they are not valid
-// attribute type-refs, so they only appear here in degenerate states.
+// Map repository kinds to the canonical chip palette. Functions are valid
+// references in inheritance and Prototype's transform chooser.
 const KIND_TO_CHIP: Partial<Record<NonNullable<TypeOption['kind']>, TypeChipKind>> = {
   data: 'Data',
+  func: 'Func',
   choice: 'Choice',
   enum: 'Enum',
   record: 'Record',
@@ -54,6 +54,7 @@ const kindVars: Record<TypeChipKind, TypeChipStyle> = {
   Record: { '--type-chip-bg': 'var(--color-data-badge)', '--type-chip-fg': 'var(--color-data-text)' },
   TypeAlias: { '--type-chip-bg': 'var(--color-data-badge)', '--type-chip-fg': 'var(--color-data-text)' },
   Choice: { '--type-chip-bg': 'var(--color-choice-bg)', '--type-chip-fg': 'var(--color-choice-text)' },
+  Func: { '--type-chip-bg': 'var(--color-func-bg)', '--type-chip-fg': 'var(--color-func-text)' },
   Enum: { '--type-chip-bg': 'var(--color-enum-bg)', '--type-chip-fg': 'var(--color-enum-text)' },
   BasicType: {
     '--type-chip-bg': 'color-mix(in oklch, var(--muted-foreground) 14%, transparent)',

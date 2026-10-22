@@ -12,7 +12,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from 'react';
-import { qualifiedNameFromNodeId, useEditorStore, type TypeOption } from '@rune-langium/visual-editor';
+import { qualifiedNameFromNodeId, useEditorStore, TypeChip, type TypeOption } from '@rune-langium/visual-editor';
 import type { FormPreviewSchema, PreviewField } from '@rune-langium/codegen/export';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -37,7 +37,7 @@ import { usePreviewSessionFactory } from '../providers/preview-session-context.j
 import { useWorkspaceOptional } from '../providers/workspace-context.js';
 import { isInstanceBindableToField } from '../../services/function-input-binding.js';
 import { resolveFunctionOutputTarget } from '../../services/function-output-target.js';
-import { workflowFieldSchema, workflowFieldType } from '../../services/workflow-fields.js';
+import { workflowFieldSchema, workflowFieldType, workflowFieldChipKind } from '../../services/workflow-fields.js';
 import { useWorkflowValidation, type WorkflowValidation as Validation } from '../../services/workflow-validation.js';
 import { downloadFile, sanitizeDownloadFilename } from '../../services/export.js';
 import { requestPrototype } from '../../services/prototype-navigation.js';
@@ -126,6 +126,7 @@ function InputNode({
     <WorkflowNode
       name={field.path}
       type={workflowFieldType(field)}
+      typeKind={workflowFieldChipKind(field)}
       schema={projected}
       values={state.inputs}
       onChange={onChange}
@@ -519,6 +520,7 @@ export const PrototypeWorkflow = withInstrumentation(
           name={resultField?.path ?? 'output'}
           type={resultField ? workflowFieldType(resultField) : draft?.typeFqn.split('.').slice(-1)[0]}
           kind="output"
+          typeKind={resultField ? workflowFieldChipKind(resultField) : undefined}
           values={functionSelected ? resultValues : (draft?.values ?? NO_VALUES)}
           schema={ready ? (functionSelected ? resultSchema : draftSchema) : undefined}
           parentPath={functionSelected && resultField?.kind === 'object' ? resultField.path : undefined}
@@ -543,8 +545,8 @@ export const PrototypeWorkflow = withInstrumentation(
               workspace?.workspaceId ? (
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="m-3"
+                  size="xs"
+                  className="workflow-node__save"
                   onClick={() =>
                     requestPrototype(workspace.workspaceId!, {
                       kind: 'create',
@@ -691,9 +693,10 @@ export const PrototypeWorkflow = withInstrumentation(
                 ) : null
               }
             >
-              <div className="p-3 space-y-3">
+              <div className="workflow-node__body space-y-2">
                 <WorkspaceTypePicker
                   label="Choose a function"
+                  appearance="chip"
                   value={state.functionFqn}
                   filterKinds={['func']}
                   allowClear
@@ -705,8 +708,9 @@ export const PrototypeWorkflow = withInstrumentation(
                 {state.schema ? (
                   <div className="space-y-2 text-xs text-muted-foreground">
                     {state.schema.fields.map((f) => (
-                      <p key={f.path}>
-                        {f.path} · {workflowFieldType(f)}
+                      <p key={f.path} className="workflow-parameter">
+                        <span>{f.path}</span>
+                        <TypeChip as="span" typeName={workflowFieldType(f)} typeKind={workflowFieldChipKind(f)} />
                       </p>
                     ))}
                   </div>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { typeChipKind, type TypeOption, type TypeChipKind } from '@rune-langium/visual-editor';
 import { expandPreviewField, type FormPreviewSchema, type PreviewField } from '@rune-langium/codegen/export';
 import { withInstrumentation } from './instrumentation/core.js';
 
@@ -38,4 +39,14 @@ export const workflowFieldSchema = withInstrumentation(
     sanitize: () => '[workflow]',
     sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' })
   }
+);
+
+/** Preserve the generator's canonical kind when choosing the shared chip palette. */
+export const workflowFieldChipKind = withInstrumentation(
+  function workflowFieldChipKind(field: PreviewField): TypeChipKind {
+    const item = field.kind === 'array' ? field.children[0] : field;
+    const kind = item.typeSymbol?.split(':')[0] as TypeOption['kind'] | undefined;
+    return typeChipKind(kind ?? (item.kind === 'object' ? 'data' : item.kind === 'enum' ? 'enum' : 'builtin'));
+  },
+  { op: 'workflowFieldChipKind', sanitize: () => '[workflow type]' }
 );

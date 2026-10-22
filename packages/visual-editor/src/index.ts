@@ -207,7 +207,7 @@ export { NameCell } from './components/editors/structure/NameCell.js';
 export type { NameCellProps } from './components/editors/structure/NameCell.js';
 export { CardinalityCell } from './components/editors/structure/CardinalityCell.js';
 export type { CardinalityCellProps } from './components/editors/structure/CardinalityCell.js';
-export { TypeChip } from './components/editors/structure/TypeChip.js';
+export { TypeChip, typeChipKind } from './components/editors/structure/TypeChip.js';
 export type { TypeChipProps, TypeChipKind } from './components/editors/structure/TypeChip.js';
 export { TypePickerCell } from './components/editors/structure/TypePickerCell.js';
 export type { TypePickerCellProps } from './components/editors/structure/TypePickerCell.js';

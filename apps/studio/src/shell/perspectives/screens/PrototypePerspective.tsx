@@ -164,13 +164,13 @@ export const PrototypePerspective = withInstrumentation(
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="xs"
               aria-pressed={view.graphVisible}
               onClick={() => patch({ graphVisible: !view.graphVisible })}
             >
               Payload graph
             </Button>
-            <Button type="button" size="sm" onClick={beginCreate}>
+            <Button type="button" size="xs" onClick={beginCreate}>
               Add
             </Button>
           </div>

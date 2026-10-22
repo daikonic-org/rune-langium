@@ -170,6 +170,11 @@ were a result. A valid no-function input is an explicit passthrough state. Only
 singular declared object results can seed a stored instance. Source-specific payload
 arrival remains scoped to an input bound from the selected grid object.
 
+Prototype node headers reuse Structure's kind palettes and shared `TypeChip` references;
+its compact chooser uses the same chip with canonical repository identity. Function
+references use the function palette, while unknown references retain unresolved styling.
+Node insets and controls follow the shared compact Inspector spacing scale.
+
 Flow and Panels share one session and renderer. Smooth SVG connectors are layout
 presentation over nested DOM; no independent graph semantics or canvas engine is
 introduced. Bounded pointer/keyboard dividers persist widths per workspace; narrow

@@ -4,6 +4,7 @@
 
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
+import { TypeChip, type TypeChipKind } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { MoreHorizontal, SlidersHorizontal } from 'lucide-react';
@@ -17,6 +18,7 @@ export const WorkflowNode = withInstrumentation(
   function WorkflowNode({
     name,
     type,
+    typeKind,
     schema,
     values,
     onChange,
@@ -34,6 +36,7 @@ export const WorkflowNode = withInstrumentation(
   }: {
     name: string;
     type?: string;
+    typeKind?: TypeChipKind;
     schema?: FormPreviewSchema;
     values: Record<string, unknown>;
     onChange?(value: Record<string, unknown>): void;
@@ -58,10 +61,18 @@ export const WorkflowNode = withInstrumentation(
         className={`workflow-node workflow-node--${kind}`}
         data-workflow-node={name}
         data-workflow-source={sourceId}
+        data-type-kind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
       >
         <header>
           <h2>{name}</h2>
-          <span className="workflow-node__type">{type}</span>
+          {type ? (
+            <TypeChip
+              as="span"
+              typeName={type}
+              typeKind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
+              className="workflow-node__type"
+            />
+          ) : null}
           {validation ? (
             <WorkflowValidation
               name={name}

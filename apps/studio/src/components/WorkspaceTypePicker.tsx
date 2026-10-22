@@ -5,6 +5,8 @@
 import { useEffect, useMemo, useState, type ReactElement, type PointerEvent } from 'react';
 import {
   TypeSelector,
+  TypeChip,
+  typeChipKind,
   buildTypeOptions,
   getKindDotClass,
   qualifiedNameFromNodeId,
@@ -22,6 +24,7 @@ import {
 } from '@rune-langium/design-system/ui/command';
 import type { CommandEntryGroup } from '@rune-langium/design-system/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { ChevronsUpDown } from 'lucide-react';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -33,6 +36,7 @@ export interface WorkspaceTypePickerProps {
   filterKinds: TypeKind[];
   allowClear?: boolean;
   label: string;
+  appearance?: 'field' | 'chip';
   optionFilter?(option: TypeOption): boolean;
   onOptionPointerDown?(event: PointerEvent, option: TypeOption): void;
 }
@@ -51,6 +55,7 @@ export const WorkspaceTypePicker = withInstrumentation(
     filterKinds,
     allowClear = false,
     label,
+    appearance = 'field',
     optionFilter,
     onOptionPointerDown
   }: WorkspaceTypePickerProps): ReactElement {
@@ -99,16 +104,33 @@ export const WorkspaceTypePicker = withInstrumentation(
             return (
               <PopoverTrigger
                 render={
-                  <button
-                    type="button"
-                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={selected ? `${label}: ${displayLabel}` : label}
-                    disabled={disabled}
-                    onClick={onToggle}
-                  >
-                    <span className="truncate">{displayLabel}</span>
-                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
-                  </button>
+                  appearance === 'chip' && selected ? (
+                    <TypeChip
+                      typeName={selected.label}
+                      typeKind={typeChipKind(selected.kind)}
+                      className="max-w-full min-h-6 truncate"
+                      aria-label={`${label}: ${displayLabel}`}
+                      title={displayLabel}
+                      disabled={disabled}
+                      onClick={onToggle}
+                    />
+                  ) : appearance === 'chip' ? (
+                    <Button size="xs" variant="outline" aria-label={label} disabled={disabled} onClick={onToggle}>
+                      <span className="truncate">{placeholder}</span>
+                      <ChevronsUpDown className="size-3 shrink-0" aria-hidden="true" />
+                    </Button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={selected ? `${label}: ${displayLabel}` : label}
+                      disabled={disabled}
+                      onClick={onToggle}
+                    >
+                      <span className="truncate">{displayLabel}</span>
+                      <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
+                    </button>
+                  )
                 }
               />
             );
