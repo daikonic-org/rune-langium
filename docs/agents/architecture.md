@@ -65,6 +65,16 @@ toast viewport space passes pointer events through; visible toast cards remain
 interactive.
 The graph's informational legend also passes pointer events to the canvas.
 
+Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
+workspace creation does not leak into individual declaration forms. Extend uses
+the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
+from the pinned curated source into a distinct local namespace; split dispatch
+files retain their own imports. The host checks workspace identity and collisions,
+then uses the normal file persistence/parse path. Curated sources remain immutable.
+Preview-worker hydration restores references within curated snapshots; their exports
+must also be registered through Langium's index before parsing authored source that
+imports them. Index each hydrated batch once and remove exports when it is replaced.
+
 Studio's body-level visual profile applies to every perspective and portaled
 overlay: Inter UI text uses normal tracking and a 13 px default at the standard
 root size, with a shared compact label scale, readable line height and rem-based
@@ -118,7 +128,11 @@ Enum summary disclosure sends a node-scoped Inspector section request with a
 fresh revision. Returning from Details to Values preserves the mounted editor
 and its paging state. Preview hydration completion marks a selected unsupported
 target as waiting until a generated result or concrete failure arrives; namespace
-hydration alone is not generation readiness.
+hydration alone is not generation readiness. The provider publishes committed
+hydration only for namespaces whose serialized definitions are in that React
+file snapshot. A nonce-only render cannot release another namespace/instance
+request before those files commit; an already-committed dependency can be
+acknowledged without a new file update.
 
 - Studio uses React 19, React Flow 12, Dockview, zustand 5/zundo 2, Tailwind CSS 4, Base UI, and CodeMirror 6. Manifests currently use TypeScript 7 and Langium 4.4; check manifests before changing versions.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
@@ -180,6 +194,17 @@ arrival remains scoped to an input bound from the selected grid object. Its
 explicit binding path normalizes both exact field and nearest-ancestor navigation,
 including the first item when a stored object is bound to a list parameter.
 
+Cold curated function preparation retains its declaration kind across schema refreshes.
+Hydration commits are acknowledged even when the namespace already arrived in a
+dependency closure and no new files were added. Publishing an equivalent curated
+model set does not reset input drafts; editable source and bundle-version changes
+still refresh the signature. Preview metadata reports missing executable bodies
+using the emitter's shared normalized function and dispatch facts. Both Preview
+and Prototype explain that limitation and disable execution while retaining inputs.
+Optional temporal controls default and clear to an absent value. Generated temporal
+format issues abort before semantic refinements can invoke Temporal on invalid
+strings, preserving structural issue paths for field highlighting.
+
 Prototype node headers reuse Structure's kind palettes and shared `TypeChip` references;
 its compact chooser uses the same chip with canonical repository identity. Function
 references use the function palette, while unknown references retain unresolved styling.
@@ -192,8 +217,11 @@ Add and Payload graph actions occupy a single Prototype toolbar. Smooth SVG conn
 presentation over nested DOM; no independent graph semantics or canvas engine is
 introduced. Bounded pointer/keyboard dividers persist widths per workspace; narrow
 containers stack nodes. `PerspectiveHost` lazily retains Prototype after a visit
-in the current workspace so perspective changes do not destroy drafts. Workspace
-changes dispose it. Workflow data/results are not serialized as presentation
+in the current workspace so perspective changes do not destroy drafts. The
+owning Inspector panel keys the workflow by workspace ID and activation epoch;
+that boundary disposes the session and clears drafts, bindings and results even
+when the source/cohort and preview factory are identical. Same-workspace
+hydration and view changes retain the workflow. Workflow data/results are not serialized as presentation
 preferences. Validators and schema clients own and dispose their worker listeners.
 
 ## Curated Artifact Cache

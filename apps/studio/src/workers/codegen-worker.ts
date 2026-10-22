@@ -46,7 +46,8 @@ import {
   getNodeSourceRegion,
   isRosettaFunction,
   namespaceFromModelName,
-  type RosettaModel
+  type RosettaModel,
+  type RuneDslIndexManager
 } from '@rune-langium/core';
 import {
   generate,
@@ -176,6 +177,7 @@ const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValida
 // for `buildDocuments()` to read on every `runPreview`/`runInstanceSchema`/
 // `executeFunction`/`validateInstance` call. See `hydrateCuratedDocuments`.
 let cachedCuratedDocuments: LangiumDocument[] = [];
+let indexedCuratedDocuments: LangiumDocument[] | undefined;
 let lastCuratedEntries: FileEntry[] = [];
 
 // Shared trace boundaries capture timings only, never source, ASTs or instance values.
@@ -222,8 +224,7 @@ function curatedEntriesChanged(next: FileEntry[]): boolean {
 
 /**
  * Relinks curated documents as a batch via `hydrateModelDocuments`
- * (`packages/core`'s bounded multi-round delete-then-re-add fixpoint —
- * see its doc comment) and caches the result in `cachedCuratedDocuments`
+ * (`packages/core`'s shared-object-graph deserialization — see its doc comment) and caches the result in `cachedCuratedDocuments`
  * for `buildDocuments()` to read.
  *
  * Called once per `preview:setFiles` — the only message that ever carries
@@ -248,6 +249,8 @@ function hydrateCuratedDocuments(entries: FileEntry[]): void {
   const curatedEntries = entries.filter((e) => Boolean(e.serializedModelJson));
   if (!curatedEntriesChanged(curatedEntries)) return; // identical set — skip the relink entirely
   lastCuratedEntries = curatedEntries;
+  // Remove exports for replaced/unloaded artifacts as well as registering new ones below.
+  for (const document of cachedCuratedDocuments) RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
   try {
     cachedCuratedDocuments = hydrateModelDocuments(
       { RuneDsl, shared: RuneDsl.shared },
@@ -558,6 +561,25 @@ async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<La
       // error and the doc would be filtered out, leaving form preview
       // unable to find curated types. Hydrate them via the serializer
       // instead.
+      const curatedDocuments = cachedCuratedDocuments;
+      if (indexedCuratedDocuments !== curatedDocuments) {
+        // Hydration restores references inside curated snapshots. Raw user source
+        // additionally needs their exports in Langium's index, without rebuilding
+        // the already-linked corpus. Cache this work by hydrated batch identity.
+        const exportedSymbols = await Promise.all(
+          curatedDocuments.map((document) => RuneDsl.references.ScopeComputation.collectExportedSymbols(document))
+        );
+        // A workspace/artifact switch can arrive while symbol collection yields.
+        // Publish only the current batch, never exports from a cancelled snapshot.
+        if (cachedCuratedDocuments !== curatedDocuments) return { all: [], valid: [] };
+        curatedDocuments.forEach((document, index) => {
+          (RuneDsl.shared.workspace.IndexManager as RuneDslIndexManager).registerExports(
+            document.uri,
+            exportedSymbols[index]!
+          );
+        });
+        indexedCuratedDocuments = curatedDocuments;
+      }
       const userEntries = currentPreviewFiles.filter((e) => !e.serializedModelJson && isPreviewUserEntryParseable(e));
 
       const userDocuments: LangiumDocument[] = userEntries.map(({ uri, content }) =>
@@ -583,8 +605,6 @@ async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<La
       // The batch relink itself already ran once in `hydrateCuratedDocuments`
       // (called from the `preview:setFiles` handler) — this just reads the
       // cached result rather than re-registering/re-linking on every build.
-      const curatedDocuments = cachedCuratedDocuments;
-
       // Keep invalid documents in the shared cache so selected exports can
       // resolve their complete dependency closure before rejecting errors.
       // Other preview consumers receive the filtered view below.

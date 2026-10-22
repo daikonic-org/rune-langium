@@ -322,7 +322,10 @@ describe('CodegenProvider', () => {
           {
             filePath: 'curated/bundle.rosetta',
             namespace: 'curated',
-            exports: [{ type: 'data', name: 'Address' }]
+            exports: [
+              { type: 'data', name: 'Address' },
+              { type: 'data', name: 'Country' }
+            ]
           }
         ]
       });
@@ -335,7 +338,9 @@ describe('CodegenProvider', () => {
               name: 'address.rosetta',
               path: 'curated/address.rosetta',
               content: 'namespace curated',
-              dirty: false
+              dirty: false,
+              namespace: 'curated',
+              serializedModelJson: '{}'
             }
           ]
         }));
@@ -367,6 +372,15 @@ describe('CodegenProvider', () => {
 
     expect(worker.posted.filter((message) => message.type === 'preview:setFiles')).toHaveLength(beforeHydration);
 
+    // A second target in this namespace starts after the nonce-only React commit,
+    // while App still exposes the old files. It must wait for definitions too.
+    await act(async () => {
+      useInstanceStore.getState().createInstance('curated.Country', 'Country');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(worker.posted.filter((message) => message.type === 'preview:setFiles')).toHaveLength(beforeHydration);
+
     act(() => commitHydratedFiles?.());
     await act(async () => {
       await Promise.resolve();
@@ -377,65 +391,100 @@ describe('CodegenProvider', () => {
     );
   });
 
-  it('synchronizes an already committed hydrated namespace without waiting for another files update', async () => {
-    useEditorStore.setState({ hydratedNamespaces: ['curated'], pendingHydrationNamespaces: [] });
-    const workspace: WorkspaceState = {
-      ...wsState('ws-already-hydrated'),
-      files: [
-        ...wsState('ws-already-hydrated').files,
-        {
-          name: 'address.rosetta',
-          path: 'curated/address.rosetta',
-          content: 'namespace curated',
-          dirty: false
-        }
-      ],
-      deferredExports: [
-        {
-          filePath: 'curated/bundle.rosetta',
-          namespace: 'curated',
-          exports: [{ type: 'data', name: 'Address' }]
-        }
-      ]
-    };
-    render(
-      <WorkspaceStateContext.Provider value={workspace}>
-        <CodegenProvider>
-          <div />
-        </CodegenProvider>
-      </WorkspaceStateContext.Provider>
-    );
-
-    const worker = FakeWorker.instances[0]!;
-    const initialRequest = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
-    act(() => {
-      for (const listener of worker.listeners.message ?? []) {
-        listener({
-          data: {
-            type: 'preview:files-ready',
-            requestId: initialRequest.requestId,
-            filesRevision: initialRequest.filesRevision
+  it.each([true, false])(
+    'acknowledges committed dependency files without a new file update (already hydrated: %s)',
+    async (alreadyHydrated) => {
+      useEditorStore.setState({
+        hydratedNamespaces: alreadyHydrated ? ['curated'] : [],
+        pendingHydrationNamespaces: []
+      });
+      const workspace: WorkspaceState = {
+        ...wsState('ws-already-hydrated'),
+        files: [
+          ...wsState('ws-already-hydrated').files,
+          {
+            name: 'address.rosetta',
+            path: 'curated/address.rosetta',
+            content: 'namespace curated',
+            dirty: false,
+            namespace: 'curated',
+            bundleId: 'cdm',
+            serializedModelJson: '{}'
           }
+        ],
+        deferredExports: [
+          {
+            filePath: 'curated/bundle.rosetta',
+            namespace: 'curated',
+            exports: [{ type: 'data', name: 'Address' }]
+          }
+        ]
+      };
+      render(
+        <WorkspaceStateContext.Provider value={workspace}>
+          <CodegenProvider>
+            <div />
+          </CodegenProvider>
+        </WorkspaceStateContext.Provider>
+      );
+
+      const worker = FakeWorker.instances[0]!;
+      const initialRequest = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
+      act(() => {
+        for (const listener of worker.listeners.message ?? []) {
+          listener({
+            data: {
+              type: 'preview:files-ready',
+              requestId: initialRequest.requestId,
+              filesRevision: initialRequest.filesRevision
+            }
+          });
+        }
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const beforePrepare = worker.posted.filter((message) => message.type === 'preview:setFiles').length;
+      await act(async () => {
+        useInstanceStore.getState().createInstance('curated.Address', 'Address');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      if (!alreadyHydrated) {
+        expect(useEditorStore.getState().pendingHydrationNamespaces).toContain('curated');
+        await act(async () => {
+          useEditorStore.getState().markNamespacesHydrated(['curated']);
         });
       }
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    const beforePrepare = worker.posted.filter((message) => message.type === 'preview:setFiles').length;
-    await act(async () => {
-      useInstanceStore.getState().createInstance('curated.Address', 'Address');
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    await vi.waitFor(() => {
-      expect(worker.posted.filter((message) => message.type === 'preview:setFiles').length).toBeGreaterThan(
-        beforePrepare
+      await vi.waitFor(() => {
+        expect(worker.posted.filter((message) => message.type === 'preview:setFiles').length).toBeGreaterThan(
+          beforePrepare
+        );
+      });
+      expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
+      const request = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
+      await act(async () => {
+        for (const listener of worker.listeners.message ?? [])
+          listener({
+            data: {
+              type: 'preview:files-ready',
+              requestId: request.requestId,
+              filesRevision: request.filesRevision
+            }
+          });
+      });
+      await vi.waitFor(() =>
+        expect(worker.posted).toContainEqual(
+          expect.objectContaining({
+            type: 'instance:generateSchema',
+            typeFqn: 'curated.Address'
+          })
+        )
       );
-    });
-  });
+    }
+  );
 
   it('still routes an ordinary preview:result matching currentPreviewRequestIdRef to usePreviewStore', () => {
     usePreviewStore.getState().resetPreviewState();

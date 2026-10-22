@@ -18,7 +18,8 @@ import {
   type RosettaFunction,
   type RosettaTypeAlias,
   type TypeCall,
-  qualifiedExportPath
+  qualifiedExportPath,
+  namespaceFromModelName
 } from '@rune-langium/core';
 import type {
   FormPreviewSchema,
@@ -31,8 +32,9 @@ import type {
 import { choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-emitter.js';
 import { buildTypeReferenceGraph, findCyclicTypes } from './cycle-detector.js';
 import { resolveTypeCallTarget, type TypeResolutionVisitor } from './emit/type-ref-resolver.js';
-import { functionInputs, functionOutput, functionSignature } from './types/func.js';
+import { extractFuncs, functionInputs, functionOutput, functionSignature } from './types/func.js';
 import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
+import { groupFuncDispatches } from './emit/func-dispatch.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
 
 function humanizeLabel(name: string): string {
@@ -153,12 +155,30 @@ export function generatePreviewSchemas(
     }
 
     // Functions
-    const funcNames = Array.from(namespace.funcByName.keys()).sort();
+    const funcNames = Array.from(namespace.funcByName.keys())
+      .filter((name) => !options.targetId || options.targetId === `${namespace.namespace}.${name}`)
+      .sort();
+    const unimplemented = new Set(
+      groupFuncDispatches(
+        extractFuncs(
+          (funcNames.length ? docs : []).filter(
+            (doc) =>
+              isRosettaModel(doc.parseResult.value) &&
+              namespaceFromModelName(doc.parseResult.value.name) === namespace.namespace
+          ),
+          namespace.namespace,
+          []
+        )
+      )
+        .filter((group) => group.every((func) => func.isAbstract))
+        .map((group) => group[0]!.name)
+    );
     for (const name of funcNames) {
       const func = namespace.funcByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
-      schemas.push(buildFunctionSchema(func.node, namespace, targetId, cyclicTypes, assignableTypes));
+      schemas.push(
+        buildFunctionSchema(func.node, namespace, targetId, cyclicTypes, assignableTypes, unimplemented.has(name))
+      );
     }
   }
 
@@ -231,7 +251,7 @@ export function buildNamespaceIndexes(docs: LangiumDocument[]): NamespaceIndex[]
     const model = doc.parseResult?.value;
     if (!model || !isRosettaModel(model)) continue;
 
-    const namespace = normalizeNamespace(model.name);
+    const namespace = namespaceFromModelName(model.name) ?? '';
     if (!namespace) continue;
 
     let index = byNamespace.get(namespace);
@@ -307,21 +327,6 @@ function buildAssignableTypes(namespaces: readonly NamespaceIndex[]): ReadonlyMa
   return new Map(Array.from(assignable, ([typeFqn, values]) => [typeFqn, Array.from(values).sort()]));
 }
 
-function normalizeNamespace(name: unknown): string {
-  if (typeof name === 'string') {
-    return name.replace(/^"|"$/g, '');
-  }
-  if (
-    name &&
-    typeof name === 'object' &&
-    'segments' in name &&
-    Array.isArray((name as { segments?: unknown }).segments)
-  ) {
-    return (name as { segments: string[] }).segments.join('.');
-  }
-  return String(name ?? '');
-}
-
 /**
  * Namespace-qualified identity for a declaration, for use as a
  * `seenTypes` recursion-guard key (issue #436). Every top-level Data/Choice
@@ -334,7 +339,7 @@ function normalizeNamespace(name: unknown): string {
  * the cycle guard.
  */
 function qualifiedTypeId(node: Data | Choice | RosettaTypeAlias | RosettaEnumeration): string {
-  return qualifiedExportPath(normalizeNamespace(node.$container.name), node.name);
+  return qualifiedExportPath(namespaceFromModelName(node.$container.name) ?? '', node.name);
 }
 
 /**
@@ -1047,7 +1052,8 @@ function buildFunctionSchema(
   namespace: NamespaceIndex,
   targetId: string,
   cyclicTypes: ReadonlySet<string>,
-  assignableTypes: ReadonlyMap<string, readonly string[]>
+  assignableTypes: ReadonlyMap<string, readonly string[]>,
+  unimplemented: boolean
 ): FormPreviewSchema {
   const unsupportedFeatures = new Set<string>();
   const sourceMap: PreviewSourceMapEntry[] = [];
@@ -1112,6 +1118,12 @@ function buildFunctionSchema(
     targetId,
     title: func.name,
     kind: 'function',
+    ...(unimplemented
+      ? {
+          executionUnavailable:
+            'No Rune implementation is defined. External implementations cannot be executed in Studio.'
+        }
+      : {}),
     status: hasReportableUnsupportedFeature(unsupportedFeatures) ? 'unsupported' : 'ready',
     fields: inputFields,
     ...(result ? { result } : {}),

@@ -18,6 +18,7 @@ export const CuratedDeclarationInspector = withInstrumentation(
     availableTypes = [],
     allNodes,
     nodeRepository,
+    headerActions,
     children
   }: {
     seed?: CuratedCacheSeed;
@@ -26,7 +27,9 @@ export const CuratedDeclarationInspector = withInstrumentation(
     isHydrating: boolean;
     actions: EditorFormActions;
     children: ReactNode;
-  } & Partial<Pick<ComponentProps<typeof EditorFormPanel>, 'availableTypes' | 'allNodes' | 'nodeRepository'>>) {
+  } & Partial<
+    Pick<ComponentProps<typeof EditorFormPanel>, 'availableTypes' | 'allNodes' | 'nodeRepository' | 'headerActions'>
+  >) {
     const key = JSON.stringify([scope, seed?.key, seed?.bundleId, seed?.version, seed?.namespace]);
     const [result, setResult] = useState<{ key: string; nodes: TypeGraphNode[] }>();
     const hasSelection = Boolean(nodeId);
@@ -59,6 +62,7 @@ export const CuratedDeclarationInspector = withInstrumentation(
         <div className="flex-1 min-h-0">
           <EditorFormPanel
             nodeData={node.data}
+            headerActions={headerActions}
             meta={node.meta}
             nodeId={nodeId}
             scopeKey={`${scope}:declaration`}

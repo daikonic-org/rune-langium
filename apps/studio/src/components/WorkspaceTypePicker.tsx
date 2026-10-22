@@ -62,8 +62,15 @@ export const WorkspaceTypePicker = withInstrumentation(
     const nodesById = useEditorStore((state) => state.nodesById);
     const repository = selectNodeRepository(nodesById);
     const options = useMemo(
-      () => buildTypeOptions(repository, false).filter((option) => !optionFilter || optionFilter(option)),
-      [repository, optionFilter]
+      () =>
+        buildTypeOptions(repository, false).filter(
+          (option) =>
+            option.value === value ||
+            qualifiedNameFromNodeId(option.value) === value ||
+            !optionFilter ||
+            optionFilter(option)
+        ),
+      [repository, optionFilter, value]
     );
     const selectedValue = useMemo(() => {
       if (!value) return value;

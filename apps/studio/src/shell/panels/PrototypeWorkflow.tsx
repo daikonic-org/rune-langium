@@ -372,17 +372,31 @@ export const PrototypeWorkflow = withInstrumentation(
       },
       [session, state, draft, sources, sourceIds, objectFields]
     );
-    const lastModels = useRef(workspace?.models);
+    // Hydrating a closure republishes models without changing editable source.
+    // Restart only for source/cohort changes, not while users fill the form.
+    const sourceRevision = useMemo(
+      () =>
+        JSON.stringify([
+          workspace?.files.filter((file) => !file.bundleId).map((file) => [file.path, file.content]),
+          [
+            ...new Set(
+              workspace?.files.filter((file) => file.bundleId).map((file) => `${file.bundleId}:${file.bundleVersion}`)
+            )
+          ].sort()
+        ]),
+      [workspace?.files]
+    );
+    const lastSourceRevision = useRef(sourceRevision);
     useEffect(() => {
-      if (lastModels.current === workspace?.models) return;
-      lastModels.current = workspace?.models;
+      if (lastSourceRevision.current === sourceRevision) return;
+      lastSourceRevision.current = sourceRevision;
       if (state.functionFqn)
         selectFunction({
           value: state.schema?.targetId ?? state.functionFqn,
           label: state.schema?.title ?? state.functionFqn,
           kind: 'func'
         });
-    }, [workspace?.models, selectFunction, state.functionFqn, state.schema]);
+    }, [sourceRevision, selectFunction, state.functionFqn, state.schema]);
     const [drag, setDrag] = useState<{ label: string; x: number; y: number }>();
     const dragCleanup = useRef<(() => void) | undefined>(undefined);
     useEffect(() => () => dragCleanup.current?.(), []);
@@ -697,7 +711,12 @@ export const PrototypeWorkflow = withInstrumentation(
                 functionSelected ? (
                   <Button
                     size="xs"
-                    disabled={!session || state.status === 'running' || aggregateValidation.state !== 'valid'}
+                    disabled={
+                      !session ||
+                      state.status === 'running' ||
+                      aggregateValidation.state !== 'valid' ||
+                      !!state.schema?.executionUnavailable
+                    }
                     onClick={() => void session?.run()}
                   >
                     {state.status === 'running' ? 'Executing…' : 'Execute'}
@@ -731,6 +750,11 @@ export const PrototypeWorkflow = withInstrumentation(
                     No transform is required. Choose one compatible function to execute.
                   </p>
                 )}
+                {state.schema?.executionUnavailable ? (
+                  <p role="status" className="text-xs text-muted-foreground">
+                    {state.schema.executionUnavailable}
+                  </p>
+                ) : null}
                 {state.error ? (
                   <p role="alert" className="text-xs text-destructive">
                     {state.error}

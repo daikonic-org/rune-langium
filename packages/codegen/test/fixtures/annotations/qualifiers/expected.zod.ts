@@ -194,7 +194,7 @@ const runeExtendChoice = <T extends z.ZodUnion<readonly z.ZodObject[]>>(choice: 
   z.union(choice.options.map((arm) => arm.extend(shape)));
 
 export const TradeSchema = z.object({
-  tradeDate: z.iso.date()
+  tradeDate: z.iso.date({ abort: true })
 }).meta({
     source: { attribute: 'system', system: 'Bloomberg', version: '3.0' }
   });

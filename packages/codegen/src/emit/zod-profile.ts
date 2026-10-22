@@ -117,13 +117,13 @@ export const zodProfile: LanguageProfile<'zod'> = {
     boolean: 'z.boolean()',
     number: 'z.number()',
     string: 'z.string()',
-    time: 'z.iso.time()',
+    time: 'z.iso.time({ abort: true })',
     pattern: 'z.string()'
   },
   recordTypeMap: {
-    date: 'z.iso.date()',
-    dateTime: 'z.iso.datetime()',
-    zonedDateTime: 'z.iso.datetime({offset:true})'
+    date: 'z.iso.date({ abort: true })',
+    dateTime: 'z.iso.datetime({ abort: true })',
+    zonedDateTime: 'z.iso.datetime({ offset: true, abort: true })'
   },
   typeAliasMap: {
     int: 'z.number().int()',

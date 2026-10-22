@@ -680,11 +680,16 @@ export const FormPreviewPanel = withInstrumentation(
                       type="button"
                       variant="ghost"
                       size="xs"
-                      disabled={executionState === 'running'}
+                      disabled={executionState === 'running' || !!schema.executionUnavailable}
                       onClick={handleRun}
                     >
                       {executionState === 'running' ? 'Executing…' : 'Run'}
                     </Button>
+                    {schema.executionUnavailable ? (
+                      <p role="status" className="text-xs text-muted-foreground">
+                        {schema.executionUnavailable}
+                      </p>
+                    ) : null}
                     {executionError ? (
                       <div className="execution-error mt-2 text-xs">
                         <span className="text-xs font-medium text-destructive">Error:</span>{' '}
@@ -1353,7 +1358,14 @@ function PreviewFieldControl({
           format={field.format}
           label={resolvedFieldLabel(field, arrayIndices)}
           value={typeof value === 'string' ? value : ''}
-          onChange={(next, validate) => onFieldChange(field.path, next, arrayIndices, validate)}
+          onChange={(next, validate) =>
+            onFieldChange(
+              field.path,
+              next === '' && !field.required && !isChoiceArm ? undefined : next,
+              arrayIndices,
+              validate
+            )
+          }
           onBlur={onFieldBlur}
         />
       ) : field.kind === 'number' ? (
@@ -1462,7 +1474,7 @@ function getSummaryMessage(schema: FormPreviewSchema, status: PreviewStatus, sam
   }
 
   if (schema.kind === 'function') {
-    return 'Ready to run function';
+    return schema.executionUnavailable ? 'Execution unavailable' : 'Ready to run function';
   }
 
   if (!sample?.validated) {

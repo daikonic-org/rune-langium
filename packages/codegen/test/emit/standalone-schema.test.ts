@@ -8,7 +8,7 @@ import { generatedDirectory } from '../helpers/generated-directory.js';
 import { refinedPreviewSource } from '../helpers/refined-preview.js';
 import { describe, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
-import { createRuneDslServices } from '@rune-langium/core';
+import { createRuneDslServices, BASICTYPES_ROSETTA } from '@rune-langium/core';
 import { URI } from 'langium';
 import { buildNamespaceIndexes } from '../../src/preview-schema.js';
 import {
@@ -225,6 +225,40 @@ async function toEvaluableJs(tsCode: string): Promise<string> {
 }
 
 describe('emitStandaloneZodSchema', () => {
+  skipIfNodeLt22('reports invalid dates before evaluating Temporal condition comparisons', async () => {
+    const docs = await parseModels([
+      BASICTYPES_ROSETTA,
+      `namespace test.schedule
+ type Schedule:
+  start date (1..1)
+  end date (0..1)
+  condition Ordered:
+   if end exists then start < end
+ type Portfolio:
+  schedules Schedule (1..*)`
+    ]);
+    const { z } = await import('zod');
+    const { RUNTIME_HELPER_JS_SOURCE } = await import('../../src/export.js');
+    const emitted = emitStandaloneZodSchema(docs, 'test.schedule.Portfolio');
+    const schema = new Function(
+      'z',
+      'Temporal',
+      `${RUNTIME_HELPER_JS_SOURCE}\n${await toEvaluableJs(emitted.code)}\nreturn PortfolioSchema;`
+    )(z, Temporal);
+    for (const dates of [
+      { start: '', end: '' },
+      { start: '2027-01-31', end: 'bad' },
+      { start: '2027-02-30', end: '2028-01-31' }
+    ]) {
+      const result = schema.safeParse({ schedules: [dates] });
+      expect(result.success).toBe(false);
+      expect(result.error.issues[0].path).toEqual(['schedules', 0, dates.start === '2027-01-31' ? 'end' : 'start']);
+    }
+    expect(schema.safeParse({ schedules: [{ start: '2027-01-31' }] }).success).toBe(true);
+    expect(schema.safeParse({ schedules: [{ start: '2027-01-31', end: '2028-01-31' }] }).success).toBe(true);
+    expect(schema.safeParse({ schedules: [{ start: '2028-01-31', end: '2027-01-31' }] }).success).toBe(false);
+  });
+
   skipIfNodeLt22('preserves inherited refinements when overriding fields in preview schemas', async () => {
     const docs = await parseModels([refinedPreviewSource]);
     const { z } = await import('zod');

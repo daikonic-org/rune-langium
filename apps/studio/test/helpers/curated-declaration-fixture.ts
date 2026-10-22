@@ -12,7 +12,7 @@ export async function declarationDocuments(
 ) {
   const { RuneDsl } = createRuneDslServices();
   const documents = sources.map(([name, source]) =>
-    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(source!, URI.parse(`file:///cdm/${name}.rosetta`))
+    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(source!, URI.parse(`file:///[cdm]/${name}.rosetta`))
   );
   await RuneDsl.shared.workspace.DocumentBuilder.build(documents);
   return documents.map((doc, index) => ({
