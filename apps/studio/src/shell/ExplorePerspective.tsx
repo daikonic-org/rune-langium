@@ -28,6 +28,7 @@
 import { DraftConditionEditor } from '../components/editing/DraftConditionEditor.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
+import { InspectorDeclarationActions } from '../components/InspectorDeclarationActions.js';
 import { CuratedDeclarationInspector } from './panels/CuratedDeclarationInspector.js';
 import { useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import type { AstNodeWithTextRegion } from 'langium';
@@ -119,7 +120,7 @@ import { useWorkspace } from './providers/workspace-context.js';
 import { useLsp } from './providers/lsp-context.js';
 import { useWorkspaceActions } from './perspectives/workspace-actions-context.js';
 import type { DeferredExportEntry } from '../workers/parser-worker.js';
-import { pathToUri } from '../utils/uri.js';
+import { pathToUri, uriToPath } from '../utils/uri.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { combineFileDiagnostics, countDiagnostics } from './explore-diagnostics.js';
 import {
@@ -2520,6 +2521,72 @@ export const ExplorePerspective = withInstrumentation(
       return cancelInspectorArrival;
     }, [navigationRevision, selectedNodeId, inspectorArrivalReady, emphasizeInspectorArrival, cancelInspectorArrival]);
 
+    const declarationSnapshot = useLatestRef({ files, models: resolvedModelFiles, scope: inspectorScope });
+    const [createdDeclaration, setCreatedDeclaration] = useState<{ path: string; scope: string }>();
+    useEffect(() => {
+      if (!createdDeclaration) return;
+      if (createdDeclaration.scope !== inspectorScope) {
+        setCreatedDeclaration(undefined);
+        return;
+      }
+      const parsed = resolvedModelFiles.find((entry) => entry.filePath === createdDeclaration.path);
+      const declaration = parsed?.model.elements.find((element) => 'name' in element);
+      if (!parsed || !declaration || !('name' in declaration)) return;
+      const id = makeNodeId(namespaceFromModelName(parsed.model.name) ?? '', declaration.name, declaration.$type);
+      if (!nodeRepository.byId(id)) return;
+      navigateToNode(id);
+      setCreatedDeclaration(undefined);
+    }, [createdDeclaration, inspectorScope, resolvedModelFiles, nodeRepository, navigateToNode]);
+
+    const declarationHeaderActions =
+      selectedNodeId && selectedNodeData ? (
+        <InspectorDeclarationActions
+          key={`${inspectorScope}:${selectedNodeId}:${selectedExpressionFile?.artifactKey ?? ''}`}
+          nodeId={selectedNodeId}
+          refOnly={selectedNodeIsRefOnly}
+          ready={!selectedNodeMeta?.deferred && !selectedNodeIsHydrating}
+          getSnapshot={() => ({
+            files: declarationSnapshot.current.files,
+            models: [
+              ...new Map(
+                [
+                  ...declarationSnapshot.current.models,
+                  ...[...corpusModelsRef.current.values()].flatMap((model) => {
+                    const uri = (model as AstNodeWithTextRegion).$textRegion?.documentURI;
+                    const filePath =
+                      uri &&
+                      (declarationSnapshot.current.files.find(
+                        (file) => uriToPath(pathToUri(file.path)) === uriToPath(uri)
+                      )?.path ??
+                        uriToPath(uri));
+                    return filePath ? [{ model, filePath }] : [];
+                  })
+                ].map((entry) => [entry.filePath, entry])
+              ).values()
+            ]
+          })}
+          flush={async () => {
+            formCommitRegistry.flush();
+            const latest = useEditorStore.getState();
+            await sourceSync.flush({
+              nodes: latest.nodes,
+              edges: latest.edges,
+              parseEpoch: latest.parseEpoch,
+              patches: latest.pendingEditPatches,
+              inversePatches: latest.pendingInversePatches
+            });
+          }}
+          onCreate={(createdFiles) => {
+            if (declarationSnapshot.current.scope !== inspectorScope) return;
+            const updated = [...filesRef.current, ...createdFiles];
+            filesRef.current = updated;
+            onFilesChange(updated);
+            requestSourceFile(createdFiles[0]!.path);
+            setCreatedDeclaration({ path: createdFiles[0]!.path, scope: inspectorScope });
+          }}
+        />
+      ) : undefined;
+
     const renderInspectorPane = useCallback(
       () => (
         <div
@@ -2528,6 +2595,7 @@ export const ExplorePerspective = withInstrumentation(
         >
           <CuratedDeclarationInspector
             seed={declarationSeed}
+            headerActions={declarationHeaderActions}
             nodeId={selectedNodeId}
             scope={inspectorScope}
             isHydrating={selectedNodeIsHydrating}
@@ -2538,6 +2606,7 @@ export const ExplorePerspective = withInstrumentation(
           >
             <EditorFormPanel
               nodeData={selectedNodeData}
+              headerActions={declarationHeaderActions}
               sectionRequest={inspectorSectionRequest}
               meta={selectedNodeMeta}
               nodeId={selectedNodeId}
@@ -2571,6 +2640,7 @@ export const ExplorePerspective = withInstrumentation(
       ),
       [
         inspectorArrivalNodeId,
+        declarationHeaderActions,
         declarationSeed,
         metadataActions,
         inspectorScope,

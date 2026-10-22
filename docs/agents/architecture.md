@@ -65,6 +65,16 @@ toast viewport space passes pointer events through; visible toast cards remain
 interactive.
 The graph's informational legend also passes pointer events to the canvas.
 
+Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
+workspace creation does not leak into individual declaration forms. Extend uses
+the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
+from the pinned curated source into a distinct local namespace; split dispatch
+files retain their own imports. The host checks workspace identity and collisions,
+then uses the normal file persistence/parse path. Curated sources remain immutable.
+Preview-worker hydration restores references within curated snapshots; their exports
+must also be registered through Langium's index before parsing authored source that
+imports them. Index each hydrated batch once and remove exports when it is replaced.
+
 Studio's body-level visual profile applies to every perspective and portaled
 overlay: Inter UI text uses normal tracking and a 13 px default at the standard
 root size, with a shared compact label scale, readable line height and rem-based

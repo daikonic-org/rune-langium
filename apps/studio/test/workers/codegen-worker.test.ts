@@ -104,6 +104,7 @@ vi.mock('@rune-langium/core', () => {
           workspace: {
             LangiumDocumentFactory: { fromString: fromStringMock, fromModel: fromModelMock },
             DocumentBuilder: { build: buildMock },
+            IndexManager: { registerExports: vi.fn(), removeContent: vi.fn() },
             LangiumDocuments: {
               getDocument: getDocumentMock,
               addDocument: addDocumentMock,
@@ -111,6 +112,7 @@ vi.mock('@rune-langium/core', () => {
             }
           }
         },
+        references: { ScopeComputation: { collectExportedSymbols: vi.fn(async () => []) } },
         serializer: {
           JsonSerializer: {
             deserialize: deserializeMock,

@@ -24,6 +24,9 @@ import type { TypeKind } from '../types.js';
 export const INSPECTOR_FORM_HEADER_CLASS = 'py-panel-y mb-1.5';
 export const INSPECTOR_FORM_CLASS = 'box-border h-full min-h-0 px-inspector-x';
 
+// Hosts supply workspace actions without threading them through every form.
+export const TypeHeaderActionsContext = React.createContext<React.ReactNode>(undefined);
+
 export interface TypeHeaderProps {
   kind: TypeKind;
   namespace?: string;
@@ -59,13 +62,14 @@ export function TypeHeader({
   onReveal
 }: TypeHeaderProps): React.ReactElement {
   const editorCtx = useEditorActionsContext();
+  const actions = React.useContext(TypeHeaderActionsContext);
   const nameReadOnly = editorCtx?.readOnly ?? false;
   return (
     <div
       data-slot="type-header"
-      className={cn('sticky top-0 z-10 flex items-center gap-2 border-b bg-muted px-0 py-panel-y', className)}
+      className={cn('sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-muted px-0 py-panel-y', className)}
     >
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-24 max-w-full flex-1 flex-col">
         {namespace && (
           <span
             data-slot="type-header-namespace"
@@ -110,6 +114,7 @@ export function TypeHeader({
           </h3>
         )}
       </div>
+      {actions}
       {onReveal && (
         <Button
           type="button"

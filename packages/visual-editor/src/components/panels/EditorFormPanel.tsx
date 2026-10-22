@@ -30,6 +30,7 @@
  * @module
  */
 
+import { TypeHeaderActionsContext } from '../TypeHeader.js';
 import { TypeReferenceImports } from '../editors/TypeLink.js';
 import type { InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
 import type { InspectorMetadataActions } from '../../store/metadata-target.js';
@@ -168,6 +169,8 @@ export interface EditorFormPanelProps extends InspectorHostProps {
   renderFunctionBodyEditor?: (props: FunctionBodyEditorSlotProps) => ReactNode;
   structuralEditsDisabled?: boolean;
   compactConditions?: boolean;
+  /** Host-owned actions rendered in the shared declaration title. */
+  headerActions?: ReactNode;
   /** Called when the panel requests to close (e.g., Escape key). */
   onClose?: () => void;
   /** Called when a type reference is clicked to navigate to that type's definition. */
@@ -197,6 +200,7 @@ const EditorFormPanel = memo(function EditorFormPanel({
   renderFunctionBodyEditor,
   structuralEditsDisabled = false,
   compactConditions,
+  headerActions,
   onClose,
   onNavigateToNode,
   scopeKey,
@@ -487,7 +491,9 @@ const EditorFormPanel = memo(function EditorFormPanel({
           <InspectorSectionRequestContext.Provider
             value={sectionRequest?.nodeId === nodeId ? sectionRequest : undefined}
           >
-            <FormErrorBoundary nodeId={nodeId}>{renderForm()}</FormErrorBoundary>
+            <TypeHeaderActionsContext.Provider value={headerActions}>
+              <FormErrorBoundary nodeId={nodeId}>{renderForm()}</FormErrorBoundary>
+            </TypeHeaderActionsContext.Provider>
           </InspectorSectionRequestContext.Provider>
         </TypeReferenceImports.Provider>
       </div>

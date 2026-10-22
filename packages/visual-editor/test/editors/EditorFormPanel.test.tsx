@@ -516,3 +516,26 @@ describe('EditorFormPanel', () => {
     expect(panel.querySelector('[data-slot="data-type-form"]')).not.toBeNull();
   });
 });
+
+it('renders host declaration actions in the shared read-only title, outside disabled member controls', () => {
+  const invoke = vi.fn();
+  const { container } = render(
+    <EditorFormPanel
+      nodeData={makeNodeData()}
+      meta={testMeta('test.ns')}
+      nodeId="test.ns.Sample#Data"
+      refOnly
+      availableTypes={[]}
+      actions={makeActions()}
+      headerActions={
+        <button type="button" onClick={invoke}>
+          Modify local copy
+        </button>
+      }
+    />
+  );
+  const action = screen.getByRole('button', { name: 'Modify local copy' });
+  expect(container.querySelector('[data-slot="type-header"]')).toContainElement(action);
+  fireEvent.click(action);
+  expect(invoke).toHaveBeenCalledOnce();
+});

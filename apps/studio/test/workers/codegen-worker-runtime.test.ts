@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { BASE_TYPE_FILES } from '@rune-langium/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
 import { loadRealWorker, type WorkerScope } from './helpers/real-codegen-worker.js';
 
 async function waitForMessage(scope: WorkerScope, type: string): Promise<void> {
@@ -343,3 +344,88 @@ func Echo:
     });
   }, 15_000);
 });
+
+it('links a newly authored function to hydrated curated input types, then validates and executes it', async () => {
+  const documents = await declarationDocuments([
+    ['terms', 'namespace curated.terms\ntype Terms:\n amount number (1..1)\n']
+  ]);
+  const { scope, dispatch } = await loadRealWorker();
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 1,
+    files: [
+      { uri: 'file:///[cdm]/terms.rosetta', content: '', serializedModelJson: documents[0]!.serializedModel },
+      {
+        uri: 'file:///workspace/local.rosetta',
+        content:
+          'namespace local.copy\nimport curated.terms.*\nfunc Compute:\n inputs: terms Terms (1..1)\n output: result number (1..1)\n set result: terms -> amount * 2\n'
+      }
+    ]
+  });
+  dispatch({
+    type: 'instance:generateSchema',
+    typeFqn: 'local.copy.Compute#RosettaFunction',
+    requestId: 'copy:schema'
+  });
+  await vi.waitFor(
+    () =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'instance:generateSchemaResult',
+          requestId: 'copy:schema',
+          schema: expect.objectContaining({
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                path: 'terms',
+                kind: 'object',
+                children: expect.arrayContaining([expect.objectContaining({ path: 'terms.amount', kind: 'number' })])
+              })
+            ])
+          })
+        })
+      ),
+    { timeout: 10000 }
+  );
+  dispatch({
+    type: 'preview:execute',
+    funcName: 'local.copy.Compute',
+    inputs: { terms: { amount: 12 } },
+    requestId: 'copy:execute'
+  });
+  await vi.waitFor(
+    () =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'preview:execute-result', requestId: 'copy:execute', output: 24 })
+      ),
+    { timeout: 10000 }
+  );
+  // Unloading the reference corpus must not leave its exports available to raw source.
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 2,
+    files: [
+      {
+        uri: 'file:///workspace/local.rosetta',
+        content:
+          'namespace local.copy\nimport curated.terms.*\nfunc Compute:\n inputs: terms Terms (1..1)\n output: result number (1..1)\n set result: 1\n'
+      }
+    ]
+  });
+  dispatch({
+    type: 'instance:generateSchema',
+    typeFqn: 'local.copy.Compute#RosettaFunction',
+    requestId: 'copy:unloaded'
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'instance:generateSchemaResult',
+        requestId: 'copy:unloaded',
+        schema: expect.objectContaining({
+          fields: expect.arrayContaining([expect.objectContaining({ path: 'terms', kind: 'unknown' })])
+        })
+      })
+    )
+  );
+  vi.unstubAllGlobals();
+}, 25000);
