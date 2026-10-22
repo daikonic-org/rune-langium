@@ -75,6 +75,14 @@ func Dispatch(kind: Kind -> One):
     expect(schemas.find((schema) => schema.title === 'Dispatch')?.executionUnavailable).toBeUndefined();
   });
 
+  it('recognizes unavailable implementations for segmented namespace names', async () => {
+    const doc = await parseModel('namespace segmented.example\nfunc External:\n output: result number (1..1)\n');
+    Object.assign(doc.parseResult.value, { name: { segments: ['segmented', 'example'] } });
+    expect(generatePreviewSchemas(doc).find((schema) => schema.title === 'External')?.executionUnavailable).toMatch(
+      /No Rune implementation/
+    );
+  });
+
   it('preserves declared symbol identities across namespaces, alias chains, collections and deferred bodies', async () => {
     const docs = await parseModels([
       `namespace symbols.a

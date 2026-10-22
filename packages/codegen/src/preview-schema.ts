@@ -18,7 +18,8 @@ import {
   type RosettaFunction,
   type RosettaTypeAlias,
   type TypeCall,
-  qualifiedExportPath
+  qualifiedExportPath,
+  namespaceFromModelName
 } from '@rune-langium/core';
 import type {
   FormPreviewSchema,
@@ -161,7 +162,9 @@ export function generatePreviewSchemas(
       groupFuncDispatches(
         extractFuncs(
           (funcNames.length ? docs : []).filter(
-            (doc) => isRosettaModel(doc.parseResult.value) && doc.parseResult.value.name === namespace.namespace
+            (doc) =>
+              isRosettaModel(doc.parseResult.value) &&
+              namespaceFromModelName(doc.parseResult.value.name) === namespace.namespace
           ),
           namespace.namespace,
           []
@@ -248,7 +251,7 @@ export function buildNamespaceIndexes(docs: LangiumDocument[]): NamespaceIndex[]
     const model = doc.parseResult?.value;
     if (!model || !isRosettaModel(model)) continue;
 
-    const namespace = normalizeNamespace(model.name);
+    const namespace = namespaceFromModelName(model.name) ?? '';
     if (!namespace) continue;
 
     let index = byNamespace.get(namespace);
@@ -324,21 +327,6 @@ function buildAssignableTypes(namespaces: readonly NamespaceIndex[]): ReadonlyMa
   return new Map(Array.from(assignable, ([typeFqn, values]) => [typeFqn, Array.from(values).sort()]));
 }
 
-function normalizeNamespace(name: unknown): string {
-  if (typeof name === 'string') {
-    return name.replace(/^"|"$/g, '');
-  }
-  if (
-    name &&
-    typeof name === 'object' &&
-    'segments' in name &&
-    Array.isArray((name as { segments?: unknown }).segments)
-  ) {
-    return (name as { segments: string[] }).segments.join('.');
-  }
-  return String(name ?? '');
-}
-
 /**
  * Namespace-qualified identity for a declaration, for use as a
  * `seenTypes` recursion-guard key (issue #436). Every top-level Data/Choice
@@ -351,7 +339,7 @@ function normalizeNamespace(name: unknown): string {
  * the cycle guard.
  */
 function qualifiedTypeId(node: Data | Choice | RosettaTypeAlias | RosettaEnumeration): string {
-  return qualifiedExportPath(normalizeNamespace(node.$container.name), node.name);
+  return qualifiedExportPath(namespaceFromModelName(node.$container.name) ?? '', node.name);
 }
 
 /**
