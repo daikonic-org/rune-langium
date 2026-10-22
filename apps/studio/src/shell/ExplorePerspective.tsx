@@ -47,6 +47,7 @@ import {
   annotationsToDisplay,
   conditionsToDisplay,
   useEditorStore,
+  useTypeNavigationMenu,
   useModelSourceSync,
   createEditorCommitRegistry,
   useLatestRef,
@@ -101,7 +102,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@rune-langium/design-system/ui/dialog';
-import { Maximize2, LayoutGrid, Network } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, Maximize2, LayoutGrid, Network } from 'lucide-react';
 import { useStudioToast } from '../components/StudioToastProvider.js';
 import { DockShell } from './DockShell.js';
 import { isUserWorkspaceFile, linkDocument, requestExpressionScope } from '../services/workspace.js';
@@ -132,6 +133,11 @@ import {
 import { useExportDialogStore } from './export-dialog-store.js';
 import { useImportDialogStore } from './import-dialog-store.js';
 import { HydrationOrchestrator } from '../services/hydration-orchestrator.js';
+import {
+  prototypeReturnScope,
+  returnToPrototype,
+  usePrototypeNavigationStore
+} from '../services/prototype-navigation.js';
 import { resolveExploreNavigation, useExploreNavigationStore } from '../services/explore-navigation.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -2538,61 +2544,102 @@ export const ExplorePerspective = withInstrumentation(
       setCreatedDeclaration(undefined);
     }, [createdDeclaration, inspectorScope, resolvedModelFiles, nodeRepository, navigateToNode]);
 
+    const returnScope = prototypeReturnScope(workspaceId, workspace.workspaceEpoch);
+    const savedReturnScope = usePrototypeNavigationStore((state) => state.returnScope);
+    const canReturnToPrototype = savedReturnScope === returnScope;
+    const inspectorNavigation = useTypeNavigationMenu({
+      onNavigate: navigateToNode,
+      additionalActions: canReturnToPrototype
+        ? [{ label: 'Back to Prototype', onSelect: () => returnToPrototype(returnScope) }]
+        : undefined
+    });
     const declarationHeaderActions =
       selectedNodeId && selectedNodeData ? (
-        <InspectorDeclarationActions
-          key={`${inspectorScope}:${selectedNodeId}:${selectedExpressionFile?.artifactKey ?? ''}`}
-          nodeId={selectedNodeId}
-          refOnly={selectedNodeIsRefOnly}
-          ready={!selectedNodeMeta?.deferred && !selectedNodeIsHydrating}
-          getSnapshot={() => ({
-            files: declarationSnapshot.current.files,
-            models: [
-              ...new Map(
-                [
-                  ...declarationSnapshot.current.models,
-                  ...[...corpusModelsRef.current.values()].flatMap((model) => {
-                    const uri = (model as AstNodeWithTextRegion).$textRegion?.documentURI;
-                    const filePath =
-                      uri &&
-                      (declarationSnapshot.current.files.find(
-                        (file) => uriToPath(pathToUri(file.path)) === uriToPath(uri)
-                      )?.path ??
-                        uriToPath(uri));
-                    return filePath ? [{ model, filePath }] : [];
-                  })
-                ].map((entry) => [entry.filePath, entry])
-              ).values()
-            ]
-          })}
-          flush={async () => {
-            formCommitRegistry.flush();
-            const latest = useEditorStore.getState();
-            await sourceSync.flush({
-              nodes: latest.nodes,
-              edges: latest.edges,
-              parseEpoch: latest.parseEpoch,
-              patches: latest.pendingEditPatches,
-              inversePatches: latest.pendingInversePatches
-            });
-          }}
-          onCreate={(createdFiles) => {
-            if (declarationSnapshot.current.scope !== inspectorScope) return;
-            const updated = [...filesRef.current, ...createdFiles];
-            filesRef.current = updated;
-            onFilesChange(updated);
-            requestSourceFile(createdFiles[0]!.path);
-            setCreatedDeclaration({ path: createdFiles[0]!.path, scope: inspectorScope });
-          }}
-        />
+        <>
+          {canReturnToPrototype && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Back to Prototype"
+              title="Back to Prototype"
+              onClick={() => returnToPrototype(returnScope)}
+            >
+              <ArrowLeft className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Declaration navigation"
+            title="Declaration navigation"
+            aria-haspopup="menu"
+            onClick={(event) => inspectorNavigation.open(event, selectedNodeId)}
+          >
+            <MoreHorizontal className="size-3.5" aria-hidden="true" />
+          </Button>
+          <InspectorDeclarationActions
+            key={`${inspectorScope}:${selectedNodeId}:${selectedExpressionFile?.artifactKey ?? ''}`}
+            nodeId={selectedNodeId}
+            refOnly={selectedNodeIsRefOnly}
+            ready={!selectedNodeMeta?.deferred && !selectedNodeIsHydrating}
+            getSnapshot={() => ({
+              files: declarationSnapshot.current.files,
+              models: [
+                ...new Map(
+                  [
+                    ...declarationSnapshot.current.models,
+                    ...[...corpusModelsRef.current.values()].flatMap((model) => {
+                      const uri = (model as AstNodeWithTextRegion).$textRegion?.documentURI;
+                      const filePath =
+                        uri &&
+                        (declarationSnapshot.current.files.find(
+                          (file) => uriToPath(pathToUri(file.path)) === uriToPath(uri)
+                        )?.path ??
+                          uriToPath(uri));
+                      return filePath ? [{ model, filePath }] : [];
+                    })
+                  ].map((entry) => [entry.filePath, entry])
+                ).values()
+              ]
+            })}
+            flush={async () => {
+              formCommitRegistry.flush();
+              const latest = useEditorStore.getState();
+              await sourceSync.flush({
+                nodes: latest.nodes,
+                edges: latest.edges,
+                parseEpoch: latest.parseEpoch,
+                patches: latest.pendingEditPatches,
+                inversePatches: latest.pendingInversePatches
+              });
+            }}
+            onCreate={(createdFiles) => {
+              if (declarationSnapshot.current.scope !== inspectorScope) return;
+              const updated = [...filesRef.current, ...createdFiles];
+              filesRef.current = updated;
+              onFilesChange(updated);
+              requestSourceFile(createdFiles[0]!.path);
+              setCreatedDeclaration({ path: createdFiles[0]!.path, scope: inspectorScope });
+            }}
+          />
+        </>
       ) : undefined;
 
     const renderInspectorPane = useCallback(
       () => (
         <div
           className={`studio-scroll flex flex-col min-h-0 h-full overflow-hidden${inspectorArrivalNodeId && inspectorArrivalNodeId === selectedNodeId ? ' navigation-arrival' : ''}`}
+          onContextMenu={(event) => {
+            if (event.target instanceof Element && event.target.closest('[data-slot="type-header"]'))
+              inspectorNavigation.open(event, selectedNodeId ?? undefined);
+          }}
+          onKeyDown={(event) => {
+            if (event.target instanceof Element && event.target.closest('[data-slot="type-header"]'))
+              inspectorNavigation.onKeyDown(event, selectedNodeId ?? undefined);
+          }}
           data-inspector-readiness={selectedNodeMeta?.deferred ? 'loading' : selectedNodeData ? 'linked' : 'empty'}
         >
+          {inspectorNavigation.menu}
           <CuratedDeclarationInspector
             seed={declarationSeed}
             headerActions={declarationHeaderActions}
@@ -2640,6 +2687,7 @@ export const ExplorePerspective = withInstrumentation(
       ),
       [
         inspectorArrivalNodeId,
+        inspectorNavigation,
         declarationHeaderActions,
         declarationSeed,
         metadataActions,

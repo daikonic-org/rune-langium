@@ -42,6 +42,10 @@ beforeEach(() => {
   });
 });
 
+import {
+  usePreviewSessionFactory,
+  type PreviewSessionFactory
+} from '../../../src/shell/providers/preview-session-context.js';
 import { CodegenProvider } from '../../../src/shell/providers/CodegenProvider.js';
 import { WorkspaceStateContext, type WorkspaceState } from '../../../src/shell/providers/workspace-context.js';
 import { useInstanceStore } from '../../../src/store/instance-store.js';
@@ -973,4 +977,27 @@ it('keeps an unsupported selected preview pending after namespace hydration unti
       });
   });
   expect(usePreviewStore.getState().status).toEqual({ state: 'ready', targetId: target.id });
+});
+
+it('retains Prototype session factory and worker listeners across Explore selection', () => {
+  let factory: PreviewSessionFactory | null = null;
+  function ObserveFactory() {
+    factory = usePreviewSessionFactory();
+    return null;
+  }
+  render(
+    <WorkspaceStateContext value={wsState('retained-workflow')}>
+      <CodegenProvider>
+        <ObserveFactory />
+      </CodegenProvider>
+    </WorkspaceStateContext>
+  );
+  const original = factory;
+  const listener = FakeWorker.instances[0]!.listeners.message[0];
+  expect(original).not.toBeNull();
+  for (const id of ['test.Money#Data', 'test.AddMoney#RosettaFunction']) {
+    act(() => usePreviewStore.setState({ selectedTargetId: id }));
+    expect(factory).toBe(original);
+    expect(FakeWorker.instances[0]!.listeners.message[0]).toBe(listener);
+  }
 });

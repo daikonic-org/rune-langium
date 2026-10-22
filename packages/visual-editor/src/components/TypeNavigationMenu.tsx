@@ -6,9 +6,15 @@ import { DropdownMenuItem } from '@rune-langium/design-system/ui/dropdown-menu';
 import type { NavigateToNodeCallback } from '../types.js';
 import { PointerMenu } from './PointerMenu.js';
 
+export interface TypeNavigationAction {
+  label: string;
+  onSelect: NavigateToNodeCallback;
+}
+
 interface TypeNavigationActions {
   onNavigate?: NavigateToNodeCallback;
   onInspect?: NavigateToNodeCallback;
+  additionalActions?: readonly TypeNavigationAction[];
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -25,6 +31,7 @@ export function TypeNavigationMenuItems({
   nodeId,
   onNavigate,
   onInspect,
+  additionalActions,
   onClose
 }: TypeNavigationActions & { nodeId: string; onClose(): void }) {
   const activate = (action: NavigateToNodeCallback) => {
@@ -35,6 +42,11 @@ export function TypeNavigationMenuItems({
     <>
       {onNavigate && <DropdownMenuItem onClick={() => activate(onNavigate)}>Go to type</DropdownMenuItem>}
       {onInspect && <DropdownMenuItem onClick={() => activate(onInspect)}>Inspect type</DropdownMenuItem>}
+      {additionalActions?.map((action) => (
+        <DropdownMenuItem key={action.label} onClick={() => activate(action.onSelect)}>
+          {action.label}
+        </DropdownMenuItem>
+      ))}
     </>
   );
 }
@@ -43,7 +55,7 @@ export function TypeNavigationMenuItems({
 export function useTypeNavigationMenu(actions: TypeNavigationActions) {
   const [target, setTarget] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const origin = useRef<Element | null>(null);
-  const hasActions = Boolean(actions.onNavigate || actions.onInspect);
+  const hasActions = Boolean(actions.onNavigate || actions.onInspect || actions.additionalActions?.length);
   const close = () => {
     setTarget(null);
     if (origin.current instanceof HTMLElement && origin.current.isConnected)

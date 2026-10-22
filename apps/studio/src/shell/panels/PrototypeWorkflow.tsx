@@ -12,7 +12,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from 'react';
-import { qualifiedNameFromNodeId, useEditorStore, TypeChip, type TypeOption } from '@rune-langium/visual-editor';
+import { qualifiedNameFromNodeId, useEditorStore, type TypeOption } from '@rune-langium/visual-editor';
 import type { FormPreviewSchema, PreviewField } from '@rune-langium/codegen/export';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -24,6 +24,7 @@ import {
   DialogDescription
 } from '@rune-langium/design-system/ui/dialog';
 import { WorkflowSplitter } from '../../components/WorkflowSplitter.js';
+import { WorkflowTypeLink } from '../../components/WorkflowTypeLink.js';
 import { WorkflowNode } from '../../components/WorkflowNode.js';
 import { WorkspaceTypePicker } from '../../components/WorkspaceTypePicker.js';
 import { InstancePayloadPanel } from '../../components/InstancePayloadPanel.js';
@@ -37,7 +38,13 @@ import { usePreviewSessionFactory } from '../providers/preview-session-context.j
 import { useWorkspaceOptional } from '../providers/workspace-context.js';
 import { isInstanceBindableToField } from '../../services/function-input-binding.js';
 import { resolveFunctionOutputTarget } from '../../services/function-output-target.js';
-import { workflowFieldSchema, workflowFieldType, workflowFieldChipKind } from '../../services/workflow-fields.js';
+import {
+  workflowFieldSchema,
+  workflowFieldType,
+  workflowFieldChipKind,
+  workflowFieldNodeId,
+  workflowSchemaNodeId
+} from '../../services/workflow-fields.js';
 import {
   useWorkflowValidation,
   workflowValidationRetry,
@@ -132,6 +139,7 @@ function InputNode({
       name={field.path}
       type={workflowFieldType(field)}
       typeKind={workflowFieldChipKind(field)}
+      typeNodeId={workflowFieldNodeId(field)}
       schema={projected}
       values={state.inputs}
       onChange={onChange}
@@ -554,6 +562,9 @@ export const PrototypeWorkflow = withInstrumentation(
         <WorkflowNode
           name={resultField?.path ?? 'output'}
           type={resultField ? workflowFieldType(resultField) : draft?.typeFqn.split('.').slice(-1)[0]}
+          typeNodeId={
+            resultField ? workflowFieldNodeId(resultField) : draftSchema ? workflowSchemaNodeId(draftSchema) : undefined
+          }
           kind="output"
           typeKind={resultField ? workflowFieldChipKind(resultField) : undefined}
           values={functionSelected ? resultValues : (draft?.values ?? NO_VALUES)}
@@ -651,6 +662,7 @@ export const PrototypeWorkflow = withInstrumentation(
             ) : draft ? (
               <WorkflowNode
                 name="input"
+                typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
                 type={draft.typeFqn.split('.').slice(-1)[0]}
                 schema={draftSchema}
                 values={draft.values}
@@ -693,6 +705,7 @@ export const PrototypeWorkflow = withInstrumentation(
             <WorkflowNode
               name={state.schema?.title ?? 'Transform'}
               kind="function"
+              typeNodeId={state.schema ? workflowSchemaNodeId(state.schema) : undefined}
               validationRoot={rootRef}
               type={undefined}
               schema={primitiveSchema?.fields.length ? primitiveSchema : undefined}
@@ -741,7 +754,11 @@ export const PrototypeWorkflow = withInstrumentation(
                     {state.schema.fields.map((f) => (
                       <p key={f.path} className="workflow-parameter">
                         <span>{f.path}</span>
-                        <TypeChip as="span" typeName={workflowFieldType(f)} typeKind={workflowFieldChipKind(f)} />
+                        <WorkflowTypeLink
+                          nodeId={workflowFieldNodeId(f)}
+                          name={workflowFieldType(f)}
+                          kind={workflowFieldChipKind(f)}
+                        />
                       </p>
                     ))}
                   </div>

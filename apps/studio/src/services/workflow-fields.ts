@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { typeChipKind, type TypeOption, type TypeChipKind } from '@rune-langium/visual-editor';
+import {
+  makeNodeId,
+  splitNodeId,
+  NODE_TYPE_TO_AST_TYPE,
+  typeChipKind,
+  type TypeOption,
+  type TypeChipKind
+} from '@rune-langium/visual-editor';
 import { expandPreviewField, type FormPreviewSchema, type PreviewField } from '@rune-langium/codegen/export';
 import { withInstrumentation } from './instrumentation/core.js';
 
@@ -53,4 +60,27 @@ export const workflowFieldChipKind = withInstrumentation(
     return typeChipKind(kind ?? (item.kind === 'object' ? 'data' : item.kind === 'enum' ? 'enum' : 'builtin'));
   },
   { op: 'workflowFieldChipKind', sanitize: () => '[workflow type]' }
+);
+
+/** Preview symbols retain kind so a same-name function can never capture a type link. */
+export const workflowFieldNodeId = withInstrumentation(
+  function workflowFieldNodeId(field: PreviewField): string | undefined {
+    const item = field.kind === 'array' ? field.children[0] : field;
+    const [kind, target] = item.typeSymbol?.split(':', 2) ?? [];
+    const astKind = kind ? NODE_TYPE_TO_AST_TYPE[kind] : undefined;
+    if (!target || !astKind) return undefined;
+    const { namespace, name } = splitNodeId(target);
+    return makeNodeId(namespace, name, astKind);
+  },
+  { op: 'workflowFieldNodeId', capture: 0 }
+);
+
+export const workflowSchemaNodeId = withInstrumentation(
+  function workflowSchemaNodeId(schema: FormPreviewSchema): string | undefined {
+    const astKind = NODE_TYPE_TO_AST_TYPE[schema.kind === 'function' ? 'func' : (schema.kind ?? 'data')];
+    if (!astKind) return undefined;
+    const { namespace, name } = splitNodeId(schema.targetId);
+    return makeNodeId(namespace, name, astKind);
+  },
+  { op: 'workflowSchemaNodeId', capture: 0 }
 );

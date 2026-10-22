@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
@@ -11,6 +11,7 @@ vi.mock('../../src/shell/workbench-settings.js', () => ({
   readWorkbenchSettings: read,
   writeWorkbenchSettings: write
 }));
+import { useExploreNavigationStore } from '../../src/services/explore-navigation.js';
 import { WorkflowNode } from '../../src/components/WorkflowNode.js';
 import { useFormPresentationStore } from '../../src/store/form-presentation-store.js';
 import { WorkspaceStateContext } from '../../src/shell/providers/workspace-context.js';
@@ -57,6 +58,7 @@ function renderNode(readOnly = false) {
 
 beforeEach(() => {
   useFormPresentationStore.setState({ workspaces: {} });
+  useExploreNavigationStore.setState({ navigateToType: undefined });
   read.mockReset();
   write.mockReset().mockResolvedValue(undefined);
 });
@@ -98,4 +100,41 @@ it.each([false, true])('keeps failed preferences recoverable before editing (rea
   ).toEqual(['currency', 'amount']);
   expect(write).not.toHaveBeenCalled();
   expect(read).toHaveBeenCalledTimes(2);
+});
+
+it('offers canonical header navigation without replacing native input menus', async () => {
+  read.mockResolvedValue({ layouts: {}, formats: {} });
+  const navigate = vi.fn();
+  useExploreNavigationStore.setState({ navigateToType: navigate });
+  const { container } = render(
+    <WorkspaceStateContext
+      value={{
+        workspaceId: 'a',
+        fileCount: 0,
+        files: [],
+        models: [],
+        parsedModels: [],
+        deferredExports: [],
+        parseErrors: new Map()
+      }}
+    >
+      <WorkflowNode
+        name="value"
+        type="Money"
+        typeNodeId="test.Money#Data"
+        schema={schema}
+        values={{ amount: 1, currency: 'USD' }}
+        onChange={vi.fn()}
+      />
+    </WorkspaceStateContext>
+  );
+  const chip = screen.getByRole('button', { name: 'View Money in Explore' });
+  fireEvent.keyDown(chip, { key: 'F10', shiftKey: true });
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'Go to type' }));
+  expect(navigate).toHaveBeenLastCalledWith('test.Money#Data');
+  fireEvent.contextMenu(container.querySelector('header')!);
+  expect(await screen.findByRole('menuitem', { name: 'Go to type' })).toBeVisible();
+  await userEvent.keyboard('{Escape}');
+  expect(fireEvent.contextMenu(screen.getByRole('textbox', { name: 'Currency' }))).toBe(true);
+  expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
 });
