@@ -151,9 +151,11 @@ for (const width of [1440, 700, 390])
     await page.getByRole('button', { name: /^value: Checks passed/ }).click();
     await expect(page.getByRole('heading', { name: 'value · validation' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'value node actions', exact: true }).click();
-    await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'value: Edit layout', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'value: Finish editing layout', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
     await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(

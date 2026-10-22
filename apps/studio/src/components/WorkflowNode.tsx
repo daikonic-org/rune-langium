@@ -82,39 +82,44 @@ export const WorkflowNode = withInstrumentation(
             />
           ) : null}
           {actions}
-          <Popover>
-            <PopoverTrigger render={<Button variant="ghost" size="icon-xs" aria-label={`${name} node actions`} />}>
-              <MoreHorizontal className="size-4" aria-hidden="true" />
-            </PopoverTrigger>
-            <PopoverContent className="w-52 space-y-1 p-1" align="end">
-              <Button
-                variant="ghost"
-                size="xs"
-                className="w-full justify-start"
-                aria-pressed={editing}
-                onClick={() => setEditing(!editing)}
-              >
-                <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                {editing ? 'Finish editing layout' : 'Edit layout'}
-              </Button>
-              {onChange ? (
-                <WorkflowImport
-                  typeFqn={schema?.targetId}
-                  onImport={(items) => {
-                    const value = items[0];
-                    if (!value || typeof value !== 'object' || Array.isArray(value))
-                      throw new Error('Import an object for this input.');
-                    (onImport ?? onChange)(value as Record<string, unknown>);
-                  }}
-                />
-              ) : null}
-              {onBind ? (
-                <Button variant="ghost" size="xs" onClick={onBind}>
-                  Use stored object…
-                </Button>
-              ) : null}
-            </PopoverContent>
-          </Popover>
+          {schema ? (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+              aria-label={`${name}: ${editing ? 'Finish editing layout' : 'Edit layout'}`}
+              title={editing ? 'Finish editing layout' : 'Edit layout'}
+              aria-pressed={editing}
+              onClick={() => setEditing(!editing)}
+            >
+              <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+            </Button>
+          ) : null}
+          {onChange || onBind ? (
+            <Popover>
+              <PopoverTrigger render={<Button variant="ghost" size="icon-xs" aria-label={`${name} node actions`} />}>
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </PopoverTrigger>
+              <PopoverContent className="w-52 space-y-1 p-1" align="end">
+                {onChange ? (
+                  <WorkflowImport
+                    typeFqn={schema?.targetId}
+                    onImport={(items) => {
+                      const value = items[0];
+                      if (!value || typeof value !== 'object' || Array.isArray(value))
+                        throw new Error('Import an object for this input.');
+                      (onImport ?? onChange)(value as Record<string, unknown>);
+                    }}
+                  />
+                ) : null}
+                {onBind ? (
+                  <Button variant="ghost" size="xs" onClick={onBind}>
+                    Use stored object…
+                  </Button>
+                ) : null}
+              </PopoverContent>
+            </Popover>
+          ) : null}
         </header>
         {source ? <p className="workflow-node__source">{source}</p> : null}
         {editing ? (
