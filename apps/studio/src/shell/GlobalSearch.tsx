@@ -132,9 +132,9 @@ export const GlobalSearch = withInstrumentation(
         <DialogTrigger
           render={
             <button type="button" className="studio-topbar__search">
-              <Search className="size-3.5" />
-              <span>Search types, files, commands…</span>
-              <Kbd>⌘K</Kbd>
+              <Search className="size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left">Search types, text &amp; files…</span>
+              <Kbd className="shrink-0">⌘K</Kbd>
             </button>
           }
         />

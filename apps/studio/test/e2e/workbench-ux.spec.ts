@@ -28,7 +28,7 @@ async function loadWorkspace(page: Page) {
 test('search opens declarations, files and destinations, and handles no results', async ({ page }) => {
   await loadWorkspace(page);
   const search = page.getByRole('combobox', { name: 'Search types, files and commands' });
-  await page.getByRole('button', { name: /^Search types, files, commands/ }).click();
+  await page.getByRole('button', { name: /^Search types, text & files/ }).click();
   await search.fill('missing-declaration');
   await expect(page.getByText('No matches. Try a type name, namespace, file or destination.')).toBeVisible();
   await search.fill('demo.Trade');
@@ -45,9 +45,9 @@ test('search opens declarations, files and destinations, and handles no results'
   await search.press('ArrowDown');
   await search.press('Enter');
   await expect(page.getByTestId('export-perspective')).toBeVisible();
-  await page.getByRole('button', { name: /^Search types, files, commands/ }).click();
+  await page.getByRole('button', { name: /^Search types, text & files/ }).click();
   await search.press('Escape');
-  await expect(page.getByRole('button', { name: /^Search types, files, commands/ })).toBeFocused();
+  await expect(page.getByRole('button', { name: /^Search types, text & files/ })).toBeFocused();
 });
 
 for (const width of [1280, 800]) {
