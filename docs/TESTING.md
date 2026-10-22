@@ -60,7 +60,7 @@ The current smoke flow:
 ### Full checkout harness (`test:prod-ux`)
 
 ```bash
-# Run the full 22-journey (J00-J21) checkout harness against the default deploy.
+# Run the full 23-journey (J00-J22) checkout harness against the default deploy.
 pnpm --filter @rune-langium/studio run test:prod-ux
 
 # Keep the existing report intact during focused production triage.
@@ -96,7 +96,19 @@ that this is the blank replacement, without the cancelled curated namespace. J20
 and original source reuse through normal Explorer navigation after reload.
 J21 exercises date, time, local timestamp, offset timestamp and enum values
 through the preview validation/execution boundary. Date uses the native date
-picker; the other temporal inputs currently use text controls.
+picker; time and local timestamp controls also offer ISO editing, while zoned
+timestamps retain explicit offset-aware input.
+
+J22 reuses 13 local Prototype workflow journeys against the deployed Studio:
+equal object inputs, persisted object outputs, function preconditions and invalid-field focus, explicit
+execution, optional objects, scalar output and bypass, compatible list drafts,
+per-node and bulk JSON imports, grid binding, Payload graph toggling, function
+drag/drop, splitters and perspective keepalive. A shared Money layout and Amount
+alias format survive reload without changing the raw execution values. Desktop, tablet and phone cases
+capture layout editing and retain full axe results under `report/axe/J22/`.
+Each case has a distinct manifest sub-ID; local and hosted assertions share
+`test/helpers/prototype-workflow.ts` to prevent drift. Hosted transport failures
+are not dismissed. Failure/retry fault injection remains in the component tests.
 
 J17 retains full axe JSON under `report/axe/J17/attempt<N>/`. Global setup copies
 `test/prod-ux/known-issues.json` into each bundle; its entries include a reason,
@@ -113,6 +125,14 @@ documents. `formRender` is the selection-to-preview interval and includes
 namespace hydration; compare it with network and existing operation spans
 before attributing a slow result to rendering. `ENABLE_TELEMETRY=1` opts in via
 Settings before curated loading; no application environment flag is required.
+
+Cold curated Prototype preparation also has a hermetic browser regression:
+`pnpm --filter @rune-langium/studio exec playwright test test/e2e/prototype-curated.spec.ts --retries=0`.
+It uses serialized namespace artifacts with production URI identities and real
+workers, selects a function without visiting Explore, edits its input and executes
+it. A second case verifies that missing external implementations are explained
+before execution. The parse endpoint is a fixture; this is local regression proof,
+not a deployed CDM payment-schedule acceptance test.
 
 **Nightly automation:** `.github/workflows/prod-ux-nightly.yml` runs this on
 a schedule (04:41 UTC) and uploads `report/` as the `prod-ux-report` build

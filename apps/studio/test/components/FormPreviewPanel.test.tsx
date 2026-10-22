@@ -170,6 +170,54 @@ const numericSchema: FormPreviewSchema = {
 };
 
 describe('FormPreviewPanel', () => {
+  it('keeps a selected temporal Choice arm present when its input is cleared', () => {
+    const onValuesChange = vi.fn();
+    render(
+      <FormPreviewPanel
+        schema={{
+          schemaVersion: 1,
+          targetId: 'test.Choice',
+          title: 'Choice',
+          kind: 'choice',
+          status: 'ready',
+          fields: [
+            { path: 'text', label: 'Text', kind: 'string', required: false },
+            { path: 'date', label: 'Date', kind: 'string', format: 'date', required: false }
+          ]
+        }}
+        status={{ state: 'ready' }}
+        values={{ date: '2027-01-31' }}
+        onValuesChange={onValuesChange}
+      />
+    );
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '' } });
+    expect(onValuesChange).toHaveBeenLastCalledWith({ date: '' });
+  });
+
+  it('explains an unavailable implementation before Run without removing its inputs', () => {
+    const onExecute = vi.fn();
+    render(
+      <FormPreviewPanel
+        schema={{
+          schemaVersion: 1,
+          targetId: 'test.External#RosettaFunction',
+          title: 'External',
+          kind: 'function',
+          status: 'ready',
+          executionUnavailable: 'No Rune implementation is defined.',
+          fields: [{ path: 'amount', label: 'Amount', kind: 'number', required: true }]
+        }}
+        status={{ state: 'ready' }}
+        onExecute={onExecute}
+      />
+    );
+    expect(screen.getByRole('spinbutton', { name: 'Amount' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Run', exact: true })).toBeDisabled();
+    expect(screen.getByText('No Rune implementation is defined.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    expect(onExecute).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     usePreviewStore.getState().resetPreviewState();
     // Use defineProperty (not Object.assign) so the override works even after
@@ -838,7 +886,7 @@ describe('FormPreviewPanel', () => {
         />
       );
       fireEvent.change(screen.getByLabelText('Day'), { target: { value: '' } });
-      expect(onValuesChange).toHaveBeenLastCalledWith({ day: '', timestamp: '' });
+      expect(onValuesChange).toHaveBeenLastCalledWith({ day: undefined, timestamp: '' });
     });
     describe.each([
       ['time', '09:08:00', '', ''],
@@ -906,7 +954,7 @@ describe('FormPreviewPanel', () => {
         zoned: '2026-10-12T14:30:12.123456789+05:30[Asia/Kolkata]'
       });
       fireEvent.change(screen.getByLabelText('Zoned'), { target: { value: '' } });
-      expect(onValuesChange).toHaveBeenLastCalledWith({ ...values, zoned: '' });
+      expect(onValuesChange).toHaveBeenLastCalledWith({ ...values, zoned: undefined });
     });
 
     const recursiveSchema: FormPreviewSchema = {

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
+import { makeNodeId, splitNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import { buildDefaultValues, resolveArmPaths } from '../services/preview-validator.js';
 import type { PreviewSessionClient } from '../services/preview-session-client.js';
@@ -76,7 +77,8 @@ export const createFunctionSession = withInstrumentation(
           schema: undefined
         });
         try {
-          const schema = await client.schema(schemaTargetId ?? fqn, controller.signal);
+          const { namespace, name } = splitNodeId(schemaTargetId ?? fqn);
+          const schema = await client.schema(makeNodeId(namespace, name, 'RosettaFunction'), controller.signal);
           if (disposed || version !== selectionVersion) return;
           patch({ schema, inputs: buildDefaultValues(schema.fields, resolveArmPaths(schema)), status: 'idle' });
         } catch (error) {
@@ -114,6 +116,10 @@ export const createFunctionSession = withInstrumentation(
       },
       async run() {
         if (!state.functionFqn || state.status === 'running') return;
+        if (state.schema?.executionUnavailable) {
+          patch({ status: 'failed', result: undefined, error: state.schema.executionUnavailable });
+          return;
+        }
         const version = selectionVersion;
         const execution = ++executionVersion;
         activeController?.abort();

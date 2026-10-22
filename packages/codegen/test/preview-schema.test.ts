@@ -52,6 +52,29 @@ async function parseModels(sources: readonly string[]) {
 }
 
 describe('FormPreviewSchema generation', () => {
+  it('reports missing executable bodies without blocking implemented dispatch branches', async () => {
+    const doc = await parseModel(`namespace test.capability
+enum Kind: One
+func External:
+ inputs: amount number (1..1)
+ output: result number (1..1)
+func Ordinary:
+ inputs: amount number (1..1)
+ output: result number (1..1)
+ set result: amount
+func Dispatch:
+ inputs: kind Kind (1..1)
+ output: result number (1..1)
+func Dispatch(kind: Kind -> One):
+ set result: 1`);
+    const schemas = generatePreviewSchemas(doc);
+    expect(schemas.find((schema) => schema.title === 'External')?.executionUnavailable).toMatch(
+      /No Rune implementation/
+    );
+    expect(schemas.find((schema) => schema.title === 'Ordinary')?.executionUnavailable).toBeUndefined();
+    expect(schemas.find((schema) => schema.title === 'Dispatch')?.executionUnavailable).toBeUndefined();
+  });
+
   it('preserves declared symbol identities across namespaces, alias chains, collections and deferred bodies', async () => {
     const docs = await parseModels([
       `namespace symbols.a

@@ -55,6 +55,7 @@ export const splitChoiceArmFields = withInstrumentation(
 
 export const buildDefaultValue = withInstrumentation(
   function buildDefaultValue(field: PreviewField): unknown {
+    if (field.kind === 'string' && field.format && !field.required) return undefined;
     switch (field.kind) {
       case 'boolean':
         return false;
@@ -84,8 +85,7 @@ export const buildDefaultObjectValue = withInstrumentation(
 export const buildArmValue = withInstrumentation(
   function buildArmValue(arm: PreviewField): unknown {
     // Choice arms are optional as fields, but the selected arm needs a value.
-    if (arm.kind === 'enum') return arm.enumValues?.[0]?.value ?? '';
-    return arm.kind === 'object' ? buildDefaultObjectValue(arm) : buildDefaultValue(arm);
+    return arm.kind === 'object' ? buildDefaultObjectValue(arm) : buildDefaultValue({ ...arm, required: true });
   },
   { op: 'buildArmValue' }
 );

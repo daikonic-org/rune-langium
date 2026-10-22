@@ -31,8 +31,9 @@ import type {
 import { choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-emitter.js';
 import { buildTypeReferenceGraph, findCyclicTypes } from './cycle-detector.js';
 import { resolveTypeCallTarget, type TypeResolutionVisitor } from './emit/type-ref-resolver.js';
-import { functionInputs, functionOutput, functionSignature } from './types/func.js';
+import { extractFuncs, functionInputs, functionOutput, functionSignature } from './types/func.js';
 import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
+import { groupFuncDispatches } from './emit/func-dispatch.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
 
 function humanizeLabel(name: string): string {
@@ -153,12 +154,28 @@ export function generatePreviewSchemas(
     }
 
     // Functions
-    const funcNames = Array.from(namespace.funcByName.keys()).sort();
+    const funcNames = Array.from(namespace.funcByName.keys())
+      .filter((name) => !options.targetId || options.targetId === `${namespace.namespace}.${name}`)
+      .sort();
+    const unimplemented = new Set(
+      groupFuncDispatches(
+        extractFuncs(
+          (funcNames.length ? docs : []).filter(
+            (doc) => isRosettaModel(doc.parseResult.value) && doc.parseResult.value.name === namespace.namespace
+          ),
+          namespace.namespace,
+          []
+        )
+      )
+        .filter((group) => group.every((func) => func.isAbstract))
+        .map((group) => group[0]!.name)
+    );
     for (const name of funcNames) {
       const func = namespace.funcByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
-      schemas.push(buildFunctionSchema(func.node, namespace, targetId, cyclicTypes, assignableTypes));
+      schemas.push(
+        buildFunctionSchema(func.node, namespace, targetId, cyclicTypes, assignableTypes, unimplemented.has(name))
+      );
     }
   }
 
@@ -1047,7 +1064,8 @@ function buildFunctionSchema(
   namespace: NamespaceIndex,
   targetId: string,
   cyclicTypes: ReadonlySet<string>,
-  assignableTypes: ReadonlyMap<string, readonly string[]>
+  assignableTypes: ReadonlyMap<string, readonly string[]>,
+  unimplemented: boolean
 ): FormPreviewSchema {
   const unsupportedFeatures = new Set<string>();
   const sourceMap: PreviewSourceMapEntry[] = [];
@@ -1112,6 +1130,12 @@ function buildFunctionSchema(
     targetId,
     title: func.name,
     kind: 'function',
+    ...(unimplemented
+      ? {
+          executionUnavailable:
+            'No Rune implementation is defined. External implementations cannot be executed in Studio.'
+        }
+      : {}),
     status: hasReportableUnsupportedFeature(unsupportedFeatures) ? 'unsupported' : 'ready',
     fields: inputFields,
     ...(result ? { result } : {}),

@@ -99,7 +99,7 @@ describe('WorkspaceTypePicker', () => {
     expect(onSelect).toHaveBeenLastCalledWith(null);
   });
 
-  it('uses the allowed declaration kind when a type and function share an FQN', async () => {
+  it('retains the selected declaration kind even when the discovery filter excludes it', async () => {
     const parsed = await parseWorkspace(WORKSPACE_SOURCES);
     useEditorStore.getState().loadModels(parsed.map((result) => result.value));
     const onSelectOption = vi.fn();
@@ -110,6 +110,7 @@ describe('WorkspaceTypePicker', () => {
         value="test.one.Party"
         onSelect={vi.fn()}
         onSelectOption={onSelectOption}
+        optionFilter={() => false}
         filterKinds={['func']}
         label="Function"
       />

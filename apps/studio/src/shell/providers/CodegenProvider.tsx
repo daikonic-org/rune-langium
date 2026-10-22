@@ -123,6 +123,8 @@ export const CodegenProvider = withInstrumentation(
     const codegenCurrentRequestIdRef = useRef<string>('');
     const orchestratorRef = useRef<HydrationOrchestrator | null>(null);
     const readinessRef = useRef<InstanceReadiness | null>(null);
+    const hydrationNonce = useEditorStore((state) => state.hydrationNonce);
+    const committedFilesRef = useRef(files);
     const filesRef = useRef(files);
     const deferredExportsRef = useRef(deferredExports);
     const workspaceEpochRef = useRef(0);
@@ -137,7 +139,7 @@ export const CodegenProvider = withInstrumentation(
       >()
     );
     const workspaceCommitWaitersRef = useRef(
-      new Set<{ afterVersion: number; resolve: () => void; reject: (reason: Error) => void }>()
+      new Set<{ afterVersion: number; namespace: string; resolve: () => void; reject: (reason: Error) => void }>()
     );
     filesRef.current = files;
     deferredExportsRef.current = deferredExports;
@@ -146,15 +148,23 @@ export const CodegenProvider = withInstrumentation(
     // committed App's merged curated files. This layout effect is the concrete
     // boundary after which filesRef is a real committed workspace snapshot.
     useLayoutEffect(() => {
+      const filesChanged = committedFilesRef.current !== files;
+      committedFilesRef.current = files;
       const version = ++committedFilesVersionRef.current;
       committedHydratedNamespacesRef.current = new Set(useEditorStore.getState().hydratedNamespaces);
       for (const waiter of workspaceCommitWaitersRef.current) {
-        if (version > waiter.afterVersion) {
+        // A closure can already contain this namespace; marking it hydrated
+        // then commits no new files. Still wait for this React commit before
+        // acknowledging that existing serialized definition to the worker.
+        const definitionCommitted = files.some(
+          (file) => file.namespace === waiter.namespace && !!file.serializedModelJson
+        );
+        if (version > waiter.afterVersion && (filesChanged || definitionCommitted)) {
           workspaceCommitWaitersRef.current.delete(waiter);
           waiter.resolve();
         }
       }
-    }, [files]);
+    }, [files, hydrationNonce]);
 
     const { showToast } = useStudioToast();
     const previewSelectedTargetId = usePreviewStore((s) => s.selectedTargetId);
@@ -291,29 +301,34 @@ export const CodegenProvider = withInstrumentation(
       [handlePreviewWorkerFailure]
     );
 
-    const waitForCommittedWorkspaceFiles = useCallback((afterVersion: number, signal: AbortSignal): Promise<void> => {
-      if (signal.aborted) return Promise.reject(new DOMException('Instance preparation was cancelled.', 'AbortError'));
-      if (committedFilesVersionRef.current > afterVersion) return Promise.resolve();
-      return new Promise<void>((resolve, reject) => {
-        const waiter = {
-          afterVersion,
-          resolve: () => {
-            signal.removeEventListener('abort', abort);
-            resolve();
-          },
-          reject: (reason: Error) => {
-            signal.removeEventListener('abort', abort);
-            reject(reason);
-          }
-        };
-        const abort = () => {
-          workspaceCommitWaitersRef.current.delete(waiter);
-          reject(new DOMException('Instance preparation was cancelled.', 'AbortError'));
-        };
-        signal.addEventListener('abort', abort, { once: true });
-        workspaceCommitWaitersRef.current.add(waiter);
-      });
-    }, []);
+    const waitForCommittedWorkspaceFiles = useCallback(
+      (afterVersion: number, namespace: string, signal: AbortSignal): Promise<void> => {
+        if (signal.aborted)
+          return Promise.reject(new DOMException('Instance preparation was cancelled.', 'AbortError'));
+        if (committedFilesVersionRef.current > afterVersion) return Promise.resolve();
+        return new Promise<void>((resolve, reject) => {
+          const waiter = {
+            afterVersion,
+            namespace,
+            resolve: () => {
+              signal.removeEventListener('abort', abort);
+              resolve();
+            },
+            reject: (reason: Error) => {
+              signal.removeEventListener('abort', abort);
+              reject(reason);
+            }
+          };
+          const abort = () => {
+            workspaceCommitWaitersRef.current.delete(waiter);
+            reject(new DOMException('Instance preparation was cancelled.', 'AbortError'));
+          };
+          signal.addEventListener('abort', abort, { once: true });
+          workspaceCommitWaitersRef.current.add(waiter);
+        });
+      },
+      []
+    );
 
     const hydrateNamespaceForInstance = useCallback(
       (namespace: string, signal: AbortSignal): Promise<void> => {
@@ -344,7 +359,7 @@ export const CodegenProvider = withInstrumentation(
                     finish();
                   } else {
                     const versionBeforeCommit = committedFilesVersionRef.current;
-                    void waitForCommittedWorkspaceFiles(versionBeforeCommit, signal).then(
+                    void waitForCommittedWorkspaceFiles(versionBeforeCommit, namespace, signal).then(
                       () => finish(),
                       (error: unknown) => finish(error instanceof Error ? error : new Error(String(error)))
                     );

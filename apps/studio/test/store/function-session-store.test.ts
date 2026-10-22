@@ -28,6 +28,7 @@ describe('createFunctionSession', () => {
     };
     const session = createFunctionSession(client);
     await session.selectFunction('test.First');
+    expect(client.schema).toHaveBeenCalledWith('test.First#RosettaFunction', expect.any(AbortSignal));
     const running = session.run();
     await session.selectFunction('test.Second');
     resolveFirst('stale');
@@ -48,6 +49,8 @@ describe('createFunctionSession', () => {
         fields: [
           { path: 'names', label: 'Names', kind: 'array', required: false, children: [] },
           { path: 'enabled', label: 'Enabled', kind: 'boolean', required: true },
+          { path: 'optionalDate', label: 'Optional date', kind: 'string', format: 'date', required: false },
+          { path: 'requiredDate', label: 'Required date', kind: 'string', format: 'date', required: true },
           {
             path: 'status',
             label: 'Status',
@@ -62,7 +65,13 @@ describe('createFunctionSession', () => {
     };
     const session = createFunctionSession(client);
     await session.selectFunction('test.BuildTrade');
-    expect(session.getState().inputs).toEqual({ names: [], enabled: false, status: 'Draft' });
+    expect(session.getState().inputs).toEqual({
+      names: [],
+      enabled: false,
+      optionalDate: undefined,
+      requiredDate: '',
+      status: 'Draft'
+    });
     session.dispose();
   });
 
@@ -174,5 +183,31 @@ it('clearing a loaded function removes its schema and prior error metadata', asy
     status: 'idle',
     error: undefined,
     schema: undefined
+  });
+});
+
+it('blocks unavailable execution while leaving the input form editable', async () => {
+  const client = {
+    schema: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      targetId: 'test.External',
+      title: 'External',
+      kind: 'function',
+      status: 'ready',
+      fields: [],
+      executionUnavailable: 'External implementation unavailable.'
+    }),
+    execute: vi.fn(),
+    dispose: vi.fn()
+  } as unknown as PreviewSessionClient;
+  const session = createFunctionSession(client);
+  await session.selectFunction('test.External');
+  session.setInput('amount', 12);
+  await session.run();
+  expect(client.execute).not.toHaveBeenCalled();
+  expect(session.getState()).toMatchObject({
+    inputs: { amount: 12 },
+    status: 'failed',
+    error: 'External implementation unavailable.'
   });
 });

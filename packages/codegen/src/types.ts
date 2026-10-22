@@ -366,6 +366,8 @@ export interface FormPreviewSchema {
    * workspace model list.
    */
   functionOutput?: FunctionPreviewOutput;
+  /** Execution capability from the same normalized function facts used by the emitter. */
+  executionUnavailable?: string;
   /** Declared output field, including scalar results and the Rune return name. */
   result?: PreviewField;
   unsupportedFeatures?: string[];

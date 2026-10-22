@@ -180,6 +180,17 @@ arrival remains scoped to an input bound from the selected grid object. Its
 explicit binding path normalizes both exact field and nearest-ancestor navigation,
 including the first item when a stored object is bound to a list parameter.
 
+Cold curated function preparation retains its declaration kind across schema refreshes.
+Hydration commits are acknowledged even when the namespace already arrived in a
+dependency closure and no new files were added. Publishing an equivalent curated
+model set does not reset input drafts; editable source and bundle-version changes
+still refresh the signature. Preview metadata reports missing executable bodies
+using the emitter's shared normalized function and dispatch facts. Both Preview
+and Prototype explain that limitation and disable execution while retaining inputs.
+Optional temporal controls default and clear to an absent value. Generated temporal
+format issues abort before semantic refinements can invoke Temporal on invalid
+strings, preserving structural issue paths for field highlighting.
+
 Prototype node headers reuse Structure's kind palettes and shared `TypeChip` references;
 its compact chooser uses the same chip with canonical repository identity. Function
 references use the function palette, while unknown references retain unresolved styling.

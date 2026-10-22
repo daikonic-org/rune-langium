@@ -200,6 +200,6 @@ export const PersonSchema = z.object({
   name: z.string(),
   age: z.number().int(),
   active: z.boolean(),
-  birthday: z.iso.date()
+  birthday: z.iso.date({ abort: true })
 });
 export type Person = z.infer<typeof PersonSchema>;

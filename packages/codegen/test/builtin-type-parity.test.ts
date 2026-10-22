@@ -111,16 +111,16 @@ describe('builtin type parity — all profiles cover the full com.rosetta.model 
 describe('builtin type parity — specific mapping values match spec §4a', () => {
   describe('zodProfile', () => {
     it('maps date → z.iso.date()', () => {
-      expect(zodProfile.recordTypeMap['date']).toBe('z.iso.date()');
+      expect(zodProfile.recordTypeMap['date']).toBe('z.iso.date({ abort: true })');
     });
     it('maps dateTime → z.iso.datetime()', () => {
-      expect(zodProfile.recordTypeMap['dateTime']).toBe('z.iso.datetime()');
+      expect(zodProfile.recordTypeMap['dateTime']).toBe('z.iso.datetime({ abort: true })');
     });
     it('maps zonedDateTime → z.iso.datetime({offset:true})', () => {
-      expect(zodProfile.recordTypeMap['zonedDateTime']).toBe('z.iso.datetime({offset:true})');
+      expect(zodProfile.recordTypeMap['zonedDateTime']).toBe('z.iso.datetime({ offset: true, abort: true })');
     });
     it('maps time → z.iso.time()', () => {
-      expect(zodProfile.basicTypeMap['time']).toBe('z.iso.time()');
+      expect(zodProfile.basicTypeMap['time']).toBe('z.iso.time({ abort: true })');
     });
     it('maps pattern → z.string()', () => {
       expect(zodProfile.basicTypeMap['pattern']).toBe('z.string()');

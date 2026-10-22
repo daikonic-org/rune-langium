@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
+import { buildArmValue, buildDefaultValue } from '../../src/services/preview-validator.js';
 import { usePreviewStore } from '../../src/store/preview-store.js';
 import { useOutputStore } from '../../src/store/output-store.js';
 import { useActivityStore } from '../../src/store/activity-store.js';
@@ -782,3 +783,13 @@ describe('usePreviewStore — functionExecute op-log span', () => {
     expect(lines.filter((l) => l.op === 'functionExecute')).toHaveLength(0);
   });
 });
+
+it.each(['date', 'time', 'dateTime', 'zonedDateTime'] as const)(
+  'keeps optional %s absent but materializes a selected Choice arm',
+  (format) => {
+    const field = { path: 'value', label: 'Value', kind: 'string' as const, format, required: false };
+    expect(buildDefaultValue(field)).toBeUndefined();
+    expect(buildArmValue(field)).toBe('');
+    expect(buildDefaultValue({ ...field, required: true })).toBe('');
+  }
+);
