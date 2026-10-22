@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { StrictMode } from 'react';
+import { WorkflowValidation } from '../../src/components/WorkflowValidation.js';
+import { StrictMode, useRef } from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
@@ -1512,6 +1513,7 @@ describe('FormPreviewPanel', () => {
         />
       );
       expect(screen.queryByText('Trade id is required')).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Trade id' })).not.toHaveAttribute('aria-invalid');
 
       rerender(
         <FormPreviewPanel
@@ -1524,6 +1526,57 @@ describe('FormPreviewPanel', () => {
         />
       );
       expect(screen.getByText('Trade id is required')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Trade id' })).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByRole('textbox', { name: 'Trade id' })).toHaveAccessibleDescription('Trade id is required');
+    });
+
+    it('associates errors with each control kind and clears invalid state after a valid result', () => {
+      const schema: FormPreviewSchema = {
+        ...tradeSchema,
+        fields: [
+          { path: 'amount', label: 'Amount', kind: 'number', required: true },
+          {
+            path: 'status',
+            label: 'Status',
+            kind: 'enum',
+            required: true,
+            enumValues: [{ value: 'Draft', label: 'Draft' }]
+          },
+          { path: 'active', label: 'Active', kind: 'boolean', required: true },
+          { path: 'date', label: 'Event date', kind: 'string', required: true, format: 'date' }
+        ]
+      };
+      const values = { amount: 0, status: 'Draft', active: false, date: '2026-10-21' };
+      const props = { schema, status: { state: 'ready' as const, targetId: schema.targetId }, values, validated: true };
+      const { rerender } = render(
+        <FormPreviewPanel
+          {...props}
+          valid={false}
+          errors={{
+            amount: 'Enter an amount',
+            status: 'Choose a status',
+            active: 'Check this value',
+            date: 'Choose a date'
+          }}
+        />
+      );
+      const controls = [
+        screen.getByRole('spinbutton', { name: 'Amount' }),
+        screen.getByRole('combobox', { name: 'Status' }),
+        screen.getByRole('checkbox', { name: 'Active' }),
+        screen.getByLabelText('Event date', { exact: true })
+      ];
+      for (const [index, control] of controls.entries()) {
+        expect(control).toHaveAttribute('aria-invalid', 'true');
+        expect(control).toHaveAccessibleDescription(
+          ['Enter an amount', 'Choose a status', 'Check this value', 'Choose a date'][index]
+        );
+      }
+      rerender(<FormPreviewPanel {...props} valid errors={{}} />);
+      for (const control of controls) {
+        expect(control).not.toHaveAttribute('aria-invalid');
+        expect(control).not.toHaveAttribute('aria-describedby');
+      }
     });
 
     it('shows no errors when errors/valid/validated props are omitted (defaults)', () => {
@@ -1624,4 +1677,57 @@ describe('FormPreviewPanel', () => {
       expect(screen.getByText('Ready to run function')).toBeInTheDocument();
     });
   });
+});
+
+it('focuses the indexed enum item selected from validation details', async () => {
+  const schema: FormPreviewSchema = {
+    ...tradeSchema,
+    fields: [
+      {
+        path: 'sides',
+        label: 'Sides',
+        kind: 'array',
+        required: false,
+        children: [
+          {
+            path: 'sides[]',
+            label: 'Side',
+            kind: 'enum',
+            required: true,
+            enumValues: [
+              { value: 'Buy', label: 'Buy' },
+              { value: 'Sell', label: 'Sell' }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+  function Fixture() {
+    const root = useRef<HTMLElement>(null);
+    return (
+      <section ref={root}>
+        <WorkflowValidation
+          name="Input"
+          root={root}
+          validation={{ state: 'invalid', diagnostics: [{ path: 'sides[1]', message: 'Review this side' }] }}
+        />
+        <FormPreviewPanel
+          schema={schema}
+          status={{ state: 'ready', targetId: schema.targetId }}
+          values={{ sides: ['Buy', 'Sell'] }}
+          onValuesChange={() => {}}
+        />
+      </section>
+    );
+  }
+  render(<Fixture />);
+  const user = userEvent.setup({ writeToClipboard: false });
+  await user.click(screen.getByRole('button', { name: /Input: 1 issue/ }));
+  await user.click(screen.getByRole('button', { name: /sides\[1\]: Review this side/ }));
+  await vi.waitFor(() => expect(screen.getAllByRole('combobox')[1]).toHaveFocus());
+  expect(screen.getAllByRole('combobox')[0].closest('[data-field-path]')).toHaveAttribute(
+    'data-field-path',
+    'sides[0]'
+  );
 });

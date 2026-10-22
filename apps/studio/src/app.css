@@ -939,12 +939,7 @@ html {
      * midnight-green palette. The dot grid is NOT painted here as a fixed
      * ::after overlay anymore — React Flow's <Background> renders a single grid
      * that pans/zooms WITH the canvas, so nothing phases against it. */
-    background:
-      radial-gradient(
-        ellipse at 50% 30%,
-        color-mix(in oklch, var(--background), black 26%),
-        var(--card)
-      );
+    background: var(--canvas-background);
   }
 
   .studio-app .studio-statusbar {

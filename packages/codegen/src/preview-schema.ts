@@ -30,7 +30,7 @@ import type {
 } from './types.js';
 import { choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-emitter.js';
 import { buildTypeReferenceGraph, findCyclicTypes } from './cycle-detector.js';
-import { resolveTypeCallTarget } from './emit/type-ref-resolver.js';
+import { resolveTypeCallTarget, type TypeResolutionVisitor } from './emit/type-ref-resolver.js';
 import { functionInputs, functionOutput, functionSignature } from './types/func.js';
 import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
@@ -182,7 +182,7 @@ export function generatePreviewSchemas(
     ]);
   for (const schema of schemas) {
     const definitions: NonNullable<FormPreviewSchema['definitions']> = Object.create(null);
-    const pending = references(schema.fields);
+    const pending = references(schema.result ? [...schema.fields, schema.result] : schema.fields);
     const unsupported = new Set(schema.unsupportedFeatures);
     for (let index = 0; index < pending.length; index++) {
       const id = pending[index]!;
@@ -323,7 +323,7 @@ function normalizeNamespace(name: unknown): string {
 }
 
 /**
- * Namespace-qualified identity for a Data/Choice node, for use as a
+ * Namespace-qualified identity for a declaration, for use as a
  * `seenTypes` recursion-guard key (issue #436). Every top-level Data/Choice
  * is a direct child of its document's `RosettaModel`, so its namespace is
  * simply that container's (normalized) `name` — mirrors how
@@ -333,7 +333,7 @@ function normalizeNamespace(name: unknown): string {
  * `trade.Observable` vs. `asset.Observable`) collide and spuriously trip
  * the cycle guard.
  */
-function qualifiedTypeId(node: Data | Choice): string {
+function qualifiedTypeId(node: Data | Choice | RosettaTypeAlias | RosettaEnumeration): string {
   return qualifiedExportPath(normalizeNamespace(node.$container.name), node.name);
 }
 
@@ -637,7 +637,12 @@ function buildTypeAliasSchema(
           targetId,
           title: alias.name,
           status: 'ready',
-          fields: [scalarField({ path: 'value', label: humanizeLabel(alias.name) }, builtinKind, basicTypeName)]
+          fields: [
+            {
+              ...scalarField({ path: 'value', label: humanizeLabel(alias.name) }, builtinKind, basicTypeName),
+              typeSymbol: `typeAlias:${targetId}`
+            }
+          ]
         };
       },
       // Enum alias (e.g. `typeAlias SideAlias: Side`) — new: buildTypeAliasSchema
@@ -656,6 +661,7 @@ function buildTypeAliasSchema(
           {
             path: 'value',
             label: humanizeLabel(alias.name),
+            typeSymbol: `typeAlias:${targetId}`,
             kind: 'enum',
             required: true,
             enumValues: node.enumValues.map((v) => ({
@@ -883,7 +889,7 @@ function buildChoiceOptionField(
   const basePath = choiceOptionFieldName(optionTypeName);
   const path = ctx.pathPrefix ? `${ctx.pathPrefix}.${basePath}` : basePath;
 
-  return resolveTypeCallTarget<PreviewField>(
+  return resolvePreviewType(
     option.typeCall,
     ctx.namespace,
     {
@@ -1085,6 +1091,22 @@ function buildFunctionSchema(
       )
     : undefined;
 
+  const result = output
+    ? buildField(output, {
+        namespace,
+        unsupportedFeatures,
+        sourceMap,
+        sourceUri: AstUtils.getDocument(output).uri.toString(),
+        maxDepth: DEFAULT_MAX_DEPTH,
+        depth: 0,
+        path: output.name,
+        label: humanizeLabel(output.name),
+        seenTypes: new Set(),
+        cyclicTypes,
+        assignableTypes
+      })
+    : undefined;
+
   return {
     schemaVersion: SCHEMA_VERSION,
     targetId,
@@ -1092,6 +1114,7 @@ function buildFunctionSchema(
     kind: 'function',
     status: hasReportableUnsupportedFeature(unsupportedFeatures) ? 'unsupported' : 'ready',
     fields: inputFields,
+    ...(result ? { result } : {}),
     ...(functionOutputDescriptor ? { functionOutput: functionOutputDescriptor } : {}),
     ...(sourceMap.length > 0 ? { sourceMap } : {}),
     ...(unsupportedFeatures.size > 0 ? { unsupportedFeatures: Array.from(unsupportedFeatures).sort() } : {})
@@ -1123,8 +1146,34 @@ function buildField(attr: Attribute, ctx: FieldContext): PreviewField {
   };
 }
 
+/** Attach presentation identity through the same resolver used by every emitter. */
+function resolvePreviewType(
+  typeCall: TypeCall | undefined,
+  namespace: NamespaceIndex,
+  visitor: TypeResolutionVisitor<PreviewField>,
+  sourceUri: string
+): PreviewField {
+  let aliasSymbol: string | undefined;
+  const field = resolveTypeCallTarget(
+    typeCall,
+    namespace,
+    {
+      ...visitor,
+      onAlias: (alias) => {
+        aliasSymbol ??= `typeAlias:${qualifiedTypeId(alias)}`;
+      },
+      onPrimitive: (name) => ({ ...visitor.onPrimitive(name), typeSymbol: `builtin:${name}` }),
+      onEnum: (node, uri) => ({ ...visitor.onEnum(node, uri), typeSymbol: `enum:${qualifiedTypeId(node)}` }),
+      onData: (node, uri) => ({ ...visitor.onData(node, uri), typeSymbol: `data:${qualifiedTypeId(node)}` }),
+      onChoice: (node, uri) => ({ ...visitor.onChoice(node, uri), typeSymbol: `choice:${qualifiedTypeId(node)}` })
+    },
+    sourceUri
+  );
+  return field.kind === 'unknown' ? field : { ...field, typeSymbol: aliasSymbol ?? field.typeSymbol };
+}
+
 function buildBaseField(attr: Attribute, ctx: FieldContext): PreviewField {
-  return resolveTypeCallTarget<PreviewField>(
+  return resolvePreviewType(
     attr.typeCall,
     ctx.namespace,
     {

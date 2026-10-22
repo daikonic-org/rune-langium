@@ -20,7 +20,7 @@ describe('prototype navigation', () => {
         selectedId: null,
         query: '',
         typeFqn: null,
-        inspectorTab: 'form',
+
         graphVisible: false
       }
     });

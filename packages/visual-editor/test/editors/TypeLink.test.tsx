@@ -266,3 +266,15 @@ describe('Inspector canonical reference destinations', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 });
+
+it('uses the function palette for a resolved function picker reference', () => {
+  render(
+    <TypeReferenceField
+      value="test.Apply#RosettaFunction"
+      options={[{ value: 'test.Apply#RosettaFunction', label: 'Apply', kind: 'func', namespace: 'test' }]}
+      onSelect={vi.fn()}
+      filterKinds={['func']}
+    />
+  );
+  expect(screen.getByRole('button', { name: 'Apply', exact: true }).getAttribute('data-kind')).toBe('Func');
+});

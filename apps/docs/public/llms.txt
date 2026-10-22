@@ -1144,6 +1144,7 @@ Returns null if valid, or an error message string if invalid.
 - `buildStructureGraph`
 - `NameCell`
 - `CardinalityCell`
+- `typeChipKind`
 - `TypePickerCell`
 - `expressionScopeFromEntries`: Presentation groups for canonical core scope descriptions.
 - `createEditorCommitRegistry`

@@ -81,6 +81,27 @@ individual section padding. Nested sections inherit the owning horizontal gutter
 and use only the block inset, avoiding doubled indentation. Compact Inspector
 forms use `--inspector-padding-inline` (8 px); their header owns no second gutter.
 `--field-label-gap` (4 px) is shared by design-system Field and Preview controls.
+Preview and Prototype share validated field state: invalid controls use a semantic
+red-tinted background and border, `aria-invalid`, and an associated inline error.
+Temporal controls forward the same state; corrected fields clear both cues.
+Worker diagnostics remain the sole source of validation results.
+
+Preview and Prototype share symbol-associated presentation preferences in
+`form-presentation-store.ts`, persisted through `workbench-settings.ts` in the
+workspace's browser database. Object layouts store member order, column count
+and spans; numeric formats store currency, grouping and decimal places. Codegen
+attaches kind-qualified `typeSymbol` metadata through its authoritative resolver,
+preserving declared aliases and identities through deferred expansion. Root
+selection IDs are normalized before lookup so nested uses share the same layout.
+Preferences never rewrite Rune, validation, or sample values. A formatted numeric
+control shows the raw value while focused and only writes actual edits.
+Reordering changes DOM order, supports pointer/touch and keyboard handles, and
+stays inside the owning object. Container queries collapse saved multi-column
+layouts in narrow panels. Unknown members are ignored and newly generated fields
+retain their source order after saved members. Preference loads and save results
+are scoped to each workspace and revision; failures expose a retry action.
+The shared readiness gate blocks editing and store writes until preferences have
+loaded successfully; failed restores retry the read before accepting edits.
 Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.
@@ -103,7 +124,7 @@ hydration alone is not generation readiness.
 - OPFS stores workspace files; IndexedDB stores metadata, caches, settings, and layouts.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.
 - `apps/studio/src/shell/providers/StudioProviders.tsx` composes provider responsibilities; `LspProvider.tsx` owns the LSP client and transport lifecycle.
-- `WorkbenchHost` owns Dockview mounting, stable panel bridges, native-layout restore, serialization subscriptions, and disposal. Each perspective supplies a `WorkbenchDefinition` with its panels, titles, and default builder. `DockShell` remains Explore's adapter: it owns migration of `PanelLayoutRecord`, the Explore factory layout, toolbar/shortcuts, center-pane policy, and utility-tray collapse behavior. Per-workspace perspective preferences use versioned workbench settings; they must contain UI state only, never model payloads or generated artifacts.
+- `WorkbenchHost` owns Dockview mounting, stable panel bridges, native-layout restore, serialization subscriptions, and disposal. Each perspective supplies a `WorkbenchDefinition` with its panels, titles, and default builder. Its optional idempotent reconciler runs after restore and definition updates, preserving existing panel instances when conditional panels appear or disappear. `DockShell` remains Explore's adapter: it owns migration of `PanelLayoutRecord`, the Explore factory layout, toolbar/shortcuts, center-pane policy, and utility-tray collapse behavior. Per-workspace perspective preferences use versioned workbench settings; they must contain UI state only, never model payloads or generated artifacts.
 - **Studio LSP is network-only.** `apps/studio/src/services/transport-provider.ts` defaults to session-token minting followed by a token-gated WebSocket to the hosted LSP. Only an explicit `wsUri` opts into direct WebSocket, with token-gated fallback after failure. Configured endpoints can differ between local, preview, and production environments.
 - Hosted dependency snapshots compute exports and local scopes without eagerly
   linking every function body. Live source still links and validates through
@@ -127,12 +148,53 @@ hydration alone is not generation readiness.
 - Close transports during reconnect/disposal so server-side sessions and documents can be released.
 - The LSP connection adapter converts returned or thrown vscode `ResponseError` values into thrown lspeasy protocol errors for ordinary request handlers. Cancellation must travel in JSON-RPC's error field, never as a successful completion payload.
 
-Prototype's instance Inspector uses its container width to place validation,
-provenance and payload beside Form/Functions in wide panes, and below them in
-narrow panes. Diagnostics are disclosed in a bounded scroll area; they never
-claim the form's remaining height. Controlled previews forward edits to their
-owning instance/function session once; blur must not rewrite unchanged values
-and restart readiness/validation while an adjacent action is being clicked.
+Prototype's `PrototypeWorkflow` owns equal, detached input drafts and one optional
+`FunctionSession`. `WorkflowNode` composes the existing controlled FormPreview
+renderer; object parameters render separately and primitive inputs remain inline.
+Node-local layout editing uses the shared symbol-associated presentation store.
+The instance grid exposes failed-save retries through the existing instance-store
+persistence action. Draft schema failures can retry their request without losing
+the input object; each retry aborts and invalidates its preceding request.
+The instance grid stores reusable objects; selecting one requests an explicit
+compatible parameter binding. Drafts never mutate stored objects. Batch JSON
+import belongs to the grid, and single-input import belongs to each node.
+
+`useWorkflowValidation` requests canonical worker validation on a separate session
+channel. Input identity, request cancellation, factory identity and model snapshots
+fence obsolete replies. Per-input type diagnostics and whole-function checks gate
+Execute together. Validation status popovers can retry failed requests without
+editing inputs; the function status retries all unavailable checks together.
+`typescript.inputChecks` emits opt-in precondition-only exports
+through the same aliases/precondition emitter and dispatch selector used by actual
+execution. These exports never run assignments or postconditions. Ordinary exports
+are unchanged. Function schemas expose the declared result field, including scalar
+outputs and return-variable names; result values never infer their own type.
+
+Function switching retains values and source bindings only for compatible field
+and array-item identities. Input edits and function selection invalidate execution results. Clearing a
+function fences outstanding schema and execution requests. Pending, failed or
+unavailable transformations cannot fall back to the input payload as though it
+were a result. A valid no-function input is an explicit passthrough state. Only
+singular declared object results can seed a stored instance. Source-specific payload
+arrival remains scoped to an input bound from the selected grid object. Its
+explicit binding path normalizes both exact field and nearest-ancestor navigation,
+including the first item when a stored object is bound to a list parameter.
+
+Prototype node headers reuse Structure's kind palettes and shared `TypeChip` references;
+its compact chooser uses the same chip with canonical repository identity. Function
+references use the function palette, while unknown references retain unresolved styling.
+Node insets and controls follow the shared compact Inspector spacing scale.
+Graph and Prototype share the `--canvas-background` vignette token; Prototype
+nodes use the existing `studio-card` depth treatment and subtle kind-tinted edges.
+
+Workflow and Object builder share one session and renderer. Their view selector,
+Add and Payload graph actions occupy a single Prototype toolbar. Smooth SVG connectors are layout
+presentation over nested DOM; no independent graph semantics or canvas engine is
+introduced. Bounded pointer/keyboard dividers persist widths per workspace; narrow
+containers stack nodes. `PerspectiveHost` lazily retains Prototype after a visit
+in the current workspace so perspective changes do not destroy drafts. Workspace
+changes dispose it. Workflow data/results are not serialized as presentation
+preferences. Validators and schema clients own and dispose their worker listeners.
 
 ## Curated Artifact Cache
 

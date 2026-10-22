@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
 class FakeApi {
@@ -34,8 +34,11 @@ let api: FakeApi;
 vi.mock('dockview-react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('dockview-react')>()),
   DockviewReact(props: { components: Record<string, ComponentType>; onReady(event: { api: FakeApi }): void }) {
-    api = new FakeApi();
-    props.onReady({ api });
+    const instance = useRef(new FakeApi());
+    useEffect(() => {
+      api = instance.current;
+      props.onReady({ api });
+    }, []);
     return (
       <div data-testid="dockview-react-mock">
         {Object.entries(props.components).map(([name, Panel]) => (
@@ -103,6 +106,38 @@ describe('WorkbenchHost', () => {
     rerender(<WorkbenchHost definition={secondDefinition} onNativeLayoutChange={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'second: 1' })).toBeInTheDocument();
+  });
+
+  it('reconciles conditional panels without recreating the host or its existing panels', () => {
+    const buildDefault = vi.fn();
+    const reconcile = vi.fn();
+    const base: WorkbenchDefinition = {
+      ...definition(buildDefault),
+      panels: { editor: () => <StatefulPanel label="draft" /> },
+      reconcile
+    };
+    const { rerender } = render(<WorkbenchHost definition={base} onNativeLayoutChange={vi.fn()} />);
+    const mountedApi = api;
+    fireEvent.click(screen.getByRole('button', { name: 'draft: 0' }));
+    reconcile.mockClear();
+
+    rerender(
+      <WorkbenchHost
+        definition={{ ...base, panels: { ...base.panels, graph: () => <div>Graph</div> } }}
+        onNativeLayoutChange={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Graph')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'draft: 1' })).toBeInTheDocument();
+    expect(reconcile).toHaveBeenCalledWith(mountedApi, window.innerWidth);
+    reconcile.mockClear();
+
+    rerender(<WorkbenchHost definition={base} onNativeLayoutChange={vi.fn()} />);
+    expect(screen.queryByText('Graph')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'draft: 1' })).toBeInTheDocument();
+    expect(reconcile).toHaveBeenCalledWith(mountedApi, window.innerWidth);
+    expect(buildDefault).toHaveBeenCalledOnce();
+    expect(api).toBe(mountedApi);
   });
 
   it('rejects unknown and empty restored layouts, then rebuilds only this host', () => {

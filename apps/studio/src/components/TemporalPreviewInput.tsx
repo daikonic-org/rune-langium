@@ -27,7 +27,9 @@ export const TemporalPreviewInput = withInstrumentation(
     label,
     value,
     onChange,
-    onBlur
+    onBlur,
+    'aria-invalid': invalid,
+    'aria-describedby': describedBy
   }: {
     id?: string;
     format: TemporalWireFormat;
@@ -35,6 +37,8 @@ export const TemporalPreviewInput = withInstrumentation(
     value: string;
     onChange: (value: string, validate?: boolean) => void;
     onBlur: (event?: FocusEvent<HTMLElement>) => void;
+    'aria-invalid'?: boolean;
+    'aria-describedby'?: string;
   }): ReactElement {
     const [isoFormat, setIsoFormat] = useState<TemporalWireFormat | null>(null);
     if (isoFormat !== null && isoFormat !== format) setIsoFormat(null);
@@ -95,6 +99,8 @@ export const TemporalPreviewInput = withInstrumentation(
           <Input
             id={id}
             aria-label={label}
+            aria-invalid={invalid}
+            aria-describedby={describedBy}
             type={exact ? 'text' : pickerType}
             step="any"
             value={value}

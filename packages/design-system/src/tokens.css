@@ -216,6 +216,12 @@
   --brand-mark-size: 28px;
   --brand-mark-radius: 6px;
   --brand-mark-border-width: 2px;
+  /* Shared Graph and Prototype canvas: a dark focal area fading to the panel. */
+  --canvas-background: radial-gradient(
+    ellipse at 50% 30%,
+    color-mix(in oklch, var(--background), black 26%),
+    var(--card)
+  );
   /* Alpha tuned for the Daikon theme, which is dark-by-default in every
    * shipping consumer today (studio hardcodes `<html class="dark">`; the
    * `:root`/`.dark` split in theme.css's Daikon palette is currently a

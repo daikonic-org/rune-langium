@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { WorkflowImport } from '../../components/WorkflowImport.js';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
@@ -33,6 +34,7 @@ export const InstanceGridPanel = withInstrumentation(
     const instances = useInstanceStore((state) => state.instances);
     const validationStatus = useInstanceStore((state) => state.validationStatus);
     const saveStates = useInstanceStore((state) => state.saveStates);
+    const retrySave = useInstanceStore((state) => state.retrySave);
     const dispatchGenerateSchema = useInstanceStore((state) => state.dispatchGenerateSchema);
     const duplicateInstance = useInstanceStore((state) => state.duplicateInstance);
     const renameInstance = useInstanceStore((state) => state.renameInstance);
@@ -83,7 +85,7 @@ export const InstanceGridPanel = withInstrumentation(
     };
 
     return (
-      <section data-testid="prototype-grid" className="flex h-full min-h-0 flex-col" aria-label="Instances">
+      <section data-testid="prototype-grid" className="flex h-full min-h-0 flex-col" aria-label="Instance table">
         <div className="flex flex-wrap gap-2 border-b border-border p-2">
           <Input
             aria-label="Search instances"
@@ -91,6 +93,22 @@ export const InstanceGridPanel = withInstrumentation(
             onChange={(event) => patch({ query: event.target.value })}
             placeholder="Search name or type"
             className="h-8 min-w-48 flex-1"
+          />
+          <WorkflowImport
+            multiple
+            label="Import objects…"
+            typeFqn={view.typeFqn ?? undefined}
+            onImport={(values, typeFqn) => {
+              if (!typeFqn) throw new Error('Choose an object type.');
+              values.forEach((data, index) =>
+                useInstanceStore
+                  .getState()
+                  .createInstance(typeFqn, `Imported ${typeFqn.split('.').slice(-1)[0]} ${index + 1}`, {
+                    data,
+                    provenance: { codec: 'json', importedAt: Date.now() }
+                  })
+              );
+            }}
           />
           <div className="w-64 max-w-full">
             <WorkspaceTypePicker
@@ -131,11 +149,12 @@ export const InstanceGridPanel = withInstrumentation(
                   tabIndex={0}
                   aria-selected={record.id === view.selectedId}
                   className="cursor-pointer border-t border-border/60 hover:bg-accent aria-[selected=true]:bg-accent"
-                  onClick={() => patch({ selectedId: record.id })}
+                  onClick={() => patch({ selectedId: record.id, bindingRequestId: (view.bindingRequestId ?? 0) + 1 })}
                   onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      patch({ selectedId: record.id });
+                      patch({ selectedId: record.id, bindingRequestId: (view.bindingRequestId ?? 0) + 1 });
                     }
                   }}
                 >
@@ -151,7 +170,28 @@ export const InstanceGridPanel = withInstrumentation(
                     </td>
                   ))}
                   <td className="p-2 capitalize">{validationStatus[record.id] ?? 'pending'}</td>
-                  <td className="p-2 capitalize">{saveStates[record.id]?.state ?? 'unsaved'}</td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-1">
+                      <span className="capitalize">{saveStates[record.id]?.state ?? 'unsaved'}</span>
+                      {saveStates[record.id]?.state === 'failed' ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          aria-label={`Retry saving ${record.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setActionError(null);
+                            void retrySave(record.id).catch((error) =>
+                              setActionError(error instanceof Error ? error.message : String(error))
+                            );
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="p-2">
                     <div className="flex gap-1">
                       <Button
@@ -161,8 +201,7 @@ export const InstanceGridPanel = withInstrumentation(
                         onClick={(event) => {
                           event.stopPropagation();
                           patch({
-                            selectedId: duplicateInstance(record.id),
-                            inspectorTab: 'form'
+                            selectedId: duplicateInstance(record.id)
                           });
                         }}
                       >

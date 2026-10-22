@@ -10,7 +10,7 @@ export interface WorkbenchDefinition {
   panels: Readonly<Record<string, ComponentType>>;
   titles: Readonly<Record<string, string>>;
   buildDefault(api: DockviewApi, width: number): void;
-  /** Reconcile conditional panels after a persisted layout has been restored. */
+  /** Idempotently reconcile conditional panels after restore and definition updates. */
   reconcile?(api: DockviewApi, width: number): void;
 }
 

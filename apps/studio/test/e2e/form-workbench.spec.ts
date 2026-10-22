@@ -194,6 +194,61 @@ test('Choice Inspector shares compact gutters, chips and flat documentation', as
   expect((await new AxeBuilder({ page }).include('[data-slot="choice-form"]').analyze()).violations).toEqual([]);
 });
 
+for (const mode of ['Preview', 'Prototype'] as const) {
+  test(`${mode} invalid inputs retain errors and use a distinct field surface`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'invalid.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace invalid\ntype Probe:\n quantity int (1..1)\n')
+    });
+    await page.getByTestId('ns-type-link-invalid.Probe#Data').click();
+    await dismissLocalTransportNotices(page);
+    if (mode === 'Prototype') {
+      await page.getByTestId('rail-prototype').click();
+      await page.getByRole('button', { name: 'New instance', exact: true }).click();
+      await page.getByRole('button', { name: 'Instance type', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Search instance type' }).fill('Probe');
+      await page.getByRole('option', { name: /Probe/ }).click();
+      await page.getByLabel('Instance name').fill('Validation example');
+      await page.getByRole('button', { name: 'Create instance', exact: true }).click();
+      await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
+    }
+    const form =
+      mode === 'Prototype'
+        ? page.getByTestId('prototype-perspective').getByTestId('panel-formPreview')
+        : page.getByTestId('panel-formPreview');
+    const quantity = form.getByLabel('Quantity', { exact: true });
+    await quantity.fill('2');
+    await quantity.press('Tab');
+    await expect(quantity).not.toHaveAttribute('aria-invalid');
+    const validSurface = await quantity.evaluate((element) =>
+      getComputedStyle(element).getPropertyValue('--background').trim()
+    );
+    await expect(quantity).toHaveCSS('background-color', validSurface);
+    await quantity.fill('1.5');
+    await quantity.press('Tab');
+    await expect(quantity).toHaveAttribute('aria-invalid', 'true');
+    await expect(quantity).toHaveAttribute('aria-describedby', /.+/);
+    await expect(quantity).toHaveAccessibleDescription(/.+/);
+    await expect
+      .poll(() => quantity.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .not.toBe(validSurface);
+    await quantity.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`invalid-${mode.toLowerCase()}.png`) });
+    expect((await new AxeBuilder({ page }).include('[data-testid="panel-formPreview"]').analyze()).violations).toEqual(
+      []
+    );
+    await quantity.fill('3');
+    await quantity.press('Tab');
+    await expect(quantity).not.toHaveAttribute('aria-invalid');
+    await expect
+      .poll(() => quantity.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .toBe(validSurface);
+  });
+}
+
 for (const action of ['disclosure', 'ISO mode'] as const) {
   test(`a ${action} click validates an initially unchecked sample without losing the click`, async ({ page }) => {
     await page.goto('./');

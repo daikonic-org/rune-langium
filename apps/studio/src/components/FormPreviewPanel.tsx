@@ -13,7 +13,8 @@ import {
   useState,
   type ChangeEvent,
   type FocusEvent,
-  type ReactElement
+  type ReactElement,
+  type ReactNode
 } from 'react';
 import {
   expandPreviewField,
@@ -23,6 +24,8 @@ import {
 } from '@rune-langium/codegen/export';
 
 import { TemporalPreviewInput, TEMPORAL_INPUT_HELP } from './TemporalPreviewInput.js';
+import { FormPresentation, PreviewLayoutGroup, useNumericPresentation } from './FormPresentation.js';
+import { PreviewNumberInput } from './PreviewNumberInput.js';
 import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
@@ -75,6 +78,10 @@ export interface PreviewPresentation {
   mode: 'scratch' | 'instance';
   showPayload: boolean;
   showHeader: boolean;
+  showLayoutToolbar?: boolean;
+  showExecutionControls?: boolean;
+  showStatusSummary?: boolean;
+  readOnly?: boolean;
 }
 
 export type PayloadView =
@@ -94,6 +101,7 @@ const SCRATCH_PRESENTATION: PreviewPresentation = {
 };
 
 export interface FormPreviewPanelProps {
+  ariaLabel?: string;
   schema?: FormPreviewSchema;
   status: PreviewStatus;
   target?: FormPreviewTarget;
@@ -109,11 +117,16 @@ export interface FormPreviewPanelProps {
   valid?: boolean;
   validated?: boolean;
   presentation?: PreviewPresentation;
+  layoutToolbarStart?: ReactNode;
+  layoutEditing?: boolean;
+  onLayoutEditingChange?(editing: boolean): void;
+  layoutParentPath?: string;
   onCreateInstance?: (seed: InstanceSeed) => void;
 }
 
 export const FormPreviewPanel = withInstrumentation(
   function FormPreviewPanel({
+    ariaLabel = 'Form preview',
     schema,
     status,
     target: _target,
@@ -125,7 +138,11 @@ export const FormPreviewPanel = withInstrumentation(
     valid: controlledValid,
     validated: controlledValidated,
     presentation = SCRATCH_PRESENTATION,
-    onCreateInstance
+    onCreateInstance,
+    layoutToolbarStart,
+    layoutEditing,
+    onLayoutEditingChange,
+    layoutParentPath
   }: FormPreviewPanelProps): ReactElement {
     const isControlled = values !== undefined;
     const [detailState, setDetailState] = useState<{ targetId: string; stack: PreviewDetailEntry[] }>({
@@ -480,10 +497,11 @@ export const FormPreviewPanel = withInstrumentation(
       const isWaiting = status.state === 'waiting' && status.targetId;
       return (
         <section
-          aria-label="Form preview"
+          aria-label={ariaLabel}
           data-testid="panel-formPreview"
           className="studio-scroll flex h-full flex-col overflow-auto px-panel-x py-panel-y"
         >
+          {layoutToolbarStart}
           {isWaiting ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner className="size-3.5 shrink-0" />
@@ -514,7 +532,7 @@ export const FormPreviewPanel = withInstrumentation(
     return (
       <section
         role="region"
-        aria-label="Form preview"
+        aria-label={ariaLabel}
         data-testid="panel-formPreview"
         className="studio-scroll flex h-full flex-col overflow-auto"
       >
@@ -546,157 +564,185 @@ export const FormPreviewPanel = withInstrumentation(
             </div>
           </header>
         ) : null}
-        <p
-          role={status.state === 'invalid' ? 'alert' : 'status'}
-          aria-live="polite"
-          className="px-panel-x pt-panel-y text-xs text-muted-foreground"
-        >
-          {summaryMessage}
-        </p>
-        {activeSample?.validated && activeSample.errors[''] ? (
-          <p role="alert" className="px-panel-x pt-panel-y text-xs text-destructive">
-            {activeSample.errors['']}
-          </p>
-        ) : null}
         <PreviewDefinitions value={schema.definitions}>
-          <PreviewDetailNavigation
-            value={{
-              open: (field, arrayIndices, origin) => {
-                if (detailState.targetId !== schema.targetId || detailState.stack.length === 0)
-                  detailOrigin.current = origin;
-                setDetailState((current) => ({
-                  targetId: schema.targetId,
-                  stack: [...(current.targetId === schema.targetId ? current.stack : []), { field, arrayIndices }]
-                }));
-              }
-            }}
+          <FormPresentation
+            toolbarStart={layoutToolbarStart}
+            showToolbar={presentation.showLayoutToolbar}
+            editing={layoutEditing}
+            onEditingChange={onLayoutEditingChange}
           >
-            <form className="preview-fields preview-panel__body studio-scroll space-y-3 overflow-auto px-panel-x py-panel-y">
-              {schema.kind === 'choice' ? (
-                <ChoiceFieldGroup
-                  fields={schema.fields}
-                  sample={activeSample}
-                  lookupFieldSource={lookupFieldSource}
-                  isResolvingReferences={isResolvingReferences}
-                  onFieldBlur={handleFieldBlur}
-                  onFieldChange={handleFieldChange}
-                  onArrayAdd={handleArrayAdd}
-                  onArrayRemove={handleArrayRemove}
-                  onObjectToggle={handleObjectToggle}
-                  onArmSelect={handleArmSelect}
-                />
-              ) : (
-                <>
-                  {rootArmFields.length > 0 ? (
-                    <ChoiceFieldGroup
-                      fields={rootArmFields}
-                      sample={activeSample}
-                      lookupFieldSource={lookupFieldSource}
-                      isResolvingReferences={isResolvingReferences}
-                      onFieldBlur={handleFieldBlur}
-                      onFieldChange={handleFieldChange}
-                      onArrayAdd={handleArrayAdd}
-                      onArrayRemove={handleArrayRemove}
-                      onObjectToggle={handleObjectToggle}
-                      onArmSelect={handleArmSelect}
-                    />
-                  ) : null}
-                  {rootOtherFields.map((field) => (
-                    <PreviewFieldControl
-                      key={field.path}
-                      field={field}
-                      sample={activeSample}
-                      lookupFieldSource={lookupFieldSource}
-                      isResolvingReferences={isResolvingReferences}
-                      onFieldBlur={handleFieldBlur}
-                      onFieldChange={handleFieldChange}
-                      onArrayAdd={handleArrayAdd}
-                      onArrayRemove={handleArrayRemove}
-                      onObjectToggle={handleObjectToggle}
-                      onArmSelect={handleArmSelect}
-                    />
-                  ))}
-                </>
-              )}
-              {isResolvingReferences || unsupportedSummary ? (
-                isResolvingReferences ? (
-                  <div role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Spinner className="size-3 shrink-0" />
-                    <span>
-                      Resolving reference… ({hydrationRetriesRemaining}{' '}
-                      {hydrationRetriesRemaining === 1 ? 'retry' : 'retries'} left)
-                    </span>
-                  </div>
-                ) : (
-                  <div role="status" className="text-xs text-muted-foreground">
-                    Unsupported preview features: {unsupportedSummary}
-                  </div>
-                )
-              ) : null}
-              {schema.kind === 'function' ? (
-                <div className="preview-panel__function-controls border-t border-border pt-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    disabled={executionState === 'running'}
-                    onClick={handleRun}
-                  >
-                    {executionState === 'running' ? 'Executing…' : 'Run'}
-                  </Button>
-                  {executionError ? (
-                    <div className="execution-error mt-2 text-xs">
-                      <span className="text-xs font-medium text-destructive">Error:</span>{' '}
-                      <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
-                    </div>
-                  ) : null}
-                  {executionResult !== undefined ? (
-                    <div className="execution-result mt-2">
-                      <span className="text-2xs font-medium text-muted-foreground">Output:</span>
-                      <pre className="preview-panel__sample-output studio-scroll mt-0.5 overflow-auto p-2 text-2xs leading-5 text-foreground">
-                        {JSON.stringify(executionResult, null, 2)}
-                      </pre>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {presentation.showPayload ? (
-                <Disclosure label="Sample data" className="preview-panel__sample" data-testid="sample-data-view" open>
-                  <div className="space-y-2 border-t border-border p-2">
-                    <pre
-                      aria-label="Sample data output"
-                      className="preview-panel__sample-output studio-scroll max-h-56 overflow-auto p-2 text-2xs leading-5 text-foreground"
-                      data-testid="sample-data-output"
-                    >
-                      {activeSample?.serialized ?? '{}'}
-                    </pre>
-                    <p role="status" aria-live="polite" className="text-2xs text-muted-foreground">
-                      {copyFeedback ?? 'Sample data stays in-memory until you explicitly copy it.'}
-                    </p>
-                  </div>
-                </Disclosure>
-              ) : null}
-            </form>
-            <PreviewDetailsDialog
-              stack={detailState.targetId === schema.targetId ? detailState.stack : []}
-              returnFocus={detailOrigin}
-              onClose={() => setDetailState({ targetId: schema.targetId, stack: [] })}
-              onBack={(index) =>
-                setDetailState((current) => ({ ...current, stack: current.stack.slice(0, index + 1) }))
-              }
-              controls={{
-                sample: activeSample,
-                lookupFieldSource,
-                isResolvingReferences,
-                onFieldBlur: handleFieldBlur,
-                onFieldChange: handleFieldChange,
-                onArrayAdd: handleArrayAdd,
-                onArrayRemove: handleArrayRemove,
-                onObjectToggle: handleObjectToggle,
-                onArmSelect: handleArmSelect
+            {presentation.showStatusSummary !== false && (
+              <p
+                role={status.state === 'invalid' ? 'alert' : 'status'}
+                aria-live="polite"
+                className="px-panel-x pt-panel-y text-xs text-muted-foreground"
+              >
+                {summaryMessage}
+              </p>
+            )}
+            {activeSample?.validated && activeSample.errors[''] ? (
+              <p role="alert" className="px-panel-x pt-panel-y text-xs text-destructive">
+                {activeSample.errors['']}
+              </p>
+            ) : null}
+
+            <PreviewDetailNavigation
+              value={{
+                open: (field, arrayIndices, origin) => {
+                  if (detailState.targetId !== schema.targetId || detailState.stack.length === 0)
+                    detailOrigin.current = origin;
+                  setDetailState((current) => ({
+                    targetId: schema.targetId,
+                    stack: [...(current.targetId === schema.targetId ? current.stack : []), { field, arrayIndices }]
+                  }));
+                }
               }}
-            />
-          </PreviewDetailNavigation>
+            >
+              <form
+                onSubmit={(event) => event.preventDefault()}
+                className="preview-fields preview-panel__body studio-scroll space-y-3 overflow-auto px-panel-x py-panel-y"
+              >
+                {schema.kind === 'choice' ? (
+                  <fieldset disabled={presentation.readOnly} className="contents">
+                    <ChoiceFieldGroup
+                      fields={schema.fields}
+                      sample={activeSample}
+                      lookupFieldSource={lookupFieldSource}
+                      isResolvingReferences={isResolvingReferences}
+                      onFieldBlur={handleFieldBlur}
+                      onFieldChange={handleFieldChange}
+                      onArrayAdd={handleArrayAdd}
+                      onArrayRemove={handleArrayRemove}
+                      onObjectToggle={handleObjectToggle}
+                      onArmSelect={handleArmSelect}
+                    />
+                  </fieldset>
+                ) : (
+                  <>
+                    {rootArmFields.length > 0 ? (
+                      <fieldset disabled={presentation.readOnly} className="contents">
+                        <ChoiceFieldGroup
+                          fields={rootArmFields}
+                          sample={activeSample}
+                          lookupFieldSource={lookupFieldSource}
+                          isResolvingReferences={isResolvingReferences}
+                          onFieldBlur={handleFieldBlur}
+                          onFieldChange={handleFieldChange}
+                          onArrayAdd={handleArrayAdd}
+                          onArrayRemove={handleArrayRemove}
+                          onObjectToggle={handleObjectToggle}
+                          onArmSelect={handleArmSelect}
+                        />
+                      </fieldset>
+                    ) : null}
+                    <PreviewLayoutGroup
+                      symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
+                      parentPath={layoutParentPath}
+                      fields={rootOtherFields}
+                      renderField={(field) => (
+                        <fieldset disabled={presentation.readOnly} className="contents">
+                          <PreviewFieldControl
+                            key={field.path}
+                            field={field}
+                            sample={activeSample}
+                            lookupFieldSource={lookupFieldSource}
+                            isResolvingReferences={isResolvingReferences}
+                            onFieldBlur={handleFieldBlur}
+                            onFieldChange={handleFieldChange}
+                            onArrayAdd={handleArrayAdd}
+                            onArrayRemove={handleArrayRemove}
+                            onObjectToggle={handleObjectToggle}
+                            onArmSelect={handleArmSelect}
+                          />
+                        </fieldset>
+                      )}
+                    />
+                  </>
+                )}
+                {isResolvingReferences || unsupportedSummary ? (
+                  isResolvingReferences ? (
+                    <div role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Spinner className="size-3 shrink-0" />
+                      <span>
+                        Resolving reference… ({hydrationRetriesRemaining}{' '}
+                        {hydrationRetriesRemaining === 1 ? 'retry' : 'retries'} left)
+                      </span>
+                    </div>
+                  ) : (
+                    <div role="status" className="text-xs text-muted-foreground">
+                      Unsupported preview features: {unsupportedSummary}
+                    </div>
+                  )
+                ) : null}
+                {schema.kind === 'function' && presentation.showExecutionControls !== false ? (
+                  <div className="preview-panel__function-controls border-t border-border pt-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      disabled={executionState === 'running'}
+                      onClick={handleRun}
+                    >
+                      {executionState === 'running' ? 'Executing…' : 'Run'}
+                    </Button>
+                    {executionError ? (
+                      <div className="execution-error mt-2 text-xs">
+                        <span className="text-xs font-medium text-destructive">Error:</span>{' '}
+                        <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
+                      </div>
+                    ) : null}
+                    {executionResult !== undefined ? (
+                      <div className="execution-result mt-2">
+                        <span className="text-2xs font-medium text-muted-foreground">Output:</span>
+                        <pre
+                          tabIndex={0}
+                          className="preview-panel__sample-output studio-scroll mt-0.5 overflow-auto p-2 text-2xs leading-5 text-foreground"
+                        >
+                          {JSON.stringify(executionResult, null, 2)}
+                        </pre>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {presentation.showPayload ? (
+                  <Disclosure label="Sample data" className="preview-panel__sample" data-testid="sample-data-view" open>
+                    <div className="space-y-2 border-t border-border p-2">
+                      <pre
+                        tabIndex={0}
+                        aria-label="Sample data output"
+                        className="preview-panel__sample-output studio-scroll max-h-56 overflow-auto p-2 text-2xs leading-5 text-foreground"
+                        data-testid="sample-data-output"
+                      >
+                        {activeSample?.serialized ?? '{}'}
+                      </pre>
+                      <p role="status" aria-live="polite" className="text-2xs text-muted-foreground">
+                        {copyFeedback ?? 'Sample data stays in-memory until you explicitly copy it.'}
+                      </p>
+                    </div>
+                  </Disclosure>
+                ) : null}
+              </form>
+              <PreviewDetailsDialog
+                stack={detailState.targetId === schema.targetId ? detailState.stack : []}
+                returnFocus={detailOrigin}
+                onClose={() => setDetailState({ targetId: schema.targetId, stack: [] })}
+                onBack={(index) =>
+                  setDetailState((current) => ({ ...current, stack: current.stack.slice(0, index + 1) }))
+                }
+                controls={{
+                  sample: activeSample,
+                  lookupFieldSource,
+                  isResolvingReferences,
+                  onFieldBlur: handleFieldBlur,
+                  onFieldChange: handleFieldChange,
+                  onArrayAdd: handleArrayAdd,
+                  onArrayRemove: handleArrayRemove,
+                  onObjectToggle: handleObjectToggle,
+                  onArmSelect: handleArmSelect
+                }}
+              />
+            </PreviewDetailNavigation>
+          </FormPresentation>
         </PreviewDefinitions>
       </section>
     );
@@ -835,7 +881,30 @@ function ChoiceArmChildren({
   const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], choiceArmPaths);
   if (armFields.length === 0 && otherFields.length === 0) return null;
   return (
-    <div className="preview-object__fields">
+    <PreviewLayoutGroup
+      symbol={
+        field.typeSymbol ??
+        (field.kind === 'object' && field.referencedTypeFqn ? `data:${field.referencedTypeFqn}` : undefined)
+      }
+      parentPath={field.path}
+      fields={otherFields}
+      renderField={(child) => (
+        <PreviewFieldControl
+          key={child.path}
+          field={child}
+          sample={sample}
+          lookupFieldSource={lookupFieldSource}
+          isResolvingReferences={isResolvingReferences}
+          onFieldBlur={onFieldBlur}
+          onFieldChange={onFieldChange}
+          onArrayAdd={onArrayAdd}
+          onArrayRemove={onArrayRemove}
+          onObjectToggle={onObjectToggle}
+          onArmSelect={onArmSelect}
+          arrayIndices={arrayIndices}
+        />
+      )}
+    >
       {armFields.length > 0 ? (
         <ChoiceFieldGroup
           fields={armFields}
@@ -851,23 +920,7 @@ function ChoiceArmChildren({
           arrayIndices={arrayIndices}
         />
       ) : null}
-      {otherFields.map((child) => (
-        <PreviewFieldControl
-          key={child.path}
-          field={child}
-          sample={sample}
-          lookupFieldSource={lookupFieldSource}
-          isResolvingReferences={isResolvingReferences}
-          onFieldBlur={onFieldBlur}
-          onFieldChange={onFieldChange}
-          onArrayAdd={onArrayAdd}
-          onArrayRemove={onArrayRemove}
-          onObjectToggle={onObjectToggle}
-          onArmSelect={onArmSelect}
-          arrayIndices={arrayIndices}
-        />
-      ))}
-    </div>
+    </PreviewLayoutGroup>
   );
 }
 
@@ -1189,8 +1242,14 @@ function PreviewFieldControl({
   const definitions = useContext(PreviewDefinitions);
   const inputId = useId();
   const field = expandPreviewField(inputField, definitions);
+  const numericPresentation = useNumericPresentation(field);
   const fieldPath = formatFieldPath(field.path, arrayIndices);
   const fieldError = sample?.validated ? sample.errors[fieldPath] : undefined;
+  const errorId = `${inputId}-error`;
+  const validationAttributes = {
+    'aria-invalid': fieldError ? true : undefined,
+    'aria-describedby': fieldError ? errorId : undefined
+  };
 
   const controls = {
     sample,
@@ -1215,7 +1274,7 @@ function PreviewFieldControl({
     // the sample value so an unset optional enum remains absent for Zod.
     const CLEAR_SENTINEL = '__rune_enum_unset__';
     return (
-      <div className="preview-field">
+      <div className="preview-field" data-field-path={fieldPath}>
         <span className="preview-field__label">{fieldLabel}</span>
         <Select
           value={stringValue}
@@ -1223,7 +1282,7 @@ function PreviewFieldControl({
             onFieldChange(field.path, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
           }}
         >
-          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full">
+          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full" {...validationAttributes}>
             <SelectValue placeholder={field.required || isChoiceArm ? undefined : 'Select…'} />
           </SelectTrigger>
           <SelectContent>
@@ -1239,7 +1298,7 @@ function PreviewFieldControl({
             ))}
           </SelectContent>
         </Select>
-        {fieldError ? <FieldError message={fieldError} /> : null}
+        {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );
   }
@@ -1259,7 +1318,6 @@ function PreviewFieldControl({
   }
 
   const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
-  const inputType = field.kind === 'number' ? 'number' : 'text';
 
   if (field.kind === 'boolean') {
     return (
@@ -1267,6 +1325,7 @@ function PreviewFieldControl({
         <Checkbox
           id={inputId}
           aria-label={resolvedFieldLabel(field, arrayIndices)}
+          {...validationAttributes}
           checked={Boolean(value)}
           // A checkbox toggle is a discrete commit — onFieldChange commits the
           // new value and the controlled re-render re-validates. Don't also
@@ -1277,7 +1336,7 @@ function PreviewFieldControl({
         <label htmlFor={inputId} className="preview-field__label">
           {resolvedFieldLabel(field, arrayIndices)}
         </label>
-        {fieldError ? <FieldError message={fieldError} /> : null}
+        {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );
   }
@@ -1290,17 +1349,29 @@ function PreviewFieldControl({
       {field.format ? (
         <TemporalPreviewInput
           id={inputId}
+          {...validationAttributes}
           format={field.format}
           label={resolvedFieldLabel(field, arrayIndices)}
           value={typeof value === 'string' ? value : ''}
           onChange={(next, validate) => onFieldChange(field.path, next, arrayIndices, validate)}
           onBlur={onFieldBlur}
         />
+      ) : field.kind === 'number' ? (
+        <PreviewNumberInput
+          id={inputId}
+          {...validationAttributes}
+          aria-label={resolvedFieldLabel(field, arrayIndices)}
+          value={value}
+          format={numericPresentation}
+          onValueChange={(next) => onFieldChange(field.path, next, arrayIndices)}
+          onBlur={onFieldBlur}
+        />
       ) : (
         <Input
           id={inputId}
+          {...validationAttributes}
           aria-label={resolvedFieldLabel(field, arrayIndices)}
-          type={inputType}
+          type="text"
           value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
           onChange={(event) => onFieldChange(field.path, getInputValue(field, event), arrayIndices)}
           onBlur={onFieldBlur}
@@ -1308,6 +1379,7 @@ function PreviewFieldControl({
       )}
       {fieldError ? (
         <FieldError
+          id={errorId}
           message={
             field.format && fieldError.includes('Invalid string:') ? TEMPORAL_INPUT_HELP[field.format] : fieldError
           }
@@ -1317,9 +1389,9 @@ function PreviewFieldControl({
   );
 }
 
-function FieldError({ message }: { message: string }): ReactElement {
+function FieldError({ id, message }: { id?: string; message: string }): ReactElement {
   return (
-    <p role="alert" className="mt-1 text-xs text-destructive">
+    <p id={id} role="alert" className="mt-1 text-xs text-destructive">
       {message}
     </p>
   );

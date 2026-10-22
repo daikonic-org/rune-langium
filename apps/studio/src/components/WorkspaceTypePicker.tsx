@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement, type PointerEvent } from 'react';
 import {
   TypeSelector,
+  TypeChip,
+  typeChipKind,
   buildTypeOptions,
   getKindDotClass,
   qualifiedNameFromNodeId,
@@ -22,6 +24,7 @@ import {
 } from '@rune-langium/design-system/ui/command';
 import type { CommandEntryGroup } from '@rune-langium/design-system/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { ChevronsUpDown } from 'lucide-react';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -33,6 +36,9 @@ export interface WorkspaceTypePickerProps {
   filterKinds: TypeKind[];
   allowClear?: boolean;
   label: string;
+  appearance?: 'field' | 'chip';
+  optionFilter?(option: TypeOption): boolean;
+  onOptionPointerDown?(event: PointerEvent, option: TypeOption): void;
 }
 
 /**
@@ -48,11 +54,17 @@ export const WorkspaceTypePicker = withInstrumentation(
     onSelectOption,
     filterKinds,
     allowClear = false,
-    label
+    label,
+    appearance = 'field',
+    optionFilter,
+    onOptionPointerDown
   }: WorkspaceTypePickerProps): ReactElement {
     const nodesById = useEditorStore((state) => state.nodesById);
     const repository = selectNodeRepository(nodesById);
-    const options = useMemo(() => buildTypeOptions(repository, false), [repository]);
+    const options = useMemo(
+      () => buildTypeOptions(repository, false).filter((option) => !optionFilter || optionFilter(option)),
+      [repository, optionFilter]
+    );
     const selectedValue = useMemo(() => {
       if (!value) return value;
       const allowedKinds = filterKinds.length ? new Set(filterKinds) : undefined;
@@ -65,6 +77,7 @@ export const WorkspaceTypePicker = withInstrumentation(
       );
     }, [filterKinds, options, value]);
     const [popoverKey, setPopoverKey] = useState(0);
+    useEffect(() => setPopoverKey((key) => key + 1), [value]);
     const searchLabel = `Search ${label.toLocaleLowerCase()}`;
 
     const resetPopover = () => {
@@ -84,26 +97,44 @@ export const WorkspaceTypePicker = withInstrumentation(
           }}
           allowClear={allowClear}
           filterKinds={filterKinds}
-          renderTrigger={({ selected, placeholder, onToggle, disabled }) => (
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={label}
-                  disabled={disabled}
-                  onClick={onToggle}
-                >
-                  <span className="truncate">
-                    {selected
-                      ? `${selected.label}${selected.namespace ? ` — ${selected.namespace}` : ''}`
-                      : placeholder}
-                  </span>
-                  <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
-                </button>
-              }
-            />
-          )}
+          renderTrigger={({ selected, placeholder, onToggle, disabled }) => {
+            const displayLabel = selected
+              ? `${selected.label}${selected.namespace ? ` — ${selected.namespace}` : ''}`
+              : placeholder;
+            return (
+              <PopoverTrigger
+                render={
+                  appearance === 'chip' && selected ? (
+                    <TypeChip
+                      typeName={selected.label}
+                      typeKind={typeChipKind(selected.kind)}
+                      className="max-w-full min-h-6 truncate"
+                      aria-label={`${label}: ${displayLabel}`}
+                      title={displayLabel}
+                      disabled={disabled}
+                      onClick={onToggle}
+                    />
+                  ) : appearance === 'chip' ? (
+                    <Button size="xs" variant="outline" aria-label={label} disabled={disabled} onClick={onToggle}>
+                      <span className="truncate">{placeholder}</span>
+                      <ChevronsUpDown className="size-3 shrink-0" aria-hidden="true" />
+                    </Button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={selected ? `${label}: ${displayLabel}` : label}
+                      disabled={disabled}
+                      onClick={onToggle}
+                    >
+                      <span className="truncate">{displayLabel}</span>
+                      <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
+                    </button>
+                  )
+                }
+              />
+            );
+          }}
           renderPopover={({ groups, onSelect: selectOption, allowClear: canClear }) => {
             const commandGroups: CommandEntryGroup<TypeOption | null>[] = [
               ...groups.map((group) => ({
@@ -134,7 +165,12 @@ export const WorkspaceTypePicker = withInstrumentation(
                           if (!option) return null;
                           const optionLabel = `${option.label}${option.namespace ? ` — ${option.namespace}` : ''}`;
                           return (
-                            <CommandItem key={option.value} value={item} aria-label={optionLabel}>
+                            <CommandItem
+                              key={option.value}
+                              value={item}
+                              aria-label={optionLabel}
+                              onPointerDown={(event) => onOptionPointerDown?.(event, option)}
+                            >
                               <span
                                 className={`size-2 shrink-0 rounded-full ${getKindDotClass(option.kind)}`}
                                 aria-hidden="true"

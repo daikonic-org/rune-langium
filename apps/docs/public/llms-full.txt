@@ -10812,6 +10812,17 @@ CardinalityCell(__namedParameters: CardinalityCellProps): ReactElement
 
 **Returns:** `ReactElement`
 
+### typeChipKind
+
+```ts
+typeChipKind(kind: TypeKind | "builtin" | undefined): TypeChipKind
+```
+
+**Parameters:**
+- `kind: TypeKind | "builtin" | undefined` —
+
+**Returns:** `TypeChipKind`
+
 ### TypePickerCell
 
 ```ts
@@ -11396,7 +11407,7 @@ in Phase 3 without a second migration.
 ### TypeChipKind
 
 ```ts
-type TypeChipKind = "Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Unresolved"
+type TypeChipKind = "Data" | "Choice" | "Enum" | "BasicType" | "Record" | "TypeAlias" | "Func" | "Unresolved"
 ```
 
 ### TypePickerCellProps

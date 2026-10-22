@@ -102,6 +102,53 @@ Explore's location path is part of the normal interface, including production.
 It shows the selected declaration after its namespace, aligns with the center
 stack, and truncates from the beginning when space is tight.
 
+### Prototype workflows
+
+Prototype presents equal input nodes, an optional function, and a separate output.
+Parameter and return-variable names lead the headers; declared types are secondary.
+Select a compatible function in the compact chooser, or drag its name onto the
+function node. Object parameters have their own nodes; primitive parameters stay
+inline. **Execute** runs the function explicitly. Without a function, the input
+is the output. Input edits invalidate prior results; scalar and object results
+remain separate from the stored source objects. **Save as instance…** saves an
+object result, including a passthrough input, through the existing creation dialog.
+
+Each input has a clickable validation status. The function status combines input
+requirements and applicable preconditions, independently of execution. Pending
+and unavailable checks stay distinct from passing checks. A diagnostic can focus
+its field. Validation never runs function assignments or postconditions.
+
+**Add** creates an object in the main header. Node menus contain **Edit layout**,
+**Import input…**, and compatible stored-object bindings. Grid **Import objects…**
+accepts one JSON object or an array for the chosen type; imported objects stay in
+the grid until explicitly bound. Workflow edits use detached copies and do not
+overwrite their stored sources.
+
+Workflow uses smooth connectors and constrained node positions. Object builder offers the
+same data and controls with dividers. Divider widths and view choice are saved
+per workspace. Narrow panes stack the nodes in reading order. A visited Prototype
+stays mounted while using other perspectives in the same workspace; workspace
+changes dispose its active sessions. Workflows and execution results are session
+state; reloading restores stored objects and presentation preferences.
+
+### Form layouts and formats
+
+Use **Edit layout** in Form Preview or Prototype to drag fields into reading
+order. Handles also support arrow keys, Home and End. Choose one to three
+columns and a width for each field; narrow panels automatically use one column.
+**Reset layout** restores the current object's source order and default widths.
+
+**Format** on numeric fields configures decimal or currency display, currency
+code, decimal places and thousands grouping. Formats follow the declared Rune
+type, so an `Amount` alias can be formatted without changing unrelated numbers.
+Inputs show the original value when focused; payloads and validation retain that
+value even when the display rounds it.
+
+Object layouts and type formats are reused in nested objects and item detail
+views, and shared between Preview and Prototype. They are saved per workspace in
+this browser's local database. They do not sync to a signed-in identity or change
+Rune source. Save/load failures offer **Retry** without discarding local edits.
+
 ### With external LSP server
 
 For full LSP features via WebSocket:

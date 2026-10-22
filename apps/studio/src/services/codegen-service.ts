@@ -205,6 +205,7 @@ export const isPreviewExecuteErrorMessage = withInstrumentation(
 export const isInstanceValidateResultMessage = withInstrumentation(
   function isInstanceValidateResultMessage(msg: unknown): msg is {
     type: 'instance:validateResult';
+    unavailable?: string;
     requestId: string;
     diagnostics: Array<{ path: string; message: string; conditionName?: string }>;
   } {
@@ -412,6 +413,7 @@ function isFormPreviewSchema(value: unknown): value is FormPreviewSchema {
   ) {
     return false;
   }
+  if (candidate.result !== undefined && !isPreviewField(candidate.result)) return false;
   if (candidate.functionOutput !== undefined && !isFunctionPreviewOutput(candidate.functionOutput)) return false;
   if (
     candidate.sourceMap !== undefined &&
