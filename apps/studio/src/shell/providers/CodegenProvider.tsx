@@ -124,7 +124,6 @@ export const CodegenProvider = withInstrumentation(
     const orchestratorRef = useRef<HydrationOrchestrator | null>(null);
     const readinessRef = useRef<InstanceReadiness | null>(null);
     const hydrationNonce = useEditorStore((state) => state.hydrationNonce);
-    const committedFilesRef = useRef(files);
     const filesRef = useRef(files);
     const deferredExportsRef = useRef(deferredExports);
     const workspaceEpochRef = useRef(0);
@@ -148,18 +147,18 @@ export const CodegenProvider = withInstrumentation(
     // committed App's merged curated files. This layout effect is the concrete
     // boundary after which filesRef is a real committed workspace snapshot.
     useLayoutEffect(() => {
-      const filesChanged = committedFilesRef.current !== files;
-      committedFilesRef.current = files;
       const version = ++committedFilesVersionRef.current;
-      committedHydratedNamespacesRef.current = new Set(useEditorStore.getState().hydratedNamespaces);
+      const definedNamespaces = new Set(
+        files.flatMap((file) => (file.serializedModelJson && file.namespace ? [file.namespace] : []))
+      );
+      committedHydratedNamespacesRef.current = new Set(
+        useEditorStore.getState().hydratedNamespaces.filter((namespace) => definedNamespaces.has(namespace))
+      );
       for (const waiter of workspaceCommitWaitersRef.current) {
         // A closure can already contain this namespace; marking it hydrated
         // then commits no new files. Still wait for this React commit before
         // acknowledging that existing serialized definition to the worker.
-        const definitionCommitted = files.some(
-          (file) => file.namespace === waiter.namespace && !!file.serializedModelJson
-        );
-        if (version > waiter.afterVersion && (filesChanged || definitionCommitted)) {
+        if (version > waiter.afterVersion && definedNamespaces.has(waiter.namespace)) {
           workspaceCommitWaitersRef.current.delete(waiter);
           waiter.resolve();
         }

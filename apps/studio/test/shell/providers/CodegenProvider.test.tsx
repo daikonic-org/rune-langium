@@ -322,7 +322,10 @@ describe('CodegenProvider', () => {
           {
             filePath: 'curated/bundle.rosetta',
             namespace: 'curated',
-            exports: [{ type: 'data', name: 'Address' }]
+            exports: [
+              { type: 'data', name: 'Address' },
+              { type: 'data', name: 'Country' }
+            ]
           }
         ]
       });
@@ -335,7 +338,9 @@ describe('CodegenProvider', () => {
               name: 'address.rosetta',
               path: 'curated/address.rosetta',
               content: 'namespace curated',
-              dirty: false
+              dirty: false,
+              namespace: 'curated',
+              serializedModelJson: '{}'
             }
           ]
         }));
@@ -365,6 +370,15 @@ describe('CodegenProvider', () => {
       await Promise.resolve();
     });
 
+    expect(worker.posted.filter((message) => message.type === 'preview:setFiles')).toHaveLength(beforeHydration);
+
+    // A second target in this namespace starts after the nonce-only React commit,
+    // while App still exposes the old files. It must wait for definitions too.
+    await act(async () => {
+      useInstanceStore.getState().createInstance('curated.Country', 'Country');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(worker.posted.filter((message) => message.type === 'preview:setFiles')).toHaveLength(beforeHydration);
 
     act(() => commitHydratedFiles?.());
