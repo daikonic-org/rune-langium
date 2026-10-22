@@ -22,6 +22,7 @@ import { GripVertical, SlidersHorizontal } from 'lucide-react';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import {
   formWorkspaceKey,
+  canEditFormPresentation,
   useFormPresentationStore,
   formatPreviewNumber,
   type FormPreferences,
@@ -38,6 +39,19 @@ const PresentationContext = createContext<{
   update(change: (preferences: FormPreferences) => FormPreferences): void;
 }>({ preferences: { layouts: {}, formats: {} }, editing: false, update() {} });
 
+export const useFormPresentationState = withInstrumentation(
+  function useFormPresentationState() {
+    const workspaceId = useWorkspaceOptional()?.workspaceId;
+    const entry = useFormPresentationStore((state) => state.workspaces[formWorkspaceKey(workspaceId)]);
+    const load = useFormPresentationStore((state) => state.load);
+    useEffect(() => {
+      void load(workspaceId);
+    }, [workspaceId, load]);
+    return { workspaceId, entry, ready: canEditFormPresentation(entry) };
+  },
+  { op: 'useFormPresentationState', sanitize: () => ({}) }
+);
+
 export const FormPresentation = withInstrumentation(
   function FormPresentation({
     children,
@@ -52,16 +66,11 @@ export const FormPresentation = withInstrumentation(
     editing?: boolean;
     onEditingChange?(editing: boolean): void;
   }) {
-    const workspaceId = useWorkspaceOptional()?.workspaceId;
-    const entry = useFormPresentationStore((state) => state.workspaces[formWorkspaceKey(workspaceId)]);
-    const load = useFormPresentationStore((state) => state.load);
+    const { workspaceId, entry, ready } = useFormPresentationState();
     const update = useFormPresentationStore((state) => state.update);
     const retry = useFormPresentationStore((state) => state.retry);
     const setEditing = useFormPresentationStore((state) => state.setEditing);
-    const editing = controlledEditing ?? (showToolbar && entry?.editing === true);
-    useEffect(() => {
-      void load(workspaceId);
-    }, [workspaceId, load]);
+    const editing = ready && (controlledEditing ?? (showToolbar && entry?.editing === true));
     return (
       <PresentationContext
         value={{
@@ -77,7 +86,7 @@ export const FormPresentation = withInstrumentation(
               type="button"
               variant="ghost"
               size="xs"
-              disabled={!entry?.loaded || (!!entry.error && entry.revision === 0)}
+              disabled={!ready}
               aria-pressed={editing}
               onClick={() => (onEditingChange ? onEditingChange(!editing) : setEditing(workspaceId, !editing))}
             >

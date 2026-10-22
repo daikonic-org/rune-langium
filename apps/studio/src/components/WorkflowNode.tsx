@@ -9,6 +9,7 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { FormPreviewPanel } from './FormPreviewPanel.js';
+import { FormPresentation, useFormPresentationState } from './FormPresentation.js';
 import { WorkflowValidation } from './WorkflowValidation.js';
 import type { WorkflowValidation as Validation } from '../services/workflow-validation.js';
 import { WorkflowImport } from './WorkflowImport.js';
@@ -53,7 +54,9 @@ export const WorkflowNode = withInstrumentation(
     validationRoot?: RefObject<HTMLElement | null>;
   }) {
     const root = useRef<HTMLElement>(null);
-    const [editing, setEditing] = useState(false);
+    const [requestedEditing, setEditing] = useState(false);
+    const { ready } = useFormPresentationState();
+    const editing = ready && requestedEditing;
     return (
       <section
         ref={root}
@@ -90,6 +93,7 @@ export const WorkflowNode = withInstrumentation(
               aria-label={`${name}: ${editing ? 'Finish editing layout' : 'Edit layout'}`}
               title={editing ? 'Finish editing layout' : 'Edit layout'}
               aria-pressed={editing}
+              disabled={!ready}
               onClick={() => setEditing(!editing)}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden="true" />
@@ -156,6 +160,8 @@ export const WorkflowNode = withInstrumentation(
               readOnly
             }}
           />
+        ) : schema ? (
+          <FormPresentation showToolbar={false}>{null}</FormPresentation>
         ) : null}
         {children}
       </section>

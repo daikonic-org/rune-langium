@@ -78,6 +78,10 @@ it('retries a failed restore instead of replacing saved settings with defaults',
     .mockResolvedValue({ ...empty(), formats: { 'builtin:number': currency } });
   await useFormPresentationStore.getState().load('a');
   expect(useFormPresentationStore.getState().workspaces.a?.error).toContain('could not be loaded');
+  useFormPresentationStore.getState().setEditing('a', true);
+  useFormPresentationStore.getState().update('a', () => empty());
+  expect(useFormPresentationStore.getState().workspaces.a?.editing).not.toBe(true);
+  expect(useFormPresentationStore.getState().workspaces.a?.revision).toBe(0);
   await useFormPresentationStore.getState().retry('a');
   expect(write).not.toHaveBeenCalled();
   expect(useFormPresentationStore.getState().workspaces.a?.preferences.formats['builtin:number']).toEqual(currency);

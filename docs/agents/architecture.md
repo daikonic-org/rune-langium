@@ -100,6 +100,8 @@ stays inside the owning object. Container queries collapse saved multi-column
 layouts in narrow panels. Unknown members are ignored and newly generated fields
 retain their source order after saved members. Preference loads and save results
 are scoped to each workspace and revision; failures expose a retry action.
+The shared readiness gate blocks editing and store writes until preferences have
+loaded successfully; failed restores retry the read before accepting edits.
 Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.

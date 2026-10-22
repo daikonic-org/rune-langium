@@ -44,7 +44,13 @@ func EchoNotes:
   notes string (0..*)
  output:
   result string (0..*)
- set result: notes`;
+ set result: notes
+func OptionalMoney:
+ inputs:
+  value Money (0..1)
+ output:
+  result string (1..1)
+ set result: "done"`;
 
 async function openWorkflow(page: Page) {
   await page.goto('./');
@@ -121,6 +127,22 @@ test('toggles the payload graph without resetting workflow inputs or its result'
     ).toHaveValue('1250');
     await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
   }
+});
+
+test('executes with an absent optional object and validates its members once supplied', async ({ page }) => {
+  await openWorkflow(page);
+  await choose(page, 'OptionalMoney');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.getByTestId('instance-payload-output')).toHaveText('"done"');
+  await page.getByRole('region', { name: 'value fields' }).getByRole('spinbutton', { name: 'Amount' }).fill('10');
+  await expect(execute).toBeDisabled();
+  await expect(page.getByTestId('instance-payload-output')).toHaveCount(0);
+  await page.getByRole('region', { name: 'value fields' }).getByRole('textbox', { name: 'Currency' }).fill('USD');
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.getByTestId('instance-payload-output')).toHaveText('"done"');
 });
 
 test('preserves compatible input drafts and supports primitive parameters, scalar output and bypass', async ({

@@ -21,7 +21,7 @@ export interface FormPreferences {
   layouts: Record<string, ObjectFormLayout>;
   formats: Record<string, NumericPresentation>;
 }
-interface WorkspacePreferences {
+export interface WorkspacePreferences {
   preferences: FormPreferences;
   loaded: boolean;
   revision: number;
@@ -29,6 +29,13 @@ interface WorkspacePreferences {
   saving?: boolean;
   editing?: boolean;
 }
+
+export const canEditFormPresentation = withInstrumentation(
+  function canEditFormPresentation(entry: WorkspacePreferences | undefined): boolean {
+    return !!entry?.loaded && !(entry.error && entry.revision === 0);
+  },
+  { op: 'canEditFormPresentation', sanitize: () => ({}) }
+);
 interface FormPresentationStore {
   workspaces: Record<string, WorkspacePreferences>;
   load(workspaceId?: string): Promise<void>;
@@ -153,7 +160,7 @@ export const useFormPresentationStore = create<FormPresentationStore>((set, get)
     update(workspaceId, change) {
       const key = formWorkspaceKey(workspaceId);
       const current = get().workspaces[key];
-      if (!current?.loaded) return;
+      if (!current || !canEditFormPresentation(current)) return;
       const entry = {
         ...current,
         preferences: change(current.preferences),
@@ -167,7 +174,8 @@ export const useFormPresentationStore = create<FormPresentationStore>((set, get)
     setEditing(workspaceId, editing) {
       const key = formWorkspaceKey(workspaceId);
       const current = get().workspaces[key];
-      if (current?.loaded) set((state) => ({ workspaces: { ...state.workspaces, [key]: { ...current, editing } } }));
+      if (current && canEditFormPresentation(current))
+        set((state) => ({ workspaces: { ...state.workspaces, [key]: { ...current, editing } } }));
     },
     async retry(workspaceId) {
       const key = formWorkspaceKey(workspaceId);

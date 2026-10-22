@@ -87,12 +87,12 @@ function InputNode({
   const item = field.kind === 'array' ? field.children[0] : field;
   const raw = state.inputs[field.path];
   const ownValues = useMemo(
-    () => (raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : NO_VALUES),
+    () => (raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : undefined),
     [raw]
   );
   const own = useWorkflowValidation(
-    item.kind === 'object' && field.kind !== 'array' ? item.referencedTypeFqn : undefined,
-    ownValues
+    item.kind === 'object' && field.kind !== 'array' && ownValues ? item.referencedTypeFqn : undefined,
+    ownValues ?? NO_VALUES
   );
   const diagnostics = [
     ...new Map(
