@@ -34,6 +34,7 @@ export const InstanceGridPanel = withInstrumentation(
     const instances = useInstanceStore((state) => state.instances);
     const validationStatus = useInstanceStore((state) => state.validationStatus);
     const saveStates = useInstanceStore((state) => state.saveStates);
+    const retrySave = useInstanceStore((state) => state.retrySave);
     const dispatchGenerateSchema = useInstanceStore((state) => state.dispatchGenerateSchema);
     const duplicateInstance = useInstanceStore((state) => state.duplicateInstance);
     const renameInstance = useInstanceStore((state) => state.renameInstance);
@@ -150,6 +151,7 @@ export const InstanceGridPanel = withInstrumentation(
                   className="cursor-pointer border-t border-border/60 hover:bg-accent aria-[selected=true]:bg-accent"
                   onClick={() => patch({ selectedId: record.id, bindingRequestId: (view.bindingRequestId ?? 0) + 1 })}
                   onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
                       patch({ selectedId: record.id, bindingRequestId: (view.bindingRequestId ?? 0) + 1 });
@@ -168,7 +170,28 @@ export const InstanceGridPanel = withInstrumentation(
                     </td>
                   ))}
                   <td className="p-2 capitalize">{validationStatus[record.id] ?? 'pending'}</td>
-                  <td className="p-2 capitalize">{saveStates[record.id]?.state ?? 'unsaved'}</td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-1">
+                      <span className="capitalize">{saveStates[record.id]?.state ?? 'unsaved'}</span>
+                      {saveStates[record.id]?.state === 'failed' ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          aria-label={`Retry saving ${record.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setActionError(null);
+                            void retrySave(record.id).catch((error) =>
+                              setActionError(error instanceof Error ? error.message : String(error))
+                            );
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="p-2">
                     <div className="flex gap-1">
                       <Button

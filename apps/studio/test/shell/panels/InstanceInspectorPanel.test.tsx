@@ -107,6 +107,25 @@ it('uses an independent draft and a complete no-function output', async () => {
   expect(useInstanceStore.getState().instances.stored?.data).toEqual({ amount: 1250, currency: 'USD' });
   expect(execute).not.toHaveBeenCalled();
 });
+it('retries a transient draft schema failure without remounting or losing the input object', async () => {
+  const schemaRequest = vi.fn().mockRejectedValueOnce(new Error('hydrate unavailable')).mockResolvedValue(money);
+  const dispose = vi.fn();
+  const retryFactory = () => ({ ...factory(), schema: schemaRequest, dispose });
+  render(
+    <PreviewSessionContext value={retryFactory}>
+      <InstanceInspectorPanel instanceId="stored" />
+    </PreviewSessionContext>
+  );
+  expect(await screen.findByText('hydrate unavailable')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry input schema' }));
+  const fields = await screen.findByRole('region', { name: 'input fields' });
+  expect(within(fields).getByRole('spinbutton', { name: 'Amount' })).toHaveValue(1250);
+  expect(within(fields).getByRole('textbox', { name: 'Currency' })).toHaveValue('USD');
+  expect(schemaRequest).toHaveBeenCalledTimes(2);
+  expect(schemaRequest.mock.calls[0]![1].aborted).toBe(true);
+  expect(dispose).toHaveBeenCalled();
+  expect(useInstanceStore.getState().instances.stored?.data).toEqual({ amount: 1250, currency: 'USD' });
+});
 it('assigns equal inputs, validates conditions separately, executes and invalidates output on edit', async () => {
   setup();
   await screen.findByRole('region', { name: 'input fields' });

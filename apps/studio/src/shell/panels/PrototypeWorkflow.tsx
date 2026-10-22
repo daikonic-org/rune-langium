@@ -636,9 +636,16 @@ export const PrototypeWorkflow = withInstrumentation(
                 onBind={() => setBinding({})}
               >
                 {!draftSchema ? (
-                  <p role="status" className="p-3 text-xs">
-                    {draftSchemaState?.error ?? 'Preparing input schema…'}
-                  </p>
+                  <div className="space-y-2 p-3 text-xs">
+                    <p role={draftSchemaState.error ? 'alert' : 'status'}>
+                      {draftSchemaState.error ?? 'Preparing input schema…'}
+                    </p>
+                    {draftSchemaState.error ? (
+                      <Button variant="outline" size="xs" onClick={draftSchemaState.retry}>
+                        Retry input schema
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
               </WorkflowNode>
             ) : (

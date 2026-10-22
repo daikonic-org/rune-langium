@@ -152,6 +152,9 @@ Prototype's `PrototypeWorkflow` owns equal, detached input drafts and one option
 `FunctionSession`. `WorkflowNode` composes the existing controlled FormPreview
 renderer; object parameters render separately and primitive inputs remain inline.
 Node-local layout editing uses the shared symbol-associated presentation store.
+The instance grid exposes failed-save retries through the existing instance-store
+persistence action. Draft schema failures can retry their request without losing
+the input object; each retry aborts and invalidates its preceding request.
 The instance grid stores reusable objects; selecting one requests an explicit
 compatible parameter binding. Drafts never mutate stored objects. Batch JSON
 import belongs to the grid, and single-input import belongs to each node.
