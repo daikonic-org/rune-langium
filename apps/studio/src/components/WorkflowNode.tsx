@@ -49,7 +49,7 @@ export const WorkflowNode = withInstrumentation(
     parentPath?: string;
     readOnly?: boolean;
     onBind?(): void;
-    onImport?(value: Record<string, unknown>): void;
+    onImport?(value: unknown): void;
     validationRoot?: RefObject<HTMLElement | null>;
   }) {
     const root = useRef<HTMLElement>(null);
@@ -106,9 +106,13 @@ export const WorkflowNode = withInstrumentation(
                     typeFqn={schema?.targetId}
                     onImport={(items) => {
                       const value = items[0];
+                      if (onImport) {
+                        onImport(value);
+                        return;
+                      }
                       if (!value || typeof value !== 'object' || Array.isArray(value))
                         throw new Error('Import an object for this input.');
-                      (onImport ?? onChange)(value as Record<string, unknown>);
+                      onChange(value as Record<string, unknown>);
                     }}
                   />
                 ) : null}

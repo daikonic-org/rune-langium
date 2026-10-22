@@ -4,6 +4,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { workflowFieldSchema } from '../../src/services/workflow-fields.js';
 import { FormPreviewPanel } from '../../src/components/FormPreviewPanel.js';
 import { useFormPresentationStore } from '../../src/store/form-presentation-store.js';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
@@ -140,4 +141,81 @@ it('retains precise decimal strings and validation cues through focus and displa
   fireEvent.blur(amount);
   expect((amount as HTMLInputElement).value).toContain('123,456,789,012,345,678');
   expect(change).not.toHaveBeenCalled();
+});
+
+it('shares declared alias layouts between Preview and projected workflow nodes without changing the underlying Data layout', async () => {
+  await useFormPresentationStore.getState().load();
+  useFormPresentationStore.getState().update(undefined, (current) => ({
+    ...current,
+    layouts: {
+      'typeAlias:test.Invoice': { columns: 2, order: ['currency', 'amount'], spans: {} },
+      'data:test.Money': { columns: 1, order: ['amount', 'currency'], spans: {} }
+    }
+  }));
+  const canonical: FormPreviewSchema = {
+    ...schema,
+    targetId: 'test.Invoice',
+    kind: 'typeAlias',
+    fields: [
+      { path: 'amount', label: 'Amount', kind: 'number', required: true },
+      { path: 'currency', label: 'Currency', kind: 'string', required: true }
+    ]
+  };
+  const projected = workflowFieldSchema(
+    { ...schema, kind: 'function' },
+    {
+      path: 'value',
+      label: 'Value',
+      kind: 'object',
+      required: true,
+      typeSymbol: 'typeAlias:test.Invoice',
+      referencedTypeFqn: 'test.Money',
+      children: canonical.fields.map((field) => ({ ...field, path: `value.${field.path}` }))
+    }
+  );
+  const input = { amount: 5, currency: 'USD' };
+  const { container, rerender } = render(
+    <FormPreviewPanel
+      schema={projected}
+      status={{ state: 'ready', targetId: projected.targetId }}
+      values={{ value: input }}
+      layoutParentPath="value"
+      layoutEditing
+      onValuesChange={() => {}}
+    />
+  );
+  expect(
+    [...container.querySelectorAll('[data-layout-field]')].map((node) => node.getAttribute('data-layout-field'))
+  ).toEqual(['currency', 'amount']);
+  const order = screen.getByRole('button', { name: 'Move Amount', exact: true });
+  fireEvent.keyDown(order, { key: 'ArrowUp' });
+  const preferences = useFormPresentationStore.getState().workspaces[':session']!.preferences;
+  expect(preferences.layouts['typeAlias:test.Invoice']!.order).toEqual(['amount', 'currency']);
+  expect(preferences.layouts['data:test.Money']).toEqual({ columns: 1, order: ['amount', 'currency'], spans: {} });
+  expect(preferences.layouts['data:test.Invoice']).toBeUndefined();
+  rerender(
+    <FormPreviewPanel
+      schema={canonical}
+      status={{ state: 'ready', targetId: canonical.targetId }}
+      values={input}
+      onValuesChange={() => {}}
+    />
+  );
+  expect(
+    [...container.querySelectorAll('[data-layout-field]')].map((node) => node.getAttribute('data-layout-field'))
+  ).toEqual(['amount', 'currency']);
+});
+
+it('preserves a declared Choice identity in a projected parameter or result', () => {
+  const projected = workflowFieldSchema(schema, {
+    path: 'payment',
+    label: 'Payment',
+    kind: 'object',
+    required: true,
+    typeSymbol: 'choice:test.Payment',
+    referencedTypeFqn: 'test.Payment',
+    children: [],
+    choiceArmPaths: []
+  });
+  expect(projected).toMatchObject({ kind: 'choice', targetId: 'test.Payment' });
 });

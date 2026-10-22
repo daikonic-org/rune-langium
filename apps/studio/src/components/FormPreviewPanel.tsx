@@ -1274,7 +1274,7 @@ function PreviewFieldControl({
     // the sample value so an unset optional enum remains absent for Zod.
     const CLEAR_SENTINEL = '__rune_enum_unset__';
     return (
-      <div className="preview-field" data-field-path={field.path}>
+      <div className="preview-field" data-field-path={fieldPath}>
         <span className="preview-field__label">{fieldLabel}</span>
         <Select
           value={stringValue}

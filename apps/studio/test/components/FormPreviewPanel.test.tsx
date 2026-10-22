@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { StrictMode } from 'react';
+import { WorkflowValidation } from '../../src/components/WorkflowValidation.js';
+import { StrictMode, useRef } from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
@@ -1676,4 +1677,57 @@ describe('FormPreviewPanel', () => {
       expect(screen.getByText('Ready to run function')).toBeInTheDocument();
     });
   });
+});
+
+it('focuses the indexed enum item selected from validation details', async () => {
+  const schema: FormPreviewSchema = {
+    ...tradeSchema,
+    fields: [
+      {
+        path: 'sides',
+        label: 'Sides',
+        kind: 'array',
+        required: false,
+        children: [
+          {
+            path: 'sides[]',
+            label: 'Side',
+            kind: 'enum',
+            required: true,
+            enumValues: [
+              { value: 'Buy', label: 'Buy' },
+              { value: 'Sell', label: 'Sell' }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+  function Fixture() {
+    const root = useRef<HTMLElement>(null);
+    return (
+      <section ref={root}>
+        <WorkflowValidation
+          name="Input"
+          root={root}
+          validation={{ state: 'invalid', diagnostics: [{ path: 'sides[1]', message: 'Review this side' }] }}
+        />
+        <FormPreviewPanel
+          schema={schema}
+          status={{ state: 'ready', targetId: schema.targetId }}
+          values={{ sides: ['Buy', 'Sell'] }}
+          onValuesChange={() => {}}
+        />
+      </section>
+    );
+  }
+  render(<Fixture />);
+  const user = userEvent.setup({ writeToClipboard: false });
+  await user.click(screen.getByRole('button', { name: /Input: 1 issue/ }));
+  await user.click(screen.getByRole('button', { name: /sides\[1\]: Review this side/ }));
+  await vi.waitFor(() => expect(screen.getAllByRole('combobox')[1]).toHaveFocus());
+  expect(screen.getAllByRole('combobox')[0].closest('[data-field-path]')).toHaveAttribute(
+    'data-field-path',
+    'sides[0]'
+  );
 });

@@ -25,11 +25,15 @@ export const workflowFieldType = withInstrumentation(
 export const workflowFieldSchema = withInstrumentation(
   function workflowFieldSchema(schema: FormPreviewSchema, field: PreviewField): FormPreviewSchema {
     const expanded = expandPreviewField(field, schema.definitions);
+    const [declaredKind, declaredTarget] = expanded.typeSymbol?.split(':', 2) ?? [];
     return {
       ...schema,
-      kind: 'data',
+      kind: declaredKind === 'choice' || declaredKind === 'typeAlias' ? declaredKind : 'data',
       title: field.label,
-      targetId: expanded.kind === 'object' ? (expanded.referencedTypeFqn ?? schema.targetId) : schema.targetId,
+      targetId:
+        expanded.kind === 'object'
+          ? (declaredTarget ?? expanded.referencedTypeFqn ?? schema.targetId)
+          : schema.targetId,
       fields: expanded.kind === 'object' ? expanded.children : [expanded],
       choiceArmPaths: expanded.kind === 'object' ? expanded.choiceArmPaths : undefined
     };

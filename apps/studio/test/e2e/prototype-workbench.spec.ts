@@ -32,7 +32,19 @@ func Amount:
   value Money (1..1)
  output:
   amount number (1..1)
- set amount: value -> amount`;
+ set amount: value -> amount
+func EchoMoney:
+ inputs:
+  values Money (0..*)
+ output:
+  result Money (0..*)
+ set result: values
+func EchoNotes:
+ inputs:
+  notes string (0..*)
+ output:
+  result string (0..*)
+ set result: notes`;
 
 async function openWorkflow(page: Page) {
   await page.goto('./');
@@ -209,4 +221,52 @@ test('drags a function, resizes columns and retains the workflow across perspect
     'true'
   );
   await expect(divider).toHaveAttribute('aria-valuenow', resized!);
+});
+
+test('imports a JSON object or array into an object-list parameter without losing cardinality', async ({ page }) => {
+  await openWorkflow(page);
+  await choose(page, 'EchoMoney');
+  async function importValues(json: string, name = 'values') {
+    await page.getByRole('button', { name: `${name} node actions`, exact: true }).click();
+    await page.getByRole('button', { name: 'Import input…', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Import JSON data', exact: true }).fill(json);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.keyboard.press('Escape');
+  }
+  await importValues('[{"amount":2,"currency":"USD"},{"amount":3,"currency":"EUR"}]');
+  await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('EUR');
+  expect(JSON.parse(await page.getByTestId('instance-payload-output').innerText())).toEqual([
+    { amount: 2, currency: 'USD' },
+    { amount: 3, currency: 'EUR' }
+  ]);
+  await importValues('{"amount":4,"currency":"GBP"}');
+  await expect(page.getByTestId('instance-payload-output')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('GBP');
+  expect(JSON.parse(await page.getByTestId('instance-payload-output').innerText())).toEqual([
+    { amount: 4, currency: 'GBP' }
+  ]);
+  await page.getByRole('button', { name: 'values node actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Import input…', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Import JSON data', exact: true }).fill('[7]');
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Import an object or an array of objects' })).toBeVisible();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('GBP');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await importValues('[]');
+  await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByTestId('instance-payload-output')).toHaveText('[]');
+  await page.getByRole('button', { name: /Choose a function/ }).click();
+  await page.getByRole('option', { name: 'Clear selection', exact: true }).click();
+  await choose(page, 'EchoNotes');
+  await importValues('["first","second"]', 'notes');
+  await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('second');
+  expect(JSON.parse(await page.getByTestId('instance-payload-output').innerText())).toEqual(['first', 'second']);
 });

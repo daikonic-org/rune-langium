@@ -130,7 +130,17 @@ function InputNode({
       schema={projected}
       values={state.inputs}
       onChange={onChange}
-      onImport={(value) => onChange({ ...state.inputs, [field.path]: value })}
+      onImport={(value) => {
+        const items = field.kind === 'array' && Array.isArray(value) ? value : [value];
+        const expectsObject = field.kind !== 'array' || item.kind === 'object';
+        if (expectsObject && items.some((value) => !value || typeof value !== 'object' || Array.isArray(value)))
+          throw new Error(
+            field.kind === 'array'
+              ? 'Import an object or an array of objects for this input.'
+              : 'Import an object for this input.'
+          );
+        onChange({ ...state.inputs, [field.path]: field.kind === 'array' ? items : value });
+      }}
       validation={validation}
       parentPath={field.kind === 'object' ? field.path : undefined}
       source={source ?? 'Manual input'}
