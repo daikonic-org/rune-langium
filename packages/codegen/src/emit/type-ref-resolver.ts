@@ -33,6 +33,8 @@ const ROSETTA_BASIC_TYPE_NAMES = new Set([
 ]);
 
 export interface TypeResolutionVisitor<T> {
+  /** Observe alias identity while terminal resolution remains authoritative. */
+  onAlias?(node: RosettaTypeAlias): void;
   onPrimitive(basicTypeName: string): T;
   onEnum(node: RosettaEnumeration, sourceUri: string): T;
   onData(node: Data, sourceUri: string): T;
@@ -129,6 +131,7 @@ export function resolveTypeCallTarget<T>(
         if (ROSETTA_BASIC_TYPE_NAMES.has(typeRef.name)) return visitor.onPrimitive(typeRef.name);
         if (visitedAliases.has(typeRef)) return visitor.onUnresolved(originalRefText);
         visitedAliases.add(typeRef);
+        visitor.onAlias?.(typeRef);
         currentTypeCall = typeRef.typeCall;
         continue;
       }
@@ -153,6 +156,7 @@ export function resolveTypeCallTarget<T>(
         }
         if (visitedAliases.has(aliasEntry.node)) return visitor.onUnresolved(originalRefText);
         visitedAliases.add(aliasEntry.node);
+        visitor.onAlias?.(aliasEntry.node);
         currentTypeCall = aliasEntry.node.typeCall;
         continue;
       }

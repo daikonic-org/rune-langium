@@ -85,6 +85,21 @@ Preview and Prototype share validated field state: invalid controls use a semant
 red-tinted background and border, `aria-invalid`, and an associated inline error.
 Temporal controls forward the same state; corrected fields clear both cues.
 Worker diagnostics remain the sole source of validation results.
+
+Preview and Prototype share symbol-associated presentation preferences in
+`form-presentation-store.ts`, persisted through `workbench-settings.ts` in the
+workspace's browser database. Object layouts store member order, column count
+and spans; numeric formats store currency, grouping and decimal places. Codegen
+attaches kind-qualified `typeSymbol` metadata through its authoritative resolver,
+preserving declared aliases and identities through deferred expansion. Root
+selection IDs are normalized before lookup so nested uses share the same layout.
+Preferences never rewrite Rune, validation, or sample values. A formatted numeric
+control shows the raw value while focused and only writes actual edits.
+Reordering changes DOM order, supports pointer/touch and keyboard handles, and
+stays inside the owning object. Container queries collapse saved multi-column
+layouts in narrow panels. Unknown members are ignored and newly generated fields
+retain their source order after saved members. Preference loads and save results
+are scoped to each workspace and revision; failures expose a retry action.
 Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.

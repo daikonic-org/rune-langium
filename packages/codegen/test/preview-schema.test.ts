@@ -52,6 +52,37 @@ async function parseModels(sources: readonly string[]) {
 }
 
 describe('FormPreviewSchema generation', () => {
+  it('preserves declared symbol identities across namespaces, alias chains, collections and deferred bodies', async () => {
+    const docs = await parseModels([
+      `namespace symbols.a
+typeAlias Amount: number
+typeAlias Price: Amount
+type Item: amount Price (1..1)
+type Book: items Item (0..*)
+choice Value: Price`,
+      `namespace symbols.b
+typeAlias Amount: number
+type Item: amount Amount (1..1)`
+    ]);
+    const schemas = generatePreviewSchemas(docs, { maxDepth: 0 });
+    const a = schemas.find((schema) => schema.targetId === 'symbols.a.Item')!;
+    const b = schemas.find((schema) => schema.targetId === 'symbols.b.Item')!;
+    expect(a.fields[0]?.typeSymbol).toBe('typeAlias:symbols.a.Price');
+    expect(b.fields[0]?.typeSymbol).toBe('typeAlias:symbols.b.Amount');
+    expect(schemas.find((schema) => schema.targetId === 'symbols.a.Price')!.fields[0]?.typeSymbol).toBe(
+      'typeAlias:symbols.a.Price'
+    );
+    expect(schemas.find((schema) => schema.targetId === 'symbols.a.Value')!.fields[0]?.typeSymbol).toBe(
+      'typeAlias:symbols.a.Price'
+    );
+    const book = schemas.find((schema) => schema.targetId === 'symbols.a.Book')!;
+    const list = book.fields[0]!;
+    if (list.kind !== 'array') throw new Error('Expected collection');
+    const item = expandPreviewField(list.children[0], book.definitions);
+    expect(item.typeSymbol).toBe('data:symbols.a.Item');
+    expect(item.kind === 'object' && item.children[0]?.typeSymbol).toBe('typeAlias:symbols.a.Price');
+  });
+
   it('preserves ISO date controls through aliases, collections, Choices and deferred objects', async () => {
     const doc = await parseModel(`namespace test.dates
 typeAlias CalendarDate:
@@ -275,10 +306,11 @@ func Derived extends Base:
       }
     ]);
     expect(trade?.fields).toEqual([
-      { path: 'id', label: 'Id', kind: 'string', required: true },
+      { path: 'id', label: 'Id', kind: 'string', required: true, typeSymbol: 'builtin:string' },
       {
         path: 'quantity',
         label: 'Quantity',
+        typeSymbol: 'builtin:int',
         kind: 'number',
         required: false,
         cardinality: { min: 0, max: 1 }
@@ -289,11 +321,12 @@ func Derived extends Base:
         kind: 'array',
         required: false,
         cardinality: { min: 0, max: 'unbounded' },
-        children: [{ path: 'tags[]', label: 'Tags item', kind: 'string', required: true }]
+        children: [{ path: 'tags[]', label: 'Tags item', kind: 'string', required: true, typeSymbol: 'builtin:string' }]
       },
       {
         path: 'side',
         label: 'Side',
+        typeSymbol: 'enum:test.preview.Side',
         kind: 'enum',
         required: true,
         enumValues: [
@@ -304,10 +337,11 @@ func Derived extends Base:
       {
         path: 'party',
         label: 'Party',
+        typeSymbol: 'data:test.preview.Party',
         kind: 'object',
         referencedTypeFqn: 'test.preview.Party',
         required: true,
-        children: [{ path: 'party.name', label: 'Name', kind: 'string', required: true }]
+        children: [{ path: 'party.name', label: 'Name', kind: 'string', required: true, typeSymbol: 'builtin:string' }]
       }
     ]);
   });
@@ -328,10 +362,11 @@ func Derived extends Base:
     expect(node?.status).toBe('ready');
     expect(node?.definitions?.['test.preview.Node']?.fields).toHaveLength(2);
     expect(node?.fields).toEqual([
-      { path: 'value', label: 'Value', kind: 'string', required: true },
+      { path: 'value', label: 'Value', kind: 'string', required: true, typeSymbol: 'builtin:string' },
       {
         path: 'child',
         label: 'Child',
+        typeSymbol: 'data:test.preview.Node',
         kind: 'object',
         definitionId: 'test.preview.Node',
         referencedTypeFqn: 'test.preview.Node',
@@ -730,7 +765,15 @@ func Derived extends Base:
       title: 'ProductCode',
       status: 'ready'
     });
-    expect(alias?.fields).toEqual([{ path: 'value', label: 'Product Code', kind: 'string', required: true }]);
+    expect(alias?.fields).toEqual([
+      {
+        path: 'value',
+        label: 'Product Code',
+        kind: 'string',
+        required: true,
+        typeSymbol: 'typeAlias:test.preview.ProductCode'
+      }
+    ]);
   });
 
   skipIfNodeLt22('generates object fields for a data-type alias (typeAlias referencing a type)', async () => {
@@ -1894,7 +1937,15 @@ func Derived extends Base:
     const choice = schemas.find((s) => s.targetId === 'test.preview.Collateral')!;
 
     expect(choice.status).toBe('ready');
-    expect(choice.fields).toEqual([{ path: 'amountAlias', label: 'AmountAlias', kind: 'number', required: false }]);
+    expect(choice.fields).toEqual([
+      {
+        path: 'amountAlias',
+        label: 'AmountAlias',
+        kind: 'number',
+        required: false,
+        typeSymbol: 'typeAlias:test.preview.AmountAlias'
+      }
+    ]);
   });
 
   skipIfNodeLt22('resolves a Choice option typed via a type-alias-to-Data', async () => {
@@ -1948,7 +1999,9 @@ func Derived extends Base:
       const choice = schemas.find((s) => s.targetId === 'test.preview.Collateral')!;
 
       expect(choice.status).toBe('ready');
-      expect(choice.fields).toEqual([{ path: 'date', label: 'date', kind: 'string', format: 'date', required: false }]);
+      expect(choice.fields).toEqual([
+        { path: 'date', label: 'date', kind: 'string', format: 'date', required: false, typeSymbol: 'builtin:date' }
+      ]);
     }
   );
 
@@ -2019,6 +2072,7 @@ func Derived extends Base:
         {
           path: 'cycleB',
           label: 'CycleB',
+          typeSymbol: 'choice:test.preview.CycleB',
           kind: 'object',
           referencedTypeFqn: 'test.preview.CycleB',
           required: false,
@@ -2026,6 +2080,7 @@ func Derived extends Base:
             {
               path: 'cycleB.cycleA',
               label: 'CycleA',
+              typeSymbol: 'choice:test.preview.CycleA',
               kind: 'object',
               definitionId: 'test.preview.CycleA',
               referencedTypeFqn: 'test.preview.CycleA',
@@ -2062,6 +2117,7 @@ func Derived extends Base:
         {
           path: 'value',
           label: 'Side Alias',
+          typeSymbol: 'typeAlias:test.preview.SideAlias',
           kind: 'enum',
           required: true,
           enumValues: [

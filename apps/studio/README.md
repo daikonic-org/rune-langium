@@ -102,6 +102,24 @@ Explore's location path is part of the normal interface, including production.
 It shows the selected declaration after its namespace, aligns with the center
 stack, and truncates from the beginning when space is tight.
 
+### Form layouts and formats
+
+Use **Edit layout** in Form Preview or Prototype to drag fields into reading
+order. Handles also support arrow keys, Home and End. Choose one to three
+columns and a width for each field; narrow panels automatically use one column.
+**Reset layout** restores the current object's source order and default widths.
+
+**Format** on numeric fields configures decimal or currency display, currency
+code, decimal places and thousands grouping. Formats follow the declared Rune
+type, so an `Amount` alias can be formatted without changing unrelated numbers.
+Inputs show the original value when focused; payloads and validation retain that
+value even when the display rounds it.
+
+Object layouts and type formats are reused in nested objects and item detail
+views, and shared between Preview and Prototype. They are saved per workspace in
+this browser's local database. They do not sync to a signed-in identity or change
+Rune source. Save/load failures offer **Retry** without discarding local edits.
+
 ### With external LSP server
 
 For full LSP features via WebSocket:

@@ -273,6 +273,8 @@ export interface GeneratorOutput {
 export type PreviewFieldKind = 'string' | 'number' | 'boolean' | 'enum' | 'object' | 'array' | 'unknown';
 
 export interface PreviewFieldBase {
+  /** Kind-qualified declared Rune type identity for presentation preferences. */
+  typeSymbol?: string;
   path: string;
   label: string;
   required: boolean;

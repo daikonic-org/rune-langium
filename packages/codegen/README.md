@@ -113,6 +113,13 @@ Inline modules, shared runtime sidecars and executable previews use the same
 runtime source builder; namespace methods preserve generic types and type guards.
 Existing flat implementation exports remain available to runtime consumers.
 
+Preview fields expose optional `typeSymbol` presentation metadata, using a
+kind-qualified identity such as `data:example.Trade`, `typeAlias:example.Amount`
+or `builtin:number`. The shared type resolver preserves the declared alias;
+collections and deferred object expansion retain this metadata. Consumers can
+associate reusable layouts and control formats with symbols without inferring
+types from field labels or changing validation semantics.
+
 Studio function previews resolve inherited and dispatch input signatures and
 adapt plain form values and metadata envelopes, then validate their structure once before execution.
 `normalizePreviewInputs` adapts plain form values to metadata wrappers using the
