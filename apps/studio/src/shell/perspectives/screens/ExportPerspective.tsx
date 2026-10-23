@@ -17,6 +17,8 @@ import { exportSourceFingerprint } from '../../../services/export-request.js';
 import { useExportNavigationStore } from '../../../services/export-navigation.js';
 import { ExportSelectionPanel } from '../../panels/ExportSelectionPanel.js';
 import { ExportSettingsPanel } from '../../panels/ExportSettingsPanel.js';
+import { useProject } from '../../providers/project-context.js';
+import { useWorkspaceOptional } from '../../providers/workspace-context.js';
 import { ExportPreviewPanel } from '../../panels/ExportPreviewPanel.js';
 
 export interface ExportPerspectiveProps {
@@ -45,6 +47,14 @@ function reconcileExportLayout(api: DockviewApi): void {
 
 export const ExportPerspective = withInstrumentation(
   function ExportPerspective({ files, workspaceId }: ExportPerspectiveProps): ReactElement {
+    const project = useProject();
+    const workspace = useWorkspaceOptional();
+    const selectedTargetName = useExportWorkbenchStore((state) => state.selectedTargetName);
+    const targetDirty = useExportWorkbenchStore((state) => state.targetDirty);
+    const bindProject = useExportWorkbenchStore((state) => state.bindProject);
+    const selectTarget = useExportWorkbenchStore((state) => state.selectTarget);
+    const saveTarget = useExportWorkbenchStore((state) => state.saveTarget);
+    const buildTargets = useExportWorkbenchStore((state) => state.buildTargets);
     const config = useExportWorkbenchStore((state) => state.config);
     const run = useExportWorkbenchStore((state) => state.run);
     const activeFile = useExportWorkbenchStore((state) => state.activeFile);
@@ -115,6 +125,10 @@ export const ExportPerspective = withInstrumentation(
         cancelled = true;
       };
     }, [activate, configure, workspaceId]);
+    useEffect(
+      () => bindProject(project.controller, workspace?.workspaceName),
+      [bindProject, project.controller, workspace?.workspaceName]
+    );
     useEffect(() => {
       const revision = sourceRevisionRef.current + 1;
       sourceRevisionRef.current = revision;
@@ -130,10 +144,11 @@ export const ExportPerspective = withInstrumentation(
       void generate({
         workspaceId: workspaceId ?? 'unsaved-workspace',
         sourceRevision,
+        projectRevision: project.snapshot?.revision,
         config,
         files: files ?? []
       });
-    }, [config, files, generate, sourceRevision, workspaceId]);
+    }, [config, files, generate, sourceRevision, workspaceId, project.snapshot?.revision]);
     const definition = useMemo<WorkbenchDefinition>(
       () => ({
         id: 'export',
@@ -159,6 +174,26 @@ export const ExportPerspective = withInstrumentation(
                 onGenerate={handleGenerate}
                 onCancel={cancel}
                 status={run.status}
+                projectEnabled={Boolean(project.controller)}
+                projectSnapshot={project.snapshot}
+                projectDiagnostics={project.diagnostics}
+                selectedTargetName={selectedTargetName}
+                targetDirty={targetDirty}
+                onSelectTarget={selectTarget}
+                onSaveTarget={async (name) => {
+                  await saveTarget(name, config);
+                }}
+                onReloadProject={async () => {
+                  await project.controller?.load();
+                }}
+                onBuildTargets={(names) => {
+                  void buildTargets(names, {
+                    workspaceId: workspaceId ?? 'unsaved-workspace',
+                    sourceRevision,
+                    config,
+                    files: files ?? []
+                  });
+                }}
               />
             </div>
           ),
@@ -220,7 +255,16 @@ export const ExportPerspective = withInstrumentation(
         hasArtifact,
         requiredBy,
         run,
-        setActiveFile
+        setActiveFile,
+        project,
+        selectedTargetName,
+        targetDirty,
+        selectTarget,
+        saveTarget,
+        buildTargets,
+        workspaceId,
+        sourceRevision,
+        files
       ]
     );
 

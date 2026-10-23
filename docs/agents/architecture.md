@@ -20,7 +20,7 @@ Current source and package manifests take precedence over historical specs.
 | `packages/codegen-legacy`, `apps/codegen-container`     | Legacy JVM/Rosetta bridge and container path; Java 21 and `rosetta-code-generators` still apply here.                                                                                                                                               |
 | `apps/docs`, `site`                                     | Documentation and landing page, combined with Studio into the Pages artifact.                                                                                                                                                                       |
 
-| `packages/project-runtime` | Composes project-config, core and codegen for explicit named builds. The root is host-neutral; filesystem and local-project entry points live under `/node`. |
+| `packages/project-runtime` | Composes project-config, core and codegen for explicit named builds. The `/browser` entry owns the host-neutral build transaction with an injected generator; native parser composition is at the root and filesystem/local-project entry points live under `/node`. |
 
 The main dependencies are Studio → visual-editor/codegen/LSP/core,
 and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codegen expose their package metadata for authoritative toolchain version checks.
@@ -29,7 +29,10 @@ and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codeg
 
 `project-config` owns file capture, revision identity, normalization and snapshot
 validation. Both Studio and the headless runtime consume these host-neutral
-contracts. Structural errors prevent snapshot activation; target-scoped errors
+contracts. Positive source glob selection and semantic input revision are shared:
+configuration, lock, selected Rune sources, resources and shared Studio files
+invalidate inputs; generated output and unrelated prose do not. Raw byte revisions
+preserve binary resource identity. Structural errors prevent snapshot activation; target-scoped errors
 are selected through `projectDiagnosticsForTargets` for each explicit build.
 
 Studio's `WorkspaceProvider` publishes project state separately from model data
@@ -39,6 +42,16 @@ discards late activation results. Working-copy adapters bind the workspace root
 and live ownership; journals map to private backing storage outside Git.
 Migration returns proposed writes for confirmation and never deletes browser
 preferences as a side effect of reading repository configuration.
+
+Named-target settings are repository state; the selected target and ad hoc root
+selection remain personal run preferences. Explicit Save preserves YAML comments
+and checks the captured file revision. Build selected/all stage every chosen
+artifact before writes through `project-runtime/browser`; the native host parses
+an isolated graph, while Studio supplies the existing server generator. Both use
+strict library defaults and shared concrete namespace-scope expansion. A build
+finishing after project disposal cannot write through the guarded adapter.
+Binary generator output is persisted as bytes. Preview/download retain the exact
+captured ZIP and become stale on semantic input or configuration errors.
 
 ## Studio Runtime
 

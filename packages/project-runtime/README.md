@@ -1,7 +1,7 @@
 # Rune project runtime
 
 MIT-licensed composition of portable configuration, the Rune parser and installed
-code generators. The root entry is host-neutral. Native filesystem discovery is
+code generators. The `/browser` entry is host-neutral. Native filesystem discovery is
 available separately from `@rune-langium/project-runtime/node`.
 
 `buildProject(snapshot, { targets: ['postgres', 'sql-server'] }, adapter)` builds
@@ -38,3 +38,9 @@ Reference/override resolution is the next subsystem: until it supplies a verifie
 effective graph, configured references or overrides return an explicit
 unavailable diagnostic. Unsupported experimental/pruning semantics also remain
 diagnosed. No Maven process or arbitrary YAML-selected executable runs.
+
+`@rune-langium/project-runtime/browser` exposes the shared staged build transaction
+with an injected target generator. It never creates a parser or imports Node
+filesystem APIs. Studio supplies its existing network generator; the root native
+`buildProject` supplies isolated Langium documents. Both use the same input
+revision, target validation, toolchain checks, scope expansion and output writes.

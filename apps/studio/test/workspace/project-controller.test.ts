@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { describe, expect, it } from 'vitest';
-import { createOpfsRoot } from '../setup/opfs-mock.js';
+import { createOpfsRoot, writeBytes } from '../setup/opfs-mock.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { createProjectController } from '../../src/workspace/project-controller.js';
 
@@ -22,6 +22,15 @@ async function setup() {
   return { adapter, controller };
 }
 describe('file-backed project snapshots', () => {
+  it('does not invalidate inputs when generated output files are added', async () => {
+    const { controller, adapter } = await setup();
+    const initial = await controller.load();
+    await adapter.write('generated/pg/example.sql', 'generated output', null);
+    const next = await controller.load();
+    expect(next.revision).toBe(initial.revision);
+    expect(next.files.get('generated/pg/example.sql')).toBe('generated output');
+  });
+
   it('keeps a valid target usable when another target has an unavailable generator', async () => {
     const { adapter } = await setup();
     const file = (await adapter.read('build-config.yml'))!;
@@ -155,4 +164,40 @@ describe('file-backed project snapshots', () => {
     await expect(controller.load()).rejects.toThrow();
     expect(controller.current()).toBeUndefined();
   });
+});
+
+it('never writes a build that finishes after its project is disposed', async () => {
+  const { controller, adapter } = await setup();
+  const snapshot = await controller.load();
+  let finish!: (files: { relativePath: string; content: string; diagnostics: [] }[]) => void;
+  const pending = controller.build(
+    snapshot,
+    { targets: ['postgres'] },
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+  );
+  while (!finish) await new Promise((resolve) => setTimeout(resolve, 0));
+  controller.dispose();
+  finish([{ relativePath: 'schema.sql', content: 'SQL', diagnostics: [] }]);
+  await expect(pending).rejects.toThrow(/active/);
+  expect(await adapter.read('generated/pg/schema.sql')).toBeUndefined();
+});
+
+it('invalidates binary resources even when their UTF-8 text projections are identical', async () => {
+  const root = createOpfsRoot();
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'bytes',
+    root: root as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await writeBytes(root, new Uint8Array([128]), 'resources', 'a.bin');
+  const controller = createProjectController({ workspaceId: 'bytes', adapter, validateTarget: () => [] });
+  const first = await controller.load();
+  await writeBytes(root, new Uint8Array([129]), 'resources', 'a.bin');
+  const second = await controller.load();
+  expect(second.files.get('resources/a.bin')).toBe(first.files.get('resources/a.bin'));
+  expect(second.revision).not.toBe(first.revision);
 });

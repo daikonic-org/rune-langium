@@ -315,6 +315,9 @@ importers:
       '@rune-langium/project-config':
         specifier: workspace:*
         version: link:../../packages/project-config
+      '@rune-langium/project-runtime':
+        specifier: workspace:*
+        version: link:../../packages/project-runtime
       '@rune-langium/visual-editor':
         specifier: workspace:*
         version: link:../../packages/visual-editor
@@ -740,6 +743,9 @@ importers:
 
   packages/project-config:
     dependencies:
+      picomatch:
+        specifier: 4.0.7
+        version: 4.0.7
       yaml:
         specifier: 2.9.1
         version: 2.9.1
@@ -747,6 +753,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@types/picomatch':
+        specifier: 4.0.3
+        version: 4.0.3
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -768,16 +777,10 @@ importers:
       langium:
         specifier: ^4.4.0
         version: 4.4.0
-      picomatch:
-        specifier: 4.0.7
-        version: 4.0.7
     devDependencies:
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
-      '@types/picomatch':
-        specifier: 4.0.3
-        version: 4.0.3
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

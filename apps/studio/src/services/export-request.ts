@@ -16,6 +16,8 @@ export interface ExportConfig {
 export interface ExportInput {
   workspaceId: string;
   sourceRevision: number;
+  projectRevision?: string;
+  projectBuild?: boolean;
   config: ExportConfig;
   files: readonly WorkspaceFile[];
 }
@@ -55,6 +57,14 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
+/** Only generator settings belong to a saved target; declaration roots remain a run draft. */
+export const exportTargetKey = withInstrumentation(
+  function exportTargetKey(config: ExportConfig): string {
+    return JSON.stringify(canonicalize({ generator: config.target, options: config.options[config.target] ?? {} }));
+  },
+  { op: 'exportTargetKey' }
+);
+
 /** Stable identity for a captured generation input, independent of object insertion order. */
 export const exportInputKey = withInstrumentation(
   function exportInputKey(input: ExportInput): string {
@@ -62,6 +72,8 @@ export const exportInputKey = withInstrumentation(
       canonicalize({
         workspaceId: input.workspaceId,
         sourceRevision: input.sourceRevision,
+        projectRevision: input.projectRevision,
+        projectBuild: input.projectBuild,
         config: input.config,
         files: exportSourceFiles(input.files)
       })
@@ -83,7 +95,8 @@ export const generateExport = withInstrumentation(
         curatedBundles,
         curatedDocs,
         selection: input.config.selection,
-        artifactEnvelope: 1
+        artifactEnvelope: 1,
+        ...(input.projectBuild ? { projectBuild: true } : {})
       },
       signal
     );

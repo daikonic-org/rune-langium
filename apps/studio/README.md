@@ -350,3 +350,23 @@ Then click the CDM / FpML / rune-dsl chips in the loader to browse their types.
 | UI components, styling, state | `pnpm dev` | `http://localhost:5173/rune-studio/studio/` |
 | Pages Functions (`/api/*`) | `pnpm dev:pages` (vite must be running separately) | `http://localhost:8788/` |
 | LSP + curated + Pages Functions all together | `pnpm dev:full` (+ seed:local for curated) | `http://localhost:8788/rune-studio/studio/` |
+
+### Named project targets
+
+The Export workspace keeps ad hoc declaration selection separate from named
+`build-config.yml` targets. Choose a saved target to load its generator options,
+or keep **One-off export** selected. **Save target settings** updates the working
+copy with revision checks; it does not commit or push. Selection roots and the
+last selected target remain personal preferences, never a repository default.
+**Reload project files** picks up external YAML edits; dirty option drafts remain
+available until explicitly saved or a target is selected again.
+
+**Build selected** and **Build all** use saved namespace scopes and options and
+write staged output to each target's configured output directory. The same
+preflight, toolchain checks, path guards and byte-preserving writer are used by
+`rune-cli build`. Studio obtains generated code through the existing network
+service; it does not add a local language-service fallback. Named builds use
+strict library defaults, while one-off exports retain their existing layouts.
+Source/configuration/lock/resource/example changes invalidate captured output.
+Generated output itself does not change the input revision. Working-copy Save,
+Git commit/push and ordinary artifact downloads remain distinct actions.

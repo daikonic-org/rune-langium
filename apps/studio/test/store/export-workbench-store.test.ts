@@ -13,8 +13,12 @@ vi.mock('../../src/shell/workbench-settings.js', () => ({
   writeWorkbenchSettings: mockWriteWorkbenchSettings
 }));
 
+import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
 import { createExportWorkbench } from '../../src/store/export-workbench-store.js';
 import { exportInputKey, type ExportInput } from '../../src/services/export-request.js';
+import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
+import { createProjectController } from '../../src/workspace/project-controller.js';
+import { createOpfsRoot } from '../setup/opfs-mock.js';
 import type { ExportArtifact } from '../../src/services/export-artifact.js';
 
 const input: ExportInput = {
@@ -192,4 +196,159 @@ it('keeps local export preferences when they change during activation', async ()
   await activating;
 
   expect(store.getState()).toMatchObject({ config: localConfig, activeFile: 'local.ts' });
+});
+
+async function projectSetup() {
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'test',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Test}\n', null);
+  await adapter.write('model/test.rosetta', 'namespace test\ntype Party:\n name string (1..1)\n', null);
+  await adapter.write(
+    'build-config.yml',
+    `# Keep me
+schemaVersion: 1
+targets:
+  pg:
+    generator: sql
+    output: generated/pg
+    options: {dialect: postgres}
+  ss:
+    generator: sql
+    output: generated/ss
+    options: {dialect: sqlserver}
+`,
+    null
+  );
+  const controller = createProjectController({ workspaceId: 'test', adapter, validateTarget: validateProjectTarget });
+  await controller.load();
+  const store = createExportWorkbench(async () => artifact);
+  store.getState().bindProject(controller, 'Test');
+  return { adapter, controller, store };
+}
+
+it('does not auto-select a saved target and switches independent SQL settings', async () => {
+  const { store } = await projectSetup();
+  expect(store.getState().selectedTargetName).toBeUndefined();
+  store.getState().selectTarget('pg');
+  expect(store.getState().config.options.sql).toEqual({ dialect: 'postgres' });
+  store.getState().configure({ ...store.getState().config, options: { sql: { dialect: 'sqlserver' } } });
+  store.getState().selectTarget('ss');
+  expect(store.getState().config.options.sql).toEqual({ dialect: 'sqlserver' });
+  store.getState().selectTarget('pg');
+  expect(store.getState().config.options.sql).toEqual({ dialect: 'postgres' });
+});
+it('keeps one-off edits isolated and explicitly saves options without run roots', async () => {
+  const { store, adapter, controller } = await projectSetup();
+  const before = (await adapter.read('build-config.yml'))!.text;
+  store.getState().selectTarget('pg');
+  const draft = {
+    ...store.getState().config,
+    selection: { namespaces: ['adHoc'], declarations: [] },
+    options: { sql: { dialect: 'sqlserver' } }
+  };
+  store.getState().configure(draft);
+  expect((await adapter.read('build-config.yml'))!.text).toBe(before);
+  await store.getState().saveTarget('pg', draft);
+  const persisted = (await adapter.read('build-config.yml'))!.text;
+  expect(persisted).toContain('# Keep me');
+  expect(persisted).not.toContain('adHoc');
+  expect(controller.current()!.project.build.targets.pg!.options).toEqual({ dialect: 'sqlserver' });
+  const reopened = createExportWorkbench();
+  reopened.getState().bindProject(controller, 'Test');
+  reopened.getState().selectTarget('pg');
+  expect(reopened.getState().config.options.sql).toEqual({ dialect: 'sqlserver' });
+  expect(reopened.getState().config.selection.namespaces).toEqual([]);
+});
+it('refreshes clean target options after YAML edits, preserving dirty drafts', async () => {
+  const { store, adapter, controller } = await projectSetup();
+  store.getState().selectTarget('pg');
+  const file = (await adapter.read('build-config.yml'))!;
+  await controller.save([
+    { path: 'build-config.yml', text: file.text.replace('postgres', 'sqlserver'), expectedRevision: file.revision }
+  ]);
+  expect(store.getState().config.options.sql).toEqual({ dialect: 'sqlserver' });
+  store.getState().configure({
+    ...store.getState().config,
+    options: { sql: { dialect: 'postgres', inheritance: 'table-per-type' } }
+  });
+  const next = (await adapter.read('build-config.yml'))!;
+  await controller.save([
+    { path: 'build-config.yml', text: next.text.replace('sqlserver', 'postgres'), expectedRevision: next.revision }
+  ]);
+  expect(store.getState().config.options.sql).toEqual({ dialect: 'postgres', inheritance: 'table-per-type' });
+  expect(store.getState().targetDirty).toBe(true);
+});
+it('invalidates captured output when configuration or lock files change', async () => {
+  const { store, controller } = await projectSetup();
+  await store.getState().generate(input);
+  await controller.save([
+    {
+      path: 'build-config.lock.json',
+      text: JSON.stringify({ schemaVersion: 1, configHash: 'a', toolchain: {}, references: {} }),
+      expectedRevision: null
+    }
+  ]);
+  expect(store.getState().run.status).toBe('stale');
+});
+
+it('builds explicit targets through the server generator and writes all saved output paths', async () => {
+  const { adapter, controller } = await projectSetup();
+  const generate = vi.fn(async (request: ExportInput) => ({
+    ...artifact,
+    manifest: {
+      ...artifact.manifest,
+      target: request.config.target,
+      files: [{ path: 'schema.sql', kind: 'text' as const, bytes: request.config.options.sql ? 3 : 0 }]
+    },
+    readText: async () => 'SQL'
+  }));
+  const store = createExportWorkbench(generate);
+  store.getState().bindProject(controller, 'Test');
+  await store.getState().buildTargets('all', input);
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(generate.mock.calls.map(([request]) => request.config.options.sql)).toEqual([
+    { dialect: 'postgres' },
+    { dialect: 'sqlserver' }
+  ]);
+  expect((await adapter.read('generated/pg/schema.sql'))?.text).toBe('SQL');
+  expect((await adapter.read('generated/ss/schema.sql'))?.text).toBe('SQL');
+  expect(store.getState().run.status).toBe('ready');
+});
+
+it('rejects a target Save based on configuration that changed outside the editor', async () => {
+  const { adapter, store } = await projectSetup();
+  store.getState().selectTarget('pg');
+  const draft = { ...store.getState().config, options: { sql: { dialect: 'sqlserver' } } };
+  store.getState().configure(draft);
+  const file = (await adapter.read('build-config.yml'))!;
+  await adapter.write('build-config.yml', file.text + '# collaborator\n', file.revision);
+  await expect(store.getState().saveTarget('pg', draft)).rejects.toThrow();
+  expect((await adapter.read('build-config.yml'))!.text).toBe(file.text + '# collaborator\n');
+});
+
+it('does not publish a successful build when an empty artifact contains fatal diagnostics', async () => {
+  const { adapter, controller } = await projectSetup();
+  const store = createExportWorkbench(async () => ({
+    ...artifact,
+    manifest: {
+      ...artifact.manifest,
+      target: 'sql',
+      diagnostics: [{ severity: 'error', code: 'unsupported', message: 'Unsupported model construct' }]
+    }
+  }));
+  store.getState().bindProject(controller, 'Test');
+  await store.getState().buildTargets(['pg'], input);
+  expect(store.getState().run.status).toBe('failed');
+  expect((await adapter.list()).some((path) => path.startsWith('generated/'))).toBe(false);
+});
+
+it('does not resolve inherited object keys as saved targets', async () => {
+  const { store } = await projectSetup();
+  store.getState().selectTarget('constructor');
+  expect(store.getState().selectedTargetName).toBeUndefined();
+  expect(store.getState().config.target).toBe('typescript');
 });

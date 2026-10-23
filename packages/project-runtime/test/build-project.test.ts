@@ -32,6 +32,12 @@ async function setup(build: Record<string, unknown> = { targets }, model = sourc
   return { root, parent, ...(await openLocalProject(root, { privateRoot: join(parent, 'private') })) };
 }
 describe('explicit project builds', () => {
+  it('can build another target from the same input snapshot after writing output', async () => {
+    const { snapshot, adapter } = await setup();
+    expect((await buildProject(snapshot, { targets: ['pg'] }, adapter)).status).toBe('success');
+    expect((await buildProject(snapshot, { targets: ['ss'] }, adapter)).status).toBe('success');
+  });
+
   it('writes non-UTF8 output bytes without a text conversion', async () => {
     const { root, adapter } = await setup();
     const bytes = Uint8Array.from([0x50, 0x4b, 0xff, 0xc0, 0, 0xfe]);

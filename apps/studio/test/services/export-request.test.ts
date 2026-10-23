@@ -71,3 +71,24 @@ it('keeps read-only raw source while excluding curated transport entries', () =>
     [...BASE_TYPE_FILES, user].map(({ path, content }) => ({ path, content }))
   );
 });
+
+it('uses library defaults for saved project builds rather than Pages layout opinions', async () => {
+  const artifact = await generateExport(
+    {
+      workspaceId: 'test',
+      sourceRevision: 1,
+      projectBuild: true,
+      files: [
+        {
+          path: 'test.rosetta',
+          name: 'test.rosetta',
+          content: 'namespace test\ntype Party:\n name string (1..1)',
+          dirty: false
+        }
+      ],
+      config: { target: 'typescript', options: {}, selection: { namespaces: ['test'], declarations: [] } }
+    },
+    new AbortController().signal
+  );
+  expect(artifact.manifest.files.map((file) => file.path)).not.toContain('index.ts');
+});

@@ -10,6 +10,7 @@ import {
   TARGET_DESCRIPTORS,
   type ExportSelection,
   type GeneratorDiagnostic,
+  type GeneratorOptions,
   type GeneratorOutput,
   type Target
 } from '@rune-langium/codegen/export';
@@ -28,18 +29,7 @@ interface CodegenRequestBody {
    * default for the target (019 spec §10.1) — barrel for Zod/TS,
    * single-file for JSON Schema.
    */
-  options?: {
-    zod?: { layout?: 'per-namespace' | 'barrel' | 'single-file' };
-    typescript?: { layout?: 'per-namespace' | 'barrel' | 'single-file' };
-    'json-schema'?: { layout?: 'per-namespace' | 'single-file' };
-    sql?: {
-      dialect?: 'postgres' | 'sqlserver';
-      inheritance?: 'single-table' | 'table-per-type';
-      enumStrategy?: 'check' | 'table';
-      layout?: 'per-namespace' | 'single-file';
-    };
-    markdown?: { layout?: 'per-namespace' | 'barrel' };
-  };
+  options?: Omit<GeneratorOptions, 'target' | 'namespaces' | 'selection'>;
   /**
    * Optional curated-bundle hydration list. When present, the function
    * fetches each bundle's pre-parsed serialized AST via the
@@ -74,6 +64,8 @@ interface CodegenRequestBody {
   selection?: ExportSelection;
   /** Return a ZIP artifact envelope with an inspectable manifest. */
   artifactEnvelope?: 1;
+  /** Named project builds use the same strict library defaults as the native CLI. */
+  projectBuild?: boolean;
 }
 
 /**
@@ -350,6 +342,8 @@ function isValidRequest(body: unknown): body is CodegenRequestBody {
       return false;
     }
   }
+  const projectBuild = (body as { projectBuild?: unknown }).projectBuild;
+  if (projectBuild !== undefined && typeof projectBuild !== 'boolean') return false;
   const selection = (body as { selection?: unknown }).selection;
   if (selection !== undefined && !isExportSelection(selection)) return false;
   if (selection !== undefined && ns !== undefined) return false;
@@ -692,6 +686,7 @@ function applyPagesFunctionDefaults(body: CodegenRequestBody): Record<string, un
     result.namespaces = body.namespaces;
   }
   if (body.selection) result.selection = body.selection;
+  if (body.projectBuild) return { ...result, strict: true };
   const target = body.target;
   const serverDefault = PAGES_FUNCTION_DEFAULT_LAYOUT[target];
   if (!serverDefault) return result;

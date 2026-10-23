@@ -8,3 +8,5 @@ export * from './output-paths.js';
 export * from './project-files.js';
 export * from './save-transaction.js';
 export * from './project-snapshot.js';
+export * from './source-paths.js';
+export * from './build-config-save.js';

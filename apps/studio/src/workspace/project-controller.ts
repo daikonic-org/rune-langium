@@ -15,6 +15,11 @@ import {
   type ProjectWrite,
   type TargetValidator
 } from '@rune-langium/project-config';
+import {
+  runProjectBuild,
+  type ProjectTargetGenerator,
+  type ProjectBuildResult
+} from '@rune-langium/project-runtime/browser';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface ProjectController {
@@ -23,6 +28,11 @@ export interface ProjectController {
   diagnostics(): readonly ProjectDiagnostic[];
   save(writes: readonly ProjectWrite[]): Promise<ProjectSnapshot>;
   recover(): Promise<ProjectSnapshot>;
+  build(
+    snapshot: ProjectSnapshot,
+    request: { targets: readonly string[] | 'all'; signal?: AbortSignal },
+    generate: ProjectTargetGenerator
+  ): Promise<ProjectBuildResult>;
   subscribe(listener: () => void): () => void;
   dispose(): void;
 }
@@ -108,6 +118,28 @@ export const createProjectController = withInstrumentation(
           const result = await saveProject(input.adapter, writes, crypto.randomUUID());
           if (result.status !== 'saved') throw new ProjectSnapshotError(result.diagnostics);
         });
+      },
+      async build(captured, request, generate) {
+        const epoch = generation;
+        active(epoch);
+        const adapter = new Proxy(input.adapter, {
+          get(target, key) {
+            const value = Reflect.get(target, key);
+            return typeof value === 'function'
+              ? (...args: unknown[]) => {
+                  active(epoch);
+                  return value.apply(target, args);
+                }
+              : value;
+          }
+        });
+        const result = await runProjectBuild(captured, request, adapter, async (...args) => {
+          active(epoch);
+          return generate(...args);
+        });
+        active(epoch);
+        if (result.status === 'success') await read(epoch);
+        return result;
       },
       recover() {
         return mutate(async () => {

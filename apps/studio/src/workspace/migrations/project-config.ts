@@ -4,7 +4,7 @@ import {
   BuildConfigSchema,
   discoverProjectConfig,
   parseBuildConfig,
-  updateBuildConfig,
+  prepareBuildConfigSave,
   type ProjectDiagnostic,
   type ProjectFiles,
   type ProjectWrite
@@ -48,35 +48,13 @@ export const previewProjectConfigMigration = withInstrumentation(
       changed = true;
     }
     if (!changed) return { writes: [], diagnostics };
-    const document = found.build ?? { path: 'build-config.yml', text: 'schemaVersion: 1\n' };
-    const expectedRevision = found.build ? input.revisions.get(document.path) : null;
-    if (expectedRevision === undefined)
-      return {
-        writes: [],
-        diagnostics: [
-          ...diagnostics,
-          {
-            code: 'MIGRATION_REVISION_REQUIRED',
-            severity: 'error',
-            path: document.path,
-            message: 'Reload project files before migration.'
-          }
-        ]
-      };
-    const writes: ProjectWrite[] = [
-      { path: document.path, text: updateBuildConfig(document, build), expectedRevision }
-    ];
-    if (
-      !input.files.has(build.runeConfig) &&
-      build.runeConfig === 'rune-config.yml' &&
-      !input.files.has('rune-config.yaml')
-    )
-      writes.push({
-        path: build.runeConfig,
-        text: JSON.stringify({ model: { name: input.workspaceName } }, null, 2) + '\n',
-        expectedRevision: null
-      });
-    return { writes, diagnostics };
+    const saved = prepareBuildConfigSave({
+      files: input.files,
+      revisions: input.revisions,
+      build,
+      modelName: input.workspaceName
+    });
+    return { writes: saved.writes, diagnostics: [...diagnostics, ...saved.diagnostics] };
   },
   { op: 'previewProjectConfigMigration' }
 );

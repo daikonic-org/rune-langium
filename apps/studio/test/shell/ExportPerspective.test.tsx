@@ -23,6 +23,10 @@ const { state, mockGenerate, mockActivate, mockConfigure, mockInvalidate, mockSe
       configure: vi.fn(),
       invalidate: vi.fn(),
       setActiveFile: vi.fn(),
+      bindProject: vi.fn(() => () => undefined),
+      selectTarget: vi.fn(),
+      saveTarget: vi.fn(),
+      buildTargets: vi.fn(),
       cancel: vi.fn()
     };
     return {

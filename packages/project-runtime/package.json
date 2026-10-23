@@ -8,17 +8,38 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./node": { "types": "./dist/node.d.ts", "import": "./dist/node.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./browser": {
+      "types": "./dist/project-build.d.ts",
+      "import": "./dist/project-build.js"
+    }
   },
-  "files": ["dist", "README.md"],
-  "scripts": { "build": "tsc -b", "test": "vitest run", "type-check": "tsc --noEmit", "clean": "rm -rf dist tsconfig.tsbuildinfo" },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
   "dependencies": {
     "@rune-langium/project-config": "workspace:*",
     "@rune-langium/core": "workspace:*",
     "@rune-langium/codegen": "workspace:*",
-    "langium": "^4.4.0",
-    "picomatch": "4.0.7"
+    "langium": "^4.4.0"
   },
-  "devDependencies": { "@types/node": "^26.6.5", "@types/picomatch": "4.0.3", "typescript": "^7.0.2", "vitest": "^5.0.5" }
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
 }

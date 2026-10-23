@@ -4,7 +4,7 @@ import {
   normalizeProjectPath,
   PROJECT_SAVE_JOURNAL_PATH,
   ProjectFileConflict,
-  projectFileRevision,
+  projectBytesRevision,
   type ProjectFileAdapter
 } from '@rune-langium/project-config';
 
@@ -60,8 +60,8 @@ export const createProjectFileAdapter = withInstrumentation(
       try {
         const { dir, name } = await parent(path);
         const handle = await dir.getFileHandle(name);
-        const text = await (await handle.getFile()).text();
-        return { text, revision: await projectFileRevision(text) };
+        const bytes = new Uint8Array(await (await handle.getFile()).arrayBuffer());
+        return { text: new TextDecoder().decode(bytes), revision: await projectBytesRevision(bytes) };
       } catch (error) {
         if (error instanceof Error && error.name === 'NotFoundError') return undefined;
         throw error;
@@ -70,28 +70,30 @@ export const createProjectFileAdapter = withInstrumentation(
     function requireWritable() {
       if (!isWritable()) throw new Error('Workspace is not writable by this tab');
     }
+    const writeBytes = (path: string, bytes: Uint8Array, expectedRevision: string | null) =>
+      exclusive(workspaceId, async () => {
+        requireWritable();
+        if (((await read(path))?.revision ?? null) !== expectedRevision) throw new ProjectFileConflict(path);
+        const { dir, name } = await parent(path, true);
+        requireWritable();
+        const handle = await dir.getFileHandle(name, { create: true });
+        const stream = await handle.createWritable();
+        try {
+          await stream.write(new Uint8Array(bytes));
+          requireWritable();
+          await stream.close();
+        } catch (error) {
+          await stream.abort().catch(() => undefined);
+          throw error;
+        }
+        const revision = await projectBytesRevision(bytes);
+        if ((await read(path))?.revision !== revision) throw new ProjectFileConflict(path);
+        return revision;
+      });
     return {
       read,
-      write: (path, text, expectedRevision) =>
-        exclusive(workspaceId, async () => {
-          requireWritable();
-          if (((await read(path))?.revision ?? null) !== expectedRevision) throw new ProjectFileConflict(path);
-          const { dir, name } = await parent(path, true);
-          requireWritable();
-          const handle = await dir.getFileHandle(name, { create: true });
-          const stream = await handle.createWritable();
-          try {
-            await stream.write(text);
-            requireWritable();
-            await stream.close();
-          } catch (error) {
-            await stream.abort().catch(() => undefined);
-            throw error;
-          }
-          const revision = await projectFileRevision(text);
-          if ((await read(path))?.revision !== revision) throw new ProjectFileConflict(path);
-          return revision;
-        }),
+      write: (path, text, revision) => writeBytes(path, new TextEncoder().encode(text), revision),
+      writeBinary: writeBytes,
       remove: (path, expectedRevision) =>
         exclusive(workspaceId, async () => {
           requireWritable();

@@ -3,6 +3,7 @@
 
 import { getTargetLayouts, type Target } from '@rune-langium/codegen/export';
 import type { ComponentType } from 'react';
+import { SqlOptionsForm } from './SqlOptionsForm.js';
 import { ExcelOptionsFormAdapter } from '../codegen-forms/ExcelOptionsFormAdapter.js';
 
 export interface LayoutChoice {
@@ -19,7 +20,7 @@ export interface TargetPanelConfig {
 const PER_NAMESPACE: LayoutChoice = {
   value: 'per-namespace',
   label: 'Per-namespace',
-  hint: 'One file per namespace + barrel'
+  hint: 'One file per namespace'
 };
 const BARREL: LayoutChoice = { value: 'barrel', label: 'Barrel', hint: 'Barrel + per-namespace files' };
 const SINGLE_FILE: LayoutChoice = { value: 'single-file', label: 'Single file', hint: 'All types in one file' };
@@ -41,12 +42,14 @@ function panel(target: Target, defaultLayout: string): TargetPanelConfig {
 export const TARGET_PANELS: Partial<Record<Target, TargetPanelConfig>> = {
   zod: panel('zod', 'barrel'),
   typescript: panel('typescript', 'barrel'),
-  'json-schema': panel('json-schema', 'single-file')
+  'json-schema': panel('json-schema', 'single-file'),
+  sql: panel('sql', 'per-namespace')
 };
 
 /** Controlled option forms shared by legacy downloads and the Export workbench. */
 export const TARGET_OPTION_FORMS: Partial<
   Record<Target, ComponentType<{ value: Record<string, unknown>; onChange(value: Record<string, unknown>): void }>>
 > = {
+  sql: SqlOptionsForm,
   excel: ExcelOptionsFormAdapter
 };

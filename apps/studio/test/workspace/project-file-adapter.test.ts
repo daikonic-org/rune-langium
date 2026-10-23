@@ -6,6 +6,20 @@ import { createProjectFileAdapter } from '../../src/workspace/project-file-adapt
 
 const decode = (data: Uint8Array) => new TextDecoder().decode(data);
 describe('workspace-bound project file adapter', () => {
+  it('preserves binary output bytes and checks their raw revision', async () => {
+    const root = createOpfsRoot();
+    const adapter = createProjectFileAdapter({
+      workspaceId: 'binary',
+      root: root as unknown as FileSystemDirectoryHandle,
+      privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      isWritable: () => true
+    });
+    const bytes = new Uint8Array([0, 255, 128, 1]);
+    const revision = await adapter.writeBinary!('generated/book.xlsx', bytes, null);
+    expect(await readBytes(root, 'generated', 'book.xlsx')).toEqual(bytes);
+    expect((await adapter.read('generated/book.xlsx'))?.revision).toBe(revision);
+    await expect(adapter.writeBinary!('generated/book.xlsx', bytes, null)).rejects.toThrow();
+  });
   it('writes repository files with revision checks and hides private paths from listing', async () => {
     const root = createOpfsRoot();
     await writeBytes(root, new TextEncoder().encode('secret'), 'token');

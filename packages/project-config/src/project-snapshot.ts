@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { projectSourcePaths } from './source-paths.js';
 import { parseProjectLock } from './config-codec.js';
-import { validateOutputPaths } from './output-paths.js';
+import { normalizeProjectPath, validateOutputPaths } from './output-paths.js';
 import {
   PROJECT_SAVE_JOURNAL_PATH,
   ProjectFileConflict,
@@ -30,16 +31,25 @@ export function projectDiagnosticsForTargets(
 export async function createProjectSnapshot(
   workspaceId: string,
   files: ProjectFiles,
-  validateTarget: TargetValidator
+  validateTarget: TargetValidator,
+  revisions?: ReadonlyMap<string, string>
 ): Promise<ProjectSnapshot> {
   const project = normalizeProject(files, validateTarget);
   const diagnostics = project.diagnostics;
+  let sources: string[] = [];
+  try {
+    sources = projectSourcePaths(files, project.build.sources);
+  } catch (error) {
+    diagnostics.push({ code: 'SOURCE_PATTERN', severity: 'error', path: 'sources', message: String(error) });
+  }
   diagnostics.push(
     ...validateOutputPaths(project.build.targets, [
       ...project.build.sources,
-      ...[...files.keys()].filter((path) => path.endsWith('.rosetta')),
+      ...sources,
       ...project.build.resources.map((resource) => resource.path),
       project.build.runeConfig,
+      'rune-config.yml',
+      'rune-config.yaml',
       'build-config.yml',
       'build-config.yaml',
       'studio-config.yml',
@@ -57,9 +67,37 @@ export async function createProjectSnapshot(
   if (projectDiagnosticsForTargets(diagnostics).some((issue) => issue.severity === 'error'))
     throw new ProjectSnapshotError(diagnostics);
   const ownedFiles = new Map([...files].sort(([left], [right]) => left.localeCompare(right)));
+  const exactInputs = new Set([
+    ...sources,
+    project.build.runeConfig,
+    'rune-config.yml',
+    'rune-config.yaml',
+    'build-config.yml',
+    'build-config.yaml',
+    'studio-config.yml',
+    'studio-config.yaml',
+    'build-config.lock.json'
+  ]);
+  const inputRoots = [
+    ...project.build.resources.map((resource) => resource.path),
+    project.studio.examples,
+    project.studio.workflows,
+    project.studio.layouts
+  ]
+    .map((path) => normalizeProjectPath(path))
+    .filter((path): path is string => Boolean(path));
+  const inputs = [...ownedFiles].filter(
+    ([path]) => exactInputs.has(path) || inputRoots.some((root) => path === root || path.startsWith(root + '/'))
+  );
   return {
     workspaceId,
-    revision: await projectFileRevision(JSON.stringify([...ownedFiles])),
+    revision: await projectFileRevision(
+      JSON.stringify(
+        await Promise.all(
+          inputs.map(async ([path, text]) => [path, revisions?.get(path) ?? (await projectFileRevision(text))])
+        )
+      )
+    ),
     files: ownedFiles,
     project,
     ...(lock?.value ? { lock: lock.value } : {})
@@ -101,7 +139,12 @@ export async function readProjectSnapshot(input: {
   validateTarget: TargetValidator;
 }): Promise<ProjectSnapshot> {
   const captured = await readProjectFiles(input.adapter);
-  const snapshot = await createProjectSnapshot(input.workspaceId, captured.files, input.validateTarget);
+  const snapshot = await createProjectSnapshot(
+    input.workspaceId,
+    captured.files,
+    input.validateTarget,
+    captured.revisions
+  );
   await captured.verify();
   return snapshot;
 }

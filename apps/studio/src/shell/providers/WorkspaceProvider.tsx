@@ -8,16 +8,8 @@ import { WorkspaceActionsContext, type WorkspaceActions } from '../perspectives/
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { createProjectController, type ProjectController } from '../../workspace/project-controller.js';
 import { ProjectContext, type ProjectState } from './project-context.js';
-import { validateTargetOptions } from '@rune-langium/codegen/export';
-import { projectDiagnosticsForTargets, type TargetValidator } from '@rune-langium/project-config';
-
-const validateProjectTarget: TargetValidator = (target) =>
-  validateTargetOptions(target.generator, target.options).errors.map((message) => ({
-    code: 'TARGET_OPTIONS',
-    severity: 'error',
-    path: 'targets',
-    message
-  }));
+import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
+import { projectDiagnosticsForTargets } from '@rune-langium/project-config';
 
 interface Props {
   state: WorkspaceState;
