@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { Target } from '@rune-langium/codegen/export';
+import { getTargetLayouts, type Target } from '@rune-langium/codegen/export';
 import type { ComponentType } from 'react';
 import { ExcelOptionsFormAdapter } from '../codegen-forms/ExcelOptionsFormAdapter.js';
 
@@ -24,11 +24,24 @@ const PER_NAMESPACE: LayoutChoice = {
 const BARREL: LayoutChoice = { value: 'barrel', label: 'Barrel', hint: 'Barrel + per-namespace files' };
 const SINGLE_FILE: LayoutChoice = { value: 'single-file', label: 'Single file', hint: 'All types in one file' };
 
+const LAYOUT_LABELS: Record<string, LayoutChoice> = {
+  'per-namespace': PER_NAMESPACE,
+  barrel: BARREL,
+  'single-file': SINGLE_FILE
+};
+
+function panel(target: Target, defaultLayout: string): TargetPanelConfig {
+  return {
+    layouts: getTargetLayouts(target).map((value) => LAYOUT_LABELS[value] ?? { value, label: value }),
+    defaultLayout
+  };
+}
+
 /** Studio presentation metadata shared by modal and workbench settings. */
 export const TARGET_PANELS: Partial<Record<Target, TargetPanelConfig>> = {
-  zod: { layouts: [PER_NAMESPACE, BARREL, SINGLE_FILE], defaultLayout: 'barrel' },
-  typescript: { layouts: [PER_NAMESPACE, BARREL, SINGLE_FILE], defaultLayout: 'barrel' },
-  'json-schema': { layouts: [PER_NAMESPACE, SINGLE_FILE], defaultLayout: 'single-file' }
+  zod: panel('zod', 'barrel'),
+  typescript: panel('typescript', 'barrel'),
+  'json-schema': panel('json-schema', 'single-file')
 };
 
 /** Controlled option forms shared by legacy downloads and the Export workbench. */

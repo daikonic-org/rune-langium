@@ -183,3 +183,10 @@ export type { PythonProjectionContext } from './projection/context.js';
 export type { GeneratedProjection, ProjectionSubject, EmittedProjection } from './projection/types.js';
 
 export type { TemporalWireFormat } from './expr/temporal-conversions.js';
+
+export {
+  validateTargetOptions,
+  getGeneratorCapabilities,
+  getTargetLayouts,
+  TARGET_OPTIONS_SCHEMAS
+} from './options/target-options.js';

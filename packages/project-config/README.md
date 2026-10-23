@@ -19,3 +19,8 @@ browsing; a missing explicitly configured Rune settings file is an error.
 Dependency locks use `build-config.lock.json` with `schemaVersion: 1`. The parser
 validates structure; compatible dependency resolution, content integrity and
 toolchain compatibility belong to the project runtime.
+
+`validateOutputPaths` rejects traversal, private/protected destinations and
+overlapping targets using portable case-insensitive directory boundaries.
+`normalizeProjectPath` performs lexical normalization only; filesystem adapters
+must also enforce resolved-path containment before writing.

@@ -57,11 +57,11 @@ Define these exported types in `project-config/src/types.ts` in T1; later plans 
 
 **Interfaces:** Consume `BuildTarget`, `TargetValidator` from T1 only in the runtime adapter later. Codegen produces `validateTargetOptions(target:string,options:unknown):{value?:Record<string,unknown>;errors:string[]}` and `getGeneratorCapabilities():ReadonlyArray<{id:string;available:boolean}>` without importing project-config. Project-config produces `validateOutputPaths(targets:Record<string,BuildTarget>,protectedPaths:readonly string[]):ProjectDiagnostic[]`.
 
-- [ ] Add failing cases asserting PostgreSQL and SQL Server configurations remain distinct; invalid dialect/layout is rejected; Excel/OpenAPI options use existing schemas; unavailable generator reports unavailable; `../model`, drive paths, nested overlapping outputs and config/example destinations are rejected.
-- [ ] Run `pnpm --filter @rune-langium/codegen test -- target-options.test.ts` and `pnpm --filter @rune-langium/project-config test -- output-paths.test.ts`; expect new-contract failures.
-- [ ] Implement validation in the owning generator package and the portable output-path guard. Reuse existing option types/schemas/registries; do not duplicate emitter availability lists in Studio or config. Treat directory ancestry as a collision, not a string-prefix match.
-- [ ] Rerun both suites plus both package type checks; expect pass. Rebuild codegen before Studio verification, since Studio consumes dist.
-- [ ] Commit: `git commit -m "feat: share generator option validation for project targets"`.
+- [x] Add failing cases asserting PostgreSQL and SQL Server configurations remain distinct; invalid dialect/layout is rejected; Excel/OpenAPI options use existing schemas; unavailable generator reports unavailable; `../model`, drive paths, nested overlapping outputs and config/example destinations are rejected.
+- [x] Run `pnpm --filter @rune-langium/codegen test -- target-options.test.ts` and `pnpm --filter @rune-langium/project-config test -- output-paths.test.ts`; expect new-contract failures.
+- [x] Implement validation in the owning generator package and the portable output-path guard. Reuse existing option types/schemas/registries; do not duplicate emitter availability lists in Studio or config. Treat directory ancestry as a collision, not a string-prefix match.
+- [x] Rerun both suites plus both package type checks; expect pass. Rebuild codegen before Studio verification, since Studio consumes dist.
+- [x] Commit: `git commit -m "feat: share generator option validation for project targets"`.
 
 ### Task 3: Revisioned Save and interrupted-write recovery
 

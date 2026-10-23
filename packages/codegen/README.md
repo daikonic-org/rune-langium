@@ -12,6 +12,12 @@ Code generation and preview-schema utilities for parsed Rune DSL / Rosetta model
 
 ## Selected exports
 
+`validateTargetOptions(target, options)` validates a named project's generator
+settings using the same schemas that own the public option types.
+`getTargetLayouts(target)` supplies those supported layouts to UI controls, and
+`getGeneratorCapabilities()` distinguishes registered targets from unavailable
+ones. These APIs do not select a default generator or download implementations.
+
 `generate()` accepts an optional `selection` for dependency-closed exports. Its
 `namespaces` list makes every declaration in those namespaces an export root;
 its `declarations` list selects individual roots by `{ namespace, kind, name }`.
