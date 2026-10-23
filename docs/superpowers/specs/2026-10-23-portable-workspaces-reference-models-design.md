@@ -1,6 +1,7 @@
 # Portable workspaces and versioned reference models
 
-Status: proposed; awaiting user approval. This is a design, not an implementation plan.
+Status: approved in conversation, with the GitHub/POM clarification incorporated.
+This is a design, not an implementation plan.
 
 ## Intent
 
@@ -22,6 +23,8 @@ The user chose:
   shared Studio settings in `studio-config.yml`.
 - `build-config.yml` is authoritative for builds. Maven import is one-way;
   there is no Maven export, generated POM, or ongoing POM synchronization.
+  POM detection happens when opening a GitHub repository; there is no separate
+  Import Maven launcher action.
 - Multiple named targets, including several configurations of the same
   generator, with no default target. Existing per-target settings load from and
   serialize to these configurations.
@@ -380,8 +383,12 @@ working until its required providers and expected-output fixtures pass end to en
 
 ## Maven import contract
 
-Import reads supported POM configuration and resources into a preview, then
-creates working-copy files only after confirmation. Preserve the original POM;
+After opening a GitHub repository, inspect its existing configuration. If a
+build-config file exists, use it without reimporting the POM. If no build-config
+exists and a POM is present, offer initialization from the detected build settings
+within the repository-open flow. There is no standalone Import Maven action.
+Read supported POM configuration and resources into a preview, then create
+working-copy files only after confirmation. Preserve the original POM;
 future Studio saves do not update it and future POM edits do not affect builds.
 Reimport is an explicit diff/merge operation, never overwrite-all.
 
@@ -394,8 +401,8 @@ Reimport is an explicit diff/merge operation, never overwrite-all.
 | Sources/resources/filtering                                   | Preserve selected directories and portable resources. Unsupported filters or build-produced inputs remain unresolved capabilities.                                                                 |
 | Runtime modules, native classes, arbitrary plugins/lifecycles | Record implementation requirements and unsupported steps. Do not execute them or describe them as successfully translated.                                                                         |
 
-The initial browser importer handles supplied/local project POMs and known
-Rune/CDM/FpML adapters. Do not invoke Maven or arbitrary plugins. Optional parent
+The initial browser importer handles POMs found in opened GitHub repositories and
+known Rune/CDM/FpML adapters. Do not invoke Maven or arbitrary plugins. Optional parent
 metadata fetching is a bounded, cancellable resolver operation with provenance;
 never execute project code for configuration discovery. A user-supplied effective
 POM can be imported as data, with the selected profiles/environment recorded.
@@ -445,7 +452,8 @@ new marketing surface. The proposed mockup is in
 - Lead with recent workspaces in a compact list: name, backing/repository,
   branch, saved/unsaved state and last opened. Reuse row focus/selection behavior.
 - A concise action row offers New workspace, Open folder and Open GitHub.
-  File and Maven import are explicit secondary actions with capability hints.
+  Existing file import remains available. POM detection and build-setting
+  initialization belong to the GitHub-open flow, not another launcher button.
 - Start from example is a separate selectable list of GitHub starter repositories,
   with a details pane showing purpose, included examples, reference releases and
   required capabilities. Mockup starter names are proposals, not existing repos.
@@ -533,6 +541,9 @@ Import/UX:
   executing plugins; assert translated values and unsupported reports.
 - Unsupported execution steps disable only dependent capabilities. Partial
   imports preserve editable source. Import never rewrites an existing POM.
+- GitHub-open detects POM settings only when companion build configuration is
+  absent. Opening a repository with build-config never reapplies Maven settings,
+  and the launcher contains no standalone Maven import action.
 - Browser journeys cover blank/open/recent/starter, clone/fork handoff, example
   Save/reopen, reference Add/Change/conflict/retry, target settings round-trip,
   override navigation and narrow list/detail Back. Verify viewport/keyboard/Axe
