@@ -173,13 +173,51 @@
         gap: 10px;
       }
       .rail button {
+        position: relative;
         padding: 6px;
         border-color: transparent;
+      }
+      .nav-label {
+        position: absolute;
+        inset-inline-start: calc(100% + 8px);
+        top: 0;
+        z-index: 3;
+        padding: 7px 10px;
+        background: var(--raised);
+        border: 1px solid var(--input);
+        border-radius: var(--radius);
+        color: var(--fg);
+        white-space: nowrap;
+        visibility: hidden;
+      }
+      .rail button:hover .nav-label,
+      .rail button:focus-visible .nav-label {
+        visibility: visible;
+      }
+      .empty-detail {
+        min-height: 280px;
+        padding: 24px 18px;
+      }
+      .recent-backing {
+        display: none;
+      }
+      .workspace-overview {
+        padding: 18px 0;
+        max-width: 650px;
+      }
+      .workspace-overview dl {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 12px;
+      }
+      .workspace-overview dd {
+        margin: 0;
+        overflow-wrap: anywhere;
       }
       .rail .icon {
         margin: 0;
       }
-      .rail button[aria-pressed='true'] {
+      .rail button[aria-pressed="true"] {
         background: var(--raised);
         color: var(--teal);
       }
@@ -284,7 +322,7 @@
         display: block;
         margin: 3px 0;
       }
-      .item[aria-pressed='true'] {
+      .item[aria-pressed="true"] {
         background: var(--raised);
         box-shadow: inset 0 0 0 1px var(--input);
       }
@@ -324,7 +362,7 @@
         border-bottom: 1px solid var(--line);
         padding-bottom: 8px;
       }
-      .subnav button[aria-pressed='true'] {
+      .subnav button[aria-pressed="true"] {
         background: var(--raised);
       }
       .release {
@@ -408,6 +446,9 @@
         .back {
           display: inline-flex;
         }
+        .recent-backing {
+          display: block;
+        }
         .optional {
           display: none;
         }
@@ -450,34 +491,60 @@
   </head>
   <body>
     <svg hidden aria-hidden="true">
-      <symbol id="folder" viewBox="0 0 24 24"><path d="M3 7h7l2-3h8v16H3z" /></symbol>
-      <symbol id="box" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5zM3 8v9l9 5 9-5V8M12 13v9" /></symbol>
-      <symbol id="arrow" viewBox="0 0 24 24"><path d="M6 18 18 6M6 6h12v12" /></symbol>
-      <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+      <symbol id="folder" viewBox="0 0 24 24">
+        <path d="M3 7h7l2-3h8v16H3z" />
+      </symbol>
+      <symbol id="box" viewBox="0 0 24 24">
+        <path d="m12 3 9 5-9 5-9-5 9-5zM3 8v9l9 5 9-5V8M12 13v9" />
+      </symbol>
+      <symbol id="arrow" viewBox="0 0 24 24">
+        <path d="M6 18 18 6M6 6h12v12" />
+      </symbol>
+      <symbol id="plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
     </svg>
     <header class="top">
       <div class="brand">
-        <img src="../../../../apps/studio/src/assets/rune-studio-logo.svg" alt="" /><span>Rune Studio</span
-        ><span class="preview">PREVIEW</span>
+        <img
+          src="../../../../apps/studio/src/assets/rune-studio-logo.svg"
+          alt=""
+        /><span>Rune Studio</span><span class="preview">PREVIEW</span>
       </div>
       <span class="chip project">Bond examples</span><span class="grow"></span
       ><button
         class="quiet"
-        onclick="notify('This is a design preview. Account and command search remain in the existing Studio shell.')"
+        onclick="
+          notify(
+            'This is a design preview. Account and command search remain in the existing Studio shell.',
+          )
+        "
       >
         Search commands…
       </button>
     </header>
     <div class="notice">
-      Design mockup · Starter repositories, release choices and project data are illustrative. No files or repositories
-      are changed.
+      Design mockup · Starter repositories, release choices and project data are
+      illustrative. No files or repositories are changed.
     </div>
     <div class="shell">
       <nav class="rail" aria-label="Preview navigation">
-        <button aria-label="Workspaces" aria-pressed="true" data-page="workspaces">
-          <svg class="icon"><use href="#folder" /></svg></button
-        ><button aria-label="Reference models" aria-pressed="false" data-page="references">
-          <svg class="icon"><use href="#box" /></svg>
+        <button
+          aria-label="All workspaces"
+          aria-pressed="true"
+          data-page="workspaces"
+        >
+          <svg class="icon"><use href="#folder" /></svg
+          ><span class="nav-label" aria-hidden="true"
+            >All workspaces</span
+          ></button
+        ><button
+          aria-label="Reference models"
+          aria-pressed="false"
+          data-page="references"
+        >
+          <svg class="icon"><use href="#box" /></svg
+          ><span class="nav-label" aria-hidden="true">Reference models</span>
         </button>
       </nav>
       <main>
@@ -485,20 +552,32 @@
           <div class="heading">
             <div class="grow">
               <h1>Workspaces</h1>
-              <p class="muted">Open your work or start with an example project.</p>
+              <p class="muted">
+                Open your work or start with an example project.
+              </p>
             </div>
             <div class="actions">
               <button
                 class="primary"
-                onclick="notify('New workspace: choose a project name and backing. No reference model is required.')"
+                onclick="
+                  notify(
+                    'New workspace: choose a project name and backing. No reference model is required.',
+                  )
+                "
               >
                 <svg class="icon"><use href="#plus" /></svg>New workspace</button
-              ><button onclick="notify('Open folder uses the existing folder-backed workspace flow.')">
+              ><button
+                onclick="
+                  notify(
+                    'Open folder uses the existing folder-backed workspace flow.',
+                  )
+                "
+              >
                 Open folder</button
               ><button
                 onclick="
                   notify(
-                    'Open GitHub opens the repository and reads its project settings. If it has a POM but no build-config, review detected settings here before initializing the project. Committing requires a writable repository.'
+                    'Open GitHub opens the repository and reads its project settings. If it has a POM but no build-config, review detected settings here before initializing the project. Committing requires a writable repository.',
                   )
                 "
               >
@@ -515,21 +594,39 @@
               <tr>
                 <th>Name</th>
                 <th class="optional">Location</th>
-                <th>Status</th>
+                <th>Local save</th>
+                <th class="optional">Repository sync</th>
+                <th class="optional">Last opened</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Bond examples<small style="display: block; font-weight: 400">CDM reference model</small></td>
-                <td class="optional">your-org/bond-examples <span class="chip">main</span></td>
                 <td>
-                  <span class="project-status"><span class="dot"></span>Saved locally</span>
+                  Bond examples<small style="display: block; font-weight: 400"
+                    >Uses CDM<small class="recent-backing"
+                      >GitHub workspace</small
+                    ></small
+                  >
                 </td>
+                <td class="optional">
+                  GitHub<small style="display: block"
+                    >your-org/bond-examples · main</small
+                  >
+                </td>
+                <td>
+                  <span class="project-status"
+                    ><span class="dot"></span>Saved</span
+                  >
+                </td>
+                <td class="optional">Not pushed</td>
+                <td class="optional">Today, 10:40</td>
                 <td>
                   <button
                     onclick="
-                      notify('Open preserves this workspace’s files, pinned references, examples and shared layouts.')
+                      notify(
+                        'Open preserves this workspace’s files, pinned references, examples and shared layouts.',
+                      )
                     "
                   >
                     Open
@@ -537,12 +634,26 @@
                 </td>
               </tr>
               <tr>
-                <td>Model exploration</td>
+                <td>
+                  Model exploration<small class="recent-backing"
+                    >Browser workspace</small
+                  >
+                </td>
                 <td class="optional">Browser workspace</td>
-                <td><small>No repository connected</small></td>
+                <td>
+                  <span class="project-status"
+                    ><span class="dot"></span>Saved</span
+                  >
+                </td>
+                <td class="optional">Not connected</td>
+                <td class="optional">Yesterday, 16:20</td>
                 <td>
                   <button
-                    onclick="notify('Browser workspaces remain fully editable; connect a repository when needed.')"
+                    onclick="
+                      notify(
+                        'Browser workspaces remain fully editable; connect a repository when needed.',
+                      )
+                    "
                   >
                     Open
                   </button>
@@ -565,29 +676,42 @@
                   />
                 </div>
                 <button class="item" data-starter="model" aria-pressed="true">
-                  <strong>Model authoring</strong><small>A small model, validation rules and saved examples.</small
+                  <strong>Model authoring</strong
+                  ><small
+                    >A small model, validation rules and saved examples.</small
                   ><span class="chip">Rune</span></button
                 ><button class="item" data-starter="cdm" aria-pressed="false">
-                  <strong>CDM examples</strong><small>Explore a pinned CDM release with sample data.</small
+                  <strong>CDM examples</strong
+                  ><small>Explore a pinned CDM release with sample data.</small
                   ><span class="chip teal">CDM</span>
                 </button>
-                <div class="empty" id="no-starters" hidden>No matching example projects.</div>
+                <div class="empty" id="no-starters" hidden>
+                  No matching example projects.
+                </div>
               </div>
-              <div class="detail">
-                <button class="back quiet" onclick="back('starters')">Back to examples</button>
+              <div class="detail" id="starter-detail">
+                <button class="back quiet" onclick="back('starters')">
+                  Back to examples
+                </button>
                 <h2 id="starter-title">Model authoring</h2>
                 <p class="muted" id="starter-description">
-                  An editable starting point for defining types and trying their conditions.
+                  An editable starting point for defining types and trying their
+                  conditions.
                 </p>
                 <div class="chips">
-                  <span class="chip" id="starter-repo">daikonic-org/rune-starter</span
+                  <span class="chip" id="starter-repo"
+                    >daikonic-org/rune-starter</span
                   ><span class="chip teal">Editable workspace</span>
                 </div>
                 <dl>
                   <dt>Includes</dt>
-                  <dd id="starter-includes">Source model, examples and TypeScript build target</dd>
+                  <dd id="starter-includes">
+                    Source model, examples and TypeScript build target
+                  </dd>
                   <dt>References</dt>
-                  <dd id="starter-references">Rune standard library · locked release</dd>
+                  <dd id="starter-references">
+                    Rune standard library · locked release
+                  </dd>
                   <dt>Saved files</dt>
                   <dd>Configuration, sources, examples and shared layouts</dd>
                 </dl>
@@ -595,7 +719,7 @@
                   class="primary"
                   onclick="
                     notify(
-                      'Use example creates an editable copy and records its source. Clone/fork into a writable repository before committing or pushing.'
+                      'Use example creates an editable copy and records its source. Clone/fork into a writable repository before committing or pushing.',
                     )
                   "
                 >
@@ -603,12 +727,67 @@
                 </button>
                 <div class="foot">
                   <small
-                    >Open and edit without changing the starter repository. Connect your own repository when you’re
-                    ready to commit.</small
+                    >Open and edit without changing the starter repository.
+                    Connect your own repository when you’re ready to
+                    commit.</small
                   >
                 </div>
               </div>
+              <div
+                class="empty-detail"
+                id="starter-filtered"
+                hidden
+                role="status"
+              >
+                <h2>Choose an example from the results</h2>
+                <p class="muted">
+                  Your previous selection is outside this search.
+                </p>
+                <button onclick="clearFilter('starter-search')">
+                  Clear search
+                </button>
+              </div>
             </div>
+          </div>
+        </section>
+        <section id="workspace" hidden>
+          <div class="heading">
+            <div class="grow">
+              <h1>Bond examples</h1>
+              <p class="muted">Workspace settings · editable GitHub project</p>
+            </div>
+            <button onclick="showPage('workspaces')">All workspaces</button>
+          </div>
+          <nav class="subnav" aria-label="Workspace settings">
+            <button aria-pressed="true">Overview</button
+            ><button onclick="showPage('references')">References</button>
+            <button
+              onclick="
+                notify(
+                  'Build targets belong to Bond examples. Choose named targets or Build all explicitly; no default target is selected.',
+                )
+              "
+            >
+              Build targets
+            </button>
+          </nav>
+          <div class="workspace-overview">
+            <h2>Project location and files</h2>
+            <dl>
+              <dt>Repository</dt>
+              <dd>your-org/bond-examples · main</dd>
+              <dt>Local save</dt>
+              <dd>Saved</dd>
+              <dt>Repository sync</dt>
+              <dd>Not pushed</dd>
+              <dt>Project settings</dt>
+              <dd>rune-config.yml, build-config.yml, studio-config.yml</dd>
+              <dt>References</dt>
+              <dd>
+                One pinned release per model, recorded in build-config.lock.json
+              </dd>
+            </dl>
+            <button onclick="showPage('references')">Manage references</button>
           </div>
         </section>
         <section id="references" hidden>
@@ -617,11 +796,12 @@
               <h1>Reference models</h1>
               <p class="muted">Read-only dependencies for Bond examples.</p>
             </div>
+            <button onclick="showPage('workspaces')">All workspaces</button>
             <button
               class="primary"
               onclick="
                 notify(
-                  'Add reference opens a searchable model catalog. One release of each model is allowed per workspace.'
+                  'Add reference opens a searchable model catalog. One release of each model is allowed per workspace.',
                 )
               "
             >
@@ -629,11 +809,12 @@
             </button>
           </div>
           <nav class="subnav" aria-label="Workspace settings">
-            <button onclick="showPage('workspaces')">Workspace</button><button aria-pressed="true">References</button
+            <button onclick="showPage('workspace')">Overview</button
+            ><button aria-pressed="true">References</button
             ><button
               onclick="
                 notify(
-                  'Build targets: independently named settings, multiple configurations per generator, no default. Choose targets or Build all explicitly.'
+                  'Build targets: independently named settings, multiple configurations per generator, no default. Choose targets or Build all explicitly.',
                 )
               "
             >
@@ -643,31 +824,49 @@
           <div class="split" id="models">
             <div class="list">
               <div class="search">
-                <input aria-label="Search reference models" placeholder="Search reference models…" id="model-search" />
+                <input
+                  aria-label="Search reference models"
+                  placeholder="Search reference models…"
+                  id="model-search"
+                />
               </div>
               <button class="item" data-model="cdm" aria-pressed="true">
-                <strong>Common Domain Model</strong><small>Selected release · explicitly added</small
+                <strong>Common Domain Model</strong
+                ><small>Selected release · explicitly added</small
                 ><span class="chip teal">CDM</span></button
               ><button class="item" data-model="fpml" aria-pressed="false">
-                <strong>FpML</strong><small>Compatible release · required by CDM</small
+                <strong>FpML</strong
+                ><small>Compatible release · required by CDM</small
                 ><span class="chip">Dependency</span></button
               ><button class="item" data-model="rune" aria-pressed="false">
-                <strong>Rune standard library</strong><small>Compatible release · required by CDM</small
+                <strong>Rune standard library</strong
+                ><small>Compatible release · required by CDM</small
                 ><span class="chip">Dependency</span>
               </button>
-              <div class="empty" id="no-models" hidden>No matching reference models.</div>
+              <div class="empty" id="no-models" hidden>
+                No matching reference models.
+              </div>
             </div>
-            <div class="detail">
-              <button class="back quiet" onclick="back('models')">Back to models</button>
+            <div class="detail" id="model-detail">
+              <button class="back quiet" onclick="back('models')">
+                Back to models
+              </button>
               <div class="bar">
                 <h2 id="model-title">Common Domain Model</h2>
                 <span class="grow"></span><span class="chip">Read-only</span>
               </div>
-              <p class="muted" id="model-description">Contract and lifecycle definitions for financial products.</p>
+              <p class="muted" id="model-description">
+                Contract and lifecycle definitions for financial products.
+              </p>
               <label class="release"
-                >Release<select id="release" aria-label="Reference model release">
+                >Release<select
+                  id="release"
+                  aria-label="Reference model release"
+                >
                   <option value="locked">Pinned release · illustrative</option>
-                  <option value="candidate">Another release · illustrative</option>
+                  <option value="candidate">
+                    Another release · illustrative
+                  </option>
                 </select></label
               >
               <p class="project-status" id="release-status">
@@ -675,119 +874,234 @@
               </p>
               <hr class="divider" />
               <h3>Required dependencies</h3>
-              <dl style="margin-top: 10px">
-                <dt>FpML</dt>
-                <dd>Compatible release from this cohort</dd>
-                <dt>Rune</dt>
-                <dd>Compatible runtime release</dd>
-              </dl>
-              <button class="primary" id="resolve" disabled onclick="resolveRelease()">Review release change</button>
+              <dl id="model-dependencies" style="margin-top: 10px"></dl>
+              <p class="muted" id="model-no-dependencies" hidden></p>
+              <button
+                class="primary"
+                id="resolve"
+                disabled
+                onclick="resolveRelease()"
+              >
+                Review release change
+              </button>
               <div class="foot">
                 <small
-                  >Release changes are explicit. Review dependency and override compatibility before updating the
-                  project lockfile.</small
+                  >Release changes are explicit. Review dependency and override
+                  compatibility before updating the project lockfile.</small
                 >
               </div>
+            </div>
+            <div class="empty-detail" id="model-filtered" hidden role="status">
+              <h2>Choose a model from the results</h2>
+              <p class="muted">
+                Your previous selection is outside this search.
+              </p>
+              <button onclick="clearFilter('model-search')">
+                Clear search
+              </button>
             </div>
           </div>
         </section>
         <div id="message" role="status" hidden></div>
         <footer>
-          Sources, configuration and examples are portable. Personal panel layouts and credentials stay on your device.
+          Sources, configuration and examples are portable. Personal panel
+          layouts and credentials stay on your device.
         </footer>
       </main>
     </div>
     <script>
       const $ = (id) => document.getElementById(id);
       function notify(text) {
-        $('message').textContent = text;
-        $('message').hidden = false;
+        $("message").textContent = text;
+        $("message").hidden = false;
       }
       function showPage(page) {
-        ['workspaces', 'references'].forEach((id) => ($(id).hidden = id !== page));
+        ["workspaces", "workspace", "references"].forEach(
+          (id) => ($(id).hidden = id !== page),
+        );
         document
-          .querySelectorAll('[data-page]')
-          .forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.page === page)));
-        $('message').hidden = true;
+          .querySelectorAll("[data-page]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.page === page),
+            ),
+          );
+        $("message").hidden = true;
       }
       function back(id) {
-        $(id).classList.remove('drilled');
-        $(id).querySelector('.item[aria-pressed=true]')?.focus();
+        $(id).classList.remove("drilled");
+        $(id).querySelector(".item[aria-pressed=true]")?.focus();
       }
       document
-        .querySelectorAll('[data-page]')
-        .forEach((button) => button.addEventListener('click', () => showPage(button.dataset.page)));
+        .querySelectorAll("[data-page]")
+        .forEach((button) =>
+          button.addEventListener("click", () => showPage(button.dataset.page)),
+        );
       const starters = {
         model: {
-          title: 'Model authoring',
-          description: 'An editable starting point for defining types and trying their conditions.',
-          repo: 'daikonic-org/rune-starter',
-          includes: 'Source model, examples and TypeScript build target',
-          references: 'Rune standard library · locked release'
+          title: "Model authoring",
+          description:
+            "An editable starting point for defining types and trying their conditions.",
+          repo: "daikonic-org/rune-starter",
+          includes: "Source model, examples and TypeScript build target",
+          references: "Rune standard library · locked release",
         },
         cdm: {
-          title: 'CDM examples',
-          description: 'Explore a pinned CDM release with editable example data and local model extensions.',
-          repo: 'daikonic-org/cdm-examples',
-          includes: 'Saved examples, workflow definitions and build settings',
-          references: 'CDM, FpML and Rune · compatible locked releases'
-        }
+          title: "CDM examples",
+          description:
+            "Explore a pinned CDM release with editable example data and local model extensions.",
+          repo: "daikonic-org/cdm-examples",
+          includes: "Saved examples, workflow definitions and build settings",
+          references: "CDM, FpML and Rune · compatible locked releases",
+        },
       };
-      document.querySelectorAll('[data-starter]').forEach((button) =>
-        button.addEventListener('click', () => {
+      document.querySelectorAll("[data-starter]").forEach((button) =>
+        button.addEventListener("click", () => {
           const data = starters[button.dataset.starter];
           document
-            .querySelectorAll('[data-starter]')
-            .forEach((row) => row.setAttribute('aria-pressed', String(row === button)));
-          for (const key of ['title', 'description', 'repo', 'includes', 'references'])
-            $('starter-' + key).textContent = data[key];
-          $('starters').classList.add('drilled');
-          if (matchMedia('(max-width:760px)').matches) $('starters').querySelector('.back').focus();
-        })
+            .querySelectorAll("[data-starter]")
+            .forEach((row) =>
+              row.setAttribute("aria-pressed", String(row === button)),
+            );
+          for (const key of [
+            "title",
+            "description",
+            "repo",
+            "includes",
+            "references",
+          ])
+            $("starter-" + key).textContent = data[key];
+          updateFilter("starter-search");
+          $("starters").classList.add("drilled");
+          if (matchMedia("(max-width:760px)").matches)
+            $("starters").querySelector(".back").focus();
+        }),
       );
+      // Illustrative records drive every part of the selected release detail.
       const models = {
-        cdm: ['Common Domain Model', 'Contract and lifecycle definitions for financial products.'],
-        fpml: ['FpML', 'Schema-derived types and serialization resources required by CDM.'],
-        rune: ['Rune standard library', 'Core types and annotations required by the selected reference releases.']
+        cdm: {
+          title: "Common Domain Model",
+          description:
+            "Contract and lifecycle definitions for financial products.",
+          requiredBy: [],
+          dependencies: ["fpml", "rune"],
+        },
+        fpml: {
+          title: "FpML",
+          description: "Schema-derived types and serialization resources.",
+          requiredBy: ["CDM"],
+          dependencies: ["rune"],
+        },
+        rune: {
+          title: "Rune standard library",
+          description: "Core types and annotations for Rune models.",
+          requiredBy: ["CDM", "FpML"],
+          dependencies: [],
+        },
       };
-      document.querySelectorAll('[data-model]').forEach((button) =>
-        button.addEventListener('click', () => {
-          const data = models[button.dataset.model];
-          $('model-title').textContent = data[0];
-          $('model-description').textContent = data[1];
-          document
-            .querySelectorAll('[data-model]')
-            .forEach((row) => row.setAttribute('aria-pressed', String(row === button)));
-          $('models').classList.add('drilled');
-          $('release').value = 'locked';
-          $('resolve').disabled = true;
-          $('release-status').textContent =
-            button.dataset.model === 'cdm' ? 'Locked · verified artifacts available' : 'Locked · required by CDM';
-          if (matchMedia('(max-width:760px)').matches) $('models').querySelector('.back').focus();
-        })
-      );
-      function filter(id, selector, empty) {
-        $(id).addEventListener('input', (event) => {
-          let visible = 0;
-          document.querySelectorAll(selector).forEach((row) => {
-            row.hidden = !row.textContent.toLowerCase().includes(event.target.value.toLowerCase());
-            if (!row.hidden) visible++;
-          });
-          $(empty).hidden = visible > 0;
-        });
+      function provenance(model) {
+        return model.requiredBy.length
+          ? "Required by " + model.requiredBy.join(" and ")
+          : "Explicitly added";
       }
-      filter('starter-search', '[data-starter]', 'no-starters');
-      filter('model-search', '[data-model]', 'no-models');
-      $('release').addEventListener('change', () => {
-        $('resolve').disabled = $('release').value === 'locked';
-        $('release-status').textContent =
-          $('release').value === 'locked'
-            ? 'Locked · verified artifacts available'
-            : 'Not resolved · review dependencies and overrides';
-      });
+      for (const [id, model] of Object.entries(models)) {
+        const row = document.querySelector('[data-model="' + id + '"]');
+        row.querySelector("strong").textContent = model.title;
+        row.querySelector("small").textContent =
+          "Pinned release · " + provenance(model);
+      }
+      let selectedModel = "cdm";
+      function renderModel() {
+        const model = models[selectedModel];
+        const pinned = $("release").value === "locked";
+        $("model-title").textContent = model.title;
+        $("model-description").textContent = model.description;
+        $("release-status").textContent =
+          (pinned ? "Pinned · " : "Not resolved · ") + provenance(model);
+        $("resolve").disabled = pinned;
+        $("model-dependencies").replaceChildren();
+        for (const dependency of pinned ? model.dependencies : []) {
+          const title = document.createElement("dt");
+          title.textContent = models[dependency].title;
+          const release = document.createElement("dd");
+          release.textContent = "Compatible pinned release · illustrative";
+          $("model-dependencies").append(title, release);
+        }
+        $("model-no-dependencies").hidden =
+          pinned && model.dependencies.length > 0;
+        $("model-no-dependencies").textContent = pinned
+          ? "No additional dependencies in this preview."
+          : "Resolve this release to review its dependencies.";
+      }
+      document.querySelectorAll("[data-model]").forEach((button) =>
+        button.addEventListener("click", () => {
+          selectedModel = button.dataset.model;
+          document
+            .querySelectorAll("[data-model]")
+            .forEach((row) =>
+              row.setAttribute("aria-pressed", String(row === button)),
+            );
+          $("release").value = "locked";
+          renderModel();
+          updateFilter("model-search");
+          $("models").classList.add("drilled");
+          if (matchMedia("(max-width:760px)").matches)
+            $("models").querySelector(".back").focus();
+        }),
+      );
+      const filters = {
+        "starter-search": {
+          selector: "[data-starter]",
+          empty: "no-starters",
+          detail: "starter-detail",
+          filtered: "starter-filtered",
+          item: "an example",
+          plural: "example projects",
+        },
+        "model-search": {
+          selector: "[data-model]",
+          empty: "no-models",
+          detail: "model-detail",
+          filtered: "model-filtered",
+          item: "a model",
+          plural: "reference models",
+        },
+      };
+      function updateFilter(id) {
+        const config = filters[id];
+        const query = $(id).value.trim().toLowerCase();
+        let visible = 0;
+        let selectedVisible = false;
+        document.querySelectorAll(config.selector).forEach((row) => {
+          row.hidden = !row.textContent.toLowerCase().includes(query);
+          if (!row.hidden) visible++;
+          if (!row.hidden && row.getAttribute("aria-pressed") === "true")
+            selectedVisible = true;
+        });
+        $(config.empty).hidden = visible > 0;
+        $(config.detail).hidden = !selectedVisible;
+        $(config.filtered).hidden = selectedVisible;
+        $(config.filtered).querySelector("h2").textContent = visible
+          ? "Choose " + config.item + " from the results"
+          : "No matching " + config.plural;
+        $(config.filtered).querySelector("p").textContent = visible
+          ? "Your previous selection is outside this search."
+          : "Try another search or clear it to see all choices.";
+      }
+      function clearFilter(id) {
+        $(id).value = "";
+        updateFilter(id);
+        $(id).focus();
+      }
+      Object.keys(filters).forEach((id) =>
+        $(id).addEventListener("input", () => updateFilter(id)),
+      );
+      $("release").addEventListener("change", renderModel);
+      renderModel();
       function resolveRelease() {
         notify(
-          'Illustrative change report: this release requires different dependency versions. Resolve and validate the complete closure before updating configuration and lock together. The mockup does not fetch or save anything.'
+          "Illustrative change report: this release requires different dependency versions. Resolve and validate the complete closure before updating configuration and lock together. The mockup does not fetch or save anything.",
         );
       }
     </script>
