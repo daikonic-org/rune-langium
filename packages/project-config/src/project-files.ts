@@ -3,6 +3,12 @@
 
 export const PROJECT_SAVE_JOURNAL_PATH = '.studio/project-save/journal.json';
 
+/** Content identity shared by browser and Node project hosts. */
+export async function projectFileRevision(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 export interface ProjectFileAdapter {
   read(path: string): Promise<{ text: string; revision: string } | undefined>;
   /** A null revision requires the destination to be absent. */

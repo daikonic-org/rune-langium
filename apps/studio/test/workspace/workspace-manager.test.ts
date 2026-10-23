@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { createOpfsRoot, type OpfsRoot } from '../setup/opfs-mock.js';
-import { _resetForTests } from '../../src/workspace/persistence.js';
+import { _resetForTests, loadWorkspace } from '../../src/workspace/persistence.js';
 import { WorkspaceManager } from '../../src/workspace/workspace-manager.js';
 
 class FakeBroadcastChannel extends EventTarget {
@@ -150,4 +150,11 @@ describe('workspace-bound project files', () => {
   it('refuses an unknown workspace instead of creating a new root', async () => {
     await expect(makeManager().getProjectFileAdapter('missing')).rejects.toThrow(/not found/);
   });
+});
+
+it('claims project access without rewriting workspace metadata from a stale record', async () => {
+  const manager = makeManager();
+  const workspace = await manager.create('Metadata');
+  await expect(manager.claimProjectAccess(workspace.id)).resolves.toBe(true);
+  expect((await loadWorkspace(workspace.id))?.lastOpenedAt).toBe(workspace.lastOpenedAt);
 });

@@ -4,6 +4,7 @@
 import { createContext, useContext } from 'react';
 import type { WorkspaceFile } from '../../services/workspace.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import type { ProjectFileAdapter } from '@rune-langium/project-config';
 
 /**
  * Actions + data the WorkspacesPerspective launcher needs, lifted from
@@ -11,6 +12,8 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
  * knowledge of workspace state. App provides this context value.
  */
 export interface WorkspaceActions {
+  /** Working-copy IO bound to an explicit workspace, with live ownership checks. */
+  getProjectFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
   /** Current workspace files — forwarded to FileLoader as `existingFiles`. */
   files: WorkspaceFile[];
   registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;

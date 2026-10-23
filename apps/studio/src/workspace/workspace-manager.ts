@@ -206,9 +206,15 @@ export class WorkspaceManager {
     ws.lastOpenedAt = new Date().toISOString();
     await saveWorkspace(ws);
 
+    await this.claimProjectAccess(id, options);
+    return ws;
+  }
+
+  /** Coordinate project IO without rewriting App-owned workspace metadata. */
+  async claimProjectAccess(id: string, options: OpenOptions = {}): Promise<boolean> {
     const claimed = await this.ownership.claim(id, { timeoutMs: options.claimTimeoutMs });
     this.readonlyState.set(id, !claimed);
-    return ws;
+    return claimed;
   }
 
   /** Close — flush + release ownership. */

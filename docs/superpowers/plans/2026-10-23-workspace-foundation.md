@@ -81,11 +81,11 @@ Define these exported types in `project-config/src/types.ts` in T1; later plans 
 
 **Interfaces:** Consume T1 normalization/T3 adapter. Produce `createProjectController(input:{workspaceId:string;adapter:ProjectFileAdapter;validateTarget:TargetValidator}):ProjectController`, where `ProjectController` has `load():Promise<ProjectSnapshot>`, `current():ProjectSnapshot|undefined`, `save(writes:readonly ProjectWrite[]):Promise<ProjectSnapshot>`, `dispose():void`. Invalid files retain the last valid snapshot and diagnostics; `save` rejects incomplete transactions. Migration produces a preview of `ProjectWrite[]`, not direct writes.
 
-- [ ] Write failing tests: load repository settings over stale IndexedDB; rejected invalid YAML retains last valid execution state; workspace disposal ignores late results; stale external edit prevents Save; migrate old target options only with explicit confirmation; ambiguous legacy floating bindings are unresolved rather than assigned a fabricated tag.
-- [ ] Run `pnpm --filter @rune-langium/studio test -- project-controller.test.ts project-config-migration.test.ts`; expect failure.
-- [ ] Implement controller activation/revision guards and explicit migration preview through T3 Save. Repository files win; do not delete browser preferences on failure or overwrite existing target names. Add an explicit project-settings Save action, leaving run drafts separate.
-- [ ] Rerun suites and existing `test/store/export-workbench-store.test.ts`; expect repository restoration plus existing request-identity tests to pass.
-- [ ] Commit: `git commit -m "feat: activate portable project snapshots in Studio"`.
+- [x] Write failing tests: load repository settings over stale IndexedDB; rejected invalid YAML retains last valid execution state; workspace disposal ignores late results; stale external edit prevents Save; migrate old target options only with explicit confirmation; ambiguous legacy floating bindings are unresolved rather than assigned a fabricated tag.
+- [x] Run `pnpm --filter @rune-langium/studio test -- project-controller.test.ts project-config-migration.test.ts`; expect failure.
+- [x] Implement controller activation/revision guards and explicit migration preview through T3 Save. Repository files win; do not delete browser preferences on failure or overwrite existing target names. Add an explicit project-settings Save action, leaving run drafts separate.
+- [x] Rerun suites and existing `test/store/export-workbench-store.test.ts`; expect repository restoration plus existing request-identity tests to pass.
+- [x] Commit: `git commit -m "feat: activate portable project snapshots in Studio"`.
 
 ### Task 5: Explicit headless local-project builds
 

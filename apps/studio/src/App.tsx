@@ -1283,10 +1283,42 @@ function AppContent() {
   // Build the WorkspaceActionsContext value from App's handlers so
   // WorkspacesPerspective (and any future perspective) can call them
   // without prop-drilling through PerspectiveHost.
+  const projectOpenRequests = useRef(new Map<string, Promise<boolean>>());
+  const projectWorkspaceId = restoredWorkspace?.id;
+  useEffect(() => {
+    if (!projectWorkspaceId) return;
+    return () => {
+      projectOpenRequests.current.delete(projectWorkspaceId);
+      void workspaceManagerRef.current?.close(projectWorkspaceId);
+    };
+  }, [projectWorkspaceId]);
+  const getProjectFileAdapter = useCallback(
+    async (workspaceId: string) => {
+      const manager = await getWorkspaceManager();
+      let opening = projectOpenRequests.current.get(workspaceId);
+      if (!opening) {
+        opening = manager.claimProjectAccess(workspaceId);
+        projectOpenRequests.current.set(workspaceId, opening);
+      }
+      try {
+        await opening;
+      } catch (error) {
+        if (projectOpenRequests.current.get(workspaceId) === opening) projectOpenRequests.current.delete(workspaceId);
+        throw error;
+      }
+      if (restoredWorkspaceRef.current?.id !== workspaceId) {
+        await manager.close(workspaceId);
+        throw new Error('Workspace activation was superseded');
+      }
+      return manager.getProjectFileAdapter(workspaceId);
+    },
+    [getWorkspaceManager]
+  );
   const workspaceActionsValue = useMemo(
     () => ({
       files,
       registerEditorSaveBarrier,
+      getProjectFileAdapter,
       onFilesLoaded: handleFilesLoaded,
       createGitBackedWorkspace: handleCreateGitBackedWorkspace,
       onGitHubWorkspaceCreated: handleGitHubWorkspaceCreated,
@@ -1303,6 +1335,7 @@ function AppContent() {
     [
       files,
       registerEditorSaveBarrier,
+      getProjectFileAdapter,
       handleFilesLoaded,
       handleCreateGitBackedWorkspace,
       handleGitHubWorkspaceCreated,

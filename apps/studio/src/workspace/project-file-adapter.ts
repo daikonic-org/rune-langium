@@ -4,6 +4,7 @@ import {
   normalizeProjectPath,
   PROJECT_SAVE_JOURNAL_PATH,
   ProjectFileConflict,
+  projectFileRevision,
   type ProjectFileAdapter
 } from '@rune-langium/project-config';
 
@@ -40,12 +41,6 @@ function checkedPath(input: string): string[] {
   return path.split('/');
 }
 
-async function contentRevision(text: string): Promise<string> {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 /** A bound root and live ownership check prevent writes leaking to another workspace. */
 export const createProjectFileAdapter = withInstrumentation(
   function createProjectFileAdapter(options: ProjectFileAdapterOptions): ProjectFileAdapter {
@@ -66,7 +61,7 @@ export const createProjectFileAdapter = withInstrumentation(
         const { dir, name } = await parent(path);
         const handle = await dir.getFileHandle(name);
         const text = await (await handle.getFile()).text();
-        return { text, revision: await contentRevision(text) };
+        return { text, revision: await projectFileRevision(text) };
       } catch (error) {
         if (error instanceof Error && error.name === 'NotFoundError') return undefined;
         throw error;
@@ -93,7 +88,7 @@ export const createProjectFileAdapter = withInstrumentation(
             await stream.abort().catch(() => undefined);
             throw error;
           }
-          const revision = await contentRevision(text);
+          const revision = await projectFileRevision(text);
           if ((await read(path))?.revision !== revision) throw new ProjectFileConflict(path);
           return revision;
         }),

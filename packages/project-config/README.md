@@ -34,3 +34,12 @@ Hosts map `PROJECT_SAVE_JOURNAL_PATH` to private backing storage outside Git,
 and invoke recovery only while holding workspace ownership. Listing project files
 must exclude this storage and credentials. A failed Save must not publish a new
 execution snapshot.
+
+`readProjectFiles` captures raw files and revisions, with a verification callback;
+invalid YAML remains repairable. `createProjectSnapshot` validates proposed files,
+and `readProjectSnapshot` verifies the working copy again before publication.
+Snapshots use SHA-256 content identity. Structural configuration errors block
+activation; generator/output diagnostics scoped to a target remain visible and
+block that target through `projectDiagnosticsForTargets`, allowing independent
+valid targets to run. Studio retains its previous valid snapshot on activation
+failure and discards results after workspace disposal.
