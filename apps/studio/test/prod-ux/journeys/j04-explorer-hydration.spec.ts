@@ -99,6 +99,7 @@ test.describe('J04 — explorer navigation & on-demand hydration', () => {
 
     await page.getByTestId('rail-explore').click();
     await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Graph', exact: true }).click();
 
     const namespaceSearch = page.getByTestId('namespace-search');
     await namespaceSearch.fill('Counterparty');

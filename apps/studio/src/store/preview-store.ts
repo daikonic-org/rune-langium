@@ -656,7 +656,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       executionResults: new Map(),
       hydrationRetriesRemaining: {}
     });
-    workerRef = null;
+    // CodegenProvider owns worker attachment for its lifetime. Workspace/model
+    // resets clear preview data without detaching the still-running worker.
     executeSpans.clear();
     pendingValidateRequests.clear();
     latestValidateRequestForTarget.clear();

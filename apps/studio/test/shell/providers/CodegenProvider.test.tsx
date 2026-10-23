@@ -1002,6 +1002,57 @@ it('retains Prototype session factory and worker listeners across Explore select
   }
 });
 
+it('keeps Explore validation and execution connected after a workspace data reset', () => {
+  const { unmount } = render(
+    <WorkspaceStateContext value={wsState('preview-reset')}>
+      <CodegenProvider>
+        <div />
+      </CodegenProvider>
+    </WorkspaceStateContext>
+  );
+  const worker = FakeWorker.instances[0]!;
+  const listener = worker.listeners.message[0];
+  const targetId = 'scratch.Widget#Data';
+  act(() => {
+    // Workspace transitions reset preview data without unmounting the worker owner.
+    usePreviewStore.getState().resetPreviewState();
+    usePreviewStore.getState().ensureSample(targetId, { quantity: 1.5 });
+    usePreviewStore.getState().updateSampleValues(targetId, { quantity: 1.5 }, true);
+    usePreviewStore.getState().dispatchValidate(targetId, { quantity: 1.5 });
+    usePreviewStore.getState().dispatchExecute('scratch.Double', { x: 5 });
+  });
+  const validation = worker.posted.find((message) => message.type === 'instance:validate');
+  const execution = worker.posted.find((message) => message.type === 'preview:execute');
+  expect(validation).toMatchObject({ typeFqn: 'scratch.Widget', data: { quantity: 1.5 } });
+  expect(execution).toMatchObject({ funcName: 'scratch.Double', inputs: { x: 5 } });
+  act(() => {
+    for (const callback of worker.listeners.message ?? []) {
+      callback({
+        data: {
+          type: 'instance:validateResult',
+          requestId: validation.requestId,
+          diagnostics: [{ path: 'quantity', message: 'Expected an integer' }]
+        }
+      });
+      callback({
+        data: { type: 'preview:execute-result', requestId: execution.requestId, funcName: 'scratch.Double', output: 10 }
+      });
+    }
+  });
+  expect(usePreviewStore.getState().samples.get(targetId)).toMatchObject({
+    validationPending: false,
+    valid: false,
+    errors: { quantity: 'Expected an integer' }
+  });
+  expect(usePreviewStore.getState().executionResults.get('scratch.Double')).toEqual({ output: 10 });
+  expect(worker.listeners.message[0]).toBe(listener);
+  expect(FakeWorker.instances).toHaveLength(1);
+  unmount();
+  const messages = worker.posted.length;
+  usePreviewStore.getState().dispatchExecute('scratch.Double', { x: 6 });
+  expect(worker.posted).toHaveLength(messages);
+});
+
 it.each(['manifest publication', 'workspace switch'] as const)(
   'hydrates from the live deferred manifest after %s without replacing Prototype sessions',
   async (change) => {

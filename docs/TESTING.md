@@ -89,6 +89,11 @@ Local acceptance and production share the editor setup helpers and
 integrity-checked upstream fixtures. Each case has a distinct manifest ID;
 dialog axe results are retained under `report/axe/J19/attempt<N>/`.
 
+J04c explicitly opens Graph before checking its hydration spinner; J06 exercises
+the nested DOM Structure card's Inspect type action, populated Inspector, original
+Source and pane bounds. J9 and J21 run Explore preview validation/execution after
+workspace loading resets preview data, independently of Prototype's session client.
+
 J16 holds an on-demand namespace response while closing the workspace, then
 opens a blank replacement and checks that the late response cannot populate it.
 Reload intentionally restores the most recent workspace; the journey verifies
