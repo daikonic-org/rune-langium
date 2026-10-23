@@ -312,6 +312,9 @@ importers:
       '@rune-langium/lsp-server':
         specifier: workspace:*
         version: link:../../packages/lsp-server
+      '@rune-langium/project-config':
+        specifier: workspace:*
+        version: link:../../packages/project-config
       '@rune-langium/visual-editor':
         specifier: workspace:*
         version: link:../../packages/visual-editor

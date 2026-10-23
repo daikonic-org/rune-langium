@@ -24,3 +24,13 @@ toolchain compatibility belong to the project runtime.
 overlapping targets using portable case-insensitive directory boundaries.
 `normalizeProjectPath` performs lexical normalization only; filesystem adapters
 must also enforce resolved-path containment before writing.
+
+`ProjectFileAdapter` binds IO to one working copy with compare-and-set revisions.
+`saveProject` prepares a private journal, checks all preconditions, writes files,
+and reads every result back before reporting success. Interrupted operations stay
+recoverable; `recoverProjectSave` refuses newer third-party bytes. This is durable
+recovery, not a claim that the host filesystem supports atomic multi-file writes.
+Hosts map `PROJECT_SAVE_JOURNAL_PATH` to private backing storage outside Git,
+and invoke recovery only while holding workspace ownership. Listing project files
+must exclude this storage and credentials. A failed Save must not publish a new
+execution snapshot.

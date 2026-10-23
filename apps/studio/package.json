@@ -50,6 +50,7 @@
     "@rune-langium/git-sync-engine": "workspace:*",
     "@rune-langium/instrumentation-core": "workspace:*",
     "@rune-langium/lsp-server": "workspace:*",
+    "@rune-langium/project-config": "workspace:*",
     "@rune-langium/visual-editor": "workspace:*",
     "@tanstack/react-virtual": "^3.14.21",
     "@vscode/tree-sitter-wasm": "0.3.1",

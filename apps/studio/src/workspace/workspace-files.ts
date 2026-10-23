@@ -5,12 +5,10 @@
 import { OpfsFs } from '../opfs/opfs-fs.js';
 import type { WorkspaceFile } from '../services/workspace.js';
 import { notifySyncOnSave } from '../services/git-sync.js';
-import { loadWorkspace } from './persistence.js';
 import { withInstrumentation, Capture } from '../services/instrumentation/core.js';
 
 interface WorkspaceFilesDeps {
   getOpfsRoot: () => Promise<FileSystemDirectoryHandle>;
-  loadWorkspaceFn: (id: string) => Promise<{ kind: string } | undefined>;
 }
 
 let deps: WorkspaceFilesDeps = {
@@ -19,8 +17,7 @@ let deps: WorkspaceFilesDeps = {
       throw new Error('Origin Private File System is not available in this browser');
     }
     return navigator.storage.getDirectory();
-  },
-  loadWorkspaceFn: loadWorkspace
+  }
 };
 
 export const setWorkspaceFilesDeps = withInstrumentation(
@@ -40,22 +37,9 @@ function toStoredWorkspaceFiles(files: readonly WorkspaceFile[]): WorkspaceFile[
   return files.filter((file) => !file.readOnly);
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// Per-workspace save serialization (issue #395)
-//
-// The non-git-backed path below does an unconditional removeEntry('files',
-// { recursive: true }) followed by recreating the directory and rewriting
-// every file. Callers (e.g. App.tsx's handleFilesChange, fired on every
-// Source-editor keystroke with no upstream debounce) can and do call this
-// concurrently for the SAME workspace — a later call's removeEntry then
-// races an earlier call's still-open file writes, and OPFS throws
-// NoModificationAllowedError. Serialize + coalesce per workspaceId here so
-// EVERY caller is safe by construction, not just the one that triggered
-// this bug: at most one save actually runs OPFS mutations at a time, and
-// any saves requested while one is in flight collapse into a single
-// trailing save of the latest snapshot (a typing burst becomes "the save
-// already running" + "one save with the final content", not N racing
-// saves that mostly fail and mostly never persist).
+// Serialize and coalesce source autosaves per workspace. A typing burst
+// writes the current snapshot followed by at most one latest pending snapshot.
+// Project configuration/examples share this tree but are not editor-owned.
 interface SaveQueueEntry {
   inFlight: boolean;
   /** Most recently requested, not-yet-started snapshot (if any). */
@@ -84,7 +68,7 @@ const deletedWorkspaceIds = new Set<string>();
 // editor's `files` state — diffing against live disk state would misread
 // that freshly-synced file as user-deleted, unlink it, and the following
 // stageAll would stage and push its deletion (silent remote data loss,
-// exactly the failure mode the git-backed branch below exists to prevent).
+// exactly the failure mode the tracked-path baseline prevents).
 // Diffing against this snapshot instead means a path the editor never knew
 // about is simply never a pruning candidate, in either direction.
 const lastKnownTrackedPaths = new Map<string, ReadonlySet<string>>();
@@ -170,32 +154,7 @@ async function runQueuedSave(
 async function saveWorkspaceFilesNow(workspaceId: string, files: readonly WorkspaceFile[]): Promise<void> {
   const root = await deps.getOpfsRoot();
 
-  // Determine the workspace kind before touching OPFS.
-  //
-  // For git-backed workspaces, the cloned repo contains files the editor
-  // does NOT track (README, CI configs, non-.rosetta files). Pruning the
-  // entire `files/` tree and rewriting only the editor's list would delete
-  // those untracked files; the subsequent notifySyncOnSave → stageAll would
-  // then stage those deletions and push them upstream — silent remote data
-  // loss. Instead, for git-backed workspaces we skip the wholesale prune
-  // below and, separately, remove only the specific paths this module
-  // itself previously tracked for this workspace (`lastKnownTrackedPaths`)
-  // that the caller no longer lists (issue #439) — untracked repo files,
-  // and any path the editor never itself loaded/saved, are never touched.
-  const ws = await deps.loadWorkspaceFn(workspaceId);
-  const isGitBacked = ws?.kind === 'git-backed';
-
   const workspaceDir = await root.getDirectoryHandle(workspaceId, { create: true });
-
-  if (!isGitBacked) {
-    try {
-      await workspaceDir.removeEntry('files', { recursive: true });
-    } catch (error) {
-      if (!isNotFoundError(error)) {
-        throw error;
-      }
-    }
-  }
 
   await workspaceDir.getDirectoryHandle('files', { create: true });
   await workspaceDir.getDirectoryHandle('.studio', { create: true });
@@ -203,26 +162,15 @@ async function saveWorkspaceFilesNow(workspaceId: string, files: readonly Worksp
   const fs = new OpfsFs(root);
   const nextPaths = new Set(toStoredWorkspaceFiles(files).map((file) => file.path));
 
-  if (isGitBacked) {
-    // Remove previously-tracked paths the caller no longer lists
-    // (deletions — and, as a side effect, renames, since a rename shows up
-    // here as one path disappearing and a new one appearing in the write
-    // loop below). `git.statusMatrix`-driven `stageAll` (in
-    // notifySyncOnSave's engine) detects the resulting workdir absence and
-    // stages the removal on its own — no separate git-staging step needed
-    // here.
-    const previousPaths = lastKnownTrackedPaths.get(workspaceId) ?? new Set<string>();
-    for (const previousPath of previousPaths) {
-      if (!nextPaths.has(previousPath)) {
-        try {
-          await fs.unlink(`/${workspaceId}/files/${previousPath}`);
-        } catch (error) {
-          // Already gone (e.g. a background sync independently removed it
-          // too) — nothing left to prune.
-          if (!isNotFoundError(error)) {
-            throw error;
-          }
-        }
+  // Only remove paths this editor loaded or previously saved. Configuration,
+  // examples, and files introduced by another writer must survive autosave.
+  const previousPaths = lastKnownTrackedPaths.get(workspaceId) ?? new Set<string>();
+  for (const previousPath of previousPaths) {
+    if (!nextPaths.has(previousPath)) {
+      try {
+        await fs.unlink(`/${workspaceId}/files/${previousPath}`);
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error;
       }
     }
   }

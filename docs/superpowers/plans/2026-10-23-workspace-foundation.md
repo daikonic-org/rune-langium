@@ -69,11 +69,11 @@ Define these exported types in `project-config/src/types.ts` in T1; later plans 
 
 **Interfaces:** Produce `ProjectFileAdapter` with `read(path:string):Promise<{text:string;revision:string}|undefined>`, `write(path:string,text:string,expectedRevision:string|null):Promise<string>`, `remove(path:string,expectedRevision:string):Promise<void>`, `list():Promise<string[]>`. A null revision requires absence. Define `ProjectWrite={path:string;text:string;expectedRevision:string|null}`; produce `saveProject(adapter:ProjectFileAdapter,writes:readonly ProjectWrite[],operationId:string):Promise<{status:'saved'|'conflict'|'recoverable';diagnostics:ProjectDiagnostic[]}>` and `recoverProjectSave(adapter:ProjectFileAdapter):Promise<ProjectDiagnostic[]>`.
 
-- [ ] Write failing injected-backend tests: conflict on a changed revision before commit, failure after the first of three writes, reopen recovery, retry idempotence, a concurrent third-party edit during recovery, denied folder permission and wrong-workspace adapter use. Assert no newer bytes are replaced and the snapshot is unpublished on partial failure.
-- [ ] Run `pnpm --filter @rune-langium/project-config test -- save-transaction.test.ts` and `pnpm --filter @rune-langium/studio test -- project-file-adapter.test.ts`; expect failures.
-- [ ] Implement a durable prepare/commit journal under the private backing namespace with operation identity, original/proposed revisions and readback. Recovery completes only if all revisions match the journal; otherwise preserve files and report a conflict. Reuse ownership coordination, retaining the workspace ID inside the adapter closure. Never copy the OPFS token directory into repository `/files`.
-- [ ] Rerun both suites; assert journal/private paths are outside adapter `list()` of project-managed files. Verify successful Save through readback rather than state flags.
-- [ ] Commit: `git commit -m "feat: persist project edits with revisioned recovery"`.
+- [x] Write failing injected-backend tests: conflict on a changed revision before commit, failure after the first of three writes, reopen recovery, retry idempotence, a concurrent third-party edit during recovery, denied folder permission and wrong-workspace adapter use. Assert no newer bytes are replaced and the snapshot is unpublished on partial failure.
+- [x] Run `pnpm --filter @rune-langium/project-config test -- save-transaction.test.ts` and `pnpm --filter @rune-langium/studio test -- project-file-adapter.test.ts`; expect failures.
+- [x] Implement a durable prepare/commit journal under the private backing namespace with operation identity, original/proposed revisions and readback. Recovery completes only if all revisions match the journal; otherwise preserve files and report a conflict. Reuse ownership coordination, retaining the workspace ID inside the adapter closure. Never copy the OPFS token directory into repository `/files`.
+- [x] Rerun both suites; assert journal/private paths are outside adapter `list()` of project-managed files. Verify successful Save through readback rather than state flags.
+- [x] Commit: `git commit -m "feat: persist project edits with revisioned recovery"`.
 
 ### Task 4: File-backed snapshots and backing migration
 

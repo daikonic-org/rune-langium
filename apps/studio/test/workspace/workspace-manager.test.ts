@@ -133,3 +133,21 @@ describe('WorkspaceManager — multi-tab ownership integration', () => {
     expect(b.isReadOnly(bOpen!.id)).toBe(true);
   });
 });
+
+describe('workspace-bound project files', () => {
+  it('keeps roots independent and revokes an existing adapter when ownership is released', async () => {
+    const manager = makeManager();
+    const first = await manager.create('First');
+    const second = await manager.create('Second');
+    const one = await manager.getProjectFileAdapter(first.id);
+    const two = await manager.getProjectFileAdapter(second.id);
+    await one.write('build-config.yml', 'first config', null);
+    expect(await two.read('build-config.yml')).toBeUndefined();
+    await manager.close(first.id);
+    await expect(one.write('other.yml', 'no', null)).rejects.toThrow(/writable/);
+    expect((await one.read('build-config.yml'))?.text).toBe('first config');
+  });
+  it('refuses an unknown workspace instead of creating a new root', async () => {
+    await expect(makeManager().getProjectFileAdapter('missing')).rejects.toThrow(/not found/);
+  });
+});

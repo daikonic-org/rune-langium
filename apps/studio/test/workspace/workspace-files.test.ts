@@ -50,8 +50,7 @@ describe('saveWorkspaceFiles — git-backed: preserve untracked tree', () => {
     await writeBytes(opfsRoot, new TextEncoder().encode('namespace a'), id, 'files', 'a.rosetta');
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'git-backed' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     // Editor only knows about a.rosetta — README is untracked by the editor.
@@ -73,8 +72,7 @@ describe('saveWorkspaceFiles — git-backed: preserve untracked tree', () => {
     await writeBytes(opfsRoot, new TextEncoder().encode('namespace b'), id, 'files', 'b.rosetta');
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'git-backed' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     // Establish the pruning baseline the way a real workspace-open flow
@@ -100,8 +98,7 @@ describe('saveWorkspaceFiles — git-backed: preserve untracked tree', () => {
     await writeBytes(opfsRoot, new TextEncoder().encode('namespace a'), id, 'files', 'old-name.rosetta');
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'git-backed' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     await loadWorkspaceFiles(id);
@@ -121,8 +118,7 @@ describe('saveWorkspaceFiles — git-backed: preserve untracked tree', () => {
     await writeBytes(opfsRoot, new TextEncoder().encode('namespace a'), id, 'files', 'a.rosetta');
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'git-backed' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     // Establish the baseline the way a real workspace-open flow does.
@@ -144,19 +140,34 @@ describe('saveWorkspaceFiles — git-backed: preserve untracked tree', () => {
   });
 });
 
-describe('saveWorkspaceFiles — browser-only: prune preserves existing behaviour', () => {
-  it('removes files not in the saved list (prune happens)', async () => {
+describe('saveWorkspaceFiles — browser-only: preserve non-editor files', () => {
+  it('preserves project configuration and examples during source autosave', async () => {
+    const id = 'ws-project-files';
+    setWorkspaceFilesDeps({ getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle });
+    await writeBytes(opfsRoot, new TextEncoder().encode('schemaVersion: 1'), id, 'files', 'build-config.yml');
+    await writeBytes(opfsRoot, new TextEncoder().encode('{"amount": 42}'), id, 'files', 'examples', 'money.json');
+    await saveWorkspaceFiles(id, [makeFile('a.rosetta', 'namespace a')]);
+    expect(new TextDecoder().decode(await readBytes(opfsRoot, id, 'files', 'build-config.yml'))).toBe(
+      'schemaVersion: 1'
+    );
+    expect(new TextDecoder().decode(await readBytes(opfsRoot, id, 'files', 'examples', 'money.json'))).toBe(
+      '{"amount": 42}'
+    );
+  });
+
+  it('removes previously loaded files absent from the saved list', async () => {
     const id = 'ws-browser-1';
 
     // Pre-create an extra file that the editor will no longer track.
     await writeBytes(opfsRoot, new TextEncoder().encode('old'), id, 'files', 'old.rosetta');
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'browser-only' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
-    // Save only new.rosetta — old.rosetta should be pruned.
+    await loadWorkspaceFiles(id);
+
+    // Save only new.rosetta — the known old path should be pruned.
     await saveWorkspaceFiles(id, [makeFile('new.rosetta', 'namespace b')]);
 
     // old.rosetta must have been removed by the prune.
@@ -168,35 +179,33 @@ describe('saveWorkspaceFiles — browser-only: prune preserves existing behaviou
 });
 
 describe('saveWorkspaceFiles — concurrent calls for the same workspace (#395)', () => {
-  it('never runs two removeEntry("files") mutations concurrently, and the latest snapshot wins', async () => {
+  it('never opens two source writes concurrently, and the latest snapshot wins', async () => {
     const id = 'ws-race-1';
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'browser-only' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
-    // Pre-create the workspace + an existing tracked file so the FIRST
-    // save's removeEntry('files', {recursive:true}) does real work (not a
-    // NotFoundError no-op), giving a genuine interleaving opportunity.
     await writeBytes(opfsRoot, new TextEncoder().encode('old'), id, 'files', 'a.rosetta');
-    const wsDir = await opfsRoot.getDirectoryHandle(id, { create: true });
-
-    // Instrument removeEntry to detect re-entrancy and inject a delay, so
-    // a broken (unserialized) implementation would have a real window to
-    // race two overlapping calls.
+    const files = await (await opfsRoot.getDirectoryHandle(id)).getDirectoryHandle('files');
+    const file = await files.getFileHandle('a.rosetta');
+    const createWritable = file.createWritable.bind(file);
     let active = 0;
     let maxActive = 0;
-    const originalRemoveEntry = wsDir.removeEntry.bind(wsDir);
-    wsDir.removeEntry = async (name: string, opts?: { recursive?: boolean }) => {
+    file.createWritable = async () => {
       active += 1;
       maxActive = Math.max(maxActive, active);
-      await new Promise((r) => setTimeout(r, 5));
-      try {
-        return await originalRemoveEntry(name, opts);
-      } finally {
-        active -= 1;
-      }
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const stream = await createWritable();
+      const close = stream.close.bind(stream);
+      stream.close = async () => {
+        try {
+          await close();
+        } finally {
+          active -= 1;
+        }
+      };
+      return stream;
     };
 
     // Fire two saves back-to-back, without awaiting the first — mirrors
@@ -206,7 +215,7 @@ describe('saveWorkspaceFiles — concurrent calls for the same workspace (#395)'
 
     await expect(Promise.all([p1, p2])).resolves.toBeDefined();
 
-    expect(maxActive, 'removeEntry("files") must never run concurrently').toBe(1);
+    expect(maxActive, 'source writes must never run concurrently').toBe(1);
 
     // The later call's snapshot is the one that ends up persisted.
     const content = new TextDecoder().decode(await readBytes(opfsRoot, id, 'files', 'a.rosetta'));
@@ -217,28 +226,21 @@ describe('saveWorkspaceFiles — concurrent calls for the same workspace (#395)'
     const id = 'ws-race-2';
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'browser-only' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     await writeBytes(opfsRoot, new TextEncoder().encode('old'), id, 'files', 'a.rosetta');
-    const wsDir = await opfsRoot.getDirectoryHandle(id, { create: true });
-
-    // Fail only the FIRST removeEntry call (the in-flight save), so the
-    // queued second save never gets its own turn to run — it should be
-    // rejected outright rather than left to hang, and a later, independent
-    // third call should succeed normally (proving the queue entry for this
-    // workspace was torn down, not left stuck mid-flight).
-    const originalRemoveEntry = wsDir.removeEntry.bind(wsDir);
+    const files = await (await opfsRoot.getDirectoryHandle(id)).getDirectoryHandle('files');
+    const file = await files.getFileHandle('a.rosetta');
+    const createWritable = file.createWritable.bind(file);
     let call = 0;
     const injectedError = new Error('simulated OPFS write failure');
-    wsDir.removeEntry = async (name: string, opts?: { recursive?: boolean }) => {
-      call += 1;
-      if (call === 1) {
-        await new Promise((r) => setTimeout(r, 5));
+    file.createWritable = async () => {
+      if (++call === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
         throw injectedError;
       }
-      return originalRemoveEntry(name, opts);
+      return createWritable();
     };
 
     const p1 = saveWorkspaceFiles(id, [makeFile('a.rosetta', 'content-A')]);
@@ -259,18 +261,17 @@ describe('deleteWorkspaceFiles — serializes with the save queue (#416 follow-u
   it('does not resurrect the workspace directory when delete races an in-flight save', async () => {
     const id = 'ws-delete-race-1';
 
-    // Delay loadWorkspaceFn (the first await inside saveWorkspaceFilesNow)
+    // Delay root access (the first await inside saveWorkspaceFilesNow)
     // so the save is genuinely still in flight — with real OPFS mutations
     // not yet run — when deleteWorkspaceFiles is called.
     let loadCalls = 0;
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => {
+      getOpfsRoot: async () => {
         loadCalls += 1;
         if (loadCalls === 1) {
           await new Promise((r) => setTimeout(r, 5));
         }
-        return { kind: 'browser-only' };
+        return opfsRoot as unknown as FileSystemDirectoryHandle;
       }
     });
 
@@ -291,13 +292,12 @@ describe('deleteWorkspaceFiles — serializes with the save queue (#416 follow-u
 
     let loadCalls = 0;
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => {
+      getOpfsRoot: async () => {
         loadCalls += 1;
         if (loadCalls === 1) {
           await new Promise((r) => setTimeout(r, 5));
         }
-        return { kind: 'browser-only' };
+        return opfsRoot as unknown as FileSystemDirectoryHandle;
       }
     });
 
@@ -325,8 +325,7 @@ describe('deleteWorkspaceFiles — serializes with the save queue (#416 follow-u
     const id = 'ws-delete-race-3';
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'browser-only' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     await saveWorkspaceFiles(id, [makeFile('a.rosetta', 'namespace a')]);
@@ -342,8 +341,7 @@ describe('deleteWorkspaceFiles — serializes with the save queue (#416 follow-u
     const id = 'ws-delete-race-4';
 
     setWorkspaceFilesDeps({
-      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
-      loadWorkspaceFn: async (_workspaceId: string) => ({ kind: 'browser-only' })
+      getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle
     });
 
     await saveWorkspaceFiles(id, [makeFile('a.rosetta', 'namespace a')]);

@@ -18,6 +18,7 @@ import { OpfsFs } from '../opfs/opfs-fs.js';
 import {
   saveWorkspace,
   loadWorkspace,
+  loadFolderHandle,
   deleteWorkspace as removeWorkspace,
   listRecents as listRecentsFromDb,
   type WorkspaceRecord,
@@ -29,6 +30,8 @@ import { storeWorkspaceToken } from '../services/github-auth.js';
 import { LAYOUT_SCHEMA_VERSION } from '../shell/layout-factory.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { generateUlid } from '../services/ulid.js';
+import { createProjectFileAdapter } from './project-file-adapter.js';
+import type { ProjectFileAdapter } from '@rune-langium/project-config';
 
 export interface WorkspaceManagerOptions {
   opfsRoot: FileSystemDirectoryHandle;
@@ -55,6 +58,28 @@ export class WorkspaceManager {
   /** Expose the shared OpfsFs so callers (e.g. git-sync wiring) can reuse it. */
   getFs(): OpfsFs {
     return this.fs;
+  }
+
+  /** Bind project IO to this workspace's working copy and current ownership. */
+  async getProjectFileAdapter(id: string): Promise<ProjectFileAdapter> {
+    const workspace = await loadWorkspace(id);
+    if (!workspace) throw new Error('Workspace not found');
+    const backing = await this.opts.opfsRoot.getDirectoryHandle(id);
+    const privateRoot = await backing.getDirectoryHandle('.studio');
+    let root: FileSystemDirectoryHandle;
+    if (workspace.kind === 'folder-backed') {
+      const folder = await loadFolderHandle(workspace.folderHandle);
+      if (!folder) throw new Error('Workspace folder is unavailable');
+      root = folder.handle;
+    } else {
+      root = await backing.getDirectoryHandle('files');
+    }
+    return createProjectFileAdapter({
+      workspaceId: id,
+      root,
+      privateRoot,
+      isWritable: () => this.isOwner(id) && !this.isReadOnly(id)
+    });
   }
 
   /**
