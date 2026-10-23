@@ -552,7 +552,7 @@ export const CodegenProvider = withInstrumentation(
             } else {
               const namespacesToHydrate = new Set(
                 findUnhydratedNamespacesForUnresolved(
-                  deferredExports,
+                  deferredExportsRef.current,
                   filesRef.current,
                   unresolvedNames,
                   useEditorStore.getState().hydratedNamespaces

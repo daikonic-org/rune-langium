@@ -224,7 +224,7 @@ when the source/cohort and preview factory are identical. Same-workspace
 hydration and view changes retain the workflow. Workflow data/results are not serialized as presentation
 preferences. Validators and schema clients own and dispose their worker listeners.
 
-The shared worker listener/session factory follows worker lifetime; preview selection is read at error-delivery time and never recreates Prototype sessions.
+The shared worker listener/session factory follows worker lifetime; preview selection is read at error-delivery time and never recreates Prototype sessions. Unresolved preview results use the live deferred-export manifest, so initial publication and workspace switches cannot retain stale hydration targets.
 
 Workflow input/output type chips, function headers and signature references carry canonical declaration kind through Explore's hydration-aware bridge. Header context menus reuse the shared type-navigation menu; Inspector exposes both a navigation button and the same pointer/keyboard actions. A workspace-ID/activation-epoch return scope offers Back to Prototype after an inspection visit without creating an instance, rebinding inputs or resetting the retained workflow. Editable text controls retain native menus.
 
