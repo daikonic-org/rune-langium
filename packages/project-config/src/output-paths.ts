@@ -40,11 +40,16 @@ export function validateOutputPaths(
         target: name
       });
     for (const [peer, previous] of destinations)
-      if (contains(previous, path) || contains(path, previous))
+      if (contains(previous, path) || contains(path, previous)) {
         diagnostics.push({
           ...diagnostic(at, 'OUTPUT_COLLISION', 'Output overlaps target ' + peer + '.'),
           target: name
         });
+        diagnostics.push({
+          ...diagnostic('targets.' + peer + '.output', 'OUTPUT_COLLISION', 'Output overlaps target ' + name + '.'),
+          target: peer
+        });
+      }
     destinations.push([name, path]);
   }
   return diagnostics;

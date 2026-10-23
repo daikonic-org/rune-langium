@@ -93,11 +93,11 @@ Define these exported types in `project-config/src/types.ts` in T1; later plans 
 
 **Interfaces:** Runtime consumes config, core and codegen without reverse dependencies. Produce `buildProject(snapshot:ProjectSnapshot,request:{targets:readonly string[]|'all'},adapter:ProjectFileAdapter):Promise<{status:'success'|'failed';diagnostics:ProjectDiagnostic[];outputs:readonly string[]}>`. Node adapter implements T3 with realpath containment. CLI produces `runBuild(options:{project:string;target?:string[];all?:boolean;json?:boolean}):Promise<number>` and command `rune-dsl build --project <root> --target <name...>` or `--all`.
 
-- [ ] Write failing tests: no target and mutually supplied `--all`/`--target` exit 2; unknown/unavailable target writes nothing; two named SQL targets generate separately; multi-file `.rosetta` inputs link together; output symlink escape is refused; unresolved reference requests fail affected builds pending P2. Assert output bytes match direct codegen for the same parsed sources/options.
-- [ ] Run `pnpm exec vitest run packages/project-runtime/test/build-project.test.ts packages/cli/test/cli-build.test.ts`; expect contract failures.
-- [ ] Implement source discovery from configured globs and one shared parse/link graph, then call existing generate/selection contracts with explicit options. Node-only APIs live in node-files. Keep legacy CLI commands unchanged. Record toolchain mismatch before generation, never download arbitrary generators from YAML.
-- [ ] Build config/core/codegen/runtime/CLI in dependency order, rerun suites and package types; expect pass. Read generated files and assert no protected files changed.
-- [ ] Commit: `git commit -m "feat: build explicit named targets from project files"`.
+- [x] Write failing tests: no target and mutually supplied `--all`/`--target` exit 2; unknown/unavailable target writes nothing; two named SQL targets generate separately; multi-file `.rosetta` inputs link together; output symlink escape is refused; unresolved reference requests fail affected builds pending P2. Assert output bytes match direct codegen for the same parsed sources/options.
+- [x] Run `pnpm exec vitest run packages/project-runtime/test/build-project.test.ts packages/cli/test/cli-build.test.ts`; expect contract failures.
+- [x] Implement source discovery from configured globs and one shared parse/link graph, then call existing generate/selection contracts with explicit options. Node-only APIs live in node-files. Keep legacy CLI commands unchanged. Record toolchain mismatch before generation, never download arbitrary generators from YAML.
+- [x] Build config/core/codegen/runtime/CLI in dependency order, rerun suites and package types; expect pass. Read generated files and assert no protected files changed.
+- [x] Commit: `git commit -m "feat: build explicit named targets from project files"`.
 
 ### Task 6: Studio named targets, isolated run drafts and completion gate
 

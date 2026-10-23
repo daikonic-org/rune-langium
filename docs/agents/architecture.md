@@ -20,8 +20,10 @@ Current source and package manifests take precedence over historical specs.
 | `packages/codegen-legacy`, `apps/codegen-container`     | Legacy JVM/Rosetta bridge and container path; Java 21 and `rosetta-code-generators` still apply here.                                                                                                                                               |
 | `apps/docs`, `site`                                     | Documentation and landing page, combined with Studio into the Pages artifact.                                                                                                                                                                       |
 
+| `packages/project-runtime` | Composes project-config, core and codegen for explicit named builds. The root is host-neutral; filesystem and local-project entry points live under `/node`. |
+
 The main dependencies are Studio → visual-editor/codegen/LSP/core,
-and CLI/codegen/LSP → core.
+and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codegen expose their package metadata for authoritative toolchain version checks.
 
 ## Portable project state
 

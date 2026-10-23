@@ -39,16 +39,20 @@
   ],
   "scripts": {
     "build": "tsc -b",
+    "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@rune-langium/project-runtime": "workspace:*",
+    "@rune-langium/project-config": "workspace:*",
     "@rune-langium/codegen-legacy": "workspace:*",
     "@rune-langium/core": "workspace:*",
     "commander": "^15.0.0",
     "langium": "^4.4.0"
   },
   "devDependencies": {
+    "vitest": "^5.0.5",
     "@types/node": "^26.6.5",
     "typescript": "^7.0.2"
   },

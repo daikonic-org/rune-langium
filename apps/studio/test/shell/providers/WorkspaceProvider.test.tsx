@@ -165,7 +165,7 @@ it('reads repository settings over stale browser preferences without deleting th
   await adapter.write('rune-config.yml', 'model: {name: Repository}', null);
   await adapter.write(
     'build-config.yml',
-    'schemaVersion: 1\ntargets:\n  postgres:\n    generator: sql\n    output: generated/pg\n    options: {dialect: postgresql}\n',
+    'schemaVersion: 1\ntargets:\n  postgres:\n    generator: sql\n    output: generated/pg\n    options: {dialect: postgres}\n',
     null
   );
   function TargetProbe() {
@@ -183,6 +183,6 @@ it('reads repository settings over stale browser preferences without deleting th
       <TargetProbe />
     </WorkspaceProvider>
   );
-  await waitFor(() => expect(screen.getByTestId('dialect').textContent).toBe('postgresql'));
+  await waitFor(() => expect(screen.getByTestId('dialect').textContent).toBe('postgres'));
   expect(await loadSetting(key)).toEqual(legacy);
 });

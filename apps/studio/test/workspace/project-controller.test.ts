@@ -15,7 +15,7 @@ async function setup() {
   await adapter.write('rune-config.yml', 'model:\n  name: Repository model\n', null);
   await adapter.write(
     'build-config.yml',
-    'schemaVersion: 1\ntargets:\n  postgres:\n    generator: sql\n    output: generated/pg\n    options:\n      dialect: postgresql\n',
+    'schemaVersion: 1\ntargets:\n  postgres:\n    generator: sql\n    output: generated/pg\n    options:\n      dialect: postgres\n',
     null
   );
   const controller = createProjectController({ workspaceId: 'project', adapter, validateTarget: () => [] });

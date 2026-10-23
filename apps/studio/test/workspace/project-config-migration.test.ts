@@ -11,12 +11,12 @@ describe('explicit migration preview', () => {
       files,
       revisions: new Map(),
       workspaceName: 'Example',
-      targetOptions: { sql: { dialect: 'postgresql' }, typescript: { layout: 'barrel' } },
+      targetOptions: { sql: { dialect: 'postgres' }, typescript: { layout: 'barrel' } },
       references: []
     });
     const build = preview.writes.find((write) => write.path === 'build-config.yml')!;
     const parsed = parseBuildConfig({ path: build.path, text: build.text }).value!;
-    expect(parsed.targets.sql?.options).toEqual({ dialect: 'postgresql' });
+    expect(parsed.targets.sql?.options).toEqual({ dialect: 'postgres' });
     expect(parsed.targets.typescript?.options).toEqual({ layout: 'barrel' });
     expect(build.expectedRevision).toBeNull();
     expect(parsed).not.toHaveProperty('defaultTarget');
@@ -33,7 +33,7 @@ describe('explicit migration preview', () => {
       ]),
       revisions: new Map([['build-config.yaml', 'original']]),
       workspaceName: 'Example',
-      targetOptions: { sql: { dialect: 'postgresql' } },
+      targetOptions: { sql: { dialect: 'postgres' } },
       references: []
     });
     expect(preview.writes).toEqual([]);

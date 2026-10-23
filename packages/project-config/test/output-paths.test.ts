@@ -5,6 +5,15 @@ import { validateOutputPaths } from '../src/output-paths.js';
 
 const target = (output: string) => ({ generator: 'sql', options: {}, output });
 describe('portable output destinations', () => {
+  it('marks every target participating in an output collision', () => {
+    expect(
+      validateOutputPaths({ a: target('generated'), b: target('generated/nested') }, [])
+        .filter((issue) => issue.code === 'OUTPUT_COLLISION')
+        .map((issue) => issue.target)
+        .sort()
+    ).toEqual(['a', 'b']);
+  });
+
   it.each([
     '../model',
     '/tmp/generated',

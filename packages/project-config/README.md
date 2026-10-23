@@ -43,3 +43,9 @@ activation; generator/output diagnostics scoped to a target remain visible and
 block that target through `projectDiagnosticsForTargets`, allowing independent
 valid targets to run. Studio retains its previous valid snapshot on activation
 failure and discards results after workspace disposal.
+
+Adapters may implement `writeBinary` for installed binary generators; hosts without
+it return a capability diagnostic rather than encode workbook bytes as text.
+`projectBytesRevision` hashes original bytes, while `projectFileRevision` hashes
+UTF-8 text. Output collisions diagnose every participating target, and snapshot
+validation protects actual `.rosetta` paths even with root-wide source globs.

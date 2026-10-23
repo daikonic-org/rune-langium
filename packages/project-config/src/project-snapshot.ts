@@ -37,6 +37,7 @@ export async function createProjectSnapshot(
   diagnostics.push(
     ...validateOutputPaths(project.build.targets, [
       ...project.build.sources,
+      ...[...files.keys()].filter((path) => path.endsWith('.rosetta')),
       ...project.build.resources.map((resource) => resource.path),
       project.build.runeConfig,
       'build-config.yml',
