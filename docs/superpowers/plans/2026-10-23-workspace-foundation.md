@@ -45,11 +45,11 @@ Define these exported types in `project-config/src/types.ts` in T1; later plans 
 
 **Interfaces:** Produce `discoverProjectConfig(files:ProjectFiles):{build?:ConfigDocument;studio?:ConfigDocument;diagnostics:ProjectDiagnostic[]}`, `parseBuildConfig(document:ConfigDocument):{value?:BuildConfig;diagnostics:ProjectDiagnostic[]}`, `updateBuildConfig(document:ConfigDocument,next:BuildConfig):string`, `normalizeProject(files:ProjectFiles,validateTarget:TargetValidator):NormalizedProject`. Add analogous Studio parsing/updating, preserving unknown companion fields/comments; rune-compat reads known upstream fields without rewriting them.
 
-- [ ] Write failing cases in `config-codec.test.ts`: `.yaml` alone loads; both extensions diagnose `CONFIG_AMBIGUOUS`; duplicate keys diagnose `CONFIG_DUPLICATE_KEY`; update SQL options preserves comments and unknown fields; `schemaVersion:2` blocks Save; `defaultSerialisationFormat` does not select a target; namespace entries merge by ID with whole-entry project precedence.
-- [ ] Run `pnpm --filter @rune-langium/project-config test -- config-codec.test.ts`; expect failure until the new API exists.
-- [ ] Implement the schemas/codecs and package scaffolding above. Parse YAML as documents and apply supported edits through nodes; reject unsupported alias/merge constructs with source diagnostics. Default only the conventional paths, never a target. Parse lock JSON separately; unknown schema versions remain readable raw text but not executable.
-- [ ] Run the same test command and `pnpm --filter @rune-langium/project-config run type-check`; expect all tests and types to pass. Confirm no dependency path from project-config to Studio/core/codegen.
-- [ ] Commit only these paths and the lockfile: `git commit -m "feat: add portable project configuration contracts"`.
+- [x] Write failing cases in `config-codec.test.ts`: `.yaml` alone loads; both extensions diagnose `CONFIG_AMBIGUOUS`; duplicate keys diagnose `CONFIG_DUPLICATE_KEY`; update SQL options preserves comments and unknown fields; `schemaVersion:2` blocks Save; `defaultSerialisationFormat` does not select a target; namespace entries merge by ID with whole-entry project precedence.
+- [x] Run `pnpm --filter @rune-langium/project-config test -- config-codec.test.ts`; expect failure until the new API exists.
+- [x] Implement the schemas/codecs and package scaffolding above. Parse YAML as documents and apply supported edits through nodes; reject unsupported alias/merge constructs with source diagnostics. Default only the conventional paths, never a target. Parse lock JSON separately; unknown schema versions remain readable raw text but not executable.
+- [x] Run the same test command and `pnpm --filter @rune-langium/project-config run type-check`; expect all tests and types to pass. Confirm no dependency path from project-config to Studio/core/codegen.
+- [x] Commit only these paths and the lockfile: `git commit -m "feat: add portable project configuration contracts"`.
 
 ### Task 2: Authoritative target validation and path constraints
 

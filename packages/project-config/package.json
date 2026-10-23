@@ -1,0 +1,15 @@
+{
+  "name": "@rune-langium/project-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable Rune project configuration and persistence contracts",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": { "build": "tsc -b", "test": "vitest run", "type-check": "tsc --noEmit", "clean": "rm -rf dist tsconfig.tsbuildinfo" },
+  "dependencies": { "yaml": "2.9.1", "zod": "^4.6.7" },
+  "devDependencies": { "typescript": "^7.0.2", "vitest": "^5.0.5" }
+}
