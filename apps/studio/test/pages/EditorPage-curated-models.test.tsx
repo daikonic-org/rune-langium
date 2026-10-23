@@ -96,6 +96,8 @@ class MockWorker {
 }
 
 vi.mock('@rune-langium/visual-editor', async () => ({
+  useTypeNavigationMenu: (await import('../../../../packages/visual-editor/src/components/TypeNavigationMenu.js'))
+    .useTypeNavigationMenu,
   RuneTypeGraph: React.forwardRef((_props: unknown, ref: React.ForwardedRef<unknown>) => {
     useImperativeHandle(ref, () => ({
       fitView: () => {},

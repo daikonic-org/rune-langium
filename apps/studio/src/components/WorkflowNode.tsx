@@ -4,14 +4,15 @@
 
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
-import { TypeChip, type TypeChipKind } from '@rune-langium/visual-editor';
+import { type TypeChipKind } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
-import { MoreHorizontal, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpRight, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { FormPreviewPanel } from './FormPreviewPanel.js';
 import { FormPresentation, useFormPresentationState } from './FormPresentation.js';
 import { WorkflowValidation } from './WorkflowValidation.js';
 import type { WorkflowValidation as Validation } from '../services/workflow-validation.js';
+import { WorkflowTypeLink, useWorkflowTypeNavigation } from './WorkflowTypeLink.js';
 import { WorkflowImport } from './WorkflowImport.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -20,6 +21,7 @@ export const WorkflowNode = withInstrumentation(
     name,
     type,
     typeKind,
+    typeNodeId,
     schema,
     values,
     onChange,
@@ -39,6 +41,7 @@ export const WorkflowNode = withInstrumentation(
     name: string;
     type?: string;
     typeKind?: TypeChipKind;
+    typeNodeId?: string;
     schema?: FormPreviewSchema;
     values: Record<string, unknown>;
     onChange?(value: Record<string, unknown>): void;
@@ -55,6 +58,7 @@ export const WorkflowNode = withInstrumentation(
     onImport?(value: unknown): void;
     validationRoot?: RefObject<HTMLElement | null>;
   }) {
+    const navigation = useWorkflowTypeNavigation(typeNodeId);
     const root = useRef<HTMLElement>(null);
     const [requestedEditing, setEditing] = useState(false);
     const { ready } = useFormPresentationState();
@@ -69,15 +73,29 @@ export const WorkflowNode = withInstrumentation(
         data-workflow-source-path={sourcePath}
         data-type-kind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
       >
-        <header>
+        <header
+          onContextMenu={(event) => navigation.open(event, typeNodeId)}
+          onKeyDown={(event) => navigation.onKeyDown(event, typeNodeId)}
+        >
           <h2>{name}</h2>
           {type ? (
-            <TypeChip
-              as="span"
-              typeName={type}
-              typeKind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
+            <WorkflowTypeLink
+              nodeId={typeNodeId}
+              name={type}
+              kind={typeKind ?? (schema?.kind === 'choice' ? 'Choice' : 'Data')}
               className="workflow-node__type"
             />
+          ) : null}
+          {!type && navigation.navigate ? (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={navigation.navigate}
+              aria-label={`View ${name} in Explore`}
+              title="View in Explore"
+            >
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            </Button>
           ) : null}
           {validation ? (
             <WorkflowValidation
@@ -132,6 +150,7 @@ export const WorkflowNode = withInstrumentation(
             </Popover>
           ) : null}
         </header>
+        {navigation.menu}
         {source ? <p className="workflow-node__source">{source}</p> : null}
         {editing ? (
           <div className="workflow-node__layout">

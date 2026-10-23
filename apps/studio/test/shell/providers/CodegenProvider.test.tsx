@@ -42,6 +42,10 @@ beforeEach(() => {
   });
 });
 
+import {
+  usePreviewSessionFactory,
+  type PreviewSessionFactory
+} from '../../../src/shell/providers/preview-session-context.js';
 import { CodegenProvider } from '../../../src/shell/providers/CodegenProvider.js';
 import { WorkspaceStateContext, type WorkspaceState } from '../../../src/shell/providers/workspace-context.js';
 import { useInstanceStore } from '../../../src/store/instance-store.js';
@@ -974,3 +978,109 @@ it('keeps an unsupported selected preview pending after namespace hydration unti
   });
   expect(usePreviewStore.getState().status).toEqual({ state: 'ready', targetId: target.id });
 });
+
+it('retains Prototype session factory and worker listeners across Explore selection', () => {
+  let factory: PreviewSessionFactory | null = null;
+  function ObserveFactory() {
+    factory = usePreviewSessionFactory();
+    return null;
+  }
+  render(
+    <WorkspaceStateContext value={wsState('retained-workflow')}>
+      <CodegenProvider>
+        <ObserveFactory />
+      </CodegenProvider>
+    </WorkspaceStateContext>
+  );
+  const original = factory;
+  const listener = FakeWorker.instances[0]!.listeners.message[0];
+  expect(original).not.toBeNull();
+  for (const id of ['test.Money#Data', 'test.AddMoney#RosettaFunction']) {
+    act(() => usePreviewStore.setState({ selectedTargetId: id }));
+    expect(factory).toBe(original);
+    expect(FakeWorker.instances[0]!.listeners.message[0]).toBe(listener);
+  }
+});
+
+it.each(['manifest publication', 'workspace switch'] as const)(
+  'hydrates from the live deferred manifest after %s without replacing Prototype sessions',
+  async (change) => {
+    usePreviewStore.getState().resetPreviewState();
+    const targetId = 'example.Trade';
+    usePreviewStore.setState({ selectedTargetId: targetId });
+    let factory: PreviewSessionFactory | null = null;
+    function ObserveFactory() {
+      factory = usePreviewSessionFactory();
+      return null;
+    }
+    const manifest = (namespace: string): WorkspaceState['deferredExports'] => [
+      { namespace, filePath: `${namespace}.rosetta`, exports: [{ type: 'data', name: 'Party' }] }
+    ];
+    const view = (workspace: WorkspaceState) => (
+      <WorkspaceStateContext value={workspace}>
+        <CodegenProvider>
+          <ObserveFactory />
+        </CodegenProvider>
+      </WorkspaceStateContext>
+    );
+    const initial = {
+      ...wsState('before'),
+      deferredExports: change === 'workspace switch' ? manifest('curated.old') : []
+    };
+    const { rerender } = render(view(initial));
+    const worker = FakeWorker.instances[0]!;
+    const originalFactory = factory;
+    const originalListener = worker.listeners.message[0];
+    rerender(
+      view({
+        ...initial,
+        workspaceId: change === 'workspace switch' ? 'after' : 'before',
+        deferredExports: manifest('curated.current')
+      })
+    );
+    const request = worker.posted.filter((message) => message.type === 'preview:generate').at(-1)!;
+    await act(async () => {
+      for (const listener of worker.listeners.message ?? [])
+        listener({
+          data: {
+            type: 'preview:result',
+            targetId,
+            requestId: request.requestId,
+            schema: {
+              schemaVersion: 1,
+              kind: 'data',
+              targetId,
+              title: 'Trade',
+              status: 'unsupported',
+              fields: [],
+              unsupportedFeatures: ['unresolved-reference:Party']
+            }
+          }
+        });
+    });
+    expect(useEditorStore.getState().pendingHydrationNamespaces).toContain('curated.current');
+    expect(useEditorStore.getState().pendingHydrationNamespaces).not.toContain('curated.old');
+    expect(factory).toBe(originalFactory);
+    expect(worker.listeners.message[0]).toBe(originalListener);
+    await act(async () => {
+      useEditorStore.getState().markNamespacesHydrated(['curated.current']);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const retry = worker.posted.filter((message) => message.type === 'preview:generate').at(-1)!;
+    expect(retry.requestId).not.toBe(request.requestId);
+    act(() => {
+      for (const listener of worker.listeners.message ?? [])
+        listener({
+          data: {
+            type: 'preview:result',
+            targetId,
+            requestId: retry.requestId,
+            schema: { schemaVersion: 1, kind: 'data', targetId, title: 'Trade', status: 'ready', fields: [] }
+          }
+        });
+    });
+    expect(usePreviewStore.getState().status).toEqual({ state: 'ready', targetId });
+    expect(usePreviewStore.getState().hydrationRetriesRemaining[targetId]).toBeUndefined();
+    expect(factory).toBe(originalFactory);
+  }
+);

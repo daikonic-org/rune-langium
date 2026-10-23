@@ -262,6 +262,8 @@ function getGraphCanvas(): HTMLDivElement | null {
 }
 
 vi.mock('@rune-langium/visual-editor', async () => ({
+  useTypeNavigationMenu: (await import('../../../../packages/visual-editor/src/components/TypeNavigationMenu.js'))
+    .useTypeNavigationMenu,
   RuneTypeGraph: React.forwardRef(
     (
       {

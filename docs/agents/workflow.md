@@ -269,3 +269,5 @@ checks real worker preconditions/execution, stale output invalidation, primitive
 scalar returns, bypass, bulk import and equal bindings, and viewport/axe checks.
 Rebuild codegen before Studio consumes new generated metadata. Preserve user-owned
 servers and worktrees. Local checks do not establish deployed acceptance.
+
+Prototype/Explore navigation changes: include Studio's `test/services/prototype-navigation.test.ts`, `test/services/workflow-navigation.test.ts`, and `test/components/WorkflowNode.test.tsx`. The `type-navigation` journey in `test/e2e/prototype-workbench.spec.ts` checks input/function navigation, pointer and keyboard context menus, Inspector return actions and retained drafts/results. Native text-field menus remain available; declaration identity includes kind, independently of labels.

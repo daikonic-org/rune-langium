@@ -552,7 +552,7 @@ export const CodegenProvider = withInstrumentation(
             } else {
               const namespacesToHydrate = new Set(
                 findUnhydratedNamespacesForUnresolved(
-                  deferredExports,
+                  deferredExportsRef.current,
                   filesRef.current,
                   unresolvedNames,
                   useEditorStore.getState().hydratedNamespaces
@@ -641,7 +641,9 @@ export const CodegenProvider = withInstrumentation(
         // which already shows its own crash toast (Codex P2) — suppress this
         // one so a single crash doesn't produce two destructive toasts.
         // 'messageerror' has no such duplicate handler, so it still toasts.
-        handlePreviewWorkerFailure(baseMessage, event, previewSelectedTargetId, { toast: event.type !== 'error' });
+        handlePreviewWorkerFailure(baseMessage, event, usePreviewStore.getState().selectedTargetId, {
+          toast: event.type !== 'error'
+        });
       }
       codegenWorker.addEventListener('message', handleMessage as EventListener);
       codegenWorker.addEventListener('error', handleWorkerFailure as EventListener);
@@ -672,7 +674,6 @@ export const CodegenProvider = withInstrumentation(
     }, [
       codegenWorker,
       handlePreviewWorkerFailure,
-      previewSelectedTargetId,
       receivePreviewResult,
       receivePreviewStale,
       receiveExecutionResult,

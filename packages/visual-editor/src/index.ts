@@ -22,6 +22,9 @@ export { RuneTypeGraph } from './components/RuneTypeGraph.js';
 export { KindBadge, KIND_LABEL, KIND_LETTER } from './components/KindBadge.js';
 export type { KindBadgeProps } from './components/KindBadge.js';
 
+export { useTypeNavigationMenu } from './components/TypeNavigationMenu.js';
+export type { TypeNavigationAction } from './components/TypeNavigationMenu.js';
+
 // Shared type header (namespace eyebrow + editable/read-only name + KindBadge)
 export { TypeHeader } from './components/TypeHeader.js';
 export type { TypeHeaderProps } from './components/TypeHeader.js';

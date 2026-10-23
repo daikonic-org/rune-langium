@@ -87,7 +87,11 @@ func StringListCopy:
 func NumberList:
  inputs: items number (0..*)
  output: result number (0..*)
- set result: items`;
+ set result: items
+func AliasAmount:
+ inputs: value Amount (1..1)
+ output: result Amount (1..1)
+ set result: value`;
 
 async function openWorkflow(page: Page) {
   await page.goto('./');
@@ -497,5 +501,56 @@ journey(
     await expect(restored.getByLabel('Amount', { exact: true })).toHaveValue('1275');
     await expect(restored.getByLabel('Currency', { exact: true })).toHaveValue('USD');
     await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+  }
+);
+
+journey(
+  'type-navigation',
+  'round-trips from workflow types through Inspector without losing drafts or results',
+  async (page, evidence) => {
+    await openWorkflow(page);
+    await sum(page);
+    await page.getByRole('button', { name: 'Execute', exact: true }).click();
+    await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+    const input = page.locator('.workflow-inputs [data-workflow-node="value"]');
+    await input.getByRole('button', { name: 'View Money in Explore' }).click();
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    const inspectorToggle = page.getByRole('button', { name: 'Inspector', exact: true });
+    if ((await inspectorToggle.getAttribute('aria-pressed')) !== 'true') await inspectorToggle.click();
+    const title = page.locator('[data-pane="inspector"] [data-slot="type-header"]');
+    await expect(title.locator('[data-slot="type-name-input"]')).toHaveValue('Money');
+    await title.locator('[data-slot="type-header-namespace"]').click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'Back to Prototype' })).toBeVisible();
+    await expect(page.getByRole('menu')).toHaveCSS('opacity', '1');
+    await evidence.checkpoint('inspector-return-menu');
+    await page.getByRole('menuitem', { name: 'Back to Prototype' }).click();
+    await expect(
+      page.getByRole('region', { name: 'value fields', exact: true }).getByRole('spinbutton', { name: 'Amount' })
+    ).toHaveValue('1250');
+    await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+    await input.locator('header').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Go to type', exact: true }).click();
+    await title.getByRole('button', { name: 'Back to Prototype', exact: true }).click();
+    const fn = page.locator('.workflow-function .workflow-node');
+    await fn.getByRole('button', { name: 'View AddMoney in Explore' }).focus();
+    await page.keyboard.press('Shift+F10');
+    await page.getByRole('menuitem', { name: 'Go to type', exact: true }).click();
+    await expect(title.locator('[data-slot="type-name-input"]')).toHaveValue('AddMoney');
+    await title.getByRole('button', { name: 'Declaration navigation' }).click();
+    await page.getByRole('menuitem', { name: 'Back to Prototype' }).click();
+    await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
+    await page.getByRole('button', { name: /Choose a function/ }).click();
+    await page.getByRole('option', { name: 'Clear selection', exact: true }).click();
+    await choose(page, 'AliasAmount');
+    await page
+      .locator('.workflow-function')
+      .getByRole('button', { name: 'View Amount in Explore', exact: true })
+      .click();
+    await expect(title.locator('[data-slot="type-name-input"]')).toHaveValue('Amount');
+    await expect(title).toContainText('Type Alias');
+    await title.getByRole('button', { name: 'Back to Prototype', exact: true }).click();
+    const axe = await new AxeBuilder({ page }).include('[aria-label="Prototype workflow"]').analyze();
+    await evidence.accessibility('navigation-axe', axe);
+    expect(axe.violations).toEqual([]);
   }
 );
