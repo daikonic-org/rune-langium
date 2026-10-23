@@ -239,3 +239,41 @@ describe('Conditional GET — If-None-Match → 304', () => {
     expect(res.status).toBe(304);
   });
 });
+
+describe('reference release catalogs', () => {
+  it('serves a short-cached catalog independently of latest manifests', async () => {
+    const catalog = { schemaVersion: 1, releases: [] };
+    await bucket.put('releases/cdm.json', JSON.stringify(catalog));
+    await bucket.put('curated/cdm/manifest.json', 'latest');
+    const response = await get('/releases/cdm');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(catalog);
+    expect(response.headers.get('Cache-Control')).toContain('max-age=300');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://www.daikonic.dev');
+  });
+  it('reports missing release catalogs without substituting latest', async () => {
+    await bucket.put('curated/cdm/manifest.json', 'latest');
+    const response = await get('/releases/cdm');
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: 'release_catalog_unavailable' });
+  });
+});
+
+it('preserves release catalog HEAD and conditional GET behavior', async () => {
+  await bucket.put('releases/cdm.json', JSON.stringify({ schemaVersion: 1, releases: [] }));
+  const response = await get('/releases/cdm');
+  const etag = response.headers.get('ETag')!;
+  const conditional = await get('/releases/cdm', { 'If-None-Match': etag });
+  expect(conditional.status).toBe(304);
+  expect(await conditional.text()).toBe('');
+  const headers = await head('/releases/cdm');
+  expect(headers.status).toBe(200);
+  expect(await headers.text()).toBe('');
+  expect(headers.headers.get('Content-Type')).toContain('application/json');
+});
+it('reports malformed release metadata as unavailable rather than streaming it', async () => {
+  await bucket.put('releases/cdm.json', '{"schemaVersion":999}');
+  const response = await get('/releases/cdm');
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ error: 'release_catalog_invalid' });
+});

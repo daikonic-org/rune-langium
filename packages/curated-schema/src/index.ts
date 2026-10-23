@@ -14,6 +14,9 @@
  */
 
 import { z } from 'zod';
+import { CuratedCohortSchema, CuratedSha256Schema } from './artifact-identity.js';
+export * from './artifact-identity.js';
+export * from './release-catalog.js';
 export { isCuratedSourceFile } from './source-files.js';
 
 /** Locked enumeration of curated model identifiers. */
@@ -41,7 +44,7 @@ export const LangiumJsonArtifactRefSchema = z.object({
   schemaVersion: z.literal(1),
   kind: z.literal('langium-json-serializer'),
   url: z.string().url(),
-  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  sha256: CuratedSha256Schema,
   sizeBytes: z.number().int().nonnegative(),
   documentCount: z.number().int().nonnegative(),
   langiumVersion: z.string().min(1)
@@ -94,8 +97,6 @@ export const CuratedSerializedWorkspaceArtifactSchema = z.object({
 });
 export type CuratedSerializedWorkspaceArtifact = z.infer<typeof CuratedSerializedWorkspaceArtifactSchema>;
 
-export const CuratedCohortSchema = z.string().regex(/^cohort-[a-f0-9]{64}$/);
-
 /**
  * Curated-mirror manifest. Written by the publisher Worker, fetched and
  * validated by Studio. `schemaVersion` is a literal so out-of-range values
@@ -108,7 +109,7 @@ export const CuratedManifestSchema = z.object({
   /** Date stamp `yyyy-mm-dd`, monotonic per modelId. */
   version: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   /** SHA-256 of latest.tar.gz, hex (lower-case). */
-  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  sha256: CuratedSha256Schema,
   sizeBytes: z.number().int().nonnegative(),
   /** ISO-8601 UTC. */
   generatedAt: z.string(),

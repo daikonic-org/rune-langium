@@ -19,6 +19,11 @@ on:
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
+    inputs:
+      cdm_release:
+        description: Optional CDM GitHub release tag; blank builds development/latest artifacts
+        required: false
+        type: string
 
 jobs:
   build-and-upload:
@@ -48,7 +53,14 @@ jobs:
       - name: Build serialized artifacts
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs
+          CDM_RELEASE: ${{ inputs.cdm_release }}
+        run: |
+          set -e
+          if [[ -n "$CDM_RELEASE" ]]; then
+            node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs --release "$CDM_RELEASE"
+          else
+            node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs
+          fi
 
       - name: Upload artifacts to R2
         env:

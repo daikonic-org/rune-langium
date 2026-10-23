@@ -18,7 +18,7 @@ import { corsJsonResponse as json } from '@rune-langium/worker-core/http';
 
 import { isOriginAllowed } from '@rune-langium/worker-core';
 import type { Env } from './index.js';
-import { CURATED_MODEL_IDS } from '@rune-langium/curated-schema';
+import { CURATED_MODEL_IDS, validateReferenceCatalog } from '@rune-langium/curated-schema';
 import { logger, logRead } from './log.js';
 
 const ALLOWED_MODEL_IDS = new Set<string>(CURATED_MODEL_IDS);
@@ -63,7 +63,9 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
   if (method !== 'GET' && method !== 'HEAD') {
     return done(json(405, { error: 'method_not_allowed' }, allowedOrigin));
   }
-  const match = PATH_RE.exec(path);
+  const releaseMatch = /^\/releases\/([^/]+)$/.exec(path);
+  const isReleaseCatalog = Boolean(releaseMatch);
+  const match = releaseMatch ? [releaseMatch[0], releaseMatch[1], 'catalog.json'] : PATH_RE.exec(path);
   if (!match) return done(json(404, { error: 'not_found' }, allowedOrigin));
 
   const [, modelId, rest] = match as unknown as [string, string, string];
@@ -71,7 +73,7 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
     return done(json(404, { error: 'unknown_model_id', modelId }, allowedOrigin));
   }
 
-  const r2Key = `curated/${modelId}/${rest}`;
+  const r2Key = isReleaseCatalog ? `releases/${modelId}.json` : `curated/${modelId}/${rest}`;
   let obj;
   try {
     obj = await env.rune_curated_mirror.get(r2Key);
@@ -80,9 +82,26 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
     return done(json(503, { error: 'mirror_unavailable' }, allowedOrigin));
   }
   if (!obj) {
-    return done(json(404, { error: 'archive_not_found', modelId, key: rest }, allowedOrigin));
+    return done(
+      json(
+        404,
+        { error: isReleaseCatalog ? 'release_catalog_unavailable' : 'archive_not_found', modelId, key: rest },
+        allowedOrigin
+      )
+    );
   }
 
+  let catalogText: string | undefined;
+  if (isReleaseCatalog) {
+    try {
+      catalogText = await obj.text();
+      const catalog = validateReferenceCatalog(JSON.parse(catalogText));
+      if (catalog.releases.some((release) => release.modelId !== modelId))
+        throw new Error('Catalog model identity mismatch');
+    } catch {
+      return done(json(503, { error: 'release_catalog_invalid', modelId }, allowedOrigin));
+    }
+  }
   const isManifest = rest.endsWith('manifest.json');
   const isArchive = rest.endsWith('.tar.gz');
   const isLatestSerializedArtifact = rest.endsWith('latest.serialized.json.gz');
@@ -92,7 +111,7 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
   // `.json.gz` (no `.serialized`), so it needs its own matcher.
   const isNamespaceArtifact = /artifacts\/[^/]+\/ns\/.+\.json\.gz$/.test(rest);
   let cacheControl: string | null = null;
-  if (isManifest) cacheControl = 'public, max-age=300';
+  if (isReleaseCatalog || isManifest) cacheControl = 'public, max-age=300';
   else if (isArchive) cacheControl = 'public, max-age=86400, immutable';
   else if (isLatestSerializedArtifact) cacheControl = 'public, max-age=300';
   else if (isVersionedSerializedArtifact) cacheControl = 'public, max-age=86400, immutable';
@@ -116,14 +135,14 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
   headers.set('Access-Control-Allow-Origin', allowedOrigin);
   headers.set('Vary', 'Origin');
   if (cacheControl) headers.set('Cache-Control', cacheControl);
-  if (isManifest) headers.set('Content-Type', 'application/json; charset=utf-8');
+  if (isReleaseCatalog || isManifest) headers.set('Content-Type', 'application/json; charset=utf-8');
   else if (isArchive) headers.set('Content-Type', 'application/gzip');
   else if (isLatestSerializedArtifact || isVersionedSerializedArtifact || isNamespaceArtifact) {
     headers.set('Content-Type', 'application/gzip');
   }
   headers.set('ETag', obj.httpEtag);
 
-  return done(new Response(method === 'HEAD' ? null : obj.body, { status: 200, headers }), false);
+  return done(new Response(method === 'HEAD' ? null : (catalogText ?? obj.body), { status: 200, headers }), false);
 }
 
 /**

@@ -53,6 +53,15 @@ finishing after project disposal cannot write through the guarded adapter.
 Binary generator output is persisted as bytes. Preview/download retain the exact
 captured ZIP and become stale on semantic input or configuration errors.
 
+Reference release catalogs extend the existing curated artifact contract rather
+than replacing it. GitHub release/tag/commit provenance maps to a checksummed
+immutable cohort manifest; artifact versions never imply release tags. The
+publisher prepares a complete set before writes, verifies serialized bytes,
+records successful immutable uploads and promotes catalogs dependencies-first.
+Development/latest manifests remain separate. The mirror serves `/releases/*`
+with its existing CORS/ETag/error conventions. See
+[curated publication](../curated-publishing.md) for the dry-run and upload order.
+
 ## Studio Runtime
 
 Studio's [product context](../../apps/studio/PRODUCT.md) records established users,
