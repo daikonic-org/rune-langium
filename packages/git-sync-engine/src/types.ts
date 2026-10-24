@@ -34,6 +34,8 @@ export interface SyncStatus {
   ahead: number;
   behind: number;
   lastSyncedSha: string | null;
+  /** Uncommitted working-copy changes; independent of ahead/behind commit counts. */
+  dirty?: boolean;
   lastError?: { code: SyncErrorCode; message: string };
   conflictPaths?: string[];
 }
@@ -68,6 +70,8 @@ export interface GitSyncEngineOptions {
   onAuth: () => { username: string; password: string } | Promise<{ username: string; password: string }>;
   author: { name: string; email: string };
   debounceMs?: number;
+  /** Set false to keep Save local; only syncNow may then commit/push. */
+  autoSync?: boolean;
   conflictPolicy?: ConflictPolicy;
   generateMessage?: (changed: string[]) => string;
   /** Injectable clock/timer for deterministic tests. Defaults to global. */

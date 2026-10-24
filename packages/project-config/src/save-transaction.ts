@@ -10,9 +10,22 @@ import {
 } from './project-files.js';
 import type { ProjectDiagnostic } from './types.js';
 
+const PreconditionsSchema = z.strictObject({
+  inputs: z.array(z.strictObject({ path: z.string(), revision: z.string().nullable() })).optional(),
+  paths: z.array(z.string()).optional()
+});
+
+/** Read-only evidence used to prepare a reviewed Save. Never written by the operation. */
+export interface ProjectSavePreconditions {
+  inputs?: readonly { path: string; revision: string | null }[];
+  /** Exact repository file list at review time, before adding proposed destinations. */
+  paths?: readonly string[];
+}
+
 const JournalSchema = z.strictObject({
   schemaVersion: z.literal(1),
   operationId: z.string().min(1),
+  preconditions: PreconditionsSchema.optional(),
   writes: z.array(
     z.strictObject({
       path: z.string(),
@@ -28,16 +41,58 @@ export interface ProjectSaveResult {
   diagnostics: ProjectDiagnostic[];
 }
 
-function checkedWrites(writes: readonly ProjectWrite[]): ProjectWrite[] {
-  const paths = new Set<string>();
-  return writes.map((write) => {
-    const path = normalizeProjectPath(write.path);
+function checkedPaths(paths: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return paths.map((original) => {
+    const path = normalizeProjectPath(original);
     const key = path?.toLowerCase();
-    if (!path || !key || /^(\.git|\.studio)(\/|$)/i.test(path) || paths.has(key))
-      throw new ProjectFileConflict(write.path);
-    paths.add(key);
-    return { ...write, path };
+    if (!path || !key || /^(\.git|\.studio)(\/|$)/i.test(path) || seen.has(key))
+      throw new ProjectFileConflict(original);
+    seen.add(key);
+    return path;
   });
+}
+
+function checkedWrites(writes: readonly ProjectWrite[]): ProjectWrite[] {
+  const paths = checkedPaths(writes.map((write) => write.path));
+  return writes.map((write, i) => ({ ...write, path: paths[i]! }));
+}
+
+function checkedPreconditions(
+  writes: readonly ProjectWrite[],
+  preconditions: ProjectSavePreconditions | undefined
+): Journal['preconditions'] {
+  if (!preconditions) return undefined;
+  const inputs = preconditions.inputs?.map((input) => ({ ...input }));
+  if (inputs) {
+    const paths = checkedPaths(inputs.map((input) => input.path));
+    const destinations = new Set(writes.map((write) => write.path.toLowerCase()));
+    inputs.forEach((input, i) => {
+      input.path = paths[i]!;
+      if (destinations.has(input.path.toLowerCase())) throw new ProjectFileConflict(input.path);
+    });
+  }
+  return PreconditionsSchema.parse({
+    inputs,
+    paths: preconditions.paths === undefined ? undefined : checkedPaths(preconditions.paths)
+  });
+}
+
+async function verifyInputs(adapter: ProjectFileAdapter, journal: Journal, prepared: boolean): Promise<void> {
+  const conditions = journal.preconditions;
+  if (!conditions) return;
+  if (conditions.paths) {
+    const actual = new Set(await adapter.list());
+    const expected = new Set(conditions.paths);
+    const allowed = new Set(expected);
+    if (prepared) for (const write of journal.writes) allowed.add(write.path);
+    for (const path of actual) if (!allowed.has(path)) throw new ProjectFileConflict(path);
+    for (const path of expected) if (!actual.has(path)) throw new ProjectFileConflict(path);
+  }
+  for (const input of conditions.inputs ?? []) {
+    const file = await adapter.read(input.path);
+    if ((file?.revision ?? null) !== input.revision) throw new ProjectFileConflict(input.path);
+  }
 }
 
 function failed(error: unknown): ProjectSaveResult {
@@ -67,6 +122,7 @@ async function verify(adapter: ProjectFileAdapter, writes: Journal['writes']): P
 
 /** Complete a prepared operation, retaining its journal on partial writes. */
 async function commit(adapter: ProjectFileAdapter, journal: Journal, revision: string): Promise<void> {
+  await verifyInputs(adapter, journal, true);
   // Check the entire operation before resuming; do not partially replay over
   // a third-party change discovered in a later file.
   for (const write of journal.writes) {
@@ -79,6 +135,7 @@ async function commit(adapter: ProjectFileAdapter, journal: Journal, revision: s
     }
   }
   for (const write of journal.writes) {
+    await verifyInputs(adapter, journal, true);
     if (write.appliedRevision) continue;
     const file = await adapter.read(write.path);
     // A crash can occur after a data write but before the journal update.
@@ -88,20 +145,29 @@ async function commit(adapter: ProjectFileAdapter, journal: Journal, revision: s
     revision = await adapter.write(JOURNAL_PATH, JSON.stringify(journal), revision);
   }
   await verify(adapter, journal.writes);
+  await verifyInputs(adapter, journal, true);
   await adapter.remove(JOURNAL_PATH, revision);
   await verify(adapter, journal.writes);
+  await verifyInputs(adapter, journal, true);
 }
 
 /** Success means all bytes were read back; it does not claim filesystem atomicity. */
 export async function saveProject(
   adapter: ProjectFileAdapter,
   writes: readonly ProjectWrite[],
-  operationId: string
+  operationId: string,
+  preconditions?: ProjectSavePreconditions
 ): Promise<ProjectSaveResult> {
   try {
     const normalized = checkedWrites(writes);
-    const journal = JournalSchema.parse({ schemaVersion: 1, operationId, writes: normalized });
+    const journal = JournalSchema.parse({
+      schemaVersion: 1,
+      operationId,
+      writes: normalized,
+      preconditions: checkedPreconditions(normalized, preconditions)
+    });
     if (await adapter.read(JOURNAL_PATH)) throw new ProjectFileConflict(JOURNAL_PATH);
+    await verifyInputs(adapter, journal, false);
     // Validate every expected revision before publishing the durable prepare.
     for (const write of normalized) {
       const file = await adapter.read(write.path);
@@ -122,7 +188,8 @@ export async function recoverProjectSave(adapter: ProjectFileAdapter): Promise<P
     const file = await adapter.read(JOURNAL_PATH);
     if (!file) return [];
     const journal = JournalSchema.parse(JSON.parse(file.text));
-    checkedWrites(journal.writes);
+    journal.writes = checkedWrites(journal.writes);
+    journal.preconditions = checkedPreconditions(journal.writes, journal.preconditions);
     await commit(adapter, journal, file.revision);
     return [];
   } catch (error) {

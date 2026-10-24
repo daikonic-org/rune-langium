@@ -368,3 +368,16 @@ describe('deleteWorkspaceFiles — serializes with the save queue (#416 follow-u
     expect(content).toBe('namespace a\ntype X:');
   });
 });
+
+it('does not mark a clean cloned working copy dirty when activation saves identical editor bytes', async () => {
+  const { notifySyncOnSave } = await import('../../src/services/git-sync.js');
+  vi.mocked(notifySyncOnSave).mockClear();
+  const id = 'clean-clone';
+  await writeBytes(opfsRoot, new TextEncoder().encode('namespace a'), id, 'files', 'a.rosetta');
+  setWorkspaceFilesDeps({ getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle });
+  const loaded = await loadWorkspaceFiles(id);
+  await saveWorkspaceFiles(id, loaded);
+  expect(notifySyncOnSave).not.toHaveBeenCalled();
+  await saveWorkspaceFiles(id, [makeFile('a.rosetta', 'namespace a\ntype X:')]);
+  expect(notifySyncOnSave).toHaveBeenCalledOnce();
+});

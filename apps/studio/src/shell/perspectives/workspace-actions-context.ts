@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { createContext, useContext } from 'react';
+import type { GitHubInitializationSession } from '../../workspace/project-initialization.js';
 import type { WorkspaceFile } from '../../services/workspace.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import type { ProjectFileAdapter } from '@rune-langium/project-config';
@@ -14,6 +15,8 @@ import type { ProjectFileAdapter } from '@rune-langium/project-config';
 export interface WorkspaceActions {
   /** Working-copy IO bound to an explicit workspace, with live ownership checks. */
   getProjectFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
+  /** Optional native configuration review, bound to an already cloned working copy. */
+  openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
   /** Current workspace files — forwarded to FileLoader as `existingFiles`. */
   files: WorkspaceFile[];
   /** Finish editor publication and persist the active working-copy files. */
@@ -33,7 +36,7 @@ export interface WorkspaceActions {
     token: string;
   }) => Promise<{ id: string }>;
   /** Notified when the GitHub workspace creation flow completes. */
-  onGitHubWorkspaceCreated: (workspaceId: string) => void;
+  onGitHubWorkspaceCreated: (workspaceId: string) => void | Promise<void>;
   /** Open an existing workspace by id (WorkspaceSwitcher onOpen). */
   onOpenWorkspace: (workspaceId: string) => void;
   /** Create a new blank workspace (WorkspaceSwitcher onCreate). */

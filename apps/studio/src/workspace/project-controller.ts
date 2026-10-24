@@ -12,6 +12,7 @@ import {
   type ProjectDiagnostic,
   type ProjectFileAdapter,
   type ProjectSnapshot,
+  type ProjectSavePreconditions,
   type ProjectWrite,
   type TargetValidator
 } from '@rune-langium/project-config';
@@ -27,7 +28,7 @@ export interface ProjectController {
   load(): Promise<ProjectSnapshot>;
   current(): ProjectSnapshot | undefined;
   diagnostics(): readonly ProjectDiagnostic[];
-  save(writes: readonly ProjectWrite[]): Promise<ProjectSnapshot>;
+  save(writes: readonly ProjectWrite[], preconditions?: ProjectSavePreconditions): Promise<ProjectSnapshot>;
   recover(): Promise<ProjectSnapshot>;
   build(
     snapshot: ProjectSnapshot,
@@ -43,6 +44,7 @@ export const createProjectController = withInstrumentation(
     workspaceId: string;
     adapter: ProjectFileAdapter;
     validateTarget: TargetValidator;
+    onSaved?: () => void;
   }): ProjectController {
     let snapshot: ProjectSnapshot | undefined;
     let diagnostics: readonly ProjectDiagnostic[] = [];
@@ -107,17 +109,22 @@ export const createProjectController = withInstrumentation(
           return report(error, epoch);
         }
       },
-      save(writes) {
+      save(writes, preconditions) {
+        let changed = false;
         return mutate(async (epoch) => {
           const current = await readProjectFiles(input.adapter);
           active(epoch);
+          changed = writes.some((write) => current.files.get(write.path) !== write.text);
           const proposed = new Map(current.files);
           for (const write of writes) proposed.set(normalizeProjectPath(write.path) ?? write.path, write.text);
           await createProjectSnapshot(input.workspaceId, proposed, input.validateTarget);
           active(epoch);
           await current.verify();
-          const result = await saveProject(input.adapter, writes, crypto.randomUUID());
+          const result = await saveProject(input.adapter, writes, crypto.randomUUID(), preconditions);
           if (result.status !== 'saved') throw new ProjectSnapshotError(result.diagnostics);
+        }).then((next) => {
+          if (changed) input.onSaved?.();
+          return next;
         });
       },
       async build(captured, request, generate) {

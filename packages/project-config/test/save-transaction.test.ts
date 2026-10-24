@@ -159,3 +159,93 @@ describe('journal validation', () => {
     expect(adapter.files.size).toBe(1);
   });
 });
+
+describe('reviewed Save input preconditions', () => {
+  const preview = () => {
+    const adapter = new MemoryFiles();
+    adapter.seed('pom.xml', '<project/>');
+    const conditions = {
+      inputs: [{ path: 'pom.xml', revision: adapter.files.get('pom.xml')!.revision }],
+      paths: ['pom.xml']
+    };
+    const writes = [
+      { path: 'build-config.yml', text: 'schemaVersion: 1', expectedRevision: null },
+      { path: 'build-config.import.json', text: '{}', expectedRevision: null }
+    ];
+    return { adapter, conditions, writes };
+  };
+  it('rejects a stale inspected POM without writing settings or a journal', async () => {
+    const { adapter, conditions, writes } = preview();
+    adapter.seed('pom.xml', '<project>newer</project>');
+    expect((await saveProject(adapter, writes, 'stale-preview', conditions)).status).toBe('conflict');
+    expect([...adapter.files.keys()]).toEqual(['pom.xml']);
+    expect((await adapter.read('pom.xml'))?.text).toContain('newer');
+  });
+  it('rejects a changed repository file list before preparing the operation', async () => {
+    const { adapter, conditions, writes } = preview();
+    adapter.seed('build-config.yaml', 'schemaVersion: 1');
+    expect((await saveProject(adapter, writes, 'new-companion', conditions)).status).toBe('conflict');
+    expect(await adapter.read('build-config.yml')).toBeUndefined();
+  });
+  it('saves proposed files without ever writing the inspected inputs', async () => {
+    const { adapter, conditions, writes } = preview();
+    const original = await adapter.read('pom.xml');
+    const write = adapter.write.bind(adapter);
+    adapter.write = async (path, text, revision) => {
+      expect(path).not.toBe('pom.xml');
+      return write(path, text, revision);
+    };
+    expect((await saveProject(adapter, writes, 'reviewed', conditions)).status).toBe('saved');
+    expect(await adapter.read('pom.xml')).toEqual(original);
+  });
+  it('retains read-only input conditions across interrupted Save and recovery', async () => {
+    const { adapter, conditions, writes } = preview();
+    adapter.failOn = 'build-config.import.json';
+    expect((await saveProject(adapter, writes, 'partial-preview', conditions)).status).toBe('recoverable');
+    adapter.failOn = undefined;
+    adapter.seed('pom.xml', 'external edit');
+    expect(await recoverProjectSave(adapter)).toEqual([
+      expect.objectContaining({ code: 'SAVE_CONFLICT', path: 'pom.xml' })
+    ]);
+    expect(await adapter.read('build-config.import.json')).toBeUndefined();
+    expect((await adapter.read('pom.xml'))?.text).toBe('external edit');
+    expect(await adapter.read('.studio/project-save/journal.json')).toBeDefined();
+  });
+  it('recovers the reviewed operation when its source is still current', async () => {
+    const { adapter, conditions, writes } = preview();
+    adapter.failOn = 'build-config.import.json';
+    await saveProject(adapter, writes, 'recover-preview', conditions);
+    adapter.failOn = undefined;
+    expect(await recoverProjectSave(adapter)).toEqual([]);
+    expect((await adapter.read('build-config.import.json'))?.text).toBe('{}');
+  });
+  it('detects input changes during write readback', async () => {
+    const { adapter, conditions, writes } = preview();
+    const remove = adapter.remove.bind(adapter);
+    adapter.remove = async (path, revision) => {
+      await remove(path, revision);
+      adapter.seed('pom.xml', 'concurrent change');
+    };
+    expect((await saveProject(adapter, writes, 'readback-input', conditions)).status).toBe('conflict');
+  });
+  it.each(['../pom.xml', '.git/config', '.studio/token'])('rejects unsafe input condition %s', async (path) => {
+    const { adapter, writes } = preview();
+    expect((await saveProject(adapter, writes, 'unsafe-input', { inputs: [{ path, revision: null }] })).status).toBe(
+      'conflict'
+    );
+    expect(await adapter.read('build-config.yml')).toBeUndefined();
+  });
+  it('rejects read/write overlap and case-aliased conditions', async () => {
+    for (const inputs of [
+      [{ path: 'build-config.yml', revision: null }],
+      [
+        { path: 'pom.xml', revision: '1' },
+        { path: 'POM.xml', revision: '1' }
+      ]
+    ]) {
+      const { adapter, writes } = preview();
+      expect((await saveProject(adapter, writes, 'alias-input', { inputs })).status).toBe('conflict');
+      expect(await adapter.read('build-config.yml')).toBeUndefined();
+    }
+  });
+});

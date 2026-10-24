@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Copyright (c) 2026 Pradeep Mouli -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GitHub initialization browser fixture</title></head>
+<body><main id="root"></main><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '../../src/app.css';
+import { FileLoader } from '../../src/components/FileLoader';
+import { createProjectController } from '../../src/workspace/project-controller';
+import { createGitHubInitializationSession } from '../../src/workspace/project-initialization';
+import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter';
+import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
+const h = React.createElement;
+const pom = '<project><modelVersion>4.0.0</modelVersion><groupId>example</groupId><artifactId>rates</artifactId><version>1</version><build><plugins><plugin><groupId>org.finos.rune</groupId><artifactId>rune-maven-plugin</artifactId><version>10.10.0</version><executions><execution><id>generate</id><goals><goal>generate</goal></goals></execution></executions></plugin></plugins></build></project>';
+let adapter;
+async function clone(input) {
+  const root = await navigator.storage.getDirectory();
+  const workspace = await root.getDirectoryHandle('fixture-clone', { create: true });
+  const files = await workspace.getDirectoryHandle('files', { create: true });
+  const privateRoot = await workspace.getDirectoryHandle('.studio', { create: true });
+  const git = await workspace.getDirectoryHandle('.git', { create: true });
+  for (const [name, text] of Object.entries({ HEAD: 'ref: refs/heads/' + input.branch + '\n', config: input.repoUrl })) {
+    const stream = await (await git.getFileHandle(name, { create: true })).createWritable();
+    await stream.write(text); await stream.close();
+  }
+  adapter = createProjectFileAdapter({ workspaceId: 'fixture-clone', root: files, privateRoot, isWritable: () => true });
+  await adapter.write('pom.xml', pom, null);
+  return { id: 'fixture-clone' };
+}
+function Fixture() {
+  const [opened, setOpened] = React.useState('');
+  return h('div', { className: 'h-full overflow-auto bg-background p-4 text-foreground' },
+    h(FileLoader, { onFilesLoaded() {}, createGitBackedWorkspace: clone, openProjectInitialization: async (id) => createGitHubInitializationSession(createProjectController({ workspaceId: id, adapter, validateTarget: validateProjectTarget })), onGitHubWorkspaceCreated: setOpened }),
+    h('p', { role: 'status' }, opened ? 'Opened ' + opened : ''));
+}
+createRoot(document.getElementById('root')).render(h(Fixture));
+</script></body></html>

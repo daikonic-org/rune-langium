@@ -15,6 +15,7 @@ export const WorkspacesPerspective = withInstrumentation(
       onFilesLoaded,
       createGitBackedWorkspace,
       onGitHubWorkspaceCreated,
+      openProjectInitialization,
       onOpenWorkspace,
       onCreateWorkspace,
       onDeleteWorkspace
@@ -28,6 +29,7 @@ export const WorkspacesPerspective = withInstrumentation(
             existingFiles={files}
             createGitBackedWorkspace={createGitBackedWorkspace}
             onGitHubWorkspaceCreated={onGitHubWorkspaceCreated}
+            openProjectInitialization={openProjectInitialization}
           />
           <div className="w-full max-w-[560px] mt-8">
             <WorkspaceSwitcher onOpen={onOpenWorkspace} onCreate={onCreateWorkspace} onDelete={onDeleteWorkspace} />

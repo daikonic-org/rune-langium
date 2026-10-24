@@ -76,3 +76,10 @@ The runtime mapMavenReferences adapter consumes explicit release-catalog
 mavenArtifacts coordinates; Maven versions never become guessed Git tags.
 Old catalogs without those mappings remain unresolved. Inspection may be partial
 while the project remains editable; unavailable targets retain scoped diagnostics.
+
+
+Reviewed initialization can pass read-only input revisions and an exact repository
+file list to saveProject. These preconditions are persisted in the recovery
+journal and verified before preparation, resumption and final readback. Inputs
+are never written; changed POMs or newly added companions require a fresh review.
+The normal build snapshot still ignores later POM edits after initialization.

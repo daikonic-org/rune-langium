@@ -1150,20 +1150,16 @@ function AppContent() {
     async (workspaceId: string) => {
       try {
         const loadedFiles = await loadWorkspaceFiles(workspaceId);
-        if (loadedFiles.length > 0) {
-          const wsFiles: WorkspaceFile[] = loadedFiles.map((f) => ({
-            name: f.path.split('/').pop() ?? f.path,
-            path: f.path,
-            content: f.content,
-            dirty: false,
-            readOnly: false
-          }));
-          // Load INTO the freshly created git-backed workspace — pass it
-          // explicitly so the launcher's "always create new" default does not
-          // spawn a duplicate non-git workspace, and `restoredWorkspace` points
-          // at the git workspace (activating its sync engine).
-          handleFilesLoaded(wsFiles, workspaceId);
-        }
+        const wsFiles: WorkspaceFile[] = loadedFiles.map((f) => ({
+          name: f.path.split('/').pop() ?? f.path,
+          path: f.path,
+          content: f.content,
+          dirty: false,
+          readOnly: false
+        }));
+        // A POM-only or empty repository is still a real Git-backed workspace.
+        // Preserve its identity even when there are no Rune editor files yet.
+        await handleFilesLoaded(wsFiles, workspaceId);
       } catch (err) {
         reportWorkspaceError('Failed to load cloned workspace', err);
       }

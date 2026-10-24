@@ -18,6 +18,7 @@ import { _resetForTests, listRecents, loadWorkspace, saveWorkspace } from '../..
 import * as persistence from '../../src/workspace/persistence.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import * as workspaceFiles from '../../src/workspace/workspace-files.js';
+import { OpfsFs } from '../../src/opfs/opfs-fs.js';
 import { createOpfsRoot } from '../setup/opfs-mock.js';
 import { deferredCuratedWorker } from '../setup/deferred-curated-worker.js';
 import { curatedArtifactCache } from '../../src/services/curated-artifact-cache.js';
@@ -107,10 +108,13 @@ vi.mock('../../src/shell/ExplorePerspective.js', async () => {
   return {
     ExplorePerspective: () => {
       const { files, deferredExports } = useWorkspace();
-      const { onCreateWorkspace, onClose, onFilesChange } = useWorkspaceActions();
+      const { onCreateWorkspace, onClose, onFilesChange, onGitHubWorkspaceCreated } = useWorkspaceActions();
+      const { workspaceId } = useWorkspace();
       return (
         <div>
           <InspectorFlushProbe />
+          <span data-testid="workspace-id">{workspaceId}</span>
+          <button onClick={() => void onGitHubWorkspaceCreated('empty-clone')}>Open POM-only clone</button>
           <span data-testid="files">{files.map((file) => file.path).join(',')}</span>
           <span data-testid="trade-content">{files.find((file) => file.path === 'trade.rosetta')?.content}</span>
           <span data-testid="deferred">{deferredExports.map((entry) => entry.namespace).join(',')}</span>
@@ -658,4 +662,36 @@ describe('workspace isolation', () => {
     expect(screen.getByTestId('files')).not.toHaveTextContent('[cdm]');
     expect(useModelStore.getState().models.size).toBe(0);
   });
+});
+
+it('activates a POM-only GitHub clone without duplicating it or carrying prior editor files', async () => {
+  const source = (await loadWorkspace('ws-a'))!;
+  const gitBacking = {
+    repoUrl: 'https://github.com/example/native.git',
+    branch: 'release',
+    user: 'example',
+    tokenPath: '/empty-clone/.studio/token',
+    syncState: 'clean' as const,
+    lastSyncedSha: null
+  };
+  await saveWorkspace({
+    ...source,
+    id: 'empty-clone',
+    name: 'Native project',
+    kind: 'git-backed',
+    lastOpenedAt: '2020-01-01T00:00:00Z',
+    gitBacking
+  });
+  const fs = new OpfsFs(await navigator.storage.getDirectory());
+  await fs.writeFile('/empty-clone/files/pom.xml', '<project/>');
+  render(<App />);
+  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open POM-only clone' }));
+  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('empty-clone'));
+  expect(screen.getByTestId('files')).not.toHaveTextContent('trade.rosetta');
+  expect(await loadWorkspaceFiles('empty-clone')).toEqual([]);
+  expect(await listRecents()).toHaveLength(2);
+  expect((await loadWorkspace('empty-clone'))?.kind).toBe('git-backed');
+  expect((await loadWorkspace('empty-clone'))?.gitBacking).toEqual(gitBacking);
+  expect(await fs.readFile('/empty-clone/files/pom.xml', 'utf8')).toBe('<project/>');
 });

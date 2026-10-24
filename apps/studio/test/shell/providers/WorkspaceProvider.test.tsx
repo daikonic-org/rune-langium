@@ -330,3 +330,50 @@ it('keeps a captured graph identity while read-only source and presentation meta
   await waitFor(() => expect(screen.getByTestId('runtime').textContent).toContain('captured:identity'));
   expect(captured).toBe(original);
 });
+
+it('skips Maven initialization for an existing native config without replacing the active project', async () => {
+  const makeAdapter = (id: string) =>
+    createProjectFileAdapter({
+      workspaceId: id,
+      root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      isWritable: () => true
+    });
+  const active = makeAdapter('active');
+  const cloned = makeAdapter('cloned');
+  await cloned.write('build-config.yaml', 'targets: [invalid', null);
+  await cloned.write('pom.xml', '<not XML', null);
+  function InitProbe() {
+    const { openProjectInitialization } = useWorkspaceActions();
+    const [result, setResult] = useState('');
+    return (
+      <>
+        <button
+          onClick={() => {
+            void openProjectInitialization!('cloned').then(
+              (session) => setResult(session ? 'review' : 'skip'),
+              () => setResult('error')
+            );
+          }}
+        >
+          Inspect clone
+        </button>
+        <span data-testid="initialization">{result}</span>
+        <ProjectProbe />
+      </>
+    );
+  }
+  render(
+    <WorkspaceProvider
+      state={stateFor('active')}
+      actions={{ ...noopActions, getProjectFileAdapter: async (id) => (id === 'cloned' ? cloned : active) }}
+    >
+      <InitProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('project')).toHaveTextContent('active'));
+  act(() => screen.getByRole('button', { name: 'Inspect clone' }).click());
+  await waitFor(() => expect(screen.getByTestId('initialization')).toHaveTextContent('skip'));
+  expect(screen.getByTestId('project')).toHaveTextContent('active');
+  expect((await cloned.read('build-config.yaml'))?.text).toBe('targets: [invalid');
+});

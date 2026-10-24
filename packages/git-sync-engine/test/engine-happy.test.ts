@@ -56,3 +56,43 @@ describe('GitSyncEngine happy path', () => {
     expect(phases[phases.length - 1]).toBe('idle');
   });
 });
+
+it('keeps reviewed working-copy changes local until explicit sync in manual mode', async () => {
+  const ops = happyOps();
+  const schedule = vi.fn();
+  const engine = createGitSyncEngine({
+    ...baseOpts,
+    __opsForTest: ops,
+    autoSync: false,
+    setTimeoutFn: schedule
+  } as never);
+  engine.notifyDirty();
+  expect(schedule).not.toHaveBeenCalled();
+  expect(ops.stageAll).not.toHaveBeenCalled();
+  expect(ops.commit).not.toHaveBeenCalled();
+  expect(ops.push).not.toHaveBeenCalled();
+  expect(engine.getState()).toMatchObject({ dirty: true, phase: 'idle' });
+  await engine.syncNow();
+  expect(ops.commit).toHaveBeenCalledOnce();
+  expect(ops.push).toHaveBeenCalledOnce();
+  expect(engine.getState().dirty).toBe(false);
+});
+
+it('does not lose new working-copy changes that arrive during a manual sync', async () => {
+  const ops = happyOps();
+  let finish!: () => void;
+  ops.push = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      })
+  );
+  const engine = createGitSyncEngine({ ...baseOpts, __opsForTest: ops, autoSync: false } as never);
+  const pending = engine.syncNow();
+  while (!finish) await Promise.resolve();
+  engine.notifyDirty();
+  finish();
+  await pending;
+  expect(engine.getState().dirty).toBe(true);
+  expect(ops.commit).toHaveBeenCalledOnce();
+});

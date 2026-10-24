@@ -11,6 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import type { GitHubInitializationSession } from '../../src/workspace/project-initialization.js';
 import { GitHubWorkspaceFlow } from '../../src/components/GitHubWorkspaceFlow.js';
 
 const AUTH_BASE = 'https://www.daikonic.dev/rune-studio/api/github-auth';
@@ -174,5 +175,64 @@ describe('GitHubWorkspaceFlow (T032e / FR-012)', () => {
     // Friendly copy: a "404" surfaces as a user-facing "Repository not found"
     // headline; the raw text is no longer leaked into the banner.
     expect(screen.getByTestId('github-clone-error')).toHaveTextContent(/repository not found/i);
+  });
+  async function cloneForReview(
+    openProjectInitialization: (id: string) => Promise<GitHubInitializationSession | undefined>,
+    onCreated = vi.fn()
+  ) {
+    const createWorkspace = vi.fn().mockResolvedValue({ id: 'preserved-clone' });
+    render(
+      <GitHubWorkspaceFlow
+        authBase={AUTH_BASE}
+        onCreated={onCreated}
+        onCancel={vi.fn()}
+        createWorkspace={createWorkspace}
+        openProjectInitialization={openProjectInitialization}
+      />
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /check now/i }));
+    await screen.findByTestId('github-repo-form');
+    fireEvent.change(screen.getByTestId('repo-url-input'), { target: { value: 'example/project' } });
+    fireEvent.change(screen.getByTestId('repo-branch-input'), { target: { value: 'release' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Clone$/ }));
+    return { createWorkspace, onCreated };
+  }
+  it('reviews settings after clone without activating or changing remote identity', async () => {
+    const save = vi.fn();
+    const dispose = vi.fn();
+    const open = vi.fn().mockResolvedValue({
+      snapshot: {},
+      prepare: vi
+        .fn()
+        .mockResolvedValue({ provenance: { profiles: [] }, report: [], writes: [{ path: 'build-config.yml' }] }),
+      save,
+      dispose
+    });
+    const { createWorkspace, onCreated } = await cloneForReview(open);
+    await screen.findByRole('button', { name: 'Initialize project settings' });
+    expect(open).toHaveBeenCalledWith('preserved-clone');
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(createWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ repoUrl: 'https://github.com/example/project.git', branch: 'release' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Keep browsing' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('preserved-clone'));
+    expect(save).not.toHaveBeenCalled();
+    expect(dispose).toHaveBeenCalled();
+  });
+  it('retains the successfully cloned repository when initialization fails', async () => {
+    const { createWorkspace, onCreated } = await cloneForReview(
+      vi.fn().mockRejectedValue(new Error('Ambiguous build config'))
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ambiguous build config');
+    expect(screen.queryByTestId('github-clone-error')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep browsing' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('preserved-clone'));
+    expect(createWorkspace).toHaveBeenCalledOnce();
+  });
+  it('activates plain or configured clones without a review step', async () => {
+    const { onCreated } = await cloneForReview(vi.fn().mockResolvedValue(undefined));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('preserved-clone'));
+    expect(screen.queryByRole('button', { name: 'Initialize project settings' })).not.toBeInTheDocument();
   });
 });

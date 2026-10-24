@@ -835,3 +835,21 @@ mappings; it never interprets Maven versions as tags or loads Java code. The
 optional build.importReport references portable compatibility evidence, included
 in snapshot identity/output protection. Existing build configuration suppresses
 POM initialization; subsequent POM edits do not change native builds.
+
+
+GitHub-open performs optional native project initialization only after a successful
+clone. WorkspaceProvider binds an inactive clone's ordinary ProjectController to
+the same owned file adapter used for active projects. Existing build-config.yml
+or .yaml skips Maven detection; ambiguous spellings are diagnosed. The inline
+review inspects local POM metadata, allows explicit profiles, and saves only its
+reviewed settings/report through the shared transaction. Read-only input
+revisions and a repository file-list precondition survive journal recovery.
+Cancel/Keep browsing and initialization failure preserve the cloned repository,
+POM bytes, remote and branch. Re-review reloads current files after a conflict.
+
+Studio opts out of the Git engine's automatic synchronization: working-copy Save
+only marks actual changed files dirty. Git / Sync's explicit Commit and push
+flushes the existing editor Save barriers before invoking the existing engine.
+Uncommitted changes are distinct from ahead/behind commit counts; no token or
+private journal is included in repository-managed files. The generic engine's
+automatic mode remains available to other hosts.

@@ -20,6 +20,7 @@ import {
   DialogTitle
 } from '@rune-langium/design-system/ui/dialog';
 import { cn } from '@rune-langium/design-system/utils';
+import type { GitHubInitializationSession } from '../workspace/project-initialization.js';
 import { GitHubWorkspaceFlow } from './GitHubWorkspaceFlow.js';
 import { config } from '../config.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
@@ -56,7 +57,8 @@ export interface FileLoaderProps {
    * Notified when the GitHub flow successfully creates a workspace.
    * App.tsx swaps to that workspace via WorkspaceManager.open(id).
    */
-  onGitHubWorkspaceCreated?: (workspaceId: string) => void;
+  onGitHubWorkspaceCreated?: (workspaceId: string) => void | Promise<void>;
+  openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
 }
 
 function defaultGithubAuthBase(): string {
@@ -70,7 +72,8 @@ export const FileLoader = withInstrumentation(
     existingFiles = EMPTY_FILES,
     githubAuthBase,
     createGitBackedWorkspace,
-    onGitHubWorkspaceCreated
+    onGitHubWorkspaceCreated,
+    openProjectInitialization
   }: FileLoaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [loadProgress, setLoadProgress] = useState<WorkspaceLoadProgress | null>(null);
@@ -206,19 +209,20 @@ export const FileLoader = withInstrumentation(
             // hasn't threaded the prop in yet → the CTA stays hidden and
             // the legacy "auth-only" stub no longer ships in production.
             <Dialog open={isGitHubOpen} onOpenChange={setIsGitHubOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto studio-scroll">
                 <DialogHeader>
                   <DialogTitle>Open from GitHub</DialogTitle>
-                  <DialogDescription>
+                  <DialogDescription className="text-foreground/75">
                     Sign in with GitHub and clone a repository into a new workspace.
                   </DialogDescription>
                 </DialogHeader>
                 <GitHubWorkspaceFlow
                   authBase={authBase}
                   createWorkspace={createGitBackedWorkspace}
-                  onCreated={(id) => {
+                  openProjectInitialization={openProjectInitialization}
+                  onCreated={async (id) => {
+                    await onGitHubWorkspaceCreated?.(id);
                     setIsGitHubOpen(false);
-                    onGitHubWorkspaceCreated?.(id);
                   }}
                   onCancel={() => setIsGitHubOpen(false)}
                 />

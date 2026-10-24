@@ -160,7 +160,9 @@ async function saveWorkspaceFilesNow(workspaceId: string, files: readonly Worksp
   await workspaceDir.getDirectoryHandle('.studio', { create: true });
 
   const fs = new OpfsFs(root);
-  const nextPaths = new Set(toStoredWorkspaceFiles(files).map((file) => file.path));
+  const storedFiles = toStoredWorkspaceFiles(files);
+  const nextPaths = new Set(storedFiles.map((file) => file.path));
+  let changed = false;
 
   // Only remove paths this editor loaded or previously saved. Configuration,
   // examples, and files introduced by another writer must survive autosave.
@@ -169,17 +171,25 @@ async function saveWorkspaceFilesNow(workspaceId: string, files: readonly Worksp
     if (!nextPaths.has(previousPath)) {
       try {
         await fs.unlink(`/${workspaceId}/files/${previousPath}`);
+        changed = true;
       } catch (error) {
         if (!isNotFoundError(error)) throw error;
       }
     }
   }
 
-  for (const file of toStoredWorkspaceFiles(files)) {
-    await fs.writeFile(`/${workspaceId}/files/${file.path}`, file.content);
+  for (const file of storedFiles) {
+    const path = `/${workspaceId}/files/${file.path}`;
+    try {
+      if ((await fs.readFile(path, 'utf8')) === file.content) continue;
+    } catch (error) {
+      if (!isNotFoundError(error)) throw error;
+    }
+    await fs.writeFile(path, file.content);
+    changed = true;
   }
   lastKnownTrackedPaths.set(workspaceId, nextPaths);
-  notifySyncOnSave(workspaceId);
+  if (changed) notifySyncOnSave(workspaceId);
 }
 
 export const loadWorkspaceFiles = withInstrumentation(
