@@ -622,6 +622,10 @@ Worker `codegen:setFiles` messages only install source files and invalidate the
 codegen version. Only `codegen:generate` runs export generation. Selected preview
 readiness therefore publishes its snapshot without starting a discarded
 whole-workspace export before the selected-closure request.
+Explore execution replies must match both the function name and the request ID
+of its latest dispatch before consuming a span or publishing output/activity.
+Workspace resets discard spans while preserving the provider-owned worker;
+late success/error replies cannot settle a newer same-name run.
 
 The Langium connection adapter routes typed, generic and logging notifications
 through one send boundary. It checks listening state and handles the pinned

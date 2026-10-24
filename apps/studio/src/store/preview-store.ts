@@ -83,8 +83,8 @@ interface PreviewStoreActions {
   setSampleValues(targetId: string, values: Record<string, unknown>): void;
   clearSample(targetId: string): void;
   resetPreviewState(): void;
-  receiveExecutionResult(funcName: string, output: unknown): void;
-  receiveExecutionError(funcName: string, error: string): void;
+  receiveExecutionResult(funcName: string, output: unknown, requestId: string): void;
+  receiveExecutionError(funcName: string, error: string, requestId: string): void;
   clearExecutionResult(funcName: string): void;
   setWorkerRef(worker: Worker | null): void;
   dispatchExecute(funcName: string, inputs: Record<string, unknown>): void;
@@ -108,9 +108,16 @@ const initialState: PreviewStoreState = {
 
 let navigationRevision = 0;
 let dispatchExecuteCounter = 0;
-let _lastExecuteRequestId = '';
 let workerRef: Worker | null = null;
-const executeSpans = new Map<string, { opId: number; startedAt: number }>();
+const executeSpans = new Map<string, { requestId: string; opId: number; startedAt: number }>();
+
+/** Only the latest dispatch for this function can settle its span and publish output. */
+function takeExecutionSpan(funcName: string, requestId: string) {
+  const span = executeSpans.get(funcName);
+  if (!span || span.requestId !== requestId) return;
+  executeSpans.delete(funcName);
+  return span;
+}
 let dispatchValidateCounter = 0;
 const pendingValidateRequests = new Map<string, string>(); // requestId -> targetId
 // Tracks the LATEST outstanding validate requestId per targetId so an
@@ -553,16 +560,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set({ samples });
   },
 
-  receiveExecutionResult(funcName, output) {
-    // A missing span means either this funcName was never dispatched, or its
-    // in-flight span was discarded by resetPreviewState() (e.g. unloading
-    // the model mid-execution) before this result arrived — in both cases
-    // the result belongs to an execution the app no longer tracks, so it
-    // must not be written back into the (possibly just-reset) store nor
-    // surfaced as a functionExecute op-log/activity entry.
-    const span = executeSpans.get(funcName);
+  receiveExecutionResult(funcName, output, requestId) {
+    // A late reply must not consume a newer same-name execution, including after a workspace reset.
+    const span = takeExecutionSpan(funcName, requestId);
     if (!span) return;
-    executeSpans.delete(funcName);
     const executionResults = new Map(get().executionResults);
     executionResults.set(funcName, { output });
     set({ executionResults });
@@ -580,12 +581,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     });
   },
 
-  receiveExecutionError(funcName, error) {
-    // See receiveExecutionResult's comment: a missing span means this result
-    // belongs to a discarded/untracked execution and must be dropped.
-    const span = executeSpans.get(funcName);
+  receiveExecutionError(funcName, error, requestId) {
+    const span = takeExecutionSpan(funcName, requestId);
     if (!span) return;
-    executeSpans.delete(funcName);
     const executionResults = new Map(get().executionResults);
     executionResults.set(funcName, { output: undefined, error });
     set({ executionResults });
@@ -618,8 +616,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     const worker = workerRef;
     dispatchExecuteCounter++;
     const requestId = `exec:${funcName}:${dispatchExecuteCounter}`;
-    _lastExecuteRequestId = requestId;
-    executeSpans.set(funcName, { opId: allocateOpId(), startedAt: performance.now() });
+    executeSpans.set(funcName, { requestId, opId: allocateOpId(), startedAt: performance.now() });
     worker.postMessage({
       type: 'preview:execute',
       funcName,

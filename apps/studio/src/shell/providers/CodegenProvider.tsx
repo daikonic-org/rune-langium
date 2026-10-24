@@ -478,12 +478,12 @@ export const CodegenProvider = withInstrumentation(
         }
         if (isPreviewExecuteResultMessage(msg)) {
           if (isPrototypeSessionRequest(msg.requestId)) return;
-          receiveExecutionResult(msg.funcName, msg.output);
+          receiveExecutionResult(msg.funcName, msg.output, msg.requestId);
           return;
         }
         if (isPreviewExecuteErrorMessage(msg)) {
           if (isPrototypeSessionRequest(msg.requestId)) return;
-          receiveExecutionError(msg.funcName, msg.error);
+          receiveExecutionError(msg.funcName, msg.error, msg.requestId);
           return;
         }
         if (isInstanceValidateResultMessage(msg)) {

@@ -1666,9 +1666,10 @@ describe('FormPreviewPanel', () => {
         <FormPreviewPanel schema={schema} status={{ state: 'ready', targetId: schema.targetId }} onExecute={vi.fn()} />
       );
       await act(async () => {
-        usePreviewStore.getState().setWorkerRef({ postMessage: vi.fn() } as unknown as Worker);
+        const postMessage = vi.fn();
+        usePreviewStore.getState().setWorkerRef({ postMessage } as unknown as Worker);
         usePreviewStore.getState().dispatchExecute(schema.targetId, { when: 'invalid' });
-        usePreviewStore.getState().receiveExecutionError(schema.targetId, raw);
+        usePreviewStore.getState().receiveExecutionError(schema.targetId, raw, postMessage.mock.lastCall![0].requestId);
       });
       expect(screen.getByText(/when: Enter a local date and time/)).toHaveTextContent('without a UTC offset');
       expect(screen.getByText(/when: Enter a local date and time/)).toHaveTextContent('other: Missing input');
