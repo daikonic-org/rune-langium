@@ -32,3 +32,9 @@ No merge, deployment, reference publication, timeout increase, retry increase or
 - The browser batch exposed toast expiry during click stabilization; the helper ignores a click failure only after proving that exact root detached. A deterministic animation/expiry journey covers the race. The selected starter description also needed its own foreground treatment to maintain contrast after its background animation settled; the axe rule remains enabled.
 
 Targeted regressions first reproduced six failures. The repaired service/adapter/picker suite passed; the final parallel workspace run passed **7,325 Vitest tests plus five Pages tests**, including Studio **2,370 tests** with two existing skips, project-config **118 tests**, and runtime **77 tests**. Eleven distinct unretried browser journeys passed across reference/clone/target/a11y cases, including both 1440px and 390px reference journeys. Studio production build, scoped lint/format, CSS lint and diff checks passed. Normal pre-push verification is recorded with the pushed head in the PR. Owner guidance/resources and unrelated work remain preserved.
+
+## Hosted-runner fixture setup
+
+The subsequent hosted run still timed out its first implementation case at 5.6 seconds. The suite now captures its shared locked reference fixture once in `beforeAll`, rather than reconstructing identical artifacts, resolution and input snapshots in each scenario. Tests continue to build separate effective graphs and strict TypeScript programs, including the project reopened from disk. Override-removal edits a copied file map. No timeout, retry or compilation assertion changed.
+
+All **77 runtime tests** passed after this adjustment. The same four implementation cases also passed under the root configuration used by coverage; its first scenario took 361ms locally. Scoped lint, format and diff checks passed. Hosted CI and review must confirm the pushed revision before merge.

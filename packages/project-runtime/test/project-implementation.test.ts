@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { it, expect } from 'vitest';
+import { beforeAll, it, expect } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -11,6 +11,11 @@ import { recordFunctionExports } from '../../codegen/test/helpers/record-functio
 import { runeImplementationProject } from '../../../test/helpers/rune-implementation-project.js';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { openLocalProject } from '../src/local-project.js';
+let fixture: Awaited<ReturnType<typeof runeImplementationProject>>;
+beforeAll(async () => {
+  // Capture the shared locked inputs once; each scenario still builds its own graph and strict TS program.
+  fixture = await runeImplementationProject();
+});
 async function compile(
   snapshot: Awaited<ReturnType<typeof runeImplementationProject>>['snapshot'],
   documents: Awaited<ReturnType<typeof runeImplementationProject>>['documents']
@@ -46,20 +51,17 @@ async function compile(
   return (inputs: Record<string, unknown>) => functions[name.exportName ?? name.name]!(validator.parse(inputs));
 }
 it('runs the reference caller through local Rune Double and rejects missing required numeric input', async () => {
-  const fixture = await runeImplementationProject();
   const caller = await compile(fixture.snapshot, fixture.documents);
   expect(caller({ value: 10 })).toBe(20);
   expect(() => caller({})).toThrow(/requires|required|value/);
 });
 it('restores the unavailable implementation diagnostic after removing the local override', async () => {
-  const fixture = await runeImplementationProject();
   const files = new Map(fixture.files);
   files.set('build-config.yml', JSON.stringify({ ...fixture.snapshot.project.build, overrides: [] }));
   const original = await compile(await createProjectSnapshot('removed', files, () => []), fixture.documents);
   expect(() => original({ value: 10 })).toThrow(/implementation|implemented|unavailable/);
 });
 it('reopens a copied project with its exact mapping and typed example without private browser state', async () => {
-  const fixture = await runeImplementationProject();
   const parent = await mkdtemp(join(tmpdir(), 'rune-first-clone-'));
   try {
     for (const [path, text] of fixture.files) {
