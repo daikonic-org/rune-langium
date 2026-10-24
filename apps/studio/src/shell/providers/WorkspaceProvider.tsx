@@ -7,6 +7,7 @@ import { WorkspaceStateContext, type WorkspaceState } from './workspace-context.
 import { WorkspaceActionsContext, type WorkspaceActions } from '../perspectives/workspace-actions-context.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { createProjectController, type ProjectController } from '../../workspace/project-controller.js';
+import { useProjectRuntime } from './use-project-runtime.js';
 import { ProjectContext, type ProjectState } from './project-context.js';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
 import { projectDiagnosticsForTargets } from '@rune-langium/project-config';
@@ -78,10 +79,11 @@ export const WorkspaceProvider = withInstrumentation(
             status: workspaceId && getAdapter ? 'loading' : 'unavailable',
             diagnostics: []
           };
+    const runtime = useProjectRuntime(currentProject, state.files);
     return (
       <WorkspaceActionsContext.Provider value={actions}>
         <WorkspaceStateContext.Provider value={state}>
-          <ProjectContext.Provider value={currentProject}>{children}</ProjectContext.Provider>
+          <ProjectContext.Provider value={{ ...currentProject, runtime }}>{children}</ProjectContext.Provider>
         </WorkspaceStateContext.Provider>
       </WorkspaceActionsContext.Provider>
     );

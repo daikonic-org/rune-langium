@@ -1084,3 +1084,51 @@ it.each(['manifest publication', 'workspace switch'] as const)(
     expect(factory).toBe(originalFactory);
   }
 );
+
+it('requires the current applied project receipt before a Prototype session can fetch its schema', async () => {
+  const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
+  const receipt = { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) };
+  const input = { receipt } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
+  let factory: PreviewSessionFactory | null = null;
+  function Session() {
+    factory = usePreviewSessionFactory();
+    return null;
+  }
+  render(
+    <WorkspaceStateContext.Provider value={wsState('managed')}>
+      <ProjectContext.Provider
+        value={{
+          status: 'ready',
+          diagnostics: [],
+          runtime: { managed: true, status: 'captured', input, diagnostics: [] }
+        }}
+      >
+        <CodegenProvider>
+          <Session />
+        </CodegenProvider>
+      </ProjectContext.Provider>
+    </WorkspaceStateContext.Provider>
+  );
+  const worker = FakeWorker.instances[0]!;
+  expect(worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)).toMatchObject({
+    project: input
+  });
+  const client = factory!();
+  const result = client.schema('a.Type', new AbortController().signal);
+  const rejected = expect(result).rejects.toThrow(/receipt|project/i);
+  const install = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:files-ready',
+          requestId: install.requestId,
+          filesRevision: install.filesRevision,
+          projectReceipt: { ...receipt, revision: '4'.repeat(64) }
+        }
+      });
+  });
+  await rejected;
+  expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
+  client.dispose();
+});

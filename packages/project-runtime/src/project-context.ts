@@ -35,3 +35,5 @@ export async function readProjectResolutionContext(input: unknown) {
     throw new Error('Project resolution receipt digest differs from its lock or override map.');
   return { context, lock, overrides };
 }
+
+export { projectSourceUri, projectReferenceUri } from './project-uri.js';

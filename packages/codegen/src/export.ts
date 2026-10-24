@@ -44,6 +44,7 @@ export {
   unknownExportSelectionDiagnostics
 } from './selection/declaration-selection.js';
 export type { ResolvedExportSelection } from './selection/declaration-selection.js';
+export { resolveEffectiveProjectTargetId } from './selection/declaration-selection.js';
 
 export type {
   FormPreviewKind,

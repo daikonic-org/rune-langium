@@ -13,6 +13,7 @@ import {
 import { projectSourcePaths, type ProjectSnapshot, type ProjectDiagnostic } from '@rune-langium/project-config';
 import { projectOverrideRedirects, validateProjectOverrides, type ProjectDeclarations } from './override-validation.js';
 import type { ReferenceDocument } from './references/types.js';
+import { projectSourceUri, projectReferenceUri } from './project-uri.js';
 import { createProjectReceipt, type EffectiveProjectReceipt } from './project-receipt.js';
 export type { EffectiveProjectReceipt } from './project-receipt.js';
 export interface EffectiveProject {
@@ -50,19 +51,13 @@ export async function buildEffectiveProject(
       documents.push(document);
     };
     for (const path of projectSourcePaths(snapshot.files, snapshot.project.build.sources)) {
-      register(
-        factory.fromString(
-          snapshot.files.get(path)!,
-          URI.parse('file:///project/' + path.split('/').map(encodeURIComponent).join('/'))
-        ),
-        'local'
-      );
+      register(factory.fromString(snapshot.files.get(path)!, URI.parse(projectSourceUri(path))), 'local');
     }
     const serialized: { uri: URI; json: string }[] = [];
     for (const entry of referenceDocuments) {
       const [model, ...path] = entry.uri.split('/');
       if (!model || !path.length) throw new Error('Reference document has no owning model: ' + entry.uri);
-      const uri = URI.parse(`[${model}]/${path.join('/')}`);
+      const uri = URI.parse(projectReferenceUri(entry.uri));
       if (shared.workspace.LangiumDocuments.hasDocument(uri))
         throw new Error('Duplicate project document URI: ' + entry.uri);
       setProjectDocumentModel(services, uri, model);

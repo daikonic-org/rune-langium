@@ -768,3 +768,29 @@ describe('LSP URI identity', () => {
     service.dispose();
   });
 });
+
+it('reapplies configuration-only project changes and requires the exact hosted receipt', async () => {
+  const service = createLspClientService({ transportProvider: makeFakeProvider() });
+  mockRequest.mockReset().mockResolvedValue(null);
+  await service.connect();
+  const receipt = { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) };
+  const resolution = { schemaVersion: 1 as const, receipt, lock: null, overrides: [], models: {} };
+  mockRequest.mockImplementation(async (_method, params) => ({ projectReceipt: params.resolution?.receipt ?? null }));
+  await service.syncWorkspaceModels([], resolution);
+  expect(mockRequest).toHaveBeenLastCalledWith('rune/syncModels', { retain: [], resolution });
+  expect(service.isInitialized()).toBe(true);
+  mockRequest.mockClear();
+  const next = { ...resolution, receipt: { ...receipt, revision: '4'.repeat(64) } };
+  mockRequest.mockImplementation(async () => ({ projectReceipt: receipt }));
+  await expect(service.syncWorkspaceModels([], next)).rejects.toThrow(/receipt/i);
+  expect(service.isInitialized()).toBe(false);
+  mockRequest.mockImplementation(async (_method, params) => ({ projectReceipt: params.resolution?.receipt ?? null }));
+  await service.syncWorkspaceModels([], next);
+  expect(service.isInitialized()).toBe(true);
+  await service.reconnect();
+  expect(mockRequest).toHaveBeenLastCalledWith('rune/syncModels', { retain: [], resolution: next });
+  await service.syncWorkspaceModels([]);
+  expect(mockRequest).toHaveBeenLastCalledWith('rune/syncModels', { retain: [], resolution: null });
+  service.dispose();
+  mockRequest.mockReset().mockResolvedValue(null);
+});

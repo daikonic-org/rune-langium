@@ -56,15 +56,10 @@ vi.mock('../../src/services/transport-provider.js', () => ({
   })
 }));
 
-vi.mock('../../src/services/lsp-client.js', () => ({
-  createLspClientService: () => ({
-    connect: vi.fn().mockResolvedValue(undefined),
-    reconnect: vi.fn().mockResolvedValue(undefined),
-    syncWorkspaceFiles: vi.fn(),
-    syncWorkspaceModels: vi.fn().mockResolvedValue(undefined),
-    dispose: vi.fn()
-  })
-}));
+vi.mock('../../src/services/lsp-client.js', async () => {
+  const { createLspClientStub } = await import('../helpers/lsp-client-stub.js');
+  return { createLspClientService: createLspClientStub };
+});
 
 vi.mock('../../src/components/StudioToastProvider.js', () => ({
   StudioToastProvider: ({ children }: { children?: ReactNode }) => children,

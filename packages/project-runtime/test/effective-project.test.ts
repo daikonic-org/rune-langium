@@ -220,3 +220,26 @@ it.each(['number(digits: 4) (1..1)', 'number (0..1)'])(
     expect(graph.diagnostics.some((issue) => issue.code === 'OVERRIDE_SIGNATURE')).toBe(true);
   }
 );
+
+it('selects effective roots consistently for exports, preview schemas and Python bindings', async () => {
+  const { snapshot, documents } = await fixture();
+  const graph = await buildEffectiveProject(snapshot, documents);
+  expect(graph.diagnostics).toEqual([]);
+  const { resolveExportSelection, generatePreviewSchemas, generatePythonModule } =
+    await import('@rune-langium/codegen/export');
+  const originalRoots = graph.documents.map((document) => document.parseResult.value);
+  const selected = resolveExportSelection([...graph.documents], {
+    namespaces: [],
+    declarations: [{ namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' }]
+  });
+  expect(selected.unknown).toEqual([]);
+  expect(selected.explicit).toEqual([{ namespace: 'custom', kind: 'RosettaFunction', name: 'Compute' }]);
+  const targets = generatePreviewSchemas([...graph.documents]).map((schema) => schema.targetId);
+  expect(targets).toContain('custom.Compute');
+  expect(targets).toContain('ref.Caller');
+  expect(targets).not.toContain('ref.Compute');
+  const python = generatePythonModule(graph.documents);
+  expect(python.bindings.has('custom.Compute')).toBe(true);
+  expect(python.bindings.has('ref.Compute')).toBe(false);
+  expect(graph.documents.map((document) => document.parseResult.value)).toEqual(originalRoots);
+});

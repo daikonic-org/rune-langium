@@ -312,6 +312,7 @@ it('builds a locked curated caller through its local replacement and refuses raw
   expect(callerPath).toBeDefined();
   const emitted = await import(/* @vite-ignore */ pathToFileURL(join(root, callerPath.replace(/\.ts$/, '.js'))).href);
   expect(emitted.Caller(10)).toBe(12);
+  expect(emitted.Compute).toBeUndefined();
   const raw = await buildProject(
     snapshot,
     { targets: ['raw'], referenceTransport: reference.transport, referenceCache: cache },

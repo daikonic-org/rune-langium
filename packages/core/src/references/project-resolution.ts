@@ -35,6 +35,7 @@ interface ResolutionState {
   identities?: WeakMap<AstNode, DeclarationIdentity>;
 }
 const projects = new WeakMap<object, ResolutionState>();
+const effectiveDeclarations = new WeakMap<AstNode, { target: AstNode | undefined }>();
 function state(services: LangiumCoreServices): ResolutionState {
   let value = projects.get(services.shared);
   if (!value) {
@@ -52,6 +53,7 @@ export function setProjectDocumentModel(services: LangiumCoreServices, uri: URI,
 }
 export function setProjectRedirects(services: LangiumCoreServices, redirects: DeclarationRedirects | undefined): void {
   state(services).redirects = redirects;
+  invalidateProjectResolution(services);
 }
 /** A host must invalidate identity indexes whenever it replaces document roots. */
 export function invalidateProjectResolution(services: LangiumCoreServices): void {
@@ -72,6 +74,7 @@ function index(services: LangiumCoreServices): ResolutionState {
   if (value.nodes) return value;
   value.nodes = new Map();
   value.identities = new WeakMap();
+  const owned: Array<[AstNode, DeclarationIdentity]> = [];
   for (const document of services.shared.workspace.LangiumDocuments.all) {
     const root = document.parseResult.value;
     const model = value.models.get(document.uri.toString());
@@ -86,11 +89,27 @@ function index(services: LangiumCoreServices): ResolutionState {
         ...(declarationDispatch(node) ? { dispatch: declarationDispatch(node) } : {})
       };
       value.identities.set(node, identity);
+      owned.push([node, identity]);
       const key = declarationKey(identity);
       value.nodes.set(key, value.nodes.has(key) ? undefined : node);
     }
   }
+  for (const [node, identity] of owned) {
+    if (!value.redirects) {
+      effectiveDeclarations.delete(node);
+      continue;
+    }
+    const resolved = value.redirects.resolve(identity);
+    effectiveDeclarations.set(node, {
+      target: declarationKey(resolved) === declarationKey(identity) ? node : value.nodes.get(declarationKey(resolved))
+    });
+  }
   return value;
+}
+/** All consumers select through the same generation-local declaration targets as core linking. */
+export function getEffectiveProjectDeclaration(node: AstNode): AstNode | undefined {
+  const entry = effectiveDeclarations.get(node);
+  return entry ? entry.target : node;
 }
 export function projectDeclarationIdentity(
   services: LangiumCoreServices,
@@ -110,10 +129,8 @@ export function projectDeclarationIdentity(
 export function redirectProjectNode(services: LangiumCoreServices, node: AstNode): AstNode | undefined {
   const value = projects.get(services.shared);
   if (!value?.redirects) return node;
-  const identity = index(services).identities!.get(node);
-  if (!identity) return node;
-  const resolved = value.redirects.resolve(identity);
-  return declarationKey(resolved) === declarationKey(identity) ? node : value.nodes!.get(declarationKey(resolved));
+  index(services);
+  return getEffectiveProjectDeclaration(node);
 }
 /** Keep authored lookup names while navigation and linking descriptions point at the effective declaration. */
 export function redirectProjectScope(services: LangiumCoreServices, scope: Scope): Scope {

@@ -57,6 +57,7 @@ import {
   normalizePreviewInputs,
   selectTypeScriptProjection,
   resolveExportSelection,
+  resolveEffectiveProjectTargetId,
   generatePythonModule,
   selectPythonProjection
 } from '@rune-langium/codegen/export';
@@ -72,6 +73,12 @@ import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { PreviewWorkerRequest, ProjectionRequest } from '../services/codegen-service.js';
 import { z } from 'zod';
+import { buildEffectiveProject, type EffectiveProject } from '@rune-langium/project-runtime/effective';
+import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import { readProjectResolutionContext } from '@rune-langium/project-runtime/context';
+import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
+import type { ProjectRuntimeInput } from '../services/project-runtime-input.js';
+import { projectOperationError } from '../services/project-worker-bridge.js';
 import { formatGeneratedProjection } from '../services/projection-format.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
@@ -138,13 +145,14 @@ interface InstanceGenerateSchemaMessage {
 }
 
 type InboundMessage = SetFilesMessage | GenerateMessage;
-type WorkerInboundMessage =
+type WorkerOperation =
   | InboundMessage
   | PreviewWorkerRequest
   | PreviewExecuteMessage
   | InstanceValidateMessage
   | ProjectionRequest
   | InstanceGenerateSchemaMessage;
+type WorkerInboundMessage = WorkerOperation & { projectReceipt?: ProjectResolutionReceipt };
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -153,6 +161,50 @@ type WorkerInboundMessage =
 const { RuneDsl } = createRuneDslServices();
 const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
 const builder = RuneDsl.shared.workspace.DocumentBuilder;
+
+interface ProjectGeneration {
+  receipt?: ProjectResolutionReceipt;
+  ready: Promise<EffectiveProject>;
+}
+let projectGeneration: ProjectGeneration | undefined;
+
+/** Capture the generation before an operation yields; late results never borrow a newer receipt. */
+function operationScope() {
+  const generation = projectGeneration;
+  const receipt = generation?.receipt;
+  return {
+    postMessage(message: Record<string, unknown>) {
+      if (generation !== projectGeneration) return;
+      (self as unknown as DedicatedWorkerGlobalScope).postMessage({
+        ...message,
+        ...(receipt ? { projectReceipt: receipt } : {})
+      });
+    }
+  };
+}
+
+async function applyProject(input: ProjectRuntimeInput): Promise<EffectiveProject> {
+  const context = await readProjectResolutionContext(input.resolution);
+  const graph = await buildEffectiveProject(input.snapshot, input.referenceDocuments);
+  if (
+    !projectReceiptMatches(context.context.receipt, input.receipt) ||
+    !projectReceiptMatches(graph.receipt, input.receipt)
+  )
+    throw new Error('Project receipt does not match the captured source and configuration.');
+  if (graph.diagnostics.some((issue) => issue.severity === 'error'))
+    throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
+  return graph;
+}
+
+function rejectProjectOperation(message: WorkerInboundMessage, error: string) {
+  if (!('requestId' in message) || !message.requestId) return;
+  const response = projectOperationError(message as unknown as Record<string, unknown>, error);
+  if (response)
+    (self as unknown as DedicatedWorkerGlobalScope).postMessage({
+      ...response,
+      ...(message.projectReceipt ? { projectReceipt: message.projectReceipt } : {})
+    });
+}
 
 let currentCodegenFiles: FileEntry[] = [];
 let currentPreviewFiles: FileEntry[] = [];
@@ -423,9 +475,9 @@ async function runCodegen(
   selection?: GenerateMessage['selection'],
   regenerate = false
 ): Promise<void> {
-  const scope = self as unknown as DedicatedWorkerGlobalScope;
+  const scope = operationScope();
 
-  if ((selection ? currentPreviewFiles : currentCodegenFiles).length === 0) {
+  if (!projectGeneration && (selection ? currentPreviewFiles : currentCodegenFiles).length === 0) {
     scope.postMessage({
       type: 'codegen:outdated',
       target,
@@ -443,7 +495,8 @@ async function runCodegen(
     // codegenGenerateCache write with THIS captured version (not the live
     // counter re-sampled after the build) ensures a stale-derived result
     // is never marked valid for the new version.
-    const documentsVersion = selection ? previewFilesVersion : codegenFilesVersion;
+    const project = projectGeneration;
+    const documentsVersion = selection || project ? previewFilesVersion : codegenFilesVersion;
 
     let documents: LangiumDocument[];
     const invalidDocumentUris = new Set<string>();
@@ -464,6 +517,8 @@ async function runCodegen(
         return;
       }
       documents = resolved.documents;
+    } else if (project) {
+      documents = (await previewStages.buildDocuments(true)).value;
     } else {
       documents = currentCodegenFiles.map(({ uri, content }) => factory.fromString(content, URI.parse(uri)));
       await builder.build(documents, { validation: false, eagerLinking: false });
@@ -503,7 +558,7 @@ async function runCodegen(
       async () => ({ selectionKey, results: await generate(documents, { target }) })
     );
 
-    if (documentsVersion !== (selection ? previewFilesVersion : codegenFilesVersion)) return;
+    if (documentsVersion !== (selection || project ? previewFilesVersion : codegenFilesVersion)) return;
 
     // 018 Task 0.7 follow-up — when every output carries an error
     // diagnostic AND no content (the shape returned by `runGenerate`
@@ -545,12 +600,18 @@ async function runCodegen(
 }
 
 async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<LangiumDocument[]>> {
+  const generation = projectGeneration;
+  if (generation) {
+    const version = previewFilesVersion;
+    const graph = await generation.ready;
+    return { version, value: [...graph.documents] };
+  }
   const entry = await getOrComputeAsync(
     documentsCache,
     'documents',
     () => previewFilesVersion,
     async () => {
-      if (currentPreviewFiles.length === 0) {
+      if (!projectGeneration && currentPreviewFiles.length === 0) {
         return { all: [], valid: [] };
       }
 
@@ -633,9 +694,9 @@ function generatedPreviewSchemaForTarget(
 }
 
 async function runPreview(targetId: string, requestId: string): Promise<void> {
-  const scope = self as unknown as DedicatedWorkerGlobalScope;
+  const scope = operationScope();
 
-  if (currentPreviewFiles.length === 0) {
+  if (!projectGeneration && currentPreviewFiles.length === 0) {
     scope.postMessage({
       type: 'preview:stale',
       targetId,
@@ -702,9 +763,9 @@ async function runPreview(targetId: string, requestId: string): Promise<void> {
  * source `runPreview` and `validateInstance` already use.
  */
 async function runInstanceSchema(typeFqn: string, requestId: string): Promise<void> {
-  const scope = self as unknown as DedicatedWorkerGlobalScope;
+  const scope = operationScope();
 
-  if (currentPreviewFiles.length === 0) {
+  if (!projectGeneration && currentPreviewFiles.length === 0) {
     scope.postMessage({
       type: 'instance:generateSchemaStale',
       requestId,
@@ -743,7 +804,7 @@ async function runInstanceSchema(typeFqn: string, requestId: string): Promise<vo
       return;
     }
 
-    scope.postMessage({ type: 'instance:generateSchemaResult', requestId, schema });
+    scope.postMessage({ type: 'instance:generateSchemaResult', requestId, schema: { ...schema, targetId: typeFqn } });
   } catch (err) {
     console.error('[codegen-worker] Instance schema generation error:', err);
     scope.postMessage({
@@ -902,7 +963,7 @@ function createGeneratedModuleLoader(outputs: readonly GeneratorOutput[]): {
 // ---------------------------------------------------------------------------
 
 async function runProjection(request: ProjectionRequest): Promise<void> {
-  const scope = self as unknown as DedicatedWorkerGlobalScope;
+  const scope = operationScope();
   try {
     const current = () =>
       request.filesRevision >= previewVersionStartRevision &&
@@ -1038,11 +1099,12 @@ async function executeFunction(
   requestId: string,
   checksOnly = false
 ): Promise<void> {
-  const scope = self as unknown as DedicatedWorkerGlobalScope;
-  const functionFqn = qualifiedNameFromNodeId(funcName);
+  const scope = operationScope();
+  let functionFqn = qualifiedNameFromNodeId(funcName);
 
   try {
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
+    if (projectGeneration) functionFqn = resolveEffectiveProjectTargetId(documents, functionFqn, 'RosettaFunction');
     // Tagged with documentsVersion (fixed — `documents` is an immutable local
     // array once obtained, so no further staleness can be introduced during
     // this call), not the live previewFilesVersion — see runPreview's
@@ -1209,10 +1271,12 @@ function translateValidationIssues(
 }
 
 async function validateInstance(typeFqn: string, data: Record<string, unknown>, requestId: string): Promise<void> {
-  const scope = self as unknown as DedicatedWorkerGlobalScope;
+  const scope = operationScope();
 
   try {
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
+    if (projectGeneration)
+      typeFqn = resolveEffectiveProjectTargetId(documents, qualifiedNameFromNodeId(typeFqn), 'Data');
     const { value: compiled } = getOrCompute(standaloneValidatorCache, typeFqn, documentsVersion, () =>
       compileStandaloneValidator(documents, typeFqn)
     );
@@ -1267,6 +1331,19 @@ if (isWorkerGlobalScope()) {
     'message',
     (e: MessageEvent<WorkerInboundMessage>) => {
       const msg = e.data;
+      if (
+        msg.type !== 'preview:setFiles' &&
+        msg.type !== 'codegen:setFiles' &&
+        (projectGeneration
+          ? !projectGeneration.receipt || !projectReceiptMatches(projectGeneration.receipt, msg.projectReceipt)
+          : Boolean(msg.projectReceipt))
+      ) {
+        rejectProjectOperation(
+          msg,
+          'The requested project revision has not been applied. Refresh the project and retry.'
+        );
+        return;
+      }
 
       if (msg.type === 'codegen:setFiles') {
         currentCodegenFiles = msg.files;
@@ -1291,9 +1368,27 @@ if (isWorkerGlobalScope()) {
               previous.serializedModelJson !== file.serializedModelJson
             );
           });
-        previewStages.hydrateDocuments(msg.files);
+        const previousProject = projectGeneration;
+        const reuse =
+          msg.project &&
+          previousProject?.receipt &&
+          projectReceiptMatches(previousProject.receipt, msg.project.receipt);
+        const ready = reuse
+          ? previousProject.ready
+          : msg.project
+            ? applyProject(msg.project)
+            : msg.projectUnavailable
+              ? Promise.reject<EffectiveProject>(new Error(msg.projectUnavailable))
+              : undefined;
+        const generation = reuse
+          ? previousProject
+          : ready
+            ? { ready, ...(msg.project ? { receipt: { ...msg.project.receipt } } : {}) }
+            : undefined;
+        projectGeneration = generation;
+        if (!generation) previewStages.hydrateDocuments(msg.files);
         currentPreviewFiles = msg.files;
-        if (changed) {
+        if (changed || generation !== previousProject) {
           previewFilesVersion++;
           previewVersionStartRevision = msg.filesRevision;
         }
@@ -1301,18 +1396,35 @@ if (isWorkerGlobalScope()) {
         // that installed so a readiness waiter cannot resolve from another
         // dispatch's receipt.
         previewFilesRevision = msg.filesRevision;
-        if (msg.requestId) {
-          lastPreviewRequestId = msg.requestId;
-          (self as unknown as DedicatedWorkerGlobalScope).postMessage({
-            type: 'preview:files-ready',
-            requestId: msg.requestId,
-            filesRevision: previewFilesRevision
-          });
-        }
+        if (msg.requestId) lastPreviewRequestId = msg.requestId;
         const requestId = msg.requestId ?? lastPreviewRequestId;
-        if (lastPreviewTargetId && requestId) {
-          previewStages.generateSchema(lastPreviewTargetId, requestId).catch(console.error);
-        }
+        const acknowledge = (projectError?: string) => {
+          if (generation !== projectGeneration) {
+            if (msg.requestId)
+              (self as unknown as DedicatedWorkerGlobalScope).postMessage({
+                type: 'preview:files-ready',
+                requestId: msg.requestId,
+                filesRevision: msg.filesRevision,
+                projectError: 'The project changed before this revision could be applied.'
+              });
+            return;
+          }
+          if (msg.requestId)
+            (self as unknown as DedicatedWorkerGlobalScope).postMessage({
+              type: 'preview:files-ready',
+              requestId: msg.requestId,
+              filesRevision: msg.filesRevision,
+              ...(projectError ? { projectError } : generation?.receipt ? { projectReceipt: generation.receipt } : {})
+            });
+          if (!projectError && lastPreviewTargetId && requestId)
+            previewStages.generateSchema(lastPreviewTargetId, requestId).catch(console.error);
+        };
+        if (generation)
+          void generation.ready.then(
+            () => acknowledge(),
+            (error) => acknowledge(error instanceof Error ? error.message : String(error))
+          );
+        else acknowledge();
       } else if (msg.type === 'preview:generate') {
         lastPreviewTargetId = msg.targetId;
         lastPreviewRequestId = msg.requestId;

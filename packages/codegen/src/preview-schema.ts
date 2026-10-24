@@ -36,6 +36,7 @@ import { extractFuncs, functionInputs, functionOutput, functionSignature } from 
 import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
 import { groupFuncDispatches } from './emit/func-dispatch.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
+import { selectEffectiveProjectDocuments, resolveEffectiveProjectTargetId } from './selection/declaration-selection.js';
 
 function humanizeLabel(name: string): string {
   return name
@@ -92,7 +93,15 @@ export function generatePreviewSchemas(
   documents: LangiumDocument | LangiumDocument[],
   options: GeneratePreviewSchemaOptions = {}
 ): FormPreviewSchema[] {
-  const docs = Array.isArray(documents) ? documents : [documents];
+  const original = Array.isArray(documents) ? documents : [documents];
+  const selectedTargets = options.targetId
+    ? new Set(
+        ['Data', 'Choice', 'RosettaTypeAlias', 'RosettaFunction'].map((kind) =>
+          resolveEffectiveProjectTargetId(original, options.targetId!, kind)
+        )
+      )
+    : undefined;
+  const docs = selectEffectiveProjectDocuments(original);
   const namespaces = buildNamespaceIndexes(docs);
   const assignableTypes = buildAssignableTypes(namespaces);
   const schemas: FormPreviewSchema[] = [];
@@ -115,7 +124,7 @@ export function generatePreviewSchemas(
     for (const name of dataNames) {
       const data = namespace.dataByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
+      if (selectedTargets && !selectedTargets.has(targetId)) continue;
       if (namespace.duplicateDataNames.has(name)) {
         schemas.push(buildDuplicateTargetSchema(data.node, targetId));
         continue;
@@ -137,7 +146,7 @@ export function generatePreviewSchemas(
     for (const name of aliasNames) {
       const alias = namespace.typeAliasByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
+      if (selectedTargets && !selectedTargets.has(targetId)) continue;
       schemas.push(buildTypeAliasSchema(alias.node, alias.sourceUri, namespace, targetId, cyclicTypes));
     }
 
@@ -146,7 +155,7 @@ export function generatePreviewSchemas(
     for (const name of choiceNames) {
       const choice = namespace.choiceByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
+      if (selectedTargets && !selectedTargets.has(targetId)) continue;
       if (namespace.duplicateChoiceNames.has(name)) {
         schemas.push(buildDuplicateTargetSchema(choice.node, targetId));
         continue;
@@ -156,7 +165,7 @@ export function generatePreviewSchemas(
 
     // Functions
     const funcNames = Array.from(namespace.funcByName.keys())
-      .filter((name) => !options.targetId || options.targetId === `${namespace.namespace}.${name}`)
+      .filter((name) => !selectedTargets || selectedTargets.has(`${namespace.namespace}.${name}`))
       .sort();
     const unimplemented = new Set(
       groupFuncDispatches(

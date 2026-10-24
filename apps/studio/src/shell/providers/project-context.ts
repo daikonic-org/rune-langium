@@ -5,7 +5,15 @@ import type { ProjectDiagnostic, ProjectSnapshot } from '@rune-langium/project-c
 import type { ProjectController } from '../../workspace/project-controller.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
+import type { ProjectRuntimeInput } from '../../services/project-runtime-input.js';
+export interface ProjectRuntimeState {
+  managed: boolean;
+  status: 'legacy' | 'loading' | 'captured' | 'unavailable';
+  input?: ProjectRuntimeInput;
+  diagnostics: readonly ProjectDiagnostic[];
+}
 export interface ProjectState {
+  runtime?: ProjectRuntimeState;
   workspaceId?: string;
   controller?: ProjectController;
   snapshot?: ProjectSnapshot;

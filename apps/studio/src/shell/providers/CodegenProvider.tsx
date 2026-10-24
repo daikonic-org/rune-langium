@@ -7,6 +7,10 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react
 import { useEditorStore } from '@rune-langium/visual-editor';
 import { useStudioToast } from '../../components/StudioToastProvider.js';
 import { useWorkspace } from './workspace-context.js';
+import { useProject } from './project-context.js';
+import { createProjectWorkerBridge } from '../../services/project-worker-bridge.js';
+import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 import { usePreviewStore } from '../../store/preview-store.js';
 import { useCodegenStore } from '../../store/codegen-store.js';
 import { useInstanceStore } from '../../store/instance-store.js';
@@ -115,6 +119,9 @@ const reportHydrationRetryExhausted = withInstrumentation(
 export const CodegenProvider = withInstrumentation(
   function CodegenProvider({ children }: { children: React.ReactNode }): React.ReactElement {
     const { files, deferredExports, workspaceId } = useWorkspace();
+    const { runtime: projectRuntime } = useProject();
+    const projectRuntimeRef = useRef(projectRuntime);
+    projectRuntimeRef.current = projectRuntime;
     const [codegenWorker, setCodegenWorker] = useState<Worker | null>(null);
     const [previewSessionFactory, setPreviewSessionFactory] = useState<PreviewSessionFactory | null>(null);
 
@@ -134,7 +141,13 @@ export const CodegenProvider = withInstrumentation(
     const workerFileWaitersRef = useRef(
       new Map<
         string,
-        { epoch: number; filesRevision: number; resolve: (revision: number) => void; reject: (reason: Error) => void }
+        {
+          epoch: number;
+          filesRevision: number;
+          receipt?: ProjectResolutionReceipt;
+          resolve: (revision: number) => void;
+          reject: (reason: Error) => void;
+        }
       >()
     );
     const workspaceCommitWaitersRef = useRef(
@@ -263,6 +276,13 @@ export const CodegenProvider = withInstrumentation(
         const requestId = `preview:files:${++previewRequestSequenceRef.current}`;
         const filesRevision = ++workerFilesRevisionRef.current;
         const epoch = workspaceEpochRef.current;
+        const runtime = projectRuntimeRef.current;
+        const project = runtime?.status === 'captured' ? runtime.input : undefined;
+        const projectUnavailable =
+          runtime && runtime.status !== 'legacy' && !project
+            ? runtime.diagnostics.map((issue) => issue.message).join('\n') ||
+              'Applying the current project configuration…'
+            : undefined;
         currentPreviewRequestIdRef.current = requestId;
         return new Promise<number>((resolve, reject) => {
           const abort = () => {
@@ -274,6 +294,7 @@ export const CodegenProvider = withInstrumentation(
           workerFileWaitersRef.current.set(requestId, {
             epoch,
             filesRevision,
+            receipt: project?.receipt,
             resolve: (revision) => {
               signal?.removeEventListener('abort', abort);
               resolve(revision);
@@ -288,7 +309,11 @@ export const CodegenProvider = withInstrumentation(
               type: 'codegen:setFiles',
               files: codegenFiles
             });
-            worker.postMessage(createPreviewSetFilesMessage(previewFiles, requestId, filesRevision));
+            worker.postMessage({
+              ...createPreviewSetFilesMessage(previewFiles, requestId, filesRevision),
+              ...(project ? { project } : {}),
+              ...(projectUnavailable ? { projectUnavailable } : {})
+            });
           } catch (error) {
             workerFileWaitersRef.current.delete(requestId);
             signal?.removeEventListener('abort', abort);
@@ -388,6 +413,10 @@ export const CodegenProvider = withInstrumentation(
           new Worker(new URL('../../workers/codegen-worker.ts', import.meta.url), {
             type: 'module'
           });
+        worker = createProjectWorkerBridge(worker, () => {
+          const runtime = projectRuntimeRef.current;
+          return { managed: Boolean(runtime && runtime.status !== 'legacy'), receipt: runtime?.input?.receipt };
+        });
         setCodegenWorker(worker);
       } catch (error) {
         setCodegenWorker(null);
@@ -415,12 +444,13 @@ export const CodegenProvider = withInstrumentation(
         .catch(() => {
           // Worker failure is reported by the shared synchronization path.
         });
-    }, [codegenWorker, files, syncWorkerFiles]);
+    }, [codegenWorker, files, syncWorkerFiles, projectRuntime?.input, projectRuntime?.status]);
 
     // Trigger form preview whenever the selected target changes. Files are
     // already current from the effect above; this effect only updates the target.
     useEffect(() => {
       if (!codegenWorker || !previewSelectedTargetId) return;
+      if (projectRuntime && projectRuntime.status !== 'legacy' && projectRuntime.status !== 'captured') return;
       usePreviewStore.getState().beginPreviewGeneration(previewSelectedTargetId);
       const requestId = `preview:${previewSelectedTargetId}:${++previewRequestSequenceRef.current}`;
       currentPreviewRequestIdRef.current = requestId;
@@ -433,7 +463,13 @@ export const CodegenProvider = withInstrumentation(
           previewSelectedTargetId
         );
       }
-    }, [codegenWorker, handlePreviewWorkerFailure, previewSelectedTargetId]);
+    }, [
+      codegenWorker,
+      handlePreviewWorkerFailure,
+      previewSelectedTargetId,
+      projectRuntime?.input,
+      projectRuntime?.status
+    ]);
 
     useEffect(() => {
       if (!codegenWorker) return;
@@ -471,6 +507,12 @@ export const CodegenProvider = withInstrumentation(
             waiter.reject(
               new Error(`Worker acknowledged files revision ${msg.filesRevision}; expected ${waiter.filesRevision}.`)
             );
+          } else if (msg.projectError) {
+            waiter.reject(new Error(msg.projectError));
+          } else if (
+            waiter.receipt ? !projectReceiptMatches(waiter.receipt, msg.projectReceipt) : Boolean(msg.projectReceipt)
+          ) {
+            waiter.reject(new Error('Worker project receipt does not match the requested source and configuration.'));
           } else {
             waiter.resolve(msg.filesRevision);
           }

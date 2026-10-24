@@ -429,3 +429,127 @@ it('links a newly authored function to hydrated curated input types, then valida
   );
   vi.unstubAllGlobals();
 }, 25000);
+
+it('installs a verified project before preview and executes curated callers through local overrides', async () => {
+  const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const local =
+    'namespace custom\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2';
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Demo}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'declaration',
+              source: { model: 'cdm', namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' },
+              replacement: { model: 'local', namespace: 'custom', kind: 'RosettaFunction', name: 'Compute' }
+            }
+          ]
+        })
+      ],
+      ['model/custom.rosetta', local]
+    ]),
+    () => []
+  );
+  const project = await captureProjectRuntimeInput(
+    snapshot,
+    [{ path: 'model/custom.rosetta', content: local }],
+    [
+      {
+        uri: 'cdm/functions.rosetta',
+        content:
+          'namespace ref\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 1\nfunc Caller:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: Compute(amount)'
+      }
+    ]
+  );
+  const { scope, dispatch } = await loadRealWorker();
+  const files = [{ uri: 'file:///workspace/model/custom.rosetta', content: local }];
+  dispatch({ type: 'preview:setFiles', filesRevision: 1, files, project, requestId: 'project:install' });
+  await vi.waitFor(
+    () =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'preview:files-ready',
+          requestId: 'project:install',
+          projectReceipt: project.receipt
+        })
+      ),
+    { timeout: 15000 }
+  );
+  dispatch({
+    type: 'preview:execute',
+    funcName: 'ref.Caller',
+    inputs: { amount: 10 },
+    requestId: 'project:caller',
+    projectReceipt: project.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview:execute-result',
+        requestId: 'project:caller',
+        output: 12,
+        projectReceipt: project.receipt
+      })
+    )
+  );
+  dispatch({
+    type: 'preview:execute',
+    funcName: 'ref.Compute',
+    inputs: { amount: 10 },
+    requestId: 'project:direct',
+    projectReceipt: project.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview:execute-result',
+        requestId: 'project:direct',
+        output: 12,
+        projectReceipt: project.receipt
+      })
+    )
+  );
+  dispatch({
+    type: 'preview:execute',
+    funcName: 'ref.Caller',
+    inputs: { amount: 10 },
+    requestId: 'project:stale',
+    projectReceipt: { ...project.receipt, revision: '0'.repeat(64) }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'preview:execute-error', requestId: 'project:stale' })
+    )
+  );
+  expect(
+    scope.postMessage.mock.calls.some(
+      ([message]) => message.type === 'preview:execute-result' && message.requestId === 'project:stale'
+    )
+  ).toBe(false);
+  const brokenSnapshot = await createProjectDraftSnapshot(
+    snapshot,
+    new Map([['model/custom.rosetta', null]]),
+    () => []
+  );
+  const broken = await captureProjectRuntimeInput(brokenSnapshot, [], project.referenceDocuments);
+  dispatch({ type: 'preview:setFiles', filesRevision: 2, files, project: broken, requestId: 'project:broken' });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview:files-ready',
+        requestId: 'project:broken',
+        projectError: expect.any(String)
+      })
+    )
+  );
+  expect(
+    scope.postMessage.mock.calls.some(([message]) => message.requestId === 'project:broken' && message.projectReceipt)
+  ).toBe(false);
+  vi.unstubAllGlobals();
+}, 25000);

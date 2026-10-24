@@ -70,3 +70,25 @@ describe('LSP workspace models', () => {
     expect(cache.size).toBe(0);
   });
 });
+
+it('includes the explicit override endpoints and their import closure outside the active namespace', async () => {
+  const files = [
+    { ...raw, path: 'caller.rosetta', serializedModelJson: JSON.stringify({ ...model, name: 'caller' }) },
+    { ...raw, path: '[cdm]/original.rosetta', serializedModelJson: JSON.stringify({ ...model, name: 'upstream' }) },
+    {
+      ...raw,
+      path: 'local.rosetta',
+      serializedModelJson: JSON.stringify({ ...model, name: 'custom', imports: [{ importedNamespace: 'helpers.*' }] })
+    },
+    { ...raw, path: 'helpers.rosetta', serializedModelJson: JSON.stringify({ ...model, name: 'helpers.math' }) },
+    { ...raw, path: 'other.rosetta', serializedModelJson: JSON.stringify({ ...model, name: 'other' }) }
+  ];
+  expect(
+    collectLspWorkspaceModels(files, [], new Map(), 'caller.rosetta', ['upstream', 'custom']).map((value) => value.uri)
+  ).toEqual([
+    'file:///workspace/caller.rosetta',
+    'file:///%5Bcdm%5D/original.rosetta',
+    'file:///workspace/local.rosetta',
+    'file:///workspace/helpers.rosetta'
+  ]);
+});

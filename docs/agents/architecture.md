@@ -13,7 +13,7 @@ Current source and package manifests take precedence over historical specs.
 | `packages/design-system`                                | Shared theme, tokens, and UI primitives.                                                                                                                                                                                                            |
 | `apps/studio`                                           | React IDE, workspace persistence, browser workers, provider composition, and Pages Functions.                                                                                                                                                       |
 | `packages/git-sync-engine`, `packages/curated-schema`   | Shared Git synchronization and curated-model contracts.                                                                                                                                                                                             |
-| `packages/project-config`                               | Host-neutral portable project configuration, comment-preserving YAML edits and dependency lock contracts. Target validation is injected; there is no Studio/core/codegen dependency.                                                                |
+| `packages/project-config`                               | Host-neutral portable project configuration, comment-preserving YAML edits and dependency lock contracts. Target validation is injected; only core's pure project contract is imported, without parser, Studio or codegen dependencies. |
 | `packages/instrumentation-core`, `packages/worker-core` | Shared instrumentation and Worker infrastructure; Worker logging lives in `worker-core/log`.                                                                                                                                                        |
 | `apps/lsp-worker`                                       | Hosted LSP sessions in `RuneLspSession` Durable Objects.                                                                                                                                                                                            |
 | Other worker apps                                       | Curated-model mirror, GitHub authentication, codegen gateway, and telemetry.                                                                                                                                                                        |
@@ -100,8 +100,28 @@ and echoes the applied receipt. Core owns reference rebuilding for both serializ
 revival and LSP snapshots, including transitions back to ordinary workspaces.
 Hosted storage persists context using the same chunk/pointer writer as models;
 cold replay supplies it at the final model barrier, never before its dependencies.
-Studio adapters remain responsible for comparing the expected receipt before
-claiming readiness.
+Studio captures draft text over the saved snapshot while preserving untouched
+binary identities. Locked reference loading is keyed separately from source
+edits. Captured metadata is not semantic readiness: the preview worker builds a
+fresh effective graph and acknowledges its exact receipt. One shared Worker-port
+bridge tags operations for preview, Prototype, validation and code preview,
+rejects mismatched replies and preserves legacy message shapes. Worker replies
+capture their originating generation before yielding; they cannot borrow a
+newer receipt. Identical receipts reuse the same immutable graph.
+
+Codegen's selection view uses core's resolved declaration targets, including
+explicitly selected original roots. It emits the replacement's canonical
+namespace, excludes overridden original bodies and retains linked originals for
+inspection. Preview schemas and Python module bindings share this selection
+boundary. Kind-qualified direct function requests resolve through that same port.
+
+The LSP client separately tracks model bytes and resolution context, so
+configuration-only edits and reconnects require a fresh applied receipt. Existing
+editor plugins retain didChange ownership while semantic requests wait. Studio
+accepts local parser snapshots only when their recorded source equals captured
+editor text. Explicit override endpoint namespaces and their import dependencies
+join the active semantic closure; unavailable captures cannot fall back to an
+ordinary graph.
 
 ## Studio Runtime
 
