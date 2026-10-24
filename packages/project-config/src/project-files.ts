@@ -3,6 +3,11 @@
 
 export const PROJECT_SAVE_JOURNAL_PATH = '.studio/project-save/journal.json';
 
+/** Entries outside repository-managed project capture, at any nesting level. */
+export function isIgnoredProjectEntry(name: string): boolean {
+  return /^\.(git|studio)$/i.test(name) || name === 'node_modules';
+}
+
 /** Content identity shared by browser and Node project hosts. */
 export async function projectFileRevision(text: string): Promise<string> {
   return projectBytesRevision(new TextEncoder().encode(text));

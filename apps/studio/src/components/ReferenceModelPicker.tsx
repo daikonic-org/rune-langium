@@ -17,6 +17,7 @@ import {
   projectReferenceCache,
   type PreparedReferenceChange
 } from '../services/project-references.js';
+import { useWorkspaceActionsOptional } from '../shell/perspectives/workspace-actions-context.js';
 import { ReferenceReleaseReview } from './ReferenceReleaseReview.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -32,6 +33,7 @@ export const ReferenceModelPicker = withInstrumentation(
     transport?: ReferenceTransport;
     cache?: ReferenceCache;
   }) {
+    const actions = useWorkspaceActionsOptional();
     const transport = useMemo(() => injectedTransport ?? createProjectReferenceTransport(), [injectedTransport]);
     const [selected, setSelected] = useState<string>(),
       [query, setQuery] = useState(''),
@@ -55,7 +57,14 @@ export const ReferenceModelPicker = withInstrumentation(
     useEffect(() => {
       cancel();
       setError(undefined);
-    }, [controller, snapshot?.revision]);
+    }, [controller]);
+    useEffect(() => {
+      // Preparing a review refreshes the controller itself; only an already reviewed revision can become stale.
+      if (review && controller?.current()?.revision !== review.projectRevision) {
+        cancel();
+        setError(undefined);
+      }
+    }, [controller, review, snapshot?.revision]);
     useEffect(() => {
       if (!selected) return;
       const abort = new AbortController();
@@ -94,18 +103,22 @@ export const ReferenceModelPicker = withInstrumentation(
       operation.current = abort;
       setPhase('resolving');
       try {
-        const config = structuredClone(snapshot.project.build);
-        if (!configured) {
-          const repositories = new Set(
-            catalog!.releases
-              .filter((entry) => entry.modelId === selected && entry.tag === release)
-              .map((entry) => entry.repository)
-          );
-          if (repositories.size !== 1)
-            throw new Error('Ambiguous release repository. Choose a verified catalog entry.');
-          config.references[selected!] = { repository: [...repositories][0]!, release };
-        }
-        const proposal = await prepareProjectReferenceChange(controller, transport, cache, abort.signal, config);
+        await actions?.flushWorkspaceSave?.();
+        const proposal = await prepareProjectReferenceChange(controller, transport, cache, abort.signal, (current) => {
+          const config = structuredClone(current.project.build);
+          if (!configured) {
+            const repositories = new Set(
+              catalog!.releases
+                .filter((entry) => entry.modelId === selected && entry.tag === release)
+                .map((entry) => entry.repository)
+            );
+            if (repositories.size !== 1)
+              throw new Error('Ambiguous release repository. Choose a verified catalog entry.');
+            config.references[selected!] = { repository: [...repositories][0]!, release };
+          }
+
+          return config;
+        });
         if (!abort.signal.aborted) setReview(proposal);
       } catch (error) {
         if (!abort.signal.aborted) setError(error instanceof Error ? error.message : 'Reference verification failed.');

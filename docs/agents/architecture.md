@@ -918,12 +918,19 @@ ProjectController Save/CAS and preserve unrelated files. Retry adopts only exact
 readback of this source writer's interrupted attempt, preserving external edits
 as conflicts. The journal and personal metadata stay in browser-private storage;
 portable configuration/examples remain in the selected working-copy folder.
+Browser and native project adapters share project-config's `isIgnoredProjectEntry`
+policy. Both prune `.git`, `.studio` and `node_modules` before descending at any
+depth, so installed dependencies never enter project snapshots or Save checks.
 
 ### Locked reference view publication
 
 `prepareProjectReferenceChange` separates resolver verification from acceptance.
-It captures config/lock writes and the original project revision; acceptance
-checks cancellation and current identity before the canonical guarded Save.
+The UI flushes pending source Save; preparation reloads the controller and derives
+release changes from that fresh configuration. Draft snapshots preserve untouched
+binary revisions. Review captures config/lock writes, the original project revision,
+the exact repository file list and non-destination byte revisions. Acceptance
+checks cancellation/current identity and passes that evidence into the canonical
+Save preconditions, rejecting silent source/resource edits, additions and removals.
 The existing resolve-and-save API delegates to this same transaction.
 `reviewProjectCompatibility` builds the proposed graph in isolation with the
 shared runtime, validates explicit overrides and portable record identities,

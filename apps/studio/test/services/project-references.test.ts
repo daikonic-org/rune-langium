@@ -134,7 +134,7 @@ it('prepares a verified review without writing, then accepts exactly the capture
   const cache = createMemoryReferenceCache();
   const original = controller.current()!;
   const review = await prepareProjectReferenceChange(controller, transport, cache, new AbortController().signal);
-  expect(controller.current()).toBe(original);
+  expect(controller.current()).toEqual(original);
   expect(await adapter.read('build-config.lock.json')).toBeUndefined();
   expect(review.lock.references.cdm!.release).toBe('1.0');
   expect(review.lock.references['rune-dsl']!.release).toBe('1.0');
@@ -288,7 +288,7 @@ it('reports removed override endpoints and saved example/workflow identities bef
       message: expect.stringContaining('ref.Compute')
     })
   );
-  expect(controller.current()).toBe(before);
+  expect(controller.current()).toEqual(before);
   expect((await adapter.read('build-config.lock.json'))!.text).toBe(before.files.get('build-config.lock.json'));
   await expect(review.accept(new AbortController().signal)).rejects.toThrow();
 });
@@ -362,5 +362,71 @@ it('previews changed schemas and callable inputs for saved bindings without repl
       message: expect.stringContaining('ref.Compute')
     })
   );
-  expect(controller.current()).toBe(before);
+  expect(controller.current()).toEqual(before);
+});
+
+it.each(['source', 'resource', 'added file', 'removed file'])(
+  'rejects reference acceptance after an unannounced %s change',
+  async (kind) => {
+    const { controller, adapter, transport } = await setup();
+    await adapter.write('model/owned.rosetta', 'namespace owned\ntype Quote:\n amount number (1..1)\n', null);
+    await adapter.writeBinary!('resources/codes.bin', new Uint8Array([255, 0, 1]), null);
+    await controller.load();
+    const cache = createMemoryReferenceCache();
+    const review = await prepareProjectReferenceChange(controller, transport, cache, new AbortController().signal);
+    const before = await adapter.read('build-config.lock.json');
+    const path =
+      kind === 'resource' ? 'resources/codes.bin' : kind === 'added file' ? 'model/new.rosetta' : 'model/owned.rosetta';
+    const previous = await adapter.read(path);
+    if (kind === 'removed file') await adapter.remove(path, previous!.revision);
+    else if (kind === 'resource') await adapter.writeBinary!(path, new Uint8Array([255, 0, 2]), previous!.revision);
+    else
+      await adapter.write(path, 'namespace owned\ntype Changed:\n value string (1..1)\n', previous?.revision ?? null);
+    await expect(review.accept(new AbortController().signal)).rejects.toThrow(/changed|conflict|review/i);
+    expect(await adapter.read('build-config.lock.json')).toEqual(before);
+  }
+);
+
+it('refreshes autosaved working-copy inputs before preparing reference compatibility', async () => {
+  const { controller, adapter, transport } = await setup();
+  await adapter.write('model/owned.rosetta', 'namespace owned\ntype Quote:\n amount number (1..1)\n', null);
+  const stale = controller.current()!.revision;
+  const review = await prepareProjectReferenceChange(
+    controller,
+    transport,
+    createMemoryReferenceCache(),
+    new AbortController().signal
+  );
+  expect(controller.current()!.revision).not.toBe(stale);
+  const saved = await review.accept(new AbortController().signal);
+  expect(saved.files.get('model/owned.rosetta')).toContain('Quote');
+});
+
+it('keeps raw binary input revisions when accepting an unchanged review', async () => {
+  const { controller, adapter, transport } = await setup();
+  const bytes = new Uint8Array([255, 128, 0, 17]);
+  const revision = await adapter.writeBinary!('resources/codes.bin', bytes, null);
+  const review = await prepareProjectReferenceChange(
+    controller,
+    transport,
+    createMemoryReferenceCache(),
+    new AbortController().signal
+  );
+  const saved = await review.accept(new AbortController().signal);
+  expect(saved.fileRevisions.get('resources/codes.bin')).toBe(revision);
+  expect((await adapter.read('resources/codes.bin'))?.revision).toBe(revision);
+});
+
+it('reviews newly autosaved invalid sources before allowing reference acceptance', async () => {
+  const { controller, adapter, transport } = await setup();
+  await adapter.write('model/invalid.rosetta', 'namespace owned\ntype Quote:\n amount MissingType (1..1)\n', null);
+  const review = await prepareProjectReferenceChange(
+    controller,
+    transport,
+    createMemoryReferenceCache(),
+    new AbortController().signal
+  );
+  expect(review.diagnostics.some((issue) => issue.severity === 'error')).toBe(true);
+  await expect(review.accept(new AbortController().signal)).rejects.toThrow();
+  expect(await adapter.read('build-config.lock.json')).toBeUndefined();
 });

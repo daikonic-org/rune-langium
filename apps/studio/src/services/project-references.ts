@@ -10,7 +10,7 @@ import {
   type ReferenceCache
 } from '@rune-langium/project-runtime/references';
 import {
-  createProjectSnapshot,
+  createProjectDraftSnapshot,
   prepareBuildConfigSave,
   projectFileRevision,
   ProjectSnapshotError,
@@ -50,6 +50,7 @@ export const projectReferenceCache: ReferenceCache = {
 };
 
 export interface PreparedReferenceChange {
+  projectRevision: string;
   config: BuildConfig;
   lock: ProjectLock;
   diagnostics: readonly ProjectDiagnostic[];
@@ -62,11 +63,13 @@ export const prepareProjectReferenceChange = withInstrumentation(
     transport: ReferenceTransport,
     cache: ReferenceCache,
     signal: AbortSignal,
-    nextBuild?: BuildConfig
+    nextBuild?: BuildConfig | ((snapshot: ProjectSnapshot) => BuildConfig)
   ): Promise<PreparedReferenceChange> {
-    nextBuild = nextBuild ? structuredClone(nextBuild) : undefined;
-    const original = controller.current();
-    if (!original) throw new Error('Project is not ready.');
+    const requested = typeof nextBuild === 'function' ? nextBuild : nextBuild ? structuredClone(nextBuild) : undefined;
+    signal.throwIfAborted();
+    const original = await controller.load();
+    signal.throwIfAborted();
+    nextBuild = typeof requested === 'function' ? structuredClone(requested(original)) : requested;
     const writes: ProjectWrite[] = [];
     let proposed = original;
     if (nextBuild) {
@@ -83,9 +86,11 @@ export const prepareProjectReferenceChange = withInstrumentation(
       });
       if (prepared.diagnostics.length) throw new ProjectSnapshotError(prepared.diagnostics);
       writes.push(...prepared.writes);
-      const files = new Map(original.files);
-      for (const write of writes) files.set(write.path, write.text);
-      proposed = await createProjectSnapshot(original.workspaceId, files, validateProjectTarget);
+      proposed = await createProjectDraftSnapshot(
+        original,
+        new Map(writes.map((write) => [write.path, write.text])),
+        validateProjectTarget
+      );
     }
     const result = await resolveProjectReferences(proposed, transport, signal, cache);
     signal.throwIfAborted();
@@ -97,9 +102,11 @@ export const prepareProjectReferenceChange = withInstrumentation(
     };
     assertCurrent();
     const lockText = JSON.stringify(result.lock, null, 2) + '\n';
-    const reviewedFiles = new Map(proposed.files);
-    reviewedFiles.set('build-config.lock.json', lockText);
-    const reviewedSnapshot = await createProjectSnapshot(original.workspaceId, reviewedFiles, validateProjectTarget);
+    const reviewedSnapshot = await createProjectDraftSnapshot(
+      proposed,
+      new Map([['build-config.lock.json', lockText]]),
+      validateProjectTarget
+    );
     const loaded = await loadLockedReferences(result.lock, transport, cache, signal);
     if (loaded.diagnostics.some((issue) => issue.severity === 'error'))
       throw new ProjectSnapshotError(loaded.diagnostics);
@@ -132,7 +139,20 @@ export const prepareProjectReferenceChange = withInstrumentation(
     });
     signal.throwIfAborted();
     assertCurrent();
+    const destinations = new Set(writes.map((write) => write.path));
+    const preconditions = {
+      paths: [...original.files.keys()],
+      inputs: await Promise.all(
+        [...original.files]
+          .filter(([path]) => !destinations.has(path))
+          .map(async ([path, text]) => ({
+            path,
+            revision: original.fileRevisions.get(path) ?? (await projectFileRevision(text))
+          }))
+      )
+    };
     return {
+      projectRevision: original.revision,
       config: structuredClone(proposed.project.build),
       lock: structuredClone(result.lock),
       diagnostics,
@@ -141,7 +161,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
         acceptSignal.throwIfAborted();
         assertCurrent();
         if (diagnostics.some((issue) => issue.severity === 'error')) throw new ProjectSnapshotError(diagnostics);
-        return controller.save(writes);
+        return controller.save(writes, preconditions);
       }
     };
   },

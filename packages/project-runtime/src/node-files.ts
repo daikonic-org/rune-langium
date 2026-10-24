@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import {
   normalizeProjectPath,
+  isIgnoredProjectEntry,
   PROJECT_SAVE_JOURNAL_PATH,
   ProjectFileConflict,
   projectBytesRevision,
@@ -151,7 +152,7 @@ export async function createNodeProjectFileAdapter(
         if (visited.has(canonical)) return;
         visited.add(canonical);
         for (const name of await readdir(path)) {
-          if (/^\.(git|studio)$/i.test(name) || name === 'node_modules') continue;
+          if (isIgnoredProjectEntry(name)) continue;
           const child = join(path, name);
           await contained(root, child);
           const info = await stat(child);

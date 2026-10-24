@@ -21,3 +21,14 @@ The regression first reproduced both actions in Chromium. Export now flushes reg
 - Original reviewer thread: `PRRT_kwDORLopOc6v5bEj`; [comment](https://github.com/pradeepmouli/rune-langium/pull/634#discussion_r4367576182).
 
 No merge, deployment, reference publication, timeout increase, retry increase or validation bypass is included. Owner guidance, resources, evidence, other checkouts and existing processes remain preserved.
+
+
+## Second review: reviewed-input binding and dependency traversal
+
+- Reference preparation now refreshes the saved working copy after pending editor/source Save. The picker applies its release selection to that fresh build configuration, preserving target settings written outside its cached view. Preparing its own refresh does not cancel the proposal; later controller changes still invalidate a reviewed proposal.
+- Review records the complete original file list and raw byte revisions for every non-destination input. Acceptance passes those into the existing Save transaction; configuration/lock writes keep their own CAS checks. Silent source/resource edits, additions or removals reject acceptance without replacing the lock. Shared draft-snapshot capture preserves untouched binary identities.
+- Browser and native adapters share `isIgnoredProjectEntry` from project-config and prune `.git`, `.studio` and `node_modules` at any depth before enumerating children. A throwing dependency iterator proves that the browser never descends into installed dependencies.
+- The runtime fixture now compiles the generated function, canonical Zod input schema and a tiny export bridge in one strict TypeScript program. It still checks generated types and actual required-input/runtime behavior. No type-check flag, timeout, retry or concurrency limit was relaxed. A fresh local process measured the first fixture at 533ms; CI remains the authority for hosted timing.
+- The browser batch exposed toast expiry during click stabilization; the helper ignores a click failure only after proving that exact root detached. A deterministic animation/expiry journey covers the race. The selected starter description also needed its own foreground treatment to maintain contrast after its background animation settled; the axe rule remains enabled.
+
+Targeted regressions first reproduced six failures. The repaired service/adapter/picker suite passed; the final parallel workspace run passed **7,325 Vitest tests plus five Pages tests**, including Studio **2,370 tests** with two existing skips, project-config **118 tests**, and runtime **77 tests**. Eleven distinct unretried browser journeys passed across reference/clone/target/a11y cases, including both 1440px and 390px reference journeys. Studio production build, scoped lint/format, CSS lint and diff checks passed. Normal pre-push verification is recorded with the pushed head in the PR. Owner guidance/resources and unrelated work remain preserved.

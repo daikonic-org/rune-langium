@@ -93,6 +93,10 @@
   background: var(--accent);
 }
 
+.starter-picker__list li > button[aria-pressed="true"] > :is(span, small) {
+  color: color-mix(in oklch, var(--accent-foreground) 80%, var(--accent));
+}
+
 .starter-picker__list li > button:hover {
   background: var(--muted);
 }

@@ -17,8 +17,13 @@ export async function dismissLocalTransportNotices(page: Page) {
     if (!notice) continue;
     try {
       const close = await notice.$('[data-slot="toast-close"]');
-      if (!close) throw new Error('Transport notice has no dismiss control.');
-      await close.click();
+      try {
+        if (!close) throw new Error('Transport notice has no dismiss control.');
+        await close.click();
+      } catch (error) {
+        // An expiring toast can detach while Playwright waits for its close button to stabilize.
+        if (await notice.evaluate((element) => element.isConnected)) throw error;
+      }
       await expect.poll(() => notice.evaluate((element) => element.isConnected)).toBe(false);
     } finally {
       await notice.dispose();

@@ -37,6 +37,15 @@ async function openBlankWorkspace(page: import('@playwright/test').Page): Promis
 }
 
 test.describe('Studio a11y (T088)', () => {
+  test('handles a transport notice expiring during its animated dismissal', async ({ page }) => {
+    await page.setContent(`<style>@keyframes move { from { transform: translateX(0); } to { transform: translateX(100px); } }</style>
+      <div data-slot="toast" style="animation: move 2s linear">Server-side parsing unavailable
+        <button data-slot="toast-close" onclick="this.parentElement.remove()">Dismiss</button>
+      </div>`);
+    await page.evaluate(() => setTimeout(() => document.querySelector('[data-slot="toast"]')?.remove(), 300));
+    await dismissLocalTransportNotices(page);
+    await expect(page.locator('[data-slot="toast"]')).toHaveCount(0);
+  });
   test('recent workspace metadata remains descriptive without changing the action name', async ({ page }, testInfo) => {
     await openBlankWorkspace(page);
     await page.getByTestId('rail-workspaces').click();

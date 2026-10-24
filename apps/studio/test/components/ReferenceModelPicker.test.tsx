@@ -8,8 +8,12 @@ import { referenceFixture } from '../../../../test/helpers/project-reference-fix
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { createProjectController } from '../../src/workspace/project-controller.js';
 import { createOpfsRoot } from '../setup/opfs-mock.js';
+import {
+  WorkspaceActionsContext,
+  type WorkspaceActions
+} from '../../src/shell/perspectives/workspace-actions-context.js';
 import { ReferenceModelPicker } from '../../src/components/ReferenceModelPicker.js';
-async function setup() {
+async function setup(flushWorkspaceSave?: () => Promise<void>) {
   const fixture = await referenceFixture({});
   const adapter = createProjectFileAdapter({
     workspaceId: 'p',
@@ -21,12 +25,14 @@ async function setup() {
   const controller = createProjectController({ workspaceId: 'p', adapter, validateTarget: () => [] });
   await controller.load();
   render(
-    <ReferenceModelPicker
-      controller={controller}
-      snapshot={controller.current()}
-      transport={fixture.transport}
-      cache={createMemoryReferenceCache()}
-    />
+    <WorkspaceActionsContext value={{ flushWorkspaceSave } as WorkspaceActions}>
+      <ReferenceModelPicker
+        controller={controller}
+        snapshot={controller.current()}
+        transport={fixture.transport}
+        cache={createMemoryReferenceCache()}
+      />
+    </WorkspaceActionsContext>
   );
   return { ...fixture, controller, adapter, user: userEvent.setup() };
 }
@@ -123,4 +129,42 @@ it('places catalog recovery beside the selected model and hides technical detail
   expect(screen.getByText('HTTP 404 /api/catalog/cdm')).not.toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Retry releases' }));
   expect(await screen.findByText(/No published compatible releases/)).toBeVisible();
+});
+
+it('builds the selected release proposal from refreshed configuration without canceling its own review', async () => {
+  const { user, controller, adapter } = await setup();
+  const file = (await adapter.read('build-config.yml'))!;
+  const updated = {
+    ...controller.current()!.project.build,
+    targets: { schema: { generator: 'json-schema', output: 'generated/schema', options: {} } }
+  };
+  await adapter.write('build-config.yml', JSON.stringify(updated), file.revision);
+  await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
+  await user.click(await screen.findByRole('combobox', { name: 'Release' }));
+  await user.click(await screen.findByRole('option', { name: '1.0', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await screen.findByRole('heading', { name: 'Review reference change' });
+  await user.click(screen.getByRole('button', { name: 'Save reference change' }));
+  await waitFor(() => expect(controller.current()!.lock?.references.cdm!.release).toBe('1.0'));
+  expect(controller.current()!.project.build.targets.schema?.output).toBe('generated/schema');
+});
+
+it('waits for pending source Save before preparing a reference review', async () => {
+  let finish!: () => void;
+  const flush = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      })
+  );
+  const { user, controller, adapter } = await setup(flush);
+  await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
+  await user.click(await screen.findByRole('combobox', { name: 'Release' }));
+  await user.click(await screen.findByRole('option', { name: '1.0', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  expect(screen.queryByRole('heading', { name: 'Review reference change' })).toBeNull();
+  await adapter.write('model/pending.rosetta', 'namespace pending\ntype Data:\n value string (1..1)\n', null);
+  finish();
+  await screen.findByRole('heading', { name: 'Review reference change' });
+  expect(controller.current()!.files.get('model/pending.rosetta')).toContain('value string');
 });

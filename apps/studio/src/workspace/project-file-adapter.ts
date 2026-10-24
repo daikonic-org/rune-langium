@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import {
   normalizeProjectPath,
+  isIgnoredProjectEntry,
   PROJECT_SAVE_JOURNAL_PATH,
   ProjectFileConflict,
   projectBytesRevision,
@@ -106,7 +107,7 @@ export const createProjectFileAdapter = withInstrumentation(
         const files: string[] = [];
         async function walk(dir: FileSystemDirectoryHandle, prefix: string) {
           for await (const [name, handle] of dir.entries()) {
-            if (/^\.(git|studio)$/i.test(name)) continue;
+            if (isIgnoredProjectEntry(name)) continue;
             const path = prefix + name;
             if (handle.kind === 'directory') await walk(handle, path + '/');
             else files.push(path);

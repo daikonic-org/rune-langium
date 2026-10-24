@@ -24,16 +24,25 @@ async function compile(
     projectResources: graph.bindings
   });
   expect(outputs.flatMap((output) => output.diagnostics.filter((issue) => issue.severity === 'error'))).toEqual([]);
-  const functions = recordFunctionExports(compileGeneratedTypeScript(outputs), outputs);
   const name = outputs.flatMap((output) => output.funcs).find((fn) => fn.name === 'Caller')!;
   expect(name).toBeDefined();
   // Use the same canonical input schema as Studio; typed TS exports alone are not runtime validators.
   const emitted = emitStandaloneZodSchema([...graph.documents], 'example.reference.Caller', { functionInputs: true });
   expect(emitted.diagnostics.filter((issue) => issue.severity === 'error')).toEqual([]);
-  const schemas = compileGeneratedTypeScript<Record<string, { parse(value: unknown): Record<string, unknown> }>>([
-    { ...outputs[0]!, relativePath: 'caller-inputs.ts', content: emitted.code, funcs: [] }
-  ]);
-  const validator = schemas[emitted.schemaName!]!;
+  const schema = { ...outputs[0]!, relativePath: 'caller-inputs.ts', content: emitted.code, funcs: [] };
+  const entry = {
+    ...outputs[0]!,
+    relativePath: 'project-contract.ts',
+    funcs: [],
+    content: `export * as functions from ${JSON.stringify('./' + outputs[0]!.relativePath.replace(/\.ts$/, ''))};\nexport { ${emitted.schemaName!} as inputs } from './caller-inputs';`
+  };
+  // One strict program checks the generated function and canonical input schema together.
+  const compiled = compileGeneratedTypeScript<{
+    functions: Record<string, (inputs: Record<string, unknown>) => unknown>;
+    inputs: { parse(value: unknown): Record<string, unknown> };
+  }>([...outputs, schema, entry], { entry: entry.relativePath });
+  const functions = recordFunctionExports(compiled.functions, outputs);
+  const validator = compiled.inputs;
   return (inputs: Record<string, unknown>) => functions[name.exportName ?? name.name]!(validator.parse(inputs));
 }
 it('runs the reference caller through local Rune Double and rejects missing required numeric input', async () => {

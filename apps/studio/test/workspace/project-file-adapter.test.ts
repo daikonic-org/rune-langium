@@ -116,3 +116,23 @@ describe('folder access errors', () => {
     expect(await adapter.list()).toEqual([]);
   });
 });
+
+it('does not enter root or nested installed dependency directories while capturing project files', async () => {
+  const root = createOpfsRoot();
+  await writeBytes(root, new TextEncoder().encode('source'), 'model', 'local.rosetta');
+  await writeBytes(root, new TextEncoder().encode('source'), 'packages', 'app', 'local.rosetta');
+  const deps = await root.getDirectoryHandle('node_modules', { create: true });
+  const app = await (await root.getDirectoryHandle('packages')).getDirectoryHandle('app');
+  const nested = await app.getDirectoryHandle('node_modules', { create: true });
+  for (const dir of [deps, nested])
+    dir.entries = () => {
+      throw new Error('Dependency tree must not be enumerated');
+    };
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'dependencies',
+    root: root as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  expect(await adapter.list()).toEqual(['model/local.rosetta', 'packages/app/local.rosetta']);
+});
