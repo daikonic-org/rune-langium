@@ -38,3 +38,9 @@ Targeted regressions first reproduced six failures. The repaired service/adapter
 The subsequent hosted run still timed out its first implementation case at 5.6 seconds. The suite now captures its shared locked reference fixture once in `beforeAll`, rather than reconstructing identical artifacts, resolution and input snapshots in each scenario. Tests continue to build separate effective graphs and strict TypeScript programs, including the project reopened from disk. Override-removal edits a copied file map. No timeout, retry or compilation assertion changed.
 
 All **77 runtime tests** passed after this adjustment. The same four implementation cases also passed under the root configuration used by coverage; its first scenario took 361ms locally. Scoped lint, format and diff checks passed. Hosted CI and review must confirm the pushed revision before merge.
+
+## Coverage native-binding fixture
+
+Hosted package tests then passed. Root coverage exposed a separate first-case timeout in the native binding layout matrix: per-namespace took 5,198ms, while barrel and single-file took about three seconds. Parser/compiler dependencies now load with the test module, and the native matrix parses its common Rune fixture once in a describe-scoped `beforeAll`. Every layout still generates and strictly compiles a separate module, verifies native invocation and rejects rebinding. No timeout, retry, coverage threshold or assertion was relaxed.
+
+All nine focused binding tests passed. The complete unchanged root coverage command also passed: **3,128 tests**, one existing skip and eight todos, across 267 files, including all three layout cases and the repository's existing coverage thresholds. Coverage was 55.72% statements, 61.40% branches, 37.79% functions and 57.18% lines. Fresh hosted CI and review are required for this revision before merge.
