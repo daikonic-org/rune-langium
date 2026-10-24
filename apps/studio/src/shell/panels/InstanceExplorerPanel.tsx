@@ -36,7 +36,7 @@ export const InstanceExplorerPanel = withInstrumentation(
       <div className="flex h-full flex-col">
         <div className="flex flex-col gap-1.5 border-b border-border p-2">
           <Input
-            aria-label="New instance type"
+            aria-label="Create example type"
             placeholder="Type FQN (e.g. test.Party)"
             value={newTypeFqn}
             onChange={(e) => setNewTypeFqn(e.target.value)}
@@ -44,8 +44,8 @@ export const InstanceExplorerPanel = withInstrumentation(
           />
           <div className="flex gap-1.5">
             <Input
-              aria-label="New instance name"
-              placeholder="Instance name"
+              aria-label="Create example name"
+              placeholder="Example name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               className="h-7 text-xs"
@@ -63,8 +63,8 @@ export const InstanceExplorerPanel = withInstrumentation(
         </div>
         <input
           type="search"
-          aria-label="Search instances"
-          placeholder="Search instances"
+          aria-label="Search examples"
+          placeholder="Search examples"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="border-b border-border bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:bg-accent/20"

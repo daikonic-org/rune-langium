@@ -37,12 +37,12 @@ export const InstancePayloadPanel = withInstrumentation(
       try {
         await onExport();
       } catch (error) {
-        setExportFeedback(error instanceof Error ? error.message : 'Export failed. Try saving the instance again.');
+        setExportFeedback(error instanceof Error ? error.message : 'Export failed. Try saving the example again.');
       }
     }
 
     return (
-      <section aria-label="Instance payload" className="border-t border-border px-panel-x py-panel-y">
+      <section aria-label="Example payload" className="border-t border-border px-panel-x py-panel-y">
         <header className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">{title}</h3>
           <div className="flex gap-1.5">

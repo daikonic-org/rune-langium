@@ -42,7 +42,7 @@ describe('InstanceGridPanel', () => {
     render(<InstanceGridPanel />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
-    fireEvent.change(screen.getByLabelText('Instance name'), { target: { value: 'Acme Holdings' } });
+    fireEvent.change(screen.getByLabelText('Example name'), { target: { value: 'Acme Holdings' } });
     fireEvent.click(screen.getByRole('button', { name: 'Rename', exact: true }));
 
     expect(useInstanceStore.getState().instances[id]?.name).toBe('Acme Holdings');
@@ -53,7 +53,7 @@ describe('InstanceGridPanel', () => {
     render(<InstanceGridPanel />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(screen.getByRole('heading', { name: 'Delete instance?' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Delete example?' })).toBeVisible();
     expect(useInstanceStore.getState().instances[id]).toBeDefined();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

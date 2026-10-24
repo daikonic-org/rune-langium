@@ -2,14 +2,6 @@
 
 ## references
 
-### `declarationKey`
-```ts
-declarationKey(identity: { model: string; namespace: string; kind: string; name: string; dispatch?: string }): string
-```
-**Parameters:**
-- `identity: { model: string; namespace: string; kind: string; name: string; dispatch?: string }`
-**Returns:** `string`
-
 ### `declarationDispatch`
 Selector text is stable before linking; resolving it here would recursively enter scope construction.
 ```ts
@@ -97,3 +89,12 @@ redirectProjectScope(services: LangiumCoreServices, scope: Scope): Scope
 - `services: LangiumCoreServices`
 - `scope: Scope`
 **Returns:** `Scope`
+
+### `declarationKey`
+Portable identity key; config and parser hosts share this exact representation.
+```ts
+declarationKey(identity: { model: string; namespace: string; kind: string; name: string; dispatch?: string }): string
+```
+**Parameters:**
+- `identity: { model: string; namespace: string; kind: string; name: string; dispatch?: string }`
+**Returns:** `string`

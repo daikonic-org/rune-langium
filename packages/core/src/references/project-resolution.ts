@@ -11,13 +11,10 @@ import {
 import { isRosettaFunction, isRosettaModel } from '../generated/ast.js';
 import { namespaceFromModelName } from '../naming/namespace.js';
 
-import type { DeclarationIdentity } from './project-contract.js';
+import { declarationKey, type DeclarationIdentity } from './project-contract.js';
 export * from './project-contract.js';
 export interface DeclarationRedirects {
   resolve(identity: DeclarationIdentity): DeclarationIdentity;
-}
-export function declarationKey(identity: DeclarationIdentity): string {
-  return JSON.stringify([identity.model, identity.namespace, identity.kind, identity.name, identity.dispatch ?? null]);
 }
 /** Selector text is stable before linking; resolving it here would recursively enter scope construction. */
 export function declarationDispatch(node: AstNode): string | undefined {

@@ -1,30 +1,45 @@
 // SPDX-License-Identifier: MIT
 import type { LangiumDocument } from 'langium';
+import { z } from 'zod';
+import { DeclarationIdentitySchema } from '@rune-langium/core/project-contract';
 import { sha256Hex } from './fingerprint.js';
 
-export interface InstanceProvenance {
-  codec: string;
-  source?: string;
-  inputs?: string[];
-  importedAt: number;
-}
+const InstanceProvenanceSchema = z.object({
+  codec: z.string(),
+  source: z.string().optional(),
+  inputs: z.array(z.string()).optional(),
+  importedAt: z.number()
+});
+export type InstanceProvenance = z.infer<typeof InstanceProvenanceSchema>;
+const ValidationDiagnosticSchema = z.object({
+  path: z.string(),
+  message: z.string(),
+  conditionName: z.string().optional()
+});
+export type ValidationDiagnostic = z.infer<typeof ValidationDiagnosticSchema>;
 
-export interface ValidationDiagnostic {
-  path: string;
-  message: string;
-  conditionName?: string;
-}
+const InstanceRecordSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  typeFqn: z.string().min(1),
+  concreteTypeFqn: z.string().optional(),
+  typeIdentity: DeclarationIdentitySchema.optional(),
+  data: z.unknown(),
+  provenance: InstanceProvenanceSchema.optional(),
+  createdAt: z.number(),
+  modifiedAt: z.number(),
+  stale: z.object({ reason: z.string(), diagnostics: z.array(ValidationDiagnosticSchema) }).optional()
+});
 
-export interface InstanceRecord {
-  id: string;
-  name: string;
-  typeFqn: string;
-  concreteTypeFqn?: string;
-  data: unknown;
-  provenance?: InstanceProvenance;
-  createdAt: number;
-  modifiedAt: number;
-  stale?: { reason: string; diagnostics: ValidationDiagnostic[] };
+export type InstanceRecord = z.infer<typeof InstanceRecordSchema>;
+
+/** Decode the legacy record envelope; arbitrary hidden JSON is not an example. */
+export function parseInstanceRecord(json: string): InstanceRecord {
+  const value: unknown = JSON.parse(json);
+  if (!value || typeof value !== 'object' || !Object.prototype.hasOwnProperty.call(value, 'data')) {
+    throw new Error('An example record must include its data.');
+  }
+  return InstanceRecordSchema.parse(value);
 }
 
 export interface BundleManifestInstanceEntry {

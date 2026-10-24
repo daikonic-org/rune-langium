@@ -6,6 +6,7 @@ import type { GitHubInitializationSession } from '../../workspace/project-initia
 import type { WorkspaceFile } from '../../services/workspace.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import type { ProjectFileAdapter } from '@rune-langium/project-config';
+import type { LegacyExampleStorage } from '../../opfs/instances-fs.js';
 
 /**
  * Actions + data the WorkspacesPerspective launcher needs, lifted from
@@ -15,6 +16,8 @@ import type { ProjectFileAdapter } from '@rune-langium/project-config';
 export interface WorkspaceActions {
   /** Working-copy IO bound to an explicit workspace, with live ownership checks. */
   getProjectFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
+  /** Limited typed legacy records for migration; never the private filesystem itself. */
+  getLegacyExampleStorage?: (workspaceId: string) => Promise<LegacyExampleStorage>;
   /** Optional native configuration review, bound to an already cloned working copy. */
   openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
   /** Current workspace files — forwarded to FileLoader as `existingFiles`. */

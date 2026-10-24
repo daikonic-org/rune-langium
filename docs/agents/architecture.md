@@ -860,3 +860,16 @@ flushes the existing editor Save barriers before invoking the existing engine.
 Uncommitted changes are distinct from ahead/behind commit counts; no token or
 private journal is included in repository-managed files. The generic engine's
 automatic mode remains available to other hosts.
+
+### Portable Prototype examples
+
+Project-config owns ExampleDescriptor/path/codec metadata and `readExamples`.
+Studio's `example-repository` adapts these records to the existing instance store;
+WorkspaceProvider binds it to the active ProjectController, while App supplies only
+limited typed legacy storage. Example saves serialize across records and use shared
+project Save/readback, including explicit CAS removals for deletion. Late completion
+from another workspace cannot publish a Saved/failed state into the active store.
+The pure runtime `/data` entry is the single codec availability/serialization gate.
+Full type identity accompanies the internal display FQN; unknown/ambiguous legacy
+bindings retain data. Only typed legacy record files are inspected, and readback
+precedes private migration markers. No private directory-tree copy is permitted.

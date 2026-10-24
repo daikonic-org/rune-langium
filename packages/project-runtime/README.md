@@ -142,3 +142,8 @@ target availability and function impacts. A `configured` target has no known
 configuration/capability error in that supplied evidence; actual builds still use
 normal preflight and the linked graph. Hosts must not infer executability from a
 completed import or omit function validation before Execute.
+
+The browser-safe `/data` entry exposes the shared project data codec gate and
+serialization/import functions without the native graph host. Both the configured
+Rune default format and an explicitly requested descriptor codec must be supported;
+JSON is the initial codec. Presentation never rounds the stored semantic number.

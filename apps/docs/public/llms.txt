@@ -685,7 +685,6 @@ serialize models back to source text.
 - `isValidID`
 - `isWithMetaEntry`
 - `isWithMetaOperation`
-- `declarationKey`
 - `declarationDispatch`: Selector text is stable before linking; resolving it here would recursively enter scope construction.
 - `setProjectDocumentModel`: Hosts explicitly assign document ownership; core does not infer model identity from names or namespaces.
 - `setProjectRedirects`
@@ -696,6 +695,7 @@ serialize models back to source text.
 - `projectDeclarationIdentity`
 - `redirectProjectNode`: A missing replacement stays unresolved; it must never fall back to the immutable original.
 - `redirectProjectScope`: Keep authored lookup names while navigation and linking descriptions point at the effective declaration.
+- `declarationKey`: Portable identity key; config and parser hosts share this exact representation.
 - `parse`: Parse a Rosetta DSL source string into a typed AST.
 - `parseWorkspace`: Parse multiple Rosetta DSL source strings as a workspace.
 Cross-references between documents will be resolved after all documents are built.

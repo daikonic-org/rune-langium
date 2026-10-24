@@ -13,3 +13,4 @@ export * from './build-config-save.js';
 export * from './canonical-json.js';
 export * from './import/maven.js';
 export * from './import/report.js';
+export * from './examples.js';

@@ -89,3 +89,16 @@ reports. parseProjectImportReport diagnoses malformed evidence without rerunning
 POM inspection. Current target/function readiness comes from native diagnostics
 and effective-project capabilities; historical unsupported notes survive a local
 repair without becoming a permanent execution gate.
+
+## Portable examples and removals
+
+`readExamples(snapshot)` reads only typed `*.example.json` descriptors beneath
+`studio.examples`. Each descriptor binds a stable ID to a full declaration identity,
+a relative payload path and an explicit codec. Missing types/payloads, duplicate IDs
+and unavailable codecs produce diagnostics without deleting the original bytes.
+Personal `.studio` data is never discovered or copied into this directory.
+
+`saveProject` accepts writes and explicit `{path, remove: true, expectedRevision}`
+removals through the same CAS journal. Recovery verifies removed paths remain absent
+and refuses files recreated by another writer. Read-only input preconditions still
+apply to the complete transaction.

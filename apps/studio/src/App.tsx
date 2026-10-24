@@ -42,7 +42,7 @@ import { StudioToastProvider, useStudioToast } from './components/StudioToastPro
 import { useOutputStore, fmtLine } from './store/output-store.js';
 import { allocateOpId } from './services/op-log.js';
 import { recordPerf, recordPerfStart } from './services/perf-log.js';
-import { useInstanceStore } from './store/instance-store.js';
+import { createLegacyExampleStorage } from './opfs/instances-fs.js';
 import { getOrCreateSyncEngine, disposeSyncEngine } from './services/git-sync.js';
 import { ActivityBar } from './shell/ActivityBar.js';
 import { AppHeader } from './shell/AppHeader.js';
@@ -1084,45 +1084,6 @@ function AppContent() {
     };
   }, [getWorkspaceManager, restoredWorkspace]);
 
-  // Instance-store OPFS persistence wiring (spec 023 Task 13 bot-review
-  // finding #1) — mirrors the sync-engine lifecycle effect above, but
-  // unconditional on workspace kind: instance persistence is a data-layer
-  // concern independent of git-backing, so it must wire up for EVERY
-  // workspace (browser-only included), not just git-backed ones. Runs
-  // `useInstanceStore.getState().setOpfsContext(fs, workspaceRoot)` — the
-  // same `OpfsFs` the WorkspaceManager already owns, at that workspace's
-  // `/${id}` root (the convention `WorkspaceManager.create`/`createGitBacked`
-  // already use for `/${id}/files` and `/${id}/.studio`).
-  useEffect(() => {
-    if (!restoredWorkspace) return;
-    const workspaceId = restoredWorkspace.id;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const wm = await getWorkspaceManager();
-        if (cancelled) return; // workspace changed during async getWorkspaceManager
-        useInstanceStore.getState().setOpfsContext(wm.getFs(), `/${workspaceId}`);
-      } catch (err) {
-        if (!cancelled) {
-          console.warn('[instance-store] Failed to wire OPFS persistence context:', err);
-          useOutputStore
-            .getState()
-            .addLine(
-              fmtLine(
-                'workspace',
-                'instance persistence unavailable',
-                err instanceof Error ? err.message : String(err)
-              ),
-              'warn'
-            );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getWorkspaceManager, restoredWorkspace]);
-
   const handleCreateGitBackedWorkspace = useCallback(
     async (input: { name: string; repoUrl: string; branch: string; user: string; token: string }) => {
       const wm = await getWorkspaceManager();
@@ -1313,12 +1274,27 @@ function AppContent() {
     },
     [getWorkspaceManager]
   );
+  const getLegacyExampleStorage = useCallback(
+    async (workspaceId: string) => {
+      const manager = await getWorkspaceManager();
+      return createLegacyExampleStorage(
+        manager.getFs(),
+        `/${workspaceId}`,
+        () =>
+          restoredWorkspaceRef.current?.id === workspaceId &&
+          manager.isOwner(workspaceId) &&
+          !manager.isReadOnly(workspaceId)
+      );
+    },
+    [getWorkspaceManager]
+  );
   const workspaceActionsValue = useMemo(
     () => ({
       files,
       registerEditorSaveBarrier,
       flushWorkspaceSave,
       getProjectFileAdapter,
+      getLegacyExampleStorage,
       onFilesLoaded: handleFilesLoaded,
       createGitBackedWorkspace: handleCreateGitBackedWorkspace,
       onGitHubWorkspaceCreated: handleGitHubWorkspaceCreated,
@@ -1337,6 +1313,7 @@ function AppContent() {
       registerEditorSaveBarrier,
       flushWorkspaceSave,
       getProjectFileAdapter,
+      getLegacyExampleStorage,
       handleFilesLoaded,
       handleCreateGitBackedWorkspace,
       handleGitHubWorkspaceCreated,

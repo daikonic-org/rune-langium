@@ -124,12 +124,12 @@ for (const width of [1440, 390]) {
       await expect(previewHeader).toHaveCSS('padding-left', '16px');
     }
     await page.getByTestId('rail-prototype').click();
-    await page.getByRole('button', { name: 'New instance', exact: true }).click();
-    await page.getByRole('button', { name: 'Instance type', exact: true }).click();
+    await page.getByRole('button', { name: 'Create example', exact: true }).click();
+    await page.getByRole('button', { name: 'Example type', exact: true }).click();
     await page.getByRole('combobox', { name: 'Search instance type' }).fill('Agreement');
     await page.getByRole('option', { name: /Agreement/ }).click();
-    await page.getByLabel('Instance name').fill('Quarterly settlement');
-    await page.getByRole('button', { name: 'Create instance', exact: true }).click();
+    await page.getByLabel('Example name').fill('Quarterly settlement');
+    await page.getByRole('button', { name: 'Create example', exact: true }).click();
     const perspective = page.getByTestId('prototype-perspective');
     const inspectorTab = perspective.getByRole('tab', { name: 'Inspector', exact: true });
     if (await inspectorTab.count()) await inspectorTab.click();
@@ -137,7 +137,7 @@ for (const width of [1440, 390]) {
       const details = perspective.getByRole('complementary', { name: 'Instance details' });
       const validation = details.getByRole('region', { name: 'Instance validation' });
       const provenance = details.getByRole('heading', { name: 'Provenance', exact: true }).locator('..');
-      const payload = details.getByRole('region', { name: 'Instance payload' });
+      const payload = details.getByRole('region', { name: 'Example payload' });
       for (const section of [validation, provenance, payload]) {
         await expect(section).toHaveCSS('padding-top', '12px');
         await expect(section).toHaveCSS('padding-bottom', '12px');
@@ -207,12 +207,12 @@ for (const mode of ['Preview', 'Prototype'] as const) {
     await dismissLocalTransportNotices(page);
     if (mode === 'Prototype') {
       await page.getByTestId('rail-prototype').click();
-      await page.getByRole('button', { name: 'New instance', exact: true }).click();
-      await page.getByRole('button', { name: 'Instance type', exact: true }).click();
+      await page.getByRole('button', { name: 'Create example', exact: true }).click();
+      await page.getByRole('button', { name: 'Example type', exact: true }).click();
       await page.getByRole('combobox', { name: 'Search instance type' }).fill('Probe');
       await page.getByRole('option', { name: /Probe/ }).click();
-      await page.getByLabel('Instance name').fill('Validation example');
-      await page.getByRole('button', { name: 'Create instance', exact: true }).click();
+      await page.getByLabel('Example name').fill('Validation example');
+      await page.getByRole('button', { name: 'Create example', exact: true }).click();
       await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
     }
     const form =

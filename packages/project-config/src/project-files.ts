@@ -30,6 +30,14 @@ export interface ProjectWrite {
   expectedRevision: string | null;
 }
 
+/** An explicit removal uses the same compare-and-swap/readback contract as writes. */
+export interface ProjectRemoval {
+  path: string;
+  remove: true;
+  expectedRevision: string;
+}
+export type ProjectChange = ProjectWrite | ProjectRemoval;
+
 export class ProjectFileConflict extends Error {
   constructor(readonly path: string) {
     super(`Project file changed: ${path}`);

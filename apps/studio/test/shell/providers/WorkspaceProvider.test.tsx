@@ -377,3 +377,51 @@ it('skips Maven initialization for an existing native config without replacing t
   expect(screen.getByTestId('project')).toHaveTextContent('active');
   expect((await cloned.read('build-config.yaml'))?.text).toBe('targets: [invalid');
 });
+
+it('recovers prepared repository example files before publishing a reopened workspace', async () => {
+  const { createProjectController } = await import('../../../src/workspace/project-controller.js');
+  const { saveExample } = await import('../../../src/workspace/example-repository.js');
+  const { useInstanceStore } = await import('../../../src/store/instance-store.js');
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'recover-examples',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  const controller = createProjectController({ workspaceId: 'recover-examples', adapter, validateTarget: () => [] });
+  await controller.load();
+  const write = adapter.write;
+  let failed = false;
+  adapter.write = async (path, text, revision) => {
+    if (!failed && path.startsWith('examples/')) {
+      failed = true;
+      throw new Error('disk full');
+    }
+    return write(path, text, revision);
+  };
+  await expect(
+    saveExample(
+      controller,
+      {
+        schemaVersion: 1,
+        id: 'recovered',
+        name: 'Recovered',
+        type: { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' },
+        payload: 'examples/recovered.json',
+        codec: 'JSON'
+      },
+      { amount: 7 }
+    )
+  ).rejects.toThrow();
+  controller.dispose();
+  render(
+    <WorkspaceProvider
+      state={stateFor('recover-examples')}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <ProjectProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('project').textContent).toBe('recover-examples'));
+  await waitFor(() => expect(useInstanceStore.getState().instances.recovered?.data).toEqual({ amount: 7 }));
+});

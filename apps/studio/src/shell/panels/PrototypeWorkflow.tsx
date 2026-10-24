@@ -606,7 +606,7 @@ export const PrototypeWorkflow = withInstrumentation(
                     })
                   }
                 >
-                  Save as instance…
+                  Save as example…
                 </Button>
               ) : null}
             </>

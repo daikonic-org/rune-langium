@@ -43,6 +43,10 @@
     "./status": {
       "types": "./dist/import/project-status.d.ts",
       "import": "./dist/import/project-status.js"
+    },
+    "./data": {
+      "types": "./dist/project-data.d.ts",
+      "import": "./dist/project-data.js"
     }
   },
   "files": [

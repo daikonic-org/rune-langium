@@ -23,7 +23,7 @@ describe('InstanceExplorerPanel', () => {
     useInstanceStore.getState().createInstance('test.Party', 'Alpha');
     useInstanceStore.getState().createInstance('test.Party', 'Beta');
     render(<InstanceExplorerPanel onSelect={() => {}} selectedId={undefined} />);
-    fireEvent.change(screen.getByPlaceholderText('Search instances'), { target: { value: 'Alp' } });
+    fireEvent.change(screen.getByPlaceholderText('Search examples'), { target: { value: 'Alp' } });
     expect(screen.getByText('Alpha')).toBeInTheDocument();
     expect(screen.queryByText('Beta')).not.toBeInTheDocument();
   });
@@ -32,8 +32,8 @@ describe('InstanceExplorerPanel', () => {
     const onSelect = vi.fn();
     render(<InstanceExplorerPanel onSelect={onSelect} selectedId={undefined} />);
 
-    fireEvent.change(screen.getByLabelText('New instance type'), { target: { value: 'test.Party' } });
-    fireEvent.change(screen.getByLabelText('New instance name'), { target: { value: 'Acme' } });
+    fireEvent.change(screen.getByLabelText('Create example type'), { target: { value: 'test.Party' } });
+    fireEvent.change(screen.getByLabelText('Create example name'), { target: { value: 'Acme' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     const instances = Object.values(useInstanceStore.getState().instances);
@@ -48,10 +48,10 @@ describe('InstanceExplorerPanel', () => {
 
     expect(createButton).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('New instance type'), { target: { value: 'test.Party' } });
+    fireEvent.change(screen.getByLabelText('Create example type'), { target: { value: 'test.Party' } });
     expect(createButton).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('New instance name'), { target: { value: '   ' } });
+    fireEvent.change(screen.getByLabelText('Create example name'), { target: { value: '   ' } });
     expect(createButton).toBeDisabled();
 
     fireEvent.click(createButton);

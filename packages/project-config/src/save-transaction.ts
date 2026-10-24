@@ -6,7 +6,7 @@ import {
   PROJECT_SAVE_JOURNAL_PATH as JOURNAL_PATH,
   ProjectFileConflict,
   type ProjectFileAdapter,
-  type ProjectWrite
+  type ProjectChange
 } from './project-files.js';
 import type { ProjectDiagnostic } from './types.js';
 
@@ -27,12 +27,20 @@ const JournalSchema = z.strictObject({
   operationId: z.string().min(1),
   preconditions: PreconditionsSchema.optional(),
   writes: z.array(
-    z.strictObject({
-      path: z.string(),
-      text: z.string(),
-      expectedRevision: z.string().nullable(),
-      appliedRevision: z.string().optional()
-    })
+    z.union([
+      z.strictObject({
+        path: z.string(),
+        text: z.string(),
+        expectedRevision: z.string().nullable(),
+        appliedRevision: z.string().optional()
+      }),
+      z.strictObject({
+        path: z.string(),
+        remove: z.literal(true),
+        expectedRevision: z.string(),
+        applied: z.literal(true).optional()
+      })
+    ])
   )
 });
 type Journal = z.infer<typeof JournalSchema>;
@@ -53,13 +61,13 @@ function checkedPaths(paths: readonly string[]): string[] {
   });
 }
 
-function checkedWrites(writes: readonly ProjectWrite[]): ProjectWrite[] {
+function checkedChanges(writes: readonly ProjectChange[]): ProjectChange[] {
   const paths = checkedPaths(writes.map((write) => write.path));
   return writes.map((write, i) => ({ ...write, path: paths[i]! }));
 }
 
 function checkedPreconditions(
-  writes: readonly ProjectWrite[],
+  writes: readonly ProjectChange[],
   preconditions: ProjectSavePreconditions | undefined
 ): Journal['preconditions'] {
   if (!preconditions) return undefined;
@@ -85,6 +93,7 @@ async function verifyInputs(adapter: ProjectFileAdapter, journal: Journal, prepa
     const actual = new Set(await adapter.list());
     const expected = new Set(conditions.paths);
     const allowed = new Set(expected);
+    if (prepared) for (const write of journal.writes) if ('remove' in write) expected.delete(write.path);
     if (prepared) for (const write of journal.writes) allowed.add(write.path);
     for (const path of actual) if (!allowed.has(path)) throw new ProjectFileConflict(path);
     for (const path of expected) if (!actual.has(path)) throw new ProjectFileConflict(path);
@@ -115,7 +124,9 @@ function failed(error: unknown): ProjectSaveResult {
 async function verify(adapter: ProjectFileAdapter, writes: Journal['writes']): Promise<void> {
   for (const write of writes) {
     const file = await adapter.read(write.path);
-    if (file?.text !== write.text || (write.appliedRevision && file.revision !== write.appliedRevision))
+    if ('remove' in write) {
+      if (file) throw new ProjectFileConflict(write.path);
+    } else if (file?.text !== write.text || (write.appliedRevision && file.revision !== write.appliedRevision))
       throw new ProjectFileConflict(write.path);
   }
 }
@@ -127,7 +138,10 @@ async function commit(adapter: ProjectFileAdapter, journal: Journal, revision: s
   // a third-party change discovered in a later file.
   for (const write of journal.writes) {
     const file = await adapter.read(write.path);
-    if (write.appliedRevision) {
+    if ('remove' in write) {
+      if (file && (write.applied || file.revision !== write.expectedRevision))
+        throw new ProjectFileConflict(write.path);
+    } else if (write.appliedRevision) {
       if (file?.revision !== write.appliedRevision || file.text !== write.text)
         throw new ProjectFileConflict(write.path);
     } else if ((file?.revision ?? null) !== write.expectedRevision && file?.text !== write.text) {
@@ -136,12 +150,17 @@ async function commit(adapter: ProjectFileAdapter, journal: Journal, revision: s
   }
   for (const write of journal.writes) {
     await verifyInputs(adapter, journal, true);
-    if (write.appliedRevision) continue;
-    const file = await adapter.read(write.path);
-    // A crash can occur after a data write but before the journal update.
-    // Exact proposed bytes allow recovery without rewriting that file.
-    if (file?.text === write.text) write.appliedRevision = file.revision;
-    else write.appliedRevision = await adapter.write(write.path, write.text, write.expectedRevision);
+    if ('remove' in write) {
+      if (write.applied) continue;
+      if (await adapter.read(write.path)) await adapter.remove(write.path, write.expectedRevision);
+      write.applied = true;
+    } else {
+      if (write.appliedRevision) continue;
+      const file = await adapter.read(write.path);
+      // Exact proposed bytes also recover a crash before the journal update.
+      if (file?.text === write.text) write.appliedRevision = file.revision;
+      else write.appliedRevision = await adapter.write(write.path, write.text, write.expectedRevision);
+    }
     revision = await adapter.write(JOURNAL_PATH, JSON.stringify(journal), revision);
   }
   await verify(adapter, journal.writes);
@@ -154,12 +173,12 @@ async function commit(adapter: ProjectFileAdapter, journal: Journal, revision: s
 /** Success means all bytes were read back; it does not claim filesystem atomicity. */
 export async function saveProject(
   adapter: ProjectFileAdapter,
-  writes: readonly ProjectWrite[],
+  writes: readonly ProjectChange[],
   operationId: string,
   preconditions?: ProjectSavePreconditions
 ): Promise<ProjectSaveResult> {
   try {
-    const normalized = checkedWrites(writes);
+    const normalized = checkedChanges(writes);
     const journal = JournalSchema.parse({
       schemaVersion: 1,
       operationId,
@@ -171,7 +190,9 @@ export async function saveProject(
     // Validate every expected revision before publishing the durable prepare.
     for (const write of normalized) {
       const file = await adapter.read(write.path);
-      if ((file?.revision ?? null) !== write.expectedRevision && file?.text !== write.text)
+      if ('remove' in write) {
+        if (file && file.revision !== write.expectedRevision) throw new ProjectFileConflict(write.path);
+      } else if ((file?.revision ?? null) !== write.expectedRevision && file?.text !== write.text)
         throw new ProjectFileConflict(write.path);
     }
     const revision = await adapter.write(JOURNAL_PATH, JSON.stringify(journal), null);
@@ -188,7 +209,7 @@ export async function recoverProjectSave(adapter: ProjectFileAdapter): Promise<P
     const file = await adapter.read(JOURNAL_PATH);
     if (!file) return [];
     const journal = JournalSchema.parse(JSON.parse(file.text));
-    journal.writes = checkedWrites(journal.writes);
+    journal.writes = checkedChanges(journal.writes);
     journal.preconditions = checkedPreconditions(journal.writes, journal.preconditions);
     await commit(adapter, journal, file.revision);
     return [];

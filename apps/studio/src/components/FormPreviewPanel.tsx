@@ -558,7 +558,7 @@ export const FormPreviewPanel = withInstrumentation(
                     })
                   }
                 >
-                  Create instance…
+                  Create example…
                 </Button>
               ) : null}
             </div>

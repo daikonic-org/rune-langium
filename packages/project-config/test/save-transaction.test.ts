@@ -249,3 +249,99 @@ describe('reviewed Save input preconditions', () => {
     }
   });
 });
+
+describe('shared recoverable Save removals', () => {
+  it('saves a descriptor replacement and removes only the explicitly owned payload', async () => {
+    const { adapter, writes } = setup();
+    const result = await saveProject(
+      adapter,
+      [{ path: 'a', remove: true, expectedRevision: adapter.files.get('a')!.revision }, writes[1]!],
+      'remove-and-write'
+    );
+    expect(result.status).toBe('saved');
+    expect(await adapter.read('a')).toBeUndefined();
+    expect((await adapter.read('b'))?.text).toBe('new-b');
+    expect((await adapter.read('c'))?.text).toBe('old-c');
+  });
+  it('checks every removal revision before changing any file', async () => {
+    const { adapter } = setup();
+    const first = (await adapter.read('a'))!;
+    const second = (await adapter.read('b'))!;
+    adapter.seed('b', 'external edit');
+    expect(
+      (
+        await saveProject(
+          adapter,
+          [
+            { path: 'a', remove: true, expectedRevision: first.revision },
+            { path: 'b', remove: true, expectedRevision: second.revision }
+          ],
+          'stale-remove'
+        )
+      ).status
+    ).toBe('conflict');
+    expect(await adapter.read('a')).toEqual(first);
+    expect((await adapter.read('b'))?.text).toBe('external edit');
+  });
+  it('recovers after removal but refuses to remove a newer file recreated at that path', async () => {
+    for (const external of [false, true]) {
+      const { adapter, writes } = setup();
+      adapter.failOn = 'b';
+      expect(
+        (
+          await saveProject(
+            adapter,
+            [{ path: 'a', remove: true, expectedRevision: adapter.files.get('a')!.revision }, writes[1]!],
+            'partial-remove'
+          )
+        ).status
+      ).toBe('recoverable');
+      expect(await adapter.read('a')).toBeUndefined();
+      adapter.failOn = undefined;
+      if (external) adapter.seed('a', 'new owner');
+      const diagnostics = await recoverProjectSave(adapter);
+      if (external) {
+        expect(diagnostics).toContainEqual(expect.objectContaining({ code: 'SAVE_CONFLICT' }));
+        expect((await adapter.read('a'))?.text).toBe('new owner');
+        expect((await adapter.read('b'))?.text).toBe('old-b');
+      } else {
+        expect(diagnostics).toEqual([]);
+        expect((await adapter.read('b'))?.text).toBe('new-b');
+      }
+    }
+  });
+  it('verifies removed-file absence after final readback', async () => {
+    const { adapter } = setup();
+    const remove = adapter.remove.bind(adapter);
+    adapter.remove = async (path, revision) => {
+      await remove(path, revision);
+      if (path.startsWith('.studio/')) adapter.seed('a', 'new writer');
+    };
+    expect(
+      (
+        await saveProject(
+          adapter,
+          [{ path: 'a', remove: true, expectedRevision: adapter.files.get('a')!.revision }],
+          'remove-readback'
+        )
+      ).status
+    ).toBe('conflict');
+    expect((await adapter.read('a'))?.text).toBe('new writer');
+  });
+  it('retains read-only input and file-list preconditions during a removal', async () => {
+    const { adapter } = setup();
+    const revision = adapter.files.get('c')!.revision;
+    expect(
+      (
+        await saveProject(
+          adapter,
+          [{ path: 'a', remove: true, expectedRevision: adapter.files.get('a')!.revision }],
+          'reviewed-remove',
+          { paths: ['a', 'b', 'c'], inputs: [{ path: 'c', revision }] }
+        )
+      ).status
+    ).toBe('saved');
+    expect(await adapter.read('a')).toBeUndefined();
+    expect((await adapter.read('c'))?.revision).toBe(revision);
+  });
+});

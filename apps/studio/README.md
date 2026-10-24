@@ -110,7 +110,7 @@ Select a compatible function in the compact chooser, or drag its name onto the
 function node. Object parameters have their own nodes; primitive parameters stay
 inline. **Execute** runs the function explicitly. Without a function, the input
 is the output. Input edits invalidate prior results; scalar and object results
-remain separate from the stored source objects. **Save as instance…** saves an
+remain separate from the stored source objects. **Save as example…** saves an
 object result, including a passthrough input, through the existing creation dialog.
 
 Each input has a clickable validation status. The function status combines input
@@ -395,3 +395,20 @@ reference selections and locks. There is no standalone Maven import action.
 
 Working-copy Save remains local. Use Git / Sync's explicit **Commit and push** to
 publish repository changes; it flushes editor Save barriers first.
+
+### Portable examples
+
+Prototype **Create example**, duplication, edits and deletion use the active
+ProjectController working-copy Save. Descriptors and payloads live under
+`studio.examples` (default `examples/`), so cloning the repository restores distinct
+examples without the original browser database. **Saved** means the descriptor and
+payload passed the shared transaction readback; **Retry** retains edits after failure.
+A missing or ambiguous type retains its payload and reports a diagnostic.
+
+Existing typed `.studio/instances/*.json` records migrate by exact ID when their
+full declaration identity is unique. A backing-private migration marker is written
+only after repository readback; legacy files remain intact. Credentials, scratch
+files and personal dock/filter state are never copied. Unsupported serialization
+formats refuse Save rather than silently writing JSON. Repository Save remains
+separate from explicit Git commit/push. Internal InstanceRecord APIs retain their
+names and optionally carry the full type identity for portable adapters.

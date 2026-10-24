@@ -104,12 +104,12 @@ for (const width of [1440, 390])
     await form.getByLabel('Reference', { exact: true }).click();
     await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
     await page.getByTestId('rail-prototype').click();
-    await page.getByRole('button', { name: 'New instance', exact: true }).click();
-    await page.getByRole('button', { name: 'Instance type', exact: true }).click();
+    await page.getByRole('button', { name: 'Create example', exact: true }).click();
+    await page.getByRole('button', { name: 'Example type', exact: true }).click();
     await page.getByRole('combobox', { name: 'Search instance type' }).fill('Trade');
     await page.getByRole('option', { name: /Trade/ }).click();
-    await page.getByLabel('Instance name').fill('Formatted trade');
-    await page.getByRole('button', { name: 'Create instance', exact: true }).click();
+    await page.getByLabel('Example name').fill('Formatted trade');
+    await page.getByRole('button', { name: 'Create example', exact: true }).click();
     await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
     const prototype = page.getByTestId('prototype-perspective');
     const tab = prototype.getByRole('tab', { name: 'Inspector', exact: true });

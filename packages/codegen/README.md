@@ -209,3 +209,8 @@ structural comparisons, delegating to the canonical recursive equality contract.
 Executable TypeScript exports still compare plain JSON using shared runtime helpers.
 Studio formats generated TypeScript and Python with lazy formatter engines in its
 worker; authored Rune source and executable exports are unchanged by formatting.
+
+`@rune-langium/codegen/instances` retains the internal InstanceRecord API.
+`typeIdentity` optionally carries the portable model/namespace/kind/name identity;
+`parseInstanceRecord` validates the legacy record envelope before migration. Its
+payload remains semantic data, independent of display formatting.

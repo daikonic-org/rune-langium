@@ -55,11 +55,11 @@ describe('WorkspaceTypePicker', () => {
     const user = userEvent.setup();
 
     render(
-      <WorkspaceTypePicker value={null} onSelect={onSelect} filterKinds={['data', 'choice']} label="Instance type" />
+      <WorkspaceTypePicker value={null} onSelect={onSelect} filterKinds={['data', 'choice']} label="Example type" />
     );
 
-    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
-    await user.type(await screen.findByRole('combobox', { name: 'Search instance type' }), 'Party');
+    await user.click(screen.getByRole('button', { name: /^Example type/ }));
+    await user.type(await screen.findByRole('combobox', { name: 'Search example type' }), 'Party');
     await user.click(screen.getByRole('option', { name: /Party.*test\.two/ }));
 
     expect(onSelect).toHaveBeenCalledWith('test.two.Party');
@@ -78,23 +78,23 @@ describe('WorkspaceTypePicker', () => {
         onSelect={onSelect}
         filterKinds={['data', 'choice']}
         allowClear
-        label="Instance type"
+        label="Example type"
       />
     );
 
-    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
-    const input = await screen.findByRole('combobox', { name: 'Search instance type' });
+    await user.click(screen.getByRole('button', { name: /^Example type/ }));
+    const input = await screen.findByRole('combobox', { name: 'Search example type' });
     expect(input).toHaveFocus();
     await act(async () => {
       await user.keyboard('{Escape}');
     });
     await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
+    await user.click(screen.getByRole('button', { name: /^Example type/ }));
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onSelect).toHaveBeenCalledWith('test.one.Party');
 
-    await user.click(screen.getByRole('button', { name: /^Instance type/ }));
+    await user.click(screen.getByRole('button', { name: /^Example type/ }));
     await user.click(await screen.findByRole('option', { name: 'Clear selection' }));
     expect(onSelect).toHaveBeenLastCalledWith(null);
   });

@@ -7,7 +7,8 @@ import {
   type ProjectCodeListBinding,
   type ProjectImplementationBinding
 } from '@rune-langium/codegen/export';
-import { jsonCodec } from '@rune-langium/codegen/instances';
+import { projectDataCodecStatus } from './project-data.js';
+export { serializeProjectData, importProjectData } from './project-data.js';
 import { resolveProjectResource } from './resources.js';
 import type { ImplementationProvider } from './implementations.js';
 export type { ImplementationProvider } from './implementations.js';
@@ -115,16 +116,8 @@ function prepared(
       if (symbol) codeLists.push({ symbol, ...(reason ? { unavailable: reason } : { values }) });
     }
   }
-  const model = snapshot.project.rune.model as { defaultSerialisationFormat?: unknown } | undefined;
-  const codec = model?.defaultSerialisationFormat;
-  if (codec !== undefined && codec !== 'JSON' && codec !== 'json')
-    capabilities.push({
-      id: 'codec:' + String(codec),
-      status: 'unavailable',
-      reason: 'No installed codec supports this configured serialization format.',
-      affectedTargets: [],
-      affectedFunctions: []
-    });
+  const codec = projectDataCodecStatus(snapshot);
+  if (codec.status === 'unavailable') capabilities.push({ ...codec, affectedTargets: [], affectedFunctions: [] });
   return { capabilities, implementations, codeLists };
 }
 /** Availability reports do not turn an absent native implementation into a valid empty result. */
@@ -148,22 +141,4 @@ export function createProjectBindings(
     codeLists: [...codeLists.values()],
     unavailableFunctions: context.unavailableFunctions
   });
-}
-
-/** Defaults never silently substitute plain JSON for an unsupported configured codec. */
-function requireJsonCodec(snapshot: ProjectSnapshot): void {
-  const codec = resolveProjectCapabilities(snapshot, []).find(
-    (capability) => capability.id.startsWith('codec:') && capability.status === 'unavailable'
-  );
-  if (codec) throw new Error(codec.reason + ' (' + codec.id + ')');
-}
-export function serializeProjectData(snapshot: ProjectSnapshot, value: unknown): string {
-  requireJsonCodec(snapshot);
-  const text = JSON.stringify(value, null, 2);
-  if (text === undefined) throw new Error('The JSON codec cannot serialize this value.');
-  return text;
-}
-export function importProjectData(snapshot: ProjectSnapshot, input: string | Uint8Array, target: string) {
-  requireJsonCodec(snapshot);
-  return jsonCodec.import(input, target);
 }

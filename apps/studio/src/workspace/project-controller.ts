@@ -13,7 +13,7 @@ import {
   type ProjectFileAdapter,
   type ProjectSnapshot,
   type ProjectSavePreconditions,
-  type ProjectWrite,
+  type ProjectChange,
   type TargetValidator
 } from '@rune-langium/project-config';
 import {
@@ -28,7 +28,7 @@ export interface ProjectController {
   load(): Promise<ProjectSnapshot>;
   current(): ProjectSnapshot | undefined;
   diagnostics(): readonly ProjectDiagnostic[];
-  save(writes: readonly ProjectWrite[], preconditions?: ProjectSavePreconditions): Promise<ProjectSnapshot>;
+  save(writes: readonly ProjectChange[], preconditions?: ProjectSavePreconditions): Promise<ProjectSnapshot>;
   recover(): Promise<ProjectSnapshot>;
   build(
     snapshot: ProjectSnapshot,
@@ -114,9 +114,15 @@ export const createProjectController = withInstrumentation(
         return mutate(async (epoch) => {
           const current = await readProjectFiles(input.adapter);
           active(epoch);
-          changed = writes.some((write) => current.files.get(write.path) !== write.text);
+          changed = writes.some((write) =>
+            'remove' in write ? current.files.has(write.path) : current.files.get(write.path) !== write.text
+          );
           const proposed = new Map(current.files);
-          for (const write of writes) proposed.set(normalizeProjectPath(write.path) ?? write.path, write.text);
+          for (const write of writes) {
+            const path = normalizeProjectPath(write.path) ?? write.path;
+            if ('remove' in write) proposed.delete(path);
+            else proposed.set(path, write.text);
+          }
           await createProjectSnapshot(input.workspaceId, proposed, input.validateTarget);
           active(epoch);
           await current.verify();
