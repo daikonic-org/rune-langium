@@ -352,3 +352,20 @@ it('does not resolve inherited object keys as saved targets', async () => {
   expect(store.getState().selectedTargetName).toBeUndefined();
   expect(store.getState().config.target).toBe('typescript');
 });
+
+it('retains the mid-generation freshness guard and writes no outputs after source changes', async () => {
+  const { adapter, controller } = await projectSetup();
+  const store = createExportWorkbench(async () => {
+    const file = (await adapter.read('model/test.rosetta'))!;
+    await adapter.write('model/test.rosetta', file.text + ' amount number (0..1)\n', file.revision);
+    return {
+      ...artifact,
+      manifest: { ...artifact.manifest, files: [{ path: 'schema.sql', kind: 'text', bytes: 3 }] },
+      readText: async () => 'SQL'
+    };
+  });
+  store.getState().bindProject(controller, 'Test');
+  await store.getState().buildTargets(['pg'], input);
+  expect(store.getState().run.status).toBe('failed');
+  expect((await adapter.list()).some((path) => path.startsWith('generated/'))).toBe(false);
+});

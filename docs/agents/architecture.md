@@ -48,9 +48,12 @@ preferences as a side effect of reading repository configuration.
 
 Named-target settings are repository state; the selected target and ad hoc root
 selection remain personal run preferences. Explicit Save preserves YAML comments
-and checks the captured file revision. Build selected/all stage every chosen
-artifact before writes through `project-runtime/browser`; the native host parses
-an isolated graph, while Studio supplies the existing server generator. Both use
+and checks the captured file revision. Before a named build, Export flushes editor
+and source autosave, reloads the active project controller, and waits for the
+ordinary provider's matching runtime capture. Preparation is cancelable and
+rejects workspace/source changes or Save failures; it never creates a parallel
+receipt. Only then does Build selected/all stage every chosen artifact before
+writes through `project-runtime/browser`; the native host parses an isolated graph, while Studio supplies the existing server generator. Both use
 strict library defaults and shared concrete namespace-scope expansion. A build
 finishing after project disposal cannot write through the guarded adapter.
 Binary generator output is persisted as bytes. Preview/download retain the exact
