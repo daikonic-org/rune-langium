@@ -1002,6 +1002,102 @@ it('retains Prototype session factory and worker listeners across Explore select
   }
 });
 
+it('keeps Explore validation and execution connected after a workspace data reset', () => {
+  const { unmount } = render(
+    <WorkspaceStateContext value={wsState('preview-reset')}>
+      <CodegenProvider>
+        <div />
+      </CodegenProvider>
+    </WorkspaceStateContext>
+  );
+  const worker = FakeWorker.instances[0]!;
+  const listener = worker.listeners.message[0];
+  const targetId = 'scratch.Widget#Data';
+  act(() => {
+    // Workspace transitions reset preview data without unmounting the worker owner.
+    usePreviewStore.getState().resetPreviewState();
+    usePreviewStore.getState().ensureSample(targetId, { quantity: 1.5 });
+    usePreviewStore.getState().updateSampleValues(targetId, { quantity: 1.5 }, true);
+    usePreviewStore.getState().dispatchValidate(targetId, { quantity: 1.5 });
+    usePreviewStore.getState().dispatchExecute('scratch.Double', { x: 5 });
+  });
+  const validation = worker.posted.find((message) => message.type === 'instance:validate');
+  const execution = worker.posted.find((message) => message.type === 'preview:execute');
+  expect(validation).toMatchObject({ typeFqn: 'scratch.Widget', data: { quantity: 1.5 } });
+  expect(execution).toMatchObject({ funcName: 'scratch.Double', inputs: { x: 5 } });
+  act(() => {
+    for (const callback of worker.listeners.message ?? []) {
+      callback({
+        data: {
+          type: 'instance:validateResult',
+          requestId: validation.requestId,
+          diagnostics: [{ path: 'quantity', message: 'Expected an integer' }]
+        }
+      });
+      callback({
+        data: { type: 'preview:execute-result', requestId: execution.requestId, funcName: 'scratch.Double', output: 10 }
+      });
+    }
+  });
+  expect(usePreviewStore.getState().samples.get(targetId)).toMatchObject({
+    validationPending: false,
+    valid: false,
+    errors: { quantity: 'Expected an integer' }
+  });
+  expect(usePreviewStore.getState().executionResults.get('scratch.Double')).toEqual({ output: 10 });
+  expect(worker.listeners.message[0]).toBe(listener);
+  expect(FakeWorker.instances).toHaveLength(1);
+  unmount();
+  const messages = worker.posted.length;
+  usePreviewStore.getState().dispatchExecute('scratch.Double', { x: 6 });
+  expect(worker.posted).toHaveLength(messages);
+});
+
+it.each(['result', 'error'] as const)(
+  'rejects old execution %s replies without consuming the new workspace run',
+  (kind) => {
+    render(
+      <WorkspaceStateContext value={wsState('execution-reset')}>
+        <CodegenProvider>
+          <div />
+        </CodegenProvider>
+      </WorkspaceStateContext>
+    );
+    const worker = FakeWorker.instances[0]!;
+    const listener = worker.listeners.message[0];
+    const funcName = 'scratch.Double';
+    act(() => usePreviewStore.getState().dispatchExecute(funcName, { x: 5 }));
+    const old = worker.posted.findLast((message) => message.type === 'preview:execute');
+    act(() => {
+      usePreviewStore.getState().resetPreviewState();
+      usePreviewStore.getState().dispatchExecute(funcName, { x: 10 });
+      useOutputStore.setState({ lines: [] });
+    });
+    const current = worker.posted.findLast((message) => message.type === 'preview:execute');
+    expect(current.requestId).not.toBe(old.requestId);
+    const stale = {
+      type: `preview:execute-${kind}`,
+      requestId: old.requestId,
+      funcName,
+      ...(kind === 'result' ? { output: 10 } : { error: 'Previous workspace failed' })
+    };
+    const emit = (data: unknown) =>
+      act(() => {
+        for (const callback of worker.listeners.message ?? []) callback({ data });
+      });
+    emit(stale);
+    expect(usePreviewStore.getState().executionResults.has(funcName)).toBe(false);
+    expect(useOutputStore.getState().lines.filter((line) => line.op === 'functionExecute')).toEqual([]);
+    emit({ type: 'preview:execute-result', requestId: current.requestId, funcName, output: 20 });
+    expect(usePreviewStore.getState().executionResults.get(funcName)).toEqual({ output: 20 });
+    emit(stale);
+    expect(usePreviewStore.getState().executionResults.get(funcName)).toEqual({ output: 20 });
+    expect(useOutputStore.getState().lines.filter((line) => line.op === 'functionExecute')).toHaveLength(1);
+    expect(worker.listeners.message[0]).toBe(listener);
+    expect(FakeWorker.instances).toHaveLength(1);
+  }
+);
+
 it.each(['manifest publication', 'workspace switch'] as const)(
   'hydrates from the live deferred manifest after %s without replacing Prototype sessions',
   async (change) => {
