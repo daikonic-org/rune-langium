@@ -134,7 +134,7 @@ export const GlobalSearch = withInstrumentation(
             <button
               type="button"
               className="studio-topbar__search"
-              aria-label="Search types, text &amp; files…"
+              aria-label="Search types, text &amp; files… ⌘K"
               title="Search Studio"
               aria-keyshortcuts="Meta+K Control+K"
             >

@@ -12,9 +12,17 @@ export async function dismissLocalTransportNotices(page: Page) {
     .locator('[data-slot="toast"]')
     .filter({ hasText: /Pages Function LSP unreachable|Server-side parsing unavailable/ });
   while (await notices.count()) {
-    const count = await notices.count();
-    await notices.first().locator('[data-slot="toast-close"]').click();
-    await expect(notices).toHaveCount(count - 1);
+    // A new notice may arrive during the close animation; wait on this root's identity, not a global count.
+    const notice = await notices.first().elementHandle();
+    if (!notice) continue;
+    try {
+      const close = await notice.$('[data-slot="toast-close"]');
+      if (!close) throw new Error('Transport notice has no dismiss control.');
+      await close.click();
+      await expect.poll(() => notice.evaluate((element) => element.isConnected)).toBe(false);
+    } finally {
+      await notice.dispose();
+    }
   }
 }
 

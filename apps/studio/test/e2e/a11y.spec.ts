@@ -62,7 +62,7 @@ test.describe('Studio a11y (T088)', () => {
     await expect(page.getByTestId('workspace-delete-dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByTestId('workspace-delete-dialog')).toHaveCount(0);
-    const badge = (await row.getByText('Browser', { exact: true }).boundingBox())!;
+    const badge = (await row.getByText('Browser only', { exact: true }).boundingBox())!;
     await page.mouse.click(badge.x + badge.width / 2, badge.y + badge.height / 2);
     await expect(page.getByTestId('explore-workbench')).toBeVisible();
   });

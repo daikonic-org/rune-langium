@@ -41,6 +41,9 @@ it('runs the reference caller through local Rune Double and rejects missing requ
   const caller = await compile(fixture.snapshot, fixture.documents);
   expect(caller({ value: 10 })).toBe(20);
   expect(() => caller({})).toThrow(/requires|required|value/);
+});
+it('restores the unavailable implementation diagnostic after removing the local override', async () => {
+  const fixture = await runeImplementationProject();
   const files = new Map(fixture.files);
   files.set('build-config.yml', JSON.stringify({ ...fixture.snapshot.project.build, overrides: [] }));
   const original = await compile(await createProjectSnapshot('removed', files, () => []), fixture.documents);
