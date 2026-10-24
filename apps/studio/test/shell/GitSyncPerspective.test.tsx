@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import { GitSyncPerspective } from '../../src/shell/perspectives/screens/GitSyncPerspective.js';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +26,10 @@ import { GitSyncPerspective } from '../../src/shell/perspectives/screens/GitSync
 type SyncCb = (s: import('@rune-langium/git-sync-engine').SyncStatus) => void;
 
 let capturedSubscriber: SyncCb | null = null;
+const { syncNow, flush } = vi.hoisted(() => ({ syncNow: vi.fn(), flush: vi.fn() }));
+vi.mock('../../src/shell/perspectives/workspace-actions-context.js', () => ({
+  useWorkspaceActionsOptional: () => ({ flushWorkspaceSave: flush })
+}));
 
 vi.mock('../../src/services/git-sync.js', () => ({
   subscribeToEngine: vi.fn((_id: string, cb: SyncCb) => {
@@ -34,6 +38,7 @@ vi.mock('../../src/services/git-sync.js', () => ({
       capturedSubscriber = null;
     };
   }),
+  getSyncEngine: vi.fn(() => ({ syncNow })),
   resolveConflict: vi.fn()
 }));
 
@@ -139,4 +144,26 @@ describe('GitSyncPerspective', () => {
     expect(screen.getByText('src/types/Foo.rosetta')).toBeTruthy();
     expect(screen.getByText('src/types/Bar.rosetta')).toBeTruthy();
   });
+});
+
+it('requires explicit commit/push after flushing repository working-copy files', async () => {
+  const order: string[] = [];
+  flush.mockImplementation(async () => {
+    order.push('save');
+  });
+  syncNow.mockImplementation(async () => {
+    order.push('sync');
+    return makeIdleStatus();
+  });
+  render(<GitSyncPerspective workspaceId="ws-manual" workspaceKind="git-backed" />);
+  emitSync({ ...makeIdleStatus(), dirty: true });
+  expect(syncNow).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Commit and push' }));
+  await waitFor(() => expect(order).toEqual(['save', 'sync']));
+});
+
+it('allows an explicit retry after a failed push without a pending merge conflict', () => {
+  render(<GitSyncPerspective workspaceId="ws-retry" workspaceKind="git-backed" />);
+  emitSync({ ...makeIdleStatus(), phase: 'blocked', lastError: { code: 'auth', message: 'Sign in again' } });
+  expect(screen.getByRole('button', { name: 'Commit and push' })).toBeEnabled();
 });

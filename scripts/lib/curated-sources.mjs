@@ -16,7 +16,9 @@ function dependencyVersion(pom, property) {
 }
 
 /** Follow CDM development while honoring its released FpML and Rune dependencies. */
-export async function resolveCuratedSources(fetchImpl = fetch) {
+export async function resolveCuratedSources(fetchImpl = fetch, { cdmRelease } = {}) {
+  if (cdmRelease !== undefined && (typeof cdmRelease !== 'string' || !cdmRelease.trim()))
+    throw new Error('Choose an explicit CDM release tag');
   async function github(path) {
     const headers = { Accept: 'application/vnd.github+json' };
     if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
@@ -27,9 +29,23 @@ export async function resolveCuratedSources(fetchImpl = fetch) {
 
   async function resolve(id, ref) {
     const repository = REPOSITORIES[id];
-    const { sha: commit } = await github(`${repository.owner}/${repository.repo}/commits/${encodeURIComponent(ref)}`);
+    const prefix = `${repository.owner}/${repository.repo}`;
+    let commit;
+    if (cdmRelease !== undefined) {
+      const release = await github(`${prefix}/releases/tags/${encodeURIComponent(ref)}`);
+      if (release.tag_name !== ref) throw new Error(`Release tag mismatch for ${id}@${ref}`);
+      let object = (await github(`${prefix}/git/ref/tags/${encodeURIComponent(ref)}`)).object;
+      for (let depth = 0; object?.type === 'tag' && depth < 16; depth++) {
+        if (!/^[a-f0-9]{40}$/.test(object.sha)) throw new Error(`Invalid annotated tag for ${id}@${ref}`);
+        object = (await github(`${prefix}/git/tags/${object.sha}`)).object;
+      }
+      if (object?.type !== 'commit') throw new Error(`Release tag does not resolve to a commit: ${id}@${ref}`);
+      commit = object.sha;
+    } else {
+      commit = (await github(`${prefix}/commits/${encodeURIComponent(ref)}`)).sha;
+    }
     if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error(`Invalid upstream commit for ${id}@${ref}`);
-    return { id, ...repository, ref, commit };
+    return { id, ...repository, ref, commit, ...(cdmRelease !== undefined ? { release: { tag: ref, commit } } : {}) };
   }
 
   async function pom(source) {
@@ -39,7 +55,7 @@ export async function resolveCuratedSources(fetchImpl = fetch) {
     return Buffer.from(result.content, 'base64').toString('utf8');
   }
 
-  const cdm = await resolve('cdm', 'master');
+  const cdm = await resolve('cdm', cdmRelease ?? 'master');
   const cdmPom = await pom(cdm);
   const runeVersion = dependencyVersion(cdmPom, 'rosetta.dsl.version');
   const [fpml, rune] = await Promise.all([

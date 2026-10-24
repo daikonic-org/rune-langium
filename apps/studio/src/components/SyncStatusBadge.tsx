@@ -7,7 +7,7 @@
  *
  * - idle:    subtle "Synced" indicator
  * - syncing (committing/fetching/merging/pushing): spinner + "Syncing…"
- * - offline:  muted "Offline — will retry"
+ * - offline:  muted "Offline — retry in Git / Sync"
  * - blocked + conflictPaths: amber warning + Keep mine / Take remote buttons
  * - blocked without conflictPaths: amber warning with an informative
  *   message (auth / no_push_access / non_fast_forward) and NO resolve
@@ -21,7 +21,7 @@ import type { ReactElement } from 'react';
 import type { SyncStatus } from '@rune-langium/git-sync-engine';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { Check, WifiOff, AlertTriangle } from 'lucide-react';
+import { Check, WifiOff, AlertTriangle, CircleDot } from 'lucide-react';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 const SYNCING_PHASES = new Set(['committing', 'fetching', 'merging', 'pushing']);
@@ -76,7 +76,7 @@ export const SyncStatusBadge = withInstrumentation(
           className="inline-flex items-center gap-1 text-xs text-muted-foreground"
         >
           <WifiOff className="size-3" />
-          Offline — will retry
+          Offline — retry in Git / Sync
         </span>
       );
     }
@@ -138,6 +138,23 @@ export const SyncStatusBadge = withInstrumentation(
       );
     }
 
+    if (status.dirty)
+      return (
+        <span
+          data-testid="sync-status"
+          data-phase={phase}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+        >
+          <CircleDot className="size-3" aria-hidden="true" />
+          Changes to commit
+        </span>
+      );
+    if (status.ahead || status.behind)
+      return (
+        <span data-testid="sync-status" data-phase={phase} className="text-xs text-muted-foreground">
+          {status.ahead ? 'Commits to push' : 'Remote changes'}
+        </span>
+      );
     // idle — quiet success indicator
     return (
       <span

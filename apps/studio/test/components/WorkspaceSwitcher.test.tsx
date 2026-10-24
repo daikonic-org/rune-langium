@@ -83,8 +83,8 @@ describe('WorkspaceSwitcher (T059)', () => {
     await saveWorkspace(ws('w-1', 'One', 'browser-only', new Date().toISOString()));
     render(<WorkspaceSwitcher onOpen={() => {}} onCreate={() => {}} onDelete={() => {}} />);
     const open = await screen.findByRole('button', { name: 'Open One', exact: true });
-    expect(open).toHaveAccessibleDescription('Browser just now');
-    expect(screen.getByText('Browser')).toBeVisible();
+    expect(open).toHaveAccessibleDescription('Browser only No Git remote just now');
+    expect(screen.getByText('Browser only')).toBeVisible();
     expect(screen.getByText('just now')).toBeVisible();
   });
 
@@ -99,4 +99,38 @@ describe('WorkspaceSwitcher (T059)', () => {
     fireEvent.click(await screen.findByTestId('workspace-delete-confirm'));
     expect(onDelete).toHaveBeenCalledWith('w-1');
   });
+});
+it('distinguishes repository sync from local storage without inventing a Saved status', async () => {
+  await saveWorkspace(ws('git', 'Not yet pushed', 'git-backed', '2026-10-24T00:00:00Z'));
+  render(<WorkspaceSwitcher onOpen={() => {}} onCreate={() => {}} onDelete={() => {}} />);
+  expect(await screen.findByText('Sync not recorded')).toBeVisible();
+  expect(screen.queryByText('Saved', { exact: true })).toBeNull();
+});
+it('keeps a failed recent-list read distinct from an empty list and retries on Refresh', async () => {
+  const storage = await import('../../src/workspace/persistence.js');
+  await saveWorkspace(ws('retry', 'Recovered workspace', 'browser-only', '2026-10-24T00:00:00Z'));
+  const read = vi.spyOn(storage, 'listRecents').mockRejectedValueOnce(new Error('Storage unavailable'));
+  try {
+    render(<WorkspaceSwitcher onOpen={() => {}} onCreate={() => {}} onDelete={() => {}} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be read');
+    expect(screen.queryByTestId('workspace-switcher-empty')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh recent workspaces' }));
+    expect(await screen.findByRole('button', { name: 'Open Recovered workspace', exact: true })).toBeVisible();
+  } finally {
+    read.mockRestore();
+  }
+});
+
+it('renames a recent workspace without opening it or changing its identity', async () => {
+  const { loadWorkspace } = await import('../../src/workspace/persistence.js');
+  await saveWorkspace(ws('rename', 'untitled', 'browser-only', '2026-10-24T00:00:00Z'));
+  const open = vi.fn();
+  render(<WorkspaceSwitcher onOpen={open} onCreate={() => {}} onDelete={() => {}} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Rename untitled', exact: true }));
+  const name = screen.getByRole('textbox', { name: 'Workspace name' });
+  fireEvent.change(name, { target: { value: '  Bond examples  ' } });
+  fireEvent.keyDown(name, { key: 'Enter' });
+  expect(await screen.findByRole('button', { name: 'Open Bond examples', exact: true })).toBeVisible();
+  expect((await loadWorkspace('rename'))?.name).toBe('Bond examples');
+  expect(open).not.toHaveBeenCalled();
 });

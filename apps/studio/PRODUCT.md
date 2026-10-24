@@ -63,9 +63,12 @@ approximations. See [architecture and invariants](../../docs/agents/architecture
   Large helper blocks should not obscure the user's generated declarations.
 - Curated reference declarations and original source are browsable. Inspector
   title actions create a local extension or an editable copy in a distinct local
-  namespace. Select the local function to use a manual Rune implementation;
-  existing curated callers continue to refer to the original. Reference-only
-  capabilities do not authorize mutating their source models.
+  namespace. In managed projects, Modify saves the complete source copy and an
+  explicit replacement map together, so curated callers use the local
+  implementation. Extend creates an ordinary derived declaration without
+  redirecting callers. Unmanaged legacy copies still require selecting the local
+  declaration. Reference-only capabilities do not authorize mutating the source
+  model.
 - Preserve drafts, undo history, selection and unsaved changes across view changes.
 
 ## Brand Commitments
@@ -112,3 +115,20 @@ mobile and browser coverage limits must be reported explicitly.
 
 - Audience priority is awaiting confirmation; the supported workflows above are
   established product facts.
+
+## Workspace launcher
+
+Workspaces and reference models occupy separate launcher sections. Starter
+projects are editable copies with exact source provenance, separate from curated
+read-only dependencies. Proposed repositories remain unavailable until published
+and verified. Opening public starter source does not authorize a push remote.
+The launcher uses a compact action row, recent-workspace list and starter
+list/detail composition; narrow screens drill into details with Back navigation.
+
+Reference settings select exact published releases with an explicit dependency
+review before Save. Required releases explain their parent dependency; upgrades
+replace the existing model request rather than adding a second version. Cancel
+and failed verification keep the current project intact. Verified locked
+artifacts drive Explorer, Source and semantic hosts together; unavailable bytes
+and conflicts stay visible with recovery controls. The UI does not imply that a
+loaded CDM function has an available business implementation.

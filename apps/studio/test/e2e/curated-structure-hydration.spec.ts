@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import { test, expect } from '@playwright/test';
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
@@ -48,8 +49,8 @@ test('expanding curated children hydrates their inherited details without naviga
   });
   await page.setViewportSize({ width: 1461, height: 988 });
   await page.goto('./');
-  await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
-  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
+  await openReferenceModels(page);
   await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('namespace-search').fill('CashflowRepresentation');

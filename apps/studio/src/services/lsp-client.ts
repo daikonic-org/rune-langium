@@ -28,6 +28,9 @@ import { URI } from 'langium';
 import { pathToUri } from '../utils/uri.js';
 import { LSP_MODEL_SYNC_METHOD, LSP_REQUEST_TIMEOUT_MS } from '@rune-langium/core';
 import { withInstrumentation } from './instrumentation/core.js';
+import { canonicalProjectJson } from '@rune-langium/project-config';
+import { ProjectResolutionReceiptSchema, type ProjectResolutionContext } from '@rune-langium/core/project-contract';
+import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
 
 export type { LspDiagnostic } from '../types/diagnostics.js';
 
@@ -52,7 +55,12 @@ export interface LspClientService {
   /** Subscribe to diagnostics (for graph bridge). Returns unsubscribe fn. */
   onDiagnostics(handler: (uri: string, diagnostics: LspDiagnostic[]) => void): () => void;
   /** Keep the server-side workspace in sync with loaded files (for cross-file refs). */
-  syncWorkspaceModels(models: Array<{ uri: string; modelJson: string }>): Promise<void>;
+  syncWorkspaceModels(
+    models: Array<{ uri: string; modelJson: string }>,
+    resolution?: ProjectResolutionContext | null
+  ): Promise<void>;
+  /** Keep didChange ownership while semantic requests await a captured project. */
+  suspendProjectResolution(message: string): void;
   syncWorkspaceFiles(files: Array<{ path: string; content: string }>): void;
   /**
    * Register a handler for cross-file definition navigation (Task 7).
@@ -212,11 +220,21 @@ export const createLspClientService = withInstrumentation(
     let initialized = false;
     const workspaceSnapshot = new Map<string, { content: string }>();
     let modelSnapshot = new Map<string, string>();
+    let resolutionSnapshot: ProjectResolutionContext | null | undefined;
+    let appliedResolutionKey: string | undefined;
+    let resolutionUnavailable: string | undefined;
+    const resolutionKey = () =>
+      resolutionSnapshot === undefined ? undefined : canonicalProjectJson(resolutionSnapshot);
+    const resolutionReady = () =>
+      !resolutionUnavailable &&
+      (resolutionSnapshot === undefined || (!modelSyncPending && resolutionKey() === appliedResolutionKey));
     const sentModels = new Map<string, string>();
     const openedUris = new Set<string>();
     let modelSyncQueue = Promise.resolve();
     let modelGeneration = 0;
     let modelSyncPending = false;
+    const pendingDiagnostics = new Map<string, { target: LSPClient; params: unknown; generation: number }>();
+    let replayProjectDiagnostics: ((params: unknown, source: LSPClient) => void) | undefined;
     let pendingWorkspaceFiles: Array<{ path: string; content: string }> | null = null;
     let _pendingRefreshId: ReturnType<typeof setTimeout> | null = null;
 
@@ -264,6 +282,7 @@ export const createLspClientService = withInstrumentation(
 
     function syncModels(): Promise<void> {
       const generation = ++modelGeneration;
+      pendingDiagnostics.clear();
       const target = client;
       modelSyncPending = true;
       modelSyncQueue = modelSyncQueue
@@ -275,10 +294,13 @@ export const createLspClientService = withInstrumentation(
           const unchanged = [...modelSnapshot]
             .filter(([uri, json]) => sentModels.get(uri) === json)
             .map(([uri]) => uri);
-          if (unchanged.length === modelSnapshot.size && sentModels.size === modelSnapshot.size) return;
+          const sameModels = unchanged.length === modelSnapshot.size && sentModels.size === modelSnapshot.size;
+          const context = resolutionSnapshot;
+          const contextKey = resolutionKey();
+          if (sameModels && contextKey === appliedResolutionKey) return;
           // Evict changed/removed snapshots before uploading replacements. Keeping
           // two complete workspace generations would exceed a Worker isolate.
-          await target.request(LSP_MODEL_SYNC_METHOD, { retain: unchanged });
+          if (!sameModels) await target.request(LSP_MODEL_SYNC_METHOD, { retain: unchanged });
           if (target !== client) return;
           const retained = new Set(unchanged);
           for (const uri of sentModels.keys()) if (!retained.has(uri)) sentModels.delete(uri);
@@ -290,26 +312,86 @@ export const createLspClientService = withInstrumentation(
             sentModels.set(uri, modelJson);
           }
           if (target !== client || generation !== modelGeneration) return;
-          await target.request(LSP_MODEL_SYNC_METHOD, { retain: [...modelSnapshot.keys()] });
-          if (target !== client) return;
+          const response = await target.request<unknown, { projectReceipt?: unknown } | null>(LSP_MODEL_SYNC_METHOD, {
+            retain: [...modelSnapshot.keys()],
+            ...(context !== undefined ? { resolution: context } : {})
+          });
+          if (target !== client || generation !== modelGeneration) return;
+          if (context) {
+            const receipt = ProjectResolutionReceiptSchema.safeParse(response?.projectReceipt);
+            if (!receipt.success || !projectReceiptMatches(context.receipt, receipt.data))
+              throw new Error('Language server project receipt does not match the current source and configuration.');
+          }
+          appliedResolutionKey = contextKey;
           for (const uri of sentModels.keys()) if (!modelSnapshot.has(uri)) sentModels.delete(uri);
         })
         .then(() => {
           if (target !== client || generation !== modelGeneration) return;
           modelSyncPending = false;
+          const queued = [...pendingDiagnostics.values()];
+          pendingDiagnostics.clear();
+          for (const entry of queued)
+            if (entry.generation === generation) replayProjectDiagnostics?.(entry.params, entry.target);
           if (pendingWorkspaceFiles) service.syncWorkspaceFiles(pendingWorkspaceFiles);
           else refreshDocumentPlugins();
         })
         .catch((error) => {
           // A failed final retain may leave acknowledged uploads unpublished.
-          if (target === client) sentModels.clear();
+          if (target === client) {
+            sentModels.clear();
+            pendingDiagnostics.clear();
+          }
           throw error;
         });
       return modelSyncQueue;
     }
 
     function buildClient(): LSPClient {
-      return new LSPClient({
+      const extensions = [...languageServerExtensions()];
+      const publishDiagnostics = (target: LSPClient, params: unknown): boolean => {
+        const { uri, diagnostics, version } = params as {
+          uri: string;
+          diagnostics: LspDiagnostic[];
+          version?: number;
+        };
+        if (resolutionSnapshot !== undefined && target !== client) return true;
+        if ((resolutionSnapshot !== undefined || resolutionUnavailable) && !resolutionReady()) {
+          pendingDiagnostics.set(uri, { target, params, generation: modelGeneration });
+          return true;
+        }
+        const file = target.workspace.getFile(uri);
+        const snapshot = workspaceSnapshot.get(uri);
+        const revision =
+          file?.version ?? (snapshot ? (target.workspace as StudioWorkspace).getFileVersion(uri) : undefined);
+        if (version !== undefined && revision !== undefined && version !== revision) return true;
+        const view = file?.getView();
+        const doc =
+          (view && LSPPlugin.get(view)?.syncedDoc) ??
+          file?.doc ??
+          (snapshot ? Text.of(snapshot.content.split('\n')) : undefined);
+        if (
+          doc &&
+          diagnostics.some(({ range }) => {
+            const valid = (position: { line: number; character: number }) =>
+              Number.isInteger(position.line) &&
+              position.line >= 0 &&
+              position.line < doc.lines &&
+              Number.isInteger(position.character) &&
+              position.character >= 0 &&
+              position.character <= doc.line(position.line + 1).length;
+            return (
+              !valid(range.start) ||
+              !valid(range.end) ||
+              range.end.line < range.start.line ||
+              (range.end.line === range.start.line && range.end.character < range.start.character)
+            );
+          })
+        )
+          return true;
+        for (const h of diagnosticHandlers) h(uri, diagnostics);
+        return false; // let serverDiagnostics() also handle editor underlines
+      };
+      const target = new LSPClient({
         rootUri: 'file:///workspace',
         // Cold wake can restore a large semantic closure before any request runs.
         timeout: LSP_REQUEST_TIMEOUT_MS,
@@ -319,47 +401,31 @@ export const createLspClientService = withInstrumentation(
           return ws;
         },
         notificationHandlers: {
-          'textDocument/publishDiagnostics': (target, params) => {
-            const { uri, diagnostics, version } = params as {
-              uri: string;
-              diagnostics: LspDiagnostic[];
-              version?: number;
-            };
-            const file = target.workspace.getFile(uri);
-            const snapshot = workspaceSnapshot.get(uri);
-            const revision =
-              file?.version ?? (snapshot ? (target.workspace as StudioWorkspace).getFileVersion(uri) : undefined);
-            if (version !== undefined && revision !== undefined && version !== revision) return true;
-            const view = file?.getView();
-            const doc =
-              (view && LSPPlugin.get(view)?.syncedDoc) ??
-              file?.doc ??
-              (snapshot ? Text.of(snapshot.content.split('\n')) : undefined);
-            if (
-              doc &&
-              diagnostics.some(({ range }) => {
-                const valid = (position: { line: number; character: number }) =>
-                  Number.isInteger(position.line) &&
-                  position.line >= 0 &&
-                  position.line < doc.lines &&
-                  Number.isInteger(position.character) &&
-                  position.character >= 0 &&
-                  position.character <= doc.line(position.line + 1).length;
-                return (
-                  !valid(range.start) ||
-                  !valid(range.end) ||
-                  range.end.line < range.start.line ||
-                  (range.end.line === range.start.line && range.end.character < range.start.character)
-                );
-              })
-            )
-              return true;
-            for (const h of diagnosticHandlers) h(uri, diagnostics);
-            return false; // let serverDiagnostics() also handle editor underlines
-          }
+          'textDocument/publishDiagnostics': publishDiagnostics
         },
-        extensions: [...languageServerExtensions()]
+        extensions
       });
+      replayProjectDiagnostics = (params, source) => {
+        if (source !== target || target !== client || publishDiagnostics(target, params)) return;
+        for (const extension of extensions) {
+          if (!extension || typeof extension !== 'object' || !('notificationHandlers' in extension)) continue;
+          const handler = extension.notificationHandlers?.['textDocument/publishDiagnostics'];
+          if (handler?.(target, params)) break;
+        }
+      };
+      const request = target.request.bind(target);
+      target.request = async function <Params, Result>(method: string, params: Params): Promise<Result> {
+        const semantic = method.startsWith('textDocument/') || method.startsWith('workspace/');
+        const managed = resolutionSnapshot !== undefined || Boolean(resolutionUnavailable);
+        const generation = modelGeneration;
+        if (semantic && managed && !resolutionReady())
+          throw new Error(resolutionUnavailable ?? 'The language server is applying the current project.');
+        const result = await request<Params, Result>(method, params);
+        if (semantic && managed && (generation !== modelGeneration || !resolutionReady()))
+          throw new Error('The project changed before the language server request completed.');
+        return result;
+      };
+      return target;
     }
 
     async function activateClient(transport: Parameters<LSPClient['connect']>[0]): Promise<void> {
@@ -369,6 +435,7 @@ export const createLspClientService = withInstrumentation(
       target.connect(transport);
       initialized = true;
       sentModels.clear();
+      appliedResolutionKey = undefined;
       await syncModels();
 
       if (target !== client || !initialized || modelSyncPending) return;
@@ -440,7 +507,7 @@ export const createLspClientService = withInstrumentation(
       },
 
       isInitialized(): boolean {
-        return initialized;
+        return initialized && resolutionReady();
       },
 
       onDiagnostics(handler: (uri: string, diagnostics: LspDiagnostic[]) => void): () => void {
@@ -451,7 +518,20 @@ export const createLspClientService = withInstrumentation(
         };
       },
 
-      syncWorkspaceModels(models): Promise<void> {
+      suspendProjectResolution(message): void {
+        resolutionUnavailable = message;
+        pendingDiagnostics.clear();
+        modelGeneration++;
+        modelSyncPending = true;
+      },
+      syncWorkspaceModels(models, resolution): Promise<void> {
+        resolutionUnavailable = undefined;
+        resolutionSnapshot =
+          resolution === undefined
+            ? resolutionSnapshot === undefined
+              ? undefined
+              : null
+            : structuredClone(resolution);
         modelSnapshot = new Map(models.map((model) => [URI.parse(model.uri).toString(), model.modelJson]));
         return syncModels();
       },

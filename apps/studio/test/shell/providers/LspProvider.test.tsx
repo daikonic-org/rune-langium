@@ -21,11 +21,19 @@ const reconnect = vi.fn().mockImplementation(async () => {
   // mount-time onStateChange listener.
   transportStateCb?.({ mode: 'direct', status: 'connected' });
 });
+const suspendProjectResolution = vi.fn();
 const syncWorkspaceFiles = vi.fn();
 const syncWorkspaceModels = vi.fn().mockResolvedValue(undefined);
 const dispose = vi.fn();
 vi.mock('../../../src/services/lsp-client.js', () => ({
-  createLspClientService: () => ({ connect, reconnect, syncWorkspaceFiles, syncWorkspaceModels, dispose })
+  createLspClientService: () => ({
+    connect,
+    reconnect,
+    syncWorkspaceFiles,
+    syncWorkspaceModels,
+    suspendProjectResolution,
+    dispose
+  })
 }));
 vi.mock('../../../src/services/transport-provider.js', () => ({
   createTransportProvider: () => ({
@@ -345,4 +353,23 @@ describe('LspProvider', () => {
     }
     expect(() => render(<Bare />)).toThrow(/within an LspProvider/);
   });
+});
+
+it('suspends semantic operations while a managed capture is loading instead of syncing the legacy graph', async () => {
+  const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
+  syncWorkspaceModels.mockClear();
+  suspendProjectResolution.mockClear();
+  render(
+    <WorkspaceStateContext.Provider value={wsState([])}>
+      <ProjectContext.Provider
+        value={{ status: 'ready', diagnostics: [], runtime: { managed: true, status: 'loading', diagnostics: [] } }}
+      >
+        <LspProvider>
+          <LspProbe />
+        </LspProvider>
+      </ProjectContext.Provider>
+    </WorkspaceStateContext.Provider>
+  );
+  expect(suspendProjectResolution).toHaveBeenCalled();
+  expect(syncWorkspaceModels).not.toHaveBeenCalled();
 });

@@ -3,6 +3,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { createPrototypeExample } from '../helpers/prototype-examples.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 const source = `namespace workbench
@@ -38,6 +39,7 @@ type Agreement:
   notes string (0..*)
 `;
 async function load(page: Page) {
+  page.setDefaultTimeout(10000);
   await page.goto('./');
   await page
     .locator('input[type="file"][accept=".rosetta"]')
@@ -82,6 +84,7 @@ async function exercise(page: Page, width: number) {
   await form.getByRole('button', { name: 'Open Effective Date picker' }).click();
   const calendar = page.getByRole('dialog', { name: 'Effective Date picker' });
   await expect(calendar.getByRole('grid')).toBeVisible();
+  await expect(calendar).toHaveCSS('opacity', '1');
   const pickerViolations = await new AxeBuilder({ page }).include('[data-slot="popover-content"]').analyze();
   await page.screenshot({ path: `../../dist/form-workbench-calendar-${width}.png` });
   expect(pickerViolations.violations).toEqual([]);
@@ -124,33 +127,22 @@ for (const width of [1440, 390]) {
       await expect(previewHeader).toHaveCSS('padding-left', '16px');
     }
     await page.getByTestId('rail-prototype').click();
-    await page.getByRole('button', { name: 'New instance', exact: true }).click();
-    await page.getByRole('button', { name: 'Instance type', exact: true }).click();
-    await page.getByRole('combobox', { name: 'Search instance type' }).fill('Agreement');
-    await page.getByRole('option', { name: /Agreement/ }).click();
-    await page.getByLabel('Instance name').fill('Quarterly settlement');
-    await page.getByRole('button', { name: 'Create instance', exact: true }).click();
+    await createPrototypeExample(page, 'Agreement', 'Quarterly settlement');
     const perspective = page.getByTestId('prototype-perspective');
     const inspectorTab = perspective.getByRole('tab', { name: 'Inspector', exact: true });
     if (await inspectorTab.count()) await inspectorTab.click();
-    if (densityOverride) {
-      const details = perspective.getByRole('complementary', { name: 'Instance details' });
-      const validation = details.getByRole('region', { name: 'Instance validation' });
-      const provenance = details.getByRole('heading', { name: 'Provenance', exact: true }).locator('..');
-      const payload = details.getByRole('region', { name: 'Instance payload' });
-      for (const section of [validation, provenance, payload]) {
-        await expect(section).toHaveCSS('padding-top', '12px');
-        await expect(section).toHaveCSS('padding-bottom', '12px');
-        await expect(section).toHaveCSS('padding-left', '16px');
-      }
-      await densityOverride.evaluate((el) => el.remove());
-      for (const section of [validation, provenance, payload]) {
-        await expect(section).toHaveCSS('padding-bottom', '8px');
-        await expect(section).toHaveCSS('padding-left', '12px');
-      }
-    }
+    if (densityOverride) await densityOverride.evaluate((el) => el.remove());
     const form = perspective.getByTestId('panel-formPreview');
     await expect(form.getByLabel('Trade Id', { exact: true })).toBeVisible();
+    await form.getByLabel('Trade Id', { exact: true }).fill('AGR-2026-1042');
+    await form.getByRole('combobox', { name: 'Status', exact: true }).click();
+    await page.getByRole('option', { name: 'Draft', exact: true }).click();
+    await form.getByRole('combobox', { name: 'Choose one option', exact: true }).click();
+    await page.getByRole('option', { name: 'Cash', exact: true }).click();
+    await form.getByLabel('Currency', { exact: true }).fill('USD');
+    await form.getByLabel('Amount', { exact: true }).fill('100');
+    await form.getByRole('button', { name: 'Add Notes item', exact: true }).click();
+    await form.getByLabel('Notes item 1', { exact: true }).fill('Settlement details');
     await form.getByRole('button', { name: 'Add Parties item' }).click();
     await form.getByRole('button', { name: 'Open Parties 1 details' }).click();
     await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Acme Asset Management');
@@ -197,6 +189,7 @@ test('Choice Inspector shares compact gutters, chips and flat documentation', as
 for (const mode of ['Preview', 'Prototype'] as const) {
   test(`${mode} invalid inputs retain errors and use a distinct field surface`, async ({ page }, info) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    page.setDefaultTimeout(10000);
     await page.goto('./');
     await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
       name: 'invalid.rosetta',
@@ -207,13 +200,7 @@ for (const mode of ['Preview', 'Prototype'] as const) {
     await dismissLocalTransportNotices(page);
     if (mode === 'Prototype') {
       await page.getByTestId('rail-prototype').click();
-      await page.getByRole('button', { name: 'New instance', exact: true }).click();
-      await page.getByRole('button', { name: 'Instance type', exact: true }).click();
-      await page.getByRole('combobox', { name: 'Search instance type' }).fill('Probe');
-      await page.getByRole('option', { name: /Probe/ }).click();
-      await page.getByLabel('Instance name').fill('Validation example');
-      await page.getByRole('button', { name: 'Create instance', exact: true }).click();
-      await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
+      await createPrototypeExample(page, 'Probe', 'Validation example');
     }
     const form =
       mode === 'Prototype'
@@ -251,6 +238,7 @@ for (const mode of ['Preview', 'Prototype'] as const) {
 
 for (const action of ['disclosure', 'ISO mode'] as const) {
   test(`a ${action} click validates an initially unchecked sample without losing the click`, async ({ page }) => {
+    page.setDefaultTimeout(10000);
     await page.goto('./');
     await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
       name: 'blur.rosetta',

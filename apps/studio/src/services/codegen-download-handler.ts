@@ -10,14 +10,18 @@ import {
   TARGET_DESCRIPTORS,
   type ExportSelection,
   type GeneratorDiagnostic,
+  type GeneratorOptions,
   type GeneratorOutput,
   type Target
 } from '@rune-langium/codegen/export';
 import { loadCuratedWorkspace, curatedWorkspaceErrorResponse } from './curated-workspace.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import type { ExportArtifactManifest } from './export-artifact.js';
+import type { ProjectRuntimeInput } from './project-runtime-input.js';
+import { BuildTargetSchema, type BuildTarget } from '@rune-langium/project-config';
 
 interface CodegenRequestBody {
+  projectTarget?: BuildTarget;
   files: Array<{ path: string; content: string }>;
   target: Target;
   /**
@@ -28,18 +32,7 @@ interface CodegenRequestBody {
    * default for the target (019 spec §10.1) — barrel for Zod/TS,
    * single-file for JSON Schema.
    */
-  options?: {
-    zod?: { layout?: 'per-namespace' | 'barrel' | 'single-file' };
-    typescript?: { layout?: 'per-namespace' | 'barrel' | 'single-file' };
-    'json-schema'?: { layout?: 'per-namespace' | 'single-file' };
-    sql?: {
-      dialect?: 'postgres' | 'sqlserver';
-      inheritance?: 'single-table' | 'table-per-type';
-      enumStrategy?: 'check' | 'table';
-      layout?: 'per-namespace' | 'single-file';
-    };
-    markdown?: { layout?: 'per-namespace' | 'barrel' };
-  };
+  options?: Omit<GeneratorOptions, 'target' | 'namespaces' | 'selection' | 'projectBindings' | 'projectResources'>;
   /**
    * Optional curated-bundle hydration list. When present, the function
    * fetches each bundle's pre-parsed serialized AST via the
@@ -74,6 +67,8 @@ interface CodegenRequestBody {
   selection?: ExportSelection;
   /** Return a ZIP artifact envelope with an inspectable manifest. */
   artifactEnvelope?: 1;
+  /** Named project builds use the same strict library defaults as the native CLI. */
+  projectBuild?: boolean;
 }
 
 /**
@@ -294,6 +289,11 @@ function isExportSelection(value: unknown): value is ExportSelection {
 
 function isValidRequest(body: unknown): body is CodegenRequestBody {
   if (!body || typeof body !== 'object') return false;
+  if ('project' in body) return false;
+  const options = (body as { options?: unknown }).options;
+  if (options && typeof options === 'object' && ('projectBindings' in options || 'projectResources' in options))
+    return false;
+  if ('projectTarget' in body && !BuildTargetSchema.safeParse(body.projectTarget).success) return false;
   const b = body as { files?: unknown; target?: unknown; curatedBundles?: unknown; curatedDocs?: unknown };
   if (
     !Array.isArray(b.files) ||
@@ -350,6 +350,8 @@ function isValidRequest(body: unknown): body is CodegenRequestBody {
       return false;
     }
   }
+  const projectBuild = (body as { projectBuild?: unknown }).projectBuild;
+  if (projectBuild !== undefined && typeof projectBuild !== 'boolean') return false;
   const selection = (body as { selection?: unknown }).selection;
   if (selection !== undefined && !isExportSelection(selection)) return false;
   if (selection !== undefined && ns !== undefined) return false;
@@ -635,7 +637,8 @@ async function artifactEnvelopeResponse(
   filename: string,
   selection: ExportSelection | undefined,
   resolvedSelection?: ExportArtifactManifest['resolvedSelection'],
-  resolvedCohorts?: ExportArtifactManifest['resolvedCohorts']
+  resolvedCohorts?: ExportArtifactManifest['resolvedCohorts'],
+  projectReceipt?: ExportArtifactManifest['projectReceipt']
 ): Promise<Response> {
   const zip = new JSZip();
   const files: ExportArtifactManifest['files'] = [];
@@ -657,6 +660,7 @@ async function artifactEnvelopeResponse(
   const manifest: ExportArtifactManifest = {
     version: 1,
     target,
+    ...(projectReceipt ? { projectReceipt } : {}),
     ...(selection ? { selection } : {}),
     ...(resolvedSelection ? { resolvedSelection } : {}),
     ...(resolvedCohorts && Object.keys(resolvedCohorts).length > 0 ? { resolvedCohorts } : {}),
@@ -692,6 +696,7 @@ function applyPagesFunctionDefaults(body: CodegenRequestBody): Record<string, un
     result.namespaces = body.namespaces;
   }
   if (body.selection) result.selection = body.selection;
+  if (body.projectBuild) return { ...result, strict: true };
   const target = body.target;
   const serverDefault = PAGES_FUNCTION_DEFAULT_LAYOUT[target];
   if (!serverDefault) return result;
@@ -706,7 +711,15 @@ function applyPagesFunctionDefaults(body: CodegenRequestBody): Record<string, un
 // the Response outputs all carry raw user model content or may carry
 // secret env bindings — never captured.
 export const handleCodegenDownload = withInstrumentation(
-  async ({ request, env }: { request: Request; env?: CodegenDownloadEnv }): Promise<Response> => {
+  async ({
+    request,
+    env,
+    project
+  }: {
+    request: Request;
+    env?: CodegenDownloadEnv;
+    project?: ProjectRuntimeInput;
+  }): Promise<Response> => {
     let raw: unknown;
     try {
       raw = await request.json();
@@ -720,6 +733,8 @@ export const handleCodegenDownload = withInstrumentation(
       );
     }
     const body = raw;
+    if (body.projectTarget && !project)
+      return jsonError(400, 'A named project target requires a captured managed project.');
 
     // Target gating. `IMPLEMENTED_TARGETS` is the single source of truth
     // for which emitters this build has; mirrors the studio table's
@@ -734,7 +749,7 @@ export const handleCodegenDownload = withInstrumentation(
     // 019 Task #88 — a pure curated workspace ships zero user files but a
     // non-empty curated source: either curatedBundles (path C) OR pre-loaded
     // curatedDocs (path A). All three empty is the genuine bad-input case.
-    if (body.files.length === 0 && curatedBundles.length === 0 && curatedDocs.length === 0) {
+    if (!project && body.files.length === 0 && curatedBundles.length === 0 && curatedDocs.length === 0) {
       return jsonError(400, 'files / curatedBundles / curatedDocs: at least one must be non-empty');
     }
 
@@ -760,6 +775,7 @@ export const handleCodegenDownload = withInstrumentation(
       let documents: import('langium').LangiumDocument[];
       let resolvedNamespaces: string[] | undefined;
       let resolvedCohorts: Record<string, string> | undefined;
+      let projectGraph: import('@rune-langium/project-runtime/effective').EffectiveProject | undefined;
       // Set whenever this request is consuming a cache entry (whether it
       // just registered it or coalesced onto an existing one) — released in
       // the outer `finally` below, which now spans from registration all the
@@ -768,7 +784,32 @@ export const handleCodegenDownload = withInstrumentation(
       // registration).
       let releaseDocumentCacheConsumer: (() => void) | undefined;
       try {
-        if (cacheKey) {
+        if (project) {
+          const { applyEffectiveProject } = await import('@rune-langium/project-runtime/effective');
+          const graph = await applyEffectiveProject(project);
+          projectGraph = graph;
+          documents = [...graph.documents];
+          resolvedCohorts = Object.fromEntries(
+            Object.entries(project.snapshot.lock?.references ?? {}).map(([id, entry]) => [id, entry.cohort])
+          );
+          if (body.projectTarget) {
+            const { projectTargetNamespaces } = await import('@rune-langium/project-runtime/browser');
+            const { namespaceFromModelName, isRosettaModel } = await import('@rune-langium/core');
+            const available = new Set(
+              documents.flatMap((document) =>
+                isRosettaModel(document.parseResult.value)
+                  ? [namespaceFromModelName(document.parseResult.value.name)].filter((name): name is string =>
+                      Boolean(name)
+                    )
+                  : []
+              )
+            );
+            body.selection = {
+              namespaces: projectTargetNamespaces(project.snapshot, body.projectTarget, available),
+              declarations: []
+            };
+          }
+        } else if (cacheKey) {
           let entry = documentCache.get(cacheKey);
           if (!entry) {
             // A miss means the cache is either empty or holds a DIFFERENT
@@ -960,6 +1001,19 @@ export const handleCodegenDownload = withInstrumentation(
         const { generate, generateSelected, unknownExportSelectionDiagnostics } =
           await import('@rune-langium/codegen/export');
         const generatorOptions = applyPagesFunctionDefaults(body);
+        if (projectGraph) {
+          const { assertProjectGenerationCapabilities } = await import('@rune-langium/project-runtime/effective');
+          assertProjectGenerationCapabilities(
+            projectGraph,
+            body.selection ??
+              (body.namespaces?.length
+                ? { namespaces: resolvedNamespaces ?? body.namespaces, declarations: [] }
+                : undefined),
+            body.target
+          );
+          generatorOptions.projectBindings = projectGraph.implementationBindings;
+          generatorOptions.projectResources = projectGraph.bindings;
+        }
         if (resolvedNamespaces && body.namespaces) generatorOptions.namespaces = resolvedNamespaces;
         const selectedGeneration = body.selection
           ? await generateSelected(documents, body.selection, generatorOptions)
@@ -1001,7 +1055,8 @@ export const handleCodegenDownload = withInstrumentation(
                   requiredBy: Object.fromEntries(selectionReceipt.requiredBy)
                 }
               : undefined,
-            resolvedCohorts
+            resolvedCohorts,
+            project?.receipt
           );
         }
         if (outputs.length === 1) {

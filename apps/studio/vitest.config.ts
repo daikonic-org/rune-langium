@@ -34,7 +34,15 @@ export default defineConfig({
         // `@rune-langium/codegen-legacy`, which apps/studio also imports
         // value-level (see src/services/codegen-service.ts) and must keep
         // going through the normal SSR transform.
-        external: [/@rune-langium\/codegen(\/|$)/, /packages\/codegen\/dist/]
+        // Project graph construction and native codegen must share core's
+        // generation-local identity registry, rather than loading core once
+        // through Vite and a second time through Node's codegen dependency.
+        external: [
+          /@rune-langium\/codegen(\/|$)/,
+          /packages\/codegen\/dist/,
+          /@rune-langium\/project-runtime(\/|$)/,
+          /packages\/project-runtime\/dist/
+        ]
       }
     }
   }

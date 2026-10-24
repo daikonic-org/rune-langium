@@ -44,6 +44,7 @@ import { pythonFieldType, pythonFieldNormalizer, pythonTypeDeclarations } from '
 import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
 import type { PythonProjectionContext } from './context.js';
 import type { EmittedProjection, GeneratedProjection, ProjectionSubject } from './types.js';
+import { selectEffectiveProjectDocuments } from '../selection/declaration-selection.js';
 
 export interface PythonModule {
   code: string;
@@ -447,6 +448,7 @@ export function projectPythonCondition(condition: Condition, context: PythonProj
 
 /** Standalone browser-safe Python source plus source-addressed display fragments. */
 export function generatePythonModule(documents: readonly LangiumDocument[]): PythonModule {
+  documents = selectEffectiveProjectDocuments([...documents]);
   const context = createPythonProjectionContext(documents, { uri: '', nodeId: '', region: { from: 0, to: 0 } });
   const elements = documents.flatMap((document) =>
     isRosettaModel(document.parseResult.value) ? document.parseResult.value.elements : []

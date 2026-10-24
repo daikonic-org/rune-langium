@@ -16,12 +16,14 @@
  * EditorPage props (present-tense wiring — no zustand store needed).
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactElement } from 'react';
 import type { SyncStatus } from '@rune-langium/git-sync-engine';
 import type { WorkspaceKind } from '../../../workspace/persistence.js';
-import { subscribeToEngine, resolveConflict } from '../../../services/git-sync.js';
+import { subscribeToEngine, resolveConflict, getSyncEngine } from '../../../services/git-sync.js';
 import { SyncStatusBadge } from '../../../components/SyncStatusBadge.js';
+import { Button } from '@rune-langium/design-system/ui/button';
+import { useWorkspaceActionsOptional } from '../workspace-actions-context.js';
 import { GitBranch } from 'lucide-react';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 
@@ -60,6 +62,16 @@ export const GitSyncPerspective = withInstrumentation(
   function GitSyncPerspective({ workspaceId, workspaceKind }: GitSyncPerspectiveProps): ReactElement {
     const isGitBacked = workspaceKind === 'git-backed' && !!workspaceId;
 
+    const actions = useWorkspaceActionsOptional();
+    const [working, setWorking] = useState(false);
+    const [error, setError] = useState<string>();
+    const activeId = useRef(workspaceId);
+    useEffect(() => {
+      activeId.current = workspaceId;
+      return () => {
+        activeId.current = undefined;
+      };
+    }, [workspaceId]);
     const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 
     // Reset on workspace switch — adjusted during render (React's blessed
@@ -112,6 +124,48 @@ export const GitSyncPerspective = withInstrumentation(
               )}
             </div>
 
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Save updates your local working copy. Commit and push publishes changes to this repository.
+              </p>
+              <Button
+                size="sm"
+                disabled={
+                  working ||
+                  !syncStatus ||
+                  syncStatus.conflictPaths !== undefined ||
+                  ['committing', 'fetching', 'merging', 'pushing'].includes(syncStatus.phase)
+                }
+                onClick={async () => {
+                  if (!workspaceId) return;
+                  setWorking(true);
+                  setError(undefined);
+                  try {
+                    await actions?.flushWorkspaceSave?.();
+                    if (activeId.current !== workspaceId) return;
+                    const engine = getSyncEngine(workspaceId);
+                    if (!engine) throw new Error('Git is still initializing. Try again.');
+                    await engine.syncNow();
+                  } catch (cause) {
+                    if (activeId.current === workspaceId)
+                      setError(
+                        cause instanceof Error
+                          ? cause.message
+                          : 'Commit and push could not finish. Retry when access is restored.'
+                      );
+                  } finally {
+                    setWorking(false);
+                  }
+                }}
+              >
+                Commit and push
+              </Button>
+              {error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {error}
+                </p>
+              )}
+            </div>
             {/* Sync summary — ahead / behind counts when available */}
             {syncStatus && (syncStatus.ahead > 0 || syncStatus.behind > 0) && (
               <div

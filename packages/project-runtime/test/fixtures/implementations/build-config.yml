@@ -1,0 +1,25 @@
+schemaVersion: 1
+sources:
+  - model/**/*.rosetta
+references:
+  cdm:
+    repository: https://github.com/org/cdm
+    release: fixture-1
+overrides:
+  - kind: declaration
+    source:
+      model: cdm
+      namespace: example.reference
+      kind: RosettaFunction
+      name: Double
+    replacement:
+      model: local
+      namespace: example.local
+      kind: RosettaFunction
+      name: Double
+targets:
+  typescript:
+    generator: typescript
+    output: generated/typescript
+    options:
+      layout: single-file

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { ProjectContext, type ProjectState } from '../../src/shell/providers/project-context.js';
+import { WorkspaceActionsContext } from '../../src/shell/perspectives/workspace-actions-context.js';
+import type { WorkspaceActions } from '../../src/shell/perspectives/workspace-actions-context.js';
 import type { DockviewApi } from 'dockview-react';
 import { ExportPerspective } from '../../src/shell/perspectives/screens/ExportPerspective.js';
 import type { WorkbenchDefinition } from '../../src/shell/workbench-types.js';
@@ -23,6 +26,10 @@ const { state, mockGenerate, mockActivate, mockConfigure, mockInvalidate, mockSe
       configure: vi.fn(),
       invalidate: vi.fn(),
       setActiveFile: vi.fn(),
+      bindProject: vi.fn(() => () => undefined),
+      selectTarget: vi.fn(),
+      saveTarget: vi.fn(),
+      buildTargets: vi.fn(),
       cancel: vi.fn()
     };
     return {
@@ -37,6 +44,8 @@ const { state, mockGenerate, mockActivate, mockConfigure, mockInvalidate, mockSe
   }
 );
 
+let capturedBuild: ((names: readonly string[] | 'all') => void) | undefined;
+let capturedCancel: (() => void) | undefined;
 let capturedGenerate: (() => void) | undefined;
 let capturedDefinition: WorkbenchDefinition;
 let capturedReady: ((api: DockviewApi) => void) | undefined;
@@ -50,7 +59,13 @@ vi.mock('../../src/shell/panels/ExportSelectionPanel.js', () => ({
   ExportSelectionPanel: () => <div data-testid="mock-export-selection-panel" />
 }));
 vi.mock('../../src/shell/panels/ExportSettingsPanel.js', () => ({
-  ExportSettingsPanel: (props: { onGenerate(): void }) => {
+  ExportSettingsPanel: (props: {
+    onGenerate(): void;
+    onBuildTargets(names: readonly string[] | 'all'): void;
+    onCancel(): void;
+  }) => {
+    capturedBuild = props.onBuildTargets;
+    capturedCancel = props.onCancel;
     capturedGenerate = props.onGenerate;
     return <div data-testid="mock-export-settings-panel" />;
   }
@@ -78,6 +93,7 @@ beforeEach(() => {
     selection: { namespaces: [], declarations: [] },
     options: { typescript: { layout: 'barrel' } }
   };
+  state.buildTargets.mockClear();
   state.run = { status: 'idle' };
   capturedGenerate = undefined;
   capturedReady = undefined;
@@ -235,4 +251,157 @@ it('captures the selected roots and workspace files exactly once when generating
   expect(mockGenerate).toHaveBeenCalledWith(
     expect.objectContaining({ workspaceId: 'workspace-a', config: state.config, files })
   );
+});
+
+it('flushes source Save and waits for the refreshed runtime receipt before building', async () => {
+  let finishSave!: () => void;
+  const flushWorkspaceSave = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finishSave = resolve;
+      })
+  );
+  const old = { workspaceId: 'workspace-a', revision: 'old' };
+  const fresh = { workspaceId: 'workspace-a', revision: 'fresh' };
+  let current = old;
+  const controller = {
+    current: () => current,
+    load: vi.fn(async () => {
+      current = fresh;
+      return fresh;
+    })
+  };
+  const project = (snapshot = old, status = 'captured'): ProjectState => ({
+    workspaceId: 'workspace-a',
+    status: 'ready',
+    diagnostics: [],
+    controller: controller as never,
+    snapshot: snapshot as never,
+    runtime: {
+      managed: true,
+      status,
+      diagnostics: [],
+      input: status === 'captured' ? { snapshot, receipt: { revision: snapshot.revision } } : undefined
+    } as never
+  });
+  const ui = (value: ProjectState) => (
+    <WorkspaceActionsContext value={{ flushWorkspaceSave } as WorkspaceActions}>
+      <ProjectContext value={value}>
+        <ExportPerspective workspaceId="workspace-a" />
+      </ProjectContext>
+    </WorkspaceActionsContext>
+  );
+  const view = render(ui(project()));
+  await screen.findByTestId('mock-export-workbench');
+  act(() => capturedBuild?.(['pg']));
+  expect(flushWorkspaceSave).toHaveBeenCalledOnce();
+  expect(controller.load).not.toHaveBeenCalled();
+  await act(async () => finishSave());
+  expect(controller.load).toHaveBeenCalledOnce();
+  expect(state.buildTargets).not.toHaveBeenCalled();
+  view.rerender(ui(project(fresh, 'loading')));
+  expect(state.buildTargets).not.toHaveBeenCalled();
+  view.rerender(ui(project(fresh)));
+  await waitFor(() =>
+    expect(state.buildTargets).toHaveBeenCalledWith(
+      ['pg'],
+      expect.objectContaining({ project: expect.objectContaining({ snapshot: fresh }) })
+    )
+  );
+});
+
+it('does not start a named build when preparation is canceled during source Save', async () => {
+  let finishSave!: () => void;
+  const flushWorkspaceSave = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finishSave = resolve;
+      })
+  );
+  const controller = { current: () => undefined, load: vi.fn() };
+  render(
+    <WorkspaceActionsContext value={{ flushWorkspaceSave } as WorkspaceActions}>
+      <ProjectContext
+        value={{ workspaceId: 'workspace-a', status: 'ready', diagnostics: [], controller: controller as never }}
+      >
+        <ExportPerspective workspaceId="workspace-a" />
+      </ProjectContext>
+    </WorkspaceActionsContext>
+  );
+  await screen.findByTestId('mock-export-workbench');
+  act(() => capturedBuild?.('all'));
+  act(() => capturedCancel?.());
+  await act(async () => finishSave());
+  expect(controller.load).not.toHaveBeenCalled();
+  expect(state.buildTargets).not.toHaveBeenCalled();
+});
+
+it('reports source Save failures without loading or building an older project', async () => {
+  const load = vi.fn();
+  render(
+    <WorkspaceActionsContext
+      value={
+        { flushWorkspaceSave: vi.fn().mockRejectedValue(new Error('Source Save failed. Retry.')) } as WorkspaceActions
+      }
+    >
+      <ProjectContext
+        value={{ workspaceId: 'workspace-a', status: 'ready', diagnostics: [], controller: { load } as never }}
+      >
+        <ExportPerspective workspaceId="workspace-a" />
+      </ProjectContext>
+    </WorkspaceActionsContext>
+  );
+  await screen.findByTestId('mock-export-workbench');
+  act(() => capturedBuild?.('all'));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Source Save failed. Retry.');
+  expect(load).not.toHaveBeenCalled();
+  expect(state.buildTargets).not.toHaveBeenCalled();
+});
+
+it('abandons preparation when the workspace changes during source Save', async () => {
+  let finishSave!: () => void;
+  const flushWorkspaceSave = () =>
+    new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+  const controller = { load: vi.fn(), current: () => undefined };
+  const view = render(
+    <WorkspaceActionsContext value={{ flushWorkspaceSave } as WorkspaceActions}>
+      <ProjectContext
+        value={{ workspaceId: 'workspace-a', status: 'ready', diagnostics: [], controller: controller as never }}
+      >
+        <ExportPerspective workspaceId="workspace-a" />
+      </ProjectContext>
+    </WorkspaceActionsContext>
+  );
+  await screen.findByTestId('mock-export-workbench');
+  act(() => capturedBuild?.('all'));
+  view.rerender(<ExportPerspective workspaceId="workspace-b" />);
+  await act(async () => finishSave());
+  expect(controller.load).not.toHaveBeenCalled();
+  expect(state.buildTargets).not.toHaveBeenCalled();
+});
+
+it('rejects a changed draft while waiting for a refreshed runtime capture', async () => {
+  const snapshot = { workspaceId: 'workspace-a', revision: 'saved' };
+  const controller = { current: () => snapshot, load: vi.fn().mockResolvedValue(snapshot) };
+  const value: ProjectState = {
+    workspaceId: 'workspace-a',
+    status: 'ready',
+    diagnostics: [],
+    controller: controller as never,
+    snapshot: snapshot as never,
+    runtime: { managed: true, status: 'loading', diagnostics: [] }
+  };
+  const ui = (files: NonNullable<Parameters<typeof ExportPerspective>[0]['files']> = []) => (
+    <ProjectContext value={value}>
+      <ExportPerspective workspaceId="workspace-a" files={files} />
+    </ProjectContext>
+  );
+  const view = render(ui());
+  await screen.findByTestId('mock-export-workbench');
+  await act(async () => capturedBuild?.('all'));
+  view.rerender(ui([{ name: 'new.rosetta', path: 'new.rosetta', content: 'namespace new', dirty: true }]));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Source changed while preparing');
+  expect(state.buildTargets).not.toHaveBeenCalled();
 });

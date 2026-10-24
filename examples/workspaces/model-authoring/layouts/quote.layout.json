@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "type": {
+    "model": "local",
+    "namespace": "example.starter",
+    "kind": "Data",
+    "name": "Quote"
+  },
+  "columns": 2,
+  "fields": {
+    "amount": {
+      "order": 0,
+      "span": 1
+    },
+    "currency": {
+      "order": 1,
+      "span": 1
+    }
+  }
+}

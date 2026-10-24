@@ -782,8 +782,74 @@ describe('instance-store — OPFS persistence (finding #1)', () => {
     expect(state.instances['01J000000000000000000041']).toMatchObject({ name: 'Party B' });
 
     const lines = useOutputStore.getState().lines;
-    expect(lines.find((l) => l.text.includes('failed to load saved instances'))).toBeUndefined();
+    expect(lines.find((l) => l.text.includes('failed to load saved examples'))).toBeUndefined();
     const warnedIds = lines.filter((l) => l.op === 'instance' && l.severity === 'warn').map((l) => l.subject);
     expect(warnedIds).toEqual(expect.arrayContaining(['01J000000000000000000040', '01J000000000000000000041']));
   });
+});
+
+it('routes example saves through the repository and ignores late failures from another workspace', async () => {
+  useInstanceStore.getState().setReadiness(undefined);
+  useInstanceStore.getState().setWorker(undefined);
+  let rejectOld!: (error: Error) => void;
+  const oldWrite = new Promise<void>((_, reject) => {
+    rejectOld = reject;
+  });
+  const old = {
+    workspaceId: 'old',
+    write: vi.fn(() => oldWrite),
+    remove: vi.fn().mockResolvedValue(undefined),
+    load: vi.fn().mockResolvedValue({ records: [], diagnostics: [] })
+  };
+  const next = {
+    workspaceId: 'next',
+    write: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    load: vi.fn().mockResolvedValue({ records: [], diagnostics: [] })
+  };
+  const store = useInstanceStore.getState();
+  store.setExampleRepository(old);
+  const id = store.createInstance('example.Trade', 'Trade');
+  await flush();
+  expect(old.write).toHaveBeenCalledOnce();
+  useInstanceStore.getState().setExampleRepository(next);
+  rejectOld(new Error('old disk failure'));
+  await flush();
+  expect(useInstanceStore.getState().instances[id]).toBeUndefined();
+  expect(useInstanceStore.getState().saveStates[id]).toBeUndefined();
+  const newId = useInstanceStore.getState().createInstance('example.Trade', 'New trade');
+  await useInstanceStore.getState().flushInstance(newId);
+  expect(next.write).toHaveBeenCalledOnce();
+  expect(useInstanceStore.getState().saveStates[newId]?.state).toBe('saved');
+  useInstanceStore.getState().setExampleRepository(undefined);
+});
+
+it('does not delete a same-ID example in a new workspace after an old removal finishes', async () => {
+  useInstanceStore.getState().setWorker(undefined);
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const record = { id: 'shared-id', name: 'First', typeFqn: 'example.Trade', data: {}, createdAt: 0, modifiedAt: 0 };
+  const old = {
+    workspaceId: 'remove-old',
+    write: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn(() => pending),
+    load: vi.fn().mockResolvedValue({ records: [record], diagnostics: [] })
+  };
+  const next = {
+    workspaceId: 'remove-next',
+    write: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    load: vi.fn().mockResolvedValue({ records: [{ ...record, name: 'Second' }], diagnostics: [] })
+  };
+  useInstanceStore.getState().setExampleRepository(old);
+  await vi.waitFor(() => expect(useInstanceStore.getState().instances[record.id]).toBeDefined());
+  const removing = useInstanceStore.getState().removeInstance(record.id);
+  useInstanceStore.getState().setExampleRepository(next);
+  await vi.waitFor(() => expect(useInstanceStore.getState().instances[record.id]?.name).toBe('Second'));
+  finish();
+  await removing;
+  expect(useInstanceStore.getState().instances[record.id]?.name).toBe('Second');
+  useInstanceStore.getState().setExampleRepository(undefined);
 });

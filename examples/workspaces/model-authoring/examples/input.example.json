@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "quote-input",
+  "name": "Input quote",
+  "type": {
+    "model": "local",
+    "namespace": "example.starter",
+    "kind": "Data",
+    "name": "Quote"
+  },
+  "payload": "examples/input.json",
+  "codec": "json",
+  "expected": "fixtures/expected/output.json"
+}

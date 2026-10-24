@@ -69,3 +69,13 @@ describe('computeModelFingerprint — hash input must not be ambiguous across do
     expect(await computeModelFingerprint(docsA)).toBe(await computeModelFingerprint(docsB));
   });
 });
+
+it('decodes typed legacy records without accepting arbitrary scratch JSON', async () => {
+  const { parseInstanceRecord } = await import('../../src/instances/bundle.js');
+  expect(parseInstanceRecord(JSON.stringify(RECORD))).toEqual(RECORD);
+  const typeIdentity = { model: 'local', namespace: 'test', kind: 'Data', name: 'Party' };
+  expect(parseInstanceRecord(JSON.stringify({ ...RECORD, typeIdentity })).typeIdentity).toEqual(typeIdentity);
+  for (const value of [{ token: 'secret' }, { ...RECORD, data: undefined }, { ...RECORD, modifiedAt: 'yesterday' }]) {
+    expect(() => parseInstanceRecord(JSON.stringify(value))).toThrow();
+  }
+});

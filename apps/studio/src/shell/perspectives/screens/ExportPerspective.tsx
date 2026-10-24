@@ -13,10 +13,15 @@ import type { WorkspaceFile } from '../../../services/workspace.js';
 import { downloadExportArtifact } from '../../../services/export-artifact.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 import { useExportWorkbenchStore } from '../../../store/export-workbench-store.js';
+import { useWorkspaceActionsOptional } from '../workspace-actions-context.js';
+import type { ProjectController } from '../../../workspace/project-controller.js';
 import { exportSourceFingerprint } from '../../../services/export-request.js';
+import type { ExportInput } from '../../../services/export-request.js';
 import { useExportNavigationStore } from '../../../services/export-navigation.js';
 import { ExportSelectionPanel } from '../../panels/ExportSelectionPanel.js';
 import { ExportSettingsPanel } from '../../panels/ExportSettingsPanel.js';
+import { useProject } from '../../providers/project-context.js';
+import { useWorkspaceOptional } from '../../providers/workspace-context.js';
 import { ExportPreviewPanel } from '../../panels/ExportPreviewPanel.js';
 
 export interface ExportPerspectiveProps {
@@ -45,6 +50,44 @@ function reconcileExportLayout(api: DockviewApi): void {
 
 export const ExportPerspective = withInstrumentation(
   function ExportPerspective({ files, workspaceId }: ExportPerspectiveProps): ReactElement {
+    const project = useProject();
+    const actions = useWorkspaceActionsOptional();
+    const [preparing, setPreparing] = useState(false);
+    const [preparingRevision, setPreparingRevision] = useState<string>();
+    const [preparationError, setPreparationError] = useState<string>();
+    const preparation = useRef<
+      | {
+          abort: AbortController;
+          controller: ProjectController;
+          waiting?: {
+            revision: string;
+            sourceFingerprint: string;
+            resolve(input: ExportInput): void;
+            reject(error: Error): void;
+          };
+        }
+      | undefined
+    >(undefined);
+    const projectCapture = project.runtime?.status === 'captured' ? project.runtime.input : undefined;
+    const projectUnavailable =
+      project.runtime && project.runtime.status !== 'legacy' && !projectCapture
+        ? project.runtime.diagnostics.map((issue) => issue.message).join('\n') ||
+          'Applying the current project configuration…'
+        : undefined;
+    const projectRequest = useMemo(
+      () => ({
+        ...(projectCapture ? { project: projectCapture } : {}),
+        ...(projectUnavailable ? { projectUnavailable } : {})
+      }),
+      [projectCapture, projectUnavailable]
+    );
+    const workspace = useWorkspaceOptional();
+    const selectedTargetName = useExportWorkbenchStore((state) => state.selectedTargetName);
+    const targetDirty = useExportWorkbenchStore((state) => state.targetDirty);
+    const bindProject = useExportWorkbenchStore((state) => state.bindProject);
+    const selectTarget = useExportWorkbenchStore((state) => state.selectTarget);
+    const saveTarget = useExportWorkbenchStore((state) => state.saveTarget);
+    const buildTargets = useExportWorkbenchStore((state) => state.buildTargets);
     const config = useExportWorkbenchStore((state) => state.config);
     const run = useExportWorkbenchStore((state) => state.run);
     const activeFile = useExportWorkbenchStore((state) => state.activeFile);
@@ -93,7 +136,25 @@ export const ExportPerspective = withInstrumentation(
         ),
       [run]
     );
+    const cancelPreparation = useCallback(() => {
+      const pending = preparation.current;
+      preparation.current = undefined;
+      pending?.abort.abort();
+      pending?.waiting?.reject(new DOMException('Build preparation canceled.', 'AbortError'));
+      setPreparing(false);
+      setPreparingRevision(undefined);
+    }, []);
+    const handleCancel = useCallback(() => {
+      cancelPreparation();
+      cancel();
+    }, [cancelPreparation, cancel]);
+    useEffect(() => {
+      setPreparationError(undefined);
+      return cancelPreparation;
+    }, [workspaceId, project.controller, cancelPreparation]);
     const sourceFingerprint = useMemo(() => exportSourceFingerprint(workspaceId, files ?? []), [files, workspaceId]);
+    const sourceFingerprintRef = useRef(sourceFingerprint);
+    sourceFingerprintRef.current = sourceFingerprint;
 
     useEffect(() => {
       if (!workspaceId) {
@@ -115,12 +176,104 @@ export const ExportPerspective = withInstrumentation(
         cancelled = true;
       };
     }, [activate, configure, workspaceId]);
+    useEffect(
+      () => bindProject(project.controller, workspace?.workspaceName),
+      [bindProject, project.controller, workspace?.workspaceName]
+    );
     useEffect(() => {
       const revision = sourceRevisionRef.current + 1;
       sourceRevisionRef.current = revision;
       setSourceRevision(revision);
       invalidate(revision);
-    }, [invalidate, sourceFingerprint]);
+    }, [invalidate, sourceFingerprint, projectCapture?.receipt.revision, projectUnavailable]);
+
+    // Wait for the ordinary provider capture; never construct a parallel reference/override receipt.
+    useEffect(() => {
+      const pending = preparation.current;
+      const waiting = pending?.waiting;
+      if (!pending || !waiting || pending.abort.signal.aborted) return;
+      const fail = (message: string) => {
+        pending.waiting = undefined;
+        waiting.reject(new Error(message));
+      };
+      if (pending.controller.current()?.revision !== waiting.revision) {
+        fail('Project files changed while preparing this build. Try building again.');
+        return;
+      }
+      if (project.snapshot?.revision !== waiting.revision) return;
+      if (sourceFingerprint !== waiting.sourceFingerprint) {
+        fail('Source changed while preparing this build. Try building again.');
+        return;
+      }
+      if (project.runtime?.status === 'loading') return;
+      if (projectUnavailable) {
+        fail(projectUnavailable);
+        return;
+      }
+      if (projectCapture && projectCapture.snapshot.revision !== waiting.revision) {
+        fail('Source changed while preparing this build. Try building again.');
+        return;
+      }
+      pending.waiting = undefined;
+      waiting.resolve({
+        workspaceId: workspaceId ?? 'unsaved-workspace',
+        sourceRevision,
+        projectRevision: waiting.revision,
+        ...projectRequest,
+        config,
+        files: files ?? []
+      });
+    }, [
+      preparingRevision,
+      project,
+      projectUnavailable,
+      projectCapture,
+      sourceFingerprint,
+      sourceRevision,
+      projectRequest,
+      config,
+      files,
+      workspaceId
+    ]);
+    const handleBuildTargets = useCallback(
+      async (names: readonly string[] | 'all') => {
+        const controller = project.controller;
+        if (!controller) return;
+        cancelPreparation();
+        const pending: NonNullable<typeof preparation.current> = { controller, abort: new AbortController() };
+        preparation.current = pending;
+        setPreparing(true);
+        setPreparationError(undefined);
+        try {
+          await actions?.flushWorkspaceSave?.();
+          pending.abort.signal.throwIfAborted();
+          const saved = await controller.load();
+          pending.abort.signal.throwIfAborted();
+          const input = await new Promise<ExportInput>((resolve, reject) => {
+            pending.waiting = {
+              revision: saved.revision,
+              sourceFingerprint: sourceFingerprintRef.current,
+              resolve,
+              reject
+            };
+            setPreparingRevision(saved.revision);
+          });
+          pending.abort.signal.throwIfAborted();
+          setPreparing(false);
+          await buildTargets(names, input);
+        } catch (error) {
+          if (!pending.abort.signal.aborted)
+            setPreparationError(error instanceof Error ? error.message : 'Build preparation failed. Try again.');
+        } finally {
+          if (preparation.current === pending) {
+            preparation.current = undefined;
+            setPreparing(false);
+            setPreparingRevision(undefined);
+          }
+        }
+      },
+      [project.controller, actions, cancelPreparation, buildTargets]
+    );
 
     const handleSelectionChange = useCallback(
       (selection: ExportSelection) => configure({ ...config, selection }),
@@ -130,10 +283,12 @@ export const ExportPerspective = withInstrumentation(
       void generate({
         workspaceId: workspaceId ?? 'unsaved-workspace',
         sourceRevision,
+        projectRevision: project.snapshot?.revision,
+        ...projectRequest,
         config,
         files: files ?? []
       });
-    }, [config, files, generate, sourceRevision, workspaceId]);
+    }, [config, files, generate, sourceRevision, workspaceId, project.snapshot?.revision, projectRequest]);
     const definition = useMemo<WorkbenchDefinition>(
       () => ({
         id: 'export',
@@ -157,8 +312,23 @@ export const ExportPerspective = withInstrumentation(
                 config={config}
                 onChange={configure}
                 onGenerate={handleGenerate}
-                onCancel={cancel}
-                status={run.status}
+                onCancel={handleCancel}
+                status={preparing ? 'generating' : run.status}
+                projectEnabled={Boolean(project.controller)}
+                projectSnapshot={project.snapshot}
+                projectDiagnostics={project.diagnostics}
+                selectedTargetName={selectedTargetName}
+                targetDirty={targetDirty}
+                onSelectTarget={selectTarget}
+                onSaveTarget={async (name) => {
+                  await saveTarget(name, config);
+                }}
+                onReloadProject={async () => {
+                  await project.controller?.load();
+                }}
+                onBuildTargets={(names) => {
+                  void handleBuildTargets(names);
+                }}
               />
             </div>
           ),
@@ -220,12 +390,29 @@ export const ExportPerspective = withInstrumentation(
         hasArtifact,
         requiredBy,
         run,
-        setActiveFile
+        setActiveFile,
+        project,
+        projectRequest,
+        selectedTargetName,
+        targetDirty,
+        selectTarget,
+        saveTarget,
+        handleBuildTargets,
+        handleCancel,
+        preparing,
+        workspaceId,
+        sourceRevision,
+        files
       ]
     );
 
     return (
       <section data-testid="export-perspective" className="flex h-full min-h-0 flex-col overflow-hidden">
+        {preparationError ? (
+          <p role="alert" className="border-b border-border px-3 py-2 text-sm text-destructive">
+            {preparationError}
+          </p>
+        ) : null}
         <div className="min-h-0 flex-1">
           {activationReady ? (
             <WorkbenchHost

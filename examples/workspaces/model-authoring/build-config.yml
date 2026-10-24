@@ -1,0 +1,12 @@
+schemaVersion: 1
+sources:
+  - model/**/*.rosetta
+targets:
+  typescript:
+    generator: typescript
+    output: generated/typescript
+    options:
+      layout: single-file
+  schema:
+    generator: json-schema
+    output: generated/schema

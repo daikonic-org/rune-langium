@@ -3,10 +3,20 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  existsSync,
+  rmSync,
+  writeFileSync,
+  readdirSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 function publication(
   t,
@@ -15,7 +25,9 @@ function publication(
     missingBundle = false,
     missingArtifact = false,
     failManifest = false,
-    dependencyVersion = 'v2'
+    dependencyVersion = 'v2',
+    releaseMode = false,
+    dryRun = false
   } = {}
 ) {
   const root = mkdtempSync(join(tmpdir(), 'curated-upload-'));
@@ -25,6 +37,13 @@ function publication(
   const objects = join(root, 'objects');
   mkdirSync(objects);
   copyFileSync(new URL('./upload-serialized-artifacts.sh', import.meta.url), join(root, 'scripts/upload.sh'));
+  if (releaseMode) {
+    mkdirSync(join(root, 'scripts/lib'));
+    writeFileSync(
+      join(root, 'scripts/lib/curated-releases.mjs'),
+      `import {main} from ${JSON.stringify(new URL('./lib/curated-releases.mjs', import.meta.url).href)}; await main(process.argv.slice(2),async()=>new Response('',{status:404}));`
+    );
+  }
   const log = join(root, 'uploads');
   writeFileSync(log, '');
   writeFileSync(
@@ -44,11 +63,21 @@ cp "\${10}" "$OBJECTS/$key"
     `#!/usr/bin/env bash
 set -eu
 if [[ "$FAIL_MANIFEST" == "1" && "$2" == */z-dependency/* ]]; then exit 22; fi
-printf '%s' '{"schemaVersion":1,"artifacts":{}}'
+if [[ "$RELEASE_MODE" == "1" ]]; then
+ model=$(basename "$(dirname "$2")")
+ printf '{"schemaVersion":2,"modelId":"%s","version":"2026-10-23","sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","sizeBytes":4,"generatedAt":"2026-10-23T00:00:00Z","upstreamCommit":"","upstreamRef":"","archiveUrl":"https://www.daikonic.dev/curated/%s/latest.tar.gz","history":[],"artifacts":{}}' "$model" "$model"
+else
+ printf '%s' '{"schemaVersion":1,"artifacts":{}}'
+fi
 `,
     { mode: 0o755 }
   );
-  for (const model of missingBundle ? ['a-consumer'] : ['a-consumer', 'z-dependency']) {
+  const models = releaseMode
+    ? ['cdm', 'fpml', 'rune-dsl']
+    : missingBundle
+      ? ['a-consumer']
+      : ['a-consumer', 'z-dependency'];
+  for (const model of models) {
     const dir = join(root, 'dist/curated-artifacts', model);
     mkdirSync(join(dir, 'ns'), { recursive: true });
     if (!(missingArtifact && model === 'z-dependency')) writeFileSync(join(dir, 'latest.serialized.json.gz'), 'blob');
@@ -56,16 +85,40 @@ printf '%s' '{"schemaVersion":1,"artifacts":{}}'
     writeFileSync(
       join(dir, 'artifact-meta.json'),
       JSON.stringify({
-        version: model === 'z-dependency' ? dependencyVersion : 'v2',
+        modelId: model,
+        version: releaseMode ? '2026-10-23-hash' : model === 'z-dependency' ? dependencyVersion : 'v2',
         langiumVersion: '4.3.1',
-        sha256: 'hash',
+        sha256: releaseMode ? createHash('sha256').update('blob').digest('hex') : 'hash',
+        ...(releaseMode ? { upstreamCommit: String(models.indexOf(model) + 1).repeat(40), upstreamRef: '1.0.0' } : {}),
         sizeBytes: 4,
         documentCount: 1,
-        dependencies: model === 'a-consumer' ? { 'z-dependency': 'latest' } : {}
+        dependencies: releaseMode
+          ? model === 'cdm'
+            ? { fpml: 'latest', 'rune-dsl': 'latest' }
+            : model === 'fpml'
+              ? { 'rune-dsl': 'latest' }
+              : {}
+          : model === 'a-consumer'
+            ? { 'z-dependency': 'latest' }
+            : {}
       })
     );
   }
-  const result = spawnSync('bash', [join(root, 'scripts/upload.sh')], {
+  if (releaseMode)
+    writeFileSync(
+      join(root, 'dist/curated-artifacts/resolved-sources.json'),
+      JSON.stringify(
+        models.map((id, index) => ({
+          id,
+          owner: 'org',
+          repo: id,
+          ref: '1.0.0',
+          commit: String(index + 1).repeat(40),
+          release: { tag: '1.0.0', commit: String(index + 1).repeat(40) }
+        }))
+      )
+    );
+  const result = spawnSync('bash', [join(root, 'scripts/upload.sh'), ...(dryRun ? ['--dry-run'] : [])], {
     cwd: root,
     encoding: 'utf8',
     env: {
@@ -74,6 +127,7 @@ printf '%s' '{"schemaVersion":1,"artifacts":{}}'
       UPLOAD_LOG: log,
       OBJECTS: objects,
       FAIL_UPLOAD: failUpload,
+      RELEASE_MODE: releaseMode ? '1' : '0',
       FAIL_MANIFEST: failManifest ? '1' : '0'
     }
   });
@@ -83,7 +137,11 @@ printf '%s' '{"schemaVersion":1,"artifacts":{}}'
       .filter((key) => existsSync(join(objects, key)))
       .map((key) => [key, readFileSync(join(objects, key), 'utf8')])
   );
-  return { result, uploads, published };
+  const previewRoot = join(root, 'dist');
+  const preview = existsSync(previewRoot)
+    ? readdirSync(previewRoot).find((name) => name.startsWith('curated-publication-preview.'))
+    : undefined;
+  return { result, uploads, published, preview: preview ? join(previewRoot, preview) : undefined };
 }
 
 const versioned = [
@@ -173,4 +231,42 @@ test('does not advance latest when an immutable dependency manifest upload fails
   const { result, uploads } = publication(t, { failUpload: '*/z-dependency/artifacts/cohort-*/manifest.json' });
   assert.equal(result.status, 42, result.stderr);
   assert.ok(uploads.every((key) => key.includes('/artifacts/')));
+});
+
+test('promotes release catalogs only after all immutable objects, with dependencies before consumers', (t) => {
+  const { result, uploads, published } = publication(t, { releaseMode: true });
+  assert.equal(result.status, 0, result.stderr);
+  const catalogKeys = uploads.filter((key) => key.includes('/releases/'));
+  assert.deepEqual(catalogKeys, [
+    'rune-curated-mirror/releases/rune-dsl.json',
+    'rune-curated-mirror/releases/fpml.json',
+    'rune-curated-mirror/releases/cdm.json'
+  ]);
+  const first = uploads.indexOf(catalogKeys[0]);
+  assert.ok(uploads.slice(0, first).every((key) => key.includes('/artifacts/')));
+  const cdm = JSON.parse(published.get(catalogKeys[2])).releases[0];
+  assert.equal(cdm.tag, '1.0.0');
+  assert.equal(cdm.commit, '1'.repeat(40));
+  assert.ok(published.has(cdm.manifest.replace('https://www.daikonic.dev/', 'rune-curated-mirror/')));
+});
+for (const failUpload of ['*/fpml/artifacts/*serialized*', '*/fpml/artifacts/cohort-*/manifest.json'])
+  test('never advances release catalogs after interrupted dependency publication: ' + failUpload, (t) => {
+    const { result, uploads } = publication(t, { releaseMode: true, failUpload });
+    assert.equal(result.status, 42, result.stderr);
+    assert.ok(uploads.every((key) => !key.includes('/releases/')));
+  });
+test('does not advance consumer releases or latest after dependency catalog failure', (t) => {
+  const { result, uploads } = publication(t, { releaseMode: true, failUpload: '*/releases/fpml.json' });
+  assert.equal(result.status, 42, result.stderr);
+  assert.ok(!uploads.includes('rune-curated-mirror/releases/cdm.json'));
+  assert.ok(!uploads.some((key) => key.endsWith('/latest.serialized.json.gz')));
+});
+
+test('prepares inspectable release catalogs in dry run without uploading any object', (t) => {
+  const { result, uploads, preview } = publication(t, { releaseMode: true, dryRun: true });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(uploads, []);
+  assert.ok(preview);
+  const catalog = JSON.parse(readFileSync(join(preview, 'releases/cdm.json'), 'utf8'));
+  assert.equal(catalog.releases[0].tag, '1.0.0');
 });

@@ -20,7 +20,7 @@
  * App-boot note:
  *   CenterStackPanel (and therefore the Structure pane) is only present once
  *   the editor page is active (i.e., at least one workspace file is loaded).
- *   The smoke test enters the editor via "New blank workspace" — the simplest
+ *   The smoke test enters the editor via "New workspace" — the simplest
  *   path that does not require an external fixture file.
  */
 
@@ -31,7 +31,7 @@ import { test, expect } from '@playwright/test';
 // ---------------------------------------------------------------------------
 
 /**
- * Boot the studio into the editor page by clicking "New blank workspace".
+ * Boot the studio into the editor page by clicking "New workspace".
  * This is the cheapest fixture-free path into CenterStackPanel.
  */
 async function enterEditorViaNew(page: import('@playwright/test').Page) {

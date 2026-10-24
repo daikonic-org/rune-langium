@@ -2555,3 +2555,37 @@ html {
 .preview-panel__body :is(label, legend, input, select, textarea, button) {
   font-size: var(--text-xs);
 }
+
+@media (width <= 640px) {
+  .studio-app .studio-topbar__search :is(span, kbd),
+  .studio-app .studio-brand__name { display: none; }
+  .studio-app .studio-topbar__search {
+    width: 32px;
+    min-width: 32px;
+    padding-inline: 0;
+    justify-content: center;
+  }
+}
+
+@media (width <= 640px) {
+  .studio-app .studio-topbar__center {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .studio-app .studio-topbar__left,
+  .studio-app .studio-topbar__right {
+    flex-shrink: 0;
+    gap: var(--space-2);
+  }
+
+  .studio-app .studio-topbar__ws-name,
+  .studio-app .studio-topbar__ws-sub {
+    display: none;
+  }
+
+  .studio-app .studio-topbar {
+    gap: var(--space-2);
+  }
+}

@@ -83,6 +83,6 @@ describe('WorkspaceSwitcher mounted on start page (T029/US2)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('workspace-switcher')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('workspace-switcher-empty')).toHaveTextContent(/no recent workspaces/i);
+    expect(await screen.findByTestId('workspace-switcher-empty')).toHaveTextContent(/no recent workspaces/i);
   });
 });

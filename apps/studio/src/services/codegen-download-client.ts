@@ -17,7 +17,7 @@ function hasCuratedSources(body: Record<string, unknown>): boolean {
 /** Curated downloads need more memory than the Pages runtime permits. */
 export const requestCodegenDownload = withInstrumentation(
   function requestCodegenDownload(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
-    if (!hasCuratedSources(body)) {
+    if (!body.project && !hasCuratedSources(body)) {
       return fetch('/api/codegen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

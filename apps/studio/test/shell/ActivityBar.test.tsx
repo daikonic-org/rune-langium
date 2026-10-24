@@ -10,7 +10,7 @@ describe('ActivityBar (perspective rail)', () => {
 
   it('renders a button per perspective', () => {
     render(<ActivityBar hasWorkspace />);
-    for (const label of ['Explore', 'Workspaces / Models', 'Git / Sync', 'Export / Packaging', 'Settings']) {
+    for (const label of ['Explore', 'Workspaces', 'Git / Sync', 'Export / Packaging', 'Settings']) {
       expect(screen.getByRole('button', { name: label })).toBeTruthy();
     }
   });
@@ -27,6 +27,6 @@ describe('ActivityBar (perspective rail)', () => {
   it('disables requiresWorkspace perspectives when no workspace', () => {
     render(<ActivityBar hasWorkspace={false} />);
     expect((screen.getByRole('button', { name: 'Explore' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'Workspaces / Models' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Workspaces' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

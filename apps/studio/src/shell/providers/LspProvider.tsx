@@ -6,6 +6,8 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { LspContext, type LspContextValue } from './lsp-context.js';
 import { useWorkspace } from './workspace-context.js';
+import { useProject } from './project-context.js';
+import { collectProjectLspInput } from '../../services/project-lsp-input.js';
 import { useExploreFileNavStore } from '../explore-file-nav-store.js';
 import { createLspClientService, type LspClientService } from '../../services/lsp-client.js';
 import { createTransportProvider, type TransportState } from '../../services/transport-provider.js';
@@ -22,12 +24,25 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 export const LspProvider = withInstrumentation(
   function LspProvider({ children }: { children: React.ReactNode }): React.ReactElement {
     const { files, parsedModels } = useWorkspace();
+    const { runtime } = useProject();
     const activeEditorFile = useExploreFileNavStore((s) => s.activeEditorFile);
     const modelCache = useRef(new Map<string, LspModelCacheEntry>());
-    const models = useMemo(
-      () => collectLspWorkspaceModels(files, parsedModels, modelCache.current, activeEditorFile),
-      [files, parsedModels, activeEditorFile]
-    );
+    const semanticInput = useMemo(() => {
+      if (runtime && runtime.status !== 'legacy') {
+        if (!runtime.input)
+          return {
+            unavailable:
+              runtime.diagnostics.map((issue) => issue.message).join('\n') ||
+              'Applying the current project configuration…'
+          };
+        try {
+          return collectProjectLspInput(runtime.input, parsedModels, modelCache.current, activeEditorFile);
+        } catch (error) {
+          return { unavailable: error instanceof Error ? error.message : 'Current project models are unavailable.' };
+        }
+      }
+      return { models: collectLspWorkspaceModels(files, parsedModels, modelCache.current, activeEditorFile) };
+    }, [files, parsedModels, activeEditorFile, runtime?.input, runtime?.status]);
     const lspClientRef = useRef<LspClientService | null>(null);
     const providerRef = useRef<ReturnType<typeof createTransportProvider> | null>(null);
     const [transportState, setTransportState] = useState<TransportState>({
@@ -101,11 +116,21 @@ export const LspProvider = withInstrumentation(
     }, []);
 
     useEffect(() => {
-      lspClientRef.current?.syncWorkspaceModels(models).catch((err) => {
+      const client = lspClientRef.current;
+      if (!client) return;
+      if ('unavailable' in semanticInput) {
+        client.suspendProjectResolution(semanticInput.unavailable!);
+        return;
+      }
+      const sync =
+        'resolution' in semanticInput
+          ? client.syncWorkspaceModels(semanticInput.models, semanticInput.resolution)
+          : client.syncWorkspaceModels(semanticInput.models);
+      void sync.catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         useOutputStore.getState().addLine(fmtLine('lsp', 'dependency sync failed', msg), 'error');
       });
-    }, [models]);
+    }, [semanticInput]);
 
     // Keep full syntax trees only for the active source document.
     useEffect(() => {

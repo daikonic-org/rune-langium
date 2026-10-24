@@ -1,9 +1,9 @@
 {
   "name": "@rune-langium/curated-schema",
   "version": "0.1.0",
-  "private": true,
   "description": "Single source of truth for curated-mirror types: CuratedManifest, CuratedModelId, ErrorCategory. Consumed by both apps/curated-mirror-worker (publisher) and apps/studio (loader).",
   "type": "module",
+  "publishConfig": { "access": "public" },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

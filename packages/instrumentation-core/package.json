@@ -1,9 +1,9 @@
 {
   "name": "@rune-langium/instrumentation-core",
   "version": "0.1.0",
-  "private": true,
   "description": "Isomorphic instrumentation core (withInstrumentation, configureInstrumentation, Level, InstrumentationOptions) shared across browser, Web Worker, Cloudflare Pages Functions, and Node consumers.",
   "type": "module",
+  "publishConfig": { "access": "public" },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

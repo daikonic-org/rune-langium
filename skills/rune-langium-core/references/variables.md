@@ -1,45 +1,15 @@
 # Variables & Constants
 
-## ast
+## generated
 
 ### `RuneDslTerminals`
 ```ts
 const RuneDslTerminals: { ID: RegExp; INT: RegExp; STRING: RegExp; ML_COMMENT: RegExp; SL_COMMENT: RegExp; WS: RegExp }
 ```
 
-### `Annotation`
-```ts
-let Annotation: { $type: "Annotation"; attributes: "attributes"; definition: "definition"; name: "name"; prefix: "prefix" }
-```
-
-### `AnnotationDeepPath`
-```ts
-let AnnotationDeepPath: { $type: "AnnotationDeepPath"; attribute: "attribute"; operator: "operator"; receiver: "receiver" }
-```
-
-### `AnnotationPath`
-```ts
-let AnnotationPath: { $type: "AnnotationPath"; attribute: "attribute"; operator: "operator"; receiver: "receiver" }
-```
-
-### `AnnotationPathAttributeReference`
-```ts
-let AnnotationPathAttributeReference: { $type: "AnnotationPathAttributeReference"; attribute: "attribute" }
-```
-
 ### `AnnotationPathExpression`
 ```ts
 let AnnotationPathExpression: { $type: "AnnotationPathExpression" }
-```
-
-### `AnnotationQualifier`
-```ts
-let AnnotationQualifier: { $type: "AnnotationQualifier"; qualName: "qualName"; qualPath: "qualPath"; qualValue: "qualValue" }
-```
-
-### `AnnotationRef`
-```ts
-let AnnotationRef: { $type: "AnnotationRef"; annotation: "annotation"; attribute: "attribute"; qualifiers: "qualifiers" }
 ```
 
 ### `ArithmeticOperation`
@@ -57,29 +27,14 @@ let AsKeyOperation: { $type: "AsKeyOperation"; argument: "argument"; operator: "
 let AssignPathRoot: { $type: "AssignPathRoot" }
 ```
 
-### `Attribute`
-```ts
-let Attribute: { $type: "Attribute"; annotations: "annotations"; card: "card"; definition: "definition"; labels: "labels"; name: "name"; override: "override"; references: "references"; ruleReferences: "ruleReferences"; synonyms: "synonyms"; typeCall: "typeCall"; typeCallArgs: "typeCallArgs" }
-```
-
 ### `AttributeOrChoiceOption`
 ```ts
 let AttributeOrChoiceOption: { $type: "AttributeOrChoiceOption" }
 ```
 
-### `Choice`
-```ts
-let Choice: { $type: "Choice"; annotations: "annotations"; attributes: "attributes"; definition: "definition"; name: "name"; synonyms: "synonyms" }
-```
-
 ### `ChoiceOperation`
 ```ts
 let ChoiceOperation: { $type: "ChoiceOperation"; argument: "argument"; attributes: "attributes"; necessity: "necessity"; operator: "operator" }
-```
-
-### `ChoiceOption`
-```ts
-let ChoiceOption: { $type: "ChoiceOption"; annotations: "annotations"; definition: "definition"; labels: "labels"; references: "references"; ruleReferences: "ruleReferences"; synonyms: "synonyms"; typeCall: "typeCall" }
 ```
 
 ### `ClosureParameter`
@@ -90,21 +45,6 @@ let ClosureParameter: { $type: "ClosureParameter"; name: "name" }
 ### `ComparisonOperation`
 ```ts
 let ComparisonOperation: { $type: "ComparisonOperation"; cardMod: "cardMod"; left: "left"; operator: "operator"; right: "right" }
-```
-
-### `Condition`
-```ts
-let Condition: { $type: "Condition"; annotations: "annotations"; definition: "definition"; expression: "expression"; name: "name"; postCondition: "postCondition"; references: "references" }
-```
-
-### `ConstructorKeyValuePair`
-```ts
-let ConstructorKeyValuePair: { $type: "ConstructorKeyValuePair"; key: "key"; value: "value" }
-```
-
-### `Data`
-```ts
-let Data: { $type: "Data"; annotations: "annotations"; attributes: "attributes"; conditions: "conditions"; definition: "definition"; name: "name"; references: "references"; superType: "superType"; synonyms: "synonyms" }
 ```
 
 ### `DataOrChoice`
@@ -132,11 +72,6 @@ let DocumentRationale: { $type: "DocumentRationale"; rationale: "rationale"; rat
 let EqualityOperation: { $type: "EqualityOperation"; cardMod: "cardMod"; left: "left"; operator: "operator"; right: "right" }
 ```
 
-### `FilterOperation`
-```ts
-let FilterOperation: { $type: "FilterOperation"; argument: "argument"; function: "function"; operator: "operator" }
-```
-
 ### `FirstOperation`
 ```ts
 let FirstOperation: { $type: "FirstOperation"; argument: "argument"; operator: "operator" }
@@ -150,11 +85,6 @@ let FlattenOperation: { $type: "FlattenOperation"; argument: "argument"; operato
 ### `Import`
 ```ts
 let Import: { $type: "Import"; importedNamespace: "importedNamespace"; namespaceAlias: "namespaceAlias" }
-```
-
-### `InlineFunction`
-```ts
-let InlineFunction: { $type: "InlineFunction"; body: "body"; parameters: "parameters" }
 ```
 
 ### `JoinOperation`
@@ -182,39 +112,9 @@ let ListLiteral: { $type: "ListLiteral"; elements: "elements" }
 let LogicalOperation: { $type: "LogicalOperation"; left: "left"; operator: "operator"; right: "right" }
 ```
 
-### `MapOperation`
-```ts
-let MapOperation: { $type: "MapOperation"; argument: "argument"; function: "function"; operator: "operator" }
-```
-
-### `MaxOperation`
-```ts
-let MaxOperation: { $type: "MaxOperation"; argument: "argument"; function: "function"; operator: "operator" }
-```
-
-### `MinOperation`
-```ts
-let MinOperation: { $type: "MinOperation"; argument: "argument"; function: "function"; operator: "operator" }
-```
-
 ### `OneOfOperation`
 ```ts
 let OneOfOperation: { $type: "OneOfOperation"; argument: "argument"; operator: "operator" }
-```
-
-### `Operation`
-```ts
-let Operation: { $type: "Operation"; add: "add"; assignRoot: "assignRoot"; definition: "definition"; expression: "expression"; path: "path" }
-```
-
-### `ReduceOperation`
-```ts
-let ReduceOperation: { $type: "ReduceOperation"; argument: "argument"; function: "function"; operator: "operator" }
-```
-
-### `RegulatoryDocumentReference`
-```ts
-let RegulatoryDocumentReference: { $type: "RegulatoryDocumentReference"; body: "body"; corpusList: "corpusList"; segments: "segments" }
 ```
 
 ### `ReverseOperation`
@@ -225,16 +125,6 @@ let ReverseOperation: { $type: "ReverseOperation"; argument: "argument"; operato
 ### `RosettaAbsentExpression`
 ```ts
 let RosettaAbsentExpression: { $type: "RosettaAbsentExpression"; argument: "argument"; operator: "operator" }
-```
-
-### `RosettaAttributeReference`
-```ts
-let RosettaAttributeReference: { $type: "RosettaAttributeReference"; attribute: "attribute"; receiver: "receiver" }
-```
-
-### `RosettaBasicType`
-```ts
-let RosettaBasicType: { $type: "RosettaBasicType"; definition: "definition"; name: "name"; parameters: "parameters" }
 ```
 
 ### `RosettaBody`
@@ -257,19 +147,9 @@ let RosettaCallableWithArgs: { $type: "RosettaCallableWithArgs" }
 let RosettaCardinality: { $type: "RosettaCardinality"; inf: "inf"; sup: "sup"; unbounded: "unbounded" }
 ```
 
-### `RosettaClassSynonym`
-```ts
-let RosettaClassSynonym: { $type: "RosettaClassSynonym"; metaValue: "metaValue"; sources: "sources"; value: "value" }
-```
-
 ### `RosettaConditionalExpression`
 ```ts
 let RosettaConditionalExpression: { $type: "RosettaConditionalExpression"; elsethen: "elsethen"; full: "full"; if: "if"; ifthen: "ifthen" }
-```
-
-### `RosettaConstructorExpression`
-```ts
-let RosettaConstructorExpression: { $type: "RosettaConstructorExpression"; constructorTypeArgs: "constructorTypeArgs"; implicitEmpty: "implicitEmpty"; typeRef: "typeRef"; values: "values" }
 ```
 
 ### `RosettaContainsExpression`
@@ -277,24 +157,9 @@ let RosettaConstructorExpression: { $type: "RosettaConstructorExpression"; const
 let RosettaContainsExpression: { $type: "RosettaContainsExpression"; left: "left"; operator: "operator"; right: "right" }
 ```
 
-### `RosettaCorpus`
-```ts
-let RosettaCorpus: { $type: "RosettaCorpus"; body: "body"; corpusType: "corpusType"; definition: "definition"; displayName: "displayName"; name: "name" }
-```
-
 ### `RosettaCountOperation`
 ```ts
 let RosettaCountOperation: { $type: "RosettaCountOperation"; argument: "argument"; operator: "operator" }
-```
-
-### `RosettaDataReference`
-```ts
-let RosettaDataReference: { $type: "RosettaDataReference"; attribute: "attribute"; data: "data"; receiver: "receiver" }
-```
-
-### `RosettaDeepFeatureCall`
-```ts
-let RosettaDeepFeatureCall: { $type: "RosettaDeepFeatureCall"; feature: "feature"; receiver: "receiver" }
 ```
 
 ### `RosettaDisjointExpression`
@@ -302,29 +167,9 @@ let RosettaDeepFeatureCall: { $type: "RosettaDeepFeatureCall"; feature: "feature
 let RosettaDisjointExpression: { $type: "RosettaDisjointExpression"; left: "left"; operator: "operator"; right: "right" }
 ```
 
-### `RosettaDocReference`
-```ts
-let RosettaDocReference: { $type: "RosettaDocReference"; docReference: "docReference"; name: "name"; path: "path"; provision: "provision"; rationales: "rationales"; reportedField: "reportedField"; structuredProvision: "structuredProvision" }
-```
-
-### `RosettaEnumeration`
-```ts
-let RosettaEnumeration: { $type: "RosettaEnumeration"; annotations: "annotations"; definition: "definition"; enumValues: "enumValues"; name: "name"; parent: "parent"; references: "references"; synonyms: "synonyms" }
-```
-
 ### `RosettaEnumSynonym`
 ```ts
 let RosettaEnumSynonym: { $type: "RosettaEnumSynonym"; definition: "definition"; patternMatch: "patternMatch"; patternReplace: "patternReplace"; removeHtml: "removeHtml"; sources: "sources"; synonymValue: "synonymValue" }
-```
-
-### `RosettaEnumValue`
-```ts
-let RosettaEnumValue: { $type: "RosettaEnumValue"; annotations: "annotations"; definition: "definition"; display: "display"; enumSynonyms: "enumSynonyms"; name: "name"; references: "references" }
-```
-
-### `RosettaEnumValueReference`
-```ts
-let RosettaEnumValueReference: { $type: "RosettaEnumValueReference"; enumeration: "enumeration"; value: "value" }
 ```
 
 ### `RosettaExistsExpression`
@@ -337,59 +182,9 @@ let RosettaExistsExpression: { $type: "RosettaExistsExpression"; argument: "argu
 let RosettaExpression: { $type: "RosettaExpression" }
 ```
 
-### `RosettaExternalClass`
-```ts
-let RosettaExternalClass: { $type: "RosettaExternalClass"; data: "data"; externalClassSynonyms: "externalClassSynonyms"; regularAttributes: "regularAttributes" }
-```
-
-### `RosettaExternalClassSynonym`
-```ts
-let RosettaExternalClassSynonym: { $type: "RosettaExternalClassSynonym"; metaValue: "metaValue"; value: "value" }
-```
-
-### `RosettaExternalEnum`
-```ts
-let RosettaExternalEnum: { $type: "RosettaExternalEnum"; enumeration: "enumeration"; regularValues: "regularValues" }
-```
-
-### `RosettaExternalEnumValue`
-```ts
-let RosettaExternalEnumValue: { $type: "RosettaExternalEnumValue"; enumRef: "enumRef"; externalEnumSynonyms: "externalEnumSynonyms"; operator: "operator" }
-```
-
-### `RosettaExternalFunction`
-```ts
-let RosettaExternalFunction: { $type: "RosettaExternalFunction"; definition: "definition"; name: "name"; parameters: "parameters"; typeCall: "typeCall" }
-```
-
-### `RosettaExternalRegularAttribute`
-```ts
-let RosettaExternalRegularAttribute: { $type: "RosettaExternalRegularAttribute"; attributeRef: "attributeRef"; externalRuleReferences: "externalRuleReferences"; externalSynonyms: "externalSynonyms"; operator: "operator" }
-```
-
-### `RosettaExternalRuleSource`
-```ts
-let RosettaExternalRuleSource: { $type: "RosettaExternalRuleSource"; externalClasses: "externalClasses"; externalEnums: "externalEnums"; name: "name"; superSources: "superSources" }
-```
-
-### `RosettaExternalSynonym`
-```ts
-let RosettaExternalSynonym: { $type: "RosettaExternalSynonym"; body: "body" }
-```
-
 ### `RosettaFeature`
 ```ts
 let RosettaFeature: { $type: "RosettaFeature" }
-```
-
-### `RosettaFeatureCall`
-```ts
-let RosettaFeatureCall: { $type: "RosettaFeatureCall"; feature: "feature"; receiver: "receiver" }
-```
-
-### `RosettaFunction`
-```ts
-let RosettaFunction: { $type: "RosettaFunction"; annotations: "annotations"; conditions: "conditions"; definition: "definition"; dispatchAttribute: "dispatchAttribute"; dispatchValue: "dispatchValue"; inputs: "inputs"; name: "name"; operations: "operations"; output: "output"; postConditions: "postConditions"; references: "references"; shortcuts: "shortcuts"; superFunction: "superFunction" }
 ```
 
 ### `RosettaImplicitVariable`
@@ -407,24 +202,9 @@ let RosettaIntLiteral: { $type: "RosettaIntLiteral"; value: "value" }
 let RosettaLiteral: { $type: "RosettaLiteral" }
 ```
 
-### `RosettaMapPath`
-```ts
-let RosettaMapPath: { $type: "RosettaMapPath"; path: "path" }
-```
-
 ### `RosettaMapPathValue`
 ```ts
 let RosettaMapPathValue: { $type: "RosettaMapPathValue"; path: "path" }
-```
-
-### `RosettaMapping`
-```ts
-let RosettaMapping: { $type: "RosettaMapping"; instances: "instances" }
-```
-
-### `RosettaMappingInstance`
-```ts
-let RosettaMappingInstance: { $type: "RosettaMappingInstance"; default: "default"; set: "set"; when: "when" }
 ```
 
 ### `RosettaMappingPathTests`
@@ -432,29 +212,9 @@ let RosettaMappingInstance: { $type: "RosettaMappingInstance"; default: "default
 let RosettaMappingPathTests: { $type: "RosettaMappingPathTests"; tests: "tests" }
 ```
 
-### `RosettaMapRosettaPath`
-```ts
-let RosettaMapRosettaPath: { $type: "RosettaMapRosettaPath"; path: "path" }
-```
-
 ### `RosettaMapTest`
 ```ts
 let RosettaMapTest: { $type: "RosettaMapTest" }
-```
-
-### `RosettaMapTestAbsentExpression`
-```ts
-let RosettaMapTestAbsentExpression: { $type: "RosettaMapTestAbsentExpression"; argument: "argument" }
-```
-
-### `RosettaMapTestEqualityOperation`
-```ts
-let RosettaMapTestEqualityOperation: { $type: "RosettaMapTestEqualityOperation"; left: "left"; operator: "operator"; right: "right" }
-```
-
-### `RosettaMapTestExistsExpression`
-```ts
-let RosettaMapTestExistsExpression: { $type: "RosettaMapTestExistsExpression"; argument: "argument" }
 ```
 
 ### `RosettaMapTestExpression`
@@ -462,24 +222,9 @@ let RosettaMapTestExistsExpression: { $type: "RosettaMapTestExistsExpression"; a
 let RosettaMapTestExpression: { $type: "RosettaMapTestExpression" }
 ```
 
-### `RosettaMapTestFunc`
-```ts
-let RosettaMapTestFunc: { $type: "RosettaMapTestFunc"; func: "func"; predicatePath: "predicatePath" }
-```
-
 ### `RosettaMergeSynonymValue`
 ```ts
 let RosettaMergeSynonymValue: { $type: "RosettaMergeSynonymValue"; excludePath: "excludePath"; name: "name" }
-```
-
-### `RosettaMetaType`
-```ts
-let RosettaMetaType: { $type: "RosettaMetaType"; name: "name"; typeCall: "typeCall" }
-```
-
-### `RosettaModel`
-```ts
-let RosettaModel: { $type: "RosettaModel"; configurations: "configurations"; definition: "definition"; elements: "elements"; imports: "imports"; name: "name"; overridden: "overridden"; scope: "scope"; version: "version" }
 ```
 
 ### `RosettaNumberLiteral`
@@ -497,22 +242,199 @@ let RosettaOnlyElement: { $type: "RosettaOnlyElement"; argument: "argument"; ope
 let RosettaOnlyExistsExpression: { $type: "RosettaOnlyExistsExpression"; args: "args"; argument: "argument"; operator: "operator" }
 ```
 
-### `RosettaParameter`
+### `RosettaRootElement`
 ```ts
-let RosettaParameter: { $type: "RosettaParameter"; isArray: "isArray"; name: "name"; typeCall: "typeCall" }
+let RosettaRootElement: { $type: "RosettaRootElement" }
 ```
 
-### `RosettaQualifiableConfiguration`
+### `RosettaScope`
 ```ts
-let RosettaQualifiableConfiguration: { $type: "RosettaQualifiableConfiguration"; qType: "qType"; rosettaClass: "rosettaClass" }
+let RosettaScope: { $type: "RosettaScope"; definition: "definition"; name: "name" }
 ```
 
-### `RosettaRecordFeature`
+### `RosettaSegment`
 ```ts
-let RosettaRecordFeature: { $type: "RosettaRecordFeature"; name: "name"; typeCall: "typeCall" }
+let RosettaSegment: { $type: "RosettaSegment"; name: "name" }
 ```
 
-### `RosettaRecordType`
+### `RosettaStringLiteral`
 ```ts
+let RosettaStringLiteral: { $type: "RosettaStringLiteral"; value: "value" }
+```
+
+### `RosettaSuperCall`
+```ts
+let RosettaSuperCall: { $type: "RosettaSuperCall"; explicitArguments: "explicitArguments"; name: "name"; rawArgs: "rawArgs" }
+```
+
+### `RosettaSymbol`
+```ts
+let RosettaSymbol: { $type: "RosettaSymbol" }
+```
+
+### `RosettaSynonymValueBase`
+```ts
+let RosettaSynonymValueBase: { $type: "RosettaSynonymValueBase"; maps: "maps"; name: "name"; path: "path"; refType: "refType"; value: "value" }
+```
+
+### `RosettaType`
+```ts
+let RosettaType: { $type: "RosettaType" }
+```
+
+### `RosettaTypedFeature`
+```ts
+let RosettaTypedFeature: { $type: "RosettaTypedFeature" }
+```
+
+### `ShortcutDeclaration`
+```ts
+let ShortcutDeclaration: { $type: "ShortcutDeclaration"; definition: "definition"; expression: "expression"; name: "name" }
+```
+
+### `SumOperation`
+```ts
+let SumOperation: { $type: "SumOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `SwitchCaseTarget`
+```ts
+let SwitchCaseTarget: { $type: "SwitchCaseTarget" }
+```
+
+### `ToDateOperation`
+```ts
+let ToDateOperation: { $type: "ToDateOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `ToDateTimeOperation`
+```ts
+let ToDateTimeOperation: { $type: "ToDateTimeOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `ToIntOperation`
+```ts
+let ToIntOperation: { $type: "ToIntOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `ToNumberOperation`
+```ts
+let ToNumberOperation: { $type: "ToNumberOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `ToStringOperation`
+```ts
+let ToStringOperation: { $type: "ToStringOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `ToTimeOperation`
+```ts
+let ToTimeOperation: { $type: "ToTimeOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `ToZonedDateTimeOperation`
+```ts
+let ToZonedDateTimeOperation: { $type: "ToZonedDateTimeOperation"; argument: "argument"; operator: "operator" }
+```
+
+### `reflection`
+```ts
+const reflection: RuneDslAstReflection
+```
+
+### `RuneDslLanguageMetaData`
+```ts
+const RuneDslLanguageMetaData: { languageId: "rune-dsl"; fileExtensions: readonly [".rosetta"]; caseInsensitive: false; mode: "development" }
+```
+
+### `RuneDslGeneratedModule`
+```ts
+const RuneDslGeneratedModule: Module<LangiumCoreServices, LangiumGeneratedCoreServices>
+```
+
+### `RuneDslGeneratedSharedModule`
+```ts
+const RuneDslGeneratedSharedModule: Module<LangiumSharedCoreServices, LangiumGeneratedSharedCoreServices>
+```
+
+## references
+
+### `DeclarationIdentitySchema`
+```ts
+const DeclarationIdentitySchema: ZodObject<{ model: ZodString; namespace: ZodString; kind: ZodString; name: ZodString; dispatch: ZodOptional<ZodString> }, $strip>
+```
+
+### `ProjectResolutionReceiptSchema`
+```ts
+const ProjectResolutionReceiptSchema: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>
+```
+
+### `ProjectResolutionContextSchema`
+Sent with a complete retained document set, after its semantic snapshots have arrived.
+```ts
+const ProjectResolutionContextSchema: ZodObject<{ schemaVersion: ZodLiteral<1>; receipt: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>; models: ZodRecord<ZodString, ZodString>; lock: ZodNullable<ZodUnknown>; overrides: ZodArray<ZodUnknown> }, $strip>
+```
+
+## stdlib
+
+### `BASE_TYPE_FILES`
+System file descriptors for base types.
+```ts
+const BASE_TYPE_FILES: readonly [{ name: "basictypes.rosetta"; path: "system://com.rosetta.model/basictypes.rosetta"; content: "namespace com.rosetta.model\nversion \"${project.version}\"\n\nbasicType boolean <\"A boolean can either be True or False.\">\n\nbasicType number(\n    digits int           <\"The maximum number of digits that the number may have. If absent, this number may have an arbitrary number of digits.\">\n  , fractionalDigits int <\"The maximum number of digits after the decimal point that the number may have. If absent, this number may have any number of its digits after the decimal point.\">\n  , min number           <\"The minimum bound on this number. If absent, this number is unbounded from below.\">\n  , max number           <\"The maximum bound on this number. If absent, this number is unbounded from above.\">\n) <\"A signed decimal number.\">\n\nbasicType string(\n    minLength int  <\"The minimum number of characters that the string must have. If absent, defaults to zero.\">\n  , maxLength int  <\"The maximum number of characters that the string may have. If absent, there is no limit.\">\n  , pattern string <\"The regular expression that this string must match. If absent, this string may contain arbitrary characters.\">\n) <\"A string of characters.\">\n\nbasicType time <\"The time of the day - hour-minute-second.\">\n\nbasicType pattern <\"A regular expression.\">\n\ntypeAlias int(digits int, min int, max int): <\"A signed decimal integer.\">\n\tnumber(digits: digits, fractionalDigits: 0, min: min, max: max)\n\nlibrary function DateRanges() date\nlibrary function Min(x number, y number) number\nlibrary function Max(x number, y number) number\nlibrary function Adjust() date\nlibrary function Within() boolean\nlibrary function IsLeapYear(year number) boolean\n\nrecordType date\n{\n\tday   int\n\tmonth int\n\tyear  int\n}\n\nrecordType dateTime\n{\n\tdate date\n\ttime time\n}\n\nrecordType zonedDateTime\n{\n\tdate date\n\ttime time\n\ttimezone string\n}\n\ntypeAlias productType:\n\tstring\n\ntypeAlias eventType:\n\tstring\n\ntypeAlias calculation:\n\tstring\n"; dirty: false; readOnly: true }, { name: "annotations.rosetta"; path: "system://com.rosetta.model/annotations.rosetta"; content: string; dirty: false; readOnly: true }]
+```
+
+### `BASICTYPES_ROSETTA`
+Built-in Rune DSL base type definitions.
+
+These files are always loaded as read-only system files so that
+types like `number`, `string`, `date`, and annotations like
+`metadata`, `rootType`, etc. are available for cross-reference resolution.
+
+Content sourced from rune-runtime model resources.
+```ts
+const BASICTYPES_ROSETTA: "namespace com.rosetta.model\nversion \"${project.version}\"\n\nbasicType boolean <\"A boolean can either be True or False.\">\n\nbasicType number(\n    digits int           <\"The maximum number of digits that the number may have. If absent, this number may have an arbitrary number of digits.\">\n  , fractionalDigits int <\"The maximum number of digits after the decimal point that the number may have. If absent, this number may have any number of its digits after the decimal point.\">\n  , min number           <\"The minimum bound on this number. If absent, this number is unbounded from below.\">\n  , max number           <\"The maximum bound on this number. If absent, this number is unbounded from above.\">\n) <\"A signed decimal number.\">\n\nbasicType string(\n    minLength int  <\"The minimum number of characters that the string must have. If absent, defaults to zero.\">\n  , maxLength int  <\"The maximum number of characters that the string may have. If absent, there is no limit.\">\n  , pattern string <\"The regular expression that this string must match. If absent, this string may contain arbitrary characters.\">\n) <\"A string of characters.\">\n\nbasicType time <\"The time of the day - hour-minute-second.\">\n\nbasicType pattern <\"A regular expression.\">\n\ntypeAlias int(digits int, min int, max int): <\"A signed decimal integer.\">\n\tnumber(digits: digits, fractionalDigits: 0, min: min, max: max)\n\nlibrary function DateRanges() date\nlibrary function Min(x number, y number) number\nlibrary function Max(x number, y number) number\nlibrary function Adjust() date\nlibrary function Within() boolean\nlibrary function IsLeapYear(year number) boolean\n\nrecordType date\n{\n\tday   int\n\tmonth int\n\tyear  int\n}\n\nrecordType dateTime\n{\n\tdate date\n\ttime time\n}\n\nrecordType zonedDateTime\n{\n\tdate date\n\ttime time\n\ttimezone string\n}\n\ntypeAlias productType:\n\tstring\n\ntypeAlias eventType:\n\tstring\n\ntypeAlias calculation:\n\tstring\n"
+```
+
+### `ANNOTATIONS_ROSETTA`
+```ts
+const ANNOTATIONS_ROSETTA: string
+```
+
+## Core
+
+### `RuneDslModule`
+Dependency-injection module for the Rune DSL language.
+```ts
+const RuneDslModule: { serializer: { JsonSerializer: (services: RuneDslServices) => RuneJsonSerializer }; parser: { LangiumParser: (services: RuneDslServices) => RuneDslParser }; references: { Linker: (services: RuneDslServices) => RuneDslLinker; ScopeComputation: (services: RuneDslServices) => RuneDslScopeComputation; ScopeProvider: (services: RuneDslServices) => RuneDslScopeProvider } }
+```
+
+### `RuneDslSharedModule`
+Shared services module that overrides Langium's default IndexManager with
+`RuneDslIndexManager`, enabling external registration of exported symbols
+without requiring a full document build (ADR 007 Phase 4).
+```ts
+const RuneDslSharedModule: Module<LangiumSharedCoreServices, PartialLangiumSharedCoreServices>
+```
+
+## adapters
+
+### `parsedAdapter`
+```ts
+const parsedAdapter: { dehydrate: any }
+```
+
+### `curatedAdapter`
+```ts
+const curatedAdapter: { parse: any }
+```
+
+## serializer
+
+### `LSP_MODEL_SYNC_METHOD`
+```ts
+const LSP_MODEL_SYNC_METHOD: "rune/syncModels"
+```
+
+### `LSP_REQUEST_TIMEOUT_MS`
 
 <!-- truncated -->

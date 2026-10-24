@@ -61,7 +61,7 @@ export const WorkflowNode = withInstrumentation(
     const navigation = useWorkflowTypeNavigation(typeNodeId);
     const root = useRef<HTMLElement>(null);
     const [requestedEditing, setEditing] = useState(false);
-    const { ready } = useFormPresentationState();
+    const { ready, entry, saveLabel } = useFormPresentationState();
     const editing = ready && requestedEditing;
     return (
       <section
@@ -114,7 +114,7 @@ export const WorkflowNode = withInstrumentation(
               aria-label={`${name}: ${editing ? 'Finish editing layout' : 'Edit layout'}`}
               title={editing ? 'Finish editing layout' : 'Edit layout'}
               aria-pressed={editing}
-              disabled={!ready}
+              disabled={!ready || (editing && entry?.saving)}
               onClick={() => setEditing(!editing)}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden="true" />
@@ -154,8 +154,8 @@ export const WorkflowNode = withInstrumentation(
         {source ? <p className="workflow-node__source">{source}</p> : null}
         {editing ? (
           <div className="workflow-node__layout">
-            <span>Editing this node’s layout</span>
-            <Button size="xs" variant="outline" onClick={() => setEditing(false)}>
+            <span role="status">{saveLabel}</span>
+            <Button size="xs" variant="outline" disabled={entry?.saving} onClick={() => setEditing(false)}>
               Done
             </Button>
           </div>

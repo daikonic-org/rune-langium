@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "double-quote",
+  "name": "Double quote",
+  "function": {
+    "model": "local",
+    "namespace": "example.starter",
+    "kind": "RosettaFunction",
+    "name": "DoubleExample"
+  },
+  "inputs": {
+    "quote": {
+      "kind": "example",
+      "exampleId": "quote-input"
+    }
+  },
+  "outputs": {
+    "result": {
+      "name": "doubledQuote",
+      "type": {
+        "model": "local",
+        "namespace": "example.starter",
+        "kind": "Data",
+        "name": "Quote"
+      }
+    }
+  }
+}

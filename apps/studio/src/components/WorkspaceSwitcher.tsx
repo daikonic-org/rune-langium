@@ -2,19 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-/**
- * WorkspaceSwitcher — recent-workspaces list backed by the persistence
- * `recents` IDB store. Distinguishes the three kinds visually via
- * `data-kind` so the design system can theme each independently.
- *
- * Visual contract (e2e-batch fix): matches the LOADED MODELS / REFERENCE
- * MODELS sections in ModelLoader so the start-page reads as one family of
- * sections. Each row is a clickable card with a kind badge + relative
- * "opened ago" timestamp. Without these treatments the row rendered as
- * unstyled plain text and users didn't realise it was navigable
- * (user-reported: "No way to navigate to a workspace you previously
- * opened").
- */
+/** Recent editable workspaces with backing, recency and recorded repository status. */
 
 import { useEffect, useId, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -26,17 +14,26 @@ import {
   DialogHeader,
   DialogTitle
 } from '@rune-langium/design-system/ui/dialog';
-import { listRecents, type RecentWorkspaceRecord } from '../workspace/persistence.js';
+import { Input } from '@rune-langium/design-system/ui/input';
+import { Trash2, RefreshCw, Pencil } from 'lucide-react';
+import {
+  listRecents,
+  loadWorkspace,
+  renameWorkspace,
+  type RecentWorkspaceRecord,
+  type WorkspaceRecord
+} from '../workspace/persistence.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 interface Props {
   onOpen: (workspaceId: string) => void;
   onCreate: () => void;
   onDelete: (workspaceId: string) => void;
+  onRename?: (workspaceId: string, name: string) => Promise<void>;
 }
 
 const KIND_LABEL: Record<RecentWorkspaceRecord['kind'], string> = {
-  'browser-only': 'Browser',
+  'browser-only': 'Browser only',
   'folder-backed': 'Folder',
   'git-backed': 'Git'
 };
@@ -63,16 +60,75 @@ function formatRelativeTime(iso: string): string {
 }
 
 export const WorkspaceSwitcher = withInstrumentation(
-  function WorkspaceSwitcher({ onOpen, onCreate: _onCreate, onDelete }: Props): React.ReactElement {
+  function WorkspaceSwitcher({
+    onOpen,
+    onCreate: _onCreate,
+    onDelete,
+    onRename = renameWorkspace
+  }: Props): React.ReactElement {
     const [rows, setRows] = useState<RecentWorkspaceRecord[]>([]);
     const metadataId = useId();
+    const [metadata, setMetadata] = useState<Record<string, WorkspaceRecord | undefined>>({});
+    const [error, setError] = useState<string>(),
+      [refresh, setRefresh] = useState(0),
+      [loading, setLoading] = useState(true);
+    const syncLabel = (row: RecentWorkspaceRecord) => {
+      const workspace = metadata[row.id];
+      if (!workspace) return 'Status unavailable';
+      if (workspace.kind !== 'git-backed') return workspace.kind === 'folder-backed' ? 'Local folder' : 'No Git remote';
+      const backing = workspace.gitBacking;
+      if (backing.syncState === 'clean') return backing.lastSyncedSha ? 'Last sync recorded' : 'Sync not recorded';
+      return { ahead: 'Not pushed', behind: 'Update available', diverged: 'Diverged', conflict: 'Conflict' }[
+        backing.syncState
+      ];
+    };
     // Row awaiting delete confirmation — replaces the native window.confirm
     // with the design-system's animated Dialog for visual consistency.
+    const [renaming, setRenaming] = useState<string>();
+    const [name, setName] = useState('');
+    const [savingName, setSavingName] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<RecentWorkspaceRecord | null>(null);
 
     useEffect(() => {
-      void listRecents().then(setRows);
-    }, []);
+      let cancelled = false;
+      setLoading(true);
+      void listRecents()
+        .then(async (rows) => {
+          const records = await Promise.all(rows.map(async (row) => [row.id, await loadWorkspace(row.id)] as const));
+          if (!cancelled) {
+            setRows(rows);
+            setMetadata(Object.fromEntries(records));
+            setError(undefined);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setError('Recent workspaces could not be read. Refresh to try again.');
+            setMetadata({});
+            setLoading(false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [refresh]);
+
+    const saveName = async (id: string) => {
+      if (!name.trim() || savingName) return;
+      setSavingName(true);
+      setError(undefined);
+      try {
+        await onRename(id, name.trim());
+        setRenaming(undefined);
+        setRefresh((value) => value + 1);
+        requestAnimationFrame(() => document.getElementById(`${metadataId}-${id}-rename`)?.focus());
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'The workspace could not be renamed. Try again.');
+      } finally {
+        setSavingName(false);
+      }
+    };
 
     function confirmDelete(row: RecentWorkspaceRecord) {
       onDelete(row.id);
@@ -82,8 +138,29 @@ export const WorkspaceSwitcher = withInstrumentation(
 
     return (
       <div data-testid="workspace-switcher" className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recent workspaces</p>
-        {rows.length === 0 ? (
+        <div className="studio-launcher__section-heading">
+          <h2>Recent workspaces</h2>
+          <span>Stored on this device</span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Refresh recent workspaces"
+            onClick={() => setRefresh((value) => value + 1)}
+          >
+            <RefreshCw className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        {loading && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading recent workspaces…
+          </p>
+        )}
+        {rows.length === 0 && !loading && !error ? (
           <p data-testid="workspace-switcher-empty" className="text-sm text-muted-foreground">
             No recent workspaces — create one above to get started.
           </p>
@@ -97,40 +174,117 @@ export const WorkspaceSwitcher = withInstrumentation(
                 data-id={row.id}
                 data-kind={row.kind}
               >
-                <div className="group relative flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm hover:bg-accent/50 transition-colors">
-                  <button
-                    type="button"
-                    onClick={() => onOpen(row.id)}
-                    aria-labelledby={`${metadataId}-${row.id}-action ${metadataId}-${row.id}-name`}
-                    aria-describedby={`${metadataId}-${row.id}`}
-                    className="absolute inset-0 cursor-pointer rounded-md focus-visible:outline focus-visible:outline-ring"
+                <div className="group relative flex min-w-0 items-center gap-2 px-2 py-2 border-b border-border text-sm hover:bg-accent/50 transition-colors">
+                  {renaming === row.id ? (
+                    <form
+                      className="relative z-10 flex min-w-0 flex-1 flex-wrap items-center gap-1"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void saveName(row.id);
+                      }}
+                    >
+                      <Input
+                        autoFocus
+                        aria-label="Workspace name"
+                        value={name}
+                        disabled={savingName}
+                        className="min-w-24 flex-1"
+                        onChange={(event) => setName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape' && !savingName) {
+                            setRenaming(undefined);
+                            document.getElementById(`${metadataId}-${row.id}-rename`)?.focus();
+                          }
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void saveName(row.id);
+                          }
+                        }}
+                      />
+                      <Button type="submit" size="xs" disabled={!name.trim() || savingName}>
+                        Save name
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        disabled={savingName}
+                        onClick={() => {
+                          setRenaming(undefined);
+                          requestAnimationFrame(() =>
+                            document.getElementById(`${metadataId}-${row.id}-rename`)?.focus()
+                          );
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onOpen(row.id)}
+                        aria-labelledby={`${metadataId}-${row.id}-action ${metadataId}-${row.id}-name`}
+                        aria-describedby={`${metadataId}-${row.id}`}
+                        className="absolute inset-0 cursor-pointer rounded-md focus-visible:outline focus-visible:outline-ring"
+                      >
+                        <span id={`${metadataId}-${row.id}-action`} className="sr-only">
+                          Open
+                        </span>
+                      </button>
+                      <span
+                        id={`${metadataId}-${row.id}-name`}
+                        className="studio-recent-workspace__name pointer-events-none min-w-0 flex-1 truncate font-medium"
+                      >
+                        {row.name}
+                      </span>
+                      <span
+                        id={`${metadataId}-${row.id}`}
+                        className="studio-recent-workspace__metadata pointer-events-none contents"
+                      >
+                        <span className="shrink-0 text-3xs px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase tracking-wide">
+                          {KIND_LABEL[row.kind]}
+                        </span>{' '}
+                        <span
+                          className="shrink-0 text-xs text-muted-foreground"
+                          title={
+                            row.kind === 'browser-only'
+                              ? 'Stored in this browser on this device; no Git remote.'
+                              : 'Repository status recorded on this device'
+                          }
+                        >
+                          {syncLabel(row)}
+                        </span>{' '}
+                        <span className="hidden sm:inline shrink-0 ml-auto text-xs text-muted-foreground">
+                          {formatRelativeTime(row.lastOpenedAt)}
+                        </span>
+                      </span>
+                    </>
+                  )}
+                  <Button
+                    id={`${metadataId}-${row.id}-rename`}
+                    variant="ghost"
+                    size="icon-xs"
+                    className="studio-recent-workspace__rename relative"
+                    aria-label={`Rename ${row.name}`}
+                    disabled={savingName}
+                    onClick={() => {
+                      setRenaming(row.id);
+                      setName(row.name);
+                      setError(undefined);
+                    }}
                   >
-                    <span id={`${metadataId}-${row.id}-action`} className="sr-only">
-                      Open
-                    </span>
-                  </button>
-                  <span
-                    id={`${metadataId}-${row.id}-name`}
-                    className="pointer-events-none min-w-0 truncate font-medium"
-                  >
-                    {row.name}
-                  </span>
-                  <span id={`${metadataId}-${row.id}`} className="pointer-events-none contents">
-                    <span className="shrink-0 text-3xs px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase tracking-wide">
-                      {KIND_LABEL[row.kind]}
-                    </span>{' '}
-                    <span className="shrink-0 ml-auto text-xs text-muted-foreground">
-                      {formatRelativeTime(row.lastOpenedAt)}
-                    </span>
-                  </span>
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="relative size-5 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    disabled={savingName || renaming === row.id}
+                    className="studio-recent-workspace__delete relative size-5 p-0 text-muted-foreground hover:text-destructive"
                     onClick={() => setPendingDelete(row)}
                     aria-label={`Delete ${row.name}`}
                   >
-                    ×
+                    <Trash2 className="size-3.5" aria-hidden="true" />
                   </Button>
                 </div>
               </li>
@@ -142,7 +296,13 @@ export const WorkspaceSwitcher = withInstrumentation(
             <DialogHeader>
               <DialogTitle>Delete workspace?</DialogTitle>
               <DialogDescription>
-                {pendingDelete ? `"${pendingDelete.name}" will be removed. This cannot be undone.` : ''}
+                {pendingDelete
+                  ? pendingDelete.kind === 'folder-backed'
+                    ? `Disconnect ${pendingDelete.name} from this device. Its folder files are retained.`
+                    : pendingDelete.kind === 'git-backed'
+                      ? `Remove the browser working copy of ${pendingDelete.name}. The remote repository is unchanged.`
+                      : `Delete ${pendingDelete.name} and its browser files. This cannot be undone.`
+                  : ''}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

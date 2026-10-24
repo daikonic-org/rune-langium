@@ -2,6 +2,53 @@
 
 ## utils
 
+### `getNodeSourceRegion`
+Original UTF-16 range, shared by parsed and serialized model consumers.
+```ts
+getNodeSourceRegion(node: LocatedNode): SourceRegion
+```
+**Parameters:**
+- `node: LocatedNode`
+**Returns:** `SourceRegion`
+
+### `getFunctionImplementationRegion`
+Implementation range excludes the signature and retains preceding body comments.
+```ts
+getFunctionImplementationRegion(func: RosettaFunction | Dehydrated<RosettaFunction>, source: string): SourceRegion
+```
+**Parameters:**
+- `func: RosettaFunction | Dehydrated<RosettaFunction>`
+- `source: string`
+**Returns:** `SourceRegion`
+
+### `getExpressionRegions`
+Root expressions in grammar order; indexes address their original owner arrays.
+```ts
+getExpressionRegions(owner: Data | Dehydrated<Data> | RosettaFunction | Dehydrated<RosettaFunction>): readonly Readonly<{ region: SourceRegion; kind: "alias" | "precondition" | "operation" | "postcondition"; index: number; expression: RosettaExpression | Dehydrated<RosettaExpression> }>[]
+```
+**Parameters:**
+- `owner: Data | Dehydrated<Data> | RosettaFunction | Dehydrated<RosettaFunction>`
+**Returns:** `readonly Readonly<{ region: SourceRegion; kind: "alias" | "precondition" | "operation" | "postcondition"; index: number; expression: RosettaExpression | Dehydrated<RosettaExpression> }>[]`
+
+### `findExpressionOwner`
+Resolve declaration identity, using the unique base for a function dispatch group.
+```ts
+findExpressionOwner(model: Pick<RosettaModel, "elements">, identity: { name: string; kind?: string }): Data | RosettaFunction | undefined
+```
+**Parameters:**
+- `model: Pick<RosettaModel, "elements">`
+- `identity: { name: string; kind?: string }`
+**Returns:** `Data | RosettaFunction | undefined`
+
+### `getExpressionOwners`
+Unique owners across files, grouped by namespace, declaration name and kind.
+```ts
+getExpressionOwners(models: readonly Pick<RosettaModel, "name" | "elements">[]): (Data | RosettaFunction)[]
+```
+**Parameters:**
+- `models: readonly Pick<RosettaModel, "name" | "elements">[]`
+**Returns:** `(Data | RosettaFunction)[]`
+
 ### `isOptional`
 Whether the cardinality allows zero occurrences (inf == 0).
 ```ts
@@ -148,12 +195,14 @@ resolveTypeAliases(type: RosettaType | undefined, seen: Set<RosettaType>): Roset
 **Returns:** `RosettaType | undefined`
 
 ### `getFunctionInputs`
-Get all input attributes from a RosettaFunction.
+Get effective input attributes, including inheritance and dispatch signatures.
 ```ts
-getFunctionInputs(func: RosettaFunction): Attribute[]
+getFunctionInputs(func: RosettaFunction, seen: Set<RosettaFunction>, declarations?: Iterable<RosettaFunction, any, any>): Attribute[]
 ```
 **Parameters:**
 - `func: RosettaFunction`
+- `seen: Set<RosettaFunction>` — default: `...`
+- `declarations: Iterable<RosettaFunction, any, any>` (optional)
 **Returns:** `Attribute[]`
 
 ### `getFunctionOutput`
@@ -174,3 +223,13 @@ getEnumValues(enumeration: RosettaEnumeration): RosettaEnumValue[]
 **Parameters:**
 - `enumeration: RosettaEnumeration`
 **Returns:** `RosettaEnumValue[]`
+
+### `getExpressionScope`
+Describe the existing language-service scope at an expression, without a second resolver.
+```ts
+getExpressionScope(expression: RosettaExpression, services: RuneDslServices): ExpressionScopeEntry[]
+```
+**Parameters:**
+- `expression: RosettaExpression`
+- `services: RuneDslServices`
+**Returns:** `ExpressionScopeEntry[]`

@@ -218,6 +218,9 @@ importers:
       '@lspeasy/core':
         specifier: ^3.0.1
         version: 3.0.1(ws@8.22.0)
+      '@rune-langium/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@rune-langium/curated-schema':
         specifier: workspace:*
         version: link:../../packages/curated-schema
@@ -312,6 +315,12 @@ importers:
       '@rune-langium/lsp-server':
         specifier: workspace:*
         version: link:../../packages/lsp-server
+      '@rune-langium/project-config':
+        specifier: workspace:*
+        version: link:../../packages/project-config
+      '@rune-langium/project-runtime':
+        specifier: workspace:*
+        version: link:../../packages/project-runtime
       '@rune-langium/visual-editor':
         specifier: workspace:*
         version: link:../../packages/visual-editor
@@ -485,6 +494,12 @@ importers:
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
+      '@rune-langium/project-config':
+        specifier: workspace:*
+        version: link:../project-config
+      '@rune-langium/project-runtime':
+        specifier: workspace:*
+        version: link:../project-runtime
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -498,6 +513,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/codegen:
     dependencies:
@@ -703,6 +721,9 @@ importers:
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
+      '@rune-langium/project-runtime':
+        specifier: workspace:*
+        version: link:../project-runtime
       langium:
         specifier: ^4.4.0
         version: 4.4.0
@@ -719,6 +740,77 @@ importers:
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/project-config:
+    dependencies:
+      '@rune-langium/core':
+        specifier: workspace:*
+        version: link:../core
+      '@rune-langium/curated-schema':
+        specifier: workspace:*
+        version: link:../curated-schema
+      fast-xml-parser:
+        specifier: 5.11.2
+        version: 5.11.2
+      picomatch:
+        specifier: 4.0.7
+        version: 4.0.7
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/picomatch':
+        specifier: 4.0.3
+        version: 4.0.3
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/project-runtime:
+    dependencies:
+      '@rune-langium/codegen':
+        specifier: workspace:*
+        version: link:../codegen
+      '@rune-langium/core':
+        specifier: workspace:*
+        version: link:../core
+      '@rune-langium/curated-schema':
+        specifier: workspace:*
+        version: link:../curated-schema
+      '@rune-langium/project-config':
+        specifier: workspace:*
+        version: link:../project-config
+      langium:
+        specifier: ^4.4.0
+        version: 4.4.0
+      pako:
+        specifier: ^3.0.2
+        version: 3.0.2
+      semver:
+        specifier: 7.8.5
+        version: 7.8.5
+    devDependencies:
+      '@js-temporal/polyfill':
+        specifier: ^0.5.1
+        version: 0.5.1
+      '@types/node':
+        specifier: ^26.6.5
+        version: 26.6.5
+      '@types/semver':
+        specifier: 7.8.0
+        version: 7.8.0
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -3212,6 +3304,9 @@ packages:
   '@types/pegjs@0.10.6':
     resolution: {integrity: sha512-eLYXDbZWXh2uxf+w8sXS8d6KSoXTswfps6fvCUuVAGN8eRpfe7h9eSRydxiSJvo9Bf+GzifsDOr9TMQlmJdmkw==}
 
+  '@types/picomatch@4.0.3':
+    resolution: {integrity: sha512-iG0T6+nYJ9FAPmx9SsUlnwcq1ZVRuCXcVEvWnntoPlrOpwtSTKNDC9uVAxTsC3PUvJ+99n4RpAcNgBbHX3JSnQ==}
+
   '@types/react-dom@19.3.0':
     resolution: {integrity: sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==}
     peerDependencies:
@@ -3219,6 +3314,9 @@ packages:
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -8999,6 +9097,8 @@ snapshots:
 
   '@types/pegjs@0.10.6': {}
 
+  '@types/picomatch@4.0.3': {}
+
   '@types/react-dom@19.3.0(@types/react@19.3.0)':
     dependencies:
       '@types/react': 19.3.0
@@ -9006,6 +9106,8 @@ snapshots:
   '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
+
+  '@types/semver@7.8.0': {}
 
   '@types/unist@3.0.3': {}
 

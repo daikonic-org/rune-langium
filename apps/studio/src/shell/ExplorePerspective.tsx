@@ -28,6 +28,9 @@
 import { DraftConditionEditor } from '../components/editing/DraftConditionEditor.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
+import { projectDeclarationDestination } from '../services/local-declaration.js';
+import { projectSourcePaths } from '@rune-langium/project-config';
+import { kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import { InspectorDeclarationActions } from '../components/InspectorDeclarationActions.js';
 import { CuratedDeclarationInspector } from './panels/CuratedDeclarationInspector.js';
 import { useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
@@ -117,6 +120,7 @@ import { emphasizeNavigationArrival } from '../utils/navigation-arrival.js';
 import { SourceNavigationFeedbackContext } from './source-navigation-feedback-context.js';
 import { CenterStackPanel } from './panels/CenterStackPanel.js';
 import '../test-api.js';
+import { useProject } from './providers/project-context.js';
 import { useWorkspace } from './providers/workspace-context.js';
 import { useLsp } from './providers/lsp-context.js';
 import { useWorkspaceActions } from './perspectives/workspace-actions-context.js';
@@ -465,6 +469,9 @@ export const ExplorePerspective = withInstrumentation(
   function ExplorePerspective() {
     // Workspace model data — formerly props, now from WorkspaceProvider.
     const workspace = useWorkspace();
+    const project = useProject();
+    const pinnedView = Boolean(project.runtime?.managed && project.referenceView?.status === 'ready');
+    const pinnedViewRef = useLatestRef(pinnedView);
     const { models, parsedModels, files } = workspace;
     const deferredExports: DeferredExportEntry[] = workspace.deferredExports ?? EMPTY_DEFERRED_EXPORTS;
     const parseErrors = workspace.parseErrors ?? EMPTY_PARSE_ERRORS;
@@ -486,7 +493,7 @@ export const ExplorePerspective = withInstrumentation(
     // Workspace actions — formerly props, now from the actions context.
     // onClose/onSwitchWorkspace/onCreateWorkspace moved to AppHeader's
     // WorkspaceSwitcherTrigger (shared-perspective-chrome plan, Task 3).
-    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier } = useWorkspaceActions();
+    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier, flushWorkspaceSave } = useWorkspaceActions();
     const inspectorScope = `${workspaceId}:${workspace.workspaceEpoch ?? 0}`;
     const formCommitRegistry = useMemo(createEditorCommitRegistry, []);
 
@@ -782,13 +789,20 @@ export const ExplorePerspective = withInstrumentation(
       // in `corpusModelsRef`; keep them in the graph across same-workspace parse
       // rerenders because the routed parser does not echo them back in
       // `workspace.models`.
+      if (pinnedView) corpusModelsRef.current.clear();
       useEditorStore.getState().loadDeferredExports(deferredExports);
       useEditorStore.getState().loadModels([...models, ...corpusModelsRef.current.values()] as unknown[]);
-    }, [models, deferredExports, workspaceId]);
+    }, [models, deferredExports, workspaceId, pinnedView]);
 
     const publishCorpusModels = useCallback((newModels: RosettaModel[]) => {
       if (newModels.length === 0) return;
       for (const model of newModels) {
+        const uri = (model as AstNodeWithTextRegion).$textRegion?.documentURI;
+        if (
+          pinnedViewRef.current &&
+          (!uri || !filesRef.current.some((file) => uriToPath(pathToUri(file.path)) === uriToPath(uri)))
+        )
+          continue;
         // Canonical wire snapshots retain documentURI. Older regionless snapshots
         // use their entire contents, never the namespace shared by several files.
         const identity = (model as AstNodeWithTextRegion).$textRegion?.documentURI ?? JSON.stringify(model);
@@ -2528,21 +2542,34 @@ export const ExplorePerspective = withInstrumentation(
     }, [navigationRevision, selectedNodeId, inspectorArrivalReady, emphasizeInspectorArrival, cancelInspectorArrival]);
 
     const declarationSnapshot = useLatestRef({ files, models: resolvedModelFiles, scope: inspectorScope });
-    const [createdDeclaration, setCreatedDeclaration] = useState<{ path: string; scope: string }>();
+    const [createdDeclaration, setCreatedDeclaration] = useState<{ path?: string; targetId?: string; scope: string }>();
     useEffect(() => {
       if (!createdDeclaration) return;
       if (createdDeclaration.scope !== inspectorScope) {
         setCreatedDeclaration(undefined);
         return;
       }
-      const parsed = resolvedModelFiles.find((entry) => entry.filePath === createdDeclaration.path);
-      const declaration = parsed?.model.elements.find((element) => 'name' in element);
+      const destination = createdDeclaration.targetId ? splitNodeId(createdDeclaration.targetId) : undefined;
+      const kind = createdDeclaration.targetId ? kindFromNodeId(createdDeclaration.targetId) : undefined;
+      const parsed = resolvedModelFiles.find((entry) =>
+        destination
+          ? namespaceFromModelName(entry.model.name) === destination.namespace &&
+            entry.model.elements.some(
+              (element) => 'name' in element && element.name === destination.name && element.$type === kind
+            )
+          : entry.filePath === createdDeclaration.path
+      );
+      const declaration = parsed?.model.elements.find(
+        (element) =>
+          'name' in element && (!destination || (element.name === destination.name && element.$type === kind))
+      );
       if (!parsed || !declaration || !('name' in declaration)) return;
       const id = makeNodeId(namespaceFromModelName(parsed.model.name) ?? '', declaration.name, declaration.$type);
       if (!nodeRepository.byId(id)) return;
+      requestSourceFile(parsed.filePath);
       navigateToNode(id);
       setCreatedDeclaration(undefined);
-    }, [createdDeclaration, inspectorScope, resolvedModelFiles, nodeRepository, navigateToNode]);
+    }, [createdDeclaration, inspectorScope, resolvedModelFiles, nodeRepository, navigateToNode, requestSourceFile]);
 
     const returnScope = prototypeReturnScope(workspaceId, workspace.workspaceEpoch);
     const savedReturnScope = usePrototypeNavigationStore((state) => state.returnScope);
@@ -2611,6 +2638,27 @@ export const ExplorePerspective = withInstrumentation(
                 parseEpoch: latest.parseEpoch,
                 patches: latest.pendingEditPatches,
                 inversePatches: latest.pendingInversePatches
+              });
+              await flushWorkspaceSave?.();
+            }}
+            onSaved={(saved, request, previous) => {
+              if (declarationSnapshot.current.scope !== inspectorScope) return;
+              const target = projectDeclarationDestination(saved, request);
+              const updated = new Map(filesRef.current.map((file) => [file.path, file]));
+              for (const path of projectSourcePaths(saved.files, saved.project.build.sources)) {
+                const content = saved.files.get(path)!;
+                if (content === previous.files.get(path)) continue;
+                const current = updated.get(path);
+                if (current && current.content !== content)
+                  throw new Error('A new local draft conflicts with the saved declaration: ' + path);
+                updated.set(path, { name: path.split('/').pop()!, path, content, dirty: false });
+              }
+              const next = [...updated.values()];
+              filesRef.current = next;
+              onFilesChange(next);
+              setCreatedDeclaration({
+                targetId: makeNodeId(target.namespace, target.name, target.kind),
+                scope: inspectorScope
               });
             }}
             onCreate={(createdFiles) => {

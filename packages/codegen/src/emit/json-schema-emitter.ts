@@ -33,6 +33,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { resolveProjectTypeCall, projectJsonCodeList } from './project-resource-binding.js';
+import { projectCodeListForAlias } from '../runtime/project-bindings.js';
 import {
   isChoice,
   isData,
@@ -59,7 +61,7 @@ import {
 import type { NamespaceRegistry } from './namespace-registry.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { jsonSchemaProfile } from './json-schema-profile.js';
-import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
+import { toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
 import { debug } from '../instrument.js';
 
 /** JSON Schema 2020-12 meta-schema URI. */
@@ -273,7 +275,9 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
 
   @debug()
   emitTypeAlias(typeAlias: RosettaTypeAlias): void {
-    this.$defs[typeAlias.name] = this.emitTypeAliasDef(typeAlias);
+    const base = this.emitTypeAliasDef(typeAlias);
+    const codes = projectCodeListForAlias(typeAlias, this.projectResources);
+    this.$defs[typeAlias.name] = codes ? projectJsonCodeList(base, codes) : base;
     this.trackDefinitionSourceMap(typeAlias);
   }
 
@@ -360,7 +364,7 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
    * that scenario is now exactly the type-alias case this migration fixes.
    */
   private resolveItemSchema(attr: Attribute): object {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
       {
@@ -390,7 +394,9 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
           return {};
         }
       },
-      this.fallbackSourceUri
+      this.fallbackSourceUri,
+      this.projectResources,
+      projectJsonCodeList
     );
   }
 
@@ -592,7 +598,7 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
    * `builtinTypeMap` already carries.
    */
   private emitTypeAliasDef(alias: RosettaTypeAlias): object {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       alias.typeCall,
       this.typeIndex,
       {
@@ -602,7 +608,9 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
         onChoice: (node) => ({ $ref: `#/$defs/${node.name}` }),
         onUnresolved: () => ({ type: 'string' })
       },
-      this.fallbackSourceUri
+      this.fallbackSourceUri,
+      this.projectResources,
+      projectJsonCodeList
     );
   }
 

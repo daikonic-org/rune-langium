@@ -32,6 +32,10 @@ crons = []
 pattern = "www.daikonic.dev/curated/*"
 zone_name = "daikonic.dev"
 
+[[routes]]
+pattern = "www.daikonic.dev/releases/*"
+zone_name = "daikonic.dev"
+
 # R2 bucket created via `wrangler r2 bucket create rune-curated-mirror` (T005).
 # Binding name matches the wrangler output and is referenced in src/ as
 # env.rune_curated_mirror.

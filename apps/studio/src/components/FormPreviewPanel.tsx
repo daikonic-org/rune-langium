@@ -558,7 +558,7 @@ export const FormPreviewPanel = withInstrumentation(
                     })
                   }
                 >
-                  Create instance…
+                  Create example…
                 </Button>
               ) : null}
             </div>
@@ -1249,7 +1249,20 @@ function PreviewFieldControl({
   const field = expandPreviewField(inputField, definitions);
   const numericPresentation = useNumericPresentation(field);
   const fieldPath = formatFieldPath(field.path, arrayIndices);
-  const fieldError = sample?.validated ? sample.errors[fieldPath] : undefined;
+  const [interaction, setInteraction] = useState<string>();
+  const interactionKey = `${sample?.targetId ?? ''}:${fieldPath}`;
+  const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
+  const emptyNumber = field.kind === 'number' && (value === '' || value === undefined || value === null);
+  const rawError = sample?.validated ? sample.errors[fieldPath] : undefined;
+  const fieldError = emptyNumber && interaction !== interactionKey ? undefined : rawError;
+  const numericMessage =
+    field.kind === 'number' && fieldError
+      ? emptyNumber
+        ? `${resolvedFieldLabel(field, arrayIndices)} is required.`
+        : typeof value !== 'number' && fieldError.startsWith('Invalid input: expected number')
+          ? `Enter a number for ${resolvedFieldLabel(field, arrayIndices)}.`
+          : fieldError
+      : fieldError;
   const errorId = `${inputId}-error`;
   const validationAttributes = {
     'aria-invalid': fieldError ? true : undefined,
@@ -1322,8 +1335,6 @@ function PreviewFieldControl({
     );
   }
 
-  const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
-
   if (field.kind === 'boolean') {
     return (
       <div data-field-path={fieldPath} className="preview-boolean">
@@ -1375,8 +1386,16 @@ function PreviewFieldControl({
           aria-label={resolvedFieldLabel(field, arrayIndices)}
           value={value}
           format={numericPresentation}
-          onValueChange={(next) => onFieldChange(field.path, next, arrayIndices)}
-          onBlur={onFieldBlur}
+          aria-required={field.required || undefined}
+          placeholder={field.required ? 'Required' : undefined}
+          onValueChange={(next) => {
+            setInteraction(interactionKey);
+            onFieldChange(field.path, next, arrayIndices);
+          }}
+          onBlur={(event) => {
+            setInteraction(interactionKey);
+            onFieldBlur(event);
+          }}
         />
       ) : (
         <Input
@@ -1393,7 +1412,7 @@ function PreviewFieldControl({
         <FieldError
           id={errorId}
           message={
-            field.format && fieldError.includes('Invalid string:') ? TEMPORAL_INPUT_HELP[field.format] : fieldError
+            field.format && fieldError.includes('Invalid string:') ? TEMPORAL_INPUT_HELP[field.format] : numericMessage!
           }
         />
       ) : null}

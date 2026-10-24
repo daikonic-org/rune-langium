@@ -51,3 +51,51 @@ describe('instances-fs', () => {
     await expect(readInstance(fs, '/ws1', RECORD.id)).rejects.toThrow();
   });
 });
+
+it('limits legacy migration to typed instance records and readback-checked private markers', async () => {
+  const { createLegacyExampleStorage } = await import('../../src/opfs/instances-fs.js');
+  const fs = new OpfsFs(createOpfsRoot() as never);
+  const record = {
+    id: 'legacy',
+    name: 'Trade',
+    typeFqn: 'example.Trade',
+    data: { amount: 5 },
+    createdAt: 1,
+    modifiedAt: 2
+  };
+  await writeInstance(fs, '/migration', record);
+  await fs.writeFile('/migration/.studio/token', 'PRIVATE-TOKEN-SENTINEL');
+  await fs.writeFile('/migration/.studio/scratch.json', 'PRIVATE-SCRATCH-SENTINEL');
+  const source = createLegacyExampleStorage(fs, '/migration', () => true);
+  const loaded = await source.load();
+  expect(loaded.records).toEqual([record]);
+  expect(JSON.stringify(loaded)).not.toContain('PRIVATE-TOKEN-SENTINEL');
+  expect(JSON.stringify(loaded)).not.toContain('PRIVATE-SCRATCH-SENTINEL');
+  await source.markMigrated('legacy');
+  expect((await source.load()).migratedIds.has('legacy')).toBe(true);
+  expect(await readInstance(fs, '/migration', 'legacy')).toEqual(record);
+});
+
+it('does not mark a legacy record migrated after its inspected bytes change or ownership is lost', async () => {
+  const { createLegacyExampleStorage } = await import('../../src/opfs/instances-fs.js');
+  const fs = new OpfsFs(createOpfsRoot() as never);
+  const record = {
+    id: 'legacy',
+    name: 'Trade',
+    typeFqn: 'example.Trade',
+    data: { amount: 5 },
+    createdAt: 1,
+    modifiedAt: 2
+  };
+  await writeInstance(fs, '/migration-conflict', record);
+  let writable = true;
+  const source = createLegacyExampleStorage(fs, '/migration-conflict', () => writable);
+  await source.load();
+  await writeInstance(fs, '/migration-conflict', { ...record, data: { amount: 6 } });
+  await expect(source.markMigrated('legacy')).rejects.toThrow();
+  expect((await source.load()).migratedIds.size).toBe(0);
+  writable = false;
+  await expect(source.markMigrated('legacy')).rejects.toThrow();
+  expect((await source.load()).migratedIds.size).toBe(0);
+  expect((await readInstance(fs, '/migration-conflict', 'legacy')).data).toEqual({ amount: 6 });
+});

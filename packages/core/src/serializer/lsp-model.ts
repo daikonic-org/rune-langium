@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import type { ProjectResolutionContext } from '../references/project-contract.js';
 import { namespaceFromModelName } from '../naming/namespace.js';
 
 /** Incremental semantic documents followed by the complete current URI set. */
 export interface LspModelUpdate {
+  resolution?: ProjectResolutionContext | null;
   document?: { uri: string; modelJson: string };
   retain?: string[];
 }

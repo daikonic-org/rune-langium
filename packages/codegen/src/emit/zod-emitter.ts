@@ -9,6 +9,8 @@
  * FR-002–FR-009, FR-021 (inline helpers), FR-022 (deterministic output).
  */
 
+import { resolveProjectTypeCall, projectTsCodeList, projectZodCodeList } from './project-resource-binding.js';
+import { projectCodeListForAlias } from '../runtime/project-bindings.js';
 import { TEMPORAL_CONVERSION_PATTERNS } from '../expr/temporal-conversions.js';
 import {
   getEnumValues,
@@ -480,7 +482,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * only a single file is parsed without the full workspace — common for fixtures).
    */
   private resolveTypeExpr(attr: Attribute, ownerName: string): string {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
       {
@@ -509,7 +511,9 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           return 'z.unknown()';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectZodCodeList
     );
   }
 
@@ -538,7 +542,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       // SCHEMA/TYPE REFERENCE: chases through any RosettaTypeAlias chain via
       // resolveTypeCallTarget, same as resolveTypeExpr resolves an attribute's
       // type reference.
-      const optionSchemaExpr = resolveTypeCallTarget(
+      const optionSchemaExpr = resolveProjectTypeCall(
         option.typeCall,
         this.typeIndex,
         {
@@ -569,7 +573,9 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
             return 'unknownSchema';
           }
         },
-        this.ctx.namespace
+        this.ctx.namespace,
+        this.projectResources,
+        projectZodCodeList
       );
       // .strict(): non-strict objects allow unknown keys, so {cash, commodity}
       // would satisfy the first arm — strict arms make multi-option objects
@@ -941,7 +947,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * Resolve the TypeScript type expression for an attribute (for interface declarations).
    */
   private resolveTypeExprAsTs(attr: Attribute): string {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
       {
@@ -975,7 +981,9 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
   }
 
@@ -1119,7 +1127,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     const name = alias.name;
     const schemaName = `${name}Schema`;
 
-    const zodExpr = resolveTypeCallTarget(
+    const zodExpr = resolveProjectTypeCall(
       alias.typeCall,
       this.typeIndex,
       {
@@ -1153,11 +1161,15 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         // guess (unlike `resolveTypeExpr`'s attribute-side onUnresolved).
         onUnresolved: () => 'z.unknown()'
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectZodCodeList
     );
 
+    const codes = projectCodeListForAlias(alias, this.projectResources);
+    const constrained = codes ? projectZodCodeList(zodExpr, codes) : zodExpr;
     const lines: string[] = [
-      `export const ${schemaName} = ${zodExpr};`,
+      `export const ${schemaName} = ${constrained};`,
       `export type ${name} = z.infer<typeof ${schemaName}>;`
     ];
 

@@ -1180,3 +1180,156 @@ it.each(['manifest publication', 'workspace switch'] as const)(
     expect(factory).toBe(originalFactory);
   }
 );
+
+it('requires the current applied project receipt before a Prototype session can fetch its schema', async () => {
+  const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
+  const receipt = { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) };
+  const input = { receipt } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
+  let factory: PreviewSessionFactory | null = null;
+  function Session() {
+    factory = usePreviewSessionFactory();
+    return null;
+  }
+  render(
+    <WorkspaceStateContext.Provider value={wsState('managed')}>
+      <ProjectContext.Provider
+        value={{
+          status: 'ready',
+          diagnostics: [],
+          runtime: { managed: true, status: 'captured', input, diagnostics: [] }
+        }}
+      >
+        <CodegenProvider>
+          <Session />
+        </CodegenProvider>
+      </ProjectContext.Provider>
+    </WorkspaceStateContext.Provider>
+  );
+  const worker = FakeWorker.instances[0]!;
+  expect(worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)).toMatchObject({
+    project: input
+  });
+  const client = factory!();
+  const result = client.schema('a.Type', new AbortController().signal);
+  const rejected = expect(result).rejects.toThrow(/receipt|project/i);
+  await vi.waitFor(() =>
+    expect(worker.posted.filter((message) => message.type === 'preview:setFiles').length).toBeGreaterThan(1)
+  );
+  const install = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:files-ready',
+          requestId: install.requestId,
+          filesRevision: install.filesRevision,
+          projectReceipt: { ...receipt, revision: '4'.repeat(64) }
+        }
+      });
+  });
+  await rejected;
+  expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
+  client.dispose();
+});
+
+it('holds a cold Prototype schema request through project capture and applies it without a retry click', async () => {
+  const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
+  const receipt = { revision: 'a'.repeat(64), lockDigest: 'b'.repeat(64), overridesDigest: 'c'.repeat(64) };
+  const input = {
+    receipt,
+    snapshot: { revision: receipt.revision }
+  } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
+  let factory: PreviewSessionFactory | null = null;
+  function Session() {
+    factory = usePreviewSessionFactory();
+    return null;
+  }
+  function Host() {
+    const [captured, setCaptured] = useState(false);
+    return (
+      <WorkspaceStateContext.Provider value={wsState('cold-managed')}>
+        <ProjectContext.Provider
+          value={{
+            status: 'ready',
+            diagnostics: [],
+            runtime: {
+              managed: true,
+              status: captured ? 'captured' : 'loading',
+              ...(captured ? { input } : {}),
+              diagnostics: []
+            }
+          }}
+        >
+          <button onClick={() => setCaptured(true)}>capture project</button>
+          <CodegenProvider>
+            <Session />
+          </CodegenProvider>
+        </ProjectContext.Provider>
+      </WorkspaceStateContext.Provider>
+    );
+  }
+  render(<Host />);
+  const worker = FakeWorker.instances[0]!;
+  const client = factory!();
+  const result = client.schema('a.Type', new AbortController().signal);
+  let outcome: unknown;
+  void result.then(
+    (value) => {
+      outcome = value;
+    },
+    (error) => {
+      outcome = error;
+    }
+  );
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const loading = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:files-ready',
+          requestId: loading.requestId,
+          filesRevision: loading.filesRevision,
+          projectError: 'Applying the current project configuration…'
+        }
+      });
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(outcome).toBeUndefined();
+  expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
+  act(() => document.querySelector('button')!.click());
+  await vi.waitFor(() =>
+    expect(
+      worker.posted.filter((message) => message.type === 'preview:setFiles' && message.project).length
+    ).toBeGreaterThan(1)
+  );
+  act(() => {
+    for (const install of worker.posted.filter((message) => message.type === 'preview:setFiles' && message.project))
+      for (const listener of worker.listeners.message ?? [])
+        listener({
+          data: {
+            type: 'preview:files-ready',
+            requestId: install.requestId,
+            filesRevision: install.filesRevision,
+            projectReceipt: receipt
+          }
+        });
+  });
+  await vi.waitFor(() =>
+    expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(true)
+  );
+  const request = worker.posted.find((message) => message.type === 'instance:generateSchema')!;
+  const schema = { schemaVersion: 1, targetId: 'a.Type', title: 'Type', status: 'ready', fields: [] };
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: { type: 'instance:generateSchemaResult', requestId: request.requestId, schema, projectReceipt: receipt }
+      });
+  });
+  await expect(result).resolves.toEqual(schema);
+  client.dispose();
+});

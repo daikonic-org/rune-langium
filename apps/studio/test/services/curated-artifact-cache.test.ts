@@ -202,3 +202,17 @@ it('ignores a quota failure without losing a usable previous record', async () =
   await expect(value.putSource(key, [{ uri: 'cdm/test', content: 'source' }])).resolves.toBeUndefined();
   expect(await value.documents(key)).toHaveLength(1);
 });
+
+it('shares its capacity and persistence with checksum-addressed reference bytes', async () => {
+  const { projectBytesRevision } = await import('@rune-langium/project-config');
+  const { value, databaseName } = cache({ maxBytes: 16, maxEntries: 1 });
+  const bytes = new Uint8Array([0, 255, 1]);
+  const key = await projectBytesRevision(bytes);
+  await value.putReferenceBytes(key, bytes);
+  await value.close();
+  const reopened = cache({ databaseName, maxBytes: 16, maxEntries: 1 }).value;
+  expect(await reopened.referenceBytes(key)).toEqual(bytes);
+  expect(await reopened.documentKeys()).toEqual([]);
+  await reopened.putReferenceBytes('a'.repeat(64), bytes);
+  expect(await reopened.referenceBytes('a'.repeat(64))).toBeUndefined();
+});

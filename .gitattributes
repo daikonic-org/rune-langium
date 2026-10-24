@@ -1,3 +1,7 @@
 * text=auto eol=lf
 *.{cmd,[cC][mM][dD]} text eol=crlf
 *.{bat,[bB][aA][tT]} text eol=crlf
+
+# Preserve pinned upstream notice/license bytes, including their trailing spaces.
+test/fixtures/third-party/project-import/cdm/LICENSE.md whitespace=-blank-at-eol
+test/fixtures/third-party/project-import/cdm/NOTICE.md whitespace=-blank-at-eol

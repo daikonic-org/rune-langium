@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="en" data-theme="daikonic">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rune Studio · Workspace design</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(0.215 0.04 220);
+        --panel: oklch(0.255 0.04 220);
+        --raised: oklch(0.3 0.04 220);
+        --fg: oklch(0.97 0.005 200);
+        --muted: oklch(0.77 0.025 220);
+        --line: oklch(1 0 0/0.16);
+        --input: oklch(1 0 0/0.25);
+        --primary: oklch(0.7694 0.1486 56.99);
+        --teal: oklch(0.78 0.107 184);
+        --radius: 6px;
+        font:
+          14px/1.5 Inter,
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button,
+      input,
+      select {
+        color: inherit;
+        border: 1px solid var(--input);
+        border-radius: var(--radius);
+        background: var(--bg);
+        min-height: 32px;
+        padding: 4px 10px;
+      }
+      button:hover {
+        background: var(--raised);
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 3px;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      ::selection {
+        background: var(--primary);
+        color: var(--bg);
+      }
+      input::placeholder {
+        color: var(--muted);
+      }
+      input {
+        caret-color: var(--primary);
+      }
+      a {
+        color: var(--teal);
+        text-underline-offset: 3px;
+      }
+      .primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--bg);
+        font-weight: 600;
+      }
+      .primary:hover {
+        background: oklch(0.82 0.14 56.99);
+      }
+      .quiet {
+        border-color: transparent;
+        background: transparent;
+      }
+      .muted,
+      small {
+        color: var(--muted);
+      }
+      small {
+        font-size: 12px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 7px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .chip.teal {
+        color: var(--teal);
+        background: oklch(0.7 0.1 184/0.1);
+      }
+      .bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .grow {
+        flex: 1;
+      }
+      .icon {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vertical-align: middle;
+        margin-right: 5px;
+      }
+      .top {
+        min-height: 46px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 6px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        font-weight: 650;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .brand img {
+        width: 23px;
+        height: 27px;
+      }
+      .top .preview {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        color: var(--primary);
+      }
+      .notice {
+        padding: 7px 18px;
+        background: var(--raised);
+        font-size: 12px;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        min-height: calc(100vh - 82px);
+      }
+      .rail {
+        border-right: 1px solid var(--line);
+        padding: 12px 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .rail button {
+        position: relative;
+        padding: 6px;
+        border-color: transparent;
+      }
+      .nav-label {
+        position: absolute;
+        inset-inline-start: calc(100% + 8px);
+        top: 0;
+        z-index: 3;
+        padding: 7px 10px;
+        background: var(--raised);
+        border: 1px solid var(--input);
+        border-radius: var(--radius);
+        color: var(--fg);
+        white-space: nowrap;
+        visibility: hidden;
+      }
+      .rail button:hover .nav-label,
+      .rail button:focus-visible .nav-label {
+        visibility: visible;
+      }
+      .empty-detail {
+        min-height: 280px;
+        padding: 24px 18px;
+      }
+      .recent-backing {
+        display: none;
+      }
+      .workspace-overview {
+        padding: 18px 0;
+        max-width: 650px;
+      }
+      .workspace-overview dl {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 12px;
+      }
+      .workspace-overview dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .rail .icon {
+        margin: 0;
+      }
+      .rail button[aria-pressed="true"] {
+        background: var(--raised);
+        color: var(--teal);
+      }
+      main {
+        padding: 22px 28px;
+        max-width: 1320px;
+        width: 100%;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 22px;
+        line-height: 1.25;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 0;
+      }
+      h3 {
+        font-size: 14px;
+        margin: 0;
+      }
+      p {
+        margin: 5px 0 14px;
+      }
+      .heading {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .section {
+        margin-top: 24px;
+      }
+      .section-title {
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .table th,
+      .table td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .table th {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        background: var(--bg);
+      }
+      .table td {
+        font-size: 13px;
+      }
+      .table td:first-child {
+        font-weight: 550;
+      }
+      .table button {
+        min-height: 28px;
+      }
+      .split {
+        display: grid;
+        grid-template-columns: minmax(230px, 0.85fr) minmax(300px, 1.15fr);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--panel);
+      }
+      .list {
+        border-right: 1px solid var(--line);
+      }
+      .search {
+        padding: 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      .search input {
+        width: 100%;
+      }
+      .item {
+        display: block;
+        text-align: left;
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        border-radius: 0;
+        padding: 12px;
+        background: transparent;
+      }
+      .item small {
+        display: block;
+        margin: 3px 0;
+      }
+      .item[aria-pressed="true"] {
+        background: var(--raised);
+        box-shadow: inset 0 0 0 1px var(--input);
+      }
+      .detail {
+        padding: 18px;
+        min-height: 280px;
+      }
+      .detail .chips {
+        margin: 12px 0 18px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .detail dl {
+        margin: 0 0 20px;
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 7px 12px;
+        font-size: 13px;
+      }
+      .detail dt {
+        color: var(--muted);
+      }
+      .detail dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .detail .foot {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 18px;
+      }
+      .subnav {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+      }
+      .subnav button[aria-pressed="true"] {
+        background: var(--raised);
+      }
+      .release {
+        display: grid;
+        grid-template-columns: 110px minmax(180px, 1fr);
+        align-items: center;
+        gap: 10px;
+        margin: 16px 0;
+      }
+      .release select {
+        width: 100%;
+      }
+      .project-status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+      }
+      .dot {
+        height: 7px;
+        width: 7px;
+        border-radius: 50%;
+        background: var(--teal);
+      }
+      .divider {
+        border: 0;
+        border-top: 1px solid var(--line);
+        margin: 18px 0;
+      }
+      .back {
+        display: none;
+        margin-bottom: 12px;
+      }
+      .empty {
+        padding: 20px;
+        color: var(--muted);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      #message {
+        margin-top: 18px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      footer {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--input) transparent;
+      }
+      @media (max-width: 760px) {
+        main {
+          padding: 16px;
+        }
+        .heading {
+          flex-direction: column;
+          gap: 10px;
+        }
+        .split {
+          grid-template-columns: 1fr;
+        }
+        .list {
+          border-right: 0;
+        }
+        .detail {
+          display: none;
+        }
+        .split.drilled .list {
+          display: none;
+        }
+        .split.drilled .detail {
+          display: block;
+        }
+        .back {
+          display: inline-flex;
+        }
+        .recent-backing {
+          display: block;
+        }
+        .optional {
+          display: none;
+        }
+        .table td,
+        .table th {
+          padding: 8px;
+        }
+        .actions button {
+          min-height: 38px;
+        }
+        .top {
+          gap: 8px;
+        }
+        .top .project {
+          display: none;
+        }
+        .rail {
+          padding: 12px 4px;
+        }
+        .shell {
+          grid-template-columns: 42px 1fr;
+        }
+        .item {
+          min-height: 64px;
+        }
+        .release {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+        .detail dl {
+          grid-template-columns: 90px 1fr;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        button {
+          transition: background-color 0.12s ease-out;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg hidden aria-hidden="true">
+      <symbol id="folder" viewBox="0 0 24 24">
+        <path d="M3 7h7l2-3h8v16H3z" />
+      </symbol>
+      <symbol id="box" viewBox="0 0 24 24">
+        <path d="m12 3 9 5-9 5-9-5 9-5zM3 8v9l9 5 9-5V8M12 13v9" />
+      </symbol>
+      <symbol id="arrow" viewBox="0 0 24 24">
+        <path d="M6 18 18 6M6 6h12v12" />
+      </symbol>
+      <symbol id="plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+    </svg>
+    <header class="top">
+      <div class="brand">
+        <img
+          src="../../../../apps/studio/src/assets/rune-studio-logo.svg"
+          alt=""
+        /><span>Rune Studio</span><span class="preview">PREVIEW</span>
+      </div>
+      <span class="chip project">Bond examples</span><span class="grow"></span
+      ><button
+        class="quiet"
+        onclick="
+          notify(
+            'This is a design preview. Account and command search remain in the existing Studio shell.',
+          )
+        "
+      >
+        Search commands…
+      </button>
+    </header>
+    <div class="notice">
+      Design mockup · Starter repositories, release choices and project data are
+      illustrative. No files or repositories are changed.
+    </div>
+    <div class="shell">
+      <nav class="rail" aria-label="Preview navigation">
+        <button
+          aria-label="All workspaces"
+          aria-pressed="true"
+          data-page="workspaces"
+        >
+          <svg class="icon"><use href="#folder" /></svg
+          ><span class="nav-label" aria-hidden="true"
+            >All workspaces</span
+          ></button
+        ><button
+          aria-label="Reference models"
+          aria-pressed="false"
+          data-page="references"
+        >
+          <svg class="icon"><use href="#box" /></svg
+          ><span class="nav-label" aria-hidden="true">Reference models</span>
+        </button>
+      </nav>
+      <main>
+        <section id="workspaces">
+          <div class="heading">
+            <div class="grow">
+              <h1>Workspaces</h1>
+              <p class="muted">
+                Open your work or start with an example project.
+              </p>
+            </div>
+            <div class="actions">
+              <button
+                class="primary"
+                onclick="
+                  notify(
+                    'New workspace: choose a project name and backing. No reference model is required.',
+                  )
+                "
+              >
+                <svg class="icon"><use href="#plus" /></svg>New workspace</button
+              ><button
+                onclick="
+                  notify(
+                    'Open folder uses the existing folder-backed workspace flow.',
+                  )
+                "
+              >
+                Open folder</button
+              ><button
+                onclick="
+                  notify(
+                    'Open GitHub opens the repository and reads its project settings. If it has a POM but no build-config, review detected settings here before initializing the project. Committing requires a writable repository.',
+                  )
+                "
+              >
+                Open GitHub
+              </button>
+            </div>
+          </div>
+          <div class="section-title">
+            <h2>Recent workspaces</h2>
+            <span class="grow"></span><small>Stored on this device</small>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="optional">Location</th>
+                <th>Local save</th>
+                <th class="optional">Repository sync</th>
+                <th class="optional">Last opened</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  Bond examples<small style="display: block; font-weight: 400"
+                    >Uses CDM<small class="recent-backing"
+                      >GitHub workspace</small
+                    ></small
+                  >
+                </td>
+                <td class="optional">
+                  GitHub<small style="display: block"
+                    >your-org/bond-examples · main</small
+                  >
+                </td>
+                <td>
+                  <span class="project-status"
+                    ><span class="dot"></span>Saved</span
+                  >
+                </td>
+                <td class="optional">Not pushed</td>
+                <td class="optional">Today, 10:40</td>
+                <td>
+                  <button
+                    onclick="
+                      notify(
+                        'Open preserves this workspace’s files, pinned references, examples and shared layouts.',
+                      )
+                    "
+                  >
+                    Open
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Model exploration<small class="recent-backing"
+                    >Browser workspace</small
+                  >
+                </td>
+                <td class="optional">Browser workspace</td>
+                <td>
+                  <span class="project-status"
+                    ><span class="dot"></span>Saved</span
+                  >
+                </td>
+                <td class="optional">Not connected</td>
+                <td class="optional">Yesterday, 16:20</td>
+                <td>
+                  <button
+                    onclick="
+                      notify(
+                        'Browser workspaces remain fully editable; connect a repository when needed.',
+                      )
+                    "
+                  >
+                    Open
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="section">
+            <div class="section-title">
+              <h2>Start from example</h2>
+              <span class="grow"></span><small>Editable GitHub projects</small>
+            </div>
+            <div class="split" id="starters">
+              <div class="list">
+                <div class="search">
+                  <input
+                    aria-label="Search example projects"
+                    placeholder="Search example projects…"
+                    id="starter-search"
+                  />
+                </div>
+                <button class="item" data-starter="model" aria-pressed="true">
+                  <strong>Model authoring</strong
+                  ><small
+                    >A small model, validation rules and saved examples.</small
+                  ><span class="chip">Rune</span></button
+                ><button class="item" data-starter="cdm" aria-pressed="false">
+                  <strong>CDM examples</strong
+                  ><small>Explore a pinned CDM release with sample data.</small
+                  ><span class="chip teal">CDM</span>
+                </button>
+                <div class="empty" id="no-starters" hidden>
+                  No matching example projects.
+                </div>
+              </div>
+              <div class="detail" id="starter-detail">
+                <button class="back quiet" onclick="back('starters')">
+                  Back to examples
+                </button>
+                <h2 id="starter-title">Model authoring</h2>
+                <p class="muted" id="starter-description">
+                  An editable starting point for defining types and trying their
+                  conditions.
+                </p>
+                <div class="chips">
+                  <span class="chip" id="starter-repo"
+                    >daikonic-org/rune-starter</span
+                  ><span class="chip teal">Editable workspace</span>
+                </div>
+                <dl>
+                  <dt>Includes</dt>
+                  <dd id="starter-includes">
+                    Source model, examples and TypeScript build target
+                  </dd>
+                  <dt>References</dt>
+                  <dd id="starter-references">
+                    Rune standard library · locked release
+                  </dd>
+                  <dt>Saved files</dt>
+                  <dd>Configuration, sources, examples and shared layouts</dd>
+                </dl>
+                <button
+                  class="primary"
+                  onclick="
+                    notify(
+                      'Use example creates an editable copy and records its source. Clone/fork into a writable repository before committing or pushing.',
+                    )
+                  "
+                >
+                  Use example
+                </button>
+                <div class="foot">
+                  <small
+                    >Open and edit without changing the starter repository.
+                    Connect your own repository when you’re ready to
+                    commit.</small
+                  >
+                </div>
+              </div>
+              <div
+                class="empty-detail"
+                id="starter-filtered"
+                hidden
+                role="status"
+              >
+                <h2>Choose an example from the results</h2>
+                <p class="muted">
+                  Your previous selection is outside this search.
+                </p>
+                <button onclick="clearFilter('starter-search')">
+                  Clear search
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="workspace" hidden>
+          <div class="heading">
+            <div class="grow">
+              <h1>Bond examples</h1>
+              <p class="muted">Workspace settings · editable GitHub project</p>
+            </div>
+            <button onclick="showPage('workspaces')">All workspaces</button>
+          </div>
+          <nav class="subnav" aria-label="Workspace settings">
+            <button aria-pressed="true">Overview</button
+            ><button onclick="showPage('references')">References</button>
+            <button
+              onclick="
+                notify(
+                  'Build targets belong to Bond examples. Choose named targets or Build all explicitly; no default target is selected.',
+                )
+              "
+            >
+              Build targets
+            </button>
+          </nav>
+          <div class="workspace-overview">
+            <h2>Project location and files</h2>
+            <dl>
+              <dt>Repository</dt>
+              <dd>your-org/bond-examples · main</dd>
+              <dt>Local save</dt>
+              <dd>Saved</dd>
+              <dt>Repository sync</dt>
+              <dd>Not pushed</dd>
+              <dt>Project settings</dt>
+              <dd>rune-config.yml, build-config.yml, studio-config.yml</dd>
+              <dt>References</dt>
+              <dd>
+                One pinned release per model, recorded in build-config.lock.json
+              </dd>
+            </dl>
+            <button onclick="showPage('references')">Manage references</button>
+          </div>
+        </section>
+        <section id="references" hidden>
+          <div class="heading">
+            <div class="grow">
+              <h1>Reference models</h1>
+              <p class="muted">Read-only dependencies for Bond examples.</p>
+            </div>
+            <button onclick="showPage('workspaces')">All workspaces</button>
+            <button
+              class="primary"
+              onclick="
+                notify(
+                  'Add reference opens a searchable model catalog. One release of each model is allowed per workspace.',
+                )
+              "
+            >
+              <svg class="icon"><use href="#plus" /></svg>Add reference
+            </button>
+          </div>
+          <nav class="subnav" aria-label="Workspace settings">
+            <button onclick="showPage('workspace')">Overview</button
+            ><button aria-pressed="true">References</button
+            ><button
+              onclick="
+                notify(
+                  'Build targets: independently named settings, multiple configurations per generator, no default. Choose targets or Build all explicitly.',
+                )
+              "
+            >
+              Build targets
+            </button>
+          </nav>
+          <div class="split" id="models">
+            <div class="list">
+              <div class="search">
+                <input
+                  aria-label="Search reference models"
+                  placeholder="Search reference models…"
+                  id="model-search"
+                />
+              </div>
+              <button class="item" data-model="cdm" aria-pressed="true">
+                <strong>Common Domain Model</strong
+                ><small>Selected release · explicitly added</small
+                ><span class="chip teal">CDM</span></button
+              ><button class="item" data-model="fpml" aria-pressed="false">
+                <strong>FpML</strong
+                ><small>Compatible release · required by CDM</small
+                ><span class="chip">Dependency</span></button
+              ><button class="item" data-model="rune" aria-pressed="false">
+                <strong>Rune standard library</strong
+                ><small>Compatible release · required by CDM</small
+                ><span class="chip">Dependency</span>
+              </button>
+              <div class="empty" id="no-models" hidden>
+                No matching reference models.
+              </div>
+            </div>
+            <div class="detail" id="model-detail">
+              <button class="back quiet" onclick="back('models')">
+                Back to models
+              </button>
+              <div class="bar">
+                <h2 id="model-title">Common Domain Model</h2>
+                <span class="grow"></span><span class="chip">Read-only</span>
+              </div>
+              <p class="muted" id="model-description">
+                Contract and lifecycle definitions for financial products.
+              </p>
+              <label class="release"
+                >Release<select
+                  id="release"
+                  aria-label="Reference model release"
+                >
+                  <option value="locked">Pinned release · illustrative</option>
+                  <option value="candidate">
+                    Another release · illustrative
+                  </option>
+                </select></label
+              >
+              <p class="project-status" id="release-status">
+                <span class="dot"></span>Locked · verified artifacts available
+              </p>
+              <hr class="divider" />
+              <h3>Required dependencies</h3>
+              <dl id="model-dependencies" style="margin-top: 10px"></dl>
+              <p class="muted" id="model-no-dependencies" hidden></p>
+              <button
+                class="primary"
+                id="resolve"
+                disabled
+                onclick="resolveRelease()"
+              >
+                Review release change
+              </button>
+              <div class="foot">
+                <small
+                  >Release changes are explicit. Review dependency and override
+                  compatibility before updating the project lockfile.</small
+                >
+              </div>
+            </div>
+            <div class="empty-detail" id="model-filtered" hidden role="status">
+              <h2>Choose a model from the results</h2>
+              <p class="muted">
+                Your previous selection is outside this search.
+              </p>
+              <button onclick="clearFilter('model-search')">
+                Clear search
+              </button>
+            </div>
+          </div>
+        </section>
+        <div id="message" role="status" hidden></div>
+        <footer>
+          Sources, configuration and examples are portable. Personal panel
+          layouts and credentials stay on your device.
+        </footer>
+      </main>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      function notify(text) {
+        $("message").textContent = text;
+        $("message").hidden = false;
+      }
+      function showPage(page) {
+        ["workspaces", "workspace", "references"].forEach(
+          (id) => ($(id).hidden = id !== page),
+        );
+        document
+          .querySelectorAll("[data-page]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.page === page),
+            ),
+          );
+        $("message").hidden = true;
+      }
+      function back(id) {
+        $(id).classList.remove("drilled");
+        $(id).querySelector(".item[aria-pressed=true]")?.focus();
+      }
+      document
+        .querySelectorAll("[data-page]")
+        .forEach((button) =>
+          button.addEventListener("click", () => showPage(button.dataset.page)),
+        );
+      const starters = {
+        model: {
+          title: "Model authoring",
+          description:
+            "An editable starting point for defining types and trying their conditions.",
+          repo: "daikonic-org/rune-starter",
+          includes: "Source model, examples and TypeScript build target",
+          references: "Rune standard library · locked release",
+        },
+        cdm: {
+          title: "CDM examples",
+          description:
+            "Explore a pinned CDM release with editable example data and local model extensions.",
+          repo: "daikonic-org/cdm-examples",
+          includes: "Saved examples, workflow definitions and build settings",
+          references: "CDM, FpML and Rune · compatible locked releases",
+        },
+      };
+      document.querySelectorAll("[data-starter]").forEach((button) =>
+        button.addEventListener("click", () => {
+          const data = starters[button.dataset.starter];
+          document
+            .querySelectorAll("[data-starter]")
+            .forEach((row) =>
+              row.setAttribute("aria-pressed", String(row === button)),
+            );
+          for (const key of [
+            "title",
+            "description",
+            "repo",
+            "includes",
+            "references",
+          ])
+            $("starter-" + key).textContent = data[key];
+          updateFilter("starter-search");
+          $("starters").classList.add("drilled");
+          if (matchMedia("(max-width:760px)").matches)
+            $("starters").querySelector(".back").focus();
+        }),
+      );
+      // Illustrative records drive every part of the selected release detail.
+      const models = {
+        cdm: {
+          title: "Common Domain Model",
+          description:
+            "Contract and lifecycle definitions for financial products.",
+          requiredBy: [],
+          dependencies: ["fpml", "rune"],
+        },
+        fpml: {
+          title: "FpML",
+          description: "Schema-derived types and serialization resources.",
+          requiredBy: ["CDM"],
+          dependencies: ["rune"],
+        },
+        rune: {
+          title: "Rune standard library",
+          description: "Core types and annotations for Rune models.",
+          requiredBy: ["CDM", "FpML"],
+          dependencies: [],
+        },
+      };
+      function provenance(model) {
+        return model.requiredBy.length
+          ? "Required by " + model.requiredBy.join(" and ")
+          : "Explicitly added";
+      }
+      for (const [id, model] of Object.entries(models)) {
+        const row = document.querySelector('[data-model="' + id + '"]');
+        row.querySelector("strong").textContent = model.title;
+        row.querySelector("small").textContent =
+          "Pinned release · " + provenance(model);
+      }
+      let selectedModel = "cdm";
+      function renderModel() {
+        const model = models[selectedModel];
+        const pinned = $("release").value === "locked";
+        $("model-title").textContent = model.title;
+        $("model-description").textContent = model.description;
+        $("release-status").textContent =
+          (pinned ? "Pinned · " : "Not resolved · ") + provenance(model);
+        $("resolve").disabled = pinned;
+        $("model-dependencies").replaceChildren();
+        for (const dependency of pinned ? model.dependencies : []) {
+          const title = document.createElement("dt");
+          title.textContent = models[dependency].title;
+          const release = document.createElement("dd");
+          release.textContent = "Compatible pinned release · illustrative";
+          $("model-dependencies").append(title, release);
+        }
+        $("model-no-dependencies").hidden =
+          pinned && model.dependencies.length > 0;
+        $("model-no-dependencies").textContent = pinned
+          ? "No additional dependencies in this preview."
+          : "Resolve this release to review its dependencies.";
+      }
+      document.querySelectorAll("[data-model]").forEach((button) =>
+        button.addEventListener("click", () => {
+          selectedModel = button.dataset.model;
+          document
+            .querySelectorAll("[data-model]")
+            .forEach((row) =>
+              row.setAttribute("aria-pressed", String(row === button)),
+            );
+          $("release").value = "locked";
+          renderModel();
+          updateFilter("model-search");
+          $("models").classList.add("drilled");
+          if (matchMedia("(max-width:760px)").matches)
+            $("models").querySelector(".back").focus();
+        }),
+      );
+      const filters = {
+        "starter-search": {
+          selector: "[data-starter]",
+          empty: "no-starters",
+          detail: "starter-detail",
+          filtered: "starter-filtered",
+          item: "an example",
+          plural: "example projects",
+        },
+        "model-search": {
+          selector: "[data-model]",
+          empty: "no-models",
+          detail: "model-detail",
+          filtered: "model-filtered",
+          item: "a model",
+          plural: "reference models",
+        },
+      };
+      function updateFilter(id) {
+        const config = filters[id];
+        const query = $(id).value.trim().toLowerCase();
+        let visible = 0;
+        let selectedVisible = false;
+        document.querySelectorAll(config.selector).forEach((row) => {
+          row.hidden = !row.textContent.toLowerCase().includes(query);
+          if (!row.hidden) visible++;
+          if (!row.hidden && row.getAttribute("aria-pressed") === "true")
+            selectedVisible = true;
+        });
+        $(config.empty).hidden = visible > 0;
+        $(config.detail).hidden = !selectedVisible;
+        $(config.filtered).hidden = selectedVisible;
+        $(config.filtered).querySelector("h2").textContent = visible
+          ? "Choose " + config.item + " from the results"
+          : "No matching " + config.plural;
+        $(config.filtered).querySelector("p").textContent = visible
+          ? "Your previous selection is outside this search."
+          : "Try another search or clear it to see all choices.";
+      }
+      function clearFilter(id) {
+        $(id).value = "";
+        updateFilter(id);
+        $(id).focus();
+      }
+      Object.keys(filters).forEach((id) =>
+        $(id).addEventListener("input", () => updateFilter(id)),
+      );
+      $("release").addEventListener("change", renderModel);
+      renderModel();
+      function resolveRelease() {
+        notify(
+          "Illustrative change report: this release requires different dependency versions. Resolve and validate the complete closure before updating configuration and lock together. The mockup does not fetch or save anything.",
+        );
+      }
+    </script>
+  </body>
+</html>

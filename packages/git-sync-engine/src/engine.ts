@@ -37,6 +37,7 @@ export function createGitSyncEngine(options: GitSyncEngineOptions): GitSyncEngin
   let timer: unknown = null;
   let running: Promise<SyncStatus> | null = null;
   let pendingSync = false;
+  let dirtyGeneration = 0;
 
   function emit(next: Partial<SyncStatus>) {
     state = { ...state, ...next };
@@ -49,11 +50,12 @@ export function createGitSyncEngine(options: GitSyncEngineOptions): GitSyncEngin
       return state;
     }
     try {
+      const capturedDirty = dirtyGeneration;
       emit({ phase: 'committing', lastError: undefined });
       const changed = await ops.stageAll();
       if (changed.length > 0) await ops.commit(genMessage(changed), opts.author);
 
-      emit({ phase: 'fetching' });
+      emit({ phase: 'fetching', dirty: capturedDirty !== dirtyGeneration });
       await ops.fetch(opts.ref, opts.remoteUrl);
       const { ahead, behind } = await ops.computeAheadBehind(opts.ref);
       emit({ ahead, behind });
@@ -215,7 +217,9 @@ export function createGitSyncEngine(options: GitSyncEngineOptions): GitSyncEngin
 
   return {
     notifyDirty() {
-      scheduleSync();
+      dirtyGeneration++;
+      emit({ dirty: true });
+      if (opts.autoSync !== false) scheduleSync();
     },
     syncNow,
     getState() {

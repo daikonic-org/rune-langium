@@ -109,3 +109,24 @@ assertValidDocuments(documents: readonly LangiumDocument<AstNode>[]): void
 ```
 **Parameters:**
 - `documents: readonly LangiumDocument<AstNode>[]`
+
+### `relinkReference`
+Rebuild authored references through Langium's authoritative scope/link boundary.
+```ts
+relinkReference(services: LangiumCoreServices, container: AstNode, property: string, reference: Reference<AstNode> | MultiReference<AstNode>): Reference<AstNode> | MultiReference<AstNode>
+```
+**Parameters:**
+- `services: LangiumCoreServices`
+- `container: AstNode`
+- `property: string`
+- `reference: Reference<AstNode> | MultiReference<AstNode>`
+**Returns:** `Reference<AstNode> | MultiReference<AstNode>`
+
+### `relinkModelReferences`
+Dependency snapshots must stay relinkable after live edits or a project-context transition.
+```ts
+relinkModelReferences(services: LangiumCoreServices, model: AstNode): void
+```
+**Parameters:**
+- `services: LangiumCoreServices`
+- `model: AstNode`

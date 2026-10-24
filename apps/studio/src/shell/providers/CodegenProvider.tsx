@@ -6,7 +6,13 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useEditorStore } from '@rune-langium/visual-editor';
 import { useStudioToast } from '../../components/StudioToastProvider.js';
+import { resolveEditorFilePath } from '../explore-file-nav-store.js';
 import { useWorkspace } from './workspace-context.js';
+import { useProject } from './project-context.js';
+import { createProjectWorkerBridge } from '../../services/project-worker-bridge.js';
+import { createProjectCaptureBarrier } from '../../services/project-capture-barrier.js';
+import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 import { usePreviewStore } from '../../store/preview-store.js';
 import { useCodegenStore } from '../../store/codegen-store.js';
 import { useInstanceStore } from '../../store/instance-store.js';
@@ -26,7 +32,11 @@ import {
 import { createInstanceReadiness } from '../../services/instance-readiness.js';
 import { createPreviewSessionClient, isPrototypeSessionRequest } from '../../services/preview-session-client.js';
 import type { InstanceReadiness } from '../../services/instance-readiness.js';
-import { PreviewSessionContext, type PreviewSessionFactory } from './preview-session-context.js';
+import {
+  ProjectPreviewReadinessContext,
+  PreviewSessionContext,
+  type PreviewSessionFactory
+} from './preview-session-context.js';
 import { pathToUri } from '../../utils/uri.js';
 import { getRuneStudioTestApi } from '../../test-api.js';
 import { BUNDLE_MARKER_SUFFIX, type WorkspaceFile } from '../../services/workspace.js';
@@ -39,7 +49,7 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { RetryExhaustedError } from '../../services/instrumentation/errors.js';
 import type { InstrumentationNamespace } from '../../services/instrumentation/namespace.js';
 
-/** Exclude user declarations, which /api/parse also lists for Explorer navigation. */
+/** Only catalog stubs need hydration; complete serialized definitions are already in the worker file set. */
 function curatedDeferredExports(
   deferredExports: DeferredExportEntry[],
   files: readonly WorkspaceFile[]
@@ -47,8 +57,12 @@ function curatedDeferredExports(
   // /api/parse includes user declarations in deferredExports so Explorer can
   // locate them. They are already present in the worker's source file set;
   // requesting curated hydration for one can never complete.
-  const userPaths = new Set(files.filter((file) => !file.bundleId).map((file) => file.path));
-  return deferredExports.filter((entry) => !userPaths.has(entry.filePath));
+  const availablePaths = new Set(
+    files.filter((file) => !file.bundleId || Boolean(file.serializedModelJson)).map((file) => file.path)
+  );
+  return deferredExports.filter(
+    (entry) => !availablePaths.has(resolveEditorFilePath(entry.filePath, files) ?? entry.filePath)
+  );
 }
 
 /**
@@ -115,6 +129,15 @@ const reportHydrationRetryExhausted = withInstrumentation(
 export const CodegenProvider = withInstrumentation(
   function CodegenProvider({ children }: { children: React.ReactNode }): React.ReactElement {
     const { files, deferredExports, workspaceId } = useWorkspace();
+    const { runtime: projectRuntime } = useProject();
+    const projectRuntimeRef = useRef(projectRuntime);
+    projectRuntimeRef.current = projectRuntime;
+    const captureBarrierRef = useRef<ReturnType<typeof createProjectCaptureBarrier> | null>(null);
+    if (!captureBarrierRef.current) captureBarrierRef.current = createProjectCaptureBarrier();
+    useLayoutEffect(() => {
+      captureBarrierRef.current!.update(workspaceId, projectRuntime);
+    }, [workspaceId, projectRuntime]);
+    useEffect(() => () => captureBarrierRef.current?.reset(), []);
     const [codegenWorker, setCodegenWorker] = useState<Worker | null>(null);
     const [previewSessionFactory, setPreviewSessionFactory] = useState<PreviewSessionFactory | null>(null);
 
@@ -134,7 +157,13 @@ export const CodegenProvider = withInstrumentation(
     const workerFileWaitersRef = useRef(
       new Map<
         string,
-        { epoch: number; filesRevision: number; resolve: (revision: number) => void; reject: (reason: Error) => void }
+        {
+          epoch: number;
+          filesRevision: number;
+          receipt?: ProjectResolutionReceipt;
+          resolve: (revision: number) => void;
+          reject: (reason: Error) => void;
+        }
       >()
     );
     const workspaceCommitWaitersRef = useRef(
@@ -263,6 +292,13 @@ export const CodegenProvider = withInstrumentation(
         const requestId = `preview:files:${++previewRequestSequenceRef.current}`;
         const filesRevision = ++workerFilesRevisionRef.current;
         const epoch = workspaceEpochRef.current;
+        const runtime = projectRuntimeRef.current;
+        const project = runtime?.status === 'captured' ? runtime.input : undefined;
+        const projectUnavailable =
+          runtime && runtime.status !== 'legacy' && !project
+            ? runtime.diagnostics.map((issue) => issue.message).join('\n') ||
+              'Applying the current project configuration…'
+            : undefined;
         currentPreviewRequestIdRef.current = requestId;
         return new Promise<number>((resolve, reject) => {
           const abort = () => {
@@ -274,6 +310,7 @@ export const CodegenProvider = withInstrumentation(
           workerFileWaitersRef.current.set(requestId, {
             epoch,
             filesRevision,
+            receipt: project?.receipt,
             resolve: (revision) => {
               signal?.removeEventListener('abort', abort);
               resolve(revision);
@@ -288,7 +325,11 @@ export const CodegenProvider = withInstrumentation(
               type: 'codegen:setFiles',
               files: codegenFiles
             });
-            worker.postMessage(createPreviewSetFilesMessage(previewFiles, requestId, filesRevision));
+            worker.postMessage({
+              ...createPreviewSetFilesMessage(previewFiles, requestId, filesRevision),
+              ...(project ? { project } : {}),
+              ...(projectUnavailable ? { projectUnavailable } : {})
+            });
           } catch (error) {
             workerFileWaitersRef.current.delete(requestId);
             signal?.removeEventListener('abort', abort);
@@ -298,6 +339,15 @@ export const CodegenProvider = withInstrumentation(
         });
       },
       [handlePreviewWorkerFailure]
+    );
+
+    const prepareWorkerFiles = useCallback(
+      (worker: Worker, signal: AbortSignal) => {
+        const runtime = projectRuntimeRef.current;
+        if (!runtime || runtime.status === 'legacy') return syncWorkerFiles(worker, signal);
+        return captureBarrierRef.current!.waitCurrent(signal).then(() => syncWorkerFiles(worker, signal));
+      },
+      [syncWorkerFiles]
     );
 
     const waitForCommittedWorkspaceFiles = useCallback(
@@ -388,6 +438,10 @@ export const CodegenProvider = withInstrumentation(
           new Worker(new URL('../../workers/codegen-worker.ts', import.meta.url), {
             type: 'module'
           });
+        worker = createProjectWorkerBridge(worker, () => {
+          const runtime = projectRuntimeRef.current;
+          return { managed: Boolean(runtime && runtime.status !== 'legacy'), receipt: runtime?.input?.receipt };
+        });
         setCodegenWorker(worker);
       } catch (error) {
         setCodegenWorker(null);
@@ -415,12 +469,13 @@ export const CodegenProvider = withInstrumentation(
         .catch(() => {
           // Worker failure is reported by the shared synchronization path.
         });
-    }, [codegenWorker, files, syncWorkerFiles]);
+    }, [codegenWorker, files, syncWorkerFiles, projectRuntime?.input, projectRuntime?.status]);
 
     // Trigger form preview whenever the selected target changes. Files are
     // already current from the effect above; this effect only updates the target.
     useEffect(() => {
       if (!codegenWorker || !previewSelectedTargetId) return;
+      if (projectRuntime && projectRuntime.status !== 'legacy' && projectRuntime.status !== 'captured') return;
       usePreviewStore.getState().beginPreviewGeneration(previewSelectedTargetId);
       const requestId = `preview:${previewSelectedTargetId}:${++previewRequestSequenceRef.current}`;
       currentPreviewRequestIdRef.current = requestId;
@@ -433,7 +488,13 @@ export const CodegenProvider = withInstrumentation(
           previewSelectedTargetId
         );
       }
-    }, [codegenWorker, handlePreviewWorkerFailure, previewSelectedTargetId]);
+    }, [
+      codegenWorker,
+      handlePreviewWorkerFailure,
+      previewSelectedTargetId,
+      projectRuntime?.input,
+      projectRuntime?.status
+    ]);
 
     useEffect(() => {
       if (!codegenWorker) return;
@@ -449,7 +510,7 @@ export const CodegenProvider = withInstrumentation(
             useEditorStore.getState().hydratedNamespaces
           ),
         hydrate: hydrateNamespaceForInstance,
-        waitForWorkerFiles: (signal) => syncWorkerFiles(codegenWorker, signal)
+        waitForWorkerFiles: (signal) => prepareWorkerFiles(codegenWorker, signal)
       });
       readinessRef.current = readiness;
       setPreviewSessionFactory(() => () => createPreviewSessionClient(codegenWorker, readiness));
@@ -471,6 +532,12 @@ export const CodegenProvider = withInstrumentation(
             waiter.reject(
               new Error(`Worker acknowledged files revision ${msg.filesRevision}; expected ${waiter.filesRevision}.`)
             );
+          } else if (msg.projectError) {
+            waiter.reject(new Error(msg.projectError));
+          } else if (
+            waiter.receipt ? !projectReceiptMatches(waiter.receipt, msg.projectReceipt) : Boolean(msg.projectReceipt)
+          ) {
+            waiter.reject(new Error('Worker project receipt does not match the requested source and configuration.'));
           } else {
             waiter.resolve(msg.filesRevision);
           }
@@ -683,7 +750,8 @@ export const CodegenProvider = withInstrumentation(
       clearHydrationRetriesRemaining,
       setWorkerRef,
       hydrateNamespaceForInstance,
-      syncWorkerFiles
+      syncWorkerFiles,
+      prepareWorkerFiles
     ]);
 
     // ---------------------------------------------------------------------------
@@ -775,7 +843,7 @@ export const CodegenProvider = withInstrumentation(
             controller.signal
           );
         } else {
-          await syncWorkerFiles(codegenWorker, controller.signal);
+          await prepareWorkerFiles(codegenWorker, controller.signal);
         }
         if (controller.signal.aborted || codegenCurrentRequestIdRef.current !== requestId) return;
         codegenWorker.postMessage({
@@ -822,11 +890,29 @@ export const CodegenProvider = withInstrumentation(
       workspaceId,
       files,
       refreshRevision,
-      syncWorkerFiles,
+      prepareWorkerFiles,
+      projectRuntime?.input,
+      projectRuntime?.status,
       showToast
     ]);
 
-    return <PreviewSessionContext.Provider value={previewSessionFactory}>{children}</PreviewSessionContext.Provider>;
+    const ensureSavedProject = useCallback(
+      async (revision: string, signal: AbortSignal) => {
+        const input = await captureBarrierRef.current!.wait(revision, signal);
+        if (!codegenWorker) throw new Error('The preview worker is unavailable.');
+        await syncWorkerFiles(codegenWorker, signal);
+        const current = await captureBarrierRef.current!.wait(revision, signal);
+        if (!projectReceiptMatches(input.receipt, current.receipt))
+          throw new Error('Project changed before its saved revision was applied.');
+        return current;
+      },
+      [codegenWorker, syncWorkerFiles]
+    );
+    return (
+      <ProjectPreviewReadinessContext.Provider value={{ ensureSaved: ensureSavedProject }}>
+        <PreviewSessionContext.Provider value={previewSessionFactory}>{children}</PreviewSessionContext.Provider>
+      </ProjectPreviewReadinessContext.Provider>
+    );
   },
   { op: 'CodegenProvider' }
 );

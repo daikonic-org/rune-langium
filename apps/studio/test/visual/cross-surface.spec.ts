@@ -38,7 +38,7 @@ test.describe('Cross-surface UX consistency (T063 / US7)', () => {
       const bodyFont = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
       expect(bodyFont).toMatch(/Inter/i);
 
-      // 2. The primary "New blank workspace" button has a 6px border-radius.
+      // 2. The primary "New workspace" button has a 6px border-radius.
       //    shadcn/Button uses the `rounded-md` utility, and Tailwind v4's
       //    `@theme inline` INLINES its value into the utility — so `rounded-md`
       //    is `calc(var(--radius) - 2px)` = 6px (it does NOT reference
@@ -54,7 +54,7 @@ test.describe('Cross-surface UX consistency (T063 / US7)', () => {
 
       // 3. Secondary buttons (Select Files / Select Folder) render
       //    transparent — NOT solid amber. (FR-023, T054.)
-      const secondaryButton = page.getByTestId('file-loader').getByRole('button', { name: 'Select Files' });
+      const secondaryButton = page.getByTestId('file-loader').getByRole('button', { name: 'Import files…' });
       await expect(secondaryButton).toBeVisible();
       const secondaryBg = await secondaryButton.evaluate((el) => getComputedStyle(el as Element).backgroundColor);
       // `bg-transparent` produces `rgba(0, 0, 0, 0)` in most engines;

@@ -7,6 +7,7 @@ export {
   buildManifest,
   computeModelFingerprint,
   parseManifest,
+  parseInstanceRecord,
   serializeManifest,
   type BundleManifest,
   type InstanceProvenance,

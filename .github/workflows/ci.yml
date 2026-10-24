@@ -85,10 +85,13 @@ jobs:
         continue-on-error: true
 
       - name: Test curated publication policy and ordering
-        run: node --test scripts/lib/curated-sources.test.mjs scripts/upload-serialized-artifacts.test.mjs scripts/lib/dependency-automerge.test.mjs
+        run: node --test scripts/lib/curated-sources.test.mjs scripts/lib/curated-releases.test.mjs scripts/upload-serialized-artifacts.test.mjs scripts/lib/dependency-automerge.test.mjs
 
       - name: Verify dependency security patches
         run: node --test scripts/braces-patch.test.mjs
+
+      - name: Verify CLI and LSP publication dependencies
+        run: node --test scripts/package-publication.test.mjs
 
       - name: Test
         run: pnpm run test

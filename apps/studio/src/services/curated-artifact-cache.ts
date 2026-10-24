@@ -3,14 +3,19 @@
 
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
 import { z } from 'zod';
-import { CuratedModelIdSchema, CuratedSerializedDocumentExportSchema } from '@rune-langium/curated-schema';
+import { projectBytesRevision } from '@rune-langium/project-config';
+import {
+  CuratedSha256Schema,
+  CuratedModelIdSchema,
+  CuratedSerializedDocumentExportSchema
+} from '@rune-langium/curated-schema';
 import type { HydrateRequest } from '../workers/parser-worker.js';
 import { withInstrumentation } from './instrumentation/core.js';
 import { curatedArtifactIdentity } from './curated-artifact-identity.js';
 
 type HydrationDocument = HydrateRequest['documents'][number];
 type SourceDocument = Pick<HydrationDocument, 'uri' | 'content'>;
-type CacheKind = 'documents' | 'source';
+type CacheKind = 'documents' | 'source' | 'reference-bytes';
 
 // Bump when the serialized hydration contract changes. This disposable database
 // is separate from workspace storage, so eviction never touches user files.
@@ -42,7 +47,7 @@ interface CacheEntry {
 
 interface CuratedCacheDB extends DBSchema {
   entries: { key: string; value: CacheEntry };
-  payloads: { key: string; value: string };
+  payloads: { key: string; value: string | Uint8Array };
 }
 
 async function updateCache<T>(
@@ -68,6 +73,13 @@ async function updateCache<T>(
 
 function artifactBundle(key: string): string | undefined {
   return curatedArtifactIdentity(key)?.bundleId;
+}
+
+function cacheIdentity(kind: CacheKind, key: string): boolean {
+  return kind === 'reference-bytes' ? CuratedSha256Schema.safeParse(key).success : Boolean(artifactBundle(key));
+}
+function bytePayload(value: unknown): value is Uint8Array {
+  return ArrayBuffer.isView(value) && Object.prototype.toString.call(value) === '[object Uint8Array]';
 }
 
 function entryId(kind: CacheKind, artifactKey: string): string {
@@ -119,7 +131,7 @@ export const createCuratedArtifactCache = withInstrumentation(
 
     const read = withInstrumentation(
       async function readCuratedArtifact(kind: CacheKind, artifactKey: string): Promise<unknown> {
-        if (!artifactBundle(artifactKey)) return undefined;
+        if (!cacheIdentity(kind, artifactKey)) return undefined;
         const id = entryId(kind, artifactKey);
         try {
           const db = await getDb();
@@ -132,15 +144,16 @@ export const createCuratedArtifactCache = withInstrumentation(
               entry.formatVersion !== FORMAT_VERSION ||
               entry.kind !== kind ||
               entry.artifactKey !== artifactKey ||
-              typeof payload !== 'string' ||
-              payload.length * 2 !== entry.sizeBytes
+              (kind === 'reference-bytes'
+                ? !bytePayload(payload) || payload.byteLength !== entry.sizeBytes
+                : typeof payload !== 'string' || payload.length * 2 !== entry.sizeBytes)
             ) {
               await tx.objectStore('entries').delete(id);
               await tx.objectStore('payloads').delete(id);
               return undefined;
             }
             await tx.objectStore('entries').put({ ...entry, lastUsedAt: Date.now() });
-            return JSON.parse(payload);
+            return kind === 'reference-bytes' ? Uint8Array.from(payload as Uint8Array) : JSON.parse(payload as string);
           });
         } catch {
           await remove([id]);
@@ -157,10 +170,16 @@ export const createCuratedArtifactCache = withInstrumentation(
         value: unknown,
         evict = true
       ): Promise<boolean> {
-        if (!artifactBundle(artifactKey)) return false;
+        if (!cacheIdentity(kind, artifactKey)) return false;
         try {
-          const payload = JSON.stringify(value);
-          const sizeBytes = payload.length * 2;
+          const payload =
+            kind === 'reference-bytes'
+              ? bytePayload(value)
+                ? Uint8Array.from(value)
+                : undefined
+              : JSON.stringify(value);
+          if (payload === undefined) return false;
+          const sizeBytes = typeof payload === 'string' ? payload.length * 2 : payload.byteLength;
           if (sizeBytes > maxBytes) return false;
           const db = await getDb();
           if (!db) return false;
@@ -236,6 +255,13 @@ export const createCuratedArtifactCache = withInstrumentation(
 
     return {
       documentKeys,
+      async referenceBytes(checksum: string): Promise<Uint8Array | undefined> {
+        const value = await read('reference-bytes', checksum);
+        return bytePayload(value) ? value : undefined;
+      },
+      async putReferenceBytes(checksum: string, bytes: Uint8Array): Promise<void> {
+        if ((await projectBytesRevision(bytes)) === checksum) await write('reference-bytes', checksum, bytes);
+      },
       async documents(artifactKey: string): Promise<HydrationDocument[] | undefined> {
         const value = await read('documents', artifactKey);
         const parsed = DocumentsSchema.safeParse(value);

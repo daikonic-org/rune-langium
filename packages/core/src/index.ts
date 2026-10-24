@@ -108,7 +108,7 @@ export {
 
 // Naming utilities
 export { qualifiedExportPath } from './naming/qualified-export-path.js';
-export { namespaceFromSource, namespaceFromModelName } from './naming/namespace.js';
+export { namespaceFromSource, namespaceFromModelName, expandNamespaceWildcard } from './naming/namespace.js';
 
 // Collection utilities
 export { indexById, fromIndex } from './collections/index-by-id.js';
@@ -131,3 +131,6 @@ export {
   importScopeCandidates
 } from './naming/import-aliases.js';
 export type { NamespaceImport, ImportScope } from './naming/import-aliases.js';
+
+export * from './references/project-resolution.js';
+export { relinkReference, relinkModelReferences } from './serializer/relink-model-references.js';

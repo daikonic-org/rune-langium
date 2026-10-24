@@ -17,16 +17,19 @@
  * auth dialog stays focused on the device-flow handshake.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@rune-langium/design-system/ui/alert';
+import type { GitHubInitializationSession } from '../workspace/project-initialization.js';
+import { ProjectInitializationReview } from './ProjectInitializationReview.js';
 import { GitHubConnectDialog } from './GitHubConnectDialog.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface GitHubWorkspaceFlowProps {
   authBase: string;
   /** Called when the user successfully clones a repo into a new workspace. */
-  onCreated: (workspaceId: string) => void;
+  onCreated: (workspaceId: string) => void | Promise<void>;
+  openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
   /** Called when the user closes the flow without creating a workspace. */
   onCancel: () => void;
   /**
@@ -44,7 +47,8 @@ export interface GitHubWorkspaceFlowProps {
 }
 
 interface FlowState {
-  phase: 'auth' | 'url' | 'cloning' | 'error';
+  phase: 'auth' | 'url' | 'cloning' | 'error' | 'review' | 'opening';
+  workspaceId?: string;
   token?: string;
   errorReason?: string;
 }
@@ -109,11 +113,54 @@ export const GitHubWorkspaceFlow = withInstrumentation(
     authBase,
     onCreated,
     onCancel,
-    createWorkspace
+    createWorkspace,
+    openProjectInitialization
   }: GitHubWorkspaceFlowProps): React.ReactElement {
     const [state, setState] = useState<FlowState>({ phase: 'auth' });
     const [repoUrl, setRepoUrl] = useState('');
     const [branch, setBranch] = useState('main');
+    const [session, setSession] = useState<GitHubInitializationSession>();
+    const sessionRef = useRef<GitHubInitializationSession | undefined>(undefined);
+    const alive = useRef(true);
+    useEffect(() => {
+      alive.current = true;
+      return () => {
+        alive.current = false;
+        sessionRef.current?.dispose();
+      };
+    }, []);
+    async function activate(workspaceId: string) {
+      try {
+        setState((current) => ({ ...current, phase: 'opening', workspaceId, errorReason: undefined }));
+        await onCreated(workspaceId);
+        sessionRef.current?.dispose();
+        sessionRef.current = undefined;
+      } catch (error) {
+        if (alive.current)
+          setState((current) => ({
+            ...current,
+            phase: 'review',
+            workspaceId,
+            errorReason: error instanceof Error ? error.message : 'The repository could not be activated. Try again.'
+          }));
+      }
+    }
+    if (state.phase === 'review' && state.workspaceId) {
+      if (session && !state.errorReason)
+        return <ProjectInitializationReview session={session} onContinue={() => activate(state.workspaceId!)} />;
+      return (
+        <section className="space-y-3 text-sm text-left" aria-label="Opened repository">
+          <p>The repository was cloned and remains in your workspaces.</p>
+          <Alert variant="destructive">
+            <AlertDescription>{state.errorReason}</AlertDescription>
+          </Alert>
+          <Button size="sm" onClick={() => void activate(state.workspaceId!)}>
+            Keep browsing
+          </Button>
+        </section>
+      );
+    }
+    if (state.phase === 'opening') return <p role="status">Opening repository…</p>;
 
     if (state.phase === 'auth') {
       return (
@@ -182,8 +229,28 @@ export const GitHubWorkspaceFlow = withInstrumentation(
                 user: parsed.user,
                 token: state.token
               });
-              onCreated(result.id);
+              if (!alive.current) return;
+              try {
+                const prepared = await openProjectInitialization?.(result.id);
+                if (!alive.current) {
+                  prepared?.dispose();
+                  return;
+                }
+                if (prepared) {
+                  sessionRef.current = prepared;
+                  setSession(prepared);
+                  setState({ phase: 'review', workspaceId: result.id });
+                } else await activate(result.id);
+              } catch (error) {
+                if (alive.current)
+                  setState({
+                    phase: 'review',
+                    workspaceId: result.id,
+                    errorReason: error instanceof Error ? error.message : 'Project settings could not be inspected.'
+                  });
+              }
             } catch (err) {
+              if (!alive.current) return;
               setState({
                 phase: 'error',
                 token: state.token,

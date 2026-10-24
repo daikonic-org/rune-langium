@@ -56,7 +56,7 @@ test.describe('J03 — curated CDM load & unload', () => {
     }
 
     await page.getByRole('button', { name: /Unload CDM/ }).click();
-    await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
     await evidence.checkpoint('cdm-unloaded');
   });
 });

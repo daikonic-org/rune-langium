@@ -1780,3 +1780,61 @@ it('focuses the indexed enum item selected from validation details', async () =>
     'sides[0]'
   );
 });
+
+it('guides untouched empty numbers neutrally, then shows a friendly required error after blur', () => {
+  const schema: FormPreviewSchema = {
+    schemaVersion: 1,
+    targetId: 'test.Amount',
+    title: 'Amount',
+    status: 'ready',
+    fields: [{ path: 'amount', label: 'Amount', kind: 'number', required: true }]
+  };
+  const change = vi.fn();
+  render(
+    <FormPreviewPanel
+      schema={schema}
+      status={{ state: 'ready', targetId: schema.targetId }}
+      values={{ amount: '' }}
+      errors={{ amount: 'Invalid input: expected number, received string' }}
+      valid={false}
+      validated
+      onValuesChange={change}
+    />
+  );
+  const input = screen.getByRole('spinbutton', { name: 'Amount' });
+  expect(input).not.toHaveAttribute('aria-invalid');
+  expect(input).toHaveAttribute('placeholder', 'Required');
+  fireEvent.blur(input);
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByText('Amount is required.')).toBeVisible();
+  expect(screen.queryByText(/expected number/)).toBeNull();
+  expect(change).not.toHaveBeenCalled();
+});
+
+it('retains confirmed numeric constraint errors and uses plain language for a nonnumeric imported value', () => {
+  const schema: FormPreviewSchema = {
+    schemaVersion: 1,
+    targetId: 'test.Number',
+    title: 'Number',
+    status: 'ready',
+    fields: [{ path: 'amount', label: 'Amount', kind: 'number', required: true }]
+  };
+  const props = {
+    schema,
+    status: { state: 'ready' as const, targetId: schema.targetId },
+    valid: false,
+    validated: true,
+    onValuesChange: vi.fn()
+  };
+  const view = render(
+    <FormPreviewPanel
+      {...props}
+      values={{ amount: 'bad import' }}
+      errors={{ amount: 'Invalid input: expected number, received string' }}
+    />
+  );
+  expect(screen.getByRole('spinbutton', { name: 'Amount' })).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByText('Enter a number for Amount.')).toBeVisible();
+  view.rerender(<FormPreviewPanel {...props} values={{ amount: -1 }} errors={{ amount: 'Must be positive' }} />);
+  expect(screen.getByText('Must be positive')).toBeVisible();
+});

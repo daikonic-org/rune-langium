@@ -8,6 +8,9 @@
  * Rune DSL documents.
  *
  * @remarks
+ * Import this API from `@rune-langium/codegen/export`; the package root is empty.
+ * Inbound import and Rosetta rendering APIs use separate subpaths.
+ *
  * Use `generate()` when you need emitted files for a concrete target, and
  * `generatePreviewSchemas()` when UI tooling needs structured field metadata and
  * source maps for a selected data type. This package expects parsed Langium
@@ -37,13 +40,15 @@ import { resolveExportSelection, type ResolvedExportSelection } from './selectio
 
 export { IMPLEMENTED_TARGETS };
 export { normalizePreviewInputs } from './preview-schema.js';
-export { expandPreviewField } from './preview-references.js';
+export { expandPreviewField, previewTypeSymbol } from './preview-references.js';
 export {
+  collectDeclarationDependencies,
   declarationKey,
   resolveExportSelection,
   unknownExportSelectionDiagnostics
 } from './selection/declaration-selection.js';
 export type { ResolvedExportSelection } from './selection/declaration-selection.js';
+export { resolveEffectiveProjectTargetId } from './selection/declaration-selection.js';
 
 export type {
   FormPreviewKind,
@@ -183,3 +188,12 @@ export type { PythonProjectionContext } from './projection/context.js';
 export type { GeneratedProjection, ProjectionSubject, EmittedProjection } from './projection/types.js';
 
 export type { TemporalWireFormat } from './expr/temporal-conversions.js';
+
+export {
+  validateTargetOptions,
+  getGeneratorCapabilities,
+  getTargetLayouts,
+  TARGET_OPTIONS_SCHEMAS
+} from './options/target-options.js';
+
+export * from './runtime/project-bindings.js';

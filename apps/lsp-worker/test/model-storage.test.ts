@@ -76,3 +76,56 @@ describe('LSP model persistence', () => {
     expect(data.has('model-meta:file:///model-1099.rosetta')).toBe(true);
   });
 });
+
+it('persists a chunked resolution context and replays it only with the final model barrier', async () => {
+  const { data, typed } = storage();
+  const receipt = { revision: 'a'.repeat(64), lockDigest: 'b'.repeat(64), overridesDigest: 'c'.repeat(64) };
+  const resolution = {
+    schemaVersion: 1 as const,
+    receipt,
+    models: { ['file:///' + '😀'.repeat(50_000)]: 'cdm' },
+    lock: null,
+    overrides: []
+  };
+  await persistLspModels(typed, { document: { uri: 'file:///a.rosetta', modelJson: '{}' } });
+  await persistLspModels(typed, { retain: ['file:///a.rosetta'], resolution });
+  expect(
+    [...data.values()].every(
+      (value) =>
+        new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value)).byteLength < 128 * 1024
+    )
+  ).toBe(true);
+  const sync = vi.fn().mockResolvedValue(undefined);
+  await replayLspModels(typed, sync);
+  expect(sync.mock.calls).toEqual([
+    [{ document: { uri: 'file:///a.rosetta', modelJson: '{}' } }],
+    [{ retain: ['file:///a.rosetta'], resolution }]
+  ]);
+  await purgeLspModels(typed);
+  expect(data.size).toBe(0);
+});
+it('keeps the previous context on interrupted replacement and clears it explicitly for legacy workspaces', async () => {
+  const { api, typed } = storage();
+  const resolution = {
+    schemaVersion: 1 as const,
+    receipt: { revision: 'a'.repeat(64), lockDigest: 'b'.repeat(64), overridesDigest: 'c'.repeat(64) },
+    models: {},
+    lock: null,
+    overrides: []
+  };
+  await persistLspModels(typed, { retain: [], resolution });
+  api.put.mockRejectedValueOnce(new Error('storage unavailable'));
+  await expect(
+    persistLspModels(typed, {
+      retain: [],
+      resolution: { ...resolution, receipt: { ...resolution.receipt, revision: 'd'.repeat(64) } }
+    })
+  ).rejects.toThrow();
+  const sync = vi.fn().mockResolvedValue(undefined);
+  await replayLspModels(typed, sync);
+  expect(sync).toHaveBeenLastCalledWith({ retain: [], resolution });
+  await persistLspModels(typed, { retain: [], resolution: null });
+  sync.mockClear();
+  await replayLspModels(typed, sync);
+  expect(sync).not.toHaveBeenCalled();
+});

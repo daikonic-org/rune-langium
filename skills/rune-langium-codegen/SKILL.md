@@ -1,25 +1,39 @@
 ---
+description: "Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed\nRune DSL documents."
 name: rune-langium-codegen
-description: "Langium port for Rune DSL tooling Use when working with rune, rosetta, dsl, langium, cdm, isda, drr, finos, language-server, lsp, visual-editor, reactflow."
-license: SEE LICENSE IN LICENSE
 ---
 
 # @rune-langium/codegen
 
-Langium port for Rune DSL tooling
+Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed
+Rune DSL documents.
 
-## When to Use
+Import this API from `@rune-langium/codegen/export`; the package root is empty.
+Inbound import and Rosetta rendering APIs use separate subpaths.
 
-- Working with rune, rosetta, dsl, langium, cdm, isda, drr, finos, language-server, lsp, visual-editor, reactflow
-- API surface: 2 functions, 1 classes, 5 types, 1 constants
+Use `generate()` when you need emitted files for a concrete target, and
+`generatePreviewSchemas()` when UI tooling needs structured field metadata and
+source maps for a selected data type. This package expects parsed Langium
+documents from `@rune-langium/core`.
+
+## Configuration
+
+9 configuration interfaces — see references/config.md for details.
 
 ## Quick Reference
 
-**generators:** `isKnownGenerator`, `getGenerator`, `KNOWN_GENERATORS`
-**codegen-service:** `CodegenServiceProxy`
-**types:** `CodeGenerationRequest`, `CodeGenerationResult`, `GeneratedFile`, `GenerationError`, `GeneratorInfo`
+81 exports (31 functions, 3 classes, 42 types, 5 constants) — see references/ for full API.
+
+## References
+
+Load these on demand — do NOT read all at once:
+
+- When calling any function → browse `references/functions/` for grouped indexes, full signatures, parameters, and return types
+- When using a class → read `references/classes.md` for properties, methods, and inheritance
+- When defining typed variables or function parameters → read `references/types.md`
+- When using exported constants → read `references/variables.md`
+- When configuring options → read `references/config.md` for all settings and defaults
 
 ## Links
 
-- [Repository](https://github.com/pradeepmouli/rune-langium)
-- Author: Pradeep Mouli <pmouli@mac.com>
+- Author: Pradeep Mouli <pmouli@mac.com> (https://github.com/pradeepmouli)

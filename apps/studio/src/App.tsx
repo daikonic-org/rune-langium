@@ -19,6 +19,7 @@ import type { RosettaModel } from '@rune-langium/core';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
 import type { WorkspaceFile } from './services/workspace.js';
 import {
+  createBlankWorkspaceFile,
   parseWorkspaceFiles,
   mergeModelFiles,
   mergeCuratedRefOnlyFiles,
@@ -35,14 +36,22 @@ import { BASE_TYPE_FILES } from './resources/base-types.js';
 import * as persistence from './workspace/persistence.js';
 import type { CuratedModelBinding, WorkspaceRecord } from './workspace/persistence.js';
 import { LAYOUT_SCHEMA_VERSION } from './shell/layout-factory.js';
-import { deleteWorkspaceFiles, loadWorkspaceFiles, saveWorkspaceFiles } from './workspace/workspace-files.js';
+import { createStarterOpener, createStarterWorkingCopy } from './workspace/open-starter.js';
+import { readStarterSource } from './services/starter-source.js';
+import type { StarterProject } from './services/starter-registry.js';
+import {
+  deleteWorkspaceFiles,
+  loadWorkspaceFiles,
+  saveWorkspaceFiles,
+  setWorkspaceFilesDeps
+} from './workspace/workspace-files.js';
 import { createWorkspaceAutosave } from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from './store/output-store.js';
 import { allocateOpId } from './services/op-log.js';
 import { recordPerf, recordPerfStart } from './services/perf-log.js';
-import { useInstanceStore } from './store/instance-store.js';
+import { createLegacyExampleStorage } from './opfs/instances-fs.js';
 import { getOrCreateSyncEngine, disposeSyncEngine } from './services/git-sync.js';
 import { ActivityBar } from './shell/ActivityBar.js';
 import { AppHeader } from './shell/AppHeader.js';
@@ -203,6 +212,7 @@ function AppContent() {
   // `files` initial state) and is kept in sync via the effect below.
   const filesRef = useRef<WorkspaceFile[]>([]);
   const workspaceEpochRef = useRef(0);
+  const pendingGitHubProjects = useRef(new Set<string>());
   const workspaceTransitionRef = useRef(0);
   // Tracks the latest loaded reference models so syncWorkspaceToEditor can
   // preserve them without calling useModelStore.getState() (which is not
@@ -229,10 +239,28 @@ function AppContent() {
   const workspaceAutosave = useMemo(
     () =>
       createWorkspaceAutosave(saveWorkspaceFiles, (error) =>
-        reportWorkspaceError('Failed to save workspace changes to browser storage; edits remain in memory', error)
+        reportWorkspaceError('Failed to save workspace changes; edits remain in memory', error)
       ),
     [reportWorkspaceError]
   );
+
+  const getWorkspaceManager = useCallback(async (): Promise<WorkspaceManager> => {
+    if (workspaceManagerRef.current) return workspaceManagerRef.current;
+    const opfsRoot = await navigator.storage.getDirectory();
+    workspaceManagerRef.current ??= new WorkspaceManager({
+      opfsRoot,
+      studioVersion: STUDIO_VERSION,
+      tabId: `tab-${Date.now()}`
+    });
+    const manager = workspaceManagerRef.current;
+    setWorkspaceFilesDeps({
+      getFolderProjectAdapter: async (id) => {
+        const record = await persistence.loadWorkspace(id);
+        return record?.kind === 'folder-backed' ? manager.getProjectFileAdapter(id) : undefined;
+      }
+    });
+    return manager;
+  }, []);
 
   const editorSaveBarriers = useRef(new Set<() => Promise<void>>());
   const registerEditorSaveBarrier = useCallback((flush: () => Promise<void>) => {
@@ -247,11 +275,14 @@ function AppContent() {
     for (const flush of [...editorSaveBarriers.current]) await flush();
   }, []);
 
+  const flushWorkspaceSave = useCallback(async () => {
+    await flushEditorSaveBarriers();
+    await workspaceAutosave.flush();
+  }, [flushEditorSaveBarriers, workspaceAutosave]);
+
   useEffect(() => {
     const flush = () => {
-      void flushEditorSaveBarriers()
-        .then(() => workspaceAutosave.flush())
-        .catch(() => {});
+      void flushWorkspaceSave().catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
@@ -263,7 +294,7 @@ function AppContent() {
       document.removeEventListener('visibilitychange', onVisibility);
       flush();
     };
-  }, [workspaceAutosave, flushEditorSaveBarriers]);
+  }, [flushWorkspaceSave]);
 
   useEffect(() => {
     if (!workspaceError) {
@@ -575,9 +606,17 @@ function AppContent() {
       setBootState('restoring');
       reconcileWorkspaceModels(workspace.curatedModels ?? []);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
+      if (workspace.kind === 'folder-backed') {
+        const manager = await getWorkspaceManager();
+        await manager.claimProjectAccess(workspace.id);
+      }
       const restoredFiles = await loadWorkspaceFiles(workspace.id);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
-      if (restoredFiles.length === 0 && (workspace.curatedModels?.length ?? 0) === 0) {
+      if (
+        workspace.kind !== 'folder-backed' &&
+        restoredFiles.length === 0 &&
+        (workspace.curatedModels?.length ?? 0) === 0
+      ) {
         reconcileWorkspaceModels([]);
         restoredWorkspaceRef.current = null;
         setRestoredWorkspace(null);
@@ -650,7 +689,7 @@ function AppContent() {
       }
       return restoredWorkspaceRef.current?.id === nextWorkspace.id ? 'restored' : 'superseded';
     },
-    [clearWorkspaceState, reconcileWorkspaceModels, syncWorkspaceToEditor]
+    [clearWorkspaceState, getWorkspaceManager, reconcileWorkspaceModels, syncWorkspaceToEditor]
   );
 
   // Restore the most recently opened workspace on mount when its metadata and
@@ -1027,17 +1066,36 @@ function AppContent() {
   }, [handleFilesLoaded, handleSwitchWorkspace, restoredWorkspace, syncWorkspaceToEditor]);
 
   const handleCreateWorkspace = handleReset;
-
-  const getWorkspaceManager = useCallback(async (): Promise<WorkspaceManager> => {
-    if (workspaceManagerRef.current) return workspaceManagerRef.current;
-    const opfsRoot = await navigator.storage.getDirectory();
-    workspaceManagerRef.current = new WorkspaceManager({
-      opfsRoot,
-      studioVersion: STUDIO_VERSION,
-      tabId: `tab-${Date.now()}`
-    });
-    return workspaceManagerRef.current;
-  }, []);
+  const handleStartBlankWorkspace = useCallback(
+    () => handleFilesLoaded([createBlankWorkspaceFile([])]),
+    [handleFilesLoaded]
+  );
+  const handleOpenFolder = useCallback(async () => {
+    const picker = (
+      window as Window & {
+        showDirectoryPicker?: (options: { mode: 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
+      }
+    ).showDirectoryPicker;
+    if (!picker)
+      throw new Error('This browser cannot open a live folder. Import files or open a GitHub workspace instead.');
+    const folder = await picker.call(window, { mode: 'readwrite' });
+    const manager = await getWorkspaceManager();
+    const workspace = await manager.createFolderBacked(folder.name || 'Folder workspace', folder);
+    await handleSwitchWorkspace(workspace.id);
+  }, [getWorkspaceManager, handleSwitchWorkspace]);
+  const handleOpenStarter = useCallback(
+    async (starter: StarterProject, signal: AbortSignal) => {
+      const manager = await getWorkspaceManager();
+      const opened = await createStarterOpener({
+        source: readStarterSource,
+        create: (input) => createStarterWorkingCopy(manager, input)
+      })({ starter, signal });
+      signal.throwIfAborted();
+      await handleSwitchWorkspace(opened.workspaceId);
+      return opened;
+    },
+    [getWorkspaceManager, handleSwitchWorkspace]
+  );
 
   // Sync-engine lifecycle: instantiate the engine when a git-backed workspace
   // becomes active and dispose it when the active workspace changes or is
@@ -1081,47 +1139,9 @@ function AppContent() {
     };
   }, [getWorkspaceManager, restoredWorkspace]);
 
-  // Instance-store OPFS persistence wiring (spec 023 Task 13 bot-review
-  // finding #1) — mirrors the sync-engine lifecycle effect above, but
-  // unconditional on workspace kind: instance persistence is a data-layer
-  // concern independent of git-backing, so it must wire up for EVERY
-  // workspace (browser-only included), not just git-backed ones. Runs
-  // `useInstanceStore.getState().setOpfsContext(fs, workspaceRoot)` — the
-  // same `OpfsFs` the WorkspaceManager already owns, at that workspace's
-  // `/${id}` root (the convention `WorkspaceManager.create`/`createGitBacked`
-  // already use for `/${id}/files` and `/${id}/.studio`).
-  useEffect(() => {
-    if (!restoredWorkspace) return;
-    const workspaceId = restoredWorkspace.id;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const wm = await getWorkspaceManager();
-        if (cancelled) return; // workspace changed during async getWorkspaceManager
-        useInstanceStore.getState().setOpfsContext(wm.getFs(), `/${workspaceId}`);
-      } catch (err) {
-        if (!cancelled) {
-          console.warn('[instance-store] Failed to wire OPFS persistence context:', err);
-          useOutputStore
-            .getState()
-            .addLine(
-              fmtLine(
-                'workspace',
-                'instance persistence unavailable',
-                err instanceof Error ? err.message : String(err)
-              ),
-              'warn'
-            );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getWorkspaceManager, restoredWorkspace]);
-
   const handleCreateGitBackedWorkspace = useCallback(
     async (input: { name: string; repoUrl: string; branch: string; user: string; token: string }) => {
+      const epoch = workspaceEpochRef.current;
       const wm = await getWorkspaceManager();
       // Prefer the caller-supplied name (FileLoader → GitHubWorkspaceFlow sends
       // `${user}/${repo}`); fall back to a URL-derived repo name only if the
@@ -1138,6 +1158,11 @@ function AppContent() {
         user: input.user,
         token: input.token
       });
+      if (epoch !== workspaceEpochRef.current) {
+        await wm.close(ws.id);
+        throw new Error('Workspace activation was superseded');
+      }
+      pendingGitHubProjects.current.add(ws.id);
       return { id: ws.id };
     },
     [getWorkspaceManager]
@@ -1147,26 +1172,34 @@ function AppContent() {
     async (workspaceId: string) => {
       try {
         const loadedFiles = await loadWorkspaceFiles(workspaceId);
-        if (loadedFiles.length > 0) {
-          const wsFiles: WorkspaceFile[] = loadedFiles.map((f) => ({
-            name: f.path.split('/').pop() ?? f.path,
-            path: f.path,
-            content: f.content,
-            dirty: false,
-            readOnly: false
-          }));
-          // Load INTO the freshly created git-backed workspace — pass it
-          // explicitly so the launcher's "always create new" default does not
-          // spawn a duplicate non-git workspace, and `restoredWorkspace` points
-          // at the git workspace (activating its sync engine).
-          handleFilesLoaded(wsFiles, workspaceId);
-        }
+        const wsFiles: WorkspaceFile[] = loadedFiles.map((f) => ({
+          name: f.path.split('/').pop() ?? f.path,
+          path: f.path,
+          content: f.content,
+          dirty: false,
+          readOnly: false
+        }));
+        // A POM-only or empty repository is still a real Git-backed workspace.
+        // Preserve its identity even when there are no Rune editor files yet.
+        await handleFilesLoaded(wsFiles, workspaceId);
       } catch (err) {
         reportWorkspaceError('Failed to load cloned workspace', err);
+      } finally {
+        pendingGitHubProjects.current.delete(workspaceId);
       }
     },
     [handleFilesLoaded, reportWorkspaceError]
   );
+
+  const handleRenameWorkspace = useCallback(async (id: string, name: string) => {
+    await persistence.renameWorkspace(id, name);
+    // Keep later metadata writes and the active header in sync without activating another workspace.
+    if (restoredWorkspaceRef.current?.id === id) {
+      const renamed = { ...restoredWorkspaceRef.current, name: name.trim() };
+      restoredWorkspaceRef.current = renamed;
+      setRestoredWorkspace(renamed);
+    }
+  }, []);
 
   /** Delete a recent workspace from the recents store (T029). */
   const handleDeleteWorkspace = useCallback(
@@ -1283,16 +1316,84 @@ function AppContent() {
   // Build the WorkspaceActionsContext value from App's handlers so
   // WorkspacesPerspective (and any future perspective) can call them
   // without prop-drilling through PerspectiveHost.
+  const projectOpenRequests = useRef(new Map<string, Promise<boolean>>());
+  const projectWorkspaceId = restoredWorkspace?.id;
+  useEffect(() => {
+    if (!projectWorkspaceId) return;
+    return () => {
+      projectOpenRequests.current.delete(projectWorkspaceId);
+      void workspaceManagerRef.current?.close(projectWorkspaceId);
+      for (const id of pendingGitHubProjects.current) {
+        if (id !== restoredWorkspaceRef.current?.id) void workspaceManagerRef.current?.close(id);
+        pendingGitHubProjects.current.delete(id);
+      }
+    };
+  }, [projectWorkspaceId]);
+  const getProjectFileAdapter = useCallback(
+    async (workspaceId: string) => {
+      const manager = await getWorkspaceManager();
+      let opening = projectOpenRequests.current.get(workspaceId);
+      if (!opening) {
+        opening = manager.claimProjectAccess(workspaceId);
+        projectOpenRequests.current.set(workspaceId, opening);
+      }
+      try {
+        await opening;
+      } catch (error) {
+        if (projectOpenRequests.current.get(workspaceId) === opening) projectOpenRequests.current.delete(workspaceId);
+        throw error;
+      }
+      if (restoredWorkspaceRef.current?.id !== workspaceId) {
+        await manager.close(workspaceId);
+        throw new Error('Workspace activation was superseded');
+      }
+      return manager.getProjectFileAdapter(workspaceId);
+    },
+    [getWorkspaceManager]
+  );
+  const getLegacyExampleStorage = useCallback(
+    async (workspaceId: string) => {
+      const manager = await getWorkspaceManager();
+      return createLegacyExampleStorage(
+        manager.getFs(),
+        `/${workspaceId}`,
+        () =>
+          restoredWorkspaceRef.current?.id === workspaceId &&
+          manager.isOwner(workspaceId) &&
+          !manager.isReadOnly(workspaceId)
+      );
+    },
+    [getWorkspaceManager]
+  );
+  const getProjectInitializationFileAdapter = useCallback(
+    async (id: string) => {
+      const epoch = workspaceEpochRef.current;
+      const current = () => pendingGitHubProjects.current.has(id) && epoch === workspaceEpochRef.current;
+      if (!current()) throw new Error('Project initialization is no longer active');
+      const manager = await getWorkspaceManager();
+      if (!current()) throw new Error('Project initialization is no longer active');
+      return manager.getProjectFileAdapter(id, current);
+    },
+    [getWorkspaceManager]
+  );
   const workspaceActionsValue = useMemo(
     () => ({
       files,
       registerEditorSaveBarrier,
+      flushWorkspaceSave,
+      getProjectFileAdapter,
+      getProjectInitializationFileAdapter,
+      getLegacyExampleStorage,
       onFilesLoaded: handleFilesLoaded,
       createGitBackedWorkspace: handleCreateGitBackedWorkspace,
       onGitHubWorkspaceCreated: handleGitHubWorkspaceCreated,
       onOpenWorkspace: handleSwitchWorkspace,
       onCreateWorkspace: handleCreateWorkspace,
+      onStartBlankWorkspace: handleStartBlankWorkspace,
+      onOpenFolder: handleOpenFolder,
+      onOpenStarter: handleOpenStarter,
       onDeleteWorkspace: handleDeleteWorkspace,
+      onRenameWorkspace: handleRenameWorkspace,
       // EditorPage-facing actions (formerly EditorPage props), now sourced
       // from context so App no longer threads them through <EditorPage>.
       onFilesChange: handleFilesChange,
@@ -1303,12 +1404,20 @@ function AppContent() {
     [
       files,
       registerEditorSaveBarrier,
+      flushWorkspaceSave,
+      getProjectFileAdapter,
+      getProjectInitializationFileAdapter,
+      getLegacyExampleStorage,
       handleFilesLoaded,
       handleCreateGitBackedWorkspace,
       handleGitHubWorkspaceCreated,
       handleSwitchWorkspace,
       handleCreateWorkspace,
+      handleStartBlankWorkspace,
+      handleOpenFolder,
+      handleOpenStarter,
       handleDeleteWorkspace,
+      handleRenameWorkspace,
       handleFilesChange,
       loadCuratedSource,
       handleReset

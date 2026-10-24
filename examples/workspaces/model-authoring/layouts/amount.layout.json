@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "type": {
+    "model": "local",
+    "namespace": "example.starter",
+    "kind": "RosettaTypeAlias",
+    "name": "Amount"
+  },
+  "fields": {
+    "": {
+      "format": {
+        "kind": "currency",
+        "currency": "USD",
+        "precision": 2,
+        "grouping": true
+      }
+    }
+  }
+}

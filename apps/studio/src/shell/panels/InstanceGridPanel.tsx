@@ -85,10 +85,10 @@ export const InstanceGridPanel = withInstrumentation(
     };
 
     return (
-      <section data-testid="prototype-grid" className="flex h-full min-h-0 flex-col" aria-label="Instance table">
+      <section data-testid="prototype-grid" className="flex h-full min-h-0 flex-col" aria-label="Example table">
         <div className="flex flex-wrap gap-2 border-b border-border p-2">
           <Input
-            aria-label="Search instances"
+            aria-label="Search examples"
             value={view.query}
             onChange={(event) => patch({ query: event.target.value })}
             placeholder="Search name or type"
@@ -96,7 +96,7 @@ export const InstanceGridPanel = withInstrumentation(
           />
           <WorkflowImport
             multiple
-            label="Import objects…"
+            label="Import examples…"
             typeFqn={view.typeFqn ?? undefined}
             onImport={(values, typeFqn) => {
               if (!typeFqn) throw new Error('Choose an object type.');
@@ -112,7 +112,7 @@ export const InstanceGridPanel = withInstrumentation(
           />
           <div className="w-64 max-w-full">
             <WorkspaceTypePicker
-              label="Filter instance type"
+              label="Filter example type"
               value={view.typeFqn}
               onSelect={(typeFqn) => patch({ typeFqn })}
               filterKinds={['data', 'choice']}
@@ -122,7 +122,7 @@ export const InstanceGridPanel = withInstrumentation(
         </div>
         {selectedOutsideFilter && (
           <p className="border-b border-border px-3 py-1 text-xs text-muted-foreground">
-            Selected instance is outside this filter.
+            Selected example is outside this filter.
           </p>
         )}
         <div className="studio-scroll min-h-0 flex-1 overflow-auto">
@@ -142,6 +142,22 @@ export const InstanceGridPanel = withInstrumentation(
               </tr>
             </thead>
             <tbody>
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={5 + fields.length} className="p-3 text-xs text-muted-foreground">
+                    {view.query || view.typeFqn ? (
+                      <>
+                        No examples match these filters.{' '}
+                        <Button variant="ghost" size="xs" onClick={() => patch({ query: '', typeFqn: null })}>
+                          Clear filters
+                        </Button>
+                      </>
+                    ) : (
+                      'Import JSON examples to reuse inputs.'
+                    )}
+                  </td>
+                </tr>
+              ) : null}
               {rows.map((record) => (
                 <tr
                   key={record.id}
@@ -247,11 +263,11 @@ export const InstanceGridPanel = withInstrumentation(
         <Dialog open={Boolean(renaming)} onOpenChange={(open) => !open && closeRename()}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Rename instance</DialogTitle>
+              <DialogTitle>Rename example</DialogTitle>
               <DialogDescription>Choose a name for {renaming?.name}.</DialogDescription>
             </DialogHeader>
             <Input
-              aria-label="Instance name"
+              aria-label="Example name"
               value={renamedName}
               onChange={(event) => setRenamedName(event.target.value)}
             />
@@ -268,9 +284,9 @@ export const InstanceGridPanel = withInstrumentation(
         <Dialog open={Boolean(deleting)} onOpenChange={(open) => !open && setDeletingId(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Delete instance?</DialogTitle>
+              <DialogTitle>Delete example?</DialogTitle>
               <DialogDescription>
-                Delete {deleting?.name}? Its saved instance data will be removed from this workspace.
+                Delete {deleting?.name}? Its saved example data will be removed from this workspace.
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-end gap-2">
@@ -278,7 +294,7 @@ export const InstanceGridPanel = withInstrumentation(
                 Cancel
               </Button>
               <Button type="button" variant="destructive" onClick={() => void confirmDelete()}>
-                Delete instance
+                Delete example
               </Button>
             </div>
           </DialogContent>

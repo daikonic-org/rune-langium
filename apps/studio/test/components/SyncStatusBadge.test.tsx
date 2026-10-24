@@ -72,3 +72,14 @@ describe('SyncStatusBadge', () => {
     expect(calls).toEqual(['keepMine', 'takeRemote']);
   });
 });
+
+it('distinguishes uncommitted working-copy changes from synced commits', () => {
+  render(
+    <SyncStatusBadge
+      status={{ phase: 'idle', dirty: true, ahead: 0, behind: 0, lastSyncedSha: 's' }}
+      onResolve={() => {}}
+    />
+  );
+  expect(screen.getByTestId('sync-status')).toHaveTextContent('Changes to commit');
+  expect(screen.queryByText('Synced')).not.toBeInTheDocument();
+});

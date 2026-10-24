@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { redirectProjectNode } from '../references/project-resolution.js';
 import { DefaultLinker } from 'langium';
 import type { AstNode, AstNodeDescription, LangiumCoreServices, LangiumDocumentFactory } from 'langium';
 
@@ -28,17 +29,19 @@ export interface DeferredModelProvider {
  */
 export class RuneDslLinker extends DefaultLinker {
   private readonly deferredProvider: DeferredModelProvider | undefined;
+  private readonly services: LangiumCoreServices;
   private readonly factory: LangiumDocumentFactory;
 
   constructor(services: LangiumCoreServices, deferredProvider?: DeferredModelProvider) {
     super(services);
+    this.services = services;
     this.deferredProvider = deferredProvider;
     this.factory = services.shared.workspace.LangiumDocumentFactory;
   }
 
   /** Resolve a description through the same deferred-document path used by linking. */
   override loadAstNode(nodeDescription: AstNodeDescription): AstNode | undefined {
-    if (nodeDescription.node) return nodeDescription.node;
+    if (nodeDescription.node) return redirectProjectNode(this.services, nodeDescription.node);
 
     const uri = nodeDescription.documentUri;
     const langiumDocs = this.langiumDocuments();
@@ -54,6 +57,7 @@ export class RuneDslLinker extends DefaultLinker {
     }
 
     if (!doc) return undefined;
-    return this.astNodeLocator.getAstNode(doc.parseResult.value, nodeDescription.path);
+    const node = this.astNodeLocator.getAstNode(doc.parseResult.value, nodeDescription.path);
+    return node ? redirectProjectNode(this.services, node) : undefined;
   }
 }

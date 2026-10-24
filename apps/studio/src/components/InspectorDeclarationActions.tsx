@@ -19,10 +19,14 @@ import {
   canExtendDeclaration,
   localDeclarationError,
   prepareLocalDeclaration,
+  modifyProjectDeclaration,
   type LocalDeclarationMode,
   type LocalDeclarationRequest
 } from '../services/local-declaration.js';
 import type { WorkspaceFile } from '../services/workspace.js';
+import type { ProjectSnapshot } from '@rune-langium/project-config';
+import { useProject } from '../shell/providers/project-context.js';
+import { useProjectPreviewReadiness } from '../shell/providers/preview-session-context.js';
 
 export interface InspectorDeclarationActionsProps {
   nodeId: string;
@@ -30,6 +34,7 @@ export interface InspectorDeclarationActionsProps {
   ready: boolean;
   getSnapshot(): Pick<LocalDeclarationRequest, 'files' | 'models'>;
   onCreate(files: WorkspaceFile[]): void;
+  onSaved?(saved: ProjectSnapshot, request: LocalDeclarationRequest, previous: ProjectSnapshot): void;
   flush(): Promise<void>;
 }
 
@@ -41,8 +46,13 @@ export const InspectorDeclarationActions = withInstrumentation(
     ready,
     getSnapshot,
     onCreate,
+    onSaved,
     flush
   }: InspectorDeclarationActionsProps) {
+    const project = useProject();
+    const projectReadiness = useProjectPreviewReadiness();
+    const managed = Boolean(project.runtime && project.runtime.status !== 'legacy');
+    const abortRef = useRef<AbortController | null>(null);
     const origin = splitNodeId(nodeId);
     const [mode, setMode] = useState<LocalDeclarationMode>();
     const [namespace, setNamespace] = useState(`local.${origin.namespace}`);
@@ -53,6 +63,7 @@ export const InspectorDeclarationActions = withInstrumentation(
     useEffect(
       () => () => {
         attempt.current++;
+        abortRef.current?.abort();
       },
       []
     );
@@ -64,27 +75,51 @@ export const InspectorDeclarationActions = withInstrumentation(
       setNamespace(`local.${origin.namespace}`);
       setError(undefined);
     };
-    const close = () => {
+    const finishClose = () => {
       attempt.current++;
+      abortRef.current?.abort();
       setMode(undefined);
       setBusy(false);
+    };
+    const close = () => {
+      if (!busy || !managed) finishClose();
     };
     const create = async () => {
       if (!mode || busy) return;
       const token = ++attempt.current;
+      const abort = new AbortController();
+      abortRef.current = abort;
       setBusy(true);
       setError(undefined);
       try {
         await flush();
         if (attempt.current !== token) return;
         const request = { mode, nodeId, namespace: namespace.trim(), name: name.trim(), ...getSnapshot() };
+        if (managed) {
+          if (!project.controller || !projectReadiness || !onSaved)
+            throw new Error('Managed project Save is unavailable. Reload the workspace and retry.');
+          const previous = await project.controller.load();
+          const applied = await projectReadiness.ensureSaved(previous.revision, abort.signal);
+          if (attempt.current !== token) return;
+          const captured = {
+            ...request,
+            projectReceipt: applied.receipt,
+            projectReferenceDocuments: applied.referenceDocuments,
+            signal: abort.signal
+          };
+          const saved = await modifyProjectDeclaration(captured, project.controller);
+          if (attempt.current !== token) return;
+          onSaved(saved, captured, previous);
+          finishClose();
+          return;
+        }
         const files = await prepareLocalDeclaration(request);
         if (attempt.current !== token) return;
         // Validate against current files again: another action may have created the same identity.
         const conflict = localDeclarationError({ ...request, ...getSnapshot() });
         if (conflict) throw new Error(conflict);
         onCreate(files);
-        close();
+        finishClose();
       } catch (failure) {
         if (attempt.current === token)
           setError(failure instanceof Error ? failure.message : 'Could not create the declaration. Try again.');
@@ -129,7 +164,9 @@ export const InspectorDeclarationActions = withInstrumentation(
               <DialogDescription>
                 {mode === 'extend'
                   ? 'Create a local declaration that inherits from this one.'
-                  : 'Create an editable copy in your workspace. The curated original stays unchanged; select the local copy to use your implementation.'}
+                  : managed
+                    ? 'Save an editable copy and an explicit replacement mapping in your workspace. References to the original will use your implementation.'
+                    : 'Create an editable copy in your workspace. The curated original stays unchanged; select the local copy to use your implementation.'}
               </DialogDescription>
             </DialogHeader>
             <form
@@ -168,7 +205,7 @@ export const InspectorDeclarationActions = withInstrumentation(
                 </p>
               )}
               <div className="flex justify-end gap-2">
-                <Button type="button" size="sm" variant="ghost" onClick={close}>
+                <Button type="button" size="sm" variant="ghost" onClick={close} disabled={busy && managed}>
                   Cancel
                 </Button>
                 <Button type="submit" size="sm" disabled={busy || !namespace.trim() || !name.trim()}>

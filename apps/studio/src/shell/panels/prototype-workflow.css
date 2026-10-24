@@ -286,3 +286,14 @@
 .workflow-node__save {
   margin: var(--space-2);
 }
+
+@media (max-width: 640px) {
+  .workflow button[data-size], .workflow [role="combobox"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .workflow-node > header {
+    flex-wrap: wrap;
+  }
+}
