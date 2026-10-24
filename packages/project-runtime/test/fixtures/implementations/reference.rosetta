@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace example.reference
+version "1.0.0"
+
+func Double:
+  inputs:
+    value number (1..1)
+  output:
+    result number (1..1)
+
+func Caller:
+  inputs:
+    value number (1..1)
+  output:
+    result number (1..1)
+  set result: Double(value)

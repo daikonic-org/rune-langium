@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace example.local
+version "1.0.0"
+import example.reference.*
+
+func Double:
+  inputs:
+    value number (1..1)
+  output:
+    result number (1..1)
+  set result: value * 2
+
+typeAlias Amount: number
+
+type Quote:
+  amount Amount (1..1)
+  currency string (1..1)
+
+func DoubleExample:
+  inputs:
+    quote Quote (1..1)
+  output:
+    result Quote (1..1)
+  set result: Quote {
+    amount: Caller(quote -> amount),
+    currency: quote -> currency
+  }

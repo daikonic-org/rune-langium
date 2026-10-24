@@ -921,3 +921,13 @@ semantic capture and each host's applied-receipt barrier. Complete serialized
 definitions are excluded from legacy namespace-hydration requests. Workspace
 identity and abort guards discard late view completion; failed loads expose
 retry without editing configuration or falling back to latest artifacts.
+
+The local model-authoring starter is self-contained. Its separate test cohort
+uses an empty numeric reference `Double`, an explicit local Rune replacement and
+an original reference caller. Runtime tests pair emitted TypeScript execution
+with the canonical standalone function-input validator; TypeScript's compile-time
+parameter types are not treated as runtime validation. The browser workflow uses
+a typed Quote wrapper, preserving existing object-example semantics while proving
+the same override call chain. Display formatting and field order survive a fresh
+clone without changing semantic values. No starter repository or fixture release
+is published by these tests.

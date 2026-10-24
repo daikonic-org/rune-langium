@@ -176,6 +176,15 @@ Embed the LSP server in a web worker for an in-browser Monaco editor, or spawn i
 | [`@rune-langium/design-system`](packages/design-system) | MIT | Theme, tokens, UI primitives |
 | [`apps/studio`](apps/studio) | **FSL-1.1-ALv2** | Rune Studio — the three-panel IDE web application |
 
+## Portable workspace example
+
+[`examples/workspaces/model-authoring`](examples/workspaces/model-authoring/) is
+an MIT-licensed local Rune starter with typed examples, an expected result, named
+workflow, shared form presentation and two explicit native build targets. It has
+no default target and needs no reference download. Proposed remote starter
+repositories remain unpublished; copying this example does not configure a
+writable Git remote. See its README for execution and capability limits.
+
 ## Development
 
 ```bash

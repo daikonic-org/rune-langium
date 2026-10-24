@@ -147,3 +147,11 @@ The browser-safe `/data` entry exposes the shared project data codec gate and
 serialization/import functions without the native graph host. Both the configured
 Rune default format and an explicitly requested descriptor codec must be supported;
 JSON is the initial codec. Presentation never rounds the stored semantic number.
+
+The owned `test/fixtures/implementations` cohort demonstrates a required numeric
+reference `Double` redirected to a local Rune body (`value * 2`).
+`test/project-implementation.test.ts` executes the emitted code with the canonical
+function-input validator, verifies `Caller(10) = 20`, missing-input rejection,
+removed-map unavailability and a filesystem clone/reopen. The fixture is not a
+published CDM release or evidence of payment-schedule/provider parity. A runnable
+standalone local variant lives in `examples/workspaces/model-authoring`.

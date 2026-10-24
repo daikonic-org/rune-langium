@@ -473,3 +473,13 @@ establish compatibility of local overrides, examples or business implementations
 Explorer and parser hydration consume the same captured documents as preview,
 LSP and exports. Legacy model loading remains available only to unmanaged
 workspaces, preserving existing imports without mixing them into pinned projects.
+
+### Runnable model-authoring example
+
+[`examples/workspaces/model-authoring`](../../examples/workspaces/model-authoring/)
+contains local Rune source, two named native build targets, a typed quote example,
+expected fixture, named workflow and shared presentation. Its standalone version
+requires no reference service. The separate project-implementation browser journey
+uses a checked tiny reference cohort to execute an explicit local Rune override,
+then saves input/output examples and reopens the recipe in a fresh clone. Neither
+fixture implements CDM schedules, observations, calendars or decimal parity.
