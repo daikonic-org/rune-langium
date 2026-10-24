@@ -131,7 +131,13 @@ export const GlobalSearch = withInstrumentation(
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <button type="button" className="studio-topbar__search">
+            <button
+              type="button"
+              className="studio-topbar__search"
+              aria-label="Search types, text &amp; files…"
+              title="Search Studio"
+              aria-keyshortcuts="Meta+K Control+K"
+            >
               <Search className="size-3.5 shrink-0" />
               <span className="min-w-0 flex-1 truncate text-left">Search types, text &amp; files…</span>
               <Kbd className="shrink-0">⌘K</Kbd>

@@ -71,7 +71,7 @@ test.describe('J14 — Git / Sync perspective', () => {
     async ({ page, evidence }) => {
       await page.goto('./');
       await page.waitForLoadState('domcontentloaded');
-      await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
       const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
       await fileInput.setInputFiles([
         { name: WORKSPACE_FILE_NAME, mimeType: 'text/plain', buffer: Buffer.from(WORKSPACE_FILE_CONTENT) }
@@ -97,7 +97,7 @@ test.describe('J14 — Git / Sync perspective', () => {
     async ({ page, evidence }) => {
       await page.goto('./');
       await page.waitForLoadState('domcontentloaded');
-      await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
       // Confirmed live this session: reached via WorkspacesPerspective's
       // FileLoader "Open from GitHub repository…" CTA (see file-header

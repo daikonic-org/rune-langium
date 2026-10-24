@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
@@ -54,7 +55,7 @@ async function loadCdm(page: import('@playwright/test').Page) {
   await page.goto('./');
   await page.waitForLoadState('domcontentloaded');
   await expect(page).toHaveTitle(/Rune Studio/);
-  await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
   const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
   await fileInput.setInputFiles([
@@ -66,8 +67,9 @@ async function loadCdm(page: import('@playwright/test').Page) {
   ]);
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
   await page.getByTestId('rail-workspaces').click();
-  await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
+  await openReferenceModels(page);
   await page.getByTestId('model-loader').getByRole('button', { name: CDM_BUTTON }).click();
 
   await expect(page.getByText('Loaded Models', { exact: false })).toBeVisible({ timeout: 90000 });

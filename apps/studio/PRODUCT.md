@@ -115,3 +115,12 @@ mobile and browser coverage limits must be reported explicitly.
 
 - Audience priority is awaiting confirmation; the supported workflows above are
   established product facts.
+
+## Workspace launcher
+
+Workspaces and reference models occupy separate launcher sections. Starter
+projects are editable copies with exact source provenance, separate from curated
+read-only dependencies. Proposed repositories remain unavailable until published
+and verified. Opening public starter source does not authorize a push remote.
+The launcher uses a compact action row, recent-workspace list and starter
+list/detail composition; narrow screens drill into details with Back navigation.

@@ -2,12 +2,20 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import {
+  recoverProjectSave,
+  ProjectSnapshotError,
+  type ProjectFileAdapter,
+  type ProjectChange
+} from '@rune-langium/project-config';
+import { createProjectController } from './project-controller.js';
 import { OpfsFs } from '../opfs/opfs-fs.js';
 import type { WorkspaceFile } from '../services/workspace.js';
 import { notifySyncOnSave } from '../services/git-sync.js';
 import { withInstrumentation, Capture } from '../services/instrumentation/core.js';
 
 interface WorkspaceFilesDeps {
+  getFolderProjectAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter | undefined>;
   getOpfsRoot: () => Promise<FileSystemDirectoryHandle>;
 }
 
@@ -71,6 +79,8 @@ const deletedWorkspaceIds = new Set<string>();
 // exactly the failure mode the tracked-path baseline prevents).
 // Diffing against this snapshot instead means a path the editor never knew
 // about is simply never a pruning candidate, in either direction.
+const folderPendingChanges = new Map<string, readonly ProjectChange[]>();
+const folderRevisions = new Map<string, Map<string, string>>();
 const lastKnownTrackedPaths = new Map<string, ReadonlySet<string>>();
 
 export const saveWorkspaceFiles = withInstrumentation(
@@ -152,6 +162,44 @@ async function runQueuedSave(
 }
 
 async function saveWorkspaceFilesNow(workspaceId: string, files: readonly WorkspaceFile[]): Promise<void> {
+  const folder = await deps.getFolderProjectAdapter?.(workspaceId);
+  if (folder) {
+    const controller = createProjectController({ workspaceId, adapter: folder, validateTarget: () => [] });
+    try {
+      const recovered = await controller.recover();
+      const previous = folderRevisions.get(workspaceId) ?? new Map<string, string>();
+      // Adopt only exact readback of this writer's interrupted attempt, never unrelated external edits.
+      for (const change of folderPendingChanges.get(workspaceId) ?? []) {
+        if ('remove' in change) {
+          if (!recovered.files.has(change.path)) previous.delete(change.path);
+        } else if (recovered.files.get(change.path) === change.text)
+          previous.set(change.path, recovered.fileRevisions.get(change.path)!);
+      }
+      folderPendingChanges.delete(workspaceId);
+      const stored = toStoredWorkspaceFiles(files),
+        next = new Set(stored.map((file) => file.path));
+      const changes: ProjectChange[] = [];
+      for (const [path, expectedRevision] of previous)
+        if (!next.has(path)) changes.push({ path, remove: true, expectedRevision });
+      for (const file of stored) {
+        if (recovered.files.get(file.path) === file.content) {
+          previous.set(file.path, recovered.fileRevisions.get(file.path)!);
+          continue;
+        }
+        changes.push({ path: file.path, text: file.content, expectedRevision: previous.get(file.path) ?? null });
+      }
+      folderRevisions.set(workspaceId, previous);
+      if (!changes.length) return;
+      folderPendingChanges.set(workspaceId, changes);
+      const saved = await controller.save(changes);
+      folderPendingChanges.delete(workspaceId);
+      folderRevisions.set(workspaceId, new Map(stored.map((file) => [file.path, saved.fileRevisions.get(file.path)!])));
+      lastKnownTrackedPaths.set(workspaceId, next);
+    } finally {
+      controller.dispose();
+    }
+    return;
+  }
   const root = await deps.getOpfsRoot();
 
   const workspaceDir = await root.getDirectoryHandle(workspaceId, { create: true });
@@ -194,6 +242,24 @@ async function saveWorkspaceFilesNow(workspaceId: string, files: readonly Worksp
 
 export const loadWorkspaceFiles = withInstrumentation(
   async function loadWorkspaceFiles(workspaceId: string): Promise<WorkspaceFile[]> {
+    const folder = await deps.getFolderProjectAdapter?.(workspaceId);
+    if (folder) {
+      const diagnostics = await recoverProjectSave(folder);
+      if (diagnostics.length) throw new ProjectSnapshotError(diagnostics);
+      const files: WorkspaceFile[] = [],
+        revisions = new Map<string, string>();
+      for (const path of await folder.list())
+        if (path.endsWith('.rosetta')) {
+          const file = await folder.read(path);
+          if (!file) continue;
+          files.push({ name: path.split('/').slice(-1)[0]!, path, content: file.text, dirty: false });
+          revisions.set(path, file.revision);
+        }
+      folderPendingChanges.delete(workspaceId);
+      folderRevisions.set(workspaceId, revisions);
+      lastKnownTrackedPaths.set(workspaceId, new Set(revisions.keys()));
+      return files;
+    }
     const root = await deps.getOpfsRoot();
     const fs = new OpfsFs(root);
     const files: WorkspaceFile[] = [];

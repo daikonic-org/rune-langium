@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import { createRuneDslServices, serializeRuneModel } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -102,9 +103,9 @@ async function serveArtifacts(
 
 async function loadCuratedWorkspace(page: Page) {
   await page.goto('./');
-  await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
-  await page.getByTestId('rail-workspaces').click();
+  await openReferenceModels(page);
   await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
 }
 

@@ -32,7 +32,7 @@ async function loadWorkspace(page: import('@playwright/test').Page) {
   await page.goto('./');
   await page.waitForLoadState('domcontentloaded');
   await expect(page).toHaveTitle(/Rune Studio/);
-  await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
   const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
   await fileInput.setInputFiles([

@@ -9,7 +9,7 @@
  * the no-workspace start page, so `App.handleFilesLoaded` could safely reuse
  * `restoredWorkspace`. With perspectives, the Workspaces launcher is reachable
  * while a project is open (the rail exposes it with `hasWorkspace=true`), so
- * reusing the open workspace meant "New blank workspace" / "Select Files"
+ * reusing the open workspace meant "New workspace" / "Select Files"
  * silently overwrote — or wiped — the active project's files.
  *
  * Fix: `handleFilesLoaded(files, targetWorkspaceId?)`.
@@ -133,7 +133,7 @@ describe('launcher file-load does not overwrite the active workspace (Codex P1 /
     expect(createdFiles[0].content).toContain('namespace new.load');
   });
 
-  it('wipes nothing when "New blank workspace" (empty load) fires with a project open', async () => {
+  it('wipes nothing when "New workspace" (empty load) fires with a project open', async () => {
     await mountWithRestoredWorkspaceA();
 
     await act(async () => {

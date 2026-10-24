@@ -174,7 +174,7 @@ describe('AppHeader', () => {
     // Bar must not show Explore's FileTabStrip/actions in this state; the
     // Workspaces title now renders in the chrome row (PerspectiveHeading),
     // matching what PerspectiveHost renders in the body for this same state.
-    expect(screen.queryByText('Workspaces / Models')).not.toBeInTheDocument();
+    expect(screen.queryByText('Workspaces')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'a.rosetta DSL' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Validate' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Import Model', exact: true })).not.toBeInTheDocument();

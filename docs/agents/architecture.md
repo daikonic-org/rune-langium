@@ -886,3 +886,19 @@ each operation's CAS and generation checks. A same-function schema refresh retai
 mounted fields/current compatible drafts, disables Execute until fresh schema and
 validation are available, and offers a schema retry after failure. Parameter/array
 element compatibility is shared by session retention and Prototype source bindings.
+
+### Editable starter copies and bound folders
+
+The starter catalog describes projects; checked source adapters provide their
+actual files and exact commit. `createStarterOpener` validates the copy boundary,
+then `createStarterWorkingCopy` uses the existing ProjectController before host
+activation. Starter provenance lives on WorkspaceRecord without GitBacking,
+credentials or reference-only flags. Unpublished catalog proposals stay disabled.
+Workspace opening and reference dependencies occupy separate launcher sections.
+
+Bound folder source IO uses WorkspaceManager's canonical project adapter. Source
+loads recover the private Save journal before reading; source writes use shared
+ProjectController Save/CAS and preserve unrelated files. Retry adopts only exact
+readback of this source writer's interrupted attempt, preserving external edits
+as conflicts. The journal and personal metadata stay in browser-private storage;
+portable configuration/examples remain in the selected working-copy folder.

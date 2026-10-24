@@ -62,6 +62,8 @@ export interface GitBackingRecord {
 }
 
 interface BaseWorkspaceFields {
+  /** Origin only; a starter is not a writable Git remote. */
+  starterProvenance?: { repository: string; commit: string };
   id: string;
   name: string;
   createdAt: string;

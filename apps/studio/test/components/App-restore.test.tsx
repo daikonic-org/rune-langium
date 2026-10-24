@@ -118,7 +118,7 @@ describe('App workspace restore on mount (T027/US2)', () => {
   it('renders the start page when no recents exist', async () => {
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText(/Load Rune DSL Models/i)).toBeInTheDocument();
+      expect(screen.getByText(/Open your work or start with an example project/i)).toBeInTheDocument();
     });
     expect(document.body).not.toHaveAttribute('data-workspace-active', 'true');
   });
@@ -141,7 +141,7 @@ describe('App workspace restore on mount (T027/US2)', () => {
       { timeout: 4000 }
     );
     // Start-page copy must NOT appear once a workspace has been restored.
-    expect(screen.queryByText(/Load Rune DSL Models/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Open your work or start with an example project/i)).not.toBeInTheDocument();
   });
 
   it('reloads saved workspace files on mount', async () => {
@@ -161,7 +161,7 @@ describe('App workspace restore on mount (T027/US2)', () => {
       expect(screen.getAllByText('1 file(s)').length).toBeGreaterThan(0);
     });
     expect(document.body).toHaveAttribute('data-workspace-active', 'true');
-    expect(screen.queryByText(/Load Rune DSL Models/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Open your work or start with an example project/i)).not.toBeInTheDocument();
   });
 
   it('lets users return to Workspaces after a workspace restore', async () => {
@@ -181,12 +181,12 @@ describe('App workspace restore on mount (T027/US2)', () => {
       expect(document.body).toHaveAttribute('data-workspace-active', 'true');
     });
 
-    screen.getByRole('button', { name: 'Workspaces / Models' }).click();
+    screen.getByRole('button', { name: 'Workspaces' }).click();
 
     await waitFor(() => {
       expect(usePerspectiveStore.getState().activePerspective).toBe('workspaces');
     });
-    expect(screen.getByText(/Load Rune DSL Models/i)).toBeInTheDocument();
+    expect(screen.getByText(/Open your work or start with an example project/i)).toBeInTheDocument();
   });
 
   it('falls back to start page if loadWorkspace returns nothing for the recent', async () => {
@@ -199,7 +199,7 @@ describe('App workspace restore on mount (T027/US2)', () => {
 
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText(/Load Rune DSL Models/i)).toBeInTheDocument();
+      expect(screen.getByText(/Open your work or start with an example project/i)).toBeInTheDocument();
     });
     expect(document.body).not.toHaveAttribute('data-workspace-active', 'true');
     spy.mockRestore();
@@ -211,7 +211,7 @@ describe('App workspace restore on mount (T027/US2)', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Load Rune DSL Models/i)).toBeInTheDocument();
+      expect(screen.getByText(/Open your work or start with an example project/i)).toBeInTheDocument();
     });
     expect(screen.queryByTestId('workspace-restored')).not.toBeInTheDocument();
     expect(document.body).not.toHaveAttribute('data-workspace-active', 'true');

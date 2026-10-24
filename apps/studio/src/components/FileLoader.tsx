@@ -28,6 +28,8 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 const EMPTY_FILES: ReadonlyArray<WorkspaceFile> = [];
 
 export interface FileLoaderProps {
+  onNewWorkspace?: () => void | Promise<void>;
+  onOpenFolder?: () => Promise<void>;
   onFilesLoaded: (files: WorkspaceFile[]) => void;
   /**
    * Current workspace files — used to compute a unique name for the "New"
@@ -43,8 +45,7 @@ export interface FileLoaderProps {
    * Inject a workspace-creation function for the GitHub flow (T032e).
    * Production callers pass a thin wrapper around
    * `WorkspaceManager.createGitBacked`. Tests can stub this to avoid
-   * mounting a real OPFS root. When omitted, the GitHub flow stops at
-   * the auth step (FileLoader's own tests cover that legacy shape).
+   * mounting a real OPFS root. Omit to hide the writable-repository action.
    */
   createGitBackedWorkspace?: (input: {
     name: string;
@@ -73,9 +74,21 @@ export const FileLoader = withInstrumentation(
     githubAuthBase,
     createGitBackedWorkspace,
     onGitHubWorkspaceCreated,
-    openProjectInitialization
+    openProjectInitialization,
+    onNewWorkspace,
+    onOpenFolder
   }: FileLoaderProps) {
     const [isDragging, setIsDragging] = useState(false);
+    const [error, setError] = useState<string>();
+    const perform = async (action: () => void | Promise<void>) => {
+      setError(undefined);
+      try {
+        await action();
+      } catch (error) {
+        if (!(error instanceof Error && error.name === 'AbortError'))
+          setError(error instanceof Error ? error.message : 'The workspace could not be opened. Try again.');
+      }
+    };
     const [loadProgress, setLoadProgress] = useState<WorkspaceLoadProgress | null>(null);
     const [isGitHubOpen, setIsGitHubOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,34 +146,20 @@ export const FileLoader = withInstrumentation(
 
     return (
       <section
-        className={cn(
-          // T057 — sized to the start-page column rather than to the
-          // entire viewport; the parent container handles vertical
-          // centring. Drag-target affordance still flashes on dragenter.
-          'flex items-center justify-center w-full transition-colors rounded-lg',
-          isDragging && 'bg-primary/15'
-        )}
+        className={cn('w-full min-w-0 transition-colors rounded-lg', isDragging && 'bg-primary/15')}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         data-testid="file-loader"
         aria-label="File loader"
       >
-        {/* T057 (014/FR-028) — empty-state hierarchy:
-         *   1. Heading (text-3xl font-semibold tracking-tight, explicit
-         *      brand display face)
-         *   2. ONE primary CTA ("New blank workspace")
-         *   3. Equal-weight transparent secondaries (Select Files /
-         *      Select Folder). "Open from GitHub" is wired in Phase 6.
-         *   4. ModelLoader (curated reference models) renders below as
-         *      a discoverable but visually subordinate row — no
-         *      `border-t` divider, just `mt-8`. */}
-        <div className="text-center max-w-[560px]">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground mb-3">Load Rune DSL Models</h2>
-          <p className="text-md text-text-secondary mb-8">
-            Start a new file, or drag and drop existing .rosetta files here
-          </p>
-
+        <div className="w-full min-w-0">
+          <p className="text-sm text-muted-foreground mb-3">Open your work or start with an example project.</p>
+          {error && (
+            <p role="alert" className="text-sm text-destructive mb-2">
+              {error}
+            </p>
+          )}
           {loadProgress ? (
             <div className="w-full" data-testid="load-progress">
               <div className="w-full bg-muted rounded-full h-2 mb-2 overflow-hidden">
@@ -182,38 +181,35 @@ export const FileLoader = withInstrumentation(
               </p>
             </div>
           ) : (
-            <div className="flex flex-col items-stretch gap-4">
-              <Button size="lg" onClick={handleNew}>
-                New blank workspace
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" onClick={() => void perform(onNewWorkspace ?? handleNew)}>
+                New workspace
               </Button>
-              <div className="flex gap-3 justify-center flex-wrap">
-                <Button variant="secondary" size="lg" onClick={() => fileInputRef.current?.click()}>
-                  Select Files
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void perform(onOpenFolder ?? (() => dirInputRef.current?.click()))}
+              >
+                Open folder
+              </Button>
+              {config.githubAuthEnabled && createGitBackedWorkspace && (
+                <Button variant="outline" size="sm" onClick={() => setIsGitHubOpen(true)}>
+                  Open GitHub
                 </Button>
-                <Button variant="secondary" size="lg" onClick={() => dirInputRef.current?.click()}>
-                  Select Folder
-                </Button>
-                {config.githubAuthEnabled && createGitBackedWorkspace && (
-                  <Button variant="secondary" size="lg" onClick={() => setIsGitHubOpen(true)}>
-                    Open from GitHub repository…
-                  </Button>
-                )}
-              </div>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+                Import files…
+              </Button>
             </div>
           )}
 
           {config.githubAuthEnabled && createGitBackedWorkspace && (
-            // T031 visible affordance + T032e end-to-end clone wiring.
-            // The CTA only renders when `createGitBackedWorkspace` is wired,
-            // so reaching here means the full flow is available. App.tsx
-            // hasn't threaded the prop in yet → the CTA stays hidden and
-            // the legacy "auth-only" stub no longer ships in production.
             <Dialog open={isGitHubOpen} onOpenChange={setIsGitHubOpen}>
               <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto studio-scroll">
                 <DialogHeader>
                   <DialogTitle>Open from GitHub</DialogTitle>
                   <DialogDescription className="text-foreground/75">
-                    Sign in with GitHub and clone a repository into a new workspace.
+                    Connect GitHub to clone a writable repository. Public starter copies do not require signing in.
                   </DialogDescription>
                 </DialogHeader>
                 <GitHubWorkspaceFlow

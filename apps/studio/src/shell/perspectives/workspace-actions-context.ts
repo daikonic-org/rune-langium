@@ -6,6 +6,7 @@ import type { GitHubInitializationSession } from '../../workspace/project-initia
 import type { WorkspaceFile } from '../../services/workspace.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import type { ProjectFileAdapter } from '@rune-langium/project-config';
+import type { StarterProject } from '../../services/starter-registry.js';
 import type { LegacyExampleStorage } from '../../opfs/instances-fs.js';
 
 /**
@@ -14,6 +15,9 @@ import type { LegacyExampleStorage } from '../../opfs/instances-fs.js';
  * knowledge of workspace state. App provides this context value.
  */
 export interface WorkspaceActions {
+  onStartBlankWorkspace?: () => void | Promise<void>;
+  onOpenStarter?: (starter: StarterProject, signal: AbortSignal) => Promise<unknown>;
+  onOpenFolder?: () => Promise<void>;
   /** Working-copy IO bound to an explicit workspace, with live ownership checks. */
   getProjectFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
   /** Limited typed legacy records for migration; never the private filesystem itself. */

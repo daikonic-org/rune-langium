@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import type React from 'react';
+import { useState } from 'react';
+import { Button } from '@rune-langium/design-system/ui/button';
+import { StarterWorkspacePicker } from '../../../components/StarterWorkspacePicker.js';
+import './workspace-launcher.css';
 import { FileLoader } from '../../../components/FileLoader.js';
 import { WorkspaceSwitcher } from '../../../components/WorkspaceSwitcher.js';
 import { ModelLoader } from '../../../components/ModelLoader.js';
@@ -18,23 +22,52 @@ export const WorkspacesPerspective = withInstrumentation(
       openProjectInitialization,
       onOpenWorkspace,
       onCreateWorkspace,
-      onDeleteWorkspace
+      onDeleteWorkspace,
+      onOpenStarter,
+      onOpenFolder,
+      onStartBlankWorkspace
     } = useWorkspaceActions();
 
+    const [section, setSection] = useState<'workspaces' | 'references'>('workspaces');
     return (
-      <section data-testid="workspaces-perspective" className="studio-scroll h-full overflow-auto">
-        <div className="flex flex-col items-center justify-center min-h-full px-8 py-12 gap-8">
-          <FileLoader
-            onFilesLoaded={onFilesLoaded}
-            existingFiles={files}
-            createGitBackedWorkspace={createGitBackedWorkspace}
-            onGitHubWorkspaceCreated={onGitHubWorkspaceCreated}
-            openProjectInitialization={openProjectInitialization}
-          />
-          <div className="w-full max-w-[560px] mt-8">
+      <section data-testid="workspaces-perspective" className="studio-launcher studio-scroll h-full overflow-auto">
+        <div className="studio-launcher__body">
+          <nav className="studio-launcher__navigation" aria-label="Project launcher">
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-pressed={section === 'workspaces'}
+              onClick={() => setSection('workspaces')}
+            >
+              Workspaces
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-pressed={section === 'references'}
+              onClick={() => setSection('references')}
+            >
+              Reference models
+            </Button>
+          </nav>
+          <div hidden={section !== 'workspaces'} className="space-y-6">
+            <FileLoader
+              onFilesLoaded={onFilesLoaded}
+              existingFiles={files}
+              onNewWorkspace={onStartBlankWorkspace ?? onCreateWorkspace}
+              onOpenFolder={onOpenFolder}
+              createGitBackedWorkspace={createGitBackedWorkspace}
+              onGitHubWorkspaceCreated={onGitHubWorkspaceCreated}
+              openProjectInitialization={openProjectInitialization}
+            />
             <WorkspaceSwitcher onOpen={onOpenWorkspace} onCreate={onCreateWorkspace} onDelete={onDeleteWorkspace} />
+            <StarterWorkspacePicker open={onOpenStarter} />
           </div>
-          <div className="w-full max-w-[560px]">
+          <div hidden={section !== 'references'}>
+            <h2 className="text-sm font-semibold mb-2">Reference models</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Read-only model dependencies belong to the active workspace.
+            </p>
             <ModelLoader />
           </div>
         </div>

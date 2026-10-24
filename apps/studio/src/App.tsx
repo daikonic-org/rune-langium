@@ -19,6 +19,7 @@ import type { RosettaModel } from '@rune-langium/core';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
 import type { WorkspaceFile } from './services/workspace.js';
 import {
+  createBlankWorkspaceFile,
   parseWorkspaceFiles,
   mergeModelFiles,
   mergeCuratedRefOnlyFiles,
@@ -35,7 +36,15 @@ import { BASE_TYPE_FILES } from './resources/base-types.js';
 import * as persistence from './workspace/persistence.js';
 import type { CuratedModelBinding, WorkspaceRecord } from './workspace/persistence.js';
 import { LAYOUT_SCHEMA_VERSION } from './shell/layout-factory.js';
-import { deleteWorkspaceFiles, loadWorkspaceFiles, saveWorkspaceFiles } from './workspace/workspace-files.js';
+import { createStarterOpener, createStarterWorkingCopy } from './workspace/open-starter.js';
+import { readStarterSource } from './services/starter-source.js';
+import type { StarterProject } from './services/starter-registry.js';
+import {
+  deleteWorkspaceFiles,
+  loadWorkspaceFiles,
+  saveWorkspaceFiles,
+  setWorkspaceFilesDeps
+} from './workspace/workspace-files.js';
 import { createWorkspaceAutosave } from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
@@ -229,10 +238,28 @@ function AppContent() {
   const workspaceAutosave = useMemo(
     () =>
       createWorkspaceAutosave(saveWorkspaceFiles, (error) =>
-        reportWorkspaceError('Failed to save workspace changes to browser storage; edits remain in memory', error)
+        reportWorkspaceError('Failed to save workspace changes; edits remain in memory', error)
       ),
     [reportWorkspaceError]
   );
+
+  const getWorkspaceManager = useCallback(async (): Promise<WorkspaceManager> => {
+    if (workspaceManagerRef.current) return workspaceManagerRef.current;
+    const opfsRoot = await navigator.storage.getDirectory();
+    workspaceManagerRef.current ??= new WorkspaceManager({
+      opfsRoot,
+      studioVersion: STUDIO_VERSION,
+      tabId: `tab-${Date.now()}`
+    });
+    const manager = workspaceManagerRef.current;
+    setWorkspaceFilesDeps({
+      getFolderProjectAdapter: async (id) => {
+        const record = await persistence.loadWorkspace(id);
+        return record?.kind === 'folder-backed' ? manager.getProjectFileAdapter(id) : undefined;
+      }
+    });
+    return manager;
+  }, []);
 
   const editorSaveBarriers = useRef(new Set<() => Promise<void>>());
   const registerEditorSaveBarrier = useCallback((flush: () => Promise<void>) => {
@@ -578,9 +605,17 @@ function AppContent() {
       setBootState('restoring');
       reconcileWorkspaceModels(workspace.curatedModels ?? []);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
+      if (workspace.kind === 'folder-backed') {
+        const manager = await getWorkspaceManager();
+        await manager.claimProjectAccess(workspace.id);
+      }
       const restoredFiles = await loadWorkspaceFiles(workspace.id);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
-      if (restoredFiles.length === 0 && (workspace.curatedModels?.length ?? 0) === 0) {
+      if (
+        workspace.kind !== 'folder-backed' &&
+        restoredFiles.length === 0 &&
+        (workspace.curatedModels?.length ?? 0) === 0
+      ) {
         reconcileWorkspaceModels([]);
         restoredWorkspaceRef.current = null;
         setRestoredWorkspace(null);
@@ -653,7 +688,7 @@ function AppContent() {
       }
       return restoredWorkspaceRef.current?.id === nextWorkspace.id ? 'restored' : 'superseded';
     },
-    [clearWorkspaceState, reconcileWorkspaceModels, syncWorkspaceToEditor]
+    [clearWorkspaceState, getWorkspaceManager, reconcileWorkspaceModels, syncWorkspaceToEditor]
   );
 
   // Restore the most recently opened workspace on mount when its metadata and
@@ -1030,17 +1065,36 @@ function AppContent() {
   }, [handleFilesLoaded, handleSwitchWorkspace, restoredWorkspace, syncWorkspaceToEditor]);
 
   const handleCreateWorkspace = handleReset;
-
-  const getWorkspaceManager = useCallback(async (): Promise<WorkspaceManager> => {
-    if (workspaceManagerRef.current) return workspaceManagerRef.current;
-    const opfsRoot = await navigator.storage.getDirectory();
-    workspaceManagerRef.current = new WorkspaceManager({
-      opfsRoot,
-      studioVersion: STUDIO_VERSION,
-      tabId: `tab-${Date.now()}`
-    });
-    return workspaceManagerRef.current;
-  }, []);
+  const handleStartBlankWorkspace = useCallback(
+    () => handleFilesLoaded([createBlankWorkspaceFile([])]),
+    [handleFilesLoaded]
+  );
+  const handleOpenFolder = useCallback(async () => {
+    const picker = (
+      window as Window & {
+        showDirectoryPicker?: (options: { mode: 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
+      }
+    ).showDirectoryPicker;
+    if (!picker)
+      throw new Error('This browser cannot open a live folder. Import files or open a GitHub workspace instead.');
+    const folder = await picker.call(window, { mode: 'readwrite' });
+    const manager = await getWorkspaceManager();
+    const workspace = await manager.createFolderBacked(folder.name || 'Folder workspace', folder);
+    await handleSwitchWorkspace(workspace.id);
+  }, [getWorkspaceManager, handleSwitchWorkspace]);
+  const handleOpenStarter = useCallback(
+    async (starter: StarterProject, signal: AbortSignal) => {
+      const manager = await getWorkspaceManager();
+      const opened = await createStarterOpener({
+        source: readStarterSource,
+        create: (input) => createStarterWorkingCopy(manager, input)
+      })({ starter, signal });
+      signal.throwIfAborted();
+      await handleSwitchWorkspace(opened.workspaceId);
+      return opened;
+    },
+    [getWorkspaceManager, handleSwitchWorkspace]
+  );
 
   // Sync-engine lifecycle: instantiate the engine when a git-backed workspace
   // becomes active and dispose it when the active workspace changes or is
@@ -1300,6 +1354,9 @@ function AppContent() {
       onGitHubWorkspaceCreated: handleGitHubWorkspaceCreated,
       onOpenWorkspace: handleSwitchWorkspace,
       onCreateWorkspace: handleCreateWorkspace,
+      onStartBlankWorkspace: handleStartBlankWorkspace,
+      onOpenFolder: handleOpenFolder,
+      onOpenStarter: handleOpenStarter,
       onDeleteWorkspace: handleDeleteWorkspace,
       // EditorPage-facing actions (formerly EditorPage props), now sourced
       // from context so App no longer threads them through <EditorPage>.
@@ -1319,6 +1376,9 @@ function AppContent() {
       handleGitHubWorkspaceCreated,
       handleSwitchWorkspace,
       handleCreateWorkspace,
+      handleStartBlankWorkspace,
+      handleOpenFolder,
+      handleOpenStarter,
       handleDeleteWorkspace,
       handleFilesChange,
       loadCuratedSource,

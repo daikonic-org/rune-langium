@@ -428,3 +428,28 @@ numbers. Existing browser preferences are offered through **Review browser
 presentation…**; **Save in repository** copies only uniquely bound settings after
 review, and leaves the private originals intact. Repository files take precedence.
 Personal docking, filters, selected rows and scratch workflow state remain local.
+
+### Workspace launcher
+
+**Workspaces** opens editable projects; **Reference models** is a separate
+launcher section for read-only dependencies. New workspace, Open folder, Open
+GitHub and file import share the existing activation and Save flows. A live
+folder stays bound to the selected directory: source edits, portable examples
+and configuration use guarded project IO. Reopening/retrying recovers the shared
+Save journal before exposing source, and external file edits produce conflicts.
+Removing its recent workspace disconnects the folder without deleting its files.
+
+**Start from example** lists proposed GitHub starter projects separately from
+reference bundles. Proposed daikonic-org repositories remain unavailable until
+publication and content verification. A verified public starter opens as an
+editable browser copy without authentication, with the exact source commit kept
+as workspace provenance. That origin is not Git backing or push permission;
+clone/fork/connect a writable repository through the existing GitHub flow.
+The source reader accepts bounded UTF-8 file trees and verifies Git blob IDs;
+binary files, symlinks, submodules, truncated trees and private storage paths are
+rejected before copying. See GitHub's [tree](https://docs.github.com/en/rest/git/trees#get-a-tree)
+and [blob](https://docs.github.com/en/rest/git/blobs#get-a-blob) APIs.
+
+Recent-workspace backing and recorded repository status are distinct from a
+current Save result. Missing sync evidence is shown as unknown, not as unpublished
+or synced. No repository creation, Maven execution or automatic push occurs.

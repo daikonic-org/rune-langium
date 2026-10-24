@@ -12,7 +12,7 @@ test.describe('J02 — workspace lifecycle & persistence', () => {
   test('J02 workspace survives a reload via OPFS/IndexedDB', async ({ page, evidence }) => {
     await page.goto('./');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
     const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
     const openedAt = Date.now();

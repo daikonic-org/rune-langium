@@ -257,7 +257,7 @@ it.each([false, true])(
       save.mockImplementation(write);
       await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
     }
-    await screen.findByRole('button', { name: 'New blank workspace' });
+    await screen.findByRole('button', { name: 'New workspace' });
     expect((await loadWorkspaceFiles('ws-a')).find((file) => file.path === 'trade.rosetta')?.content).toContain(
       'Saved from pending Inspector timer'
     );
@@ -317,7 +317,7 @@ describe('workspace isolation', () => {
       save.mockImplementation(write);
       await act(attempt);
       if (transition === 'close' || transition === 'reset') {
-        await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+        await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
       } else {
         expect(screen.getByTestId('files')).toHaveTextContent('blank.rosetta');
       }
@@ -351,7 +351,7 @@ describe('workspace isolation', () => {
       gate.resolve();
       await switching;
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect((await loadWorkspaceFiles('ws-a')).find((file) => file.path === 'trade.rosetta')?.content).toBe(
       'namespace project.edited\n'
     );
@@ -360,7 +360,7 @@ describe('workspace isolation', () => {
   it('carries launcher selections into a pre-created Git-backed target without creating a duplicate', async () => {
     await persistence.deleteWorkspace('ws-a');
     render(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     await act(async () => useModelStore.getState().load(getModelSource('rune-dsl')!));
     const now = new Date().toISOString();
     await saveWorkspace({
@@ -393,7 +393,7 @@ describe('workspace isolation', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
     fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'New blank workspace' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'New workspace' }));
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('untitled.rosetta'));
     parseMock.mockImplementation(async () => ({
       ...emptyParse(),
@@ -416,10 +416,10 @@ describe('workspace isolation', () => {
     await _resetForTests();
     await persistence.deleteWorkspace('ws-a');
     render(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     await act(async () => useModelStore.getState().load(getModelSource('rune-dsl')!));
     await waitFor(() => expect(useModelStore.getState().models.has('rune-dsl')).toBe(true));
-    fireEvent.click(screen.getByRole('button', { name: 'New blank workspace' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New workspace' }));
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('.rosetta'));
     expect(useModelStore.getState().models.has('rune-dsl')).toBe(true);
     const workspace = (await listRecents())[0]!;
@@ -452,7 +452,7 @@ describe('workspace isolation', () => {
     usePreviewStore.setState({ selectedTargetId: 'cdm.event.common.SpinOff' });
     useCodegenStore.getState().setCodePreviewTarget('typescript');
     fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect(screen.queryByRole('button', { name: /Workspace menu/ })).not.toBeInTheDocument();
     expect(useModelStore.getState().models.size).toBe(0);
     expect(useEditorStore.getState().nodes).toEqual([]);
@@ -466,7 +466,7 @@ describe('workspace isolation', () => {
     await openSourceWorkspace();
     fireEvent.click(screen.getByRole('button', { name: /Workspace menu — .*Source project/ }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Close Source project and return to start page' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect(useModelStore.getState().models.size).toBe(0);
     expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
     expect((await loadWorkspace('ws-a'))?.curatedModels?.map((binding) => binding.modelId)).toEqual(['cdm']);
@@ -477,7 +477,7 @@ describe('workspace isolation', () => {
     const previous = (await loadWorkspace('ws-a'))!;
     await saveWorkspace({ ...previous, id: 'ws-empty', name: 'Empty', curatedModels: [] });
     await act(async () => window.__runeStudioTestApi!.switchWorkspace!('ws-empty'));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect(screen.queryByRole('button', { name: /Workspace menu/ })).not.toBeInTheDocument();
     expect(useModelStore.getState().models.size).toBe(0);
     expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
@@ -536,7 +536,7 @@ describe('workspace isolation', () => {
       });
       expect(recovered.mock.calls.length).toBe(0);
       expect(received.filter((request) => request.type === 'hydrate')).toHaveLength(1);
-      expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible();
       expect(useModelStore.getState().models.size).toBe(0);
       expect(useEditorStore.getState().nodes).toEqual([]);
       expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
@@ -576,7 +576,7 @@ describe('workspace isolation', () => {
     });
     expect(screen.getByTestId('files')).toHaveTextContent('blank.rosetta');
     expect(screen.getByRole('button', { name: /Workspace menu — .*New/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'New blank workspace' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New workspace' })).not.toBeInTheDocument();
   });
 
   it('an import that supersedes a restore leaves the restoring screen', async () => {

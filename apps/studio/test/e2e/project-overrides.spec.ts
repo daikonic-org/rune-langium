@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { test, expect, type Page } from '@playwright/test';
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import AxeBuilder from '@axe-core/playwright';
 import JSZip from 'jszip';
 import { readFile } from 'node:fs/promises';
@@ -67,8 +68,8 @@ test('managed Modify persists one map and drives curated caller execution and re
     await route.fulfill({ status: 500, body: 'Managed exports must use the captured project worker.' });
   });
   await page.goto('./');
-  await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
-  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
+  await openReferenceModels(page);
   await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('namespace-search').fill('Compute');

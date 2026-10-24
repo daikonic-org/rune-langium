@@ -9,9 +9,7 @@
  *  - OpfsFs: file content
  *  - WorkspaceOwnership: cross-tab single-writer coordination
  *
- * Currently exposes create / open / close / delete / listRecents.
- * Folder-backed handle binding, git-backed init/push, tab restore, and
- * dirty-buffer recovery land in subsequent commits.
+ * Browser copies, bound folders and Git working copies keep distinct backing metadata.
  */
 
 import { OpfsFs } from '../opfs/opfs-fs.js';
@@ -24,6 +22,7 @@ import {
   type WorkspaceRecord,
   type RecentWorkspaceRecord
 } from './persistence.js';
+import { bindFolderToWorkspace } from './folder-backing.js';
 import { WorkspaceOwnership } from '../services/multi-tab-broadcast.js';
 import { cloneRepository } from '../services/git-backing.js';
 import { storeWorkspaceToken } from '../services/github-auth.js';
@@ -193,6 +192,15 @@ export class WorkspaceManager {
     // record so the user can retry from their tab.
     await this.ownership.claim(id);
     return ws;
+  }
+
+  /** Binds the chosen folder; opening never writes to or deletes its existing files. */
+  async createFolderBacked(name: string, handle: FileSystemDirectoryHandle): Promise<WorkspaceRecord> {
+    const record = await this.create(name);
+    await bindFolderToWorkspace(record.id, handle);
+    const bound: WorkspaceRecord = { ...record, kind: 'folder-backed', folderHandle: record.id };
+    await saveWorkspace(bound);
+    return bound;
   }
 
   /**

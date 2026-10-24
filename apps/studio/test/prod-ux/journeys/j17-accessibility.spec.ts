@@ -49,7 +49,7 @@ test.describe('J17 — Accessibility sweep', () => {
     await evidence.checkpoint('axe-explore');
 
     await page.getByTestId('rail-workspaces').click();
-    await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
     results.push(await sweepAxe(page, 'workspaces', artifactDir));
     await evidence.checkpoint('axe-workspaces');
 

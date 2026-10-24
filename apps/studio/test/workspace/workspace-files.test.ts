@@ -381,3 +381,69 @@ it('does not mark a clean cloned working copy dirty when activation saves identi
   await saveWorkspaceFiles(id, [makeFile('a.rosetta', 'namespace a\ntype X:')]);
   expect(notifySyncOnSave).toHaveBeenCalledOnce();
 });
+
+it('loads and saves a bound folder through the canonical adapter without replacing unrelated native files', async () => {
+  const { createProjectFileAdapter } = await import('../../src/workspace/project-file-adapter.js');
+  const folder = createOpfsRoot(),
+    privateRoot = createOpfsRoot();
+  await writeBytes(folder, new TextEncoder().encode('namespace native'), 'model.rosetta');
+  await writeBytes(folder, new TextEncoder().encode('schemaVersion: 1'), 'studio-config.yml');
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'native',
+    root: folder as unknown as FileSystemDirectoryHandle,
+    privateRoot: privateRoot as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  setWorkspaceFilesDeps({
+    getOpfsRoot: async () => opfsRoot as unknown as FileSystemDirectoryHandle,
+    getFolderProjectAdapter: async (id) => (id === 'native' ? adapter : undefined)
+  });
+  try {
+    expect((await loadWorkspaceFiles('native'))[0]?.content).toBe('namespace native');
+    await saveWorkspaceFiles('native', [makeFile('model.rosetta', 'namespace native\ntype Money:')]);
+    expect(new TextDecoder().decode(await readBytes(folder, 'model.rosetta'))).toContain('type Money');
+    expect(new TextDecoder().decode(await readBytes(folder, 'studio-config.yml'))).toBe('schemaVersion: 1');
+    await adapter.write('model.rosetta', 'namespace external', (await adapter.read('model.rosetta'))!.revision);
+    await expect(saveWorkspaceFiles('native', [makeFile('model.rosetta', 'namespace overwrite')])).rejects.toThrow();
+    expect(new TextDecoder().decode(await readBytes(folder, 'model.rosetta'))).toBe('namespace external');
+  } finally {
+    setWorkspaceFilesDeps({ getFolderProjectAdapter: undefined });
+  }
+});
+it('recovers an interrupted native source Save before retrying its retained draft', async () => {
+  const { createProjectFileAdapter } = await import('../../src/workspace/project-file-adapter.js');
+  const folder = createOpfsRoot(),
+    privateRoot = createOpfsRoot();
+  await writeBytes(folder, new TextEncoder().encode('namespace recover'), 'model.rosetta');
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'native-recovery',
+    root: folder as unknown as FileSystemDirectoryHandle,
+    privateRoot: privateRoot as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  let fail = true;
+  const faulty = {
+    ...adapter,
+    write: async (path: string, text: string, revision: string | null) => {
+      if (path === 'model.rosetta' && fail) {
+        fail = false;
+        throw new Error('Native disk unavailable');
+      }
+      return adapter.write(path, text, revision);
+    }
+  };
+  setWorkspaceFilesDeps({ getFolderProjectAdapter: async (id) => (id === 'native-recovery' ? faulty : undefined) });
+  try {
+    await loadWorkspaceFiles('native-recovery');
+    await expect(
+      saveWorkspaceFiles('native-recovery', [makeFile('model.rosetta', 'namespace recover\ntype Money:')])
+    ).rejects.toThrow();
+    expect((await loadWorkspaceFiles('native-recovery'))[0]?.content).toContain('type Money');
+    await saveWorkspaceFiles('native-recovery', [
+      makeFile('model.rosetta', 'namespace recover\ntype Money:\n amount number (1..1)')
+    ]);
+    expect(new TextDecoder().decode(await readBytes(folder, 'model.rosetta'))).toContain('amount number');
+  } finally {
+    setWorkspaceFilesDeps({ getFolderProjectAdapter: undefined });
+  }
+});

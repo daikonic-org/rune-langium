@@ -84,6 +84,7 @@ async function exercise(page: Page, width: number) {
   await form.getByRole('button', { name: 'Open Effective Date picker' }).click();
   const calendar = page.getByRole('dialog', { name: 'Effective Date picker' });
   await expect(calendar.getByRole('grid')).toBeVisible();
+  await expect(calendar).toHaveCSS('opacity', '1');
   const pickerViolations = await new AxeBuilder({ page }).include('[data-slot="popover-content"]').analyze();
   await page.screenshot({ path: `../../dist/form-workbench-calendar-${width}.png` });
   expect(pickerViolations.violations).toEqual([]);
