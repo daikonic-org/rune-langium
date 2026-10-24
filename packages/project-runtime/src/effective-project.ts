@@ -9,6 +9,8 @@ import {
   projectDeclarationIdentity,
   declarationKey,
   isRosettaFunction,
+  isRosettaTypeAlias,
+  getEffectiveProjectDeclaration,
   type RosettaFunction,
   type DeclarationIdentity,
   isRosettaModel,
@@ -20,13 +22,20 @@ import { projectOverrideRedirects, validateProjectOverrides, type ProjectDeclara
 import type { ReferenceDocument } from './references/types.js';
 import { projectSourceUri, projectReferenceUri } from './project-uri.js';
 import { createProjectReceipt, projectReceiptMatches, type EffectiveProjectReceipt } from './project-receipt.js';
-import { createProjectBindingRegistry, type ProjectBindingRegistry } from '@rune-langium/codegen/export';
+import {
+  createProjectBindingRegistry,
+  projectCodeListForAlias,
+  type ProjectBindingRegistry,
+  type ProjectCodeListBinding
+} from '@rune-langium/codegen/export';
 import {
   createProjectBindings,
   resolveProjectCapabilities,
   type Capability,
-  type ImplementationProvider
+  type ImplementationProvider,
+  type ProjectBindingContext
 } from './capabilities.js';
+import { projectCapabilityImpact } from './capability-impact.js';
 import { readProjectResolutionContext } from './project-context.js';
 export type { EffectiveProjectReceipt } from './project-receipt.js';
 export interface EffectiveProject {
@@ -119,8 +128,66 @@ export async function buildEffectiveProject(
         : [];
     });
     const symbols = new Set(declarations.map((entry) => declarationKey(entry.identity)));
-    result.bindings = createProjectBindings(snapshot, providers, symbols);
-    result.capabilities = resolveProjectCapabilities(snapshot, providers, symbols);
+    result.diagnostics.push(...validateProjectOverrides(services, overrides, declarations));
+    if (result.diagnostics.length) return result;
+    await shared.workspace.DocumentBuilder.build(documents, { validation: true, eagerLinking: true });
+    result.diagnostics.push(...validateProjectOverrides(services, overrides, declarations, true));
+    if (result.diagnostics.length) return result;
+    const effectiveSymbols = new Map(
+      declarations.flatMap((entry) => {
+        const node = getEffectiveProjectDeclaration(entry.node);
+        const symbol = node && projectDeclarationIdentity(services, node);
+        return symbol ? [[declarationKey(entry.identity), symbol] as const] : [];
+      })
+    );
+    const dispatchedFamilies = new Set(
+      declarations
+        .filter((entry) => entry.identity.dispatch !== undefined)
+        .map((entry) => declarationKey({ ...entry.identity, dispatch: undefined }))
+    );
+    const implementationErrors = new Map(
+      declarations
+        .filter((entry) => dispatchedFamilies.has(declarationKey({ ...entry.identity, dispatch: undefined })))
+        .map((entry) => [
+          declarationKey(entry.identity),
+          'Installed implementation bindings for dispatch families are not supported.'
+        ])
+    );
+    const context: ProjectBindingContext = { symbols, effectiveSymbols, implementationErrors };
+    const bindings = createProjectBindings(snapshot, providers, context);
+    const resourceErrors = new Map<string, string>();
+    const additionalCodeLists: ProjectCodeListBinding[] = [];
+    for (const entry of declarations) {
+      if (!isRosettaTypeAlias(entry.node)) continue;
+      try {
+        const values = projectCodeListForAlias(entry.node, bindings);
+        if (values !== undefined) additionalCodeLists.push({ symbol: entry.identity, values });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        resourceErrors.set(declarationKey(entry.identity), reason);
+        additionalCodeLists.push({ symbol: entry.identity, unavailable: reason });
+      }
+    }
+    context.resourceErrors = resourceErrors;
+    context.additionalCodeLists = additionalCodeLists;
+    result.bindings = createProjectBindings(snapshot, providers, context);
+    result.capabilities = resolveProjectCapabilities(snapshot, providers, context);
+    for (const binding of additionalCodeLists.filter((entry) => entry.unavailable)) {
+      if (
+        result.capabilities.some((capability) =>
+          capability.affectedDeclarations?.some((symbol) => declarationKey(symbol) === declarationKey(binding.symbol))
+        )
+      )
+        continue;
+      result.capabilities.push({
+        id: 'resource:alias:' + declarationKey(binding.symbol),
+        status: 'unavailable',
+        reason: binding.unavailable,
+        affectedTargets: [],
+        affectedFunctions: [],
+        affectedDeclarations: [binding.symbol]
+      });
+    }
     const nativeSymbols = new Map(
       result.bindings.implementationSymbols.map((symbol) => [declarationKey(symbol), symbol])
     );
@@ -130,10 +197,14 @@ export async function buildEffectiveProject(
         return symbol && isRosettaFunction(entry.node) ? [[entry.node, symbol] as const] : [];
       })
     );
-    result.diagnostics.push(...validateProjectOverrides(services, overrides, declarations));
-    if (result.diagnostics.length) return result;
-    await shared.workspace.DocumentBuilder.build(documents, { validation: true, eagerLinking: true });
-    result.diagnostics.push(...validateProjectOverrides(services, overrides, declarations, true));
+    if (result.capabilities.length) {
+      const impact = projectCapabilityImpact(snapshot, result, declarations);
+      result.capabilities = impact.capabilities;
+      result.bindings = createProjectBindings(snapshot, providers, {
+        ...context,
+        unavailableFunctions: impact.unavailableFunctions
+      });
+    }
     for (const document of documents) {
       for (const error of [...document.parseResult.lexerErrors, ...document.parseResult.parserErrors])
         result.diagnostics.push({
@@ -161,3 +232,5 @@ export async function buildEffectiveProject(
   }
   return result;
 }
+
+export { assertProjectGenerationCapabilities } from './capability-impact.js';

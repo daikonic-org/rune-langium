@@ -23,6 +23,44 @@ const targets = {
   pg: { generator: 'sql', output: 'generated/pg', options: { dialect: 'postgres' } },
   ss: { generator: 'sql', output: 'generated/ss', options: { dialect: 'sqlserver' } }
 } as const;
+it('writes constrained project code lists and refuses unsupported resource generators before publication', async () => {
+  const { root, parent } = await setup(
+    {
+      overrides: [
+        {
+          kind: 'resource',
+          source: { model: 'local', id: 'example.Currency#RosettaTypeAlias' },
+          path: 'resources/codes.json'
+        }
+      ],
+      targets: {
+        schema: { generator: 'json-schema', output: 'generated/schema' },
+        sql: { generator: 'sql', output: 'generated/sql' }
+      }
+    },
+    'namespace example\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)'
+  );
+  await mkdir(join(root, 'resources'));
+  await writeFile(join(root, 'resources/codes.json'), '[{"value":"EUR","label":"Euro"}]');
+  const { snapshot, adapter } = await openLocalProject(root, { privateRoot: join(parent, 'private') });
+  const result = await buildProject(snapshot, { targets: ['schema'] }, adapter);
+  expect(result.status).toBe('success');
+  const json = JSON.parse(
+    await readFile(
+      join(
+        root,
+        result.outputs.find((path) => path.endsWith('.json'))!
+      ),
+      'utf8'
+    )
+  );
+  expect(json.$defs.Currency).toMatchObject({ allOf: expect.arrayContaining([{ enum: ['EUR'] }]) });
+  expect(JSON.stringify(json.$defs.Quote)).toContain('"EUR"');
+  const unsupported = await buildProject(snapshot, { targets: ['sql'] }, adapter);
+  expect(unsupported.status).toBe('failed');
+  expect(unsupported.outputs).toEqual([]);
+  expect(await readdir(join(root, 'generated'))).toEqual(['schema']);
+});
 async function setup(build: Record<string, unknown> = { targets }, model = source) {
   const parent = await mkdtemp(join(tmpdir(), 'rune-build-'));
   temp.push(parent);
@@ -320,4 +358,50 @@ it('builds a locked curated caller through its local replacement and refuses raw
   );
   expect(raw.diagnostics.some((issue) => issue.code === 'SOURCE_MATERIALIZATION_UNAVAILABLE')).toBe(true);
   expect(await readdir(join(root, 'generated'))).not.toContain('raw');
+});
+it('builds pure types without a native provider but gates affected function targets and binds installed implementations', async () => {
+  const symbol = { model: 'local', namespace: 'example', kind: 'RosettaFunction', name: 'Native' };
+  const { root, snapshot, adapter } = await setup(
+    {
+      targets: {
+        types: { generator: 'json-schema', output: 'generated/types' },
+        app: { generator: 'typescript', output: 'generated/app' }
+      },
+      overrides: [{ kind: 'implementation', source: symbol, provider: 'fixture.numeric' }]
+    },
+    source +
+      `
+func Native:
+ inputs: value number (1..1)
+ output: result number (1..1)
+func Caller:
+ inputs: value number (1..1)
+ output: result number (1..1)
+ set result: Native(value)`
+  );
+  expect((await buildProject(snapshot, { targets: ['types'] }, adapter)).status).toBe('success');
+  const unavailable = await buildProject(snapshot, { targets: ['app'] }, adapter);
+  expect(unavailable.status).toBe('failed');
+  expect(unavailable.diagnostics.some((diagnostic) => /provider|registered/.test(diagnostic.message))).toBe(true);
+  expect(await readdir(join(root, 'generated'))).not.toContain('app');
+  const providers = [
+    { id: 'fixture.numeric', supports: () => true, invoke: (args: readonly unknown[]) => Number(args[0]) + 2 }
+  ];
+  const ready = await buildProject(snapshot, { targets: ['app'], providers }, adapter);
+  expect(ready.status).toBe('success');
+  await writeFile(join(root, 'package.json'), JSON.stringify({ type: 'module' }));
+  const temporal = import.meta.resolve('@js-temporal/polyfill');
+  for (const path of ready.outputs.filter((path) => path.endsWith('.ts'))) {
+    const text = (await readFile(join(root, path), 'utf8')).replaceAll(
+      "'@js-temporal/polyfill'",
+      JSON.stringify(temporal)
+    );
+    await writeFile(join(root, path.replace(/\.ts$/, '.js')), stripTypeScriptTypes(text, { mode: 'strip' }));
+  }
+  const entry = ready.outputs.find((path) => path.endsWith('/example.ts'))!;
+  const module = await import(/* @vite-ignore */ pathToFileURL(join(root, entry.replace(/\.ts$/, '.js'))).href);
+  const { bindGeneratedProjectModule } = await import('@rune-langium/codegen/export');
+  const { createProjectBindings } = await import('../src/capabilities.js');
+  bindGeneratedProjectModule(module, createProjectBindings(snapshot, providers));
+  expect(module.Caller(10)).toBe(12);
 });

@@ -123,3 +123,17 @@ it('preserves structured diagnostics from a failed export response', async () =>
     diagnostics: [{ severity: 'error', code: 'unknown-export-selection', message: 'Party is unavailable' }]
   });
 });
+it.each(['projectBindings', 'projectResources'])('refuses host-only %s in a JSON request', async (binding) => {
+  const response = await handleCodegenDownload({
+    request: new Request('https://example.com/api/codegen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        files: [{ path: 'test.rosetta', content: 'namespace test\ntype Example:\n value string (1..1)' }],
+        target: 'typescript',
+        options: { [binding]: {} }
+      })
+    })
+  } as never);
+  expect(response.status).toBe(400);
+});

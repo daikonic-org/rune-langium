@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { projectBackingFiles } from '../helpers/project-backing.js';
+import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 test('saves independent named SQL targets and builds their repository settings', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1461, height: 988 });
@@ -50,7 +51,7 @@ test('saves independent named SQL targets and builds their repository settings',
   await settings.getByRole('heading', { name: 'Export settings', exact: true }).scrollIntoViewIfNeeded();
   const a11y = await new AxeBuilder({ page }).include('[data-testid="export-settings-panel"]').analyze();
   expect(a11y.violations).toEqual([]);
-  for (const close of await page.locator('[data-slot=toast-close]').all()) await close.click();
+  await dismissLocalTransportNotices(page);
   await expect(page.locator('[data-slot=toast-close]')).toHaveCount(0);
   await testInfo.attach('named-targets', {
     body: await page.screenshot({ path: testInfo.outputPath('named-targets.png') }),

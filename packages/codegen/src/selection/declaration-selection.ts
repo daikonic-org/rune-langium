@@ -49,6 +49,22 @@ function rootOf(node: AstNode): TopLevel | undefined {
   return current.$container && isRosettaModel(current.$container) ? (current as TopLevel) : undefined;
 }
 
+/** Direct declaration dependencies through the authoritative effective-reference port. */
+export function collectDeclarationDependencies(root: AstNode): readonly AstNode[] {
+  const dependencies = new Set<AstNode>();
+  for (const node of [root, ...AstUtils.streamAllContents(root)]) {
+    for (const { reference } of AstUtils.streamReferences(node)) {
+      const candidate = reference as unknown as { ref?: AstNode; refs?: readonly AstNode[] };
+      for (const target of candidate.ref ? [candidate.ref] : (candidate.refs ?? [])) {
+        const original = rootOf(target);
+        const effective = original ? getEffectiveProjectDeclaration(original) : undefined;
+        if (effective) dependencies.add(effective);
+      }
+    }
+  }
+  return [...dependencies];
+}
+
 function declaration(namespace: string, root: TopLevel): ExportSelection['declarations'][number] {
   return { namespace, name: root.name ?? '', kind: root.$type };
 }
@@ -92,30 +108,31 @@ export function resolveExportSelection(docs: LangiumDocument[], selection: Expor
       }
     }
   }
+  const dependencies = new Map<TopLevel, readonly AstNode[]>();
   const queue = [...roots];
   while (queue.length) {
     const root = queue.pop()!;
     const rootsRequiringCurrent = requiredByRoot.get(root) ?? new Set<TopLevel>();
-    for (const node of [root, ...AstUtils.streamAllContents(root)]) {
-      for (const { reference } of AstUtils.streamReferences(node)) {
-        const candidate = reference as unknown as { ref?: AstNode; refs?: readonly AstNode[] };
-        for (const target of candidate.ref ? [candidate.ref] : (candidate.refs ?? [])) {
-          const root = rootOf(target);
-          const targetRoot = root ? (getEffectiveProjectDeclaration(root) as TopLevel | undefined) : undefined;
-          if (targetRoot && allRoots.has(targetRoot)) {
-            roots.add(targetRoot);
-            const rootsRequiringTarget = requiredByRoot.get(targetRoot) ?? new Set<TopLevel>();
-            const before = rootsRequiringTarget.size;
-            for (const requiringRoot of rootsRequiringCurrent) rootsRequiringTarget.add(requiringRoot);
-            if (rootsRequiringTarget.size !== before) {
-              requiredByRoot.set(targetRoot, rootsRequiringTarget);
-              queue.push(targetRoot);
-            }
-          }
+    let targets = dependencies.get(root);
+    if (!targets) {
+      targets = collectDeclarationDependencies(root);
+      dependencies.set(root, targets);
+    }
+    for (const target of targets) {
+      const targetRoot = target as TopLevel;
+      if (allRoots.has(targetRoot)) {
+        roots.add(targetRoot);
+        const rootsRequiringTarget = requiredByRoot.get(targetRoot) ?? new Set<TopLevel>();
+        const before = rootsRequiringTarget.size;
+        for (const requiringRoot of rootsRequiringCurrent) rootsRequiringTarget.add(requiringRoot);
+        if (rootsRequiringTarget.size !== before) {
+          requiredByRoot.set(targetRoot, rootsRequiringTarget);
+          queue.push(targetRoot);
         }
       }
     }
   }
+
   const documents = docs.flatMap((doc) => {
     const model = doc.parseResult.value;
     if (!model || !isRosettaModel(model)) return [];

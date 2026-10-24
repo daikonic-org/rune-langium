@@ -10,6 +10,8 @@ import {
 import { type LangiumDocument } from 'langium';
 import { type ProjectSnapshot, type ProjectFileAdapter } from '@rune-langium/project-config';
 
+import type { ImplementationProvider } from './implementations.js';
+import { assertProjectGenerationCapabilities } from './capability-impact.js';
 import { buildEffectiveProject } from './effective-project.js';
 import {
   loadLockedReferences,
@@ -44,6 +46,7 @@ export async function buildProject(
     signal?: AbortSignal;
     referenceTransport?: ReferenceTransport;
     referenceCache?: ReferenceCache;
+    providers?: readonly ImplementationProvider[];
   },
   adapter: ProjectFileAdapter
 ) {
@@ -60,7 +63,7 @@ export async function buildProject(
         )
       : { documents: [], diagnostics: [] };
   if (loaded.diagnostics.length) return { status: 'failed' as const, diagnostics: loaded.diagnostics, outputs: [] };
-  const graph = await buildEffectiveProject(snapshot, loaded.documents);
+  const graph = await buildEffectiveProject(snapshot, loaded.documents, request.providers);
   if (graph.diagnostics.some((issue) => issue.severity === 'error'))
     return { status: 'failed' as const, diagnostics: graph.diagnostics, outputs: [] };
   const documents = graph.documents as LangiumDocument<RosettaModel>[];
@@ -76,11 +79,15 @@ export async function buildProject(
           .filter((name): name is string => Boolean(name))
       )
     );
+    const selection = { namespaces, declarations: [] };
+    assertProjectGenerationCapabilities(graph, selection, target.generator);
     const options: GeneratorOptions = {
+      projectBindings: graph.implementationBindings,
+      projectResources: graph.bindings,
       target: target.generator as Target,
       strict: true,
       [target.generator]: validated.value
     };
-    return (await generateSelected(documents, { namespaces, declarations: [] }, options)).outputs;
+    return (await generateSelected(documents, selection, options)).outputs;
   });
 }

@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { declarationKey, type DeclarationIdentity } from '@rune-langium/core';
+import {
+  declarationKey,
+  getElementNamespace,
+  getEnumValues,
+  isRosettaTypeAlias,
+  isRosettaBasicType,
+  isRosettaEnumeration,
+  type RosettaTypeAlias,
+  type DeclarationIdentity
+} from '@rune-langium/core';
 import { previewTypeSymbol } from '../preview-references.js';
 import type { FormPreviewSchema, PreviewField } from '../types.js';
 export interface ProjectCodeListBinding {
@@ -18,10 +27,17 @@ export class ProjectBindingUnavailable extends Error {}
 export function createProjectBindingRegistry(input: {
   codeLists?: readonly ProjectCodeListBinding[];
   implementations?: readonly ProjectImplementationBinding[];
+  unavailableFunctions?: readonly { symbol: DeclarationIdentity; reason: string }[];
 }) {
   const codeLists = new Map<string, ProjectCodeListBinding>();
   const byType = new Map<string, ProjectCodeListBinding>();
   const implementations = new Map<string, ProjectImplementationBinding>();
+  const blocked = new Map(
+    (input.unavailableFunctions ?? []).map((entry) => [
+      declarationKey(entry.symbol),
+      { symbol: { ...entry.symbol }, reason: entry.reason }
+    ])
+  );
   for (const binding of input.codeLists ?? []) {
     const key = declarationKey(binding.symbol);
     if (codeLists.has(key)) throw new ProjectBindingUnavailable('Ambiguous code-list binding: ' + key);
@@ -45,6 +61,8 @@ export function createProjectBindingRegistry(input: {
     return binding.values;
   };
   function invokeByKey(key: string, args: readonly unknown[]) {
+    const unavailable = blocked.get(key);
+    if (unavailable) throw new ProjectBindingUnavailable(unavailable.reason);
     const binding = implementations.get(key);
     if (!binding?.invoke || binding.unavailable)
       throw new ProjectBindingUnavailable(binding?.unavailable ?? 'Implementation binding is unavailable: ' + key);
@@ -64,6 +82,11 @@ export function createProjectBindingRegistry(input: {
   return {
     implementationSymbols: [...implementations.values()].map((binding) => ({ ...binding.symbol })),
     implementationStatus(targetId: string) {
+      const reasons = [...blocked.values()]
+        .filter((entry) => entry.symbol.namespace + '.' + entry.symbol.name === targetId)
+        .map((entry) => entry.reason);
+      if (reasons.length) return { available: false, reason: [...new Set(reasons)].join('; ') };
+
       const matches = [...implementations.values()].filter(
         (binding) =>
           binding.symbol.kind === 'RosettaFunction' && binding.symbol.namespace + '.' + binding.symbol.name === targetId
@@ -205,4 +228,50 @@ export function bindGeneratedProjectModule(
 ): void {
   for (const [name, value] of Object.entries(module))
     if (name.startsWith('$rune$bindProject$') && typeof value === 'function') value(bindings.invokeByKey);
+}
+
+/** One adapter guard shared by the graph and all resource-aware generators. */
+export function projectCodeListForAlias(
+  alias: RosettaTypeAlias,
+  resources: Pick<ProjectBindingRegistry, 'codeListForType'> | undefined
+) {
+  if (!resources) return undefined;
+  const lists: (readonly { value: string; label: string }[])[] = [];
+  const seen = new Set<RosettaTypeAlias>();
+  let current = alias;
+  let constrained = false;
+  while (!seen.has(current)) {
+    seen.add(current);
+    const codes = resources.codeListForType(
+      previewTypeSymbol('RosettaTypeAlias', `${getElementNamespace(current)}.${current.name}`)!
+    );
+    if (codes !== undefined) lists.push(codes);
+    constrained ||= Boolean(
+      current.parameters.length || current.conditions.length || current.typeCall.arguments.length
+    );
+    const target = current.typeCall.type.ref;
+    if (isRosettaTypeAlias(target)) {
+      current = target;
+      continue;
+    }
+    if (!lists.length) return undefined;
+    if (constrained)
+      throw new ProjectBindingUnavailable(
+        'Code-list bindings for constrained or parameterized aliases are not supported: ' + alias.name
+      );
+    const values = lists
+      .slice(1)
+      .reduce((values, codes) => values.filter((value) => codes.some((code) => code.value === value.value)), lists[0]!);
+    if (isRosettaBasicType(target) && target.name === 'string') return values;
+    if (
+      isRosettaEnumeration(target) &&
+      values.every((value) => getEnumValues(target).some((member) => member.name === value.value))
+    )
+      return values;
+    throw new ProjectBindingUnavailable(
+      'The code-list adapter requires a plain string or compatible enum alias: ' + alias.name
+    );
+  }
+  if (lists.length) throw new ProjectBindingUnavailable('Cyclic code-list alias: ' + alias.name);
+  return undefined;
 }

@@ -17,17 +17,27 @@ export interface Capability {
   reason?: string;
   affectedTargets: string[];
   affectedFunctions: SymbolIdentity[];
+  affectedDeclarations?: SymbolIdentity[];
 }
 function callableTargets(snapshot: ProjectSnapshot) {
   return Object.entries(snapshot.project.build.targets)
     .filter(([, target]) => target.generator === 'typescript')
     .map(([name]) => name);
 }
+export interface ProjectBindingContext {
+  symbols?: ReadonlySet<string>;
+  additionalCodeLists?: readonly ProjectCodeListBinding[];
+  effectiveSymbols?: ReadonlyMap<string, SymbolIdentity>;
+  resourceErrors?: ReadonlyMap<string, string>;
+  implementationErrors?: ReadonlyMap<string, string>;
+  unavailableFunctions?: readonly { symbol: SymbolIdentity; reason: string }[];
+}
 function prepared(
   snapshot: ProjectSnapshot,
   providers: readonly ImplementationProvider[],
-  knownSymbols?: ReadonlySet<string>
+  context: ProjectBindingContext = {}
 ) {
+  const knownSymbols = context.symbols;
   const capabilities: Capability[] = [];
   const implementations: ProjectImplementationBinding[] = [];
   const codeLists: ProjectCodeListBinding[] = [];
@@ -35,27 +45,30 @@ function prepared(
     if (mapping.kind === 'implementation') {
       const matches = providers.filter((provider) => provider.id === mapping.provider);
       let reason: string | undefined =
-        mapping.source.kind !== 'RosettaFunction'
-          ? 'Only Rune function implementation bindings are supported.'
-          : knownSymbols && !knownSymbols.has(declarationKey(mapping.source))
-            ? 'The implementation source does not identify one function in the effective project.'
-            : undefined;
+        mapping.source.dispatch !== undefined
+          ? 'Installed implementation bindings for dispatch families are not supported.'
+          : mapping.source.kind !== 'RosettaFunction'
+            ? 'Only Rune function implementation bindings are supported.'
+            : knownSymbols && !knownSymbols.has(declarationKey(mapping.source))
+              ? 'The implementation source does not identify one function in the effective project.'
+              : context.implementationErrors?.get(declarationKey(mapping.source));
       try {
-        if (matches.length !== 1 || !matches[0]!.supports(mapping.source))
+        if (matches.length !== 1 || !matches[0]!.supports({ ...mapping.source }))
           reason ??= 'One installed, registered provider must support this exact symbol.';
       } catch {
         reason = 'The installed provider could not establish support for this symbol.';
       }
       capabilities.push({
-        id: 'implementation:' + mapping.provider,
+        id: 'implementation:' + mapping.provider + ':' + declarationKey(mapping.source),
         status: reason ? 'unavailable' : 'available',
         ...(reason ? { reason } : {}),
         affectedTargets: callableTargets(snapshot),
-        affectedFunctions: [mapping.source]
+        affectedFunctions: [mapping.source],
+        affectedDeclarations: [mapping.source]
       });
       implementations.push({
         symbol: mapping.source,
-        ...(reason ? { unavailable: reason } : { invoke: (args) => matches[0]!.invoke(args) })
+        ...(reason ? { unavailable: reason } : { invoke: matches[0]!.invoke.bind(matches[0]) })
       });
     } else if (mapping.kind === 'resource') {
       const resource = resolveProjectResource(snapshot, mapping.source);
@@ -84,30 +97,22 @@ function prepared(
         } catch (error) {
           reason = error instanceof Error ? error.message : 'Resource decoding is unavailable.';
         }
+      const original = match
+        ? { model: mapping.source.model, namespace: match[1]!, name: match[2]!, kind: match[3]! }
+        : undefined;
+      const symbol = original && (context.effectiveSymbols?.get(declarationKey(original)) ?? original);
+      if (original && knownSymbols && !knownSymbols.has(declarationKey(original)))
+        reason = 'The code-list source does not identify one alias in the effective project.';
+      if (symbol) reason ??= context.resourceErrors?.get(declarationKey(symbol));
       capabilities.push({
         id: 'resource:' + mapping.source.model + ':' + mapping.source.id,
         status: reason ? 'unavailable' : 'available',
         ...(reason ? { reason } : {}),
         affectedTargets: [],
-        affectedFunctions: []
+        affectedFunctions: [],
+        ...(symbol ? { affectedDeclarations: [symbol] } : {})
       });
-      if (
-        match &&
-        knownSymbols &&
-        !knownSymbols.has(
-          declarationKey({ model: mapping.source.model, namespace: match[1]!, name: match[2]!, kind: match[3]! })
-        )
-      ) {
-        reason = 'The code-list source does not identify one alias in the effective project.';
-        const capability = capabilities[capabilities.length - 1]!;
-        capability.status = 'unavailable';
-        capability.reason = reason;
-      }
-      if (match)
-        codeLists.push({
-          symbol: { model: mapping.source.model, namespace: match[1]!, name: match[2]!, kind: match[3]! },
-          ...(reason ? { unavailable: reason } : { values })
-        });
+      if (symbol) codeLists.push({ symbol, ...(reason ? { unavailable: reason } : { values }) });
     }
   }
   const model = snapshot.project.rune.model as { defaultSerialisationFormat?: unknown } | undefined;
@@ -126,17 +131,23 @@ function prepared(
 export function resolveProjectCapabilities(
   snapshot: ProjectSnapshot,
   providers: readonly ImplementationProvider[],
-  knownSymbols?: ReadonlySet<string>
+  context: ProjectBindingContext = {}
 ): Capability[] {
-  return prepared(snapshot, providers, knownSymbols).capabilities;
+  return prepared(snapshot, providers, context).capabilities;
 }
 export function createProjectBindings(
   snapshot: ProjectSnapshot,
   providers: readonly ImplementationProvider[],
-  knownSymbols?: ReadonlySet<string>
+  context: ProjectBindingContext = {}
 ) {
-  const result = prepared(snapshot, providers, knownSymbols);
-  return createProjectBindingRegistry(result);
+  const result = prepared(snapshot, providers, context);
+  const codeLists = new Map(result.codeLists.map((binding) => [declarationKey(binding.symbol), binding]));
+  for (const binding of context.additionalCodeLists ?? []) codeLists.set(declarationKey(binding.symbol), binding);
+  return createProjectBindingRegistry({
+    ...result,
+    codeLists: [...codeLists.values()],
+    unavailableFunctions: context.unavailableFunctions
+  });
 }
 
 /** Defaults never silently substitute plain JSON for an unsupported configured codec. */

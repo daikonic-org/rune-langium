@@ -72,6 +72,8 @@ export type {
  * FR-001 (target selection), FR-022 (strict mode).
  */
 export interface GeneratorOptions {
+  /** Prepared resource lookup from the active project, never parsed configuration. */
+  projectResources?: Pick<ProjectBindingRegistry, 'codeListForType'>;
   /** Host-resolved native bindings. Configuration and executable callbacks never enter generated source. */
   projectBindings?: ReadonlyMap<RosettaFunction, DeclarationIdentity>;
   /** Selects the emitter pipeline. Defaults to 'zod'. */

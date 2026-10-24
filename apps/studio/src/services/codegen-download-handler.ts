@@ -32,7 +32,7 @@ interface CodegenRequestBody {
    * default for the target (019 spec §10.1) — barrel for Zod/TS,
    * single-file for JSON Schema.
    */
-  options?: Omit<GeneratorOptions, 'target' | 'namespaces' | 'selection'>;
+  options?: Omit<GeneratorOptions, 'target' | 'namespaces' | 'selection' | 'projectBindings' | 'projectResources'>;
   /**
    * Optional curated-bundle hydration list. When present, the function
    * fetches each bundle's pre-parsed serialized AST via the
@@ -290,6 +290,9 @@ function isExportSelection(value: unknown): value is ExportSelection {
 function isValidRequest(body: unknown): body is CodegenRequestBody {
   if (!body || typeof body !== 'object') return false;
   if ('project' in body) return false;
+  const options = (body as { options?: unknown }).options;
+  if (options && typeof options === 'object' && ('projectBindings' in options || 'projectResources' in options))
+    return false;
   if ('projectTarget' in body && !BuildTargetSchema.safeParse(body.projectTarget).success) return false;
   const b = body as { files?: unknown; target?: unknown; curatedBundles?: unknown; curatedDocs?: unknown };
   if (
@@ -772,6 +775,7 @@ export const handleCodegenDownload = withInstrumentation(
       let documents: import('langium').LangiumDocument[];
       let resolvedNamespaces: string[] | undefined;
       let resolvedCohorts: Record<string, string> | undefined;
+      let projectGraph: import('@rune-langium/project-runtime/effective').EffectiveProject | undefined;
       // Set whenever this request is consuming a cache entry (whether it
       // just registered it or coalesced onto an existing one) — released in
       // the outer `finally` below, which now spans from registration all the
@@ -783,6 +787,7 @@ export const handleCodegenDownload = withInstrumentation(
         if (project) {
           const { applyEffectiveProject } = await import('@rune-langium/project-runtime/effective');
           const graph = await applyEffectiveProject(project);
+          projectGraph = graph;
           documents = [...graph.documents];
           resolvedCohorts = Object.fromEntries(
             Object.entries(project.snapshot.lock?.references ?? {}).map(([id, entry]) => [id, entry.cohort])
@@ -996,6 +1001,19 @@ export const handleCodegenDownload = withInstrumentation(
         const { generate, generateSelected, unknownExportSelectionDiagnostics } =
           await import('@rune-langium/codegen/export');
         const generatorOptions = applyPagesFunctionDefaults(body);
+        if (projectGraph) {
+          const { assertProjectGenerationCapabilities } = await import('@rune-langium/project-runtime/effective');
+          assertProjectGenerationCapabilities(
+            projectGraph,
+            body.selection ??
+              (body.namespaces?.length
+                ? { namespaces: resolvedNamespaces ?? body.namespaces, declarations: [] }
+                : undefined),
+            body.target
+          );
+          generatorOptions.projectBindings = projectGraph.implementationBindings;
+          generatorOptions.projectResources = projectGraph.bindings;
+        }
         if (resolvedNamespaces && body.namespaces) generatorOptions.namespaces = resolvedNamespaces;
         const selectedGeneration = body.selection
           ? await generateSelected(documents, body.selection, generatorOptions)

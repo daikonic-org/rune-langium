@@ -94,7 +94,11 @@ The first data adapter accepts a JSON array of `{value, label}` string entries.
 Its resource ID is a kind-qualified Rune alias identity, such as
 `quote.Currency#RosettaTypeAlias`, qualified by the mapping's model ID. The runtime
 prepares one registry for generated preview choices and validation, including
-object arrays and deferred definitions. Unknown formats/IDs remain unavailable;
+object arrays, deferred definitions and function outputs. Alias chains and explicit
+local replacements retain the constraint. Plain string and compatible enum aliases
+are supported; parameterized/constrained aliases remain unavailable. TypeScript
+literal unions, Zod validators and JSON Schema exports enforce the same membership.
+Unknown formats/IDs remain unavailable;
 this does not implement FpML genericode, calendars or XML/XSD validation.
 
 Codegen accepts host-resolved function identities and emits module-scoped binders.
@@ -102,12 +106,24 @@ Codegen accepts host-resolved function identities and emits module-scoped binder
 registry; rebinding to a different registry is refused. Generated callers use
 that same binding, across per-namespace, barrel and single-file TypeScript.
 Callbacks never enter generated source. A Promise result is refused before a
-synchronous Rune call can treat it as a value. Hosts must prepare asynchronous
+synchronous Rune call can treat it as a value. Native dispatch families remain
+unavailable; declaration replacements still retain their complete dispatch families.
+Hosts must prepare asynchronous
 data before execution. Financial-calendar/schedule parity is not claimed.
 
 `serializeProjectData` and `importProjectData` currently support plain JSON. An
 unsupported configured `model.defaultSerialisationFormat` is an unavailable codec,
 not a successful JSON fallback. These ports are for project-aware hosts; legacy
-explicit plain-JSON tools remain distinct. Native build/export entry points do not yet apply this registry to every
-generator or enforce provider capability gates. Registry availability alone must
-not be treated as support in a host that has not adopted those ports.
+explicit plain-JSON tools remain distinct.
+
+Native builds and Studio download/code-preview workers gate selected declaration
+closures using the shared dependency walker. A missing provider blocks its callers,
+while unrelated pure declarations remain usable. Resource constraints currently
+support TypeScript, Zod and JSON Schema; other generators refuse affected exports
+before output is written. Installed callbacks are injected by the native host via
+`buildProject(..., {targets, providers}, adapter)`; Studio has no installed calendar
+provider. Repository configuration cannot install executable code.
+
+Resource-only reloads invalidate workflow schemas, validation and results using
+the saved project revision, without remounting the workflow or discarding compatible
+inputs. Fresh worker captures still require exact receipt acknowledgement.

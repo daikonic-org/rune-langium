@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import {
   getEnumValues,
   isAsOperation,
@@ -32,7 +33,7 @@ import {
   getElementNamespace,
   declarationKey
 } from '@rune-langium/core';
-import { projectBindingHeader, projectBindingNames } from '../runtime/project-bindings.js';
+import { projectBindingHeader, projectBindingNames, projectCodeListForAlias } from '../runtime/project-bindings.js';
 import { emittedTypeScriptProjection } from '../projection/typescript.js';
 import type { EmittedProjection } from '../projection/types.js';
 import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveType } from '../expr/navigation.js';
@@ -731,7 +732,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * T105.
    */
   private resolveTypeExprAsTs(attr: Attribute): string {
-    const type = resolveTypeCallTarget(
+    const type = resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
       {
@@ -763,7 +764,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
     return metadataType(type, fieldMetadataKind(attr));
   }
@@ -1210,7 +1213,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * has a `typeCall` but no `.name`, unlike `Attribute`).
    */
   private resolveChoiceOptionTypeExpr(typeCall: TypeCall | undefined, diagnosticLabel: string): string {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       typeCall,
       this.typeIndex,
       {
@@ -1233,7 +1236,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
   }
 
@@ -1247,7 +1252,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * resolved terminal node instead of the immediate direct ref.
    */
   private resolveChoiceOptionShapeTypeExpr(typeCall: TypeCall | undefined, diagnosticLabel: string): string {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       typeCall,
       this.typeIndex,
       {
@@ -1270,7 +1275,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
   }
 
@@ -1702,7 +1709,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private emitTypeAliasDeclaration(alias: RosettaTypeAlias): string {
     const name = this.typeName(alias);
 
-    const tsType = resolveTypeCallTarget(
+    const tsType = resolveProjectTypeCall(
       alias.typeCall,
       this.typeIndex,
       {
@@ -1727,10 +1734,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         // passthrough") for the disclosure and risk assessment.
         onUnresolved: () => 'unknown'
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
 
-    return `export type ${name} = ${tsType};`;
+    const codes = projectCodeListForAlias(alias, this.projectResources);
+    const type = codes ? projectTsCodeList(tsType, codes) : tsType;
+    return `export type ${name} = ${type};`;
   }
 
   // ---------------------------------------------------------------------------

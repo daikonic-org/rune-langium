@@ -820,3 +820,11 @@ Workers share JSON response construction through `@rune-langium/worker-core/http
 `jsonResponse` preserves caller headers and status; `corsJsonResponse` adds the
 already-checked origin and `Vary: Origin`. Route handlers remain responsible for
 origin authorization before constructing a CORS response.
+
+Project capability preparation uses installed host providers and explicitly rooted
+resource mappings. The effective graph carries one codegen binding registry for
+form choices, input/output validation and TypeScript/Zod/JSON Schema constraints.
+The shared declaration dependency walker determines affected callers and export
+scopes. Unsupported resource generators fail before publication; provider callbacks
+never enter serialized captures or generated source. Workflow caches include the
+saved project revision so resource/config-only changes cannot retain valid status.

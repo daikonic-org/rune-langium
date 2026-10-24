@@ -51,6 +51,7 @@ import {
 } from '@rune-langium/core';
 import {
   generate,
+  generateSelected,
   generatePreviewSchemas,
   validateProjectPreviewBindings,
   bindGeneratedProjectModule,
@@ -77,7 +78,11 @@ import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { PreviewWorkerRequest, ProjectionRequest } from '../services/codegen-service.js';
 import { z } from 'zod';
-import { applyEffectiveProject, type EffectiveProject } from '@rune-langium/project-runtime/effective';
+import {
+  applyEffectiveProject,
+  assertProjectGenerationCapabilities,
+  type EffectiveProject
+} from '@rune-langium/project-runtime/effective';
 import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
 import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 import { projectOperationError } from '../services/project-worker-bridge.js';
@@ -536,6 +541,8 @@ async function runCodegen(
       return;
     }
 
+    const graph = await scope.project;
+    if (graph) assertProjectGenerationCapabilities(graph, selection, target);
     const selectionKey = JSON.stringify(selection ?? null);
     if (regenerate || codegenGenerateCache.get(target)?.value.selectionKey !== selectionKey)
       codegenGenerateCache.delete(target);
@@ -545,7 +552,14 @@ async function runCodegen(
       codegenGenerateCache,
       target,
       () => documentsVersion,
-      async () => ({ selectionKey, results: await generate(documents, { target }) })
+      async () => ({
+        selectionKey,
+        results: await generate(documents, {
+          target,
+          projectBindings: graph?.implementationBindings,
+          projectResources: graph?.bindings
+        })
+      })
     );
 
     if (documentsVersion !== (selection || project ? previewFilesVersion : codegenFilesVersion)) return;
@@ -688,7 +702,8 @@ function projectResourceDiagnostics(
   documents: LangiumDocument[],
   version: number,
   targetId: string,
-  data: unknown
+  data: unknown,
+  result = false
 ): ValidationDiagnostic[] {
   if (!project) return [];
   const [id] = targetId.split('#', 2);
@@ -697,6 +712,14 @@ function projectResourceDiagnostics(
   );
   const schema = generatedPreviewSchemaForTarget(schemas, targetId);
   if (!schema) throw new ProjectBindingUnavailable('The resource-validation schema is unavailable for ' + targetId);
+  if (result)
+    return schema.result
+      ? validateProjectPreviewBindings(
+          { ...schema, fields: [schema.result] },
+          { [schema.result.path]: data },
+          project.bindings
+        )
+      : [];
   return validateProjectPreviewBindings(schema, data, project.bindings);
 }
 
@@ -1119,6 +1142,20 @@ async function executeFunction(
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     const project = await scope.project;
     if (projectGeneration) functionFqn = resolveEffectiveProjectTargetId(documents, functionFqn, 'RosettaFunction');
+    const separator = functionFqn.lastIndexOf('.');
+    const selection = project
+      ? {
+          namespaces: [],
+          declarations: [
+            {
+              namespace: functionFqn.slice(0, separator),
+              name: functionFqn.slice(separator + 1),
+              kind: 'RosettaFunction'
+            }
+          ]
+        }
+      : undefined;
+    if (project) assertProjectGenerationCapabilities(project, selection, 'typescript');
     // Tagged with documentsVersion (fixed — `documents` is an immutable local
     // array once obtained, so no further staleness can be introduced during
     // this call), not the live previewFilesVersion — see runPreview's
@@ -1129,14 +1166,19 @@ async function executeFunction(
         ? (
             await getOrComputeAsync(
               previewGenerateCache,
-              'generate:typescript:input-checks',
+              'generate:typescript:input-checks' + (project ? ':' + functionFqn : ''),
               () => documentsVersion,
-              () =>
-                generate(documents, {
+              async () => {
+                const options = {
                   target: 'typescript',
                   typescript: { inputChecks: true },
-                  projectBindings: project?.implementationBindings
-                })
+                  projectBindings: project?.implementationBindings,
+                  projectResources: project?.bindings
+                } as const;
+                return selection
+                  ? (await generateSelected(documents, selection, options)).outputs
+                  : generate(documents, options);
+              }
             )
           ).value
         : [];
@@ -1239,6 +1281,16 @@ async function executeFunction(
       scope.postMessage({ type: 'instance:validateResult', requestId, diagnostics: [] });
       return;
     }
+    const outputDiagnostics = projectResourceDiagnostics(
+      project,
+      documents,
+      documentsVersion,
+      `${selectedTargetId}#RosettaFunction`,
+      output,
+      true
+    );
+    if (outputDiagnostics.length)
+      throw new Error(outputDiagnostics.map((diagnostic) => diagnostic.path + ': ' + diagnostic.message).join('; '));
     scope.postMessage({
       type: 'preview:execute-result',
       requestId,

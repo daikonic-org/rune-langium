@@ -32,6 +32,23 @@ export function projectOverrideRedirects(overrides: readonly ProjectOverride[]):
   const mappings = new Map<string, DeclarationIdentity>();
   const diagnostics: ProjectDiagnostic[] = [];
   for (const mapping of overrides) {
+    if (mapping.kind !== 'implementation') continue;
+    if (
+      overrides.some(
+        (other) =>
+          other.kind === 'declaration' &&
+          declarationKey(family(other.source)) === declarationKey(family(mapping.source))
+      )
+    )
+      diagnostics.push(
+        issue(
+          'OVERRIDE_AMBIGUOUS',
+          'A declaration replacement and an installed implementation compete for the same source family: ' +
+            declarationKey(mapping.source)
+        )
+      );
+  }
+  for (const mapping of overrides) {
     if (mapping.kind !== 'declaration') continue;
     const key = declarationKey(mapping.source);
     if (mappings.has(key))

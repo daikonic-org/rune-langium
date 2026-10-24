@@ -1,32 +1,38 @@
 ---
-description: "The main barrel (`@rune-langium/codegen`, i.e. this file, resolved via\npackage.json's `\".\"` export) is intentionally empty."
+description: "Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed\nRune DSL documents."
 name: rune-langium-codegen
 ---
 
 # @rune-langium/codegen
 
-The main barrel (`@rune-langium/codegen`, i.e. this file, resolved via
-package.json's `"."` export) is intentionally empty.
+Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed
+Rune DSL documents.
 
-Spec 021 Phase 2's subpath restructure ("CLEAN FLIP") splits this
-package's public API by direction — nothing in it is genuinely shared
-between the two, so the main barrel exports nothing:
+Import this API from `@rune-langium/codegen/export`; the package root is empty.
+Inbound import and Rosetta rendering APIs use separate subpaths.
 
-- `@rune-langium/codegen/export` — the outbound (Rune → target-language)
-  surface: `generate()`, `generatePreviewSchemas()`, every emitter
-  contract/option type, `TARGET_DESCRIPTORS`, etc.
-- `@rune-langium/codegen/import` — the inbound (source → Rune) surface:
-  `importModel()`, `SourceModel`/`ConstraintIR` types, the CLI's
-  `runImport`, and import diagnostics.
-- `@rune-langium/codegen/rosetta` — UNCHANGED: the shared, browser-safe
-  `.rosetta` render-core consumed by both directions (the outbound
-  emitters render Rune AST to `.rosetta` text; the inbound importer
-  renders its built AST-shaped nodes the same way).
+Use `generate()` when you need emitted files for a concrete target, and
+`generatePreviewSchemas()` when UI tooling needs structured field metadata and
+source maps for a selected data type. This package expects parsed Langium
+documents from `@rune-langium/core`.
 
-Import from the subpath that matches what you need; do not add exports
-here unless a symbol is genuinely used by both `/export` and `/import`
-(as of this restructure, nothing is — `/rosetta` already covers the one
-case that legitimately spans both directions).
+## Configuration
+
+9 configuration interfaces — see references/config.md for details.
+
+## Quick Reference
+
+81 exports (31 functions, 3 classes, 42 types, 5 constants) — see references/ for full API.
+
+## References
+
+Load these on demand — do NOT read all at once:
+
+- When calling any function → browse `references/functions/` for grouped indexes, full signatures, parameters, and return types
+- When using a class → read `references/classes.md` for properties, methods, and inheritance
+- When defining typed variables or function parameters → read `references/types.md`
+- When using exported constants → read `references/variables.md`
+- When configuring options → read `references/config.md` for all settings and defaults
 
 ## Links
 

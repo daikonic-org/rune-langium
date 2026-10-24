@@ -35,6 +35,7 @@ import {
   type FunctionSessionState
 } from '../../store/function-session-store.js';
 import { usePreviewSessionFactory } from '../providers/preview-session-context.js';
+import { useProject } from '../providers/project-context.js';
 import { useWorkspaceOptional } from '../providers/workspace-context.js';
 import { isInstanceBindableToField } from '../../services/function-input-binding.js';
 import { resolveFunctionOutputTarget } from '../../services/function-output-target.js';
@@ -177,6 +178,7 @@ export const PrototypeWorkflow = withInstrumentation(
     focusRequestId?: number;
   }) {
     const workspace = useWorkspaceOptional();
+    const projectRevision = useProject().snapshot?.revision;
     const factory = usePreviewSessionFactory();
     const [session, setSession] = useState<FunctionSession>();
     useEffect(() => {
@@ -385,6 +387,7 @@ export const PrototypeWorkflow = withInstrumentation(
     const sourceRevision = useMemo(
       () =>
         JSON.stringify([
+          projectRevision,
           workspace?.files.filter((file) => !file.bundleId).map((file) => [file.path, file.content]),
           [
             ...new Set(
@@ -392,7 +395,7 @@ export const PrototypeWorkflow = withInstrumentation(
             )
           ].sort()
         ]),
-      [workspace?.files]
+      [workspace?.files, projectRevision]
     );
     const lastSourceRevision = useRef(sourceRevision);
     useEffect(() => {

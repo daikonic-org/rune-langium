@@ -164,3 +164,115 @@ it('resolves named target namespace patterns against the effective graph and ref
   requestMock.mockResolvedValueOnce(new Response(await zip.generateAsync({ type: 'uint8array' })));
   await expect(generateExport(input, new AbortController().signal)).rejects.toThrow(/project receipt/i);
 });
+it('does not package selected native callers without a provider, while pure selected types remain exportable', async () => {
+  const { createProjectSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content = `namespace native
+ type Quote:
+  value number (1..1)
+ func External:
+  inputs: value number (1..1)
+  output: result number (1..1)
+ func Caller:
+  inputs: value number (1..1)
+  output: result number (1..1)
+  set result: External(value)`;
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Native}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'implementation',
+              source: { model: 'local', namespace: 'native', kind: 'RosettaFunction', name: 'External' },
+              provider: 'missing'
+            }
+          ]
+        })
+      ],
+      ['model/native.rosetta', content]
+    ]),
+    () => []
+  );
+  const files = [{ name: 'native.rosetta', path: 'model/native.rosetta', content, dirty: false }];
+  const project = await captureProjectRuntimeInput(snapshot, files, []);
+  const input = {
+    workspaceId: 'p',
+    sourceRevision: 1,
+    files,
+    project,
+    config: {
+      target: 'typescript' as const,
+      options: {},
+      selection: { namespaces: [], declarations: [{ namespace: 'native', name: 'Caller', kind: 'RosettaFunction' }] }
+    }
+  };
+  await expect(generateExport(input, new AbortController().signal)).rejects.toThrow(/provider|registered/);
+  const artifact = await generateExport(
+    {
+      ...input,
+      config: {
+        ...input.config,
+        selection: { namespaces: [], declarations: [{ namespace: 'native', name: 'Quote', kind: 'Data' }] }
+      }
+    },
+    new AbortController().signal
+  );
+  expect(artifact.manifest.projectReceipt).toEqual(project.receipt);
+  expect(artifact.manifest.resolvedSelection?.included).toEqual([{ namespace: 'native', name: 'Quote', kind: 'Data' }]);
+});
+
+it('packages project code-list constraints through the real managed download handler', async () => {
+  const { createProjectSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content = 'namespace codes\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)';
+  const files = [{ name: 'codes.rosetta', path: 'model/codes.rosetta', content, dirty: false }];
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Codes}'],
+      ['model/codes.rosetta', content],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'resource',
+              source: { model: 'local', id: 'codes.Currency#RosettaTypeAlias' },
+              path: 'resources/currency.json'
+            }
+          ]
+        })
+      ],
+      ['resources/currency.json', '[{"value":"EUR","label":"Euro"}]']
+    ]),
+    () => []
+  );
+  const project = await captureProjectRuntimeInput(snapshot, files, []);
+  const artifact = await generateExport(
+    {
+      workspaceId: 'p',
+      sourceRevision: 1,
+      files,
+      project,
+      config: { target: 'json-schema', options: {}, selection: { namespaces: ['codes'], declarations: [] } }
+    },
+    new AbortController().signal
+  );
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(new Uint8Array(await artifact.blob.arrayBuffer()));
+  const schemas = await Promise.all(
+    Object.values(zip.files)
+      .filter((file) => file.name.endsWith('.json') && !file.name.startsWith('.rune/'))
+      .map(async (file) => JSON.parse(await file.async('string')))
+  );
+  const schema = schemas.find((schema) => schema.$defs?.['codes.Quote'])!;
+  expect(schema.$defs['codes.Currency']).toMatchObject({ allOf: expect.arrayContaining([{ enum: ['EUR'] }]) });
+  expect(JSON.stringify(schema.$defs['codes.Quote'])).toContain('"EUR"');
+  expect(artifact.manifest.projectReceipt).toEqual(project.receipt);
+});

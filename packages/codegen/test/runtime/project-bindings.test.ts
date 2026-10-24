@@ -51,7 +51,8 @@ it.each(['per-namespace', 'barrel', 'single-file'] as const)(
     const { generate } = await import('../../src/export.js');
     const { compileGeneratedTypeScript } = await import('../helpers/compiled-typescript.js');
     const { bindGeneratedProjectModule } = await import('../../src/runtime/project-bindings.js');
-    const { RuneDsl } = createRuneDslServices();
+    const { RuneDsl, shared } = createRuneDslServices();
+    await shared.workspace.WorkspaceManager.initializeWorkspace([]);
     const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
       `namespace demo
 func External:
@@ -132,3 +133,42 @@ it('validates code lists through object lists and deferred definitions, and pres
   expect(raw.trades[1]?.currency).toBe('USD');
   expect(applyProjectPreviewBindings(preview, bindings)).toEqual(preview);
 });
+it.each(['typescript', 'zod', 'json-schema'] as const)(
+  'exports the same code-list membership constraint in %s',
+  async (target) => {
+    const { createRuneDslServices, assertValidDocuments } = await import('@rune-langium/core');
+    const { URI } = await import('langium');
+    const { generate } = await import('../../src/export.js');
+    const { compileGeneratedTypeScript } = await import('../helpers/compiled-typescript.js');
+    const services = createRuneDslServices();
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+    const document = services.shared.workspace.LangiumDocumentFactory.fromString(
+      'namespace codes\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)',
+      URI.parse('file:///codes.rosetta')
+    );
+    await services.shared.workspace.DocumentBuilder.build([document]);
+    assertValidDocuments([document]);
+    const bindings = createProjectBindingRegistry({
+      codeLists: [{ symbol: { ...currency, namespace: 'codes' }, values: [{ value: 'EUR', label: 'Euro' }] }]
+    });
+    const outputs = await generate(document, { target, projectResources: bindings });
+    if (target === 'typescript') {
+      compileGeneratedTypeScript(outputs, {
+        assertions:
+          'const allowed: Currency = "EUR";\n// @ts-expect-error unsupported code\nconst rejected: Currency = "USD";\nconst quote: Quote = {currency: "EUR"};\n// @ts-expect-error unsupported field code\nconst invalidQuote: Quote = {currency: "USD"};'
+      });
+    } else if (target === 'zod') {
+      const module = compileGeneratedTypeScript<{ QuoteSchema: { safeParse(value: unknown): { success: boolean } } }>(
+        outputs
+      );
+      expect(module.QuoteSchema.safeParse({ currency: 'EUR' }).success).toBe(true);
+      expect(module.QuoteSchema.safeParse({ currency: 'USD' }).success).toBe(false);
+    } else {
+      const { Ajv2020 } = await import('ajv/dist/2020.js');
+      const schema = JSON.parse(outputs[0]!.content);
+      const validate = new Ajv2020({ strict: false }).compile({ ...schema, $ref: '#/$defs/Quote' });
+      expect(validate({ currency: 'EUR' })).toBe(true);
+      expect(validate({ currency: 'USD' })).toBe(false);
+    }
+  }
+);

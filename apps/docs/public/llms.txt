@@ -1076,8 +1076,108 @@ and @lspeasy/server.
 
 ## @rune-langium/codegen
 
-> The main barrel (`@rune-langium/codegen`, i.e. this file, resolved via
-package.json's `"."` export) is intentionally empty.
+> Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed
+Rune DSL documents.
+
+### API
+
+- `generate`: Generate code from one or more parsed Langium documents.
+- `generateSelected`: Generate a declaration-scoped export and return the exact selection receipt
+used by generation.
+- `generatePreviewSchemas`: Generate structured form-preview schemas from one or more parsed Langium documents.
+- `createProjectBindingRegistry`: Prepared data and installed callbacks only; this module never reads configuration or loads code.
+- `applyProjectPreviewBindings`: Transform every finite definition too, so deferred object expansion uses the same choices.
+- `validateProjectPreviewBindings`: Resource constraints supplement the generated Rune validator; missing data is an availability error.
+- `projectBindingNames`: Names cannot collide with authored Rune identifiers and remain unique in single-file bundles.
+- `projectBindingHeader`
+- `bindGeneratedProjectModule`: Attach a prepared registry to a newly loaded generated module; no global registry crosses projects.
+- `projectCodeListForAlias`: One adapter guard shared by the graph and all resource-aware generators.
+- `normalizePreviewInputs`: Adapt plain form values to the generated function's metadata-bearing input contract.
+- `expandPreviewField`: Resolve one deferred object body without expanding its nested references.
+- `previewTypeSymbol`: Canonical presentation identity shared by schema generation, resource bindings and layout consumers.
+- `collectDeclarationDependencies`: Direct declaration dependencies through the authoritative effective-reference port.
+- `declarationKey`: Stable, kind-aware identity for a selected top-level declaration.
+- `resolveExportSelection`: Resolve selected roots and return shallow document views without mutating the linked workspace.
+- `unknownExportSelectionDiagnostics`: Shared diagnostic details for stale declaration or namespace export roots.
+- `resolveEffectiveProjectTargetId`: Resolve a kind-qualified authored target through core's linked project identity.
+- `isWholeModelEmitter`: Runtime discriminator between the two emitter contracts.
+- `resolveExcelSheets`: Resolve the effective sheet toggles from a partial/absent options block,
+applying the schema defaults.
+- `emitStandaloneZodSchema`: Emit one target type's real Zod schema as a self-contained script — the
+target's transitive closure (Task 2) assembled into a single synthetic
+`Nam...
+- `selectTypeScriptProjection`: Select recorded output; display availability is independent of inverse-lens coverage.
+- `createPythonProjectionContext`
+- `projectPythonFunction`: Complete implementation; the inverse Python lens retains its narrower expression contract.
+- `projectPythonCondition`
+- `generatePythonModule`: Standalone browser-safe Python source plus source-addressed display fragments.
+- `selectPythonProjection`
+- `projectPythonExpression`: Forward generation is independent of the deliberately narrower inverse Python lens.
+- `validateTargetOptions`
+- `getGeneratorCapabilities`
+- `getTargetLayouts`
+- `ProjectBindingUnavailable`
+- `GeneratorError`: Thrown when strict mode is enabled and any error diagnostic is produced.
+FR-022.
+- `GenericModelEmitter`: Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
+plus a `LanguageProfile` (019 spec §3.
+- `IMPLEMENTED_TARGETS`: The targets `runGenerate` can actually produce output for in this build.
+- `TARGET_DESCRIPTORS`: Registry of all generator targets.
+- `ExcelOptionsSchema`
+- `RUNTIME_HELPER_JS_SOURCE`: Annotation-free counterpart used by the Studio execution worker.
+- `TARGET_OPTIONS_SCHEMAS`
+
+## Optional
+
+### Types
+
+- `SelectedGeneration`: Files and the dependency-closed receipt produced by a selected export.
+- `ProjectCodeListBinding`
+- `ProjectImplementationBinding`
+- `ProjectBindingRegistry`
+- `ResolvedExportSelection`
+- `FormPreviewKind`
+- `FunctionPreviewOutput`: The declared result identity for a function preview schema.
+- `FormPreviewSchema`
+- `ExportDeclarationSelection`: Serializable identity for a selected top-level Rune declaration.
+- `ExportSelection`: Namespace and declaration roots requested for an export.
+- `GeneratorOutput`: One emitted output file from the generator.
+FR-001 (output structure).
+- `GeneratorDiagnostic`: A generator-time diagnostic (not a Langium validation diagnostic).
+FR-025 (diagnostics).
+- `PreviewField`
+- `PreviewFieldKind`
+- `PreviewSourceMapEntry`
+- `SourceMapEntry`: One source-map entry: maps an output line back to a source location.
+FR-024 (source maps).
+- `Target`: Supported generator targets.
+- `TargetDescriptor`: Static descriptor for a generator target.
+- `GeneratedFunc`: Metadata for a single emitted Rune `func` (TypeScript target only).
+FR-028–FR-032 (function declarations, US6).
+- `WholeModelEmitter`: Emitter contract for targets that consume the **entire model** as a
+single input (rather than one namespace at a time).
+- `WholeModelEmitterConstructor`
+- `NamespaceEmitter`
+- `NamespaceEmitterConstructor`
+- `LanguageProfile`: Declarative target-level metadata for packaging (019 spec §3.
+- `ExcelSheetToggles`: Which sheets to emit. Resolves the per-sheet defaults when absent.
+- `RuneTypeAlias`
+- `Condition`
+- `TypeParam`
+- `RuneRule`
+- `RuneReport`
+- `RuneAnnotationDecl`
+- `AnnotationAttribute`
+- `RuneLibraryFunc`
+- `LibraryFuncParam`
+- `NamespaceManifest`
+- `NamespaceRegistry`
+- `PythonModule`
+- `PythonProjectionContext`: Linked identities and semantic facts shared with the authoritative codegen utilities.
+- `GeneratedProjection`
+- `ProjectionSubject`
+- `EmittedProjection`: Provenance recorded during emission, independent of an editor's node-ID format.
+- `TemporalWireFormat`
 
 ## @rune-langium/visual-editor
 

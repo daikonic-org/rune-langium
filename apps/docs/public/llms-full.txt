@@ -10066,8 +10066,814 @@ const LSP_REQUEST_TIMEOUT_MS: 30000
 
 ## @rune-langium/codegen
 
-The main barrel (`@rune-langium/codegen`, i.e. this file, resolved via
-package.json's `"."` export) is intentionally empty.
+Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed
+Rune DSL documents.
+
+### generate
+
+Generate code from one or more parsed Langium documents.
+
+This is the primary entry point for the code generator. It accepts
+a single document or an array of documents and normalizes them before
+passing to the internal generator pipeline.
+
+```ts
+generate(documents: LangiumDocument<AstNode> | LangiumDocument<AstNode>[], options?: GeneratorOptions): Promise<GeneratorOutput[]>
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode> | LangiumDocument<AstNode>[]` — One or more parsed Langium documents with resolved ASTs.
+- `options: GeneratorOptions` (optional) — Optional generator options (target, strict, headerComment).
+
+**Returns:** `Promise<GeneratorOutput[]>`
+
+```ts
+import { generate } from '@rune-langium/codegen/export';
+const outputs = await generate(doc, { target: 'zod' });
+```
+
+### generateSelected
+
+Generate a declaration-scoped export and return the exact selection receipt
+used by generation. This lets callers present or archive the dependency
+closure without resolving the source workspace a second time.
+
+```ts
+generateSelected(documents: LangiumDocument<AstNode> | LangiumDocument<AstNode>[], selection: ExportSelection, options?: Omit<GeneratorOptions, "selection">): Promise<SelectedGeneration>
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode> | LangiumDocument<AstNode>[]` —
+- `selection: ExportSelection` —
+- `options: Omit<GeneratorOptions, "selection">` (optional) —
+
+**Returns:** `Promise<SelectedGeneration>`
+
+### generatePreviewSchemas
+
+Generate structured form-preview schemas from one or more parsed Langium documents.
+
+The returned schemas preserve field metadata and source-map information so
+Studio can render an inspector/form preview and navigate back to source.
+
+```ts
+generatePreviewSchemas(documents: LangiumDocument<AstNode> | LangiumDocument<AstNode>[], options?: GeneratePreviewSchemaOptions): FormPreviewSchema[]
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode> | LangiumDocument<AstNode>[]` — One or more parsed Langium documents with resolved ASTs.
+- `options: GeneratePreviewSchemaOptions` (optional) — Optional preview generation options such as `targetId` and `maxDepth`.
+
+**Returns:** `FormPreviewSchema[]`
+
+### createProjectBindingRegistry
+
+Prepared data and installed callbacks only; this module never reads configuration or loads code.
+
+```ts
+createProjectBindingRegistry(input: { codeLists?: readonly ProjectCodeListBinding[]; implementations?: readonly ProjectImplementationBinding[]; unavailableFunctions?: readonly { symbol: { model: string; namespace: string; kind: string; name: string; dispatch?: string }; reason: string }[] }): { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }
+```
+
+**Parameters:**
+- `input: { codeLists?: readonly ProjectCodeListBinding[]; implementations?: readonly ProjectImplementationBinding[]; unavailableFunctions?: readonly { symbol: { model: string; namespace: string; kind: string; name: string; dispatch?: string }; reason: string }[] }` —
+
+**Returns:** `{ implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }`
+
+### applyProjectPreviewBindings
+
+Transform every finite definition too, so deferred object expansion uses the same choices.
+
+```ts
+applyProjectPreviewBindings(schema: FormPreviewSchema, bindings: { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }): FormPreviewSchema
+```
+
+**Parameters:**
+- `schema: FormPreviewSchema` —
+- `bindings: { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }` —
+
+**Returns:** `FormPreviewSchema`
+
+### validateProjectPreviewBindings
+
+Resource constraints supplement the generated Rune validator; missing data is an availability error.
+
+```ts
+validateProjectPreviewBindings(schema: FormPreviewSchema, data: unknown, bindings: { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }): { path: string; message: string }[]
+```
+
+**Parameters:**
+- `schema: FormPreviewSchema` —
+- `data: unknown` —
+- `bindings: { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }` —
+
+**Returns:** `{ path: string; message: string }[]`
+
+### projectBindingNames
+
+Names cannot collide with authored Rune identifiers and remain unique in single-file bundles.
+
+```ts
+projectBindingNames(namespace: string): { invoke: string; bind: string }
+```
+
+**Parameters:**
+- `namespace: string` —
+
+**Returns:** `{ invoke: string; bind: string }`
+
+### projectBindingHeader
+
+```ts
+projectBindingHeader(namespace: string): string
+```
+
+**Parameters:**
+- `namespace: string` —
+
+**Returns:** `string`
+
+### bindGeneratedProjectModule
+
+Attach a prepared registry to a newly loaded generated module; no global registry crosses projects.
+
+```ts
+bindGeneratedProjectModule(module: Readonly<Record<string, unknown>>, bindings: { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }): void
+```
+
+**Parameters:**
+- `module: Readonly<Record<string, unknown>>` —
+- `bindings: { implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }` —
+
+### projectCodeListForAlias
+
+One adapter guard shared by the graph and all resource-aware generators.
+
+```ts
+projectCodeListForAlias(alias: RosettaTypeAlias, resources: Pick<{ implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }, "codeListForType"> | undefined): readonly { value: string; label: string }[] | undefined
+```
+
+**Parameters:**
+- `alias: RosettaTypeAlias` —
+- `resources: Pick<{ implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }, "codeListForType"> | undefined` —
+
+**Returns:** `readonly { value: string; label: string }[] | undefined`
+
+### normalizePreviewInputs
+
+Adapt plain form values to the generated function's metadata-bearing input contract.
+
+```ts
+normalizePreviewInputs(documents: LangiumDocument<AstNode>[], targetId: string, inputs: Record<string, unknown>, wrappers: Record<FieldMetadataKind, (value: unknown) => unknown>): Record<string, unknown>
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode>[]` —
+- `targetId: string` —
+- `inputs: Record<string, unknown>` —
+- `wrappers: Record<FieldMetadataKind, (value: unknown) => unknown>` —
+
+**Returns:** `Record<string, unknown>`
+
+### expandPreviewField
+
+Resolve one deferred object body without expanding its nested references.
+
+```ts
+expandPreviewField(field: PreviewField, definitions: Record<string, Pick<FormPreviewSchema, "fields" | "choiceArmPaths" | "sourceMap">> | undefined): PreviewField
+```
+
+**Parameters:**
+- `field: PreviewField` —
+- `definitions: Record<string, Pick<FormPreviewSchema, "fields" | "choiceArmPaths" | "sourceMap">> | undefined` —
+
+**Returns:** `PreviewField`
+
+### previewTypeSymbol
+
+Canonical presentation identity shared by schema generation, resource bindings and layout consumers.
+
+```ts
+previewTypeSymbol(kind: string, targetId: string): string | undefined
+```
+
+**Parameters:**
+- `kind: string` —
+- `targetId: string` —
+
+**Returns:** `string | undefined`
+
+### collectDeclarationDependencies
+
+Direct declaration dependencies through the authoritative effective-reference port.
+
+```ts
+collectDeclarationDependencies(root: AstNode): readonly AstNode[]
+```
+
+**Parameters:**
+- `root: AstNode` —
+
+**Returns:** `readonly AstNode[]`
+
+### declarationKey
+
+Stable, kind-aware identity for a selected top-level declaration.
+
+```ts
+declarationKey(declaration: ExportDeclarationSelection): string
+```
+
+**Parameters:**
+- `declaration: ExportDeclarationSelection` —
+
+**Returns:** `string`
+
+### resolveExportSelection
+
+Resolve selected roots and return shallow document views without mutating the linked workspace.
+
+```ts
+resolveExportSelection(docs: LangiumDocument<AstNode>[], selection: ExportSelection): ResolvedExportSelection
+```
+
+**Parameters:**
+- `docs: LangiumDocument<AstNode>[]` —
+- `selection: ExportSelection` —
+
+**Returns:** `ResolvedExportSelection`
+
+### unknownExportSelectionDiagnostics
+
+Shared diagnostic details for stale declaration or namespace export roots.
+
+```ts
+unknownExportSelectionDiagnostics(selection: Pick<ResolvedExportSelection, "unknown" | "unknownNamespaces">): { code: "unknown-export-selection"; message: string }[]
+```
+
+**Parameters:**
+- `selection: Pick<ResolvedExportSelection, "unknown" | "unknownNamespaces">` —
+
+**Returns:** `{ code: "unknown-export-selection"; message: string }[]`
+
+### resolveEffectiveProjectTargetId
+
+Resolve a kind-qualified authored target through core's linked project identity.
+
+```ts
+resolveEffectiveProjectTargetId(docs: readonly LangiumDocument<AstNode>[], targetId: string, kind: string): string
+```
+
+**Parameters:**
+- `docs: readonly LangiumDocument<AstNode>[]` —
+- `targetId: string` —
+- `kind: string` —
+
+**Returns:** `string`
+
+### isWholeModelEmitter
+
+Runtime discriminator between the two emitter contracts. Distinguishes
+by prototype shape: `NamespaceEmitter` exposes a `finalize()` method
+(plus the per-element `emitData` / `emitEnumeration` / etc. hooks);
+`WholeModelEmitter` exposes only a single async `emit()` method.
+
+Used by `generator.ts:runGenerate` (Task 0.4) to dispatch each
+target through the appropriate pipeline.
+
+```ts
+isWholeModelEmitter(c: WholeModelEmitterConstructor | NamespaceEmitterConstructor): c is WholeModelEmitterConstructor
+```
+
+**Parameters:**
+- `c: WholeModelEmitterConstructor | NamespaceEmitterConstructor` —
+
+**Returns:** `c is WholeModelEmitterConstructor`
+
+### resolveExcelSheets
+
+Resolve the effective sheet toggles from a partial/absent options block,
+applying the schema defaults. Used by the emitter so a missing `excel`
+option or a partial `sheets` object still produces a complete workbook.
+
+```ts
+resolveExcelSheets(options: { sheets?: Partial<{ types: boolean; enums: boolean; typeAliases: boolean; conditions: boolean }> } | undefined): { types: boolean; enums: boolean; typeAliases: boolean; conditions: boolean }
+```
+
+**Parameters:**
+- `options: { sheets?: Partial<{ types: boolean; enums: boolean; typeAliases: boolean; conditions: boolean }> } | undefined` —
+
+**Returns:** `{ types: boolean; enums: boolean; typeAliases: boolean; conditions: boolean }`
+
+### emitStandaloneZodSchema
+
+Emit one target type's real Zod schema as a self-contained script — the
+target's transitive closure (Task 2) assembled into a single synthetic
+`NamespaceWalkResult` and rendered through the real, unmodified
+`emitNamespace()` (zod target), never a hand-rolled approximation of it
+(per the repo's DRY precept).
+
+The returned `code` is real TypeScript (types, `export`, and — for cyclic
+types — an `interface` predeclaration all survive, unmodified), with two
+exceptions: the spurious cross-namespace `import` lines described above
+are stripped, since every symbol they'd reference is already declared
+locally in this same script; and — only when the closure actually needs
+it — a JS-safe `runeExtendChoice` definition (Data-extends-Choice
+emission) is inlined right after the `import { z } from 'zod';` line,
+since that helper is Zod-specific and therefore NOT part of the shared,
+Zod-agnostic `RUNTIME_HELPER_JS_SOURCE` bundle the caller is expected to
+prepend for everything else. External imports of `z` and `Temporal` are
+preserved. Turning this into directly `new Function`-evaluable JavaScript
+(erasing types/exports/interfaces/imports and binding `z` and `Temporal`)
+is left to the caller, exactly as
+`RUNTIME_HELPER_JS_SOURCE` is already caller-prepended rather than
+bundled into this return value.
+
+Caveat inherited from `namespace-emitter.ts` (pre-existing there, not
+introduced by this function): if `targetId` itself resolves to a
+`RosettaTypeAlias` whose RHS is a `Data`/`Choice` (not a primitive or
+`Enum`), the emitted alias `const` can reference its RHS `const` before
+that RHS is declared — type aliases are always emitted before the
+topo-sorted `Data`/`Choice` block, so evaluating the result throws a TDZ
+`ReferenceError`. See `test/fixtures/type-aliases/data-ref/expected.zod.ts`
+for the same defect in ordinary per-namespace output.
+
+A second, unrelated ordering hazard was found and FIXED directly in
+`zod-emitter.ts` (not inherited/unfixed like the above): `topoSort`
+always appends cyclic types LAST, after every non-cyclic type, regardless
+of whether a non-cyclic type depends on one of them, and `zod-emitter.ts`
+previously only wrapped a cyclic type's OWN schema declaration in
+`z.lazy()`, never a reference TO it from elsewhere — confirmed to
+reproduce in the REAL per-namespace `.zod.ts` output too, not specific to
+standalone extraction. Fixed via `schemaRefExpr(name, ownerName)`, which
+wraps a cross-declaration reference in `z.lazy()` while leaving
+within-a-cycle references (self-references, mutual-cycle members) bare,
+matching `test/us1-structural.test.ts`'s existing byte-identical golden
+fixture; see `test/emit/zod-cyclic-reference-wrapping.test.ts` for full
+coverage, including the related fix folding a cyclic parent's attributes
+inline instead of `.extend()` (which `ZodLazy` doesn't support at all).
+
+A THIRD, separate, still-unfixed issue was found alongside this: a Data
+extending a CROSS-namespace parent leaks that parent into the child
+namespace's own `dataByName`/`emitOrder`, producing both a cross-ns
+`import` AND a duplicate local re-declaration of the same schema name —
+invalid ES module syntax regardless of cyclic-ness, reproducible against
+the already-committed `test/fixtures/data-extends-data-crossns` fixture.
+This is a `namespace-walker.ts`-level cross-namespace concern, unrelated
+to cyclic ordering, and genuinely out of scope for this module — it is
+NOT fixed here.
+
+```ts
+emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode>[]` —
+- `targetId: string` —
+- `options: { functionInputs?: boolean }` —
+
+**Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }`
+
+### selectTypeScriptProjection
+
+Select recorded output; display availability is independent of inverse-lens coverage.
+
+```ts
+selectTypeScriptProjection(outputs: readonly GeneratorOutput[], subject: ProjectionSubject, kind: "function" | "condition", form: "body" | "declaration"): GeneratedProjection
+```
+
+**Parameters:**
+- `outputs: readonly GeneratorOutput[]` —
+- `subject: ProjectionSubject` —
+- `kind: "function" | "condition"` —
+- `form: "body" | "declaration"` —
+
+**Returns:** `GeneratedProjection`
+
+### createPythonProjectionContext
+
+```ts
+createPythonProjectionContext(documents: readonly LangiumDocument<AstNode>[], subject: ProjectionSubject): PythonProjectionContext
+```
+
+**Parameters:**
+- `documents: readonly LangiumDocument<AstNode>[]` —
+- `subject: ProjectionSubject` —
+
+**Returns:** `PythonProjectionContext`
+
+### projectPythonFunction
+
+Complete implementation; the inverse Python lens retains its narrower expression contract.
+
+```ts
+projectPythonFunction(func: RosettaFunction, context: PythonProjectionContext): GeneratedProjection
+```
+
+**Parameters:**
+- `func: RosettaFunction` —
+- `context: PythonProjectionContext` —
+
+**Returns:** `GeneratedProjection`
+
+### projectPythonCondition
+
+```ts
+projectPythonCondition(condition: Condition, context: PythonProjectionContext): GeneratedProjection
+```
+
+**Parameters:**
+- `condition: Condition` —
+- `context: PythonProjectionContext` —
+
+**Returns:** `GeneratedProjection`
+
+### generatePythonModule
+
+Standalone browser-safe Python source plus source-addressed display fragments.
+
+```ts
+generatePythonModule(documents: readonly LangiumDocument<AstNode>[]): PythonModule
+```
+
+**Parameters:**
+- `documents: readonly LangiumDocument<AstNode>[]` —
+
+**Returns:** `PythonModule`
+
+### selectPythonProjection
+
+```ts
+selectPythonProjection(module: PythonModule, subject: ProjectionSubject, kind: "function" | "condition", form: "body" | "declaration"): GeneratedProjection
+```
+
+**Parameters:**
+- `module: PythonModule` —
+- `subject: ProjectionSubject` —
+- `kind: "function" | "condition"` —
+- `form: "body" | "declaration"` —
+
+**Returns:** `GeneratedProjection`
+
+### projectPythonExpression
+
+Forward generation is independent of the deliberately narrower inverse Python lens.
+
+```ts
+projectPythonExpression(expression: RosettaExpression, context: PythonProjectionContext): GeneratedProjection
+```
+
+**Parameters:**
+- `expression: RosettaExpression` —
+- `context: PythonProjectionContext` —
+
+**Returns:** `GeneratedProjection`
+
+### validateTargetOptions
+
+```ts
+validateTargetOptions(target: string, options: unknown): { value?: Record<string, unknown>; errors: string[] }
+```
+
+**Parameters:**
+- `target: string` —
+- `options: unknown` —
+
+**Returns:** `{ value?: Record<string, unknown>; errors: string[] }`
+
+### getGeneratorCapabilities
+
+```ts
+getGeneratorCapabilities(): readonly { id: string; available: boolean }[]
+```
+
+**Returns:** `readonly { id: string; available: boolean }[]`
+
+### getTargetLayouts
+
+```ts
+getTargetLayouts(target: string): readonly string[]
+```
+
+**Parameters:**
+- `target: string` —
+
+**Returns:** `readonly string[]`
+
+### ProjectBindingUnavailable
+
+```ts
+constructor(message?: string): ProjectBindingUnavailable
+```
+
+**Properties:**
+- `name: string` —
+- `message: string` —
+- `stack: string` —
+- `cause: unknown` —
+
+### GeneratorError
+
+Thrown when strict mode is enabled and any error diagnostic is produced.
+FR-022.
+
+```ts
+constructor(message: string, diagnostics: GeneratorDiagnostic[]): GeneratorError
+```
+
+**Properties:**
+- `diagnostics: GeneratorDiagnostic[]` — The diagnostics that caused this error.
+- `name: string` —
+- `message: string` —
+- `stack: string` —
+- `cause: unknown` —
+
+### GenericModelEmitter
+
+Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
+plus a `LanguageProfile` (019 spec §3.2). Collapses the
+"per-namespace then aggregate" pattern into one place so individual
+targets only need to ship a NamespaceEmitter + a Profile.
+
+Dispatch flow:
+  1. Call the inner `NamespaceEmitter` for each namespace with
+     `suppressBoilerplate: true` so shared runtime helpers are
+     emitted once via the Profile's sidecar, not duplicated
+     across per-namespace files.
+  2. Resolve the layout (defaults to `'barrel'` here — the
+     library default of `'per-namespace'` is handled one layer up
+     in `resolveEmitter` before reaching this class).
+  3. For `'single-file'`: check the Profile's `singleFileLimits`,
+     then call `concatenate()`. Emit a fatal diagnostic if exceeded.
+  4. For `'barrel'`: emit per-namespace outputs + the Profile's
+     barrel + the Profile's sidecars.
+
+```ts
+constructor<T>(innerCtor: NamespaceEmitterConstructor, profile: LanguageProfile<T>): GenericModelEmitter<T>
+```
+
+**Methods:**
+- `emit(walks: ReadonlyMap<string, NamespaceWalkResult>, registry: NamespaceRegistry, options: GeneratorOptions): Promise<GeneratorOutput[]>` —
+
+### SelectedGeneration
+
+Files and the dependency-closed receipt produced by a selected export.
+
+### ProjectCodeListBinding
+
+### ProjectImplementationBinding
+
+### ProjectBindingRegistry
+
+```ts
+type ProjectBindingRegistry = ReturnType<typeof createProjectBindingRegistry>
+```
+
+### ResolvedExportSelection
+
+### FormPreviewKind
+
+```ts
+type FormPreviewKind = "data" | "typeAlias" | "choice" | "function"
+```
+
+### FunctionPreviewOutput
+
+The declared result identity for a function preview schema.
+
+### FormPreviewSchema
+
+### ExportDeclarationSelection
+
+Serializable identity for a selected top-level Rune declaration.
+
+### ExportSelection
+
+Namespace and declaration roots requested for an export.
+
+### GeneratorOutput
+
+One emitted output file from the generator.
+FR-001 (output structure).
+
+### GeneratorDiagnostic
+
+A generator-time diagnostic (not a Langium validation diagnostic).
+FR-025 (diagnostics).
+
+### PreviewField
+
+```ts
+type PreviewField = PreviewScalarField | PreviewEnumField | PreviewObjectField | PreviewArrayField | PreviewUnknownField
+```
+
+### PreviewFieldKind
+
+```ts
+type PreviewFieldKind = "string" | "number" | "boolean" | "enum" | "object" | "array" | "unknown"
+```
+
+### PreviewSourceMapEntry
+
+### SourceMapEntry
+
+One source-map entry: maps an output line back to a source location.
+FR-024 (source maps).
+
+### Target
+
+Supported generator targets.
+- `zod`         — FR-002–FR-014 (US1, per-namespace)
+- `json-schema` — FR-019 (per-namespace)
+- `typescript`  — FR-020 (per-namespace; includes `func` emission)
+- `sql`         — 018 Phase 2 (per-namespace DDL emitter)
+- `markdown`    — 018 Phase 2 (per-namespace docs emitter)
+- `excel`       — 018 Phase 1 (whole-model binary emitter, .xlsx)
+- `graphql`     — 018 Phase 3 (whole-model SDL emitter)
+- `openapi`     — 021 Phase 2b (per-namespace; OAS 3.1, composes the
+                  JSON Schema emitter's own output + adds constraint
+                  keywords, funcs→operations, optional CRUD paths)
+- `xsd`         — 021 Phase 3 (per-namespace; W3C XML Schema documents,
+                  a from-scratch emitter symmetric to the inbound XSD
+                  reader — no func/operation emission, XSD has no RPC
+                  verb model)
+
+The authoritative contract for each target is `TARGET_DESCRIPTORS[target].contract`;
+Copilot review on PR #165 caught that this header comment originally listed
+sql/markdown as whole-model, which contradicted the registry.
+
+Each target dispatches through one of two emitter contracts:
+  - NamespaceEmitter (current): one output file per namespace.
+  - WholeModelEmitter (018 Task 0.2): one output for the whole model.
+
+Task 0.4 wires the dispatch.
+
+```ts
+type Target = "zod" | "json-schema" | "typescript" | "sql" | "markdown" | "excel" | "graphql" | "openapi" | "xsd"
+```
+
+### TargetDescriptor
+
+Static descriptor for a generator target. Single source of truth used
+by UI surfaces (the studio targets table — 018 Task 0.7) to render
+labels + decide between Preview / Download affordances. The runtime
+`contract` mirrors which emitter interface the target implements
+(`NamespaceEmitter` vs `WholeModelEmitter` — see Task 0.2).
+
+### GeneratedFunc
+
+Metadata for a single emitted Rune `func` (TypeScript target only).
+FR-028–FR-032 (function declarations, US6).
+
+### WholeModelEmitter
+
+Emitter contract for targets that consume the **entire model** as a
+single input (rather than one namespace at a time). Used by targets
+that need cross-namespace state — e.g. Excel produces one workbook
+for the whole model with cross-sheet hyperlinks, GraphQL SDL
+produces one schema file with the full type graph. SQL and Markdown
+are per-namespace targets (see TARGET_DESCRIPTORS) — Copilot review
+on PR #165 caught an earlier draft of this comment listing SQL as
+whole-model.
+
+Returns one or more GeneratorOutput entries. Most whole-model
+emitters return a single entry (the single artifact); the array
+return type leaves room for emitters that want to split into
+multiple files (e.g. an Excel emitter that produces both the
+workbook AND a sidecar manifest).
+
+Async because binary emitters (ExcelJS) use stream APIs internally.
+The Task 0.4 dispatch in `generator.ts` awaits this method.
+
+### WholeModelEmitterConstructor
+
+### NamespaceEmitter
+
+### NamespaceEmitterConstructor
+
+### LanguageProfile
+
+Declarative target-level metadata for packaging (019 spec §3.2).
+
+A `LanguageProfile<T>` tells `GenericModelEmitter` how to assemble
+whole-model artifacts for target `T`: how to render the barrel /
+index file, how to concatenate per-namespace outputs into a single
+file, what shared sidecar artifacts (runtime helpers, manifests,
+READMEs) ride alongside the core outputs, and what size limits
+apply to the `single-file` layout.
+
+**Profiles exist independently of `NamespaceEmitter`.** Targets that
+have no per-namespace mode (Excel, GraphQL — both `WholeModelEmitter`)
+still ship a `LanguageProfile` so their hand-rolled emitters can
+delegate sidecar generation to a uniform mechanism.
+
+Phase 0.5.1 ships only the interface; concrete Profile instances
+land in 0.5.2 (Zod), 0.5.3 (TypeScript), 0.5.4 (JSON Schema), and
+Phases 1-3 (Excel, SQL, Markdown, GraphQL).
+
+### ExcelSheetToggles
+
+Which sheets to emit. Resolves the per-sheet defaults when absent.
+
+```ts
+type ExcelSheetToggles = ExcelOptions["sheets"]
+```
+
+### RuneTypeAlias
+
+### Condition
+
+### TypeParam
+
+### RuneRule
+
+### RuneReport
+
+### RuneAnnotationDecl
+
+### AnnotationAttribute
+
+### RuneLibraryFunc
+
+### LibraryFuncParam
+
+### NamespaceManifest
+
+### NamespaceRegistry
+
+### PythonModule
+
+### PythonProjectionContext
+
+Linked identities and semantic facts shared with the authoritative codegen utilities.
+
+### GeneratedProjection
+
+### ProjectionSubject
+
+### EmittedProjection
+
+Provenance recorded during emission, independent of an editor's node-ID format.
+
+### TemporalWireFormat
+
+```ts
+type TemporalWireFormat = keyof typeof TEMPORAL_CONVERSION_PATTERNS
+```
+
+### IMPLEMENTED_TARGETS
+
+The targets `runGenerate` can actually produce output for in this build.
+
+A target is "implemented" if any of:
+  - it has a NAMESPACE_EMITTERS entry (covers per-namespace dispatch);
+  - it has a WHOLE_MODEL_EMITTERS entry (covers hand-rolled whole-model);
+  - it has a NAMESPACE_EMITTERS entry AND a PROFILES entry (covers
+    synthesized whole-model dispatch).
+
+Phase 0/0.5.1 only registers the three per-namespace emitters, so this
+resolves to ['zod', 'json-schema', 'typescript']. Phase 1/2/3 add to
+the appropriate registry and this list updates automatically.
+
+018 Phase 0 Task 0.7 follow-up; expanded in 019 Phase 0.5.1.
+
+```ts
+const IMPLEMENTED_TARGETS: readonly Target[]
+```
+
+### TARGET_DESCRIPTORS
+
+Registry of all generator targets. The studio reads this to render
+the targets table; `runGenerate` reads it to pick the dispatch path.
+Keep in sync with the Target union — TS exhaustiveness check
+on `Record<Target, ...>` enforces this at compile time.
+
+018 Phase 0 Task 0.3. Phases 1-3 add the missing emitter
+implementations; this registry is the contract those phases land
+against.
+
+```ts
+const TARGET_DESCRIPTORS: Record<Target, TargetDescriptor>
+```
+
+### ExcelOptionsSchema
+
+```ts
+const ExcelOptionsSchema: ZodObject<{ sheets: ZodDefault<ZodObject<{ types: ZodDefault<ZodBoolean>; enums: ZodDefault<ZodBoolean>; typeAliases: ZodDefault<ZodBoolean>; conditions: ZodDefault<ZodBoolean> }, $strip>> }, $strip>
+```
+
+### RUNTIME_HELPER_JS_SOURCE
+
+Annotation-free counterpart used by the Studio execution worker.
+
+```ts
+const RUNTIME_HELPER_JS_SOURCE: string
+```
+
+### TARGET_OPTIONS_SCHEMAS
+
+```ts
+const TARGET_OPTIONS_SCHEMAS: { zod: ZodObject<{ layout: ZodOptional<ZodEnum<{ per-namespace: "per-namespace"; barrel: "barrel"; single-file: "single-file" }>> }, $strip>; typescript: ZodObject<{ layout: ZodOptional<ZodEnum<{ per-namespace: "per-namespace"; barrel: "barrel"; single-file: "single-file" }>>; inputChecks: ZodOptional<ZodBoolean> }, $strip>; json-schema: ZodObject<{ layout: ZodOptional<ZodEnum<{ per-namespace: "per-namespace"; single-file: "single-file" }>> }, $strip>; sql: ZodObject<{ dialect: ZodOptional<ZodEnum<{ postgres: "postgres"; sqlserver: "sqlserver" }>>; inheritance: ZodOptional<ZodEnum<{ single-table: "single-table"; table-per-type: "table-per-type" }>>; enumStrategy: ZodOptional<ZodEnum<{ check: "check"; table: "table" }>>; layout: ZodOptional<ZodEnum<{ per-namespace: "per-namespace"; single-file: "single-file" }>> }, $strip>; markdown: ZodObject<{ layout: ZodOptional<ZodEnum<{ per-namespace: "per-namespace"; barrel: "barrel" }>> }, $strip>; excel: ZodObject<{ sheets: ZodDefault<ZodObject<{ types: ZodDefault<ZodBoolean>; enums: ZodDefault<ZodBoolean>; typeAliases: ZodDefault<ZodBoolean>; conditions: ZodDefault<ZodBoolean> }, $strip>> }, $strip>; openapi: ZodObject<{ format: ZodOptional<ZodEnum<{ json: "json"; yaml: "yaml" }>>; crud: ZodOptional<ZodUnion<readonly [ZodBoolean, ZodObject<{ types: ZodArray<ZodString> }, $strip>]>> }, $strip>; xsd: ZodObject<{}, $strip>; graphql: ZodObject<{}, $strip> }
+```
 
 ---
 

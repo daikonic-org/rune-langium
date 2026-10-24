@@ -524,7 +524,8 @@ it('installs a verified project before preview and executes curated callers thro
 it('uses a managed code list for choices and validation and reports a missing resource as unavailable', async () => {
   const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');
   const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
-  const content = 'namespace quote\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)';
+  const content =
+    'namespace quote\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)\nfunc BadCurrency:\n output: result Currency (1..1)\n set result: "USD"\nfunc Safe:\n output: result number (1..1)\n set result: 42';
   const snapshot = await createProjectSnapshot(
     'p',
     new Map([
@@ -596,6 +597,22 @@ it('uses a managed code list for choices and validation and reports a missing re
       })
     )
   );
+  dispatch({
+    type: 'preview:execute',
+    funcName: 'quote.BadCurrency',
+    inputs: {},
+    requestId: 'codes:bad-output',
+    projectReceipt: project.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview:execute-error',
+        requestId: 'codes:bad-output',
+        error: expect.stringMatching(/code list/)
+      })
+    )
+  );
   const missingSnapshot = await createProjectDraftSnapshot(
     snapshot,
     new Map([['resources/currency.json', null]]),
@@ -626,6 +643,18 @@ it('uses a managed code list for choices and validation and reports a missing re
         requestId: 'codes:unavailable',
         unavailable: expect.any(String)
       })
+    )
+  );
+  dispatch({
+    type: 'preview:execute',
+    funcName: 'quote.Safe',
+    inputs: {},
+    requestId: 'codes:safe',
+    projectReceipt: missing.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'preview:execute-result', requestId: 'codes:safe', output: 42 })
     )
   );
   vi.unstubAllGlobals();

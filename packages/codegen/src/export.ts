@@ -8,6 +8,9 @@
  * Rune DSL documents.
  *
  * @remarks
+ * Import this API from `@rune-langium/codegen/export`; the package root is empty.
+ * Inbound import and Rosetta rendering APIs use separate subpaths.
+ *
  * Use `generate()` when you need emitted files for a concrete target, and
  * `generatePreviewSchemas()` when UI tooling needs structured field metadata and
  * source maps for a selected data type. This package expects parsed Langium
@@ -39,6 +42,7 @@ export { IMPLEMENTED_TARGETS };
 export { normalizePreviewInputs } from './preview-schema.js';
 export { expandPreviewField, previewTypeSymbol } from './preview-references.js';
 export {
+  collectDeclarationDependencies,
   declarationKey,
   resolveExportSelection,
   unknownExportSelectionDiagnostics
