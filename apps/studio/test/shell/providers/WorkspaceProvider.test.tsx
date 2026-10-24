@@ -425,3 +425,80 @@ it('recovers prepared repository example files before publishing a reopened work
   await waitFor(() => expect(screen.getByTestId('project').textContent).toBe('recover-examples'));
   await waitFor(() => expect(useInstanceStore.getState().instances.recovered?.data).toEqual({ amount: 7 }));
 });
+
+it('attaches portable example and presentation writers after repairing initial recovery without reactivation', async () => {
+  const { useInstanceStore } = await import('../../../src/store/instance-store.js');
+  const { useFormPresentationStore } = await import('../../../src/store/form-presentation-store.js');
+  const { declarationKey } = await import('@rune-langium/core/project-contract');
+  const type = { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' };
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'repaired',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Example}', null);
+  await adapter.write('build-config.yml', 'schemaVersion: [', null);
+  await adapter.write('model/trade.rosetta', 'namespace example\ntype Trade:\n amount number (1..1)', null);
+  await adapter.write(
+    'examples/input.example.json',
+    JSON.stringify({
+      schemaVersion: 1,
+      id: 'input',
+      name: 'Input',
+      type,
+      payload: 'examples/input.json',
+      codec: 'JSON'
+    }),
+    null
+  );
+  await adapter.write('examples/input.json', '{"amount": 7}', null);
+  let controller: ReturnType<typeof useProject>['controller'];
+  function RepairProbe() {
+    const project = useProject();
+    controller = project.controller;
+    return <span data-testid="recovery-status">{project.status}</span>;
+  }
+  render(
+    <WorkspaceProvider
+      state={{
+        ...stateFor('repaired'),
+        files: [
+          {
+            path: 'model/trade.rosetta',
+            name: 'trade.rosetta',
+            content: 'namespace example\ntype Trade:\n amount number (1..1)',
+            dirty: false,
+            namespace: 'example',
+            exports: [{ type: 'Data', name: 'Trade' }]
+          }
+        ]
+      }}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <RepairProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('recovery-status')).toHaveTextContent('invalid'));
+  await adapter.write('build-config.yml', 'schemaVersion: 1', (await adapter.read('build-config.yml'))!.revision);
+  await act(async () => {
+    await controller!.load();
+  });
+  await waitFor(() => expect(screen.getByTestId('recovery-status')).toHaveTextContent('ready'));
+  await waitFor(() => expect(useInstanceStore.getState().instances.input?.data).toEqual({ amount: 7 }));
+  await waitFor(() => expect(useFormPresentationStore.getState().workspaces.repaired?.repository).toBe(true));
+  act(() => useInstanceStore.getState().renameInstance('input', 'Repaired input'));
+  await waitFor(() => expect(useInstanceStore.getState().saveStates.input?.state).toBe('saved'));
+  expect((await adapter.read('examples/input.example.json'))?.text).toContain('Repaired input');
+  act(() =>
+    useFormPresentationStore.getState().update('repaired', (before) => ({
+      ...before,
+      layouts: { ...before.layouts, [declarationKey(type)]: { columns: 2, order: ['amount'], spans: {} } }
+    }))
+  );
+  await waitFor(async () =>
+    expect((await adapter.list()).filter((path) => path.endsWith('.layout.json'))).toHaveLength(1)
+  );
+  const layout = (await adapter.list()).find((path) => path.endsWith('.layout.json'))!;
+  expect((await adapter.read(layout))?.text).toContain('"columns": 2');
+});

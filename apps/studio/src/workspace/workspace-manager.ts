@@ -60,7 +60,7 @@ export class WorkspaceManager {
   }
 
   /** Bind project IO to this workspace's working copy and current ownership. */
-  async getProjectFileAdapter(id: string): Promise<ProjectFileAdapter> {
+  async getProjectFileAdapter(id: string, isCurrent: () => boolean = () => true): Promise<ProjectFileAdapter> {
     const workspace = await loadWorkspace(id);
     if (!workspace) throw new Error('Workspace not found');
     const backing = await this.opts.opfsRoot.getDirectoryHandle(id);
@@ -77,7 +77,7 @@ export class WorkspaceManager {
       workspaceId: id,
       root,
       privateRoot,
-      isWritable: () => this.isOwner(id) && !this.isReadOnly(id)
+      isWritable: () => isCurrent() && this.isOwner(id) && !this.isReadOnly(id)
     });
   }
 

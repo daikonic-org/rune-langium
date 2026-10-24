@@ -17,7 +17,12 @@ import {
   type RuneDslServices,
   type ProjectResolutionContext
 } from '@rune-langium/core';
-import { projectSourcePaths, type ProjectSnapshot, type ProjectDiagnostic } from '@rune-langium/project-config';
+import {
+  projectSourcePaths,
+  projectDiagnosticsForTargets,
+  type ProjectSnapshot,
+  type ProjectDiagnostic
+} from '@rune-langium/project-config';
 import { projectOverrideRedirects, validateProjectOverrides, type ProjectDeclarations } from './override-validation.js';
 import type { ReferenceDocument } from './references/types.js';
 import { projectSourceUri, projectReferenceUri } from './project-uri.js';
@@ -66,8 +71,12 @@ export async function applyEffectiveProject(
     !projectReceiptMatches(graph.receipt, input.receipt)
   )
     throw new Error('Project receipt does not match the captured source and configuration.');
-  if (graph.diagnostics.some((issue) => issue.severity === 'error'))
-    throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
+  if (projectDiagnosticsForTargets(graph.diagnostics).some((issue) => issue.severity === 'error'))
+    throw new Error(
+      projectDiagnosticsForTargets(graph.diagnostics)
+        .map((issue) => issue.message)
+        .join('\n')
+    );
   return graph;
 }
 /** A fresh services container owns every root and reference in this captured project generation. */
@@ -199,6 +208,7 @@ export async function buildEffectiveProject(
     );
     if (result.capabilities.length) {
       const impact = projectCapabilityImpact(snapshot, result, declarations);
+      result.diagnostics.push(...impact.diagnostics);
       result.capabilities = impact.capabilities;
       result.bindings = createProjectBindings(snapshot, providers, {
         ...context,

@@ -201,3 +201,166 @@ it('refuses incompatible second versions rather than replacing a transitive requ
   });
   expect(controller.current()!.lock).toBeUndefined();
 });
+
+it('reports removed override endpoints and saved example/workflow identities before accepting an upgrade', async () => {
+  const original = await referenceFixture(undefined, undefined, {
+    cdm: 'namespace ref\ntype Gone:\n value number (1..1)\nfunc Compute:\n inputs: value number (1..1)\n output: result number (1..1)\n set result: value'
+  });
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'compat',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  for (const [path, text] of original.snapshot.files) await adapter.write(path, text, null);
+  const controller = createProjectController({ workspaceId: 'compat', adapter, validateTarget: () => [] });
+  await controller.load();
+  const cache = createMemoryReferenceCache();
+  await resolveAndSaveProjectReferences(controller, original.transport, cache, new AbortController().signal);
+  const source = { model: 'cdm', namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' };
+  const type = { model: 'cdm', namespace: 'ref', kind: 'Data', name: 'Gone' };
+  const config = {
+    ...controller.current()!.project.build,
+    overrides: [{ kind: 'declaration', source, replacement: { ...source, model: 'local', namespace: 'custom' } }]
+  };
+  await controller.save([
+    {
+      path: 'build-config.yml',
+      text: JSON.stringify(config),
+      expectedRevision: (await adapter.read('build-config.yml'))!.revision
+    },
+    {
+      path: 'model/local.rosetta',
+      text: 'namespace custom\nfunc Compute:\n inputs: value number (1..1)\n output: result number (1..1)\n set result: value * 2',
+      expectedRevision: null
+    },
+    {
+      path: 'examples/old.example.json',
+      text: JSON.stringify({
+        schemaVersion: 1,
+        id: 'old',
+        name: 'Old input',
+        type,
+        payload: 'examples/old.json',
+        codec: 'JSON'
+      }),
+      expectedRevision: null
+    },
+    { path: 'examples/old.json', text: '{"value":10}', expectedRevision: null },
+    {
+      path: 'workflows/old.workflow.json',
+      text: JSON.stringify({
+        schemaVersion: 1,
+        id: 'old',
+        name: 'Old recipe',
+        function: source,
+        inputs: { value: { kind: 'literal', value: 10 } },
+        outputs: {}
+      }),
+      expectedRevision: null
+    }
+  ]);
+  const before = controller.current()!;
+  const newer = await referenceFixture(undefined, undefined, {
+    cdm: 'namespace ref\ntype Different:\n name string (1..1)'
+  });
+  const next = structuredClone(before.project.build);
+  next.references.cdm!.release = '2.0';
+  const review = await prepareProjectReferenceChange(
+    controller,
+    newer.transport,
+    cache,
+    new AbortController().signal,
+    next
+  );
+  expect(review.diagnostics).toContainEqual(expect.objectContaining({ code: expect.stringMatching(/^OVERRIDE_/) }));
+  expect(review.diagnostics).toContainEqual(
+    expect.objectContaining({
+      code: 'EXAMPLE_TYPE_UNAVAILABLE',
+      path: 'examples/old.example.json',
+      message: expect.stringContaining('ref.Gone')
+    })
+  );
+  expect(review.diagnostics).toContainEqual(
+    expect.objectContaining({
+      code: 'WORKFLOW_SYMBOL_UNAVAILABLE',
+      path: 'workflows/old.workflow.json',
+      message: expect.stringContaining('ref.Compute')
+    })
+  );
+  expect(controller.current()).toBe(before);
+  expect((await adapter.read('build-config.lock.json'))!.text).toBe(before.files.get('build-config.lock.json'));
+  await expect(review.accept(new AbortController().signal)).rejects.toThrow();
+});
+
+it('previews changed schemas and callable inputs for saved bindings without replacing the active lock', async () => {
+  const original = await referenceFixture(undefined, undefined, {
+    cdm: 'namespace ref\ntype Quote:\n amount number (1..1)\nfunc Compute:\n inputs: value number (1..1)\n output: result number (1..1)\n set result: value'
+  });
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'schema-review',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  for (const [path, text] of original.snapshot.files) await adapter.write(path, text, null);
+  const controller = createProjectController({ workspaceId: 'schema-review', adapter, validateTarget: () => [] });
+  await controller.load();
+  const cache = createMemoryReferenceCache();
+  await resolveAndSaveProjectReferences(controller, original.transport, cache, new AbortController().signal);
+  await controller.save([
+    {
+      path: 'examples/quote.example.json',
+      text: JSON.stringify({
+        schemaVersion: 1,
+        id: 'quote',
+        name: 'Quote',
+        type: { model: 'cdm', namespace: 'ref', kind: 'Data', name: 'Quote' },
+        payload: 'examples/quote.json',
+        codec: 'JSON'
+      }),
+      expectedRevision: null
+    },
+    { path: 'examples/quote.json', text: '{"amount":10}', expectedRevision: null },
+    {
+      path: 'workflows/compute.workflow.json',
+      text: JSON.stringify({
+        schemaVersion: 1,
+        id: 'compute',
+        name: 'Compute',
+        function: { model: 'cdm', namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' },
+        inputs: { value: { kind: 'literal', value: 10 } },
+        outputs: {}
+      }),
+      expectedRevision: null
+    }
+  ]);
+  const before = controller.current()!;
+  const newer = await referenceFixture(undefined, undefined, {
+    cdm: 'namespace ref\ntype Quote:\n amount string (1..1)\nfunc Compute:\n inputs: value string (1..1)\n output: result string (1..1)\n set result: value'
+  });
+  const next = structuredClone(before.project.build);
+  next.references.cdm!.release = '2.0';
+  const review = await prepareProjectReferenceChange(
+    controller,
+    newer.transport,
+    cache,
+    new AbortController().signal,
+    next
+  );
+  expect(review.diagnostics).toContainEqual(
+    expect.objectContaining({
+      code: 'REFERENCE_SCHEMA_CHANGED',
+      path: 'examples/quote.example.json',
+      message: expect.stringContaining('ref.Quote')
+    })
+  );
+  expect(review.diagnostics).toContainEqual(
+    expect.objectContaining({
+      code: 'REFERENCE_SCHEMA_CHANGED',
+      path: 'workflows/compute.workflow.json',
+      message: expect.stringContaining('ref.Compute')
+    })
+  );
+  expect(controller.current()).toBe(before);
+});

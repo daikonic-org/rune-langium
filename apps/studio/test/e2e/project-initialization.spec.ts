@@ -39,7 +39,7 @@ async function openReview(page: Page) {
     route.fulfill({ json: { access_token: 'fixture-only', scope: 'repo' } })
   );
   await page.goto('/test/fixtures/project-initialization.html');
-  await page.getByRole('button', { name: /Open from GitHub repository/ }).click();
+  await page.getByRole('button', { name: 'Open GitHub', exact: true }).click();
   await page.getByRole('button', { name: /check now/i }).click();
   await page.getByTestId('repo-url-input').fill('example/rates');
   await page.getByTestId('repo-branch-input').fill('release');

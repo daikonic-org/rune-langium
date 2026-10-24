@@ -20,6 +20,8 @@ export interface WorkspaceActions {
   onOpenFolder?: () => Promise<void>;
   /** Working-copy IO bound to an explicit workspace, with live ownership checks. */
   getProjectFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
+  /** Scoped IO for a freshly cloned, inactive workspace; never ordinary activation access. */
+  getProjectInitializationFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
   /** Limited typed legacy records for migration; never the private filesystem itself. */
   getLegacyExampleStorage?: (workspaceId: string) => Promise<LegacyExampleStorage>;
   /** Optional native configuration review, bound to an already cloned working copy. */

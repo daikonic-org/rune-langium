@@ -405,3 +405,71 @@ func Caller:
   bindGeneratedProjectModule(module, createProjectBindings(snapshot, providers));
   expect(module.Caller(10)).toBe(12);
 });
+
+it.each(['tests/expected', 'fixtures/golden'])(
+  'protects intentional expected fixtures at %s through the shared build transaction',
+  async (output) => {
+    const { runProjectBuild } = await import('../src/project-build.js');
+    const { root, parent } = await setup({ targets: { app: { generator: 'typescript', output } } });
+    await mkdir(join(root, output), { recursive: true });
+    await writeFile(join(root, output, 'result.ts'), 'HAND_AUTHORED_EXPECTATION');
+    if (output === 'fixtures/golden') {
+      await mkdir(join(root, 'examples'));
+      await writeFile(
+        join(root, 'examples', 'input.example.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          id: 'input',
+          name: 'Input',
+          type: { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' },
+          payload: 'examples/input.json',
+          codec: 'JSON',
+          expected: output + '/result.ts'
+        })
+      );
+      await writeFile(join(root, 'examples', 'input.json'), '{"amount": 10}');
+    }
+    const { snapshot, adapter } = await openLocalProject(root, { privateRoot: join(parent, 'private') });
+    const result = await runProjectBuild(snapshot, { targets: ['app'] }, adapter, async () => [
+      { relativePath: 'result.ts', content: 'GENERATED_REPLACEMENT', diagnostics: [] }
+    ]);
+    expect(result.status).toBe('failed');
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'OUTPUT_PROTECTED', target: 'app' }));
+    expect(await readFile(join(root, output, 'result.ts'), 'utf8')).toBe('HAND_AUTHORED_EXPECTATION');
+  }
+);
+
+it('builds an independent valid target when a resource-backed peer has an unknown namespace scope', async () => {
+  const { root, parent } = await setup(
+    {
+      overrides: [
+        {
+          kind: 'resource',
+          source: { model: 'local', id: 'demo.Currency#RosettaTypeAlias' },
+          path: 'resources/codes.json'
+        }
+      ],
+      targets: {
+        schema: { generator: 'json-schema', output: 'generated/schema', namespaces: ['demo'] },
+        broken: { generator: 'typescript', output: 'generated/broken', namespaces: ['not.existing'] }
+      }
+    },
+    'namespace demo\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)'
+  );
+  await mkdir(join(root, 'resources'));
+  await writeFile(join(root, 'resources/codes.json'), '[{"value":"EUR","label":"Euro"}]');
+  const { snapshot, adapter } = await openLocalProject(root, { privateRoot: join(parent, 'private') });
+  const { buildEffectiveProject, applyEffectiveProject } = await import('../src/effective-project.js');
+  const { createProjectResolutionContext } = await import('../src/project-context.js');
+  const graph = await buildEffectiveProject(snapshot, []);
+  expect(graph.diagnostics).not.toContainEqual(expect.objectContaining({ code: 'PROJECT_GRAPH' }));
+  expect(graph.diagnostics).toContainEqual(expect.objectContaining({ code: 'TARGET_SCOPE', target: 'broken' }));
+  const resolution = await createProjectResolutionContext(snapshot, {});
+  await expect(
+    applyEffectiveProject({ snapshot, referenceDocuments: [], resolution, receipt: resolution.receipt })
+  ).resolves.toBeDefined();
+  expect((await buildProject(snapshot, { targets: ['schema'] }, adapter)).status).toBe('success');
+  const failed = await buildProject(snapshot, { targets: ['broken'] }, adapter);
+  expect(failed.status).toBe('failed');
+  expect(failed.diagnostics).toContainEqual(expect.objectContaining({ code: 'TARGET_SCOPE', target: 'broken' }));
+});

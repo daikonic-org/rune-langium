@@ -34,13 +34,16 @@ export function readWorkflows(snapshot: ProjectSnapshot, knownSymbols?: Readonly
     const issue = (code: string, message: string) => read.diagnostics.push({ code, path, message, severity: 'error' });
     if (ids.has(value.id)) issue('WORKFLOW_DUPLICATE_ID', 'Workflow IDs must be unique. Both recipes are retained.');
     ids.add(value.id);
-    if (
-      knownSymbols &&
-      [value.function, ...Object.values(value.outputs).map((output) => output.type)].some(
-        (symbol) => symbol && !knownSymbols.has(declarationKey(symbol))
-      )
-    )
-      issue('WORKFLOW_SYMBOL_UNAVAILABLE', 'A workflow symbol is unavailable. Its recipe and bindings are retained.');
+    const missing = knownSymbols
+      ? [value.function, ...Object.values(value.outputs).map((output) => output.type)].filter(
+          (symbol) => symbol && !knownSymbols.has(declarationKey(symbol))
+        )
+      : [];
+    if (missing.length)
+      issue(
+        'WORKFLOW_SYMBOL_UNAVAILABLE',
+        `Workflow symbols are unavailable: ${missing.map((symbol) => `${symbol!.namespace}.${symbol!.name} (${symbol!.kind}, ${symbol!.model})`).join(', ')}. Its recipe and bindings are retained.`
+      );
     for (const binding of Object.values(value.inputs))
       if (binding.kind === 'example') {
         const matches = examples.documents.filter((entry) => entry.descriptor.id === binding.exampleId);

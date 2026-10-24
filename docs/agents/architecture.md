@@ -909,6 +909,13 @@ portable configuration/examples remain in the selected working-copy folder.
 It captures config/lock writes and the original project revision; acceptance
 checks cancellation and current identity before the canonical guarded Save.
 The existing resolve-and-save API delegates to this same transaction.
+`reviewProjectCompatibility` builds the proposed graph in isolation with the
+shared runtime, validates explicit overrides and portable record identities,
+and compares canonical preview schemas for saved type/function bindings against
+the locked current graph. Review identifies affected files. Broken portable
+bindings and schema changes remain explicit warnings; global graph errors block
+acceptance. Unavailable baseline or standalone preview contracts are reported,
+not treated as a compatibility success.
 `ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
 selects a latest tag implicitly, and does not invoke the legacy model store.
 
@@ -931,3 +938,22 @@ a typed Quote wrapper, preserving existing object-example semantics while provin
 the same override call chain. Display formatting and field order survive a fresh
 clone without changing semantic values. No starter repository or fixture release
 is published by these tests.
+
+### Portable project recovery and input protection
+
+Expected fixtures under `tests/expected` and explicit example `expected` paths
+are protected build inputs and participate in snapshot revisions. Builds cannot
+replace them through a generated output directory. Target scope errors remain
+qualified by target; preview adoption and independent targets exclude unrelated
+target errors using the common diagnostic filter.
+
+Undecoded example payloads never become semantic strings or synthesized null
+values. Load reports a repair failure; semantic writes and generic Retry refuse
+to reinterpret those bytes until the payload is repaired/restored and reloaded.
+Repository writers attach after the controller's first successful readiness
+publication, including recovery after an initially malformed project.
+
+The App grants initialization IO only for a freshly created inactive GitHub
+clone. Its adapter also checks the captured workspace generation and ownership
+at write time; ordinary active-project access retains its activation guard.
+Activation, workspace departure and controller disposal revoke pending access.

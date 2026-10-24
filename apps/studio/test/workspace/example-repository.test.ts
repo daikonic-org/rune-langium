@@ -199,3 +199,33 @@ it('keeps portable examples visible when private legacy storage is unavailable',
   expect(restored.records.map((record) => record.id)).toEqual(['portable']);
   expect(restored.diagnostics.some((issue) => issue.code === 'LEGACY_EXAMPLES_UNAVAILABLE')).toBe(true);
 });
+
+it.each(['malformed', 'missing'])(
+  'refuses semantic writes and retries of an undecoded %s example without changing its payload',
+  async (problem) => {
+    const { createExampleRepository } = await import('../../src/workspace/example-repository.js');
+    const { adapter, controller } = await setup();
+    await saveExample(controller, example('broken'), { amount: 12 });
+    const path = 'examples/broken.json';
+    const previous = (await adapter.read(path))!;
+    if (problem === 'malformed') await adapter.write(path, '{"amount": 12, BROKEN', previous.revision);
+    else await adapter.remove(path, previous.revision);
+    await controller.load();
+    const repository = createExampleRepository({ workspaceId: 'examples', controller, resolveType: () => type });
+    const loaded = await repository.load();
+    const record = loaded.records[0]!;
+    expect(loaded.failures?.broken).toMatch(/payload|repair|restore/i);
+    const before = (await adapter.read(path))?.text;
+    await expect(repository.write({ ...record, name: 'Renamed' })).rejects.toThrow(/payload|repair|restore/i);
+    await expect(repository.write(record)).rejects.toThrow(/payload|repair|restore/i);
+    expect((await adapter.read(path))?.text).toBe(before);
+    expect(readExamples(controller.current()!).examples[0]!.name).toBe('Trade broken');
+    if (problem === 'missing') await adapter.write(path, '{"amount": 13}', null);
+    else await adapter.write(path, '{"amount": 13}', (await adapter.read(path))!.revision);
+    await controller.load();
+    const repaired = await repository.load();
+    expect(repaired.failures?.broken).toBeUndefined();
+    await repository.write({ ...repaired.records[0]!, name: 'Repaired' });
+    expect(readExamples(controller.current()!).documents[0]!.payload).toEqual({ amount: 13 });
+  }
+);

@@ -10,6 +10,7 @@ import {
   type ProjectFileAdapter
 } from './project-files.js';
 import { normalizeProject } from './rune-compat.js';
+import { readExamples } from './examples.js';
 import type { ProjectDiagnostic, ProjectFiles, ProjectSnapshot, TargetValidator } from './types.js';
 
 export class ProjectSnapshotError extends Error {
@@ -42,6 +43,13 @@ export async function createProjectSnapshot(
   } catch (error) {
     diagnostics.push({ code: 'SOURCE_PATTERN', severity: 'error', path: 'sources', message: String(error) });
   }
+  const expectedPaths = readExamples({
+    workspaceId,
+    project,
+    files,
+    revision: '',
+    fileRevisions: new Map()
+  }).examples.flatMap((example) => (example.expected ? [example.expected] : []));
   diagnostics.push(
     ...validateOutputPaths(project.build.targets, [
       ...project.build.sources,
@@ -58,7 +66,9 @@ export async function createProjectSnapshot(
       'build-config.lock.json',
       project.studio.examples,
       project.studio.workflows,
-      project.studio.layouts
+      project.studio.layouts,
+      'tests/expected',
+      ...expectedPaths
     ])
   );
   const lockText = files.get('build-config.lock.json');
@@ -70,6 +80,7 @@ export async function createProjectSnapshot(
   const ownedFiles = new Map([...files.keys()].sort().map((path) => [path, files.get(path)!]));
   const exactInputs = new Set([
     ...sources,
+    ...expectedPaths,
     project.build.runeConfig,
     ...(project.build.importReport ? [project.build.importReport] : []),
     'rune-config.yml',
@@ -84,7 +95,8 @@ export async function createProjectSnapshot(
     ...project.build.resources.map((resource) => resource.path),
     project.studio.examples,
     project.studio.workflows,
-    project.studio.layouts
+    project.studio.layouts,
+    'tests/expected'
   ]
     .map((path) => normalizeProjectPath(path))
     .filter((path): path is string => Boolean(path));

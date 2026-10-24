@@ -37,10 +37,11 @@ export const WorkspaceProvider = withInstrumentation(
     const workspaceId = state.workspaceId;
     const getLegacy = actions.getLegacyExampleStorage;
     const getAdapter = actions.getProjectFileAdapter;
+    const getInitializationAdapter = actions.getProjectInitializationFileAdapter ?? getAdapter;
     const openProjectInitialization = useCallback(
       async (id: string) => {
-        if (!getAdapter) return undefined;
-        const adapter = await getAdapter(id);
+        if (!getInitializationAdapter) return undefined;
+        const adapter = await getInitializationAdapter(id);
         const captured = await readProjectFiles(adapter);
         await captured.verify();
         if (detectProjectInitialization(captured.files).kind !== 'maven') return undefined;
@@ -53,7 +54,7 @@ export const WorkspaceProvider = withInstrumentation(
           })
         );
       },
-      [getAdapter]
+      [getInitializationAdapter]
     );
     const projectActions = useMemo(
       () => ({ ...actions, openProjectInitialization: actions.openProjectInitialization ?? openProjectInitialization }),
@@ -65,6 +66,7 @@ export const WorkspaceProvider = withInstrumentation(
       let cancelled = false;
       let controller: ProjectController | undefined;
       let unsubscribe: (() => void) | undefined;
+      let repositoriesAttached = false;
       setProject({ workspaceId, status: 'loading', diagnostics: [] });
       void getAdapter(workspaceId)
         .then(async (adapter) => {
@@ -78,32 +80,61 @@ export const WorkspaceProvider = withInstrumentation(
           const update = () => {
             if (cancelled || !controller) return;
             const diagnostics = controller.diagnostics();
+            const ready = !projectDiagnosticsForTargets(diagnostics).some((issue) => issue.severity === 'error');
             setProject({
               workspaceId,
               controller,
               snapshot: controller.current(),
               diagnostics,
-              status: projectDiagnosticsForTargets(diagnostics).some((issue) => issue.severity === 'error')
-                ? 'invalid'
-                : 'ready'
+              status: ready ? 'ready' : 'invalid'
             });
+            if (ready && controller.current() && !repositoriesAttached) {
+              repositoriesAttached = true;
+              const owned = controller;
+              void (async () => {
+                const legacy = await getLegacy?.(workspaceId);
+                if (cancelled) return;
+                void useFormPresentationStore
+                  .getState()
+                  .setRepository(
+                    workspaceId,
+                    createPresentationRepository({ controller: owned, source: () => stateRef.current })
+                  );
+                useInstanceStore.getState().setExampleRepository(
+                  createExampleRepository({
+                    workspaceId,
+                    controller: owned,
+                    legacy,
+                    resolveType: (record) =>
+                      stateRef.current.workspaceId === workspaceId
+                        ? resolveExampleType(stateRef.current, record)
+                        : undefined
+                  })
+                );
+              })().catch((error: unknown) => {
+                if (cancelled) return;
+                repositoriesAttached = false;
+                setProject((previous) => ({
+                  ...previous,
+                  status: 'invalid',
+                  diagnostics: [
+                    ...previous.diagnostics,
+                    {
+                      code: 'PROJECT_REPOSITORY_UNAVAILABLE',
+                      severity: 'error',
+                      path: '',
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : 'Project repositories are unavailable. Reload to retry.'
+                    }
+                  ]
+                }));
+              });
+            }
           };
           unsubscribe = controller.subscribe(update);
           await controller.recover();
-          const legacy = await getLegacy?.(workspaceId);
-          if (cancelled) return;
-          void useFormPresentationStore
-            .getState()
-            .setRepository(workspaceId, createPresentationRepository({ controller, source: () => stateRef.current }));
-          useInstanceStore.getState().setExampleRepository(
-            createExampleRepository({
-              workspaceId,
-              controller,
-              legacy,
-              resolveType: (record) =>
-                stateRef.current.workspaceId === workspaceId ? resolveExampleType(stateRef.current, record) : undefined
-            })
-          );
         })
         .catch((error: unknown) => {
           if (cancelled || controller) return;

@@ -8,7 +8,11 @@ import {
   type Target
 } from '@rune-langium/codegen/export';
 import { type LangiumDocument } from 'langium';
-import { type ProjectSnapshot, type ProjectFileAdapter } from '@rune-langium/project-config';
+import {
+  projectDiagnosticsForTargets,
+  type ProjectSnapshot,
+  type ProjectFileAdapter
+} from '@rune-langium/project-config';
 
 import type { ImplementationProvider } from './implementations.js';
 import { assertProjectGenerationCapabilities } from './capability-impact.js';
@@ -29,8 +33,12 @@ export async function createProjectGraph(
   references: readonly ReferenceDocument[] = []
 ): Promise<LangiumDocument<RosettaModel>[]> {
   const graph = await buildEffectiveProject(snapshot, references);
-  if (graph.diagnostics.some((issue) => issue.severity === 'error'))
-    throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
+  if (projectDiagnosticsForTargets(graph.diagnostics).some((issue) => issue.severity === 'error'))
+    throw new Error(
+      projectDiagnosticsForTargets(graph.diagnostics)
+        .map((issue) => issue.message)
+        .join('\n')
+    );
   if (!graph.documents.length) throw new Error('No .rosetta sources match the configured source patterns.');
   return graph.documents as LangiumDocument<RosettaModel>[];
 }
@@ -64,8 +72,10 @@ export async function buildProject(
       : { documents: [], diagnostics: [] };
   if (loaded.diagnostics.length) return { status: 'failed' as const, diagnostics: loaded.diagnostics, outputs: [] };
   const graph = await buildEffectiveProject(snapshot, loaded.documents, request.providers);
-  if (graph.diagnostics.some((issue) => issue.severity === 'error'))
-    return { status: 'failed' as const, diagnostics: graph.diagnostics, outputs: [] };
+  const selected = request.targets === 'all' ? Object.keys(snapshot.project.build.targets) : request.targets;
+  const graphDiagnostics = projectDiagnosticsForTargets(graph.diagnostics, selected);
+  if (graphDiagnostics.some((issue) => issue.severity === 'error'))
+    return { status: 'failed' as const, diagnostics: graphDiagnostics, outputs: [] };
   const documents = graph.documents as LangiumDocument<RosettaModel>[];
   return runProjectBuild(snapshot, { ...request, projectReceipt: graph.receipt }, adapter, async (captured, target) => {
     if (!documents.length) throw new Error('No .rosetta sources match the configured source patterns.');

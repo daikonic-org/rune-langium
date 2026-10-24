@@ -192,7 +192,10 @@ export const createExampleRepository = withInstrumentation(
           const current = await snapshot();
           const type = record.typeIdentity ?? input.resolveType(record);
           if (!type) throw new Error('This example type is unavailable or ambiguous. Its unsaved data is retained.');
-          const previous = readExamples(current).examples.find((entry) => entry.id === record.id);
+          const previousDocument = readExamples(current).documents.find((entry) => entry.descriptor.id === record.id);
+          if (previousDocument && previousDocument.payload === undefined)
+            throw new Error('Repair or restore this example payload before saving. Its original bytes are retained.');
+          const previous = previousDocument?.descriptor;
           const root = exampleRoot(current);
           if (!root) throw new Error('The examples directory is unavailable.');
           await saveExample(
@@ -255,13 +258,16 @@ export const createExampleRepository = withInstrumentation(
               name: descriptor.name,
               typeFqn,
               typeIdentity: type,
-              data: entry.payload === undefined ? (entry.rawPayload ?? null) : entry.payload,
+              data: entry.payload,
               createdAt: 0,
               modifiedAt: 0,
               ...(descriptor.provenance
                 ? { provenance: { codec: descriptor.codec, source: descriptor.provenance.source, importedAt: 0 } }
                 : {})
             };
+            if (entry.payload === undefined)
+              failures[record.id] =
+                'Repair or restore this example payload before saving. Its original bytes are retained.';
             const resolved = input.resolveType(record);
             if (!resolved || declarationKey(resolved) !== declarationKey(type))
               diagnostics.push({

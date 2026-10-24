@@ -47,10 +47,29 @@ vi.mock('../../src/components/StudioToastProvider.js', () => ({
   useStudioToast: () => ({ showToast: vi.fn(), showLoadingToast: vi.fn(() => 'loading'), dismissToast: vi.fn() })
 }));
 vi.mock('../../src/shell/ExplorePerspective.js', async () => {
-  const { useEffect, useMemo } = await import('react');
+  const { useEffect, useMemo, useState } = await import('react');
+  const { GitHubWorkspaceFlow } = await import('../../src/components/GitHubWorkspaceFlow.js');
   const { DataTypeForm, useModelSourceSync, createEditorCommitRegistry } = await import('@rune-langium/visual-editor');
   const { useWorkspace } = await import('../../src/shell/providers/workspace-context.js');
   const { useWorkspaceActions } = await import('../../src/shell/perspectives/workspace-actions-context.js');
+  function CloneReviewProbe() {
+    const actions = useWorkspaceActions();
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button onClick={() => setOpen(true)}>Start clone review</button>
+        {open && (
+          <GitHubWorkspaceFlow
+            authBase="https://auth.example"
+            createWorkspace={actions.createGitBackedWorkspace}
+            openProjectInitialization={actions.openProjectInitialization}
+            onCreated={actions.onGitHubWorkspaceCreated}
+            onCancel={() => setOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
   function InspectorFlushProbe() {
     const { files, models } = useWorkspace();
     useEffect(() => {
@@ -113,6 +132,7 @@ vi.mock('../../src/shell/ExplorePerspective.js', async () => {
       return (
         <div>
           <InspectorFlushProbe />
+          <CloneReviewProbe />
           <span data-testid="workspace-id">{workspaceId}</span>
           <button onClick={() => void onGitHubWorkspaceCreated('empty-clone')}>Open POM-only clone</button>
           <span data-testid="files">{files.map((file) => file.path).join(',')}</span>
@@ -694,4 +714,44 @@ it('activates a POM-only GitHub clone without duplicating it or carrying prior e
   expect((await loadWorkspace('empty-clone'))?.kind).toBe('git-backed');
   expect((await loadWorkspace('empty-clone'))?.gitBacking).toEqual(gitBacking);
   expect(await fs.readFile('/empty-clone/files/pom.xml', 'utf8')).toBe('<project/>');
+});
+
+it('reviews and saves a newly cloned inactive project through the real App adapter before activation', async () => {
+  const git = await import('../../src/services/git-backing.js');
+  vi.spyOn(git, 'cloneRepository').mockImplementation(async (fs, id) => {
+    await fs.writeFile(
+      '/' + id + '/files/pom.xml',
+      new TextEncoder().encode(
+        '<project><modelVersion>4.0.0</modelVersion><groupId>example</groupId><artifactId>rates</artifactId><version>1</version></project>'
+      )
+    );
+  });
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.endsWith('/device-init'))
+      return Response.json({
+        device_code: 'fixture',
+        user_code: 'TEST',
+        verification_uri: 'https://github.com/login/device',
+        expires_in: 900,
+        interval: 5
+      });
+    if (url.endsWith('/device-poll')) return Response.json({ access_token: 'fixture-only', scope: 'repo' });
+    return new Response('{}', { status: 404 });
+  });
+  render(<App />);
+  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a'));
+  fireEvent.click(screen.getByRole('button', { name: 'Start clone review' }));
+  fireEvent.click(await screen.findByRole('button', { name: /check now/i }));
+  fireEvent.change(await screen.findByTestId('repo-url-input'), { target: { value: 'example/rates' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Clone', exact: true }));
+  const initialize = await screen.findByRole('button', { name: 'Initialize project settings' });
+  await waitFor(() => expect(initialize).toBeEnabled());
+  expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a');
+  fireEvent.click(initialize);
+  await waitFor(() => expect(screen.getByTestId('workspace-id').textContent).not.toBe('ws-a'));
+  const id = screen.getByTestId('workspace-id').textContent!;
+  const root = await navigator.storage.getDirectory();
+  const files = await (await root.getDirectoryHandle(id)).getDirectoryHandle('files');
+  expect(await (await (await files.getFileHandle('build-config.yml')).getFile()).text()).toContain('schemaVersion');
 });

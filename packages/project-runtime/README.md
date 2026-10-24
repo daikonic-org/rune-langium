@@ -155,3 +155,9 @@ function-input validator, verifies `Caller(10) = 20`, missing-input rejection,
 removed-map unavailability and a filesystem clone/reopen. The fixture is not a
 published CDM release or evidence of payment-schedule/provider parity. A runnable
 standalone local variant lives in `examples/workspaces/model-authoring`.
+
+Reference upgrades can call `reviewProjectCompatibility` with proposed verified
+reference documents and the current locked generation. It returns graph,
+portable binding and canonical preview-schema impacts without adopting either
+graph. Callers must show warnings and refuse hard graph errors before Save.
+Target-qualified diagnostics do not invalidate independent preview/build scopes.

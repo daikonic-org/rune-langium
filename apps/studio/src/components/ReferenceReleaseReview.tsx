@@ -58,8 +58,8 @@ export const ReferenceReleaseReview = withInstrumentation(
             ))}
         </ul>
         {diagnostics.map((issue, index) => (
-          <p key={index} role="alert">
-            {issue.code}: {issue.message}
+          <p key={index} role="alert" className="break-words">
+            <code>{issue.path}</code> · {issue.code}: {issue.message}
           </p>
         ))}
         <div className="flex flex-wrap gap-2">

@@ -80,3 +80,27 @@ it('offers configuration reload for an active invalid project instead of asking 
   await screen.findByRole('alert');
   expect(recover).toHaveBeenCalledOnce();
 });
+
+it('identifies affected saved files in compatibility review and retains warnings as explicit upgrade choices', async () => {
+  const { ReferenceReleaseReview } = await import('../../src/components/ReferenceReleaseReview.js');
+  const { snapshot } = await referenceFixture({});
+  render(
+    <ReferenceReleaseReview
+      config={snapshot.project.build}
+      lock={{ schemaVersion: 1, configHash: 'a'.repeat(64), toolchain: {}, references: {} }}
+      diagnostics={[
+        {
+          code: 'REFERENCE_SCHEMA_CHANGED',
+          severity: 'warning',
+          path: 'examples/trade.example.json',
+          message: 'The schema for ref.Trade changed.'
+        }
+      ]}
+      busy={false}
+      onAccept={() => {}}
+      onCancel={() => {}}
+    />
+  );
+  expect(screen.getByText('examples/trade.example.json', { exact: true })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Save reference change' })).toBeEnabled();
+});

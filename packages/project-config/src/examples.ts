@@ -87,7 +87,7 @@ export function readExamples(
       issue(
         'EXAMPLE_TYPE_UNAVAILABLE',
         path,
-        'The example type is unavailable in this project. Its saved payload is retained.'
+        `The example type ${descriptor.type.namespace}.${descriptor.type.name} (${descriptor.type.kind}, ${descriptor.type.model}) is unavailable in this project. Its saved payload is retained.`
       );
     const raw = snapshot.files.get(descriptor.payload);
     if (raw === undefined) {

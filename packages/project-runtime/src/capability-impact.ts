@@ -14,7 +14,7 @@ import {
   resolveExportSelection,
   type ExportSelection
 } from '@rune-langium/codegen/export';
-import type { ProjectSnapshot, SymbolIdentity } from '@rune-langium/project-config';
+import type { ProjectSnapshot, SymbolIdentity, ProjectDiagnostic } from '@rune-langium/project-config';
 import type { EffectiveProject } from './effective-project.js';
 import type { ProjectDeclarations } from './override-validation.js';
 import { projectTargetNamespaces } from './project-build.js';
@@ -25,7 +25,7 @@ export function projectCapabilityImpact(
   declarations: readonly ProjectDeclarations[]
 ) {
   if (!graph.capabilities.some((capability) => capability.affectedDeclarations?.length))
-    return { capabilities: graph.capabilities, unavailableFunctions: [] };
+    return { capabilities: graph.capabilities, unavailableFunctions: [], diagnostics: [] };
   const source = new Map(declarations.map((entry) => [declarationKey(entry.identity), entry.node]));
   const identity = new Map<AstNode, SymbolIdentity>(declarations.map((entry) => [entry.node, entry.identity]));
   const active = new Set(
@@ -43,17 +43,33 @@ export function projectCapabilityImpact(
       reverse.set(dependency, parents);
     }
   const available = new Set(declarations.map((entry) => entry.identity.namespace));
+  const diagnostics: ProjectDiagnostic[] = [];
   const scopes = new Map(
-    Object.entries(snapshot.project.build.targets).map(([name, target]) => [
-      name,
-      {
-        target,
-        selection: resolveExportSelection([...graph.documents], {
-          namespaces: projectTargetNamespaces(snapshot, target, available),
-          declarations: []
-        })
+    Object.entries(snapshot.project.build.targets).flatMap(([name, target]) => {
+      try {
+        return [
+          [
+            name,
+            {
+              target,
+              selection: resolveExportSelection([...graph.documents], {
+                namespaces: projectTargetNamespaces(snapshot, target, available),
+                declarations: []
+              })
+            }
+          ] as const
+        ];
+      } catch (error) {
+        diagnostics.push({
+          code: 'TARGET_SCOPE',
+          severity: 'error',
+          target: name,
+          path: 'targets.' + name + '.namespaces',
+          message: error instanceof Error ? error.message : String(error)
+        });
+        return [];
       }
-    ])
+    })
   );
   const blocked = new Map<string, { symbol: SymbolIdentity; reasons: Set<string> }>();
   const capabilities = graph.capabilities.map((capability) => {
@@ -106,6 +122,7 @@ export function projectCapabilityImpact(
     return { ...capability, affectedDeclarations, affectedFunctions, affectedTargets };
   });
   return {
+    diagnostics,
     capabilities,
     unavailableFunctions: [...blocked.values()].map((entry) => ({
       symbol: entry.symbol,

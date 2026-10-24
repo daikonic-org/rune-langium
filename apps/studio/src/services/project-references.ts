@@ -21,6 +21,7 @@ import {
   type ProjectWrite
 } from '@rune-langium/project-config';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
+import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
 import type { ProjectController } from '../workspace/project-controller.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
 import { CURATED_FETCH_TIMEOUT_MS, type CuratedFetcher } from './curated-fetch.js';
@@ -95,10 +96,38 @@ export const prepareProjectReferenceChange = withInstrumentation(
         throw new Error('Project changed while resolving references. Retry from the current project.');
     };
     assertCurrent();
+    const lockText = JSON.stringify(result.lock, null, 2) + '\n';
+    const reviewedFiles = new Map(proposed.files);
+    reviewedFiles.set('build-config.lock.json', lockText);
+    const reviewedSnapshot = await createProjectSnapshot(original.workspaceId, reviewedFiles, validateProjectTarget);
+    const loaded = await loadLockedReferences(result.lock, transport, cache, signal);
+    if (loaded.diagnostics.some((issue) => issue.severity === 'error'))
+      throw new ProjectSnapshotError(loaded.diagnostics);
+    const baseline = original.lock ? await loadProjectReferences(original, transport, cache, signal) : undefined;
+    const diagnostics = [
+      ...result.diagnostics,
+      ...(await reviewProjectCompatibility(
+        reviewedSnapshot,
+        loaded.documents,
+        baseline && !baseline.diagnostics.length
+          ? { snapshot: original, referenceDocuments: baseline.documents }
+          : undefined
+      ))
+    ];
+    if (baseline?.diagnostics.length)
+      diagnostics.push(
+        ...baseline.diagnostics.map((issue) => ({
+          ...issue,
+          code: 'REFERENCE_BASELINE_UNAVAILABLE',
+          severity: 'warning' as const
+        }))
+      );
+    signal.throwIfAborted();
+    assertCurrent();
     const previous = original.files.get('build-config.lock.json');
     writes.push({
       path: 'build-config.lock.json',
-      text: JSON.stringify(result.lock, null, 2) + '\n',
+      text: lockText,
       expectedRevision: previous === undefined ? null : await projectFileRevision(previous)
     });
     signal.throwIfAborted();
@@ -106,11 +135,12 @@ export const prepareProjectReferenceChange = withInstrumentation(
     return {
       config: structuredClone(proposed.project.build),
       lock: structuredClone(result.lock),
-      diagnostics: result.diagnostics,
+      diagnostics,
       async accept(acceptSignal) {
         signal.throwIfAborted();
         acceptSignal.throwIfAborted();
         assertCurrent();
+        if (diagnostics.some((issue) => issue.severity === 'error')) throw new ProjectSnapshotError(diagnostics);
         return controller.save(writes);
       }
     };

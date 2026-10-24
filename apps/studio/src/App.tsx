@@ -212,6 +212,7 @@ function AppContent() {
   // `files` initial state) and is kept in sync via the effect below.
   const filesRef = useRef<WorkspaceFile[]>([]);
   const workspaceEpochRef = useRef(0);
+  const pendingGitHubProjects = useRef(new Set<string>());
   const workspaceTransitionRef = useRef(0);
   // Tracks the latest loaded reference models so syncWorkspaceToEditor can
   // preserve them without calling useModelStore.getState() (which is not
@@ -1140,6 +1141,7 @@ function AppContent() {
 
   const handleCreateGitBackedWorkspace = useCallback(
     async (input: { name: string; repoUrl: string; branch: string; user: string; token: string }) => {
+      const epoch = workspaceEpochRef.current;
       const wm = await getWorkspaceManager();
       // Prefer the caller-supplied name (FileLoader → GitHubWorkspaceFlow sends
       // `${user}/${repo}`); fall back to a URL-derived repo name only if the
@@ -1156,6 +1158,11 @@ function AppContent() {
         user: input.user,
         token: input.token
       });
+      if (epoch !== workspaceEpochRef.current) {
+        await wm.close(ws.id);
+        throw new Error('Workspace activation was superseded');
+      }
+      pendingGitHubProjects.current.add(ws.id);
       return { id: ws.id };
     },
     [getWorkspaceManager]
@@ -1177,6 +1184,8 @@ function AppContent() {
         await handleFilesLoaded(wsFiles, workspaceId);
       } catch (err) {
         reportWorkspaceError('Failed to load cloned workspace', err);
+      } finally {
+        pendingGitHubProjects.current.delete(workspaceId);
       }
     },
     [handleFilesLoaded, reportWorkspaceError]
@@ -1304,6 +1313,10 @@ function AppContent() {
     return () => {
       projectOpenRequests.current.delete(projectWorkspaceId);
       void workspaceManagerRef.current?.close(projectWorkspaceId);
+      for (const id of pendingGitHubProjects.current) {
+        if (id !== restoredWorkspaceRef.current?.id) void workspaceManagerRef.current?.close(id);
+        pendingGitHubProjects.current.delete(id);
+      }
     };
   }, [projectWorkspaceId]);
   const getProjectFileAdapter = useCallback(
@@ -1342,12 +1355,24 @@ function AppContent() {
     },
     [getWorkspaceManager]
   );
+  const getProjectInitializationFileAdapter = useCallback(
+    async (id: string) => {
+      const epoch = workspaceEpochRef.current;
+      const current = () => pendingGitHubProjects.current.has(id) && epoch === workspaceEpochRef.current;
+      if (!current()) throw new Error('Project initialization is no longer active');
+      const manager = await getWorkspaceManager();
+      if (!current()) throw new Error('Project initialization is no longer active');
+      return manager.getProjectFileAdapter(id, current);
+    },
+    [getWorkspaceManager]
+  );
   const workspaceActionsValue = useMemo(
     () => ({
       files,
       registerEditorSaveBarrier,
       flushWorkspaceSave,
       getProjectFileAdapter,
+      getProjectInitializationFileAdapter,
       getLegacyExampleStorage,
       onFilesLoaded: handleFilesLoaded,
       createGitBackedWorkspace: handleCreateGitBackedWorkspace,
@@ -1370,6 +1395,7 @@ function AppContent() {
       registerEditorSaveBarrier,
       flushWorkspaceSave,
       getProjectFileAdapter,
+      getProjectInitializationFileAdapter,
       getLegacyExampleStorage,
       handleFilesLoaded,
       handleCreateGitBackedWorkspace,
