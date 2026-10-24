@@ -124,3 +124,11 @@ read-only dependencies. Proposed repositories remain unavailable until published
 and verified. Opening public starter source does not authorize a push remote.
 The launcher uses a compact action row, recent-workspace list and starter
 list/detail composition; narrow screens drill into details with Back navigation.
+
+Reference settings select exact published releases with an explicit dependency
+review before Save. Required releases explain their parent dependency; upgrades
+replace the existing model request rather than adding a second version. Cancel
+and failed verification keep the current project intact. Verified locked
+artifacts drive Explorer, Source and semantic hosts together; unavailable bytes
+and conflicts stay visible with recovery controls. The UI does not imply that a
+loaded CDM function has an available business implementation.

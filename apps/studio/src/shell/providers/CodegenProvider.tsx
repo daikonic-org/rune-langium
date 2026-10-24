@@ -6,6 +6,7 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useEditorStore } from '@rune-langium/visual-editor';
 import { useStudioToast } from '../../components/StudioToastProvider.js';
+import { resolveEditorFilePath } from '../explore-file-nav-store.js';
 import { useWorkspace } from './workspace-context.js';
 import { useProject } from './project-context.js';
 import { createProjectWorkerBridge } from '../../services/project-worker-bridge.js';
@@ -48,7 +49,7 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { RetryExhaustedError } from '../../services/instrumentation/errors.js';
 import type { InstrumentationNamespace } from '../../services/instrumentation/namespace.js';
 
-/** Exclude user declarations, which /api/parse also lists for Explorer navigation. */
+/** Only catalog stubs need hydration; complete serialized definitions are already in the worker file set. */
 function curatedDeferredExports(
   deferredExports: DeferredExportEntry[],
   files: readonly WorkspaceFile[]
@@ -56,8 +57,12 @@ function curatedDeferredExports(
   // /api/parse includes user declarations in deferredExports so Explorer can
   // locate them. They are already present in the worker's source file set;
   // requesting curated hydration for one can never complete.
-  const userPaths = new Set(files.filter((file) => !file.bundleId).map((file) => file.path));
-  return deferredExports.filter((entry) => !userPaths.has(entry.filePath));
+  const availablePaths = new Set(
+    files.filter((file) => !file.bundleId || Boolean(file.serializedModelJson)).map((file) => file.path)
+  );
+  return deferredExports.filter(
+    (entry) => !availablePaths.has(resolveEditorFilePath(entry.filePath, files) ?? entry.filePath)
+  );
 }
 
 /**

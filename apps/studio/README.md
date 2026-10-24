@@ -453,3 +453,23 @@ and [blob](https://docs.github.com/en/rest/git/blobs#get-a-blob) APIs.
 Recent-workspace backing and recorded repository status are distinct from a
 current Save result. Missing sync evidence is shown as unknown, not as unpublished
 or synced. No repository creation, Maven execution or automatic push occurs.
+
+### Pinned reference releases
+
+In **Workspaces → Reference models**, choose a model and an exact published
+release. **Review change** verifies the full dependency closure and shows selected
+and required releases before **Save reference change** updates `build-config.yml`
+and `build-config.lock.json` together. Selecting another release replaces that
+model's request; a workspace cannot load two releases of the same model. Cancel
+or verification failure leaves the active request and lock unchanged.
+
+Normal reopen uses the locked commits and verified content cache, without a tag
+lookup or a latest-release fallback. Missing locks, conflicting requirements,
+unavailable bytes and checksum failures retain their diagnostics; **Review
+configured references** repairs an unresolved request, while **Retry reference
+loading** retries an unavailable locked load. Invalid configuration must be
+repaired before a new selection can be saved. Dependency compatibility does not
+establish compatibility of local overrides, examples or business implementations.
+Explorer and parser hydration consume the same captured documents as preview,
+LSP and exports. Legacy model loading remains available only to unmanaged
+workspaces, preserving existing imports without mixing them into pinned projects.

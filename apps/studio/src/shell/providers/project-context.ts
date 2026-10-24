@@ -7,12 +7,18 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 import type { ProjectRuntimeInput } from '../../services/project-runtime-input.js';
 export interface ProjectRuntimeState {
+  retry?: () => void;
   managed: boolean;
   status: 'legacy' | 'loading' | 'captured' | 'unavailable';
   input?: ProjectRuntimeInput;
   diagnostics: readonly ProjectDiagnostic[];
 }
 export interface ProjectState {
+  referenceView?: {
+    status: 'loading' | 'ready' | 'unavailable';
+    diagnostics: readonly ProjectDiagnostic[];
+    retry: () => void;
+  };
   runtime?: ProjectRuntimeState;
   workspaceId?: string;
   controller?: ProjectController;

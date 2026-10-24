@@ -7,6 +7,7 @@ import { createProjectController } from '../../src/workspace/project-controller.
 import { createOpfsRoot } from '../setup/opfs-mock.js';
 import { createMemoryReferenceCache } from '@rune-langium/project-runtime/references';
 import {
+  prepareProjectReferenceChange,
   createProjectReferenceTransport,
   resolveAndSaveProjectReferences,
   loadProjectReferences
@@ -126,4 +127,77 @@ it('does not replace an existing lock after a canceled upgrade', async () => {
   finish({ schemaVersion: 1, releases: releases.get('cdm')! });
   await expect(pending).rejects.toThrow();
   expect((await adapter.read('build-config.lock.json'))!.text).toBe(lockBefore);
+});
+
+it('prepares a verified review without writing, then accepts exactly the captured config and lock', async () => {
+  const { controller, adapter, transport } = await setup();
+  const cache = createMemoryReferenceCache();
+  const original = controller.current()!;
+  const review = await prepareProjectReferenceChange(controller, transport, cache, new AbortController().signal);
+  expect(controller.current()).toBe(original);
+  expect(await adapter.read('build-config.lock.json')).toBeUndefined();
+  expect(review.lock.references.cdm!.release).toBe('1.0');
+  expect(review.lock.references['rune-dsl']!.release).toBe('1.0');
+  review.config.references.cdm!.release = 'not-the-reviewed-request';
+  const saved = await review.accept(new AbortController().signal);
+  expect(saved.project.build.references.cdm!.release).toBe('1.0');
+  expect(saved.lock).toEqual(review.lock);
+});
+it('refuses a canceled or stale review and leaves the old active release usable', async () => {
+  const { controller, transport } = await setup();
+  const cache = createMemoryReferenceCache();
+  const before = await resolveAndSaveProjectReferences(controller, transport, cache, new AbortController().signal);
+  const next = structuredClone(before.project.build);
+  next.references.cdm!.release = '2.0';
+  const review = await prepareProjectReferenceChange(controller, transport, cache, new AbortController().signal, next);
+  const abort = new AbortController();
+  abort.abort();
+  await expect(review.accept(abort.signal)).rejects.toThrow();
+  expect(controller.current()!.lock).toEqual(before.lock);
+  await controller.save([{ path: 'examples/change.json', text: '{}', expectedRevision: null }]);
+  await expect(review.accept(new AbortController().signal)).rejects.toThrow(/changed|stale/);
+  expect(
+    (await loadProjectReferences(controller.current()!, transport, cache, new AbortController().signal)).documents
+  ).toHaveLength(2);
+});
+it('distinguishes missing locks, unavailable bytes and checksum failures without changing the saved release', async () => {
+  const { controller, adapter, transport } = await setup();
+  const cache = createMemoryReferenceCache();
+  expect(
+    (await loadProjectReferences(controller.current()!, transport, cache, new AbortController().signal)).diagnostics[0]
+      ?.code
+  ).toMatch(/LOCK/);
+  const before = await resolveAndSaveProjectReferences(controller, transport, cache, new AbortController().signal);
+  const next = structuredClone(before.project.build);
+  next.references.cdm!.release = '2.0';
+  transport.artifact.mockResolvedValueOnce(new TextEncoder().encode('corrupt'));
+  await expect(
+    prepareProjectReferenceChange(controller, transport, cache, new AbortController().signal, next)
+  ).rejects.toMatchObject({
+    diagnostics: expect.arrayContaining([expect.objectContaining({ code: 'REFERENCE_CHECKSUM' })])
+  });
+  expect(controller.current()!.lock).toEqual(before.lock);
+  const empty = createMemoryReferenceCache();
+  transport.artifact.mockRejectedValue(new Error('Offline cache miss'));
+  expect(
+    (await loadProjectReferences(before, transport, empty, new AbortController().signal)).diagnostics[0]?.code
+  ).toBe('REFERENCE_UNAVAILABLE');
+  expect(JSON.parse((await adapter.read('build-config.lock.json'))!.text)).toEqual(before.lock);
+});
+it('refuses incompatible second versions rather than replacing a transitive requirement silently', async () => {
+  const { controller, transport } = await setup();
+  const next = structuredClone(controller.current()!.project.build);
+  next.references['rune-dsl'] = { repository: 'https://github.com/org/rune-dsl', release: '2.0' };
+  await expect(
+    prepareProjectReferenceChange(
+      controller,
+      transport,
+      createMemoryReferenceCache(),
+      new AbortController().signal,
+      next
+    )
+  ).rejects.toMatchObject({
+    diagnostics: expect.arrayContaining([expect.objectContaining({ code: 'REFERENCE_CONFLICT' })])
+  });
+  expect(controller.current()!.lock).toBeUndefined();
 });

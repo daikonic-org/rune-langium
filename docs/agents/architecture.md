@@ -902,3 +902,22 @@ ProjectController Save/CAS and preserve unrelated files. Retry adopts only exact
 readback of this source writer's interrupted attempt, preserving external edits
 as conflicts. The journal and personal metadata stay in browser-private storage;
 portable configuration/examples remain in the selected working-copy folder.
+
+### Locked reference view publication
+
+`prepareProjectReferenceChange` separates resolver verification from acceptance.
+It captures config/lock writes and the original project revision; acceptance
+checks cancellation and current identity before the canonical guarded Save.
+The existing resolve-and-save API delegates to this same transaction.
+`ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
+selects a latest tag implicitly, and does not invoke the legacy model store.
+
+`WorkspaceProvider` projects captured references into the Explorer through
+`prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope
+computation register a complete document set in the existing parser worker;
+read-only ownership and original source remain attached to each reference file.
+Only configured local source paths participate. View readiness is separate from
+semantic capture and each host's applied-receipt barrier. Complete serialized
+definitions are excluded from legacy namespace-hydration requests. Workspace
+identity and abort guards discard late view completion; failed loads expose
+retry without editing configuration or falling back to latest artifacts.

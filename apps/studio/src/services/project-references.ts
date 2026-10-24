@@ -16,6 +16,8 @@ import {
   ProjectSnapshotError,
   type ProjectSnapshot,
   type BuildConfig,
+  type ProjectDiagnostic,
+  type ProjectLock,
   type ProjectWrite
 } from '@rune-langium/project-config';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
@@ -46,15 +48,21 @@ export const projectReferenceCache: ReferenceCache = {
   put: (checksum, bytes) => curatedArtifactCache.putReferenceBytes(checksum, bytes)
 };
 
-/** Resolve/upgrade is explicit; one guarded logical Save updates config and lock together. */
-export const resolveAndSaveProjectReferences = withInstrumentation(
-  async function resolveAndSaveProjectReferences(
+export interface PreparedReferenceChange {
+  config: BuildConfig;
+  lock: ProjectLock;
+  diagnostics: readonly ProjectDiagnostic[];
+  accept(signal: AbortSignal): Promise<ProjectSnapshot>;
+}
+/** Resolving verifies the entire closure without changing the active project. */
+export const prepareProjectReferenceChange = withInstrumentation(
+  async function prepareProjectReferenceChange(
     controller: ProjectController,
     transport: ReferenceTransport,
     cache: ReferenceCache,
     signal: AbortSignal,
     nextBuild?: BuildConfig
-  ): Promise<ProjectSnapshot> {
+  ): Promise<PreparedReferenceChange> {
     nextBuild = nextBuild ? structuredClone(nextBuild) : undefined;
     const original = controller.current();
     if (!original) throw new Error('Project is not ready.');
@@ -95,9 +103,33 @@ export const resolveAndSaveProjectReferences = withInstrumentation(
     });
     signal.throwIfAborted();
     assertCurrent();
-    return controller.save(writes);
+    return {
+      config: structuredClone(proposed.project.build),
+      lock: structuredClone(result.lock),
+      diagnostics: result.diagnostics,
+      async accept(acceptSignal) {
+        signal.throwIfAborted();
+        acceptSignal.throwIfAborted();
+        assertCurrent();
+        return controller.save(writes);
+      }
+    };
   },
-  { op: 'resolveAndSaveProjectReferences' }
+  { op: 'prepareProjectReferenceChange', capture: 0 }
+);
+/** Existing explicit callers use the same prepare/accept transaction as the review UI. */
+export const resolveAndSaveProjectReferences = withInstrumentation(
+  async function resolveAndSaveProjectReferences(
+    controller: ProjectController,
+    transport: ReferenceTransport,
+    cache: ReferenceCache,
+    signal: AbortSignal,
+    nextBuild?: BuildConfig
+  ): Promise<ProjectSnapshot> {
+    const change = await prepareProjectReferenceChange(controller, transport, cache, signal, nextBuild);
+    return change.accept(signal);
+  },
+  { op: 'resolveAndSaveProjectReferences', capture: 0 }
 );
 
 /** Ordinary open follows only the captured lock and verified cache; it never resolves tags. */

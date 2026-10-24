@@ -11,6 +11,7 @@ import {
   detectProjectInitialization
 } from '../../workspace/project-initialization.js';
 import { createProjectController, type ProjectController } from '../../workspace/project-controller.js';
+import { useProjectReferenceView } from './use-project-reference-view.js';
 import { useProjectRuntime } from './use-project-runtime.js';
 import { ProjectContext, type ProjectState } from './project-context.js';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
@@ -136,11 +137,16 @@ export const WorkspaceProvider = withInstrumentation(
             status: workspaceId && getAdapter ? 'loading' : 'unavailable',
             diagnostics: []
           };
-    const runtime = useProjectRuntime(currentProject, state.files);
+    const capturedRuntime = useProjectRuntime(currentProject, state.files);
+    const view = useProjectReferenceView(capturedRuntime, state);
+    const runtime = capturedRuntime;
+    stateRef.current = view.state;
     return (
       <WorkspaceActionsContext.Provider value={projectActions}>
-        <WorkspaceStateContext.Provider value={state}>
-          <ProjectContext.Provider value={{ ...currentProject, runtime }}>{children}</ProjectContext.Provider>
+        <WorkspaceStateContext.Provider value={view.state}>
+          <ProjectContext.Provider value={{ ...currentProject, runtime, referenceView: view.referenceView }}>
+            {children}
+          </ProjectContext.Provider>
         </WorkspaceStateContext.Provider>
       </WorkspaceActionsContext.Provider>
     );

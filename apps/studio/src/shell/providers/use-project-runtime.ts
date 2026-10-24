@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { withInstrumentation } from '../../services/instrumentation/core.js';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { canonicalProjectJson, ProjectSnapshotError, type ProjectDiagnostic } from '@rune-langium/project-config';
 import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
 import {
@@ -20,6 +20,8 @@ import type { ProjectState, ProjectRuntimeState } from './project-context.js';
 /** Capture availability is separate from each host's applied-receipt acknowledgement. */
 export const useProjectRuntime = withInstrumentation(
   function useProjectRuntime(project: ProjectState, files: readonly WorkspaceFile[]): ProjectRuntimeState {
+    const [attempt, setAttempt] = useState(0);
+    const retry = useCallback(() => setAttempt((value) => value + 1), []);
     const saved = project.snapshot;
     const managed = Boolean(
       saved?.files.has('build-config.yml') ||
@@ -76,7 +78,7 @@ export const useProjectRuntime = withInstrumentation(
         cancelled = true;
         abort.abort();
       };
-    }, [referenceKey]);
+    }, [referenceKey, attempt]);
     const revision = saved?.revision;
     const documents = references.key === referenceKey ? references.documents : undefined;
     useEffect(() => {
@@ -103,8 +105,9 @@ export const useProjectRuntime = withInstrumentation(
     if (project.status === 'invalid') return { managed, status: 'unavailable', diagnostics: project.diagnostics };
     if (!managed) return { managed: false, status: 'legacy', diagnostics: [] };
     if (references.key === referenceKey && references.diagnostics?.length)
-      return { managed: true, status: 'unavailable', diagnostics: references.diagnostics };
+      return { managed: true, status: 'unavailable', diagnostics: references.diagnostics, retry };
     if (
+      !documents ||
       !captured ||
       captured?.workspaceId !== project.workspaceId ||
       captured?.revision !== revision ||
@@ -113,7 +116,7 @@ export const useProjectRuntime = withInstrumentation(
     )
       return { managed: true, status: 'loading', diagnostics: [] };
     if (captured.diagnostics?.length)
-      return { managed: true, status: 'unavailable', diagnostics: captured.diagnostics };
+      return { managed: true, status: 'unavailable', diagnostics: captured.diagnostics, retry };
     return captured.input
       ? { managed: true, status: 'captured', input: captured.input, diagnostics: [] }
       : { managed: true, status: 'loading', diagnostics: [] };

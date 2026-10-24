@@ -100,8 +100,14 @@ function declarationGroups(request: LocalDeclarationRequest) {
     );
     return nodes.length ? [{ entry, nodes }] : [];
   });
+  // Parser and editor identities can name the same immutable document.
+  const distinct = new Map<string, (typeof groups)[number]>();
+  for (const group of groups) {
+    const path = resolveEditorFilePath(group.entry.filePath, request.files) ?? group.entry.filePath;
+    if (!distinct.has(path)) distinct.set(path, { ...group, entry: { ...group.entry, filePath: path } });
+  }
   // Open the base declaration first; variants retain their original file-local imports.
-  return groups.sort(
+  return [...distinct.values()].sort(
     (a, b) =>
       Number(a.nodes.every((node) => node.$type === 'RosettaFunction' && node.dispatchAttribute)) -
       Number(b.nodes.every((node) => node.$type === 'RosettaFunction' && node.dispatchAttribute))
@@ -111,7 +117,7 @@ function declarationGroups(request: LocalDeclarationRequest) {
 function projectDeclarationOrigin(request: LocalDeclarationRequest) {
   const origin = { ...splitNodeId(request.nodeId), kind: kindFromNodeId(request.nodeId) };
   const originFiles = declarationGroups(request).map((group) =>
-    request.files.find((file) => file.path === group.entry.filePath)
+    request.files.find((file) => file.path === resolveEditorFilePath(group.entry.filePath, request.files))
   );
   const owners = new Set(originFiles.map((file) => file?.bundleId));
   const owner = owners.size === 1 ? [...owners][0] : undefined;
@@ -173,14 +179,23 @@ async function prepareDeclaration(request: LocalDeclarationRequest, sourceUris: 
     for (const [index, { entry, nodes }] of groups.entries()) {
       const path = resolveEditorFilePath(entry.filePath, files);
       const file = files.find((candidate) => candidate.path === path);
-      if (!file?.refOnly || !file.bundleId || !file.bundleVersion || !file.artifactKey)
+      if (!file?.refOnly || !file.bundleId)
         throw new Error('The pinned curated source for this declaration is not available.');
-      let source = file.content;
-      if (!file.sourceLoaded || !source) {
-        let load = sourceLoads.get(file.artifactKey);
+      const verified =
+        request.projectReceipt &&
+        request.projectReferenceDocuments?.find((document) => resolveEditorFilePath(document.uri, files) === path);
+      if (request.projectReceipt && (!verified || (file.sourceLoaded && file.content !== verified.content)))
+        throw new Error(
+          'This declaration does not match the locked reference release. Reload that release before modifying it.'
+        );
+      let source = verified ? verified.content : file.content;
+      if (!verified && (!file.bundleVersion || !file.artifactKey))
+        throw new Error('The pinned curated source for this declaration is not available.');
+      if (!verified && (!file.sourceLoaded || !source)) {
+        let load = sourceLoads.get(file.artifactKey!);
         if (!load) {
-          load = loadCuratedNamespaceSource(file.bundleId, file.bundleVersion, origin.namespace, file.artifactKey);
-          sourceLoads.set(file.artifactKey, load);
+          load = loadCuratedNamespaceSource(file.bundleId, file.bundleVersion!, origin.namespace, file.artifactKey!);
+          sourceLoads.set(file.artifactKey!, load);
         }
         const loaded = await load;
         if (loaded.artifactKey !== file.artifactKey)
@@ -190,9 +205,11 @@ async function prepareDeclaration(request: LocalDeclarationRequest, sourceUris: 
         source = document.content;
       }
       if (request.projectReferenceDocuments) {
-        const pinned = request.projectReferenceDocuments.find(
-          (document) => document.uri.startsWith(file.bundleId + '/') && document.content === source
-        );
+        const pinned =
+          verified ||
+          request.projectReferenceDocuments.find(
+            (document) => document.uri.startsWith(file.bundleId + '/') && document.content === source
+          );
         if (!pinned)
           throw new Error(
             'This declaration does not match the locked reference release. Reload that release before modifying it.'

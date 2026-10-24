@@ -8,6 +8,8 @@ import { StarterWorkspacePicker } from '../../../components/StarterWorkspacePick
 import './workspace-launcher.css';
 import { FileLoader } from '../../../components/FileLoader.js';
 import { WorkspaceSwitcher } from '../../../components/WorkspaceSwitcher.js';
+import { ReferenceModelPicker } from '../../../components/ReferenceModelPicker.js';
+import { useProject } from '../../providers/project-context.js';
 import { ModelLoader } from '../../../components/ModelLoader.js';
 import { useWorkspaceActions } from '../workspace-actions-context.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
@@ -28,6 +30,8 @@ export const WorkspacesPerspective = withInstrumentation(
       onStartBlankWorkspace
     } = useWorkspaceActions();
 
+    const project = useProject();
+    const managed = project.snapshot?.files.has('build-config.yml') || project.snapshot?.files.has('build-config.yaml');
     const [section, setSection] = useState<'workspaces' | 'references'>('workspaces');
     return (
       <section data-testid="workspaces-perspective" className="studio-launcher studio-scroll h-full overflow-auto">
@@ -68,7 +72,43 @@ export const WorkspacesPerspective = withInstrumentation(
             <p className="text-sm text-muted-foreground mb-4">
               Read-only model dependencies belong to the active workspace.
             </p>
-            <ModelLoader />
+            {[
+              ...project.diagnostics,
+              ...(project.runtime?.diagnostics ?? []),
+              ...(project.referenceView?.diagnostics ?? [])
+            ].map((issue, index) => (
+              <p key={index} role="alert" className="text-xs mb-2">
+                {issue.code}: {issue.message}
+              </p>
+            ))}
+            {(project.runtime?.retry || project.referenceView?.status === 'unavailable') && (
+              <Button
+                size="xs"
+                variant="outline"
+                className="mb-3"
+                onClick={() => {
+                  project.runtime?.retry?.();
+                  project.referenceView?.retry();
+                }}
+              >
+                Retry reference loading
+              </Button>
+            )}
+            <ReferenceModelPicker
+              key={project.workspaceId ?? 'no-workspace'}
+              controller={project.controller}
+              snapshot={project.snapshot}
+            />
+            {!managed && (
+              <div className="mt-6 border-t pt-3">
+                <h3 className="text-xs font-medium mb-2">Legacy model loading</h3>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Existing unpinned models remain available here. Select a release above to manage verified references
+                  in this workspace.
+                </p>
+                <ModelLoader />
+              </div>
+            )}
           </div>
         </div>
       </section>

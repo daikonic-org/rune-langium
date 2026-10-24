@@ -120,6 +120,7 @@ import { emphasizeNavigationArrival } from '../utils/navigation-arrival.js';
 import { SourceNavigationFeedbackContext } from './source-navigation-feedback-context.js';
 import { CenterStackPanel } from './panels/CenterStackPanel.js';
 import '../test-api.js';
+import { useProject } from './providers/project-context.js';
 import { useWorkspace } from './providers/workspace-context.js';
 import { useLsp } from './providers/lsp-context.js';
 import { useWorkspaceActions } from './perspectives/workspace-actions-context.js';
@@ -468,6 +469,9 @@ export const ExplorePerspective = withInstrumentation(
   function ExplorePerspective() {
     // Workspace model data — formerly props, now from WorkspaceProvider.
     const workspace = useWorkspace();
+    const project = useProject();
+    const pinnedView = Boolean(project.runtime?.managed && project.referenceView?.status === 'ready');
+    const pinnedViewRef = useLatestRef(pinnedView);
     const { models, parsedModels, files } = workspace;
     const deferredExports: DeferredExportEntry[] = workspace.deferredExports ?? EMPTY_DEFERRED_EXPORTS;
     const parseErrors = workspace.parseErrors ?? EMPTY_PARSE_ERRORS;
@@ -785,13 +789,20 @@ export const ExplorePerspective = withInstrumentation(
       // in `corpusModelsRef`; keep them in the graph across same-workspace parse
       // rerenders because the routed parser does not echo them back in
       // `workspace.models`.
+      if (pinnedView) corpusModelsRef.current.clear();
       useEditorStore.getState().loadDeferredExports(deferredExports);
       useEditorStore.getState().loadModels([...models, ...corpusModelsRef.current.values()] as unknown[]);
-    }, [models, deferredExports, workspaceId]);
+    }, [models, deferredExports, workspaceId, pinnedView]);
 
     const publishCorpusModels = useCallback((newModels: RosettaModel[]) => {
       if (newModels.length === 0) return;
       for (const model of newModels) {
+        const uri = (model as AstNodeWithTextRegion).$textRegion?.documentURI;
+        if (
+          pinnedViewRef.current &&
+          (!uri || !filesRef.current.some((file) => uriToPath(pathToUri(file.path)) === uriToPath(uri)))
+        )
+          continue;
         // Canonical wire snapshots retain documentURI. Older regionless snapshots
         // use their entire contents, never the namespace shared by several files.
         const identity = (model as AstNodeWithTextRegion).$textRegion?.documentURI ?? JSON.stringify(model);

@@ -266,3 +266,40 @@ it('refuses to stamp locked provenance on a copy loaded from another curated coh
   ).rejects.toThrow(/locked reference release/);
   expect(controller.current()).toBe(before);
 });
+it('copies verified locked source without requiring legacy namespace-artifact metadata', async () => {
+  const { request } = await fixture([
+    'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n set result: 1'
+  ]);
+  const { controller, receipt } = await projectForDeclaration();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  const files = request.files.map(({ bundleVersion: _bundleVersion, artifactKey: _artifactKey, ...file }) => file);
+  const saved = await modifyProjectDeclaration({ ...request, files, projectReceipt: receipt }, controller);
+  expect(saved.project.build.overrides).toHaveLength(1);
+  expect(sourceLoader).not.toHaveBeenCalled();
+});
+it('recognizes one declaration document under parser and editor path aliases on repeated Modify', async () => {
+  const { request } = await fixture([
+    'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n set result: 1'
+  ]);
+  request.models = [...request.models, { ...request.models[0]!, filePath: 'cdm/f0.rosetta' }];
+  const { controller, receipt } = await projectForDeclaration();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  const saved = await modifyProjectDeclaration({ ...request, projectReceipt: receipt }, controller);
+  expect(saved.project.build.overrides).toHaveLength(1);
+  expect([...saved.files.keys()].filter((path) => path.includes('Compute') && path.endsWith('.rosetta'))).toHaveLength(
+    1
+  );
+});
+it('records the exact selected source URI when two locked documents have identical source bytes', async () => {
+  const { request } = await fixture([
+    'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n set result: 1'
+  ]);
+  request.projectReferenceDocuments = [
+    { uri: 'cdm/another.rosetta', content: request.files[0]!.content },
+    ...request.projectReferenceDocuments!
+  ];
+  const { controller, receipt } = await projectForDeclaration();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  const saved = await modifyProjectDeclaration({ ...request, projectReceipt: receipt }, controller);
+  expect(saved.project.build.overrides![0]!.provenance?.uri).toBe('cdm/f0.rosetta');
+});
