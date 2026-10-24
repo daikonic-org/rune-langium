@@ -12,6 +12,12 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from 'react';
+import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
+import { declarationKey } from '@rune-langium/core/project-contract';
+import type { WorkflowDescriptor } from '@rune-langium/project-config';
+import { WorkflowLibrary } from '../../components/WorkflowLibrary.js';
+import { captureWorkflowRecipe } from '../../workspace/workflow-repository.js';
+import { resolveExampleType, resolvePresentationType } from '../../workspace/example-identity.js';
 import { qualifiedNameFromNodeId, useEditorStore, type TypeOption } from '@rune-langium/visual-editor';
 import type { FormPreviewSchema, PreviewField } from '@rune-langium/codegen/export';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
@@ -57,6 +63,7 @@ import { usePrototypeViewStore, normalizeWorkflowWidths } from '../../store/prot
 import { useWorkflowSchema } from '../../services/workflow-schema.js';
 import { useWorkflowArrival } from '../../services/workflow-arrival.js';
 import './prototype-workflow.css';
+import { retainedWorkflowFields } from '../../services/workflow-input-compatibility.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 const EMPTY: FunctionSessionState = {
@@ -178,15 +185,25 @@ export const PrototypeWorkflow = withInstrumentation(
     focusRequestId?: number;
   }) {
     const workspace = useWorkspaceOptional();
-    const projectRevision = useProject().snapshot?.revision;
+    const project = useProject();
+    const projectRevision = project.snapshot?.revision;
     const factory = usePreviewSessionFactory();
     const [session, setSession] = useState<FunctionSession>();
+    const sessionRef = useRef<FunctionSession | undefined>(undefined);
+    const openingGeneration = useRef(0);
+    const [opening, setOpening] = useState(false);
+    const [workflowOutputs, setWorkflowOutputs] = useState<WorkflowDescriptor['outputs']>({});
     useEffect(() => {
       if (!factory) return;
       const next = createFunctionSession(factory());
+      sessionRef.current = next;
       setSession(next);
-      return () => next.dispose();
-    }, [factory]);
+      return () => {
+        ++openingGeneration.current;
+        sessionRef.current?.dispose();
+        sessionRef.current = undefined;
+      };
+    }, [factory, workspace?.workspaceId]);
     const state = useSyncExternalStore(
       (listener) => session?.subscribe(listener) ?? (() => {}),
       () => session?.getState() ?? EMPTY
@@ -206,10 +223,18 @@ export const PrototypeWorkflow = withInstrumentation(
     const widthRef = useRef(widths);
     const mode = view.workflowView ?? 'flow';
     const record = instanceId ? instances[instanceId] : undefined;
+    useEffect(() => {
+      setDraft(undefined);
+      setSources({});
+      setSourceIds({});
+      setWorkflowOutputs({});
+      setOpening(false);
+      seenInstance.current = undefined;
+    }, [workspace?.workspaceId]);
     const draftSchemaState = useWorkflowSchema(draft?.typeFqn);
     const draftSchema = draftSchemaState?.schema;
     useEffect(() => {
-      if (!record) return;
+      if (!record || project.status === 'loading') return;
       const request = record.id + ':' + bindingRequestId;
       if (seenInstance.current === request) return;
       seenInstance.current = request;
@@ -222,7 +247,7 @@ export const PrototypeWorkflow = withInstrumentation(
           source: record.name
         });
       else setBinding({ record });
-    }, [record, prepare, draft, state.functionFqn, bindingRequestId]);
+    }, [record, prepare, draft, state.functionFqn, bindingRequestId, project.status]);
     const standaloneValidation = useWorkflowValidation(draft?.typeFqn, draft?.values ?? NO_VALUES);
     const functionValidation = useWorkflowValidation(state.schema?.targetId, state.inputs, true);
     const [inputChecks, setInputChecks] = useState<
@@ -341,6 +366,7 @@ export const PrototypeWorkflow = withInstrumentation(
     const previousInputs = useRef<
       | {
           schema: FormPreviewSchema;
+          refresh?: boolean;
           inputs: Record<string, unknown>;
           sources: Record<string, string>;
           sourceIds: Record<string, string>;
@@ -350,6 +376,8 @@ export const PrototypeWorkflow = withInstrumentation(
     const pendingSeed = useRef<Draft | undefined>(undefined);
     const selectFunction = useCallback(
       (option: TypeOption | null) => {
+        ++openingGeneration.current;
+        setOpening(false);
         if (!session) return;
         if (!option) {
           const field =
@@ -372,12 +400,15 @@ export const PrototypeWorkflow = withInstrumentation(
           void session.selectFunction(null);
           return;
         }
+        const refresh = qualifiedNameFromNodeId(option.value) === state.functionFqn;
         previousInputs.current = state.schema
-          ? { schema: state.schema, inputs: state.inputs, sources, sourceIds }
+          ? { schema: state.schema, refresh, inputs: state.inputs, sources, sourceIds }
           : undefined;
-        pendingSeed.current = draft;
-        setSources({});
-        setSourceIds({});
+        pendingSeed.current = refresh ? undefined : draft;
+        if (!refresh) {
+          setSources({});
+          setSourceIds({});
+        }
         void session.selectFunction(qualifiedNameFromNodeId(option.value), option.value);
       },
       [session, state, draft, sources, sourceIds, objectFields]
@@ -456,28 +487,28 @@ export const PrototypeWorkflow = withInstrumentation(
       document.addEventListener('pointercancel', cancel, true);
     };
     useEffect(() => {
-      if (!session || !state.schema) return;
+      if (!session || !state.schema || state.schemaStatus === 'loading') return;
       const previous = previousInputs.current;
       previousInputs.current = undefined;
       if (previous) {
-        const fields = state.schema.fields.filter((field) =>
-          previous.schema.fields.some((old) => {
-            if (old.path !== field.path || old.kind !== field.kind) return false;
-            const before = old.kind === 'array' ? old.children[0] : old;
-            const after = field.kind === 'array' ? field.children[0] : field;
-            return before.kind === after.kind && before.typeSymbol === after.typeSymbol;
-          })
-        );
+        const fields = retainedWorkflowFields(previous.schema, state.schema);
         if (fields.length) {
-          session.setInputs({
-            ...state.inputs,
-            ...Object.fromEntries(fields.map((field) => [field.path, previous.inputs[field.path]]))
-          });
-          setSources(
-            Object.fromEntries(fields.map((field) => [field.path, previous.sources[field.path] ?? 'Workflow input']))
-          );
+          if (!previous.refresh)
+            session.setInputs({
+              ...state.inputs,
+              ...Object.fromEntries(fields.map((field) => [field.path, previous.inputs[field.path]]))
+            });
           const retained = new Set(fields.map((field) => field.path));
-          setSourceIds(Object.fromEntries(Object.entries(previous.sourceIds).filter(([path]) => retained.has(path))));
+          setSources((current) =>
+            Object.fromEntries(
+              Object.entries(previous.refresh ? current : previous.sources).filter(([path]) => retained.has(path))
+            )
+          );
+          setSourceIds((current) =>
+            Object.fromEntries(
+              Object.entries(previous.refresh ? current : previous.sourceIds).filter(([path]) => retained.has(path))
+            )
+          );
           pendingSeed.current = undefined;
           return;
         }
@@ -499,7 +530,7 @@ export const PrototypeWorkflow = withInstrumentation(
         setSources({ [fields[0]!.path]: seed.source });
         if (seed.sourceId) setSourceIds({ [fields[0]!.path]: seed.sourceId });
       } else if (fields.length > 1) setBinding({ record: candidate });
-    }, [session, state.schema, workspace?.models]);
+    }, [session, state.schema, state.schemaStatus, workspace?.models]);
     const rootRef = useRef<HTMLElement>(null);
     const arrivalSchema = useMemo(
       () => ({ draftSchema, schema: state.schema, sourceIds }),
@@ -560,10 +591,112 @@ export const PrototypeWorkflow = withInstrumentation(
       setWidths(next);
       if (commit) patch({ workflowWidths: next });
     };
+    const captureRecipe = (id: string, name: string): WorkflowDescriptor => {
+      const functionIdentity =
+        state.functionFqn && workspace
+          ? resolveExampleType(workspace, { typeFqn: state.functionFqn }, 'RosettaFunction')
+          : undefined;
+      if (state.functionFqn && !functionIdentity)
+        throw new Error('The function identity is unavailable or ambiguous. The draft is retained.');
+      const field = resultField?.kind === 'array' ? resultField.children[0] : resultField;
+      const outputType = workspace
+        ? field?.typeSymbol
+          ? resolvePresentationType(workspace, field.typeSymbol)
+          : draft
+            ? resolveExampleType(workspace, { typeFqn: draft.typeFqn })
+            : undefined
+        : undefined;
+      const outputPath = resultField?.path ?? 'output';
+      return captureWorkflowRecipe({
+        id,
+        name,
+        ...(functionIdentity ? { function: functionIdentity } : {}),
+        inputs: functionIdentity ? state.inputs : draft ? { input: draft.values } : {},
+        sourceIds: functionIdentity ? sourceIds : draft?.sourceId ? { input: draft.sourceId } : {},
+        records: instances,
+        outputs: {
+          [outputPath]: {
+            name: workflowOutputs[outputPath]?.name ?? outputPath,
+            ...(outputType ? { type: outputType } : {})
+          }
+        }
+      });
+    };
+    const openRecipe = async (workflow: WorkflowDescriptor) => {
+      if (!factory || !workspace) throw new Error('The workflow runtime is not available yet.');
+      const version = ++openingGeneration.current;
+      setOpening(true);
+      const next = createFunctionSession(factory());
+      let committed = false;
+      try {
+        const identity =
+          workflow.function &&
+          resolveExampleType(
+            workspace,
+            { typeFqn: workflow.function.namespace + '.' + workflow.function.name, typeIdentity: workflow.function },
+            'RosettaFunction'
+          );
+        if (workflow.function && (!identity || declarationKey(identity) !== declarationKey(workflow.function)))
+          throw new Error('The saved function is unavailable. Its recipe is retained.');
+        await useInstanceStore.getState().loadInstancesFromOpfs();
+        const records = useInstanceStore.getState().instances;
+        const values: Record<string, unknown> = {},
+          restoredIds: Record<string, string> = {},
+          restoredSources: Record<string, string> = {};
+        for (const [path, binding] of Object.entries(workflow.inputs)) {
+          if (binding.kind === 'literal') values[path] = structuredClone(binding.value);
+          else {
+            const record = records[binding.exampleId];
+            if (!record) throw new Error('A saved input example is unavailable. Its binding is retained.');
+            values[path] = structuredClone(record.data);
+            restoredIds[path] = record.id;
+            restoredSources[path] = record.name;
+          }
+        }
+        let nextDraft: Draft | undefined;
+        if (identity) {
+          await next.selectFunction(
+            identity.namespace + '.' + identity.name,
+            makeNodeId(identity.namespace, identity.name, 'RosettaFunction')
+          );
+          if (!next.getState().schema)
+            throw new Error(next.getState().error ?? 'The saved function schema is unavailable.');
+          next.setInputs(values);
+          for (const [path, id] of Object.entries(restoredIds)) next.bindInstance(path, records[id]!);
+        } else {
+          const entries = Object.entries(values);
+          const type = Object.values(workflow.outputs).find((output) => output.type)?.type;
+          if (entries.length !== 1 || !type)
+            throw new Error('Bypass needs one typed input. The complete recipe is retained.');
+          const [path, value] = entries[0]!;
+          nextDraft = {
+            typeFqn: type.namespace + '.' + type.name,
+            values: structuredClone(value) as Record<string, unknown>,
+            source: restoredSources[path] ?? workflow.name,
+            sourceId: restoredIds[path]
+          };
+        }
+        if (version !== openingGeneration.current)
+          throw new DOMException('Workflow opening was superseded.', 'AbortError');
+        pendingSeed.current = undefined;
+        previousInputs.current = undefined;
+        setSources(restoredSources);
+        setSourceIds(restoredIds);
+        setDraft(nextDraft);
+        setWorkflowOutputs(workflow.outputs);
+        sessionRef.current?.dispose();
+        sessionRef.current = next;
+        setSession(next);
+        committed = true;
+      } finally {
+        if (!committed) next.dispose();
+        if (version === openingGeneration.current) setOpening(false);
+      }
+    };
     const resultNode = (
       <div data-workflow-node="output">
         <WorkflowNode
-          name={resultField?.path ?? 'output'}
+          name={workflowOutputs[resultField?.path ?? 'output']?.name ?? resultField?.path ?? 'output'}
           type={resultField ? workflowFieldType(resultField) : draft?.typeFqn.split('.').slice(-1)[0]}
           typeNodeId={
             resultField ? workflowFieldNodeId(resultField) : draftSchema ? workflowSchemaNodeId(draftSchema) : undefined
@@ -628,163 +761,189 @@ export const PrototypeWorkflow = withInstrumentation(
       </div>
     );
     return (
-      <section ref={rootRef} className="workflow" aria-label="Prototype workflow">
+      <section ref={rootRef} className="workflow" aria-label="Prototype workflow" aria-busy={opening}>
+        <WorkflowLibrary
+          capture={captureRecipe}
+          open={openRecipe}
+          disabled={!session || (!draft && !functionSelected)}
+        />
         {drag ? (
           <div className="workflow-drag-ghost" style={{ left: drag.x + 12, top: drag.y + 12 }}>
             {drag.label}
           </div>
         ) : null}
-        <div
-          ref={stage}
-          className={`workflow-stage workflow-stage--${mode}`}
-          style={
-            { '--workflow-input-width': `${widths[0]}%`, '--workflow-function-width': `${widths[1]}%` } as CSSProperties
-          }
-        >
-          <svg className="workflow-connectors" aria-hidden="true">
-            {paths.map((path, i) => (
-              <path key={i} d={path} />
-            ))}
-          </svg>
-          <div className="workflow-inputs">
-            {functionSelected && state.schema ? (
-              objectFields.map((field) => (
-                <InputNode
-                  key={field.path}
-                  field={field}
-                  schema={state.schema!}
-                  state={state}
-                  full={functionValidation}
-                  onValidation={receiveInputValidation}
-                  source={sources[field.path]}
-                  sourceId={sourceIds[field.path]}
-                  onChange={(values) => session?.setInputs(values)}
-                  onBind={() => setBinding({ field })}
-                />
-              ))
-            ) : draft ? (
-              <WorkflowNode
-                name="input"
-                typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
-                type={draft.typeFqn.split('.').slice(-1)[0]}
-                schema={draftSchema}
-                values={draft.values}
-                onChange={(values) => setDraft({ ...draft, values, source: 'Workflow draft' })}
-                source={draft.source}
-                sourceId={draft.sourceId}
-                validation={standaloneValidation}
-                onBind={() => setBinding({})}
-              >
-                {!draftSchema ? (
-                  <div className="space-y-2 p-3 text-xs">
-                    <p role={draftSchemaState.error ? 'alert' : 'status'}>
-                      {draftSchemaState.error ?? 'Preparing input schema…'}
-                    </p>
-                    {draftSchemaState.error ? (
-                      <Button variant="outline" size="xs" onClick={draftSchemaState.retry}>
-                        Retry input schema
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </WorkflowNode>
-            ) : (
-              <div className="workflow-empty">Add an object or choose a function.</div>
-            )}
-          </div>
-          {[0, 1].map((index) => (
-            <WorkflowSplitter
-              key={index}
-              label={index ? 'Resize function and output' : 'Resize inputs and function'}
-              className={`workflow-splitter workflow-splitter--${index}`}
-              container={stage}
-              value={widths[index]!}
-              max={Math.min(40, 76 - widths[1 - index]!)}
-              onChange={(value) => setColumn(index, value)}
-              onCommit={(value) => setColumn(index, value, true)}
-            />
-          ))}
-          <div className="workflow-function" data-workflow-node="function">
-            <WorkflowNode
-              name={state.schema?.title ?? 'Transform'}
-              kind="function"
-              typeNodeId={state.schema ? workflowSchemaNodeId(state.schema) : undefined}
-              validationRoot={rootRef}
-              type={undefined}
-              schema={primitiveSchema?.fields.length ? primitiveSchema : undefined}
-              values={state.inputs}
-              onChange={state.schema ? (values) => session?.setInputs(values) : undefined}
-              validation={
-                functionSelected
-                  ? aggregateValidation
-                  : {
-                      state: 'unchecked',
-                      diagnostics: [],
-                      message: 'No function selected. The input becomes the output directly.'
-                    }
-              }
-              actions={
-                functionSelected ? (
-                  <Button
-                    size="xs"
-                    disabled={
-                      !session ||
-                      state.status === 'running' ||
-                      aggregateValidation.state !== 'valid' ||
-                      !!state.schema?.executionUnavailable
-                    }
-                    onClick={() => void session?.run()}
-                  >
-                    {state.status === 'running' ? 'Executing…' : 'Execute'}
-                  </Button>
-                ) : null
-              }
-            >
-              <div className="workflow-node__body space-y-2">
-                <WorkspaceTypePicker
-                  label="Choose a function"
-                  appearance="chip"
-                  value={state.functionFqn}
-                  filterKinds={['func']}
-                  allowClear
-                  optionFilter={filterFunctionOption}
-                  onOptionPointerDown={beginFunctionDrag}
-                  onSelect={() => {}}
-                  onSelectOption={selectFunction}
-                />
-                {state.schema ? (
-                  <div className="space-y-2 text-xs text-muted-foreground">
-                    {state.schema.fields.map((f) => (
-                      <p key={f.path} className="workflow-parameter">
-                        <span>{f.path}</span>
-                        <WorkflowTypeLink
-                          nodeId={workflowFieldNodeId(f)}
-                          name={workflowFieldType(f)}
-                          kind={workflowFieldChipKind(f)}
-                        />
+        <fieldset disabled={opening} className="contents">
+          <div
+            ref={stage}
+            className={`workflow-stage workflow-stage--${mode}`}
+            style={
+              {
+                '--workflow-input-width': `${widths[0]}%`,
+                '--workflow-function-width': `${widths[1]}%`
+              } as CSSProperties
+            }
+          >
+            <svg className="workflow-connectors" aria-hidden="true">
+              {paths.map((path, i) => (
+                <path key={i} d={path} />
+              ))}
+            </svg>
+            <div className="workflow-inputs">
+              {functionSelected && state.schema ? (
+                objectFields.map((field) => (
+                  <InputNode
+                    key={field.path}
+                    field={field}
+                    schema={state.schema!}
+                    state={state}
+                    full={functionValidation}
+                    onValidation={receiveInputValidation}
+                    source={sources[field.path]}
+                    sourceId={sourceIds[field.path]}
+                    onChange={(values) => session?.setInputs(values)}
+                    onBind={() => setBinding({ field })}
+                  />
+                ))
+              ) : draft ? (
+                <WorkflowNode
+                  name="input"
+                  typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
+                  type={draft.typeFqn.split('.').slice(-1)[0]}
+                  schema={draftSchema}
+                  values={draft.values}
+                  onChange={(values) => setDraft({ ...draft, values, source: 'Workflow draft' })}
+                  source={draft.source}
+                  sourceId={draft.sourceId}
+                  validation={standaloneValidation}
+                  onBind={() => setBinding({})}
+                >
+                  {!draftSchema ? (
+                    <div className="space-y-2 p-3 text-xs">
+                      <p role={draftSchemaState.error ? 'alert' : 'status'}>
+                        {draftSchemaState.error ?? 'Preparing input schema…'}
                       </p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No transform is required. Choose one compatible function to execute.
-                  </p>
-                )}
-                {state.schema?.executionUnavailable ? (
-                  <p role="status" className="text-xs text-muted-foreground">
-                    {state.schema.executionUnavailable}
-                  </p>
-                ) : null}
-                {state.error ? (
-                  <p role="alert" className="text-xs text-destructive">
-                    {state.error}
-                  </p>
-                ) : null}
-              </div>
-            </WorkflowNode>
+                      {draftSchemaState.error ? (
+                        <Button variant="outline" size="xs" onClick={draftSchemaState.retry}>
+                          Retry input schema
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </WorkflowNode>
+              ) : (
+                <div className="workflow-empty">Add an object or choose a function.</div>
+              )}
+            </div>
+            {[0, 1].map((index) => (
+              <WorkflowSplitter
+                key={index}
+                label={index ? 'Resize function and output' : 'Resize inputs and function'}
+                className={`workflow-splitter workflow-splitter--${index}`}
+                container={stage}
+                value={widths[index]!}
+                max={Math.min(40, 76 - widths[1 - index]!)}
+                onChange={(value) => setColumn(index, value)}
+                onCommit={(value) => setColumn(index, value, true)}
+              />
+            ))}
+            <div className="workflow-function" data-workflow-node="function">
+              <WorkflowNode
+                name={state.schema?.title ?? 'Transform'}
+                kind="function"
+                typeNodeId={state.schema ? workflowSchemaNodeId(state.schema) : undefined}
+                validationRoot={rootRef}
+                type={undefined}
+                schema={primitiveSchema?.fields.length ? primitiveSchema : undefined}
+                values={state.inputs}
+                onChange={state.schema ? (values) => session?.setInputs(values) : undefined}
+                validation={
+                  functionSelected
+                    ? aggregateValidation
+                    : {
+                        state: 'unchecked',
+                        diagnostics: [],
+                        message: 'No function selected. The input becomes the output directly.'
+                      }
+                }
+                actions={
+                  functionSelected ? (
+                    <Button
+                      size="xs"
+                      disabled={
+                        !session ||
+                        state.status === 'running' ||
+                        state.schemaStatus === 'unavailable' ||
+                        aggregateValidation.state !== 'valid' ||
+                        !!state.schema?.executionUnavailable
+                      }
+                      onClick={() => void session?.run()}
+                    >
+                      {state.status === 'running' ? 'Executing…' : 'Execute'}
+                    </Button>
+                  ) : null
+                }
+              >
+                <div className="workflow-node__body space-y-2">
+                  <WorkspaceTypePicker
+                    label="Choose a function"
+                    appearance="chip"
+                    value={state.functionFqn}
+                    filterKinds={['func']}
+                    allowClear
+                    optionFilter={filterFunctionOption}
+                    onOptionPointerDown={beginFunctionDrag}
+                    onSelect={() => {}}
+                    onSelectOption={selectFunction}
+                  />
+                  {state.schema ? (
+                    <div className="space-y-2 text-xs text-muted-foreground">
+                      {state.schema.fields.map((f) => (
+                        <p key={f.path} className="workflow-parameter">
+                          <span>{f.path}</span>
+                          <WorkflowTypeLink
+                            nodeId={workflowFieldNodeId(f)}
+                            name={workflowFieldType(f)}
+                            kind={workflowFieldChipKind(f)}
+                          />
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No transform is required. Choose one compatible function to execute.
+                    </p>
+                  )}
+                  {state.schema?.executionUnavailable ? (
+                    <p role="status" className="text-xs text-muted-foreground">
+                      {state.schema.executionUnavailable}
+                    </p>
+                  ) : null}
+                  {state.error ? (
+                    <p role="alert" className="text-xs text-destructive">
+                      {state.error}
+                      {state.schemaStatus === 'unavailable' && state.functionFqn ? (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() =>
+                            selectFunction({
+                              value: state.schema?.targetId ?? state.functionFqn!,
+                              label: state.schema?.title ?? state.functionFqn!,
+                              kind: 'func'
+                            })
+                          }
+                        >
+                          Retry schema
+                        </Button>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+              </WorkflowNode>
+            </div>
+            <div className="workflow-output">{resultNode}</div>
           </div>
-          <div className="workflow-output">{resultNode}</div>
-        </div>
+        </fieldset>
         <Dialog open={!!binding} onOpenChange={(open) => !open && setBinding(undefined)}>
           <DialogContent className="max-w-md">
             <DialogHeader>

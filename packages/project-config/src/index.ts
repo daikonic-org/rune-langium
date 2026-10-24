@@ -14,3 +14,6 @@ export * from './canonical-json.js';
 export * from './import/maven.js';
 export * from './import/report.js';
 export * from './examples.js';
+export * from './portable-records.js';
+export * from './workflows.js';
+export * from './presentation.js';

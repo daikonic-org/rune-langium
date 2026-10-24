@@ -102,3 +102,11 @@ Personal `.studio` data is never discovered or copied into this directory.
 removals through the same CAS journal. Recovery verifies removed paths remain absent
 and refuses files recreated by another writer. Read-only input preconditions still
 apply to the complete transaction.
+
+`readWorkflows` and `readPresentations` use the same guarded typed-file discovery
+as examples. Workflows contain optional full function identities, JSON literals or
+stable example bindings, and output definitions; their schemas reject execution
+results and personal view state. Presentation descriptors use full type identities,
+source-property paths (the empty path addresses a primitive control), order/spans
+and format metadata. Unknown symbols/formatters and duplicate identities are
+reported while valid descriptors and original files remain available for repair.

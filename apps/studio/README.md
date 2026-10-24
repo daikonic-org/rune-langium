@@ -119,7 +119,7 @@ and unavailable checks stay distinct from passing checks. A diagnostic can focus
 its field. Validation never runs function assignments or postconditions.
 
 **Add** creates an object in the main header. Node menus contain **Edit layout**,
-**Import input…**, and compatible stored-object bindings. Grid **Import objects…**
+**Import input…**, and compatible stored-object bindings. Grid **Import examples…**
 accepts one JSON object or an array for the chosen type; imported objects stay in
 the grid until explicitly bound. Workflow edits use detached copies and do not
 overwrite their stored sources.
@@ -412,3 +412,19 @@ files and personal dock/filter state are never copied. Unsupported serialization
 formats refuse Save rather than silently writing JSON. Repository Save remains
 separate from explicit Git commit/push. Internal InstanceRecord APIs retain their
 names and optionally carry the full type identity for portable adapters.
+
+### Named workflows and shared presentation
+
+Use **Save workflow…** to name the current input bindings, optional function and
+output definitions. **Saved workflow** opens a recipe from the working copy.
+Unchanged examples remain bound by stable ID; edited detached inputs are captured
+as literals. Results stay transient until **Save as example…**. Missing symbols or
+examples produce diagnostics while the original recipe files remain intact.
+
+Object layout/order/spans and monetary formats save beneath `studio.layouts` using
+full declaration identities and stable source-property paths. Clones restore these
+settings without the original browser database. Formatting retains exact semantic
+numbers. Existing browser preferences are offered through **Review browser
+presentation…**; **Save in repository** copies only uniquely bound settings after
+review, and leaves the private originals intact. Repository files take precedence.
+Personal docking, filters, selected rows and scratch workflow state remain local.

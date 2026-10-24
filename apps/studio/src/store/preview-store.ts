@@ -656,7 +656,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       executionResults: new Map(),
       hydrationRetriesRemaining: {}
     });
-    workerRef = null;
+    // CodegenProvider owns the transport lifetime; workspace resets only discard preview data.
     executeSpans.clear();
     pendingValidateRequests.clear();
     latestValidateRequestForTarget.clear();

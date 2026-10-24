@@ -81,7 +81,13 @@ export const createProjectController = withInstrumentation(
       publish();
       return next;
     }
-    async function mutate(perform: (epoch: number) => Promise<void>): Promise<ProjectSnapshot> {
+    let mutationTail: Promise<unknown> = Promise.resolve();
+    function mutate(perform: (epoch: number) => Promise<void>): Promise<ProjectSnapshot> {
+      const operation = mutationTail.catch(() => undefined).then(() => mutateNow(perform));
+      mutationTail = operation;
+      return operation;
+    }
+    async function mutateNow(perform: (epoch: number) => Promise<void>): Promise<ProjectSnapshot> {
       if (saving) throw new Error('Project Save is still active');
       const epoch = ++generation;
       active(epoch);

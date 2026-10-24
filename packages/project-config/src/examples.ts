@@ -3,15 +3,13 @@
 import { z } from 'zod';
 import { declarationKey } from '@rune-langium/core/project-contract';
 import { SymbolIdentitySchema } from './config-schema.js';
-import { normalizeProjectPath } from './output-paths.js';
+import {
+  PortableProjectPathSchema as portablePath,
+  portableRecordRoot,
+  readPortableRecords
+} from './portable-records.js';
 import type { ProjectDiagnostic, ProjectSnapshot } from './types.js';
 
-const portablePath = z
-  .string()
-  .refine(
-    (path) => normalizeProjectPath(path) === path && !/^(\.git|\.studio)(\/|$)/i.test(path),
-    'Use a portable repository-relative path outside private storage.'
-  );
 export const ExampleDescriptorSchema = z.strictObject({
   schemaVersion: z.literal(1),
   id: z.string().min(1).max(200),
@@ -31,8 +29,7 @@ export interface ExampleDocument {
 }
 
 export function exampleRoot(snapshot: ProjectSnapshot): string | undefined {
-  const root = normalizeProjectPath(snapshot.project.studio.examples);
-  return root && portablePath.safeParse(root).success ? root : undefined;
+  return portableRecordRoot(snapshot, 'examples');
 }
 /** Shared descriptor/path validation for readers and transactional writers. */
 export function parseExampleDescriptor(snapshot: ProjectSnapshot, value: unknown): ExampleDescriptor {
@@ -61,34 +58,19 @@ export function readExamples(
   diagnostics: ProjectDiagnostic[];
 } {
   const documents: ExampleDocument[] = [];
-  const diagnostics: ProjectDiagnostic[] = [];
+  const typed = readPortableRecords(snapshot, {
+    root: 'examples',
+    extension: '.example.json',
+    prefix: 'EXAMPLE',
+    parse: (value) => parseExampleDescriptor(snapshot, value)
+  });
+  const diagnostics: ProjectDiagnostic[] = typed.diagnostics;
   const issue = (code: string, path: string, message: string) =>
     diagnostics.push({ code, path, message, severity: 'error' });
   const result = () => ({ examples: documents.map((entry) => entry.descriptor), documents, diagnostics });
-  const root = exampleRoot(snapshot);
-  if (!root) {
-    issue(
-      'EXAMPLE_ROOT_INVALID',
-      'studio-config.yml',
-      'Configure a portable examples directory outside private storage.'
-    );
-    return result();
-  }
   const ids = new Map<string, string>();
   const payloads = new Map<string, string>();
-  for (const path of [...snapshot.files.keys()].sort()) {
-    if (!path.startsWith(root + '/') || !path.endsWith('.example.json')) continue;
-    let descriptor: ExampleDescriptor;
-    try {
-      descriptor = parseExampleDescriptor(snapshot, JSON.parse(snapshot.files.get(path)!));
-    } catch {
-      issue(
-        'EXAMPLE_DESCRIPTOR_INVALID',
-        path,
-        'The example descriptor is invalid or its payload is outside the configured examples directory.'
-      );
-      continue;
-    }
+  for (const { path, value: descriptor } of typed.documents) {
     if (ids.has(descriptor.id))
       issue(
         'EXAMPLE_ID_DUPLICATE',

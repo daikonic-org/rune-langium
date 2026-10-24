@@ -201,3 +201,14 @@ it('invalidates binary resources even when their UTF-8 text projections are iden
   expect(second.files.get('resources/a.bin')).toBe(first.files.get('resources/a.bin'));
   expect(second.revision).not.toBe(first.revision);
 });
+
+it('serializes distinct working-copy Saves without dropping one when two shared editors save together', async () => {
+  const { adapter, controller } = await setup();
+  await controller.load();
+  await Promise.all([
+    controller.save([{ path: 'examples/a.json', text: '{"amount":1}', expectedRevision: null }]),
+    controller.save([{ path: 'layouts/a.layout.json', text: '{"columns":2}', expectedRevision: null }])
+  ]);
+  expect((await adapter.read('examples/a.json'))?.text).toBe('{"amount":1}');
+  expect((await adapter.read('layouts/a.layout.json'))?.text).toBe('{"columns":2}');
+});

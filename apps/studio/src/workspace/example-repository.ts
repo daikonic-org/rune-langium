@@ -9,39 +9,22 @@ import {
   exampleDescriptorPath,
   examplePayloadPath,
   parseExampleDescriptor,
-  projectFileRevision,
   readExamples,
   type ExampleDescriptor,
   type ProjectChange,
   type ProjectDiagnostic,
   type ProjectSnapshot,
-  type ProjectSavePreconditions,
   type SymbolIdentity
 } from '@rune-langium/project-config';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import type { ProjectController } from './project-controller.js';
+import {
+  projectRevisionAt as revision,
+  projectConfigurationPreconditions as configurationPreconditions
+} from './project-save-inputs.js';
 import type { LegacyExampleStorage } from '../opfs/instances-fs.js';
 import type { ExampleRepository } from '../store/instance-persistence.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
-
-async function revision(snapshot: ProjectSnapshot, path: string): Promise<string | null> {
-  const text = snapshot.files.get(path);
-  return text === undefined ? null : (snapshot.fileRevisions.get(path) ?? (await projectFileRevision(text)));
-}
-async function configurationPreconditions(snapshot: ProjectSnapshot): Promise<ProjectSavePreconditions> {
-  const paths = new Set([
-    'rune-config.yml',
-    'rune-config.yaml',
-    'build-config.yml',
-    'build-config.yaml',
-    'studio-config.yml',
-    'studio-config.yaml',
-    snapshot.project.build.runeConfig
-  ]);
-  return {
-    inputs: await Promise.all([...paths].map(async (path) => ({ path, revision: await revision(snapshot, path) })))
-  };
-}
 
 export const saveExample = withInstrumentation(
   async function saveExample(

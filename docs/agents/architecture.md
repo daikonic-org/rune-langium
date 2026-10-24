@@ -205,9 +205,12 @@ Temporal controls forward the same state; corrected fields clear both cues.
 Worker diagnostics remain the sole source of validation results.
 
 Preview and Prototype share symbol-associated presentation preferences in
-`form-presentation-store.ts`, persisted through `workbench-settings.ts` in the
-workspace's browser database. Object layouts store member order, column count
-and spans; numeric formats store currency, grouping and decimal places. Codegen
+`form-presentation-store.ts`. Active workspace preferences are read from typed
+repository presentation files through ProjectController; browser settings remain
+a separate migration candidate until explicitly reviewed and accepted. Object
+layouts store member order, column count and spans; numeric formats store currency,
+grouping and decimal places. Full owner/namespace/kind/name keys bind shared files;
+source-relative property paths exclude runtime list indices. Codegen
 attaches kind-qualified `typeSymbol` metadata through its authoritative resolver,
 preserving declared aliases and identities through deferred expansion. Root
 selection IDs are normalized before lookup so nested uses share the same layout.
@@ -873,3 +876,13 @@ The pure runtime `/data` entry is the single codec availability/serialization ga
 Full type identity accompanies the internal display FQN; unknown/ambiguous legacy
 bindings retain data. Only typed legacy record files are inspected, and readback
 precedes private migration markers. No private directory-tree copy is permitted.
+
+Named Prototype workflows are explicit portable recipes under `studio.workflows`.
+Their optional function identity, input example/literal bindings and output names
+are separate from execution results and personal view state. Opening stages a
+function session before replacing the visible workflow; workspace changes cancel
+pending opens. Shared Save/recovery is queued at ProjectController while preserving
+each operation's CAS and generation checks. A same-function schema refresh retains
+mounted fields/current compatible drafts, disables Execute until fresh schema and
+validation are available, and offers a schema retry after failure. Parameter/array
+element compatibility is shared by session retention and Prototype source bindings.

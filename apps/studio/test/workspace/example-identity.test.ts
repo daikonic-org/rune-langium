@@ -43,3 +43,31 @@ it('uses the declared owner and kind rather than guessing ambiguous FQNs', () =>
   });
   expect(resolveExampleType(state, { typeFqn: 'missing.Money' })).toBeUndefined();
 });
+
+it('uses full declaration keys for preview symbols, including system primitive types', async () => {
+  const { resolvePresentationType } = await import('../../src/workspace/example-identity.js');
+  expect(resolvePresentationType(state, 'data:example.Trade')).toBeUndefined();
+  expect(resolvePresentationType(state, 'enum:example.Status')).toEqual({
+    model: 'local',
+    namespace: 'example',
+    kind: 'RosettaEnumeration',
+    name: 'Status'
+  });
+  const system = {
+    ...state,
+    files: [...state.files, { path: 'system://types', readOnly: true }],
+    parsedModels: [
+      ...state.parsedModels,
+      {
+        filePath: 'system://types',
+        model: { name: 'com.rosetta.model', elements: [{ $type: 'RosettaBasicType', name: 'number' }] }
+      }
+    ]
+  } as unknown as WorkspaceState;
+  expect(resolvePresentationType(system, 'builtin:number')).toEqual({
+    model: 'stdlib',
+    namespace: 'com.rosetta.model',
+    kind: 'RosettaBasicType',
+    name: 'number'
+  });
+});

@@ -3,6 +3,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { createPrototypeExample } from '../helpers/prototype-examples.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 const source = `namespace presentation
 typeAlias Amount: number
@@ -17,6 +18,7 @@ type Trade:
  addresses Address (0..*)
 `;
 async function load(page: Page) {
+  page.setDefaultTimeout(10000);
   await page.goto('./');
   await page
     .locator('input[type="file"][accept=".rosetta"]')
@@ -40,7 +42,9 @@ for (const width of [1440, 390])
     await form.getByRole('button', { name: 'Edit layout', exact: true }).click();
     const columns = form.getByRole('combobox', { name: 'Layout columns', exact: true });
     await columns.click();
-    await page.getByRole('option', { name: '2 columns', exact: true }).click();
+    const twoColumns = page.getByRole('option', { name: '2 columns', exact: true });
+    await twoColumns.click();
+    await expect(twoColumns).toBeHidden();
     const grid = form.locator('.preview-layout-grid').first();
     await expect(grid).toHaveCSS('--layout-columns', '1');
     const reference = form.getByRole('button', { name: 'Move Reference', exact: true });
@@ -82,7 +86,7 @@ for (const width of [1440, 390])
     await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
     await expect(form.getByTestId('sample-data-output')).toContainText('1234.56789');
     await expect(form.getByText('Valid sample', { exact: true })).toBeVisible();
-    await expect(form.getByText('Saved in this workspace', { exact: true })).toBeVisible();
+    await expect(form.getByText('Saved in repository', { exact: true })).toBeVisible();
     expect((await new AxeBuilder({ page }).include('[data-testid="panel-formPreview"]').analyze()).violations).toEqual(
       []
     );
@@ -104,13 +108,7 @@ for (const width of [1440, 390])
     await form.getByLabel('Reference', { exact: true }).click();
     await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
     await page.getByTestId('rail-prototype').click();
-    await page.getByRole('button', { name: 'Create example', exact: true }).click();
-    await page.getByRole('button', { name: 'Example type', exact: true }).click();
-    await page.getByRole('combobox', { name: 'Search instance type' }).fill('Trade');
-    await page.getByRole('option', { name: /Trade/ }).click();
-    await page.getByLabel('Example name').fill('Formatted trade');
-    await page.getByRole('button', { name: 'Create example', exact: true }).click();
-    await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
+    await createPrototypeExample(page, 'Trade', 'Formatted trade');
     const prototype = page.getByTestId('prototype-perspective');
     const tab = prototype.getByRole('tab', { name: 'Inspector', exact: true });
     if (await tab.count()) await tab.click();
@@ -131,7 +129,20 @@ for (const width of [1440, 390])
           .first()
           .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)
       )
-      .toBe(width === 390 ? 1 : 2);
+      .toBe(1);
+    await expect(instance.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '2');
+    if (width === 1440) {
+      await page.setViewportSize({ width: 2400, height: 1000 });
+      await expect
+        .poll(() =>
+          instance
+            .locator('.preview-layout-grid')
+            .first()
+            .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)
+        )
+        .toBe(2);
+      await page.setViewportSize({ width, height: 1000 });
+    }
     await instance.getByLabel('Amount', { exact: true }).fill('1234.56789');
     await instance.getByLabel('Fee', { exact: true }).fill('12.3456');
     await instance.getByLabel('Quantity', { exact: true }).fill('125');
@@ -141,11 +152,11 @@ for (const width of [1440, 390])
     const address = page.getByRole('dialog', { name: 'Addresses item 1', exact: true });
     await address.getByLabel('City', { exact: true }).fill('London');
     await address.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(instance.getByText('Valid sample', { exact: true })).toBeVisible();
+    await expect(prototype.getByRole('button', { name: /^input: Checks passed/ })).toBeVisible();
     await expect(instance.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
     await expect(prototype.getByTestId('instance-payload-output')).toContainText('1234.56789');
     if (width === 1440) {
-      await instance.getByRole('button', { name: 'Edit layout', exact: true }).click();
+      await prototype.getByRole('button', { name: 'input: Edit layout', exact: true }).click();
       await instance.getByRole('button', { name: 'Move Amount', exact: true }).scrollIntoViewIfNeeded();
       const grip = (await instance.getByRole('button', { name: 'Move Amount', exact: true }).boundingBox())!;
       const target = (await instance.getByRole('button', { name: 'Move Fee', exact: true }).boundingBox())!;
@@ -163,7 +174,7 @@ for (const width of [1440, 390])
         )
         .toEqual(['fee', 'amount', 'quantity', 'reference', 'addresses']);
       await page.screenshot({ path: info.outputPath('prototype-layout-editing.png') });
-      await instance.getByRole('button', { name: 'Done editing', exact: true }).click();
+      await prototype.getByRole('button', { name: 'Done', exact: true }).click();
     }
     await instance.getByLabel('Amount', { exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath('prototype-formatted.png') });
@@ -205,7 +216,7 @@ test('touch handles reorder fields and root object layouts follow list items int
   await expect(form.getByRole('button', { name: 'Done editing', exact: true })).toBeVisible();
   const postal = form.getByRole('button', { name: 'Move Postal Code', exact: true });
   await postal.press('ArrowUp');
-  await expect(form.getByText('Saved in this workspace', { exact: true })).toBeVisible();
+  await expect(form.getByText('Saved in repository', { exact: true })).toBeVisible();
   await page.getByTestId('ns-type-link-presentation.Trade#Data').click();
   await expect(form.getByLabel('Reference', { exact: true })).toBeVisible();
   await form.getByRole('button', { name: 'Add Addresses item', exact: true }).click();

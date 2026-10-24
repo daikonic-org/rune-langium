@@ -15,6 +15,8 @@ import { useProjectRuntime } from './use-project-runtime.js';
 import { ProjectContext, type ProjectState } from './project-context.js';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
 import { notifySyncOnSave } from '../../services/git-sync.js';
+import { createPresentationRepository } from '../../workspace/form-presentation-repository.js';
+import { useFormPresentationStore } from '../../store/form-presentation-store.js';
 import { createExampleRepository } from '../../workspace/example-repository.js';
 import { resolveExampleType } from '../../workspace/example-identity.js';
 import { useInstanceStore } from '../../store/instance-store.js';
@@ -89,6 +91,9 @@ export const WorkspaceProvider = withInstrumentation(
           await controller.recover();
           const legacy = await getLegacy?.(workspaceId);
           if (cancelled) return;
+          void useFormPresentationStore
+            .getState()
+            .setRepository(workspaceId, createPresentationRepository({ controller, source: () => stateRef.current }));
           useInstanceStore.getState().setExampleRepository(
             createExampleRepository({
               workspaceId,
@@ -118,6 +123,7 @@ export const WorkspaceProvider = withInstrumentation(
         cancelled = true;
         unsubscribe?.();
         controller?.dispose();
+        void useFormPresentationStore.getState().setRepository(workspaceId, undefined);
         useInstanceStore.getState().setExampleRepository(undefined);
       };
     }, [workspaceId, getAdapter, getLegacy]);

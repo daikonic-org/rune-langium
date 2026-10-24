@@ -20,6 +20,7 @@ function schema(targetId: string, title = targetId.split('.').at(-1) ?? targetId
 
 describe('usePreviewStore', () => {
   beforeEach(() => {
+    usePreviewStore.getState().setWorkerRef(null);
     usePreviewStore.getState().resetPreviewState();
   });
 
@@ -611,7 +612,24 @@ describe('usePreviewStore', () => {
 
 describe('preview-store dispatchValidate/receiveValidateResult', () => {
   beforeEach(() => {
+    usePreviewStore.getState().setWorkerRef(null);
     usePreviewStore.getState().resetPreviewState();
+  });
+
+  it('retains the provider-owned worker connection when resetting workspace preview data', () => {
+    const postMessage = vi.fn();
+    const store = usePreviewStore.getState();
+    store.setWorkerRef({ postMessage } as unknown as Worker);
+    store.resetPreviewState();
+    store.updateSampleValues('beta.Trade#Data', { value: 'new workspace' }, true);
+
+    store.dispatchValidate('beta.Trade#Data', { value: 'new workspace' });
+
+    expect(postMessage).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'instance:validate', typeFqn: 'beta.Trade', data: { value: 'new workspace' } })
+    );
+    store.setWorkerRef(null);
   });
 
   it('dispatchValidate posts an instance:validate message and receiveValidateResult writes errors/valid onto the sample', () => {
@@ -712,6 +730,7 @@ describe('usePreviewStore — functionExecute op-log span', () => {
   const fakeWorker = { postMessage: () => {} } as unknown as Worker;
 
   beforeEach(() => {
+    usePreviewStore.getState().setWorkerRef(null);
     usePreviewStore.getState().resetPreviewState();
     usePreviewStore.getState().setWorkerRef(fakeWorker);
     useOutputStore.setState({ lines: [] });
