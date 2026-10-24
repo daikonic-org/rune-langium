@@ -54,7 +54,22 @@ export const useFormPresentationState = withInstrumentation(
     useEffect(() => {
       void load(workspaceId);
     }, [workspaceId, load]);
-    return { workspaceId, workspace, entry, ready: project.status !== 'loading' && canEditFormPresentation(entry) };
+    const saveLabel = !workspaceId
+      ? 'Session preferences'
+      : entry?.saving
+        ? 'Saving…'
+        : entry?.revision && !entry.error
+          ? entry.repository
+            ? 'Saved in repository'
+            : 'Saved in this workspace'
+          : 'Workspace preferences';
+    return {
+      workspaceId,
+      workspace,
+      entry,
+      saveLabel,
+      ready: project.status !== 'loading' && canEditFormPresentation(entry)
+    };
   },
   { op: 'useFormPresentationState', sanitize: () => ({}) }
 );
@@ -73,7 +88,7 @@ export const FormPresentation = withInstrumentation(
     editing?: boolean;
     onEditingChange?(editing: boolean): void;
   }) {
-    const { workspaceId, workspace, entry, ready } = useFormPresentationState();
+    const { workspaceId, workspace, entry, saveLabel, ready } = useFormPresentationState();
     const update = useFormPresentationStore((state) => state.update);
     const retry = useFormPresentationStore((state) => state.retry);
     const setEditing = useFormPresentationStore((state) => state.setEditing);
@@ -103,26 +118,14 @@ export const FormPresentation = withInstrumentation(
               type="button"
               variant="ghost"
               size="xs"
-              disabled={!ready}
+              disabled={!ready || (editing && entry?.saving)}
               aria-pressed={editing}
               onClick={() => (onEditingChange ? onEditingChange(!editing) : setEditing(workspaceId, !editing))}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden="true" />
               {editing ? 'Done editing' : 'Edit layout'}
             </Button>
-            {editing && (
-              <span role="status">
-                {!workspaceId
-                  ? 'Session preferences'
-                  : entry?.saving
-                    ? 'Saving…'
-                    : entry?.revision && !entry.error
-                      ? entry.repository
-                        ? 'Saved in repository'
-                        : 'Saved in this workspace'
-                      : 'Workspace preferences'}
-              </span>
-            )}
+            {editing && <span role="status">{saveLabel}</span>}
           </div>
         )}
         {editing && (

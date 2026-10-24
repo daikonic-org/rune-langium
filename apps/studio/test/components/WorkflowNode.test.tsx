@@ -138,3 +138,27 @@ it('offers canonical header navigation without replacing native input menus', as
   expect(fireEvent.contextMenu(screen.getByRole('textbox', { name: 'Currency' }))).toBe(true);
   expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
 });
+it('shows shared save readiness and keeps layout completion disabled until persistence finishes', async () => {
+  read.mockResolvedValue(saved);
+  let finish!: () => void;
+  write.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      })
+  );
+  renderNode();
+  const edit = screen.getByRole('button', { name: 'value: Edit layout' });
+  await vi.waitFor(() => expect(edit).toBeEnabled());
+  await userEvent.click(edit);
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Move Amount' }), { key: 'ArrowUp' });
+  await screen.findByText('Saving…', { exact: true });
+  const done = screen.getByRole('button', { name: 'Done', exact: true });
+  expect(done).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'value: Finish editing layout' })).toBeDisabled();
+  await act(async () => finish());
+  await screen.findByText('Saved in this workspace', { exact: true });
+  expect(done).toBeEnabled();
+  await userEvent.click(done);
+  expect(screen.queryByRole('button', { name: 'Move Amount' })).toBeNull();
+});

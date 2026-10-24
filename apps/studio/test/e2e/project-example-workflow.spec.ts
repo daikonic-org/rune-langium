@@ -58,6 +58,7 @@ test('executes a reference caller through Rune, saves both example objects and r
   await page.getByRole('combobox', { name: 'Number format', exact: true }).click();
   await page.getByRole('option', { name: 'Currency', exact: true }).click();
   await page.keyboard.press('Escape');
+  await expect(page.getByText('Saved in repository', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(execute).toBeEnabled();
   await execute.click();
