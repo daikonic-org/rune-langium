@@ -10,6 +10,18 @@ import type { WorkspaceState } from '../shell/providers/workspace-context.js';
 import type { HydrateRequest } from '../workers/parser-worker.js';
 import { pathToUri } from '../utils/uri.js';
 import { withInstrumentation } from './instrumentation/core.js';
+import type { WorkspaceFile } from './workspace.js';
+
+/** Editable inventory stays live; only locked reference files come from a captured view. */
+export const mergeProjectReferenceFiles = withInstrumentation(
+  function mergeProjectReferenceFiles(current: readonly WorkspaceFile[], references: readonly WorkspaceFile[]) {
+    return [
+      ...current.filter((file) => (!file.readOnly && !file.refOnly) || file.path.startsWith('system://')),
+      ...references.filter((file) => file.refOnly && !file.path.startsWith('system://'))
+    ];
+  },
+  { op: 'mergeProjectReferenceFiles', capture: 0 }
+);
 
 export const prepareProjectReferenceView = withInstrumentation(
   async function prepareProjectReferenceView(
@@ -19,15 +31,13 @@ export const prepareProjectReferenceView = withInstrumentation(
     signal: AbortSignal
   ): Promise<WorkspaceState> {
     const sources = new Set(projectSourcePaths(input.snapshot.files, input.snapshot.project.build.sources));
-    const files = state.files.filter(
-      (file) => (!file.readOnly && !file.refOnly && sources.has(file.path)) || file.path.startsWith('system://')
-    );
+    const references: WorkspaceFile[] = [];
     const referencePaths = new Map<string, string>();
     for (const entry of input.referenceDocuments) {
       if (!entry.serialized) throw new Error('Locked semantic document is unavailable: ' + entry.uri);
       const path = projectReferenceUri(entry.uri).slice('file:///'.length);
       referencePaths.set(path, entry.uri);
-      files.push({
+      references.push({
         path,
         name: entry.uri,
         content: entry.content,
@@ -39,17 +49,20 @@ export const prepareProjectReferenceView = withInstrumentation(
         bundleId: entry.uri.split('/')[0]
       });
     }
+    const files = mergeProjectReferenceFiles(state.files, references);
     const original = new Map(state.parsedModels.map((entry) => [entry.filePath, entry]));
-    const entries = files.map((file) => {
-      const parsed = original.get(file.path);
-      const serialized = file.refOnly
-        ? file.serializedModelJson
-        : parsed?.source === file.content
-          ? parsed.serializedModelJson
-          : undefined;
-      if (!serialized) throw new Error('Waiting for the parser snapshot of the current source: ' + file.path);
-      return { file, json: serialized, uri: pathToUri(file.path) };
-    });
+    const entries = files
+      .filter((file) => sources.has(file.path) || file.refOnly || file.path.startsWith('system://'))
+      .map((file) => {
+        const parsed = original.get(file.path);
+        const serialized = file.refOnly
+          ? file.serializedModelJson
+          : parsed?.source === file.content
+            ? parsed.serializedModelJson
+            : undefined;
+        if (!serialized) throw new Error('Waiting for the parser snapshot of the current source: ' + file.path);
+        return { file, json: serialized, uri: pathToUri(file.path) };
+      });
     signal.throwIfAborted();
     const services = createRuneDslServices(EmptyFileSystem);
     const hydrated = hydrateModelDocuments(services, entries);
@@ -69,11 +82,12 @@ export const prepareProjectReferenceView = withInstrumentation(
     signal.throwIfAborted();
     await install(documents);
     signal.throwIfAborted();
+    const namespaces = new Map(
+      entries.map((entry, index) => [entry.file.path, namespaceFromModelName(hydrated[index]!.model.name ?? '') ?? ''])
+    );
     return {
       ...state,
-      files: files.map((file, index) =>
-        file.refOnly ? { ...file, namespace: namespaceFromModelName(hydrated[index]!.model.name ?? '') ?? '' } : file
-      ),
+      files: files.map((file) => (file.refOnly ? { ...file, namespace: namespaces.get(file.path) ?? '' } : file)),
       models: hydrated.map((entry) => entry.model),
       parsedModels: hydrated.map((entry, index) => ({
         filePath: entries[index]!.file.path,

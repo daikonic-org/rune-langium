@@ -951,7 +951,13 @@ selects a latest tag implicitly, and does not invoke the legacy model store.
 `prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope
 computation register a complete document set in the existing parser worker;
 read-only ownership and original source remain attached to each reference file.
-Only configured local source paths participate. View readiness is separate from
+Only configured local source paths participate in semantic hydration. The complete
+current editable file inventory remains available to source editors and autosave,
+including files outside those globs. Retained views contribute semantic models
+and locked read-only files; their captured writable text never replaces current
+editor files. Readiness tracks writable-file identity as well as parsed/input
+identity, so an edit immediately marks the retained semantic view pending.
+View readiness is separate from
 semantic capture and each host's applied-receipt barrier. Complete serialized
 definitions are excluded from legacy namespace-hydration requests. Workspace
 identity and abort guards discard late view completion; failed loads expose
