@@ -3,6 +3,20 @@
 
 import type { FormPreviewSchema, PreviewField } from './types.js';
 
+const PREVIEW_SYMBOL_PREFIXES: Readonly<Record<string, string>> = {
+  builtin: 'builtin',
+  RosettaTypeAlias: 'typeAlias',
+  RosettaEnumeration: 'enum',
+  Data: 'data',
+  Choice: 'choice'
+};
+
+/** Canonical presentation identity shared by schema generation, resource bindings and layout consumers. */
+export function previewTypeSymbol(kind: string, targetId: string): string | undefined {
+  const prefix = PREVIEW_SYMBOL_PREFIXES[kind];
+  return prefix ? `${prefix}:${targetId}` : undefined;
+}
+
 /** Resolve one deferred object body without expanding its nested references. */
 export function expandPreviewField(field: PreviewField, definitions: FormPreviewSchema['definitions']): PreviewField {
   if (field.kind !== 'object' || !field.definitionId) return field;

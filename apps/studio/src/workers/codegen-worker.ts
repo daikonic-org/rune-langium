@@ -52,6 +52,10 @@ import {
 import {
   generate,
   generatePreviewSchemas,
+  validateProjectPreviewBindings,
+  bindGeneratedProjectModule,
+  ProjectBindingUnavailable,
+  type ProjectBindingRegistry,
   emitStandaloneZodSchema,
   RUNTIME_HELPER_JS_SOURCE,
   normalizePreviewInputs,
@@ -171,6 +175,7 @@ function operationScope() {
   const generation = projectGeneration;
   const receipt = generation?.receipt;
   return {
+    project: generation?.ready,
     postMessage(message: Record<string, unknown>) {
       if (generation !== projectGeneration) return;
       (self as unknown as DedicatedWorkerGlobalScope).postMessage({
@@ -678,6 +683,23 @@ function generatedPreviewSchemaForTarget(
     : schemas.find((candidate) => candidate.kind !== 'function');
 }
 
+function projectResourceDiagnostics(
+  project: EffectiveProject | undefined,
+  documents: LangiumDocument[],
+  version: number,
+  targetId: string,
+  data: unknown
+): ValidationDiagnostic[] {
+  if (!project) return [];
+  const [id] = targetId.split('#', 2);
+  const { value: schemas } = getOrCompute(previewSchemaCache, targetId, version, () =>
+    generatePreviewSchemas(documents, { targetId: id, projectBindings: project.bindings })
+  );
+  const schema = generatedPreviewSchemaForTarget(schemas, targetId);
+  if (!schema) throw new ProjectBindingUnavailable('The resource-validation schema is unavailable for ' + targetId);
+  return validateProjectPreviewBindings(schema, data, project.bindings);
+}
+
 async function runPreview(targetId: string, requestId: string): Promise<void> {
   const scope = operationScope();
 
@@ -695,6 +717,7 @@ async function runPreview(targetId: string, requestId: string): Promise<void> {
   try {
     const [generatorTargetId] = targetId.split('#', 2);
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
+    const project = await scope.project;
     if (documents.length === 0) {
       scope.postMessage({
         type: 'preview:stale',
@@ -712,7 +735,7 @@ async function runPreview(targetId: string, requestId: string): Promise<void> {
     // predate the live counter; caching under the live counter would mark
     // that stale-derived schema as valid for the new version.
     const { value: schemas } = getOrCompute(previewSchemaCache, targetId, documentsVersion, () =>
-      generatePreviewSchemas(documents, { targetId: generatorTargetId })
+      generatePreviewSchemas(documents, { targetId: generatorTargetId, projectBindings: project?.bindings })
     );
     const schema = generatedPreviewSchemaForTarget(schemas, targetId);
     if (!schema) {
@@ -763,6 +786,7 @@ async function runInstanceSchema(typeFqn: string, requestId: string): Promise<vo
   try {
     const [targetId] = typeFqn.split('#', 2);
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
+    const project = await scope.project;
     if (documents.length === 0) {
       scope.postMessage({
         type: 'instance:generateSchemaStale',
@@ -776,7 +800,7 @@ async function runInstanceSchema(typeFqn: string, requestId: string): Promise<vo
     // See runPreview's identical comment — tagged with documentsVersion,
     // not the live previewFilesVersion.
     const { value: schemas } = getOrCompute(previewSchemaCache, typeFqn, documentsVersion, () =>
-      generatePreviewSchemas(documents, { targetId })
+      generatePreviewSchemas(documents, { targetId, projectBindings: project?.bindings })
     );
     const schema = generatedPreviewSchemaForTarget(schemas, typeFqn);
     if (!schema) {
@@ -900,7 +924,10 @@ function resolveGeneratedModulePath(importer: string, specifier: string): string
 }
 
 /** Evaluate generated modules with a require closure over generated outputs. */
-function createGeneratedModuleLoader(outputs: readonly GeneratorOutput[]): {
+function createGeneratedModuleLoader(
+  outputs: readonly GeneratorOutput[],
+  bindings?: ProjectBindingRegistry
+): {
   load: (relativePath: string) => Record<string, unknown>;
 } {
   const sources = new Map<string, string>();
@@ -937,6 +964,7 @@ function createGeneratedModuleLoader(outputs: readonly GeneratorOutput[]): {
       '$rune$module.module.exports',
       false
     );
+    if (bindings) bindGeneratedProjectModule(module.exports, bindings);
     return module.exports;
   };
 
@@ -1089,6 +1117,7 @@ async function executeFunction(
 
   try {
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
+    const project = await scope.project;
     if (projectGeneration) functionFqn = resolveEffectiveProjectTargetId(documents, functionFqn, 'RosettaFunction');
     // Tagged with documentsVersion (fixed — `documents` is an immutable local
     // array once obtained, so no further staleness can be introduced during
@@ -1102,7 +1131,12 @@ async function executeFunction(
               previewGenerateCache,
               'generate:typescript:input-checks',
               () => documentsVersion,
-              () => generate(documents, { target: 'typescript', typescript: { inputChecks: true } })
+              () =>
+                generate(documents, {
+                  target: 'typescript',
+                  typescript: { inputChecks: true },
+                  projectBindings: project?.implementationBindings
+                })
             )
           ).value
         : [];
@@ -1144,6 +1178,20 @@ async function executeFunction(
     if (!compiled.validator) {
       throw new Error(`Input validation unavailable: ${compiled.diagnostics[0]?.message ?? 'unknown error'}`);
     }
+    const resourceDiagnostics = projectResourceDiagnostics(
+      project,
+      documents,
+      documentsVersion,
+      `${selectedTargetId}#RosettaFunction`,
+      inputs
+    );
+    if (resourceDiagnostics.length) {
+      if (checksOnly) {
+        scope.postMessage({ type: 'instance:validateResult', requestId, diagnostics: resourceDiagnostics });
+        return;
+      }
+      throw new Error(resourceDiagnostics.map((diagnostic) => diagnostic.path + ': ' + diagnostic.message).join('; '));
+    }
     const adaptedInputs = runInWorkerSandbox(
       '',
       '$rune$inputs',
@@ -1169,7 +1217,7 @@ async function executeFunction(
     // and imports from sibling generated modules share one module graph.
     // Execution still goes through runInWorkerSandbox — see its threat-model
     // comment.
-    const modules = createGeneratedModuleLoader(results);
+    const modules = createGeneratedModuleLoader(results, project?.bindings);
     const exports = modules.load(selectedModulePath);
     const bareName = checksOnly ? inputCheckExportName : (selectedExportName ?? funcName);
     if (!bareName) throw new Error('Function input checks are unavailable.');
@@ -1260,6 +1308,7 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
 
   try {
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
+    const project = await scope.project;
     if (projectGeneration)
       typeFqn = resolveEffectiveProjectTargetId(documents, qualifiedNameFromNodeId(typeFqn), 'Data');
     const { value: compiled } = getOrCompute(standaloneValidatorCache, typeFqn, documentsVersion, () =>
@@ -1285,17 +1334,23 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
     const dataNode = findDataNode(typeFqn, documents);
     const activeConditionNames = dataNode ? getActiveConditionPredicates(dataNode).map(({ name }) => name) : [];
 
+    const resourceDiagnostics = projectResourceDiagnostics(project, documents, documentsVersion, typeFqn, data);
     const result = compiled.validator.safeParse(data);
     const diagnostics: ValidationDiagnostic[] = result.success
       ? []
       : translateValidationIssues(result.error.issues, activeConditionNames);
 
-    scope.postMessage({ type: 'instance:validateResult', requestId, diagnostics });
+    scope.postMessage({
+      type: 'instance:validateResult',
+      requestId,
+      diagnostics: [...diagnostics, ...resourceDiagnostics]
+    });
   } catch (err) {
     console.error('[codegen-worker] Instance validation error:', err);
     scope.postMessage({
       type: 'instance:validateResult',
       requestId,
+      ...(err instanceof ProjectBindingUnavailable ? { unavailable: err.message } : {}),
       diagnostics: [{ path: '', message: err instanceof Error ? err.message : 'Instance validation failed.' }]
     });
   }

@@ -521,3 +521,112 @@ it('installs a verified project before preview and executes curated callers thro
   ).toBe(false);
   vi.unstubAllGlobals();
 }, 25000);
+it('uses a managed code list for choices and validation and reports a missing resource as unavailable', async () => {
+  const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content = 'namespace quote\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)';
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Quote}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'resource',
+              source: { model: 'local', id: 'quote.Currency#RosettaTypeAlias' },
+              path: 'resources/currency.json'
+            }
+          ]
+        })
+      ],
+      ['model/quote.rosetta', content],
+      ['resources/currency.json', JSON.stringify([{ value: 'EUR', label: 'Euro' }])]
+    ]),
+    () => []
+  );
+  const sources = [{ name: 'quote.rosetta', path: 'model/quote.rosetta', content, dirty: false }];
+  const project = await captureProjectRuntimeInput(snapshot, sources, []);
+  const { scope, dispatch } = await loadRealWorker();
+  const files = [{ uri: 'file:///workspace/model/quote.rosetta', content }];
+  dispatch({ type: 'preview:setFiles', filesRevision: 1, files, project, requestId: 'codes:install' });
+  await vi.waitFor(
+    () =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'preview:files-ready',
+          requestId: 'codes:install',
+          projectReceipt: project.receipt
+        })
+      ),
+    { timeout: 10000 }
+  );
+  dispatch({
+    type: 'instance:generateSchema',
+    typeFqn: 'quote.Quote',
+    requestId: 'codes:schema',
+    projectReceipt: project.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'instance:generateSchemaResult',
+        requestId: 'codes:schema',
+        schema: expect.objectContaining({
+          fields: [expect.objectContaining({ kind: 'enum', enumValues: [{ value: 'EUR', label: 'Euro' }] })]
+        })
+      })
+    )
+  );
+  dispatch({
+    type: 'instance:validate',
+    typeFqn: 'quote.Quote',
+    data: { currency: 'USD' },
+    requestId: 'codes:invalid',
+    projectReceipt: project.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'instance:validateResult',
+        requestId: 'codes:invalid',
+        diagnostics: [expect.objectContaining({ path: 'currency', message: expect.stringMatching(/code list/) })]
+      })
+    )
+  );
+  const missingSnapshot = await createProjectDraftSnapshot(
+    snapshot,
+    new Map([['resources/currency.json', null]]),
+    () => []
+  );
+  const missing = await captureProjectRuntimeInput(missingSnapshot, sources, []);
+  dispatch({ type: 'preview:setFiles', filesRevision: 2, files, project: missing, requestId: 'codes:missing' });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview:files-ready',
+        requestId: 'codes:missing',
+        projectReceipt: missing.receipt
+      })
+    )
+  );
+  dispatch({
+    type: 'instance:validate',
+    typeFqn: 'quote.Quote',
+    data: { currency: 'EUR' },
+    requestId: 'codes:unavailable',
+    projectReceipt: missing.receipt
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'instance:validateResult',
+        requestId: 'codes:unavailable',
+        unavailable: expect.any(String)
+      })
+    )
+  );
+  vi.unstubAllGlobals();
+}, 20000);

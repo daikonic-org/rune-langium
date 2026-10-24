@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { previewTypeSymbol } from './preview-references.js';
+import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
 import { temporalWireFormat } from './expr/temporal-conversions.js';
 import { AstUtils, type LangiumDocument } from 'langium';
 import {
@@ -250,7 +252,9 @@ export function generatePreviewSchemas(
     if (unsupported.size) schema.unsupportedFeatures = Array.from(unsupported).sort();
     schema.status = hasReportableUnsupportedFeature(unsupported) ? 'unsupported' : 'ready';
   }
-  return schemas;
+  return options.projectBindings
+    ? schemas.map((schema) => applyProjectPreviewBindings(schema, options.projectBindings!))
+    : schemas;
 }
 
 export function buildNamespaceIndexes(docs: LangiumDocument[]): NamespaceIndex[] {
@@ -654,7 +658,7 @@ function buildTypeAliasSchema(
           fields: [
             {
               ...scalarField({ path: 'value', label: humanizeLabel(alias.name) }, builtinKind, basicTypeName),
-              typeSymbol: `typeAlias:${targetId}`
+              typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId)
             }
           ]
         };
@@ -675,7 +679,7 @@ function buildTypeAliasSchema(
           {
             path: 'value',
             label: humanizeLabel(alias.name),
-            typeSymbol: `typeAlias:${targetId}`,
+            typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId),
             kind: 'enum',
             required: true,
             enumValues: node.enumValues.map((v) => ({
@@ -1181,12 +1185,21 @@ function resolvePreviewType(
     {
       ...visitor,
       onAlias: (alias) => {
-        aliasSymbol ??= `typeAlias:${qualifiedTypeId(alias)}`;
+        aliasSymbol ??= previewTypeSymbol('RosettaTypeAlias', qualifiedTypeId(alias));
       },
-      onPrimitive: (name) => ({ ...visitor.onPrimitive(name), typeSymbol: `builtin:${name}` }),
-      onEnum: (node, uri) => ({ ...visitor.onEnum(node, uri), typeSymbol: `enum:${qualifiedTypeId(node)}` }),
-      onData: (node, uri) => ({ ...visitor.onData(node, uri), typeSymbol: `data:${qualifiedTypeId(node)}` }),
-      onChoice: (node, uri) => ({ ...visitor.onChoice(node, uri), typeSymbol: `choice:${qualifiedTypeId(node)}` })
+      onPrimitive: (name) => ({ ...visitor.onPrimitive(name), typeSymbol: previewTypeSymbol('builtin', name) }),
+      onEnum: (node, uri) => ({
+        ...visitor.onEnum(node, uri),
+        typeSymbol: previewTypeSymbol('RosettaEnumeration', qualifiedTypeId(node))
+      }),
+      onData: (node, uri) => ({
+        ...visitor.onData(node, uri),
+        typeSymbol: previewTypeSymbol('Data', qualifiedTypeId(node))
+      }),
+      onChoice: (node, uri) => ({
+        ...visitor.onChoice(node, uri),
+        typeSymbol: previewTypeSymbol('Choice', qualifiedTypeId(node))
+      })
     },
     sourceUri
   );

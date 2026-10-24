@@ -37,7 +37,7 @@ import { resolveExportSelection, type ResolvedExportSelection } from './selectio
 
 export { IMPLEMENTED_TARGETS };
 export { normalizePreviewInputs } from './preview-schema.js';
-export { expandPreviewField } from './preview-references.js';
+export { expandPreviewField, previewTypeSymbol } from './preview-references.js';
 export {
   declarationKey,
   resolveExportSelection,
@@ -191,3 +191,5 @@ export {
   getTargetLayouts,
   TARGET_OPTIONS_SCHEMAS
 } from './options/target-options.js';
+
+export * from './runtime/project-bindings.js';

@@ -61,19 +61,53 @@ reject diagnostics before execution and acknowledge the receipt before readiness
 Native `buildProject` loads the pinned closure through an injected transport/cache
 (or the standard mirror transport), then generates from this effective graph.
 Standalone Rune materialization is unavailable when overrides are active; export
-the portable project instead. Unsupported resource/implementation adapters and
-experimental/pruning semantics remain diagnosed.
+the portable project instead. Experimental/pruning semantics remain diagnosed. Resource/provider availability
+is separate from language linking; missing native behavior does not make pure
+types unavailable.
 
 The pure `/receipt` and `/context` entries let hosts capture and validate the same
 receipt without importing a parser. Contexts bind the actual normalized lock and
 overrides to their claimed digests. `/resolution` supplies the shared declaration
 validation adapter for language services. Hosted semantic synchronization applies
 a context at the final retained-model barrier, recreates roots and acknowledges
-its receipt after validation. Studio preview/export adapters still need to supply
-and verify that context before the full integration is ready. No Maven process or arbitrary YAML-selected executable runs.
+its receipt after validation. Studio preview, Prototype, download workers and LSP
+verify that receipt before adopting results. Managed Modify saves the exact
+locked-source copy and explicit mapping together; repeat Modify reuses it.
+No Maven process or arbitrary YAML-selected executable runs.
 
 `@rune-langium/project-runtime/browser` exposes the shared staged build transaction
 with an injected target generator. It never creates a parser or imports Node
-filesystem APIs. Studio supplies its existing network generator; the root native
+filesystem APIs. Studio supplies its existing download-worker generator for managed captures; the root native
 `buildProject` supplies isolated Langium documents. Both use the same input
 revision, target validation, toolchain checks, scope expansion and output writes.
+
+## Prepared capabilities and bindings
+
+`resolveProjectCapabilities(snapshot, providers)` reports installed implementation
+requirements and resource/codec availability. Providers are registered callbacks
+from the host; provider IDs never cause repository JavaScript or plugins to load.
+`resolveProjectResource` requires an explicit model/resource mapping into a
+configured resource root and returns the captured byte checksum. A matching local
+filename alone never shadows a reference resource.
+
+The first data adapter accepts a JSON array of `{value, label}` string entries.
+Its resource ID is a kind-qualified Rune alias identity, such as
+`quote.Currency#RosettaTypeAlias`, qualified by the mapping's model ID. The runtime
+prepares one registry for generated preview choices and validation, including
+object arrays and deferred definitions. Unknown formats/IDs remain unavailable;
+this does not implement FpML genericode, calendars or XML/XSD validation.
+
+Codegen accepts host-resolved function identities and emits module-scoped binders.
+`bindGeneratedProjectModule` connects a newly loaded module to its prepared
+registry; rebinding to a different registry is refused. Generated callers use
+that same binding, across per-namespace, barrel and single-file TypeScript.
+Callbacks never enter generated source. A Promise result is refused before a
+synchronous Rune call can treat it as a value. Hosts must prepare asynchronous
+data before execution. Financial-calendar/schedule parity is not claimed.
+
+`serializeProjectData` and `importProjectData` currently support plain JSON. An
+unsupported configured `model.defaultSerialisationFormat` is an unavailable codec,
+not a successful JSON fallback. These ports are for project-aware hosts; legacy
+explicit plain-JSON tools remain distinct. Native build/export entry points do not yet apply this registry to every
+generator or enforce provider capability gates. Registry availability alone must
+not be treated as support in a host that has not adopted those ports.

@@ -125,6 +125,7 @@ export interface RuneFunc {
  * §13 per data-model.md.
  */
 export interface FuncBodyContext extends ExpressionTranspilerContext {
+  projectImplementation?: { key: string; invoke: string };
   /** The RuneFunc being transpiled. */
   currentFunc: RuneFunc;
   /**

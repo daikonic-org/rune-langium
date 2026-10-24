@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import type { RosettaFunction, DeclarationIdentity } from '@rune-langium/core';
+import type { ProjectBindingRegistry } from './runtime/project-bindings.js';
 import type { EmittedProjection } from './projection/types.js';
 import type { TemporalWireFormat } from './expr/temporal-conversions.js';
 import type {
@@ -70,6 +72,8 @@ export type {
  * FR-001 (target selection), FR-022 (strict mode).
  */
 export interface GeneratorOptions {
+  /** Host-resolved native bindings. Configuration and executable callbacks never enter generated source. */
+  projectBindings?: ReadonlyMap<RosettaFunction, DeclarationIdentity>;
   /** Selects the emitter pipeline. Defaults to 'zod'. */
   target?: Target;
   /**
@@ -355,6 +359,7 @@ export interface FormPreviewSchema {
  * targets that cannot produce a preview schema are marked as unsupported.
  */
 export interface GeneratePreviewSchemaOptions {
+  projectBindings?: ProjectBindingRegistry;
   /** Generate only the schema for this fully-qualified target id. */
   targetId?: string;
   /** Maximum recursion depth to follow when expanding nested object fields. */

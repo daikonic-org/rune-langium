@@ -7,6 +7,10 @@ import {
   setProjectDocumentModel,
   setProjectRedirects,
   projectDeclarationIdentity,
+  declarationKey,
+  isRosettaFunction,
+  type RosettaFunction,
+  type DeclarationIdentity,
   isRosettaModel,
   type RuneDslServices,
   type ProjectResolutionContext
@@ -16,9 +20,19 @@ import { projectOverrideRedirects, validateProjectOverrides, type ProjectDeclara
 import type { ReferenceDocument } from './references/types.js';
 import { projectSourceUri, projectReferenceUri } from './project-uri.js';
 import { createProjectReceipt, projectReceiptMatches, type EffectiveProjectReceipt } from './project-receipt.js';
+import { createProjectBindingRegistry, type ProjectBindingRegistry } from '@rune-langium/codegen/export';
+import {
+  createProjectBindings,
+  resolveProjectCapabilities,
+  type Capability,
+  type ImplementationProvider
+} from './capabilities.js';
 import { readProjectResolutionContext } from './project-context.js';
 export type { EffectiveProjectReceipt } from './project-receipt.js';
 export interface EffectiveProject {
+  bindings: ProjectBindingRegistry;
+  implementationBindings: ReadonlyMap<RosettaFunction, DeclarationIdentity>;
+  capabilities: Capability[];
   services: RuneDslServices;
   documents: readonly LangiumDocument[];
   receipt: EffectiveProjectReceipt;
@@ -32,9 +46,12 @@ export interface EffectiveProjectInput {
 }
 
 /** Host adoption verifies the captured context and acknowledges only a successfully linked graph. */
-export async function applyEffectiveProject(input: EffectiveProjectInput): Promise<EffectiveProject> {
+export async function applyEffectiveProject(
+  input: EffectiveProjectInput,
+  providers: readonly ImplementationProvider[] = []
+): Promise<EffectiveProject> {
   const context = await readProjectResolutionContext(input.resolution);
-  const graph = await buildEffectiveProject(input.snapshot, input.referenceDocuments);
+  const graph = await buildEffectiveProject(input.snapshot, input.referenceDocuments, providers);
   if (
     !projectReceiptMatches(context.context.receipt, input.receipt) ||
     !projectReceiptMatches(graph.receipt, input.receipt)
@@ -47,7 +64,8 @@ export async function applyEffectiveProject(input: EffectiveProjectInput): Promi
 /** A fresh services container owns every root and reference in this captured project generation. */
 export async function buildEffectiveProject(
   snapshot: ProjectSnapshot,
-  referenceDocuments: readonly ReferenceDocument[]
+  referenceDocuments: readonly ReferenceDocument[],
+  providers: readonly ImplementationProvider[] = []
 ): Promise<EffectiveProject> {
   const all = createRuneDslServices();
   const { RuneDsl: services, shared } = all;
@@ -55,14 +73,15 @@ export async function buildEffectiveProject(
   const overrides = snapshot.project.build.overrides ?? [];
   const receipt = await createProjectReceipt(snapshot);
   const configured = projectOverrideRedirects(overrides);
-  const result: EffectiveProject = { services, documents, receipt, diagnostics: [...configured.diagnostics] };
-  if (overrides.some((mapping) => mapping.kind !== 'declaration'))
-    result.diagnostics.push({
-      code: 'OVERRIDE_CAPABILITY_UNAVAILABLE',
-      severity: 'error',
-      path: 'build-config.yml',
-      message: 'Resource and implementation override adapters are not available in this host yet.'
-    });
+  const result: EffectiveProject = {
+    services,
+    documents,
+    receipt,
+    diagnostics: [...configured.diagnostics],
+    bindings: createProjectBindingRegistry({}),
+    implementationBindings: new Map(),
+    capabilities: []
+  };
   if (result.diagnostics.length) return result;
   try {
     await shared.workspace.WorkspaceManager.initializeWorkspace([]);
@@ -99,6 +118,18 @@ export async function buildEffectiveProject(
           })
         : [];
     });
+    const symbols = new Set(declarations.map((entry) => declarationKey(entry.identity)));
+    result.bindings = createProjectBindings(snapshot, providers, symbols);
+    result.capabilities = resolveProjectCapabilities(snapshot, providers, symbols);
+    const nativeSymbols = new Map(
+      result.bindings.implementationSymbols.map((symbol) => [declarationKey(symbol), symbol])
+    );
+    result.implementationBindings = new Map(
+      declarations.flatMap((entry) => {
+        const symbol = nativeSymbols.get(declarationKey(entry.identity));
+        return symbol && isRosettaFunction(entry.node) ? [[entry.node, symbol] as const] : [];
+      })
+    );
     result.diagnostics.push(...validateProjectOverrides(services, overrides, declarations));
     if (result.diagnostics.length) return result;
     await shared.workspace.DocumentBuilder.build(documents, { validation: true, eagerLinking: true });

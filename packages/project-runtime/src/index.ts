@@ -6,3 +6,5 @@ export * from './effective-project.js';
 export * from './override-validation.js';
 export * from './project-receipt.js';
 export * from './project-context.js';
+export * from './resources.js';
+export * from './capabilities.js';
