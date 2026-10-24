@@ -44,3 +44,29 @@ All **77 runtime tests** passed after this adjustment. The same four implementat
 Hosted package tests then passed. Root coverage exposed a separate first-case timeout in the native binding layout matrix: per-namespace took 5,198ms, while barrel and single-file took about three seconds. Parser/compiler dependencies now load with the test module, and the native matrix parses its common Rune fixture once in a describe-scoped `beforeAll`. Every layout still generates and strictly compiles a separate module, verifies native invocation and rejects rebinding. No timeout, retry, coverage threshold or assertion was relaxed.
 
 All nine focused binding tests passed. The complete unchanged root coverage command also passed: **3,128 tests**, one existing skip and eight todos, across 267 files, including all three layout cases and the repository's existing coverage thresholds. Coverage was 55.72% statements, 61.40% branches, 37.79% functions and 57.18% lines. Fresh hosted CI and review are required for this revision before merge.
+
+## Public CLI/LSP runtime dependencies
+
+The next review identified private workspace libraries in the public CLI/LSP
+runtime dependency closure. Project-config, project-runtime, curated-schema and
+instrumentation-core now declare public scoped publication rather than private
+packages. A Changeset covers those libraries and their CLI/LSP consumers. This
+changes publication eligibility only; no registry publication or release dispatch
+was performed, and the release workflow remains manual.
+
+The new `scripts/package-publication.test.mjs` follows CLI/LSP workspace runtime,
+optional and peer dependency edges. Both tests reproduced the private-dependency
+failure before the manifest correction and now pass. Main CI runs that check.
+
+The full nine-package closure built and packed locally. Every packed manifest
+has public access, concrete versions instead of `workspace:` dependency values,
+and present export/main/type/bin files. A separate temporary consumer installed
+those tarballs, using registry dependencies and disabled lifecycle scripts. It
+imported the packed LSP factory and ran the packed CLI's TypeScript and JSON
+Schema starter builds without workspace links. Workflow YAML, scoped lint/format
+and diff checks passed.
+
+Changesets no longer reports the CLI/LSP/project or codegen instrumentation
+dependency errors. Its separate pre-existing visual-editor dependency on private
+design-system still prevents global release planning and remains outside this
+correction; these checks do not claim full repository release readiness.

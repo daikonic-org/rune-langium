@@ -36,7 +36,17 @@ The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in 
 
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
+## Public CLI and LSP dependency closure
+
+The CLI and LSP server ship compiled modules rather than bundled workspace
+dependencies. Their full runtime closure, including project-config,
+project-runtime, curated-schema and instrumentation-core, must remain publishable
+with public scoped access. `node --test scripts/package-publication.test.mjs`
+checks that closure in CI. Build and inspect local `pnpm pack` artifacts when
+changing exports or package metadata; packing is not registry publication.
+
 ## Generated Sources
+
 
 Do not hand-edit generated AST, Zod, editable-domain, or conformance files.
 Change the grammar, generator inputs/configuration, or authoritative generator,

@@ -1,9 +1,9 @@
 {
   "name": "@rune-langium/project-config",
   "version": "0.1.0",
-  "private": true,
   "description": "Portable Rune project configuration and persistence contracts",
   "type": "module",
+  "publishConfig": { "access": "public" },
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
