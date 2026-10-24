@@ -4,3 +4,5 @@ export * from './build-project.js';
 export * from './references/index.js';
 export * from './effective-project.js';
 export * from './override-validation.js';
+export * from './project-receipt.js';
+export * from './project-context.js';

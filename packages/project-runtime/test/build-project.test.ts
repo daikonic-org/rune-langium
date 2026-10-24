@@ -3,7 +3,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { stripTypeScriptTypes } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { createRuneDslServices } from '@rune-langium/core';
 import { generate } from '@rune-langium/codegen/export';
 import { URI } from 'langium';
@@ -204,7 +206,7 @@ describe('explicit project builds', () => {
     });
     const result = await buildProject(snapshot, { targets: ['pg'] }, adapter);
     expect(result.status).toBe('failed');
-    expect(result.diagnostics.some((issue) => issue.code === 'REFERENCE_UNRESOLVED')).toBe(true);
+    expect(result.diagnostics.some((issue) => issue.code === 'REFERENCE_LOCK_STALE')).toBe(true);
     expect(await readdir(root)).not.toContain('generated');
   });
   it('refuses invalid linked sources before any target output is written', async () => {
@@ -251,4 +253,70 @@ describe('explicit project builds', () => {
     expect(await readdir(root)).toEqual([]);
     await expect(adapter.read('../escape')).rejects.toThrow();
   });
+});
+
+it('builds a locked curated caller through its local replacement and refuses raw materialization', async () => {
+  const { referenceFixture, repository } = await import('../../../test/helpers/project-reference-fixture.js');
+  const reference = await referenceFixture(
+    { cdm: { repository: repository('cdm'), release: '1.0' } },
+    [['cdm', '1.0', {}]],
+    {
+      cdm: 'namespace upstream\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 1\nfunc Caller:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: Compute(amount)'
+    }
+  );
+  const { resolveProjectReferences, createMemoryReferenceCache } = await import('../src/references/index.js');
+  const cache = createMemoryReferenceCache();
+  const lock = (
+    await resolveProjectReferences(reference.snapshot, reference.transport, new AbortController().signal, cache)
+  ).lock!;
+  const { root, parent } = await setup(
+    {
+      references: reference.snapshot.project.build.references,
+      targets: {
+        ts: { generator: 'typescript', output: 'generated/ts', namespaces: ['upstream'] },
+        raw: { generator: 'rosetta', output: 'generated/raw' }
+      },
+      overrides: [
+        {
+          kind: 'declaration',
+          source: { model: 'cdm', namespace: 'upstream', kind: 'RosettaFunction', name: 'Compute' },
+          replacement: { model: 'local', namespace: 'custom', kind: 'RosettaFunction', name: 'Compute' }
+        }
+      ]
+    },
+    'namespace custom\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2'
+  );
+  await writeFile(join(root, 'build-config.lock.json'), JSON.stringify(lock));
+  const { snapshot, adapter } = await openLocalProject(root, { privateRoot: join(parent, 'private') });
+  const result = await buildProject(
+    snapshot,
+    { targets: ['ts'], referenceTransport: reference.transport, referenceCache: cache },
+    adapter
+  );
+  expect(result.diagnostics).toEqual([]);
+  expect(result.status).toBe('success');
+  const content = (await Promise.all(result.outputs.map((path) => readFile(join(root, path), 'utf8')))).join('\n');
+  expect(content).toContain('custom');
+  await writeFile(join(root, 'package.json'), JSON.stringify({ type: 'module' }));
+  const temporal = import.meta.resolve('@js-temporal/polyfill');
+  for (const path of result.outputs.filter((path) => path.endsWith('.ts'))) {
+    const source = (await readFile(join(root, path), 'utf8')).replaceAll(
+      "'@js-temporal/polyfill'",
+      JSON.stringify(temporal)
+    );
+    const destination = join(root, path.replace(/\.ts$/, '.js'));
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, stripTypeScriptTypes(source, { mode: 'strip' }));
+  }
+  const callerPath = result.outputs.find((path) => path.endsWith('/upstream.ts'))!;
+  expect(callerPath).toBeDefined();
+  const emitted = await import(/* @vite-ignore */ pathToFileURL(join(root, callerPath.replace(/\.ts$/, '.js'))).href);
+  expect(emitted.Caller(10)).toBe(12);
+  const raw = await buildProject(
+    snapshot,
+    { targets: ['raw'], referenceTransport: reference.transport, referenceCache: cache },
+    adapter
+  );
+  expect(raw.diagnostics.some((issue) => issue.code === 'SOURCE_MATERIALIZATION_UNAVAILABLE')).toBe(true);
+  expect(await readdir(join(root, 'generated'))).not.toContain('raw');
 });

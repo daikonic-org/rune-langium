@@ -11,13 +11,8 @@ import {
 import { isRosettaFunction, isRosettaModel } from '../generated/ast.js';
 import { namespaceFromModelName } from '../naming/namespace.js';
 
-export interface DeclarationIdentity {
-  model: string;
-  namespace: string;
-  kind: string;
-  name: string;
-  dispatch?: string;
-}
+import type { DeclarationIdentity } from './project-contract.js';
+export * from './project-contract.js';
 export interface DeclarationRedirects {
   resolve(identity: DeclarationIdentity): DeclarationIdentity;
 }
@@ -55,8 +50,19 @@ export function setProjectDocumentModel(services: LangiumCoreServices, uri: URI,
   value.nodes = undefined;
   value.identities = undefined;
 }
-export function setProjectRedirects(services: LangiumCoreServices, redirects: DeclarationRedirects): void {
+export function setProjectRedirects(services: LangiumCoreServices, redirects: DeclarationRedirects | undefined): void {
   state(services).redirects = redirects;
+}
+/** A host must invalidate identity indexes whenever it replaces document roots. */
+export function invalidateProjectResolution(services: LangiumCoreServices): void {
+  const value = projects.get(services.shared);
+  if (value) {
+    value.nodes = undefined;
+    value.identities = undefined;
+  }
+}
+export function clearProjectResolution(services: LangiumCoreServices): void {
+  projects.delete(services.shared);
 }
 export function hasProjectRedirects(services: LangiumCoreServices): boolean {
   return Boolean(projects.get(services.shared)?.redirects);

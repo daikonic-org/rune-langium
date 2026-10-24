@@ -66,7 +66,7 @@ export async function createProjectSnapshot(
   diagnostics.push(...(lock?.diagnostics ?? []));
   if (projectDiagnosticsForTargets(diagnostics).some((issue) => issue.severity === 'error'))
     throw new ProjectSnapshotError(diagnostics);
-  const ownedFiles = new Map([...files].sort(([left], [right]) => left.localeCompare(right)));
+  const ownedFiles = new Map([...files.keys()].sort().map((path) => [path, files.get(path)!]));
   const exactInputs = new Set([
     ...sources,
     project.build.runeConfig,
@@ -89,19 +89,37 @@ export async function createProjectSnapshot(
   const inputs = [...ownedFiles].filter(
     ([path]) => exactInputs.has(path) || inputRoots.some((root) => path === root || path.startsWith(root + '/'))
   );
+  const inputRevisions = await Promise.all(
+    inputs.map(async ([path, text]) => [path, revisions?.get(path) ?? (await projectFileRevision(text))] as const)
+  );
+  const fileRevisions = new Map(revisions);
+  for (const [path, revision] of inputRevisions) fileRevisions.set(path, revision);
   return {
     workspaceId,
-    revision: await projectFileRevision(
-      JSON.stringify(
-        await Promise.all(
-          inputs.map(async ([path, text]) => [path, revisions?.get(path) ?? (await projectFileRevision(text))])
-        )
-      )
-    ),
+    revision: await projectFileRevision(JSON.stringify(inputRevisions)),
+    fileRevisions,
     files: ownedFiles,
     project,
     ...(lock?.value ? { lock: lock.value } : {})
   };
+}
+
+/** Capture an unsaved editor generation while retaining raw identities of untouched resources. */
+export async function createProjectDraftSnapshot(
+  snapshot: ProjectSnapshot,
+  edits: ReadonlyMap<string, string | null>,
+  validateTarget: TargetValidator
+): Promise<ProjectSnapshot> {
+  const files = new Map(snapshot.files);
+  const revisions = new Map(snapshot.fileRevisions);
+  for (const [path, text] of edits) {
+    if (normalizeProjectPath(path) !== path)
+      throw new Error('Draft path must be portable and project-relative: ' + path);
+    if (text === null) files.delete(path);
+    else files.set(path, text);
+    revisions.delete(path);
+  }
+  return createProjectSnapshot(snapshot.workspaceId, files, validateTarget, revisions);
 }
 
 /** Raw files remain editable even while their configuration is invalid. */

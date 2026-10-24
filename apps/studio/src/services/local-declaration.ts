@@ -2,15 +2,30 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from './instrumentation/core.js';
-import { getNodeSourceRegion, namespaceFromModelName } from '@rune-langium/core';
+import { declarationKey, getNodeSourceRegion, namespaceFromModelName } from '@rune-langium/core';
 import { renderModel } from '@rune-langium/codegen/rosetta';
 import { validateIdentifier } from '@rune-langium/visual-editor';
 import { splitNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import { loadCuratedNamespaceSource, type WorkspaceFile, type ParsedWorkspaceModel } from './workspace.js';
 import { resolveEditorFilePath } from '../shell/explore-file-nav-store.js';
 
+import {
+  prepareBuildConfigSave,
+  projectFileRevision,
+  projectSourcePaths,
+  type ProjectSnapshot,
+  type ProjectWrite
+} from '@rune-langium/project-config';
+import {
+  createProjectReceipt,
+  projectReceiptMatches,
+  type EffectiveProjectReceipt
+} from '@rune-langium/project-runtime/receipt';
+import type { ProjectController } from '../workspace/project-controller.js';
+
 export type LocalDeclarationMode = 'extend' | 'modify';
 export interface LocalDeclarationRequest {
+  projectReceipt?: EffectiveProjectReceipt;
   mode: LocalDeclarationMode;
   nodeId: string;
   namespace: string;
@@ -157,3 +172,112 @@ export const prepareLocalDeclaration = withInstrumentation(
   },
   { op: 'prepareLocalDeclaration', capture: 0, sanitizeError: () => ({ signature: 'local-declaration-error' }) }
 );
+
+/** Save a logical copy and its explicit map together; commit/push remain separate actions. */
+export const modifyProjectDeclaration = withInstrumentation(
+  async function modifyProjectDeclaration(
+    request: LocalDeclarationRequest,
+    controller: ProjectController
+  ): Promise<ProjectSnapshot> {
+    const original = controller.current();
+    if (!original || !projectReceiptMatches(await createProjectReceipt(original), request.projectReceipt))
+      throw new Error(
+        'Project resolution is stale or not ready. Wait for the current project before creating a declaration.'
+      );
+    const assertCurrent = () => {
+      const current = controller.current();
+      if (current?.workspaceId !== original.workspaceId || current.revision !== original.revision)
+        throw new Error('Project changed while preparing the local declaration.');
+    };
+    const origin = { ...splitNodeId(request.nodeId), kind: kindFromNodeId(request.nodeId) };
+    const groups = declarationGroups(request);
+    const originFiles = groups.map((group) => request.files.find((file) => file.path === group.entry.filePath));
+    const owners = new Set(originFiles.map((file) => file?.bundleId));
+    const owner = owners.size === 1 ? [...owners][0] : undefined;
+    const source = { model: owner ?? '', namespace: origin.namespace, name: origin.name, kind: origin.kind ?? '' };
+    if (request.mode === 'modify') {
+      if (!owner || !original.lock?.references[owner])
+        throw new Error('Select and resolve the original reference model release before modifying it.');
+      const existing = original.project.build.overrides?.filter(
+        (mapping) => mapping.kind === 'declaration' && declarationKey(mapping.source) === declarationKey(source)
+      );
+      if (existing?.length) {
+        if (existing.length !== 1 || existing[0]!.kind !== 'declaration')
+          throw new Error('The original declaration has ambiguous replacements.');
+        assertCurrent();
+        return original;
+      }
+    }
+    const copies = await prepareLocalDeclaration(request);
+    assertCurrent();
+    const build = structuredClone(original.project.build);
+    const writes: ProjectWrite[] = [];
+    for (const copy of copies) {
+      const path = localProjectSourcePath(original, copy.path);
+      if (
+        [...original.files.keys(), ...writes.map((write) => write.path)].some(
+          (existing) => existing.toLowerCase() === path.toLowerCase()
+        )
+      )
+        throw new Error('That local declaration file already exists.');
+      writes.push({ path, text: copy.content, expectedRevision: null });
+    }
+    if (request.mode === 'modify') {
+      const locked = original.lock!.references[owner!]!;
+      build.overrides = [
+        ...(build.overrides ?? []),
+        {
+          kind: 'declaration',
+          source,
+          replacement: { model: 'local', namespace: request.namespace, kind: source.kind, name: request.name },
+          provenance: { uri: originFiles[0]!.path, commit: locked.commit, cohort: locked.cohort }
+        }
+      ];
+      const revisions = new Map<string, string>();
+      for (const [path, text] of original.files)
+        if (path === 'build-config.yml' || path === 'build-config.yaml')
+          revisions.set(path, await projectFileRevision(text));
+      const model = original.project.rune.model as { name?: unknown } | undefined;
+      const prepared = prepareBuildConfigSave({
+        files: original.files,
+        revisions,
+        build,
+        modelName: typeof model?.name === 'string' ? model.name : 'Workspace'
+      });
+      if (prepared.diagnostics.length) throw new Error(prepared.diagnostics.map((issue) => issue.message).join('\n'));
+      writes.push(...prepared.writes);
+    }
+    assertCurrent();
+    return controller.save(writes);
+  },
+  { op: 'modifyProjectDeclaration', capture: 0, sanitizeError: () => ({ signature: 'local-declaration-error' }) }
+);
+
+function localProjectSourcePath(snapshot: ProjectSnapshot, relative: string): string {
+  const directories = snapshot.project.build.sources.map((pattern) => {
+    const literal = pattern
+      .split('/')
+      .filter((_, index, parts) => parts.slice(0, index + 1).every((part) => !/[*?{[]/.test(part)));
+    if (literal[literal.length - 1]?.endsWith('.rosetta')) literal.pop();
+    return literal.join('/');
+  });
+  directories.push(
+    ...projectSourcePaths(snapshot.files, snapshot.project.build.sources).map((path) =>
+      path.split('/').slice(0, -1).join('/')
+    )
+  );
+  const candidates = [
+    relative,
+    ...directories.flatMap((directory) =>
+      [relative, relative.split('/').slice(-1)[0]!].map((path) => (directory ? directory + '/' + path : path))
+    )
+  ];
+  const path = candidates.find(
+    (path) => projectSourcePaths(new Map([[path, '']]), snapshot.project.build.sources).length > 0
+  );
+  if (!path)
+    throw new Error(
+      'The configured source patterns have no destination for this declaration. Choose a source folder in build-config first.'
+    );
+  return path;
+}

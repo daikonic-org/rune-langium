@@ -82,3 +82,93 @@ describe('semantic LSP dependency index', () => {
     expect(user.diagnostics?.filter((d) => d.severity === 1)).toEqual([]);
   });
 });
+
+it('acknowledges project redirects only after a fresh semantic graph applies them', async () => {
+  const lsp = createRuneLspServer();
+  await lsp.shared.workspace.WorkspaceManager.initialized({});
+  const replacementUri = 'file:///workspace/local.rosetta';
+  const original = await modelJson(
+    'namespace upstream\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 1\nfunc Caller:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: Compute(amount)'
+  );
+  const local = await modelJson(
+    'namespace custom\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2'
+  );
+  await lsp.syncModels({ document: { uri: depUri, modelJson: original } });
+  await lsp.syncModels({ document: { uri: replacementUri, modelJson: local } });
+  const { createProjectSnapshot } = await import('../../project-config/src/index.js');
+  const { createProjectResolutionContext } = await import('@rune-langium/project-runtime/context');
+  const overrides = [
+    {
+      kind: 'declaration',
+      source: { model: 'cdm', namespace: 'upstream', kind: 'RosettaFunction', name: 'Compute' },
+      replacement: { model: 'local', namespace: 'custom', kind: 'RosettaFunction', name: 'Compute' }
+    }
+  ];
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Demo}'],
+      ['build-config.yml', JSON.stringify({ schemaVersion: 1, overrides })]
+    ]),
+    () => []
+  );
+  const resolution = await createProjectResolutionContext(snapshot, { [depUri]: 'cdm', [replacementUri]: 'local' });
+  const receipt = resolution.receipt;
+  const applied = await lsp.syncModels({ retain: [depUri, replacementUri], resolution });
+  expect(applied).toEqual(receipt);
+  const { AstUtils } = await import('langium');
+  const { isRosettaFunction, isRosettaSymbolReference } = await import('@rune-langium/core');
+  const root = lsp.shared.workspace.LangiumDocuments.getDocument(URI.parse(depUri))!.parseResult.value;
+  const caller = AstUtils.streamAllContents(root)
+    .filter(isRosettaFunction)
+    .find((node) => node.name === 'Caller')!;
+  const call = AstUtils.streamAllContents(caller)
+    .filter(isRosettaSymbolReference)
+    .find((node) => node.symbol.$refText === 'Compute')!;
+  const target = lsp.shared.workspace.LangiumDocuments.getDocument(URI.parse(replacementUri))!.parseResult.value;
+  expect(call.symbol.ref).toBe(AstUtils.streamAllContents(target).filter(isRosettaFunction).head());
+  const previous = root;
+  await lsp.syncModels({ retain: [depUri, replacementUri], resolution: null });
+  const restored = lsp.shared.workspace.LangiumDocuments.getDocument(URI.parse(depUri))!.parseResult.value;
+  expect(restored).not.toBe(previous);
+  const restoredCaller = AstUtils.streamAllContents(restored)
+    .filter(isRosettaFunction)
+    .find((node) => node.name === 'Caller')!;
+  expect(
+    AstUtils.streamAllContents(restoredCaller)
+      .filter(isRosettaSymbolReference)
+      .find((node) => node.symbol.$refText === 'Compute')!.symbol.ref?.$container
+  ).toBe(restored);
+  expect(call.symbol.ref).toBe(AstUtils.streamAllContents(target).filter(isRosettaFunction).head());
+  await expect(lsp.syncModels({ retain: [depUri], resolution })).rejects.toThrow(/destination/i);
+  await expect(
+    lsp.syncModels({
+      retain: [depUri],
+      resolution: { ...resolution, receipt: { ...receipt, overridesDigest: 'f'.repeat(64) } }
+    })
+  ).rejects.toThrow(/digest|receipt/i);
+});
+
+it('keeps dependency snapshots relinkable when a project context is cleared', async () => {
+  const lsp = createRuneLspServer();
+  await lsp.shared.workspace.WorkspaceManager.initialized({});
+  await lsp.syncModels({ document: { uri: depUri, modelJson: await modelJson('namespace upstream\ntype Thing:') } });
+  await lsp.syncModels({
+    document: {
+      uri: userUri,
+      modelJson: await modelJson('namespace consumers\ntype Use:\n value upstream.Thing (1..1)')
+    }
+  });
+  const { createProjectSnapshot } = await import('../../project-config/src/index.js');
+  const { createProjectResolutionContext } = await import('@rune-langium/project-runtime/context');
+  const snapshot = await createProjectSnapshot('p', new Map([['rune-config.yml', 'model: {name: Demo}']]), () => []);
+  const resolution = await createProjectResolutionContext(snapshot, { [depUri]: 'cdm', [userUri]: 'local' });
+  await lsp.syncModels({ retain: [depUri, userUri], resolution });
+  await lsp.syncModels({ retain: [depUri, userUri], resolution: null });
+  const { isData, isRosettaModel } = await import('@rune-langium/core');
+  const dependency = lsp.shared.workspace.LangiumDocuments.getDocument(URI.parse(depUri))!.parseResult.value;
+  const consumer = lsp.shared.workspace.LangiumDocuments.getDocument(URI.parse(userUri))!.parseResult.value;
+  if (!isRosettaModel(dependency) || !isRosettaModel(consumer) || !isData(consumer.elements[0]))
+    throw new Error('Expected source fixtures');
+  expect(consumer.elements[0].attributes[0]!.typeCall.type.ref).toBe(dependency.elements[0]);
+});

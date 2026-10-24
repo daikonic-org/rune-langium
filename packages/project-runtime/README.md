@@ -58,9 +58,19 @@ scope/link boundary and returns diagnostics plus a revision/lock/override receip
 Local replacement identities use model `local`; kinds are canonical Rune AST
 kinds. A base-function map includes its complete dispatch family. The host must
 reject diagnostics before execution and acknowledge the receipt before readiness.
-Native build, hosted LSP and preview adoption are the next integration step;
-until then builds with configured references/overrides remain unavailable. Unsupported experimental/pruning semantics also remain
-diagnosed. No Maven process or arbitrary YAML-selected executable runs.
+Native `buildProject` loads the pinned closure through an injected transport/cache
+(or the standard mirror transport), then generates from this effective graph.
+Standalone Rune materialization is unavailable when overrides are active; export
+the portable project instead. Unsupported resource/implementation adapters and
+experimental/pruning semantics remain diagnosed.
+
+The pure `/receipt` and `/context` entries let hosts capture and validate the same
+receipt without importing a parser. Contexts bind the actual normalized lock and
+overrides to their claimed digests. `/resolution` supplies the shared declaration
+validation adapter for language services. Hosted semantic synchronization applies
+a context at the final retained-model barrier, recreates roots and acknowledges
+its receipt after validation. Studio preview/export adapters still need to supply
+and verify that context before the full integration is ready. No Maven process or arbitrary YAML-selected executable runs.
 
 `@rune-langium/project-runtime/browser` exposes the shared staged build transaction
 with an injected target generator. It never creates a parser or imports Node

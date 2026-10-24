@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { relinkReference } from './relink-model-references.js';
 import { hasProjectRedirects } from '../references/project-resolution.js';
 import {
   DefaultJsonSerializer,
@@ -27,9 +28,7 @@ export class RuneJsonSerializer extends DefaultJsonSerializer {
     if (!hasProjectRedirects(this.services) || !revived) return revived;
     // Serialized pointers belong to the immutable generation. Relink their authored text
     // through the same scope/linker as parsed source, including member references.
-    return reference.$refs
-      ? this.services.references.Linker.buildMultiReference(container, property, undefined, revived.$refText)
-      : this.services.references.Linker.buildReference(container, property, undefined, revived.$refText);
+    return relinkReference(this.services, container, property, revived);
   }
 
   /** Register all roots before Langium resolves any cross-document references. */

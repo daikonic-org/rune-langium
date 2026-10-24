@@ -10,20 +10,11 @@ import {
   isRosettaModel,
   type RuneDslServices
 } from '@rune-langium/core';
-import {
-  canonicalProjectJson,
-  projectFileRevision,
-  projectSourcePaths,
-  type ProjectSnapshot,
-  type ProjectDiagnostic
-} from '@rune-langium/project-config';
+import { projectSourcePaths, type ProjectSnapshot, type ProjectDiagnostic } from '@rune-langium/project-config';
 import { projectOverrideRedirects, validateProjectOverrides, type ProjectDeclarations } from './override-validation.js';
 import type { ReferenceDocument } from './references/types.js';
-export interface EffectiveProjectReceipt {
-  revision: string;
-  lockDigest: string;
-  overridesDigest: string;
-}
+import { createProjectReceipt, type EffectiveProjectReceipt } from './project-receipt.js';
+export type { EffectiveProjectReceipt } from './project-receipt.js';
 export interface EffectiveProject {
   services: RuneDslServices;
   documents: readonly LangiumDocument[];
@@ -39,13 +30,16 @@ export async function buildEffectiveProject(
   const { RuneDsl: services, shared } = all;
   const documents: LangiumDocument[] = [];
   const overrides = snapshot.project.build.overrides ?? [];
-  const receipt = {
-    revision: snapshot.revision,
-    lockDigest: await projectFileRevision(canonicalProjectJson(snapshot.lock ?? null)),
-    overridesDigest: await projectFileRevision(canonicalProjectJson(overrides))
-  };
+  const receipt = await createProjectReceipt(snapshot);
   const configured = projectOverrideRedirects(overrides);
   const result: EffectiveProject = { services, documents, receipt, diagnostics: [...configured.diagnostics] };
+  if (overrides.some((mapping) => mapping.kind !== 'declaration'))
+    result.diagnostics.push({
+      code: 'OVERRIDE_CAPABILITY_UNAVAILABLE',
+      severity: 'error',
+      path: 'build-config.yml',
+      message: 'Resource and implementation override adapters are not available in this host yet.'
+    });
   if (result.diagnostics.length) return result;
   try {
     await shared.workspace.WorkspaceManager.initializeWorkspace([]);

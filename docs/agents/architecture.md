@@ -32,7 +32,10 @@ validation. Both Studio and the headless runtime consume these host-neutral
 contracts. Positive source glob selection and semantic input revision are shared:
 configuration, lock, selected Rune sources, resources and shared Studio files
 invalidate inputs; generated output and unrelated prose do not. Raw byte revisions
-preserve binary resource identity. Structural errors prevent snapshot activation; target-scoped errors
+preserve binary resource identity. Snapshots retain known raw file revisions;
+`createProjectDraftSnapshot` rehashes edited text while retaining untouched binary
+identities. Input paths use code-point ordering so host locale cannot alter a
+revision. Structural errors prevent snapshot activation; target-scoped errors
 are selected through `projectDiagnosticsForTargets` for each explicit build.
 
 Studio's `WorkspaceProvider` publishes project state separately from model data
@@ -71,6 +74,11 @@ Development/latest manifests remain separate. The mirror serves `/releases/*`
 with its existing CORS/ETag/error conventions. See
 [curated publication](../curated-publishing.md) for the dry-run and upload order.
 
+Core's pure `project-contract` entry owns declaration identity, receipt and
+resolution-context schemas; project-config aliases its identity schema rather
+than maintaining another shape. This entry imports only Zod. Core remains
+independent of project configuration/runtime packages.
+
 Core's injected project-resolution port is independent of project configuration.
 Hosts explicitly register document ownership; declaration keys include model,
 namespace, AST kind, name and dispatch selector. The reserved `local` model names
@@ -82,7 +90,18 @@ pointers into a cached generation. Originals remain available for provenance.
 Mapping cycles, ambiguous/missing endpoints, kind/signature/cardinality changes
 and incomplete dispatch families are diagnosed. Structural changes are checked
 against actual reference callers. Its receipt captures project revision, lock
-and override digests; host adoption is a separate readiness boundary.
+and override digests; host adoption is a separate readiness boundary. Native builds load verified
+locked documents and generate from that graph; source-only materialization is
+explicitly unavailable with overrides. Shared context validation compares actual
+lock/override data with the receipt digests before a host acknowledges them.
+LSP semantic synchronization applies context only with the final retained URI
+set. It revives fresh dependency roots, reparses open buffers, validates mappings
+and echoes the applied receipt. Core owns reference rebuilding for both serialized
+revival and LSP snapshots, including transitions back to ordinary workspaces.
+Hosted storage persists context using the same chunk/pointer writer as models;
+cold replay supplies it at the final model barrier, never before its dependencies.
+Studio adapters remain responsible for comparing the expected receipt before
+claiming readiness.
 
 ## Studio Runtime
 

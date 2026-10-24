@@ -23,6 +23,22 @@
     "./references": {
       "types": "./dist/references/index.d.ts",
       "import": "./dist/references/index.js"
+    },
+    "./receipt": {
+      "types": "./dist/project-receipt.d.ts",
+      "import": "./dist/project-receipt.js"
+    },
+    "./effective": {
+      "types": "./dist/effective-project.d.ts",
+      "import": "./dist/effective-project.js"
+    },
+    "./resolution": {
+      "types": "./dist/resolution.d.ts",
+      "import": "./dist/resolution.js"
+    },
+    "./context": {
+      "types": "./dist/project-context.d.ts",
+      "import": "./dist/project-context.js"
     }
   },
   "files": [
@@ -36,18 +52,19 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@rune-langium/project-config": "workspace:*",
-    "@rune-langium/core": "workspace:*",
     "@rune-langium/codegen": "workspace:*",
-    "langium": "^4.4.0",
+    "@rune-langium/core": "workspace:*",
     "@rune-langium/curated-schema": "workspace:*",
+    "@rune-langium/project-config": "workspace:*",
+    "langium": "^4.4.0",
     "pako": "^3.0.2",
     "semver": "7.8.5"
   },
   "devDependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
     "@types/node": "^26.6.5",
+    "@types/semver": "7.8.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5",
-    "@types/semver": "7.8.0"
+    "vitest": "^5.0.5"
   }
 }

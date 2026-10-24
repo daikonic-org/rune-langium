@@ -161,3 +161,83 @@ func Compute:
     ).rejects.toThrow('pinned curated source');
   });
 });
+
+async function projectForDeclaration() {
+  const { referenceFixture } = await import('../../../../test/helpers/project-reference-fixture.js');
+  const { resolveProjectReferences, createMemoryReferenceCache } =
+    await import('@rune-langium/project-runtime/references');
+  const { createProjectFileAdapter } = await import('../../src/workspace/project-file-adapter.js');
+  const { createProjectController } = await import('../../src/workspace/project-controller.js');
+  const { createOpfsRoot } = await import('../setup/opfs-mock.js');
+  const { createProjectReceipt } = await import('@rune-langium/project-runtime/receipt');
+  const reference = await referenceFixture();
+  const lock = (
+    await resolveProjectReferences(
+      reference.snapshot,
+      reference.transport,
+      new AbortController().signal,
+      createMemoryReferenceCache()
+    )
+  ).lock!;
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'p',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  for (const [path, text] of reference.snapshot.files) await adapter.write(path, text, null);
+  await adapter.write('build-config.lock.json', JSON.stringify(lock), null);
+  const controller = createProjectController({ workspaceId: 'p', adapter, validateTarget: () => [] });
+  const snapshot = await controller.load();
+  return { controller, adapter, receipt: await createProjectReceipt(snapshot) };
+}
+it('saves a copied dispatch family and its explicit provenance mapping once', async () => {
+  const { request } = await fixture([
+    'namespace demo.source\nenum Kind:\n Cash\nfunc Compute:\n inputs: kind Kind (1..1)\n output: result number (1..1)\n',
+    'namespace demo.source\nimport demo.dependency.*\nfunc Compute(kind: Kind -> Cash):\n set result: 42\n'
+  ]);
+  const { controller, receipt } = await projectForDeclaration();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  const saved = await modifyProjectDeclaration({ ...request, projectReceipt: receipt }, controller);
+  expect(saved.project.build.overrides).toHaveLength(1);
+  expect(saved.project.build.overrides![0]).toMatchObject({
+    kind: 'declaration',
+    source: { model: 'cdm', name: 'Compute', kind: 'RosettaFunction' },
+    replacement: { model: 'local', namespace: 'local.demo' },
+    provenance: { uri: '[cdm]/f0.rosetta', commit: saved.lock!.references.cdm!.commit }
+  });
+  const copies = [...saved.files].filter(([path]) => path.endsWith('.rosetta'));
+  expect(copies).toHaveLength(2);
+  expect(copies.every(([path]) => path.startsWith('model/'))).toBe(true);
+  expect(copies.some(([, text]) => text.includes('set result: 42'))).toBe(true);
+  const { createProjectReceipt } = await import('@rune-langium/project-runtime/receipt');
+  const repeated = await modifyProjectDeclaration(
+    { ...request, projectReceipt: await createProjectReceipt(saved) },
+    controller
+  );
+  expect(repeated).toBe(saved);
+  expect([...repeated.files].filter(([path]) => path.endsWith('.rosetta'))).toHaveLength(2);
+});
+it('saves an extension without redirecting curated callers', async () => {
+  const { request } = await fixture(['namespace demo.source\nfunc Compute:\n output: result number (1..1)']);
+  const { controller, receipt } = await projectForDeclaration();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  const saved = await modifyProjectDeclaration(
+    { ...request, mode: 'extend', name: 'Derived', projectReceipt: receipt },
+    controller
+  );
+  expect(saved.project.build.overrides ?? []).toEqual([]);
+  expect([...saved.files.values()].some((text) => text.includes('func Derived extends demo.source.Compute:'))).toBe(
+    true
+  );
+});
+it('rejects a stale project receipt before a declaration copy Save', async () => {
+  const { request } = await fixture(['namespace demo.source\nfunc Compute:\n output: result number (1..1)']);
+  const { controller, receipt } = await projectForDeclaration();
+  const before = controller.current();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  await expect(
+    modifyProjectDeclaration({ ...request, projectReceipt: { ...receipt, overridesDigest: 'stale' } }, controller)
+  ).rejects.toThrow(/ready|changed|stale/);
+  expect(controller.current()).toBe(before);
+});

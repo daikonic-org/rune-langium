@@ -20,7 +20,8 @@ export async function referenceFixture(
   refs: Record<string, { repository: string; release: string }> = {
     cdm: { repository: repository('cdm'), release: '1.0' }
   },
-  definitions: readonly ReleaseDefinition[] = defaultReleases
+  definitions: readonly ReleaseDefinition[] = defaultReleases,
+  modelSources: Readonly<Record<string, string>> = {}
 ) {
   const artifacts = new Map<string, Uint8Array>();
   const releases = new Map<string, ReferenceRelease[]>();
@@ -28,6 +29,23 @@ export async function referenceFixture(
     const commit = createHash('sha1')
       .update(id + tag)
       .digest('hex');
+    const content = modelSources[id] ?? `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)`;
+    let modelJson = JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
+    if (modelSources[id]) {
+      const { serializeRuneModel } = await import('../../packages/core/src/index.js');
+      const { buildEffectiveProject } = await import('../../packages/project-runtime/src/effective-project.js');
+      const compilerSnapshot = await createProjectSnapshot(
+        'fixture',
+        new Map([
+          ['rune-config.yml', 'model: {name: Fixture}'],
+          ['build-config.yml', 'schemaVersion: 1']
+        ]),
+        () => []
+      );
+      const graph = await buildEffectiveProject(compilerSnapshot, [{ uri: `${id}/model.rosetta`, content }]);
+      if (graph.diagnostics.length) throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
+      modelJson = serializeRuneModel(graph.services.serializer.JsonSerializer, graph.documents[0]!.parseResult.value);
+    }
     const bytes = gzipSync(
       JSON.stringify({
         schemaVersion: 1,
@@ -38,8 +56,8 @@ export async function referenceFixture(
         documents: [
           {
             path: 'model.rosetta',
-            content: `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)`,
-            modelJson: JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] })
+            content,
+            modelJson
           }
         ]
       })

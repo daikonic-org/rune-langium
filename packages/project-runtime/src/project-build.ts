@@ -21,6 +21,8 @@ export type ProjectTargetGenerator = (
 ) => Promise<readonly ProjectGeneratedFile[]>;
 export { PROJECT_TOOLCHAIN } from './toolchain.js';
 import { projectToolchainDiagnostics } from './toolchain.js';
+import { createProjectReceipt, projectReceiptMatches, type EffectiveProjectReceipt } from './project-receipt.js';
+export * from './project-receipt.js';
 export const validateProjectTarget: TargetValidator = (target) =>
   validateTargetOptions(target.generator, target.options).errors.map((message) => ({
     code: 'TARGET_OPTIONS',
@@ -44,7 +46,7 @@ const error = (code: string, path: string, message: string, target?: string): Pr
 /** Validate every selected target and stage generation before writing any output. */
 export async function runProjectBuild(
   snapshot: ProjectSnapshot,
-  request: { targets: readonly string[] | 'all'; signal?: AbortSignal },
+  request: { targets: readonly string[] | 'all'; signal?: AbortSignal; projectReceipt?: EffectiveProjectReceipt },
   adapter: ProjectFileAdapter,
   generateTarget: ProjectTargetGenerator
 ): Promise<ProjectBuildResult> {
@@ -74,7 +76,8 @@ export async function runProjectBuild(
         diagnostics.push(error('TARGET_UNKNOWN', 'targets.' + name, 'Unknown target: ' + name, name));
     diagnostics.push(...projectDiagnosticsForTargets(captured.project.diagnostics, names));
     diagnostics.push(...projectToolchainDiagnostics(captured.lock?.toolchain ?? {}));
-    if (Object.keys(captured.project.build.references).length)
+    const resolved = projectReceiptMatches(await createProjectReceipt(captured), request.projectReceipt);
+    if (Object.keys(captured.project.build.references).length && !resolved)
       diagnostics.push(
         error(
           'REFERENCE_UNRESOLVED',
@@ -82,9 +85,17 @@ export async function runProjectBuild(
           'Resolve and verify reference releases before building this project.'
         )
       );
-    if (captured.project.build.overrides?.length)
+    if (captured.project.build.overrides?.length && !resolved)
       diagnostics.push(
         error('OVERRIDE_UNRESOLVED', 'overrides', 'Resolve explicit project overrides before building.')
+      );
+    if (captured.project.build.overrides?.length && names.some((name) => targets[name]?.generator === 'rosetta'))
+      diagnostics.push(
+        error(
+          'SOURCE_MATERIALIZATION_UNAVAILABLE',
+          'targets',
+          'Standalone Rune export cannot materialize explicit project overrides. Export the portable project instead.'
+        )
       );
     const model = captured.project.rune.model as Record<string, unknown> | undefined;
     if (model?.enableExperimentalFeatures)

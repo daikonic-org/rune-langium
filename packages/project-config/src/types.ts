@@ -44,6 +44,7 @@ export interface ProjectSnapshot {
   workspaceId: string;
   revision: string;
   files: ProjectFiles;
+  fileRevisions: ReadonlyMap<string, string>;
   project: NormalizedProject;
   lock?: ProjectLock;
 }

@@ -47,3 +47,46 @@ it('protects the accepted .yaml Rune configuration spelling from target output',
     expect.arrayContaining([expect.objectContaining({ code: 'OUTPUT_PROTECTED', target: 'x' })])
   );
 });
+
+it('derives editor drafts without losing untouched binary resource identity', async () => {
+  const { createProjectDraftSnapshot, projectBytesRevision } = await import('../src/index.js');
+  const bytes = new Uint8Array([255, 0, 195]);
+  const resourceHash = await projectBytesRevision(bytes);
+  const original = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['model/a.rosetta', 'namespace a'],
+      ['resources/calendar.bin', new TextDecoder().decode(bytes)]
+    ]),
+    () => [],
+    new Map([['resources/calendar.bin', resourceHash]])
+  );
+  const unchanged = await createProjectDraftSnapshot(original, new Map(), () => []);
+  expect(unchanged.revision).toBe(original.revision);
+  const changed = await createProjectDraftSnapshot(
+    original,
+    new Map([
+      ['model/a.rosetta', null],
+      ['model/b.rosetta', 'namespace b']
+    ]),
+    () => []
+  );
+  expect(changed.revision).not.toBe(original.revision);
+  expect(changed.files.has('model/a.rosetta')).toBe(false);
+  expect(changed.fileRevisions.get('resources/calendar.bin')).toBe(resourceHash);
+  expect(original.files.has('model/a.rosetta')).toBe(true);
+});
+it('orders portable input paths independently of host collation', async () => {
+  const { projectFileRevision } = await import('../src/index.js');
+  const files = new Map([
+    ['resources/ä', 'a'],
+    ['resources/z', 'z']
+  ]);
+  const expected = await projectFileRevision(
+    JSON.stringify([
+      ['resources/z', await projectFileRevision('z')],
+      ['resources/ä', await projectFileRevision('a')]
+    ])
+  );
+  expect((await createProjectSnapshot('p', files, () => [])).revision).toBe(expected);
+});

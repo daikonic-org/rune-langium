@@ -218,6 +218,9 @@ importers:
       '@lspeasy/core':
         specifier: ^3.0.1
         version: 3.0.1(ws@8.22.0)
+      '@rune-langium/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@rune-langium/curated-schema':
         specifier: workspace:*
         version: link:../../packages/curated-schema
@@ -718,6 +721,9 @@ importers:
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
+      '@rune-langium/project-runtime':
+        specifier: workspace:*
+        version: link:../project-runtime
       langium:
         specifier: ^4.4.0
         version: 4.4.0
@@ -743,6 +749,9 @@ importers:
 
   packages/project-config:
     dependencies:
+      '@rune-langium/core':
+        specifier: workspace:*
+        version: link:../core
       '@rune-langium/curated-schema':
         specifier: workspace:*
         version: link:../curated-schema
@@ -790,6 +799,9 @@ importers:
         specifier: 7.8.5
         version: 7.8.5
     devDependencies:
+      '@js-temporal/polyfill':
+        specifier: ^0.5.1
+        version: 0.5.1
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5

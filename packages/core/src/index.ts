@@ -133,3 +133,4 @@ export {
 export type { NamespaceImport, ImportScope } from './naming/import-aliases.js';
 
 export * from './references/project-resolution.js';
+export { relinkReference, relinkModelReferences } from './serializer/relink-model-references.js';
