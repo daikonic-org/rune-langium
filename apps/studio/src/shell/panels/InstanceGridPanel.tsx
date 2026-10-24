@@ -142,6 +142,22 @@ export const InstanceGridPanel = withInstrumentation(
               </tr>
             </thead>
             <tbody>
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={5 + fields.length} className="p-3 text-xs text-muted-foreground">
+                    {view.query || view.typeFqn ? (
+                      <>
+                        No examples match these filters.{' '}
+                        <Button variant="ghost" size="xs" onClick={() => patch({ query: '', typeFqn: null })}>
+                          Clear filters
+                        </Button>
+                      </>
+                    ) : (
+                      'Import JSON examples to reuse inputs.'
+                    )}
+                  </td>
+                </tr>
+              ) : null}
               {rows.map((record) => (
                 <tr
                   key={record.id}

@@ -201,3 +201,38 @@
   }
 
 }
+
+/* Reserve real touch bounds so adjacent actions never share an invisible hit area. */
+@media (max-width: 640px) {
+  .studio-launcher button[data-size] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .studio-launcher [data-testid="workspace-row"] > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .studio-recent-workspace__name {
+    grid-column: 1;
+  }
+
+  .studio-recent-workspace__metadata {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .studio-recent-workspace__rename {
+    grid-area: 1 / 2 / 3 / 3;
+  }
+
+  .studio-recent-workspace__delete {
+    grid-area: 1 / 3 / 3 / 4;
+  }
+}

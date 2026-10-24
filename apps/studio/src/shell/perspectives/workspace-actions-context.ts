@@ -52,6 +52,8 @@ export interface WorkspaceActions {
   onCreateWorkspace: () => void;
   /** Delete a workspace by id (WorkspaceSwitcher onDelete). */
   onDeleteWorkspace: (workspaceId: string) => void;
+  /** Rename display metadata without changing model identity or repository files. */
+  onRenameWorkspace?: (workspaceId: string, name: string) => Promise<void>;
   /**
    * Persist + reparse workspace file content changes (e.g. source-editor
    * edits). Sourced by EditorPage in place of its former `onFilesChange` prop.

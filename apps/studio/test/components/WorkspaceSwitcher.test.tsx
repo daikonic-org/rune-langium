@@ -83,8 +83,8 @@ describe('WorkspaceSwitcher (T059)', () => {
     await saveWorkspace(ws('w-1', 'One', 'browser-only', new Date().toISOString()));
     render(<WorkspaceSwitcher onOpen={() => {}} onCreate={() => {}} onDelete={() => {}} />);
     const open = await screen.findByRole('button', { name: 'Open One', exact: true });
-    expect(open).toHaveAccessibleDescription('Browser Not connected just now');
-    expect(screen.getByText('Browser')).toBeVisible();
+    expect(open).toHaveAccessibleDescription('Browser only No Git remote just now');
+    expect(screen.getByText('Browser only')).toBeVisible();
     expect(screen.getByText('just now')).toBeVisible();
   });
 
@@ -119,4 +119,18 @@ it('keeps a failed recent-list read distinct from an empty list and retries on R
   } finally {
     read.mockRestore();
   }
+});
+
+it('renames a recent workspace without opening it or changing its identity', async () => {
+  const { loadWorkspace } = await import('../../src/workspace/persistence.js');
+  await saveWorkspace(ws('rename', 'untitled', 'browser-only', '2026-10-24T00:00:00Z'));
+  const open = vi.fn();
+  render(<WorkspaceSwitcher onOpen={open} onCreate={() => {}} onDelete={() => {}} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Rename untitled', exact: true }));
+  const name = screen.getByRole('textbox', { name: 'Workspace name' });
+  fireEvent.change(name, { target: { value: '  Bond examples  ' } });
+  fireEvent.keyDown(name, { key: 'Enter' });
+  expect(await screen.findByRole('button', { name: 'Open Bond examples', exact: true })).toBeVisible();
+  expect((await loadWorkspace('rename'))?.name).toBe('Bond examples');
+  expect(open).not.toHaveBeenCalled();
 });

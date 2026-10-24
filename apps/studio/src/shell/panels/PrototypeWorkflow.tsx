@@ -303,6 +303,12 @@ export const PrototypeWorkflow = withInstrumentation(
       () => resolveFunctionOutputTarget(workspace?.models ?? [], state.functionFqn, state.schema),
       [workspace?.models, state.functionFqn, state.schema]
     );
+    const [previousResult, setPreviousResult] = useState<{
+      workspaceId: string | undefined;
+      functionFqn: string;
+      inputs: string;
+      value: unknown;
+    }>();
     const resultField = state.schema?.result;
     const resultSchema = useMemo(
       () => (state.schema && resultField ? workflowFieldSchema(state.schema, resultField) : undefined),
@@ -317,6 +323,14 @@ export const PrototypeWorkflow = withInstrumentation(
       ? state.status === 'succeeded' && aggregateValidation.state === 'valid'
       : !!draft && standaloneValidation.state === 'valid';
     const payload = functionSelected ? state.result : draft?.values;
+    // History is presentation only: never restore a stale result to the executable session or payload graph.
+    const retainedResult =
+      previousResult &&
+      previousResult.workspaceId === workspace?.workspaceId &&
+      previousResult.functionFqn === state.functionFqn &&
+      previousResult.inputs === JSON.stringify(state.inputs)
+        ? previousResult
+        : undefined;
     const nodes = useEditorStore((s) => s.nodesById);
     const edges = useEditorStore((s) => s.edges);
     // Use linked, kind-qualified graph edges for candidate discovery; schema assignment is checked again below.
@@ -743,6 +757,18 @@ export const PrototypeWorkflow = withInstrumentation(
                 </Button>
               ) : null}
             </>
+          ) : retainedResult ? (
+            <div className="space-y-2 p-2">
+              <p role="status" className="text-xs text-muted-foreground">
+                Previous result — execute again to refresh. This result cannot be saved as a current example.
+              </p>
+              <pre
+                aria-label="Previous function result"
+                className="studio-scroll max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 font-mono text-xs"
+              >
+                {JSON.stringify(retainedResult.value, null, 2)}
+              </pre>
+            </div>
           ) : (
             <p role="status" className="p-3 text-xs text-muted-foreground">
               {state.error ??
@@ -765,6 +791,15 @@ export const PrototypeWorkflow = withInstrumentation(
         <WorkflowLibrary
           capture={captureRecipe}
           open={openRecipe}
+          onBeforeSave={() => {
+            if (ready && state.functionFqn)
+              setPreviousResult({
+                workspaceId: workspace?.workspaceId,
+                functionFqn: state.functionFqn,
+                inputs: JSON.stringify(state.inputs),
+                value: structuredClone(state.result)
+              });
+          }}
           disabled={!session || (!draft && !functionSelected)}
         />
         {drag ? (

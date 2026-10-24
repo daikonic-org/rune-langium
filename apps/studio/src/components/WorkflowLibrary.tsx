@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { readWorkflows, type WorkflowDescriptor } from '@rune-langium/project-config';
+import { canonicalProjectJson, readWorkflows, type WorkflowDescriptor } from '@rune-langium/project-config';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
@@ -22,10 +22,12 @@ export const WorkflowLibrary = withInstrumentation(
   function WorkflowLibrary({
     capture,
     open,
+    onBeforeSave,
     disabled = false
   }: {
     capture(id: string, name: string): WorkflowDescriptor;
     open(workflow: WorkflowDescriptor): Promise<void>;
+    onBeforeSave?(): void;
     disabled?: boolean;
   }) {
     const project = useProject();
@@ -36,9 +38,13 @@ export const WorkflowLibrary = withInstrumentation(
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string>();
     const generation = useRef(0);
+    const drafts = useRef(new Map<string, WorkflowDescriptor>());
+    const [saved, setSaved] = useState<WorkflowDescriptor>();
     useEffect(() => {
       ++generation.current;
       setActive(undefined);
+      setSaved(undefined);
+      drafts.current.clear();
       setDialog(false);
       setName('');
       setBusy(false);
@@ -48,7 +54,21 @@ export const WorkflowLibrary = withInstrumentation(
       };
     }, [project.workspaceId]);
 
-    const current = read?.workflows.find((entry) => entry.id === active);
+    const current = saved?.id === active ? saved : read?.workflows.find((entry) => entry.id === active);
+    // Compare the same canonical recipe that Save writes; results and view state are intentionally absent.
+    let dirty = false;
+    if (current && !disabled && !busy) {
+      try {
+        dirty = canonicalProjectJson(capture(current.id, current.name)) !== canonicalProjectJson(current);
+      } catch {
+        // An incomplete draft must never look saved merely because it cannot yet be captured.
+        dirty = true;
+      }
+    }
+    const rememberDraft = () => {
+      if (!disabled)
+        drafts.current.set(active ?? ':draft', capture(active ?? ':draft', current?.name ?? 'Unsaved workflow'));
+    };
     const save = async () => {
       if (!project.controller || !name.trim()) return;
       const version = ++generation.current;
@@ -56,9 +76,13 @@ export const WorkflowLibrary = withInstrumentation(
       setError(undefined);
       try {
         const id = active ?? generateUlid();
-        await saveWorkflow(project.controller, capture(id, name.trim()));
+        const recipe = capture(id, name.trim());
+        onBeforeSave?.();
+        await saveWorkflow(project.controller, recipe);
         if (version === generation.current) {
           setActive(id);
+          setSaved(recipe);
+          drafts.current.delete(id);
           setDialog(false);
         }
       } catch (error) {
@@ -77,11 +101,20 @@ export const WorkflowLibrary = withInstrumentation(
           <Select
             value={active ?? ':draft'}
             onValueChange={(id) => {
-              if (!id || id === ':draft') {
-                setActive(undefined);
+              if (!id || id === active) return;
+              try {
+                rememberDraft();
+              } catch (error) {
+                setError(error instanceof Error ? error.message : 'This draft could not be retained.');
                 return;
               }
-              const workflow = read?.workflows.find((entry) => entry.id === id);
+              const stored = read?.workflows.find((entry) => entry.id === id);
+              const workflow = drafts.current.get(id) ?? stored;
+              if (id === ':draft' && !workflow) {
+                setActive(undefined);
+                setSaved(undefined);
+                return;
+              }
               if (!workflow) return;
               const version = ++generation.current;
               setBusy(true);
@@ -89,7 +122,10 @@ export const WorkflowLibrary = withInstrumentation(
               void open(workflow)
                 .then(
                   () => {
-                    if (version === generation.current) setActive(id);
+                    if (version === generation.current) {
+                      setActive(id === ':draft' ? undefined : id);
+                      setSaved(stored);
+                    }
                   },
                   (error: unknown) => {
                     if (version === generation.current && !(error instanceof Error && error.name === 'AbortError'))
@@ -109,7 +145,7 @@ export const WorkflowLibrary = withInstrumentation(
               size="sm"
               className="w-52 max-w-full"
               aria-label="Saved workflow"
-              disabled={!project.controller || dialog}
+              disabled={!project.controller || dialog || busy}
             >
               <SelectValue />
             </SelectTrigger>
@@ -135,6 +171,15 @@ export const WorkflowLibrary = withInstrumentation(
             <Save className="size-3.5" aria-hidden="true" />
             Save workflow…
           </Button>
+          {dirty ? (
+            <span
+              role="status"
+              className="rounded border border-border bg-accent/50 px-1.5 py-0.5 text-xs text-muted-foreground"
+              title="Draft retained while switching workflows in this session. Save workflow to update repository files."
+            >
+              Unsaved changes
+            </span>
+          ) : null}
           {busy ? (
             <span role="status" className="text-xs text-muted-foreground">
               Preparing workflow…

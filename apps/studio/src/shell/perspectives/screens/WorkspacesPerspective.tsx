@@ -25,6 +25,7 @@ export const WorkspacesPerspective = withInstrumentation(
       onOpenWorkspace,
       onCreateWorkspace,
       onDeleteWorkspace,
+      onRenameWorkspace,
       onOpenStarter,
       onOpenFolder,
       onStartBlankWorkspace
@@ -64,7 +65,12 @@ export const WorkspacesPerspective = withInstrumentation(
               onGitHubWorkspaceCreated={onGitHubWorkspaceCreated}
               openProjectInitialization={openProjectInitialization}
             />
-            <WorkspaceSwitcher onOpen={onOpenWorkspace} onCreate={onCreateWorkspace} onDelete={onDeleteWorkspace} />
+            <WorkspaceSwitcher
+              onOpen={onOpenWorkspace}
+              onCreate={onCreateWorkspace}
+              onDelete={onDeleteWorkspace}
+              onRename={onRenameWorkspace}
+            />
             <StarterWorkspacePicker open={onOpenStarter} />
           </div>
           <div hidden={section !== 'references'}>

@@ -42,6 +42,20 @@ test('explicitly saves a named recipe, restores its inputs and clones its shared
   await dialog.getByLabel('Workflow name', { exact: true }).fill('Payment scenario');
   await dialog.getByRole('button', { name: 'Save workflow', exact: true }).click();
   await expect(dialog).toBeHidden();
+  await expect(page.getByLabel('Previous function result', { exact: true })).toContainText('2500.2469');
+  await expect(page.getByRole('button', { name: 'Save as example…', exact: true })).toBeHidden();
+  await page.getByLabel('Factor', { exact: true }).fill('3');
+  await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Previous function result', { exact: true })).toBeHidden();
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Unsaved workflow', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Payment scenario', exact: true }).click();
+  await expect(page.getByLabel('Factor', { exact: true })).toHaveValue('3');
+  await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
+  // Reverting to the repository values clears dirty state without another Save.
+  await page.getByLabel('Factor', { exact: true }).fill('2');
+  await expect(page.getByText('Unsaved changes', { exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'value: Edit layout', exact: true }).click();
   await value.getByRole('button', { name: 'Move Currency', exact: true }).press('ArrowUp');
   await value.getByRole('button', { name: 'Format workflow.Amount', exact: true }).click();

@@ -64,6 +64,44 @@ for (const width of [1440, 390])
     await expect(page.getByTestId('explore-workbench')).toBeVisible();
     await page.getByTestId('rail-workspaces').click();
     await expect(launcher.getByTestId('workspace-row')).toHaveCount(2);
+    const row = launcher.getByTestId('workspace-row').first();
+    await expect(row).toContainText('Browser only');
+    await expect(row).toContainText('No Git remote');
+    const rename = row.getByRole('button', { name: /^Rename / });
+    await rename.click();
+    await row.getByRole('textbox', { name: 'Workspace name' }).fill('Bond examples');
+    await row.getByRole('textbox', { name: 'Workspace name' }).press('Enter');
+    await expect(row.getByRole('button', { name: 'Open Bond examples', exact: true })).toBeVisible();
+    if (width === 390) {
+      for (const button of [
+        row.getByRole('button', { name: 'Rename Bond examples', exact: true }),
+        row.getByRole('button', { name: 'Delete Bond examples', exact: true }),
+        launcher.getByRole('button', { name: 'Refresh recent workspaces', exact: true })
+      ]) {
+        const bounds = (await button.boundingBox())!;
+        expect(bounds.width).toBeGreaterThanOrEqual(44);
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+      }
+      expect(await launcher.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
+    const nameBounds = (await row.locator('.studio-recent-workspace__name').boundingBox())!;
+    expect(nameBounds.width).toBeGreaterThanOrEqual(100);
+    await dismissLocalTransportNotices(page);
+    await page.screenshot({ path: info.outputPath('renamed-recents.png') });
+    // Tab-driven focus must have a painted outline, not merely match :focus-visible.
+    await launcher.getByRole('button', { name: 'Workspaces', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    expect(
+      await page.evaluate(() => {
+        const focused = document.activeElement!;
+        const style = getComputedStyle(focused);
+        return { visible: focused.matches(':focus-visible'), style: style.outlineStyle, width: style.outlineWidth };
+      })
+    ).toEqual({ visible: true, style: 'solid', width: '2px' });
+    await page.reload();
+    await expect(page.getByTestId('app-header')).toContainText('Bond examples');
+    await page.getByTestId('rail-workspaces').click();
+    await expect(launcher.getByRole('button', { name: 'Open Bond examples', exact: true })).toBeVisible();
   });
 
 test('opens checked public starter source as an editable copy with examples and no writable remote', async ({

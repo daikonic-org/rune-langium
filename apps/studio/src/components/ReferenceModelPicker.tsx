@@ -39,6 +39,7 @@ export const ReferenceModelPicker = withInstrumentation(
       [catalog, setCatalog] = useState<ReferenceCatalog>(),
       [release, setRelease] = useState(''),
       [error, setError] = useState<string>(),
+      [catalogError, setCatalogError] = useState<string>(),
       [phase, setPhase] = useState<'idle' | 'catalog' | 'resolving' | 'saving'>('idle'),
       [review, setReview] = useState<PreparedReferenceChange>(),
       [attempt, setAttempt] = useState(0);
@@ -60,6 +61,7 @@ export const ReferenceModelPicker = withInstrumentation(
       const abort = new AbortController();
       operation.current = abort;
       setCatalog(undefined);
+      setCatalogError(undefined);
       setRelease('');
       setError(undefined);
       setPhase('catalog');
@@ -69,7 +71,8 @@ export const ReferenceModelPicker = withInstrumentation(
           if (!abort.signal.aborted) setCatalog(result);
         })
         .catch((error) => {
-          if (!abort.signal.aborted) setError(error instanceof Error ? error.message : 'Release catalog unavailable.');
+          if (!abort.signal.aborted)
+            setCatalogError(error instanceof Error ? error.message : 'Release catalog unavailable.');
         })
         .finally(() => {
           if (!abort.signal.aborted) setPhase('idle');
@@ -265,9 +268,23 @@ export const ReferenceModelPicker = withInstrumentation(
                     )}
                   </>
                 ) : (
-                  <Button size="xs" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
-                    Retry releases
-                  </Button>
+                  <div className="space-y-2">
+                    {catalogError ? (
+                      <div role="alert" className="space-y-1 text-sm">
+                        <p>Could not load releases for {active.name}.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Your workspace references are unchanged. Retry to check published releases.
+                        </p>
+                        <details className="text-xs text-muted-foreground">
+                          <summary className="cursor-pointer">Technical details</summary>
+                          <p className="mt-1 break-words">{catalogError}</p>
+                        </details>
+                      </div>
+                    ) : null}
+                    <Button size="xs" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
+                      Retry releases
+                    </Button>
+                  </div>
                 )}
               </>
             ) : (

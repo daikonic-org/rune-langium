@@ -37,6 +37,16 @@ describe('InstanceGridPanel', () => {
     });
   });
 
+  it('distinguishes the import cue from a filtered empty table', () => {
+    render(<InstanceGridPanel />);
+    expect(screen.getByText('Import JSON examples to reuse inputs.')).toBeVisible();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search examples' }), { target: { value: 'Bond' } });
+    expect(screen.getByText(/No examples match these filters/)).toBeVisible();
+    expect(screen.queryByText('Import JSON examples to reuse inputs.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.getByText('Import JSON examples to reuse inputs.')).toBeVisible();
+  });
+
   it('renames an instance through the lifecycle action', () => {
     const id = useInstanceStore.getState().createInstance('test.Party', 'Acme');
     render(<InstanceGridPanel />);

@@ -15,6 +15,7 @@ import {
 } from '@rune-langium/instrumentation-core';
 import {
   saveWorkspace,
+  renameWorkspace,
   loadWorkspace,
   listRecents,
   deleteWorkspace,
@@ -130,4 +131,15 @@ describe('persistence — settings store', () => {
     expect(JSON.stringify(settingRecords)).not.toContain('private-workspace');
     expect(JSON.stringify(settingRecords)).not.toContain('private.namespace.Model');
   });
+});
+
+it('renames only display metadata atomically and updates recents without recreating missing workspaces', async () => {
+  const original = makeWorkspace('rename', 'Old');
+  await saveWorkspace(original);
+  await renameWorkspace('rename', '  Bonds  ');
+  expect(await loadWorkspace('rename')).toEqual({ ...original, name: 'Bonds' });
+  expect((await listRecents())[0]).toMatchObject({ id: 'rename', name: 'Bonds', lastOpenedAt: original.lastOpenedAt });
+  await expect(renameWorkspace('rename', ' ')).rejects.toThrow('Enter a workspace name');
+  await expect(renameWorkspace('missing', 'Name')).rejects.toThrow('no longer available');
+  expect(await loadWorkspace('missing')).toBeUndefined();
 });

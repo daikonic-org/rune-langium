@@ -1191,6 +1191,16 @@ function AppContent() {
     [handleFilesLoaded, reportWorkspaceError]
   );
 
+  const handleRenameWorkspace = useCallback(async (id: string, name: string) => {
+    await persistence.renameWorkspace(id, name);
+    // Keep later metadata writes and the active header in sync without activating another workspace.
+    if (restoredWorkspaceRef.current?.id === id) {
+      const renamed = { ...restoredWorkspaceRef.current, name: name.trim() };
+      restoredWorkspaceRef.current = renamed;
+      setRestoredWorkspace(renamed);
+    }
+  }, []);
+
   /** Delete a recent workspace from the recents store (T029). */
   const handleDeleteWorkspace = useCallback(
     async (workspaceId: string) => {
@@ -1383,6 +1393,7 @@ function AppContent() {
       onOpenFolder: handleOpenFolder,
       onOpenStarter: handleOpenStarter,
       onDeleteWorkspace: handleDeleteWorkspace,
+      onRenameWorkspace: handleRenameWorkspace,
       // EditorPage-facing actions (formerly EditorPage props), now sourced
       // from context so App no longer threads them through <EditorPage>.
       onFilesChange: handleFilesChange,
@@ -1406,6 +1417,7 @@ function AppContent() {
       handleOpenFolder,
       handleOpenStarter,
       handleDeleteWorkspace,
+      handleRenameWorkspace,
       handleFilesChange,
       loadCuratedSource,
       handleReset

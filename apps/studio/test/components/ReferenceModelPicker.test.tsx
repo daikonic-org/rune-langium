@@ -104,3 +104,23 @@ it('identifies affected saved files in compatibility review and retains warnings
   expect(screen.getByText('examples/trade.example.json', { exact: true })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Save reference change' })).toBeEnabled();
 });
+
+it('places catalog recovery beside the selected model and hides technical details initially', async () => {
+  const fixture = await referenceFixture({});
+  fixture.transport.catalog = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('HTTP 404 /api/catalog/cdm'))
+    .mockResolvedValue({ releases: [] });
+  render(<ReferenceModelPicker transport={fixture.transport} cache={createMemoryReferenceCache()} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: /Common Domain Model/ }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Could not load releases');
+  expect(alert).toHaveTextContent('Your workspace references are unchanged');
+  expect(alert.closest('.starter-picker__detail')).toContainElement(
+    screen.getByRole('button', { name: 'Retry releases' })
+  );
+  expect(screen.getByText('HTTP 404 /api/catalog/cdm')).not.toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Retry releases' }));
+  expect(await screen.findByText(/No published compatible releases/)).toBeVisible();
+});

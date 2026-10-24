@@ -202,7 +202,10 @@ forms use `--inspector-padding-inline` (8 px); their header owns no second gutte
 Preview and Prototype share validated field state: invalid controls use a semantic
 red-tinted background and border, `aria-invalid`, and an associated inline error.
 Temporal controls forward the same state; corrected fields clear both cues.
-Worker diagnostics remain the sole source of validation results.
+Worker diagnostics remain the sole source of validation results. Untouched empty
+numeric fields show neutral required guidance; edit/blur reveals the canonical
+error with plain-language number-type copy. Domain diagnostics and precise decimal
+strings retain their original meaning; presentation never changes Execute gates.
 
 Preview and Prototype share symbol-associated presentation preferences in
 `form-presentation-store.ts`. Active workspace preferences are read from typed
@@ -886,6 +889,13 @@ each operation's CAS and generation checks. A same-function schema refresh retai
 mounted fields/current compatible drafts, disables Execute until fresh schema and
 validation are available, and offers a schema retry after failure. Parameter/array
 element compatibility is shared by session retention and Prototype source bindings.
+`WorkflowLibrary` compares canonical captured recipes for unsaved state and retains
+per-recipe drafts while switching in the mounted session. Workspace changes clear
+those private drafts; reload recovery is not promised. Save compares against the
+exact recipe written, so edits during a pending Save remain unsaved. Recipe Save
+may retain a clearly labeled previous result for matching workspace/function/inputs,
+but that history never re-enters session state, the current payload graph or the
+Save-as-example path.
 
 ### Editable starter copies and bound folders
 
@@ -895,6 +905,9 @@ then `createStarterWorkingCopy` uses the existing ProjectController before host
 activation. Starter provenance lives on WorkspaceRecord without GitBacking,
 credentials or reference-only flags. Unpublished catalog proposals stay disabled.
 Workspace opening and reference dependencies occupy separate launcher sections.
+Recent-workspace Rename updates only display metadata and recents in one IndexedDB
+transaction, preserving current backing/UI state and updating the active header.
+It never renames `rune-config.yml` model identity or repository-managed files.
 
 Bound folder source IO uses WorkspaceManager's canonical project adapter. Source
 loads recover the private Save journal before reading; source writes use shared
