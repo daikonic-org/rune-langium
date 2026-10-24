@@ -19,6 +19,10 @@
     "./browser": {
       "types": "./dist/project-build.d.ts",
       "import": "./dist/project-build.js"
+    },
+    "./references": {
+      "types": "./dist/references/index.d.ts",
+      "import": "./dist/references/index.js"
     }
   },
   "files": [
@@ -35,11 +39,15 @@
     "@rune-langium/project-config": "workspace:*",
     "@rune-langium/core": "workspace:*",
     "@rune-langium/codegen": "workspace:*",
-    "langium": "^4.4.0"
+    "langium": "^4.4.0",
+    "@rune-langium/curated-schema": "workspace:*",
+    "pako": "^3.0.2",
+    "semver": "7.8.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "@types/semver": "7.8.0"
   }
 }

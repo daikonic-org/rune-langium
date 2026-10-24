@@ -743,6 +743,9 @@ importers:
 
   packages/project-config:
     dependencies:
+      '@rune-langium/curated-schema':
+        specifier: workspace:*
+        version: link:../curated-schema
       picomatch:
         specifier: 4.0.7
         version: 4.0.7
@@ -771,16 +774,28 @@ importers:
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
+      '@rune-langium/curated-schema':
+        specifier: workspace:*
+        version: link:../curated-schema
       '@rune-langium/project-config':
         specifier: workspace:*
         version: link:../project-config
       langium:
         specifier: ^4.4.0
         version: 4.4.0
+      pako:
+        specifier: ^3.0.2
+        version: 3.0.2
+      semver:
+        specifier: 7.8.5
+        version: 7.8.5
     devDependencies:
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
+      '@types/semver':
+        specifier: 7.8.0
+        version: 7.8.0
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -3284,6 +3299,9 @@ packages:
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -9073,6 +9091,8 @@ snapshots:
   '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
+
+  '@types/semver@7.8.0': {}
 
   '@types/unist@3.0.3': {}
 

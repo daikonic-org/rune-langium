@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { expandNamespaceWildcard, BASE_TYPE_FILES, namespaceFromSource } from '@rune-langium/core';
 import { validateTargetOptions, type GeneratorOutput } from '@rune-langium/codegen/export';
-import corePackage from '@rune-langium/core/package.json' with { type: 'json' };
-import codegenPackage from '@rune-langium/codegen/package.json' with { type: 'json' };
 import {
   normalizeProjectPath,
   projectDiagnosticsForTargets,
@@ -21,10 +19,8 @@ export type ProjectTargetGenerator = (
   target: BuildTarget,
   name: string
 ) => Promise<readonly ProjectGeneratedFile[]>;
-export const PROJECT_TOOLCHAIN: Readonly<Record<string, string>> = {
-  '@rune-langium/core': corePackage.version,
-  '@rune-langium/codegen': codegenPackage.version
-};
+export { PROJECT_TOOLCHAIN } from './toolchain.js';
+import { projectToolchainDiagnostics } from './toolchain.js';
 export const validateProjectTarget: TargetValidator = (target) =>
   validateTargetOptions(target.generator, target.options).errors.map((message) => ({
     code: 'TARGET_OPTIONS',
@@ -77,15 +73,7 @@ export async function runProjectBuild(
       if (!Object.hasOwn(targets, name))
         diagnostics.push(error('TARGET_UNKNOWN', 'targets.' + name, 'Unknown target: ' + name, name));
     diagnostics.push(...projectDiagnosticsForTargets(captured.project.diagnostics, names));
-    for (const [id, version] of Object.entries(captured.lock?.toolchain ?? {}))
-      if (PROJECT_TOOLCHAIN[id] !== version)
-        diagnostics.push(
-          error(
-            'TOOLCHAIN_MISMATCH',
-            'build-config.lock.json',
-            'Locked toolchain is unavailable: ' + id + '@' + version
-          )
-        );
+    diagnostics.push(...projectToolchainDiagnostics(captured.lock?.toolchain ?? {}));
     if (Object.keys(captured.project.build.references).length)
       diagnostics.push(
         error(

@@ -229,7 +229,7 @@ describe('explicit project builds', () => {
       join(root, 'build-config.lock.json'),
       JSON.stringify({
         schemaVersion: 1,
-        configHash: 'fixture',
+        configHash: 'a'.repeat(64),
         toolchain: { '@rune-langium/codegen': '999.0.0' },
         references: {}
       })

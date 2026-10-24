@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { canonicalProjectJson } from '@rune-langium/project-config';
 import type { ExportSelection, Target } from '@rune-langium/codegen/export';
 import { decodeExportArtifact, type ExportArtifact } from './export-artifact.js';
 import { requestCodegenDownload } from './codegen-download-client.js';
@@ -40,27 +41,15 @@ export const exportSourceFiles = withInstrumentation(
 /** Stable identity for source changes that invalidate an export artifact. */
 export const exportSourceFingerprint = withInstrumentation(
   function exportSourceFingerprint(workspaceId: string | undefined, files: readonly WorkspaceFile[]): string {
-    return JSON.stringify(canonicalize({ workspaceId, files: exportSourceFiles(files) }));
+    return canonicalProjectJson({ workspaceId, files: exportSourceFiles(files) });
   },
   { op: 'exportSourceFingerprint' }
 );
 
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, child]) => [key, canonicalize(child)])
-    );
-  }
-  return value;
-}
-
 /** Only generator settings belong to a saved target; declaration roots remain a run draft. */
 export const exportTargetKey = withInstrumentation(
   function exportTargetKey(config: ExportConfig): string {
-    return JSON.stringify(canonicalize({ generator: config.target, options: config.options[config.target] ?? {} }));
+    return canonicalProjectJson({ generator: config.target, options: config.options[config.target] ?? {} });
   },
   { op: 'exportTargetKey' }
 );
@@ -68,16 +57,14 @@ export const exportTargetKey = withInstrumentation(
 /** Stable identity for a captured generation input, independent of object insertion order. */
 export const exportInputKey = withInstrumentation(
   function exportInputKey(input: ExportInput): string {
-    return JSON.stringify(
-      canonicalize({
-        workspaceId: input.workspaceId,
-        sourceRevision: input.sourceRevision,
-        projectRevision: input.projectRevision,
-        projectBuild: input.projectBuild,
-        config: input.config,
-        files: exportSourceFiles(input.files)
-      })
-    );
+    return canonicalProjectJson({
+      workspaceId: input.workspaceId,
+      sourceRevision: input.sourceRevision,
+      projectRevision: input.projectRevision,
+      projectBuild: input.projectBuild,
+      config: input.config,
+      files: exportSourceFiles(input.files)
+    });
   },
   { op: 'exportInputKey' }
 );

@@ -10,3 +10,4 @@ export * from './save-transaction.js';
 export * from './project-snapshot.js';
 export * from './source-paths.js';
 export * from './build-config-save.js';
+export * from './canonical-json.js';

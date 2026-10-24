@@ -171,7 +171,7 @@ describe('portable configuration', () => {
   it('validates dependency lock JSON without inferring missing identities', () => {
     const lock = {
       schemaVersion: 1,
-      configHash: 'sha256:config',
+      configHash: 'a'.repeat(64),
       toolchain: { 'rune-langium': '0.1.0' },
       references: {}
     };

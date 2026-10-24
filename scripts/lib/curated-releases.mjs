@@ -69,11 +69,14 @@ export function prepareCuratedReleasePublication({ sources, manifests, catalogs 
     };
     const prior = validateReferenceCatalog(catalogs.get(source.id) ?? { schemaVersion: 1, releases: [] });
     if (prior.releases.some((entry) => entry.modelId !== source.id)) throw new Error('Catalog model identity mismatch');
-    const previous = prior.releases.find(
+    const variants = prior.releases.filter(
       (entry) => entry.repository === release.repository && entry.tag === release.tag
     );
-    if (previous && previous.commit !== release.commit)
+    if (variants.some((entry) => entry.commit !== release.commit))
       throw new Error('Moved release tag: ' + source.id + '@' + release.tag);
+    const previous = variants.find((entry) => entry.cohort === release.cohort);
+    if (previous && previous.checksum !== release.checksum)
+      throw new Error('Immutable release cohort changed: ' + source.id + '@' + release.tag);
     prepared.set(
       source.id,
       validateReferenceCatalog({

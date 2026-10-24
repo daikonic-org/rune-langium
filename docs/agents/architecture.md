@@ -20,7 +20,7 @@ Current source and package manifests take precedence over historical specs.
 | `packages/codegen-legacy`, `apps/codegen-container`     | Legacy JVM/Rosetta bridge and container path; Java 21 and `rosetta-code-generators` still apply here.                                                                                                                                               |
 | `apps/docs`, `site`                                     | Documentation and landing page, combined with Studio into the Pages artifact.                                                                                                                                                                       |
 
-| `packages/project-runtime` | Composes project-config, core and codegen for explicit named builds. The `/browser` entry owns the host-neutral build transaction with an injected generator; native parser composition is at the root and filesystem/local-project entry points live under `/node`. |
+| `packages/project-runtime` | Composes project-config, core and codegen for explicit named builds. The `/browser` entry owns the host-neutral build transaction with an injected generator; native parser composition is at the root and filesystem/local-project entry points live under `/node`. The `/references` entry owns host-neutral locked closure resolution and byte verification. |
 
 The main dependencies are Studio → visual-editor/codegen/LSP/core,
 and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codegen expose their package metadata for authoritative toolchain version checks.
@@ -58,6 +58,15 @@ than replacing it. GitHub release/tag/commit provenance maps to a checksummed
 immutable cohort manifest; artifact versions never imply release tags. The
 publisher prepares a complete set before writes, verifies serialized bytes,
 records successful immutable uploads and promotes catalogs dependencies-first.
+Catalogs retain distinct immutable cohorts for an unchanged source tag/commit;
+parent manifests constrain the selected dependency cohorts. The shared resolver
+backtracks cohort variants without selecting another source release. Locked open
+verifies full manifest/bundle closure before returning documents or promoting
+bytes, without catalog/latest lookup. Studio reuses its bounded IndexedDB cache
+and guards explicit config+lock Save by workspace/revision and cancellation.
+Reference-only configuration hashing keeps unrelated source/target edits from
+forcing a network resolution. Installed core/codegen identities and core's
+Langium support range determine artifact compatibility.
 Development/latest manifests remain separate. The mirror serves `/releases/*`
 with its existing CORS/ETag/error conventions. See
 [curated publication](../curated-publishing.md) for the dry-run and upload order.

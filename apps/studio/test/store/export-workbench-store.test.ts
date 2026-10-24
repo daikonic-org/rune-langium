@@ -288,7 +288,7 @@ it('invalidates captured output when configuration or lock files change', async 
   await controller.save([
     {
       path: 'build-config.lock.json',
-      text: JSON.stringify({ schemaVersion: 1, configHash: 'a', toolchain: {}, references: {} }),
+      text: JSON.stringify({ schemaVersion: 1, configHash: 'a'.repeat(64), toolchain: {}, references: {} }),
       expectedRevision: null
     }
   ]);

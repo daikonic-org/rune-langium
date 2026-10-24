@@ -34,8 +34,25 @@ Hosts can provide `privateRoot` outside the working copy. Journals are never
 listed as project files or copied into Git. Browser hosts retain their existing
 OPFS ownership coordination. This package neither stages nor commits files.
 
-Reference/override resolution is the next subsystem: until it supplies a verified
-effective graph, configured references or overrides return an explicit
+The `/references` entry resolves explicit GitHub release requests and loads
+locked artifact closures. `resolveProjectReferences` verifies catalog provenance,
+parent-required artifact cohorts, exact compiler identities and supported Langium
+format before proposing a lock. Its optional cache uses the same verified-byte
+contract as `loadLockedReferences`. A catalog can retain several compiled cohorts
+for one unchanged source tag; resolution selects a jointly compatible cohort set,
+never a second model release or a latest fallback.
+
+Ordinary locked open verifies immutable manifest and compressed artifact SHA-256,
+size, model identity and dependency closure without consulting catalogs. All
+roots are returned together only after the full closure verifies. Host cache
+failures are cache misses; corrupt bytes cannot bypass verification. Native or
+browser hosts inject their fetch transport and bounded cache. Studio reuses its
+existing IndexedDB cache and saves an explicit upgrade's configuration and lock
+through one guarded project Save. Only reference requests affect lock freshness;
+source, target and example edits still invalidate build input revisions.
+
+Effective-graph/override integration is the next subsystem: until it supplies a
+verified graph, builds with configured references or overrides return an explicit
 unavailable diagnostic. Unsupported experimental/pruning semantics also remain
 diagnosed. No Maven process or arbitrary YAML-selected executable runs.
 

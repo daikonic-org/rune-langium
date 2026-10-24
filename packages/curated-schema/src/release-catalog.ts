@@ -39,8 +39,17 @@ export const ReferenceCatalogSchema = z
   .object({ schemaVersion: z.literal(1), releases: z.array(ReferenceReleaseSchema) })
   .superRefine((catalog, ctx) => {
     const seen = new Set<string>();
+    const sources = new Map<string, string>();
     catalog.releases.forEach((release, index) => {
-      const key = JSON.stringify([release.modelId, release.repository, release.tag]);
+      const source = JSON.stringify([release.modelId, release.repository, release.tag]);
+      if (sources.has(source) && sources.get(source) !== release.commit)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['releases', index, 'commit'],
+          message: 'A release tag cannot identify different source commits.'
+        });
+      sources.set(source, release.commit);
+      const key = JSON.stringify([source, release.cohort]);
       if (seen.has(key))
         ctx.addIssue({ code: 'custom', path: ['releases', index], message: 'Ambiguous duplicate release mapping.' });
       seen.add(key);

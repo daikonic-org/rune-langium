@@ -155,3 +155,5 @@ export function parseSerializedWorkspaceArtifact(
 }
 
 export { computeNamespaceGraph, type SerializedDoc, type NamespaceGraphEntry } from './namespace-graph.js';
+
+export * from './endpoints.js';

@@ -29,7 +29,10 @@ compatibility adapter. It downloads exact commits and records their mappings in
 `dist/curated-artifacts/resolved-sources.json`. It does not run Maven or Java.
 Catalog dependency edges describe the actual jointly linked compatible artifact
 set, using the existing namespace graph. A tag that moved to another source
-commit cannot replace an already advertised mapping.
+commit cannot replace an already advertised mapping. Rebuilding unchanged source
+in a new compatible set appends another immutable cohort variant; previous
+variants remain advertised so an older parent release can still resolve its
+exact dependency cohort. Bytes at an existing cohort cannot be replaced.
 
 The existing GitHub Actions publisher accepts an optional `cdm_release` manual
 dispatch input and uses this same path. Scheduled runs and a blank input retain

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { z } from 'zod';
+import { CuratedCohortSchema, CuratedSha256Schema } from '@rune-langium/curated-schema';
 
 const text = z.string().min(1);
 export const SymbolIdentitySchema = z.object({
@@ -39,17 +40,17 @@ export const StudioConfigSchema = z.object({
 });
 export const ProjectLockSchema = z.object({
   schemaVersion: z.literal(1),
-  configHash: text,
+  configHash: CuratedSha256Schema,
   toolchain: z.record(z.string(), text),
   references: z.record(
     z.string(),
     z.object({
       repository: text,
       release: text,
-      commit: text,
-      manifest: text,
-      cohort: text,
-      checksum: text,
+      commit: z.string().regex(/^[a-f0-9]{40}$/),
+      manifest: z.url().refine((value) => value.startsWith('https://'), 'Manifest must use HTTPS.'),
+      cohort: CuratedCohortSchema,
+      checksum: CuratedSha256Schema,
       dependencies: z.record(z.string(), text)
     })
   )

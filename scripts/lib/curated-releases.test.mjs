@@ -141,3 +141,21 @@ test('rejects moved tags and missing or mismatched dependency provenance before 
   delete untagged.sources[1].release;
   assert.throws(() => prepareCuratedReleasePublication(untagged), /release/i);
 });
+
+test('retains previous immutable cohorts when a source release is rebuilt in a new compatible set', () => {
+  const before = fixture();
+  const old = prepareCuratedReleasePublication(before).catalogs;
+  const next = fixture();
+  const cohort = 'cohort-' + 'f'.repeat(64);
+  for (const [id, text] of next.manifests) {
+    const manifest = JSON.parse(text);
+    manifest.cohort = cohort;
+    manifest.dependencies = Object.fromEntries(Object.keys(manifest.dependencies).map((id) => [id, cohort]));
+    next.manifests.set(id, JSON.stringify(manifest));
+  }
+  const updated = prepareCuratedReleasePublication({ ...next, catalogs: old }).catalogs;
+  for (const [id, catalog] of updated) {
+    assert.equal(catalog.releases.length, 2);
+    assert.equal(catalog.releases[0].cohort, old.get(id).releases[0].cohort);
+  }
+});

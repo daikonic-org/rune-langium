@@ -34,3 +34,13 @@ describe('reference release catalogs', () => {
     ).toThrow();
   });
 });
+
+it('retains distinct immutable artifact cohorts for the same source release', () => {
+  const variant = {
+    ...release,
+    cohort: 'cohort-' + 'd'.repeat(64),
+    manifest: 'https://mirror.example/curated/cdm/artifacts/cohort-' + 'd'.repeat(64) + '/manifest.json',
+    checksum: 'e'.repeat(64)
+  };
+  expect(validateReferenceCatalog({ schemaVersion: 1, releases: [release, variant] }).releases).toHaveLength(2);
+});
