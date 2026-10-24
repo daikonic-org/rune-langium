@@ -835,6 +835,13 @@ mappings; it never interprets Maven versions as tags or loads Java code. The
 optional build.importReport references portable compatibility evidence, included
 in snapshot identity/output protection. Existing build configuration suppresses
 POM initialization; subsequent POM edits do not change native builds.
+ProjectImportReportSchema owns the persisted evidence format for both review and
+reopen. The private runtime's pure `/status` entry combines that historical report
+with current snapshot diagnostics and explicitly supplied effective-graph
+capabilities. It does not reparse POMs, infer provider availability or replace the
+normal build/Execute gates. Export settings renders unavailable target diagnostics
+separately; Prototype's existing canonical schema/validation availability still
+gates Execute. Shared report findings use the design-system disclosure chrome.
 
 
 GitHub-open performs optional native project initialization only after a successful

@@ -370,3 +370,28 @@ strict library defaults, while one-off exports retain their existing layouts.
 Source/configuration/lock/resource/example changes invalidate captured output.
 Generated output itself does not change the input revision. Working-copy Save,
 Git commit/push and ordinary artifact downloads remain distinct actions.
+
+### GitHub project initialization
+
+Opening a GitHub repository with a POM and no native build configuration offers
+an optional inline settings review. Select profiles explicitly, inspect proposed
+files and unsupported tooling, then **Initialize project settings** or **Keep
+browsing**. Both preserve the cloned repository, POM, remote and branch. A stale
+proposal refuses Save; **Review profiles** reloads current files for a fresh review.
+Existing build-config.yml or .yaml is authoritative and skips this detection.
+
+Export settings retains a **Saved initialization report** after reopen. It records
+the original POM evidence and selected profiles, while current target diagnostics
+and function capabilities determine what can run. Unavailable targets cannot be
+included in a build; other native targets remain usable. Missing or malformed
+historical evidence is reported separately from otherwise usable type generation.
+Subsequent POM changes do not silently synchronize native configuration.
+
+The pinned CDM/FpML journeys verify metadata import, pure type generation and a
+small local Rune execution repair. They do not implement upstream Java tooling,
+business calendars or production payment-schedule generation. Maven versions are
+not inferred Git release tags; unresolved external references need explicit native
+reference selections and locks. There is no standalone Maven import action.
+
+Working-copy Save remains local. Use Git / Sync's explicit **Commit and push** to
+publish repository changes; it flushes editor Save barriers first.

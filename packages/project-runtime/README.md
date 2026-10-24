@@ -134,3 +134,11 @@ inspection. Optional release-catalog mavenArtifacts entries map complete artifac
 coordinates (including type/classifier/version) to the entry's exact repository
 and tag. Ambiguous coordinates or several releases for one model stay unresolved.
 No Maven repository, Java provider or plugin is installed by this adapter.
+
+The pure `/status` entry combines saved initialization evidence with current
+snapshot diagnostics and an explicitly supplied effective-graph Capability array.
+`projectInitializationStatus` keeps historical import notes separate from current
+target availability and function impacts. A `configured` target has no known
+configuration/capability error in that supplied evidence; actual builds still use
+normal preflight and the linked graph. Hosts must not infer executability from a
+completed import or omit function validation before Execute.

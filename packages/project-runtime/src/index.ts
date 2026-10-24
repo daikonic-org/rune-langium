@@ -9,3 +9,4 @@ export * from './project-context.js';
 export * from './resources.js';
 export * from './capabilities.js';
 export * from './import/rune-maven-adapters.js';
+export * from './import/project-status.js';

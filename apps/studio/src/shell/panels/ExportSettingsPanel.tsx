@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { useState, useEffect } from 'react';
+import { projectInitializationStatus } from '@rune-langium/project-runtime/status';
+import { ProjectInitializationEvidence } from '../../components/ProjectInitializationEvidence.js';
 import { ExportSelect } from '../../components/ExportSelect.js';
 import { IMPLEMENTED_TARGETS, TARGET_DESCRIPTORS, type Target } from '@rune-langium/codegen/export';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -37,7 +39,7 @@ export const ExportSettingsPanel = withInstrumentation(
     onCancel,
     status,
     projectSnapshot,
-    projectDiagnostics = [],
+    projectDiagnostics = projectSnapshot?.project.diagnostics ?? [],
     selectedTargetName,
     targetDirty,
     onSelectTarget,
@@ -52,6 +54,10 @@ export const ExportSettingsPanel = withInstrumentation(
     const [saving, setSaving] = useState(false);
     useEffect(() => setName(selectedTargetName ?? ''), [selectedTargetName]);
     const targets = projectSnapshot?.project.build.targets ?? {};
+    const initialization = projectSnapshot && projectInitializationStatus(projectSnapshot, [], projectDiagnostics);
+    const unavailableTargets = new Set(
+      initialization?.targets.filter((target) => target.status === 'unavailable').map((target) => target.name)
+    );
     const globalErrors = projectDiagnostics.filter((issue) => !issue.target && issue.severity === 'error');
     const blocked = status === 'generating' || saving || globalErrors.length > 0;
     const target = config.target;
@@ -71,6 +77,7 @@ export const ExportSettingsPanel = withInstrumentation(
         </div>
         {projectEnabled && (
           <div className="flex flex-col gap-2 border-b border-border pb-3">
+            {initialization && <ProjectInitializationEvidence status={initialization} />}
             <label className="flex flex-col gap-1 text-xs font-medium">
               Saved target
               <ExportSelect
@@ -203,7 +210,10 @@ export const ExportSettingsPanel = withInstrumentation(
                 <label key={name} className="flex items-center gap-1.5 text-xs">
                   <input
                     type="checkbox"
-                    checked={selectedBuilds.includes(name)}
+                    aria-label={name}
+                    disabled={unavailableTargets.has(name)}
+                    title={initialization?.targets.find((target) => target.name === name)?.reasons.join(' ')}
+                    checked={selectedBuilds.includes(name) && !unavailableTargets.has(name)}
                     onChange={(event) =>
                       setSelectedBuilds((names) =>
                         event.target.checked ? [...names, name] : names.filter((item) => item !== name)
@@ -211,6 +221,7 @@ export const ExportSettingsPanel = withInstrumentation(
                     }
                   />
                   {name}
+                  {unavailableTargets.has(name) && <span className="text-foreground/75">Unavailable</span>}
                 </label>
               ))}
             </div>
@@ -221,10 +232,17 @@ export const ExportSettingsPanel = withInstrumentation(
                 variant="secondary"
                 className="h-7 text-xs"
                 disabled={
-                  blocked || !selectedBuilds.some((name) => Object.prototype.hasOwnProperty.call(targets, name))
+                  blocked ||
+                  !selectedBuilds.some(
+                    (name) => Object.prototype.hasOwnProperty.call(targets, name) && !unavailableTargets.has(name)
+                  )
                 }
                 onClick={() =>
-                  onBuildTargets?.(selectedBuilds.filter((name) => Object.prototype.hasOwnProperty.call(targets, name)))
+                  onBuildTargets?.(
+                    selectedBuilds.filter(
+                      (name) => Object.prototype.hasOwnProperty.call(targets, name) && !unavailableTargets.has(name)
+                    )
+                  )
                 }
               >
                 Build selected
@@ -234,7 +252,7 @@ export const ExportSettingsPanel = withInstrumentation(
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                disabled={blocked}
+                disabled={blocked || unavailableTargets.size > 0}
                 onClick={() => onBuildTargets?.('all')}
               >
                 Build all

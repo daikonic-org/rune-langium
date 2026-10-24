@@ -39,6 +39,10 @@
     "./context": {
       "types": "./dist/project-context.d.ts",
       "import": "./dist/project-context.js"
+    },
+    "./status": {
+      "types": "./dist/import/project-status.d.ts",
+      "import": "./dist/import/project-status.js"
     }
   },
   "files": [

@@ -6,6 +6,7 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Alert, AlertDescription } from '@rune-langium/design-system/ui/alert';
 import type { GitHubInitializationSession, ReviewedMavenImportPreview } from '../workspace/project-initialization.js';
+import { ProjectImportFindings } from './ProjectInitializationEvidence.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export const ProjectInitializationReview = withInstrumentation(
@@ -121,24 +122,7 @@ export const ProjectInitializationReview = withInstrumentation(
             </div>
             <div>
               <h4 className="font-medium">Compatibility review</h4>
-              <ul
-                className="studio-scroll mt-1 max-h-56 space-y-2 overflow-auto pr-1"
-                aria-label="Initialization compatibility report"
-              >
-                {preview.report.map((item, i) => (
-                  <li
-                    key={item.path + ':' + item.code + ':' + i}
-                    className="min-w-0 border-b border-border/50 pb-2 last:border-0"
-                  >
-                    <p className="text-xs text-foreground/75 capitalize">
-                      {item.status}
-                      {item.targets.length ? ' · ' + item.targets.join(', ') : ''}
-                    </p>
-                    <p className="break-words">{item.message}</p>
-                    <p className="break-all font-mono text-xs text-foreground/75">{item.path}</p>
-                  </li>
-                ))}
-              </ul>
+              <ProjectImportFindings report={preview.report} />
               {!preview.report.length && <p className="text-foreground/75">No compatibility findings.</p>}
               <p className="mt-2 text-xs text-foreground/75">
                 Imported settings do not make unsupported generators or implementations available.

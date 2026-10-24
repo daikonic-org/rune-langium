@@ -1,27 +1,60 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { z } from 'zod';
 import { stringify } from 'yaml';
 import { discoverProjectConfig } from '../config-codec.js';
-import type { BuildConfig, ProjectFiles } from '../types.js';
+import type { BuildConfig, ProjectFiles, ConfigResult, ConfigDocument } from '../types.js';
 import type { ProjectWrite } from '../project-files.js';
-export interface ImportReportItem {
-  code: string;
-  path: string;
-  message: string;
-  status: 'translated' | 'unresolved' | 'unsupported';
-  targets: string[];
-  capabilities: string[];
-  evidence?: unknown;
-}
-export interface MavenDependency {
-  groupId: string;
-  artifactId: string;
-  version?: string;
-  type: string;
-  classifier?: string;
-  scope: string;
-  exclusions: { groupId: string; artifactId: string }[];
-  path: string;
+export const ImportReportItemSchema = z.strictObject({
+  code: z.string(),
+  path: z.string(),
+  message: z.string(),
+  status: z.enum(['translated', 'unresolved', 'unsupported']),
+  targets: z.array(z.string()),
+  capabilities: z.array(z.string()),
+  evidence: z.unknown().optional()
+});
+export type ImportReportItem = z.infer<typeof ImportReportItemSchema>;
+export const MavenDependencySchema = z.strictObject({
+  groupId: z.string(),
+  artifactId: z.string(),
+  version: z.string().optional(),
+  type: z.string(),
+  classifier: z.string().optional(),
+  scope: z.string(),
+  exclusions: z.array(z.strictObject({ groupId: z.string(), artifactId: z.string() })),
+  path: z.string()
+});
+export type MavenDependency = z.infer<typeof MavenDependencySchema>;
+export const ProjectImportReportSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  report: z.array(ImportReportItemSchema),
+  dependencies: z.array(MavenDependencySchema),
+  provenance: z.strictObject({
+    pomPath: z.string(),
+    profiles: z.array(z.string()),
+    documents: z.array(z.string()),
+    artifactId: z.string().optional()
+  })
+});
+export type ProjectImportReport = z.infer<typeof ProjectImportReportSchema>;
+
+/** Read persisted evidence without rerunning POM inspection on an initialized project. */
+export function parseProjectImportReport(document: ConfigDocument): ConfigResult<ProjectImportReport> {
+  try {
+    return { value: ProjectImportReportSchema.parse(JSON.parse(document.text)), diagnostics: [] };
+  } catch {
+    return {
+      diagnostics: [
+        {
+          code: 'IMPORT_REPORT_INVALID',
+          severity: 'warning',
+          path: document.path,
+          message: 'The saved initialization report is invalid. Restore it to review the original import evidence.'
+        }
+      ]
+    };
+  }
 }
 export interface MavenImportPreview {
   build: BuildConfig;

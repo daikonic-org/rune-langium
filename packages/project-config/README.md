@@ -83,3 +83,9 @@ file list to saveProject. These preconditions are persisted in the recovery
 journal and verified before preparation, resumption and final readback. Inputs
 are never written; changed POMs or newly added companions require a fresh review.
 The normal build snapshot still ignores later POM edits after initialization.
+
+The versioned ProjectImportReportSchema is also the read contract for persisted
+reports. parseProjectImportReport diagnoses malformed evidence without rerunning
+POM inspection. Current target/function readiness comes from native diagnostics
+and effective-project capabilities; historical unsupported notes survive a local
+repair without becoming a permanent execution gate.
