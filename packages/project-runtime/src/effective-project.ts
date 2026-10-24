@@ -8,19 +8,41 @@ import {
   setProjectRedirects,
   projectDeclarationIdentity,
   isRosettaModel,
-  type RuneDslServices
+  type RuneDslServices,
+  type ProjectResolutionContext
 } from '@rune-langium/core';
 import { projectSourcePaths, type ProjectSnapshot, type ProjectDiagnostic } from '@rune-langium/project-config';
 import { projectOverrideRedirects, validateProjectOverrides, type ProjectDeclarations } from './override-validation.js';
 import type { ReferenceDocument } from './references/types.js';
 import { projectSourceUri, projectReferenceUri } from './project-uri.js';
-import { createProjectReceipt, type EffectiveProjectReceipt } from './project-receipt.js';
+import { createProjectReceipt, projectReceiptMatches, type EffectiveProjectReceipt } from './project-receipt.js';
+import { readProjectResolutionContext } from './project-context.js';
 export type { EffectiveProjectReceipt } from './project-receipt.js';
 export interface EffectiveProject {
   services: RuneDslServices;
   documents: readonly LangiumDocument[];
   receipt: EffectiveProjectReceipt;
   diagnostics: ProjectDiagnostic[];
+}
+export interface EffectiveProjectInput {
+  snapshot: ProjectSnapshot;
+  referenceDocuments: readonly ReferenceDocument[];
+  resolution: ProjectResolutionContext;
+  receipt: EffectiveProjectReceipt;
+}
+
+/** Host adoption verifies the captured context and acknowledges only a successfully linked graph. */
+export async function applyEffectiveProject(input: EffectiveProjectInput): Promise<EffectiveProject> {
+  const context = await readProjectResolutionContext(input.resolution);
+  const graph = await buildEffectiveProject(input.snapshot, input.referenceDocuments);
+  if (
+    !projectReceiptMatches(context.context.receipt, input.receipt) ||
+    !projectReceiptMatches(graph.receipt, input.receipt)
+  )
+    throw new Error('Project receipt does not match the captured source and configuration.');
+  if (graph.diagnostics.some((issue) => issue.severity === 'error'))
+    throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
+  return graph;
 }
 /** A fresh services container owns every root and reference in this captured project generation. */
 export async function buildEffectiveProject(

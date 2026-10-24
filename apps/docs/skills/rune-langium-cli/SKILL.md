@@ -10,8 +10,9 @@ Rune DSL workspaces.
 
 Use the CLI when you need batch validation in CI, ad-hoc parsing from a
 terminal, or code generation without embedding the libraries directly in a
-Node.js tool. The `generate` command delegates to the codegen toolchain while
-`parse` and `validate` provide lightweight syntax and diagnostics checks.
+Node.js tool. `build` runs explicit portable project targets natively;
+`generate` retains the legacy toolchain bridge. `parse` and `validate` provide
+lightweight syntax and diagnostics checks.
 
 ## Links
 

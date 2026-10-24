@@ -233,6 +233,8 @@ export const createLspClientService = withInstrumentation(
     let modelSyncQueue = Promise.resolve();
     let modelGeneration = 0;
     let modelSyncPending = false;
+    const pendingDiagnostics = new Map<string, { target: LSPClient; params: unknown; generation: number }>();
+    let replayProjectDiagnostics: ((params: unknown, source: LSPClient) => void) | undefined;
     let pendingWorkspaceFiles: Array<{ path: string; content: string }> | null = null;
     let _pendingRefreshId: ReturnType<typeof setTimeout> | null = null;
 
@@ -280,6 +282,7 @@ export const createLspClientService = withInstrumentation(
 
     function syncModels(): Promise<void> {
       const generation = ++modelGeneration;
+      pendingDiagnostics.clear();
       const target = client;
       modelSyncPending = true;
       modelSyncQueue = modelSyncQueue
@@ -325,18 +328,69 @@ export const createLspClientService = withInstrumentation(
         .then(() => {
           if (target !== client || generation !== modelGeneration) return;
           modelSyncPending = false;
+          const queued = [...pendingDiagnostics.values()];
+          pendingDiagnostics.clear();
+          for (const entry of queued)
+            if (entry.generation === generation) replayProjectDiagnostics?.(entry.params, entry.target);
           if (pendingWorkspaceFiles) service.syncWorkspaceFiles(pendingWorkspaceFiles);
           else refreshDocumentPlugins();
         })
         .catch((error) => {
           // A failed final retain may leave acknowledged uploads unpublished.
-          if (target === client) sentModels.clear();
+          if (target === client) {
+            sentModels.clear();
+            pendingDiagnostics.clear();
+          }
           throw error;
         });
       return modelSyncQueue;
     }
 
     function buildClient(): LSPClient {
+      const extensions = [...languageServerExtensions()];
+      const publishDiagnostics = (target: LSPClient, params: unknown): boolean => {
+        const { uri, diagnostics, version } = params as {
+          uri: string;
+          diagnostics: LspDiagnostic[];
+          version?: number;
+        };
+        if (resolutionSnapshot !== undefined && target !== client) return true;
+        if ((resolutionSnapshot !== undefined || resolutionUnavailable) && !resolutionReady()) {
+          pendingDiagnostics.set(uri, { target, params, generation: modelGeneration });
+          return true;
+        }
+        const file = target.workspace.getFile(uri);
+        const snapshot = workspaceSnapshot.get(uri);
+        const revision =
+          file?.version ?? (snapshot ? (target.workspace as StudioWorkspace).getFileVersion(uri) : undefined);
+        if (version !== undefined && revision !== undefined && version !== revision) return true;
+        const view = file?.getView();
+        const doc =
+          (view && LSPPlugin.get(view)?.syncedDoc) ??
+          file?.doc ??
+          (snapshot ? Text.of(snapshot.content.split('\n')) : undefined);
+        if (
+          doc &&
+          diagnostics.some(({ range }) => {
+            const valid = (position: { line: number; character: number }) =>
+              Number.isInteger(position.line) &&
+              position.line >= 0 &&
+              position.line < doc.lines &&
+              Number.isInteger(position.character) &&
+              position.character >= 0 &&
+              position.character <= doc.line(position.line + 1).length;
+            return (
+              !valid(range.start) ||
+              !valid(range.end) ||
+              range.end.line < range.start.line ||
+              (range.end.line === range.start.line && range.end.character < range.start.character)
+            );
+          })
+        )
+          return true;
+        for (const h of diagnosticHandlers) h(uri, diagnostics);
+        return false; // let serverDiagnostics() also handle editor underlines
+      };
       const target = new LSPClient({
         rootUri: 'file:///workspace',
         // Cold wake can restore a large semantic closure before any request runs.
@@ -347,47 +401,18 @@ export const createLspClientService = withInstrumentation(
           return ws;
         },
         notificationHandlers: {
-          'textDocument/publishDiagnostics': (target, params) => {
-            const { uri, diagnostics, version } = params as {
-              uri: string;
-              diagnostics: LspDiagnostic[];
-              version?: number;
-            };
-            const file = target.workspace.getFile(uri);
-            const snapshot = workspaceSnapshot.get(uri);
-            const revision =
-              file?.version ?? (snapshot ? (target.workspace as StudioWorkspace).getFileVersion(uri) : undefined);
-            if (version !== undefined && revision !== undefined && version !== revision) return true;
-            const view = file?.getView();
-            const doc =
-              (view && LSPPlugin.get(view)?.syncedDoc) ??
-              file?.doc ??
-              (snapshot ? Text.of(snapshot.content.split('\n')) : undefined);
-            if (
-              doc &&
-              diagnostics.some(({ range }) => {
-                const valid = (position: { line: number; character: number }) =>
-                  Number.isInteger(position.line) &&
-                  position.line >= 0 &&
-                  position.line < doc.lines &&
-                  Number.isInteger(position.character) &&
-                  position.character >= 0 &&
-                  position.character <= doc.line(position.line + 1).length;
-                return (
-                  !valid(range.start) ||
-                  !valid(range.end) ||
-                  range.end.line < range.start.line ||
-                  (range.end.line === range.start.line && range.end.character < range.start.character)
-                );
-              })
-            )
-              return true;
-            for (const h of diagnosticHandlers) h(uri, diagnostics);
-            return false; // let serverDiagnostics() also handle editor underlines
-          }
+          'textDocument/publishDiagnostics': publishDiagnostics
         },
-        extensions: [...languageServerExtensions()]
+        extensions
       });
+      replayProjectDiagnostics = (params, source) => {
+        if (source !== target || target !== client || publishDiagnostics(target, params)) return;
+        for (const extension of extensions) {
+          if (!extension || typeof extension !== 'object' || !('notificationHandlers' in extension)) continue;
+          const handler = extension.notificationHandlers?.['textDocument/publishDiagnostics'];
+          if (handler?.(target, params)) break;
+        }
+      };
       const request = target.request.bind(target);
       target.request = async function <Params, Result>(method: string, params: Params): Promise<Result> {
         const semantic = method.startsWith('textDocument/') || method.startsWith('workspace/');
@@ -495,6 +520,7 @@ export const createLspClientService = withInstrumentation(
 
       suspendProjectResolution(message): void {
         resolutionUnavailable = message;
+        pendingDiagnostics.clear();
         modelGeneration++;
         modelSyncPending = true;
       },

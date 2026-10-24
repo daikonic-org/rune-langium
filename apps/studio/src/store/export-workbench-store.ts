@@ -22,6 +22,7 @@ import {
   type ExportInput
 } from '../services/export-request.js';
 import { combineExportArtifacts } from '../services/export-artifact.js';
+import { assertExportProjectReceipt } from '../services/export-artifact.js';
 import { projectTargetNamespaces } from '@rune-langium/project-runtime/browser';
 import { namespaceFromSource } from '@rune-langium/core';
 import type { ExportArtifact } from '../services/export-artifact.js';
@@ -335,9 +336,10 @@ export const createExportWorkbench = withInstrumentation(
         set({ run: { status: 'generating', requestId, ...(previous ? { previous } : {}) } });
         const artifacts: { output: string; artifact: ExportArtifact }[] = [];
         try {
+          if (input.projectUnavailable) throw new Error(input.projectUnavailable);
           const result = await controller.build(
             snapshot,
-            { targets, signal: abort.signal },
+            { targets, signal: abort.signal, projectReceipt: input.project?.receipt },
             async (captured, target) => {
               const paths = projectSourcePaths(captured.files, captured.project.build.sources);
               if (!paths.length) throw new Error('No .rosetta sources match the configured source patterns.');
@@ -347,15 +349,18 @@ export const createExportWorkbench = withInstrumentation(
                 content: captured.files.get(path)!,
                 dirty: false
               }));
-              const namespaces = projectTargetNamespaces(
-                captured,
-                target,
-                new Set(files.map((file) => namespaceFromSource(file.content)).filter(Boolean))
-              );
+              const namespaces = input.project
+                ? []
+                : projectTargetNamespaces(
+                    captured,
+                    target,
+                    new Set(files.map((file) => namespaceFromSource(file.content)).filter(Boolean))
+                  );
               const artifact = await generateExportArtifact(
                 {
                   ...ownedInput,
                   files,
+                  ...(input.project ? { projectTarget: target } : {}),
                   config: {
                     target: target.generator as Target,
                     selection: { namespaces, declarations: [] },
@@ -364,6 +369,7 @@ export const createExportWorkbench = withInstrumentation(
                 },
                 abort.signal
               );
+              assertExportProjectReceipt(artifact, input.project?.receipt);
               const fatal = artifact.manifest.diagnostics.filter((issue) => issue.severity === 'error');
               if (fatal.length) throw Object.assign(new Error(fatal[0]!.message), { diagnostics: fatal });
               artifacts.push({ output: normalizeProjectPath(target.output)!, artifact });

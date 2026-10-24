@@ -14,11 +14,13 @@ vi.mock('../../src/services/codegen-download-client.js', () => ({ requestCodegen
 beforeEach(() => {
   requestMock.mockReset().mockImplementation(async (body) => {
     const { handleCodegenDownload } = await import('../../src/services/codegen-download-handler.js');
+    const { project, ...payload } = body;
     return handleCodegenDownload({
+      project,
       request: new Request('https://example.com/api/codegen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload)
       })
     } as never);
   });
@@ -91,4 +93,74 @@ it('uses library defaults for saved project builds rather than Pages layout opin
     new AbortController().signal
   );
   expect(artifact.manifest.files.map((file) => file.path)).not.toContain('index.ts');
+});
+
+it('exports the effective project graph and retains its exact applied receipt in the artifact', async () => {
+  const { projectOverrideInput } = await import('../helpers/project-override-input.js');
+  const { input: project, files } = await projectOverrideInput();
+  const artifact = await generateExport(
+    {
+      workspaceId: 'p',
+      sourceRevision: 1,
+      files,
+      project,
+      config: {
+        target: 'typescript',
+        selection: { namespaces: ['ref'], declarations: [] },
+        options: { typescript: { layout: 'per-namespace' } }
+      }
+    },
+    new AbortController().signal
+  );
+  expect(artifact.manifest.projectReceipt).toEqual(project.receipt);
+  expect(artifact.manifest.resolvedSelection?.included).toContainEqual({
+    namespace: 'custom',
+    name: 'Compute',
+    kind: 'RosettaFunction'
+  });
+  expect(artifact.manifest.resolvedSelection?.included).not.toContainEqual({
+    namespace: 'ref',
+    name: 'Compute',
+    kind: 'RosettaFunction'
+  });
+  const text = (await Promise.all(artifact.manifest.files.map((file) => artifact.readText(file.path)))).join('\n');
+  expect(text).toMatch(/amount\s*\+\s*2/);
+  expect(text).not.toMatch(/amount\s*\+\s*1/);
+});
+
+it('resolves named target namespace patterns against the effective graph and refuses a legacy artifact receipt', async () => {
+  const { projectOverrideInput } = await import('../helpers/project-override-input.js');
+  const { input: project, files } = await projectOverrideInput();
+  const input = {
+    workspaceId: 'p',
+    sourceRevision: 1,
+    files,
+    project,
+    projectBuild: true,
+    projectTarget: {
+      generator: 'typescript',
+      output: 'generated/ts',
+      namespaces: ['ref.*'],
+      options: { layout: 'per-namespace' }
+    },
+    config: {
+      target: 'typescript' as const,
+      selection: { namespaces: [], declarations: [] },
+      options: { typescript: { layout: 'per-namespace' } }
+    }
+  };
+  const artifact = await generateExport(input, new AbortController().signal);
+  expect(artifact.manifest.projectReceipt).toEqual(project.receipt);
+  expect(artifact.manifest.resolvedSelection?.explicit).toContainEqual({
+    namespace: 'ref',
+    name: 'Caller',
+    kind: 'RosettaFunction'
+  });
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(new Uint8Array(await artifact.blob.arrayBuffer()));
+  const manifest = { ...artifact.manifest };
+  delete manifest.projectReceipt;
+  zip.file('.rune/export.json', JSON.stringify(manifest));
+  requestMock.mockResolvedValueOnce(new Response(await zip.generateAsync({ type: 'uint8array' })));
+  await expect(generateExport(input, new AbortController().signal)).rejects.toThrow(/project receipt/i);
 });

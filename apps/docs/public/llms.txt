@@ -685,6 +685,17 @@ serialize models back to source text.
 - `isValidID`
 - `isWithMetaEntry`
 - `isWithMetaOperation`
+- `declarationKey`
+- `declarationDispatch`: Selector text is stable before linking; resolving it here would recursively enter scope construction.
+- `setProjectDocumentModel`: Hosts explicitly assign document ownership; core does not infer model identity from names or namespaces.
+- `setProjectRedirects`
+- `invalidateProjectResolution`: A host must invalidate identity indexes whenever it replaces document roots.
+- `clearProjectResolution`
+- `hasProjectRedirects`
+- `getEffectiveProjectDeclaration`: All consumers select through the same generation-local declaration targets as core linking.
+- `projectDeclarationIdentity`
+- `redirectProjectNode`: A missing replacement stays unresolved; it must never fall back to the immutable original.
+- `redirectProjectScope`: Keep authored lookup names while navigation and linking descriptions point at the effective declaration.
 - `parse`: Parse a Rosetta DSL source string into a typed AST.
 - `parseWorkspace`: Parse multiple Rosetta DSL source strings as a workspace.
 Cross-references between documents will be resolved after all documents are built.
@@ -739,6 +750,7 @@ dep map produced by `collectNamespaceDependencies`.
 - `namespaceFromSource`: Extract the namespace from raw `.rosetta` source text. Returns `''` when no
 `namespace` declaration is present (matching the historical callers).
 - `namespaceFromModelName`: Normalize a `RosettaModel.
+- `expandNamespaceWildcard`: Expand an exact name or dotted-prefix wildcard against known namespaces.
 - `indexById`: Build an id→item Map, insertion order preserved. Defaults the key to `item.id`.
 - `fromIndex`: Derive the value array from an id→item Map (insertion order).
 - `getEnumValues`: Effective enum members, with child declarations overriding inherited names.
@@ -749,6 +761,8 @@ dep map produced by `collectNamespaceDependencies`.
 - `importAliasCandidates`: Shared by language scopes and views; a real qualified name keeps precedence.
 - `buildImportScope`: File-local scope facts shared by language lookup and projected references.
 - `importScopeCandidates`: Ordered names for a file scope; bare fallback is for the language's outer scope.
+- `relinkReference`: Rebuild authored references through Langium's authoritative scope/link boundary.
+- `relinkModelReferences`: Dependency snapshots must stay relinkable after live edits or a project-context transition.
 - `DuplicateKeyError`
 - `RuneDslAstReflection`
 - `RuneDslIndexManager`: Extended IndexManager that supports external registration of exported
@@ -828,6 +842,9 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `ToTimeOperation`
 - `ToZonedDateTimeOperation`
 - `reflection`
+- `DeclarationIdentitySchema`
+- `ProjectResolutionReceiptSchema`
+- `ProjectResolutionContextSchema`: Sent with a complete retained document set, after its semantic snapshots have arrived.
 - `BASE_TYPE_FILES`: System file descriptors for base types.
 - `BASICTYPES_ROSETTA`: Built-in Rune DSL base type definitions.
 - `ANNOTATIONS_ROSETTA`
@@ -1009,6 +1026,10 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `TypeParameterValidID`
 - `ValidID`
 - `RuneDslAstType`
+- `DeclarationRedirects`
+- `DeclarationIdentity`
+- `ProjectResolutionReceipt`
+- `ProjectResolutionContext`
 - `ParseResult`: Result of parsing a Rosetta DSL source string.
 - `ExpressionParseResult`: Result of parsing a bare Rune DSL expression snippet.
 - `RuneDslServices`: Union type for all services available in the Rune DSL language.
@@ -1070,6 +1091,7 @@ dragover, when the browser security model makes `getData` return empty.
 - `isTypeRefPayload`: Type guard for parsed drag payloads.
 - `expansionKey`: Serialise an expansion key for use as a Map / Record key.
 - `KindBadge`
+- `useTypeNavigationMenu`: Targets must already be resolved by the owning link, tree or Structure adapter.
 - `TypeHeader`
 - `OtherForm`
 - `selectionState`: Returns the checkbox state for a collection of selection IDs.
@@ -1187,6 +1209,7 @@ header indicator (Phase A; Function added in Phase C — its `conditions`...
 - `StructureNode`
 - `StructureGraphInput`: Full graph input produced by the adapter.
 - `KindBadgeProps`
+- `TypeNavigationAction`
 - `TypeHeaderProps`
 - `OtherFormProps`
 - `EditorFormPanelProps`

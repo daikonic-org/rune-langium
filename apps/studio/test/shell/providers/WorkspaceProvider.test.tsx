@@ -280,3 +280,53 @@ it('discards a late draft capture after newer editor text is captured', async ()
     spy.mockRestore();
   }
 });
+
+it('keeps a captured graph identity while read-only source and presentation metadata hydrate', async () => {
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'identity',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Demo}', null);
+  await adapter.write('build-config.yml', 'schemaVersion: 1', null);
+  await adapter.write('model/a.rosetta', 'namespace example', null);
+  const actions = { ...noopActions, getProjectFileAdapter: async () => adapter };
+  const local = { path: 'model/a.rosetta', name: 'a.rosetta', content: 'namespace example', dirty: true };
+  const reference = {
+    path: '[cdm]/reference.rosetta',
+    name: 'reference.rosetta',
+    content: '',
+    readOnly: true,
+    refOnly: true,
+    dirty: false
+  };
+  let captured: import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput | undefined;
+  function Probe() {
+    captured = useProject().runtime?.input;
+    return <RuntimeProbe />;
+  }
+  const view = render(
+    <WorkspaceProvider state={{ ...stateFor('identity'), files: [local, reference] }} actions={actions}>
+      <Probe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(captured).toBeDefined());
+  const original = captured;
+  view.rerender(
+    <WorkspaceProvider
+      state={{
+        ...stateFor('identity'),
+        files: [
+          { ...local, dirty: false },
+          { ...reference, sourceLoaded: true, content: 'namespace reference' }
+        ]
+      }}
+      actions={actions}
+    >
+      <Probe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('runtime').textContent).toContain('captured:identity'));
+  expect(captured).toBe(original);
+});

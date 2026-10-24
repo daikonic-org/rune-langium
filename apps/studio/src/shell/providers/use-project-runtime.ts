@@ -9,7 +9,11 @@ import {
   loadProjectReferences,
   projectReferenceCache
 } from '../../services/project-references.js';
-import { captureProjectRuntimeInput, type ProjectRuntimeInput } from '../../services/project-runtime-input.js';
+import {
+  captureProjectRuntimeInput,
+  projectRuntimeSources,
+  type ProjectRuntimeInput
+} from '../../services/project-runtime-input.js';
 import type { WorkspaceFile } from '../../services/workspace.js';
 import type { ProjectState, ProjectRuntimeState } from './project-context.js';
 
@@ -30,6 +34,12 @@ export const useProjectRuntime = withInstrumentation(
             lock: saved.lock ?? null
           })
         : undefined;
+    const sourceKey =
+      managed && project.status === 'ready'
+        ? canonicalProjectJson(Object.fromEntries(projectRuntimeSources(files)))
+        : undefined;
+    const filesRef = useRef(files);
+    filesRef.current = files;
     const savedRef = useRef(saved);
     savedRef.current = saved;
     const [references, setReferences] = useState<{
@@ -41,7 +51,7 @@ export const useProjectRuntime = withInstrumentation(
       workspaceId: string;
       revision: string;
       referenceKey: string;
-      files: readonly WorkspaceFile[];
+      sourceKey: string;
       input?: ProjectRuntimeInput;
       diagnostics?: readonly ProjectDiagnostic[];
     }>();
@@ -71,13 +81,13 @@ export const useProjectRuntime = withInstrumentation(
     const documents = references.key === referenceKey ? references.documents : undefined;
     useEffect(() => {
       const snapshot = savedRef.current;
-      if (!snapshot || !revision || !referenceKey || !documents || references.diagnostics?.length) {
+      if (!snapshot || !revision || !referenceKey || !sourceKey || !documents || references.diagnostics?.length) {
         setCaptured(undefined);
         return;
       }
       let cancelled = false;
-      const identity = { workspaceId: snapshot.workspaceId, revision, referenceKey, files };
-      void captureProjectRuntimeInput(snapshot, files, documents)
+      const identity = { workspaceId: snapshot.workspaceId, revision, referenceKey, sourceKey };
+      void captureProjectRuntimeInput(snapshot, filesRef.current, documents)
         .then((input) => {
           if (!cancelled) setCaptured({ ...identity, input });
         })
@@ -87,7 +97,7 @@ export const useProjectRuntime = withInstrumentation(
       return () => {
         cancelled = true;
       };
-    }, [project.workspaceId, revision, referenceKey, documents, references.diagnostics, files]);
+    }, [project.workspaceId, revision, referenceKey, documents, references.diagnostics, sourceKey]);
     if (project.status === 'unavailable') return { managed: false, status: 'legacy', diagnostics: [] };
     if (project.status === 'loading') return { managed, status: 'loading', diagnostics: [] };
     if (project.status === 'invalid') return { managed, status: 'unavailable', diagnostics: project.diagnostics };
@@ -95,10 +105,11 @@ export const useProjectRuntime = withInstrumentation(
     if (references.key === referenceKey && references.diagnostics?.length)
       return { managed: true, status: 'unavailable', diagnostics: references.diagnostics };
     if (
+      !captured ||
       captured?.workspaceId !== project.workspaceId ||
       captured?.revision !== revision ||
       captured?.referenceKey !== referenceKey ||
-      captured?.files !== files
+      captured?.sourceKey !== sourceKey
     )
       return { managed: true, status: 'loading', diagnostics: [] };
     if (captured.diagnostics?.length)

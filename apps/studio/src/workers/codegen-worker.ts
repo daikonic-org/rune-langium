@@ -73,11 +73,9 @@ import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { PreviewWorkerRequest, ProjectionRequest } from '../services/codegen-service.js';
 import { z } from 'zod';
-import { buildEffectiveProject, type EffectiveProject } from '@rune-langium/project-runtime/effective';
+import { applyEffectiveProject, type EffectiveProject } from '@rune-langium/project-runtime/effective';
 import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
-import { readProjectResolutionContext } from '@rune-langium/project-runtime/context';
 import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
-import type { ProjectRuntimeInput } from '../services/project-runtime-input.js';
 import { projectOperationError } from '../services/project-worker-bridge.js';
 import { formatGeneratedProjection } from '../services/projection-format.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
@@ -181,19 +179,6 @@ function operationScope() {
       });
     }
   };
-}
-
-async function applyProject(input: ProjectRuntimeInput): Promise<EffectiveProject> {
-  const context = await readProjectResolutionContext(input.resolution);
-  const graph = await buildEffectiveProject(input.snapshot, input.referenceDocuments);
-  if (
-    !projectReceiptMatches(context.context.receipt, input.receipt) ||
-    !projectReceiptMatches(graph.receipt, input.receipt)
-  )
-    throw new Error('Project receipt does not match the captured source and configuration.');
-  if (graph.diagnostics.some((issue) => issue.severity === 'error'))
-    throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
-  return graph;
 }
 
 function rejectProjectOperation(message: WorkerInboundMessage, error: string) {
@@ -1376,7 +1361,7 @@ if (isWorkerGlobalScope()) {
         const ready = reuse
           ? previousProject.ready
           : msg.project
-            ? applyProject(msg.project)
+            ? applyEffectiveProject(msg.project)
             : msg.projectUnavailable
               ? Promise.reject<EffectiveProject>(new Error(msg.projectUnavailable))
               : undefined;

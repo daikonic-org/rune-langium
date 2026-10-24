@@ -3,14 +3,17 @@
 
 import { handleCodegenDownload } from '../services/codegen-download-handler.js';
 import type { CodegenDownloadReply } from '../services/codegen-download-client.js';
+import type { ProjectRuntimeInput } from '../services/project-runtime-input.js';
 
-self.onmessage = async (event: MessageEvent<Record<string, unknown>>) => {
+self.onmessage = async (event: MessageEvent<Record<string, unknown> & { project?: ProjectRuntimeInput }>) => {
   try {
+    const { project, ...payload } = event.data;
     const response = await handleCodegenDownload({
+      project,
       request: new Request(self.location.origin + '/api/codegen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event.data)
+        body: JSON.stringify(payload)
       })
     });
     const body = await response.arrayBuffer();

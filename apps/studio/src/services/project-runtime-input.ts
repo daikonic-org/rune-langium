@@ -11,6 +11,17 @@ import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
 import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
 import type { WorkspaceFile } from './workspace.js';
 import { withInstrumentation } from './instrumentation/core.js';
+/** One writable-source selection for capture identity and draft overlays. */
+export const projectRuntimeSources = withInstrumentation(
+  function projectRuntimeSources(files: readonly WorkspaceFile[]) {
+    return new Map(
+      files
+        .filter((file) => !file.readOnly && !file.refOnly && file.path.endsWith('.rosetta'))
+        .map((file) => [file.path, file.content])
+    );
+  },
+  { op: 'projectRuntimeSources', capture: 0 }
+);
 /** Capture editor text and document ownership; parsing remains in the existing language/preview hosts. */
 export const captureProjectRuntimeInput = withInstrumentation(
   async function captureProjectRuntimeInput(
@@ -18,11 +29,7 @@ export const captureProjectRuntimeInput = withInstrumentation(
     files: readonly WorkspaceFile[],
     referenceDocuments: readonly ReferenceDocument[]
   ) {
-    const local = new Map(
-      files
-        .filter((file) => !file.readOnly && !file.refOnly && file.path.endsWith('.rosetta'))
-        .map((file) => [file.path, file.content])
-    );
+    const local = projectRuntimeSources(files);
     const edits = new Map<string, string | null>();
     for (const path of projectSourcePaths(saved.files, saved.project.build.sources))
       if (!local.has(path)) edits.set(path, null);

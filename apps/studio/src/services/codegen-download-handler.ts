@@ -17,8 +17,11 @@ import {
 import { loadCuratedWorkspace, curatedWorkspaceErrorResponse } from './curated-workspace.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import type { ExportArtifactManifest } from './export-artifact.js';
+import type { ProjectRuntimeInput } from './project-runtime-input.js';
+import { BuildTargetSchema, type BuildTarget } from '@rune-langium/project-config';
 
 interface CodegenRequestBody {
+  projectTarget?: BuildTarget;
   files: Array<{ path: string; content: string }>;
   target: Target;
   /**
@@ -286,6 +289,8 @@ function isExportSelection(value: unknown): value is ExportSelection {
 
 function isValidRequest(body: unknown): body is CodegenRequestBody {
   if (!body || typeof body !== 'object') return false;
+  if ('project' in body) return false;
+  if ('projectTarget' in body && !BuildTargetSchema.safeParse(body.projectTarget).success) return false;
   const b = body as { files?: unknown; target?: unknown; curatedBundles?: unknown; curatedDocs?: unknown };
   if (
     !Array.isArray(b.files) ||
@@ -629,7 +634,8 @@ async function artifactEnvelopeResponse(
   filename: string,
   selection: ExportSelection | undefined,
   resolvedSelection?: ExportArtifactManifest['resolvedSelection'],
-  resolvedCohorts?: ExportArtifactManifest['resolvedCohorts']
+  resolvedCohorts?: ExportArtifactManifest['resolvedCohorts'],
+  projectReceipt?: ExportArtifactManifest['projectReceipt']
 ): Promise<Response> {
   const zip = new JSZip();
   const files: ExportArtifactManifest['files'] = [];
@@ -651,6 +657,7 @@ async function artifactEnvelopeResponse(
   const manifest: ExportArtifactManifest = {
     version: 1,
     target,
+    ...(projectReceipt ? { projectReceipt } : {}),
     ...(selection ? { selection } : {}),
     ...(resolvedSelection ? { resolvedSelection } : {}),
     ...(resolvedCohorts && Object.keys(resolvedCohorts).length > 0 ? { resolvedCohorts } : {}),
@@ -701,7 +708,15 @@ function applyPagesFunctionDefaults(body: CodegenRequestBody): Record<string, un
 // the Response outputs all carry raw user model content or may carry
 // secret env bindings — never captured.
 export const handleCodegenDownload = withInstrumentation(
-  async ({ request, env }: { request: Request; env?: CodegenDownloadEnv }): Promise<Response> => {
+  async ({
+    request,
+    env,
+    project
+  }: {
+    request: Request;
+    env?: CodegenDownloadEnv;
+    project?: ProjectRuntimeInput;
+  }): Promise<Response> => {
     let raw: unknown;
     try {
       raw = await request.json();
@@ -715,6 +730,8 @@ export const handleCodegenDownload = withInstrumentation(
       );
     }
     const body = raw;
+    if (body.projectTarget && !project)
+      return jsonError(400, 'A named project target requires a captured managed project.');
 
     // Target gating. `IMPLEMENTED_TARGETS` is the single source of truth
     // for which emitters this build has; mirrors the studio table's
@@ -729,7 +746,7 @@ export const handleCodegenDownload = withInstrumentation(
     // 019 Task #88 — a pure curated workspace ships zero user files but a
     // non-empty curated source: either curatedBundles (path C) OR pre-loaded
     // curatedDocs (path A). All three empty is the genuine bad-input case.
-    if (body.files.length === 0 && curatedBundles.length === 0 && curatedDocs.length === 0) {
+    if (!project && body.files.length === 0 && curatedBundles.length === 0 && curatedDocs.length === 0) {
       return jsonError(400, 'files / curatedBundles / curatedDocs: at least one must be non-empty');
     }
 
@@ -763,7 +780,31 @@ export const handleCodegenDownload = withInstrumentation(
       // registration).
       let releaseDocumentCacheConsumer: (() => void) | undefined;
       try {
-        if (cacheKey) {
+        if (project) {
+          const { applyEffectiveProject } = await import('@rune-langium/project-runtime/effective');
+          const graph = await applyEffectiveProject(project);
+          documents = [...graph.documents];
+          resolvedCohorts = Object.fromEntries(
+            Object.entries(project.snapshot.lock?.references ?? {}).map(([id, entry]) => [id, entry.cohort])
+          );
+          if (body.projectTarget) {
+            const { projectTargetNamespaces } = await import('@rune-langium/project-runtime/browser');
+            const { namespaceFromModelName, isRosettaModel } = await import('@rune-langium/core');
+            const available = new Set(
+              documents.flatMap((document) =>
+                isRosettaModel(document.parseResult.value)
+                  ? [namespaceFromModelName(document.parseResult.value.name)].filter((name): name is string =>
+                      Boolean(name)
+                    )
+                  : []
+              )
+            );
+            body.selection = {
+              namespaces: projectTargetNamespaces(project.snapshot, body.projectTarget, available),
+              declarations: []
+            };
+          }
+        } else if (cacheKey) {
           let entry = documentCache.get(cacheKey);
           if (!entry) {
             // A miss means the cache is either empty or holds a DIFFERENT
@@ -996,7 +1037,8 @@ export const handleCodegenDownload = withInstrumentation(
                   requiredBy: Object.fromEntries(selectionReceipt.requiredBy)
                 }
               : undefined,
-            resolvedCohorts
+            resolvedCohorts,
+            project?.receipt
           );
         }
         if (outputs.length === 1) {

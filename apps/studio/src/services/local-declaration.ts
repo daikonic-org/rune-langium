@@ -14,18 +14,22 @@ import {
   projectFileRevision,
   projectSourcePaths,
   type ProjectSnapshot,
-  type ProjectWrite
+  type ProjectWrite,
+  type SymbolIdentity
 } from '@rune-langium/project-config';
 import {
   createProjectReceipt,
   projectReceiptMatches,
   type EffectiveProjectReceipt
 } from '@rune-langium/project-runtime/receipt';
+import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
 import type { ProjectController } from '../workspace/project-controller.js';
 
 export type LocalDeclarationMode = 'extend' | 'modify';
 export interface LocalDeclarationRequest {
+  signal?: AbortSignal;
   projectReceipt?: EffectiveProjectReceipt;
+  projectReferenceDocuments?: readonly ReferenceDocument[];
   mode: LocalDeclarationMode;
   nodeId: string;
   namespace: string;
@@ -104,71 +108,113 @@ function declarationGroups(request: LocalDeclarationRequest) {
   );
 }
 
+function projectDeclarationOrigin(request: LocalDeclarationRequest) {
+  const origin = { ...splitNodeId(request.nodeId), kind: kindFromNodeId(request.nodeId) };
+  const originFiles = declarationGroups(request).map((group) =>
+    request.files.find((file) => file.path === group.entry.filePath)
+  );
+  const owners = new Set(originFiles.map((file) => file?.bundleId));
+  const owner = owners.size === 1 ? [...owners][0] : undefined;
+  const source = { model: owner ?? '', namespace: origin.namespace, name: origin.name, kind: origin.kind ?? '' };
+  return { originFiles, owner, source };
+}
+function declarationOverrides(snapshot: ProjectSnapshot, source: SymbolIdentity) {
+  return (snapshot.project.build.overrides ?? []).filter(
+    (mapping) => mapping.kind === 'declaration' && declarationKey(mapping.source) === declarationKey(source)
+  );
+}
+/** Navigation follows the saved explicit identity, including an already-existing replacement. */
+export const projectDeclarationDestination = withInstrumentation(
+  function projectDeclarationDestination(snapshot: ProjectSnapshot, request: LocalDeclarationRequest): SymbolIdentity {
+    const { source } = projectDeclarationOrigin(request);
+    if (request.mode === 'modify') {
+      const existing = declarationOverrides(snapshot, source);
+      if (existing.length !== 1 || existing[0]!.kind !== 'declaration')
+        throw new Error('The saved declaration replacement is missing or ambiguous.');
+      return existing[0]!.replacement;
+    }
+    return { model: 'local', namespace: request.namespace, kind: source.kind, name: request.name };
+  },
+  { op: 'projectDeclarationDestination', capture: 0 }
+);
+
 /** Create source, never write it: the caller owns the workspace epoch and persistence. */
+async function prepareDeclaration(request: LocalDeclarationRequest, sourceUris: string[]): Promise<WorkspaceFile[]> {
+  const error = localDeclarationError(request);
+  if (error) throw new Error(error);
+  const { namespace, name, mode, files, nodeId } = request;
+  const origin = { ...splitNodeId(nodeId), kind: kindFromNodeId(nodeId) };
+  const makeFile = (content: string, index = 0): WorkspaceFile => {
+    const path = declarationPath(namespace, name, index);
+    return { name: path.split('/').pop()!, path, namespace, content, dirty: true };
+  };
+  if (mode === 'extend') {
+    const [kind, parent] = EXTENSION_PARENT[origin.kind as keyof typeof EXTENSION_PARENT];
+    return [
+      makeFile(
+        renderModel({
+          name: namespace,
+          elements: [
+            {
+              $type: kind,
+              name,
+              [parent]: { $refText: `${origin.namespace}.${origin.name}` }
+            }
+          ]
+        })
+      )
+    ];
+  } else {
+    // Retain every member of a dispatch group, including variants in other files.
+    const groups = declarationGroups(request);
+    if (!groups.length) throw new Error('Wait for the declaration to finish loading, then try again.');
+    const copies: WorkspaceFile[] = [];
+    const sourceLoads = new Map<string, ReturnType<typeof loadCuratedNamespaceSource>>();
+    for (const [index, { entry, nodes }] of groups.entries()) {
+      const path = resolveEditorFilePath(entry.filePath, files);
+      const file = files.find((candidate) => candidate.path === path);
+      if (!file?.refOnly || !file.bundleId || !file.bundleVersion || !file.artifactKey)
+        throw new Error('The pinned curated source for this declaration is not available.');
+      let source = file.content;
+      if (!file.sourceLoaded || !source) {
+        let load = sourceLoads.get(file.artifactKey);
+        if (!load) {
+          load = loadCuratedNamespaceSource(file.bundleId, file.bundleVersion, origin.namespace, file.artifactKey);
+          sourceLoads.set(file.artifactKey, load);
+        }
+        const loaded = await load;
+        if (loaded.artifactKey !== file.artifactKey)
+          throw new Error('Curated source changed. Reload the model and retry.');
+        const document = loaded.documents.find((doc) => resolveEditorFilePath(doc.uri, files) === path);
+        if (!document) throw new Error('The original source document is missing from this curated version.');
+        source = document.content;
+      }
+      if (request.projectReferenceDocuments) {
+        const pinned = request.projectReferenceDocuments.find(
+          (document) => document.uri.startsWith(file.bundleId + '/') && document.content === source
+        );
+        if (!pinned)
+          throw new Error(
+            'This declaration does not match the locked reference release. Reload that release before modifying it.'
+          );
+        sourceUris.push(pinned.uri);
+      }
+      const slice = (part: Parameters<typeof getNodeSourceRegion>[0]) => {
+        const { from, to } = getNodeSourceRegion(part);
+        if (to > source.length || to <= from) throw new Error('Curated source does not match its declaration ranges.');
+        return source.slice(from, to);
+      };
+      const imports = new Set([`import ${origin.namespace}.*`, ...entry.model.imports.map(slice)]);
+      // A separate local file per original file preserves alias and import precedence.
+      const content = `${renderModel({ name: namespace, version: entry.model.version, elements: [] }).trimEnd()}\n\n${[...imports].join('\n')}\n\n${nodes.map(slice).join('\n\n')}\n`;
+      copies.push(makeFile(content, index));
+    }
+    return copies;
+  }
+}
 export const prepareLocalDeclaration = withInstrumentation(
   async function prepareLocalDeclaration(request: LocalDeclarationRequest): Promise<WorkspaceFile[]> {
-    const error = localDeclarationError(request);
-    if (error) throw new Error(error);
-    const { namespace, name, mode, files, nodeId } = request;
-    const origin = { ...splitNodeId(nodeId), kind: kindFromNodeId(nodeId) };
-    const makeFile = (content: string, index = 0): WorkspaceFile => {
-      const path = declarationPath(namespace, name, index);
-      return { name: path.split('/').pop()!, path, namespace, content, dirty: true };
-    };
-    if (mode === 'extend') {
-      const [kind, parent] = EXTENSION_PARENT[origin.kind as keyof typeof EXTENSION_PARENT];
-      return [
-        makeFile(
-          renderModel({
-            name: namespace,
-            elements: [
-              {
-                $type: kind,
-                name,
-                [parent]: { $refText: `${origin.namespace}.${origin.name}` }
-              }
-            ]
-          })
-        )
-      ];
-    } else {
-      // Retain every member of a dispatch group, including variants in other files.
-      const groups = declarationGroups(request);
-      if (!groups.length) throw new Error('Wait for the declaration to finish loading, then try again.');
-      const copies: WorkspaceFile[] = [];
-      const sourceLoads = new Map<string, ReturnType<typeof loadCuratedNamespaceSource>>();
-      for (const [index, { entry, nodes }] of groups.entries()) {
-        const path = resolveEditorFilePath(entry.filePath, files);
-        const file = files.find((candidate) => candidate.path === path);
-        if (!file?.refOnly || !file.bundleId || !file.bundleVersion || !file.artifactKey)
-          throw new Error('The pinned curated source for this declaration is not available.');
-        let source = file.content;
-        if (!file.sourceLoaded || !source) {
-          let load = sourceLoads.get(file.artifactKey);
-          if (!load) {
-            load = loadCuratedNamespaceSource(file.bundleId, file.bundleVersion, origin.namespace, file.artifactKey);
-            sourceLoads.set(file.artifactKey, load);
-          }
-          const loaded = await load;
-          if (loaded.artifactKey !== file.artifactKey)
-            throw new Error('Curated source changed. Reload the model and retry.');
-          const document = loaded.documents.find((doc) => resolveEditorFilePath(doc.uri, files) === path);
-          if (!document) throw new Error('The original source document is missing from this curated version.');
-          source = document.content;
-        }
-        const slice = (part: Parameters<typeof getNodeSourceRegion>[0]) => {
-          const { from, to } = getNodeSourceRegion(part);
-          if (to > source.length || to <= from)
-            throw new Error('Curated source does not match its declaration ranges.');
-          return source.slice(from, to);
-        };
-        const imports = new Set([`import ${origin.namespace}.*`, ...entry.model.imports.map(slice)]);
-        // A separate local file per original file preserves alias and import precedence.
-        const content = `${renderModel({ name: namespace, version: entry.model.version, elements: [] }).trimEnd()}\n\n${[...imports].join('\n')}\n\n${nodes.map(slice).join('\n\n')}\n`;
-        copies.push(makeFile(content, index));
-      }
-      return copies;
-    }
+    return prepareDeclaration(request, []);
   },
   { op: 'prepareLocalDeclaration', capture: 0, sanitizeError: () => ({ signature: 'local-declaration-error' }) }
 );
@@ -179,28 +225,23 @@ export const modifyProjectDeclaration = withInstrumentation(
     request: LocalDeclarationRequest,
     controller: ProjectController
   ): Promise<ProjectSnapshot> {
+    request.signal?.throwIfAborted();
     const original = controller.current();
     if (!original || !projectReceiptMatches(await createProjectReceipt(original), request.projectReceipt))
       throw new Error(
         'Project resolution is stale or not ready. Wait for the current project before creating a declaration.'
       );
     const assertCurrent = () => {
+      request.signal?.throwIfAborted();
       const current = controller.current();
       if (current?.workspaceId !== original.workspaceId || current.revision !== original.revision)
         throw new Error('Project changed while preparing the local declaration.');
     };
-    const origin = { ...splitNodeId(request.nodeId), kind: kindFromNodeId(request.nodeId) };
-    const groups = declarationGroups(request);
-    const originFiles = groups.map((group) => request.files.find((file) => file.path === group.entry.filePath));
-    const owners = new Set(originFiles.map((file) => file?.bundleId));
-    const owner = owners.size === 1 ? [...owners][0] : undefined;
-    const source = { model: owner ?? '', namespace: origin.namespace, name: origin.name, kind: origin.kind ?? '' };
+    const { owner, source } = projectDeclarationOrigin(request);
     if (request.mode === 'modify') {
       if (!owner || !original.lock?.references[owner])
         throw new Error('Select and resolve the original reference model release before modifying it.');
-      const existing = original.project.build.overrides?.filter(
-        (mapping) => mapping.kind === 'declaration' && declarationKey(mapping.source) === declarationKey(source)
-      );
+      const existing = declarationOverrides(original, source);
       if (existing?.length) {
         if (existing.length !== 1 || existing[0]!.kind !== 'declaration')
           throw new Error('The original declaration has ambiguous replacements.');
@@ -208,7 +249,10 @@ export const modifyProjectDeclaration = withInstrumentation(
         return original;
       }
     }
-    const copies = await prepareLocalDeclaration(request);
+    if (request.mode === 'modify' && !request.projectReferenceDocuments)
+      throw new Error('The locked reference release has not been verified for this copy.');
+    const sourceUris: string[] = [];
+    const copies = await prepareDeclaration(request, sourceUris);
     assertCurrent();
     const build = structuredClone(original.project.build);
     const writes: ProjectWrite[] = [];
@@ -230,7 +274,7 @@ export const modifyProjectDeclaration = withInstrumentation(
           kind: 'declaration',
           source,
           replacement: { model: 'local', namespace: request.namespace, kind: source.kind, name: request.name },
-          provenance: { uri: originFiles[0]!.path, commit: locked.commit, cohort: locked.cohort }
+          provenance: { uri: sourceUris[0]!, commit: locked.commit, cohort: locked.cohort }
         }
       ];
       const revisions = new Map<string, string>();

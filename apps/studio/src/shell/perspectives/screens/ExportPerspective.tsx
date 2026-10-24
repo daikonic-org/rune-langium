@@ -48,6 +48,19 @@ function reconcileExportLayout(api: DockviewApi): void {
 export const ExportPerspective = withInstrumentation(
   function ExportPerspective({ files, workspaceId }: ExportPerspectiveProps): ReactElement {
     const project = useProject();
+    const projectCapture = project.runtime?.status === 'captured' ? project.runtime.input : undefined;
+    const projectUnavailable =
+      project.runtime && project.runtime.status !== 'legacy' && !projectCapture
+        ? project.runtime.diagnostics.map((issue) => issue.message).join('\n') ||
+          'Applying the current project configuration…'
+        : undefined;
+    const projectRequest = useMemo(
+      () => ({
+        ...(projectCapture ? { project: projectCapture } : {}),
+        ...(projectUnavailable ? { projectUnavailable } : {})
+      }),
+      [projectCapture, projectUnavailable]
+    );
     const workspace = useWorkspaceOptional();
     const selectedTargetName = useExportWorkbenchStore((state) => state.selectedTargetName);
     const targetDirty = useExportWorkbenchStore((state) => state.targetDirty);
@@ -134,7 +147,7 @@ export const ExportPerspective = withInstrumentation(
       sourceRevisionRef.current = revision;
       setSourceRevision(revision);
       invalidate(revision);
-    }, [invalidate, sourceFingerprint]);
+    }, [invalidate, sourceFingerprint, projectCapture?.receipt.revision, projectUnavailable]);
 
     const handleSelectionChange = useCallback(
       (selection: ExportSelection) => configure({ ...config, selection }),
@@ -145,10 +158,11 @@ export const ExportPerspective = withInstrumentation(
         workspaceId: workspaceId ?? 'unsaved-workspace',
         sourceRevision,
         projectRevision: project.snapshot?.revision,
+        ...projectRequest,
         config,
         files: files ?? []
       });
-    }, [config, files, generate, sourceRevision, workspaceId, project.snapshot?.revision]);
+    }, [config, files, generate, sourceRevision, workspaceId, project.snapshot?.revision, projectRequest]);
     const definition = useMemo<WorkbenchDefinition>(
       () => ({
         id: 'export',
@@ -190,6 +204,7 @@ export const ExportPerspective = withInstrumentation(
                   void buildTargets(names, {
                     workspaceId: workspaceId ?? 'unsaved-workspace',
                     sourceRevision,
+                    ...projectRequest,
                     config,
                     files: files ?? []
                   });
@@ -257,6 +272,7 @@ export const ExportPerspective = withInstrumentation(
         run,
         setActiveFile,
         project,
+        projectRequest,
         selectedTargetName,
         targetDirty,
         selectTarget,

@@ -9,6 +9,7 @@ import { useStudioToast } from '../../components/StudioToastProvider.js';
 import { useWorkspace } from './workspace-context.js';
 import { useProject } from './project-context.js';
 import { createProjectWorkerBridge } from '../../services/project-worker-bridge.js';
+import { createProjectCaptureBarrier } from '../../services/project-capture-barrier.js';
 import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
 import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 import { usePreviewStore } from '../../store/preview-store.js';
@@ -30,7 +31,11 @@ import {
 import { createInstanceReadiness } from '../../services/instance-readiness.js';
 import { createPreviewSessionClient, isPrototypeSessionRequest } from '../../services/preview-session-client.js';
 import type { InstanceReadiness } from '../../services/instance-readiness.js';
-import { PreviewSessionContext, type PreviewSessionFactory } from './preview-session-context.js';
+import {
+  ProjectPreviewReadinessContext,
+  PreviewSessionContext,
+  type PreviewSessionFactory
+} from './preview-session-context.js';
 import { pathToUri } from '../../utils/uri.js';
 import { getRuneStudioTestApi } from '../../test-api.js';
 import { BUNDLE_MARKER_SUFFIX, type WorkspaceFile } from '../../services/workspace.js';
@@ -122,6 +127,12 @@ export const CodegenProvider = withInstrumentation(
     const { runtime: projectRuntime } = useProject();
     const projectRuntimeRef = useRef(projectRuntime);
     projectRuntimeRef.current = projectRuntime;
+    const captureBarrierRef = useRef<ReturnType<typeof createProjectCaptureBarrier> | null>(null);
+    if (!captureBarrierRef.current) captureBarrierRef.current = createProjectCaptureBarrier();
+    useLayoutEffect(() => {
+      captureBarrierRef.current!.update(workspaceId, projectRuntime);
+    }, [workspaceId, projectRuntime]);
+    useEffect(() => () => captureBarrierRef.current?.reset(), []);
     const [codegenWorker, setCodegenWorker] = useState<Worker | null>(null);
     const [previewSessionFactory, setPreviewSessionFactory] = useState<PreviewSessionFactory | null>(null);
 
@@ -325,6 +336,15 @@ export const CodegenProvider = withInstrumentation(
       [handlePreviewWorkerFailure]
     );
 
+    const prepareWorkerFiles = useCallback(
+      (worker: Worker, signal: AbortSignal) => {
+        const runtime = projectRuntimeRef.current;
+        if (!runtime || runtime.status === 'legacy') return syncWorkerFiles(worker, signal);
+        return captureBarrierRef.current!.waitCurrent(signal).then(() => syncWorkerFiles(worker, signal));
+      },
+      [syncWorkerFiles]
+    );
+
     const waitForCommittedWorkspaceFiles = useCallback(
       (afterVersion: number, namespace: string, signal: AbortSignal): Promise<void> => {
         if (signal.aborted)
@@ -485,7 +505,7 @@ export const CodegenProvider = withInstrumentation(
             useEditorStore.getState().hydratedNamespaces
           ),
         hydrate: hydrateNamespaceForInstance,
-        waitForWorkerFiles: (signal) => syncWorkerFiles(codegenWorker, signal)
+        waitForWorkerFiles: (signal) => prepareWorkerFiles(codegenWorker, signal)
       });
       readinessRef.current = readiness;
       setPreviewSessionFactory(() => () => createPreviewSessionClient(codegenWorker, readiness));
@@ -725,7 +745,8 @@ export const CodegenProvider = withInstrumentation(
       clearHydrationRetriesRemaining,
       setWorkerRef,
       hydrateNamespaceForInstance,
-      syncWorkerFiles
+      syncWorkerFiles,
+      prepareWorkerFiles
     ]);
 
     // ---------------------------------------------------------------------------
@@ -817,7 +838,7 @@ export const CodegenProvider = withInstrumentation(
             controller.signal
           );
         } else {
-          await syncWorkerFiles(codegenWorker, controller.signal);
+          await prepareWorkerFiles(codegenWorker, controller.signal);
         }
         if (controller.signal.aborted || codegenCurrentRequestIdRef.current !== requestId) return;
         codegenWorker.postMessage({
@@ -864,11 +885,29 @@ export const CodegenProvider = withInstrumentation(
       workspaceId,
       files,
       refreshRevision,
-      syncWorkerFiles,
+      prepareWorkerFiles,
+      projectRuntime?.input,
+      projectRuntime?.status,
       showToast
     ]);
 
-    return <PreviewSessionContext.Provider value={previewSessionFactory}>{children}</PreviewSessionContext.Provider>;
+    const ensureSavedProject = useCallback(
+      async (revision: string, signal: AbortSignal) => {
+        const input = await captureBarrierRef.current!.wait(revision, signal);
+        if (!codegenWorker) throw new Error('The preview worker is unavailable.');
+        await syncWorkerFiles(codegenWorker, signal);
+        const current = await captureBarrierRef.current!.wait(revision, signal);
+        if (!projectReceiptMatches(input.receipt, current.receipt))
+          throw new Error('Project changed before its saved revision was applied.');
+        return current;
+      },
+      [codegenWorker, syncWorkerFiles]
+    );
+    return (
+      <ProjectPreviewReadinessContext.Provider value={{ ensureSaved: ensureSavedProject }}>
+        <PreviewSessionContext.Provider value={previewSessionFactory}>{children}</PreviewSessionContext.Provider>
+      </ProjectPreviewReadinessContext.Provider>
+    );
   },
   { op: 'CodegenProvider' }
 );

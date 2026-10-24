@@ -21,6 +21,7 @@ import {
   type ProjectBuildResult
 } from '@rune-langium/project-runtime/browser';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import type { EffectiveProjectReceipt } from '@rune-langium/project-runtime/receipt';
 
 export interface ProjectController {
   load(): Promise<ProjectSnapshot>;
@@ -30,7 +31,7 @@ export interface ProjectController {
   recover(): Promise<ProjectSnapshot>;
   build(
     snapshot: ProjectSnapshot,
-    request: { targets: readonly string[] | 'all'; signal?: AbortSignal },
+    request: { targets: readonly string[] | 'all'; signal?: AbortSignal; projectReceipt?: EffectiveProjectReceipt },
     generate: ProjectTargetGenerator
   ): Promise<ProjectBuildResult>;
   subscribe(listener: () => void): () => void;

@@ -794,3 +794,40 @@ it('reapplies configuration-only project changes and requires the exact hosted r
   service.dispose();
   mockRequest.mockReset().mockResolvedValue(null);
 });
+
+it('publishes managed diagnostics only after the exact context acknowledgement', async () => {
+  mockGetFile.mockReturnValue(null);
+  mockRequest.mockReset().mockResolvedValue(null);
+  const service = createLspClientService({ transportProvider: makeFakeProvider() });
+  await service.connect();
+  service.syncWorkspaceFiles([{ path: 'a.rosetta', content: 'namespace a' }]);
+  const report = vi.fn();
+  service.onDiagnostics(report);
+  const receipt = { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) };
+  const resolution = { schemaVersion: 1 as const, receipt, lock: null, overrides: [], models: {} };
+  let acknowledge!: (reply: unknown) => void;
+  mockRequest.mockImplementation(async (_method, params) =>
+    params.resolution
+      ? new Promise((resolve) => {
+          acknowledge = resolve;
+        })
+      : null
+  );
+  const syncing = service.syncWorkspaceModels([], resolution);
+  await vi.waitFor(() => expect(acknowledge).toBeDefined());
+  const publish = clientOptions.current.notificationHandlers['textDocument/publishDiagnostics'];
+  const diagnostics = [
+    {
+      message: 'condition failed',
+      severity: 1,
+      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }
+    }
+  ];
+  publish(clientOptions.workspace.client, { uri: 'file:///workspace/a.rosetta', diagnostics });
+  expect(report).not.toHaveBeenCalled();
+  acknowledge({ projectReceipt: receipt });
+  await syncing;
+  expect(report).toHaveBeenCalledExactlyOnceWith('file:///workspace/a.rosetta', diagnostics);
+  service.dispose();
+  mockRequest.mockReset().mockResolvedValue(null);
+});

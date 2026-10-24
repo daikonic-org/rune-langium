@@ -247,11 +247,14 @@ function AppContent() {
     for (const flush of [...editorSaveBarriers.current]) await flush();
   }, []);
 
+  const flushWorkspaceSave = useCallback(async () => {
+    await flushEditorSaveBarriers();
+    await workspaceAutosave.flush();
+  }, [flushEditorSaveBarriers, workspaceAutosave]);
+
   useEffect(() => {
     const flush = () => {
-      void flushEditorSaveBarriers()
-        .then(() => workspaceAutosave.flush())
-        .catch(() => {});
+      void flushWorkspaceSave().catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
@@ -263,7 +266,7 @@ function AppContent() {
       document.removeEventListener('visibilitychange', onVisibility);
       flush();
     };
-  }, [workspaceAutosave, flushEditorSaveBarriers]);
+  }, [flushWorkspaceSave]);
 
   useEffect(() => {
     if (!workspaceError) {
@@ -1318,6 +1321,7 @@ function AppContent() {
     () => ({
       files,
       registerEditorSaveBarrier,
+      flushWorkspaceSave,
       getProjectFileAdapter,
       onFilesLoaded: handleFilesLoaded,
       createGitBackedWorkspace: handleCreateGitBackedWorkspace,
@@ -1335,6 +1339,7 @@ function AppContent() {
     [
       files,
       registerEditorSaveBarrier,
+      flushWorkspaceSave,
       getProjectFileAdapter,
       handleFilesLoaded,
       handleCreateGitBackedWorkspace,

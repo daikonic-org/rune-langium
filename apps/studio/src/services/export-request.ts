@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { canonicalProjectJson } from '@rune-langium/project-config';
+import type { BuildTarget } from '@rune-langium/project-config';
+import type { ProjectRuntimeInput } from './project-runtime-input.js';
 import type { ExportSelection, Target } from '@rune-langium/codegen/export';
-import { decodeExportArtifact, type ExportArtifact } from './export-artifact.js';
+import { assertExportProjectReceipt, decodeExportArtifact, type ExportArtifact } from './export-artifact.js';
 import { requestCodegenDownload } from './codegen-download-client.js';
 import { withInstrumentation } from './instrumentation/core.js';
 import { collectCuratedSourcesForCodegen, collectRawWorkspaceSources, type WorkspaceFile } from './workspace.js';
@@ -15,6 +17,9 @@ export interface ExportConfig {
 }
 
 export interface ExportInput {
+  project?: ProjectRuntimeInput;
+  projectUnavailable?: string;
+  projectTarget?: BuildTarget;
   workspaceId: string;
   sourceRevision: number;
   projectRevision?: string;
@@ -62,6 +67,9 @@ export const exportInputKey = withInstrumentation(
       sourceRevision: input.sourceRevision,
       projectRevision: input.projectRevision,
       projectBuild: input.projectBuild,
+      projectReceipt: input.project?.receipt,
+      projectUnavailable: input.projectUnavailable,
+      projectTarget: input.projectTarget,
       config: input.config,
       files: exportSourceFiles(input.files)
     });
@@ -72,6 +80,7 @@ export const exportInputKey = withInstrumentation(
 /** Generate one inspectable, immutable export artifact for a captured workspace input. */
 export const generateExport = withInstrumentation(
   async function generateExport(input: ExportInput, signal: AbortSignal): Promise<ExportArtifact> {
+    if (input.projectUnavailable) throw new Error(input.projectUnavailable);
     const files = collectRawWorkspaceSources(input.files);
     const { curatedBundles, curatedDocs } = collectCuratedSourcesForCodegen(input.files);
     const response = await requestCodegenDownload(
@@ -83,11 +92,15 @@ export const generateExport = withInstrumentation(
         curatedDocs,
         selection: input.config.selection,
         artifactEnvelope: 1,
+        ...(input.project ? { project: input.project } : {}),
+        ...(input.projectTarget ? { projectTarget: input.projectTarget } : {}),
         ...(input.projectBuild ? { projectBuild: true } : {})
       },
       signal
     );
-    return decodeExportArtifact(response);
+    const artifact = await decodeExportArtifact(response);
+    assertExportProjectReceipt(artifact, input.project?.receipt);
+    return artifact;
   },
   { op: 'generateExport' }
 );

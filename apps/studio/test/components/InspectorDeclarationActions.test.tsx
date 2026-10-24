@@ -4,11 +4,12 @@
 import { it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { InspectorDeclarationActions } from '../../src/components/InspectorDeclarationActions.js';
-const mocks = vi.hoisted(() => ({ prepare: vi.fn(), validate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ prepare: vi.fn(), modify: vi.fn(), validate: vi.fn() }));
 vi.mock('../../src/services/local-declaration.js', () => ({
   canExtendDeclaration: (kind: string) => ['Data', 'RosettaFunction'].includes(kind),
   localDeclarationError: mocks.validate,
-  prepareLocalDeclaration: mocks.prepare
+  prepareLocalDeclaration: mocks.prepare,
+  modifyProjectDeclaration: mocks.modify
 }));
 afterEach(() => {
   cleanup();
@@ -74,5 +75,47 @@ it('rechecks collisions against current workspace data before appending a loaded
   fireEvent.click(screen.getByRole('button', { name: 'Modify local copy' }));
   fireEvent.click(screen.getByRole('button', { name: 'Create local copy' }));
   await screen.findByText('Already exists');
+  expect(p.onCreate).not.toHaveBeenCalled();
+});
+
+it('saves a managed copy and map only after the saved revision has an applied worker receipt', async () => {
+  const { ProjectContext } = await import('../../src/shell/providers/project-context.js');
+  const { ProjectPreviewReadinessContext } = await import('../../src/shell/providers/preview-session-context.js');
+  const p = props();
+  const snapshot = { revision: 'saved' } as import('@rune-langium/project-config').ProjectSnapshot;
+  const saved = { ...snapshot, revision: 'modified' };
+  const controller = {
+    load: vi.fn().mockResolvedValue(snapshot)
+  } as unknown as import('../../src/workspace/project-controller.js').ProjectController;
+  const receipt = { revision: 'saved', lockDigest: 'lock', overridesDigest: 'map' };
+  const ensureSaved = vi.fn().mockResolvedValue({ receipt, referenceDocuments: [] });
+  const onSaved = vi.fn();
+  mocks.modify.mockResolvedValue(saved);
+  render(
+    <ProjectContext.Provider
+      value={{
+        status: 'ready',
+        controller,
+        diagnostics: [],
+        runtime: { managed: true, status: 'captured', diagnostics: [] }
+      }}
+    >
+      <ProjectPreviewReadinessContext.Provider value={{ ensureSaved }}>
+        <InspectorDeclarationActions {...p} onSaved={onSaved} />
+      </ProjectPreviewReadinessContext.Provider>
+    </ProjectContext.Provider>
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Modify local copy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create local copy' }));
+  await waitFor(() =>
+    expect(onSaved).toHaveBeenCalledWith(
+      saved,
+      expect.objectContaining({ mode: 'modify', projectReceipt: receipt }),
+      snapshot
+    )
+  );
+  expect(ensureSaved).toHaveBeenCalledWith('saved', expect.any(AbortSignal));
+  expect(mocks.modify).toHaveBeenCalledWith(expect.objectContaining({ projectReceipt: receipt }), controller);
+  expect(mocks.prepare).not.toHaveBeenCalled();
   expect(p.onCreate).not.toHaveBeenCalled();
 });

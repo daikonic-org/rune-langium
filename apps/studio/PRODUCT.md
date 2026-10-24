@@ -63,9 +63,12 @@ approximations. See [architecture and invariants](../../docs/agents/architecture
   Large helper blocks should not obscure the user's generated declarations.
 - Curated reference declarations and original source are browsable. Inspector
   title actions create a local extension or an editable copy in a distinct local
-  namespace. Select the local function to use a manual Rune implementation;
-  existing curated callers continue to refer to the original. Reference-only
-  capabilities do not authorize mutating their source models.
+  namespace. In managed projects, Modify saves the complete source copy and an
+  explicit replacement map together, so curated callers use the local
+  implementation. Extend creates an ordinary derived declaration without
+  redirecting callers. Unmanaged legacy copies still require selecting the local
+  declaration. Reference-only capabilities do not authorize mutating the source
+  model.
 - Preserve drafts, undo history, selection and unsaved changes across view changes.
 
 ## Brand Commitments

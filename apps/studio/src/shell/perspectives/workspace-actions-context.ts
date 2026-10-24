@@ -16,6 +16,8 @@ export interface WorkspaceActions {
   getProjectFileAdapter?: (workspaceId: string) => Promise<ProjectFileAdapter>;
   /** Current workspace files — forwarded to FileLoader as `existingFiles`. */
   files: WorkspaceFile[];
+  /** Finish editor publication and persist the active working-copy files. */
+  flushWorkspaceSave?: () => Promise<void>;
   registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;
   /** Called when the user loads files via drag-drop / file picker / new. */
   onFilesLoaded: (files: WorkspaceFile[]) => void;

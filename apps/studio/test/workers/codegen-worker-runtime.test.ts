@@ -431,44 +431,12 @@ it('links a newly authored function to hydrated curated input types, then valida
 }, 25000);
 
 it('installs a verified project before preview and executes curated callers through local overrides', async () => {
-  const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');
+  const { createProjectDraftSnapshot } = await import('@rune-langium/project-config');
   const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
-  const local =
-    'namespace custom\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2';
-  const snapshot = await createProjectSnapshot(
-    'p',
-    new Map([
-      ['rune-config.yml', 'model: {name: Demo}'],
-      [
-        'build-config.yml',
-        JSON.stringify({
-          schemaVersion: 1,
-          overrides: [
-            {
-              kind: 'declaration',
-              source: { model: 'cdm', namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' },
-              replacement: { model: 'local', namespace: 'custom', kind: 'RosettaFunction', name: 'Compute' }
-            }
-          ]
-        })
-      ],
-      ['model/custom.rosetta', local]
-    ]),
-    () => []
-  );
-  const project = await captureProjectRuntimeInput(
-    snapshot,
-    [{ path: 'model/custom.rosetta', content: local }],
-    [
-      {
-        uri: 'cdm/functions.rosetta',
-        content:
-          'namespace ref\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 1\nfunc Caller:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: Compute(amount)'
-      }
-    ]
-  );
+  const { projectOverrideInput } = await import('../helpers/project-override-input.js');
+  const { input: project, snapshot, files: sources } = await projectOverrideInput();
   const { scope, dispatch } = await loadRealWorker();
-  const files = [{ uri: 'file:///workspace/model/custom.rosetta', content: local }];
+  const files = sources.map((file) => ({ uri: 'file:///workspace/' + file.path, content: file.content }));
   dispatch({ type: 'preview:setFiles', filesRevision: 1, files, project, requestId: 'project:install' });
   await vi.waitFor(
     () =>

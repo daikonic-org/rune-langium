@@ -121,7 +121,9 @@ editor plugins retain didChange ownership while semantic requests wait. Studio
 accepts local parser snapshots only when their recorded source equals captured
 editor text. Explicit override endpoint namespaces and their import dependencies
 join the active semantic closure; unavailable captures cannot fall back to an
-ordinary graph.
+ordinary graph. Managed diagnostics are buffered during context synchronization and
+replayed through the existing editor and observer handlers only after the exact
+acknowledgement; superseded generations are discarded.
 
 ## Studio Runtime
 
@@ -171,7 +173,12 @@ workspace creation does not leak into individual declaration forms. Extend uses
 the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
 from the pinned curated source into a distinct local namespace; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
-then uses the normal file persistence/parse path. Curated sources remain immutable.
+then uses the normal file persistence/parse path. Managed actions flush the existing
+source/autosave owners, await the saved revision in the preview worker, and Save
+the copy plus explicit override map in one project transaction. Copy bytes must
+match the verified locked reference documents before their source URI, commit and
+cohort become provenance. Repeated Modify follows the existing mapping. Extend
+adds no redirect. Curated sources remain immutable.
 Preview-worker hydration restores references within curated snapshots; their exports
 must also be registered through Langium's index before parsing authored source that
 imports them. Index each hydrated batch once and remove exports when it is replaced.
@@ -390,7 +397,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 - Core `BASE_TYPE_FILES` owns the standard Rune types and annotations. Studio re-exports it; the shared `RuneWorkspaceManager` loads it during LSP initialization, including reconnects. Core and LSP factories install `RuneDslSharedModule`.
 - `hydrateModelDocuments` registers every parsed root before `RuneJsonSerializer` invokes Langium's reference revival. Keep one object graph: repeated deserialize rounds retain stale generations and cannot resolve arbitrary cycles. Batch tests must verify target identity across long chains and cycles.
-- Curated downloads use a disposable browser worker; user-file-only downloads use `/api/codegen`. Both call `src/services/codegen-download-handler.ts` for validation, namespace closure, generation, and packaging. Hydration closes the documents that may be resolved; `ExportSelection` then chooses dependency-closed declaration roots for emission; `generateSelected` returns that exact receipt with the outputs, including a kind-aware `requiredBy` provenance map. Artifact envelopes record the receipt, immutable curated manifest cohorts when available, and generated files, so Studio previews and downloads use the same captured ZIP. Preserve fatal diagnostics and terminate the browser worker on completion, error, or timeout.
+- Managed project downloads and curated downloads use a disposable browser worker; legacy user-file-only downloads use `/api/codegen`. Managed captures travel by structured clone, preserving snapshot Maps. The HTTP boundary rejects project captures rather than silently treating them as legacy requests. Both transports call `src/services/codegen-download-handler.ts` for validation, namespace closure, generation, and packaging. Hydration closes the documents that may be resolved; `ExportSelection` then chooses dependency-closed declaration roots for emission; `generateSelected` returns that exact receipt with the outputs, including a kind-aware `requiredBy` provenance map. Artifact envelopes record the receipt, immutable curated manifest cohorts when available, and generated files, so Studio previews and downloads use the same captured ZIP. Managed exports apply the same effective graph and named-target scope as native builds, require the captured project receipt in the ZIP envelope, and retain it when combining target artifacts. Missing or mismatched receipts cannot be staged or downloaded. Preserve fatal diagnostics and terminate the browser worker on completion, error, or timeout.
 - Curated mirror CORS uses the shared worker origin matcher and the explicit `ALLOWED_ORIGIN` list in its Wrangler config, including this project’s Pages previews and local Studio ports.
 - Curated manifests record bundle dependencies as well as namespace dependencies. Parsing and downloads use `loadCuratedWorkspace` to close the namespace graph across those bundles before hydration. Parsing keeps unrelated namespaces as deferred explorer entries; downloads hydrate all selected documents together before generation. `packages/curated-schema` owns production-source selection and the publisher's namespace graph; CI parses CDM, FpML, and Rune runtime sources in one workspace so serialized cross-bundle references retain their targets. Before serialization, `assertValidDocuments` requires completed linking and rejects syntax or reference errors even when semantic validation is disabled. Worker artifact builds use isolated services with the shared standard library so a previous build cannot supply missing declarations. The uploader hashes the prepared manifest set into a cohort, pins dependency manifests to that cohort, and uploads all versioned blobs and immutable cohort manifests before advancing latest pointers. Consumers resolve floating bundle selections through one cohort, so a partial pointer update cannot mix generations. Legacy date versions still select the current manifest; `cohort-<sha256>` versions select immutable manifests and must match the returned cohort. The mirror cron preserves cohort and dependency metadata alongside the serialized namespace graph. Cohort manifests and content-hashed artifacts remain outside daily archive pruning; any future garbage collector must retain the full dependency closure of live cohorts.
 - Routed parsing returns each dependency bundle's resolved manifest cohort/version. Studio registers implicit curated dependencies with that identity before merging reference-only files, so preview snapshots and restored workspace bindings retain the exact serialized reference targets. It does not replace an implicit pin with a guessed latest version.

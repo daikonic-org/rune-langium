@@ -81,3 +81,19 @@ it('cancels a curated request and releases its worker', async () => {
   expect(worker.terminate).toHaveBeenCalledOnce();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it('keeps a managed snapshot in structured-clone transport even without legacy curated sources', async () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+  const managed = {
+    files: [],
+    target: 'typescript',
+    project: { snapshot: { files: new Map([['model/a.rosetta', 'namespace a']]) } }
+  };
+  const result = requestCodegenDownload(managed);
+  const worker = DownloadWorker.current;
+  expect(worker.postMessage).toHaveBeenCalledWith(managed);
+  worker.onmessage?.({ data: { body: new ArrayBuffer(0), status: 200, headers: [] } });
+  await result;
+  expect(fetchMock).not.toHaveBeenCalled();
+});

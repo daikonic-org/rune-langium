@@ -41,3 +41,52 @@ namespaceFromModelName(name: unknown): string | undefined
 **Parameters:**
 - `name: unknown`
 **Returns:** `string | undefined`
+
+### `expandNamespaceWildcard`
+Expand an exact name or dotted-prefix wildcard against known namespaces.
+```ts
+expandNamespaceWildcard(raw: string, allNamespaces: ReadonlySet<string>): string[]
+```
+**Parameters:**
+- `raw: string`
+- `allNamespaces: ReadonlySet<string>`
+**Returns:** `string[]`
+
+### `buildImportAliasMap`
+One alias may intentionally contribute several namespace prefixes.
+```ts
+buildImportAliasMap(imports: readonly NamespaceImport[]): Map<string, string[]>
+```
+**Parameters:**
+- `imports: readonly NamespaceImport[]`
+**Returns:** `Map<string, string[]>`
+
+### `importAliasCandidates`
+Shared by language scopes and views; a real qualified name keeps precedence.
+```ts
+importAliasCandidates(name: string, aliases: ReadonlyMap<string, readonly string[]>): string[]
+```
+**Parameters:**
+- `name: string`
+- `aliases: ReadonlyMap<string, readonly string[]>`
+**Returns:** `string[]`
+
+### `buildImportScope`
+File-local scope facts shared by language lookup and projected references.
+```ts
+buildImportScope(namespace: string, imports: readonly NamespaceImport[]): ImportScope
+```
+**Parameters:**
+- `namespace: string`
+- `imports: readonly NamespaceImport[]`
+**Returns:** `ImportScope`
+
+### `importScopeCandidates`
+Ordered names for a file scope; bare fallback is for the language's outer scope.
+```ts
+importScopeCandidates(name: string, scope: ImportScope): string[]
+```
+**Parameters:**
+- `name: string`
+- `scope: ImportScope`
+**Returns:** `string[]`

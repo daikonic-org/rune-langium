@@ -20,14 +20,14 @@ constructor(services: LangiumCoreServices, deferredProvider?: DeferredModelProvi
 - `languageId: string`
 - `referenceResolver: ReferenceResolver`
 **Methods:**
-- `loadAstNode(nodeDescription: AstNodeDescription): AstNode | undefined`
+- `loadAstNode(nodeDescription: AstNodeDescription): AstNode | undefined` — Resolve a description through the same deferred-document path used by linking.
 - `link(document: LangiumDocument, cancelToken?: CancellationToken): Promise<void>` — Links all cross-references within the specified document. The default implementation loads only target
 elements from documents that are present in the `LangiumDocuments` service. The linked references are
 stored in the document's `references` property.
 - `doLink(refInfo: ReferenceInfo, document: LangiumDocument): void`
 - `unlink(document: LangiumDocument): void` — Unlinks all references within the specified document and removes them from the list of `references`.
 - `getCandidate(refInfo: ReferenceInfo): AstNodeDescription | LinkingError` — Determines a candidate AST node description for linking the given reference.
-- `getCandidates(refInfo: ReferenceInfo): AstNodeDescription[] | LinkingError` — Determines a candidate AST node description for linking the given reference.
+- `getCandidates(refInfo: ReferenceInfo): LinkingError | AstNodeDescription[]` — Determines a candidate AST node description for linking the given reference.
 - `buildReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): Reference` — Creates a cross reference node being aware of its containing AstNode, the corresponding CstNode,
 the cross reference text denoting the target AstNode being already extracted of the document text,
 as well as the unique cross reference identifier.

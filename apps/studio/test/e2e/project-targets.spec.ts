@@ -2,31 +2,10 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import JSZip from 'jszip';
+import { projectBackingFiles } from '../helpers/project-backing.js';
 
 test('saves independent named SQL targets and builds their repository settings', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1461, height: 988 });
-  const requests: Record<string, unknown>[] = [];
-  await page.route('**/api/codegen', async (route) => {
-    const request = route.request().postDataJSON();
-    requests.push(request);
-    const zip = new JSZip();
-    zip.file('schema.sql', 'CREATE TABLE party;');
-    zip.file(
-      '.rune/export.json',
-      JSON.stringify({
-        version: 1,
-        target: 'sql',
-        files: [{ path: 'schema.sql', kind: 'text', bytes: 19 }],
-        diagnostics: []
-      })
-    );
-    await route.fulfill({
-      status: 200,
-      body: await zip.generateAsync({ type: 'nodebuffer' }),
-      contentType: 'application/zip'
-    });
-  });
   await page.goto('./');
   await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
     name: 'demo.rosetta',
@@ -53,14 +32,19 @@ test('saves independent named SQL targets and builds their repository settings',
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
   await settings.getByRole('button', { name: 'Build all', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
-  await expect.poll(() => requests.length).toBe(3);
+  await expect
+    .poll(async () =>
+      Object.keys(await projectBackingFiles(page)).some((path) => /^generated\/ss\/.*\.sql$/.test(path))
+    )
+    .toBe(true);
   await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeEnabled();
-  expect(requests.map((request) => request.options)).toEqual([
-    { sql: { dialect: 'postgres' } },
-    { sql: { dialect: 'postgres' } },
-    { sql: { dialect: 'sqlserver' } }
-  ]);
-  await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue('generated/pg/schema.sql');
+  const generated = await projectBackingFiles(page);
+  const pgPath = Object.keys(generated).find((path) => /^generated\/pg\/.*\.sql$/.test(path))!;
+  const ssPath = Object.keys(generated).find((path) => /^generated\/ss\/.*\.sql$/.test(path))!;
+  expect(generated[pgPath]).toMatch(/CREATE TABLE/i);
+  expect(generated[ssPath]).toMatch(/CREATE TABLE/i);
+  expect(generated[pgPath]).not.toBe(generated[ssPath]);
+  await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue(pgPath);
   for (const close of await page.getByRole('button', { name: 'Dismiss notification', exact: true }).all())
     await close.click();
   await settings.getByRole('heading', { name: 'Export settings', exact: true }).scrollIntoViewIfNeeded();
@@ -72,27 +56,11 @@ test('saves independent named SQL targets and builds their repository settings',
     body: await page.screenshot({ path: testInfo.outputPath('named-targets.png') }),
     contentType: 'image/png'
   });
-  const edited = await page.evaluate(async () => {
-    const root = await navigator.storage.getDirectory();
-    for await (const [, dir] of root.entries())
-      if (dir.kind === 'directory') {
-        try {
-          const files = await dir.getDirectoryHandle('files');
-          const handle = await files.getFileHandle('build-config.yml');
-          const before = await (await handle.getFile()).text();
-          const stream = await handle.createWritable();
-          await stream.write(before.replace('dialect: postgres', 'dialect: sqlserver'));
-          await stream.close();
-          const generated = await files.getDirectoryHandle('generated');
-          const pg = await generated.getDirectoryHandle('pg');
-          return (await (await pg.getFileHandle('schema.sql')).getFile()).text();
-        } catch {
-          /* Another backing-private directory. */
-        }
-      }
-    throw new Error('Saved project not found');
-  });
-  expect(edited).toBe('CREATE TABLE party;');
+  const before = generated['build-config.yml']!;
+  const changed = before.replace('dialect: postgres', 'dialect: sqlserver');
+  expect(changed).not.toBe(before);
+  const edited = await projectBackingFiles(page, { 'build-config.yml': changed });
+  expect(edited[pgPath]).toBe(generated[pgPath]);
   await settings.getByRole('button', { name: 'Reload project files', exact: true }).click();
   await expect(settings.getByLabel('Dialect', { exact: true })).toHaveValue('sqlserver');
   await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeDisabled();

@@ -44,7 +44,11 @@ async function fixture(sources: readonly string[]) {
     namespace: 'local.demo',
     name: 'Compute',
     files,
-    models
+    models,
+    projectReferenceDocuments: files.map((file) => ({
+      uri: file.path.replace('[cdm]/', 'cdm/'),
+      content: file.content
+    }))
   };
   return { RuneDsl, docs, request };
 }
@@ -204,7 +208,7 @@ it('saves a copied dispatch family and its explicit provenance mapping once', as
     kind: 'declaration',
     source: { model: 'cdm', name: 'Compute', kind: 'RosettaFunction' },
     replacement: { model: 'local', namespace: 'local.demo' },
-    provenance: { uri: '[cdm]/f0.rosetta', commit: saved.lock!.references.cdm!.commit }
+    provenance: { uri: 'cdm/f0.rosetta', commit: saved.lock!.references.cdm!.commit }
   });
   const copies = [...saved.files].filter(([path]) => path.endsWith('.rosetta'));
   expect(copies).toHaveLength(2);
@@ -239,5 +243,26 @@ it('rejects a stale project receipt before a declaration copy Save', async () =>
   await expect(
     modifyProjectDeclaration({ ...request, projectReceipt: { ...receipt, overridesDigest: 'stale' } }, controller)
   ).rejects.toThrow(/ready|changed|stale/);
+  expect(controller.current()).toBe(before);
+});
+it('refuses to stamp locked provenance on a copy loaded from another curated cohort', async () => {
+  const { request } = await fixture([
+    'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n set result: 1'
+  ]);
+  const { controller, receipt } = await projectForDeclaration();
+  const before = controller.current();
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  await expect(
+    modifyProjectDeclaration(
+      {
+        ...request,
+        projectReceipt: receipt,
+        projectReferenceDocuments: [
+          { uri: 'cdm/f0.rosetta', content: request.files[0]!.content.replace('set result: 1', 'set result: 2') }
+        ]
+      },
+      controller
+    )
+  ).rejects.toThrow(/locked reference release/);
   expect(controller.current()).toBe(before);
 });
