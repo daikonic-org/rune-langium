@@ -13,7 +13,18 @@ export const ReferenceReleaseSchema = z
     cohort: CuratedCohortSchema,
     checksum: CuratedSha256Schema,
     dependencies: z.record(text, z.object({ modelId: text, release: text })),
-    toolchain: text
+    toolchain: text,
+    mavenArtifacts: z
+      .array(
+        z.object({
+          groupId: text,
+          artifactId: text,
+          version: text,
+          type: text.default('jar'),
+          classifier: text.optional()
+        })
+      )
+      .optional()
   })
   .superRefine((release, ctx) => {
     const url = release.manifest;

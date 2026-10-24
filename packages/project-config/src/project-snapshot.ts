@@ -48,6 +48,7 @@ export async function createProjectSnapshot(
       ...sources,
       ...project.build.resources.map((resource) => resource.path),
       project.build.runeConfig,
+      ...(project.build.importReport ? [project.build.importReport] : []),
       'rune-config.yml',
       'rune-config.yaml',
       'build-config.yml',
@@ -70,6 +71,7 @@ export async function createProjectSnapshot(
   const exactInputs = new Set([
     ...sources,
     project.build.runeConfig,
+    ...(project.build.importReport ? [project.build.importReport] : []),
     'rune-config.yml',
     'rune-config.yaml',
     'build-config.yml',

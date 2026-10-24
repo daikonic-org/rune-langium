@@ -828,3 +828,10 @@ The shared declaration dependency walker determines affected callers and export
 scopes. Unsupported resource generators fail before publication; provider callbacks
 never enter serialized captures or generated source. Workflow caches include the
 saved project revision so resource/config-only changes cannot retain valid status.
+
+Static project initialization stays in project-config/import and consumes only
+opened repository text. The runtime adds explicit catalog artifact-to-release
+mappings; it never interprets Maven versions as tags or loads Java code. The
+optional build.importReport references portable compatibility evidence, included
+in snapshot identity/output protection. Existing build configuration suppresses
+POM initialization; subsequent POM edits do not change native builds.

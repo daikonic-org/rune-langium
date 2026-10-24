@@ -28,6 +28,7 @@ export const ProjectOverrideSchema = z.discriminatedUnion('kind', [
 export const BuildConfigSchema = z.object({
   schemaVersion: z.literal(1),
   runeConfig: text.default('rune-config.yml'),
+  importReport: text.optional(),
   sources: z.array(text).default(() => ['model/**/*.rosetta']),
   resources: z.array(z.object({ path: text })).default(() => [{ path: 'resources' }]),
   references: z.record(z.string(), ReferenceRequestSchema).default(() => ({})),

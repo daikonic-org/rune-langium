@@ -127,3 +127,10 @@ provider. Repository configuration cannot install executable code.
 Resource-only reloads invalidate workflow schemas, validation and results using
 the saved project revision, without remounting the workflow or discarding compatible
 inputs. Fresh worker captures still require exact receipt acknowledgement.
+
+
+Static Maven metadata initialization uses mapMavenReferences only after local
+inspection. Optional release-catalog mavenArtifacts entries map complete artifact
+coordinates (including type/classifier/version) to the entry's exact repository
+and tag. Ambiguous coordinates or several releases for one model stay unresolved.
+No Maven repository, Java provider or plugin is installed by this adapter.

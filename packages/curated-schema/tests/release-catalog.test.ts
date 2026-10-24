@@ -44,3 +44,12 @@ it('retains distinct immutable artifact cohorts for the same source release', ()
   };
   expect(validateReferenceCatalog({ schemaVersion: 1, releases: [release, variant] }).releases).toHaveLength(2);
 });
+it('retains explicit Maven artifact coordinates without treating Maven versions as release tags', () => {
+  const mavenArtifacts = [
+    { groupId: 'org.example', artifactId: 'model', version: '1.2.3', type: 'jar', classifier: 'sources' }
+  ];
+  expect(
+    validateReferenceCatalog({ schemaVersion: 1, releases: [{ ...release, tag: 'release-special', mavenArtifacts }] })
+      .releases[0]
+  ).toHaveProperty('mavenArtifacts', mavenArtifacts);
+});

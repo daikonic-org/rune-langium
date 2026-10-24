@@ -1,0 +1,1 @@
+<project><parent><groupId>private</groupId><artifactId>parent</artifactId><version>1</version><relativePath/></parent><artifactId>child</artifactId><dependencies><dependency><groupId>x</groupId><artifactId>model</artifactId><version>${unknown}</version></dependency></dependencies></project>

@@ -1,7 +1,7 @@
 # Portable project configuration
 
 MIT-licensed, host-neutral configuration contracts for Rune projects. There is no
-dependency on React, browser storage, core or codegen. Hosts inject target
+dependency on React, browser storage, the language parser or codegen. Declaration\nidentity schemas come from the pure core/project-contract subpath. Hosts inject target
 validation through `TargetValidator`.
 
 `discoverProjectConfig` accepts `.yml` or `.yaml`, rejecting competing spellings.
@@ -49,3 +49,30 @@ it return a capability diagnostic rather than encode workbook bytes as text.
 `projectBytesRevision` hashes original bytes, while `projectFileRevision` hashes
 UTF-8 text. Output collisions diagnose every participating target, and snapshot
 validation protects actual `.rosetta` paths even with root-wide source globs.
+
+
+## Static GitHub initialization metadata
+
+inspectMavenProject reads bounded local POM metadata and proposes absent native
+settings; it performs no IO, parent download, Maven/plugin execution or environment
+activation. Profile selection is explicit. Static parent properties, dependency
+management, source/resource paths and Rune generator execution metadata retain
+origin paths and coordinate/classifier/scope/exclusion evidence.
+
+The supported Rune plugin metadata versions are the pinned 10.10.0, 10.7.0 and
+legacy 9.76.2 adapters. Java generator/setup metadata creates unavailable Java
+targets, never an inferred TypeScript equivalent. Unknown plugins, build-produced
+inputs, filtering, unresolved parents/properties and Java classes remain report
+items. XML entity declarations and oversized/recursive input are bounded.
+
+The proposed build.importReport path links a portable compatibility report.
+Its bytes participate in project revision identity and are protected from output.
+A minimal Rune configuration is proposed only when no selected existing Rune
+settings are available. Existing build-config.yml/.yaml always wins, and opened
+POM bytes remain untouched. There is no standalone Maven import action or POM
+export/synchronization.
+
+The runtime mapMavenReferences adapter consumes explicit release-catalog
+mavenArtifacts coordinates; Maven versions never become guessed Git tags.
+Old catalogs without those mappings remain unresolved. Inspection may be partial
+while the project remains editable; unavailable targets retain scoped diagnostics.

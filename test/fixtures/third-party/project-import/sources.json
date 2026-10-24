@@ -1,0 +1,68 @@
+[
+  {
+    "id": "cdm",
+    "repository": "finos/common-domain-model",
+    "commit": "c817e5f78b86c2c61caa9291efc1322697bed5ca",
+    "path": "pom.xml",
+    "url": "https://raw.githubusercontent.com/finos/common-domain-model/c817e5f78b86c2c61caa9291efc1322697bed5ca/pom.xml",
+    "sourceSha256": "642198e26322fffe3e00375fc720e4e632ce2fed25c2b1e3c7847084b71312d4",
+    "sourceBytes": 26636,
+    "sha256": "ebd6b6ca8ae1249af7f269384733f7e712dffa5e33dd664d35a5e56a617988a5",
+    "bytes": 17217,
+    "representation": "metadata-projection"
+  },
+  {
+    "id": "fpml",
+    "repository": "rosetta-models/rune-fpml",
+    "commit": "675b4ca8faa27f71e345f127e890202b08456750",
+    "path": "pom.xml",
+    "url": "https://raw.githubusercontent.com/rosetta-models/rune-fpml/675b4ca8faa27f71e345f127e890202b08456750/pom.xml",
+    "sourceSha256": "1a1c24d78f6769f64a0a11d126e7d27fa9ce6b65b0f6a2c90a5205cce7e23005",
+    "sourceBytes": 12145,
+    "sha256": "f20edf671d38a118f7eb45cce24d9f46621960cabd13aca27430f1aa237b433f",
+    "bytes": 7750,
+    "representation": "metadata-projection"
+  },
+  {
+    "id": "cdm",
+    "repository": "finos/common-domain-model",
+    "commit": "c817e5f78b86c2c61caa9291efc1322697bed5ca",
+    "path": "rosetta-source/pom.xml",
+    "url": "https://raw.githubusercontent.com/finos/common-domain-model/c817e5f78b86c2c61caa9291efc1322697bed5ca/rosetta-source/pom.xml",
+    "sourceSha256": "b81a1fa51730e6223e12c5dccbc9c5c67eefef89a10fe3aca5a77a10cd1c3d01",
+    "sourceBytes": 29462,
+    "sha256": "e548fe3a6731d6023d81627c26014b8522f215571fd1f269446d1de58bf785f4",
+    "bytes": 10487,
+    "representation": "metadata-projection"
+  },
+  {
+    "id": "cdm",
+    "repository": "finos/common-domain-model",
+    "commit": "c817e5f78b86c2c61caa9291efc1322697bed5ca",
+    "path": "LICENSE.md",
+    "url": "https://raw.githubusercontent.com/finos/common-domain-model/c817e5f78b86c2c61caa9291efc1322697bed5ca/LICENSE.md",
+    "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21",
+    "bytes": 16142
+  },
+  {
+    "id": "cdm",
+    "repository": "finos/common-domain-model",
+    "commit": "c817e5f78b86c2c61caa9291efc1322697bed5ca",
+    "path": "NOTICE.md",
+    "url": "https://raw.githubusercontent.com/finos/common-domain-model/c817e5f78b86c2c61caa9291efc1322697bed5ca/NOTICE.md",
+    "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871",
+    "bytes": 2358
+  },
+  {
+    "id": "fpml",
+    "repository": "rosetta-models/rune-fpml",
+    "commit": "675b4ca8faa27f71e345f127e890202b08456750",
+    "path": "rosetta-source/pom.xml",
+    "url": "https://raw.githubusercontent.com/rosetta-models/rune-fpml/675b4ca8faa27f71e345f127e890202b08456750/rosetta-source/pom.xml",
+    "sourceSha256": "47ad9a96a15c144502bd858304e1c222843a4ae70b08e5327d8087f7e1c526f3",
+    "sourceBytes": 10370,
+    "sha256": "1cf051622d256c265bb5f821e176efeecd9c33a8fea90e85bd5f3c4eaca7f520",
+    "bytes": 7585,
+    "representation": "metadata-projection"
+  }
+]

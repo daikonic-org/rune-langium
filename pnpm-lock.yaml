@@ -755,6 +755,9 @@ importers:
       '@rune-langium/curated-schema':
         specifier: workspace:*
         version: link:../curated-schema
+      fast-xml-parser:
+        specifier: 5.11.2
+        version: 5.11.2
       picomatch:
         specifier: 4.0.7
         version: 4.0.7
