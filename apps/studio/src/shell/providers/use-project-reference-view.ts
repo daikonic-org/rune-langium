@@ -42,7 +42,7 @@ export const useProjectReferenceView = withInstrumentation(
               input,
               parsed: state.parsedModels,
               files: state.files,
-              view: previous?.workspaceId === state.workspaceId ? previous.view : undefined,
+              view: previous && previous.workspaceId === state.workspaceId ? previous.view : undefined,
               error: error instanceof Error ? error.message : 'Reference view unavailable.'
             }));
         });

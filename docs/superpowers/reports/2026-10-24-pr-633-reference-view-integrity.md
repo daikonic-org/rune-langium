@@ -19,7 +19,9 @@ Three regressions failed before the correction. They reproduce an actual deleted
 excluded file and an actual reverted first edit through the bound-folder adapter
 and normal autosave, then read the saved bytes back. They also cover live file
 addition/deletion, retained references and workspace switching. The repaired
-four-file focused suite passed all 31 tests.
+four-file focused suite passed all 32 tests, including an additional initial
+failure regression with no previous view or workspace identity. That recovery
+branch now explicitly requires a previous record before reading its view.
 
 CI separately exceeded the five-second default while one Python projection test
 looped over three independent metadata predicates. The test matrix now exposes
@@ -28,7 +30,7 @@ generated source and Python/TypeScript parity assertions; no timeout, retry or
 assertion was relaxed. The focused Python file passed 174 tests and the complete
 codegen suite passed 2,370 tests (one existing skip, eight todos).
 
-Final local checks passed: **2,378 Studio tests** (two existing skips), **3,132
+Final local checks passed: **2,379 Studio tests** (two existing skips), **3,132
 root coverage tests** (one existing skip, eight todos), Studio production build,
 scoped lint/format and diff checks. Existing coverage thresholds remain intact.
 Four unretried browser journeys passed: reference selection/cache reopening at

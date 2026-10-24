@@ -44,6 +44,15 @@ const runtime: ProjectRuntimeState = {
 };
 const reference = { ...file('[cdm]/model.rosetta', 'namespace pinned'), readOnly: true, refOnly: true };
 
+it('reports an initial failure without a previous view or workspace identity', async () => {
+  const state = { ...stateFor([]), workspaceId: undefined };
+  vi.mocked(prepareProjectReferenceView).mockRejectedValue(new Error('Reference view unavailable.'));
+  const { result } = renderHook(() => useProjectReferenceView(runtime, state));
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('unavailable'));
+  expect(result.current.referenceView?.diagnostics[0]?.message).toBe('Reference view unavailable.');
+  expect(result.current.state.files).toBe(state.files);
+});
+
 it('autosaves edits to A and B made before a reference-view refresh without reverting A', async () => {
   const root = createOpfsRoot(),
     privateRoot = createOpfsRoot();
