@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { redirectProjectScope } from '../references/project-resolution.js';
 import { buildImportAliasMap, buildImportScope, importScopeCandidates } from '../naming/import-aliases.js';
 import type { AstNode, AstNodeDescription, ReferenceInfo, Scope, LangiumCoreServices } from 'langium';
 import { AstUtils, EMPTY_SCOPE, DefaultScopeProvider, MapScope, stream } from 'langium';
@@ -135,16 +136,22 @@ class AliasResolvingScope implements Scope {
  * - Cases 13-21: Annotation paths, external refs, etc.
  */
 export class RuneDslScopeProvider extends DefaultScopeProvider {
+  private readonly projectServices: LangiumCoreServices;
   private readonly documents: LangiumCoreServices['shared']['workspace']['LangiumDocuments'];
   private readonly locator: LangiumCoreServices['workspace']['AstNodeLocator'];
 
   constructor(services: LangiumCoreServices) {
     super(services);
+    this.projectServices = services;
     this.documents = services.shared.workspace.LangiumDocuments;
     this.locator = services.workspace.AstNodeLocator;
   }
 
   override getScope(context: ReferenceInfo): Scope {
+    return redirectProjectScope(this.projectServices, this.getSourceScope(context));
+  }
+
+  private getSourceScope(context: ReferenceInfo): Scope {
     const container = context.container;
     const property = context.property;
 

@@ -51,9 +51,15 @@ existing IndexedDB cache and saves an explicit upgrade's configuration and lock
 through one guarded project Save. Only reference requests affect lock freshness;
 source, target and example edits still invalidate build input revisions.
 
-Effective-graph/override integration is the next subsystem: until it supplies a
-verified graph, builds with configured references or overrides return an explicit
-unavailable diagnostic. Unsupported experimental/pruning semantics also remain
+`buildEffectiveProject(snapshot, referenceDocuments)` composes a fresh graph from
+configured local sources and verified reference documents. It registers roots
+before serialized revival, applies explicit declaration redirects at core's
+scope/link boundary and returns diagnostics plus a revision/lock/override receipt.
+Local replacement identities use model `local`; kinds are canonical Rune AST
+kinds. A base-function map includes its complete dispatch family. The host must
+reject diagnostics before execution and acknowledge the receipt before readiness.
+Native build, hosted LSP and preview adoption are the next integration step;
+until then builds with configured references/overrides remain unavailable. Unsupported experimental/pruning semantics also remain
 diagnosed. No Maven process or arbitrary YAML-selected executable runs.
 
 `@rune-langium/project-runtime/browser` exposes the shared staged build transaction

@@ -131,3 +131,5 @@ export {
   importScopeCandidates
 } from './naming/import-aliases.js';
 export type { NamespaceImport, ImportScope } from './naming/import-aliases.js';
+
+export * from './references/project-resolution.js';

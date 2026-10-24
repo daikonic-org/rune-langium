@@ -71,6 +71,19 @@ Development/latest manifests remain separate. The mirror serves `/releases/*`
 with its existing CORS/ETag/error conventions. See
 [curated publication](../curated-publishing.md) for the dry-run and upload order.
 
+Core's injected project-resolution port is independent of project configuration.
+Hosts explicitly register document ownership; declaration keys include model,
+namespace, AST kind, name and dispatch selector. The reserved `local` model names
+repository declarations, so mappings survive cloning and workspace renaming.
+`buildEffectiveProject` creates fresh services and registers all roots before
+hydration/linking. Scope descriptions and source links redirect through the same
+port; serialized references rebuild through that linker rather than retaining
+pointers into a cached generation. Originals remain available for provenance.
+Mapping cycles, ambiguous/missing endpoints, kind/signature/cardinality changes
+and incomplete dispatch families are diagnosed. Structural changes are checked
+against actual reference callers. Its receipt captures project revision, lock
+and override digests; host adoption is a separate readiness boundary.
+
 ## Studio Runtime
 
 Studio's [product context](../../apps/studio/PRODUCT.md) records established users,
