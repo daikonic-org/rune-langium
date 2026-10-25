@@ -2,16 +2,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { closeNamespaceDependencies } from '@rune-langium/core';
+import { closeNamespaceDependencies, expandNamespaceWildcard } from '@rune-langium/core';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 
 export const expandWildcard = withInstrumentation(
   function expandWildcard(raw: string, allNs: ReadonlySet<string>): string[] {
-    if (raw.endsWith('.*')) {
-      const prefix = raw.slice(0, -2);
-      return [...allNs].filter((ns) => ns === prefix || ns.startsWith(prefix + '.'));
-    }
-    return allNs.has(raw) ? [raw] : [];
+    return expandNamespaceWildcard(raw, allNs);
     // `raw`/`allNs`/output are namespace strings that may be user-authored
     // (buildDependencyGraph below feeds this from user model imports too) —
     // never captured; only a count.

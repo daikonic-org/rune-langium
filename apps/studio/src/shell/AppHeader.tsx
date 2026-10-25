@@ -41,7 +41,7 @@ function subscribeHeaderWidth(listener: () => void) {
 }
 
 function compactHeaderWidth() {
-  return window.innerWidth <= 1100;
+  return window.innerWidth;
 }
 
 function WorkspaceSwitcherTrigger({
@@ -168,8 +168,8 @@ export const AppHeader = withInstrumentation(
     const workspaceActions = useWorkspaceActionsOptional();
     const syncStatus = useExploreFileNavStore((s) => s.syncStatus);
     const compareHeader = useDesignPreviewStore((state) => state.preferences.header);
-    const narrow = useSyncExternalStore(subscribeHeaderWidth, compactHeaderWidth, () => false);
-    const overflowActions = compareHeader && narrow;
+    const headerWidth = useSyncExternalStore(subscribeHeaderWidth, compactHeaderWidth, () => 1280);
+    const overflowActions = (compareHeader && headerWidth <= 1100) || (effectiveId === 'explore' && headerWidth <= 640);
 
     // Degrade rule: hide the switcher when there's no workspace loaded, or the
     // active perspective doesn't need one (Settings) — brand + title + global

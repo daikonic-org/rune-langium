@@ -110,7 +110,7 @@ Select a compatible function in the compact chooser, or drag its name onto the
 function node. Object parameters have their own nodes; primitive parameters stay
 inline. **Execute** runs the function explicitly. Without a function, the input
 is the output. Input edits invalidate prior results; scalar and object results
-remain separate from the stored source objects. **Save as instance…** saves an
+remain separate from the stored source objects. **Save as example…** saves an
 object result, including a passthrough input, through the existing creation dialog.
 
 Each input has a clickable validation status. The function status combines input
@@ -119,7 +119,7 @@ and unavailable checks stay distinct from passing checks. A diagnostic can focus
 its field. Validation never runs function assignments or postconditions.
 
 **Add** creates an object in the main header. Node menus contain **Edit layout**,
-**Import input…**, and compatible stored-object bindings. Grid **Import objects…**
+**Import input…**, and compatible stored-object bindings. Grid **Import examples…**
 accepts one JSON object or an array for the chosen type; imported objects stay in
 the grid until explicitly bound. Workflow edits use detached copies and do not
 overwrite their stored sources.
@@ -350,3 +350,136 @@ Then click the CDM / FpML / rune-dsl chips in the loader to browse their types.
 | UI components, styling, state | `pnpm dev` | `http://localhost:5173/rune-studio/studio/` |
 | Pages Functions (`/api/*`) | `pnpm dev:pages` (vite must be running separately) | `http://localhost:8788/` |
 | LSP + curated + Pages Functions all together | `pnpm dev:full` (+ seed:local for curated) | `http://localhost:8788/rune-studio/studio/` |
+
+### Named project targets
+
+The Export workspace keeps ad hoc declaration selection separate from named
+`build-config.yml` targets. Choose a saved target to load its generator options,
+or keep **One-off export** selected. **Save target settings** updates the working
+copy with revision checks; it does not commit or push. Selection roots and the
+last selected target remain personal preferences, never a repository default.
+**Reload project files** picks up external YAML edits; dirty option drafts remain
+available until explicitly saved or a target is selected again.
+
+**Build selected** and **Build all** use saved namespace scopes and options and
+write staged output to each target's configured output directory. The same
+preflight, toolchain checks, path guards and byte-preserving writer are used by
+`rune-cli build`. Studio obtains generated code through the existing network
+service; it does not add a local language-service fallback. Named builds use
+strict library defaults, while one-off exports retain their existing layouts.
+Source/configuration/lock/resource/example changes invalidate captured output.
+Generated output itself does not change the input revision. Working-copy Save,
+Git commit/push and ordinary artifact downloads remain distinct actions.
+
+### GitHub project initialization
+
+Opening a GitHub repository with a POM and no native build configuration offers
+an optional inline settings review. Select profiles explicitly, inspect proposed
+files and unsupported tooling, then **Initialize project settings** or **Keep
+browsing**. Both preserve the cloned repository, POM, remote and branch. A stale
+proposal refuses Save; **Review profiles** reloads current files for a fresh review.
+Existing build-config.yml or .yaml is authoritative and skips this detection.
+
+Export settings retains a **Saved initialization report** after reopen. It records
+the original POM evidence and selected profiles, while current target diagnostics
+and function capabilities determine what can run. Unavailable targets cannot be
+included in a build; other native targets remain usable. Missing or malformed
+historical evidence is reported separately from otherwise usable type generation.
+Subsequent POM changes do not silently synchronize native configuration.
+
+The pinned CDM/FpML journeys verify metadata import, pure type generation and a
+small local Rune execution repair. They do not implement upstream Java tooling,
+business calendars or production payment-schedule generation. Maven versions are
+not inferred Git release tags; unresolved external references need explicit native
+reference selections and locks. There is no standalone Maven import action.
+
+Working-copy Save remains local. Use Git / Sync's explicit **Commit and push** to
+publish repository changes; it flushes editor Save barriers first.
+
+### Portable examples
+
+Prototype **Create example**, duplication, edits and deletion use the active
+ProjectController working-copy Save. Descriptors and payloads live under
+`studio.examples` (default `examples/`), so cloning the repository restores distinct
+examples without the original browser database. **Saved** means the descriptor and
+payload passed the shared transaction readback; **Retry** retains edits after failure.
+A missing or ambiguous type retains its payload and reports a diagnostic.
+
+Existing typed `.studio/instances/*.json` records migrate by exact ID when their
+full declaration identity is unique. A backing-private migration marker is written
+only after repository readback; legacy files remain intact. Credentials, scratch
+files and personal dock/filter state are never copied. Unsupported serialization
+formats refuse Save rather than silently writing JSON. Repository Save remains
+separate from explicit Git commit/push. Internal InstanceRecord APIs retain their
+names and optionally carry the full type identity for portable adapters.
+
+### Named workflows and shared presentation
+
+Use **Save workflow…** to name the current input bindings, optional function and
+output definitions. **Saved workflow** opens a recipe from the working copy.
+Unchanged examples remain bound by stable ID; edited detached inputs are captured
+as literals. Results stay transient until **Save as example…**. Missing symbols or
+examples produce diagnostics while the original recipe files remain intact.
+
+Object layout/order/spans and monetary formats save beneath `studio.layouts` using
+full declaration identities and stable source-property paths. Clones restore these
+settings without the original browser database. Formatting retains exact semantic
+numbers. Existing browser preferences are offered through **Review browser
+presentation…**; **Save in repository** copies only uniquely bound settings after
+review, and leaves the private originals intact. Repository files take precedence.
+Personal docking, filters, selected rows and scratch workflow state remain local.
+
+### Workspace launcher
+
+**Workspaces** opens editable projects; **Reference models** is a separate
+launcher section for read-only dependencies. New workspace, Open folder, Open
+GitHub and file import share the existing activation and Save flows. A live
+folder stays bound to the selected directory: source edits, portable examples
+and configuration use guarded project IO. Reopening/retrying recovers the shared
+Save journal before exposing source, and external file edits produce conflicts.
+Removing its recent workspace disconnects the folder without deleting its files.
+
+**Start from example** lists proposed GitHub starter projects separately from
+reference bundles. Proposed daikonic-org repositories remain unavailable until
+publication and content verification. A verified public starter opens as an
+editable browser copy without authentication, with the exact source commit kept
+as workspace provenance. That origin is not Git backing or push permission;
+clone/fork/connect a writable repository through the existing GitHub flow.
+The source reader accepts bounded UTF-8 file trees and verifies Git blob IDs;
+binary files, symlinks, submodules, truncated trees and private storage paths are
+rejected before copying. See GitHub's [tree](https://docs.github.com/en/rest/git/trees#get-a-tree)
+and [blob](https://docs.github.com/en/rest/git/blobs#get-a-blob) APIs.
+
+Recent-workspace backing and recorded repository status are distinct from a
+current Save result. Missing sync evidence is shown as unknown, not as unpublished
+or synced. No repository creation, Maven execution or automatic push occurs.
+
+### Pinned reference releases
+
+In **Workspaces → Reference models**, choose a model and an exact published
+release. **Review change** verifies the full dependency closure and shows selected
+and required releases before **Save reference change** updates `build-config.yml`
+and `build-config.lock.json` together. Selecting another release replaces that
+model's request; a workspace cannot load two releases of the same model. Cancel
+or verification failure leaves the active request and lock unchanged.
+
+Normal reopen uses the locked commits and verified content cache, without a tag
+lookup or a latest-release fallback. Missing locks, conflicting requirements,
+unavailable bytes and checksum failures retain their diagnostics; **Review
+configured references** repairs an unresolved request, while **Retry reference
+loading** retries an unavailable locked load. Invalid configuration must be
+repaired before a new selection can be saved. Dependency compatibility does not
+establish compatibility of local overrides, examples or business implementations.
+Explorer and parser hydration consume the same captured documents as preview,
+LSP and exports. Legacy model loading remains available only to unmanaged
+workspaces, preserving existing imports without mixing them into pinned projects.
+
+### Runnable model-authoring example
+
+[`examples/workspaces/model-authoring`](../../examples/workspaces/model-authoring/)
+contains local Rune source, two named native build targets, a typed quote example,
+expected fixture, named workflow and shared presentation. Its standalone version
+requires no reference service. The separate project-implementation browser journey
+uses a checked tiny reference cohort to execute an explicit local Rune override,
+then saves input/output examples and reopens the recipe in a fresh clone. Neither
+fixture implements CDM schedules, observations, calendars or decimal parity.

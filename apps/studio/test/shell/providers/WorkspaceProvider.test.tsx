@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { describe, it, expect } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import 'fake-indexeddb/auto';
+import { saveSetting, loadSetting } from '../../../src/workspace/persistence.js';
+import { workbenchSettingsKey } from '../../../src/shell/workbench-settings.js';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { useState, memo } from 'react';
 import { WorkspaceProvider } from '../../../src/shell/providers/WorkspaceProvider.js';
 import { useWorkspace } from '../../../src/shell/providers/workspace-context.js';
 import { useWorkspaceActions } from '../../../src/shell/perspectives/workspace-actions-context.js';
+
+import { useProject } from '../../../src/shell/providers/project-context.js';
+import { createProjectFileAdapter } from '../../../src/workspace/project-file-adapter.js';
+import { createOpfsRoot } from '../../setup/opfs-mock.js';
+import type { ProjectFileAdapter } from '@rune-langium/project-config';
 
 const noopActions = {
   files: [],
@@ -96,4 +104,401 @@ describe('WorkspaceProvider', () => {
     // …but the memoized action-only consumer does NOT (it never subscribed to state).
     expect(actionRenders).toBe(actionsBefore);
   });
+});
+
+function ProjectProbe() {
+  const project = useProject();
+  return <span data-testid="project">{project.snapshot?.workspaceId ?? project.status}</span>;
+}
+
+it('publishes repository snapshots and ignores a late adapter from the previous workspace', async () => {
+  const root = createOpfsRoot();
+  const privateRoot = createOpfsRoot();
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'ws-B',
+    root: root as unknown as FileSystemDirectoryHandle,
+    privateRoot: privateRoot as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  let resolveA!: (value: ProjectFileAdapter) => void;
+  const pendingA = new Promise<ProjectFileAdapter>((resolve) => {
+    resolveA = resolve;
+  });
+  const actions = {
+    ...noopActions,
+    getProjectFileAdapter: (id: string) => (id === 'ws-A' ? pendingA : Promise.resolve(adapter))
+  };
+  const view = render(
+    <WorkspaceProvider state={stateFor('ws-A')} actions={actions}>
+      <ProjectProbe />
+    </WorkspaceProvider>
+  );
+  view.rerender(
+    <WorkspaceProvider state={stateFor('ws-B')} actions={actions}>
+      <ProjectProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('project').textContent).toBe('ws-B'));
+  await act(async () => {
+    resolveA(adapter);
+    await pendingA;
+  });
+  expect(screen.getByTestId('project').textContent).toBe('ws-B');
+});
+
+it('reads repository settings over stale browser preferences without deleting those preferences', async () => {
+  const key = workbenchSettingsKey('repository-wins', 'export-workbench');
+  const legacy = {
+    config: {
+      target: 'sql',
+      selection: { namespaces: [], declarations: [] },
+      options: { sql: { dialect: 'sqlserver' } }
+    }
+  };
+  await saveSetting(key, legacy);
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'repository-wins',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Repository}', null);
+  await adapter.write(
+    'build-config.yml',
+    'schemaVersion: 1\ntargets:\n  postgres:\n    generator: sql\n    output: generated/pg\n    options: {dialect: postgres}\n',
+    null
+  );
+  function TargetProbe() {
+    return (
+      <span data-testid="dialect">
+        {String(useProject().snapshot?.project.build.targets.postgres?.options.dialect ?? '')}
+      </span>
+    );
+  }
+  render(
+    <WorkspaceProvider
+      state={stateFor('repository-wins')}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <TargetProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('dialect').textContent).toBe('postgres'));
+  expect(await loadSetting(key)).toEqual(legacy);
+});
+
+function RuntimeProbe() {
+  const project = useProject();
+  return (
+    <span data-testid="runtime">
+      {project.runtime?.status}:{project.runtime?.input?.snapshot.workspaceId}:
+      {project.runtime?.input?.snapshot.files.get('model/a.rosetta')}
+    </span>
+  );
+}
+it('captures named-project drafts without publishing them as saved repository state', async () => {
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'draft',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Demo}', null);
+  await adapter.write('build-config.yml', 'schemaVersion: 1', null);
+  await adapter.write('model/a.rosetta', 'namespace saved', null);
+  const files = [{ path: 'model/a.rosetta', name: 'a.rosetta', content: 'namespace draft', dirty: true }];
+  render(
+    <WorkspaceProvider
+      state={{ ...stateFor('draft'), files }}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <RuntimeProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('runtime').textContent).toBe('captured:draft:namespace draft'));
+  expect((await adapter.read('model/a.rosetta'))!.text).toBe('namespace saved');
+});
+it('keeps an unmanaged workspace on the established legacy runtime', async () => {
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'legacy',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  render(
+    <WorkspaceProvider
+      state={stateFor('legacy')}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <RuntimeProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('runtime').textContent).toBe('legacy::'));
+});
+
+it('discards a late draft capture after newer editor text is captured', async () => {
+  const capture = await import('../../../src/services/project-runtime-input.js');
+  const originalCapture = capture.captureProjectRuntimeInput;
+  let finish!: (input: Awaited<ReturnType<typeof originalCapture>>) => void;
+  const spy = vi.spyOn(capture, 'captureProjectRuntimeInput').mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+  );
+  try {
+    const adapter = createProjectFileAdapter({
+      workspaceId: 'race',
+      root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      isWritable: () => true
+    });
+    await adapter.write('rune-config.yml', 'model: {name: Demo}', null);
+    await adapter.write('build-config.yml', 'schemaVersion: 1', null);
+    await adapter.write('model/a.rosetta', 'namespace saved', null);
+    const actions = { ...noopActions, getProjectFileAdapter: async () => adapter };
+    const files = [{ path: 'model/a.rosetta', name: 'a.rosetta', content: 'namespace oldDraft', dirty: true }];
+    const view = render(
+      <WorkspaceProvider state={{ ...stateFor('race'), files }} actions={actions}>
+        <RuntimeProbe />
+      </WorkspaceProvider>
+    );
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    const newer = [{ ...files[0]!, content: 'namespace newest' }];
+    view.rerender(
+      <WorkspaceProvider state={{ ...stateFor('race'), files: newer }} actions={actions}>
+        <RuntimeProbe />
+      </WorkspaceProvider>
+    );
+    await waitFor(() => expect(screen.getByTestId('runtime').textContent).toBe('captured:race:namespace newest'));
+    const args = spy.mock.calls[0]!;
+    await act(async () => {
+      finish(await originalCapture(...args));
+    });
+    expect(screen.getByTestId('runtime').textContent).toBe('captured:race:namespace newest');
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it('keeps a captured graph identity while read-only source and presentation metadata hydrate', async () => {
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'identity',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Demo}', null);
+  await adapter.write('build-config.yml', 'schemaVersion: 1', null);
+  await adapter.write('model/a.rosetta', 'namespace example', null);
+  const actions = { ...noopActions, getProjectFileAdapter: async () => adapter };
+  const local = { path: 'model/a.rosetta', name: 'a.rosetta', content: 'namespace example', dirty: true };
+  const reference = {
+    path: '[cdm]/reference.rosetta',
+    name: 'reference.rosetta',
+    content: '',
+    readOnly: true,
+    refOnly: true,
+    dirty: false
+  };
+  let captured: import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput | undefined;
+  function Probe() {
+    captured = useProject().runtime?.input;
+    return <RuntimeProbe />;
+  }
+  const view = render(
+    <WorkspaceProvider state={{ ...stateFor('identity'), files: [local, reference] }} actions={actions}>
+      <Probe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(captured).toBeDefined());
+  const original = captured;
+  view.rerender(
+    <WorkspaceProvider
+      state={{
+        ...stateFor('identity'),
+        files: [
+          { ...local, dirty: false },
+          { ...reference, sourceLoaded: true, content: 'namespace reference' }
+        ]
+      }}
+      actions={actions}
+    >
+      <Probe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('runtime').textContent).toContain('captured:identity'));
+  expect(captured).toBe(original);
+});
+
+it('skips Maven initialization for an existing native config without replacing the active project', async () => {
+  const makeAdapter = (id: string) =>
+    createProjectFileAdapter({
+      workspaceId: id,
+      root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      isWritable: () => true
+    });
+  const active = makeAdapter('active');
+  const cloned = makeAdapter('cloned');
+  await cloned.write('build-config.yaml', 'targets: [invalid', null);
+  await cloned.write('pom.xml', '<not XML', null);
+  function InitProbe() {
+    const { openProjectInitialization } = useWorkspaceActions();
+    const [result, setResult] = useState('');
+    return (
+      <>
+        <button
+          onClick={() => {
+            void openProjectInitialization!('cloned').then(
+              (session) => setResult(session ? 'review' : 'skip'),
+              () => setResult('error')
+            );
+          }}
+        >
+          Inspect clone
+        </button>
+        <span data-testid="initialization">{result}</span>
+        <ProjectProbe />
+      </>
+    );
+  }
+  render(
+    <WorkspaceProvider
+      state={stateFor('active')}
+      actions={{ ...noopActions, getProjectFileAdapter: async (id) => (id === 'cloned' ? cloned : active) }}
+    >
+      <InitProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('project')).toHaveTextContent('active'));
+  act(() => screen.getByRole('button', { name: 'Inspect clone' }).click());
+  await waitFor(() => expect(screen.getByTestId('initialization')).toHaveTextContent('skip'));
+  expect(screen.getByTestId('project')).toHaveTextContent('active');
+  expect((await cloned.read('build-config.yaml'))?.text).toBe('targets: [invalid');
+});
+
+it('recovers prepared repository example files before publishing a reopened workspace', async () => {
+  const { createProjectController } = await import('../../../src/workspace/project-controller.js');
+  const { saveExample } = await import('../../../src/workspace/example-repository.js');
+  const { useInstanceStore } = await import('../../../src/store/instance-store.js');
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'recover-examples',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  const controller = createProjectController({ workspaceId: 'recover-examples', adapter, validateTarget: () => [] });
+  await controller.load();
+  const write = adapter.write;
+  let failed = false;
+  adapter.write = async (path, text, revision) => {
+    if (!failed && path.startsWith('examples/')) {
+      failed = true;
+      throw new Error('disk full');
+    }
+    return write(path, text, revision);
+  };
+  await expect(
+    saveExample(
+      controller,
+      {
+        schemaVersion: 1,
+        id: 'recovered',
+        name: 'Recovered',
+        type: { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' },
+        payload: 'examples/recovered.json',
+        codec: 'JSON'
+      },
+      { amount: 7 }
+    )
+  ).rejects.toThrow();
+  controller.dispose();
+  render(
+    <WorkspaceProvider
+      state={stateFor('recover-examples')}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <ProjectProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('project').textContent).toBe('recover-examples'));
+  await waitFor(() => expect(useInstanceStore.getState().instances.recovered?.data).toEqual({ amount: 7 }));
+});
+
+it('attaches portable example and presentation writers after repairing initial recovery without reactivation', async () => {
+  const { useInstanceStore } = await import('../../../src/store/instance-store.js');
+  const { useFormPresentationStore } = await import('../../../src/store/form-presentation-store.js');
+  const { declarationKey } = await import('@rune-langium/core/project-contract');
+  const type = { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' };
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'repaired',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  await adapter.write('rune-config.yml', 'model: {name: Example}', null);
+  await adapter.write('build-config.yml', 'schemaVersion: [', null);
+  await adapter.write('model/trade.rosetta', 'namespace example\ntype Trade:\n amount number (1..1)', null);
+  await adapter.write(
+    'examples/input.example.json',
+    JSON.stringify({
+      schemaVersion: 1,
+      id: 'input',
+      name: 'Input',
+      type,
+      payload: 'examples/input.json',
+      codec: 'JSON'
+    }),
+    null
+  );
+  await adapter.write('examples/input.json', '{"amount": 7}', null);
+  let controller: ReturnType<typeof useProject>['controller'];
+  function RepairProbe() {
+    const project = useProject();
+    controller = project.controller;
+    return <span data-testid="recovery-status">{project.status}</span>;
+  }
+  render(
+    <WorkspaceProvider
+      state={{
+        ...stateFor('repaired'),
+        files: [
+          {
+            path: 'model/trade.rosetta',
+            name: 'trade.rosetta',
+            content: 'namespace example\ntype Trade:\n amount number (1..1)',
+            dirty: false,
+            namespace: 'example',
+            exports: [{ type: 'Data', name: 'Trade' }]
+          }
+        ]
+      }}
+      actions={{ ...noopActions, getProjectFileAdapter: async () => adapter }}
+    >
+      <RepairProbe />
+    </WorkspaceProvider>
+  );
+  await waitFor(() => expect(screen.getByTestId('recovery-status')).toHaveTextContent('invalid'));
+  await adapter.write('build-config.yml', 'schemaVersion: 1', (await adapter.read('build-config.yml'))!.revision);
+  await act(async () => {
+    await controller!.load();
+  });
+  await waitFor(() => expect(screen.getByTestId('recovery-status')).toHaveTextContent('ready'));
+  await waitFor(() => expect(useInstanceStore.getState().instances.input?.data).toEqual({ amount: 7 }));
+  await waitFor(() => expect(useFormPresentationStore.getState().workspaces.repaired?.repository).toBe(true));
+  act(() => useInstanceStore.getState().renameInstance('input', 'Repaired input'));
+  await waitFor(() => expect(useInstanceStore.getState().saveStates.input?.state).toBe('saved'));
+  expect((await adapter.read('examples/input.example.json'))?.text).toContain('Repaired input');
+  act(() =>
+    useFormPresentationStore.getState().update('repaired', (before) => ({
+      ...before,
+      layouts: { ...before.layouts, [declarationKey(type)]: { columns: 2, order: ['amount'], spans: {} } }
+    }))
+  );
+  await waitFor(async () =>
+    expect((await adapter.list()).filter((path) => path.endsWith('.layout.json'))).toHaveLength(1)
+  );
+  const layout = (await adapter.list()).find((path) => path.endsWith('.layout.json'))!;
+  expect((await adapter.read(layout))?.text).toContain('"columns": 2');
 });

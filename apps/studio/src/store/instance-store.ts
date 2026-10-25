@@ -12,7 +12,8 @@ import {
   flushPersistedInstance,
   instancePersistenceContext,
   persistDelete,
-  persistInstance
+  persistInstance,
+  type ExampleRepository
 } from './instance-persistence.js';
 import { create } from 'zustand';
 
@@ -56,16 +57,16 @@ const pendingSchemaRequests = new Map<string, { typeFqn: string; epoch: number }
 const latestSchemaRequestForType = new Map<string, string>();
 const preparationControllers = new Map<string, AbortController>();
 
-// OPFS persistence context (finding #1) — set once both an `OpfsFs` instance
-// and the active workspace's root path are available. Follows the same
-// module-level-ref pattern as `workerRef` above (not store state, since
-// `OpfsFs` wraps a non-serializable `FileSystemDirectoryHandle`).
+// Production records use the active repository. The private OPFS context remains
+// available for typed legacy adapters; neither context is serializable store state.
 let opfsFs: OpfsFs | undefined;
 let opfsWorkspaceRoot: string | undefined;
+let exampleRepository: ExampleRepository | undefined;
 
 export interface CreateInstanceInput {
   data?: unknown;
   provenance?: InstanceProvenance;
+  typeIdentity?: InstanceRecord['typeIdentity'];
 }
 
 export type InstanceSaveState =
@@ -104,6 +105,7 @@ interface InstanceStoreState {
   removeInstance(id: string): Promise<void>;
   retrySave(id: string): Promise<void>;
   flushInstance(id: string): Promise<void>;
+  flushSaves(workspaceId: string): Promise<void>;
   saveRecord(record: InstanceRecord): void;
   markSaveFailed(id: string, revision: number, error: unknown): void;
   setWorker(worker: Worker | undefined): void;
@@ -120,6 +122,7 @@ interface InstanceStoreState {
   receiveSchemaStale(requestId: string, reason: PreviewStaleReason, message: string): boolean;
   handleWorkerFailure(message: string): void;
   setOpfsContext(fs: OpfsFs, workspaceRoot: string): void;
+  setExampleRepository(repository: ExampleRepository | undefined): void;
   loadInstancesFromOpfs(): Promise<void>;
 }
 
@@ -139,14 +142,15 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
     const state = get();
     const record: InstanceRecord = {
       id,
-      name: uniqueName(name.trim() || 'Untitled instance', state.instances),
+      name: uniqueName(name.trim() || 'Untitled example', state.instances),
       typeFqn,
+      ...(input?.typeIdentity ? { typeIdentity: cloneData(input.typeIdentity) } : {}),
       data: cloneData(input?.data ?? {}),
       ...(input?.provenance ? { provenance: cloneData(input.provenance) } : {}),
       createdAt: now,
       modifiedAt: now
     };
-    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot);
+    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot, exampleRepository);
     set((current) => ({
       instances: { ...current.instances, [id]: record },
       recordRevisions: { ...current.recordRevisions, [id]: 1 },
@@ -163,7 +167,9 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
             set((latest) => ({ saveStates: { ...latest.saveStates, [id]: { state: 'saved', revision: 1 } } }));
           }
         },
-        (error: unknown) => get().markSaveFailed(id, 1, error)
+        (error: unknown) => {
+          if (get().workspaceEpoch === state.workspaceEpoch) get().markSaveFailed(id, 1, error);
+        }
       );
     }
     // Validate immediately (round-5 finding #2) — mirrors the exact
@@ -199,7 +205,7 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
 
   renameInstance(id, name) {
     const trimmed = name.trim();
-    if (!trimmed) throw new Error('Instance name cannot be empty.');
+    if (!trimmed) throw new Error('Example name cannot be empty.');
     const record = get().instances[id];
     if (!record) return;
     const renamed = { ...record, name: uniqueName(trimmed, get().instances, id), modifiedAt: Date.now() };
@@ -213,33 +219,37 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
     if (!record) throw new Error('Instance no longer exists.');
     return get().createInstance(record.typeFqn, record.name, {
       data: cloneData(record.data),
+      ...(record.typeIdentity ? { typeIdentity: cloneData(record.typeIdentity) } : {}),
       ...(record.provenance ? { provenance: cloneData(record.provenance) } : {})
     });
   },
 
   async removeInstance(id) {
+    const epoch = get().workspaceEpoch;
     const record = get().instances[id];
     if (!record) return;
     preparationControllers.get(id)?.abort();
     preparationControllers.delete(id);
-    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot);
+    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot, exampleRepository);
     const revision = get().recordRevisions[id] ?? 0;
     if (context) {
       set((state) => ({ saveStates: { ...state.saveStates, [id]: { state: 'saving', revision } } }));
       try {
         await persistDelete(context, id);
       } catch (error) {
+        if (get().workspaceEpoch !== epoch) throw error;
         const message = error instanceof Error ? error.message : String(error);
         set((state) => ({
           saveStates: { ...state.saveStates, [id]: { state: 'failed', revision, message } }
         }));
-        useOutputStore.getState().addLine(fmtLine('instance', 'failed to delete saved instance', message), 'error', {
+        useOutputStore.getState().addLine(fmtLine('instance', 'failed to delete saved example', message), 'error', {
           op: 'instance',
           subject: id
         });
         throw error;
       }
     }
+    if (get().workspaceEpoch !== epoch) return;
     set((state) => {
       const { [id]: _removed, ...rest } = state.instances;
       const { [id]: _saveState, ...saveStates } = state.saveStates;
@@ -256,14 +266,25 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
   },
 
   async flushInstance(id) {
-    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot);
+    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot, exampleRepository);
     await flushPersistedInstance(context, id);
     const state = get().saveStates[id];
     if (state?.state === 'failed') throw new Error(state.message);
   },
 
+  async flushSaves(workspaceId) {
+    const repository = exampleRepository;
+    if (repository?.workspaceId !== workspaceId) return;
+    const epoch = get().workspaceEpoch;
+    do {
+      await Promise.all(Object.keys(get().saveStates).map((id) => get().flushInstance(id)));
+      if (exampleRepository !== repository || get().workspaceEpoch !== epoch)
+        throw new Error('Workspace changed while saving examples.');
+    } while (Object.values(get().saveStates).some((state) => state.state === 'saving'));
+  },
+
   saveRecord(record) {
-    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot);
+    const context = instancePersistenceContext(opfsFs, opfsWorkspaceRoot, exampleRepository);
     const epoch = get().workspaceEpoch;
     const nextRevision = (get().recordRevisions[record.id] ?? 0) + 1;
     const snapshot = cloneData(record);
@@ -283,7 +304,9 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
           saveStates: { ...state.saveStates, [record.id]: { state: 'saved', revision: nextRevision } }
         }));
       },
-      (error: unknown) => get().markSaveFailed(record.id, nextRevision, error)
+      (error: unknown) => {
+        if (get().workspaceEpoch === epoch) get().markSaveFailed(record.id, nextRevision, error);
+      }
     );
   },
 
@@ -531,72 +554,74 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
   // switch writes into `validationErrors` under an id that cannot collide
   // with any instance id in the new workspace — there's no reused key for
   // it to corrupt.
+  setExampleRepository(repository) {
+    if (exampleRepository === repository) return;
+    exampleRepository = repository;
+    opfsFs = undefined;
+    opfsWorkspaceRoot = undefined;
+    get().advanceWorkspaceEpoch();
+    set({ instances: {}, saveStates: {}, recordRevisions: {} });
+    if (repository) void get().loadInstancesFromOpfs();
+  },
+
   setOpfsContext(fs, workspaceRoot) {
-    // App.tsx can receive refreshed metadata for the current workspace. Its
-    // persistence effect then re-applies this exact OPFS identity; that is not
-    // a workspace transition and must not discard live edits while the async
-    // restore is still catching up.
-    if (opfsFs === fs && opfsWorkspaceRoot === workspaceRoot) return;
+    if (!exampleRepository && opfsFs === fs && opfsWorkspaceRoot === workspaceRoot) return;
+    exampleRepository = undefined;
     opfsFs = fs;
     opfsWorkspaceRoot = workspaceRoot;
-    for (const controller of preparationControllers.values()) controller.abort();
-    preparationControllers.clear();
-    pendingRequests.clear();
-    pendingSchemaRequests.clear();
-    latestSchemaRequestForType.clear();
-    set((state) => ({
-      instances: {},
-      validationErrors: {},
-      validationStatus: {},
-      schemas: new Map(),
-      schemaErrors: new Map(),
-      saveStates: {},
-      recordRevisions: {},
-      workspaceEpoch: state.workspaceEpoch + 1
-    }));
+    get().advanceWorkspaceEpoch();
+    set({ instances: {}, saveStates: {}, recordRevisions: {} });
     void get().loadInstancesFromOpfs();
   },
 
   async loadInstancesFromOpfs() {
-    if (!opfsFs || !opfsWorkspaceRoot) return;
-    const fs = opfsFs;
-    const workspaceRoot = opfsWorkspaceRoot;
+    if (!exampleRepository && (!opfsFs || !opfsWorkspaceRoot)) return;
+    const repository = exampleRepository;
+    const epoch = get().workspaceEpoch;
+    const fs = opfsFs!;
+    const workspaceRoot = opfsWorkspaceRoot!;
     try {
-      const files = await listInstanceFiles(fs, workspaceRoot);
+      const restored = repository ? await repository.load() : undefined;
+      for (const issue of restored?.diagnostics ?? [])
+        useOutputStore.getState().addLine(fmtLine('example', issue.message, issue.path), 'warn', { op: 'example' });
+      const files = restored ? [] : await listInstanceFiles(fs, workspaceRoot);
       const ids = files.map((f) => f.replace(/\.json$/, ''));
-      const records = await Promise.all(
-        ids.map(async (id) => {
-          try {
-            return await readInstance(fs, workspaceRoot, id);
-          } catch (err) {
-            console.error(`[instance-store] Failed to read persisted instance "${id}" from OPFS:`, err);
-            // Dropped silently otherwise — a corrupted/unreadable instance
-            // file looks indistinguishable from the user having deleted it.
-            useOutputStore
-              .getState()
-              .addLine(
-                fmtLine(
-                  'instance',
-                  `could not load saved instance "${id}"`,
-                  err instanceof Error ? err.message : String(err)
-                ),
-                'warn',
-                {
-                  op: 'instance',
-                  subject: id
-                }
-              );
-            return undefined;
-          }
-        })
-      );
-      const loaded: Record<string, InstanceRecord> = {};
-      for (const record of records) {
-        if (record) loaded[record.id] = record;
-      }
+      const records =
+        restored?.records ??
+        (await Promise.all(
+          ids.map(async (id) => {
+            try {
+              return await readInstance(fs, workspaceRoot, id);
+            } catch (err) {
+              console.error(`[instance-store] Failed to read persisted instance "${id}" from OPFS:`, err);
+              // Dropped silently otherwise — a corrupted/unreadable instance
+              // file looks indistinguishable from the user having deleted it.
+              useOutputStore
+                .getState()
+                .addLine(
+                  fmtLine(
+                    'instance',
+                    `could not load saved example "${id}"`,
+                    err instanceof Error ? err.message : String(err)
+                  ),
+                  'warn',
+                  {
+                    op: 'instance',
+                    subject: id
+                  }
+                );
+              return undefined;
+            }
+          })
+        ));
+      const loaded = Object.fromEntries(records.filter((record) => !!record).map((record) => [record!.id, record!]));
       // Only apply if this OPFS context is still the current one — guards
       // against a rapid workspace switch resolving out of order.
-      if (opfsFs === fs && opfsWorkspaceRoot === workspaceRoot) {
+      if (
+        get().workspaceEpoch === epoch &&
+        exampleRepository === repository &&
+        (repository || (opfsFs === fs && opfsWorkspaceRoot === workspaceRoot))
+      ) {
         // Merge, don't wholesale-replace (round-7 finding #2): `loaded` is
         // the base, with any instances already present in current state
         // layered on top. setOpfsContext synchronously cleared `instances`
@@ -617,7 +642,13 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
               Object.keys(instances).map((id) => [id, state.recordRevisions[id] ?? 1])
             ),
             saveStates: Object.fromEntries(
-              Object.keys(instances).map((id) => [id, state.saveStates[id] ?? { state: 'saved', revision: 1 }])
+              Object.keys(instances).map((id) => [
+                id,
+                state.saveStates[id] ??
+                  (restored?.failures?.[id]
+                    ? { state: 'failed', revision: 1, message: restored.failures[id] }
+                    : { state: 'saved', revision: 1 })
+              ])
             )
           };
         });
@@ -640,7 +671,7 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
             // The instance itself already loaded successfully (set() above
             // already applied it) — this is only a validation-dispatch
             // failure (e.g. a terminated worker), not a load failure, so it
-            // must NOT be reported as "failed to load saved instances"
+            // must NOT be reported as "failed to load saved examples"
             // (Codex P2) — and must not abort the loop for the remaining
             // restored instances either.
             console.error(`[instance-store] Failed to dispatch validation for restored instance "${id}":`, err);
@@ -659,13 +690,14 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
         }
       }
     } catch (err) {
+      if (get().workspaceEpoch !== epoch) return;
       console.error('[instance-store] Failed to load instances from OPFS:', err);
       // Whole-list failure: the instance list stays empty/stale with no
       // explanation otherwise — the highest-blast-radius case in this file.
       useOutputStore
         .getState()
         .addLine(
-          fmtLine('instance', 'failed to load saved instances', err instanceof Error ? err.message : String(err)),
+          fmtLine('instance', 'failed to load saved examples', err instanceof Error ? err.message : String(err)),
           'error',
           { op: 'instance' }
         );

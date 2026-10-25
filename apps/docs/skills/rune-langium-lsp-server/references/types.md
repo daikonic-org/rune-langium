@@ -5,6 +5,7 @@
 ### `LspModelUpdate`
 Incremental semantic documents followed by the complete current URI set.
 **Properties:**
+- `resolution: { schemaVersion: 1; receipt: { revision: string; lockDigest: string; overridesDigest: string }; models: z.ZodRecord<z.ZodString, z.ZodString>; lock: unknown; overrides: unknown[] } | null` (optional)
 - `document: { uri: string; modelJson: string }` (optional)
 - `retain: string[]` (optional)
 

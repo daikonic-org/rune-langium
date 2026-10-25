@@ -241,7 +241,7 @@ journey(
     await page.getByRole('button', { name: 'Execute', exact: true }).click();
     await expect(page.getByRole('region', { name: 'amount output' })).toContainText('number');
     await expect(page.getByTestId('instance-payload-output')).toHaveText('1250');
-    await expect(page.getByRole('button', { name: 'Save as instance…' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Save as example…' })).toHaveCount(0);
     await page.getByRole('button', { name: /Choose a function/ }).click();
     await page.getByRole('option', { name: 'Clear selection', exact: true }).click();
     await expect(
@@ -259,7 +259,7 @@ journey(
     await sum(page);
     await page.getByRole('button', { name: 'Execute', exact: true }).click();
     await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
-    await page.getByRole('button', { name: 'Import objects…', exact: true }).click();
+    await page.getByRole('button', { name: 'Import examples…', exact: true }).click();
     await page.getByRole('button', { name: 'Imported object type', exact: true }).click();
     await page.getByRole('option', { name: 'Money — workflow', exact: true }).click();
     await page
@@ -472,10 +472,10 @@ journey(
     await sum(page);
     await page.getByRole('button', { name: 'Execute', exact: true }).click();
     await expect(page.getByTestId('instance-payload-output')).toContainText('1275');
-    await page.getByRole('button', { name: 'Save as instance…', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'New instance', exact: true });
-    await dialog.getByLabel('Instance name', { exact: true }).fill('Calculated money');
-    await dialog.getByRole('button', { name: 'Create instance', exact: true }).click();
+    await page.getByRole('button', { name: 'Save as example…', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Create example', exact: true });
+    await dialog.getByLabel('Example name', { exact: true }).fill('Calculated money');
+    await dialog.getByRole('button', { name: 'Create example', exact: true }).click();
     // Creation offers an input binding while a compatible function is active.
     await page
       .getByRole('dialog', { name: 'Use object as input', exact: true })

@@ -20,6 +20,8 @@
 
 import { isRecord } from './message-guards.js';
 import type { FormPreviewSchema, GeneratedProjection, ProjectionSubject } from '@rune-langium/codegen/export';
+import type { ProjectRuntimeInput } from './project-runtime-input.js';
+import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 
 export interface ProjectionRequest {
   type: 'projection:generate';
@@ -100,6 +102,8 @@ export interface PreviewFileEntry {
 }
 
 export interface PreviewSetFilesMessage {
+  project?: ProjectRuntimeInput;
+  projectUnavailable?: string;
   type: 'preview:setFiles';
   files: PreviewFileEntry[];
   requestId?: string;
@@ -108,6 +112,8 @@ export interface PreviewSetFilesMessage {
 }
 
 export interface PreviewFilesReadyMessage {
+  projectReceipt?: ProjectResolutionReceipt;
+  projectError?: string;
   type: 'preview:files-ready';
   requestId: string;
   filesRevision: number;

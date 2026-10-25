@@ -33,6 +33,7 @@
 import { inflate } from 'pako';
 import { z } from 'zod';
 import {
+  CURATED_MIRROR_BASE,
   CuratedSerializedWorkspaceArtifactSchema,
   CuratedSerializedDocumentSchema,
   CuratedCohortSchema,
@@ -43,7 +44,6 @@ import {
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import { OperationTimeoutError, withAbortTimeout } from './with-abort-timeout.js';
 
-const CURATED_MIRROR_BASE = 'https://www.daikonic.dev/curated';
 export const CURATED_FETCH_TIMEOUT_MS = 12_000;
 
 /**

@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
+import { useProject } from '../shell/providers/project-context.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import { usePreviewSessionFactory } from '../shell/providers/preview-session-context.js';
 import { withInstrumentation } from './instrumentation/core.js';
@@ -33,6 +34,7 @@ export const useWorkflowValidation = withInstrumentation(
   ): WorkflowValidation {
     const factory = usePreviewSessionFactory();
     const models = useWorkspaceOptional()?.models;
+    const projectRevision = useProject().snapshot?.revision;
     const [attempt, setAttempt] = useState(0);
     const retry = useCallback(() => setAttempt((value) => value + 1), []);
     const [result, setResult] = useState<{
@@ -42,6 +44,7 @@ export const useWorkflowValidation = withInstrumentation(
       models: typeof models;
       functionInputs: boolean;
       attempt: number;
+      projectRevision: string | undefined;
       value: WorkflowValidation;
     }>();
     useEffect(() => {
@@ -59,6 +62,7 @@ export const useWorkflowValidation = withInstrumentation(
                 models,
                 functionInputs,
                 attempt,
+                projectRevision,
                 value: { state: diagnostics.length ? 'invalid' : 'valid', diagnostics }
               });
           },
@@ -71,6 +75,7 @@ export const useWorkflowValidation = withInstrumentation(
                 models,
                 functionInputs,
                 attempt,
+                projectRevision,
                 value: {
                   state: 'unavailable',
                   diagnostics: [],
@@ -85,7 +90,7 @@ export const useWorkflowValidation = withInstrumentation(
         controller.abort();
         client.dispose();
       };
-    }, [target, data, factory, functionInputs, models, attempt]);
+    }, [target, data, factory, functionInputs, models, attempt, projectRevision]);
     if (!target) return { state: 'unchecked', diagnostics: [] };
     if (!factory) return { state: 'unavailable', diagnostics: [], message: 'Validation worker is preparing.' };
     return result?.target === target &&
@@ -93,7 +98,8 @@ export const useWorkflowValidation = withInstrumentation(
       result.factory === factory &&
       result.models === models &&
       result.functionInputs === functionInputs &&
-      result.attempt === attempt
+      result.attempt === attempt &&
+      result.projectRevision === projectRevision
       ? { ...result.value, retry }
       : { state: 'pending', diagnostics: [] };
   },

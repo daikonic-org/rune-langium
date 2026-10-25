@@ -20,11 +20,11 @@ export const PERSPECTIVES: readonly Perspective[] = [
   },
   {
     id: 'workspaces',
-    label: 'Workspaces / Models',
+    label: 'Workspaces',
     icon: FolderOpen,
     group: 'main',
     requiresWorkspace: false,
-    title: 'Workspaces / Models'
+    title: 'Workspaces'
   },
   {
     id: 'git',

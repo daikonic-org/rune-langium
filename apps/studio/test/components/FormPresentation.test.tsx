@@ -219,3 +219,9 @@ it('preserves a declared Choice identity in a projected parameter or result', ()
   });
   expect(projected).toMatchObject({ kind: 'choice', targetId: 'test.Payment' });
 });
+
+it('uses stable source-property paths rather than list-item indices for shared presentation', async () => {
+  const { formMemberKey } = await import('../../src/components/FormPresentation.js');
+  expect(formMemberKey('value.prices[4].amount', 'value')).toBe('prices.amount');
+  expect(formMemberKey('value.prices[1].amount', 'value')).toBe('prices.amount');
+});

@@ -198,6 +198,7 @@
 | [clearValue](clear-value.md) |  |
 | [setMetaValue](set-meta-value.md) |  |
 | [clearMetaValue](clear-meta-value.md) |  |
+| [setTypeRef](set-type-ref.md) |  |
 | [getConstructorTypeArgs](get-constructor-type-args.md) |  |
 | [addConstructorTypeArg](add-constructor-type-arg.md) |  |
 | [insertConstructorTypeArgAt](insert-constructor-type-arg-at.md) |  |

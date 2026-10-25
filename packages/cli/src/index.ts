@@ -11,8 +11,9 @@
  * @remarks
  * Use the CLI when you need batch validation in CI, ad-hoc parsing from a
  * terminal, or code generation without embedding the libraries directly in a
- * Node.js tool. The `generate` command delegates to the codegen toolchain while
- * `parse` and `validate` provide lightweight syntax and diagnostics checks.
+ * Node.js tool. `build` runs explicit portable project targets natively;
+ * `generate` retains the legacy toolchain bridge. `parse` and `validate` provide
+ * lightweight syntax and diagnostics checks.
  */
 
 import { Command } from 'commander';
@@ -20,6 +21,7 @@ import { runParse } from './parse.js';
 import { runValidate } from './validate.js';
 import { runGenerate } from './generate.js';
 import type { GenerateCommandOptions } from './generate.js';
+import { runBuild, type BuildCommandOptions } from './build.js';
 
 const program = new Command();
 
@@ -60,4 +62,18 @@ program
     process.exit(exitCode);
   });
 
-program.parse();
+program
+  .command('build')
+  .description('Build explicit named targets from portable project settings')
+  .requiredOption('--project <root>', 'Project working-copy root')
+  .option('--target <names...>', 'Named build targets')
+  .option('--all', 'Build every configured target')
+  .option('--json', 'Output the build result as JSON')
+  .action(async (options: BuildCommandOptions) => {
+    process.exitCode = await runBuild(options);
+  });
+
+program.parseAsync().catch((failure: unknown) => {
+  console.error(failure instanceof Error ? failure.message : 'Command failed.');
+  process.exitCode = 1;
+});

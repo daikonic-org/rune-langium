@@ -685,6 +685,17 @@ serialize models back to source text.
 - `isValidID`
 - `isWithMetaEntry`
 - `isWithMetaOperation`
+- `declarationDispatch`: Selector text is stable before linking; resolving it here would recursively enter scope construction.
+- `setProjectDocumentModel`: Hosts explicitly assign document ownership; core does not infer model identity from names or namespaces.
+- `setProjectRedirects`
+- `invalidateProjectResolution`: A host must invalidate identity indexes whenever it replaces document roots.
+- `clearProjectResolution`
+- `hasProjectRedirects`
+- `getEffectiveProjectDeclaration`: All consumers select through the same generation-local declaration targets as core linking.
+- `projectDeclarationIdentity`
+- `redirectProjectNode`: A missing replacement stays unresolved; it must never fall back to the immutable original.
+- `redirectProjectScope`: Keep authored lookup names while navigation and linking descriptions point at the effective declaration.
+- `declarationKey`: Portable identity key; config and parser hosts share this exact representation.
 - `parse`: Parse a Rosetta DSL source string into a typed AST.
 - `parseWorkspace`: Parse multiple Rosetta DSL source strings as a workspace.
 Cross-references between documents will be resolved after all documents are built.
@@ -739,6 +750,7 @@ dep map produced by `collectNamespaceDependencies`.
 - `namespaceFromSource`: Extract the namespace from raw `.rosetta` source text. Returns `''` when no
 `namespace` declaration is present (matching the historical callers).
 - `namespaceFromModelName`: Normalize a `RosettaModel.
+- `expandNamespaceWildcard`: Expand an exact name or dotted-prefix wildcard against known namespaces.
 - `indexById`: Build an id→item Map, insertion order preserved. Defaults the key to `item.id`.
 - `fromIndex`: Derive the value array from an id→item Map (insertion order).
 - `getEnumValues`: Effective enum members, with child declarations overriding inherited names.
@@ -749,6 +761,8 @@ dep map produced by `collectNamespaceDependencies`.
 - `importAliasCandidates`: Shared by language scopes and views; a real qualified name keeps precedence.
 - `buildImportScope`: File-local scope facts shared by language lookup and projected references.
 - `importScopeCandidates`: Ordered names for a file scope; bare fallback is for the language's outer scope.
+- `relinkReference`: Rebuild authored references through Langium's authoritative scope/link boundary.
+- `relinkModelReferences`: Dependency snapshots must stay relinkable after live edits or a project-context transition.
 - `DuplicateKeyError`
 - `RuneDslAstReflection`
 - `RuneDslIndexManager`: Extended IndexManager that supports external registration of exported
@@ -828,6 +842,9 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `ToTimeOperation`
 - `ToZonedDateTimeOperation`
 - `reflection`
+- `DeclarationIdentitySchema`
+- `ProjectResolutionReceiptSchema`
+- `ProjectResolutionContextSchema`: Sent with a complete retained document set, after its semantic snapshots have arrived.
 - `BASE_TYPE_FILES`: System file descriptors for base types.
 - `BASICTYPES_ROSETTA`: Built-in Rune DSL base type definitions.
 - `ANNOTATIONS_ROSETTA`
@@ -1009,6 +1026,10 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `TypeParameterValidID`
 - `ValidID`
 - `RuneDslAstType`
+- `DeclarationRedirects`
+- `DeclarationIdentity`
+- `ProjectResolutionReceipt`
+- `ProjectResolutionContext`
 - `ParseResult`: Result of parsing a Rosetta DSL source string.
 - `ExpressionParseResult`: Result of parsing a bare Rune DSL expression snippet.
 - `RuneDslServices`: Union type for all services available in the Rune DSL language.
@@ -1055,8 +1076,108 @@ and @lspeasy/server.
 
 ## @rune-langium/codegen
 
-> The main barrel (`@rune-langium/codegen`, i.e. this file, resolved via
-package.json's `"."` export) is intentionally empty.
+> Generate TypeScript, Zod, JSON Schema, and form-preview metadata from parsed
+Rune DSL documents.
+
+### API
+
+- `generate`: Generate code from one or more parsed Langium documents.
+- `generateSelected`: Generate a declaration-scoped export and return the exact selection receipt
+used by generation.
+- `generatePreviewSchemas`: Generate structured form-preview schemas from one or more parsed Langium documents.
+- `createProjectBindingRegistry`: Prepared data and installed callbacks only; this module never reads configuration or loads code.
+- `applyProjectPreviewBindings`: Transform every finite definition too, so deferred object expansion uses the same choices.
+- `validateProjectPreviewBindings`: Resource constraints supplement the generated Rune validator; missing data is an availability error.
+- `projectBindingNames`: Names cannot collide with authored Rune identifiers and remain unique in single-file bundles.
+- `projectBindingHeader`
+- `bindGeneratedProjectModule`: Attach a prepared registry to a newly loaded generated module; no global registry crosses projects.
+- `projectCodeListForAlias`: One adapter guard shared by the graph and all resource-aware generators.
+- `normalizePreviewInputs`: Adapt plain form values to the generated function's metadata-bearing input contract.
+- `expandPreviewField`: Resolve one deferred object body without expanding its nested references.
+- `previewTypeSymbol`: Canonical presentation identity shared by schema generation, resource bindings and layout consumers.
+- `collectDeclarationDependencies`: Direct declaration dependencies through the authoritative effective-reference port.
+- `declarationKey`: Stable, kind-aware identity for a selected top-level declaration.
+- `resolveExportSelection`: Resolve selected roots and return shallow document views without mutating the linked workspace.
+- `unknownExportSelectionDiagnostics`: Shared diagnostic details for stale declaration or namespace export roots.
+- `resolveEffectiveProjectTargetId`: Resolve a kind-qualified authored target through core's linked project identity.
+- `isWholeModelEmitter`: Runtime discriminator between the two emitter contracts.
+- `resolveExcelSheets`: Resolve the effective sheet toggles from a partial/absent options block,
+applying the schema defaults.
+- `emitStandaloneZodSchema`: Emit one target type's real Zod schema as a self-contained script — the
+target's transitive closure (Task 2) assembled into a single synthetic
+`Nam...
+- `selectTypeScriptProjection`: Select recorded output; display availability is independent of inverse-lens coverage.
+- `createPythonProjectionContext`
+- `projectPythonFunction`: Complete implementation; the inverse Python lens retains its narrower expression contract.
+- `projectPythonCondition`
+- `generatePythonModule`: Standalone browser-safe Python source plus source-addressed display fragments.
+- `selectPythonProjection`
+- `projectPythonExpression`: Forward generation is independent of the deliberately narrower inverse Python lens.
+- `validateTargetOptions`
+- `getGeneratorCapabilities`
+- `getTargetLayouts`
+- `ProjectBindingUnavailable`
+- `GeneratorError`: Thrown when strict mode is enabled and any error diagnostic is produced.
+FR-022.
+- `GenericModelEmitter`: Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
+plus a `LanguageProfile` (019 spec §3.
+- `IMPLEMENTED_TARGETS`: The targets `runGenerate` can actually produce output for in this build.
+- `TARGET_DESCRIPTORS`: Registry of all generator targets.
+- `ExcelOptionsSchema`
+- `RUNTIME_HELPER_JS_SOURCE`: Annotation-free counterpart used by the Studio execution worker.
+- `TARGET_OPTIONS_SCHEMAS`
+
+## Optional
+
+### Types
+
+- `SelectedGeneration`: Files and the dependency-closed receipt produced by a selected export.
+- `ProjectCodeListBinding`
+- `ProjectImplementationBinding`
+- `ProjectBindingRegistry`
+- `ResolvedExportSelection`
+- `FormPreviewKind`
+- `FunctionPreviewOutput`: The declared result identity for a function preview schema.
+- `FormPreviewSchema`
+- `ExportDeclarationSelection`: Serializable identity for a selected top-level Rune declaration.
+- `ExportSelection`: Namespace and declaration roots requested for an export.
+- `GeneratorOutput`: One emitted output file from the generator.
+FR-001 (output structure).
+- `GeneratorDiagnostic`: A generator-time diagnostic (not a Langium validation diagnostic).
+FR-025 (diagnostics).
+- `PreviewField`
+- `PreviewFieldKind`
+- `PreviewSourceMapEntry`
+- `SourceMapEntry`: One source-map entry: maps an output line back to a source location.
+FR-024 (source maps).
+- `Target`: Supported generator targets.
+- `TargetDescriptor`: Static descriptor for a generator target.
+- `GeneratedFunc`: Metadata for a single emitted Rune `func` (TypeScript target only).
+FR-028–FR-032 (function declarations, US6).
+- `WholeModelEmitter`: Emitter contract for targets that consume the **entire model** as a
+single input (rather than one namespace at a time).
+- `WholeModelEmitterConstructor`
+- `NamespaceEmitter`
+- `NamespaceEmitterConstructor`
+- `LanguageProfile`: Declarative target-level metadata for packaging (019 spec §3.
+- `ExcelSheetToggles`: Which sheets to emit. Resolves the per-sheet defaults when absent.
+- `RuneTypeAlias`
+- `Condition`
+- `TypeParam`
+- `RuneRule`
+- `RuneReport`
+- `RuneAnnotationDecl`
+- `AnnotationAttribute`
+- `RuneLibraryFunc`
+- `LibraryFuncParam`
+- `NamespaceManifest`
+- `NamespaceRegistry`
+- `PythonModule`
+- `PythonProjectionContext`: Linked identities and semantic facts shared with the authoritative codegen utilities.
+- `GeneratedProjection`
+- `ProjectionSubject`
+- `EmittedProjection`: Provenance recorded during emission, independent of an editor's node-ID format.
+- `TemporalWireFormat`
 
 ## @rune-langium/visual-editor
 
@@ -1070,6 +1191,7 @@ dragover, when the browser security model makes `getData` return empty.
 - `isTypeRefPayload`: Type guard for parsed drag payloads.
 - `expansionKey`: Serialise an expansion key for use as a Map / Record key.
 - `KindBadge`
+- `useTypeNavigationMenu`: Targets must already be resolved by the owning link, tree or Structure adapter.
 - `TypeHeader`
 - `OtherForm`
 - `selectionState`: Returns the checkbox state for a collection of selection IDs.
@@ -1187,6 +1309,7 @@ header indicator (Phase A; Function added in Phase C — its `conditions`...
 - `StructureNode`
 - `StructureGraphInput`: Full graph input produced by the adapter.
 - `KindBadgeProps`
+- `TypeNavigationAction`
 - `TypeHeaderProps`
 - `OtherFormProps`
 - `EditorFormPanelProps`

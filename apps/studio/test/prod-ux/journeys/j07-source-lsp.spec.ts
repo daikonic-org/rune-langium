@@ -22,7 +22,7 @@ test.describe('J07 — Source view + LSP diagnostics', () => {
   test('J07 LSP connects and a syntax error surfaces as a diagnostic', async ({ page, evidence }) => {
     await page.goto('./');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
     const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
     await fileInput.setInputFiles([

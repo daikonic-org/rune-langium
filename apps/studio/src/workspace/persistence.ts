@@ -62,6 +62,8 @@ export interface GitBackingRecord {
 }
 
 interface BaseWorkspaceFields {
+  /** Origin only; a starter is not a writable Git remote. */
+  starterProvenance?: { repository: string; commit: string };
   id: string;
   name: string;
   createdAt: string;
@@ -227,6 +229,27 @@ export const saveWorkspace = withInstrumentation(
       return { id: ws.id, kind: ws.kind, schemaVersion: ws.schemaVersion, tabCount: ws.tabs.length };
     }
   }
+);
+
+/** Update only the display name, retaining the latest persisted backing and UI state. */
+export const renameWorkspace = withInstrumentation(
+  async function renameWorkspace(id: string, name: string): Promise<void> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('Enter a workspace name.');
+    const db = await getDb();
+    const tx = db.transaction(['workspaces', 'recents'], 'readwrite');
+    const existing = await tx.objectStore('workspaces').get(id);
+    if (!existing) {
+      await tx.done;
+      throw new Error('This workspace is no longer available. Refresh recent workspaces.');
+    }
+    await tx.objectStore('workspaces').put({ ...existing, name: trimmed });
+    await tx
+      .objectStore('recents')
+      .put({ id, name: trimmed, kind: existing.kind, lastOpenedAt: existing.lastOpenedAt });
+    await tx.done;
+  },
+  { op: 'renameWorkspace', capture: 0, sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' }) }
 );
 
 // Output carries `name`/`gitBacking.repoUrl` — never captured.

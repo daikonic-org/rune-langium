@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { readWorkbenchSettings, writeWorkbenchSettings } from '../shell/workbench-settings.js';
+import type { ProjectDiagnostic } from '@rune-langium/project-config';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface ObjectFormLayout {
@@ -20,6 +21,7 @@ export interface NumericPresentation {
 export interface FormPreferences {
   layouts: Record<string, ObjectFormLayout>;
   formats: Record<string, NumericPresentation>;
+  fieldFormats?: Record<string, Record<string, NumericPresentation>>;
 }
 export interface WorkspacePreferences {
   preferences: FormPreferences;
@@ -28,7 +30,16 @@ export interface WorkspacePreferences {
   error?: string;
   saving?: boolean;
   editing?: boolean;
+  repository?: boolean;
+  legacy?: { preferences: FormPreferences; diagnostics: string[] };
+  notices?: string[];
 }
+export interface PresentationRepository {
+  load(): Promise<{ preferences: FormPreferences; hasFiles: boolean; diagnostics: readonly ProjectDiagnostic[] }>;
+  save(preferences: FormPreferences): Promise<void>;
+  previewLegacy(preferences: FormPreferences): { preferences: FormPreferences; diagnostics: string[] };
+}
+const repositories = new Map<string, PresentationRepository>();
 
 export const canEditFormPresentation = withInstrumentation(
   function canEditFormPresentation(entry: WorkspacePreferences | undefined): boolean {
@@ -39,8 +50,11 @@ export const canEditFormPresentation = withInstrumentation(
 interface FormPresentationStore {
   workspaces: Record<string, WorkspacePreferences>;
   load(workspaceId?: string): Promise<void>;
+  setRepository(workspaceId: string, repository: PresentationRepository | undefined): Promise<void>;
+  acceptLegacy(workspaceId: string): Promise<void>;
   update(workspaceId: string | undefined, change: (current: FormPreferences) => FormPreferences): void;
   retry(workspaceId?: string): Promise<void>;
+  flush(workspaceId: string): Promise<void>;
   setEditing(workspaceId: string | undefined, editing: boolean): void;
 }
 const EMPTY: FormPreferences = { layouts: {}, formats: {} };
@@ -102,10 +116,13 @@ export const readFormPreferences = withInstrumentation(
 );
 
 export const useFormPresentationStore = create<FormPresentationStore>((set, get) => {
-  const persist = async (workspaceId: string, entry: WorkspacePreferences) => {
+  const pending = new Map<string, Set<Promise<void>>>();
+  const save = async (workspaceId: string, entry: WorkspacePreferences) => {
+    const repository = repositories.get(workspaceId);
     try {
-      await writeWorkbenchSettings(workspaceId, SETTING, entry.preferences);
-      if (get().workspaces[workspaceId]?.revision === entry.revision)
+      if (repository) await repository.save(entry.preferences);
+      else await writeWorkbenchSettings(workspaceId, SETTING, entry.preferences);
+      if (repositories.get(workspaceId) === repository && get().workspaces[workspaceId]?.revision === entry.revision)
         set((state) => ({
           workspaces: {
             ...state.workspaces,
@@ -113,7 +130,7 @@ export const useFormPresentationStore = create<FormPresentationStore>((set, get)
           }
         }));
     } catch {
-      if (get().workspaces[workspaceId]?.revision === entry.revision)
+      if (repositories.get(workspaceId) === repository && get().workspaces[workspaceId]?.revision === entry.revision)
         set((state) => ({
           workspaces: {
             ...state.workspaces,
@@ -126,21 +143,89 @@ export const useFormPresentationStore = create<FormPresentationStore>((set, get)
         }));
     }
   };
+  const persist = (workspaceId: string, entry: WorkspacePreferences) => {
+    const operation = save(workspaceId, entry);
+    const running = pending.get(workspaceId) ?? new Set<Promise<void>>();
+    pending.set(workspaceId, running);
+    running.add(operation);
+    const complete = () => {
+      running.delete(operation);
+      if (!running.size && pending.get(workspaceId) === running) pending.delete(workspaceId);
+    };
+    void operation.then(complete, complete);
+    return operation;
+  };
   return {
     workspaces: {},
+    async flush(workspaceId) {
+      const repository = repositories.get(workspaceId);
+      while (pending.get(workspaceId)?.size) await Promise.all(pending.get(workspaceId)!);
+      if (repositories.get(workspaceId) !== repository)
+        throw new Error('Workspace changed while saving form preferences.');
+      const error = get().workspaces[workspaceId]?.error;
+      if (error) throw new Error(error);
+    },
+    async setRepository(workspaceId, repository) {
+      if (repositories.get(workspaceId) === repository) return;
+      if (repository) repositories.set(workspaceId, repository);
+      else repositories.delete(workspaceId);
+      set((state) => {
+        const workspaces = { ...state.workspaces };
+        delete workspaces[workspaceId];
+        return { workspaces };
+      });
+      if (repository) await get().load(workspaceId);
+    },
+    async acceptLegacy(workspaceId) {
+      const current = get().workspaces[workspaceId];
+      if (!current?.legacy || !repositories.has(workspaceId) || !canEditFormPresentation(current)) return;
+      const entry = {
+        ...current,
+        preferences: current.legacy.preferences,
+        revision: current.revision + 1,
+        saving: true
+      };
+      set((state) => ({ workspaces: { ...state.workspaces, [workspaceId]: entry } }));
+      await persist(workspaceId, entry);
+      const saved = get().workspaces[workspaceId];
+      if (saved?.revision === entry.revision && !saved.error)
+        set((state) => ({ workspaces: { ...state.workspaces, [workspaceId]: { ...saved, legacy: undefined } } }));
+    },
     async load(workspaceId) {
       const key = formWorkspaceKey(workspaceId);
       if (get().workspaces[key]) return;
-      const entry: WorkspacePreferences = { preferences: EMPTY, loaded: !workspaceId, revision: 0 };
+      const repository = workspaceId ? repositories.get(workspaceId) : undefined;
+      const entry: WorkspacePreferences = {
+        preferences: EMPTY,
+        loaded: !workspaceId,
+        revision: 0,
+        ...(repository ? { repository: true } : {})
+      };
       set((state) => ({ workspaces: { ...state.workspaces, [key]: entry } }));
       if (!workspaceId) return;
       try {
-        const restored = await readWorkbenchSettings<unknown>(workspaceId, SETTING, EMPTY);
+        let restored: FormPreferences;
+        let legacy: WorkspacePreferences['legacy'];
+        let notices: string[] | undefined;
+        if (repository) {
+          const result = await repository.load();
+          restored = result.preferences;
+          notices = result.diagnostics.map((issue) => issue.message);
+          if (!result.hasFiles) {
+            try {
+              const local = readFormPreferences(await readWorkbenchSettings<unknown>(workspaceId, SETTING, EMPTY));
+              if (Object.keys(local.layouts).length || Object.keys(local.formats).length)
+                legacy = repository.previewLegacy(local);
+            } catch {
+              notices.push('Browser presentation could not be inspected. Its private settings remain unchanged.');
+            }
+          }
+        } else restored = readFormPreferences(await readWorkbenchSettings<unknown>(workspaceId, SETTING, EMPTY));
         if (get().workspaces[key] === entry)
           set((state) => ({
             workspaces: {
               ...state.workspaces,
-              [key]: { ...entry, preferences: readFormPreferences(restored), loaded: true }
+              [key]: { ...entry, preferences: restored, legacy, notices, loaded: true }
             }
           }));
       } catch {

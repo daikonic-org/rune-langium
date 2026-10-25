@@ -41,25 +41,25 @@ describe('FileLoader — Open from GitHub affordance (T031 / FR-012)', () => {
 
   it('hides the GitHub CTA when createGitBackedWorkspace is not provided', () => {
     render(<FileLoader onFilesLoaded={() => {}} />);
-    expect(screen.queryByRole('button', { name: /Open from GitHub/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Open GitHub/i })).toBeNull();
   });
 
   it('renders an Open from GitHub button when createGitBackedWorkspace is provided', () => {
     render(<FileLoader onFilesLoaded={() => {}} createGitBackedWorkspace={stubCreateGitBacked} />);
-    const btn = screen.getByRole('button', { name: /Open from GitHub/i });
+    const btn = screen.getByRole('button', { name: /Open GitHub/i });
     expect(btn).toBeInTheDocument();
   });
 
   it('opens the GitHubConnectDialog when the button is clicked', () => {
     render(<FileLoader onFilesLoaded={() => {}} createGitBackedWorkspace={stubCreateGitBacked} />);
     expect(screen.queryByTestId('github-connect-dialog')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Open from GitHub/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Open GitHub/i }));
     expect(screen.getByTestId('github-connect-dialog')).toBeInTheDocument();
   });
 
   it('hides the dialog when Cancel is clicked', async () => {
     render(<FileLoader onFilesLoaded={() => {}} createGitBackedWorkspace={stubCreateGitBacked} />);
-    fireEvent.click(screen.getByRole('button', { name: /Open from GitHub/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Open GitHub/i }));
     // Wait until the dialog moved past the synchronous 'init' phase to
     // surface the Cancel button.
     const cancelBtn = await screen.findByRole('button', { name: /Cancel/i });

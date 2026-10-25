@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { createOpfsRoot, type OpfsRoot } from '../setup/opfs-mock.js';
-import { _resetForTests } from '../../src/workspace/persistence.js';
+import { _resetForTests, loadWorkspace } from '../../src/workspace/persistence.js';
 import { WorkspaceManager } from '../../src/workspace/workspace-manager.js';
 
 class FakeBroadcastChannel extends EventTarget {
@@ -132,4 +132,29 @@ describe('WorkspaceManager — multi-tab ownership integration', () => {
     expect(b.isOwner(bOpen!.id)).toBe(false);
     expect(b.isReadOnly(bOpen!.id)).toBe(true);
   });
+});
+
+describe('workspace-bound project files', () => {
+  it('keeps roots independent and revokes an existing adapter when ownership is released', async () => {
+    const manager = makeManager();
+    const first = await manager.create('First');
+    const second = await manager.create('Second');
+    const one = await manager.getProjectFileAdapter(first.id);
+    const two = await manager.getProjectFileAdapter(second.id);
+    await one.write('build-config.yml', 'first config', null);
+    expect(await two.read('build-config.yml')).toBeUndefined();
+    await manager.close(first.id);
+    await expect(one.write('other.yml', 'no', null)).rejects.toThrow(/writable/);
+    expect((await one.read('build-config.yml'))?.text).toBe('first config');
+  });
+  it('refuses an unknown workspace instead of creating a new root', async () => {
+    await expect(makeManager().getProjectFileAdapter('missing')).rejects.toThrow(/not found/);
+  });
+});
+
+it('claims project access without rewriting workspace metadata from a stale record', async () => {
+  const manager = makeManager();
+  const workspace = await manager.create('Metadata');
+  await expect(manager.claimProjectAccess(workspace.id)).resolves.toBe(true);
+  expect((await loadWorkspace(workspace.id))?.lastOpenedAt).toBe(workspace.lastOpenedAt);
 });

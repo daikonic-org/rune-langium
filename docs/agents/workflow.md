@@ -36,7 +36,17 @@ The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in 
 
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
+## Public CLI and LSP dependency closure
+
+The CLI and LSP server ship compiled modules rather than bundled workspace
+dependencies. Their full runtime closure, including project-config,
+project-runtime, curated-schema and instrumentation-core, must remain publishable
+with public scoped access. `node --test scripts/package-publication.test.mjs`
+checks that closure in CI. Build and inspect local `pnpm pack` artifacts when
+changing exports or package metadata; packing is not registry publication.
+
 ## Generated Sources
+
 
 Do not hand-edit generated AST, Zod, editable-domain, or conformance files.
 Change the grammar, generator inputs/configuration, or authoritative generator,
@@ -59,7 +69,9 @@ layout changes; retaining them can advertise exports that no longer exist.
 The package command runs from `apps/docs`: Skillit's `llmsTxtOutDir` is relative
 to that working directory, so `public` refreshes the tracked LLM API indexes
 in `apps/docs/public/`. The postprocessor removes generated trailing whitespace.
-Include those generated indexes with API removals.
+Include those generated indexes with API removals. Codegen API generation targets
+its outbound `/export` entry; the root barrel is intentionally empty. This does
+not imply generated coverage of `/import` or `/rosetta`.
 Domain generation applies the same safe lint fixes as the commit hook before
 formatting, so its type-only imports reproduce in CI.
 The pinned `langium-zod@0.12.2` patch retains setters for contained-node unions, including recursive `RosettaAttributeReference.receiver`. Union setters use the canonical dehydrated field type; mixed primitive/node unions remain excluded. Core's generator and public-domain tests cover this surface. Remove the patch after an upstream release supports these operations and regeneration preserves the exported API.

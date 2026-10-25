@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import {
   getEnumValues,
   isAsOperation,
@@ -29,8 +30,10 @@ import {
   type Annotation,
   type RosettaExternalFunction,
   type TypeCall,
-  getElementNamespace
+  getElementNamespace,
+  declarationKey
 } from '@rune-langium/core';
+import { projectBindingHeader, projectBindingNames, projectCodeListForAlias } from '../runtime/project-bindings.js';
 import { emittedTypeScriptProjection } from '../projection/typescript.js';
 import type { EmittedProjection } from '../projection/types.js';
 import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveType } from '../expr/navigation.js';
@@ -234,6 +237,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly callableNames: CallableNames;
   private readonly singleFile: boolean;
   private readonly inputChecks: boolean;
+  private readonly projectBindings: NamespaceEmitterOptions['projectBindings'];
   private readonly localCallableAliases = new Map<string, string>();
 
   constructor(
@@ -248,6 +252,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';
     this.inputChecks = options.typescript?.inputChecks === true;
+    this.projectBindings = options.projectBindings;
   }
 
   private readonly emittedData = new Set<Data>();
@@ -363,6 +368,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.sections.push(this.emitLibraryFunc(func));
   }
 
+  private projectImplementation(func: RuneFunc): FuncBodyContext['projectImplementation'] {
+    const symbol = func.source && this.projectBindings?.get(func.source);
+    return symbol
+      ? { key: declarationKey(symbol), invoke: projectBindingNames(this.model.namespace).invoke }
+      : undefined;
+  }
+
   emitFunctions(): void {
     const runeFuncs = extractFuncs(
       Array.from(this.model.docs),
@@ -385,6 +397,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       const isHoisted = cyclicNames.has(func.name);
       const funcCtx = {
         ...TsNamespaceEmitter.buildFuncBodyContext(func, callGraph, this.ctx.diagnostics),
+        projectImplementation: this.projectImplementation(func),
         callableName: this.callableName,
         typeNameResolver: this.typeName,
         onConditionProjection: (condition: Condition, code: string, predicate: string) =>
@@ -404,6 +417,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
               renderBody: (variant) => {
                 const lines = TsNamespaceEmitter.emitFuncBody(variant, {
                   ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, this.ctx.diagnostics),
+                  projectImplementation: this.projectImplementation(variant),
                   callableName: this.callableName,
                   typeNameResolver: this.typeName,
                   onConditionProjection: (condition: Condition, code: string, predicate: string) =>
@@ -413,6 +427,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
                   variant,
                   TsNamespaceEmitter.emitFuncBody(variant, {
                     ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, []),
+                    projectImplementation: this.projectImplementation(variant),
                     callableName: this.callableName,
                     typeNameResolver: this.typeName,
                     objectEquality: 'method',
@@ -449,6 +464,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
               ...(variant.preConditions.length
                 ? TsNamespaceEmitter.emitFuncInputChecks(variant, {
                     ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, this.ctx.diagnostics),
+                    projectImplementation: this.projectImplementation(variant),
                     callableName: this.callableName,
                     typeNameResolver: this.typeName
                   })
@@ -716,7 +732,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * T105.
    */
   private resolveTypeExprAsTs(attr: Attribute): string {
-    const type = resolveTypeCallTarget(
+    const type = resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
       {
@@ -748,7 +764,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
     return metadataType(type, fieldMetadataKind(attr));
   }
@@ -1195,7 +1213,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * has a `typeCall` but no `.name`, unlike `Attribute`).
    */
   private resolveChoiceOptionTypeExpr(typeCall: TypeCall | undefined, diagnosticLabel: string): string {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       typeCall,
       this.typeIndex,
       {
@@ -1218,7 +1236,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
   }
 
@@ -1232,7 +1252,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * resolved terminal node instead of the immediate direct ref.
    */
   private resolveChoiceOptionShapeTypeExpr(typeCall: TypeCall | undefined, diagnosticLabel: string): string {
-    return resolveTypeCallTarget(
+    return resolveProjectTypeCall(
       typeCall,
       this.typeIndex,
       {
@@ -1255,7 +1275,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           return 'unknown';
         }
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
   }
 
@@ -1566,7 +1588,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
             runtimeHelperSource(true, false, this.usesMetadata()),
             ...(libraryHelpers.length ? [TS_LIBRARY_RUNTIME_SOURCE] : []),
             ''
-          ])
+          ]),
+      ...([...(this.projectBindings?.keys() ?? [])].some((node) => getElementNamespace(node) === this.model.namespace)
+        ? [projectBindingHeader(this.model.namespace), '']
+        : [])
     ].join('\n');
   }
 
@@ -1684,7 +1709,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private emitTypeAliasDeclaration(alias: RosettaTypeAlias): string {
     const name = this.typeName(alias);
 
-    const tsType = resolveTypeCallTarget(
+    const tsType = resolveProjectTypeCall(
       alias.typeCall,
       this.typeIndex,
       {
@@ -1709,10 +1734,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         // passthrough") for the disclosure and risk assessment.
         onUnresolved: () => 'unknown'
       },
-      this.ctx.namespace
+      this.ctx.namespace,
+      this.projectResources,
+      projectTsCodeList
     );
 
-    return `export type ${name} = ${tsType};`;
+    const codes = projectCodeListForAlias(alias, this.projectResources);
+    const type = codes ? projectTsCodeList(tsType, codes) : tsType;
+    return `export type ${name} = ${type};`;
   }
 
   // ---------------------------------------------------------------------------
@@ -2082,6 +2111,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const result = ctx.localBindings!.get(func.output.name)!;
     const assignment = func.assignments[0];
     if (
+      !ctx.projectImplementation &&
       func.assignments.length === 1 &&
       assignment?.kind === 'set' &&
       !assignment.path?.length &&
@@ -2111,7 +2141,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           : [statement.replace(`  ${result} = `, '  return ')];
       }
     }
-    if (func.isAbstract) {
+    if (func.isAbstract && !ctx.projectImplementation) {
       // Same alias-before-precondition ordering as the non-abstract path
       // below — an abstract func (no set/add body) can still declare
       // aliases per the grammar, and a pre-condition may reference one.
@@ -2137,8 +2167,18 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // in the generated output).
     bodyLines.push(...TsNamespaceEmitter.emitFuncPrelude(func, ctx));
 
-    for (const assignment of func.assignments) {
-      bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));
+    if (ctx.projectImplementation) {
+      const { key, invoke } = ctx.projectImplementation;
+      const args = func.inputs.map((input) => ctx.localBindings!.get(input.name) ?? input.name).join(', ');
+      bodyLines.push(
+        `  if (!${invoke}) throw new Error('Project implementation is unavailable. Bind the installed runtime before execution.');`
+      );
+      const call = `${invoke}(${JSON.stringify(key)}, [${args}]) as ${TsNamespaceEmitter.buildFuncOutputType(func)}`;
+      bodyLines.push(ctx.outputAccumulator === 'array' ? `  ${result}.push(...(${call}));` : `  ${result} = ${call};`);
+    } else {
+      for (const assignment of func.assignments) {
+        bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));
+      }
     }
 
     if (!ctx.projection)

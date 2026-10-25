@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
@@ -256,7 +257,7 @@ export async function loadCdm(page: Page, evidence?: EvidenceCollector): Promise
   await page.goto('./');
   await page.waitForLoadState('domcontentloaded');
   await expect(page).toHaveTitle(/Rune Studio/);
-  await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
   const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
   await fileInput.setInputFiles([
@@ -265,9 +266,10 @@ export async function loadCdm(page: Page, evidence?: EvidenceCollector): Promise
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
   if (process.env.ENABLE_TELEMETRY === '1') await enableCheckoutTelemetry(page);
   await page.getByTestId('rail-workspaces').click();
-  await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
   const startedAt = Date.now();
+  await openReferenceModels(page);
   await page.getByTestId('model-loader').getByRole('button', { name: CDM_BUTTON }).click();
 
   await expect(page.getByText('Loaded Models', { exact: false })).toBeVisible({ timeout: 90000 });
@@ -334,7 +336,7 @@ export interface ScratchTypeSpec {
 async function reachBlankScratchSource(page: Page): Promise<Locator> {
   await page.goto('./');
   await page.waitForLoadState('domcontentloaded');
-  const modelLoader = page.getByTestId('model-loader');
+  const modelLoader = page.getByTestId('workspaces-perspective');
   if (!(await modelLoader.isVisible().catch(() => false))) {
     await page.getByTestId('rail-workspaces').click();
   }

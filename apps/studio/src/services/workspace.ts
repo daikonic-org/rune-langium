@@ -607,6 +607,21 @@ export const parseFile = withInstrumentation(
   }
 );
 
+/** Install one complete verified project document set using the existing parser worker. */
+export const installProjectParserDocuments = withInstrumentation(
+  async function installProjectParserDocuments(documents: HydrateRequest['documents']): Promise<void> {
+    invalidateCuratedCacheRecovery();
+    const result = await workerRequest({ type: 'hydrate', id: `project:${Date.now()}`, documents });
+    if (result.type !== 'hydrateResult' || !result.ok)
+      throw new Error(
+        result.type === 'hydrateResult'
+          ? (result.error ?? 'Parser hydration failed.')
+          : 'Invalid parser hydration response.'
+      );
+  },
+  { op: 'installProjectParserDocuments', capture: 0 }
+);
+
 export const collectCuratedBundlesFromWorkspace = withInstrumentation(
   function collectCuratedBundlesFromWorkspace(
     files: ReadonlyArray<WorkspaceFile>

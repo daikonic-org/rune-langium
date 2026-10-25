@@ -27,6 +27,8 @@ import {
   RuneDslSharedModule,
   RuneDslValidator,
   LSP_MODEL_SYNC_METHOD,
+  ProjectResolutionContextSchema,
+  type ProjectResolutionReceipt,
   type LspModelUpdate
 } from '@rune-langium/core';
 
@@ -70,7 +72,7 @@ export interface RuneLspServer {
   services: LangiumServices;
   /** Bind the server to a transport and start processing messages. */
   listen(transport: Transport): Promise<void>;
-  syncModels(update: LspModelUpdate): Promise<void>;
+  syncModels(update: LspModelUpdate): Promise<ProjectResolutionReceipt | undefined>;
 }
 
 /**
@@ -187,14 +189,17 @@ export function createRuneLspServer(
   const syncModels = async (update: LspModelUpdate) => {
     await shared.workspace.WorkspaceManager.ready;
     // Use Langium's write lock for all changes to the shared symbol index.
+    let receipt: ProjectResolutionReceipt | undefined;
     await shared.workspace.WorkspaceLock.write(async () => {
-      await models.sync(update);
+      receipt = await models.sync(update);
     });
+    return receipt;
   };
   connection.onRequest(LSP_MODEL_SYNC_METHOD, async (update: LspModelUpdate) => {
     if (
       !update ||
       (!update.document && !update.retain) ||
+      (Object.hasOwn(update, 'resolution') && !update.retain) ||
       (update.document &&
         (typeof update.document.uri !== 'string' ||
           typeof update.document.modelJson !== 'string' ||
@@ -209,11 +214,14 @@ export function createRuneLspServer(
     }
     const canonical: LspModelUpdate = {
       ...(update.document ? { document: { ...update.document, uri: URI.parse(update.document.uri).toString() } } : {}),
-      ...(update.retain ? { retain: update.retain.map((uri) => URI.parse(uri).toString()) } : {})
+      ...(update.retain ? { retain: update.retain.map((uri) => URI.parse(uri).toString()) } : {}),
+      ...(Object.hasOwn(update, 'resolution')
+        ? { resolution: update.resolution == null ? null : ProjectResolutionContextSchema.parse(update.resolution) }
+        : {})
     };
-    await syncModels(canonical);
+    const receipt = await syncModels(canonical);
     await options.onModelUpdate?.(canonical);
-    return null;
+    return receipt ? { projectReceipt: receipt } : null;
   });
 
   // 4. Register language + validation

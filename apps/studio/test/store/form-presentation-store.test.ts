@@ -156,3 +156,43 @@ it('keeps temporary edit mode across form remounts and late saves without persis
   expect(useFormPresentationStore.getState().workspaces.a?.editing).toBe(true);
   expect(write.mock.calls[0]![2]).not.toHaveProperty('editing');
 });
+
+it('prefers repository presentation and leaves browser preferences unimported until explicit acceptance', async () => {
+  const canonical = '["local","test","RosettaTypeAlias","Amount",null]';
+  const local = { ...empty(), formats: { 'typeAlias:test.Amount': currency } };
+  read.mockResolvedValue(local);
+  const preferences = { ...empty(), formats: { [canonical]: currency } };
+  const repository = {
+    load: vi.fn().mockResolvedValue({ preferences: empty(), hasFiles: false, diagnostics: [] }),
+    save: vi.fn().mockResolvedValue(undefined),
+    previewLegacy: vi.fn().mockReturnValue({ preferences, diagnostics: [] })
+  };
+  await useFormPresentationStore.getState().setRepository('portable', repository);
+  const entry = useFormPresentationStore.getState().workspaces.portable!;
+  expect(entry.preferences).toEqual(empty());
+  expect(entry.legacy?.preferences).toEqual(preferences);
+  expect(repository.save).not.toHaveBeenCalled();
+  await useFormPresentationStore.getState().acceptLegacy('portable');
+  expect(repository.save).toHaveBeenCalledWith(preferences);
+  expect(useFormPresentationStore.getState().workspaces.portable?.preferences).toEqual(preferences);
+  expect(write).not.toHaveBeenCalled();
+  await useFormPresentationStore.getState().setRepository('portable', undefined);
+});
+it('loads repository files without replaying stale personal settings and saves edits through that repository', async () => {
+  const preferences = { ...empty(), formats: { canonical: currency } };
+  const repository = {
+    load: vi.fn().mockResolvedValue({ preferences, hasFiles: true, diagnostics: [] }),
+    save: vi.fn().mockResolvedValue(undefined),
+    previewLegacy: vi.fn()
+  };
+  await useFormPresentationStore.getState().setRepository('portable-existing', repository);
+  expect(read).not.toHaveBeenCalled();
+  useFormPresentationStore.getState().update('portable-existing', (current) => ({
+    ...current,
+    formats: { canonical: { ...currency, fractionDigits: 3 } }
+  }));
+  await vi.waitFor(() => expect(repository.save).toHaveBeenCalledOnce());
+  expect(write).not.toHaveBeenCalled();
+  expect(repository.save.mock.calls[0]?.[0].formats.canonical.fractionDigits).toBe(3);
+  await useFormPresentationStore.getState().setRepository('portable-existing', undefined);
+});

@@ -211,3 +211,78 @@ it('blocks unavailable execution while leaving the input form editable', async (
     error: 'External implementation unavailable.'
   });
 });
+
+it('keeps same-function fields mounted and retains edits while schema refresh blocks execution', async () => {
+  let resolve!: (schema: unknown) => void;
+  const schema = {
+    schemaVersion: 1 as const,
+    targetId: 'example.Scale#RosettaFunction',
+    title: 'Scale',
+    status: 'ready' as const,
+    kind: 'function' as const,
+    fields: [{ path: 'factor', label: 'Factor', kind: 'number' as const, required: true, typeSymbol: 'builtin:number' }]
+  };
+  const client = {
+    schema: vi
+      .fn()
+      .mockResolvedValueOnce(schema)
+      .mockImplementationOnce(
+        () =>
+          new Promise((done) => {
+            resolve = done;
+          })
+      ),
+    execute: vi.fn(),
+    dispose: vi.fn()
+  } as unknown as PreviewSessionClient;
+  const session = createFunctionSession(client);
+  await session.selectFunction('example.Scale');
+  session.setInput('factor', 2);
+  const refreshing = session.selectFunction('example.Scale');
+  expect(session.getState().schema).toBe(schema);
+  session.setInput('factor', 3);
+  expect(session.getState().status).toBe('running');
+  await session.run();
+  expect(client.execute).not.toHaveBeenCalled();
+  resolve({
+    ...schema,
+    fields: [...schema.fields, { path: 'enabled', label: 'Enabled', kind: 'boolean', required: true }]
+  });
+  await refreshing;
+  expect(session.getState().inputs).toEqual({ factor: 3, enabled: false });
+  expect(session.getState().status).toBe('idle');
+  session.dispose();
+});
+
+it('retains a failed refresh draft but requires a fresh schema before execution or retry', async () => {
+  const schema = {
+    schemaVersion: 1 as const,
+    targetId: 'example.Scale#RosettaFunction',
+    title: 'Scale',
+    status: 'ready' as const,
+    kind: 'function' as const,
+    fields: [{ path: 'factor', label: 'Factor', kind: 'number' as const, required: true, typeSymbol: 'builtin:number' }]
+  };
+  const client = {
+    schema: vi
+      .fn()
+      .mockResolvedValueOnce(schema)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(schema),
+    execute: vi.fn(),
+    dispose: vi.fn()
+  } as unknown as PreviewSessionClient;
+  const session = createFunctionSession(client);
+  await session.selectFunction('example.Scale');
+  session.setInput('factor', 3);
+  await session.selectFunction('example.Scale');
+  expect(session.getState().schemaStatus).toBe('unavailable');
+  session.setInput('factor', 4);
+  await session.run();
+  expect(client.execute).not.toHaveBeenCalled();
+  expect(session.getState().inputs.factor).toBe(4);
+  await session.selectFunction('example.Scale');
+  expect(session.getState().schemaStatus).toBe('ready');
+  expect(session.getState().inputs.factor).toBe(4);
+  session.dispose();
+});

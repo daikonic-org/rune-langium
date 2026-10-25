@@ -11,9 +11,14 @@
 #   - CLOUDFLARE_API_TOKEN env var (or wrangler login)
 #
 # Usage:
-#   bash scripts/upload-serialized-artifacts.sh
+#   bash scripts/upload-serialized-artifacts.sh [--dry-run]
 
 set -euo pipefail
+DRY_RUN=0
+if (( $# > 0 )); then
+  if (( $# != 1 )) || [[ "$1" != "--dry-run" ]]; then echo "Usage: $0 [--dry-run]" >&2; exit 2; fi
+  DRY_RUN=1
+fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUCKET="rune-curated-mirror"
@@ -27,6 +32,7 @@ upload_object() {
   local key="$1" file="$2" content_type="$3"
   # Keep the complete error: tailing Wrangler output hid the cause of failed publications.
   "${WRANGLER[@]}" r2 object put "$BUCKET/$key" --file "$file" --content-type "$content_type" --remote
+  printf '%s\n' "$key" >> "$TMP_DIR/published-keys"
 }
 
 shopt -s nullglob
@@ -76,7 +82,7 @@ for model_dir in "${model_dirs[@]}"; do
     --argjson size "$size_bytes" \
     --argjson docs "$doc_count" \
     --slurpfile meta "$meta_file" \
-    'del(.cohort) | .artifacts.serializedWorkspace = {
+    'del(.cohort) | .upstreamCommit = ($meta[0].upstreamCommit // .upstreamCommit) | .upstreamRef = ($meta[0].upstreamRef // .upstreamRef) | .artifacts.serializedWorkspace = {
       schemaVersion: 1,
       kind: "langium-json-serializer",
       url: $url,
@@ -102,6 +108,29 @@ for model_dir in "${model_dirs[@]}"; do
   mv "$TMP_DIR/$model_id.pinned" "$TMP_DIR/$model_id.json"
 done
 
+# An explicit verified release build may prepare catalog mappings; nightly master builds never invent tags.
+release_plan="$TMP_DIR/releases"
+if [[ -f "$ARTIFACT_DIR/resolved-sources.json" ]]; then
+  jq -e 'type == "array"' "$ARTIFACT_DIR/resolved-sources.json" > /dev/null
+  if jq -e 'any(.[]; .release != null)' "$ARTIFACT_DIR/resolved-sources.json" > /dev/null; then
+    node "$REPO_ROOT/scripts/lib/curated-releases.mjs" --phase prepare \
+      --sources "$ARTIFACT_DIR/resolved-sources.json" --manifests "$TMP_DIR" \
+      --out "$release_plan" --base "${MIRROR_BASE%/curated}"
+  fi
+fi
+
+if (( DRY_RUN )); then
+  mkdir -p "$REPO_ROOT/dist"
+  preview=$(mktemp -d "$REPO_ROOT/dist/curated-publication-preview.XXXXXX")
+  cp "$TMP_DIR/"*.json "$preview/"
+  if [[ -f "$release_plan/plan.json" ]]; then
+    mkdir -p "$preview/releases"
+    cp "$release_plan/"*.json "$preview/releases/"
+  fi
+  echo "Prepared publication preview: $preview"
+  exit 0
+fi
+
 # Upload all versioned blobs across the dependency set before advancing any pointer.
 for model_dir in "${model_dirs[@]}"; do
   model_id=$(basename "$model_dir")
@@ -117,6 +146,14 @@ for model_dir in "${model_dirs[@]}"; do
   model_id=$(basename "$model_dir")
   upload_object "curated/$model_id/artifacts/$cohort/manifest.json" "$TMP_DIR/$model_id.json" 'application/json; charset=utf-8'
 done
+
+# Catalogs are promoted only from successful immutable upload receipts, dependencies first.
+if [[ -f "$release_plan/plan.json" ]]; then
+  node "$REPO_ROOT/scripts/lib/curated-releases.mjs" --phase ready --out "$release_plan" --receipts "$TMP_DIR/published-keys"
+  while IFS= read -r model_id; do
+    upload_object "releases/$model_id.json" "$release_plan/$model_id.json" 'application/json; charset=utf-8'
+  done < <(jq -r '.models[]' "$release_plan/plan.json")
+fi
 
 # Each pointer write is atomic in R2; the group of manifests is not a transaction.
 for model_dir in "${model_dirs[@]}"; do

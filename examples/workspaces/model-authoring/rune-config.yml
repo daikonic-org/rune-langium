@@ -1,0 +1,4 @@
+model:
+  name: Model authoring
+  version: '1.0.0'
+  defaultSerialisationFormat: JSON

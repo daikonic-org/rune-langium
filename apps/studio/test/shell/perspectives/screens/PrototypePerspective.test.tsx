@@ -86,7 +86,7 @@ describe('PrototypePerspective', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Object builder', exact: true }));
     expect(screen.getByRole('button', { name: 'Object builder', exact: true })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
-    expect(await screen.findByRole('heading', { name: 'New instance' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Create example' })).toBeVisible();
   });
 
   it('selecting a grid object requests an input binding without a privileged instance header', async () => {
@@ -109,7 +109,7 @@ describe('PrototypePerspective', () => {
   it('adds a JSON batch to the grid without selecting or opening an input', async () => {
     await renderPerspective();
     act(() => usePrototypeViewStore.getState().patch({ typeFqn: 'test.Party' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Import objects…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import examples…' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Import JSON data' }), {
       target: { value: '[{"name":"Alice"},{"name":"Bob"}]' }
     });
@@ -119,13 +119,13 @@ describe('PrototypePerspective', () => {
       { name: 'Bob' }
     ]);
     expect(usePrototypeViewStore.getState().state.selectedId).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'New instance' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Create example' })).not.toBeInTheDocument();
   });
 
   it('keeps malformed JSON out of grid storage', async () => {
     await renderPerspective();
     act(() => usePrototypeViewStore.getState().patch({ typeFqn: 'test.Party' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Import objects…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import examples…' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Import JSON data' }), { target: { value: '{' } });
     fireEvent.click(screen.getByRole('button', { name: 'Import', exact: true }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/JSON/i);
@@ -139,7 +139,7 @@ describe('PrototypePerspective', () => {
       requestPrototype('workspace-a', { kind: 'create', seed: { typeFqn: 'test.Party', data: { name: 'Acme' } } })
     );
 
-    expect(await screen.findByRole('heading', { name: 'New instance' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Create example' })).toBeVisible();
   });
 
   it('consumes an instance-opening intent after the workspace is active', async () => {

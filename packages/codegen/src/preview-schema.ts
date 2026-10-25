@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { previewTypeSymbol } from './preview-references.js';
+import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
 import { temporalWireFormat } from './expr/temporal-conversions.js';
 import { AstUtils, type LangiumDocument } from 'langium';
 import {
@@ -36,6 +38,7 @@ import { extractFuncs, functionInputs, functionOutput, functionSignature } from 
 import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
 import { groupFuncDispatches } from './emit/func-dispatch.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
+import { selectEffectiveProjectDocuments, resolveEffectiveProjectTargetId } from './selection/declaration-selection.js';
 
 function humanizeLabel(name: string): string {
   return name
@@ -92,7 +95,15 @@ export function generatePreviewSchemas(
   documents: LangiumDocument | LangiumDocument[],
   options: GeneratePreviewSchemaOptions = {}
 ): FormPreviewSchema[] {
-  const docs = Array.isArray(documents) ? documents : [documents];
+  const original = Array.isArray(documents) ? documents : [documents];
+  const selectedTargets = options.targetId
+    ? new Set(
+        ['Data', 'Choice', 'RosettaTypeAlias', 'RosettaFunction'].map((kind) =>
+          resolveEffectiveProjectTargetId(original, options.targetId!, kind)
+        )
+      )
+    : undefined;
+  const docs = selectEffectiveProjectDocuments(original);
   const namespaces = buildNamespaceIndexes(docs);
   const assignableTypes = buildAssignableTypes(namespaces);
   const schemas: FormPreviewSchema[] = [];
@@ -115,7 +126,7 @@ export function generatePreviewSchemas(
     for (const name of dataNames) {
       const data = namespace.dataByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
+      if (selectedTargets && !selectedTargets.has(targetId)) continue;
       if (namespace.duplicateDataNames.has(name)) {
         schemas.push(buildDuplicateTargetSchema(data.node, targetId));
         continue;
@@ -137,7 +148,7 @@ export function generatePreviewSchemas(
     for (const name of aliasNames) {
       const alias = namespace.typeAliasByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
+      if (selectedTargets && !selectedTargets.has(targetId)) continue;
       schemas.push(buildTypeAliasSchema(alias.node, alias.sourceUri, namespace, targetId, cyclicTypes));
     }
 
@@ -146,7 +157,7 @@ export function generatePreviewSchemas(
     for (const name of choiceNames) {
       const choice = namespace.choiceByName.get(name)!;
       const targetId = `${namespace.namespace}.${name}`;
-      if (options.targetId && options.targetId !== targetId) continue;
+      if (selectedTargets && !selectedTargets.has(targetId)) continue;
       if (namespace.duplicateChoiceNames.has(name)) {
         schemas.push(buildDuplicateTargetSchema(choice.node, targetId));
         continue;
@@ -156,7 +167,7 @@ export function generatePreviewSchemas(
 
     // Functions
     const funcNames = Array.from(namespace.funcByName.keys())
-      .filter((name) => !options.targetId || options.targetId === `${namespace.namespace}.${name}`)
+      .filter((name) => !selectedTargets || selectedTargets.has(`${namespace.namespace}.${name}`))
       .sort();
     const unimplemented = new Set(
       groupFuncDispatches(
@@ -241,7 +252,9 @@ export function generatePreviewSchemas(
     if (unsupported.size) schema.unsupportedFeatures = Array.from(unsupported).sort();
     schema.status = hasReportableUnsupportedFeature(unsupported) ? 'unsupported' : 'ready';
   }
-  return schemas;
+  return options.projectBindings
+    ? schemas.map((schema) => applyProjectPreviewBindings(schema, options.projectBindings!))
+    : schemas;
 }
 
 export function buildNamespaceIndexes(docs: LangiumDocument[]): NamespaceIndex[] {
@@ -645,7 +658,7 @@ function buildTypeAliasSchema(
           fields: [
             {
               ...scalarField({ path: 'value', label: humanizeLabel(alias.name) }, builtinKind, basicTypeName),
-              typeSymbol: `typeAlias:${targetId}`
+              typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId)
             }
           ]
         };
@@ -666,7 +679,7 @@ function buildTypeAliasSchema(
           {
             path: 'value',
             label: humanizeLabel(alias.name),
-            typeSymbol: `typeAlias:${targetId}`,
+            typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId),
             kind: 'enum',
             required: true,
             enumValues: node.enumValues.map((v) => ({
@@ -1172,12 +1185,21 @@ function resolvePreviewType(
     {
       ...visitor,
       onAlias: (alias) => {
-        aliasSymbol ??= `typeAlias:${qualifiedTypeId(alias)}`;
+        aliasSymbol ??= previewTypeSymbol('RosettaTypeAlias', qualifiedTypeId(alias));
       },
-      onPrimitive: (name) => ({ ...visitor.onPrimitive(name), typeSymbol: `builtin:${name}` }),
-      onEnum: (node, uri) => ({ ...visitor.onEnum(node, uri), typeSymbol: `enum:${qualifiedTypeId(node)}` }),
-      onData: (node, uri) => ({ ...visitor.onData(node, uri), typeSymbol: `data:${qualifiedTypeId(node)}` }),
-      onChoice: (node, uri) => ({ ...visitor.onChoice(node, uri), typeSymbol: `choice:${qualifiedTypeId(node)}` })
+      onPrimitive: (name) => ({ ...visitor.onPrimitive(name), typeSymbol: previewTypeSymbol('builtin', name) }),
+      onEnum: (node, uri) => ({
+        ...visitor.onEnum(node, uri),
+        typeSymbol: previewTypeSymbol('RosettaEnumeration', qualifiedTypeId(node))
+      }),
+      onData: (node, uri) => ({
+        ...visitor.onData(node, uri),
+        typeSymbol: previewTypeSymbol('Data', qualifiedTypeId(node))
+      }),
+      onChoice: (node, uri) => ({
+        ...visitor.onChoice(node, uri),
+        typeSymbol: previewTypeSymbol('Choice', qualifiedTypeId(node))
+      })
     },
     sourceUri
   );

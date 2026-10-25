@@ -32,7 +32,7 @@ async function loadWorkspace(page: import('@playwright/test').Page) {
   await page.goto('./');
   await page.waitForLoadState('domcontentloaded');
   await expect(page).toHaveTitle(/Rune Studio/);
-  await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
   const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
   await fileInput.setInputFiles([
@@ -57,13 +57,13 @@ test.describe('prototype workspace checkout smoke', () => {
     await page.getByTestId('rail-prototype').click();
     await expect(page.getByTestId('prototype-perspective')).toBeVisible({ timeout: 20000 });
 
-    await page.getByRole('button', { name: 'New instance' }).click();
-    await page.getByRole('button', { name: 'Instance type' }).click();
+    await page.getByRole('button', { name: 'Create example' }).click();
+    await page.getByRole('button', { name: 'Example type' }).click();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: 'Instance type' })).toContainText('Party');
-    await page.getByLabel('Instance name').fill(INSTANCE_NAME);
-    const createButton = page.getByRole('button', { name: 'Create instance' });
+    await expect(page.getByRole('button', { name: 'Example type' })).toContainText('Party');
+    await page.getByLabel('Example name').fill(INSTANCE_NAME);
+    const createButton = page.getByRole('button', { name: 'Create example' });
     expect(
       await createButton.evaluate((button) => {
         const rect = button.getBoundingClientRect();
@@ -84,7 +84,7 @@ test.describe('prototype workspace checkout smoke', () => {
     await nameField.blur();
 
     const prototype = page.getByTestId('prototype-perspective');
-    await expect(prototype.getByLabel('Instance payload')).toContainText('"Acme"', { timeout: 10000 });
+    await expect(prototype.getByLabel('Example payload')).toContainText('"Acme"', { timeout: 10000 });
     const instanceRow = prototype.getByTestId('prototype-grid').getByRole('row', { name: new RegExp(INSTANCE_NAME) });
     await expect(instanceRow.getByRole('cell', { name: 'valid', exact: true })).toBeVisible({ timeout: 20000 });
 

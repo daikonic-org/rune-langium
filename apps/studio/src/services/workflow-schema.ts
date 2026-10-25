@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { usePreviewSessionFactory } from '../shell/providers/preview-session-context.js';
+import { useProject } from '../shell/providers/project-context.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
@@ -15,6 +16,7 @@ export const useWorkflowSchema = withInstrumentation(
   } {
     const factory = usePreviewSessionFactory(),
       models = useWorkspaceOptional()?.models;
+    const projectRevision = useProject().snapshot?.revision;
     const [attempt, setAttempt] = useState(0);
     const retry = useCallback(() => setAttempt((value) => value + 1), []);
     const [result, setResult] = useState<{
@@ -22,6 +24,7 @@ export const useWorkflowSchema = withInstrumentation(
       factory: typeof factory;
       models: typeof models;
       attempt: number;
+      projectRevision: string | undefined;
       schema?: FormPreviewSchema;
       error?: string;
     }>();
@@ -31,7 +34,7 @@ export const useWorkflowSchema = withInstrumentation(
         controller = new AbortController();
       void client.schema(target, controller.signal).then(
         (schema) => {
-          if (!controller.signal.aborted) setResult({ target, factory, models, attempt, schema });
+          if (!controller.signal.aborted) setResult({ target, factory, models, attempt, projectRevision, schema });
         },
         (error) => {
           if (!controller.signal.aborted)
@@ -40,6 +43,7 @@ export const useWorkflowSchema = withInstrumentation(
               factory,
               models,
               attempt,
+              projectRevision,
               error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -48,12 +52,13 @@ export const useWorkflowSchema = withInstrumentation(
         controller.abort();
         client.dispose();
       };
-    }, [target, factory, models, attempt]);
+    }, [target, factory, models, attempt, projectRevision]);
     return result &&
       result.target === target &&
       result.factory === factory &&
       result.models === models &&
-      result.attempt === attempt
+      result.attempt === attempt &&
+      result.projectRevision === projectRevision
       ? { schema: result.schema, error: result.error, retry }
       : { retry };
   },

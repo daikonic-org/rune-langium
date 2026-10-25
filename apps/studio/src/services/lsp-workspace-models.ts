@@ -20,7 +20,8 @@ export const collectLspWorkspaceModels = withInstrumentation(
     files: ReadonlyArray<WorkspaceFile>,
     parsedModels: ParsedWorkspaceModel[],
     cache: Map<string, LspModelCacheEntry>,
-    activeFile?: string
+    activeFile?: string,
+    additionalRoots: readonly string[] = []
   ): Array<{ uri: string; modelJson: string }> {
     const parsed = new Map(parsedModels.map((entry) => [entry.filePath, entry.serializedModelJson]));
     const current = new Map<string, LspModelCacheEntry>();
@@ -44,7 +45,7 @@ export const collectLspWorkspaceModels = withInstrumentation(
     }
     for (const uri of cache.keys()) if (!current.has(uri)) cache.delete(uri);
     const activeNamespace = activeFile ? current.get(canonicalUri(activeFile))?.metadata.namespace : undefined;
-    if (!activeNamespace) return [];
+    if (!activeNamespace && !additionalRoots.length) return [];
     const allNamespaces = new Set(uriNamespaces.values());
     const deps = new Map<string, Set<string>>();
     for (const entry of current.values()) {
@@ -58,7 +59,11 @@ export const collectLspWorkspaceModels = withInstrumentation(
       }
       deps.set(namespace, targets);
     }
-    const closure = closeNamespaceDependencies(activeNamespace, deps);
+    const closure = new Set(
+      [...(activeNamespace ? [activeNamespace] : []), ...additionalRoots].flatMap((namespace) => [
+        ...closeNamespaceDependencies(namespace, deps)
+      ])
+    );
     return [...current]
       .filter(([, entry]) => entry.metadata.namespace && closure.has(entry.metadata.namespace))
       .map(([uri, entry]) => ({ uri, modelJson: entry.compact }));

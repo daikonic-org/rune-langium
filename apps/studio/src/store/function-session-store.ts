@@ -6,6 +6,7 @@ import { makeNodeId, splitNodeId } from '@rune-langium/visual-editor/identifiers
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import { buildDefaultValues, resolveArmPaths } from '../services/preview-validator.js';
 import type { PreviewSessionClient } from '../services/preview-session-client.js';
+import { retainedWorkflowFields } from '../services/workflow-input-compatibility.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface FunctionSessionState {
@@ -16,6 +17,7 @@ export interface FunctionSessionState {
   status: 'idle' | 'running' | 'succeeded' | 'failed';
   error?: string;
   schema?: FormPreviewSchema;
+  schemaStatus?: 'loading' | 'ready' | 'unavailable';
 }
 
 export interface FunctionSession {
@@ -44,6 +46,7 @@ export const createFunctionSession = withInstrumentation(
     let selectionVersion = 0;
     let executionVersion = 0;
     let activeController: AbortController | undefined;
+    let loadingSchema = false;
     const listeners = new Set<() => void>();
     const notify = () => listeners.forEach((listener) => listener());
     const patch = (next: Partial<FunctionSessionState>) => {
@@ -62,60 +65,82 @@ export const createFunctionSession = withInstrumentation(
         ++executionVersion;
         activeController?.abort();
         if (!fqn) {
-          patch({ ...INITIAL_STATE, schema: undefined, error: undefined });
+          loadingSchema = false;
+          patch({ ...INITIAL_STATE, schema: undefined, schemaStatus: undefined, error: undefined });
           return;
         }
         const controller = new AbortController();
         activeController = controller;
+        const previousSchema = state.functionFqn === fqn ? state.schema : undefined;
+        loadingSchema = true;
         patch({
           functionFqn: fqn,
-          boundParameter: null,
-          inputs: {},
+          boundParameter: previousSchema ? state.boundParameter : null,
+          inputs: previousSchema ? state.inputs : {},
           result: undefined,
           status: 'running',
           error: undefined,
-          schema: undefined
+          schema: previousSchema,
+          schemaStatus: 'loading'
         });
         try {
           const { namespace, name } = splitNodeId(schemaTargetId ?? fqn);
           const schema = await client.schema(makeNodeId(namespace, name, 'RosettaFunction'), controller.signal);
           if (disposed || version !== selectionVersion) return;
-          patch({ schema, inputs: buildDefaultValues(schema.fields, resolveArmPaths(schema)), status: 'idle' });
+          const defaults = buildDefaultValues(schema.fields, resolveArmPaths(schema));
+          const retained = previousSchema
+            ? Object.fromEntries(
+                retainedWorkflowFields(previousSchema, schema).map((field) => [field.path, state.inputs[field.path]])
+              )
+            : {};
+          loadingSchema = false;
+          patch({ schema, schemaStatus: 'ready', inputs: { ...defaults, ...retained }, status: 'idle' });
         } catch (error) {
           if (disposed || version !== selectionVersion || controller.signal.aborted) return;
-          patch({ status: 'failed', error: error instanceof Error ? error.message : String(error) });
+          loadingSchema = false;
+          patch({
+            status: 'failed',
+            schemaStatus: 'unavailable',
+            error: error instanceof Error ? error.message : String(error)
+          });
         }
       },
       setInput(name, value) {
         ++executionVersion;
-        activeController?.abort();
+        if (!loadingSchema) activeController?.abort();
         patch({
           inputs: { ...state.inputs, [name]: structuredClone(value) },
           result: undefined,
-          status: 'idle',
-          error: undefined
+          status: loadingSchema ? 'running' : state.schemaStatus === 'unavailable' ? 'failed' : 'idle',
+          error: state.schemaStatus === 'unavailable' ? state.error : undefined
         });
       },
       setInputs(inputs) {
         ++executionVersion;
-        activeController?.abort();
-        patch({ inputs: structuredClone(inputs), result: undefined, status: 'idle', error: undefined });
+        if (!loadingSchema) activeController?.abort();
+        patch({
+          inputs: structuredClone(inputs),
+          result: undefined,
+          status: loadingSchema ? 'running' : state.schemaStatus === 'unavailable' ? 'failed' : 'idle',
+          error: state.schemaStatus === 'unavailable' ? state.error : undefined
+        });
       },
       bindInstance(parameter, record) {
         const field = state.schema?.fields.find((candidate) => candidate.path === parameter);
         const value = field?.kind === 'array' ? [record.data] : record.data;
         ++executionVersion;
-        activeController?.abort();
+        if (!loadingSchema) activeController?.abort();
         patch({
           boundParameter: parameter,
           inputs: { ...state.inputs, [parameter]: structuredClone(value) },
           result: undefined,
-          status: 'idle',
-          error: undefined
+          status: loadingSchema ? 'running' : state.schemaStatus === 'unavailable' ? 'failed' : 'idle',
+          error: state.schemaStatus === 'unavailable' ? state.error : undefined
         });
       },
       async run() {
-        if (!state.functionFqn || state.status === 'running') return;
+        if (!state.functionFqn || state.status === 'running' || state.schemaStatus === 'unavailable' || loadingSchema)
+          return;
         if (state.schema?.executionUnavailable) {
           patch({ status: 'failed', result: undefined, error: state.schema.executionUnavailable });
           return;

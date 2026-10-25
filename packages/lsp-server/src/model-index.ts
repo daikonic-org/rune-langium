@@ -1,31 +1,60 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { AstUtils, DefaultDocumentBuilder, DocumentState, URI, isMultiReference } from 'langium';
+import { AstUtils, DefaultDocumentBuilder, DocumentState, URI } from 'langium';
 import type { AstNode, LangiumDocument } from 'langium';
 import type { CancellationToken } from 'vscode-languageserver';
 import type { LangiumServices, LangiumSharedServices } from 'langium/lsp';
 import {
+  relinkModelReferences,
   hydrateModelDocument,
+  hydrateModelDocuments,
+  setProjectDocumentModel,
+  setProjectRedirects,
+  clearProjectResolution,
+  invalidateProjectResolution,
+  projectDeclarationIdentity,
+  type ProjectResolutionContext,
+  type ProjectResolutionReceipt,
+  type RuneDslServices,
   isRosettaModel,
   compactLspModelJson,
   serializeRuneModel,
   type LspModelUpdate
 } from '@rune-langium/core';
 
+import {
+  readProjectResolutionContext,
+  type ProjectOverride,
+  projectOverrideRedirects,
+  validateProjectOverrides,
+  type ProjectDeclarations
+} from '@rune-langium/project-runtime/resolution';
+
 /** Dependencies reuse the language's real scoping/linking, without source parsing. */
 export class RuneModelIndex {
   private readonly capturedSources = new WeakMap<LangiumDocument, AstNode>();
   private dirty = false;
+  private resolution: ProjectResolutionContext | undefined;
+  private resolutionDirty = false;
+  private resolutionOverrides: ProjectOverride[] = [];
   private readonly models = new Map<string, { document: LangiumDocument; modelJson: string }>();
   constructor(
     private readonly shared: LangiumSharedServices,
-    private readonly services: LangiumServices,
+    private readonly services: LangiumServices & RuneDslServices,
     private readonly persist?: (update: LspModelUpdate) => Promise<void>
   ) {}
 
-  async sync(update: LspModelUpdate): Promise<void> {
+  async sync(update: LspModelUpdate): Promise<ProjectResolutionReceipt | undefined> {
     const { LangiumDocuments, DocumentBuilder } = this.shared.workspace;
+    if (Object.hasOwn(update, 'resolution')) {
+      if (!update.retain) throw new Error('Project resolution requires a complete retained model set.');
+      const owned = update.resolution == null ? undefined : await readProjectResolutionContext(update.resolution);
+      this.resolution = owned?.context;
+      this.resolutionOverrides = owned?.overrides ?? [];
+      this.resolutionDirty = true;
+      this.dirty = true;
+    }
     if (update.document) {
       const { modelJson } = update.document;
       const uri = URI.parse(update.document.uri).toString();
@@ -38,26 +67,7 @@ export class RuneModelIndex {
       if (!isRosettaModel(model)) throw new Error('Expected a serialized RosettaModel');
       // Serialized refs point at a past generation. Build real lazy Langium refs
       // so live edits, additions and removals invalidate the same index as source.
-      for (const node of AstUtils.streamAst(model)) {
-        for (const info of AstUtils.streamReferences(node)) {
-          const reference = isMultiReference(info.reference)
-            ? this.services.references.Linker.buildMultiReference(
-                info.container,
-                info.property,
-                undefined,
-                info.reference.$refText
-              )
-            : this.services.references.Linker.buildReference(
-                info.container,
-                info.property,
-                undefined,
-                info.reference.$refText
-              );
-          const container = info.container as unknown as Record<string, unknown>;
-          if (info.index === undefined) container[info.property] = reference;
-          else (container[info.property] as unknown[])[info.index] = reference;
-        }
-      }
+      relinkModelReferences(this.services, model);
       this.models.set(uri, { document, modelJson });
       this.dirty = true;
     }
@@ -65,7 +75,7 @@ export class RuneModelIndex {
     const retain = new Set(update.retain.map((uri) => URI.parse(uri).toString()));
     const removed = [...this.models.keys()].filter((uri) => !retain.has(uri));
     for (const uri of removed) this.models.delete(uri);
-    if (!this.dirty && removed.length === 0) return;
+    if (!this.dirty && removed.length === 0) return this.resolution?.receipt;
     if (removed.length)
       await DocumentBuilder.update(
         [],
@@ -80,8 +90,23 @@ export class RuneModelIndex {
         LangiumDocuments.addDocument(document);
       }
     }
+    if (this.resolutionDirty) this.recreateProjectRoots();
     await this.rebuild();
+    const overrides = this.resolutionOverrides;
+    const declarations: ProjectDeclarations[] = LangiumDocuments.all.toArray().flatMap((document) => {
+      const root = document.parseResult.value;
+      return isRosettaModel(root)
+        ? root.elements.flatMap((node) => {
+            const identity = projectDeclarationIdentity(this.services, node);
+            return identity ? [{ identity, node }] : [];
+          })
+        : [];
+    });
+    const issues = validateProjectOverrides(this.services, overrides, declarations, true);
+    if (issues.length) throw new Error(issues.map((issue) => issue.message).join('\n'));
+    this.resolutionDirty = false;
     this.dirty = false;
+    return this.resolution?.receipt;
   }
 
   async captureSources(
@@ -129,8 +154,38 @@ export class RuneModelIndex {
     if (restored) await this.rebuild();
   }
 
+  /** Semantic snapshots and live buffers get fresh roots before a new resolution receipt is acknowledged. */
+  private recreateProjectRoots(): void {
+    const configured = projectOverrideRedirects(this.resolutionOverrides);
+    if (configured.diagnostics.length) throw new Error(configured.diagnostics.map((issue) => issue.message).join('\n'));
+    clearProjectResolution(this.services);
+    if (this.resolution) {
+      for (const [uri, model] of Object.entries(this.resolution.models))
+        setProjectDocumentModel(this.services, URI.parse(uri), model);
+      setProjectRedirects(this.services, configured.redirects);
+    }
+    const { LangiumDocuments, LangiumDocumentFactory } = this.shared.workspace;
+    const entries = [...this.models].filter(([uri]) => !this.shared.workspace.TextDocuments?.get(uri));
+    const fresh = hydrateModelDocuments(
+      { RuneDsl: this.services, shared: this.shared },
+      entries.map(([uri, value]) => ({ uri, json: value.modelJson }))
+    );
+    fresh.forEach((value, index) => {
+      relinkModelReferences(this.services, value.model);
+      this.models.set(entries[index]![0], { document: value.document, modelJson: entries[index]![1].modelJson });
+    });
+    for (const document of LangiumDocuments.all.toArray()) {
+      const text = this.shared.workspace.TextDocuments?.get(document.uri.toString());
+      if (!text) continue;
+      const parsed = LangiumDocumentFactory.fromString(text.getText(), document.uri);
+      LangiumDocuments.deleteDocument(document.uri);
+      LangiumDocuments.addDocument(parsed);
+    }
+  }
+
   private async rebuild(): Promise<void> {
     const { DocumentBuilder, LangiumDocuments } = this.shared.workspace;
+    invalidateProjectResolution(this.services);
     const documents = LangiumDocuments.all.toArray();
     for (const document of documents) {
       if (document.state >= DocumentState.ComputedScopes) {

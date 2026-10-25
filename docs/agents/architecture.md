@@ -13,14 +13,126 @@ Current source and package manifests take precedence over historical specs.
 | `packages/design-system`                                | Shared theme, tokens, and UI primitives.                                                                                                                                                                                                            |
 | `apps/studio`                                           | React IDE, workspace persistence, browser workers, provider composition, and Pages Functions.                                                                                                                                                       |
 | `packages/git-sync-engine`, `packages/curated-schema`   | Shared Git synchronization and curated-model contracts.                                                                                                                                                                                             |
+| `packages/project-config`                               | Host-neutral portable project configuration, comment-preserving YAML edits and dependency lock contracts. Target validation is injected; only core's pure project contract is imported, without parser, Studio or codegen dependencies. |
 | `packages/instrumentation-core`, `packages/worker-core` | Shared instrumentation and Worker infrastructure; Worker logging lives in `worker-core/log`.                                                                                                                                                        |
 | `apps/lsp-worker`                                       | Hosted LSP sessions in `RuneLspSession` Durable Objects.                                                                                                                                                                                            |
 | Other worker apps                                       | Curated-model mirror, GitHub authentication, codegen gateway, and telemetry.                                                                                                                                                                        |
 | `packages/codegen-legacy`, `apps/codegen-container`     | Legacy JVM/Rosetta bridge and container path; Java 21 and `rosetta-code-generators` still apply here.                                                                                                                                               |
 | `apps/docs`, `site`                                     | Documentation and landing page, combined with Studio into the Pages artifact.                                                                                                                                                                       |
 
+| `packages/project-runtime` | Composes project-config, core and codegen for explicit named builds. The `/browser` entry owns the host-neutral build transaction with an injected generator; native parser composition is at the root and filesystem/local-project entry points live under `/node`. The `/references` entry owns host-neutral locked closure resolution and byte verification. |
+
 The main dependencies are Studio → visual-editor/codegen/LSP/core,
-and CLI/codegen/LSP → core.
+and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codegen expose their package metadata for authoritative toolchain version checks.
+
+## Portable project state
+
+`project-config` owns file capture, revision identity, normalization and snapshot
+validation. Both Studio and the headless runtime consume these host-neutral
+contracts. Positive source glob selection and semantic input revision are shared:
+configuration, lock, selected Rune sources, resources and shared Studio files
+invalidate inputs; generated output and unrelated prose do not. Raw byte revisions
+preserve binary resource identity. Snapshots retain known raw file revisions;
+`createProjectDraftSnapshot` rehashes edited text while retaining untouched binary
+identities. Input paths use code-point ordering so host locale cannot alter a
+revision. Structural errors prevent snapshot activation; target-scoped errors
+are selected through `projectDiagnosticsForTargets` for each explicit build.
+
+Studio's `WorkspaceProvider` publishes project state separately from model data
+and personal workbench preferences. Its controller validates proposed files,
+performs revisioned Save/readback, retains the last valid snapshot on errors and
+discards late activation results. Working-copy adapters bind the workspace root
+and live ownership; journals map to private backing storage outside Git.
+Migration returns proposed writes for confirmation and never deletes browser
+preferences as a side effect of reading repository configuration.
+
+WorkspaceProvider extends the shared workspace save barrier to drain portable
+example and presentation saves after editor/source flushing. Both streams drain
+until their saved state stabilizes, including edits queued during the wait. Settled save failures remain
+blocking until explicitly retried; Git stages only after the complete barrier
+succeeds. Example payload/descriptor writes and removals retain their normal transaction/readback and workspace ownership checks.
+
+Named-target settings are repository state; the selected target and ad hoc root
+selection remain personal run preferences. Explicit Save preserves YAML comments
+and checks the captured file revision. Before a named build, Export flushes editor
+and source autosave, reloads the active project controller, and waits for the
+ordinary provider's matching runtime capture. Preparation is cancelable and
+rejects workspace/source changes or Save failures; it never creates a parallel
+receipt. Only then does Build selected/all stage every chosen artifact before
+writes through `project-runtime/browser`; the native host parses an isolated graph, while Studio supplies the existing server generator. Both use
+strict library defaults and shared concrete namespace-scope expansion. A build
+finishing after project disposal cannot write through the guarded adapter.
+Binary generator output is persisted as bytes. Preview/download retain the exact
+captured ZIP and become stale on semantic input or configuration errors.
+
+Reference release catalogs extend the existing curated artifact contract rather
+than replacing it. GitHub release/tag/commit provenance maps to a checksummed
+immutable cohort manifest; artifact versions never imply release tags. The
+publisher prepares a complete set before writes, verifies serialized bytes,
+records successful immutable uploads and promotes catalogs dependencies-first.
+Catalogs retain distinct immutable cohorts for an unchanged source tag/commit;
+parent manifests constrain the selected dependency cohorts. The shared resolver
+backtracks cohort variants without selecting another source release. Locked open
+verifies full manifest/bundle closure before returning documents or promoting
+bytes, without catalog/latest lookup. Studio reuses its bounded IndexedDB cache
+and guards explicit config+lock Save by workspace/revision and cancellation.
+Reference-only configuration hashing keeps unrelated source/target edits from
+forcing a network resolution. Installed core/codegen identities and core's
+Langium support range determine artifact compatibility.
+Development/latest manifests remain separate. The mirror serves `/releases/*`
+with its existing CORS/ETag/error conventions. See
+[curated publication](../curated-publishing.md) for the dry-run and upload order.
+
+Core's pure `project-contract` entry owns declaration identity, receipt and
+resolution-context schemas; project-config aliases its identity schema rather
+than maintaining another shape. This entry imports only Zod. Core remains
+independent of project configuration/runtime packages.
+
+Core's injected project-resolution port is independent of project configuration.
+Hosts explicitly register document ownership; declaration keys include model,
+namespace, AST kind, name and dispatch selector. The reserved `local` model names
+repository declarations, so mappings survive cloning and workspace renaming.
+`buildEffectiveProject` creates fresh services and registers all roots before
+hydration/linking. Scope descriptions and source links redirect through the same
+port; serialized references rebuild through that linker rather than retaining
+pointers into a cached generation. Originals remain available for provenance.
+Mapping cycles, ambiguous/missing endpoints, kind/signature/cardinality changes
+and incomplete dispatch families are diagnosed. Structural changes are checked
+against actual reference callers. Its receipt captures project revision, lock
+and override digests; host adoption is a separate readiness boundary. Native builds load verified
+locked documents and generate from that graph; source-only materialization is
+explicitly unavailable with overrides. Shared context validation compares actual
+lock/override data with the receipt digests before a host acknowledges them.
+LSP semantic synchronization applies context only with the final retained URI
+set. It revives fresh dependency roots, reparses open buffers, validates mappings
+and echoes the applied receipt. Core owns reference rebuilding for both serialized
+revival and LSP snapshots, including transitions back to ordinary workspaces.
+Hosted storage persists context using the same chunk/pointer writer as models;
+cold replay supplies it at the final model barrier, never before its dependencies.
+Studio captures draft text over the saved snapshot while preserving untouched
+binary identities. Locked reference loading is keyed separately from source
+edits. Captured metadata is not semantic readiness: the preview worker builds a
+fresh effective graph and acknowledges its exact receipt. One shared Worker-port
+bridge tags operations for preview, Prototype, validation and code preview,
+rejects mismatched replies and preserves legacy message shapes. Worker replies
+capture their originating generation before yielding; they cannot borrow a
+newer receipt. Identical receipts reuse the same immutable graph.
+
+Codegen's selection view uses core's resolved declaration targets, including
+explicitly selected original roots. It emits the replacement's canonical
+namespace, excludes overridden original bodies and retains linked originals for
+inspection. Preview schemas and Python module bindings share this selection
+boundary. Kind-qualified direct function requests resolve through that same port.
+
+The LSP client separately tracks model bytes and resolution context, so
+configuration-only edits and reconnects require a fresh applied receipt. Existing
+editor plugins retain didChange ownership while semantic requests wait. Studio
+accepts local parser snapshots only when their recorded source equals captured
+editor text. Explicit override endpoint namespaces and their import dependencies
+join the active semantic closure; unavailable captures cannot fall back to an
+ordinary graph. Managed diagnostics are buffered during context synchronization and
+replayed through the existing editor and observer handlers only after the exact
+acknowledgement; superseded generations are discarded.
 
 ## Studio Runtime
 
@@ -70,7 +182,12 @@ workspace creation does not leak into individual declaration forms. Extend uses
 the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
 from the pinned curated source into a distinct local namespace; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
-then uses the normal file persistence/parse path. Curated sources remain immutable.
+then uses the normal file persistence/parse path. Managed actions flush the existing
+source/autosave owners, await the saved revision in the preview worker, and Save
+the copy plus explicit override map in one project transaction. Copy bytes must
+match the verified locked reference documents before their source URI, commit and
+cohort become provenance. Repeated Modify follows the existing mapping. Extend
+adds no redirect. Curated sources remain immutable.
 Preview-worker hydration restores references within curated snapshots; their exports
 must also be registered through Langium's index before parsing authored source that
 imports them. Index each hydrated batch once and remove exports when it is replaced.
@@ -94,12 +211,18 @@ forms use `--inspector-padding-inline` (8 px); their header owns no second gutte
 Preview and Prototype share validated field state: invalid controls use a semantic
 red-tinted background and border, `aria-invalid`, and an associated inline error.
 Temporal controls forward the same state; corrected fields clear both cues.
-Worker diagnostics remain the sole source of validation results.
+Worker diagnostics remain the sole source of validation results. Untouched empty
+numeric fields show neutral required guidance; edit/blur reveals the canonical
+error with plain-language number-type copy. Domain diagnostics and precise decimal
+strings retain their original meaning; presentation never changes Execute gates.
 
 Preview and Prototype share symbol-associated presentation preferences in
-`form-presentation-store.ts`, persisted through `workbench-settings.ts` in the
-workspace's browser database. Object layouts store member order, column count
-and spans; numeric formats store currency, grouping and decimal places. Codegen
+`form-presentation-store.ts`. Active workspace preferences are read from typed
+repository presentation files through ProjectController; browser settings remain
+a separate migration candidate until explicitly reviewed and accepted. Object
+layouts store member order, column count and spans; numeric formats store currency,
+grouping and decimal places. Full owner/namespace/kind/name keys bind shared files;
+source-relative property paths exclude runtime list indices. Codegen
 attaches kind-qualified `typeSymbol` metadata through its authoritative resolver,
 preserving declared aliases and identities through deferred expansion. Root
 selection IDs are normalized before lookup so nested uses share the same layout.
@@ -289,11 +412,12 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 - Core `BASE_TYPE_FILES` owns the standard Rune types and annotations. Studio re-exports it; the shared `RuneWorkspaceManager` loads it during LSP initialization, including reconnects. Core and LSP factories install `RuneDslSharedModule`.
 - `hydrateModelDocuments` registers every parsed root before `RuneJsonSerializer` invokes Langium's reference revival. Keep one object graph: repeated deserialize rounds retain stale generations and cannot resolve arbitrary cycles. Batch tests must verify target identity across long chains and cycles.
-- Curated downloads use a disposable browser worker; user-file-only downloads use `/api/codegen`. Both call `src/services/codegen-download-handler.ts` for validation, namespace closure, generation, and packaging. Hydration closes the documents that may be resolved; `ExportSelection` then chooses dependency-closed declaration roots for emission; `generateSelected` returns that exact receipt with the outputs, including a kind-aware `requiredBy` provenance map. Artifact envelopes record the receipt, immutable curated manifest cohorts when available, and generated files, so Studio previews and downloads use the same captured ZIP. Preserve fatal diagnostics and terminate the browser worker on completion, error, or timeout.
+- Managed project downloads and curated downloads use a disposable browser worker; legacy user-file-only downloads use `/api/codegen`. Managed captures travel by structured clone, preserving snapshot Maps. The HTTP boundary rejects project captures rather than silently treating them as legacy requests. Both transports call `src/services/codegen-download-handler.ts` for validation, namespace closure, generation, and packaging. Hydration closes the documents that may be resolved; `ExportSelection` then chooses dependency-closed declaration roots for emission; `generateSelected` returns that exact receipt with the outputs, including a kind-aware `requiredBy` provenance map. Artifact envelopes record the receipt, immutable curated manifest cohorts when available, and generated files, so Studio previews and downloads use the same captured ZIP. Managed exports apply the same effective graph and named-target scope as native builds, require the captured project receipt in the ZIP envelope, and retain it when combining target artifacts. Missing or mismatched receipts cannot be staged or downloaded. Preserve fatal diagnostics and terminate the browser worker on completion, error, or timeout.
 - Curated mirror CORS uses the shared worker origin matcher and the explicit `ALLOWED_ORIGIN` list in its Wrangler config, including this project’s Pages previews and local Studio ports.
 - Curated manifests record bundle dependencies as well as namespace dependencies. Parsing and downloads use `loadCuratedWorkspace` to close the namespace graph across those bundles before hydration. Parsing keeps unrelated namespaces as deferred explorer entries; downloads hydrate all selected documents together before generation. `packages/curated-schema` owns production-source selection and the publisher's namespace graph; CI parses CDM, FpML, and Rune runtime sources in one workspace so serialized cross-bundle references retain their targets. Before serialization, `assertValidDocuments` requires completed linking and rejects syntax or reference errors even when semantic validation is disabled. Worker artifact builds use isolated services with the shared standard library so a previous build cannot supply missing declarations. The uploader hashes the prepared manifest set into a cohort, pins dependency manifests to that cohort, and uploads all versioned blobs and immutable cohort manifests before advancing latest pointers. Consumers resolve floating bundle selections through one cohort, so a partial pointer update cannot mix generations. Legacy date versions still select the current manifest; `cohort-<sha256>` versions select immutable manifests and must match the returned cohort. The mirror cron preserves cohort and dependency metadata alongside the serialized namespace graph. Cohort manifests and content-hashed artifacts remain outside daily archive pruning; any future garbage collector must retain the full dependency closure of live cohorts.
 - Routed parsing returns each dependency bundle's resolved manifest cohort/version. Studio registers implicit curated dependencies with that identity before merging reference-only files, so preview snapshots and restored workspace bindings retain the exact serialized reference targets. It does not replace an implicit pin with a guessed latest version.
 - Derive UI previews and validation from authoritative codegen output. A sample awaiting a worker validation result must remain visibly pending; editing alone never establishes validity.
+- `CodegenProvider` owns the shared browser worker connection. Resetting workspace/model preview data clears pending results without detaching that worker; only its provider lifecycle attaches or detaches preview dispatch.
 - Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. Presentation components do not own validation or alternate schema semantics.
 - Preview scalar formats follow the resolved Rune primitive, including aliases, arrays and Choice arms. Shared Preview/Prototype controls compose the design-system Calendar and themed time segments alongside ISO inputs. The Calendar wraps react-day-picker's date-grid and keyboard semantics with shared theme tokens. An ISO editor preserves nanosecond fractions and explicit zoned offsets/IDs; companion picker edits retain that precision and authored suffix. Workers remain authoritative validators; friendly temporal format guidance changes only presentation, leaving original diagnostics in Output/Activity.
 - Preview preparation coalesces hydration and worker-file acknowledgement independently of individual panel cancellation. A shared 30-second deadline aborts stalled preparation and allows a fresh retry. Projection display requests also have a 30-second deadline and a direct Retry generation action; execution keeps its separate 120-second deadline. Late replies cannot replace a newer retry result.
@@ -328,7 +452,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Inspector forms own one 6px outer inset through `INSPECTOR_FORM_CLASS`; the center pane adds none, and headers/sections use 6px vertical spacing without repeating horizontal padding. Fields and embedded editors retain their own text inset; metadata textarea focus rings draw inside their borders so scroll edges cannot clip the side highlight. Inspector member rows share name-field geometry through `INSPECTOR_ROW_NAME_CLASS`, keeping attributes/function inputs and enum members at the same text size and padding. Inherited rows use the same typography with muted names, and consume the same type options as local rows so reference chips retain canonical kind colors. Member-details headings derive from the canonical root kind (Attribute, Member, Option, or Input), and icon-only controls retain accessible names. Inspector navigation uses the same one-second outline fade as graph/structure, inset to avoid clipping; reduced motion retains a static cue until cleanup. Dockview leaf views own symmetric gaps; shell/grid wrappers add no padding or one-sided margins. Center panes have no outer padding. Graph's drawing wrapper retains its 6px inset around React Flow; Structure owns a normal scrollable document inset and does not mount React Flow. `DockShell` measures the center stack for location-path alignment and updates it on native layout changes and resize.
 - Inspector type-label rows use `InspectorTypeField` for Wrapped type, Output Type, and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
 - Structure sizes cards through native DOM layout, capped by the owning canvas. Shared type and cardinality wrappers align controls without fixed row measurements.
-- Structure requests the existing namespace hydration action for visible deferred roots, expanded children and inherited bases. Hydrated namespaces publish their documents into the shared graph independently of selection. Successfully linked documents are recorded after their models are merged, once per workspace; in-flight documents are tracked separately. Selected-document linking shares both sets, so navigation after later parser hydration resets cannot republish cached models. Both paths replace corpus snapshots by their canonical serialized document URI, including dependencies returned transitively; files sharing a namespace remain distinct. Regionless legacy snapshots use exact content identity. Later rounds skip successful documents, while Structure’s Load details action can retry failed publication without repeating namespace downloads or successful peer documents. In-flight link results belong to the workspace generation; selection changes must not discard their once-delivered models. Deferred cards show loading/retry content, while a hydrated derived type without own fields says *No additional attributes*.
+- Structure requests the existing namespace hydration action for visible deferred roots, expanded children and inherited bases. Hydrated namespaces publish their documents into the shared graph independently of selection. Successfully linked documents are recorded after their models are merged, once per workspace; in-flight documents are tracked separately. Selected-document linking shares both sets, so navigation after later parser hydration resets cannot republish cached models. Both paths replace corpus snapshots by their canonical serialized document URI, including dependencies returned transitively; files sharing a namespace remain distinct. Regionless legacy snapshots use exact content identity. Later rounds skip successful documents, while Structure’s Load details action can retry failed publication without repeating namespace downloads or successful peer documents. In-flight link results belong to the workspace generation; selection changes must not discard their once-delivered models. Deferred cards show loading/retry content, while a hydrated derived type without own fields says _No additional attributes_.
 - Structure header names are drag surfaces. Explicit navigation arrows move from the property row to the child header while expanded; context menus retain canonical declaration targets. Type-reference lookup excludes functions even when their Rune names match a type. Inspector reference fields own option resolution so member rows do not preselect by label.
 - Explore side panels use the shared `PanelCollapseButton` chrome from the utility tray. Dedicated grid groups resize to a constrained rail, rotate headers vertically while hidden, and retain mounted drafts and the session's expanded width in workbench-owned state across header remounts. Single-tab side groups retain header actions, with the chevron above titles when collapsed. Explore restores dedicated split Form/Code columns into one preview group without replacing panels, caps its initial width at the shared 320px default after dimensions are available, and leaves later manual resizing alone; mixed groups containing the main task are preserved. The dock title supplies Studio's sole Type explorer heading; groups sharing the main task on narrow layouts are never hidden wholesale. Preview edge groups use their native collapse API, with explicit show/hide choices kept open across focus changes.
 - Non-React consumers use `@rune-langium/visual-editor/model` for graph state and `/identifiers` for identifier helpers. Workers must not import the full UI barrel. The render gate accepts regenerated schemas into its existing registry during development, preserving workspace consumers while React refreshes the Inspector.
@@ -621,6 +745,10 @@ Worker `codegen:setFiles` messages only install source files and invalidate the
 codegen version. Only `codegen:generate` runs export generation. Selected preview
 readiness therefore publishes its snapshot without starting a discarded
 whole-workspace export before the selected-closure request.
+Explore execution replies must match both the function name and the request ID
+of its latest dispatch before consuming a span or publishing output/activity.
+Workspace resets discard spans while preserving the provider-owned worker;
+late success/error replies cannot settle a newer same-name run.
 
 The Langium connection adapter routes typed, generic and logging notifications
 through one send boundary. It checks listening state and handles the pinned
@@ -640,7 +768,6 @@ the loaded owner or writes a placeholder condition to source. Late scope replies
 are ignored after a draft target changes. Reconciliation normalizes pending
 `RawDsl` expressions through core parsing/dehydration before acknowledging their
 typed AST form, so a caught-up condition is not appended a second time.
-
 
 ### Structure document
 
@@ -713,3 +840,160 @@ Workers share JSON response construction through `@rune-langium/worker-core/http
 `jsonResponse` preserves caller headers and status; `corsJsonResponse` adds the
 already-checked origin and `Vary: Origin`. Route handlers remain responsible for
 origin authorization before constructing a CORS response.
+
+Project capability preparation uses installed host providers and explicitly rooted
+resource mappings. The effective graph carries one codegen binding registry for
+form choices, input/output validation and TypeScript/Zod/JSON Schema constraints.
+The shared declaration dependency walker determines affected callers and export
+scopes. Unsupported resource generators fail before publication; provider callbacks
+never enter serialized captures or generated source. Workflow caches include the
+saved project revision so resource/config-only changes cannot retain valid status.
+
+Static project initialization stays in project-config/import and consumes only
+opened repository text. The runtime adds explicit catalog artifact-to-release
+mappings; it never interprets Maven versions as tags or loads Java code. The
+optional build.importReport references portable compatibility evidence, included
+in snapshot identity/output protection. Existing build configuration suppresses
+POM initialization; subsequent POM edits do not change native builds.
+ProjectImportReportSchema owns the persisted evidence format for both review and
+reopen. The private runtime's pure `/status` entry combines that historical report
+with current snapshot diagnostics and explicitly supplied effective-graph
+capabilities. It does not reparse POMs, infer provider availability or replace the
+normal build/Execute gates. Export settings renders unavailable target diagnostics
+separately; Prototype's existing canonical schema/validation availability still
+gates Execute. Shared report findings use the design-system disclosure chrome.
+
+
+GitHub-open performs optional native project initialization only after a successful
+clone. WorkspaceProvider binds an inactive clone's ordinary ProjectController to
+the same owned file adapter used for active projects. Existing build-config.yml
+or .yaml skips Maven detection; ambiguous spellings are diagnosed. The inline
+review inspects local POM metadata, allows explicit profiles, and saves only its
+reviewed settings/report through the shared transaction. Read-only input
+revisions and a repository file-list precondition survive journal recovery.
+Cancel/Keep browsing and initialization failure preserve the cloned repository,
+POM bytes, remote and branch. Re-review reloads current files after a conflict.
+
+Studio opts out of the Git engine's automatic synchronization: working-copy Save
+only marks actual changed files dirty. Git / Sync's explicit Commit and push
+flushes the existing editor Save barriers before invoking the existing engine.
+Uncommitted changes are distinct from ahead/behind commit counts; no token or
+private journal is included in repository-managed files. The generic engine's
+automatic mode remains available to other hosts.
+
+### Portable Prototype examples
+
+Project-config owns ExampleDescriptor/path/codec metadata and `readExamples`.
+Studio's `example-repository` adapts these records to the existing instance store;
+WorkspaceProvider binds it to the active ProjectController, while App supplies only
+limited typed legacy storage. Example saves serialize across records and use shared
+project Save/readback, including explicit CAS removals for deletion. Late completion
+from another workspace cannot publish a Saved/failed state into the active store.
+The pure runtime `/data` entry is the single codec availability/serialization gate.
+Full type identity accompanies the internal display FQN; unknown/ambiguous legacy
+bindings retain data. Only typed legacy record files are inspected, and readback
+precedes private migration markers. No private directory-tree copy is permitted.
+
+Named Prototype workflows are explicit portable recipes under `studio.workflows`.
+Their optional function identity, input example/literal bindings and output names
+are separate from execution results and personal view state. Opening stages a
+function session before replacing the visible workflow; workspace changes cancel
+pending opens. Shared Save/recovery is queued at ProjectController while preserving
+each operation's CAS and generation checks. A same-function schema refresh retains
+mounted fields/current compatible drafts, disables Execute until fresh schema and
+validation are available, and offers a schema retry after failure. Parameter/array
+element compatibility is shared by session retention and Prototype source bindings.
+`WorkflowLibrary` compares canonical captured recipes for unsaved state and retains
+per-recipe drafts while switching in the mounted session. Workspace changes clear
+those private drafts; reload recovery is not promised. Save compares against the
+exact recipe written, so edits during a pending Save remain unsaved. Recipe Save
+may retain a clearly labeled previous result for matching workspace/function/inputs,
+but that history never re-enters session state, the current payload graph or the
+Save-as-example path.
+
+### Editable starter copies and bound folders
+
+The starter catalog describes projects; checked source adapters provide their
+actual files and exact commit. `createStarterOpener` validates the copy boundary,
+then `createStarterWorkingCopy` uses the existing ProjectController before host
+activation. Starter provenance lives on WorkspaceRecord without GitBacking,
+credentials or reference-only flags. Unpublished catalog proposals stay disabled.
+Workspace opening and reference dependencies occupy separate launcher sections.
+Recent-workspace Rename updates only display metadata and recents in one IndexedDB
+transaction, preserving current backing/UI state and updating the active header.
+It never renames `rune-config.yml` model identity or repository-managed files.
+
+Bound folder source IO uses WorkspaceManager's canonical project adapter. Source
+loads recover the private Save journal before reading; source writes use shared
+ProjectController Save/CAS and preserve unrelated files. Retry adopts only exact
+readback of this source writer's interrupted attempt, preserving external edits
+as conflicts. The journal and personal metadata stay in browser-private storage;
+portable configuration/examples remain in the selected working-copy folder.
+Browser and native project adapters share project-config's `isIgnoredProjectEntry`
+policy. Both prune `.git`, `.studio` and `node_modules` before descending at any
+depth, so installed dependencies never enter project snapshots or Save checks.
+
+### Locked reference view publication
+
+`prepareProjectReferenceChange` separates resolver verification from acceptance.
+The UI flushes pending source Save; preparation reloads the controller and derives
+release changes from that fresh configuration. Draft snapshots preserve untouched
+binary revisions. Review captures config/lock writes, the original project revision,
+the exact repository file list and non-destination byte revisions. Acceptance
+checks cancellation/current identity and passes that evidence into the canonical
+Save preconditions, rejecting silent source/resource edits, additions and removals.
+The existing resolve-and-save API delegates to this same transaction.
+`reviewProjectCompatibility` builds the proposed graph in isolation with the
+shared runtime, validates explicit overrides and portable record identities,
+and compares canonical preview schemas for saved type/function bindings against
+the locked current graph. Review identifies affected files. Broken portable
+bindings and schema changes remain explicit warnings; global graph errors block
+acceptance. Unavailable baseline or standalone preview contracts are reported,
+not treated as a compatibility success.
+`ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
+selects a latest tag implicitly, and does not invoke the legacy model store.
+
+`WorkspaceProvider` projects captured references into the Explorer through
+`prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope
+computation register a complete document set in the existing parser worker;
+read-only ownership and original source remain attached to each reference file.
+Only configured local source paths participate in semantic hydration. The complete
+current editable file inventory remains available to source editors and autosave,
+including files outside those globs. Retained views contribute semantic models
+and locked read-only files; their captured writable text never replaces current
+editor files. Readiness tracks writable-file identity as well as parsed/input
+identity, so an edit immediately marks the retained semantic view pending.
+View readiness is separate from
+semantic capture and each host's applied-receipt barrier. Complete serialized
+definitions are excluded from legacy namespace-hydration requests. Workspace
+identity and abort guards discard late view completion; failed loads expose
+retry without editing configuration or falling back to latest artifacts.
+
+The local model-authoring starter is self-contained. Its separate test cohort
+uses an empty numeric reference `Double`, an explicit local Rune replacement and
+an original reference caller. Runtime tests pair emitted TypeScript execution
+with the canonical standalone function-input validator; TypeScript's compile-time
+parameter types are not treated as runtime validation. The browser workflow uses
+a typed Quote wrapper, preserving existing object-example semantics while proving
+the same override call chain. Display formatting and field order survive a fresh
+clone without changing semantic values. No starter repository or fixture release
+is published by these tests.
+
+### Portable project recovery and input protection
+
+Expected fixtures under `tests/expected` and explicit example `expected` paths
+are protected build inputs and participate in snapshot revisions. Builds cannot
+replace them through a generated output directory. Target scope errors remain
+qualified by target; preview adoption and independent targets exclude unrelated
+target errors using the common diagnostic filter.
+
+Undecoded example payloads never become semantic strings or synthesized null
+values. Load reports a repair failure; semantic writes and generic Retry refuse
+to reinterpret those bytes until the payload is repaired/restored and reloaded.
+Repository writers attach after the controller's first successful readiness
+publication, including recovery after an initially malformed project.
+
+The App grants initialization IO only for a freshly created inactive GitHub
+clone. Its adapter also checks the captured workspace generation and ownership
+at write time; ordinary active-project access retains its activation guard.
+Activation, workspace departure and controller disposal revoke pending access.

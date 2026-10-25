@@ -79,3 +79,65 @@ it('reuses the target options form registry for Excel exports', () => {
   expect(screen.getByTestId('export-target-options')).toBeInTheDocument();
   expect(screen.getByTestId('excel-options-form')).toBeInTheDocument();
 });
+
+it('keeps unavailable imported targets separate from usable native targets and shows persisted evidence', async () => {
+  const { createProjectSnapshot } = await import('@rune-langium/project-config');
+  const { validateProjectTarget } = await import('@rune-langium/project-runtime/browser');
+  const snapshot = await createProjectSnapshot(
+    'imported',
+    new Map([
+      ['rune-config.yml', 'model: {name: Imported}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          importReport: 'build-config.import.json',
+          targets: {
+            java: { generator: 'java', output: 'generated/java' },
+            types: { generator: 'json-schema', output: 'generated/types' }
+          }
+        })
+      ],
+      [
+        'build-config.import.json',
+        JSON.stringify({
+          schemaVersion: 1,
+          provenance: { pomPath: 'pom.xml', profiles: ['pricing'], documents: ['pom.xml'] },
+          dependencies: [],
+          report: [
+            {
+              code: 'JAVA_UNAVAILABLE',
+              path: 'pom.xml#java',
+              message: 'Java SDK provider is unavailable.',
+              status: 'unsupported',
+              targets: ['java'],
+              capabilities: ['java']
+            }
+          ]
+        })
+      ]
+    ]),
+    validateProjectTarget
+  );
+  render(
+    <ExportSettingsPanel
+      config={config}
+      onChange={vi.fn()}
+      onGenerate={vi.fn()}
+      onCancel={vi.fn()}
+      status="idle"
+      projectEnabled
+      projectSnapshot={snapshot}
+      projectDiagnostics={snapshot.project.diagnostics}
+    />
+  );
+  expect(screen.getByRole('checkbox', { name: 'java', exact: true })).toBeDisabled();
+  expect(screen.getByRole('checkbox', { name: 'types', exact: true })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Build all' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('checkbox', { name: 'types', exact: true }));
+  expect(screen.getByRole('button', { name: 'Build selected' })).toBeEnabled();
+  await userEvent.click(screen.getByText('Saved initialization report', { exact: true }));
+  expect(screen.getByText('Java SDK provider is unavailable.')).toBeVisible();
+  expect(screen.getByText('Profiles: pricing')).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Import Maven' })).not.toBeInTheDocument();
+});

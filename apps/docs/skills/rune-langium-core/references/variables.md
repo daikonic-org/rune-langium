@@ -357,6 +357,24 @@ const RuneDslGeneratedModule: Module<LangiumCoreServices, LangiumGeneratedCoreSe
 const RuneDslGeneratedSharedModule: Module<LangiumSharedCoreServices, LangiumGeneratedSharedCoreServices>
 ```
 
+## references
+
+### `DeclarationIdentitySchema`
+```ts
+const DeclarationIdentitySchema: ZodObject<{ model: ZodString; namespace: ZodString; kind: ZodString; name: ZodString; dispatch: ZodOptional<ZodString> }, $strip>
+```
+
+### `ProjectResolutionReceiptSchema`
+```ts
+const ProjectResolutionReceiptSchema: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>
+```
+
+### `ProjectResolutionContextSchema`
+Sent with a complete retained document set, after its semantic snapshots have arrived.
+```ts
+const ProjectResolutionContextSchema: ZodObject<{ schemaVersion: ZodLiteral<1>; receipt: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>; models: ZodRecord<ZodString, ZodString>; lock: ZodNullable<ZodUnknown>; overrides: ZodArray<ZodUnknown> }, $strip>
+```
+
 ## stdlib
 
 ### `BASE_TYPE_FILES`
@@ -387,7 +405,7 @@ const ANNOTATIONS_ROSETTA: string
 ### `RuneDslModule`
 Dependency-injection module for the Rune DSL language.
 ```ts
-const RuneDslModule: { serializer: { JsonSerializer: (services: RuneDslServices) => RuneJsonSerializer }; parser: { LangiumParser: (services: RuneDslServices) => RuneDslParser }; references: { ScopeComputation: (services: RuneDslServices) => RuneDslScopeComputation; ScopeProvider: (services: RuneDslServices) => RuneDslScopeProvider } }
+const RuneDslModule: { serializer: { JsonSerializer: (services: RuneDslServices) => RuneJsonSerializer }; parser: { LangiumParser: (services: RuneDslServices) => RuneDslParser }; references: { Linker: (services: RuneDslServices) => RuneDslLinker; ScopeComputation: (services: RuneDslServices) => RuneDslScopeComputation; ScopeProvider: (services: RuneDslServices) => RuneDslScopeProvider } }
 ```
 
 ### `RuneDslSharedModule`
@@ -418,13 +436,5 @@ const LSP_MODEL_SYNC_METHOD: "rune/syncModels"
 ```
 
 ### `LSP_REQUEST_TIMEOUT_MS`
-Request budget includes reconstruction of dependency models after cold wake.
-```ts
-const LSP_REQUEST_TIMEOUT_MS: 30000
-```
 
-### `RUNE_SERIALIZE_OPTIONS`
-The Langium serialize option triple for the canonical Rune wire form.
-```ts
-const RUNE_SERIALIZE_OPTIONS: JsonSerializeOptions
-```
+<!-- truncated -->

@@ -18,6 +18,7 @@ import { _resetForTests, listRecents, loadWorkspace, saveWorkspace } from '../..
 import * as persistence from '../../src/workspace/persistence.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import * as workspaceFiles from '../../src/workspace/workspace-files.js';
+import { OpfsFs } from '../../src/opfs/opfs-fs.js';
 import { createOpfsRoot } from '../setup/opfs-mock.js';
 import { deferredCuratedWorker } from '../setup/deferred-curated-worker.js';
 import { curatedArtifactCache } from '../../src/services/curated-artifact-cache.js';
@@ -37,23 +38,38 @@ vi.mock('../../src/services/workspace.js', async (importOriginal) => ({
 vi.mock('../../src/services/transport-provider.js', () => ({
   createTransportProvider: () => ({ onStateChange: () => () => {}, dispose: () => {} })
 }));
-vi.mock('../../src/services/lsp-client.js', () => ({
-  createLspClientService: () => ({
-    connect: vi.fn().mockResolvedValue(undefined),
-    syncWorkspaceFiles: vi.fn(),
-    syncWorkspaceModels: vi.fn().mockResolvedValue(undefined),
-    dispose: vi.fn()
-  })
-}));
+vi.mock('../../src/services/lsp-client.js', async () => {
+  const { createLspClientStub } = await import('../helpers/lsp-client-stub.js');
+  return { createLspClientService: createLspClientStub };
+});
 vi.mock('../../src/components/StudioToastProvider.js', () => ({
   StudioToastProvider: ({ children }: { children?: ReactNode }) => children,
   useStudioToast: () => ({ showToast: vi.fn(), showLoadingToast: vi.fn(() => 'loading'), dismissToast: vi.fn() })
 }));
 vi.mock('../../src/shell/ExplorePerspective.js', async () => {
-  const { useEffect, useMemo } = await import('react');
+  const { useEffect, useMemo, useState } = await import('react');
+  const { GitHubWorkspaceFlow } = await import('../../src/components/GitHubWorkspaceFlow.js');
   const { DataTypeForm, useModelSourceSync, createEditorCommitRegistry } = await import('@rune-langium/visual-editor');
   const { useWorkspace } = await import('../../src/shell/providers/workspace-context.js');
   const { useWorkspaceActions } = await import('../../src/shell/perspectives/workspace-actions-context.js');
+  function CloneReviewProbe() {
+    const actions = useWorkspaceActions();
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button onClick={() => setOpen(true)}>Start clone review</button>
+        {open && (
+          <GitHubWorkspaceFlow
+            authBase="https://auth.example"
+            createWorkspace={actions.createGitBackedWorkspace}
+            openProjectInitialization={actions.openProjectInitialization}
+            onCreated={actions.onGitHubWorkspaceCreated}
+            onCancel={() => setOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
   function InspectorFlushProbe() {
     const { files, models } = useWorkspace();
     useEffect(() => {
@@ -111,10 +127,14 @@ vi.mock('../../src/shell/ExplorePerspective.js', async () => {
   return {
     ExplorePerspective: () => {
       const { files, deferredExports } = useWorkspace();
-      const { onCreateWorkspace, onClose, onFilesChange } = useWorkspaceActions();
+      const { onCreateWorkspace, onClose, onFilesChange, onGitHubWorkspaceCreated } = useWorkspaceActions();
+      const { workspaceId } = useWorkspace();
       return (
         <div>
           <InspectorFlushProbe />
+          <CloneReviewProbe />
+          <span data-testid="workspace-id">{workspaceId}</span>
+          <button onClick={() => void onGitHubWorkspaceCreated('empty-clone')}>Open POM-only clone</button>
           <span data-testid="files">{files.map((file) => file.path).join(',')}</span>
           <span data-testid="trade-content">{files.find((file) => file.path === 'trade.rosetta')?.content}</span>
           <span data-testid="deferred">{deferredExports.map((entry) => entry.namespace).join(',')}</span>
@@ -257,7 +277,7 @@ it.each([false, true])(
       save.mockImplementation(write);
       await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close from test' })));
     }
-    await screen.findByRole('button', { name: 'New blank workspace' });
+    await screen.findByRole('button', { name: 'New workspace' });
     expect((await loadWorkspaceFiles('ws-a')).find((file) => file.path === 'trade.rosetta')?.content).toContain(
       'Saved from pending Inspector timer'
     );
@@ -317,7 +337,7 @@ describe('workspace isolation', () => {
       save.mockImplementation(write);
       await act(attempt);
       if (transition === 'close' || transition === 'reset') {
-        await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+        await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
       } else {
         expect(screen.getByTestId('files')).toHaveTextContent('blank.rosetta');
       }
@@ -351,7 +371,7 @@ describe('workspace isolation', () => {
       gate.resolve();
       await switching;
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect((await loadWorkspaceFiles('ws-a')).find((file) => file.path === 'trade.rosetta')?.content).toBe(
       'namespace project.edited\n'
     );
@@ -360,7 +380,7 @@ describe('workspace isolation', () => {
   it('carries launcher selections into a pre-created Git-backed target without creating a duplicate', async () => {
     await persistence.deleteWorkspace('ws-a');
     render(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     await act(async () => useModelStore.getState().load(getModelSource('rune-dsl')!));
     const now = new Date().toISOString();
     await saveWorkspace({
@@ -393,7 +413,7 @@ describe('workspace isolation', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
     fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'New blank workspace' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'New workspace' }));
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('untitled.rosetta'));
     parseMock.mockImplementation(async () => ({
       ...emptyParse(),
@@ -416,10 +436,10 @@ describe('workspace isolation', () => {
     await _resetForTests();
     await persistence.deleteWorkspace('ws-a');
     render(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     await act(async () => useModelStore.getState().load(getModelSource('rune-dsl')!));
     await waitFor(() => expect(useModelStore.getState().models.has('rune-dsl')).toBe(true));
-    fireEvent.click(screen.getByRole('button', { name: 'New blank workspace' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New workspace' }));
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('.rosetta'));
     expect(useModelStore.getState().models.has('rune-dsl')).toBe(true);
     const workspace = (await listRecents())[0]!;
@@ -452,7 +472,7 @@ describe('workspace isolation', () => {
     usePreviewStore.setState({ selectedTargetId: 'cdm.event.common.SpinOff' });
     useCodegenStore.getState().setCodePreviewTarget('typescript');
     fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect(screen.queryByRole('button', { name: /Workspace menu/ })).not.toBeInTheDocument();
     expect(useModelStore.getState().models.size).toBe(0);
     expect(useEditorStore.getState().nodes).toEqual([]);
@@ -466,7 +486,7 @@ describe('workspace isolation', () => {
     await openSourceWorkspace();
     fireEvent.click(screen.getByRole('button', { name: /Workspace menu — .*Source project/ }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Close Source project and return to start page' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect(useModelStore.getState().models.size).toBe(0);
     expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
     expect((await loadWorkspace('ws-a'))?.curatedModels?.map((binding) => binding.modelId)).toEqual(['cdm']);
@@ -477,7 +497,7 @@ describe('workspace isolation', () => {
     const previous = (await loadWorkspace('ws-a'))!;
     await saveWorkspace({ ...previous, id: 'ws-empty', name: 'Empty', curatedModels: [] });
     await act(async () => window.__runeStudioTestApi!.switchWorkspace!('ws-empty'));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible());
     expect(screen.queryByRole('button', { name: /Workspace menu/ })).not.toBeInTheDocument();
     expect(useModelStore.getState().models.size).toBe(0);
     expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
@@ -536,7 +556,7 @@ describe('workspace isolation', () => {
       });
       expect(recovered.mock.calls.length).toBe(0);
       expect(received.filter((request) => request.type === 'hydrate')).toHaveLength(1);
-      expect(screen.getByRole('button', { name: 'New blank workspace' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'New workspace' })).toBeVisible();
       expect(useModelStore.getState().models.size).toBe(0);
       expect(useEditorStore.getState().nodes).toEqual([]);
       expect(await loadWorkspaceFiles('ws-a')).toEqual(sourceFiles);
@@ -576,7 +596,7 @@ describe('workspace isolation', () => {
     });
     expect(screen.getByTestId('files')).toHaveTextContent('blank.rosetta');
     expect(screen.getByRole('button', { name: /Workspace menu — .*New/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'New blank workspace' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New workspace' })).not.toBeInTheDocument();
   });
 
   it('an import that supersedes a restore leaves the restoring screen', async () => {
@@ -662,4 +682,76 @@ describe('workspace isolation', () => {
     expect(screen.getByTestId('files')).not.toHaveTextContent('[cdm]');
     expect(useModelStore.getState().models.size).toBe(0);
   });
+});
+
+it('activates a POM-only GitHub clone without duplicating it or carrying prior editor files', async () => {
+  const source = (await loadWorkspace('ws-a'))!;
+  const gitBacking = {
+    repoUrl: 'https://github.com/example/native.git',
+    branch: 'release',
+    user: 'example',
+    tokenPath: '/empty-clone/.studio/token',
+    syncState: 'clean' as const,
+    lastSyncedSha: null
+  };
+  await saveWorkspace({
+    ...source,
+    id: 'empty-clone',
+    name: 'Native project',
+    kind: 'git-backed',
+    lastOpenedAt: '2020-01-01T00:00:00Z',
+    gitBacking
+  });
+  const fs = new OpfsFs(await navigator.storage.getDirectory());
+  await fs.writeFile('/empty-clone/files/pom.xml', '<project/>');
+  render(<App />);
+  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open POM-only clone' }));
+  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('empty-clone'));
+  expect(screen.getByTestId('files')).not.toHaveTextContent('trade.rosetta');
+  expect(await loadWorkspaceFiles('empty-clone')).toEqual([]);
+  expect(await listRecents()).toHaveLength(2);
+  expect((await loadWorkspace('empty-clone'))?.kind).toBe('git-backed');
+  expect((await loadWorkspace('empty-clone'))?.gitBacking).toEqual(gitBacking);
+  expect(await fs.readFile('/empty-clone/files/pom.xml', 'utf8')).toBe('<project/>');
+});
+
+it('reviews and saves a newly cloned inactive project through the real App adapter before activation', async () => {
+  const git = await import('../../src/services/git-backing.js');
+  vi.spyOn(git, 'cloneRepository').mockImplementation(async (fs, id) => {
+    await fs.writeFile(
+      '/' + id + '/files/pom.xml',
+      new TextEncoder().encode(
+        '<project><modelVersion>4.0.0</modelVersion><groupId>example</groupId><artifactId>rates</artifactId><version>1</version></project>'
+      )
+    );
+  });
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.endsWith('/device-init'))
+      return Response.json({
+        device_code: 'fixture',
+        user_code: 'TEST',
+        verification_uri: 'https://github.com/login/device',
+        expires_in: 900,
+        interval: 5
+      });
+    if (url.endsWith('/device-poll')) return Response.json({ access_token: 'fixture-only', scope: 'repo' });
+    return new Response('{}', { status: 404 });
+  });
+  render(<App />);
+  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a'));
+  fireEvent.click(screen.getByRole('button', { name: 'Start clone review' }));
+  fireEvent.click(await screen.findByRole('button', { name: /check now/i }));
+  fireEvent.change(await screen.findByTestId('repo-url-input'), { target: { value: 'example/rates' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Clone', exact: true }));
+  const initialize = await screen.findByRole('button', { name: 'Initialize project settings' });
+  await waitFor(() => expect(initialize).toBeEnabled());
+  expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a');
+  fireEvent.click(initialize);
+  await waitFor(() => expect(screen.getByTestId('workspace-id').textContent).not.toBe('ws-a'));
+  const id = screen.getByTestId('workspace-id').textContent!;
+  const root = await navigator.storage.getDirectory();
+  const files = await (await root.getDirectoryHandle(id)).getDirectoryHandle('files');
+  expect(await (await (await files.getFileHandle('build-config.yml')).getFile()).text()).toContain('schemaVersion');
 });

@@ -15,12 +15,14 @@ export abstract class BaseNamespaceEmitter {
   protected readonly model: NamespaceWalkResult;
   protected readonly registry: NamespaceRegistry;
   protected readonly suppressBoilerplate: boolean;
+  protected readonly projectResources: NamespaceEmitterOptions['projectResources'];
   protected readonly diagnostics: GeneratorDiagnostic[] = [];
 
   constructor(model: NamespaceWalkResult, options: NamespaceEmitterOptions, registry: NamespaceRegistry) {
     this.model = model;
     this.registry = registry;
     this.suppressBoilerplate = options.suppressBoilerplate ?? false;
+    this.projectResources = options.projectResources;
   }
 
   /**

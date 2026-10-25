@@ -47,10 +47,10 @@ test.describe('J16 — Resilience & chrome', () => {
       await captureOpLogSnapshot(page, evidence);
       await page.getByRole('button', { name: /Workspace menu/ }).click();
       await page.getByRole('menuitem', { name: /Close .*return to start page/ }).click();
-      await expect(page.getByRole('button', { name: 'New blank workspace', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'New workspace', exact: true })).toBeVisible();
       await expect(page.getByTestId('rail-explore')).toBeDisabled();
       await expect(page.getByTestId('explore-workbench')).toBeHidden();
-      await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
+      await page.getByRole('button', { name: 'New workspace', exact: true }).click();
       await expect(page.getByTestId('explore-workbench')).toBeVisible();
       release();
       await settled;
@@ -92,7 +92,7 @@ test.describe('J16 — Resilience & chrome', () => {
     async ({ page, evidence }) => {
       await page.goto('./');
       await page.waitForLoadState('domcontentloaded');
-      await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
       // No workspace loaded yet — explore/git/export require one; workspaces/
       // settings do not (perspective-registry.ts's requiresWorkspace flags).
@@ -118,7 +118,7 @@ test.describe('J16 — Resilience & chrome', () => {
       const WORKSPACE_FILE_CONTENT = 'namespace example\n';
       await page.goto('./');
       await page.waitForLoadState('domcontentloaded');
-      await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
       await page
         .locator('input[type="file"][accept=".rosetta"]')
         .setInputFiles([
@@ -134,7 +134,7 @@ test.describe('J16 — Resilience & chrome', () => {
       // hasExploreContent drops to false — the Workspaces launcher (the
       // same model-loader surface loadCdm/J02 land on when navigating
       // there directly) becomes visible without any further navigation.
-      await expect(page.getByTestId('model-loader')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
       await evidence.checkpoint('delete-last-file-fallback-to-workspaces');
     }
   );
@@ -155,7 +155,7 @@ test.describe('J16 — Resilience & chrome', () => {
       });
 
       await page.goto('./');
-      await expect(page.getByTestId('model-loader')).toBeVisible();
+      await expect(page.getByTestId('workspaces-perspective')).toBeVisible();
       await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles([
         {
           name: 'toast.rosetta',

@@ -4,12 +4,18 @@
 import { deleteInstance, writeInstance } from '../opfs/instances-fs.js';
 import type { OpfsFs } from '../opfs/opfs-fs.js';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
+import type { ProjectDiagnostic } from '@rune-langium/project-config';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
-interface PersistenceContext {
-  fs: OpfsFs;
-  workspaceRoot: string;
+export interface ExampleRepository {
+  workspaceId: string;
+  write(record: InstanceRecord): Promise<void>;
+  remove(id: string): Promise<void>;
+  load(): Promise<{ records: InstanceRecord[]; diagnostics: ProjectDiagnostic[]; failures?: Record<string, string> }>;
 }
+type PersistenceContext =
+  | { fs: OpfsFs; workspaceRoot: string; repository?: never }
+  | { repository: ExampleRepository; workspaceRoot: string; fs?: never };
 
 const tails = new Map<string, Promise<void>>();
 
@@ -33,7 +39,9 @@ function enqueue(context: PersistenceContext, id: string, operation: () => Promi
 export const persistInstance = withInstrumentation(
   function persistInstance(context: PersistenceContext | undefined, record: InstanceRecord): Promise<void> {
     if (!context) return Promise.resolve();
-    return enqueue(context, record.id, () => writeInstance(context.fs, context.workspaceRoot, record));
+    return enqueue(context, record.id, () =>
+      context.repository ? context.repository.write(record) : writeInstance(context.fs, context.workspaceRoot, record)
+    );
   },
   { op: 'persistInstance' }
 );
@@ -41,7 +49,9 @@ export const persistInstance = withInstrumentation(
 export const persistDelete = withInstrumentation(
   function persistDelete(context: PersistenceContext | undefined, id: string): Promise<void> {
     if (!context) return Promise.resolve();
-    return enqueue(context, id, () => deleteInstance(context.fs, context.workspaceRoot, id));
+    return enqueue(context, id, () =>
+      context.repository ? context.repository.remove(id) : deleteInstance(context.fs, context.workspaceRoot, id)
+    );
   },
   { op: 'persistDelete' }
 );
@@ -57,8 +67,10 @@ export const flushPersistedInstance = withInstrumentation(
 export const instancePersistenceContext = withInstrumentation(
   function instancePersistenceContext(
     fs: OpfsFs | undefined,
-    workspaceRoot: string | undefined
+    workspaceRoot: string | undefined,
+    repository?: ExampleRepository
   ): PersistenceContext | undefined {
+    if (repository) return { repository, workspaceRoot: repository.workspaceId };
     return fs && workspaceRoot ? { fs, workspaceRoot } : undefined;
   },
   { op: 'instancePersistenceContext' }

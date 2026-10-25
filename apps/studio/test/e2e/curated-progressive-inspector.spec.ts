@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import { test, expect } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
@@ -95,8 +96,8 @@ test('shows own fields before the closure arrives, then preserves inherited fiel
     })
   );
   await page.goto('./');
-  await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
-  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
+  await openReferenceModels(page);
   await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('namespace-search').fill('Base');

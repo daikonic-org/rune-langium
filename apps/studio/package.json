@@ -50,6 +50,7 @@
     "@rune-langium/git-sync-engine": "workspace:*",
     "@rune-langium/instrumentation-core": "workspace:*",
     "@rune-langium/lsp-server": "workspace:*",
+    "@rune-langium/project-config": "workspace:*",
     "@rune-langium/visual-editor": "workspace:*",
     "@tanstack/react-virtual": "^3.14.21",
     "@vscode/tree-sitter-wasm": "0.3.1",
@@ -71,7 +72,8 @@
     "react-hook-form": "^7.90.0",
     "sucrase": "3.35.1",
     "zod": "^4.6.7",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.15",
+    "@rune-langium/project-runtime": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

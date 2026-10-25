@@ -5,6 +5,8 @@ import JSZip from 'jszip';
 import type { ExportSelection, GeneratorDiagnostic, Target } from '@rune-langium/codegen/export';
 import { withInstrumentation } from './instrumentation/core.js';
 import { throwCodegenDownloadError } from './workspace.js';
+import { ProjectResolutionReceiptSchema, type ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
+import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
 import { downloadBlob } from './browser-download.js';
 
 export interface ExportArtifactFile {
@@ -15,6 +17,7 @@ export interface ExportArtifactFile {
 }
 
 export interface ExportArtifactManifest {
+  projectReceipt?: ProjectResolutionReceipt;
   version: 1;
   target: Target;
   selection?: ExportSelection;
@@ -34,7 +37,17 @@ export interface ExportArtifact {
   filename: string;
   manifest: ExportArtifactManifest;
   readText(path: string): Promise<string>;
+  readBytes?(path: string): Promise<Uint8Array>;
 }
+
+/** A generated artifact can establish readiness only for its captured project. */
+export const assertExportProjectReceipt = withInstrumentation(
+  function assertExportProjectReceipt(artifact: ExportArtifact, expected: ProjectResolutionReceipt | undefined): void {
+    if (expected && !projectReceiptMatches(expected, artifact.manifest.projectReceipt))
+      throw new Error('Export project receipt does not match the captured source and configuration.');
+  },
+  { op: 'assertExportProjectReceipt', capture: 0 }
+);
 
 /** Save the exact immutable ZIP Blob that was decoded for preview. */
 export const downloadExportArtifact = withInstrumentation(
@@ -62,6 +75,8 @@ function isManifest(value: unknown): value is ExportArtifactManifest {
   const manifest = value as Partial<ExportArtifactManifest>;
   return (
     manifest.version === 1 &&
+    (manifest.projectReceipt === undefined ||
+      ProjectResolutionReceiptSchema.safeParse(manifest.projectReceipt).success) &&
     typeof manifest.target === 'string' &&
     Array.isArray(manifest.files) &&
     manifest.files.every(isArtifactFile) &&
@@ -95,6 +110,10 @@ export const decodeExportArtifact = withInstrumentation(
       blob,
       filename,
       manifest,
+      async readBytes(path: string) {
+        if (!manifest.files.some((file) => file.path === path)) throw new Error('Unknown export file: ' + path);
+        return zip.file(path)!.async('uint8array');
+      },
       async readText(path: string): Promise<string> {
         const file = manifest.files.find((candidate) => candidate.path === path);
         if (!file || file.kind !== 'text') throw new Error(`'${path}' is not a text export file.`);
@@ -105,4 +124,37 @@ export const decodeExportArtifact = withInstrumentation(
     };
   },
   { op: 'decodeExportArtifact' }
+);
+
+/** Batch previews and downloads retain the same staged bytes as saved target outputs. */
+export const combineExportArtifacts = withInstrumentation(
+  async function combineExportArtifacts(
+    entries: readonly { output: string; artifact: ExportArtifact }[]
+  ): Promise<ExportArtifact> {
+    const receipt = entries.find((entry) => entry.artifact.manifest.projectReceipt)?.artifact.manifest.projectReceipt;
+    for (const entry of entries) assertExportProjectReceipt(entry.artifact, receipt);
+    const zip = new JSZip();
+    const files: ExportArtifactFile[] = [];
+    for (const { output, artifact } of entries)
+      for (const file of artifact.manifest.files) {
+        const path = output + '/' + file.path;
+        const content = artifact.readBytes ? await artifact.readBytes(file.path) : await artifact.readText(file.path);
+        zip.file(path, content);
+        files.push({ ...file, path });
+      }
+    const manifest: ExportArtifactManifest = {
+      version: 1,
+      ...(receipt ? { projectReceipt: receipt } : {}),
+      target: entries[0]!.artifact.manifest.target,
+      files,
+      diagnostics: entries.flatMap((entry) => entry.artifact.manifest.diagnostics)
+    };
+    zip.file('.rune/export.json', JSON.stringify(manifest));
+    return decodeExportArtifact(
+      new Response(new Uint8Array(await zip.generateAsync({ type: 'uint8array' })).buffer, {
+        headers: { 'X-Rune-Export-Filename': 'rune-build.zip' }
+      })
+    );
+  },
+  { op: 'combineExportArtifacts' }
 );

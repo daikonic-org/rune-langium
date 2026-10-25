@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { buildArmValue, buildDefaultValue } from '../../src/services/preview-validator.js';
 import { usePreviewStore } from '../../src/store/preview-store.js';
@@ -20,6 +20,7 @@ function schema(targetId: string, title = targetId.split('.').at(-1) ?? targetId
 
 describe('usePreviewStore', () => {
   beforeEach(() => {
+    usePreviewStore.getState().setWorkerRef(null);
     usePreviewStore.getState().resetPreviewState();
   });
 
@@ -611,7 +612,24 @@ describe('usePreviewStore', () => {
 
 describe('preview-store dispatchValidate/receiveValidateResult', () => {
   beforeEach(() => {
+    usePreviewStore.getState().setWorkerRef(null);
     usePreviewStore.getState().resetPreviewState();
+  });
+
+  it('retains the provider-owned worker connection when resetting workspace preview data', () => {
+    const postMessage = vi.fn();
+    const store = usePreviewStore.getState();
+    store.setWorkerRef({ postMessage } as unknown as Worker);
+    store.resetPreviewState();
+    store.updateSampleValues('beta.Trade#Data', { value: 'new workspace' }, true);
+
+    store.dispatchValidate('beta.Trade#Data', { value: 'new workspace' });
+
+    expect(postMessage).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'instance:validate', typeFqn: 'beta.Trade', data: { value: 'new workspace' } })
+    );
+    store.setWorkerRef(null);
   });
 
   it('dispatchValidate posts an instance:validate message and receiveValidateResult writes errors/valid onto the sample', () => {
@@ -705,14 +723,18 @@ describe('preview-store dispatchValidate/receiveValidateResult', () => {
 
 // Task 1 (2026-07-17 prod-ux-checkout-harness Phase 2): dispatchExecute/
 // receiveExecutionResult/receiveExecutionError gain a `functionExecute`
-// op-log span, correlated by funcName via a module-scope Map — mirrors
+// op-log span, correlated by function and request ID — mirrors
 // model-store.ts's `load()`/modelLoad span test pattern (see
 // model-store.test.ts).
 describe('usePreviewStore — functionExecute op-log span', () => {
-  const fakeWorker = { postMessage: () => {} } as unknown as Worker;
+  const postMessage = vi.fn();
+  const fakeWorker = { postMessage } as unknown as Worker;
+  const latestRequestId = () => postMessage.mock.lastCall![0].requestId as string;
 
   beforeEach(() => {
+    usePreviewStore.getState().setWorkerRef(null);
     usePreviewStore.getState().resetPreviewState();
+    postMessage.mockClear();
     usePreviewStore.getState().setWorkerRef(fakeWorker);
     useOutputStore.setState({ lines: [] });
     useActivityStore.setState({ entries: [] });
@@ -720,7 +742,7 @@ describe('usePreviewStore — functionExecute op-log span', () => {
 
   it('dispatchExecute + receiveExecutionResult publishes one success functionExecute activity entry', () => {
     usePreviewStore.getState().dispatchExecute('alpha.CalcTrade', {});
-    usePreviewStore.getState().receiveExecutionResult('alpha.CalcTrade', { ok: true });
+    usePreviewStore.getState().receiveExecutionResult('alpha.CalcTrade', { ok: true }, latestRequestId());
 
     const entries = useActivityStore.getState().entries;
     const functionExecuteEntries = entries.filter((e) => e.tag === 'functionExecute');
@@ -740,7 +762,7 @@ describe('usePreviewStore — functionExecute op-log span', () => {
 
   it('dispatchExecute + receiveExecutionError publishes one failure functionExecute activity entry', () => {
     usePreviewStore.getState().dispatchExecute('alpha.CalcTrade', {});
-    usePreviewStore.getState().receiveExecutionError('alpha.CalcTrade', 'boom');
+    usePreviewStore.getState().receiveExecutionError('alpha.CalcTrade', 'boom', latestRequestId());
 
     const entries = useActivityStore.getState().entries;
     const functionExecuteEntries = entries.filter((e) => e.tag === 'functionExecute');
@@ -757,7 +779,9 @@ describe('usePreviewStore — functionExecute op-log span', () => {
   });
 
   it('receiveExecutionResult for a funcName never dispatched does not throw or log an entry', () => {
-    expect(() => usePreviewStore.getState().receiveExecutionResult('never.Dispatched', { ok: true })).not.toThrow();
+    expect(() =>
+      usePreviewStore.getState().receiveExecutionResult('never.Dispatched', { ok: true }, 'unknown')
+    ).not.toThrow();
 
     const entries = useActivityStore.getState().entries;
     expect(entries.filter((e) => e.tag === 'functionExecute')).toHaveLength(0);
@@ -768,11 +792,12 @@ describe('usePreviewStore — functionExecute op-log span', () => {
 
   it('drops a stale executeSpans entry on resetPreviewState so a late worker result is not written back', () => {
     usePreviewStore.getState().dispatchExecute('alpha.CalcTrade', {});
+    const requestId = latestRequestId();
 
     usePreviewStore.getState().resetPreviewState();
     usePreviewStore.getState().setWorkerRef(fakeWorker);
 
-    usePreviewStore.getState().receiveExecutionResult('alpha.CalcTrade', { ok: true });
+    usePreviewStore.getState().receiveExecutionResult('alpha.CalcTrade', { ok: true }, requestId);
 
     expect(usePreviewStore.getState().executionResults.has('alpha.CalcTrade')).toBe(false);
 
@@ -781,6 +806,22 @@ describe('usePreviewStore — functionExecute op-log span', () => {
 
     const lines = useOutputStore.getState().lines;
     expect(lines.filter((l) => l.op === 'functionExecute')).toHaveLength(0);
+  });
+  it.each(['result', 'error'] as const)('ignores a superseded %s without consuming the latest run', (kind) => {
+    const store = usePreviewStore.getState();
+    store.dispatchExecute('alpha.CalcTrade', { value: 1 });
+    const old = latestRequestId();
+    store.dispatchExecute('alpha.CalcTrade', { value: 2 });
+    const current = latestRequestId();
+    if (kind === 'result') store.receiveExecutionResult('alpha.CalcTrade', 1, old);
+    else store.receiveExecutionError('alpha.CalcTrade', 'old error', old);
+    expect(usePreviewStore.getState().executionResults.size).toBe(0);
+    expect(useActivityStore.getState().entries.filter((entry) => entry.tag === 'functionExecute')).toEqual([]);
+    store.receiveExecutionResult('wrong.Function', 99, current);
+    store.receiveExecutionResult('alpha.CalcTrade', 2, current);
+    store.receiveExecutionError('alpha.CalcTrade', 'duplicate reply', current);
+    expect(usePreviewStore.getState().executionResults.get('alpha.CalcTrade')).toEqual({ output: 2 });
+    expect(useActivityStore.getState().entries.filter((entry) => entry.tag === 'functionExecute')).toHaveLength(1);
   });
 });
 

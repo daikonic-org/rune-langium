@@ -107,7 +107,7 @@ export const PrototypePerspective = withInstrumentation(
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center p-3 text-sm text-muted-foreground">
-                      Select an instance to inspect its payload graph.
+                      Select an example to inspect its payload graph.
                     </div>
                   )
               }
@@ -115,7 +115,7 @@ export const PrototypePerspective = withInstrumentation(
         },
         titles: {
           'prototype.inspector': 'Workflow',
-          'prototype.grid': 'Instances',
+          'prototype.grid': 'Examples',
           ...(view.graphVisible ? { 'prototype.payloadGraph': 'Payload graph' } : {})
         },
         buildDefault(api, width) {
@@ -128,7 +128,7 @@ export const PrototypePerspective = withInstrumentation(
           api.addPanel({
             id: 'prototype.grid',
             component: 'prototype.grid',
-            title: 'Instances',
+            title: 'Examples',
             initialHeight: 190,
             position:
               width < 768

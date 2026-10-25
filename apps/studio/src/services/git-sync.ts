@@ -18,6 +18,7 @@ import { withInstrumentation, Capture } from './instrumentation/core.js';
 
 export const phaseToSyncState = withInstrumentation(
   function phaseToSyncState(s: SyncStatus): GitBackingRecord['syncState'] {
+    if (s.dirty && s.phase === 'idle') return 'ahead';
     switch (s.phase) {
       case 'blocked':
         return s.conflictPaths !== undefined ? 'conflict' : 'diverged';
@@ -122,6 +123,7 @@ export const getOrCreateSyncEngine = withInstrumentation(
         password: (await loadWorkspaceToken(fs, workspaceId)) ?? ''
       }),
       author: { name: input.gitBacking.user, email: `${input.gitBacking.user}@users.noreply.github.com` },
+      autoSync: false,
       conflictPolicy: effectivePolicy
     });
     if (input.onState) engine.subscribe(input.onState);

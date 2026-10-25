@@ -13,3 +13,17 @@ export const usePreviewSessionFactory = withInstrumentation(
   },
   { op: 'usePreviewSessionFactory' }
 );
+
+export interface ProjectPreviewReadiness {
+  ensureSaved(
+    revision: string,
+    signal: AbortSignal
+  ): Promise<import('../../services/project-runtime-input.js').ProjectRuntimeInput>;
+}
+export const ProjectPreviewReadinessContext = createContext<ProjectPreviewReadiness | null>(null);
+export const useProjectPreviewReadiness = withInstrumentation(
+  function useProjectPreviewReadiness(): ProjectPreviewReadiness | null {
+    return useContext(ProjectPreviewReadinessContext);
+  },
+  { op: 'useProjectPreviewReadiness' }
+);

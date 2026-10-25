@@ -37,6 +37,15 @@ async function openBlankWorkspace(page: import('@playwright/test').Page): Promis
 }
 
 test.describe('Studio a11y (T088)', () => {
+  test('handles a transport notice expiring during its animated dismissal', async ({ page }) => {
+    await page.setContent(`<style>@keyframes move { from { transform: translateX(0); } to { transform: translateX(100px); } }</style>
+      <div data-slot="toast" style="animation: move 2s linear">Server-side parsing unavailable
+        <button data-slot="toast-close" onclick="this.parentElement.remove()">Dismiss</button>
+      </div>`);
+    await page.evaluate(() => setTimeout(() => document.querySelector('[data-slot="toast"]')?.remove(), 300));
+    await dismissLocalTransportNotices(page);
+    await expect(page.locator('[data-slot="toast"]')).toHaveCount(0);
+  });
   test('recent workspace metadata remains descriptive without changing the action name', async ({ page }, testInfo) => {
     await openBlankWorkspace(page);
     await page.getByTestId('rail-workspaces').click();
@@ -62,7 +71,7 @@ test.describe('Studio a11y (T088)', () => {
     await expect(page.getByTestId('workspace-delete-dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByTestId('workspace-delete-dialog')).toHaveCount(0);
-    const badge = (await row.getByText('Browser', { exact: true }).boundingBox())!;
+    const badge = (await row.getByText('Browser only', { exact: true }).boundingBox())!;
     await page.mouse.click(badge.x + badge.width / 2, badge.y + badge.height / 2);
     await expect(page.getByTestId('explore-workbench')).toBeVisible();
   });

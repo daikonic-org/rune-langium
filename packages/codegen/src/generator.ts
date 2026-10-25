@@ -27,6 +27,7 @@ import { jsonSchemaProfile } from './emit/json-schema-profile.js';
 import { sqlProfile } from './emit/sql-profile.js';
 import { ExcelWholeModelEmitter } from './emit/excel-emitter.js';
 import {
+  selectEffectiveProjectDocuments,
   resolveExportSelection,
   unknownExportSelectionDiagnostics,
   type ResolvedExportSelection
@@ -258,7 +259,7 @@ export async function runGenerate(
       ];
     } else {
       // Group by namespace
-      const emissionDocs = selectionResolution ? selectionResolution.documents : docs;
+      const emissionDocs = selectionResolution ? selectionResolution.documents : selectEffectiveProjectDocuments(docs);
       const allByNamespace = groupByNamespace(emissionDocs);
       if (allByNamespace.size === 0) {
         return [];

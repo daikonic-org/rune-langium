@@ -27,9 +27,17 @@ const langiumIndex = new URL('node_modules/langium/lib/index.js', corePkgDir);
 const { URI } = await import(langiumIndex);
 
 const { values: options } = parseArgs({
-  options: { sources: { type: 'string' }, 'out-dir': { type: 'string' }, 'cache-dir': { type: 'string' } }
+  options: {
+    sources: { type: 'string' },
+    release: { type: 'string' },
+    'out-dir': { type: 'string' },
+    'cache-dir': { type: 'string' }
+  }
 });
-const SOURCES = options.sources ? JSON.parse(await readFile(options.sources, 'utf8')) : await resolveCuratedSources();
+if (options.sources && options.release) throw new Error('Choose either pinned sources or a verified release build');
+const SOURCES = options.sources
+  ? JSON.parse(await readFile(options.sources, 'utf8'))
+  : await resolveCuratedSources(fetch, { cdmRelease: options.release });
 
 const LANGIUM_VERSION = JSON.parse(
   await readFile(new URL('node_modules/langium/package.json', corePkgDir), 'utf8')
@@ -330,6 +338,7 @@ async function main() {
           {
             modelId: source.id,
             upstreamCommit: source.commit,
+            upstreamRef: source.ref,
             langiumVersion: LANGIUM_VERSION,
             version,
             sha256: result.sha256,

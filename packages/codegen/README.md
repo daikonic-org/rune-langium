@@ -12,6 +12,12 @@ Code generation and preview-schema utilities for parsed Rune DSL / Rosetta model
 
 ## Selected exports
 
+`validateTargetOptions(target, options)` validates a named project's generator
+settings using the same schemas that own the public option types.
+`getTargetLayouts(target)` supplies those supported layouts to UI controls, and
+`getGeneratorCapabilities()` distinguishes registered targets from unavailable
+ones. These APIs do not select a default generator or download implementations.
+
 `generate()` accepts an optional `selection` for dependency-closed exports. Its
 `namespaces` list makes every declaration in those namespaces an export root;
 its `declarations` list selects individual roots by `{ namespace, kind, name }`.
@@ -203,3 +209,8 @@ structural comparisons, delegating to the canonical recursive equality contract.
 Executable TypeScript exports still compare plain JSON using shared runtime helpers.
 Studio formats generated TypeScript and Python with lazy formatter engines in its
 worker; authored Rune source and executable exports are unchanged by formatting.
+
+`@rune-langium/codegen/instances` retains the internal InstanceRecord API.
+`typeIdentity` optionally carries the portable model/namespace/kind/name identity;
+`parseInstanceRecord` validates the legacy record envelope before migration. Its
+payload remains semantic data, independent of display formatting.

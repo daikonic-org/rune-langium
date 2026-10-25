@@ -29,6 +29,9 @@ import {
   type NumericPresentation,
   type ObjectFormLayout
 } from '../store/form-presentation-store.js';
+import { useProject } from '../shell/providers/project-context.js';
+import { declarationKey } from '@rune-langium/core/project-contract';
+import { resolvePresentationType, workspaceDeclarationIdentities } from '../workspace/example-identity.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 const DEFAULT_LAYOUT: ObjectFormLayout = { columns: 1, order: [], spans: {} };
@@ -37,17 +40,36 @@ const PresentationContext = createContext<{
   preferences: FormPreferences;
   editing: boolean;
   update(change: (preferences: FormPreferences) => FormPreferences): void;
-}>({ preferences: { layouts: {}, formats: {} }, editing: false, update() {} });
+  keyFor(symbol: string): string | undefined;
+}>({ preferences: { layouts: {}, formats: {} }, editing: false, update() {}, keyFor: (symbol) => symbol });
+const PresentationOwners = createContext<readonly { key: string; parentPath: string }[]>([]);
 
 export const useFormPresentationState = withInstrumentation(
   function useFormPresentationState() {
-    const workspaceId = useWorkspaceOptional()?.workspaceId;
+    const workspace = useWorkspaceOptional();
+    const workspaceId = workspace?.workspaceId;
+    const project = useProject();
     const entry = useFormPresentationStore((state) => state.workspaces[formWorkspaceKey(workspaceId)]);
     const load = useFormPresentationStore((state) => state.load);
     useEffect(() => {
       void load(workspaceId);
     }, [workspaceId, load]);
-    return { workspaceId, entry, ready: canEditFormPresentation(entry) };
+    const saveLabel = !workspaceId
+      ? 'Session preferences'
+      : entry?.saving
+        ? 'Saving…'
+        : entry?.revision && !entry.error
+          ? entry.repository
+            ? 'Saved in repository'
+            : 'Saved in this workspace'
+          : 'Workspace preferences';
+    return {
+      workspaceId,
+      workspace,
+      entry,
+      saveLabel,
+      ready: project.status !== 'loading' && canEditFormPresentation(entry)
+    };
   },
   { op: 'useFormPresentationState', sanitize: () => ({}) }
 );
@@ -66,17 +88,27 @@ export const FormPresentation = withInstrumentation(
     editing?: boolean;
     onEditingChange?(editing: boolean): void;
   }) {
-    const { workspaceId, entry, ready } = useFormPresentationState();
+    const { workspaceId, workspace, entry, saveLabel, ready } = useFormPresentationState();
     const update = useFormPresentationStore((state) => state.update);
     const retry = useFormPresentationStore((state) => state.retry);
     const setEditing = useFormPresentationStore((state) => state.setEditing);
+    const acceptLegacy = useFormPresentationStore((state) => state.acceptLegacy);
     const editing = ready && (controlledEditing ?? (showToolbar && entry?.editing === true));
+    const labelFor = (key: string) =>
+      (workspace
+        ? workspaceDeclarationIdentities(workspace).find((type) => declarationKey(type) === key)?.name
+        : undefined) ?? key;
     return (
       <PresentationContext
         value={{
           preferences: entry?.preferences ?? { layouts: {}, formats: {} },
           editing,
-          update: (change) => update(workspaceId, change)
+          update: (change) => update(workspaceId, change),
+          keyFor: (symbol) => {
+            if (!entry?.repository) return symbol;
+            const type = workspace && resolvePresentationType(workspace, symbol);
+            return type ? declarationKey(type) : undefined;
+          }
         }}
       >
         {showToolbar && (
@@ -86,24 +118,14 @@ export const FormPresentation = withInstrumentation(
               type="button"
               variant="ghost"
               size="xs"
-              disabled={!ready}
+              disabled={!ready || (editing && entry?.saving)}
               aria-pressed={editing}
               onClick={() => (onEditingChange ? onEditingChange(!editing) : setEditing(workspaceId, !editing))}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden="true" />
               {editing ? 'Done editing' : 'Edit layout'}
             </Button>
-            {editing && (
-              <span role="status">
-                {!workspaceId
-                  ? 'Session preferences'
-                  : entry?.saving
-                    ? 'Saving…'
-                    : entry?.revision && !entry.error
-                      ? 'Saved in this workspace'
-                      : 'Workspace preferences'}
-              </span>
-            )}
+            {editing && <span role="status">{saveLabel}</span>}
           </div>
         )}
         {editing && (
@@ -120,6 +142,64 @@ export const FormPresentation = withInstrumentation(
             </Button>
           </p>
         )}
+        {entry?.legacy && (showToolbar || editing) && workspaceId && (
+          <div className="flex justify-end px-2 py-1">
+            <Popover>
+              <PopoverTrigger render={<Button type="button" variant="ghost" size="xs" />}>
+                Review browser presentation…
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-96 max-w-[calc(100vw-1.5rem)] space-y-2 text-xs"
+                align="end"
+                aria-label="Browser presentation migration"
+              >
+                <p className="font-medium">Save these browser settings in the repository?</p>
+                <p className="text-muted-foreground">
+                  Only uniquely identified types are included. Existing private settings stay on this device.
+                </p>
+                <ul className="studio-scroll max-h-48 space-y-1 overflow-auto">
+                  {Object.entries(entry.legacy.preferences.layouts).map(([key, layout]) => (
+                    <li key={key}>
+                      {labelFor(key)}: {layout.columns} columns; {layout.order.join(', ') || 'source order'}
+                    </li>
+                  ))}
+                  {Object.entries(entry.legacy.preferences.formats).map(([key, format]) => (
+                    <li key={key}>
+                      {labelFor(key)}: {format.style === 'currency' ? format.currency : 'decimal'}, precision{' '}
+                      {format.fractionDigits ?? 'automatic'}, grouping {format.grouping ? 'on' : 'off'}
+                    </li>
+                  ))}
+                </ul>
+                {entry.legacy.diagnostics.map((message) => (
+                  <p key={message} className="text-muted-foreground">
+                    {message}
+                  </p>
+                ))}
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" size="xs" onClick={() => void retry(workspaceId)}>
+                    Review again
+                  </Button>
+                  <Button
+                    size="xs"
+                    disabled={
+                      entry.saving ||
+                      !(
+                        Object.keys(entry.legacy.preferences.layouts).length ||
+                        Object.keys(entry.legacy.preferences.formats).length
+                      )
+                    }
+                    onClick={() => void acceptLegacy(workspaceId)}
+                  >
+                    Save in repository
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+        {entry?.notices?.length ? (
+          <p className="px-2 text-xs text-muted-foreground">{entry.notices.join(' ')}</p>
+        ) : null}
         {children}
       </PresentationContext>
     );
@@ -133,8 +213,14 @@ export const FormPresentation = withInstrumentation(
 
 export const useNumericPresentation = withInstrumentation(
   function useNumericPresentation(field: PreviewField) {
-    const { preferences } = useContext(PresentationContext);
-    return field.typeSymbol ? preferences.formats[field.typeSymbol] : undefined;
+    const { preferences, keyFor } = useContext(PresentationContext);
+    const owners = useContext(PresentationOwners);
+    for (const owner of [...owners].reverse()) {
+      const format = preferences.fieldFormats?.[owner.key]?.[formMemberKey(field.path, owner.parentPath)];
+      if (format) return format;
+    }
+    const key = field.typeSymbol && keyFor(field.typeSymbol);
+    return key ? preferences.formats[key] : undefined;
   },
   {
     op: 'useNumericPresentation',
@@ -145,7 +231,10 @@ export const useNumericPresentation = withInstrumentation(
 
 export const formMemberKey = withInstrumentation(
   function formMemberKey(path: string, parentPath: string): string {
-    return parentPath && path.startsWith(`${parentPath}.`) ? path.slice(parentPath.length + 1) : path;
+    return (parentPath && path.startsWith(`${parentPath}.`) ? path.slice(parentPath.length + 1) : path).replace(
+      /\[\d+\]/g,
+      ''
+    );
   },
   {
     op: 'formMemberKey',
@@ -168,9 +257,11 @@ export const PreviewLayoutGroup = withInstrumentation(
     children?: ReactNode;
     renderField(field: PreviewField): ReactNode;
   }) {
-    const { preferences, editing, update } = useContext(PresentationContext);
-    const layout = (symbol && preferences.layouts[symbol]) || DEFAULT_LAYOUT;
-    const editable = editing && !!symbol && fields.length > 0;
+    const { preferences, editing, update, keyFor } = useContext(PresentationContext);
+    const owners = useContext(PresentationOwners);
+    const preferenceKey = symbol && keyFor(symbol);
+    const layout = (preferenceKey && preferences.layouts[preferenceKey]) || DEFAULT_LAYOUT;
+    const editable = editing && !!preferenceKey && fields.length > 0;
     const group = useId();
     const drag = useRef<{ key: string; target?: string; after?: boolean; pointer: number } | null>(null);
     const [drop, setDrop] = useState<{ key: string; after: boolean } | null>(null);
@@ -182,10 +273,13 @@ export const PreviewLayoutGroup = withInstrumentation(
       ...members.filter(({ key }) => !layout.order.includes(key))
     ];
     const patch = (change: Partial<ObjectFormLayout>) => {
-      if (symbol)
+      if (preferenceKey)
         update((current) => ({
           ...current,
-          layouts: { ...current.layouts, [symbol]: { ...(current.layouts[symbol] ?? DEFAULT_LAYOUT), ...change } }
+          layouts: {
+            ...current.layouts,
+            [preferenceKey]: { ...(current.layouts[preferenceKey] ?? DEFAULT_LAYOUT), ...change }
+          }
         }));
     };
     const move = (key: string, target: string, after = false) => {
@@ -196,169 +290,171 @@ export const PreviewLayoutGroup = withInstrumentation(
       announce(`${byKey.get(key)?.field.label} moved to position ${next.indexOf(key) + 1} of ${next.length}.`);
     };
     return (
-      <div className="preview-layout-group" data-layout-group={group}>
-        {editable && (
-          <div className="preview-layout-group__tools">
-            <span className="truncate" title={symbol}>
-              {symbol?.split(':').slice(1).join(':')}
-            </span>
-            <LayoutSelect
-              label="Layout columns"
-              value={String(layout.columns)}
-              onChange={(value) => patch({ columns: Number(value) as 1 | 2 | 3 })}
-              options={[
-                ['1', '1 column'],
-                ['2', '2 columns'],
-                ['3', '3 columns']
-              ]}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => {
-                if (symbol)
-                  update((current) => {
-                    const layouts = { ...current.layouts };
-                    delete layouts[symbol];
-                    return { ...current, layouts };
-                  });
-              }}
-            >
-              Reset layout
-            </Button>
-          </div>
-        )}
-        <div className="preview-layout-grid" style={{ '--requested-columns': layout.columns } as CSSProperties}>
-          {children && <div className="preview-layout-fixed">{children}</div>}
-          {ordered.map(({ field, key }, index) => (
-            <div
-              key={field.path}
-              data-layout-field={key}
-              data-layout-owner={group}
-              data-drop={drop?.key === key ? (drop.after ? 'after' : 'before') : undefined}
-              className="preview-layout-field"
-              style={
-                {
-                  '--requested-span':
-                    layout.spans[key] === 'full' ||
-                    (!layout.spans[key] && (field.kind === 'object' || field.kind === 'array'))
-                      ? 3
-                      : (layout.spans[key] ?? 1)
-                } as CSSProperties
-              }
-            >
-              {editable && (
-                <div className="preview-layout-field__tools">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="preview-layout-handle"
-                    aria-label={`Move ${field.label}`}
-                    title="Drag to move; arrow keys reorder"
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') {
+      <PresentationOwners value={preferenceKey ? [...owners, { key: preferenceKey, parentPath }] : owners}>
+        <div className="preview-layout-group" data-layout-group={group}>
+          {editable && (
+            <div className="preview-layout-group__tools">
+              <span className="truncate" title={symbol}>
+                {symbol?.split(':').slice(1).join(':')}
+              </span>
+              <LayoutSelect
+                label="Layout columns"
+                value={String(layout.columns)}
+                onChange={(value) => patch({ columns: Number(value) as 1 | 2 | 3 })}
+                options={[
+                  ['1', '1 column'],
+                  ['2', '2 columns'],
+                  ['3', '3 columns']
+                ]}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  if (preferenceKey)
+                    update((current) => {
+                      const layouts = { ...current.layouts };
+                      delete layouts[preferenceKey];
+                      return { ...current, layouts };
+                    });
+                }}
+              >
+                Reset layout
+              </Button>
+            </div>
+          )}
+          <div className="preview-layout-grid" style={{ '--requested-columns': layout.columns } as CSSProperties}>
+            {children && <div className="preview-layout-fixed">{children}</div>}
+            {ordered.map(({ field, key }, index) => (
+              <div
+                key={field.path}
+                data-layout-field={key}
+                data-layout-owner={group}
+                data-drop={drop?.key === key ? (drop.after ? 'after' : 'before') : undefined}
+                className="preview-layout-field"
+                style={
+                  {
+                    '--requested-span':
+                      layout.spans[key] === 'full' ||
+                      (!layout.spans[key] && (field.kind === 'object' || field.kind === 'array'))
+                        ? 3
+                        : (layout.spans[key] ?? 1)
+                  } as CSSProperties
+                }
+              >
+                {editable && (
+                  <div className="preview-layout-field__tools">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="preview-layout-handle"
+                      aria-label={`Move ${field.label}`}
+                      title="Drag to move; arrow keys reorder"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          drag.current = null;
+                          setDrop(null);
+                          return;
+                        }
+                        const backwards = event.key === 'ArrowUp' || event.key === 'ArrowLeft';
+                        const forwards = event.key === 'ArrowDown' || event.key === 'ArrowRight';
+                        if (!backwards && !forwards && event.key !== 'Home' && event.key !== 'End') return;
+                        event.preventDefault();
+                        const target =
+                          event.key === 'Home'
+                            ? 0
+                            : event.key === 'End'
+                              ? ordered.length - 1
+                              : index + (backwards ? -1 : 1);
+                        if (target >= 0 && target < ordered.length) move(key, ordered[target]!.key, target > index);
+                      }}
+                      onPointerDown={(event) => {
+                        if (event.button !== 0 || !event.isPrimary) return;
+                        event.preventDefault();
+                        event.currentTarget.focus();
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        drag.current = { key, pointer: event.pointerId };
+                      }}
+                      onPointerMove={(event) => {
+                        if (!drag.current || drag.current.pointer !== event.pointerId) return;
+                        const scroller = event.currentTarget.closest<HTMLElement>('.studio-scroll');
+                        if (scroller) {
+                          const bounds = scroller.getBoundingClientRect();
+                          const edge = Math.min(36, bounds.height / 4);
+                          if (event.clientY > bounds.bottom - edge) scroller.scrollBy(0, 12);
+                          else if (event.clientY < bounds.top + edge) scroller.scrollBy(0, -12);
+                        }
+                        const element = document
+                          .elementFromPoint(event.clientX, event.clientY)
+                          ?.closest<HTMLElement>('[data-layout-field]');
+                        if (element?.dataset.layoutOwner !== group || element.dataset.layoutField === key) {
+                          setDrop(null);
+                          drag.current.target = undefined;
+                          return;
+                        }
+                        // Insertion follows reading order, including side-by-side columns.
+                        const after = ordered.findIndex((item) => item.key === element.dataset.layoutField) > index;
+                        drag.current.target = element.dataset.layoutField;
+                        drag.current.after = after;
+                        setDrop({ key: element.dataset.layoutField!, after });
+                      }}
+                      onPointerUp={(event) => {
+                        const current = drag.current;
+                        if (current?.pointer === event.pointerId && current.target)
+                          move(current.key, current.target, current.after);
                         drag.current = null;
                         setDrop(null);
-                        return;
-                      }
-                      const backwards = event.key === 'ArrowUp' || event.key === 'ArrowLeft';
-                      const forwards = event.key === 'ArrowDown' || event.key === 'ArrowRight';
-                      if (!backwards && !forwards && event.key !== 'Home' && event.key !== 'End') return;
-                      event.preventDefault();
-                      const target =
-                        event.key === 'Home'
-                          ? 0
-                          : event.key === 'End'
-                            ? ordered.length - 1
-                            : index + (backwards ? -1 : 1);
-                      if (target >= 0 && target < ordered.length) move(key, ordered[target]!.key, target > index);
-                    }}
-                    onPointerDown={(event) => {
-                      if (event.button !== 0 || !event.isPrimary) return;
-                      event.preventDefault();
-                      event.currentTarget.focus();
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                      drag.current = { key, pointer: event.pointerId };
-                    }}
-                    onPointerMove={(event) => {
-                      if (!drag.current || drag.current.pointer !== event.pointerId) return;
-                      const scroller = event.currentTarget.closest<HTMLElement>('.studio-scroll');
-                      if (scroller) {
-                        const bounds = scroller.getBoundingClientRect();
-                        const edge = Math.min(36, bounds.height / 4);
-                        if (event.clientY > bounds.bottom - edge) scroller.scrollBy(0, 12);
-                        else if (event.clientY < bounds.top + edge) scroller.scrollBy(0, -12);
-                      }
-                      const element = document
-                        .elementFromPoint(event.clientX, event.clientY)
-                        ?.closest<HTMLElement>('[data-layout-field]');
-                      if (element?.dataset.layoutOwner !== group || element.dataset.layoutField === key) {
+                      }}
+                      onPointerCancel={() => {
+                        drag.current = null;
                         setDrop(null);
-                        drag.current.target = undefined;
-                        return;
+                      }}
+                      onLostPointerCapture={() => {
+                        drag.current = null;
+                        setDrop(null);
+                      }}
+                    >
+                      <GripVertical className="size-3.5" aria-hidden="true" />
+                    </Button>
+                    <span className="preview-layout-field__name">{field.label}</span>
+                    <LayoutSelect
+                      label={`Width of ${field.label}`}
+                      value={String(
+                        layout.spans[key] ?? (field.kind === 'object' || field.kind === 'array' ? 'full' : 1)
+                      )}
+                      onChange={(value) =>
+                        patch({
+                          spans: { ...layout.spans, [key]: value === 'full' ? 'full' : (Number(value) as 1 | 2 | 3) }
+                        })
                       }
-                      // Insertion follows reading order, including side-by-side columns.
-                      const after = ordered.findIndex((item) => item.key === element.dataset.layoutField) > index;
-                      drag.current.target = element.dataset.layoutField;
-                      drag.current.after = after;
-                      setDrop({ key: element.dataset.layoutField!, after });
-                    }}
-                    onPointerUp={(event) => {
-                      const current = drag.current;
-                      if (current?.pointer === event.pointerId && current.target)
-                        move(current.key, current.target, current.after);
-                      drag.current = null;
-                      setDrop(null);
-                    }}
-                    onPointerCancel={() => {
-                      drag.current = null;
-                      setDrop(null);
-                    }}
-                    onLostPointerCapture={() => {
-                      drag.current = null;
-                      setDrop(null);
-                    }}
-                  >
-                    <GripVertical className="size-3.5" aria-hidden="true" />
-                  </Button>
-                  <span className="preview-layout-field__name">{field.label}</span>
-                  <LayoutSelect
-                    label={`Width of ${field.label}`}
-                    value={String(
-                      layout.spans[key] ?? (field.kind === 'object' || field.kind === 'array' ? 'full' : 1)
-                    )}
-                    onChange={(value) =>
-                      patch({
-                        spans: { ...layout.spans, [key]: value === 'full' ? 'full' : (Number(value) as 1 | 2 | 3) }
-                      })
-                    }
-                    options={[
-                      ['1', '1 column'],
-                      ['2', '2 columns'],
-                      ['full', 'Full width']
-                    ]}
-                  />
-                  {(field.kind === 'number'
-                    ? field.typeSymbol
-                    : field.kind === 'array' && field.children[0].kind === 'number'
-                      ? field.children[0].typeSymbol
-                      : undefined) && (
-                    <NumericFormatEditor
-                      symbol={(field.kind === 'array' ? field.children[0].typeSymbol : field.typeSymbol)!}
+                      options={[
+                        ['1', '1 column'],
+                        ['2', '2 columns'],
+                        ['full', 'Full width']
+                      ]}
                     />
-                  )}
-                </div>
-              )}
-              {renderField(field)}
-            </div>
-          ))}
+                    {(field.kind === 'number'
+                      ? field.typeSymbol
+                      : field.kind === 'array' && field.children[0].kind === 'number'
+                        ? field.children[0].typeSymbol
+                        : undefined) && (
+                      <NumericFormatEditor
+                        symbol={(field.kind === 'array' ? field.children[0].typeSymbol : field.typeSymbol)!}
+                      />
+                    )}
+                  </div>
+                )}
+                {renderField(field)}
+              </div>
+            ))}
+          </div>
+          <span role="status" aria-live="polite" className="sr-only">
+            {announcement}
+          </span>
         </div>
-        <span role="status" aria-live="polite" className="sr-only">
-          {announcement}
-        </span>
-      </div>
+      </PresentationOwners>
     );
   },
   {
@@ -401,16 +497,21 @@ function LayoutSelect({
 }
 
 function NumericFormatEditor({ symbol }: { symbol: string }) {
-  const { preferences, update } = useContext(PresentationContext);
-  const stored = preferences.formats[symbol];
+  const { preferences, update, keyFor } = useContext(PresentationContext);
+  const preferenceKey = keyFor(symbol);
+  const stored = preferenceKey ? preferences.formats[preferenceKey] : undefined;
   const format = stored ?? DEFAULT_FORMAT;
   const [currency, setCurrency] = useState(format.currency);
   const [currencyError, setCurrencyError] = useState(false);
   const id = useId();
   const patch = (change: Partial<NumericPresentation>) =>
+    preferenceKey &&
     update((current) => ({
       ...current,
-      formats: { ...current.formats, [symbol]: { ...(current.formats[symbol] ?? DEFAULT_FORMAT), ...change } }
+      formats: {
+        ...current.formats,
+        [preferenceKey!]: { ...(current.formats[preferenceKey!] ?? DEFAULT_FORMAT), ...change }
+      }
     }));
   return (
     <Popover>
@@ -420,6 +521,7 @@ function NumericFormatEditor({ symbol }: { symbol: string }) {
           setCurrency(format.currency);
           setCurrencyError(false);
         }}
+        disabled={!preferenceKey}
         aria-label={`Format ${symbol.split(':').slice(1).join(':')}`}
       >
         Format
@@ -440,7 +542,7 @@ function NumericFormatEditor({ symbol }: { symbol: string }) {
             if (style === 'default')
               update((current) => {
                 const formats = { ...current.formats };
-                delete formats[symbol];
+                delete formats[preferenceKey!];
                 return { ...current, formats };
               });
             else patch({ style: style as 'decimal' | 'currency' });

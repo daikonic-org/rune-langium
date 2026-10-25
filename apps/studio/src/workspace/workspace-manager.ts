@@ -9,26 +9,28 @@
  *  - OpfsFs: file content
  *  - WorkspaceOwnership: cross-tab single-writer coordination
  *
- * Currently exposes create / open / close / delete / listRecents.
- * Folder-backed handle binding, git-backed init/push, tab restore, and
- * dirty-buffer recovery land in subsequent commits.
+ * Browser copies, bound folders and Git working copies keep distinct backing metadata.
  */
 
 import { OpfsFs } from '../opfs/opfs-fs.js';
 import {
   saveWorkspace,
   loadWorkspace,
+  loadFolderHandle,
   deleteWorkspace as removeWorkspace,
   listRecents as listRecentsFromDb,
   type WorkspaceRecord,
   type RecentWorkspaceRecord
 } from './persistence.js';
+import { bindFolderToWorkspace } from './folder-backing.js';
 import { WorkspaceOwnership } from '../services/multi-tab-broadcast.js';
 import { cloneRepository } from '../services/git-backing.js';
 import { storeWorkspaceToken } from '../services/github-auth.js';
 import { LAYOUT_SCHEMA_VERSION } from '../shell/layout-factory.js';
 import { useOutputStore, fmtLine } from '../store/output-store.js';
 import { generateUlid } from '../services/ulid.js';
+import { createProjectFileAdapter } from './project-file-adapter.js';
+import type { ProjectFileAdapter } from '@rune-langium/project-config';
 
 export interface WorkspaceManagerOptions {
   opfsRoot: FileSystemDirectoryHandle;
@@ -55,6 +57,28 @@ export class WorkspaceManager {
   /** Expose the shared OpfsFs so callers (e.g. git-sync wiring) can reuse it. */
   getFs(): OpfsFs {
     return this.fs;
+  }
+
+  /** Bind project IO to this workspace's working copy and current ownership. */
+  async getProjectFileAdapter(id: string, isCurrent: () => boolean = () => true): Promise<ProjectFileAdapter> {
+    const workspace = await loadWorkspace(id);
+    if (!workspace) throw new Error('Workspace not found');
+    const backing = await this.opts.opfsRoot.getDirectoryHandle(id);
+    const privateRoot = await backing.getDirectoryHandle('.studio');
+    let root: FileSystemDirectoryHandle;
+    if (workspace.kind === 'folder-backed') {
+      const folder = await loadFolderHandle(workspace.folderHandle);
+      if (!folder) throw new Error('Workspace folder is unavailable');
+      root = folder.handle;
+    } else {
+      root = await backing.getDirectoryHandle('files');
+    }
+    return createProjectFileAdapter({
+      workspaceId: id,
+      root,
+      privateRoot,
+      isWritable: () => isCurrent() && this.isOwner(id) && !this.isReadOnly(id)
+    });
   }
 
   /**
@@ -170,6 +194,15 @@ export class WorkspaceManager {
     return ws;
   }
 
+  /** Binds the chosen folder; opening never writes to or deletes its existing files. */
+  async createFolderBacked(name: string, handle: FileSystemDirectoryHandle): Promise<WorkspaceRecord> {
+    const record = await this.create(name);
+    await bindFolderToWorkspace(record.id, handle);
+    const bound: WorkspaceRecord = { ...record, kind: 'folder-backed', folderHandle: record.id };
+    await saveWorkspace(bound);
+    return bound;
+  }
+
   /**
    * Open an existing workspace. Returns undefined if it doesn't exist.
    * Bumps `lastOpenedAt`. Falls into read-only mode if a peer tab owns it.
@@ -181,9 +214,15 @@ export class WorkspaceManager {
     ws.lastOpenedAt = new Date().toISOString();
     await saveWorkspace(ws);
 
+    await this.claimProjectAccess(id, options);
+    return ws;
+  }
+
+  /** Coordinate project IO without rewriting App-owned workspace metadata. */
+  async claimProjectAccess(id: string, options: OpenOptions = {}): Promise<boolean> {
     const claimed = await this.ownership.claim(id, { timeoutMs: options.claimTimeoutMs });
     this.readonlyState.set(id, !claimed);
-    return ws;
+    return claimed;
   }
 
   /** Close — flush + release ownership. */

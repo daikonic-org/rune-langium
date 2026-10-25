@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import { test, expect } from '@playwright/test';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
@@ -50,8 +51,8 @@ for (const name of ['Double', 'External'])
       });
     });
     await page.goto('./');
-    await page.getByRole('button', { name: 'New blank workspace', exact: true }).click();
-    await page.getByTestId('rail-workspaces').click();
+    await page.getByRole('button', { name: 'New workspace', exact: true }).click();
+    await openReferenceModels(page);
     await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
     await page.getByTestId('rail-prototype').click();
     await page.getByRole('button', { name: 'Choose a function', exact: true }).click();

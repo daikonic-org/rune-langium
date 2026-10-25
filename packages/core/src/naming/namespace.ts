@@ -4,6 +4,15 @@
 /** Matches the `namespace <QualifiedName>` declaration in `.rosetta` source. */
 const NAMESPACE_SOURCE_RE = /^\s*namespace\s+([\w.]+)/m;
 
+/** Expand an exact name or dotted-prefix wildcard against known namespaces. */
+export function expandNamespaceWildcard(raw: string, allNamespaces: ReadonlySet<string>): string[] {
+  if (raw.endsWith('.*')) {
+    const prefix = raw.slice(0, -2);
+    return [...allNamespaces].filter((namespace) => namespace === prefix || namespace.startsWith(prefix + '.'));
+  }
+  return allNamespaces.has(raw) ? [raw] : [];
+}
+
 /**
  * Extract the namespace from raw `.rosetta` source text. Returns `''` when no
  * `namespace` declaration is present (matching the historical callers).
