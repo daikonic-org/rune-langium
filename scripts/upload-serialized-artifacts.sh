@@ -8,6 +8,7 @@
 # Prerequisites:
 #   - dist/curated-artifacts/<modelId>/latest.serialized.json.gz
 #   - dist/curated-artifacts/<modelId>/artifact-meta.json
+#   - dist/curated-artifacts/<modelId>/source.tar.gz
 #   - CLOUDFLARE_API_TOKEN env var (or wrangler login)
 #
 # Usage:
@@ -48,8 +49,8 @@ for model_dir in "${model_dirs[@]}"; do
   artifact_file="$model_dir/latest.serialized.json.gz"
   meta_file="$model_dir/artifact-meta.json"
 
-  if [[ ! -f "$artifact_file" || ! -f "$meta_file" ]]; then
-    echo "Missing artifact or meta file for $model_id" >&2
+  if [[ ! -f "$artifact_file" || ! -f "$meta_file" || ! -f "$model_dir/source.tar.gz" ]]; then
+    echo "Missing artifact, source archive or meta file for $model_id" >&2
     exit 1
   fi
 
@@ -59,6 +60,7 @@ for model_dir in "${model_dirs[@]}"; do
   langium_version=$(jq -er '.langiumVersion // error("Missing compiler version; rebuild artifacts")' "$meta_file")
   version=$(jq -r '.version' "$meta_file")
   sha256=$(jq -r '.sha256' "$meta_file")
+  archive_sha256=$(jq -r '.archiveSha256' "$meta_file")
   size_bytes=$(jq -r '.sizeBytes' "$meta_file")
   doc_count=$(jq -r '.documentCount' "$meta_file")
 
@@ -78,11 +80,15 @@ for model_dir in "${model_dirs[@]}"; do
   echo "$current_manifest" | jq \
     --arg sha "$sha256" \
     --arg url "$MIRROR_BASE/$model_id/artifacts/$version.serialized.json.gz" \
+    --arg archiveUrl "$MIRROR_BASE/$model_id/artifacts/source-$archive_sha256.tar.gz" \
     --arg langiumVersion "$langium_version" \
     --argjson size "$size_bytes" \
     --argjson docs "$doc_count" \
     --slurpfile meta "$meta_file" \
-    'del(.cohort) | .upstreamCommit = ($meta[0].upstreamCommit // .upstreamCommit) | .upstreamRef = ($meta[0].upstreamRef // .upstreamRef) | .artifacts.serializedWorkspace = {
+    'del(.cohort) | .upstreamCommit = ($meta[0].upstreamCommit // .upstreamCommit) | .upstreamRef = ($meta[0].upstreamRef // .upstreamRef) |
+    .sha256 = $meta[0].archiveSha256 | .sizeBytes = $meta[0].archiveSizeBytes |
+    .generatedAt = $meta[0].generatedAt | .version = ($meta[0].generatedAt | .[0:10]) |
+    .archiveUrl = $archiveUrl | .artifacts.serializedWorkspace = {
       schemaVersion: 1,
       kind: "langium-json-serializer",
       url: $url,
@@ -135,6 +141,8 @@ fi
 for model_dir in "${model_dirs[@]}"; do
   model_id=$(basename "$model_dir")
   version=$(jq -r '.version' "$model_dir/artifact-meta.json")
+  archive_sha256=$(jq -r '.archiveSha256' "$model_dir/artifact-meta.json")
+  upload_object "curated/$model_id/artifacts/source-$archive_sha256.tar.gz" "$model_dir/source.tar.gz" application/gzip
   upload_object "curated/$model_id/artifacts/$version.serialized.json.gz" "$model_dir/latest.serialized.json.gz" application/gzip
   for ns_file in "$model_dir/ns/"*.json.gz; do
     upload_object "curated/$model_id/artifacts/$version/ns/$(basename "$ns_file")" "$ns_file" application/gzip
@@ -153,11 +161,15 @@ if [[ -f "$release_plan/plan.json" ]]; then
   while IFS= read -r model_id; do
     upload_object "releases/$model_id.json" "$release_plan/$model_id.json" 'application/json; charset=utf-8'
   done < <(jq -r '.models[]' "$release_plan/plan.json")
+  echo "Tagged releases published; Nightly pointers are unchanged."
+  exit 0
 fi
 
+# Only untagged Nightly builds advance these moving pointers.
 # Each pointer write is atomic in R2; the group of manifests is not a transaction.
 for model_dir in "${model_dirs[@]}"; do
   model_id=$(basename "$model_dir")
+  upload_object "curated/$model_id/latest.tar.gz" "$model_dir/source.tar.gz" application/gzip
   upload_object "curated/$model_id/latest.serialized.json.gz" "$model_dir/latest.serialized.json.gz" application/gzip
   upload_object "curated/$model_id/manifest.json" "$TMP_DIR/$model_id.json" 'application/json; charset=utf-8'
   echo "  Published $model_id"

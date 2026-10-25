@@ -952,6 +952,13 @@ acceptance. Unavailable baseline or standalone preview contracts are reported,
 not treated as a compatibility success.
 `ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
 selects a latest tag implicitly, and does not invoke the legacy model store.
+The separate Nightly loader follows upstream CDM `master` and its required
+dependency versions, without stability or reproducibility guarantees. Tagged
+publication updates release catalogs only, leaving Nightly pointers unchanged.
+Both paths publish checksum-addressed source archives with matching manifest
+metadata; release publication verifies their bytes and successful upload receipts.
+Moving `latest` archive URLs use short cache lifetimes; checksum-addressed source
+archives retain immutable caching.
 
 `WorkspaceProvider` projects captured references into the Explorer through
 `prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope

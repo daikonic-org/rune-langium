@@ -68,12 +68,12 @@ describe('handleCuratedRead — manifest.json (T027)', () => {
 });
 
 describe('handleCuratedRead — latest.tar.gz', () => {
-  it('streams bytes with Content-Length and immutable cache headers', async () => {
+  it('streams bytes with short cache headers for the moving Nightly archive', async () => {
     const bytes = new Uint8Array([1, 2, 3, 4, 5]);
     await bucket.put('curated/cdm/latest.tar.gz', bytes);
     const res = await get('/curated/cdm/latest.tar.gz');
     expect(res.status).toBe(200);
-    expect(res.headers.get('Cache-Control')).toMatch(/immutable/);
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=300');
     expect(res.headers.get('Content-Type')).toMatch(/application\/gzip/);
     const body = new Uint8Array(await res.arrayBuffer());
     expect(Array.from(body)).toEqual([1, 2, 3, 4, 5]);
@@ -118,6 +118,15 @@ describe('handleCuratedRead — serialized workspace artifacts', () => {
 });
 
 describe('handleCuratedRead — historical archives + method enforcement', () => {
+  it('serves a checksum-addressed source archive as immutable', async () => {
+    const path = 'curated/cdm/artifacts/source-' + 'a'.repeat(64) + '.tar.gz';
+    await bucket.put(path, new Uint8Array([3, 4]));
+    const res = await get('/' + path);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=86400, immutable');
+    expect(res.headers.get('Content-Type')).toBe('application/gzip');
+    expect([...new Uint8Array(await res.arrayBuffer())]).toEqual([3, 4]);
+  });
   it('serves an archive at the date-stamped path', async () => {
     await bucket.put('curated/fpml/archives/2026-04-24.tar.gz', new Uint8Array([9]));
     const res = await get('/curated/fpml/archives/2026-04-24.tar.gz');

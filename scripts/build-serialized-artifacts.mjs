@@ -251,6 +251,7 @@ async function main() {
       console.log(`  Artifact: ${result.sizeBytes} bytes, ${result.documentCount} documents`);
 
       await writeFile(`${outDir}/latest.serialized.json.gz`, result.bytes);
+      await writeFile(`${outDir}/source.tar.gz`, archiveBytes);
 
       // ── Per-namespace artifacts ────────────────────────────────────────────
       const graph = computeNamespaceGraph(result.documents, source.id, namespacesByKey);
@@ -346,6 +347,7 @@ async function main() {
             documentCount: result.documentCount,
             archiveSha256: archiveSha,
             archiveSizeBytes: archiveBytes.byteLength,
+            generatedAt: new Date().toISOString(),
             namespaces: namespacesMap,
             dependencies
           },

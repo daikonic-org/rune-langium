@@ -190,6 +190,16 @@ newer or cross-major requirements fail selection. Every selected document must
 still pass the linking gate. `--sources` accepts an explicit cohort for reproducible
 checks; `scripts/fixtures/codegen-corpus.json` records the verified cohort.
 
+Nightly is a moving curated view of upstream `master`, with no stability or
+reproducibility guarantee. Commit and build date describe provenance, not a
+release. An explicit `cdm_release` dispatch verifies that upstream release tag and
+its dependency releases, publishes immutable source/serialized artifacts and
+cohort manifests, then promotes release catalogs in dependency order. It never
+advances Nightly's `latest` pointers. The shared uploader serializes workflow runs
+and preserves the same immutable dependency closure for both publication paths.
+Source archives use their own SHA-256 object keys and checksums; release catalog
+promotion requires their upload receipts alongside the serialized artifacts.
+
 CDM still uses legacy function annotations removed by
 [Rune's schema migration](https://github.com/finos/rune-dsl/commit/5ed7142f1a6b2e82885e9ab1e9cb5b8479d67c8b).
 Both artifact builders apply core's `addLegacyAnnotations` to the runtime annotation

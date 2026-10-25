@@ -107,10 +107,10 @@ export const WorkspacesPerspective = withInstrumentation(
             />
             {!managed && (
               <div className="mt-6 border-t pt-3">
-                <h3 className="text-xs font-medium mb-2">Legacy model loading</h3>
+                <h3 className="text-xs font-medium mb-2">Nightly and custom models</h3>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Existing unpinned models remain available here. Select a release above to manage verified references
-                  in this workspace.
+                  Load moving Nightly mirrors or a custom repository here. Select an upstream release tag above for
+                  versioned workspace references.
                 </p>
                 <ModelLoader />
               </div>

@@ -54,6 +54,7 @@ export function prepareCuratedReleasePublication({ sources, manifests, catalogs 
     }
     const manifestUrl = new URL(`/curated/${source.id}/artifacts/${manifest.cohort}/manifest.json`, base).href;
     required.add(keyFor(manifestUrl));
+    required.add(keyFor(manifest.archiveUrl));
     required.add(keyFor(manifest.artifacts.serializedWorkspace.url));
     for (const entry of Object.values(manifest.namespaces ?? {})) required.add(keyFor(entry.artifact));
     const release = {
@@ -141,9 +142,14 @@ export async function main(args = process.argv.slice(2), fetchImpl = fetch) {
     const manifest = CuratedManifestSchema.parse(JSON.parse(manifests.get(source.id)));
     const artifact = manifest.artifacts?.serializedWorkspace;
     if (!artifact) throw new Error('Missing serialized release artifact: ' + source.id);
-    const bytes = await readFile(join(dirname(values.sources), source.id, 'latest.serialized.json.gz'));
-    if (bytes.byteLength !== artifact.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== artifact.sha256)
-      throw new Error('Release artifact checksum mismatch: ' + source.id);
+    for (const [file, size, sha] of [
+      ['latest.serialized.json.gz', artifact.sizeBytes, artifact.sha256],
+      ['source.tar.gz', manifest.sizeBytes, manifest.sha256]
+    ]) {
+      const bytes = await readFile(join(dirname(values.sources), source.id, file));
+      if (bytes.byteLength !== size || createHash('sha256').update(bytes).digest('hex') !== sha)
+        throw new Error('Release artifact checksum mismatch: ' + source.id + '/' + file);
+    }
   }
   const catalogs = new Map();
   for (const source of sources.filter((source) => source.release)) {
