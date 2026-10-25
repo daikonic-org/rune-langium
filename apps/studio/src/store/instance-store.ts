@@ -105,6 +105,7 @@ interface InstanceStoreState {
   removeInstance(id: string): Promise<void>;
   retrySave(id: string): Promise<void>;
   flushInstance(id: string): Promise<void>;
+  flushSaves(workspaceId: string): Promise<void>;
   saveRecord(record: InstanceRecord): void;
   markSaveFailed(id: string, revision: number, error: unknown): void;
   setWorker(worker: Worker | undefined): void;
@@ -269,6 +270,17 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
     await flushPersistedInstance(context, id);
     const state = get().saveStates[id];
     if (state?.state === 'failed') throw new Error(state.message);
+  },
+
+  async flushSaves(workspaceId) {
+    const repository = exampleRepository;
+    if (repository?.workspaceId !== workspaceId) return;
+    const epoch = get().workspaceEpoch;
+    do {
+      await Promise.all(Object.keys(get().saveStates).map((id) => get().flushInstance(id)));
+      if (exampleRepository !== repository || get().workspaceEpoch !== epoch)
+        throw new Error('Workspace changed while saving examples.');
+    } while (Object.values(get().saveStates).some((state) => state.state === 'saving'));
   },
 
   saveRecord(record) {

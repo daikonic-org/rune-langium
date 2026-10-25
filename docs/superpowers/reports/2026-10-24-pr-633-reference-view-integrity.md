@@ -39,3 +39,29 @@ Save/reopen. The owned validation server was stopped afterwards.
 
 Normal commit and full-workspace pre-push verification are recorded with the
 pushed revision in PR #633. Fresh hosted CI and review are required before merge.
+
+Two subsequent P2 findings are also corrected. WorkspaceProvider now extends the
+existing source flush action with a portable-record barrier. It waits for queued
+example writes/removals and presentation saves, rechecks both streams until their
+state stabilizes, and rejects retained failures or workspace changes before Git
+can stage files. Existing explicit retry actions recover failed records. The
+barrier follows source flushing so an edit arriving during source publication is
+also included. No save transaction, CAS guard or Git synchronization policy is
+replaced.
+
+The managed extension destination and duplicate-kind check now use the same
+`EXTENSION_PARENT` mapping as source generation. Choice extensions therefore
+navigate to the generated Data declaration. The regression matrix compares each
+supported extension destination against the parsed declaration saved through the
+real project controller.
+
+Before the fixes, four regressions failed: Choice destination identity, premature
+publication during a paused payload/descriptor transaction, and publication after
+settled example or presentation failures. Final integration tests also pause a
+presentation transaction, queue late edits in both streams, and edit an example
+while source flushing waits. They exercise the real provider, stores, repository
+transactions and readback with only Git transport mocked. The five-file focused
+suite passed **88 tests**; full Studio passed **2,388 tests** with two existing
+skips. Studio production build, type checking, scoped lint/format and diff checks
+passed. Three unretried Chromium journeys passed: Inspector Modify, Extend and
+native-folder Save/reopen. Fresh hosted CI/review are required after the push.

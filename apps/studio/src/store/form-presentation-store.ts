@@ -54,6 +54,7 @@ interface FormPresentationStore {
   acceptLegacy(workspaceId: string): Promise<void>;
   update(workspaceId: string | undefined, change: (current: FormPreferences) => FormPreferences): void;
   retry(workspaceId?: string): Promise<void>;
+  flush(workspaceId: string): Promise<void>;
   setEditing(workspaceId: string | undefined, editing: boolean): void;
 }
 const EMPTY: FormPreferences = { layouts: {}, formats: {} };
@@ -115,7 +116,8 @@ export const readFormPreferences = withInstrumentation(
 );
 
 export const useFormPresentationStore = create<FormPresentationStore>((set, get) => {
-  const persist = async (workspaceId: string, entry: WorkspacePreferences) => {
+  const pending = new Map<string, Set<Promise<void>>>();
+  const save = async (workspaceId: string, entry: WorkspacePreferences) => {
     const repository = repositories.get(workspaceId);
     try {
       if (repository) await repository.save(entry.preferences);
@@ -141,8 +143,28 @@ export const useFormPresentationStore = create<FormPresentationStore>((set, get)
         }));
     }
   };
+  const persist = (workspaceId: string, entry: WorkspacePreferences) => {
+    const operation = save(workspaceId, entry);
+    const running = pending.get(workspaceId) ?? new Set<Promise<void>>();
+    pending.set(workspaceId, running);
+    running.add(operation);
+    const complete = () => {
+      running.delete(operation);
+      if (!running.size && pending.get(workspaceId) === running) pending.delete(workspaceId);
+    };
+    void operation.then(complete, complete);
+    return operation;
+  };
   return {
     workspaces: {},
+    async flush(workspaceId) {
+      const repository = repositories.get(workspaceId);
+      while (pending.get(workspaceId)?.size) await Promise.all(pending.get(workspaceId)!);
+      if (repositories.get(workspaceId) !== repository)
+        throw new Error('Workspace changed while saving form preferences.');
+      const error = get().workspaces[workspaceId]?.error;
+      if (error) throw new Error(error);
+    },
     async setRepository(workspaceId, repository) {
       if (repositories.get(workspaceId) === repository) return;
       if (repository) repositories.set(workspaceId, repository);

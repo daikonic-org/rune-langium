@@ -303,3 +303,34 @@ it('records the exact selected source URI when two locked documents have identic
   const saved = await modifyProjectDeclaration({ ...request, projectReceipt: receipt }, controller);
   expect(saved.project.build.overrides![0]!.provenance?.uri).toBe('cdm/f0.rosetta');
 });
+
+it.each(['Data', 'Choice', 'RosettaEnumeration', 'RosettaFunction'])(
+  'navigates to the actual saved kind when extending %s in a managed project',
+  async (kind) => {
+    const { controller, receipt } = await projectForDeclaration();
+    const { modifyProjectDeclaration, projectDeclarationDestination } =
+      await import('../../src/services/local-declaration.js');
+    const request: LocalDeclarationRequest = {
+      mode: 'extend',
+      nodeId: `demo.source.Base#${kind}`,
+      namespace: 'local.demo',
+      name: 'Derived',
+      files: [],
+      models: [],
+      projectReceipt: receipt
+    };
+    const saved = await modifyProjectDeclaration(request, controller);
+    const destination = projectDeclarationDestination(saved, request);
+    const source = [...saved.files.entries()].find(([path]) => path.endsWith('Derived.rosetta'))![1];
+    const { RuneDsl } = createRuneDslServices();
+    const doc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+      source,
+      URI.parse('inmemory:///derived.rosetta')
+    );
+    const declaration = doc.parseResult.value.elements.find(
+      (node) => 'name' in node && node.name === destination.name
+    )!;
+    expect(doc.parseResult.parserErrors).toEqual([]);
+    expect(destination).toEqual({ model: 'local', namespace: 'local.demo', name: 'Derived', kind: declaration.$type });
+  }
+);

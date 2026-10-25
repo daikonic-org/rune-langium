@@ -67,7 +67,8 @@ export const localDeclarationError = withInstrumentation(
       return 'Choose a local namespace, separate from the curated model.';
     if (mode === 'modify' && namespace === origin.namespace)
       return 'Choose a local namespace, separate from the curated model.';
-    const targetKind = mode === 'extend' && origin.kind === 'Choice' ? 'Data' : origin.kind;
+    const targetKind =
+      mode === 'extend' ? EXTENSION_PARENT[origin.kind as keyof typeof EXTENSION_PARENT][0] : origin.kind;
     if (
       models.some(
         ({ model }) =>
@@ -139,7 +140,12 @@ export const projectDeclarationDestination = withInstrumentation(
         throw new Error('The saved declaration replacement is missing or ambiguous.');
       return existing[0]!.replacement;
     }
-    return { model: 'local', namespace: request.namespace, kind: source.kind, name: request.name };
+    return {
+      model: 'local',
+      namespace: request.namespace,
+      kind: EXTENSION_PARENT[source.kind as keyof typeof EXTENSION_PARENT][0],
+      name: request.name
+    };
   },
   { op: 'projectDeclarationDestination', capture: 0 }
 );

@@ -56,9 +56,31 @@ export const WorkspaceProvider = withInstrumentation(
       },
       [getInitializationAdapter]
     );
+    const flushPortableRecords = useCallback(async (id: string) => {
+      let examples;
+      let presentation;
+      do {
+        examples = useInstanceStore.getState().saveStates;
+        presentation = useFormPresentationStore.getState().workspaces[id];
+        await Promise.all([useInstanceStore.getState().flushSaves(id), useFormPresentationStore.getState().flush(id)]);
+        if (stateRef.current.workspaceId !== id) throw new Error('Workspace changed while saving portable records.');
+      } while (
+        examples !== useInstanceStore.getState().saveStates ||
+        presentation !== useFormPresentationStore.getState().workspaces[id]
+      );
+    }, []);
     const projectActions = useMemo(
-      () => ({ ...actions, openProjectInitialization: actions.openProjectInitialization ?? openProjectInitialization }),
-      [actions, openProjectInitialization]
+      () => ({
+        ...actions,
+        openProjectInitialization: actions.openProjectInitialization ?? openProjectInitialization,
+        async flushWorkspaceSave() {
+          const id = stateRef.current.workspaceId;
+          await actions.flushWorkspaceSave?.();
+          if (stateRef.current.workspaceId !== id) throw new Error('Workspace changed while saving the working copy.');
+          if (id) await flushPortableRecords(id);
+        }
+      }),
+      [actions, openProjectInitialization, flushPortableRecords]
     );
     useEffect(() => {
       useInstanceStore.getState().setExampleRepository(undefined);

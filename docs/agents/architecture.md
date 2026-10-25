@@ -46,6 +46,12 @@ and live ownership; journals map to private backing storage outside Git.
 Migration returns proposed writes for confirmation and never deletes browser
 preferences as a side effect of reading repository configuration.
 
+WorkspaceProvider extends the shared workspace save barrier to drain portable
+example and presentation saves after editor/source flushing. Both streams drain
+until their saved state stabilizes, including edits queued during the wait. Settled save failures remain
+blocking until explicitly retried; Git stages only after the complete barrier
+succeeds. Example payload/descriptor writes and removals retain their normal transaction/readback and workspace ownership checks.
+
 Named-target settings are repository state; the selected target and ad hoc root
 selection remain personal run preferences. Explicit Save preserves YAML comments
 and checks the captured file revision. Before a named build, Export flushes editor

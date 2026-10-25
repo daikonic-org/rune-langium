@@ -28,7 +28,7 @@ export interface WorkspaceActions {
   openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
   /** Current workspace files — forwarded to FileLoader as `existingFiles`. */
   files: WorkspaceFile[];
-  /** Finish editor publication and persist the active working-copy files. */
+  /** Finish editor/source publication and portable-record saves in the active working copy. */
   flushWorkspaceSave?: () => Promise<void>;
   registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;
   /** Called when the user loads files via drag-drop / file picker / new. */
