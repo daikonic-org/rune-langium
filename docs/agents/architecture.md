@@ -919,6 +919,14 @@ then `createStarterWorkingCopy` uses the existing ProjectController before host
 activation. Starter provenance lives on WorkspaceRecord without GitBacking,
 credentials or reference-only flags. Unpublished catalog proposals stay disabled.
 Workspace opening and reference dependencies occupy separate launcher sections.
+The published `daikonic-org/rune-starter` is a GitHub template; `rune-cdm-example`
+was generated from it and retains the same workflow checker and CI. The launcher
+catalog pins verified public commits rather than floating branches. Both are
+ordinary editable starter copies, without an inherited writable remote. The CDM
+sample locks release 7.8.0 and its dependencies and calls the upstream Rune
+`UpdateAmount` through an original local wrapper; it does not provide financial
+payment scheduling. Template-generated repositories do not automatically pull
+future template changes.
 Recent-workspace Rename updates only display metadata and recents in one IndexedDB
 transaction, preserving current backing/UI state and updating the active header.
 It never renames `rune-config.yml` model identity or repository-managed files.
