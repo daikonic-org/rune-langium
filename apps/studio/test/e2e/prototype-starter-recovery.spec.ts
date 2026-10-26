@@ -168,6 +168,27 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toHaveCount(0);
   await expect(cash.getByLabel('Value', { exact: true })).toHaveValue('75');
+  // Identical source/type can still represent independent drafts in the two surfaces.
+  await page.getByRole('button', { name: 'New workflow', exact: true }).click();
+  await page.getByRole('cell', { name: 'Single cash amount', exact: true }).click();
+  const standalone = page.getByRole('region', { name: 'input fields', exact: true });
+  await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('1000');
+  await page.getByRole('button', { name: 'Object builder', exact: true }).click();
+  await page.getByRole('cell', { name: 'Single cash amount', exact: true }).click();
+  await standalone.getByLabel('Value', { exact: true }).fill('88');
+  await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  // The grid's new binding request offers to replace the retained Workflow draft.
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('1000');
+  await page.getByRole('button', { name: 'input node actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear input', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Object builder', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toHaveCount(0);
+  await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('88');
+  await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('');
   const saved = await projectBackingFiles(page);
   expect(saved['examples/cash.json']).toBe(files['examples/cash.json']);
   expect(saved['workflows/cash.workflow.json']).toBe(files['workflows/cash.workflow.json']);

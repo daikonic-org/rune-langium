@@ -292,6 +292,8 @@ New workflow clears only executable draft state, while named recipes remain
 repository-managed. Clear-input undo restores only that input, preserving peer
 parameter edits. `WorkflowNode` composes the existing controlled FormPreview
 renderer; object parameters render separately and primitive inputs remain inline.
+Standalone input nodes are keyed by surface: their drafts stay in the owner,
+while node-local Undo/layout state resets when switching Workflow/Object builder.
 Node-local layout editing uses the shared symbol-associated presentation store.
 The instance grid exposes failed-save retries through the existing instance-store
 persistence action. Draft schema failures can retry their request without losing

@@ -905,6 +905,7 @@ export const PrototypeWorkflow = withInstrumentation(
                 ))
               ) : draft ? (
                 <WorkflowNode
+                  key={mode}
                   name="input"
                   typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
                   type={draft.typeFqn.split('.').slice(-1)[0]}
