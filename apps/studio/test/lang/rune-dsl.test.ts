@@ -125,6 +125,24 @@ func Copy:
     expect(result).toContainEqual({ text: 'post-condition', tag: 'keyword' });
   });
 
+  it('distinguishes condition-named attributes and enum values from actual condition headers', () => {
+    const result = tokens(`type Example:
+  condition string (1..1)
+  other number (1..1)
+  condition Valid: other exists
+enum Flag:
+  condition
+  next`);
+    expect(result).toContainEqual({ text: 'condition', tag: 'propertyName.definition' });
+    expect(result).toContainEqual({ text: 'string', tag: 'typeName' });
+    expect(result).toContainEqual({ text: 'other', tag: 'propertyName.definition' });
+    expect(result).toContainEqual({ text: 'number', tag: 'typeName' });
+    expect(result).toContainEqual({ text: 'Valid', tag: 'labelName' });
+    expect(result).toContainEqual({ text: 'condition', tag: 'variableName.constant' });
+    expect(result).toContainEqual({ text: 'next', tag: 'variableName.constant' });
+    expect(result).not.toContainEqual({ text: 'string', tag: 'labelName' });
+  });
+
   it('does not treat an input shadowing an enum name as an enum receiver', () => {
     const result = tokens(`enum direction:
   increase

@@ -348,7 +348,9 @@ export const runeDslStreamParser = {
         state.expectName = 'variableName.function.definition';
         return 'keyword';
       }
-      if (!prefix && ['condition', 'post-condition', 'alias', 'set', 'add'].includes(word)) {
+      const conditionHeader =
+        (word === 'condition' || word === 'post-condition') && /^\s*(?:[a-zA-Z_][a-zA-Z_0-9]*)?\s*:/.test(tail);
+      if (!prefix && (conditionHeader || ['alias', 'set', 'add'].includes(word))) {
         if (state.declaration) state.declaration.expression = true;
         if ((word === 'condition' || word === 'post-condition') && /^\s+[a-zA-Z_]/.test(tail))
           state.expectName = 'labelName';
