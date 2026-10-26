@@ -27,6 +27,32 @@ Files and the dependency-closed receipt produced by a selected export.
 ReturnType<typeof createProjectBindingRegistry>
 ```
 
+## implementations
+
+### `NativeImplementation`
+**Properties:**
+- `id: string`
+- `namespace: string`
+- `name: string`
+- `signature: string`
+- `matches: (func: RosettaFunction) => boolean`
+- `targets: Readonly<Partial<Record<ImplementationLanguage, NativeImplementationBody>>>`
+
+### `NativeImplementationResolution`
+```ts
+{ status: "available"; id: string; body: NativeImplementationBody } | { status: "unsupported"; reason: string }
+```
+
+### `ImplementationLanguage`
+```ts
+"typescript" | "python"
+```
+
+### `NativeImplementationBody`
+**Properties:**
+- `expression: string`
+- `dependencies: readonly string[]`
+
 ## selection
 
 ### `ResolvedExportSelection`
@@ -58,7 +84,7 @@ The declared result identity for a function preview schema.
 - `targetId: string`
 - `title: string`
 - `kind: FormPreviewKind` (optional)
-- `status: "ready" | "unsupported"`
+- `status: "unsupported" | "ready"`
 - `fields: PreviewField[]`
 - `definitions: Record<string, Pick<FormPreviewSchema, "fields" | "choiceArmPaths" | "sourceMap">>` (optional) — Finite, namespace-qualified bodies for recursive and deep object fields.
 - `functionOutput: FunctionPreviewOutput` (optional) — The resolved result type for a function. This remains available when the
@@ -375,6 +401,7 @@ ExcelOptions["sheets"]
 - `code: string`
 - `projections: EmittedProjection[]`
 - `bindings: ReadonlyMap<string, string>`
+- `diagnostics: GeneratorDiagnostic[]`
 
 ### `PythonProjectionContext`
 Linked identities and semantic facts shared with the authoritative codegen utilities.
@@ -383,21 +410,5 @@ Linked identities and semantic facts shared with the authoritative codegen utili
 - `documents: readonly LangiumDocument<AstNode>[]`
 - `self: string`
 - `locals: ReadonlyMap<AstNode, string>`
-- `implicit: { expression?: RosettaExpression; name: string; metadata?: FieldMetadataKind; many?: boolean; type?: ExpressionType }` (optional)
-- `localMetadata: ReadonlyMap<AstNode, FieldMetadataKind | undefined>` (optional)
-- `preserveMetadata: boolean` (optional)
-- `resultMode: "function" | "condition"` (optional)
-- `superFunction: RosettaFunction` (optional)
-- `functions: readonly RosettaFunction[]` (optional)
-- `functionFacts: ReadonlyMap<RosettaFunction, RuneFunc>` (optional)
-- `globalNames: ReadonlySet<string>` (optional)
-
-### `GeneratedProjection`
-**Properties:**
-- `language: "typescript" | "python"`
-- `subject: ProjectionSubject`
-- `code: string`
-- `sourceMap: SourceMapEntry[]`
-- `requiredHelpers: readonly string[]`
 
 <!-- truncated -->

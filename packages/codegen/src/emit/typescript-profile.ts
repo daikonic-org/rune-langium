@@ -169,7 +169,7 @@ export const typescriptProfile: LanguageProfile<'typescript'> = {
       relativePath: 'model.ts',
       content: makeSingleFileContent(perNs, registry),
       sourceMap: [],
-      diagnostics: [],
+      diagnostics: perNs.flatMap((output) => output.diagnostics),
       funcs: perNs.flatMap((output) => output.funcs.map((func) => ({ ...func, relativePath: 'model.ts' }))),
       projections: perNs.flatMap((output) => output.projections ?? [])
     };

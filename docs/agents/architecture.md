@@ -612,8 +612,12 @@ input order and names, escaping target keywords or internal binding collisions.
 Trailing optional arguments have defaults; preceding optional arguments retain
 explicit absence types. TypeScript exposes ordered `parameterNames` metadata even
 in single-file output; Studio uses it to adapt schema-validated named form fields.
-Python protects builtins and global callables from input-name shadowing. Native declarations require an explicit callable binding;
-missing bindings fail visibly. Dispatch normalizes inputs before selecting a
+Python protects builtins and global callables from input-name shadowing. Codegen's
+`implementations/` catalog validates native declaration identity, annotation,
+signature and target before TypeScript/Python embed a handwritten body. Preview
+availability uses that same resolver. Authored Rune replacements and explicit
+host bindings take precedence. Native declarations without a bundled body require
+an explicit callable binding; missing bindings fail visibly. Dispatch normalizes inputs before selecting a
 variant, retaining wrappers for its body. Function condition fragments are
 captured from that same body traversal. Python records the authored body statements
 without export input normalization or the final export boundary check. Expressions,

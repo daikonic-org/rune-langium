@@ -10220,6 +10220,20 @@ projectCodeListForAlias(alias: RosettaTypeAlias, resources: Pick<{ implementatio
 
 **Returns:** `readonly { value: string; label: string }[] | undefined`
 
+### resolveNativeImplementation
+
+Authored Rune bodies win. Match identity, annotation and signature before selecting a target body.
+
+```ts
+resolveNativeImplementation(func: RosettaFunction, language: string): NativeImplementationResolution | undefined
+```
+
+**Parameters:**
+- `func: RosettaFunction` —
+- `language: string` —
+
+**Returns:** `NativeImplementationResolution | undefined`
+
 ### normalizePreviewInputs
 
 Adapt plain form values to the generated function's metadata-bearing input contract.
@@ -10630,6 +10644,22 @@ Files and the dependency-closed receipt produced by a selected export.
 type ProjectBindingRegistry = ReturnType<typeof createProjectBindingRegistry>
 ```
 
+### NativeImplementation
+
+### NativeImplementationResolution
+
+```ts
+type NativeImplementationResolution = { status: "available"; id: string; body: NativeImplementationBody } | { status: "unsupported"; reason: string }
+```
+
+### ImplementationLanguage
+
+```ts
+type ImplementationLanguage = "typescript" | "python"
+```
+
+### NativeImplementationBody
+
 ### ResolvedExportSelection
 
 ### FormPreviewKind
@@ -10840,6 +10870,14 @@ the appropriate registry and this list updates automatically.
 
 ```ts
 const IMPLEMENTED_TARGETS: readonly Target[]
+```
+
+### NATIVE_IMPLEMENTATIONS
+
+Audited generator-owned bodies; never executable source loaded from a workspace.
+
+```ts
+const NATIVE_IMPLEMENTATIONS: readonly NativeImplementation[]
 ```
 
 ### TARGET_DESCRIPTORS

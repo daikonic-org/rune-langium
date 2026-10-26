@@ -1092,6 +1092,7 @@ used by generation.
 - `projectBindingHeader`
 - `bindGeneratedProjectModule`: Attach a prepared registry to a newly loaded generated module; no global registry crosses projects.
 - `projectCodeListForAlias`: One adapter guard shared by the graph and all resource-aware generators.
+- `resolveNativeImplementation`: Authored Rune bodies win. Match identity, annotation and signature before selecting a target body.
 - `normalizePreviewInputs`: Adapt plain form values to the generated function's metadata-bearing input contract.
 - `expandPreviewField`: Resolve one deferred object body without expanding its nested references.
 - `previewTypeSymbol`: Canonical presentation identity shared by schema generation, resource bindings and layout consumers.
@@ -1122,6 +1123,7 @@ FR-022.
 - `GenericModelEmitter`: Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
 plus a `LanguageProfile` (019 spec §3.
 - `IMPLEMENTED_TARGETS`: The targets `runGenerate` can actually produce output for in this build.
+- `NATIVE_IMPLEMENTATIONS`: Audited generator-owned bodies; never executable source loaded from a workspace.
 - `TARGET_DESCRIPTORS`: Registry of all generator targets.
 - `ExcelOptionsSchema`
 - `RUNTIME_HELPER_JS_SOURCE`: Annotation-free counterpart used by the Studio execution worker.
@@ -1135,6 +1137,10 @@ plus a `LanguageProfile` (019 spec §3.
 - `ProjectCodeListBinding`
 - `ProjectImplementationBinding`
 - `ProjectBindingRegistry`
+- `NativeImplementation`
+- `NativeImplementationResolution`
+- `ImplementationLanguage`
+- `NativeImplementationBody`
 - `ResolvedExportSelection`
 - `FormPreviewKind`
 - `FunctionPreviewOutput`: The declared result identity for a function preview schema.
