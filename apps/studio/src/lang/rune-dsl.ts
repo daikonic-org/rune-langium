@@ -385,8 +385,9 @@ export const runeDslStreamParser = {
       if (BOOLEANS.has(word)) return 'bool';
       // Navigation/constructor keys are members even for keyword names such as value.
       if (/->>?\s*$/.test(prefix)) {
-        const receiver = /([a-zA-Z_][a-zA-Z_0-9]*(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*)\s*->>?$/.exec(prefix)?.[1];
-        return receiver && state.enumNames.has(receiver) && !state.memberNames.has(receiver)
+        const receiver = /([a-zA-Z_][a-zA-Z_0-9]*(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*)\s*->>?$/.exec(prefix);
+        const directReceiver = receiver && !/->>?\s*$/.test(prefix.slice(0, receiver.index));
+        return directReceiver && state.enumNames.has(receiver[1]!) && !state.memberNames.has(receiver[1]!)
           ? 'variableName.constant'
           : 'propertyName';
       }

@@ -157,6 +157,25 @@ func Copy:
     expect(result).not.toContainEqual({ text: 'value', tag: 'variableName.constant' });
   });
 
+  it('keeps chained member receivers distinct from direct enum references', () => {
+    const result = tokens(`enum Direction:
+  up
+type Wrapper:
+  Direction Quote (1..1)
+func Copy:
+  inputs:
+    wrapper Wrapper (1..1)
+  output:
+    result string (1..1)
+  set result: Process(wrapper -> Direction -> value, Direction -> up)
+  condition: wrapper ->> Direction -> other exists`);
+    for (const member of ['Direction', 'value', 'other'])
+      expect(result).toContainEqual({ text: member, tag: 'propertyName' });
+    for (const member of ['value', 'other'])
+      expect(result).not.toContainEqual({ text: member, tag: 'variableName.constant' });
+    expect(result.filter(({ text, tag }) => text === 'up' && tag === 'variableName.constant')).toHaveLength(2);
+  });
+
   it('tokenizes strings', () => {
     const tokens = tokenize('"hello world"');
     expect(tokens).toContain('string');
