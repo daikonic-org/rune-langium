@@ -20,6 +20,7 @@
  * was a no-op (identical values to :root, and `data-theme` is never "dark" —
  * the studio uses "daikonic"), so it's dropped. */
 @import './tokens.css';
+@import './light-theme.css';
 
 @custom-variant dark (&:is(.dark *));
 

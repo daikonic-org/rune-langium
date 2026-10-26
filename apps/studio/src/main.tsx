@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { initializeThemePreference } from './services/theme-preference.js';
 import { Buffer } from 'buffer';
 // isomorphic-git requires global Buffer in the browser
 (globalThis as any).Buffer = Buffer;
@@ -42,6 +43,8 @@ const DesignPreferencesPreview =
   import.meta.env.DEV && new URLSearchParams(location.search).has('design-preview')
     ? lazy(() => import('./components/DesignPreferencesPreview.js'))
     : null;
+
+initializeThemePreference();
 
 createRoot(root).render(
   <StrictMode>
