@@ -25,10 +25,14 @@ node packages/cli/dist/index.js build --project examples/workspaces/model-author
 node packages/cli/dist/index.js build --project examples/workspaces/model-authoring --target schema
 ```
 
-This source example is MIT licensed. Its proposed daikonic-org starter repository
-has not been published; the launcher keeps that entry unavailable until its real
-contents and revision are verified. Opening a public copy grants no writable push
-remote. Fork, clone or explicitly connect your own repository to commit changes.
+This source example is MIT licensed. The published
+[rune-starter](https://github.com/daikonic-org/rune-starter) GitHub template packages
+this workspace with pinned toolchain verification. The
+[rune-cdm-example](https://github.com/daikonic-org/rune-cdm-example) repository was
+generated from that template and adds a verified CDM release and amount-adjustment
+workflow. The launcher pins checked revisions of both repositories. Opening a
+public copy grants no writable push remote. Use the template, fork, clone or
+explicitly connect your own repository to commit changes.
 
 ## Reference implementation demonstration
 

@@ -19,23 +19,23 @@ const catalog: readonly StarterProject[] = Object.freeze([
     name: 'Model authoring',
     description: 'Define types, validate data and save a small Rune workflow.',
     repository: 'daikonic-org/rune-starter',
-    ref: 'unpublished',
+    ref: 'f0501c070efc95384f2f7ac5f0fe93381b4422f9',
     examples: Object.freeze(['Source model', 'Saved input and expected result', 'Named build target']),
     requiredCapabilities: Object.freeze(['Rune execution']),
-    status: 'unavailable' as const
+    status: 'available' as const
   }),
   Object.freeze({
     id: 'cdm-examples',
-    name: 'CDM examples',
-    description: 'Explore a pinned reference release with editable example data.',
-    repository: 'daikonic-org/cdm-examples',
-    ref: 'unpublished',
-    examples: Object.freeze(['Pinned reference configuration', 'Example input']),
-    requiredCapabilities: Object.freeze(['Verified CDM release', 'Function providers required by each workflow']),
-    status: 'unavailable' as const
+    name: 'CDM example',
+    description: 'Increase an amount with a released CDM function, saved inputs and expected output.',
+    repository: 'daikonic-org/rune-cdm-example',
+    ref: '0961e3928012746ad81c77a7884e6f8c45dedd10',
+    examples: Object.freeze(['Pinned CDM release', 'Saved workflows and expected results', 'Form layouts']),
+    requiredCapabilities: Object.freeze(['Verified CDM release', 'Rune execution']),
+    status: 'available' as const
   })
 ]);
-/** Proposed repositories remain unavailable until publication and source verification. */
+/** Published examples use verified commit identities; opening still checks every public source object. */
 export const listStarterProjects = withInstrumentation(
   function listStarterProjects(): readonly StarterProject[] {
     return catalog;

@@ -612,8 +612,12 @@ input order and names, escaping target keywords or internal binding collisions.
 Trailing optional arguments have defaults; preceding optional arguments retain
 explicit absence types. TypeScript exposes ordered `parameterNames` metadata even
 in single-file output; Studio uses it to adapt schema-validated named form fields.
-Python protects builtins and global callables from input-name shadowing. Native declarations require an explicit callable binding;
-missing bindings fail visibly. Dispatch normalizes inputs before selecting a
+Python protects builtins and global callables from input-name shadowing. Codegen's
+`implementations/` catalog validates native declaration identity, annotation,
+signature and target before TypeScript/Python embed a handwritten body. Preview
+availability uses that same resolver. Authored Rune replacements and explicit
+host bindings take precedence. Native declarations without a bundled body require
+an explicit callable binding; missing bindings fail visibly. Dispatch normalizes inputs before selecting a
 variant, retaining wrappers for its body. Function condition fragments are
 captured from that same body traversal. Python records the authored body statements
 without export input normalization or the final export boundary check. Expressions,
@@ -919,6 +923,14 @@ then `createStarterWorkingCopy` uses the existing ProjectController before host
 activation. Starter provenance lives on WorkspaceRecord without GitBacking,
 credentials or reference-only flags. Unpublished catalog proposals stay disabled.
 Workspace opening and reference dependencies occupy separate launcher sections.
+The published `daikonic-org/rune-starter` is a GitHub template; `rune-cdm-example`
+was generated from it and retains the same workflow checker and CI. The launcher
+catalog pins verified public commits rather than floating branches. Both are
+ordinary editable starter copies, without an inherited writable remote. The CDM
+sample locks release 7.8.0 and its dependencies and calls the upstream Rune
+`UpdateAmount` through an original local wrapper; it does not provide financial
+payment scheduling. Template-generated repositories do not automatically pull
+future template changes.
 Recent-workspace Rename updates only display metadata and recents in one IndexedDB
 transaction, preserving current backing/UI state and updating the active header.
 It never renames `rune-config.yml` model identity or repository-managed files.

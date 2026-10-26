@@ -14,6 +14,16 @@ Use the pinned pnpm version and preserve overrides/patches in
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
+## Browser CI Dependencies
+
+The `studio-a11y` job removes the runner image's priority-1 Azure HTTP entry from
+`/etc/apt/apt-mirrors.txt` before Playwright installs Ubuntu dependencies. The
+image's official HTTPS archive/security fallbacks and priorities remain intact;
+APT signature verification and the existing test commands are unchanged. This
+avoids the upstream [Azure mirror stall](https://github.com/actions/runner-images/issues/14594)
+without retry loops or larger timeout budgets. The step is a no-op when the
+runner has no mirror list.
+
 ## Form Dependencies
 
 `@zod-to-form/react@0.13.0` exports the shared `SectionRenderer` used by custom Inspector layouts, from [zod-to-form PR #222](https://github.com/pradeepmouli/zod-to-form/pull/222). Use that public export directly. Keep exact core/React package declarations and workspace overrides aligned, and recheck configured Inspector sections when upgrading.

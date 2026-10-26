@@ -38,8 +38,10 @@ def rune_bind(name, implementation):
     _rune_native_bindings[name] = implementation
 
 
-def rune_native(name, *args):
+def rune_native(name, *args, _rune_fallback=None):
     implementation = _rune_native_bindings.get(name)
+    if implementation is None:
+        implementation = _rune_fallback
     if implementation is None:
         raise ValueError("Native binding required: " + name)
     return implementation(*args)

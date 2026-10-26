@@ -14,9 +14,16 @@ const starter: StarterProject = {
   requiredCapabilities: [],
   status: 'available'
 };
-it('discloses proposed repositories as unavailable instead of claiming published examples', () => {
-  expect(listStarterProjects().length).toBeGreaterThan(0);
-  expect(listStarterProjects().every((entry) => entry.status === 'unavailable')).toBe(true);
+it('offers published example repositories at exact verified revisions', () => {
+  const catalog = listStarterProjects();
+  expect(catalog.map((entry) => entry.repository)).toEqual([
+    'daikonic-org/rune-starter',
+    'daikonic-org/rune-cdm-example'
+  ]);
+  for (const entry of catalog) {
+    expect(entry.status).toBe('available');
+    expect(entry.ref).toMatch(/^[a-f0-9]{40}$/);
+  }
 });
 it('copies checked public source into an editable working copy with provenance and no push remote', async () => {
   const files = new Map([['model/example.rosetta', 'namespace example\ntype Money:\n amount number (1..1)\n']]);
