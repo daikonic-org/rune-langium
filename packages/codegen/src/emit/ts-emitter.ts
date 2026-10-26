@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
+import { resolveNativeImplementation } from '../implementations/index.js';
 import {
   getEnumValues,
   isAsOperation,
@@ -2108,6 +2109,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private static emitFuncBody(func: RuneFunc, ctx: FuncBodyContext): string[] {
     const bodyLines: string[] = [];
+    const native =
+      !ctx.projectImplementation && func.source ? resolveNativeImplementation(func.source, 'typescript') : undefined;
     const result = ctx.localBindings!.get(func.output.name)!;
     const assignment = func.assignments[0];
     if (
@@ -2141,16 +2144,19 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           : [statement.replace(`  ${result} = `, '  return ')];
       }
     }
-    if (func.isAbstract && !ctx.projectImplementation) {
+    if (func.isAbstract && !ctx.projectImplementation && native?.status !== 'available') {
       // Same alias-before-precondition ordering as the non-abstract path
       // below — an abstract func (no set/add body) can still declare
       // aliases per the grammar, and a pre-condition may reference one.
       bodyLines.push(...TsNamespaceEmitter.emitFuncPrelude(func, ctx));
       bodyLines.push(`  throw new Error('Diagnostic: ${func.name} — not_implemented');`);
       ctx.diagnostics.push({
-        severity: 'info',
-        code: 'abstract-func',
-        message: `Func '${func.name}' is abstract (no body). Add a set/add body to implement it.`
+        severity: native?.status === 'unsupported' ? 'warning' : 'info',
+        code: native?.status === 'unsupported' ? 'native-implementation-unavailable' : 'abstract-func',
+        message:
+          native?.status === 'unsupported'
+            ? native.reason
+            : `Func '${func.name}' is abstract (no body). Add a set/add body to implement it.`
       });
       return bodyLines;
     }
@@ -2175,6 +2181,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       );
       const call = `${invoke}(${JSON.stringify(key)}, [${args}]) as ${TsNamespaceEmitter.buildFuncOutputType(func)}`;
       bodyLines.push(ctx.outputAccumulator === 'array' ? `  ${result}.push(...(${call}));` : `  ${result} = ${call};`);
+    } else if (native?.status === 'available') {
+      bodyLines.push(`  ${result} = ${native.body.expression};`);
     } else {
       for (const assignment of func.assignments) {
         bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));

@@ -45,11 +45,14 @@ import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
 import type { PythonProjectionContext } from './context.js';
 import type { EmittedProjection, GeneratedProjection, ProjectionSubject } from './types.js';
 import { selectEffectiveProjectDocuments } from '../selection/declaration-selection.js';
+import { resolveNativeImplementation } from '../implementations/index.js';
+import type { GeneratorDiagnostic } from '../types.js';
 
 export interface PythonModule {
   code: string;
   projections: EmittedProjection[];
   bindings: ReadonlyMap<string, string>;
+  diagnostics: GeneratorDiagnostic[];
 }
 
 const runtimeImports = new Set(
@@ -387,7 +390,12 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     context.onConditionProjection?.(condition, guard.join('\n'), predicate);
   };
   func.conditions.forEach(check);
-  if (facts.isAbstract)
+  const native = resolveNativeImplementation(func, 'python');
+  if (native?.status === 'available')
+    lines.push(
+      `${result} = rune.native(${pyString(qualified(func))}, _rune_fallback=lambda: ${native.body.expression})`
+    );
+  else if (facts.isAbstract)
     lines.push(
       `${result} = rune.native(${pyString(qualified(func))}${inputs.map((input) => `, ${parameters.get(input)}`).join('')})`
     );
@@ -539,7 +547,13 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
     if (node.$type === 'RosettaExternalFunction')
       sections.push(`def ${context.name(node)}(*args):\n    return rune.native(${pyString(qualified(node))}, *args)\n`);
   }
-  return { code: sections.join('\n\n'), projections, bindings };
+  const diagnostics: GeneratorDiagnostic[] = funcs.flatMap((func) => {
+    const native = resolveNativeImplementation(func, 'python');
+    return native?.status === 'unsupported'
+      ? [{ severity: 'warning', code: 'native-implementation-unavailable', message: native.reason }]
+      : [];
+  });
+  return { code: sections.join('\n\n'), projections, bindings, diagnostics };
 }
 
 export function selectPythonProjection(

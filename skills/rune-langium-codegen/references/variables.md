@@ -20,6 +20,14 @@ the appropriate registry and this list updates automatically.
 const IMPLEMENTED_TARGETS: readonly Target[]
 ```
 
+## implementations
+
+### `NATIVE_IMPLEMENTATIONS`
+Audited generator-owned bodies; never executable source loaded from a workspace.
+```ts
+const NATIVE_IMPLEMENTATIONS: readonly NativeImplementation[]
+```
+
 ## types
 
 ### `TARGET_DESCRIPTORS`

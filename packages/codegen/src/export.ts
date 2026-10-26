@@ -39,6 +39,13 @@ import { generatePreviewSchemas as runGeneratePreviewSchemas } from './preview-s
 import { resolveExportSelection, type ResolvedExportSelection } from './selection/declaration-selection.js';
 
 export { IMPLEMENTED_TARGETS };
+export { NATIVE_IMPLEMENTATIONS, resolveNativeImplementation } from './implementations/index.js';
+export type {
+  NativeImplementation,
+  NativeImplementationResolution,
+  ImplementationLanguage,
+  NativeImplementationBody
+} from './implementations/index.js';
 export { normalizePreviewInputs } from './preview-schema.js';
 export { expandPreviewField, previewTypeSymbol } from './preview-references.js';
 export {

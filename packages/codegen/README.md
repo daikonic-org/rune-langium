@@ -45,8 +45,10 @@ take positional parameters in Rune order, retain their ordinary names and types,
 and retain ordered aliases, preconditions, set/add operations and postconditions.
 Optional Python parameters accept `None`; only trailing optional parameters have
 defaults. Native function bindings receive the same positional arguments.
-Native declarations require `rune.bind(qualifiedName, callable)` before execution;
-missing bindings raise an explicit error. Studio displays projections read-only
+Native declarations without a bundled body require `rune.bind(qualifiedName, callable)` before execution;
+missing bindings raise an explicit error. Explicit bindings override bundled defaults.
+`PythonModule.diagnostics` reports missing or incompatible bundled implementations.
+Studio displays projections read-only
 and retains the narrower reverse-expression lens.
 
 Python syntax/runtime checks require Python >=3.13. Set `PYTHON_BINARY` when the
@@ -197,8 +199,34 @@ Mapped TypeScript library functions use the bindings in `typescriptProfile`:
 `Min` and `Max` use `Math.min` and `Math.max`, and `IsLeapYear` uses the shared
 runtime implementation in every output layout. Unmapped library callables expose
 a typed `.implementation` property for the host to supply. Abstract functions
-still require implementations.
+without a bundled body still require implementations.
 Invalid or unknown expression nodes emit diagnostics and throw when evaluated.
+
+### Bundled code implementations
+
+`src/implementations/` owns the shared catalog and handwritten bodies per language.
+`resolveNativeImplementation(function, language)` validates the qualified function
+identity, resolved standard `codeImplementation` annotation and exact signature,
+then reports an available body or an explicit unsupported reason. It does not
+fetch code or evaluate workspace files. Authored Rune bodies and project-installed
+TypeScript implementations take precedence. Declaration overrides use the ordinary
+effective-project graph, so a workspace can replace a reference function in Rune.
+
+The initial entry is CDM `cdm.base.datetime.Today`, with no inputs and output
+`today date (1..1)`. Both TypeScript export and standalone Python module generation
+embed a UTC calendar-date implementation; no Java/OpenGamma or host callback is
+required. TypeScript returns `Temporal.PlainDate` through its existing
+`@js-temporal/polyfill` dependency. Python uses its standard-library `datetime`
+dependency and the backend's canonical ISO date string. Conditions and output
+cardinality checks still surround the native body. Preview availability consults
+the same catalog as TypeScript generation.
+
+Unregistered or incompatible declarations retain an explicit unavailable
+diagnostic and throwing stub. Other targets do not gain executable native bodies
+merely because a TypeScript or Python body exists. Python module generation
+remains the existing projection API, not a new named export target. Add identities,
+signature checks, target bodies/dependencies and standalone execution tests together
+when extending the catalog. Never infer an implementation from an unqualified name.
 
 `test/emit/function-runtime.test.ts` parses Rune, generates complete modules,
 checks them with TypeScript strict mode, and executes the result. Its call-site
