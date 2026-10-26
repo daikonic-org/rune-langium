@@ -24,7 +24,7 @@ describe('model-registry — curated entries (T032)', () => {
 
   it('preserves repoUrl + ref for the custom-URL flow (FR-007)', () => {
     const cdm = getModelSource('cdm');
-    expect(cdm!.repoUrl).toMatch(/REGnosys\/rosetta-cdm/);
+    expect(cdm!.repoUrl).toBe('https://github.com/finos/common-domain-model.git');
     expect(cdm!.ref).toBe('master');
   });
 

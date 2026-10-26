@@ -15,7 +15,14 @@ import { readReferenceManifest, readVerifiedReferenceBytes, loadLockedReferences
 import { ReferenceFailure, referenceFailure, type ReferenceTransport, type ReferenceCache } from './types.js';
 /** Only reference requests affect lock freshness; target/source/example edits do not force a network resolve. */
 export async function projectReferenceConfigHash(snapshot: ProjectSnapshot): Promise<string> {
-  return projectFileRevision(canonicalProjectJson(snapshot.project.build.references));
+  return projectFileRevision(canonicalProjectJson(pinnedReferenceRequests(snapshot)));
+}
+
+/** Nightly follows the moving mirror and is deliberately excluded from persisted locks. */
+export function pinnedReferenceRequests(snapshot: ProjectSnapshot) {
+  return Object.fromEntries(
+    Object.entries(snapshot.project.build.references).filter(([, request]) => request.release !== 'nightly')
+  );
 }
 
 /** Explicit resolve/upgrade proposes a verified lock; it never mutates a workspace. */
@@ -29,7 +36,7 @@ export async function resolveProjectReferences(
     signal.throwIfAborted();
     const catalogs = new Map<string, ReferenceCatalog>();
     const requests = structuredClone(snapshot.project.build.references);
-    const configHash = await projectFileRevision(canonicalProjectJson(requests));
+    const configHash = await projectReferenceConfigHash(snapshot);
     const staged = new Map<string, Uint8Array>();
     const manifestBytes = new Map<string, Uint8Array>();
     type Request = {
@@ -163,7 +170,7 @@ export async function resolveProjectReferences(
       throw failure;
     }
     const result = await search(
-      Object.entries(requests)
+      Object.entries(pinnedReferenceRequests(snapshot))
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([id, request]) => ({
           id,
@@ -216,7 +223,7 @@ export async function resolveProjectReferences(
 /** Reject stale requests and unrequested/missing lock entries before any host hydrates them. */
 export async function projectReferenceLockDiagnostics(snapshot: ProjectSnapshot): Promise<ProjectDiagnostic[]> {
   const lock = snapshot.lock;
-  const requests = snapshot.project.build.references;
+  const requests = pinnedReferenceRequests(snapshot);
   if (!Object.keys(requests).length)
     return Object.keys(lock?.references ?? {}).length
       ? [

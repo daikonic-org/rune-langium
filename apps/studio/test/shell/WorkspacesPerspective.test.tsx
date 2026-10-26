@@ -96,9 +96,9 @@ describe('WorkspacesPerspective', () => {
     expect(switcher.dataset['hasOnDelete']).toBe('true');
   });
 
-  it('renders ModelLoader', () => {
+  it('omits the legacy model loader from the unified reference surface', () => {
     renderWithActions(actions);
-    expect(screen.getByTestId('model-loader')).toBeTruthy();
+    expect(screen.queryByTestId('model-loader')).toBeNull();
   });
 
   it('throws when rendered without a WorkspaceActionsContext provider', () => {

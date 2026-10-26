@@ -71,7 +71,7 @@ export interface CreateInstanceInput {
 
 export type InstanceSaveState =
   | { state: 'unsaved' | 'saving' | 'saved'; revision: number }
-  | { state: 'failed'; revision: number; message: string };
+  | { state: 'failed'; revision: number; message: string; retained?: true };
 
 function cloneData<T>(value: T): T {
   return structuredClone(value);
@@ -277,7 +277,11 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
     if (repository?.workspaceId !== workspaceId) return;
     const epoch = get().workspaceEpoch;
     do {
-      await Promise.all(Object.keys(get().saveStates).map((id) => get().flushInstance(id)));
+      await Promise.all(
+        Object.entries(get().saveStates)
+          .filter(([, state]) => state.state !== 'failed' || !state.retained)
+          .map(([id]) => get().flushInstance(id))
+      );
       if (exampleRepository !== repository || get().workspaceEpoch !== epoch)
         throw new Error('Workspace changed while saving examples.');
     } while (Object.values(get().saveStates).some((state) => state.state === 'saving'));
@@ -646,7 +650,7 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
                 id,
                 state.saveStates[id] ??
                   (restored?.failures?.[id]
-                    ? { state: 'failed', revision: 1, message: restored.failures[id] }
+                    ? { state: 'failed', revision: 1, message: restored.failures[id], retained: true }
                     : { state: 'saved', revision: 1 })
               ])
             )

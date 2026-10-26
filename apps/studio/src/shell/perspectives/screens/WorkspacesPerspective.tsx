@@ -10,7 +10,6 @@ import { FileLoader } from '../../../components/FileLoader.js';
 import { WorkspaceSwitcher } from '../../../components/WorkspaceSwitcher.js';
 import { ReferenceModelPicker } from '../../../components/ReferenceModelPicker.js';
 import { useProject } from '../../providers/project-context.js';
-import { ModelLoader } from '../../../components/ModelLoader.js';
 import { useWorkspaceActions } from '../workspace-actions-context.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 
@@ -32,7 +31,6 @@ export const WorkspacesPerspective = withInstrumentation(
     } = useWorkspaceActions();
 
     const project = useProject();
-    const managed = project.snapshot?.files.has('build-config.yml') || project.snapshot?.files.has('build-config.yaml');
     const [section, setSection] = useState<'workspaces' | 'references'>('workspaces');
     return (
       <section data-testid="workspaces-perspective" className="studio-launcher studio-scroll h-full overflow-auto">
@@ -105,16 +103,6 @@ export const WorkspacesPerspective = withInstrumentation(
               controller={project.controller}
               snapshot={project.snapshot}
             />
-            {!managed && (
-              <div className="mt-6 border-t pt-3">
-                <h3 className="text-xs font-medium mb-2">Nightly and custom models</h3>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Load moving Nightly mirrors or a custom repository here. Select an upstream release tag above for
-                  versioned workspace references.
-                </p>
-                <ModelLoader />
-              </div>
-            )}
           </div>
         </div>
       </section>

@@ -15,6 +15,13 @@ import {
 import { ReferenceModelPicker } from '../../src/components/ReferenceModelPicker.js';
 async function setup(flushWorkspaceSave?: () => Promise<void>) {
   const fixture = await referenceFixture({});
+  const transport = {
+    ...fixture.transport,
+    nightly: vi.fn(async (id: string) => {
+      const release = fixture.releases.get(id)![0]!;
+      return JSON.parse(new TextDecoder().decode(fixture.artifacts.get(release.manifest)!));
+    })
+  };
   const adapter = createProjectFileAdapter({
     workspaceId: 'p',
     root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
@@ -29,13 +36,47 @@ async function setup(flushWorkspaceSave?: () => Promise<void>) {
       <ReferenceModelPicker
         controller={controller}
         snapshot={controller.current()}
-        transport={fixture.transport}
+        transport={transport}
         cache={createMemoryReferenceCache()}
       />
     </WorkspaceActionsContext>
   );
-  return { ...fixture, controller, adapter, user: userEvent.setup() };
+  return { ...fixture, transport, controller, adapter, user: userEvent.setup() };
 }
+
+it('saves Nightly as a moving workspace preference without creating a lockfile', async () => {
+  const { user, controller, adapter } = await setup();
+  await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
+  await user.click(await screen.findByRole('combobox', { name: 'Release' }));
+  await user.click(await screen.findByRole('option', { name: 'Nightly', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await screen.findByRole('heading', { name: 'Review reference change' });
+  expect(screen.getByText(/No saved pin, lock/)).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Save reference change' }));
+  await waitFor(() => expect(controller.current()!.project.build.references.cdm?.release).toBe('nightly'));
+  expect(controller.current()!.lock).toBeUndefined();
+  expect(await adapter.read('build-config.lock.json')).toBeUndefined();
+});
+
+it('removes the tagged lock when the last pinned reference switches to Nightly', async () => {
+  const { user, controller, adapter } = await setup();
+  await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
+  for (const release of ['1.0', 'Nightly']) {
+    await user.click(await screen.findByRole('combobox', { name: 'Release' }));
+    await user.click(await screen.findByRole('option', { name: release, exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Review change' }));
+    await screen.findByRole('heading', { name: 'Review reference change' });
+    await user.click(screen.getByRole('button', { name: 'Save reference change' }));
+    await waitFor(() =>
+      expect(controller.current()!.project.build.references.cdm?.release).toBe(
+        release === 'Nightly' ? 'nightly' : release
+      )
+    );
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Review reference change' })).toBeNull());
+  }
+  expect(controller.current()!.lock).toBeUndefined();
+  expect(await adapter.read('build-config.lock.json')).toBeUndefined();
+});
 it('requires an exact release, reviews its dependency origin, and writes only on acceptance', async () => {
   const { user, controller, adapter } = await setup();
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
@@ -128,7 +169,7 @@ it('places catalog recovery beside the selected model and hides technical detail
   );
   expect(screen.getByText('HTTP 404 /api/catalog/cdm')).not.toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Retry releases' }));
-  expect(await screen.findByText(/No published compatible releases/)).toBeVisible();
+  expect(await screen.findByText(/No tagged releases/)).toBeVisible();
 });
 
 it('builds the selected release proposal from refreshed configuration without canceling its own review', async () => {

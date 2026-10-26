@@ -62,10 +62,12 @@ export default defineConfig(() => {
     // Generate TSX before React transforms it; use the same config as CLI/discovery.
     plugins: [z2fVite({ configOverride: studioFormConfig }), tailwindcss(), react(), forceExitAfterBuild()],
     optimizeDeps: {
-      // Worker-only dynamic imports must be discovered before a dev session starts.
+      // Lazy form/worker dependencies must be discovered before a dev session starts.
       include: [
         'buffer',
         'pako',
+        '@hookform/resolvers/zod',
+        'sucrase',
         'prettier/standalone',
         'prettier/plugins/typescript',
         'prettier/plugins/estree',

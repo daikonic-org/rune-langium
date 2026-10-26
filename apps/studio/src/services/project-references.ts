@@ -4,8 +4,7 @@ import { CURATED_MIRROR_BASE } from '@rune-langium/curated-schema';
 import {
   createReferenceTransport,
   resolveProjectReferences,
-  loadLockedReferences,
-  projectReferenceLockDiagnostics,
+  loadProjectReferences as loadSharedProjectReferences,
   type ReferenceTransport,
   type ReferenceCache
 } from '@rune-langium/project-runtime/references';
@@ -18,7 +17,7 @@ import {
   type BuildConfig,
   type ProjectDiagnostic,
   type ProjectLock,
-  type ProjectWrite
+  type ProjectChange
 } from '@rune-langium/project-config';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
 import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
@@ -70,7 +69,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
     const original = await controller.load();
     signal.throwIfAborted();
     nextBuild = typeof requested === 'function' ? structuredClone(requested(original)) : requested;
-    const writes: ProjectWrite[] = [];
+    const writes: ProjectChange[] = [];
     let proposed = original;
     if (nextBuild) {
       const revisions = new Map<string, string>();
@@ -88,7 +87,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
       writes.push(...prepared.writes);
       proposed = await createProjectDraftSnapshot(
         original,
-        new Map(writes.map((write) => [write.path, write.text])),
+        new Map(writes.map((write) => [write.path, 'remove' in write ? null : write.text])),
         validateProjectTarget
       );
     }
@@ -101,16 +100,19 @@ export const prepareProjectReferenceChange = withInstrumentation(
         throw new Error('Project changed while resolving references. Retry from the current project.');
     };
     assertCurrent();
-    const lockText = JSON.stringify(result.lock, null, 2) + '\n';
+    const hasPinned = Object.keys(result.lock.references).length > 0;
+    const lockText = hasPinned ? JSON.stringify(result.lock, null, 2) + '\n' : null;
     const reviewedSnapshot = await createProjectDraftSnapshot(
       proposed,
       new Map([['build-config.lock.json', lockText]]),
       validateProjectTarget
     );
-    const loaded = await loadLockedReferences(result.lock, transport, cache, signal);
+    const loaded = await loadSharedProjectReferences(reviewedSnapshot, transport, cache, signal);
     if (loaded.diagnostics.some((issue) => issue.severity === 'error'))
       throw new ProjectSnapshotError(loaded.diagnostics);
-    const baseline = original.lock ? await loadProjectReferences(original, transport, cache, signal) : undefined;
+    const baseline = Object.keys(original.project.build.references).length
+      ? await loadProjectReferences(original, transport, cache, signal)
+      : undefined;
     const diagnostics = [
       ...result.diagnostics,
       ...(await reviewProjectCompatibility(
@@ -132,11 +134,18 @@ export const prepareProjectReferenceChange = withInstrumentation(
     signal.throwIfAborted();
     assertCurrent();
     const previous = original.files.get('build-config.lock.json');
-    writes.push({
-      path: 'build-config.lock.json',
-      text: lockText,
-      expectedRevision: previous === undefined ? null : await projectFileRevision(previous)
-    });
+    if (lockText !== null)
+      writes.push({
+        path: 'build-config.lock.json',
+        text: lockText,
+        expectedRevision: previous === undefined ? null : await projectFileRevision(previous)
+      });
+    else if (previous !== undefined)
+      writes.push({
+        path: 'build-config.lock.json',
+        remove: true,
+        expectedRevision: await projectFileRevision(previous)
+      });
     signal.throwIfAborted();
     assertCurrent();
     const destinations = new Set(writes.map((write) => write.path));
@@ -182,7 +191,7 @@ export const resolveAndSaveProjectReferences = withInstrumentation(
   { op: 'resolveAndSaveProjectReferences', capture: 0 }
 );
 
-/** Ordinary open follows only the captured lock and verified cache; it never resolves tags. */
+/** Tagged opens follow their lock; Nightly follows the current mirror through the shared runtime. */
 export const loadProjectReferences = withInstrumentation(
   async function loadProjectReferences(
     snapshot: ProjectSnapshot,
@@ -190,10 +199,7 @@ export const loadProjectReferences = withInstrumentation(
     cache: ReferenceCache,
     signal: AbortSignal
   ) {
-    const diagnostics = await projectReferenceLockDiagnostics(snapshot);
-    if (diagnostics.length) return { documents: [], diagnostics };
-    if (!snapshot.lock) return { documents: [], diagnostics: [] };
-    return loadLockedReferences(snapshot.lock, transport, cache, signal);
+    return loadSharedProjectReferences(snapshot, transport, cache, signal);
   },
   { op: 'loadProjectReferences' }
 );

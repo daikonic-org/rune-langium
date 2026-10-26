@@ -6,6 +6,13 @@ implementation details. Reference release catalogs at `/releases/<model>` map
 explicit GitHub release tags to exact source commits and immutable cohort
 manifests. A development ref is never inferred to be a release tag.
 
+Studio offers the moving mirror as **Nightly** alongside tagged releases. Its
+workspace request is `release: nightly`; it does not save a commit, artifact
+cohort or lock entry. Opening or refreshing reads the current mirror and verifies
+its current dependency set. No per-commit Nightly retention is promised or
+required for reopening a workspace. Tagged release locks retain their existing
+immutable guarantees.
+
 The shared `curated-schema` package owns both contracts. Catalog entries retain
 repository/tag/commit, manifest URL, cohort, the SHA-256 of the exact manifest
 bytes, compatible release dependencies and the compiler/toolchain identity.

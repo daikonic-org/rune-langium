@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { CURATED_MIRROR_BASE, validateReferenceCatalog } from '@rune-langium/curated-schema';
+import {
+  CURATED_MIRROR_BASE,
+  CURATED_MODEL_IDS,
+  CuratedManifestSchema,
+  validateReferenceCatalog
+} from '@rune-langium/curated-schema';
 import { ReferenceFailure, type ReferenceTransport } from './types.js';
 export type ReferenceFetcher = (url: string, init?: RequestInit) => Promise<Response>;
 /** Hosts inject authenticated/service-binding fetchers; locked URLs stay on the configured mirror. */
@@ -24,6 +29,23 @@ export function createReferenceTransport(
     return url.href;
   };
   return {
+    async nightly(id, signal) {
+      if (!(CURATED_MODEL_IDS as readonly string[]).includes(id))
+        throw new ReferenceFailure('REFERENCE_NIGHTLY_UNAVAILABLE', 'Unknown Nightly model: ' + id);
+      signal.throwIfAborted();
+      const response = await fetcher(new URL(`/curated/${id}/manifest.json`, base).href, { signal, cache: 'no-store' });
+      signal.throwIfAborted();
+      if (!response.ok)
+        throw new ReferenceFailure(
+          'REFERENCE_NIGHTLY_UNAVAILABLE',
+          `Nightly mirror unavailable: ${id} (HTTP ${response.status})`
+        );
+      const manifest = CuratedManifestSchema.parse(await response.json());
+      signal.throwIfAborted();
+      if (manifest.modelId !== id)
+        throw new ReferenceFailure('REFERENCE_NIGHTLY_UNAVAILABLE', 'Nightly model identity mismatch: ' + id);
+      return manifest;
+    },
     async catalog(id, signal) {
       signal.throwIfAborted();
       const response = await fetcher(new URL('/releases/' + encodeURIComponent(id), base).href, { signal });

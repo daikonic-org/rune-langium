@@ -51,6 +51,15 @@ existing IndexedDB cache and saves an explicit upgrade's configuration and lock
 through one guarded project Save. Only reference requests affect lock freshness;
 source, target and example edits still invalidate build input revisions.
 
+`loadProjectReferences(snapshot, transport, cache, signal)` is the shared native
+and browser open/build path. Requests with `release: nightly` follow current
+curated mirrors through `transport.nightly`, with no saved commit, cohort or lock
+entry. Their dependency cohorts and serialized bytes still verify together before
+documents are exposed. Only tagged requests affect lock freshness. Nightly does
+not silently substitute for a tagged dependency, and an all-Nightly project needs
+no lockfile. Refresh/open observes the current mirror; historical Nightly
+publications are not a workspace retention contract.
+
 `buildEffectiveProject(snapshot, referenceDocuments)` composes a fresh graph from
 configured local sources and verified reference documents. It registers roots
 before serialized revival, applies explicit declaration redirects at core's

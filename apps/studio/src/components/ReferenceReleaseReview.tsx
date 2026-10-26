@@ -27,10 +27,20 @@ export const ReferenceReleaseReview = withInstrumentation(
       <section className="space-y-3 w-full" aria-labelledby="reference-review-title">
         <h3 id="reference-review-title">Review reference change</h3>
         <p>
-          These releases replace the active reference closure only after Save succeeds. Changed types and function
+          These references replace the active reference closure only after Save succeeds. Changed types and function
           signatures may require updates to local overrides, examples and workflows.
         </p>
         <ul className="space-y-2 text-xs" aria-label="Proposed reference releases">
+          {Object.entries(config.references)
+            .filter(([, request]) => request.release === 'nightly')
+            .map(([id]) => (
+              <li key={`nightly-${id}`} className="rounded border p-2 break-words">
+                <strong>{id}</strong> <span>Nightly</span>
+                <p className="text-muted-foreground">
+                  Follows the current mirror and its dependencies. No saved pin, lock, or stability guarantees.
+                </p>
+              </li>
+            ))}
           {Object.entries(lock.references).map(([id, release]) => {
             const direct = Object.prototype.hasOwnProperty.call(config.references, id);
             const requiredBy = Object.entries(lock.references)
@@ -54,7 +64,7 @@ export const ReferenceReleaseReview = withInstrumentation(
           {Object.keys(previous?.references ?? {})
             .filter((id) => !Object.prototype.hasOwnProperty.call(lock.references, id))
             .map((id) => (
-              <li key={id}>{id} · Removed from this closure</li>
+              <li key={id}>{id} · Removed from the pinned closure</li>
             ))}
         </ul>
         {diagnostics.map((issue, index) => (

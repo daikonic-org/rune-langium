@@ -952,13 +952,25 @@ acceptance. Unavailable baseline or standalone preview contracts are reported,
 not treated as a compatibility success.
 `ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
 selects a latest tag implicitly, and does not invoke the legacy model store.
-The separate Nightly loader follows upstream CDM `master` and its required
-dependency versions, without stability or reproducibility guarantees. Tagged
+The same picker offers Nightly as `release: nightly`. Shared runtime
+`loadProjectReferences` follows the current mirrors on open/refresh without a
+persisted commit, cohort or lock entry. Tagged requests alone determine lock
+freshness; an all-Nightly selection creates no lockfile, and switching the last
+tagged reference to Nightly removes its lock through guarded Save. Nightly
+dependency cohorts, format, paths and bytes are checked together through the
+same bundle validator as tagged references. Partial publications fail visibly;
+Nightly never silently replaces a required tagged dependency. Nightly follows
+upstream CDM `master` and its required dependency versions without stability or
+reproducibility guarantees. The legacy loader panel is removed. Tagged
 publication updates release catalogs only, leaving Nightly pointers unchanged.
 Both paths publish checksum-addressed source archives with matching manifest
 metadata; release publication verifies their bytes and successful upload receipts.
 Moving `latest` archive URLs use short cache lifetimes; checksum-addressed source
 archives retain immutable caching.
+
+Unconverted/unreadable restored examples remain visible with their original
+data. Their retained-load errors do not block unrelated reference Save. Editing
+or retrying one clears that marker; actual failed writes remain Save barriers.
 
 `WorkspaceProvider` projects captured references into the Explorer through
 `prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope
