@@ -158,6 +158,7 @@ export async function readReferenceDocuments(
       uri: `${id}/${path}`,
       content: doc.content ?? '',
       serialized: doc.modelJson,
+      ...(manifest.cohort ? { cohort: manifest.cohort } : {}),
       ...(Object.hasOwn(CURATED_MODEL_REPOSITORIES, id) && /^[a-f0-9]{40}$/.test(manifest.upstreamCommit)
         ? {
             source: {
