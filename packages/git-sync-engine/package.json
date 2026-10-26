@@ -24,11 +24,11 @@
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
-    "isomorphic-git": "^1.37.6"
+    "isomorphic-git": "^1.44.4"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
-    "isomorphic-git": "^1.44.3",
+    "isomorphic-git": "^1.44.4",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },

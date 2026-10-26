@@ -44,6 +44,16 @@ Keep TypeScript `6.0.3` in docs and the `typescript-classic` alias in codegen: T
 
 The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in both manifests and workspace overrides. Mutative 2 retains the producer API but changes patch ordering and patch-value identity; verify forward/inverse replay, edit reconciliation and source synchronization when upgrading it. Camelcase 10 requires Node 22, within the existing supported range.
 
+The October 26 dependency refresh uses react-day-picker 10 through the shared
+Calendar wrapper and vscode-languageserver 11. Keep resolver 5.9.2 while
+`@zod-to-form/react@0.13.0` and `@zod-to-form/vite@0.5.0` declare the resolver 5
+peer range; resolver 6 needs an upstream compatibility release. TypeDoc and the
+codegen compiler-API alias retain TypeScript 6.0.3, while workspace compilation
+uses TypeScript 7.0.2. The root OpenTelemetry API override stays at 1.9.1 because
+react-doctor's Sentry/OpenTelemetry 2.12 SDK peers exclude 1.10; remove the cap
+when that dependency chain declares support. Do not suppress peer checks. Miniflare retains its scoped Undici 7 override at
+7.30.1 for the HTTP parser fixes; do not force its consumers onto Undici 8.
+
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
 ## Public CLI and LSP dependency closure
@@ -94,6 +104,12 @@ manifests; update those together if deliberately upgrading the generator.
 SQL node types derive from the exactly pinned `@l1xnan/tree-sitter-sql` grammar.
 
 ## Testing and Editor Setup
+
+Vitest configs use `workspaceTestCache(import.meta.url)` for a package-local
+filesystem module cache. Independent `pnpm -r test` processes otherwise share
+the workspace cache and can delete each other's files while invalidating it
+after lockfile changes. Keep this shared cache policy when adding a package;
+it does not change test selection, timeout or retry budgets.
 
 - Use Vitest for public APIs and shared architecture seams. Prefer focused package checks for isolated changes; broaden for affected consumers.
 - Full TypeScript corpus verification: build core, curated-schema, and codegen, then run `pnpm run verify:codegen-corpus`. The check pins upstream commits in `scripts/fixtures/codegen-corpus.json`, reuses the production artifact builder and cached archives, and strictly compiles every generated file. To check a browser download, run `pnpm run verify:codegen-corpus --zip /absolute/path/typescript-output.zip`. Dependencies must be installed; the check uses the real Temporal package. Caches and serialized artifacts stay under ignored `dist/`.

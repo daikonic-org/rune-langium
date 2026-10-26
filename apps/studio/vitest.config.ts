@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { workspaceTestCache } from '../../test/helpers/vitest-cache.js';
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 
@@ -11,6 +12,7 @@ export default defineConfig({
     }
   },
   test: {
+    fsModuleCachePath: workspaceTestCache(import.meta.url),
     globals: true,
     environment: 'jsdom',
     include: ['test/**/*.test.{ts,tsx}', 'functions/test/**/*.test.ts'],
