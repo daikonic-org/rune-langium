@@ -43,7 +43,7 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
     .locator('input[type="file"][accept=".rosetta"]')
     .setInputFiles({ name: 'cash.rosetta', mimeType: 'text/plain', buffer: Buffer.from(source) });
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
-  const files = {
+  const files: Record<string, string> = {
     'rune-config.yml': 'model: { name: Starter }\n',
     'build-config.yml': 'schemaVersion: 1\nsources: ["**/*.rosetta"]\ntargets: {}\n',
     'studio-config.yml': 'schemaVersion: 1\n',
@@ -72,6 +72,11 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
       outputs: { result: { name: 'increasedCash', type: identity('Money') } }
     })
   };
+  files['workflows/other.workflow.json'] = JSON.stringify({
+    ...JSON.parse(files['workflows/cash.workflow.json']!),
+    id: 'other',
+    name: 'Other cash'
+  });
   await projectBackingFiles(page, files);
   await page.reload();
   await page.getByTestId('rail-prototype').click();
@@ -110,6 +115,12 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
     page.getByRole('region', { name: 'IncreaseCash fields', exact: true }).getByLabel('Change', { exact: true })
   ).toHaveValue('300');
   await expect(cash.getByLabel('Value', { exact: true })).toHaveValue('1000');
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Other cash', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'IncreaseCash fields', exact: true })
+    .getByLabel('Change', { exact: true })
+    .fill('700');
   await page.getByRole('button', { name: 'Object builder', exact: true }).click();
   await expect(page.getByRole('button', { name: /Choose a function/ })).toHaveCount(0);
   await expect(execute).toHaveCount(0);
@@ -121,6 +132,16 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
     .fill('45');
   await expect(page.getByTestId('instance-payload-output')).toContainText('45');
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Saved workflow', exact: true })).toHaveText('Other cash');
+  await expect(
+    page.getByRole('region', { name: 'IncreaseCash fields', exact: true }).getByLabel('Change', { exact: true })
+  ).toHaveValue('700');
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Increase cash', exact: true }).click();
+  await expect(
+    page.getByRole('region', { name: 'IncreaseCash fields', exact: true }).getByLabel('Change', { exact: true })
+  ).toHaveValue('300');
+
   await expect(cash.getByLabel('Value', { exact: true })).toHaveValue('1000');
   await page.getByRole('button', { name: 'Object builder', exact: true }).click();
   await expect(

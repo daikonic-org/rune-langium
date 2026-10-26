@@ -807,7 +807,7 @@ export const PrototypeWorkflow = withInstrumentation(
     );
     return (
       <section ref={rootRef} className="workflow" aria-label="Prototype workflow" aria-busy={opening}>
-        {mode === 'flow' ? (
+        <div hidden={mode !== 'flow'} className="shrink-0">
           <WorkflowLibrary
             onNew={() => {
               ++openingGeneration.current;
@@ -833,9 +833,10 @@ export const PrototypeWorkflow = withInstrumentation(
                   value: structuredClone(state.result)
                 });
             }}
-            disabled={!session || (!draft && !functionSelected)}
+            disabled={mode !== 'flow' || !session || (!flowDraft && !state.functionFqn)}
           />
-        ) : (
+        </div>
+        {mode === 'panels' ? (
           <div className="workflow-toolbar">
             <WorkspaceTypePicker
               label="Choose an object type"
@@ -853,7 +854,7 @@ export const PrototypeWorkflow = withInstrumentation(
               }}
             />
           </div>
-        )}
+        ) : null}
         <FormPresentation showToolbar={false} showNotices>
           {null}
         </FormPresentation>
