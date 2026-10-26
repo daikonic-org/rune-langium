@@ -100,7 +100,8 @@ const KEYWORDS = new Set([
   'item',
   'value',
   'path',
-  'empty'
+  'empty',
+  'displayName'
 ]);
 
 const TYPE_KEYWORDS = new Set([
@@ -164,10 +165,13 @@ interface RuneDslState {
   /** Whether we're inside a multi-line comment. */
   inBlockComment: boolean;
   inString: '"' | "'" | null;
-  /** Whether the previous token was a type keyword. */
-  expectTypeName: boolean;
+  /** Syntactic roles use the same Lezer tags as generated-language editors. */
+  expectName: string | null;
   expectAnnotationName: boolean;
   annotationNames: Set<string>;
+  enumNames: Set<string>;
+  memberNames: Set<string>;
+  declaration: { kind: string; indent: number; expression: boolean } | null;
   brackets: BracketContext[];
   expressionIndent: number | null;
 }
@@ -195,9 +199,12 @@ export const runeDslStreamParser = {
     return {
       inBlockComment: false,
       inString: null,
-      expectTypeName: false,
+      expectName: null,
       expectAnnotationName: false,
       annotationNames: new Set(STANDARD_ANNOTATIONS),
+      enumNames: new Set(),
+      memberNames: new Set(),
+      declaration: null,
       brackets: [],
       expressionIndent: null
     };
@@ -207,6 +214,9 @@ export const runeDslStreamParser = {
     return {
       ...state,
       annotationNames: new Set(state.annotationNames),
+      enumNames: new Set(state.enumNames),
+      memberNames: new Set(state.memberNames),
+      declaration: state.declaration && { ...state.declaration },
       brackets: state.brackets.map((frame) => ({ ...frame }))
     };
   },
@@ -227,6 +237,9 @@ export const runeDslStreamParser = {
     }
 
     if (stream.sol()) {
+      // An unfinished declaration must not style a name on a later line.
+      state.expectName = null;
+      state.expectAnnotationName = false;
       const line = stream.string.trimStart();
       const indent = stream.indentation();
       if (state.expressionIndent !== null && line && !line.startsWith('//') && indent <= state.expressionIndent)
@@ -280,8 +293,10 @@ export const runeDslStreamParser = {
     }
 
     // Identifiers and keywords
-    if (stream.match(/^[a-zA-Z_][a-zA-Z_0-9]*/)) {
+    if (stream.match(/^(?:post-condition\b|to-enum\b|[a-zA-Z_][a-zA-Z_0-9]*(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*)/)) {
       const word = stream.current();
+      const prefix = stream.string.slice(0, stream.start).trim();
+      const tail = stream.string.slice(stream.pos);
       if (frame?.head) {
         frame.head = false;
         // A comma/navigation/operator after the head identifies an expression even without an enclosing declaration.
@@ -300,24 +315,86 @@ export const runeDslStreamParser = {
         if (ANNOTATION_FIELDS.has(word)) return 'propertyName';
       }
 
-      if (BOOLEANS.has(word)) return 'bool';
-
-      if (state.expectTypeName) {
-        state.expectTypeName = false;
+      if (state.expectName) {
+        const role = state.expectName;
+        state.expectName = null;
         if (state.expectAnnotationName) {
           state.annotationNames.add(word);
           state.expectAnnotationName = false;
         }
-        return 'typeName';
+        if (state.declaration?.kind === 'enum' && role === 'typeName.definition') state.enumNames.add(word);
+        return role;
       }
 
-      if (TYPE_KEYWORDS.has(word)) {
-        state.expectTypeName = true;
-        state.expectAnnotationName = word === 'annotation';
+      if (!prefix && !frame) {
+        if (state.declaration && stream.indentation() <= state.declaration.indent) {
+          state.declaration = null;
+          state.memberNames.clear();
+        }
+        if (TYPE_KEYWORDS.has(word) || word === 'func' || word === 'function' || word === 'library') {
+          state.declaration = { kind: word, indent: stream.indentation(), expression: false };
+          state.memberNames.clear();
+          state.expectName =
+            word === 'library'
+              ? null
+              : word === 'func' || word === 'function'
+                ? 'variableName.function.definition'
+                : 'typeName.definition';
+          state.expectAnnotationName = word === 'annotation';
+          return 'keyword';
+        }
+      }
+      if (prefix === 'library' && word === 'function') {
+        state.expectName = 'variableName.function.definition';
         return 'keyword';
       }
+      if (!prefix && ['condition', 'post-condition', 'alias', 'set', 'add'].includes(word)) {
+        if (state.declaration) state.declaration.expression = true;
+        if ((word === 'condition' || word === 'post-condition') && /^\s+[a-zA-Z_]/.test(tail))
+          state.expectName = 'labelName';
+        if (word === 'alias') state.expectName = 'variableName.definition';
+        return 'keyword';
+      }
+      if (word === 'inputs' || word === 'output' || word === 'override') return 'keyword';
+
+      const memberLine =
+        state.declaration &&
+        !state.declaration.expression &&
+        stream.indentation() > state.declaration.indent &&
+        !frame &&
+        (!prefix || prefix === 'override');
+      if (memberLine) {
+        if (state.declaration!.kind === 'enum') return 'variableName.constant';
+        if (state.declaration!.kind === 'choice' || state.declaration!.kind === 'typeAlias') return 'typeName';
+        if (/^\s+[a-zA-Z_][a-zA-Z_0-9]*(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*\s*(?:\(|$)/.test(tail)) {
+          state.memberNames.add(word);
+          state.expectName = 'typeName';
+          return 'propertyName.definition';
+        }
+      }
+
+      if (word === 'namespace' || word === 'import') state.expectName = 'namespace';
+      if (word === 'extends' || word === 'as' || word === 'to-enum') {
+        state.expectName =
+          word === 'extends' && ['func', 'function'].includes(state.declaration?.kind ?? '')
+            ? 'variableName.function'
+            : 'typeName';
+      }
+      if (BOOLEANS.has(word)) return 'bool';
+      // Navigation/constructor keys are members even for keyword names such as value.
+      if (/->>?\s*$/.test(prefix)) {
+        const receiver = /([a-zA-Z_][a-zA-Z_0-9]*(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*)\s*->>?$/.exec(prefix)?.[1];
+        return receiver && state.enumNames.has(receiver) && !state.memberNames.has(receiver)
+          ? 'variableName.constant'
+          : 'propertyName';
+      }
+      if (/^\s*:/.test(tail)) return 'propertyName';
+      if (state.memberNames.has(word)) return 'propertyName';
+      if (state.enumNames.has(word)) return 'typeName';
 
       if (KEYWORDS.has(word)) return 'keyword';
+      if (/^\s*(?:\([^)]*\)\s*)?\{/.test(tail)) return 'typeName';
+      if (/^\s*\(/.test(tail)) return 'variableName.function';
 
       return 'variableName';
     }

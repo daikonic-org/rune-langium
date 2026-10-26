@@ -1053,7 +1053,13 @@ retain independent bracket/declaration state. Strings and comments do not alter
 that context; lists and inline-function brackets retain expression styling.
 Shared editor syntax rules read design-system CSS tokens with canonical JS
 fallbacks; comments use neutral muted text and italic emphasis. Display styling
-never hides or modifies source. Light-theme palette work is tracked in #643.
+never hides or modifies source. Rune uses standard Lezer definition/function,
+type and property tags for declaration names, typed members, constructors,
+calls and navigation. Enum declarations and references to enums learned in the
+current file use constant tags, which share the constant palette with other
+editors. Classification follows syntax rather than capitalization; the stream
+parser does not guess imported symbol kinds. Incremental copies isolate enum,
+member and declaration state. Light-theme palette work is tracked in #643.
 
 ## Reference example imports
 

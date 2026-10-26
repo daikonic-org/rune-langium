@@ -62,7 +62,8 @@ describe('studio editor theme uses design-system syntax tokens', () => {
       [t.string, 'string'],
       [t.operator, 'operator'],
       [t.number, 'number'],
-      [t.bool, 'constant']
+      [t.bool, 'constant'],
+      [t.constant(t.name), 'constant']
     ] as const) {
       const rule = studioEditorHighlightStyle.specs.find((spec) =>
         (Array.isArray(spec.tag) ? spec.tag : [spec.tag]).includes(tag)
