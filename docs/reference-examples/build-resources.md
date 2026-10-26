@@ -10,8 +10,10 @@ The upstream `CodeList` model has `identification` (scheme URI/version) and `cod
 (value/description/source/effectiveDate/deprecatedDate). Its 238 XML-tree files
 include original genericode sources and schema companions; CDM supplies an XSL
 conversion. Canonical URIs identify a scheme and must not be used as retrieval
-URLs. `LoadCodeList(domain)` and `ValidateFpMLCodingSchemeDomain(code, domain)`
-are native functions; specialized `FpMLCodingScheme(domain: ...)` aliases also
+URLs. `LoadCodeList(domain)` is native. At this CDM commit,
+`ValidateFpMLCodingSchemeDomain(code, domain)` already has a Rune body calling
+that loader (its missing-list branch returns `False`, despite an older prose
+description). Specialized `FpMLCodingScheme(domain: ...)` aliases also
 carry a condition. Loading a JSON file alone does not implement those functions.
 
 FpML's `rune-config.yml` declares two `namespaceConfig`/`schemaConfig` entries
