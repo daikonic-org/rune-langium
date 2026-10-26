@@ -5,7 +5,7 @@ import { adaptPreviewData, projectRuneJsonData } from '@rune-langium/codegen/exp
 import type { ProjectSnapshot } from '@rune-langium/project-config';
 import { jsonCodec, runeJsonCodec } from '@rune-langium/codegen/instances';
 
-import { projectDataFormat, serializeProjectPayload } from '@rune-langium/core/serialization';
+import { withRuneJsonEncoding, projectDataFormat, serializeProjectPayload } from '@rune-langium/core/serialization';
 
 /** Registered project data codec. No implicit substitution for unsupported formats. */
 export function projectDataCodecStatus(snapshot: ProjectSnapshot, requested?: string) {
@@ -46,7 +46,10 @@ export function serializeProjectData(
     const projected = projectRuneJsonData(context.documents, context.typeFqn, value);
     if (!projected || typeof projected !== 'object' || Array.isArray(projected))
       throw new Error('Rune object serialization requires a typed object.');
-    return serializeProjectPayload({ ...projected, '@model': context.model, '@version': context.version }, format);
+    return serializeProjectPayload(
+      withRuneJsonEncoding({ ...projected, '@model': context.model, '@version': context.version }, projected),
+      format
+    );
   }
   return serializeProjectPayload(value, format);
 }

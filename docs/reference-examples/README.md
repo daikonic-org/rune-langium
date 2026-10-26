@@ -82,3 +82,11 @@ the same byte/hash reader rather than maintaining a second downloader.
 Unknown model fields and unused keys/references are retained, not silently pruned.
 The Rune encoder refuses mixed/conflicting or unsupported metadata representations
 rather than overwriting information; saving canonical JSON remains available.
+
+
+The encoder retains ephemeral roles when decoding explicit wire markers or
+projecting linked declarations. These roles are not written into workspace JSON.
+After JSON persistence, ambiguous `value`/`meta`/reference-shaped records require
+linked context again; a context-free export fails instead of treating business
+attributes as metadata. Kind-qualified function input-set imports use the same
+adapter and remain distinct from same-named Data declarations.

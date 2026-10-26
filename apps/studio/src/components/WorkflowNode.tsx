@@ -128,7 +128,9 @@ export const WorkflowNode = withInstrumentation(
               <PopoverContent className="w-52 space-y-1 p-1" align="end">
                 {onChange ? (
                   <WorkflowImport
-                    typeFqn={schema?.targetId}
+                    typeFqn={
+                      schema ? `${schema.targetId}${schema.kind === 'function' ? '#RosettaFunction' : ''}` : undefined
+                    }
                     onImport={(items) => {
                       const value = items[0];
                       if (onImport) {

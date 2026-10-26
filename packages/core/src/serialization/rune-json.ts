@@ -17,6 +17,16 @@ function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+export type RuneJsonEncodingKind = 'data' | 'data-metadata' | 'envelope';
+const encodingKinds = new WeakMap<object, RuneJsonEncodingKind>();
+/** Ephemeral declaration/wire context for serialization; never persisted or inferred from field names. */
+export function withRuneJsonEncoding<T extends object>(value: T, kind: RuneJsonEncodingKind | object): T {
+  const resolved = typeof kind === 'string' ? kind : encodingKinds.get(kind);
+  if (!resolved) throw new Error('Rune JSON declaration context is unavailable.');
+  encodingKinds.set(value, resolved);
+  return value;
+}
+
 /**
  * Keep model/type/version and unknown fields; never dereference or prune keys.
  * Structural and semantic validation remains with the selected model's runtime.
@@ -37,25 +47,44 @@ export function decodeRuneJson(value: unknown): unknown {
   if (own(value, '@data')) {
     if (entries.length || own(value, 'value') || (value['@data'] !== null && typeof value['@data'] === 'object'))
       throw new Error('Rune @data must not mix with object attributes.');
-    return { value: decodeRuneJson(value['@data']), meta: Object.fromEntries(meta), ...Object.fromEntries(refs) };
+    return withRuneJsonEncoding(
+      { value: decodeRuneJson(value['@data']), meta: Object.fromEntries(meta), ...Object.fromEntries(refs) },
+      'envelope'
+    );
   }
   for (const [key] of refs)
     if (own(value, key)) throw new Error('Rune JSON contains conflicting wire and legacy references.');
   const body = Object.fromEntries(entries);
   // Scoped locations and schemes belong to attributes rather than a Data type.
   if ((own(value, '@key:scoped') || own(value, '@scheme') || refs.length) && entries.length) {
-    return { value: body, meta: Object.fromEntries(meta), ...Object.fromEntries(refs) };
+    return withRuneJsonEncoding(
+      { value: body, meta: Object.fromEntries(meta), ...Object.fromEntries(refs) },
+      'envelope'
+    );
   }
-  return { ...body, ...(meta.length ? { meta: Object.fromEntries(meta) } : {}), ...Object.fromEntries(refs) };
+  return withRuneJsonEncoding(
+    { ...body, ...(meta.length ? { meta: Object.fromEntries(meta) } : {}), ...Object.fromEntries(refs) },
+    refs.length ? 'envelope' : meta.length ? 'data-metadata' : 'data'
+  );
 }
 
 /** Convert only explicit canonical metadata envelopes; ordinary `value` fields stay ordinary. */
 export function encodeRuneJson(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(encodeRuneJson);
   if (!record(value)) return value;
-  const meta = record(value.meta) ? value.meta : undefined;
+  const kind = encodingKinds.get(value);
+  const meta = kind !== 'data' && record(value.meta) ? value.meta : undefined;
   const wrapperKeys = new Set(['value', 'meta', 'reference', 'globalReference', 'externalReference']);
-  const envelope = Object.keys(value).every((key) => wrapperKeys.has(key));
+  const shape = Object.keys(value).every((key) => wrapperKeys.has(key));
+  if (
+    !kind &&
+    (own(value, 'meta') ||
+      (shape && ['reference', 'globalReference', 'externalReference'].some((key) => own(value, key))))
+  )
+    throw new Error(
+      'This record has no supported unambiguous Rune JSON representation without declaration context. Save as JSON or supply linked context.'
+    );
+  const envelope = kind === 'envelope';
   const referenceEnvelope =
     envelope && ['reference', 'globalReference', 'externalReference'].some((key) => own(value, key));
   const wrapped = own(value, 'value') && envelope && (meta || referenceEnvelope);
@@ -80,7 +109,7 @@ export function encodeRuneJson(value: unknown): unknown {
   } else {
     for (const [key, child] of Object.entries(value)) {
       if (
-        key !== 'meta' &&
+        (key !== 'meta' || kind === 'data') &&
         (!referenceEnvelope || !['reference', 'globalReference', 'externalReference'].includes(key))
       )
         result.push([key, encodeRuneJson(child)]);
@@ -92,7 +121,7 @@ export function encodeRuneJson(value: unknown): unknown {
       throw new Error('This metadata has no supported Rune JSON representation; save as JSON to retain it.');
     for (const [wire, key] of Object.entries(metadata))
       if (own(meta, key)) result.push([wire, encodeRuneJson(meta[key])]);
-  } else if (own(value, 'meta')) result.push(['meta', encodeRuneJson(value.meta)]);
+  } else if (kind !== 'data' && own(value, 'meta')) result.push(['meta', encodeRuneJson(value.meta)]);
   for (const [wire, key] of Object.entries(references))
     if (referenceEnvelope && own(value, key)) result.push([wire, encodeRuneJson(value[key])]);
   if (referenceEnvelope && own(value, 'reference')) {
