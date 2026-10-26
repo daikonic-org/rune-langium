@@ -47,3 +47,35 @@ for (const width of [1440, 390]) {
     await expect(page.locator('html')).not.toHaveClass(/dark/);
   });
 }
+
+test('theme startup tolerates disabled storage and preserves valid preferences on unsupported URLs', async ({
+  browser,
+  page
+}) => {
+  await page.addInitScript(() => {
+    const getItem = Storage.prototype.getItem;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (key) {
+      if (key === 'rune-studio:theme') throw new DOMException('Blocked', 'SecurityError');
+      return getItem.call(this, key);
+    };
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'rune-studio:theme') throw new DOMException('Blocked', 'SecurityError');
+      return setItem.call(this, key, value);
+    };
+  });
+  await page.goto('./?theme=light');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible();
+
+  const validContext = await browser.newContext();
+  try {
+    const validPage = await validContext.newPage();
+    await validPage.addInitScript(() => window.localStorage.setItem('rune-studio:theme', 'daikonic'));
+    await validPage.goto(new URL('./?theme=unsupported', page.url()).toString());
+    await expect(validPage.locator('html')).toHaveAttribute('data-theme', 'daikonic');
+    expect(await validPage.evaluate(() => window.localStorage.getItem('rune-studio:theme'))).toBe('daikonic');
+  } finally {
+    await validContext.close();
+  }
+});

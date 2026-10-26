@@ -71,7 +71,7 @@
   --syntax-type: var(--color-kind-data-base);
   --syntax-attribute: var(--color-kind-func-base);
   --syntax-string: #426b21;
-  --syntax-comment: #526b70;
+  --syntax-comment: #415d62;
   --syntax-number: var(--color-warning-base);
   --syntax-function: var(--color-kind-func-base);
   --syntax-operator: #526b70;
