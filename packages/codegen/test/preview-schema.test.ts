@@ -6,7 +6,13 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
-import { expandPreviewField, generatePreviewSchemas } from '../src/export.js';
+import {
+  expandPreviewField,
+  generatePreviewSchemas,
+  adaptPreviewData,
+  projectRuneJsonData,
+  metadataPreviewField
+} from '../src/export.js';
 import type { PreviewField } from '../src/types.js';
 
 const skipIfNodeLt22 = it.skipIf(Number(process.versions.node.split('.')[0]) < 22);
@@ -2311,4 +2317,69 @@ func Derived extends Base:
       }
     ]);
   });
+});
+
+it('uses one declared-type adapter for metadata, Choice imports and Rune wire projections', async () => {
+  const doc = await parseModel(`namespace imported
+type Cash:
+ amount number (1..1)
+  [metadata scheme]
+type Security:
+ identifier string (1..1)
+choice Payment:
+ Cash
+ Security
+type Trade:
+ payment Payment (1..1)
+`);
+  const canonical = { payment: { cash: { amount: { value: 21, meta: { scheme: 'USD' } } } } };
+  const imported = adaptPreviewData([doc], 'imported.Trade', {
+    payment: { '@type': 'imported.Cash', amount: { value: 21, meta: { scheme: 'USD' } } }
+  });
+  expect(imported.data).toMatchObject(canonical);
+  const wire = projectRuneJsonData([doc], 'imported.Trade', canonical);
+  expect(wire).toEqual({
+    '@type': 'imported.Trade',
+    payment: { '@type': 'imported.Cash', amount: { value: 21, meta: { scheme: 'USD' } } }
+  });
+  const scalar = generatePreviewSchemas([doc], { targetId: 'imported.Cash' })[0]!.fields[0]!;
+  expect(metadataPreviewField(scalar, { value: 21, meta: { scheme: 'USD' } }).path).toBe('amount.value');
+  expect(metadataPreviewField(scalar, 21).path).toBe('amount');
+  const missing = adaptPreviewData([doc], 'imported.Cash', { amount: 'bad' });
+  expect(missing.sourcePath('amount.value')).toBe('amount');
+  expect(() =>
+    adaptPreviewData([doc], 'imported.Trade', { payment: { '@type': 'imported.Security', identifier: 'x' } })
+  ).not.toThrow();
+  expect(() => adaptPreviewData([doc], 'imported.Trade', { payment: { '@type': 'other.Cash' } })).toThrow(
+    /missing|ambiguous/
+  );
+});
+
+it('preserves declared field identity through metadata and deferred nested bodies', () => {
+  const field: PreviewField = {
+    kind: 'object',
+    path: 'money',
+    label: 'Money',
+    required: false,
+    definitionId: 'test.Money',
+    children: [],
+    metadata: { kind: 'field', payloadShape: { amount: 'scalar' } }
+  };
+  const projected = metadataPreviewField(field, { value: { amount: 21 }, meta: { scheme: 'USD' } });
+  expect(projected).toMatchObject({ path: 'money.value', declaredPath: 'money' });
+  const expanded = expandPreviewField(projected, {
+    'test.Money': { fields: [{ path: 'amount', kind: 'number', label: 'Amount', required: true }] }
+  });
+  expect(expanded.kind === 'object' && expanded.children[0]).toMatchObject({
+    path: 'money.value.amount',
+    declaredPath: 'money.amount'
+  });
+  const nested = metadataPreviewField(
+    {
+      ...(expanded.kind === 'object' ? expanded.children[0]! : field),
+      metadata: { kind: 'field', payloadShape: null }
+    },
+    { value: 21, meta: {} }
+  );
+  expect(nested).toMatchObject({ path: 'money.value.amount.value', declaredPath: 'money.amount' });
 });

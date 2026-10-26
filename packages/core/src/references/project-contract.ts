@@ -30,3 +30,15 @@ export const ProjectResolutionContextSchema = z.object({
   overrides: z.array(z.unknown()).max(4096)
 });
 export type ProjectResolutionContext = z.infer<typeof ProjectResolutionContextSchema>;
+
+/** Imported example origin; a Nightly commit records provenance, never a reference lock. */
+export const RepositoryExampleSourceSchema = z.strictObject({
+  model: text,
+  repository: z.string().regex(/^https:\/\/github[.]com\/[\w.-]+\/[\w.-]+$/),
+  release: text,
+  commit: z.string().regex(/^[a-f0-9]{40}$/),
+  path: text,
+  format: z.enum(['JSON', 'RUNE_JSON']),
+  version: text.optional()
+});
+export type RepositoryExampleSource = z.infer<typeof RepositoryExampleSourceSchema>;

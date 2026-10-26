@@ -16,6 +16,7 @@ import {
   getEnumValues,
   getElementNamespace,
   isChoice,
+  isAttribute,
   isData,
   type Choice,
   type Data,
@@ -43,6 +44,7 @@ import {
 } from './base-namespace-emitter.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
+import { typeFeatures } from '../expr/navigation.js';
 import { fieldMetadataKind, metadataObjectType } from '../expr/metadata-runtime.js';
 import { zodProfile } from './zod-profile.js';
 import { typescriptProfile } from './typescript-profile.js';
@@ -221,6 +223,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly typeIndex: TypeIndexLookup;
   private readonly sections: string[] = [];
   private readonly functionInputs: boolean;
+  private readonly metadataInputs: boolean;
 
   constructor(
     model: NamespaceWalkResult,
@@ -229,6 +232,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   ) {
     super(model, options, registry);
     this.functionInputs = options.functionInputs ?? false;
+    this.metadataInputs = this.functionInputs || (options.metadataInputs ?? false);
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     if (this.functionInputs) {
       const builtinTypeMap = { ...this.ctx.builtinTypeMap };
@@ -596,7 +600,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    */
   private emitAttribute(attr: Attribute, ownerName: string): string {
     let baseTypeExpr = this.resolveTypeExpr(attr, ownerName);
-    const kind = this.functionInputs ? fieldMetadataKind(attr) : undefined;
+    const kind = this.metadataInputs ? fieldMetadataKind(attr) : undefined;
     if (kind) {
       const metadata = 'z.record(z.string(), z.unknown())';
       baseTypeExpr =
@@ -928,7 +932,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
 
     for (const attr of data.attributes) {
       const type = this.resolveTypeExprAsTs(attr);
-      const baseTypeExpr = this.functionInputs
+      const baseTypeExpr = this.metadataInputs
         ? metadataObjectType(type, fieldMetadataKind(attr), 'Record<string, unknown>')
         : type;
       const card = attr.card;
@@ -1013,7 +1017,16 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     emitMode: 'zod-refine' | 'zod-superRefine',
     conditionName: string
   ): ExpressionTranspilerContext {
-    return buildConditionTranspilerContext(data, emitMode, conditionName, this.ctx.diagnostics);
+    const context = buildConditionTranspilerContext(data, emitMode, conditionName, this.ctx.diagnostics);
+    if (!this.metadataInputs) return context;
+    const localMetadata = new Map<string, { kind: 'field' | 'reference'; many: boolean } | undefined>();
+    for (const feature of typeFeatures(data)) {
+      if (!isAttribute(feature)) continue;
+      const kind = fieldMetadataKind(feature),
+        card = decodeCardinality(feature.card);
+      localMetadata.set(feature.name, kind ? { kind, many: card.upper === null || card.upper > 1 } : undefined);
+    }
+    return { ...context, localMetadata };
   }
 
   /**

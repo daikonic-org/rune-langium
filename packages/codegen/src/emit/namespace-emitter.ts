@@ -33,6 +33,8 @@ export interface NamespaceEmitterOptions extends GeneratorOptions {
   suppressBoilerplate?: boolean;
   /** Validate the adapted function input structure without evaluating Data conditions. */
   functionInputs?: boolean;
+  /** Preserve metadata envelopes while retaining ordinary Data condition validation. */
+  metadataInputs?: boolean;
 }
 
 export interface NamespaceEmitter {

@@ -4,6 +4,8 @@
 import type { RosettaFunction, DeclarationIdentity } from '@rune-langium/core';
 import type { ProjectBindingRegistry } from './runtime/project-bindings.js';
 import type { EmittedProjection } from './projection/types.js';
+import type { MetadataPayloadShape } from './expr/metadata-input.js';
+import type { FieldMetadataKind } from './expr/metadata-runtime.js';
 import type { TemporalWireFormat } from './expr/temporal-conversions.js';
 import type {
   ZodOptions,
@@ -246,6 +248,10 @@ export interface GeneratorOutput {
 export type PreviewFieldKind = 'string' | 'number' | 'boolean' | 'enum' | 'object' | 'array' | 'unknown';
 
 export interface PreviewFieldBase {
+  /** Stable declaration/layout path when a metadata adapter projects a JSON value path. */
+  declaredPath?: string;
+  /** Declared metadata distinguishes envelopes from Data records named value/meta. */
+  metadata?: { kind: FieldMetadataKind; payloadShape: MetadataPayloadShape };
   /** Kind-qualified declared Rune type identity for presentation preferences. */
   typeSymbol?: string;
   path: string;

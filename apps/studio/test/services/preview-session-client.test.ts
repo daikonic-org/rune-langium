@@ -158,3 +158,26 @@ it('correlates input-check replies independently and reports unavailable validat
   await rejection;
   client.dispose();
 });
+
+it('prepares a correlated object decoder and rejects stale or cancelled results', async () => {
+  const worker = new FakeWorker(),
+    client = createPreviewSessionClient(worker as unknown as Worker, readiness());
+  const abort = new AbortController();
+  const pending = client.decode!('test.Trade#Data', { amount: 1 }, abort.signal);
+  await vi.waitFor(() => expect(worker.posted).toHaveLength(1));
+  worker.reply({
+    type: 'instance:generateSchemaResult',
+    requestId: worker.posted[0]!.requestId,
+    schema: { schemaVersion: 1, targetId: 'test.Trade', title: 'Trade', status: 'ready', fields: [] }
+  });
+  await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+  expect(worker.posted[1]).toMatchObject({ type: 'instance:decode', typeFqn: 'test.Trade#Data', data: { amount: 1 } });
+  worker.reply({ type: 'instance:decodeResult', requestId: 'stale', data: { amount: 99 } });
+  worker.reply({ type: 'instance:decodeResult', requestId: worker.posted[1]!.requestId, data: { amount: 1 } });
+  await expect(pending).resolves.toEqual({ amount: 1 });
+  const cancelled = client.decode!('test.Trade#Data', {}, abort.signal);
+  const rejection = expect(cancelled).rejects.toThrow(/cancelled/);
+  abort.abort();
+  await rejection;
+  client.dispose();
+});

@@ -140,7 +140,14 @@ export const migrateLegacyExamples = withInstrumentation(
               type,
               payload: examplePayloadPath(root, record.id),
               codec: 'JSON',
-              ...(record.provenance?.source ? { provenance: { source: record.provenance.source } } : {})
+              ...(record.provenance?.source
+                ? {
+                    provenance: {
+                      source: record.provenance.source,
+                      ...(record.provenance.reference ? { reference: record.provenance.reference } : {})
+                    }
+                  }
+                : {})
             },
             record.data
           );
@@ -208,7 +215,14 @@ export const createExampleRepository = withInstrumentation(
               payload: previous?.payload ?? examplePayloadPath(root, record.id),
               codec: previous?.codec ?? 'JSON',
               ...(previous?.expected ? { expected: previous.expected } : {}),
-              ...(record.provenance?.source ? { provenance: { source: record.provenance.source } } : {})
+              ...(record.provenance?.source
+                ? {
+                    provenance: {
+                      source: record.provenance.source,
+                      ...(record.provenance.reference ? { reference: record.provenance.reference } : {})
+                    }
+                  }
+                : {})
             },
             record.data
           );
@@ -262,7 +276,14 @@ export const createExampleRepository = withInstrumentation(
               createdAt: 0,
               modifiedAt: 0,
               ...(descriptor.provenance
-                ? { provenance: { codec: descriptor.codec, source: descriptor.provenance.source, importedAt: 0 } }
+                ? {
+                    provenance: {
+                      codec: descriptor.codec,
+                      source: descriptor.provenance.source,
+                      importedAt: 0,
+                      ...(descriptor.provenance.reference ? { reference: descriptor.provenance.reference } : {})
+                    }
+                  }
                 : {})
             };
             if (entry.payload === undefined)

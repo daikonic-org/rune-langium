@@ -659,3 +659,95 @@ it('uses a managed code list for choices and validation and reports a missing re
   );
   vi.unstubAllGlobals();
 }, 20000);
+
+it('adapts imported metadata and Rune Choice discriminators using the linked model, and retains source diagnostics', async () => {
+  const { decodeRuneJson } = await import('@rune-langium/core/serialization');
+  const { scope, dispatch } = await loadRealWorker();
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 1,
+    files: [
+      {
+        uri: 'file:///imported.rosetta',
+        content: `namespace imported
+type Cash:
+ amount number (1..1)
+  [metadata scheme]
+ condition Positive: amount > 0
+type Security:
+ identifier string (1..1)
+choice Payment:
+ Cash
+ Security
+type Trade:
+ payment Payment (1..1)
+func Amount:
+ inputs: trade Trade (1..1)
+ output: result number (1..1)
+ set result: trade -> payment -> Cash -> amount
+`
+      }
+    ]
+  });
+  const wire = { payment: { '@type': 'imported.Cash', amount: { '@data': 21, '@scheme': 'USD' } } };
+  dispatch({
+    type: 'instance:decode',
+    requestId: 'decode:import',
+    typeFqn: 'imported.Trade#Data',
+    data: decodeRuneJson(wire)
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'decode:import' }))
+  );
+  const result = scope.postMessage.mock.calls
+    .map(([entry]) => entry)
+    .find((entry) => entry.requestId === 'decode:import');
+  expect(result.error).toBeUndefined();
+  expect(result.data).toEqual({
+    payment: { cash: { '@type': 'imported.Cash', amount: { value: 21, meta: { scheme: 'USD' } } } }
+  });
+  dispatch({ type: 'instance:validate', requestId: 'decode:validate', typeFqn: 'imported.Trade', data: result.data });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: 'decode:validate', diagnostics: [] })
+    )
+  );
+  dispatch({
+    type: 'instance:validate',
+    requestId: 'decode:plain-error',
+    typeFqn: 'imported.Cash',
+    data: { amount: 'bad' }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'decode:plain-error',
+        diagnostics: [expect.objectContaining({ path: 'amount' })]
+      })
+    )
+  );
+  dispatch({
+    type: 'instance:validate',
+    requestId: 'decode:condition',
+    typeFqn: 'imported.Cash',
+    data: { amount: { value: -1, meta: { scheme: 'USD' } } }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'decode:condition',
+        diagnostics: [expect.objectContaining({ conditionName: 'Positive' })]
+      })
+    )
+  );
+  dispatch({
+    type: 'preview:execute',
+    requestId: 'decode:execute',
+    funcName: 'imported.Amount',
+    inputs: { trade: result.data }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'decode:execute', output: 21 }))
+  );
+  vi.unstubAllGlobals();
+});

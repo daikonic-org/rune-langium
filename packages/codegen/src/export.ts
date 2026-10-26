@@ -46,8 +46,8 @@ export type {
   ImplementationLanguage,
   NativeImplementationBody
 } from './implementations/index.js';
-export { normalizePreviewInputs } from './preview-schema.js';
-export { expandPreviewField, previewTypeSymbol } from './preview-references.js';
+export { normalizePreviewInputs, adaptPreviewData, projectRuneJsonData } from './preview-schema.js';
+export { expandPreviewField, metadataPreviewField, previewTypeSymbol } from './preview-references.js';
 export {
   collectDeclarationDependencies,
   declarationKey,

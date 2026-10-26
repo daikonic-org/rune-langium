@@ -41,3 +41,25 @@ it('keeps legacy message shapes and blocks managed requests until capture is ava
   expect(raw.postMessage).toHaveBeenCalledTimes(1);
   worker.terminate();
 });
+it('guards object decoding with the exact project receipt and rejects late payloads', () => {
+  const raw = Object.assign(new EventTarget(), { postMessage: vi.fn(), terminate: vi.fn() }) as unknown as Worker;
+  let state = { managed: true, receipt };
+  const worker = createProjectWorkerBridge(raw, () => state),
+    listener = vi.fn();
+  worker.addEventListener('message', listener);
+  worker.postMessage({ type: 'instance:decode', typeFqn: 'ref.Trade', data: { amount: 10 }, requestId: 'decode' });
+  expect(raw.postMessage).toHaveBeenCalledWith(expect.objectContaining({ projectReceipt: receipt }));
+  state = { managed: true, receipt: { ...receipt, revision: '4'.repeat(64) } };
+  raw.dispatchEvent(
+    new MessageEvent('message', {
+      data: { type: 'instance:decodeResult', requestId: 'decode', data: { amount: 10 }, projectReceipt: receipt }
+    })
+  );
+  expect(listener.mock.calls[0]![0].data).toMatchObject({
+    type: 'instance:decodeResult',
+    requestId: 'decode',
+    error: expect.stringContaining('Project changed')
+  });
+  expect(listener.mock.calls[0]![0].data).not.toHaveProperty('data');
+  worker.terminate();
+});

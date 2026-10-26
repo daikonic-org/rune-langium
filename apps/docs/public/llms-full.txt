@@ -9284,6 +9284,12 @@ type ProjectResolutionReceipt = z.infer<typeof ProjectResolutionReceiptSchema>
 type ProjectResolutionContext = z.infer<typeof ProjectResolutionContextSchema>
 ```
 
+### RepositoryExampleSource
+
+```ts
+type RepositoryExampleSource = z.infer<typeof RepositoryExampleSourceSchema>
+```
+
 ### ParseResult
 
 Result of parsing a Rosetta DSL source string.
@@ -9844,6 +9850,14 @@ Sent with a complete retained document set, after its semantic snapshots have ar
 const ProjectResolutionContextSchema: ZodObject<{ schemaVersion: ZodLiteral<1>; receipt: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>; models: ZodRecord<ZodString, ZodString>; lock: ZodNullable<ZodUnknown>; overrides: ZodArray<ZodUnknown> }, $strip>
 ```
 
+### RepositoryExampleSourceSchema
+
+Imported example origin; a Nightly commit records provenance, never a reference lock.
+
+```ts
+const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString> }, $strict>
+```
+
 ### BASE_TYPE_FILES
 
 System file descriptors for base types.
@@ -10250,6 +10264,36 @@ normalizePreviewInputs(documents: LangiumDocument<AstNode>[], targetId: string, 
 
 **Returns:** `Record<string, unknown>`
 
+### adaptPreviewData
+
+Normalize canonical object values using the active linked declarations.
+
+```ts
+adaptPreviewData(documents: LangiumDocument<AstNode>[], targetId: string, value: unknown): { data: unknown; sourcePath: (path: string) => string }
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode>[]` —
+- `targetId: string` —
+- `value: unknown` —
+
+**Returns:** `{ data: unknown; sourcePath: (path: string) => string }`
+
+### projectRuneJsonData
+
+Project canonical Choice slots and concrete Data types before Rune wire metadata encoding.
+
+```ts
+projectRuneJsonData(documents: LangiumDocument<AstNode>[], targetId: string, value: unknown): unknown
+```
+
+**Parameters:**
+- `documents: LangiumDocument<AstNode>[]` —
+- `targetId: string` —
+- `value: unknown` —
+
+**Returns:** `unknown`
+
 ### expandPreviewField
 
 Resolve one deferred object body without expanding its nested references.
@@ -10261,6 +10305,20 @@ expandPreviewField(field: PreviewField, definitions: Record<string, Pick<FormPre
 **Parameters:**
 - `field: PreviewField` —
 - `definitions: Record<string, Pick<FormPreviewSchema, "fields" | "choiceArmPaths" | "sourceMap">> | undefined` —
+
+**Returns:** `PreviewField`
+
+### metadataPreviewField
+
+Edit a metadata payload's value path while retaining its adjacent keys, scheme and references.
+
+```ts
+metadataPreviewField(field: PreviewField, value: unknown): PreviewField
+```
+
+**Parameters:**
+- `field: PreviewField` —
+- `value: unknown` —
 
 **Returns:** `PreviewField`
 
@@ -10439,13 +10497,13 @@ to cyclic ordering, and genuinely out of scope for this module — it is
 NOT fixed here.
 
 ```ts
-emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
+emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean; metadataInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
 ```
 
 **Parameters:**
 - `documents: LangiumDocument<AstNode>[]` —
 - `targetId: string` —
-- `options: { functionInputs?: boolean }` —
+- `options: { functionInputs?: boolean; metadataInputs?: boolean }` —
 
 **Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }`
 

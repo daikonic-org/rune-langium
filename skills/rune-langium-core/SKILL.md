@@ -40,7 +40,7 @@ preserve original formatting.
 - When you need to share a service instance across multiple requests in a long-running server — the returned instance is not thread-safe for concurrent `DocumentBuilder.build()` calls; serialize builds with a queue. (`createRuneDslServices`)
 - Subclassing for grammar experiments — prefer creating a separate grammar variant and a new services container instead. (`RuneDslParser`)
 
-API surface: 744 functions, 8 classes, 181 types, 84 constants
+API surface: 744 functions, 8 classes, 182 types, 85 constants
 
 ## Configuration
 
@@ -54,7 +54,7 @@ that follow `extract`, `filter`, or `reduce` operators)
 implicit `[` and `]` brackets around bare expressions after `extract`,
 `filter`, and `reduce` operators)
 
-*1017 exports total — see references/ for full API.*
+*1019 exports total — see references/ for full API.*
 
 ## References
 

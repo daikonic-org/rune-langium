@@ -845,6 +845,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `DeclarationIdentitySchema`
 - `ProjectResolutionReceiptSchema`
 - `ProjectResolutionContextSchema`: Sent with a complete retained document set, after its semantic snapshots have arrived.
+- `RepositoryExampleSourceSchema`: Imported example origin; a Nightly commit records provenance, never a reference lock.
 - `BASE_TYPE_FILES`: System file descriptors for base types.
 - `BASICTYPES_ROSETTA`: Built-in Rune DSL base type definitions.
 - `ANNOTATIONS_ROSETTA`
@@ -1030,6 +1031,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `DeclarationIdentity`
 - `ProjectResolutionReceipt`
 - `ProjectResolutionContext`
+- `RepositoryExampleSource`
 - `ParseResult`: Result of parsing a Rosetta DSL source string.
 - `ExpressionParseResult`: Result of parsing a bare Rune DSL expression snippet.
 - `RuneDslServices`: Union type for all services available in the Rune DSL language.
@@ -1094,7 +1096,10 @@ used by generation.
 - `projectCodeListForAlias`: One adapter guard shared by the graph and all resource-aware generators.
 - `resolveNativeImplementation`: Authored Rune bodies win. Match identity, annotation and signature before selecting a target body.
 - `normalizePreviewInputs`: Adapt plain form values to the generated function's metadata-bearing input contract.
+- `adaptPreviewData`: Normalize canonical object values using the active linked declarations.
+- `projectRuneJsonData`: Project canonical Choice slots and concrete Data types before Rune wire metadata encoding.
 - `expandPreviewField`: Resolve one deferred object body without expanding its nested references.
+- `metadataPreviewField`: Edit a metadata payload's value path while retaining its adjacent keys, scheme and references.
 - `previewTypeSymbol`: Canonical presentation identity shared by schema generation, resource bindings and layout consumers.
 - `collectDeclarationDependencies`: Direct declaration dependencies through the authoritative effective-reference port.
 - `declarationKey`: Stable, kind-aware identity for a selected top-level declaration.

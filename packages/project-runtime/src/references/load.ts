@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { inflate } from 'pako';
 import {
+  CURATED_MODEL_REPOSITORIES,
   CuratedManifestSchema,
   CuratedSerializedWorkspaceArtifactSchema,
   type CuratedManifest
@@ -48,7 +49,13 @@ export async function loadLockedReferences(
         if (!peer || peer.cohort !== cohort || peer.release !== entry.dependencies[dependency])
           throw new ReferenceFailure('REFERENCE_DEPENDENCY', 'Locked dependency mismatch: ' + id + ' -> ' + dependency);
       }
-      documents.push(...(await readReferenceDocuments(id, manifest, lock.toolchain.langium, read)));
+      documents.push(
+        ...(await readReferenceDocuments(id, manifest, lock.toolchain.langium, read)).map((document) =>
+          document.source
+            ? { ...document, source: { ...document.source, release: entry.release, repository: entry.repository } }
+            : document
+        )
+      );
     }
     signal.throwIfAborted();
     for (const [key, bytes] of staged) {
@@ -147,7 +154,21 @@ export async function readReferenceDocuments(
     if (!path || seen.has(path))
       throw new ReferenceFailure('REFERENCE_DOCUMENT', 'Unsafe or duplicate reference document path: ' + doc.path);
     seen.add(path);
-    documents.push({ uri: `${id}/${path}`, content: doc.content ?? '', serialized: doc.modelJson });
+    documents.push({
+      uri: `${id}/${path}`,
+      content: doc.content ?? '',
+      serialized: doc.modelJson,
+      ...(Object.hasOwn(CURATED_MODEL_REPOSITORIES, id) && /^[a-f0-9]{40}$/.test(manifest.upstreamCommit)
+        ? {
+            source: {
+              model: id,
+              repository: CURATED_MODEL_REPOSITORIES[id as keyof typeof CURATED_MODEL_REPOSITORIES],
+              release: manifest.upstreamRef,
+              commit: manifest.upstreamCommit
+            }
+          }
+        : {})
+    });
   }
   return documents;
 }

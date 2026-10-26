@@ -22,3 +22,14 @@ describe('jsonCodec', () => {
     expect(jsonCodec.canTarget('anything.At.All')).toBe(true);
   });
 });
+
+it('decodes Rune metadata and rejects a mismatched type before binding a workflow input', async () => {
+  const { runeJsonCodec } = await import('../../src/instances/json-codec.js');
+  const text = JSON.stringify({ '@model': 'test', '@type': 'test.Party', id: { '@data': 'p', '@scheme': 'x' } });
+  expect(runeJsonCodec.import(text, 'test.Party#Data')).toEqual({
+    data: { '@model': 'test', '@type': 'test.Party', id: { value: 'p', meta: { scheme: 'x' } } },
+    diagnostics: []
+  });
+  expect(runeJsonCodec.import(text, 'test.Trade').diagnostics[0]?.kind).toBe('identity-mismatch');
+  expect(runeJsonCodec.import('{', 'test.Party').diagnostics[0]?.kind).toBe('parse-error');
+});

@@ -229,3 +229,40 @@ it.each(['malformed', 'missing'])(
     expect(readExamples(controller.current()!).documents[0]!.payload).toEqual({ amount: 13 });
   }
 );
+it('round trips imported source provenance and Rune metadata through ordinary repository files', async () => {
+  const { createExampleRepository } = await import('../../src/workspace/example-repository.js');
+  const { controller } = await setup();
+  const reference = {
+    model: 'cdm',
+    repository: 'https://github.com/finos/common-domain-model',
+    release: 'nightly',
+    commit: 'a'.repeat(40),
+    path: 'examples/trade.json',
+    format: 'RUNE_JSON' as const
+  };
+  const identity = { ...type, model: 'cdm' };
+  const repository = createExampleRepository({ workspaceId: 'examples', controller, resolveType: () => identity });
+  const data = {
+    '@type': 'example.Trade',
+    amount: { value: 10, meta: { scheme: 'USD' } },
+    party: { externalReference: 'p' }
+  };
+  await repository.write({
+    id: 'imported',
+    name: 'Imported trade',
+    typeFqn: 'example.Trade',
+    typeIdentity: identity,
+    data,
+    createdAt: 0,
+    modifiedAt: 0,
+    provenance: { codec: 'RUNE_JSON', source: 'upstream', reference, importedAt: 0 }
+  });
+  const loaded = await repository.load();
+  expect(loaded.failures).toEqual({});
+  expect(loaded.records[0]).toMatchObject({
+    data,
+    typeIdentity: identity,
+    provenance: { source: 'upstream', reference }
+  });
+  expect([...controller.current()!.files.keys()].filter((path) => path.startsWith('examples/'))).toHaveLength(2);
+});

@@ -1050,3 +1050,23 @@ that context; lists and inline-function brackets retain expression styling.
 Shared editor syntax rules read design-system CSS tokens with canonical JS
 fallbacks; comments use neutral muted text and italic emphasis. Display styling
 never hides or modifies source. Light-theme palette work is tracked in #643.
+
+## Reference example imports
+
+Core's parser-free `/serialization` entry owns JSON/RUNE_JSON wire metadata
+conversion. Project-config's portable example reader and native project-data APIs
+use it directly; codegen's declared-type adapter is shared by imported-object
+normalization, function inputs and worker validation. Preview fields carry their
+declared metadata shape so controls edit envelope value paths while retaining
+adjacent schemes, keys and references. Ordinary Data fields named `value` are not
+inferred to be metadata. Finite preview path relocation has one shared walker.
+
+Verified reference documents carry ephemeral upstream source provenance. Example
+browsing reads immutable Git objects from that source commit, reusing the starter
+reader's bounds and blob verification. Nightly has no new lock or persisted pin.
+Imports preserve exact declaration identity and provenance in portable example
+files, use normal Save/readback, and leave workflow binding explicit. Capture
+refreshes after example saves retain browser state only while the reference key
+matches; workspace/reference changes invalidate pending imports. The dedicated
+object-adaptation request uses the same preview receipt/cancellation boundary as
+execution. See [format support and the XML milestone](../reference-examples/README.md).

@@ -745,3 +745,24 @@ export const getCodegenService = withInstrumentation(
   },
   { op: 'getCodegenService' }
 );
+
+/** Correlated object adaptation shares the preview worker's applied project generation. */
+export interface InstanceDecodeMessage {
+  type: 'instance:decode';
+  typeFqn: string;
+  data: unknown;
+  requestId: string;
+}
+export const isInstanceDecodeResultMessage = withInstrumentation(
+  function isInstanceDecodeResultMessage(
+    value: unknown
+  ): value is { type: 'instance:decodeResult'; requestId: string; data?: unknown; error?: string } {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      (value as Record<string, unknown>).type === 'instance:decodeResult' &&
+      typeof (value as Record<string, unknown>).requestId === 'string'
+    );
+  },
+  { op: 'isInstanceDecodeResultMessage', capture: 0 }
+);

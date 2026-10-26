@@ -22,7 +22,7 @@ documents from `@rune-langium/core`.
 
 ## Quick Reference
 
-87 exports (32 functions, 3 classes, 46 types, 6 constants) — see references/ for full API.
+90 exports (35 functions, 3 classes, 46 types, 6 constants) — see references/ for full API.
 
 ## References
 

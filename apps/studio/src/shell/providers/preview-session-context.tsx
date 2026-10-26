@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { PreviewSessionClient } from '../../services/preview-session-client.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
@@ -26,4 +26,19 @@ export const useProjectPreviewReadiness = withInstrumentation(
     return useContext(ProjectPreviewReadinessContext);
   },
   { op: 'useProjectPreviewReadiness' }
+);
+
+/** Own clients in an effect so Strict Mode's setup/cleanup replay cannot reuse a disposed client. */
+export const usePreviewSession = withInstrumentation(
+  function usePreviewSession(): PreviewSessionClient | undefined {
+    const factory = usePreviewSessionFactory();
+    const [client, setClient] = useState<PreviewSessionClient>();
+    useEffect(() => {
+      const current = factory?.();
+      setClient(current);
+      return () => current?.dispose();
+    }, [factory]);
+    return client;
+  },
+  { op: 'usePreviewSession', capture: 0 }
 );

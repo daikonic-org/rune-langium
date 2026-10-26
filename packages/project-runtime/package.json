@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "Shared Rune project builds and native filesystem host",
   "type": "module",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -47,6 +49,10 @@
     "./data": {
       "types": "./dist/project-data.d.ts",
       "import": "./dist/project-data.js"
+    },
+    "./examples": {
+      "types": "./dist/reference-examples.d.ts",
+      "import": "./dist/reference-examples.js"
     }
   },
   "files": [

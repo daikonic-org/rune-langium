@@ -18,6 +18,7 @@ import {
 } from 'react';
 import {
   expandPreviewField,
+  metadataPreviewField,
   type FormPreviewSchema,
   type PreviewField,
   type PreviewSourceMapEntry
@@ -880,7 +881,11 @@ function ChoiceArmChildren({
   arrayIndices
 }: ChoiceArmChildrenProps): ReactElement | null {
   const definitions = useContext(PreviewDefinitions);
-  const field = expandPreviewField(inputField, definitions);
+  const expandedField = expandPreviewField(inputField, definitions);
+  const field = metadataPreviewField(
+    expandedField,
+    getValueAtPath(sample?.values ?? {}, pathToSegments(expandedField.path, arrayIndices))
+  );
   if (field.kind !== 'object' && field.kind !== 'array') return null;
   const choiceArmPaths = field.kind === 'object' ? field.choiceArmPaths : undefined;
   const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], choiceArmPaths);
@@ -891,7 +896,7 @@ function ChoiceArmChildren({
         field.typeSymbol ??
         (field.kind === 'object' && field.referencedTypeFqn ? `data:${field.referencedTypeFqn}` : undefined)
       }
-      parentPath={field.path}
+      parentPath={field.declaredPath ?? field.path}
       fields={otherFields}
       renderField={(child) => (
         <PreviewFieldControl
@@ -1233,7 +1238,7 @@ function PreviewDetailsDialog({
 function PreviewFieldControl({
   field: inputField,
   sample,
-  lookupFieldSource, // oxlint-disable-line only-used-in-recursion
+  lookupFieldSource: lookupDeclaredSource, // oxlint-disable-line only-used-in-recursion
   isResolvingReferences,
   onFieldBlur,
   onFieldChange,
@@ -1246,8 +1251,16 @@ function PreviewFieldControl({
 }: PreviewFieldControlProps): ReactElement {
   const definitions = useContext(PreviewDefinitions);
   const inputId = useId();
-  const field = expandPreviewField(inputField, definitions);
-  const numericPresentation = useNumericPresentation(field);
+  const expandedField = expandPreviewField(inputField, definitions);
+  const field = metadataPreviewField(
+    expandedField,
+    getValueAtPath(sample?.values ?? {}, pathToSegments(expandedField.path, arrayIndices))
+  );
+  const numericPresentation = useNumericPresentation(
+    field.declaredPath ? { ...field, path: field.declaredPath } : field
+  );
+  const lookupFieldSource = (path: string) =>
+    lookupDeclaredSource(path === field.path ? (field.declaredPath ?? path) : path);
   const fieldPath = formatFieldPath(field.path, arrayIndices);
   const [interaction, setInteraction] = useState<string>();
   const interactionKey = `${sample?.targetId ?? ''}:${fieldPath}`;
@@ -1277,7 +1290,12 @@ function PreviewFieldControl({
     onFieldChange,
     onArrayAdd,
     onArrayRemove,
-    onObjectToggle,
+    onObjectToggle: (target: PreviewField, present: boolean, indices?: number[]) =>
+      onObjectToggle(
+        !present && target.path === field.path ? { ...target, path: inputField.path } : target,
+        present,
+        indices
+      ),
     onArmSelect,
     arrayIndices
   };
@@ -1297,7 +1315,11 @@ function PreviewFieldControl({
         <Select
           value={stringValue}
           onValueChange={(next) => {
-            onFieldChange(field.path, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
+            const clearPath =
+              next === CLEAR_SENTINEL && inputField.metadata?.kind === 'field' && !field.required
+                ? inputField.path
+                : field.path;
+            onFieldChange(clearPath, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
           }}
         >
           <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full" {...validationAttributes}>

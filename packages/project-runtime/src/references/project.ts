@@ -77,7 +77,11 @@ export async function loadProjectReferences(
       const langium = manifest.artifacts?.serializedWorkspace?.langiumVersion;
       if (!langium || projectToolchainDiagnostics({ langium }).length)
         throw new ReferenceFailure('REFERENCE_TOOLCHAIN', 'Nightly compiler format is unsupported: ' + id);
-      documents.push(...(await readReferenceDocuments(id, manifest, langium, read)));
+      documents.push(
+        ...(await readReferenceDocuments(id, manifest, langium, read)).map((document) =>
+          document.source ? { ...document, source: { ...document.source, release: 'nightly' } } : document
+        )
+      );
     }
     signal.throwIfAborted();
     for (const [checksum, bytes] of staged) {

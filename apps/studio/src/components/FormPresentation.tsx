@@ -266,7 +266,10 @@ export const PreviewLayoutGroup = withInstrumentation(
     const drag = useRef<{ key: string; target?: string; after?: boolean; pointer: number } | null>(null);
     const [drop, setDrop] = useState<{ key: string; after: boolean } | null>(null);
     const [announcement, announce] = useState('');
-    const members = fields.map((field) => ({ field, key: formMemberKey(field.path, parentPath) }));
+    const members = fields.map((field) => ({
+      field,
+      key: formMemberKey(field.declaredPath ?? field.path, parentPath)
+    }));
     const byKey = new Map(members.map((member) => [member.key, member]));
     const ordered = [
       ...layout.order.flatMap((key) => (byKey.has(key) ? [byKey.get(key)!] : [])),

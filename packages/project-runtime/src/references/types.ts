@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import type { RepositoryExampleSource } from '@rune-langium/core/project-contract';
 import type { ReferenceCatalog, CuratedManifest } from '@rune-langium/curated-schema';
 import type { ProjectDiagnostic } from '@rune-langium/project-config';
 export interface ReferenceTransport {
@@ -16,6 +17,8 @@ export interface ReferenceDocument {
   uri: string;
   content: string;
   serialized?: string;
+  /** Active verified source, kept in memory for version-matched example discovery. */
+  source?: Omit<RepositoryExampleSource, 'path' | 'format' | 'version'>;
 }
 export class ReferenceFailure extends Error {
   constructor(
