@@ -24,6 +24,56 @@ describe('instance-store', () => {
     });
   });
 
+  it('refuses an example serialization result after its workspace epoch changes', async () => {
+    const { createProjectSnapshot } = await import('@rune-langium/project-config');
+    const snapshot = await createProjectSnapshot(
+      'p',
+      new Map([['rune-config.yml', 'model: {name: Example}']]),
+      () => []
+    );
+    const posted: Record<string, unknown>[] = [];
+    const worker = Object.assign(new EventTarget(), {
+      postMessage: (message: Record<string, unknown>) => posted.push(message)
+    });
+    useInstanceStore.getState().setWorker(worker as unknown as Worker);
+    useInstanceStore.getState().setReadiness({
+      ensure: vi.fn(async () => 1),
+      hydrateSchemaDependencies: vi.fn(async () => false),
+      dispose: vi.fn()
+    });
+    const result = useInstanceStore.getState().serializeExample(
+      snapshot,
+      {
+        schemaVersion: 1,
+        id: 'wire',
+        name: 'Wire',
+        type: { model: 'local', namespace: 'example', name: 'Trade', kind: 'Data' },
+        codec: 'RUNE_JSON',
+        payload: 'examples/wire.json'
+      },
+      {}
+    );
+    const rejection = expect(result).rejects.toThrow(/Workspace changed/);
+    await vi.waitFor(() => expect(posted).toHaveLength(1));
+    worker.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'instance:generateSchemaResult',
+          requestId: posted[0]!.requestId,
+          schema: { schemaVersion: 1, targetId: 'example.Trade', title: 'Trade', status: 'ready', fields: [] }
+        }
+      })
+    );
+    await vi.waitFor(() => expect(posted).toHaveLength(2));
+    useInstanceStore.getState().advanceWorkspaceEpoch();
+    worker.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'instance:serializeResult', requestId: posted[1]!.requestId, text: 'stale serialized payload' }
+      })
+    );
+    await rejection;
+  });
+
   it('regenerates the schema and validates a restored instance after readiness acknowledges worker files', async () => {
     const postMessage = vi.fn();
     const ensure = vi.fn(async () => 11);

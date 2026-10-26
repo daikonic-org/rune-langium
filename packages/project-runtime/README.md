@@ -4,6 +4,12 @@ MIT-licensed composition of portable configuration, the Rune parser and installe
 code generators. The `/browser` entry is host-neutral. Native filesystem discovery is
 available separately from `@rune-langium/project-runtime/node`.
 
+`serializeProjectData` accepts linked documents and a declared type through its
+data context. Optional `model` and `version` values replace existing wire headers;
+omitting them preserves the payload's original headers. Hosts must supply linked
+context when saving cloned Rune JSON metadata values, rather than relying on
+ephemeral decoder annotations surviving cloning or worker transport.
+
 `buildProject(snapshot, { targets: ['postgres', 'sql-server'] }, adapter)` builds
 named targets; `{ targets: 'all' }` explicitly selects all targets. There is no
 default target or fallback generator. Per-target options are validated by
@@ -120,7 +126,10 @@ unavailable; declaration replacements still retain their complete dispatch famil
 Hosts must prepare asynchronous
 data before execution. Financial-calendar/schedule parity is not claimed.
 
-`serializeProjectData` and `importProjectData` currently support plain JSON. An
+`serializeProjectData` and `importProjectData` support JSON and Rune JSON. With
+linked documents, import checks concrete Choice arms and derived Data roots
+against the declared target through the shared adapter. Without linked context,
+Rune JSON retains the exact-root identity check. An
 unsupported configured `model.defaultSerialisationFormat` is an unavailable codec,
 not a successful JSON fallback. These ports are for project-aware hosts; legacy
 explicit plain-JSON tools remain distinct.
@@ -155,7 +164,8 @@ completed import or omit function validation before Execute.
 The browser-safe `/data` entry exposes the shared project data codec gate and
 serialization/import functions without the native graph host. Both the configured
 Rune default format and an explicitly requested descriptor codec must be supported;
-JSON is the initial codec. Presentation never rounds the stored semantic number.
+JSON and Rune JSON preserve their existing metadata contracts. Presentation never
+rounds the stored semantic number.
 
 The owned `test/fixtures/implementations` cohort demonstrates a required numeric
 reference `Double` redirected to a local Rune body (`value * 2`).

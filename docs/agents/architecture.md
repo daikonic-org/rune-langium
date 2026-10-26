@@ -1102,7 +1102,12 @@ files, use normal Save/readback, and leave workflow binding explicit. Capture
 refreshes after example saves retain browser state only while the reference key
 matches; workspace/reference changes invalidate pending imports. The dedicated
 object-adaptation request uses the same preview receipt/cancellation boundary as
-execution. See [format support and the XML milestone](../reference-examples/README.md).
+execution. Rune JSON example persistence uses the correlated `instance:serialize`
+worker operation and the shared project-data serializer against linked documents.
+It checks the saved revision against the applied project receipt and rejects a
+changed workspace epoch. Cloned canonical values do not need to retain decoder
+WeakMap annotations. Optional model/version overrides preserve existing headers
+when omitted. See [format support and the XML milestone](../reference-examples/README.md).
 
 Reference code-list resources use the project runtime's `decodeProjectCodeList`;
 `build-config.yml` resource mappings can specify `codeList.format`, scheme/version

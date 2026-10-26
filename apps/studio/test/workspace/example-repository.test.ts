@@ -6,6 +6,7 @@ import { createOpfsRoot } from '../setup/opfs-mock.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { createProjectController } from '../../src/workspace/project-controller.js';
 import { saveExample, removeExample, migrateLegacyExamples } from '../../src/workspace/example-repository.js';
+import type { ExamplePayloadSerializer } from '../../src/store/instance-persistence.js';
 const type = { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' };
 const example = (id: string): ExampleDescriptor => ({
   schemaVersion: 1,
@@ -265,4 +266,63 @@ it('round trips imported source provenance and Rune metadata through ordinary re
     provenance: { source: 'upstream', reference }
   });
   expect([...controller.current()!.files.keys()].filter((path) => path.startsWith('examples/'))).toHaveLength(2);
+});
+
+it('resaves cloned Rune JSON examples through linked declaration context without changing their codec or headers', async () => {
+  const { createExampleRepository } = await import('../../src/workspace/example-repository.js');
+  const { buildEffectiveProject } = await import('@rune-langium/project-runtime/effective');
+  const { serializeProjectData } = await import('@rune-langium/project-runtime/data');
+  const { adapter, controller } = await setup();
+  await adapter.write(
+    'model/trade.rosetta',
+    'namespace example\ntype Trade:\n amount number (1..1)\n  [metadata scheme]\n',
+    null
+  );
+  await adapter.write('examples/wire.example.json', JSON.stringify({ ...example('wire'), codec: 'RUNE_JSON' }), null);
+  await adapter.write(
+    'examples/wire.json',
+    JSON.stringify({
+      '@model': 'source-model',
+      '@type': 'example.Trade',
+      '@version': '7',
+      amount: { '@data': 21, '@scheme': 'USD' }
+    }),
+    null
+  );
+  await controller.load();
+  const graph = await buildEffectiveProject(controller.current()!, []);
+  const serialize = vi.fn<ExamplePayloadSerializer>(async (snapshot, descriptor, payload) =>
+    serializeProjectData(snapshot, payload, descriptor.codec, {
+      documents: [...graph.documents],
+      typeFqn: 'example.Trade',
+      model: 'source-model',
+      version: '7'
+    })
+  );
+  const repository = createExampleRepository({
+    workspaceId: 'examples',
+    controller,
+    resolveType: () => type,
+    serialize
+  });
+  const record = structuredClone((await repository.load()).records[0]!);
+  await repository.write({ ...record, name: 'Renamed' });
+  expect(serialize).toHaveBeenCalledOnce();
+  const reopened = readExamples(await controller.load()).documents[0]!;
+  expect(reopened.descriptor).toMatchObject({ id: 'wire', name: 'Renamed', codec: 'RUNE_JSON' });
+  expect(JSON.parse((await adapter.read('examples/wire.json'))!.text)).toMatchObject({
+    '@model': 'source-model',
+    '@type': 'example.Trade',
+    '@version': '7',
+    amount: { '@data': 21, '@scheme': 'USD' }
+  });
+  await repository.write({
+    ...record,
+    name: 'Edited',
+    data: { ...(record.data as object), amount: { value: 22, meta: { scheme: 'USD' } } }
+  });
+  expect(JSON.parse((await adapter.read('examples/wire.json'))!.text).amount).toEqual({
+    '@data': 22,
+    '@scheme': 'USD'
+  });
 });

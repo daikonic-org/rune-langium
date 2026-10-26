@@ -2406,3 +2406,73 @@ type Import:
     value: 'business data'
   });
 });
+
+it('adapts kind-qualified Data and Choice aliases through the shared terminal type resolver', async () => {
+  const doc = await parseModel(`namespace aliasImport
+ type Trade:
+  amount number (1..1)
+ typeAlias TradeAlias: Trade
+ typeAlias TradeAliasChain: TradeAlias
+ choice Instrument:
+  Trade
+ typeAlias InstrumentAlias: Instrument
+ typeAlias BadAlias: Missing
+`);
+  const value = { '@type': 'aliasImport.Trade', amount: 21 };
+  expect(adaptPreviewData([doc], 'aliasImport.TradeAliasChain#RosettaTypeAlias', value).data).toEqual(value);
+  expect(adaptPreviewData([doc], 'aliasImport.InstrumentAlias#RosettaTypeAlias', value).data).toEqual({ trade: value });
+  expect(projectRuneJsonData([doc], 'aliasImport.InstrumentAlias#RosettaTypeAlias', { trade: value })).toMatchObject(
+    value
+  );
+  expect(() => adaptPreviewData([doc], 'aliasImport.BadAlias#RosettaTypeAlias', value)).toThrow(/resolve|object/i);
+});
+
+it('restores nested Choice slots from concrete wire roots and protects cyclic or ambiguous options', async () => {
+  const doc = await parseModel(`namespace nestedImport
+ type Bond:
+  amount number (1..1)
+ choice Inner:
+  Bond
+ choice Outer:
+  Inner
+ choice Duplicate:
+  Inner
+  Bond
+ choice Cycle:
+  Cycle
+`);
+  const value = { inner: { bond: { amount: 21 } } };
+  const wire = projectRuneJsonData([doc], 'nestedImport.Outer#Choice', value);
+  expect(wire).toMatchObject({ '@type': 'nestedImport.Bond', amount: 21 });
+  const restored = adaptPreviewData([doc], 'nestedImport.Outer#Choice', wire);
+  expect(restored.data).toMatchObject(value);
+  expect(restored.sourcePath('inner.bond.amount')).toBe('amount');
+  for (const target of ['Duplicate', 'Cycle'])
+    expect(() => adaptPreviewData([doc], `nestedImport.${target}#Choice`, wire)).toThrow(/exactly one Choice/);
+});
+
+it('uses concrete identity when Data attributes collide with Choice slot names', async () => {
+  const doc = await parseModel(`namespace collisionImport
+ type Bond:
+  bond string (1..1)
+  instrument string (1..1)
+ choice Instrument:
+  Bond
+ choice Outer:
+  Instrument
+`);
+  const bond = { bond: 'business-id', instrument: 'another-business-id' };
+  for (const [target, value] of [
+    ['Instrument', { bond }],
+    ['Outer', { instrument: { bond } }]
+  ] as const) {
+    const id = `collisionImport.${target}#Choice`;
+    const wire = projectRuneJsonData([doc], id, value);
+    expect(wire).toMatchObject({ '@type': 'collisionImport.Bond', ...bond });
+    const restored = adaptPreviewData([doc], id, wire);
+    expect(restored.data).toMatchObject(value);
+    expect(restored.sourcePath(target === 'Outer' ? 'instrument.bond.bond' : 'bond.bond')).toBe('bond');
+    expect(adaptPreviewData([doc], id, value).data).toEqual(value);
+    expect(adaptPreviewData([doc], id, { '@type': `collisionImport.${target}`, ...value }).data).toMatchObject(value);
+  }
+});

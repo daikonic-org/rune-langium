@@ -62,10 +62,16 @@ export const WorkflowImport = withInstrumentation(
       try {
         const convert = async (value: unknown): Promise<unknown> => {
           if (Array.isArray(value)) return Promise.all(value.map(convert));
-          const converted = runeJsonCodec.import(JSON.stringify(value), effectiveType ?? '');
+          const objectPayload = Boolean(
+            value && typeof value === 'object' && !Object.prototype.hasOwnProperty.call(value, '@data')
+          );
+          const converted = runeJsonCodec.import(
+            JSON.stringify(value),
+            objectPayload && session?.decode && effectiveType ? '' : (effectiveType ?? '')
+          );
           if (converted.diagnostics.length)
             throw new Error(converted.diagnostics.map((diagnostic) => diagnostic.message).join(' '));
-          if (value && typeof value === 'object' && !Object.prototype.hasOwnProperty.call(value, '@data')) {
+          if (objectPayload) {
             if (!session?.decode || !effectiveType)
               throw new Error('Wait for the object decoder and choose an object type before importing Rune JSON.');
             return session.decode(effectiveType, converted.data, abort.signal);
