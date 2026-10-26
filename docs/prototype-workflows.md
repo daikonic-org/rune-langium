@@ -10,6 +10,11 @@ Clearing changes the working input, not its stored example. **Undo clear** resto
 that input without overwriting edits to other function parameters. Editing the
 cleared input or selecting a different type ends that undo opportunity.
 
+Rune JSON node imports use the declared input type, including the element type
+for list inputs. Linked decoding accepts concrete Choice arms and derived Data
+values only when assignable to that declaration; unrelated types are rejected
+before replacing the current input. Headerless list objects use the same decoder.
+
 Validation uses the shared generated Rune schemas. A zero-minimum collection may
 be omitted from an example, as it may from function inputs; applicable data and
 function conditions still run. The status icon opens validation details. Named

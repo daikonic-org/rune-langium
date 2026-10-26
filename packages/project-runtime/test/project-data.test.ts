@@ -130,3 +130,55 @@ it('uses linked field roles when business attributes share metadata envelope nam
   expect(wire).not.toHaveProperty('@data');
   expect(wire).not.toHaveProperty('@ref');
 });
+
+it('round-trips concrete Choice and derived Data roots through linked assignability checks', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const { importProjectData } = await import('../src/project-data.js');
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([['rune-config.yml', 'model: {name: Example, defaultSerialisationFormat: RUNE_JSON}']]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/model.rosetta',
+      content: `namespace example
+ type Asset:
+  id string (0..1)
+ type Bond extends Asset:
+  amount number (1..1)
+ type Unrelated:
+  name string (0..1)
+ choice Instrument:
+  Bond
+`
+    }
+  ]);
+  expect(graph.diagnostics).toEqual([]);
+  const context = { documents: graph.documents, model: 'Example', version: '1.0.0' };
+  const choice = serializeProjectData(snapshot, { bond: { amount: 21 } }, 'RUNE_JSON', {
+    ...context,
+    typeFqn: 'example.Instrument#Choice'
+  });
+  expect(JSON.parse(choice)['@type']).toBe('example.Bond');
+  const restored = importProjectData(snapshot, choice, 'example.Instrument#Choice', graph.documents);
+  expect(restored.diagnostics).toEqual([]);
+  expect(restored.data).toMatchObject({ bond: { amount: 21 } });
+  const derived = serializeProjectData(snapshot, { '@type': 'example.Bond', amount: 21 }, 'RUNE_JSON', {
+    ...context,
+    typeFqn: 'example.Asset'
+  });
+  const imported = importProjectData(snapshot, derived, 'example.Asset', graph.documents);
+  expect(imported.diagnostics).toEqual([]);
+  expect(imported.data).toMatchObject({ '@type': 'example.Bond', amount: 21 });
+  for (const target of ['example.Asset', 'example.Instrument#Choice']) {
+    for (const type of ['example.Unrelated', 'example.Missing']) {
+      expect(
+        importProjectData(snapshot, JSON.stringify({ '@type': type }), target, graph.documents).diagnostics[0]?.kind
+      ).toBe('identity-mismatch');
+    }
+  }
+  expect(importProjectData(snapshot, choice, 'example.Instrument#Choice').diagnostics[0]?.kind).toBe(
+    'identity-mismatch'
+  );
+});

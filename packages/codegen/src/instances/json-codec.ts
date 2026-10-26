@@ -42,7 +42,7 @@ export const jsonCodec: ImportCodec = {
   }
 };
 
-/** Rune serialization preserves metadata and requires an exact declared root type. */
+/** Empty target decodes only; linked callers must then check assignability against the selected declaration. */
 export const runeJsonCodec: ImportCodec = {
   id: 'RUNE_JSON',
   label: 'Rune JSON',
@@ -54,7 +54,7 @@ export const runeJsonCodec: ImportCodec = {
         data && typeof data === 'object' && !Array.isArray(data)
           ? (data as Record<string, unknown>)['@type']
           : undefined;
-      if (identity !== undefined && identity !== targetTypeFqn.split('#')[0])
+      if (targetTypeFqn && identity !== undefined && identity !== targetTypeFqn.split('#')[0])
         return {
           data: undefined,
           diagnostics: [

@@ -64,7 +64,10 @@ export function importProjectData(
   const format =
     (snapshot.project.rune.model as { defaultSerialisationFormat?: string } | undefined)?.defaultSerialisationFormat ??
     'JSON';
-  const result = (projectDataFormat(format) === 'RUNE_JSON' ? runeJsonCodec : jsonCodec).import(input, target);
+  const result = (projectDataFormat(format) === 'RUNE_JSON' ? runeJsonCodec : jsonCodec).import(
+    input,
+    documents ? '' : target
+  );
   if (!documents || result.diagnostics.length) return result;
   try {
     return { ...result, data: adaptPreviewData(documents, target, result.data).data };

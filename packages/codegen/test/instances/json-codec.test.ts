@@ -31,5 +31,6 @@ it('decodes Rune metadata and rejects a mismatched type before binding a workflo
     diagnostics: []
   });
   expect(runeJsonCodec.import(text, 'test.Trade').diagnostics[0]?.kind).toBe('identity-mismatch');
+  expect(runeJsonCodec.import(text, '').diagnostics).toEqual([]);
   expect(runeJsonCodec.import('{', 'test.Party').diagnostics[0]?.kind).toBe('parse-error');
 });
