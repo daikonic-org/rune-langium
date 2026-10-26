@@ -17,6 +17,7 @@ before replacing the current input. Headerless list objects use the same decoder
 Object aliases resolve through the shared Rune type resolver. Nested Choice
 imports restore each declared slot from the concrete wire type; cyclic or
 ambiguous alternatives are rejected rather than guessed.
+Concrete type headers distinguish Data attributes from same-named Choice slots.
 
 Validation uses the shared generated Rune schemas. A zero-minimum collection may
 be omitted from an example, as it may from function inputs; applicable data and

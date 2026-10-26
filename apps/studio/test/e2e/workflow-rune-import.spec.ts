@@ -16,6 +16,13 @@ typeAlias TradeAliasChain: TradeAlias
 typeAlias InstrumentAlias: Instrument
 choice Outer:
  Instrument
+type CollisionBond:
+ collisionBond string (1..1)
+ collisionInstrument string (1..1)
+choice CollisionInstrument:
+ CollisionBond
+choice CollisionOuter:
+ CollisionInstrument
 func CountTrades:
  inputs: trades Trade (0..*)
  output: total int (1..1)
@@ -36,6 +43,14 @@ func AcceptNestedInstrument:
  inputs: instrument Outer (1..1)
  output: total int (1..1)
  set total: 1
+func AcceptCollisionInstrument:
+ inputs: instrument CollisionInstrument (1..1)
+ output: total int (1..1)
+ set total: 1
+func AcceptCollisionNested:
+ inputs: instrument CollisionOuter (1..1)
+ output: total int (1..1)
+ set total: 1
 `;
 
 async function importInput(page: Page, name: string, value: unknown) {
@@ -52,7 +67,9 @@ for (const [scenario, func] of Object.entries({
   choice: 'AcceptInstrument',
   'alias-array': 'CountAliasTrades',
   'alias-choice': 'AcceptAliasInstrument',
-  'nested-choice': 'AcceptNestedInstrument'
+  'nested-choice': 'AcceptNestedInstrument',
+  'collision-choice': 'AcceptCollisionInstrument',
+  'collision-nested': 'AcceptCollisionNested'
 }))
   test(`Rune JSON ${scenario} inputs use linked declarations for real worker execution`, async ({ page }, info) => {
     await page.setViewportSize({ width: 1461, height: 988 });
@@ -78,7 +95,17 @@ for (const [scenario, func] of Object.entries({
         await expect(page.getByRole('region', { name: 'total output' })).toContainText(String(values.length));
       }
     } else {
-      await importInput(page, 'instrument', { '@type': 'imported.Bond', amount: 21 });
+      await importInput(
+        page,
+        'instrument',
+        scenario.startsWith('collision-')
+          ? {
+              '@type': 'imported.CollisionBond',
+              collisionBond: 'business-id',
+              collisionInstrument: 'another-business-id'
+            }
+          : { '@type': 'imported.Bond', amount: 21 }
+      );
       await expect(page.getByRole('textbox', { name: 'Import JSON data' })).not.toBeVisible();
       await page.getByRole('button', { name: 'Execute', exact: true }).click();
       await expect(page.getByRole('region', { name: 'total output' })).toContainText('1');

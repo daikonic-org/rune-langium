@@ -197,6 +197,8 @@ it('round-trips aliased Data and nested Choice roots without losing their declar
       content: `namespace example
  type Bond:
   amount number (1..1)
+  bond string (1..1)
+  instrumentAlias string (1..1)
  typeAlias BondAlias: Bond
  choice Instrument:
   Bond
@@ -208,10 +210,11 @@ it('round-trips aliased Data and nested Choice roots without losing their declar
     }
   ]);
   expect(graph.diagnostics).toEqual([]);
+  const bond = { amount: 21, bond: 'business-id', instrumentAlias: 'another-business-id' };
   const cases = [
-    ['BondAlias', { amount: 21 }],
-    ['InstrumentAlias', { bond: { amount: 21 } }],
-    ['OuterAlias', { instrumentAlias: { bond: { amount: 21 } } }]
+    ['BondAlias', bond],
+    ['InstrumentAlias', { bond }],
+    ['OuterAlias', { instrumentAlias: { bond } }]
   ] as const;
   for (const [name, value] of cases) {
     const target = `example.${name}#RosettaTypeAlias`;

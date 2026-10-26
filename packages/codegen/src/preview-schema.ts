@@ -1742,16 +1742,7 @@ function createPreviewValueAdapter(
           throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
         return withRuneJsonEncoding({ ...headers, ...body }, body);
       }
-      if (
-        actual &&
-        existing &&
-        !node.attributes.some((option) =>
-          Object.prototype.hasOwnProperty.call(
-            existing,
-            choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '')
-          )
-        )
-      ) {
+      if (actual && existing) {
         const options = node.attributes.filter((option) =>
           resolveTypeCallTarget(
             option.typeCall,

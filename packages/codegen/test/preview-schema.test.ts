@@ -2450,3 +2450,29 @@ it('restores nested Choice slots from concrete wire roots and protects cyclic or
   for (const target of ['Duplicate', 'Cycle'])
     expect(() => adaptPreviewData([doc], `nestedImport.${target}#Choice`, wire)).toThrow(/exactly one Choice/);
 });
+
+it('uses concrete identity when Data attributes collide with Choice slot names', async () => {
+  const doc = await parseModel(`namespace collisionImport
+ type Bond:
+  bond string (1..1)
+  instrument string (1..1)
+ choice Instrument:
+  Bond
+ choice Outer:
+  Instrument
+`);
+  const bond = { bond: 'business-id', instrument: 'another-business-id' };
+  for (const [target, value] of [
+    ['Instrument', { bond }],
+    ['Outer', { instrument: { bond } }]
+  ] as const) {
+    const id = `collisionImport.${target}#Choice`;
+    const wire = projectRuneJsonData([doc], id, value);
+    expect(wire).toMatchObject({ '@type': 'collisionImport.Bond', ...bond });
+    const restored = adaptPreviewData([doc], id, wire);
+    expect(restored.data).toMatchObject(value);
+    expect(restored.sourcePath(target === 'Outer' ? 'instrument.bond.bond' : 'bond.bond')).toBe('bond');
+    expect(adaptPreviewData([doc], id, value).data).toEqual(value);
+    expect(adaptPreviewData([doc], id, { '@type': `collisionImport.${target}`, ...value }).data).toMatchObject(value);
+  }
+});
