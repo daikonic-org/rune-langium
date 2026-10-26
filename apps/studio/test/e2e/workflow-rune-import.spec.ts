@@ -11,12 +11,29 @@ type Bond:
  amount number (1..1)
 choice Instrument:
  Bond
+typeAlias TradeAlias: Trade
+typeAlias TradeAliasChain: TradeAlias
+typeAlias InstrumentAlias: Instrument
+choice Outer:
+ Instrument
 func CountTrades:
  inputs: trades Trade (0..*)
  output: total int (1..1)
  set total: trades count
 func AcceptInstrument:
  inputs: instrument Instrument (1..1)
+ output: total int (1..1)
+ set total: 1
+func CountAliasTrades:
+ inputs: trades TradeAliasChain (0..*)
+ output: total int (1..1)
+ set total: trades count
+func AcceptAliasInstrument:
+ inputs: instrument InstrumentAlias (1..1)
+ output: total int (1..1)
+ set total: 1
+func AcceptNestedInstrument:
+ inputs: instrument Outer (1..1)
  output: total int (1..1)
  set total: 1
 `;
@@ -30,7 +47,13 @@ async function importInput(page: Page, name: string, value: unknown) {
   await page.getByRole('button', { name: 'Import', exact: true }).click();
 }
 
-for (const scenario of ['array', 'choice'])
+for (const [scenario, func] of Object.entries({
+  array: 'CountTrades',
+  choice: 'AcceptInstrument',
+  'alias-array': 'CountAliasTrades',
+  'alias-choice': 'AcceptAliasInstrument',
+  'nested-choice': 'AcceptNestedInstrument'
+}))
   test(`Rune JSON ${scenario} inputs use linked declarations for real worker execution`, async ({ page }, info) => {
     await page.setViewportSize({ width: 1461, height: 988 });
     await page.goto('./');
@@ -40,10 +63,8 @@ for (const scenario of ['array', 'choice'])
     await expect(page.getByTestId('explore-workbench')).toBeVisible();
     await page.getByTestId('rail-prototype').click();
     await page.getByRole('button', { name: /^Choose a function/ }).click();
-    await page
-      .getByRole('option', { name: scenario === 'array' ? /CountTrades.*imported/ : /AcceptInstrument.*imported/ })
-      .click();
-    if (scenario === 'array') {
+    await page.getByRole('option', { name: new RegExp(`${func}.*imported`) }).click();
+    if (scenario.endsWith('array')) {
       for (const values of [
         [
           { '@type': 'imported.Trade', amount: 10 },

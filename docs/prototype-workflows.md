@@ -14,6 +14,9 @@ Rune JSON node imports use the declared input type, including the element type
 for list inputs. Linked decoding accepts concrete Choice arms and derived Data
 values only when assignable to that declaration; unrelated types are rejected
 before replacing the current input. Headerless list objects use the same decoder.
+Object aliases resolve through the shared Rune type resolver. Nested Choice
+imports restore each declared slot from the concrete wire type; cyclic or
+ambiguous alternatives are rejected rather than guessed.
 
 Validation uses the shared generated Rune schemas. A zero-minimum collection may
 be omitted from an example, as it may from function inputs; applicable data and

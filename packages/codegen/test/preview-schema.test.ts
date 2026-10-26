@@ -2406,3 +2406,47 @@ type Import:
     value: 'business data'
   });
 });
+
+it('adapts kind-qualified Data and Choice aliases through the shared terminal type resolver', async () => {
+  const doc = await parseModel(`namespace aliasImport
+ type Trade:
+  amount number (1..1)
+ typeAlias TradeAlias: Trade
+ typeAlias TradeAliasChain: TradeAlias
+ choice Instrument:
+  Trade
+ typeAlias InstrumentAlias: Instrument
+ typeAlias BadAlias: Missing
+`);
+  const value = { '@type': 'aliasImport.Trade', amount: 21 };
+  expect(adaptPreviewData([doc], 'aliasImport.TradeAliasChain#RosettaTypeAlias', value).data).toEqual(value);
+  expect(adaptPreviewData([doc], 'aliasImport.InstrumentAlias#RosettaTypeAlias', value).data).toEqual({ trade: value });
+  expect(projectRuneJsonData([doc], 'aliasImport.InstrumentAlias#RosettaTypeAlias', { trade: value })).toMatchObject(
+    value
+  );
+  expect(() => adaptPreviewData([doc], 'aliasImport.BadAlias#RosettaTypeAlias', value)).toThrow(/resolve|object/i);
+});
+
+it('restores nested Choice slots from concrete wire roots and protects cyclic or ambiguous options', async () => {
+  const doc = await parseModel(`namespace nestedImport
+ type Bond:
+  amount number (1..1)
+ choice Inner:
+  Bond
+ choice Outer:
+  Inner
+ choice Duplicate:
+  Inner
+  Bond
+ choice Cycle:
+  Cycle
+`);
+  const value = { inner: { bond: { amount: 21 } } };
+  const wire = projectRuneJsonData([doc], 'nestedImport.Outer#Choice', value);
+  expect(wire).toMatchObject({ '@type': 'nestedImport.Bond', amount: 21 });
+  const restored = adaptPreviewData([doc], 'nestedImport.Outer#Choice', wire);
+  expect(restored.data).toMatchObject(value);
+  expect(restored.sourcePath('inner.bond.amount')).toBe('amount');
+  for (const target of ['Duplicate', 'Cycle'])
+    expect(() => adaptPreviewData([doc], `nestedImport.${target}#Choice`, wire)).toThrow(/exactly one Choice/);
+});

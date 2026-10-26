@@ -182,3 +182,48 @@ it('round-trips concrete Choice and derived Data roots through linked assignabil
     'identity-mismatch'
   );
 });
+
+it('round-trips aliased Data and nested Choice roots without losing their declared slots', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const { importProjectData } = await import('../src/project-data.js');
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([['rune-config.yml', 'model: {name: Example, defaultSerialisationFormat: RUNE_JSON}']]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/alias.rosetta',
+      content: `namespace example
+ type Bond:
+  amount number (1..1)
+ typeAlias BondAlias: Bond
+ choice Instrument:
+  Bond
+ typeAlias InstrumentAlias: Instrument
+ choice Outer:
+  InstrumentAlias
+ typeAlias OuterAlias: Outer
+`
+    }
+  ]);
+  expect(graph.diagnostics).toEqual([]);
+  const cases = [
+    ['BondAlias', { amount: 21 }],
+    ['InstrumentAlias', { bond: { amount: 21 } }],
+    ['OuterAlias', { instrumentAlias: { bond: { amount: 21 } } }]
+  ] as const;
+  for (const [name, value] of cases) {
+    const target = `example.${name}#RosettaTypeAlias`;
+    const text = serializeProjectData(snapshot, value, 'RUNE_JSON', {
+      documents: graph.documents,
+      typeFqn: target,
+      model: 'Example',
+      version: '1'
+    });
+    expect(JSON.parse(text)['@type']).toBe('example.Bond');
+    const result = importProjectData(snapshot, text, target, graph.documents);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.data).toMatchObject(value);
+  }
+});
