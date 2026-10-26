@@ -102,6 +102,7 @@ export const WorkspacesPerspective = withInstrumentation(
               key={project.workspaceId ?? 'no-workspace'}
               controller={project.controller}
               snapshot={project.snapshot}
+              onAccepted={project.runtime?.refresh}
             />
           </div>
         </div>

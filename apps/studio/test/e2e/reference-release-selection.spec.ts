@@ -134,13 +134,26 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
     },
     CURATED_MIRROR_BASE
   );
+  const updated = await createReferenceArtifacts(
+    {},
+    [
+      ['rune-dsl', '2.0', {}],
+      ['cdm', '2.0', { 'rune-dsl': { modelId: 'rune-dsl', release: '2.0' } }]
+    ],
+    {
+      cdm: 'namespace moving\ntype Payment:\n amount number (1..1)\n updated string (0..1)\n',
+      'rune-dsl': 'namespace moving.base\ntype Support:\n value string (0..1)\n'
+    },
+    CURATED_MIRROR_BASE
+  );
+  let published = fixture;
   let currentReads = 0;
   await context.route('**/releases/*', async (route) => {
     const id = new URL(route.request().url()).pathname.split('/').pop()!;
     await route.fulfill({ json: { schemaVersion: 1, releases: fixture.releases.get(id) ?? [] } });
   });
   await context.route('**/curated/*/artifacts/**', async (route) => {
-    const bytes = fixture.artifacts.get(route.request().url());
+    const bytes = published.artifacts.get(route.request().url()) ?? fixture.artifacts.get(route.request().url());
     await route.fulfill({
       status: bytes ? 200 : 404,
       body: bytes ? Buffer.from(bytes) : 'Unavailable',
@@ -150,9 +163,9 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   await context.route('**/curated/*/manifest.json', async (route) => {
     currentReads++;
     const id = new URL(route.request().url()).pathname.split('/').at(-2)!;
-    const release = fixture.releases.get(id)![0]!;
+    const release = published.releases.get(id)![0]!;
     await route.fulfill({
-      json: JSON.parse(new TextDecoder().decode(fixture.artifacts.get(release.manifest)!)),
+      json: JSON.parse(new TextDecoder().decode(published.artifacts.get(release.manifest)!)),
       headers: { 'Access-Control-Allow-Origin': '*' }
     });
   });
@@ -185,6 +198,23 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   await typeNavigationButton(page, 'moving.Payment', 'Data').click();
   await expect.poll(() => currentReads).toBeGreaterThan(beforeReload);
   expect((await projectBackingFiles(page))['build-config.lock.json']).toBeUndefined();
+  const structure = page.getByRole('button', { name: 'Structure', exact: true });
+  if ((await structure.getAttribute('aria-pressed')) !== 'true') await structure.click();
+  await expect(page.locator('.rune-structure-document')).toContainText('amount');
+  await expect(page.locator('.rune-structure-document')).not.toContainText('updated');
+  const originalConfig = (await projectBackingFiles(page))['build-config.yml'];
+  published = updated;
+  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'Reference models', exact: true }).click();
+  await picker.getByRole('button', { name: 'Review configured references' }).click();
+  await picker.getByRole('button', { name: 'Save reference change' }).click();
+  await expect(picker.getByRole('heading', { name: 'Review reference change' })).toHaveCount(0);
+  await page.getByTestId('rail-explore').click();
+  await typeNavigationButton(page, 'moving.Payment', 'Data').click();
+  await expect(page.locator('.rune-structure-document')).toContainText('updated');
+  const refreshedFiles = await projectBackingFiles(page);
+  expect(refreshedFiles['build-config.yml']).toBe(originalConfig);
+  expect(refreshedFiles['build-config.lock.json']).toBeUndefined();
   await page.getByTestId('rail-workspaces').click();
   await page.getByRole('button', { name: 'Reference models', exact: true }).click();
   await picker.getByRole('button', { name: /CDM \(Common/ }).click();

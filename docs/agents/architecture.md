@@ -954,8 +954,11 @@ not treated as a compatibility success.
 selects a latest tag implicitly, and does not invoke the legacy model store.
 The same picker offers Nightly as `release: nightly`. Shared runtime
 `loadProjectReferences` follows the current mirrors on open/refresh without a
-persisted commit, cohort or lock entry. Tagged requests alone determine lock
-freshness; an all-Nightly selection creates no lockfile, and switching the last
+persisted commit, cohort or lock entry. Accepting a reference review explicitly
+refreshes the active runtime loader even when configuration bytes are unchanged,
+so Explorer, validation and generation receive the newly verified documents.
+Cancelled or failed reviews do not request activation. Tagged requests alone
+determine lock freshness; an all-Nightly selection creates no lockfile, and switching the last
 tagged reference to Nightly removes its lock through guarded Save. Nightly
 dependency cohorts, format, paths and bytes are checked together through the
 same bundle validator as tagged references. Partial publications fail visibly;

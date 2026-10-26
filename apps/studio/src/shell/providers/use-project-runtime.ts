@@ -105,7 +105,7 @@ export const useProjectRuntime = withInstrumentation(
     if (project.status === 'invalid') return { managed, status: 'unavailable', diagnostics: project.diagnostics };
     if (!managed) return { managed: false, status: 'legacy', diagnostics: [] };
     if (references.key === referenceKey && references.diagnostics?.length)
-      return { managed: true, status: 'unavailable', diagnostics: references.diagnostics, retry };
+      return { managed: true, status: 'unavailable', diagnostics: references.diagnostics, retry, refresh: retry };
     if (
       !documents ||
       !captured ||
@@ -114,12 +114,12 @@ export const useProjectRuntime = withInstrumentation(
       captured?.referenceKey !== referenceKey ||
       captured?.sourceKey !== sourceKey
     )
-      return { managed: true, status: 'loading', diagnostics: [] };
+      return { managed: true, status: 'loading', diagnostics: [], refresh: retry };
     if (captured.diagnostics?.length)
-      return { managed: true, status: 'unavailable', diagnostics: captured.diagnostics, retry };
+      return { managed: true, status: 'unavailable', diagnostics: captured.diagnostics, retry, refresh: retry };
     return captured.input
-      ? { managed: true, status: 'captured', input: captured.input, diagnostics: [] }
-      : { managed: true, status: 'loading', diagnostics: [] };
+      ? { managed: true, status: 'captured', input: captured.input, diagnostics: [], refresh: retry }
+      : { managed: true, status: 'loading', diagnostics: [], refresh: retry };
   },
   { op: 'useProjectRuntime', capture: 0 }
 );

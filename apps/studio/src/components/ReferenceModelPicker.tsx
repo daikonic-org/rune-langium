@@ -25,11 +25,13 @@ export const ReferenceModelPicker = withInstrumentation(
   function ReferenceModelPicker({
     controller,
     snapshot,
+    onAccepted,
     transport: injectedTransport,
     cache = projectReferenceCache
   }: {
     controller?: ProjectController;
     snapshot?: ProjectSnapshot;
+    onAccepted?: () => void;
     transport?: ReferenceTransport;
     cache?: ReferenceCache;
   }) {
@@ -138,7 +140,10 @@ export const ReferenceModelPicker = withInstrumentation(
       setError(undefined);
       try {
         await review.accept(abort.signal);
-        if (!abort.signal.aborted) setReview(undefined);
+        if (!abort.signal.aborted) {
+          onAccepted?.();
+          setReview(undefined);
+        }
       } catch (error) {
         if (!abort.signal.aborted)
           setError(error instanceof Error ? error.message : 'Save failed. The previous reference remains active.');

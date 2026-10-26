@@ -14,6 +14,7 @@ import {
 } from '../../src/shell/perspectives/workspace-actions-context.js';
 import { ReferenceModelPicker } from '../../src/components/ReferenceModelPicker.js';
 async function setup(flushWorkspaceSave?: () => Promise<void>) {
+  const onAccepted = vi.fn();
   const fixture = await referenceFixture({});
   const transport = {
     ...fixture.transport,
@@ -34,6 +35,7 @@ async function setup(flushWorkspaceSave?: () => Promise<void>) {
   render(
     <WorkspaceActionsContext value={{ flushWorkspaceSave } as WorkspaceActions}>
       <ReferenceModelPicker
+        onAccepted={onAccepted}
         controller={controller}
         snapshot={controller.current()}
         transport={transport}
@@ -41,11 +43,11 @@ async function setup(flushWorkspaceSave?: () => Promise<void>) {
       />
     </WorkspaceActionsContext>
   );
-  return { ...fixture, transport, controller, adapter, user: userEvent.setup() };
+  return { ...fixture, transport, controller, adapter, onAccepted, user: userEvent.setup() };
 }
 
 it('saves Nightly as a moving workspace preference without creating a lockfile', async () => {
-  const { user, controller, adapter } = await setup();
+  const { user, controller, adapter, onAccepted } = await setup();
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await user.click(await screen.findByRole('combobox', { name: 'Release' }));
   await user.click(await screen.findByRole('option', { name: 'Nightly', exact: true }));
@@ -56,6 +58,27 @@ it('saves Nightly as a moving workspace preference without creating a lockfile',
   await waitFor(() => expect(controller.current()!.project.build.references.cdm?.release).toBe('nightly'));
   expect(controller.current()!.lock).toBeUndefined();
   expect(await adapter.read('build-config.lock.json')).toBeUndefined();
+  await waitFor(() => expect(onAccepted).toHaveBeenCalledOnce());
+});
+
+it('activates references only after a failed save is successfully retried', async () => {
+  const { user, controller, onAccepted } = await setup();
+  await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
+  await user.click(await screen.findByRole('combobox', { name: 'Release' }));
+  await user.click(await screen.findByRole('option', { name: 'Nightly', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await screen.findByRole('heading', { name: 'Review reference change' });
+  const save = vi.spyOn(controller, 'save').mockRejectedValueOnce(new Error('Storage unavailable'));
+  try {
+    await user.click(screen.getByRole('button', { name: 'Save reference change' }));
+    await screen.findByText('Storage unavailable');
+    expect(onAccepted).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Save reference change' }));
+    await waitFor(() => expect(onAccepted).toHaveBeenCalledOnce());
+    expect(controller.current()!.project.build.references.cdm?.release).toBe('nightly');
+  } finally {
+    save.mockRestore();
+  }
 });
 
 it('removes the tagged lock when the last pinned reference switches to Nightly', async () => {
@@ -95,7 +118,7 @@ it('requires an exact release, reviews its dependency origin, and writes only on
   expect(controller.current()!.lock!.references['rune-dsl']!.release).toBe('1.0');
 });
 it('canceling a review preserves the old request and a failed catalog can be retried', async () => {
-  const { user, controller, transport } = await setup();
+  const { user, controller, transport, onAccepted } = await setup();
   transport.catalog.mockRejectedValueOnce(new Error('Offline catalog unavailable'));
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await screen.findByText(/Offline catalog unavailable/);
@@ -107,6 +130,7 @@ it('canceling a review preserves the old request and a failed catalog can be ret
   await user.click(screen.getByRole('button', { name: 'Review change' }));
   await screen.findByRole('heading', { name: 'Review reference change' });
   await user.click(screen.getByRole('button', { name: 'Cancel review' }));
+  expect(onAccepted).not.toHaveBeenCalled();
   expect(controller.current()!.project.build.references).toEqual({});
   expect(screen.getByRole('combobox', { name: 'Release' })).toHaveTextContent('2.0');
 });
