@@ -65,7 +65,7 @@ for (const width of [1440, 390])
           JSON.parse((await projectBackingFiles(page))['build-config.lock.json'] ?? '{}').references?.cdm?.release
       )
       .toBe('1.0');
-    await expect(picker.getByRole('button', { name: 'Review change' })).toBeEnabled();
+    await expect(picker.getByRole('button', { name: 'Review change' })).toBeDisabled();
     expect(await picker.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(
       (await new AxeBuilder({ page }).include('[data-testid="reference-model-picker"]').analyze()).violations
@@ -91,7 +91,7 @@ for (const width of [1440, 390])
       offline = false;
       await page.getByTestId('rail-workspaces').click();
       await page.getByRole('button', { name: 'Reference models', exact: true }).click();
-      await picker.getByRole('button', { name: 'Review configured references' }).click();
+      await picker.getByRole('button', { name: 'Recheck references' }).click();
       await expect(picker.getByRole('heading', { name: 'Review reference change' })).toBeVisible();
       await picker.getByRole('button', { name: 'Cancel review' }).click();
     }
@@ -127,9 +127,14 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
 }, info) => {
   const fixture = await createReferenceArtifacts(
     {},
-    undefined,
+    [
+      ['rune-dsl', '1.0', {}],
+      ['fpml', '1.0', { 'rune-dsl': { modelId: 'rune-dsl', release: '1.0' } }],
+      ['cdm', '1.0', { fpml: { modelId: 'fpml', release: '1.0' } }]
+    ],
     {
       cdm: 'namespace moving\ntype Payment:\n amount number (1..1)\n',
+      fpml: 'namespace moving.fpml\ntype Support:\n value string (0..1)\n',
       'rune-dsl': 'namespace moving.base\ntype Support:\n value string (0..1)\n'
     },
     CURATED_MIRROR_BASE
@@ -138,10 +143,12 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
     {},
     [
       ['rune-dsl', '2.0', {}],
-      ['cdm', '2.0', { 'rune-dsl': { modelId: 'rune-dsl', release: '2.0' } }]
+      ['fpml', '2.0', { 'rune-dsl': { modelId: 'rune-dsl', release: '2.0' } }],
+      ['cdm', '2.0', { fpml: { modelId: 'fpml', release: '2.0' } }]
     ],
     {
       cdm: 'namespace moving\ntype Payment:\n amount string (1..1)\n updated string (0..1)\n',
+      fpml: 'namespace moving.fpml\ntype Support:\n value string (0..1)\n',
       'rune-dsl': 'namespace moving.base\ntype Support:\n value string (0..1)\n'
     },
     CURATED_MIRROR_BASE
@@ -180,9 +187,13 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   await expect(page.getByRole('option', { name: '1.0', exact: true })).toBeVisible();
   await page.getByRole('option', { name: 'Nightly', exact: true }).click();
   await picker.getByRole('button', { name: 'Review change' }).click();
-  await expect(picker.getByText(/No saved pin, lock/)).toBeVisible();
+  await expect(picker.getByRole('list', { name: 'Proposed reference releases' })).toContainText('fpml Nightly');
+  await expect(picker.getByRole('list', { name: 'Proposed reference releases' })).toContainText('rune-dsl Nightly');
   await picker.getByRole('button', { name: 'Save reference change' }).click();
   await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('Nightly');
+  await expect(picker.getByRole('button', { name: /FpML/ })).toContainText('Nightly');
+  await expect(picker.getByRole('combobox', { name: 'Release' })).toHaveText('Nightly');
+  await expect(picker.getByRole('button', { name: 'Review change', exact: true })).toBeDisabled();
   await expect
     .poll(async () => (await projectBackingFiles(page))['build-config.yml'] ?? '')
     .toMatch(/release:\s*nightly/);
@@ -217,7 +228,7 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   published = updated;
   await page.getByTestId('rail-workspaces').click();
   await page.getByRole('button', { name: 'Reference models', exact: true }).click();
-  await picker.getByRole('button', { name: 'Review configured references' }).click();
+  await picker.getByRole('button', { name: 'Recheck references' }).click();
   await expect(picker.getByRole('alert').filter({ hasText: 'REFERENCE_SCHEMA_CHANGED' })).toContainText(
     'examples/payment.example.json'
   );

@@ -11,7 +11,10 @@ export const projectRevisionAt = withInstrumentation(
   { op: 'projectRevisionAt', capture: 0 }
 );
 export const projectConfigurationPreconditions = withInstrumentation(
-  async function projectConfigurationPreconditions(snapshot: ProjectSnapshot): Promise<ProjectSavePreconditions> {
+  async function projectConfigurationPreconditions(
+    snapshot: ProjectSnapshot,
+    writes: readonly string[] = []
+  ): Promise<ProjectSavePreconditions> {
     const paths = new Set([
       'rune-config.yml',
       'rune-config.yaml',
@@ -23,7 +26,9 @@ export const projectConfigurationPreconditions = withInstrumentation(
     ]);
     return {
       inputs: await Promise.all(
-        [...paths].map(async (path) => ({ path, revision: await projectRevisionAt(snapshot, path) }))
+        [...paths]
+          .filter((path) => !writes.includes(path))
+          .map(async (path) => ({ path, revision: await projectRevisionAt(snapshot, path) }))
       )
     };
   },

@@ -80,6 +80,20 @@ it('reuses the target options form registry for Excel exports', () => {
   expect(screen.getByTestId('excel-options-form')).toBeInTheDocument();
 });
 
+it('identifies an unavailable imported generator rather than displaying another generator selection', () => {
+  render(
+    <ExportSettingsPanel
+      config={{ ...config, target: 'java' as never }}
+      onChange={vi.fn()}
+      onGenerate={vi.fn()}
+      onCancel={vi.fn()}
+      status="idle"
+    />
+  );
+  expect(screen.getByRole('option', { name: 'java — provider unavailable' })).toBeDisabled();
+  expect(screen.getByRole('combobox', { name: 'Export target' })).toHaveValue('java');
+});
+
 it('keeps unavailable imported targets separate from usable native targets and shows persisted evidence', async () => {
   const { createProjectSnapshot } = await import('@rune-langium/project-config');
   const { validateProjectTarget } = await import('@rune-langium/project-runtime/browser');
@@ -119,6 +133,7 @@ it('keeps unavailable imported targets separate from usable native targets and s
     ]),
     validateProjectTarget
   );
+  const build = vi.fn();
   render(
     <ExportSettingsPanel
       config={config}
@@ -126,16 +141,19 @@ it('keeps unavailable imported targets separate from usable native targets and s
       onGenerate={vi.fn()}
       onCancel={vi.fn()}
       status="idle"
+      selectedTargetName="types"
+      onBuildTargets={build}
       projectEnabled
       projectSnapshot={snapshot}
       projectDiagnostics={snapshot.project.diagnostics}
     />
   );
-  expect(screen.getByRole('checkbox', { name: 'java', exact: true })).toBeDisabled();
-  expect(screen.getByRole('checkbox', { name: 'types', exact: true })).toBeEnabled();
-  expect(screen.getByRole('button', { name: 'Build all' })).toBeDisabled();
-  await userEvent.click(screen.getByRole('checkbox', { name: 'types', exact: true }));
-  expect(screen.getByRole('button', { name: 'Build selected' })).toBeEnabled();
+  expect(screen.getByRole('tab', { name: 'java', exact: true })).toBeEnabled();
+  expect(screen.getByRole('tab', { name: 'types', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('button', { name: 'Generate all' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Generate target' })).toBeEnabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Generate target' }));
+  expect(build).toHaveBeenCalledWith(['types']);
   await userEvent.click(screen.getByText('Saved initialization report', { exact: true }));
   expect(screen.getByText('Java SDK provider is unavailable.')).toBeVisible();
   expect(screen.getByText('Profiles: pricing')).toBeVisible();

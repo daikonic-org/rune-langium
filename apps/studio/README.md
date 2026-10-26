@@ -358,14 +358,16 @@ Then click the CDM / FpML / rune-dsl chips in the loader to browse their types.
 ### Named project targets
 
 The Export workspace keeps ad hoc declaration selection separate from named
-`build-config.yml` targets. Choose a saved target to load its generator options,
-or keep **One-off export** selected. **Save target settings** updates the working
+`build-config.yml` targets. Each saved target has a tab beside **One-off**;
+**Add target** creates another target and each tab retains its own unsaved options
+while switching. **Save target settings** updates the working
 copy with revision checks; it does not commit or push. Selection roots and the
 last selected target remain personal preferences, never a repository default.
 **Reload project files** picks up external YAML edits; dirty option drafts remain
-available until explicitly saved or a target is selected again.
+available until explicitly saved or the workspace changes. Removing a target
+removes its configuration only; generated files remain in the workspace.
 
-**Build selected** and **Build all** use saved namespace scopes and options and
+**Generate target** and **Generate all** use saved namespace scopes and options and
 write staged output to each target's configured output directory. The same
 preflight, toolchain checks, path guards and byte-preserving writer are used by
 `rune-cli build`. Studio obtains generated code through the existing network
@@ -374,6 +376,21 @@ strict library defaults, while one-off exports retain their existing layouts.
 Source/configuration/lock/resource/example changes invalidate captured output.
 Generated output itself does not change the input revision. Working-copy Save,
 Git commit/push and ordinary artifact downloads remain distinct actions.
+
+### Workspace settings and references
+
+Settings shows the active workspace's real configuration and links to its reference
+models, export targets and Git perspective. The schema-generated directories form
+uses the canonical Studio configuration contract and shared Input controls. Save
+preserves `.yml`/`.yaml` spelling, comments and unknown keys through the normal
+revision-checked transaction. Directory changes do not move existing files.
+
+Reference settings show saved selections immediately, while release catalogs and
+the active dependency closure load separately. Nightly dependencies carry their
+verified runtime labels without adding pins or locks. **Recheck references**
+explicitly verifies the current closure; an unchanged selected release does not
+offer another change. Starter lists show readable names and descriptions rather
+than raw source commit hashes; verified provenance remains attached internally.
 
 ### GitHub project initialization
 
