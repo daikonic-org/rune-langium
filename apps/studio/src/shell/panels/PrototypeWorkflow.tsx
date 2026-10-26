@@ -15,6 +15,7 @@ import {
 import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import { declarationKey } from '@rune-langium/core/project-contract';
 import type { WorkflowDescriptor } from '@rune-langium/project-config';
+import { FormPresentation } from '../../components/FormPresentation.js';
 import { WorkflowLibrary } from '../../components/WorkflowLibrary.js';
 import { captureWorkflowRecipe } from '../../workspace/workflow-repository.js';
 import { resolveExampleType, resolvePresentationType } from '../../workspace/example-identity.js';
@@ -88,6 +89,7 @@ function InputNode({
   onChange,
   source,
   onBind,
+  onClear,
   full,
   sourceId,
   onValidation
@@ -99,6 +101,7 @@ function InputNode({
   sourceId?: string;
   source?: string;
   onBind(): void;
+  onClear(): () => void;
   full: Validation;
   onValidation(path: string, inputs: Record<string, unknown>, validation: Validation): void;
 }) {
@@ -151,6 +154,7 @@ function InputNode({
       schema={projected}
       values={state.inputs}
       onChange={onChange}
+      onClear={onClear}
       onImport={(value) => {
         const items = field.kind === 'array' && Array.isArray(value) ? value : [value];
         const expectsObject = field.kind !== 'array' || item.kind === 'object';
@@ -210,36 +214,40 @@ export const PrototypeWorkflow = withInstrumentation(
     );
     const instances = useInstanceStore((s) => s.instances);
     const prepare = useInstanceStore((s) => s.prepareInstance);
-    const [draft, setDraft] = useState<Draft>();
+    const view = usePrototypeViewStore((s) => s.state);
+    const mode = view.workflowView ?? 'flow';
+    const [flowDraft, setFlowDraft] = useState<Draft>();
+    const [builderDraft, setBuilderDraft] = useState<Draft>();
+    const draft = mode === 'panels' ? builderDraft : flowDraft;
+    const setDraft = mode === 'panels' ? setBuilderDraft : setFlowDraft;
     const [sources, setSources] = useState<Record<string, string>>({});
     const [sourceIds, setSourceIds] = useState<Record<string, string>>({});
     const [binding, setBinding] = useState<{ record?: InstanceRecord; field?: PreviewField }>();
-    const seenInstance = useRef<string | undefined>(undefined);
+    const seenInstance = useRef<Partial<Record<'flow' | 'panels', string>>>({});
     const stage = useRef<HTMLDivElement>(null);
     const [paths, setPaths] = useState<string[]>([]);
-    const view = usePrototypeViewStore((s) => s.state);
     const patch = usePrototypeViewStore((s) => s.patch);
     const [widths, setWidths] = useState(() => normalizeWorkflowWidths(view.workflowWidths));
     const widthRef = useRef(widths);
-    const mode = view.workflowView ?? 'flow';
     const record = instanceId ? instances[instanceId] : undefined;
     useEffect(() => {
-      setDraft(undefined);
+      setFlowDraft(undefined);
+      setBuilderDraft(undefined);
       setSources({});
       setSourceIds({});
       setWorkflowOutputs({});
       setOpening(false);
-      seenInstance.current = undefined;
+      seenInstance.current = {};
     }, [workspace?.workspaceId]);
     const draftSchemaState = useWorkflowSchema(draft?.typeFqn);
     const draftSchema = draftSchemaState?.schema;
     useEffect(() => {
       if (!record || project.status === 'loading') return;
       const request = record.id + ':' + bindingRequestId;
-      if (seenInstance.current === request) return;
-      seenInstance.current = request;
+      if (seenInstance.current[mode] === request) return;
+      seenInstance.current[mode] = request;
       void prepare(record.id);
-      if (!draft && !state.functionFqn)
+      if (mode === 'panels' || (!draft && !state.functionFqn))
         setDraft({
           sourceId: record.id,
           typeFqn: record.typeFqn,
@@ -247,7 +255,7 @@ export const PrototypeWorkflow = withInstrumentation(
           source: record.name
         });
       else setBinding({ record });
-    }, [record, prepare, draft, state.functionFqn, bindingRequestId, project.status]);
+    }, [record, prepare, draft, state.functionFqn, bindingRequestId, project.status, mode]);
     const standaloneValidation = useWorkflowValidation(draft?.typeFqn, draft?.values ?? NO_VALUES);
     const functionValidation = useWorkflowValidation(state.schema?.targetId, state.inputs, true);
     const [inputChecks, setInputChecks] = useState<
@@ -309,7 +317,7 @@ export const PrototypeWorkflow = withInstrumentation(
       inputs: string;
       value: unknown;
     }>();
-    const resultField = state.schema?.result;
+    const resultField = mode === 'flow' ? state.schema?.result : undefined;
     const resultSchema = useMemo(
       () => (state.schema && resultField ? workflowFieldSchema(state.schema, resultField) : undefined),
       [state.schema, resultField]
@@ -318,13 +326,14 @@ export const PrototypeWorkflow = withInstrumentation(
       () => (resultField ? { [resultField.path]: state.result } : NO_VALUES),
       [resultField, state.result]
     );
-    const functionSelected = state.functionFqn !== null;
+    const functionSelected = mode === 'flow' && state.functionFqn !== null;
     const ready = functionSelected
       ? state.status === 'succeeded' && aggregateValidation.state === 'valid'
       : !!draft && standaloneValidation.state === 'valid';
     const payload = functionSelected ? state.result : draft?.values;
     // History is presentation only: never restore a stale result to the executable session or payload graph.
     const retainedResult =
+      mode === 'flow' &&
       previousResult &&
       previousResult.workspaceId === workspace?.workspaceId &&
       previousResult.functionFqn === state.functionFqn &&
@@ -444,7 +453,7 @@ export const PrototypeWorkflow = withInstrumentation(
     );
     const lastSourceRevision = useRef(sourceRevision);
     useEffect(() => {
-      if (lastSourceRevision.current === sourceRevision) return;
+      if (mode !== 'flow' || lastSourceRevision.current === sourceRevision) return;
       lastSourceRevision.current = sourceRevision;
       if (state.functionFqn)
         selectFunction({
@@ -452,7 +461,7 @@ export const PrototypeWorkflow = withInstrumentation(
           label: state.schema?.title ?? state.functionFqn,
           kind: 'func'
         });
-    }, [sourceRevision, selectFunction, state.functionFqn, state.schema]);
+    }, [sourceRevision, selectFunction, state.functionFqn, state.schema, mode]);
     const [drag, setDrag] = useState<{ label: string; x: number; y: number }>();
     const dragCleanup = useRef<(() => void) | undefined>(undefined);
     useEffect(() => () => dragCleanup.current?.(), []);
@@ -547,8 +556,12 @@ export const PrototypeWorkflow = withInstrumentation(
     }, [session, state.schema, state.schemaStatus, workspace?.models]);
     const rootRef = useRef<HTMLElement>(null);
     const arrivalSchema = useMemo(
-      () => ({ draftSchema, schema: state.schema, sourceIds }),
-      [draftSchema, state.schema, sourceIds]
+      () => ({
+        draftSchema,
+        schema: mode === 'flow' ? state.schema : undefined,
+        sourceIds: mode === 'flow' ? sourceIds : {}
+      }),
+      [draftSchema, state.schema, sourceIds, mode]
     );
     useWorkflowArrival(rootRef, instanceId, focusedPayloadPointer, focusRequestId, arrivalSchema);
     useEffect(() => {
@@ -710,7 +723,11 @@ export const PrototypeWorkflow = withInstrumentation(
     const resultNode = (
       <div data-workflow-node="output">
         <WorkflowNode
-          name={workflowOutputs[resultField?.path ?? 'output']?.name ?? resultField?.path ?? 'output'}
+          name={
+            (mode === 'flow' ? workflowOutputs[resultField?.path ?? 'output']?.name : undefined) ??
+            resultField?.path ??
+            'output'
+          }
           type={resultField ? workflowFieldType(resultField) : draft?.typeFqn.split('.').slice(-1)[0]}
           typeNodeId={
             resultField ? workflowFieldNodeId(resultField) : draftSchema ? workflowSchemaNodeId(draftSchema) : undefined
@@ -771,16 +788,18 @@ export const PrototypeWorkflow = withInstrumentation(
             </div>
           ) : (
             <p role="status" className="p-3 text-xs text-muted-foreground">
-              {state.error ??
-                (state.status === 'running'
-                  ? 'Preparing function…'
-                  : aggregateValidation.state === 'invalid'
-                    ? 'Resolve input checks before executing.'
-                    : functionSelected
-                      ? 'Execute to generate an output.'
-                      : draft
-                        ? 'Resolve input validation to generate output.'
-                        : 'Add or select an input object to begin.')}
+              {functionSelected
+                ? (state.error ??
+                  (state.status === 'running'
+                    ? 'Preparing function…'
+                    : aggregateValidation.state === 'invalid'
+                      ? 'Resolve input checks before executing.'
+                      : 'Execute to generate an output.'))
+                : draft
+                  ? 'Resolve object validation before exporting.'
+                  : mode === 'panels'
+                    ? 'Choose an object type or select an example to begin.'
+                    : 'Add or select an input object to begin.'}
             </p>
           )}
         </WorkflowNode>
@@ -788,20 +807,56 @@ export const PrototypeWorkflow = withInstrumentation(
     );
     return (
       <section ref={rootRef} className="workflow" aria-label="Prototype workflow" aria-busy={opening}>
-        <WorkflowLibrary
-          capture={captureRecipe}
-          open={openRecipe}
-          onBeforeSave={() => {
-            if (ready && state.functionFqn)
-              setPreviousResult({
-                workspaceId: workspace?.workspaceId,
-                functionFqn: state.functionFqn,
-                inputs: JSON.stringify(state.inputs),
-                value: structuredClone(state.result)
-              });
-          }}
-          disabled={!session || (!draft && !functionSelected)}
-        />
+        {mode === 'flow' ? (
+          <WorkflowLibrary
+            onNew={() => {
+              ++openingGeneration.current;
+              setOpening(false);
+              pendingSeed.current = undefined;
+              previousInputs.current = undefined;
+              setFlowDraft(undefined);
+              setSources({});
+              setSourceIds({});
+              setWorkflowOutputs({});
+              setPreviousResult(undefined);
+              setBinding(undefined);
+              void session?.selectFunction(null);
+            }}
+            capture={captureRecipe}
+            open={openRecipe}
+            onBeforeSave={() => {
+              if (ready && state.functionFqn)
+                setPreviousResult({
+                  workspaceId: workspace?.workspaceId,
+                  functionFqn: state.functionFqn,
+                  inputs: JSON.stringify(state.inputs),
+                  value: structuredClone(state.result)
+                });
+            }}
+            disabled={!session || (!draft && !functionSelected)}
+          />
+        ) : (
+          <div className="workflow-toolbar">
+            <WorkspaceTypePicker
+              label="Choose an object type"
+              appearance="chip"
+              value={draft?.typeFqn ?? null}
+              filterKinds={['data', 'choice']}
+              onSelect={() => {}}
+              onSelectOption={(option) => {
+                if (option)
+                  setBuilderDraft({
+                    typeFqn: option.namespace ? `${option.namespace}.${option.label}` : option.label,
+                    values: {},
+                    source: 'Manual input'
+                  });
+              }}
+            />
+          </div>
+        )}
+        <FormPresentation showToolbar={false} showNotices>
+          {null}
+        </FormPresentation>
         {drag ? (
           <div className="workflow-drag-ghost" style={{ left: drag.x + 12, top: drag.y + 12 }}>
             {drag.label}
@@ -836,6 +891,14 @@ export const PrototypeWorkflow = withInstrumentation(
                     source={sources[field.path]}
                     sourceId={sourceIds[field.path]}
                     onChange={(values) => session?.setInputs(values)}
+                    onClear={() => {
+                      const before = structuredClone(state.inputs[field.path]);
+                      session?.setInputs({
+                        ...session.getState().inputs,
+                        [field.path]: field.kind === 'array' ? [] : {}
+                      });
+                      return () => session?.setInputs({ ...session.getState().inputs, [field.path]: before });
+                    }}
                     onBind={() => setBinding({ field })}
                   />
                 ))
@@ -846,7 +909,14 @@ export const PrototypeWorkflow = withInstrumentation(
                   type={draft.typeFqn.split('.').slice(-1)[0]}
                   schema={draftSchema}
                   values={draft.values}
-                  onChange={(values) => setDraft({ ...draft, values, source: 'Workflow draft' })}
+                  onChange={(values) =>
+                    setDraft({ ...draft, values, source: mode === 'panels' ? 'Object draft' : 'Workflow draft' })
+                  }
+                  onClear={() => {
+                    const before = draft;
+                    setDraft({ ...draft, values: {}, source: 'Manual input' });
+                    return () => setDraft(before);
+                  }}
                   source={draft.source}
                   sourceId={draft.sourceId}
                   validation={standaloneValidation}
@@ -866,10 +936,14 @@ export const PrototypeWorkflow = withInstrumentation(
                   ) : null}
                 </WorkflowNode>
               ) : (
-                <div className="workflow-empty">Add an object or choose a function.</div>
+                <div className="workflow-empty">
+                  {mode === 'panels'
+                    ? 'Choose an object type, or select an example below.'
+                    : 'Add an object or choose a function.'}
+                </div>
               )}
             </div>
-            {[0, 1].map((index) => (
+            {(mode === 'flow' ? [0, 1] : []).map((index) => (
               <WorkflowSplitter
                 key={index}
                 label={index ? 'Resize function and output' : 'Resize inputs and function'}
@@ -881,101 +955,103 @@ export const PrototypeWorkflow = withInstrumentation(
                 onCommit={(value) => setColumn(index, value, true)}
               />
             ))}
-            <div className="workflow-function" data-workflow-node="function">
-              <WorkflowNode
-                name={state.schema?.title ?? 'Transform'}
-                kind="function"
-                typeNodeId={state.schema ? workflowSchemaNodeId(state.schema) : undefined}
-                validationRoot={rootRef}
-                type={undefined}
-                schema={primitiveSchema?.fields.length ? primitiveSchema : undefined}
-                values={state.inputs}
-                onChange={state.schema ? (values) => session?.setInputs(values) : undefined}
-                validation={
-                  functionSelected
-                    ? aggregateValidation
-                    : {
-                        state: 'unchecked',
-                        diagnostics: [],
-                        message: 'No function selected. The input becomes the output directly.'
-                      }
-                }
-                actions={
-                  functionSelected ? (
-                    <Button
-                      size="xs"
-                      disabled={
-                        !session ||
-                        state.status === 'running' ||
-                        state.schemaStatus === 'unavailable' ||
-                        aggregateValidation.state !== 'valid' ||
-                        !!state.schema?.executionUnavailable
-                      }
-                      onClick={() => void session?.run()}
-                    >
-                      {state.status === 'running' ? 'Executing…' : 'Execute'}
-                    </Button>
-                  ) : null
-                }
-              >
-                <div className="workflow-node__body space-y-2">
-                  <WorkspaceTypePicker
-                    label="Choose a function"
-                    appearance="chip"
-                    value={state.functionFqn}
-                    filterKinds={['func']}
-                    allowClear
-                    optionFilter={filterFunctionOption}
-                    onOptionPointerDown={beginFunctionDrag}
-                    onSelect={() => {}}
-                    onSelectOption={selectFunction}
-                  />
-                  {state.schema ? (
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      {state.schema.fields.map((f) => (
-                        <p key={f.path} className="workflow-parameter">
-                          <span>{f.path}</span>
-                          <WorkflowTypeLink
-                            nodeId={workflowFieldNodeId(f)}
-                            name={workflowFieldType(f)}
-                            kind={workflowFieldChipKind(f)}
-                          />
-                        </p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      No transform is required. Choose one compatible function to execute.
-                    </p>
-                  )}
-                  {state.schema?.executionUnavailable ? (
-                    <p role="status" className="text-xs text-muted-foreground">
-                      {state.schema.executionUnavailable}
-                    </p>
-                  ) : null}
-                  {state.error ? (
-                    <p role="alert" className="text-xs text-destructive">
-                      {state.error}
-                      {state.schemaStatus === 'unavailable' && state.functionFqn ? (
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() =>
-                            selectFunction({
-                              value: state.schema?.targetId ?? state.functionFqn!,
-                              label: state.schema?.title ?? state.functionFqn!,
-                              kind: 'func'
-                            })
-                          }
-                        >
-                          Retry schema
-                        </Button>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-              </WorkflowNode>
-            </div>
+            {mode === 'flow' ? (
+              <div className="workflow-function" data-workflow-node="function">
+                <WorkflowNode
+                  name={state.schema?.title ?? 'Transform'}
+                  kind="function"
+                  typeNodeId={state.schema ? workflowSchemaNodeId(state.schema) : undefined}
+                  validationRoot={rootRef}
+                  type={undefined}
+                  schema={primitiveSchema?.fields.length ? primitiveSchema : undefined}
+                  values={state.inputs}
+                  onChange={state.schema ? (values) => session?.setInputs(values) : undefined}
+                  validation={
+                    functionSelected
+                      ? aggregateValidation
+                      : {
+                          state: 'unchecked',
+                          diagnostics: [],
+                          message: 'No function selected. The input becomes the output directly.'
+                        }
+                  }
+                  actions={
+                    functionSelected ? (
+                      <Button
+                        size="xs"
+                        disabled={
+                          !session ||
+                          state.status === 'running' ||
+                          state.schemaStatus === 'unavailable' ||
+                          aggregateValidation.state !== 'valid' ||
+                          !!state.schema?.executionUnavailable
+                        }
+                        onClick={() => void session?.run()}
+                      >
+                        {state.status === 'running' ? 'Executing…' : 'Execute'}
+                      </Button>
+                    ) : null
+                  }
+                >
+                  <div className="workflow-node__body space-y-2">
+                    <WorkspaceTypePicker
+                      label="Choose a function"
+                      appearance="chip"
+                      value={state.functionFqn}
+                      filterKinds={['func']}
+                      allowClear
+                      optionFilter={filterFunctionOption}
+                      onOptionPointerDown={beginFunctionDrag}
+                      onSelect={() => {}}
+                      onSelectOption={selectFunction}
+                    />
+                    {state.schema ? (
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        {state.schema.fields.map((f) => (
+                          <p key={f.path} className="workflow-parameter">
+                            <span>{f.path}</span>
+                            <WorkflowTypeLink
+                              nodeId={workflowFieldNodeId(f)}
+                              name={workflowFieldType(f)}
+                              kind={workflowFieldChipKind(f)}
+                            />
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No transform is required. Choose one compatible function to execute.
+                      </p>
+                    )}
+                    {state.schema?.executionUnavailable ? (
+                      <p role="status" className="text-xs text-muted-foreground">
+                        {state.schema.executionUnavailable}
+                      </p>
+                    ) : null}
+                    {state.error ? (
+                      <p role="alert" className="text-xs text-destructive">
+                        {state.error}
+                        {state.schemaStatus === 'unavailable' && state.functionFqn ? (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() =>
+                              selectFunction({
+                                value: state.schema?.targetId ?? state.functionFqn!,
+                                label: state.schema?.title ?? state.functionFqn!,
+                                kind: 'func'
+                              })
+                            }
+                          >
+                            Retry schema
+                          </Button>
+                        ) : null}
+                      </p>
+                    ) : null}
+                  </div>
+                </WorkflowNode>
+              </div>
+            ) : null}
             <div className="workflow-output">{resultNode}</div>
           </div>
         </fieldset>
@@ -987,7 +1063,7 @@ export const PrototypeWorkflow = withInstrumentation(
             </DialogHeader>
             <div className="studio-scroll max-h-80 overflow-auto space-y-1">
               {binding?.record ? (
-                state.schema ? (
+                mode === 'flow' && state.schema ? (
                   state.schema.fields
                     .filter((f) => isInstanceBindableToField(binding.record!, f, workspace?.models ?? []))
                     .map((field) => (

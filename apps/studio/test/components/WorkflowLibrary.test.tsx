@@ -154,3 +154,49 @@ it('keeps edits made during Save visibly dirty against the exact recipe that was
   expect(await screen.findByText('Unsaved changes')).toBeVisible();
   expect(vi.mocked(saveWorkflow).mock.lastCall?.[1].inputs.amount).toEqual({ kind: 'literal', value: 3 });
 });
+
+it('starts a separate unsaved workflow while preserving the named recipe draft', async () => {
+  const user = userEvent.setup();
+  const recipe = {
+    schemaVersion: 1 as const,
+    id: 'cash',
+    name: 'Cash',
+    inputs: { change: { kind: 'literal' as const, value: 250 } },
+    outputs: {}
+  };
+  const open = vi.fn().mockResolvedValue(undefined),
+    onNew = vi.fn();
+  render(
+    <ProjectContext
+      value={{
+        status: 'ready',
+        workspaceId: 'new-workflow',
+        diagnostics: [],
+        controller: {} as never,
+        snapshot: {
+          files: new Map([['workflows/cash.workflow.json', JSON.stringify(recipe)]]),
+          project: { studio: { workflows: 'workflows', examples: 'examples' } }
+        } as never
+      }}
+    >
+      <WorkflowLibrary
+        capture={() => ({ ...recipe, inputs: { change: { kind: 'literal', value: 500 } } })}
+        open={open}
+        onNew={onNew}
+      />
+    </ProjectContext>
+  );
+  await user.click(screen.getByRole('combobox', { name: 'Saved workflow' }));
+  await user.click(await screen.findByRole('option', { name: 'Cash', exact: true }));
+  await waitFor(() => expect(open).toHaveBeenCalledOnce());
+  await user.click(screen.getByRole('button', { name: 'New workflow', exact: true }));
+  expect(onNew).toHaveBeenCalledOnce();
+  expect(screen.getByRole('combobox', { name: 'Saved workflow' })).toHaveTextContent('Unsaved workflow');
+  await user.click(screen.getByRole('combobox', { name: 'Saved workflow' }));
+  await user.click(await screen.findByRole('option', { name: 'Cash', exact: true }));
+  await waitFor(() =>
+    expect(open).toHaveBeenLastCalledWith(
+      expect.objectContaining({ inputs: { change: { kind: 'literal', value: 500 } } })
+    )
+  );
+});

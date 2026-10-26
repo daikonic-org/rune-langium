@@ -286,7 +286,11 @@ acknowledged without a new file update.
 - The LSP connection adapter converts returned or thrown vscode `ResponseError` values into thrown lspeasy protocol errors for ordinary request handlers. Cancellation must travel in JSON-RPC's error field, never as a successful completion payload.
 
 Prototype's `PrototypeWorkflow` owns equal, detached input drafts and one optional
-`FunctionSession`. `WorkflowNode` composes the existing controlled FormPreview
+`FunctionSession`. Object builder owns a separate draft and renders only a typed
+object editor and payload; switching surfaces preserves the live workflow session.
+New workflow clears only executable draft state, while named recipes remain
+repository-managed. Clear-input undo restores only that input, preserving peer
+parameter edits. `WorkflowNode` composes the existing controlled FormPreview
 renderer; object parameters render separately and primitive inputs remain inline.
 Node-local layout editing uses the shared symbol-associated presentation store.
 The instance grid exposes failed-save retries through the existing instance-store

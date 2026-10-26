@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { type TypeChipKind } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -36,6 +36,7 @@ export const WorkflowNode = withInstrumentation(
     readOnly = false,
     onBind,
     onImport,
+    onClear,
     validationRoot
   }: {
     name: string;
@@ -56,11 +57,15 @@ export const WorkflowNode = withInstrumentation(
     readOnly?: boolean;
     onBind?(): void;
     onImport?(value: unknown): void;
+    onClear?(): () => void;
     validationRoot?: RefObject<HTMLElement | null>;
   }) {
     const navigation = useWorkflowTypeNavigation(typeNodeId);
     const root = useRef<HTMLElement>(null);
     const [requestedEditing, setEditing] = useState(false);
+    const [beforeClear, setBeforeClear] = useState<{ restore(): void }>();
+    const conditionIssue = validation?.diagnostics.find((diagnostic) => diagnostic.conditionName);
+    useEffect(() => setBeforeClear(undefined), [schema?.targetId, sourceId, sourcePath]);
     const { ready, entry, saveLabel } = useFormPresentationState();
     const editing = ready && requestedEditing;
     return (
@@ -143,6 +148,17 @@ export const WorkflowNode = withInstrumentation(
                     }}
                   />
                 ) : null}
+                {onClear ? (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => {
+                      setBeforeClear({ restore: onClear() });
+                    }}
+                  >
+                    Clear input
+                  </Button>
+                ) : null}
                 {onBind ? (
                   <Button variant="ghost" size="xs" onClick={onBind}>
                     Use stored object…
@@ -162,14 +178,52 @@ export const WorkflowNode = withInstrumentation(
             </Button>
           </div>
         ) : null}
+        {beforeClear && onChange ? (
+          <p className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
+            Input cleared.
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => {
+                beforeClear.restore();
+                setBeforeClear(undefined);
+              }}
+            >
+              Undo clear
+            </Button>
+          </p>
+        ) : null}
+        {conditionIssue && validation ? (
+          <div className="flex items-start gap-1 px-2 py-1 text-xs text-destructive">
+            <p className="min-w-0 flex-1">
+              {conditionIssue.conditionDescription ?? `${conditionIssue.conditionName} is not satisfied.`}
+            </p>
+            <WorkflowValidation
+              name={name}
+              validation={validation}
+              root={validationRoot ?? root}
+              functionChecks={kind === 'function'}
+              appearance="details"
+            />
+          </div>
+        ) : null}
         {schema && (!readOnly || editing) ? (
           <FormPreviewPanel
             ariaLabel={`${name} fields`}
             schema={schema}
             status={{ state: 'ready', targetId: schema.targetId }}
             values={values}
-            onValuesChange={onChange}
-            errors={Object.fromEntries(validation?.diagnostics.map((d) => [d.path, d.message]) ?? [])}
+            onValuesChange={
+              onChange
+                ? (value) => {
+                    setBeforeClear(undefined);
+                    onChange(value);
+                  }
+                : undefined
+            }
+            errors={Object.fromEntries(
+              validation?.diagnostics.filter((d) => !d.conditionName).map((d) => [d.path, d.message]) ?? []
+            )}
             valid={validation?.state === 'valid'}
             validated={validation?.state === 'valid' || validation?.state === 'invalid'}
             layoutEditing={editing}

@@ -167,3 +167,28 @@ it('allows an explicit retry after a failed push without a pending merge conflic
   emitSync({ ...makeIdleStatus(), phase: 'blocked', lastError: { code: 'auth', message: 'Sign in again' } });
   expect(screen.getByRole('button', { name: 'Commit and push' })).toBeEnabled();
 });
+
+it('distinguishes a starter origin from a writable Git connection without inheriting another workspace origin', async () => {
+  const { WorkspaceStateContext } = await import('../../src/shell/providers/workspace-context.js');
+  const state = {
+    workspaceId: 'starter',
+    starterProvenance: { repository: 'daikonic-org/rune-cdm-example', commit: 'abc123' }
+  } as never;
+  const view = render(
+    <WorkspaceStateContext value={state}>
+      <GitSyncPerspective workspaceId="starter" workspaceKind="browser-only" />
+    </WorkspaceStateContext>
+  );
+  expect(screen.getByRole('heading', { name: 'Starter copy · saved locally' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'daikonic-org/rune-cdm-example' })).toHaveAttribute(
+    'href',
+    'https://github.com/daikonic-org/rune-cdm-example/tree/abc123'
+  );
+  expect(screen.queryByRole('button', { name: /commit and push/i })).toBeNull();
+  view.rerender(
+    <WorkspaceStateContext value={state}>
+      <GitSyncPerspective workspaceId="other" workspaceKind="browser-only" />
+    </WorkspaceStateContext>
+  );
+  expect(screen.getByRole('heading', { name: 'Not connected to Git' })).toBeVisible();
+});

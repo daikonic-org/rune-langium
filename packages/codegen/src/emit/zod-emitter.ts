@@ -610,7 +610,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     }
     const card = attr.card;
     let zodExpr = ZodNamespaceEmitter.applyCardinality(card, baseTypeExpr);
-    if (this.functionInputs && card.inf === 0 && (card.unbounded || (card.sup ?? 1) > 1)) {
+    if (this.metadataInputs && card.inf === 0 && (card.unbounded || (card.sup ?? 1) > 1)) {
       zodExpr += '.optional()';
     }
     const key = ZodNamespaceEmitter.quoteKey(attr.name);
@@ -936,7 +936,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         ? metadataObjectType(type, fieldMetadataKind(attr), 'Record<string, unknown>')
         : type;
       const card = attr.card;
-      const tsField = ZodNamespaceEmitter.applyCardinalityTs(card, baseTypeExpr, attr.name, this.functionInputs);
+      const tsField = ZodNamespaceEmitter.applyCardinalityTs(card, baseTypeExpr, attr.name, this.metadataInputs);
       fields.push(`  ${tsField};`);
     }
 
