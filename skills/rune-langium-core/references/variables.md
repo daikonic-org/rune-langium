@@ -375,6 +375,17 @@ Sent with a complete retained document set, after its semantic snapshots have ar
 const ProjectResolutionContextSchema: ZodObject<{ schemaVersion: ZodLiteral<1>; receipt: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>; models: ZodRecord<ZodString, ZodString>; lock: ZodNullable<ZodUnknown>; overrides: ZodArray<ZodUnknown> }, $strip>
 ```
 
+### `RepositoryFileSourceSchema`
+Verified upstream file origin; Nightly commits record provenance, never a reference lock.
+```ts
+const RepositoryFileSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString }, $strict>
+```
+
+### `RepositoryExampleSourceSchema`
+```ts
+const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString> }, $strict>
+```
+
 ## stdlib
 
 ### `BASE_TYPE_FILES`
@@ -410,31 +421,5 @@ const RuneDslModule: { serializer: { JsonSerializer: (services: RuneDslServices)
 
 ### `RuneDslSharedModule`
 Shared services module that overrides Langium's default IndexManager with
-`RuneDslIndexManager`, enabling external registration of exported symbols
-without requiring a full document build (ADR 007 Phase 4).
-```ts
-const RuneDslSharedModule: Module<LangiumSharedCoreServices, PartialLangiumSharedCoreServices>
-```
-
-## adapters
-
-### `parsedAdapter`
-```ts
-const parsedAdapter: { dehydrate: any }
-```
-
-### `curatedAdapter`
-```ts
-const curatedAdapter: { parse: any }
-```
-
-## serializer
-
-### `LSP_MODEL_SYNC_METHOD`
-```ts
-const LSP_MODEL_SYNC_METHOD: "rune/syncModels"
-```
-
-### `LSP_REQUEST_TIMEOUT_MS`
 
 <!-- truncated -->

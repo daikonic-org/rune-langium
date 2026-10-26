@@ -46,3 +46,6 @@ specs/**
 pnpm-lock.yaml
 yarn.lock
 package-lock.json
+
+# Pinned upstream corpora retain their original bytes and integrity hashes.
+test/fixtures/third-party/**

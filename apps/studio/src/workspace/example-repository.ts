@@ -23,18 +23,22 @@ import {
   projectConfigurationPreconditions as configurationPreconditions
 } from './project-save-inputs.js';
 import type { LegacyExampleStorage } from '../opfs/instances-fs.js';
-import type { ExampleRepository } from '../store/instance-persistence.js';
+import type { ExampleRepository, ExamplePayloadSerializer } from '../store/instance-persistence.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export const saveExample = withInstrumentation(
   async function saveExample(
     controller: ProjectController,
     input: ExampleDescriptor,
-    payload: unknown
+    payload: unknown,
+    serialize?: ExamplePayloadSerializer
   ): Promise<ProjectSnapshot> {
     const snapshot = controller.current() ?? (await controller.load());
     const example = parseExampleDescriptor(snapshot, input);
-    const text = serializeProjectData(snapshot, payload, example.codec) + '\n';
+    const text =
+      (example.codec === 'RUNE_JSON' && serialize
+        ? await serialize(snapshot, example, payload)
+        : serializeProjectData(snapshot, payload, example.codec)) + '\n';
     const read = readExamples(snapshot);
     const existing = read.documents.filter((entry) => entry.descriptor.id === example.id);
     if (existing.length > 1) throw new Error('Repair duplicate example IDs before saving.');
@@ -140,7 +144,14 @@ export const migrateLegacyExamples = withInstrumentation(
               type,
               payload: examplePayloadPath(root, record.id),
               codec: 'JSON',
-              ...(record.provenance?.source ? { provenance: { source: record.provenance.source } } : {})
+              ...(record.provenance?.source
+                ? {
+                    provenance: {
+                      source: record.provenance.source,
+                      ...(record.provenance.reference ? { reference: record.provenance.reference } : {})
+                    }
+                  }
+                : {})
             },
             record.data
           );
@@ -173,6 +184,7 @@ export const createExampleRepository = withInstrumentation(
     workspaceId: string;
     controller: ProjectController;
     resolveType(record: InstanceRecord): SymbolIdentity | undefined;
+    serialize?: ExamplePayloadSerializer;
     legacy?: LegacyExampleStorage;
   }): ExampleRepository {
     let tail: Promise<unknown> = Promise.resolve();
@@ -208,9 +220,17 @@ export const createExampleRepository = withInstrumentation(
               payload: previous?.payload ?? examplePayloadPath(root, record.id),
               codec: previous?.codec ?? 'JSON',
               ...(previous?.expected ? { expected: previous.expected } : {}),
-              ...(record.provenance?.source ? { provenance: { source: record.provenance.source } } : {})
+              ...(record.provenance?.source
+                ? {
+                    provenance: {
+                      source: record.provenance.source,
+                      ...(record.provenance.reference ? { reference: record.provenance.reference } : {})
+                    }
+                  }
+                : {})
             },
-            record.data
+            record.data,
+            input.serialize
           );
         }),
       remove: (id) =>
@@ -262,7 +282,14 @@ export const createExampleRepository = withInstrumentation(
               createdAt: 0,
               modifiedAt: 0,
               ...(descriptor.provenance
-                ? { provenance: { codec: descriptor.codec, source: descriptor.provenance.source, importedAt: 0 } }
+                ? {
+                    provenance: {
+                      codec: descriptor.codec,
+                      source: descriptor.provenance.source,
+                      importedAt: 0,
+                      ...(descriptor.provenance.reference ? { reference: descriptor.provenance.reference } : {})
+                    }
+                  }
                 : {})
             };
             if (entry.payload === undefined)

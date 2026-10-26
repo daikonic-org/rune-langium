@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import type { RepositoryFileSource } from '@rune-langium/core/project-contract';
 import { normalizeProjectPath, type ProjectSnapshot, type ProjectDiagnostic } from '@rune-langium/project-config';
 export interface ProjectResourceIdentity {
   model: string;
@@ -8,7 +9,7 @@ export interface ProjectResourceIdentity {
 export function resolveProjectResource(
   snapshot: ProjectSnapshot,
   source: ProjectResourceIdentity
-): { path: string; checksum?: string } | ProjectDiagnostic {
+): { path: string; checksum?: string; provenance?: RepositoryFileSource } | ProjectDiagnostic {
   const mappings = (snapshot.project.build.overrides ?? []).filter(
     (mapping) => mapping.kind === 'resource' && mapping.source.model === source.model && mapping.source.id === source.id
   );
@@ -31,5 +32,5 @@ export function resolveProjectResource(
     return fail('Mapped resource must be inside a configured resource root.');
   const checksum = snapshot.fileRevisions.get(path);
   if (!snapshot.files.has(path) || !checksum) return fail('Mapped resource is missing: ' + path);
-  return { path, checksum };
+  return { path, checksum, ...(mappings[0].provenance ? { provenance: mappings[0].provenance } : {}) };
 }

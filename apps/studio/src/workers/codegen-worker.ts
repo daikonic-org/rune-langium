@@ -34,6 +34,7 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
  *   instance:generateSchemaStale  — When schema inputs are missing, unsupported, or stale.
  */
 
+import type { InstanceDecodeMessage, InstanceSerializeMessage } from '../services/codegen-service.js';
 import type { LangiumDocument } from 'langium';
 import { URI, AstUtils } from 'langium';
 import { transform } from 'sucrase';
@@ -60,6 +61,7 @@ import {
   emitStandaloneZodSchema,
   RUNTIME_HELPER_JS_SOURCE,
   normalizePreviewInputs,
+  adaptPreviewData,
   selectTypeScriptProjection,
   resolveExportSelection,
   resolveEffectiveProjectTargetId,
@@ -83,7 +85,8 @@ import {
   assertProjectGenerationCapabilities,
   type EffectiveProject
 } from '@rune-langium/project-runtime/effective';
-import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import { createProjectReceipt, projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import { serializeProjectData } from '@rune-langium/project-runtime/data';
 import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 import { projectOperationError } from '../services/project-worker-bridge.js';
 import { formatGeneratedProjection } from '../services/projection-format.js';
@@ -157,6 +160,8 @@ type WorkerOperation =
   | PreviewWorkerRequest
   | PreviewExecuteMessage
   | InstanceValidateMessage
+  | InstanceDecodeMessage
+  | InstanceSerializeMessage
   | ProjectionRequest
   | InstanceGenerateSchemaMessage;
 type WorkerInboundMessage = WorkerOperation & { projectReceipt?: ProjectResolutionReceipt };
@@ -424,10 +429,14 @@ interface StandaloneValidatorResult {
 function compileStandaloneValidator(
   documents: LangiumDocument[],
   typeFqn: string,
-  functionInputs = false
+  functionInputs: boolean | 'metadata' = false
 ): StandaloneValidatorResult {
   const { code, diagnostics, schemaName } = functionInputs
-    ? emitStandaloneZodSchema(documents, typeFqn, { functionInputs: true })
+    ? emitStandaloneZodSchema(
+        documents,
+        typeFqn,
+        functionInputs === 'metadata' ? { metadataInputs: true } : { functionInputs: true }
+      )
     : emitStandaloneZodSchema(documents, typeFqn);
   if (diagnostics.some((d) => d.severity === 'error')) {
     return { validator: undefined, diagnostics };
@@ -1137,11 +1146,29 @@ async function executeFunction(
 ): Promise<void> {
   const scope = operationScope();
   let functionFqn = qualifiedNameFromNodeId(funcName);
+  let inputConditions: { name: string; description?: string; source?: string }[] = [];
 
   try {
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     const project = await scope.project;
     if (projectGeneration) functionFqn = resolveEffectiveProjectTargetId(documents, functionFqn, 'RosettaFunction');
+    inputConditions = checksOnly
+      ? documents.flatMap((document) => {
+          const model = document.parseResult.value as RosettaModel;
+          return model.elements
+            .filter(isRosettaFunction)
+            .filter((node) => `${namespaceFromModelName(model.name ?? '')}.${node.name}` === functionFqn)
+            .flatMap((node) =>
+              node.conditions
+                .filter((condition) => !condition.postCondition)
+                .map((condition) => ({
+                  name: condition.name ?? node.name,
+                  description: condition.definition,
+                  source: condition.$cstNode?.text
+                }))
+            );
+        })
+      : [];
     const separator = functionFqn.lastIndexOf('.');
     const selection = project
       ? {
@@ -1300,11 +1327,25 @@ async function executeFunction(
   } catch (e) {
     if (checksOnly) {
       const message = e instanceof Error ? e.message : String(e);
+      const matches = inputConditions.filter((condition) => message.startsWith(`Diagnostic: ${condition.name}:`));
+      const condition = matches.length === 1 ? matches[0] : undefined;
       scope.postMessage({
         type: 'instance:validateResult',
         requestId,
         ...(message.startsWith('Diagnostic:') ? {} : { unavailable: message }),
-        diagnostics: [{ path: '', message }]
+        diagnostics: [
+          {
+            path: '',
+            message,
+            ...(condition
+              ? {
+                  conditionName: condition.name,
+                  conditionDescription: condition.description,
+                  conditionSource: condition.source
+                }
+              : {})
+          }
+        ]
       });
       return;
     }
@@ -1363,8 +1404,8 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
     const project = await scope.project;
     if (projectGeneration)
       typeFqn = resolveEffectiveProjectTargetId(documents, qualifiedNameFromNodeId(typeFqn), 'Data');
-    const { value: compiled } = getOrCompute(standaloneValidatorCache, typeFqn, documentsVersion, () =>
-      compileStandaloneValidator(documents, typeFqn)
+    const { value: compiled } = getOrCompute(standaloneValidatorCache, 'metadata:' + typeFqn, documentsVersion, () =>
+      compileStandaloneValidator(documents, typeFqn, 'metadata')
     );
 
     if (!compiled.validator) {
@@ -1387,10 +1428,14 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
     const activeConditionNames = dataNode ? getActiveConditionPredicates(dataNode).map(({ name }) => name) : [];
 
     const resourceDiagnostics = projectResourceDiagnostics(project, documents, documentsVersion, typeFqn, data);
-    const result = compiled.validator.safeParse(data);
+    const adapted = adaptPreviewData(documents, typeFqn, data);
+    const result = compiled.validator.safeParse(adapted.data);
     const diagnostics: ValidationDiagnostic[] = result.success
       ? []
-      : translateValidationIssues(result.error.issues, activeConditionNames);
+      : translateValidationIssues(result.error.issues, activeConditionNames).map((issue) => ({
+          ...issue,
+          path: adapted.sourcePath(issue.path)
+        }));
 
     scope.postMessage({
       type: 'instance:validateResult',
@@ -1404,6 +1449,46 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
       requestId,
       ...(err instanceof ProjectBindingUnavailable ? { unavailable: err.message } : {}),
       diagnostics: [{ path: '', message: err instanceof Error ? err.message : 'Instance validation failed.' }]
+    });
+  }
+}
+
+async function decodeInstance(typeFqn: string, data: unknown, requestId: string): Promise<void> {
+  const scope = operationScope();
+  try {
+    const { value: documents } = await previewStages.buildDocuments();
+    await scope.project;
+
+    const adapted = adaptPreviewData(documents, typeFqn, data);
+    scope.postMessage({ type: 'instance:decodeResult', requestId, data: adapted.data });
+  } catch (error) {
+    scope.postMessage({
+      type: 'instance:decodeResult',
+      requestId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+async function serializeInstance(message: InstanceSerializeMessage): Promise<void> {
+  const scope = operationScope();
+  try {
+    const { value: documents } = await previewStages.buildDocuments();
+    const project = await scope.project;
+    if (project && !projectReceiptMatches(await createProjectReceipt(message.snapshot), project.receipt))
+      throw new Error(
+        'The saved project revision is not applied for example serialization. Retry after saving sources.'
+      );
+    const text = serializeProjectData(message.snapshot, message.data, 'RUNE_JSON', {
+      documents,
+      typeFqn: message.typeFqn
+    });
+    scope.postMessage({ type: 'instance:serializeResult', requestId: message.requestId, text });
+  } catch (error) {
+    scope.postMessage({
+      type: 'instance:serializeResult',
+      requestId: message.requestId,
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -1526,6 +1611,10 @@ if (isWorkerGlobalScope()) {
         previewStages.executeFunction(funcName, inputs, requestId).catch(console.error);
       } else if (msg.type === 'projection:generate') {
         previewStages.generateProjection(msg).catch(console.error);
+      } else if (msg.type === 'instance:decode') {
+        decodeInstance(msg.typeFqn, msg.data, msg.requestId).catch(console.error);
+      } else if (msg.type === 'instance:serialize') {
+        serializeInstance(msg).catch(console.error);
       } else if (msg.type === 'instance:validate') {
         const { typeFqn, data, requestId } = msg;
         (msg.functionInputs

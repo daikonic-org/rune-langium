@@ -14,4 +14,10 @@ export {
   type InstanceRecord,
   type ValidationDiagnostic
 } from './bundle.js';
-export { jsonCodec, type ImportCodec, type ImportCodecResult, type ImportDiagnostic } from './json-codec.js';
+export {
+  jsonCodec,
+  runeJsonCodec,
+  type ImportCodec,
+  type ImportCodecResult,
+  type ImportDiagnostic
+} from './json-codec.js';

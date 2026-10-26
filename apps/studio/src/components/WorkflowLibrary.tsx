@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@rune-langium/design-system/ui/dialog';
-import { Save } from 'lucide-react';
+import { Save, Plus } from 'lucide-react';
 import { useProject } from '../shell/providers/project-context.js';
 import { generateUlid } from '../services/ulid.js';
 import { saveWorkflow } from '../workspace/workflow-repository.js';
@@ -23,11 +23,13 @@ export const WorkflowLibrary = withInstrumentation(
     capture,
     open,
     onBeforeSave,
+    onNew,
     disabled = false
   }: {
     capture(id: string, name: string): WorkflowDescriptor;
     open(workflow: WorkflowDescriptor): Promise<void>;
     onBeforeSave?(): void;
+    onNew?(): void;
     disabled?: boolean;
   }) {
     const project = useProject();
@@ -98,6 +100,28 @@ export const WorkflowLibrary = withInstrumentation(
           className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
           aria-label="Named workflows"
         >
+          {onNew ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={busy || dialog}
+              onClick={() => {
+                try {
+                  rememberDraft();
+                } catch {
+                  /* A new draft can recover from an incomplete recipe. */
+                }
+                ++generation.current;
+                onNew();
+                setActive(undefined);
+                setSaved(undefined);
+                setError(undefined);
+              }}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              New workflow
+            </Button>
+          ) : null}
           <Select
             value={active ?? ':draft'}
             onValueChange={(id) => {
@@ -111,6 +135,7 @@ export const WorkflowLibrary = withInstrumentation(
               const stored = read?.workflows.find((entry) => entry.id === id);
               const workflow = drafts.current.get(id) ?? stored;
               if (id === ':draft' && !workflow) {
+                onNew?.();
                 setActive(undefined);
                 setSaved(undefined);
                 return;

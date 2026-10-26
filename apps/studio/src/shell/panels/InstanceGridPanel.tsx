@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { ReferenceExampleImport } from '../../components/ReferenceExampleImport.js';
 import { WorkflowImport } from '../../components/WorkflowImport.js';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -98,18 +99,19 @@ export const InstanceGridPanel = withInstrumentation(
             multiple
             label="Import examples…"
             typeFqn={view.typeFqn ?? undefined}
-            onImport={(values, typeFqn) => {
+            onImport={(values, typeFqn, codec) => {
               if (!typeFqn) throw new Error('Choose an object type.');
               values.forEach((data, index) =>
                 useInstanceStore
                   .getState()
                   .createInstance(typeFqn, `Imported ${typeFqn.split('.').slice(-1)[0]} ${index + 1}`, {
                     data,
-                    provenance: { codec: 'json', importedAt: Date.now() }
+                    provenance: { codec: codec ?? 'json', importedAt: Date.now() }
                   })
               );
             }}
           />
+          <ReferenceExampleImport />
           <div className="w-64 max-w-full">
             <WorkspaceTypePicker
               label="Filter example type"

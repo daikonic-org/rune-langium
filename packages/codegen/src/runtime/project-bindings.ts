@@ -10,11 +10,12 @@ import {
   type RosettaTypeAlias,
   type DeclarationIdentity
 } from '@rune-langium/core';
+import { isMetadataInputEnvelope } from '../expr/metadata-input.js';
 import { previewTypeSymbol } from '../preview-references.js';
-import type { FormPreviewSchema, PreviewField } from '../types.js';
+import type { CodeListValue, FormPreviewSchema, PreviewField } from '../types.js';
 export interface ProjectCodeListBinding {
   symbol: DeclarationIdentity;
-  values?: readonly { value: string; label: string }[];
+  values?: readonly CodeListValue[];
   unavailable?: string;
 }
 export interface ProjectImplementationBinding {
@@ -192,6 +193,11 @@ export function validateProjectPreviewBindings(
     if (field.kind === 'array') {
       if (Array.isArray(value)) value.forEach((entry, index) => visit(field.children[0], entry, `${path}[${index}]`));
       return;
+    }
+    if (field.metadata && isMetadataInputEnvelope(value, field.metadata.payloadShape)) {
+      value = value.value;
+      path += '.value';
+      if (value === undefined || value === null) return;
     }
     if (field.kind === 'object') {
       if (typeof value !== 'object' || ancestors.has(value)) return;

@@ -143,6 +143,14 @@ CardinalityCell(__namedParameters: CardinalityCellProps): ReactElement
 - `__namedParameters: CardinalityCellProps`
 **Returns:** `ReactElement`
 
+### `typeChipKind`
+```ts
+typeChipKind(kind: TypeKind | "builtin" | undefined): TypeChipKind
+```
+**Parameters:**
+- `kind: TypeKind | "builtin" | undefined`
+**Returns:** `TypeChipKind`
+
 ### `TypePickerCell`
 ```ts
 TypePickerCell(__namedParameters: TypePickerCellProps): ReactElement

@@ -74,10 +74,10 @@ This is a `namespace-walker.ts`-level cross-namespace concern, unrelated
 to cyclic ordering, and genuinely out of scope for this module — it is
 NOT fixed here.
 ```ts
-emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
+emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean; metadataInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
 ```
 **Parameters:**
 - `documents: LangiumDocument<AstNode>[]`
 - `targetId: string`
-- `options: { functionInputs?: boolean }` — default: `{}`
+- `options: { functionInputs?: boolean; metadataInputs?: boolean }` — default: `{}`
 **Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }`

@@ -9,6 +9,7 @@ import {
 } from '@rune-langium/codegen/export';
 import { projectDataCodecStatus } from './project-data.js';
 export { serializeProjectData, importProjectData } from './project-data.js';
+import { decodeProjectCodeList } from './code-lists.js';
 import { resolveProjectResource } from './resources.js';
 import type { ImplementationProvider } from './implementations.js';
 export type { ImplementationProvider } from './implementations.js';
@@ -81,20 +82,7 @@ function prepared(
           'No installed adapter declares this resource ID. The JSON code-list adapter requires a kind-qualified string alias identity.';
       if (!reason && !('message' in resource))
         try {
-          const parsed: unknown = JSON.parse(snapshot.files.get(resource.path)!);
-          if (
-            !Array.isArray(parsed) ||
-            parsed.some(
-              (entry) =>
-                !entry ||
-                typeof entry !== 'object' ||
-                typeof entry.value !== 'string' ||
-                typeof entry.label !== 'string'
-            ) ||
-            new Set(parsed.map((entry) => entry.value)).size !== parsed.length
-          )
-            throw new Error('Expected distinct code-list entries with string value and label.');
-          values = parsed.map((entry) => ({ value: entry.value, label: entry.label }));
+          values = decodeProjectCodeList(snapshot.files.get(resource.path)!, mapping.codeList).values;
         } catch (error) {
           reason = error instanceof Error ? error.message : 'Resource decoding is unavailable.';
         }

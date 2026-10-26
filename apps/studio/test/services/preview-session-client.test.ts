@@ -22,6 +22,39 @@ function readiness(): InstanceReadiness {
 afterEach(() => vi.useRealTimers());
 
 describe('createPreviewSessionClient', () => {
+  it('serializes through hydrated linked declarations and correlates text replies', async () => {
+    const { createProjectSnapshot } = await import('@rune-langium/project-config');
+    const snapshot = await createProjectSnapshot(
+      'p',
+      new Map([['rune-config.yml', 'model: {name: Example}']]),
+      () => []
+    );
+    const worker = new FakeWorker();
+    const client = createPreviewSessionClient(worker as unknown as Worker, readiness());
+    const result = client.serialize!(
+      snapshot,
+      'example.Trade#Data',
+      { amount: { value: 21, meta: { scheme: 'USD' } } },
+      new AbortController().signal
+    );
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(1));
+    worker.reply({
+      type: 'instance:generateSchemaResult',
+      requestId: worker.posted[0]!.requestId,
+      typeFqn: 'example.Trade#Data',
+      schema: { schemaVersion: 1, targetId: 'example.Trade#Data', title: 'Trade', status: 'ready', fields: [] }
+    });
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+    expect(worker.posted[1]).toMatchObject({ type: 'instance:serialize', snapshot, typeFqn: 'example.Trade#Data' });
+    worker.reply({ type: 'instance:serializeResult', requestId: 'unrelated', text: 'wrong' });
+    worker.reply({
+      type: 'instance:serializeResult',
+      requestId: worker.posted[1]!.requestId,
+      text: '{"amount":{"@data":21,"@scheme":"USD"}}'
+    });
+    await expect(result).resolves.toContain('@scheme');
+    client.dispose();
+  });
   it('bounds projection rendering to 30 seconds and permits a correlated retry', async () => {
     vi.useFakeTimers();
     const worker = new FakeWorker();
@@ -155,6 +188,29 @@ it('correlates input-check replies independently and reports unavailable validat
     diagnostics: [],
     unavailable: 'Not linked'
   });
+  await rejection;
+  client.dispose();
+});
+
+it('prepares a correlated object decoder and rejects stale or cancelled results', async () => {
+  const worker = new FakeWorker(),
+    client = createPreviewSessionClient(worker as unknown as Worker, readiness());
+  const abort = new AbortController();
+  const pending = client.decode!('test.Trade#Data', { amount: 1 }, abort.signal);
+  await vi.waitFor(() => expect(worker.posted).toHaveLength(1));
+  worker.reply({
+    type: 'instance:generateSchemaResult',
+    requestId: worker.posted[0]!.requestId,
+    schema: { schemaVersion: 1, targetId: 'test.Trade', title: 'Trade', status: 'ready', fields: [] }
+  });
+  await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+  expect(worker.posted[1]).toMatchObject({ type: 'instance:decode', typeFqn: 'test.Trade#Data', data: { amount: 1 } });
+  worker.reply({ type: 'instance:decodeResult', requestId: 'stale', data: { amount: 99 } });
+  worker.reply({ type: 'instance:decodeResult', requestId: worker.posted[1]!.requestId, data: { amount: 1 } });
+  await expect(pending).resolves.toEqual({ amount: 1 });
+  const cancelled = client.decode!('test.Trade#Data', {}, abort.signal);
+  const rejection = expect(cancelled).rejects.toThrow(/cancelled/);
+  abort.abort();
   await rejection;
   client.dispose();
 });

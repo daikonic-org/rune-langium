@@ -11,3 +11,4 @@ export * from './capabilities.js';
 export * from './import/rune-maven-adapters.js';
 export * from './import/project-status.js';
 export * from './project-compatibility.js';
+export * from './code-lists.js';

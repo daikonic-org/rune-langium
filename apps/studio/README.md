@@ -124,12 +124,16 @@ accepts one JSON object or an array for the chosen type; imported objects stay i
 the grid until explicitly bound. Workflow edits use detached copies and do not
 overwrite their stored sources.
 
-Workflow uses smooth connectors and constrained node positions. Object builder offers the
-same data and controls with dividers. Divider widths and view choice are saved
+Workflow uses smooth connectors and constrained node positions. **New workflow**
+starts without predetermined input types. **Object builder** provides a separate
+type chooser and object form for creation, import and export, without a function
+panel. Each surface retains its own draft. Divider widths and view choice are saved
 per workspace. Narrow panes stack the nodes in reading order. A visited Prototype
 stays mounted while using other perspectives in the same workspace; workspace
 changes dispose its active sessions. Workflows and execution results are session
-state; reloading restores stored objects and presentation preferences.
+state; reloading restores stored objects and presentation preferences. See
+[validation, clearing inputs and starter origin](../../docs/prototype-workflows.md)
+for recovery behavior and the distinction between a starter copy and Git sync.
 
 ### Form layouts and formats
 

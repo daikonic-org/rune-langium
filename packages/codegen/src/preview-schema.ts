@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { previewTypeSymbol } from './preview-references.js';
+import { withRuneJsonEncoding } from '@rune-langium/core/serialization';
+import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
 import { resolveNativeImplementation } from './implementations/index.js';
 import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
 import { temporalWireFormat } from './expr/temporal-conversions.js';
@@ -36,7 +37,7 @@ import { choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-
 import { buildTypeReferenceGraph, findCyclicTypes } from './cycle-detector.js';
 import { resolveTypeCallTarget, type TypeResolutionVisitor } from './emit/type-ref-resolver.js';
 import { extractFuncs, functionInputs, functionOutput, functionSignature } from './types/func.js';
-import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
+import { hasTypeMetadata, fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
 import { groupFuncDispatches } from './emit/func-dispatch.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
 import { selectEffectiveProjectDocuments, resolveEffectiveProjectTargetId } from './selection/declaration-selection.js';
@@ -454,6 +455,7 @@ function dropCollidingChoiceArmFields<TOption>(
  * terminates at, if any.
  */
 interface InheritedAttributesResult {
+  metadata: boolean;
   attributes: Attribute[];
   /**
    * Set when the `extends` chain terminates at a Choice ancestor (a Data's
@@ -515,7 +517,7 @@ function collectInheritedAttributes(data: Data): InheritedAttributesResult {
       attrs.push(attr);
     }
   }
-  return { attributes: attrs, choiceAncestor };
+  return { attributes: attrs, choiceAncestor, metadata: chain.some(hasTypeMetadata) };
 }
 
 function buildDataSchema(
@@ -1155,7 +1157,12 @@ function buildFunctionSchema(
 
 function buildField(attr: Attribute, ctx: FieldContext): PreviewField {
   addSourceMapEntry(ctx.sourceMap, ctx.path, attr, ctx.sourceUri);
-  const base = buildBaseField(attr, ctx);
+  const declared = buildBaseField(attr, ctx);
+  const kind = fieldMetadataKind(attr);
+  const base =
+    kind && declared.kind !== 'unknown'
+      ? { ...declared, metadata: { kind, payloadShape: metadataPayloadShape(attr.typeCall, ctx.namespace) } }
+      : declared;
   const decoded = decodeCardinality(attr.card);
   const { lower } = decoded;
   const cardinality = getCardinality(decoded);
@@ -1515,25 +1522,9 @@ function rewriteCollisionDiagnostics(unsupportedFeatures: Set<string>, oldPrefix
  * Choice-array regression tests.
  */
 function rewritePathPrefix(field: PreviewField, oldPrefix: string, newPrefix: string): PreviewField {
-  const rewrite = (p: string): string =>
-    p === oldPrefix || p.startsWith(`${oldPrefix}.`) ? newPrefix + p.slice(oldPrefix.length) : p;
-  const path = rewrite(field.path);
-  if (field.kind === 'array') {
-    return {
-      ...field,
-      path,
-      children: [rewritePathPrefix(field.children[0], oldPrefix, newPrefix)]
-    };
-  }
-  if (field.kind !== 'object') {
-    return { ...field, path };
-  }
-  return {
-    ...field,
-    path,
-    children: field.children?.map((child) => rewritePathPrefix(child, oldPrefix, newPrefix)),
-    ...(field.choiceArmPaths ? { choiceArmPaths: field.choiceArmPaths.map(rewrite) } : {})
-  };
+  return mapPreviewFieldPaths(field, (path) =>
+    path === oldPrefix || path.startsWith(oldPrefix + '.') ? newPrefix + path.slice(oldPrefix.length) : path
+  );
 }
 
 function isArrayCardinality(decoded: { lower: number; upper: number | null }): boolean {
@@ -1585,10 +1576,37 @@ export function normalizePreviewInputs(
   );
   const func = namespace?.funcByName.get(targetId.slice(namespace.namespace.length + 1))?.node;
   if (!namespace || !func) throw new Error(`Function '${targetId}' has no input signature.`);
-  const typeIndex = namespace;
-  const activeValues = new Set<object>();
+  const adapter = createPreviewValueAdapter(namespaces, namespace, wrappers, (id) =>
+    resolveEffectiveProjectTargetId(documents, id, 'Data')
+  );
+  return adapter.normalizeObject(inputs, adapter.attributeFields(functionInputs(func))) as Record<string, unknown>;
+}
 
-  function normalizeObject(value: unknown, fields: ReadonlyMap<string, (value: unknown) => unknown>): unknown {
+/** One declared-type adapter for function inputs, imported objects and semantic validation. */
+function createPreviewValueAdapter(
+  namespaces: NamespaceIndex[],
+  typeIndex: NamespaceIndex,
+  wrappers: Record<FieldMetadataKind, (value: unknown) => unknown>,
+  resolveTypeId: (id: string) => string,
+  mode: 'canonical' | 'wire' = 'canonical'
+) {
+  const activeValues = new Set<object>();
+  const sourcePaths = new Map<string, string>();
+  function sourcePath(path: string): string {
+    const match = [...sourcePaths.keys()]
+      .filter((prefix) => path === prefix || path.startsWith(prefix + '.') || path.startsWith(prefix + '['))
+      .sort((a, b) => b.length - a.length)[0];
+    if (match === undefined) return path;
+    const prefix = sourcePaths.get(match)!,
+      suffix = path.slice(match.length);
+    return prefix ? prefix + suffix : suffix.replace(/^\./, '');
+  }
+
+  function normalizeObject(
+    value: unknown,
+    fields: ReadonlyMap<string, (value: unknown, path: string) => unknown>,
+    path = ''
+  ): unknown {
     if (value == null) return undefined;
     if (typeof value !== 'object' || Array.isArray(value))
       throw new Error('Expected an object in function preview inputs.');
@@ -1598,7 +1616,7 @@ export function normalizePreviewInputs(
       return Object.fromEntries(
         Object.entries(value).map(([key, child]) => {
           const normalize = fields.get(key);
-          return [key, normalize ? normalize(child) : child];
+          return [key, normalize ? normalize(child, path ? path + '.' + key : key) : child];
         })
       );
     } finally {
@@ -1606,42 +1624,165 @@ export function normalizePreviewInputs(
     }
   }
 
-  function attributeFields(attributes: readonly Attribute[]): Map<string, (value: unknown) => unknown> {
+  function attributeFields(attributes: readonly Attribute[]): Map<string, (value: unknown, path: string) => unknown> {
     return new Map(
       attributes.map((attr) => [
         attr.name,
-        (value: unknown) => {
+        (value: unknown, path: string) => {
           if (value == null) return undefined;
           const kind = fieldMetadataKind(attr);
           const shape = kind ? metadataPayloadShape(attr.typeCall, typeIndex) : null;
-          const normalizeItem = (item: unknown) => {
+          const normalizeItem = (item: unknown, itemPath: string) => {
             if (item == null) return undefined;
             if (kind && isMetadataInputEnvelope(item, shape)) {
-              return Object.prototype.hasOwnProperty.call(item, 'value')
-                ? { ...item, value: normalizeType(attr.typeCall, item.value) }
+              const envelope = Object.prototype.hasOwnProperty.call(item, 'value')
+                ? {
+                    ...item,
+                    ...(mode === 'wire' ? { meta: item.meta ?? {} } : {}),
+                    value: normalizeType(attr.typeCall, item.value, itemPath + '.value')
+                  }
                 : { ...item };
+              return mode === 'wire' ? withRuneJsonEncoding(envelope, 'envelope') : envelope;
             }
-            const normalized = normalizeType(attr.typeCall, item);
+            if (kind) sourcePaths.set(itemPath + '.value', sourcePath(itemPath));
+            const normalized = normalizeType(attr.typeCall, item, kind ? itemPath + '.value' : itemPath);
             return kind ? wrappers[kind](normalized) : normalized;
           };
           return isArrayCardinality(decodeCardinality(attr.card)) && Array.isArray(value)
-            ? value.map(normalizeItem)
-            : normalizeItem(value);
+            ? value.map((item, index) => normalizeItem(item, path + '[' + index + ']'))
+            : normalizeItem(value, path);
         }
       ])
     );
   }
 
-  function choiceFields(choice: Choice): Map<string, (value: unknown) => unknown> {
+  function choiceFields(choice: Choice): Map<string, (value: unknown, path: string) => unknown> {
     return new Map(
       choice.attributes.map((option) => [
         choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? ''),
-        (value: unknown) => normalizeType(option.typeCall, value)
+        (value: unknown, path: string) => normalizeType(option.typeCall, value, path)
       ])
     );
   }
 
-  function normalizeType(typeCall: TypeCall | undefined, value: unknown): unknown {
+  function concreteNode(value: unknown): Data | undefined {
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      typeof (value as Record<string, unknown>)['@type'] !== 'string'
+    )
+      return undefined;
+    const id = resolveTypeId((value as Record<string, unknown>)['@type'] as string);
+    const matches = namespaces
+      .flatMap((entry) => [...entry.dataByName.values()].map((target) => target.node))
+      .filter((node) => qualifiedTypeId(node) === id);
+    if (matches.length !== 1) throw new Error('Rune JSON concrete type is missing or ambiguous: ' + String(id));
+    return matches[0];
+  }
+  function extendsNode(node: Data, expected: Data | Choice): boolean {
+    const seen = new Set<Data | Choice>();
+    let current: Data | Choice | undefined = node;
+    while (current && !seen.has(current)) {
+      if (current === expected) return true;
+      seen.add(current);
+      current = isData(current) ? current.superType?.ref : undefined;
+    }
+    return false;
+  }
+  function choiceAcceptsNode(node: Data, expected: Choice, seen = new Set<Choice>()): boolean {
+    if (extendsNode(node, expected)) return true;
+    if (seen.has(expected)) return false;
+    const next = new Set(seen).add(expected);
+    return expected.attributes.some((option) =>
+      resolveTypeCallTarget(
+        option.typeCall,
+        typeIndex,
+        {
+          onPrimitive: () => false,
+          onEnum: () => false,
+          onData: (target) => extendsNode(node, target),
+          onChoice: (target) => choiceAcceptsNode(node, target, next),
+          onUnresolved: () => false
+        },
+        ''
+      )
+    );
+  }
+  function normalizeNode(node: Data | Choice, value: unknown, path = ''): unknown {
+    if (value == null) return undefined;
+    const declared =
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? (value as Record<string, unknown>)['@type']
+        : undefined;
+    const actual = declared === qualifiedTypeId(node) ? (isData(node) ? node : undefined) : concreteNode(value);
+    if (isChoice(node)) {
+      const existing =
+        value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+      if (mode === 'wire' && existing) {
+        const arms = node.attributes.map((option) => ({
+          option,
+          name: choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '')
+        }));
+        const present = arms.filter(
+          ({ name }) =>
+            Object.prototype.hasOwnProperty.call(existing, name) &&
+            existing[name] !== undefined &&
+            existing[name] !== null
+        );
+        if (present.length !== 1) throw new Error('Rune JSON serialization requires exactly one Choice option.');
+        const arm = present[0]!;
+        const body = normalizeType(arm.option.typeCall, existing[arm.name], path ? path + '.' + arm.name : arm.name);
+        if (!body || typeof body !== 'object' || Array.isArray(body))
+          throw new Error('Rune JSON Choice option must serialize as an object.');
+        const headers = Object.fromEntries(
+          Object.entries(existing).filter(([key]) => key !== '@type' && key.startsWith('@'))
+        );
+        if (Object.keys(existing).some((key) => !key.startsWith('@') && !arms.some((arm) => arm.name === key)))
+          throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
+        return withRuneJsonEncoding({ ...headers, ...body }, body);
+      }
+      if (actual && existing) {
+        const options = node.attributes.filter((option) =>
+          resolveTypeCallTarget(
+            option.typeCall,
+            typeIndex,
+            {
+              onPrimitive: () => false,
+              onEnum: () => false,
+              onChoice: (target) => choiceAcceptsNode(actual, target),
+              onData: (target) => extendsNode(actual, target),
+              onUnresolved: () => false
+            },
+            ''
+          )
+        );
+        if (options.length !== 1) throw new Error('Rune JSON concrete type does not select exactly one Choice option.');
+        const option = options[0]!,
+          arm = choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '');
+        const armPath = path ? path + '.' + arm : arm;
+        sourcePaths.set(armPath, sourcePath(path));
+        return { [arm]: normalizeType(option.typeCall, value, armPath) };
+      }
+      return normalizeObject(value, choiceFields(node), path);
+    }
+    if (actual && actual !== node && !extendsNode(actual, node))
+      throw new Error('Rune JSON concrete type is not assignable to ' + qualifiedTypeId(node));
+    const { attributes, choiceAncestor, metadata } = collectInheritedAttributes(actual ?? node);
+    const normalized = normalizeObject(
+      value,
+      new Map([...(choiceAncestor ? choiceFields(choiceAncestor) : []), ...attributeFields(attributes)]),
+      path
+    );
+    return mode === 'wire' && normalized && typeof normalized === 'object'
+      ? withRuneJsonEncoding(
+          { ...normalized, '@type': qualifiedTypeId(actual ?? node) },
+          metadata ? 'data-metadata' : 'data'
+        )
+      : normalized;
+  }
+
+  function normalizeType(typeCall: TypeCall | undefined, value: unknown, path: string): unknown {
     if (value == null) return undefined;
     return resolveTypeCallTarget(
       typeCall,
@@ -1649,15 +1790,8 @@ export function normalizePreviewInputs(
       {
         onPrimitive: () => value,
         onEnum: () => value,
-        onData: (node) => {
-          const { attributes, choiceAncestor } = collectInheritedAttributes(node);
-          const fields = new Map([
-            ...(choiceAncestor ? choiceFields(choiceAncestor) : []),
-            ...attributeFields(attributes)
-          ]);
-          return normalizeObject(value, fields);
-        },
-        onChoice: (node) => normalizeObject(value, choiceFields(node)),
+        onData: (node) => normalizeNode(node, value, path),
+        onChoice: (node) => normalizeNode(node, value, path),
         onUnresolved: (name) => {
           throw new Error(`Cannot resolve function input type '${name}'.`);
         }
@@ -1666,5 +1800,87 @@ export function normalizePreviewInputs(
     );
   }
 
-  return normalizeObject(inputs, attributeFields(functionInputs(func))) as Record<string, unknown>;
+  return { normalizeObject, attributeFields, normalizeNode, sourcePath };
+}
+
+/** Adapt object metadata/Choice wire values while retaining source paths for validation diagnostics. */
+function previewDataAdapter(
+  documents: LangiumDocument[],
+  targetId: string,
+  value: unknown,
+  mode: 'canonical' | 'wire'
+) {
+  const namespaces = buildNamespaceIndexes(documents);
+  const [requestedId, requestedKind] = targetId.split('#');
+  const id = resolveEffectiveProjectTargetId(documents, requestedId!, requestedKind ?? 'Data');
+  const matches = namespaces.flatMap((namespace) =>
+    [
+      ...[...namespace.dataByName.values()].filter(
+        (entry) =>
+          (!requestedKind || requestedKind === 'Data') &&
+          qualifiedTypeId(entry.node) === id &&
+          !namespace.duplicateDataNames.has(entry.node.name)
+      ),
+      ...[...namespace.choiceByName.values()].filter(
+        (entry) =>
+          (!requestedKind || requestedKind === 'Choice') &&
+          qualifiedTypeId(entry.node) === id &&
+          !namespace.duplicateChoiceNames.has(entry.node.name)
+      ),
+      ...[...namespace.typeAliasByName.values()].filter(
+        (entry) => (!requestedKind || requestedKind === 'RosettaTypeAlias') && qualifiedTypeId(entry.node) === id
+      ),
+      ...(requestedKind === 'RosettaFunction'
+        ? [...namespace.funcByName.values()].filter(
+            (entry) =>
+              `${namespace.namespace}.${entry.node.name}` === id &&
+              !entry.node.dispatchAttribute &&
+              !entry.node.dispatchValue
+          )
+        : [])
+    ].map((entry) => ({ namespace, node: entry.node }))
+  );
+  if (matches.length !== 1) throw new Error('Object type is missing or ambiguous: ' + targetId);
+  const target = matches[0]!;
+  const notObjectAlias = () => {
+    throw new Error('Object type alias does not resolve to Data or Choice: ' + targetId);
+  };
+  const node = isRosettaTypeAlias(target.node)
+    ? resolveTypeCallTarget<Data | Choice>(
+        target.node.typeCall,
+        target.namespace,
+        {
+          onData: (node) => node,
+          onChoice: (node) => node,
+          onPrimitive: notObjectAlias,
+          onEnum: notObjectAlias,
+          onUnresolved: notObjectAlias
+        },
+        ''
+      )
+    : target.node;
+  const adapter = createPreviewValueAdapter(
+    namespaces,
+    target.namespace,
+    {
+      field: (value) => (mode === 'wire' ? withRuneJsonEncoding({ value, meta: {} }, 'envelope') : { value, meta: {} }),
+      reference: (value) => (mode === 'wire' ? withRuneJsonEncoding({ value, meta: {} }, 'envelope') : { value })
+    },
+    (id) => resolveEffectiveProjectTargetId(documents, id, 'Data'),
+    mode
+  );
+  const data = isRosettaFunction(node)
+    ? adapter.normalizeObject(value, adapter.attributeFields(functionInputs(node)))
+    : adapter.normalizeNode(node, value);
+  return { data, sourcePath: adapter.sourcePath };
+}
+
+/** Normalize canonical object values using the active linked declarations. */
+export function adaptPreviewData(documents: LangiumDocument[], targetId: string, value: unknown) {
+  return previewDataAdapter(documents, targetId, value, 'canonical');
+}
+/** Project canonical Choice slots and concrete Data types before Rune wire metadata encoding. */
+export function projectRuneJsonData(documents: LangiumDocument[], targetId: string, value: unknown): unknown {
+  const canonical = previewDataAdapter(documents, targetId, value, 'canonical').data;
+  return previewDataAdapter(documents, targetId, canonical, 'wire').data;
 }
