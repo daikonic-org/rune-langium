@@ -7,7 +7,8 @@ import type { ReferenceDocument } from '@rune-langium/project-runtime/references
 import {
   createProjectReferenceTransport,
   loadProjectReferences,
-  projectReferenceCache
+  projectReferenceCache,
+  projectReferenceKey
 } from '../../services/project-references.js';
 import {
   captureProjectRuntimeInput,
@@ -28,14 +29,7 @@ export const useProjectRuntime = withInstrumentation(
       saved?.files.has('build-config.yaml') ||
       project.diagnostics.some((issue) => /^(build-config|rune-config|studio-config)/.test(issue.path))
     );
-    const referenceKey =
-      managed && saved && project.status === 'ready'
-        ? canonicalProjectJson({
-            workspaceId: saved.workspaceId,
-            references: saved.project.build.references,
-            lock: saved.lock ?? null
-          })
-        : undefined;
+    const referenceKey = managed && saved && project.status === 'ready' ? projectReferenceKey(saved) : undefined;
     const sourceKey =
       managed && project.status === 'ready'
         ? canonicalProjectJson(Object.fromEntries(projectRuntimeSources(files)))

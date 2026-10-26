@@ -15,6 +15,7 @@ import {
   createProjectReferenceTransport,
   prepareProjectReferenceChange,
   projectReferenceCache,
+  type ActiveReferenceBaseline,
   type PreparedReferenceChange
 } from '../services/project-references.js';
 import { useWorkspaceActionsOptional } from '../shell/perspectives/workspace-actions-context.js';
@@ -25,12 +26,14 @@ export const ReferenceModelPicker = withInstrumentation(
   function ReferenceModelPicker({
     controller,
     snapshot,
+    activeBaseline,
     onAccepted,
     transport: injectedTransport,
     cache = projectReferenceCache
   }: {
     controller?: ProjectController;
     snapshot?: ProjectSnapshot;
+    activeBaseline?: ActiveReferenceBaseline;
     onAccepted?: () => void;
     transport?: ReferenceTransport;
     cache?: ReferenceCache;
@@ -106,25 +109,32 @@ export const ReferenceModelPicker = withInstrumentation(
       setPhase('resolving');
       try {
         await actions?.flushWorkspaceSave?.();
-        const proposal = await prepareProjectReferenceChange(controller, transport, cache, abort.signal, (current) => {
-          const config = structuredClone(current.project.build);
-          if (!configured && release === 'nightly') {
-            const source = getModelRegistry().find((entry) => entry.id === selected);
-            if (!source) throw new Error('Unknown Nightly model.');
-            config.references[selected!] = { repository: source.repoUrl.replace(/\.git$/, ''), release: 'nightly' };
-          } else if (!configured) {
-            const repositories = new Set(
-              catalog!.releases
-                .filter((entry) => entry.modelId === selected && entry.tag === release)
-                .map((entry) => entry.repository)
-            );
-            if (repositories.size !== 1)
-              throw new Error('Ambiguous release repository. Choose a verified catalog entry.');
-            config.references[selected!] = { repository: [...repositories][0]!, release };
-          }
+        const proposal = await prepareProjectReferenceChange(
+          controller,
+          transport,
+          cache,
+          abort.signal,
+          (current) => {
+            const config = structuredClone(current.project.build);
+            if (!configured && release === 'nightly') {
+              const source = getModelRegistry().find((entry) => entry.id === selected);
+              if (!source) throw new Error('Unknown Nightly model.');
+              config.references[selected!] = { repository: source.repoUrl.replace(/\.git$/, ''), release: 'nightly' };
+            } else if (!configured) {
+              const repositories = new Set(
+                catalog!.releases
+                  .filter((entry) => entry.modelId === selected && entry.tag === release)
+                  .map((entry) => entry.repository)
+              );
+              if (repositories.size !== 1)
+                throw new Error('Ambiguous release repository. Choose a verified catalog entry.');
+              config.references[selected!] = { repository: [...repositories][0]!, release };
+            }
 
-          return config;
-        });
+            return config;
+          },
+          activeBaseline
+        );
         if (!abort.signal.aborted) setReview(proposal);
       } catch (error) {
         if (!abort.signal.aborted) setError(error instanceof Error ? error.message : 'Reference verification failed.');

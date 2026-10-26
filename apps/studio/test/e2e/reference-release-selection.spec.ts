@@ -141,7 +141,7 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
       ['cdm', '2.0', { 'rune-dsl': { modelId: 'rune-dsl', release: '2.0' } }]
     ],
     {
-      cdm: 'namespace moving\ntype Payment:\n amount number (1..1)\n updated string (0..1)\n',
+      cdm: 'namespace moving\ntype Payment:\n amount string (1..1)\n updated string (0..1)\n',
       'rune-dsl': 'namespace moving.base\ntype Support:\n value string (0..1)\n'
     },
     CURATED_MIRROR_BASE
@@ -203,10 +203,24 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   await expect(page.locator('.rune-structure-document')).toContainText('amount');
   await expect(page.locator('.rune-structure-document')).not.toContainText('updated');
   const originalConfig = (await projectBackingFiles(page))['build-config.yml'];
+  await projectBackingFiles(page, {
+    'examples/payment.example.json': JSON.stringify({
+      schemaVersion: 1,
+      id: 'payment',
+      name: 'Payment',
+      type: { model: 'cdm', namespace: 'moving', kind: 'Data', name: 'Payment' },
+      payload: 'examples/payment.json',
+      codec: 'JSON'
+    }),
+    'examples/payment.json': '{"amount":10}'
+  });
   published = updated;
   await page.getByTestId('rail-workspaces').click();
   await page.getByRole('button', { name: 'Reference models', exact: true }).click();
   await picker.getByRole('button', { name: 'Review configured references' }).click();
+  await expect(picker.getByRole('alert').filter({ hasText: 'REFERENCE_SCHEMA_CHANGED' })).toContainText(
+    'examples/payment.example.json'
+  );
   await picker.getByRole('button', { name: 'Save reference change' }).click();
   await expect(picker.getByRole('heading', { name: 'Review reference change' })).toHaveCount(0);
   await page.getByTestId('rail-explore').click();

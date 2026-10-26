@@ -957,6 +957,11 @@ The same picker offers Nightly as `release: nightly`. Shared runtime
 persisted commit, cohort or lock entry. Accepting a reference review explicitly
 refreshes the active runtime loader even when configuration bytes are unchanged,
 so Explorer, validation and generation receive the newly verified documents.
+Compatibility review captures the active in-memory reference documents as its
+baseline, guarded by the same workspace/reference/lock identity as the runtime.
+When that baseline is unavailable, a previous tagged lock can be reconstructed;
+previous Nightly contents cannot, so review reports the unavailable comparison
+explicitly instead of comparing the new mirror with itself.
 Cancelled or failed reviews do not request activation. Tagged requests alone
 determine lock freshness; an all-Nightly selection creates no lockfile, and switching the last
 tagged reference to Nightly removes its lock through guarded Save. Nightly
