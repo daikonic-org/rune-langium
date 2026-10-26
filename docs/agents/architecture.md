@@ -297,6 +297,8 @@ data stays in the owner; value edits retain identity, while recipe opening,
 rebinding and object-type selection create a fresh identity. Function-input Undo
 is scoped to its active session and function. Saved recipes never persist these
 transient identities. Node-local Undo/layout state cannot cross draft boundaries.
+Example-selection requests retain their originating surface; visiting the other
+surface never replays a replacement into its retained draft.
 Node-local layout editing uses the shared symbol-associated presentation store.
 The instance grid exposes failed-save retries through the existing instance-store
 persistence action. Draft schema failures can retry their request without losing
