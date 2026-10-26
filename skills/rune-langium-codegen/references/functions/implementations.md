@@ -11,3 +11,20 @@ resolveNativeImplementation(func: RosettaFunction, language: string): NativeImpl
 - `func: RosettaFunction`
 - `language: string`
 **Returns:** `NativeImplementationResolution | undefined`
+
+### `nativeFunctionShape`
+Exact linked signature, shared by catalog guards and the upstream coverage inventory.
+```ts
+nativeFunctionShape(func: RosettaFunction): NativeFunctionShape
+```
+**Parameters:**
+- `func: RosettaFunction`
+**Returns:** `NativeFunctionShape`
+
+### `describeNativeFunction`
+```ts
+describeNativeFunction(shape: NativeFunctionShape): string
+```
+**Parameters:**
+- `shape: NativeFunctionShape`
+**Returns:** `string`
