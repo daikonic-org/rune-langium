@@ -140,11 +140,13 @@ export const WorkflowNode = withInstrumentation(
                       const value = items[0];
                       if (onImport) {
                         onImport(value);
+                        setBeforeClear(undefined);
                         return;
                       }
                       if (!value || typeof value !== 'object' || Array.isArray(value))
                         throw new Error('Import an object for this input.');
                       onChange(value as Record<string, unknown>);
+                      setBeforeClear(undefined);
                     }}
                   />
                 ) : null}
@@ -160,7 +162,14 @@ export const WorkflowNode = withInstrumentation(
                   </Button>
                 ) : null}
                 {onBind ? (
-                  <Button variant="ghost" size="xs" onClick={onBind}>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => {
+                      setBeforeClear(undefined);
+                      onBind();
+                    }}
+                  >
                     Use stored object…
                   </Button>
                 ) : null}
