@@ -37,6 +37,7 @@ export const WorkflowNode = withInstrumentation(
     onBind,
     onImport,
     onClear,
+    undoScope,
     validationRoot
   }: {
     name: string;
@@ -58,6 +59,8 @@ export const WorkflowNode = withInstrumentation(
     onBind?(): void;
     onImport?(value: unknown): void;
     onClear?(): () => void;
+    /** Stable owner identity; ordinary input edits keep the same scope. */
+    undoScope?: unknown;
     validationRoot?: RefObject<HTMLElement | null>;
   }) {
     const navigation = useWorkflowTypeNavigation(typeNodeId);
@@ -65,7 +68,7 @@ export const WorkflowNode = withInstrumentation(
     const [requestedEditing, setEditing] = useState(false);
     const [beforeClear, setBeforeClear] = useState<{ restore(): void }>();
     const conditionIssue = validation?.diagnostics.find((diagnostic) => diagnostic.conditionName);
-    useEffect(() => setBeforeClear(undefined), [schema?.targetId, sourceId, sourcePath]);
+    useEffect(() => setBeforeClear(undefined), [schema?.targetId, sourceId, sourcePath, undoScope]);
     const { ready, entry, saveLabel } = useFormPresentationState();
     const editing = ready && requestedEditing;
     return (

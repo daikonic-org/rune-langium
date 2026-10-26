@@ -77,6 +77,17 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
     id: 'other',
     name: 'Other cash'
   });
+  for (const [id, name, amount] of [
+    ['bypass-a', 'Bypass A', 11],
+    ['bypass-b', 'Bypass B', 22]
+  ] as const)
+    files[`workflows/${id}.workflow.json`] = JSON.stringify({
+      schemaVersion: 1,
+      id,
+      name,
+      inputs: { input: { kind: 'literal', value: { amount } } },
+      outputs: { output: { name: 'money', type: identity('Money') } }
+    });
   await projectBackingFiles(page, files);
   await page.reload();
   await page.getByTestId('rail-prototype').click();
@@ -189,6 +200,30 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
   await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('88');
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
   await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('');
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Bypass A', exact: true }).click();
+  await expect(standalone.getByLabel('Amount', { exact: true })).toHaveValue('11');
+  await page.getByRole('button', { name: 'input node actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear input', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Bypass B', exact: true }).click();
+  await expect(standalone.getByLabel('Amount', { exact: true })).toHaveValue('22');
+  await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Bypass A', exact: true }).click();
+  await expect(standalone.getByLabel('Amount', { exact: true })).toHaveValue('');
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Increase cash', exact: true }).click();
+  await page.getByRole('button', { name: 'cash node actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear input', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Other cash', exact: true }).click();
+  await expect(cash.getByLabel('Value', { exact: true })).toHaveValue('1000');
+  await expect(page.getByRole('button', { name: 'Undo clear', exact: true })).toHaveCount(0);
   const saved = await projectBackingFiles(page);
   expect(saved['examples/cash.json']).toBe(files['examples/cash.json']);
   expect(saved['workflows/cash.workflow.json']).toBe(files['workflows/cash.workflow.json']);

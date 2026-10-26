@@ -65,6 +65,7 @@ import { useWorkflowSchema } from '../../services/workflow-schema.js';
 import { useWorkflowArrival } from '../../services/workflow-arrival.js';
 import './prototype-workflow.css';
 import { retainedWorkflowFields } from '../../services/workflow-input-compatibility.js';
+import { generateUlid } from '../../services/ulid.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 const EMPTY: FunctionSessionState = {
@@ -76,10 +77,16 @@ const EMPTY: FunctionSessionState = {
 };
 const NO_VALUES: Record<string, unknown> = {};
 interface Draft {
+  id: string;
   sourceId?: string;
   typeFqn: string;
   values: Record<string, unknown>;
   source: string;
+}
+
+/** Transient draft identity survives value edits but never enters a saved recipe. */
+function createDraft(input: Omit<Draft, 'id'>): Draft {
+  return { ...input, id: generateUlid() };
 }
 
 function InputNode({
@@ -92,6 +99,7 @@ function InputNode({
   onClear,
   full,
   sourceId,
+  undoScope,
   onValidation
 }: {
   schema: FormPreviewSchema;
@@ -99,6 +107,7 @@ function InputNode({
   state: FunctionSessionState;
   onChange(values: Record<string, unknown>): void;
   sourceId?: string;
+  undoScope?: FunctionSession;
   source?: string;
   onBind(): void;
   onClear(): () => void;
@@ -155,6 +164,7 @@ function InputNode({
       values={state.inputs}
       onChange={onChange}
       onClear={onClear}
+      undoScope={undoScope}
       onImport={(value) => {
         const items = field.kind === 'array' && Array.isArray(value) ? value : [value];
         const expectsObject = field.kind !== 'array' || item.kind === 'object';
@@ -248,12 +258,14 @@ export const PrototypeWorkflow = withInstrumentation(
       seenInstance.current[mode] = request;
       void prepare(record.id);
       if (mode === 'panels' || (!draft && !state.functionFqn))
-        setDraft({
-          sourceId: record.id,
-          typeFqn: record.typeFqn,
-          values: structuredClone(record.data) as Record<string, unknown>,
-          source: record.name
-        });
+        setDraft(
+          createDraft({
+            sourceId: record.id,
+            typeFqn: record.typeFqn,
+            values: structuredClone(record.data) as Record<string, unknown>,
+            source: record.name
+          })
+        );
       else setBinding({ record });
     }, [record, prepare, draft, state.functionFqn, bindingRequestId, project.status, mode]);
     const standaloneValidation = useWorkflowValidation(draft?.typeFqn, draft?.values ?? NO_VALUES);
@@ -412,12 +424,14 @@ export const PrototypeWorkflow = withInstrumentation(
             state.inputs[field.path] &&
             typeof state.inputs[field.path] === 'object'
           )
-            setDraft({
-              typeFqn: field.referencedTypeFqn,
-              values: structuredClone(state.inputs[field.path]) as Record<string, unknown>,
-              source: sources[field.path] ?? 'Workflow input',
-              sourceId: sourceIds[field.path]
-            });
+            setDraft(
+              createDraft({
+                typeFqn: field.referencedTypeFqn,
+                values: structuredClone(state.inputs[field.path]) as Record<string, unknown>,
+                source: sources[field.path] ?? 'Workflow input',
+                sourceId: sourceIds[field.path]
+              })
+            );
           pendingSeed.current = undefined;
           previousInputs.current = undefined;
           void session.selectFunction(null);
@@ -603,12 +617,14 @@ export const PrototypeWorkflow = withInstrumentation(
         setSources((s) => ({ ...s, [field.path]: candidate.name }));
         setSourceIds((s) => ({ ...s, [field.path]: candidate.id }));
       } else
-        setDraft({
-          sourceId: candidate.id,
-          typeFqn: candidate.typeFqn,
-          values: structuredClone(candidate.data) as Record<string, unknown>,
-          source: candidate.name
-        });
+        setDraft(
+          createDraft({
+            sourceId: candidate.id,
+            typeFqn: candidate.typeFqn,
+            values: structuredClone(candidate.data) as Record<string, unknown>,
+            source: candidate.name
+          })
+        );
       setBinding(undefined);
     };
     const setColumn = (index: number, value: number, commit = false) => {
@@ -696,12 +712,12 @@ export const PrototypeWorkflow = withInstrumentation(
           if (entries.length !== 1 || !type)
             throw new Error('Bypass needs one typed input. The complete recipe is retained.');
           const [path, value] = entries[0]!;
-          nextDraft = {
+          nextDraft = createDraft({
             typeFqn: type.namespace + '.' + type.name,
             values: structuredClone(value) as Record<string, unknown>,
             source: restoredSources[path] ?? workflow.name,
             sourceId: restoredIds[path]
-          };
+          });
         }
         if (version !== openingGeneration.current)
           throw new DOMException('Workflow opening was superseded.', 'AbortError');
@@ -846,11 +862,13 @@ export const PrototypeWorkflow = withInstrumentation(
               onSelect={() => {}}
               onSelectOption={(option) => {
                 if (option)
-                  setBuilderDraft({
-                    typeFqn: option.namespace ? `${option.namespace}.${option.label}` : option.label,
-                    values: {},
-                    source: 'Manual input'
-                  });
+                  setBuilderDraft(
+                    createDraft({
+                      typeFqn: option.namespace ? `${option.namespace}.${option.label}` : option.label,
+                      values: {},
+                      source: 'Manual input'
+                    })
+                  );
               }}
             />
           </div>
@@ -883,7 +901,7 @@ export const PrototypeWorkflow = withInstrumentation(
               {functionSelected && state.schema ? (
                 objectFields.map((field) => (
                   <InputNode
-                    key={field.path}
+                    key={`${state.functionFqn}:${field.path}`}
                     field={field}
                     schema={state.schema!}
                     state={state}
@@ -891,6 +909,7 @@ export const PrototypeWorkflow = withInstrumentation(
                     onValidation={receiveInputValidation}
                     source={sources[field.path]}
                     sourceId={sourceIds[field.path]}
+                    undoScope={session}
                     onChange={(values) => session?.setInputs(values)}
                     onClear={() => {
                       const before = structuredClone(state.inputs[field.path]);
@@ -905,7 +924,7 @@ export const PrototypeWorkflow = withInstrumentation(
                 ))
               ) : draft ? (
                 <WorkflowNode
-                  key={mode}
+                  key={`${mode}:${draft.id}`}
                   name="input"
                   typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
                   type={draft.typeFqn.split('.').slice(-1)[0]}
