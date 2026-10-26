@@ -17,7 +17,10 @@ it('uses Rune configuration defaults and the same lossless metadata codec for sa
   );
   expect(projectDataCodecStatus(snapshot).status).toBe('available');
   const value = { '@type': 'example.Party', name: { value: 'Party', meta: { scheme: 'local' } } };
-  const text = serializeProjectData(snapshot, value);
+  expect(() => serializeProjectData(snapshot, value)).toThrow(/declaration context/);
+  const wire = JSON.stringify({ '@type': 'example.Party', name: { '@data': 'Party', '@scheme': 'local' } });
+  const imported = importProjectData(snapshot, wire, 'example.Party');
+  const text = serializeProjectData(snapshot, imported.data);
   expect(JSON.parse(text).name).toEqual({ '@data': 'Party', '@scheme': 'local' });
   expect(importProjectData(snapshot, text, 'example.Party')).toEqual({ data: value, diagnostics: [] });
   expect(JSON.parse(serializeProjectData(snapshot, value, 'JSON'))).toEqual(value);
@@ -103,4 +106,27 @@ it('imports against an explicit local type replacement without changing source p
   );
   expect(wire).toMatchObject({ '@model': 'Custom', '@type': 'custom.Payment', amount: 21 });
   expect(JSON.stringify(references)).toBe(before);
+});
+
+it('uses linked field roles when business attributes share metadata envelope names', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const snapshot = await createProjectSnapshot('p', new Map([['rune-config.yml', 'model: {name: Example}']]), () => []);
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/fields.rosetta',
+      content: 'namespace example\ntype Business:\n value int (1..1)\n globalReference string (0..1)'
+    }
+  ]);
+  const value = { value: 3, globalReference: 'business-id' };
+  const wire = JSON.parse(
+    serializeProjectData(snapshot, value, 'RUNE_JSON', {
+      documents: graph.documents,
+      typeFqn: 'example.Business',
+      model: 'Example',
+      version: '1'
+    })
+  );
+  expect(wire).toMatchObject(value);
+  expect(wire).not.toHaveProperty('@data');
+  expect(wire).not.toHaveProperty('@ref');
 });

@@ -706,6 +706,17 @@ func Amount:
   expect(result.data).toEqual({
     payment: { cash: { '@type': 'imported.Cash', amount: { value: 21, meta: { scheme: 'USD' } } } }
   });
+  dispatch({
+    type: 'instance:decode',
+    requestId: 'decode:function-inputs',
+    typeFqn: 'imported.Amount#RosettaFunction',
+    data: { trade: decodeRuneJson(wire) }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: 'decode:function-inputs', data: { trade: result.data } })
+    )
+  );
   dispatch({ type: 'instance:validate', requestId: 'decode:validate', typeFqn: 'imported.Trade', data: result.data });
   await vi.waitFor(() =>
     expect(scope.postMessage).toHaveBeenCalledWith(

@@ -2383,3 +2383,26 @@ it('preserves declared field identity through metadata and deferred nested bodie
   );
   expect(nested).toMatchObject({ path: 'money.value.amount.value', declaredPath: 'money.amount' });
 });
+
+it('adapts a kind-qualified function input set without confusing a same-named Data declaration', async () => {
+  const doc = await parseModel(`namespace imported
+type Cash:
+ amount number (1..1)
+  [metadata scheme]
+choice Payment:
+ Cash
+func Import:
+ inputs: payment Payment (1..1)
+ output: result int (1..1)
+ set result: 1
+type Import:
+ value string (1..1)
+`);
+  expect(
+    adaptPreviewData([doc], 'imported.Import#RosettaFunction', { payment: { '@type': 'imported.Cash', amount: 21 } })
+      .data
+  ).toMatchObject({ payment: { cash: { amount: { value: 21, meta: {} } } } });
+  expect(adaptPreviewData([doc], 'imported.Import#Data', { value: 'business data' }).data).toEqual({
+    value: 'business data'
+  });
+});

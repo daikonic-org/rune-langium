@@ -53,3 +53,21 @@ it('preserves ordinary Data reference properties and inline reference values', (
   expect(encodeRuneJson(decodeRuneJson(inline))).toEqual(inline);
   expect(() => decodeRuneJson({ '@data': { name: 'not a scalar wrapper' } })).toThrow(/mix/);
 });
+
+it('distinguishes wire-origin Data attributes from metadata envelopes and refuses context-free ambiguous exports', () => {
+  for (const wire of [
+    { '@key': 'root', value: 3 },
+    { globalReference: 'business-id' },
+    { reference: 'business-id' },
+    { meta: { globalKey: 'business-field' } }
+  ]) {
+    expect(encodeRuneJson(decodeRuneJson(wire))).toEqual(wire);
+  }
+  for (const value of [
+    { value: 3, meta: { globalKey: 'root' } },
+    { globalReference: 'business-id' },
+    { meta: { globalKey: 'business-field' } }
+  ]) {
+    expect(() => encodeRuneJson(value)).toThrow(/declaration context/);
+  }
+});

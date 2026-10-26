@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { withRuneJsonEncoding } from '@rune-langium/core/serialization';
 import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
 import { resolveNativeImplementation } from './implementations/index.js';
 import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
@@ -36,7 +37,7 @@ import { choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-
 import { buildTypeReferenceGraph, findCyclicTypes } from './cycle-detector.js';
 import { resolveTypeCallTarget, type TypeResolutionVisitor } from './emit/type-ref-resolver.js';
 import { extractFuncs, functionInputs, functionOutput, functionSignature } from './types/func.js';
-import { fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
+import { hasTypeMetadata, fieldMetadataKind, type FieldMetadataKind } from './expr/metadata-runtime.js';
 import { groupFuncDispatches } from './emit/func-dispatch.js';
 import { isMetadataInputEnvelope, metadataPayloadShape } from './expr/metadata-input.js';
 import { selectEffectiveProjectDocuments, resolveEffectiveProjectTargetId } from './selection/declaration-selection.js';
@@ -454,6 +455,7 @@ function dropCollidingChoiceArmFields<TOption>(
  * terminates at, if any.
  */
 interface InheritedAttributesResult {
+  metadata: boolean;
   attributes: Attribute[];
   /**
    * Set when the `extends` chain terminates at a Choice ancestor (a Data's
@@ -515,7 +517,7 @@ function collectInheritedAttributes(data: Data): InheritedAttributesResult {
       attrs.push(attr);
     }
   }
-  return { attributes: attrs, choiceAncestor };
+  return { attributes: attrs, choiceAncestor, metadata: chain.some(hasTypeMetadata) };
 }
 
 function buildDataSchema(
@@ -1633,13 +1635,14 @@ function createPreviewValueAdapter(
           const normalizeItem = (item: unknown, itemPath: string) => {
             if (item == null) return undefined;
             if (kind && isMetadataInputEnvelope(item, shape)) {
-              return Object.prototype.hasOwnProperty.call(item, 'value')
+              const envelope = Object.prototype.hasOwnProperty.call(item, 'value')
                 ? {
                     ...item,
                     ...(mode === 'wire' ? { meta: item.meta ?? {} } : {}),
                     value: normalizeType(attr.typeCall, item.value, itemPath + '.value')
                   }
                 : { ...item };
+              return mode === 'wire' ? withRuneJsonEncoding(envelope, 'envelope') : envelope;
             }
             if (kind) sourcePaths.set(itemPath + '.value', sourcePath(itemPath));
             const normalized = normalizeType(attr.typeCall, item, kind ? itemPath + '.value' : itemPath);
@@ -1718,7 +1721,7 @@ function createPreviewValueAdapter(
         );
         if (Object.keys(existing).some((key) => !key.startsWith('@') && !arms.some((arm) => arm.name === key)))
           throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
-        return { ...headers, ...body };
+        return withRuneJsonEncoding({ ...headers, ...body }, body);
       }
       if (
         actual &&
@@ -1755,14 +1758,17 @@ function createPreviewValueAdapter(
     }
     if (actual && actual !== node && !extendsNode(actual, node))
       throw new Error('Rune JSON concrete type is not assignable to ' + qualifiedTypeId(node));
-    const { attributes, choiceAncestor } = collectInheritedAttributes(actual ?? node);
+    const { attributes, choiceAncestor, metadata } = collectInheritedAttributes(actual ?? node);
     const normalized = normalizeObject(
       value,
       new Map([...(choiceAncestor ? choiceFields(choiceAncestor) : []), ...attributeFields(attributes)]),
       path
     );
     return mode === 'wire' && normalized && typeof normalized === 'object'
-      ? { ...normalized, '@type': qualifiedTypeId(actual ?? node) }
+      ? withRuneJsonEncoding(
+          { ...normalized, '@type': qualifiedTypeId(actual ?? node) },
+          metadata ? 'data-metadata' : 'data'
+        )
       : normalized;
   }
 
@@ -1810,7 +1816,15 @@ function previewDataAdapter(
           (!requestedKind || requestedKind === 'Choice') &&
           qualifiedTypeId(entry.node) === id &&
           !namespace.duplicateChoiceNames.has(entry.node.name)
-      )
+      ),
+      ...(requestedKind === 'RosettaFunction'
+        ? [...namespace.funcByName.values()].filter(
+            (entry) =>
+              `${namespace.namespace}.${entry.node.name}` === id &&
+              !entry.node.dispatchAttribute &&
+              !entry.node.dispatchValue
+          )
+        : [])
     ].map((entry) => ({ namespace, node: entry.node }))
   );
   if (matches.length !== 1) throw new Error('Object type is missing or ambiguous: ' + targetId);
@@ -1819,13 +1833,16 @@ function previewDataAdapter(
     namespaces,
     target.namespace,
     {
-      field: (value) => ({ value, meta: {} }),
-      reference: (value) => (mode === 'wire' ? { value, meta: {} } : { value })
+      field: (value) => (mode === 'wire' ? withRuneJsonEncoding({ value, meta: {} }, 'envelope') : { value, meta: {} }),
+      reference: (value) => (mode === 'wire' ? withRuneJsonEncoding({ value, meta: {} }, 'envelope') : { value })
     },
     (id) => resolveEffectiveProjectTargetId(documents, id, 'Data'),
     mode
   );
-  return { data: adapter.normalizeNode(target.node, value), sourcePath: adapter.sourcePath };
+  const data = isRosettaFunction(target.node)
+    ? adapter.normalizeObject(value, adapter.attributeFields(functionInputs(target.node)))
+    : adapter.normalizeNode(target.node, value);
+  return { data, sourcePath: adapter.sourcePath };
 }
 
 /** Normalize canonical object values using the active linked declarations. */
