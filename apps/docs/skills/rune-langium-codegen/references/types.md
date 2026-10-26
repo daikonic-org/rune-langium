@@ -13,7 +13,7 @@ Files and the dependency-closed receipt produced by a selected export.
 ### `ProjectCodeListBinding`
 **Properties:**
 - `symbol: { model: string; namespace: string; kind: string; name: string; dispatch?: string }`
-- `values: readonly { value: string; label: string }[]` (optional)
+- `values: readonly CodeListValue[]` (optional)
 - `unavailable: string` (optional)
 
 ### `ProjectImplementationBinding`
@@ -147,6 +147,15 @@ FR-025 (diagnostics).
 - `sourceUri: string` (optional) — Source URI where the issue was detected, if known.
 - `line: number` (optional) — Source line (one-based), if known.
 - `char: number` (optional) — Source character offset (one-based), if known.
+
+### `CodeListValue`
+**Properties:**
+- `value: string`
+- `label: string`
+- `description: string` (optional)
+- `deprecatedDate: string` (optional)
+- `effectiveDate: string` (optional)
+- `source: string` (optional)
 
 ### `PreviewField`
 ```ts
@@ -407,8 +416,5 @@ ExcelOptions["sheets"]
 Linked identities and semantic facts shared with the authoritative codegen utilities.
 **Properties:**
 - `subject: ProjectionSubject`
-- `documents: readonly LangiumDocument<AstNode>[]`
-- `self: string`
-- `locals: ReadonlyMap<AstNode, string>`
 
 <!-- truncated -->

@@ -845,7 +845,8 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `DeclarationIdentitySchema`
 - `ProjectResolutionReceiptSchema`
 - `ProjectResolutionContextSchema`: Sent with a complete retained document set, after its semantic snapshots have arrived.
-- `RepositoryExampleSourceSchema`: Imported example origin; a Nightly commit records provenance, never a reference lock.
+- `RepositoryFileSourceSchema`: Verified upstream file origin; Nightly commits record provenance, never a reference lock.
+- `RepositoryExampleSourceSchema`
 - `BASE_TYPE_FILES`: System file descriptors for base types.
 - `BASICTYPES_ROSETTA`: Built-in Rune DSL base type definitions.
 - `ANNOTATIONS_ROSETTA`
@@ -1031,6 +1032,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `DeclarationIdentity`
 - `ProjectResolutionReceipt`
 - `ProjectResolutionContext`
+- `RepositoryFileSource`
 - `RepositoryExampleSource`
 - `ParseResult`: Result of parsing a Rosetta DSL source string.
 - `ExpressionParseResult`: Result of parsing a bare Rune DSL expression snippet.
@@ -1156,6 +1158,7 @@ plus a `LanguageProfile` (019 spec §3.
 FR-001 (output structure).
 - `GeneratorDiagnostic`: A generator-time diagnostic (not a Langium validation diagnostic).
 FR-025 (diagnostics).
+- `CodeListValue`
 - `PreviewField`
 - `PreviewFieldKind`
 - `PreviewSourceMapEntry`

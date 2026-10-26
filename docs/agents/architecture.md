@@ -1070,3 +1070,12 @@ refreshes after example saves retain browser state only while the reference key
 matches; workspace/reference changes invalidate pending imports. The dedicated
 object-adaptation request uses the same preview receipt/cancellation boundary as
 execution. See [format support and the XML milestone](../reference-examples/README.md).
+
+Reference code-list resources use the project runtime's `decodeProjectCodeList`;
+`build-config.yml` resource mappings can specify `codeList.format`, scheme/version
+expectations and original repository file provenance. Scheme URIs are never
+fetched. One prepared registry supplies generated constraints and preview choices.
+Resource validation unwraps only declared metadata envelopes. Large form code lists
+use the shared searchable command primitives; historical/deprecated values remain
+visible. [The audited artifact matrix](../reference-examples/build-resources.md)
+records remaining parameterized-domain, XML and publication integrations.

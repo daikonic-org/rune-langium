@@ -44,6 +44,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@rune-langium/design-system/ui/dialog';
+import { PreviewEnumInput } from './PreviewEnumInput.js';
 import { PreviewObjectGrid, type PreviewGridColumn, type PreviewGridRow } from './PreviewObjectGrid.js';
 import './form-preview.css';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
@@ -1306,38 +1307,24 @@ function PreviewFieldControl({
     const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
     const stringValue = typeof value === 'string' && value !== '' ? value : undefined;
     const fieldLabel = resolvedFieldLabel(field, arrayIndices);
-    // Select items need non-empty values. Keep the clear option separate from
-    // the sample value so an unset optional enum remains absent for Zod.
-    const CLEAR_SENTINEL = '__rune_enum_unset__';
     return (
       <div className="preview-field" data-field-path={fieldPath}>
         <span className="preview-field__label">{fieldLabel}</span>
-        <Select
+        <PreviewEnumInput
+          label={fieldLabel}
           value={stringValue}
-          onValueChange={(next) => {
+          options={field.enumValues}
+          required={field.required || isChoiceArm}
+          invalid={validationAttributes['aria-invalid']}
+          describedBy={validationAttributes['aria-describedby']}
+          onChange={(next) => {
             const clearPath =
-              next === CLEAR_SENTINEL && inputField.metadata?.kind === 'field' && !field.required
+              next === undefined && inputField.metadata?.kind === 'field' && !field.required
                 ? inputField.path
                 : field.path;
-            onFieldChange(clearPath, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
+            onFieldChange(clearPath, next, arrayIndices, true);
           }}
-        >
-          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full" {...validationAttributes}>
-            <SelectValue placeholder={field.required || isChoiceArm ? undefined : 'Select…'} />
-          </SelectTrigger>
-          <SelectContent>
-            {!field.required && !isChoiceArm ? (
-              <SelectItem value={CLEAR_SENTINEL} className="text-xs text-muted-foreground">
-                Select…
-              </SelectItem>
-            ) : null}
-            {(field.enumValues ?? []).map((option) => (
-              <SelectItem key={option.value} value={option.value} className="text-xs">
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );

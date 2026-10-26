@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { z } from 'zod';
-import { DeclarationIdentitySchema } from '@rune-langium/core/project-contract';
+import { DeclarationIdentitySchema, RepositoryFileSourceSchema } from '@rune-langium/core/project-contract';
 import { CuratedCohortSchema, CuratedSha256Schema } from '@rune-langium/curated-schema';
 
 const text = z.string().min(1);
@@ -22,7 +22,15 @@ export const ProjectOverrideSchema = z.discriminatedUnion('kind', [
       .object({ uri: text, commit: z.string().regex(/^[a-f0-9]{40}$/), cohort: CuratedCohortSchema })
       .optional()
   }),
-  z.object({ kind: z.literal('resource'), source: z.object({ model: text, id: text }), path: text }),
+  z.object({
+    kind: z.literal('resource'),
+    source: z.object({ model: text, id: text }),
+    path: text,
+    codeList: z
+      .object({ format: z.enum(['json', 'cdm-json']), canonicalUri: text.optional(), version: text.optional() })
+      .optional(),
+    provenance: RepositoryFileSourceSchema.optional()
+  }),
   z.object({ kind: z.literal('implementation'), source: SymbolIdentitySchema, provider: text })
 ]);
 export const BuildConfigSchema = z.object({
