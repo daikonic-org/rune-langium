@@ -13,6 +13,12 @@ export type ExamplePayloadSerializer = (
   payload: unknown
 ) => Promise<string>;
 
+export type ExamplePayloadDecoder = (
+  snapshot: ProjectSnapshot,
+  descriptor: ExampleDescriptor,
+  payload: unknown
+) => Promise<unknown>;
+
 export interface ExampleRepository {
   workspaceId: string;
   write(record: InstanceRecord): Promise<void>;

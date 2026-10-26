@@ -23,7 +23,11 @@ import {
   projectConfigurationPreconditions as configurationPreconditions
 } from './project-save-inputs.js';
 import type { LegacyExampleStorage } from '../opfs/instances-fs.js';
-import type { ExampleRepository, ExamplePayloadSerializer } from '../store/instance-persistence.js';
+import type {
+  ExampleRepository,
+  ExamplePayloadSerializer,
+  ExamplePayloadDecoder
+} from '../store/instance-persistence.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export const saveExample = withInstrumentation(
@@ -185,9 +189,11 @@ export const createExampleRepository = withInstrumentation(
     controller: ProjectController;
     resolveType(record: InstanceRecord): SymbolIdentity | undefined;
     serialize?: ExamplePayloadSerializer;
+    decode?: ExamplePayloadDecoder;
     legacy?: LegacyExampleStorage;
   }): ExampleRepository {
     let tail: Promise<unknown> = Promise.resolve();
+    const unreadable = new Set<string>();
     function enqueue<T>(operation: () => Promise<T>): Promise<T> {
       const next = tail.catch(() => undefined).then(operation);
       tail = next;
@@ -201,6 +207,10 @@ export const createExampleRepository = withInstrumentation(
       workspaceId: input.workspaceId,
       write: (record) =>
         enqueue(async () => {
+          if (unreadable.has(record.id))
+            throw new Error(
+              'Reload this example after its type is available before saving. Its original bytes are retained.'
+            );
           const current = await snapshot();
           const type = record.typeIdentity ?? input.resolveType(record);
           if (!type) throw new Error('This example type is unavailable or ambiguous. Its unsaved data is retained.');
@@ -266,19 +276,41 @@ export const createExampleRepository = withInstrumentation(
               });
             }
           }
-          const read = readExamples(await snapshot());
+          const current = await snapshot();
+          const read = readExamples(current);
           diagnostics.push(...read.diagnostics);
           const records = new Map<string, InstanceRecord>();
           for (const entry of read.documents) {
             const descriptor = entry.descriptor;
             const type = descriptor.type;
             const typeFqn = type.namespace + '.' + type.name;
+            let data = entry.payload;
+            unreadable.delete(descriptor.id);
+            if (data !== undefined && descriptor.codec === 'RUNE_JSON' && input.decode) {
+              try {
+                data = await input.decode(current, descriptor, data);
+                if (input.controller.current()?.revision !== current.revision)
+                  throw new Error('Project files changed while loading this example. Reload to retry.');
+              } catch (error) {
+                data = undefined;
+                unreadable.add(descriptor.id);
+                const message = error instanceof Error ? error.message : 'The example could not be decoded.';
+                failures[descriptor.id] =
+                  `${message} Reload after its type is available. Its original bytes are retained.`;
+                diagnostics.push({
+                  code: 'EXAMPLE_DECODE_UNAVAILABLE',
+                  severity: 'warning',
+                  path: entry.descriptorPath,
+                  message: failures[descriptor.id]!
+                });
+              }
+            }
             const record: InstanceRecord = {
               id: descriptor.id,
               name: descriptor.name,
               typeFqn,
               typeIdentity: type,
-              data: entry.payload,
+              data,
               createdAt: 0,
               modifiedAt: 0,
               ...(descriptor.provenance
