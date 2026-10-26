@@ -105,6 +105,31 @@ describe('runeDslStreamParser', () => {
     expect(result).toContainEqual({ text: 'item', tag: 'keyword' });
   });
 
+  it('keeps annotation-named references in list and inline-function expression roles', () => {
+    for (const expression of [
+      '[calculation, other]',
+      'items extract [calculation -> amount]',
+      'items extract calculation [calculation -> amount]',
+      'set result:\n  [calculation,\n   other]',
+      'alias selected:\n  [calculation]',
+      '[[calculation, other]]'
+    ]) {
+      const result = tokens(expression);
+      expect(
+        result.filter(({ tag }) => tag === 'annotation' || tag === 'propertyName'),
+        expression
+      ).toEqual([]);
+      expect(result, expression).toContainEqual({ text: 'calculation', tag: 'variableName' });
+    }
+    const result = tokens(
+      'func Example:\n  [calculation]\n  set result:\n    [calculation]\ntype Next:\n  [calculation]'
+    );
+    expect(result.filter(({ tag }) => tag === 'annotation')).toEqual([
+      { text: 'calculation', tag: 'annotation' },
+      { text: 'calculation', tag: 'annotation' }
+    ]);
+  });
+
   it('keeps comment contents out of annotation state, including multiline comments', () => {
     const result = tokens('/* [docReference ISDA\n [synonym FpML] */\n[metadata scheme] // [label "x"]');
     expect(result.filter(({ tag }) => tag === 'annotation')).toEqual([{ text: 'metadata', tag: 'annotation' }]);

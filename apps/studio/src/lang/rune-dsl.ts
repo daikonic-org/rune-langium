@@ -153,6 +153,7 @@ interface BracketContext {
   head: boolean;
   annotation: boolean;
   attribute: boolean;
+  expression: boolean;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -168,6 +169,7 @@ interface RuneDslState {
   expectAnnotationName: boolean;
   annotationNames: Set<string>;
   brackets: BracketContext[];
+  expressionIndent: number | null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -196,7 +198,8 @@ export const runeDslStreamParser = {
       expectTypeName: false,
       expectAnnotationName: false,
       annotationNames: new Set(STANDARD_ANNOTATIONS),
-      brackets: []
+      brackets: [],
+      expressionIndent: null
     };
   },
 
@@ -223,6 +226,13 @@ export const runeDslStreamParser = {
       return 'comment';
     }
 
+    if (stream.sol()) {
+      const line = stream.string.trimStart();
+      const indent = stream.indentation();
+      if (state.expressionIndent !== null && line && !line.startsWith('//') && indent <= state.expressionIndent)
+        state.expressionIndent = null;
+      if (/^(?:set|add|alias)\b[^:]*:/.test(line)) state.expressionIndent = indent;
+    }
     // Skip whitespace
     if (stream.eatSpace()) return null;
     const frame = state.brackets[state.brackets.length - 1];
@@ -240,7 +250,13 @@ export const runeDslStreamParser = {
     }
 
     if (stream.match('[')) {
-      state.brackets.push({ head: true, annotation: false, attribute: false });
+      const prefix = stream.string.slice(0, stream.start).trimEnd();
+      const expression =
+        state.expressionIndent !== null ||
+        Boolean(frame && !frame.annotation) ||
+        /\b(?:extract|filter|reduce|sort|min|max|then)\s*(?:[a-zA-Z_][a-zA-Z_0-9]*\s*)?$/.test(prefix) ||
+        /(?:[:,(=+*/-]|->)\s*$/.test(prefix);
+      state.brackets.push({ head: true, annotation: false, attribute: false, expression });
       return 'bracket';
     }
     if (stream.match(']')) {
@@ -268,7 +284,9 @@ export const runeDslStreamParser = {
       const word = stream.current();
       if (frame?.head) {
         frame.head = false;
-        if (ANNOTATION_HEADS.has(word) || state.annotationNames.has(word)) {
+        // A comma/navigation/operator after the head identifies an expression even without an enclosing declaration.
+        const expressionTail = /^\s*(?:,|->|[+*/=<>!]|-(?!\w))/.test(stream.string.slice(stream.pos));
+        if (!frame.expression && !expressionTail && (ANNOTATION_HEADS.has(word) || state.annotationNames.has(word))) {
           frame.annotation = true;
           frame.attribute = !ANNOTATION_HEADS.has(word);
           return 'annotation';
