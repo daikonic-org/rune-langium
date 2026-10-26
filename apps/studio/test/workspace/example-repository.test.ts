@@ -6,7 +6,7 @@ import { createOpfsRoot } from '../setup/opfs-mock.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { createProjectController } from '../../src/workspace/project-controller.js';
 import { saveExample, removeExample, migrateLegacyExamples } from '../../src/workspace/example-repository.js';
-import type { ExamplePayloadSerializer } from '../../src/store/instance-persistence.js';
+import type { ExamplePayloadSerializer, ExamplePayloadDecoder } from '../../src/store/instance-persistence.js';
 const type = { model: 'local', namespace: 'example', kind: 'Data', name: 'Trade' };
 const example = (id: string): ExampleDescriptor => ({
   schemaVersion: 1,
@@ -325,4 +325,41 @@ it('resaves cloned Rune JSON examples through linked declaration context without
     '@data': 22,
     '@scheme': 'USD'
   });
+});
+
+it('restores wire Choice examples to linked form slots before exposing records and protects undecodable originals', async () => {
+  const { createExampleRepository } = await import('../../src/workspace/example-repository.js');
+  const { buildEffectiveProject } = await import('@rune-langium/project-runtime/effective');
+  const { adaptPreviewData } = await import('@rune-langium/codegen/export');
+  const { adapter, controller } = await setup();
+  await adapter.write(
+    'model/trade.rosetta',
+    'namespace example\ntype Cash:\n amount number (1..1)\nchoice Payment:\n Cash\ntype Trade:\n payment Payment (1..1)\n',
+    null
+  );
+  const wire = JSON.stringify({ '@type': 'example.Trade', payment: { '@type': 'example.Cash', amount: 21 } });
+  await adapter.write('examples/wire.example.json', JSON.stringify({ ...example('wire'), codec: 'RUNE_JSON' }), null);
+  await adapter.write('examples/wire.json', wire, null);
+  await controller.load();
+  const graph = await buildEffectiveProject(controller.current()!, []);
+  const decode = vi.fn<ExamplePayloadDecoder>(
+    async (_snapshot, descriptor, payload) =>
+      adaptPreviewData(
+        [...graph.documents],
+        `${descriptor.type.namespace}.${descriptor.type.name}#${descriptor.type.kind}`,
+        payload
+      ).data
+  );
+  const repository = createExampleRepository({ workspaceId: 'examples', controller, resolveType: () => type, decode });
+  const loaded = await repository.load();
+  expect(loaded.records[0]!.data).toMatchObject({ payment: { cash: { amount: 21 } } });
+  expect(decode).toHaveBeenCalledOnce();
+  expect(loaded.failures).toEqual({});
+  decode.mockRejectedValueOnce(new Error('Type unavailable'));
+  const failed = await repository.load();
+  expect(failed.records[0]!.data).toBeUndefined();
+  expect(failed.failures?.wire).toMatch(/Type unavailable/);
+  await expect(repository.write({ ...failed.records[0]!, data: {} })).rejects.toThrow(/reload|retained/i);
+  expect((await adapter.read('examples/wire.json'))!.text).toBe(wire);
+  expect((await repository.load()).records[0]!.data).toMatchObject({ payment: { cash: { amount: 21 } } });
 });

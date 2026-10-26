@@ -129,6 +129,8 @@ export const WorkspaceProvider = withInstrumentation(
                     legacy,
                     serialize: (snapshot, descriptor, payload) =>
                       useInstanceStore.getState().serializeExample(snapshot, descriptor, payload),
+                    decode: (snapshot, descriptor, payload) =>
+                      useInstanceStore.getState().decodeExample(snapshot, descriptor, payload),
                     resolveType: (record) =>
                       stateRef.current.workspaceId === workspaceId
                         ? resolveExampleType(stateRef.current, record)

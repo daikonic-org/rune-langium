@@ -917,7 +917,11 @@ automatic mode remains available to other hosts.
 Project-config owns ExampleDescriptor/path/codec metadata and `readExamples`.
 Studio's `example-repository` adapts these records to the existing instance store;
 WorkspaceProvider binds it to the active ProjectController, while App supplies only
-limited typed legacy storage. Example saves serialize across records and use shared
+limited typed legacy storage. Before publishing reopened Rune JSON records, the repository
+uses the existing linked preview-worker decoder to restore form Choice slots. Worker
+registration uses the existing preparation bound; workspace epochs and controller revisions
+reject stale loads. Decode failures retain the original files and block semantic writes
+until a successful reload. Example saves serialize across records and use shared
 project Save/readback, including explicit CAS removals for deletion. Late completion
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
