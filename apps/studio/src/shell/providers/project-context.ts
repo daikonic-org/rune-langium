@@ -8,6 +8,8 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 import type { ProjectRuntimeInput } from '../../services/project-runtime-input.js';
 export interface ProjectRuntimeState {
   retry?: () => void;
+  /** Re-read moving references after an accepted review, even if saved config is unchanged. */
+  refresh?: () => void;
   managed: boolean;
   status: 'legacy' | 'loading' | 'captured' | 'unavailable';
   input?: ProjectRuntimeInput;

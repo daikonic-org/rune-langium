@@ -853,3 +853,42 @@ it('does not delete a same-ID example in a new workspace after an old removal fi
   expect(useInstanceStore.getState().instances[record.id]?.name).toBe('Second');
   useInstanceStore.getState().setExampleRepository(undefined);
 });
+
+it('retains unchanged legacy examples without blocking reference Save, while actual save failures remain blocking', async () => {
+  useInstanceStore.getState().setWorker(undefined);
+  const record = {
+    id: 'retained-example',
+    typeFqn: 'cdm.Example',
+    name: 'Original',
+    data: { untouched: true },
+    createdAt: 0,
+    modifiedAt: 0
+  };
+  const repository = {
+    workspaceId: 'retained-workspace',
+    write: vi.fn().mockRejectedValue(new Error('Actual write failed')),
+    remove: vi.fn().mockResolvedValue(undefined),
+    load: vi.fn().mockResolvedValue({
+      records: [record],
+      diagnostics: [],
+      failures: { [record.id]: 'This legacy example has not been converted.' }
+    })
+  };
+  useInstanceStore.getState().setExampleRepository(repository);
+  try {
+    await vi.waitFor(() =>
+      expect(useInstanceStore.getState().saveStates[record.id]).toMatchObject({ state: 'failed', retained: true })
+    );
+    await expect(useInstanceStore.getState().flushSaves(repository.workspaceId)).resolves.toBeUndefined();
+    expect(repository.write).not.toHaveBeenCalled();
+    expect(useInstanceStore.getState().instances[record.id]?.data).toEqual(record.data);
+    useInstanceStore.getState().saveRecord(record);
+    await expect(useInstanceStore.getState().flushSaves(repository.workspaceId)).rejects.toThrow('Actual write failed');
+    expect(useInstanceStore.getState().saveStates[record.id]).not.toHaveProperty('retained');
+    repository.write.mockResolvedValue(undefined);
+    await useInstanceStore.getState().retrySave(record.id);
+    await expect(useInstanceStore.getState().flushSaves(repository.workspaceId)).resolves.toBeUndefined();
+  } finally {
+    useInstanceStore.getState().setExampleRepository(undefined);
+  }
+});

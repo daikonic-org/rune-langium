@@ -5,3 +5,4 @@ export * from './cache.js';
 export * from './load.js';
 export * from './resolve.js';
 export * from './transport.js';
+export * from './project.js';

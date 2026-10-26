@@ -120,3 +120,126 @@ for (const width of [1440, 390])
       await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('2.0');
     }
   });
+
+test('Nightly stays moving without a lock and can be replaced by a tagged workspace reference', async ({
+  page,
+  context
+}, info) => {
+  const fixture = await createReferenceArtifacts(
+    {},
+    undefined,
+    {
+      cdm: 'namespace moving\ntype Payment:\n amount number (1..1)\n',
+      'rune-dsl': 'namespace moving.base\ntype Support:\n value string (0..1)\n'
+    },
+    CURATED_MIRROR_BASE
+  );
+  const updated = await createReferenceArtifacts(
+    {},
+    [
+      ['rune-dsl', '2.0', {}],
+      ['cdm', '2.0', { 'rune-dsl': { modelId: 'rune-dsl', release: '2.0' } }]
+    ],
+    {
+      cdm: 'namespace moving\ntype Payment:\n amount string (1..1)\n updated string (0..1)\n',
+      'rune-dsl': 'namespace moving.base\ntype Support:\n value string (0..1)\n'
+    },
+    CURATED_MIRROR_BASE
+  );
+  let published = fixture;
+  let currentReads = 0;
+  await context.route('**/releases/*', async (route) => {
+    const id = new URL(route.request().url()).pathname.split('/').pop()!;
+    await route.fulfill({ json: { schemaVersion: 1, releases: fixture.releases.get(id) ?? [] } });
+  });
+  await context.route('**/curated/*/artifacts/**', async (route) => {
+    const bytes = published.artifacts.get(route.request().url()) ?? fixture.artifacts.get(route.request().url());
+    await route.fulfill({
+      status: bytes ? 200 : 404,
+      body: bytes ? Buffer.from(bytes) : 'Unavailable',
+      headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+  });
+  await context.route('**/curated/*/manifest.json', async (route) => {
+    currentReads++;
+    const id = new URL(route.request().url()).pathname.split('/').at(-2)!;
+    const release = published.releases.get(id)![0]!;
+    await route.fulfill({
+      json: JSON.parse(new TextDecoder().decode(published.artifacts.get(release.manifest)!)),
+      headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+  });
+  await page.goto('./');
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
+  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'Reference models', exact: true }).click();
+  const picker = page.getByTestId('reference-model-picker');
+  await expect(page.getByText('Legacy model loading', { exact: true })).toHaveCount(0);
+  await picker.getByRole('button', { name: /CDM \(Common/ }).click();
+  await picker.getByRole('combobox', { name: 'Release' }).click();
+  await expect(page.getByRole('option', { name: '1.0', exact: true })).toBeVisible();
+  await page.getByRole('option', { name: 'Nightly', exact: true }).click();
+  await picker.getByRole('button', { name: 'Review change' }).click();
+  await expect(picker.getByText(/No saved pin, lock/)).toBeVisible();
+  await picker.getByRole('button', { name: 'Save reference change' }).click();
+  await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('Nightly');
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['build-config.yml'] ?? '')
+    .toMatch(/release:\s*nightly/);
+  expect((await projectBackingFiles(page))['build-config.lock.json']).toBeUndefined();
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="reference-model-picker"]').analyze()).violations
+  ).toEqual([]);
+  await page.screenshot({ path: info.outputPath('nightly-reference.png') });
+  const beforeReload = currentReads;
+  await page.reload();
+  await page.getByTestId('rail-explore').click();
+  await page.getByTestId('namespace-search').fill('Payment');
+  await typeNavigationButton(page, 'moving.Payment', 'Data').click();
+  await expect.poll(() => currentReads).toBeGreaterThan(beforeReload);
+  expect((await projectBackingFiles(page))['build-config.lock.json']).toBeUndefined();
+  const structure = page.getByRole('button', { name: 'Structure', exact: true });
+  if ((await structure.getAttribute('aria-pressed')) !== 'true') await structure.click();
+  await expect(page.locator('.rune-structure-document')).toContainText('amount');
+  await expect(page.locator('.rune-structure-document')).not.toContainText('updated');
+  const originalConfig = (await projectBackingFiles(page))['build-config.yml'];
+  await projectBackingFiles(page, {
+    'examples/payment.example.json': JSON.stringify({
+      schemaVersion: 1,
+      id: 'payment',
+      name: 'Payment',
+      type: { model: 'cdm', namespace: 'moving', kind: 'Data', name: 'Payment' },
+      payload: 'examples/payment.json',
+      codec: 'JSON'
+    }),
+    'examples/payment.json': '{"amount":10}'
+  });
+  published = updated;
+  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'Reference models', exact: true }).click();
+  await picker.getByRole('button', { name: 'Review configured references' }).click();
+  await expect(picker.getByRole('alert').filter({ hasText: 'REFERENCE_SCHEMA_CHANGED' })).toContainText(
+    'examples/payment.example.json'
+  );
+  await picker.getByRole('button', { name: 'Save reference change' }).click();
+  await expect(picker.getByRole('heading', { name: 'Review reference change' })).toHaveCount(0);
+  await page.getByTestId('rail-explore').click();
+  await typeNavigationButton(page, 'moving.Payment', 'Data').click();
+  await expect(page.locator('.rune-structure-document')).toContainText('updated');
+  const refreshedFiles = await projectBackingFiles(page);
+  expect(refreshedFiles['build-config.yml']).toBe(originalConfig);
+  expect(refreshedFiles['build-config.lock.json']).toBeUndefined();
+  await page.getByTestId('rail-workspaces').click();
+  await page.getByRole('button', { name: 'Reference models', exact: true }).click();
+  await picker.getByRole('button', { name: /CDM \(Common/ }).click();
+  await picker.getByRole('combobox', { name: 'Release' }).click();
+  await page.getByRole('option', { name: '1.0', exact: true }).click();
+  await picker.getByRole('button', { name: 'Review change' }).click();
+  await picker.getByRole('button', { name: 'Save reference change' }).click();
+  await expect
+    .poll(
+      async () =>
+        JSON.parse((await projectBackingFiles(page))['build-config.lock.json'] ?? '{}').references?.cdm?.release
+    )
+    .toBe('1.0');
+});

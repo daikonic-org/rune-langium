@@ -293,77 +293,123 @@ it('reports removed override endpoints and saved example/workflow identities bef
   await expect(review.accept(new AbortController().signal)).rejects.toThrow();
 });
 
-it('previews changed schemas and callable inputs for saved bindings without replacing the active lock', async () => {
-  const original = await referenceFixture(undefined, undefined, {
-    cdm: 'namespace ref\ntype Quote:\n amount number (1..1)\nfunc Compute:\n inputs: value number (1..1)\n output: result number (1..1)\n set result: value'
-  });
-  const adapter = createProjectFileAdapter({
-    workspaceId: 'schema-review',
-    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
-    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
-    isWritable: () => true
-  });
-  for (const [path, text] of original.snapshot.files) await adapter.write(path, text, null);
-  const controller = createProjectController({ workspaceId: 'schema-review', adapter, validateTarget: () => [] });
-  await controller.load();
-  const cache = createMemoryReferenceCache();
-  await resolveAndSaveProjectReferences(controller, original.transport, cache, new AbortController().signal);
-  await controller.save([
-    {
-      path: 'examples/quote.example.json',
-      text: JSON.stringify({
-        schemaVersion: 1,
-        id: 'quote',
-        name: 'Quote',
-        type: { model: 'cdm', namespace: 'ref', kind: 'Data', name: 'Quote' },
-        payload: 'examples/quote.json',
-        codec: 'JSON'
-      }),
-      expectedRevision: null
-    },
-    { path: 'examples/quote.json', text: '{"amount":10}', expectedRevision: null },
-    {
-      path: 'workflows/compute.workflow.json',
-      text: JSON.stringify({
-        schemaVersion: 1,
-        id: 'compute',
-        name: 'Compute',
-        function: { model: 'cdm', namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' },
-        inputs: { value: { kind: 'literal', value: 10 } },
-        outputs: {}
-      }),
-      expectedRevision: null
+it.each(['tagged', 'nightly', 'missing baseline', 'foreign baseline', 'stale baseline'])(
+  'previews changed saved schemas using the active reference baseline: %s',
+  async (mode) => {
+    const original = await referenceFixture(undefined, undefined, {
+      cdm: 'namespace ref\ntype Quote:\n amount number (1..1)\nfunc Compute:\n inputs: value number (1..1)\n output: result number (1..1)\n set result: value'
+    });
+    const adapter = createProjectFileAdapter({
+      workspaceId: 'schema-review',
+      root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+      isWritable: () => true
+    });
+    for (const [path, text] of original.snapshot.files) await adapter.write(path, text, null);
+    const controller = createProjectController({ workspaceId: 'schema-review', adapter, validateTarget: () => [] });
+    await controller.load();
+    const cache = createMemoryReferenceCache();
+    const nightly = mode !== 'tagged';
+    const transport = {
+      ...original.transport,
+      nightly: async (id: string) => {
+        const release = original.releases.get(id)![0]!;
+        return JSON.parse(new TextDecoder().decode(original.artifacts.get(release.manifest)!));
+      }
+    };
+    if (nightly) {
+      const config = structuredClone(controller.current()!.project.build);
+      config.references.cdm = { repository: 'https://github.com/finos/common-domain-model', release: 'nightly' };
+      await controller.save([
+        {
+          path: 'build-config.yml',
+          text: JSON.stringify(config),
+          expectedRevision: (await adapter.read('build-config.yml'))!.revision
+        }
+      ]);
     }
-  ]);
-  const before = controller.current()!;
-  const newer = await referenceFixture(undefined, undefined, {
-    cdm: 'namespace ref\ntype Quote:\n amount string (1..1)\nfunc Compute:\n inputs: value string (1..1)\n output: result string (1..1)\n set result: value'
-  });
-  const next = structuredClone(before.project.build);
-  next.references.cdm!.release = '2.0';
-  const review = await prepareProjectReferenceChange(
-    controller,
-    newer.transport,
-    cache,
-    new AbortController().signal,
-    next
-  );
-  expect(review.diagnostics).toContainEqual(
-    expect.objectContaining({
-      code: 'REFERENCE_SCHEMA_CHANGED',
-      path: 'examples/quote.example.json',
-      message: expect.stringContaining('ref.Quote')
-    })
-  );
-  expect(review.diagnostics).toContainEqual(
-    expect.objectContaining({
-      code: 'REFERENCE_SCHEMA_CHANGED',
-      path: 'workflows/compute.workflow.json',
-      message: expect.stringContaining('ref.Compute')
-    })
-  );
-  expect(controller.current()).toEqual(before);
-});
+    await resolveAndSaveProjectReferences(controller, transport, cache, new AbortController().signal);
+    await controller.save([
+      {
+        path: 'examples/quote.example.json',
+        text: JSON.stringify({
+          schemaVersion: 1,
+          id: 'quote',
+          name: 'Quote',
+          type: { model: 'cdm', namespace: 'ref', kind: 'Data', name: 'Quote' },
+          payload: 'examples/quote.json',
+          codec: 'JSON'
+        }),
+        expectedRevision: null
+      },
+      { path: 'examples/quote.json', text: '{"amount":10}', expectedRevision: null },
+      {
+        path: 'workflows/compute.workflow.json',
+        text: JSON.stringify({
+          schemaVersion: 1,
+          id: 'compute',
+          name: 'Compute',
+          function: { model: 'cdm', namespace: 'ref', kind: 'RosettaFunction', name: 'Compute' },
+          inputs: { value: { kind: 'literal', value: 10 } },
+          outputs: {}
+        }),
+        expectedRevision: null
+      }
+    ]);
+    const before = controller.current()!;
+    const active = {
+      snapshot: before,
+      referenceDocuments: (await loadProjectReferences(before, transport, cache, new AbortController().signal))
+        .documents
+    };
+    if (mode === 'foreign baseline') active.snapshot = { ...before, workspaceId: 'another-workspace' };
+    if (mode === 'stale baseline')
+      active.snapshot = {
+        ...before,
+        project: { ...before.project, build: { ...before.project.build, references: {} } }
+      };
+    const newer = await referenceFixture(undefined, undefined, {
+      cdm: 'namespace ref\ntype Quote:\n amount string (1..1)\nfunc Compute:\n inputs: value string (1..1)\n output: result string (1..1)\n set result: value'
+    });
+    const next = structuredClone(before.project.build);
+    if (!nightly) next.references.cdm!.release = '2.0';
+    const review = await prepareProjectReferenceChange(
+      controller,
+      {
+        ...newer.transport,
+        nightly: async (id: string) => {
+          const release = newer.releases.get(id)![0]!;
+          return JSON.parse(new TextDecoder().decode(newer.artifacts.get(release.manifest)!));
+        }
+      },
+      cache,
+      new AbortController().signal,
+      next,
+      mode === 'tagged' || mode === 'missing baseline' ? undefined : active
+    );
+    if (mode.endsWith('baseline')) {
+      expect(review.diagnostics).toContainEqual(expect.objectContaining({ code: 'REFERENCE_BASELINE_UNAVAILABLE' }));
+      expect(review.diagnostics.some((issue) => issue.code === 'REFERENCE_SCHEMA_CHANGED')).toBe(false);
+    } else {
+      expect(review.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: 'REFERENCE_SCHEMA_CHANGED',
+          path: 'examples/quote.example.json',
+          message: expect.stringContaining('ref.Quote')
+        })
+      );
+      expect(review.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: 'REFERENCE_SCHEMA_CHANGED',
+          path: 'workflows/compute.workflow.json',
+          message: expect.stringContaining('ref.Compute')
+        })
+      );
+    }
+    expect(controller.current()).toEqual(before);
+    if (nightly) expect(await adapter.read('build-config.lock.json')).toBeUndefined();
+  }
+);
 
 it.each(['source', 'resource', 'added file', 'removed file'])(
   'rejects reference acceptance after an unannounced %s change',

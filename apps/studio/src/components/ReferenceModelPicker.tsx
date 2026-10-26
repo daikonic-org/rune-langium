@@ -15,6 +15,7 @@ import {
   createProjectReferenceTransport,
   prepareProjectReferenceChange,
   projectReferenceCache,
+  type ActiveReferenceBaseline,
   type PreparedReferenceChange
 } from '../services/project-references.js';
 import { useWorkspaceActionsOptional } from '../shell/perspectives/workspace-actions-context.js';
@@ -25,11 +26,15 @@ export const ReferenceModelPicker = withInstrumentation(
   function ReferenceModelPicker({
     controller,
     snapshot,
+    activeBaseline,
+    onAccepted,
     transport: injectedTransport,
     cache = projectReferenceCache
   }: {
     controller?: ProjectController;
     snapshot?: ProjectSnapshot;
+    activeBaseline?: ActiveReferenceBaseline;
+    onAccepted?: () => void;
     transport?: ReferenceTransport;
     cache?: ReferenceCache;
   }) {
@@ -104,21 +109,32 @@ export const ReferenceModelPicker = withInstrumentation(
       setPhase('resolving');
       try {
         await actions?.flushWorkspaceSave?.();
-        const proposal = await prepareProjectReferenceChange(controller, transport, cache, abort.signal, (current) => {
-          const config = structuredClone(current.project.build);
-          if (!configured) {
-            const repositories = new Set(
-              catalog!.releases
-                .filter((entry) => entry.modelId === selected && entry.tag === release)
-                .map((entry) => entry.repository)
-            );
-            if (repositories.size !== 1)
-              throw new Error('Ambiguous release repository. Choose a verified catalog entry.');
-            config.references[selected!] = { repository: [...repositories][0]!, release };
-          }
+        const proposal = await prepareProjectReferenceChange(
+          controller,
+          transport,
+          cache,
+          abort.signal,
+          (current) => {
+            const config = structuredClone(current.project.build);
+            if (!configured && release === 'nightly') {
+              const source = getModelRegistry().find((entry) => entry.id === selected);
+              if (!source) throw new Error('Unknown Nightly model.');
+              config.references[selected!] = { repository: source.repoUrl.replace(/\.git$/, ''), release: 'nightly' };
+            } else if (!configured) {
+              const repositories = new Set(
+                catalog!.releases
+                  .filter((entry) => entry.modelId === selected && entry.tag === release)
+                  .map((entry) => entry.repository)
+              );
+              if (repositories.size !== 1)
+                throw new Error('Ambiguous release repository. Choose a verified catalog entry.');
+              config.references[selected!] = { repository: [...repositories][0]!, release };
+            }
 
-          return config;
-        });
+            return config;
+          },
+          activeBaseline
+        );
         if (!abort.signal.aborted) setReview(proposal);
       } catch (error) {
         if (!abort.signal.aborted) setError(error instanceof Error ? error.message : 'Reference verification failed.');
@@ -134,7 +150,10 @@ export const ReferenceModelPicker = withInstrumentation(
       setError(undefined);
       try {
         await review.accept(abort.signal);
-        if (!abort.signal.aborted) setReview(undefined);
+        if (!abort.signal.aborted) {
+          onAccepted?.();
+          setReview(undefined);
+        }
       } catch (error) {
         if (!abort.signal.aborted)
           setError(error instanceof Error ? error.message : 'Save failed. The previous reference remains active.');
@@ -158,7 +177,7 @@ export const ReferenceModelPicker = withInstrumentation(
       }
     };
     return (
-      <section aria-label="Pinned reference models" className="space-y-3" data-testid="reference-model-picker">
+      <section aria-label="Workspace reference models" className="space-y-3" data-testid="reference-model-picker">
         {!controller || !snapshot ? (
           <p className="text-sm text-muted-foreground">
             {controller
@@ -171,7 +190,9 @@ export const ReferenceModelPicker = withInstrumentation(
               <span>
                 {snapshot.lock
                   ? `${Object.keys(snapshot.lock.references).length} locked releases`
-                  : 'No verified reference lock'}
+                  : Object.values(snapshot.project.build.references).some((request) => request.release === 'nightly')
+                    ? 'Nightly follows the current mirror · no lock'
+                    : 'No reference models selected'}
               </span>
               {Object.keys(snapshot.project.build.references).length > 0 && (
                 <Button size="xs" variant="outline" disabled={phase !== 'idle'} onClick={() => void prepare(true)}>
@@ -219,7 +240,11 @@ export const ReferenceModelPicker = withInstrumentation(
                     }}
                   >
                     <strong>{entry.name}</strong>
-                    <span>{snapshot?.lock?.references[entry.id]?.release ?? 'Choose a release'}</span>
+                    <span>
+                      {snapshot?.project.build.references[entry.id]?.release === 'nightly'
+                        ? 'Nightly'
+                        : (snapshot?.lock?.references[entry.id]?.release ?? 'Choose a release')}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -245,7 +270,7 @@ export const ReferenceModelPicker = withInstrumentation(
                 <h3>{active.name}</h3>
                 {phase === 'catalog' ? (
                   <p role="status">Loading published releases…</p>
-                ) : catalog ? (
+                ) : (
                   <>
                     <Select
                       value={release}
@@ -257,9 +282,10 @@ export const ReferenceModelPicker = withInstrumentation(
                       disabled={phase === 'saving' || phase === 'resolving'}
                     >
                       <SelectTrigger size="sm" aria-label="Release" className="w-full">
-                        <SelectValue placeholder="Choose an exact release…" />
+                        <SelectValue placeholder="Choose Nightly or a release…" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="nightly">Nightly</SelectItem>
                         {versions.map((tag) => (
                           <SelectItem key={tag} value={tag}>
                             {tag}
@@ -268,7 +294,25 @@ export const ReferenceModelPicker = withInstrumentation(
                       </SelectContent>
                     </Select>
                     {!versions.length && (
-                      <p>No published compatible releases are available. No latest release will be substituted.</p>
+                      <p>No tagged releases are available. Nightly follows the current mirror without a saved pin.</p>
+                    )}
+                    {release === 'nightly' && (
+                      <p className="text-xs text-muted-foreground">
+                        Follows the current curated mirror on open or refresh. No lock or stability guarantees.
+                      </p>
+                    )}
+                    {catalogError && (
+                      <div role="alert" className="text-xs text-muted-foreground">
+                        Could not load releases for {active.name}. Your workspace references are unchanged. Nightly
+                        remains available.{' '}
+                        <Button size="xs" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
+                          Retry releases
+                        </Button>
+                        <details>
+                          <summary>Technical details</summary>
+                          {catalogError}
+                        </details>
+                      </div>
                     )}
                     {!review && (
                       <Button
@@ -280,24 +324,6 @@ export const ReferenceModelPicker = withInstrumentation(
                       </Button>
                     )}
                   </>
-                ) : (
-                  <div className="space-y-2">
-                    {catalogError ? (
-                      <div role="alert" className="space-y-1 text-sm">
-                        <p>Could not load releases for {active.name}.</p>
-                        <p className="text-xs text-muted-foreground">
-                          Your workspace references are unchanged. Retry to check published releases.
-                        </p>
-                        <details className="text-xs text-muted-foreground">
-                          <summary className="cursor-pointer">Technical details</summary>
-                          <p className="mt-1 break-words">{catalogError}</p>
-                        </details>
-                      </div>
-                    ) : null}
-                    <Button size="xs" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
-                      Retry releases
-                    </Button>
-                  </div>
                 )}
               </>
             ) : (

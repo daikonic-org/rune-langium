@@ -18,10 +18,9 @@ import type { ImplementationProvider } from './implementations.js';
 import { assertProjectGenerationCapabilities } from './capability-impact.js';
 import { buildEffectiveProject } from './effective-project.js';
 import {
-  loadLockedReferences,
+  loadProjectReferences,
   createReferenceTransport,
   createMemoryReferenceCache,
-  projectReferenceLockDiagnostics,
   type ReferenceDocument,
   type ReferenceTransport,
   type ReferenceCache
@@ -59,17 +58,12 @@ export async function buildProject(
   adapter: ProjectFileAdapter
 ) {
   const signal = request.signal ?? new AbortController().signal;
-  const diagnostics = await projectReferenceLockDiagnostics(snapshot);
-  if (diagnostics.length) return { status: 'failed' as const, diagnostics, outputs: [] };
-  const loaded =
-    snapshot.lock && Object.keys(snapshot.project.build.references).length
-      ? await loadLockedReferences(
-          snapshot.lock,
-          request.referenceTransport ?? createReferenceTransport(),
-          request.referenceCache ?? createMemoryReferenceCache(),
-          signal
-        )
-      : { documents: [], diagnostics: [] };
+  const loaded = await loadProjectReferences(
+    snapshot,
+    request.referenceTransport ?? createReferenceTransport(),
+    request.referenceCache ?? createMemoryReferenceCache(),
+    signal
+  );
   if (loaded.diagnostics.length) return { status: 'failed' as const, diagnostics: loaded.diagnostics, outputs: [] };
   const graph = await buildEffectiveProject(snapshot, loaded.documents, request.providers);
   const selected = request.targets === 'all' ? Object.keys(snapshot.project.build.targets) : request.targets;

@@ -24,6 +24,8 @@ function publication(
     failUpload = '',
     missingBundle = false,
     missingArtifact = false,
+    missingSource = false,
+    corruptSource = false,
     failManifest = false,
     dependencyVersion = 'v2',
     releaseMode = false,
@@ -80,6 +82,7 @@ fi
   for (const model of models) {
     const dir = join(root, 'dist/curated-artifacts', model);
     mkdirSync(join(dir, 'ns'), { recursive: true });
+    if (!missingSource) writeFileSync(join(dir, 'source.tar.gz'), corruptSource ? 'changed' : 'source');
     if (!(missingArtifact && model === 'z-dependency')) writeFileSync(join(dir, 'latest.serialized.json.gz'), 'blob');
     writeFileSync(join(dir, 'ns', `${model}.json.gz`), 'namespace');
     writeFileSync(
@@ -92,6 +95,9 @@ fi
         ...(releaseMode ? { upstreamCommit: String(models.indexOf(model) + 1).repeat(40), upstreamRef: '1.0.0' } : {}),
         sizeBytes: 4,
         documentCount: 1,
+        archiveSha256: createHash('sha256').update('source').digest('hex'),
+        archiveSizeBytes: 6,
+        generatedAt: '2026-10-25T00:00:00Z',
         dependencies: releaseMode
           ? model === 'cdm'
             ? { fpml: 'latest', 'rune-dsl': 'latest' }
@@ -144,9 +150,12 @@ fi
   return { result, uploads, published, preview: preview ? join(previewRoot, preview) : undefined };
 }
 
+const sourceSha = createHash('sha256').update('source').digest('hex');
 const versioned = [
+  `rune-curated-mirror/curated/a-consumer/artifacts/source-${sourceSha}.tar.gz`,
   'rune-curated-mirror/curated/a-consumer/artifacts/v2.serialized.json.gz',
   'rune-curated-mirror/curated/a-consumer/artifacts/v2/ns/a-consumer.json.gz',
+  `rune-curated-mirror/curated/z-dependency/artifacts/source-${sourceSha}.tar.gz`,
   'rune-curated-mirror/curated/z-dependency/artifacts/v2.serialized.json.gz',
   'rune-curated-mirror/curated/z-dependency/artifacts/v2/ns/z-dependency.json.gz'
 ];
@@ -175,8 +184,10 @@ test('publishes every versioned dependency blob before latest pointers and manif
     ...versioned,
     `rune-curated-mirror/curated/a-consumer/artifacts/${cohort}/manifest.json`,
     `rune-curated-mirror/curated/z-dependency/artifacts/${cohort}/manifest.json`,
+    'rune-curated-mirror/curated/a-consumer/latest.tar.gz',
     'rune-curated-mirror/curated/a-consumer/latest.serialized.json.gz',
     'rune-curated-mirror/curated/a-consumer/manifest.json',
+    'rune-curated-mirror/curated/z-dependency/latest.tar.gz',
     'rune-curated-mirror/curated/z-dependency/latest.serialized.json.gz',
     'rune-curated-mirror/curated/z-dependency/manifest.json'
   ]);
@@ -191,7 +202,12 @@ for (const failUpload of versioned.slice(2)) {
   });
 }
 
-for (const options of [{ missingBundle: true }, { missingArtifact: true }, { failManifest: true }]) {
+for (const options of [
+  { missingBundle: true },
+  { missingArtifact: true },
+  { missingSource: true },
+  { failManifest: true }
+]) {
   test(`does not upload anything when preparation fails: ${JSON.stringify(options)}`, (t) => {
     const { result, uploads } = publication(t, options);
     assert.notEqual(result.status, 0);
@@ -199,9 +215,18 @@ for (const options of [{ missingBundle: true }, { missingArtifact: true }, { fai
   });
 }
 
+test('rejects a corrupted release source archive before any upload', (t) => {
+  const { result, uploads } = publication(t, { releaseMode: true, corruptSource: true });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /checksum mismatch/);
+  assert.deepEqual(uploads, []);
+});
+
 for (const failUpload of [
+  'rune-curated-mirror/curated/a-consumer/latest.tar.gz',
   'rune-curated-mirror/curated/a-consumer/latest.serialized.json.gz',
   'rune-curated-mirror/curated/a-consumer/manifest.json',
+  'rune-curated-mirror/curated/z-dependency/latest.tar.gz',
   'rune-curated-mirror/curated/z-dependency/latest.serialized.json.gz',
   'rune-curated-mirror/curated/z-dependency/manifest.json'
 ]) {
@@ -244,10 +269,17 @@ test('promotes release catalogs only after all immutable objects, with dependenc
   ]);
   const first = uploads.indexOf(catalogKeys[0]);
   assert.ok(uploads.slice(0, first).every((key) => key.includes('/artifacts/')));
+  assert.ok(uploads.every((key) => key.includes('/artifacts/') || key.includes('/releases/')));
   const cdm = JSON.parse(published.get(catalogKeys[2])).releases[0];
   assert.equal(cdm.tag, '1.0.0');
   assert.equal(cdm.commit, '1'.repeat(40));
   assert.ok(published.has(cdm.manifest.replace('https://www.daikonic.dev/', 'rune-curated-mirror/')));
+  const manifest = JSON.parse(published.get(cdm.manifest.replace('https://www.daikonic.dev/', 'rune-curated-mirror/')));
+  assert.equal(manifest.upstreamRef, cdm.tag);
+  assert.equal(manifest.version, '2026-10-25');
+  const archive = published.get(manifest.archiveUrl.replace('https://www.daikonic.dev/', 'rune-curated-mirror/'));
+  assert.equal(createHash('sha256').update(archive).digest('hex'), manifest.sha256);
+  assert.equal(Buffer.byteLength(archive), manifest.sizeBytes);
 });
 for (const failUpload of ['*/fpml/artifacts/*serialized*', '*/fpml/artifacts/cohort-*/manifest.json'])
   test('never advances release catalogs after interrupted dependency publication: ' + failUpload, (t) => {

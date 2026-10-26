@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { previewTypeSymbol } from './preview-references.js';
+import { resolveNativeImplementation } from './implementations/index.js';
 import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
 import { temporalWireFormat } from './expr/temporal-conversions.js';
 import { AstUtils, type LangiumDocument } from 'langium';
@@ -181,7 +182,13 @@ export function generatePreviewSchemas(
           []
         )
       )
-        .filter((group) => group.every((func) => func.isAbstract))
+        .filter((group) =>
+          group.every(
+            (func) =>
+              func.isAbstract &&
+              (!func.source || resolveNativeImplementation(func.source, 'typescript')?.status !== 'available')
+          )
+        )
         .map((group) => group[0]!.name)
     );
     for (const name of funcNames) {

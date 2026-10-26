@@ -454,7 +454,7 @@ Recent-workspace backing and recorded repository status are distinct from a
 current Save result. Missing sync evidence is shown as unknown, not as unpublished
 or synced. No repository creation, Maven execution or automatic push occurs.
 
-### Pinned reference releases
+### Reference models: Nightly and tagged releases
 
 In **Workspaces → Reference models**, choose a model and an exact published
 release. **Review change** verifies the full dependency closure and shows selected
@@ -462,6 +462,14 @@ and required releases before **Save reference change** updates `build-config.yml
 and `build-config.lock.json` together. Selecting another release replaces that
 model's request; a workspace cannot load two releases of the same model. Cancel
 or verification failure leaves the active request and lock unchanged.
+
+The same chooser offers **Nightly**. It saves `release: nightly` in
+`build-config.yml` and follows the current curated mirror on open or refresh.
+There is no saved Nightly commit or lock entry, and an all-Nightly workspace has
+no lockfile. Nightly provides no stability or reproducibility guarantees. Its
+current dependency set is still checked for compatible cohorts and valid bytes;
+an interrupted publication reports an error for retry. A model cannot be both
+Nightly and a tagged dependency in the same workspace.
 
 Normal reopen uses the locked commits and verified content cache, without a tag
 lookup or a latest-release fallback. Missing locks, conflicting requirements,
@@ -471,8 +479,9 @@ loading** retries an unavailable locked load. Invalid configuration must be
 repaired before a new selection can be saved. Dependency compatibility does not
 establish compatibility of local overrides, examples or business implementations.
 Explorer and parser hydration consume the same captured documents as preview,
-LSP and exports. Legacy model loading remains available only to unmanaged
-workspaces, preserving existing imports without mixing them into pinned projects.
+LSP and exports. The legacy model-loading panel is removed. Unconverted examples
+retain their original data and recovery status without blocking unrelated
+reference changes; actual failed saves still need to be retried.
 
 ### Runnable model-authoring example
 

@@ -7,7 +7,7 @@ import { corsJsonResponse as json } from '@rune-langium/worker-core/http';
  *
  * Routes (per contracts/curated-mirror-http.md):
  *   GET /curated/<modelId>/manifest.json   — short cache + ETag, 304 on If-None-Match match
- *   GET /curated/<modelId>/latest.tar.gz   — long immutable cache
+ *   GET /curated/<modelId>/latest.tar.gz   — short moving cache
  *   GET /curated/<modelId>/archives/<version>.tar.gz
  *
  * CORS headers are emitted on every response (success and error); the
@@ -111,7 +111,7 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
   // `.json.gz` (no `.serialized`), so it needs its own matcher.
   const isNamespaceArtifact = /artifacts\/[^/]+\/ns\/.+\.json\.gz$/.test(rest);
   let cacheControl: string | null = null;
-  if (isReleaseCatalog || isManifest) cacheControl = 'public, max-age=300';
+  if (isReleaseCatalog || isManifest || rest === 'latest.tar.gz') cacheControl = 'public, max-age=300';
   else if (isArchive) cacheControl = 'public, max-age=86400, immutable';
   else if (isLatestSerializedArtifact) cacheControl = 'public, max-age=300';
   else if (isVersionedSerializedArtifact) cacheControl = 'public, max-age=86400, immutable';

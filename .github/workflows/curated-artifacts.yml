@@ -1,4 +1,10 @@
 name: Curated Serialized Artifacts
+run-name: ${{ inputs.cdm_release && format('Curated release — CDM {0}', inputs.cdm_release) || 'Curated Nightly — CDM master' }}
+
+# Catalog read/modify/write and moving pointers must not race another publisher.
+concurrency:
+  group: curated-publication
+  cancel-in-progress: false
 
 # Build pre-parsed Langium artifacts for curated models (CDM, FpML, rune-dsl).
 #
@@ -21,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       cdm_release:
-        description: Optional CDM GitHub release tag; blank builds development/latest artifacts
+        description: CDM GitHub release tag; leave blank for Nightly (upstream master)
         required: false
         type: string
 

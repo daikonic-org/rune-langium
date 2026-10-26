@@ -10,7 +10,6 @@ import { FileLoader } from '../../../components/FileLoader.js';
 import { WorkspaceSwitcher } from '../../../components/WorkspaceSwitcher.js';
 import { ReferenceModelPicker } from '../../../components/ReferenceModelPicker.js';
 import { useProject } from '../../providers/project-context.js';
-import { ModelLoader } from '../../../components/ModelLoader.js';
 import { useWorkspaceActions } from '../workspace-actions-context.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 
@@ -32,7 +31,6 @@ export const WorkspacesPerspective = withInstrumentation(
     } = useWorkspaceActions();
 
     const project = useProject();
-    const managed = project.snapshot?.files.has('build-config.yml') || project.snapshot?.files.has('build-config.yaml');
     const [section, setSection] = useState<'workspaces' | 'references'>('workspaces');
     return (
       <section data-testid="workspaces-perspective" className="studio-launcher studio-scroll h-full overflow-auto">
@@ -104,17 +102,9 @@ export const WorkspacesPerspective = withInstrumentation(
               key={project.workspaceId ?? 'no-workspace'}
               controller={project.controller}
               snapshot={project.snapshot}
+              activeBaseline={project.runtime?.input}
+              onAccepted={project.runtime?.refresh}
             />
-            {!managed && (
-              <div className="mt-6 border-t pt-3">
-                <h3 className="text-xs font-medium mb-2">Legacy model loading</h3>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Existing unpinned models remain available here. Select a release above to manage verified references
-                  in this workspace.
-                </p>
-                <ModelLoader />
-              </div>
-            )}
           </div>
         </div>
       </section>

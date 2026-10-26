@@ -27,7 +27,7 @@ function fixture() {
         generatedAt: '2026-10-23T00:00:00Z',
         upstreamCommit: source.commit,
         upstreamRef: source.ref,
-        archiveUrl: `${base}/curated/${source.id}/latest.tar.gz`,
+        archiveUrl: `${base}/curated/${source.id}/artifacts/2026-10-23-hash.source.tar.gz`,
         history: [],
         cohort,
         dependencies:
@@ -94,6 +94,24 @@ test('does not advance any release when dependency artifacts or manifests were n
     /not published/
   );
   assert.deepEqual(writes, []);
+});
+test('requires immutable source archives and their successful upload receipts', async () => {
+  const input = fixture();
+  const plan = prepareCuratedReleasePublication(input);
+  const writes = [];
+  await assert.rejects(
+    publishCuratedReleaseCatalogs(plan, {
+      published: new Set(plan.requiredObjects.filter((key) => !key.endsWith('.source.tar.gz'))),
+      put: async (key) => writes.push(key)
+    }),
+    /not published/
+  );
+  assert.deepEqual(writes, []);
+  input.manifests.set(
+    'cdm',
+    JSON.stringify({ ...JSON.parse(input.manifests.get('cdm')), archiveUrl: `${base}/curated/cdm/latest.tar.gz` })
+  );
+  assert.throws(() => prepareCuratedReleasePublication(input), /not immutable/);
 });
 test('publishes dependencies before consumers and stops on a dependency catalog failure', async () => {
   const plan = prepareCuratedReleasePublication(fixture());

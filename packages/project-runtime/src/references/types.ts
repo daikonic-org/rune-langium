@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import type { ReferenceCatalog } from '@rune-langium/curated-schema';
+import type { ReferenceCatalog, CuratedManifest } from '@rune-langium/curated-schema';
 import type { ProjectDiagnostic } from '@rune-langium/project-config';
 export interface ReferenceTransport {
   catalog(modelId: string, signal: AbortSignal): Promise<ReferenceCatalog>;
   artifact(url: string, signal: AbortSignal): Promise<Uint8Array>;
+  /** Current moving mirror, fetched on open/refresh, never stored in a project lock. */
+  nightly?(modelId: string, signal: AbortSignal): Promise<CuratedManifest>;
 }
 export interface ReferenceCache {
   get(checksum: string): Promise<Uint8Array | undefined>;

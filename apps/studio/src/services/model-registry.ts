@@ -8,6 +8,7 @@
  */
 
 import type { ModelSource } from '../types/model-types.js';
+import { CURATED_MODEL_REPOSITORIES } from '@rune-langium/curated-schema';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 
 const MIRROR_BASE = 'https://www.daikonic.dev/curated';
@@ -21,7 +22,7 @@ const CURATED_MODELS: readonly ModelSource[] = [
   {
     id: 'cdm',
     name: 'CDM (Common Domain Model)',
-    repoUrl: 'https://github.com/REGnosys/rosetta-cdm.git',
+    repoUrl: `${CURATED_MODEL_REPOSITORIES.cdm}.git`,
     ref: 'master',
     paths: ['rosetta-source/src/main/rosetta/**/*.rosetta'],
     archiveUrl: `${MIRROR_BASE}/cdm/latest.tar.gz`,
@@ -30,7 +31,7 @@ const CURATED_MODELS: readonly ModelSource[] = [
   {
     id: 'fpml',
     name: 'FpML (Rune)',
-    repoUrl: 'https://github.com/rosetta-models/rune-fpml.git',
+    repoUrl: `${CURATED_MODEL_REPOSITORIES.fpml}.git`,
     ref: 'master',
     paths: ['rosetta-source/src/main/rosetta/**/*.rosetta'],
     archiveUrl: `${MIRROR_BASE}/fpml/latest.tar.gz`
@@ -38,7 +39,7 @@ const CURATED_MODELS: readonly ModelSource[] = [
   {
     id: 'rune-dsl',
     name: 'Rune DSL (Built-in Types)',
-    repoUrl: 'https://github.com/finos/rune-dsl.git',
+    repoUrl: `${CURATED_MODEL_REPOSITORIES['rune-dsl']}.git`,
     ref: 'main',
     paths: ['rune-runtime/src/main/resources/model/**/*.rosetta'],
     archiveUrl: `${MIRROR_BASE}/rune-dsl/latest.tar.gz`

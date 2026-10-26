@@ -612,8 +612,12 @@ input order and names, escaping target keywords or internal binding collisions.
 Trailing optional arguments have defaults; preceding optional arguments retain
 explicit absence types. TypeScript exposes ordered `parameterNames` metadata even
 in single-file output; Studio uses it to adapt schema-validated named form fields.
-Python protects builtins and global callables from input-name shadowing. Native declarations require an explicit callable binding;
-missing bindings fail visibly. Dispatch normalizes inputs before selecting a
+Python protects builtins and global callables from input-name shadowing. Codegen's
+`implementations/` catalog validates native declaration identity, annotation,
+signature and target before TypeScript/Python embed a handwritten body. Preview
+availability uses that same resolver. Authored Rune replacements and explicit
+host bindings take precedence. Native declarations without a bundled body require
+an explicit callable binding; missing bindings fail visibly. Dispatch normalizes inputs before selecting a
 variant, retaining wrappers for its body. Function condition fragments are
 captured from that same body traversal. Python records the authored body statements
 without export input normalization or the final export boundary check. Expressions,
@@ -919,6 +923,14 @@ then `createStarterWorkingCopy` uses the existing ProjectController before host
 activation. Starter provenance lives on WorkspaceRecord without GitBacking,
 credentials or reference-only flags. Unpublished catalog proposals stay disabled.
 Workspace opening and reference dependencies occupy separate launcher sections.
+The published `daikonic-org/rune-starter` is a GitHub template; `rune-cdm-example`
+was generated from it and retains the same workflow checker and CI. The launcher
+catalog pins verified public commits rather than floating branches. Both are
+ordinary editable starter copies, without an inherited writable remote. The CDM
+sample locks release 7.8.0 and its dependencies and calls the upstream Rune
+`UpdateAmount` through an original local wrapper; it does not provide financial
+payment scheduling. Template-generated repositories do not automatically pull
+future template changes.
 Recent-workspace Rename updates only display metadata and recents in one IndexedDB
 transaction, preserving current backing/UI state and updating the active header.
 It never renames `rune-config.yml` model identity or repository-managed files.
@@ -952,6 +964,33 @@ acceptance. Unavailable baseline or standalone preview contracts are reported,
 not treated as a compatibility success.
 `ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
 selects a latest tag implicitly, and does not invoke the legacy model store.
+The same picker offers Nightly as `release: nightly`. Shared runtime
+`loadProjectReferences` follows the current mirrors on open/refresh without a
+persisted commit, cohort or lock entry. Accepting a reference review explicitly
+refreshes the active runtime loader even when configuration bytes are unchanged,
+so Explorer, validation and generation receive the newly verified documents.
+Compatibility review captures the active in-memory reference documents as its
+baseline, guarded by the same workspace/reference/lock identity as the runtime.
+When that baseline is unavailable, a previous tagged lock can be reconstructed;
+previous Nightly contents cannot, so review reports the unavailable comparison
+explicitly instead of comparing the new mirror with itself.
+Cancelled or failed reviews do not request activation. Tagged requests alone
+determine lock freshness; an all-Nightly selection creates no lockfile, and switching the last
+tagged reference to Nightly removes its lock through guarded Save. Nightly
+dependency cohorts, format, paths and bytes are checked together through the
+same bundle validator as tagged references. Partial publications fail visibly;
+Nightly never silently replaces a required tagged dependency. Nightly follows
+upstream CDM `master` and its required dependency versions without stability or
+reproducibility guarantees. The legacy loader panel is removed. Tagged
+publication updates release catalogs only, leaving Nightly pointers unchanged.
+Both paths publish checksum-addressed source archives with matching manifest
+metadata; release publication verifies their bytes and successful upload receipts.
+Moving `latest` archive URLs use short cache lifetimes; checksum-addressed source
+archives retain immutable caching.
+
+Unconverted/unreadable restored examples remain visible with their original
+data. Their retained-load errors do not block unrelated reference Save. Editing
+or retrying one clears that marker; actual failed writes remain Save barriers.
 
 `WorkspaceProvider` projects captured references into the Explorer through
 `prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope

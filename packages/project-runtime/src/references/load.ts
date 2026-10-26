@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { inflate } from 'pako';
-import { CuratedManifestSchema, CuratedSerializedWorkspaceArtifactSchema } from '@rune-langium/curated-schema';
+import {
+  CuratedManifestSchema,
+  CuratedSerializedWorkspaceArtifactSchema,
+  type CuratedManifest
+} from '@rune-langium/curated-schema';
 import {
   ProjectLockSchema,
   normalizeProjectPath,
@@ -44,30 +48,7 @@ export async function loadLockedReferences(
         if (!peer || peer.cohort !== cohort || peer.release !== entry.dependencies[dependency])
           throw new ReferenceFailure('REFERENCE_DEPENDENCY', 'Locked dependency mismatch: ' + id + ' -> ' + dependency);
       }
-      const artifact = manifest.artifacts?.serializedWorkspace;
-      if (!artifact || !artifact.url.includes('/artifacts/') || artifact.url.includes('/latest'))
-        throw new ReferenceFailure('REFERENCE_ARTIFACT', 'Immutable serialized artifact is missing: ' + id);
-      const bytes = await read(artifact.url, artifact.sha256);
-      if (bytes.byteLength !== artifact.sizeBytes)
-        throw new ReferenceFailure('REFERENCE_CHECKSUM', 'Serialized artifact size mismatch: ' + id);
-      const bundle = CuratedSerializedWorkspaceArtifactSchema.parse(
-        JSON.parse(new TextDecoder().decode(inflate(bytes)))
-      );
-      if (
-        bundle.modelId !== id ||
-        bundle.langiumVersion !== artifact.langiumVersion ||
-        bundle.langiumVersion !== lock.toolchain.langium ||
-        bundle.documents.length !== artifact.documentCount
-      )
-        throw new ReferenceFailure('REFERENCE_ARTIFACT', 'Serialized artifact identity/format mismatch: ' + id);
-      const seen = new Set<string>();
-      for (const doc of bundle.documents) {
-        const path = normalizeProjectPath(doc.path);
-        if (!path || seen.has(path))
-          throw new ReferenceFailure('REFERENCE_DOCUMENT', 'Unsafe or duplicate reference document path: ' + doc.path);
-        seen.add(path);
-        documents.push({ uri: `${id}/${path}`, content: doc.content ?? '', serialized: doc.modelJson });
-      }
+      documents.push(...(await readReferenceDocuments(id, manifest, lock.toolchain.langium, read)));
     }
     signal.throwIfAborted();
     for (const [key, bytes] of staged) {
@@ -136,4 +117,37 @@ export async function readReferenceManifest(
   )
     throw new ReferenceFailure('REFERENCE_PROVENANCE', 'Manifest provenance does not match the lock: ' + id);
   return manifest;
+}
+
+/** Shared bundle, checksum, format and document-path validation for tagged and moving references. */
+export async function readReferenceDocuments(
+  id: string,
+  manifest: CuratedManifest,
+  langiumVersion: string | undefined,
+  read: (url: string, checksum: string) => Promise<Uint8Array>
+): Promise<ReferenceDocument[]> {
+  const artifact = manifest.artifacts?.serializedWorkspace;
+  if (!artifact || !artifact.url.includes('/artifacts/') || artifact.url.includes('/latest'))
+    throw new ReferenceFailure('REFERENCE_ARTIFACT', 'Immutable serialized artifact is missing: ' + id);
+  const bytes = await read(artifact.url, artifact.sha256);
+  if (bytes.byteLength !== artifact.sizeBytes)
+    throw new ReferenceFailure('REFERENCE_CHECKSUM', 'Serialized artifact size mismatch: ' + id);
+  const bundle = CuratedSerializedWorkspaceArtifactSchema.parse(JSON.parse(new TextDecoder().decode(inflate(bytes))));
+  if (
+    bundle.modelId !== id ||
+    bundle.langiumVersion !== artifact.langiumVersion ||
+    bundle.langiumVersion !== langiumVersion ||
+    bundle.documents.length !== artifact.documentCount
+  )
+    throw new ReferenceFailure('REFERENCE_ARTIFACT', 'Serialized artifact identity/format mismatch: ' + id);
+  const documents: ReferenceDocument[] = [];
+  const seen = new Set<string>();
+  for (const doc of bundle.documents) {
+    const path = normalizeProjectPath(doc.path);
+    if (!path || seen.has(path))
+      throw new ReferenceFailure('REFERENCE_DOCUMENT', 'Unsafe or duplicate reference document path: ' + doc.path);
+    seen.add(path);
+    documents.push({ uri: `${id}/${path}`, content: doc.content ?? '', serialized: doc.modelJson });
+  }
+  return documents;
 }
