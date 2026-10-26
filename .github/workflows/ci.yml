@@ -153,6 +153,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Use Ubuntu HTTPS package mirrors
+        # The runner's priority-1 Azure HTTP mirror can hang inside apt update:
+        # https://github.com/actions/runner-images/issues/14594
+        # Retain the image's official archive/security fallback mirrors and priorities.
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i '\|^http://azure\.archive\.ubuntu\.com/ubuntu/|d' /etc/apt/apt-mirrors.txt
+          fi
+
       - name: Install Playwright browsers (chromium only)
         run: pnpm --filter @rune-langium/studio exec playwright install --with-deps chromium
 
