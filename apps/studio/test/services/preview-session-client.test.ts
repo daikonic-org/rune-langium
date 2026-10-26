@@ -22,6 +22,39 @@ function readiness(): InstanceReadiness {
 afterEach(() => vi.useRealTimers());
 
 describe('createPreviewSessionClient', () => {
+  it('serializes through hydrated linked declarations and correlates text replies', async () => {
+    const { createProjectSnapshot } = await import('@rune-langium/project-config');
+    const snapshot = await createProjectSnapshot(
+      'p',
+      new Map([['rune-config.yml', 'model: {name: Example}']]),
+      () => []
+    );
+    const worker = new FakeWorker();
+    const client = createPreviewSessionClient(worker as unknown as Worker, readiness());
+    const result = client.serialize!(
+      snapshot,
+      'example.Trade#Data',
+      { amount: { value: 21, meta: { scheme: 'USD' } } },
+      new AbortController().signal
+    );
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(1));
+    worker.reply({
+      type: 'instance:generateSchemaResult',
+      requestId: worker.posted[0]!.requestId,
+      typeFqn: 'example.Trade#Data',
+      schema: { schemaVersion: 1, targetId: 'example.Trade#Data', title: 'Trade', status: 'ready', fields: [] }
+    });
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+    expect(worker.posted[1]).toMatchObject({ type: 'instance:serialize', snapshot, typeFqn: 'example.Trade#Data' });
+    worker.reply({ type: 'instance:serializeResult', requestId: 'unrelated', text: 'wrong' });
+    worker.reply({
+      type: 'instance:serializeResult',
+      requestId: worker.posted[1]!.requestId,
+      text: '{"amount":{"@data":21,"@scheme":"USD"}}'
+    });
+    await expect(result).resolves.toContain('@scheme');
+    client.dispose();
+  });
   it('bounds projection rendering to 30 seconds and permits a correlated retry', async () => {
     vi.useFakeTimers();
     const worker = new FakeWorker();

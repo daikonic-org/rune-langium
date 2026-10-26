@@ -13,9 +13,11 @@ import {
   instancePersistenceContext,
   persistDelete,
   persistInstance,
+  type ExamplePayloadSerializer,
   type ExampleRepository
 } from './instance-persistence.js';
 import { create } from 'zustand';
+import { createPreviewSessionClient } from '../services/preview-session-client.js';
 
 function ulid(): string {
   // Time-sortable enough for Phase 1's uniqueness needs; swap for a real
@@ -107,6 +109,7 @@ interface InstanceStoreState {
   flushInstance(id: string): Promise<void>;
   flushSaves(workspaceId: string): Promise<void>;
   saveRecord(record: InstanceRecord): void;
+  serializeExample: ExamplePayloadSerializer;
   markSaveFailed(id: string, revision: number, error: unknown): void;
   setWorker(worker: Worker | undefined): void;
   setReadiness(readiness: InstanceReadiness | undefined): void;
@@ -331,6 +334,29 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
 
   setWorker(worker) {
     workerRef = worker;
+  },
+
+  async serializeExample(snapshot, descriptor, payload) {
+    const worker = workerRef,
+      readiness = readinessRef,
+      epoch = get().workspaceEpoch;
+    if (!worker || !readiness)
+      throw new Error('Example serialization is unavailable until its type is loaded. Retry after loading.');
+    const client = createPreviewSessionClient(worker, readiness);
+    try {
+      const type = descriptor.type;
+      const text = await client.serialize!(
+        snapshot,
+        `${type.namespace}.${type.name}#${type.kind}`,
+        payload,
+        new AbortController().signal
+      );
+      if (workerRef !== worker || readinessRef !== readiness || get().workspaceEpoch !== epoch)
+        throw new Error('Workspace changed while serializing this example. Retry in its original workspace.');
+      return text;
+    } finally {
+      client.dispose();
+    }
   },
 
   setReadiness(readiness) {

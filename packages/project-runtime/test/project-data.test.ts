@@ -145,6 +145,13 @@ it('rejects linked Rune JSON exports with unsupported envelope siblings while re
   const context = { documents: graph.documents, typeFqn: 'example.Cash', model: 'Example', version: '1' };
   expect(() => serializeProjectData(snapshot, value, 'RUNE_JSON', context)).toThrow(/envelope.*supported/);
   expect(JSON.parse(serializeProjectData(snapshot, value, 'JSON', context))).toEqual(value);
+  const linked = { documents: graph.documents, typeFqn: 'example.Cash' };
+  const plain = { amount: { value: 21, meta: { scheme: 'USD' } } };
+  const output = JSON.parse(serializeProjectData(snapshot, plain, 'RUNE_JSON', linked));
+  expect(output).toEqual({ '@type': 'example.Cash', amount: { '@data': 21, '@scheme': 'USD' } });
+  expect(
+    JSON.parse(serializeProjectData(snapshot, { ...plain, '@model': 'original', '@version': '7' }, 'RUNE_JSON', linked))
+  ).toMatchObject({ '@model': 'original', '@version': '7' });
 });
 
 it('round-trips concrete Choice and derived Data roots through linked assignability checks', async () => {

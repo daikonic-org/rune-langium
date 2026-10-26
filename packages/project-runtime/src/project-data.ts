@@ -27,10 +27,10 @@ function requireDataCodec(snapshot: ProjectSnapshot, requested?: string) {
 export interface ProjectDataContext {
   documents: LangiumDocument[];
   typeFqn: string;
-  model: string;
-  version: string;
+  model?: string;
+  version?: string;
 }
-/** Full object Rune serialization requires explicit linked type/model/version context. */
+/** Linked declarations supply object roles; optional model/version values replace existing wire headers. */
 export function serializeProjectData(
   snapshot: ProjectSnapshot,
   value: unknown,
@@ -47,7 +47,14 @@ export function serializeProjectData(
     if (!projected || typeof projected !== 'object' || Array.isArray(projected))
       throw new Error('Rune object serialization requires a typed object.');
     return serializeProjectPayload(
-      withRuneJsonEncoding({ ...projected, '@model': context.model, '@version': context.version }, projected),
+      withRuneJsonEncoding(
+        {
+          ...projected,
+          ...(context.model === undefined ? {} : { '@model': context.model }),
+          ...(context.version === undefined ? {} : { '@version': context.version })
+        },
+        projected
+      ),
       format
     );
   }

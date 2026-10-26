@@ -20,6 +20,10 @@ ambiguous alternatives are rejected rather than guessed.
 Concrete type headers distinguish Data attributes from same-named Choice slots.
 Rune JSON export rejects unsupported metadata-envelope siblings instead of
 discarding them; plain JSON retains those fields.
+Saving an edited Rune JSON example uses the existing linked worker context, so
+cloned working values retain their metadata roles, original codec and wire
+headers. A changed workspace or unapplied saved revision rejects the save rather
+than using a different declaration context.
 
 Validation uses the shared generated Rune schemas. A zero-minimum collection may
 be omitted from an example, as it may from function inputs; applicable data and

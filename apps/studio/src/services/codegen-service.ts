@@ -22,6 +22,7 @@ import { isRecord } from './message-guards.js';
 import type { FormPreviewSchema, GeneratedProjection, ProjectionSubject } from '@rune-langium/codegen/export';
 import type { ProjectRuntimeInput } from './project-runtime-input.js';
 import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
+import type { ProjectSnapshot } from '@rune-langium/project-config';
 
 export interface ProjectionRequest {
   type: 'projection:generate';
@@ -753,6 +754,30 @@ export interface InstanceDecodeMessage {
   data: unknown;
   requestId: string;
 }
+
+export interface InstanceSerializeMessage {
+  type: 'instance:serialize';
+  snapshot: ProjectSnapshot;
+  typeFqn: string;
+  data: unknown;
+  requestId: string;
+}
+export const isInstanceSerializeResultMessage = withInstrumentation(
+  function isInstanceSerializeResultMessage(value: unknown): value is {
+    type: 'instance:serializeResult';
+    requestId: string;
+    text?: string;
+    error?: string;
+  } {
+    return (
+      isRecord(value) &&
+      value.type === 'instance:serializeResult' &&
+      typeof value.requestId === 'string' &&
+      (typeof value.text === 'string' || typeof value.error === 'string')
+    );
+  },
+  { op: 'isInstanceSerializeResultMessage', capture: 0 }
+);
 export const isInstanceDecodeResultMessage = withInstrumentation(
   function isInstanceDecodeResultMessage(
     value: unknown

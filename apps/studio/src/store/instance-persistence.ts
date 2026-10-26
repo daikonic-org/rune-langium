@@ -4,8 +4,14 @@
 import { deleteInstance, writeInstance } from '../opfs/instances-fs.js';
 import type { OpfsFs } from '../opfs/opfs-fs.js';
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
-import type { ProjectDiagnostic } from '@rune-langium/project-config';
+import type { ProjectDiagnostic, ProjectSnapshot, ExampleDescriptor } from '@rune-langium/project-config';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+
+export type ExamplePayloadSerializer = (
+  snapshot: ProjectSnapshot,
+  descriptor: ExampleDescriptor,
+  payload: unknown
+) => Promise<string>;
 
 export interface ExampleRepository {
   workspaceId: string;

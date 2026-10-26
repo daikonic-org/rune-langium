@@ -4,6 +4,12 @@ MIT-licensed composition of portable configuration, the Rune parser and installe
 code generators. The `/browser` entry is host-neutral. Native filesystem discovery is
 available separately from `@rune-langium/project-runtime/node`.
 
+`serializeProjectData` accepts linked documents and a declared type through its
+data context. Optional `model` and `version` values replace existing wire headers;
+omitting them preserves the payload's original headers. Hosts must supply linked
+context when saving cloned Rune JSON metadata values, rather than relying on
+ephemeral decoder annotations surviving cloning or worker transport.
+
 `buildProject(snapshot, { targets: ['postgres', 'sql-server'] }, adapter)` builds
 named targets; `{ targets: 'all' }` explicitly selects all targets. There is no
 default target or fallback generator. Per-target options are validated by
