@@ -131,6 +131,22 @@ it('uses linked field roles when business attributes share metadata envelope nam
   expect(wire).not.toHaveProperty('@ref');
 });
 
+it('rejects linked Rune JSON exports with unsupported envelope siblings while retaining plain JSON', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const snapshot = await createProjectSnapshot('p', new Map([['rune-config.yml', 'model: {name: Example}']]), () => []);
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/metadata.rosetta',
+      content: 'namespace example\ntype Cash:\n amount number (1..1)\n  [metadata scheme]\n'
+    }
+  ]);
+  expect(graph.diagnostics).toEqual([]);
+  const value = { amount: { value: 21, meta: { scheme: 'USD' }, extra: 'retain-me' } };
+  const context = { documents: graph.documents, typeFqn: 'example.Cash', model: 'Example', version: '1' };
+  expect(() => serializeProjectData(snapshot, value, 'RUNE_JSON', context)).toThrow(/envelope.*supported/);
+  expect(JSON.parse(serializeProjectData(snapshot, value, 'JSON', context))).toEqual(value);
+});
+
 it('round-trips concrete Choice and derived Data roots through linked assignability checks', async () => {
   const { buildEffectiveProject } = await import('../src/effective-project.js');
   const { importProjectData } = await import('../src/project-data.js');

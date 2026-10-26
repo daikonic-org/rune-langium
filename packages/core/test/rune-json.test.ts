@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, it } from 'vitest';
-import { decodeRuneJson, encodeRuneJson } from '../src/serialization/rune-json.js';
+import { decodeRuneJson, encodeRuneJson, withRuneJsonEncoding } from '../src/serialization/rune-json.js';
 
 it('preserves Rune model identity, primitives, metadata and reference namespaces through round trip', () => {
   const wire = {
@@ -70,4 +70,17 @@ it('distinguishes wire-origin Data attributes from metadata envelopes and refuse
   ]) {
     expect(() => encodeRuneJson(value)).toThrow(/declaration context/);
   }
+});
+
+it('rejects unsupported envelope siblings rather than silently dropping them', () => {
+  for (const value of [
+    { value: 'USD', meta: { scheme: 'iso' }, extra: 'retain-me' },
+    { value: { name: 'Party' }, meta: { scheme: 'local' }, extra: 'retain-me' },
+    { value: 'USD', meta: {}, '@model': 'unsupported-envelope-header' },
+    { globalReference: 'party', extra: 'retain-me' }
+  ]) {
+    expect(() => encodeRuneJson(withRuneJsonEncoding(value, 'envelope'))).toThrow(/envelope.*supported/);
+  }
+  const business = { value: 'USD', meta: { scheme: 'ordinary-data' }, extra: 'retain-me' };
+  expect(encodeRuneJson(withRuneJsonEncoding(business, 'data'))).toEqual(business);
 });
