@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "apps-studio-src-components-formpreviewpanel-tsx"
-primary_target: "apps/studio/src/components/FormPreviewPanel.tsx"
-related_targets: ["apps/studio/src/components/TemporalPreviewInput.tsx", "apps/studio/src/components/PreviewObjectGrid.tsx", "apps/studio/src/components/form-preview.css", "packages/design-system/src/ui/calendar.tsx"]
+primary_target: "src/components/FormPreviewPanel.tsx"
+related_targets: ["src/components/TemporalPreviewInput.tsx", "src/components/PreviewObjectGrid.tsx", "src/components/form-preview.css", "../../packages/design-system/src/ui/calendar.tsx"]
 ---
 
 # Preview and Prototype forms
