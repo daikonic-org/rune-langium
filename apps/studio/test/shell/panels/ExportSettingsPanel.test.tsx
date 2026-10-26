@@ -159,3 +159,42 @@ it('keeps unavailable imported targets separate from usable native targets and s
   expect(screen.getByText('Profiles: pricing')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Import Maven' })).not.toBeInTheDocument();
 });
+
+for (const selectedTargetName of [undefined, 'b'])
+  it(`unblocks Generate all after a dirty target is removed (${selectedTargetName ?? 'one-off'})`, async () => {
+    const { createProjectSnapshot } = await import('@rune-langium/project-config');
+    const { validateProjectTarget } = await import('@rune-langium/project-runtime/browser');
+    const snapshot = (targets: Record<string, unknown>) =>
+      createProjectSnapshot(
+        'targets',
+        new Map([
+          ['rune-config.yml', 'model: {name: Targets}'],
+          ['build-config.yml', JSON.stringify({ schemaVersion: 1, targets })]
+        ]),
+        validateProjectTarget
+      );
+    const a = { generator: 'typescript', output: 'generated/a' };
+    const b = { generator: 'typescript', output: 'generated/b' };
+    const build = vi.fn();
+    const ui = (projectSnapshot: Awaited<ReturnType<typeof snapshot>>) => (
+      <ExportSettingsPanel
+        config={config}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onCancel={vi.fn()}
+        status="idle"
+        projectEnabled
+        projectSnapshot={projectSnapshot}
+        selectedTargetName={selectedTargetName}
+        dirtyTargets={['a']}
+        onBuildTargets={build}
+      />
+    );
+    const view = render(ui(await snapshot({ a, b })));
+    expect(screen.getByRole('button', { name: 'Generate all' })).toBeDisabled();
+    view.rerender(ui(await snapshot({ b })));
+    expect(screen.queryByRole('tab', { name: /a \*/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate all' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate all' }));
+    expect(build).toHaveBeenCalledWith('all');
+  });

@@ -62,6 +62,7 @@ export const ExportSettingsPanel = withInstrumentation(
     const [saving, setSaving] = useState(false);
     useEffect(() => setName(selectedTargetName ?? ''), [selectedTargetName]);
     const targets = projectSnapshot?.project.build.targets ?? {};
+    const hasDirtyTargets = Object.keys(targets).some((name) => dirtyTargets.includes(name));
     const initialization = projectSnapshot && projectInitializationStatus(projectSnapshot, [], projectDiagnostics);
     const unavailableTargets = new Set(
       initialization?.targets.filter((target) => target.status === 'unavailable').map((target) => target.name)
@@ -286,7 +287,7 @@ export const ExportSettingsPanel = withInstrumentation(
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={blocked || dirtyTargets.length > 0 || unavailableTargets.size > 0}
+                  disabled={blocked || hasDirtyTargets || unavailableTargets.size > 0}
                   onClick={() => onBuildTargets?.('all')}
                 >
                   Generate all
@@ -305,7 +306,7 @@ export const ExportSettingsPanel = withInstrumentation(
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={blocked || dirtyTargets.length > 0 || unavailableTargets.size > 0 || adding}
+                  disabled={blocked || hasDirtyTargets || unavailableTargets.size > 0 || adding}
                   onClick={() => onBuildTargets?.('all')}
                 >
                   Generate all
