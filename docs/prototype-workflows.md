@@ -10,6 +10,21 @@ Clearing changes the working input, not its stored example. **Undo clear** resto
 that input without overwriting edits to other function parameters. Editing the
 cleared input or selecting a different type ends that undo opportunity.
 
+Rune JSON node imports use the declared input type, including the element type
+for list inputs. Linked decoding accepts concrete Choice arms and derived Data
+values only when assignable to that declaration; unrelated types are rejected
+before replacing the current input. Headerless list objects use the same decoder.
+Object aliases resolve through the shared Rune type resolver. Nested Choice
+imports restore each declared slot from the concrete wire type; cyclic or
+ambiguous alternatives are rejected rather than guessed.
+Concrete type headers distinguish Data attributes from same-named Choice slots.
+Rune JSON export rejects unsupported metadata-envelope siblings instead of
+discarding them; plain JSON retains those fields.
+Saving an edited Rune JSON example uses the existing linked worker context, so
+cloned working values retain their metadata roles, original codec and wire
+headers. A changed workspace or unapplied saved revision rejects the save rather
+than using a different declaration context.
+
 Validation uses the shared generated Rune schemas. A zero-minimum collection may
 be omitted from an example, as it may from function inputs; applicable data and
 function conditions still run. The status icon opens validation details. Named

@@ -85,6 +85,10 @@ export function encodeRuneJson(value: unknown): unknown {
       'This record has no supported unambiguous Rune JSON representation without declaration context. Save as JSON or supply linked context.'
     );
   const envelope = kind === 'envelope';
+  if (envelope && !shape)
+    throw new Error(
+      'This metadata envelope has no supported Rune JSON representation; save as JSON to retain sibling fields.'
+    );
   const referenceEnvelope =
     envelope && ['reference', 'globalReference', 'externalReference'].some((key) => own(value, key));
   const wrapped = own(value, 'value') && envelope && (meta || referenceEnvelope);

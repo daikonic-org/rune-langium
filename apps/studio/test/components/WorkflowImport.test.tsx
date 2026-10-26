@@ -8,7 +8,10 @@ import { WorkflowImport } from '../../src/components/WorkflowImport.js';
 import { PreviewSessionContext } from '../../src/shell/providers/preview-session-context.js';
 import { useInstanceStore } from '../../src/store/instance-store.js';
 
-async function setup(decode = vi.fn(async (_type: string, data: unknown, _signal: AbortSignal) => data)) {
+async function setup(
+  decode = vi.fn(async (_type: string, data: unknown, _signal: AbortSignal) => data),
+  typeFqn = 'test.Payment'
+) {
   const onImport = vi.fn();
   const factory = () => ({
     decode,
@@ -21,7 +24,7 @@ async function setup(decode = vi.fn(async (_type: string, data: unknown, _signal
   render(
     <StrictMode>
       <PreviewSessionContext value={factory}>
-        <WorkflowImport typeFqn="test.Payment" onImport={onImport} />
+        <WorkflowImport typeFqn={typeFqn} onImport={onImport} />
       </PreviewSessionContext>
     </StrictMode>
   );
@@ -66,3 +69,25 @@ it.each(['workspace', 'cancel'])('does not publish delayed input after %s change
   await act(async () => finish({ amount: 21 }));
   expect(onImport).not.toHaveBeenCalled();
 });
+
+it.each([true, false])(
+  'defers concrete Choice identity to the linked decoder and preserves its rejection (valid=%s)',
+  async (valid) => {
+    const decode = vi.fn(async (_type: string, data: unknown, _signal: AbortSignal) => {
+      if (!valid) throw new Error('Concrete type is not assignable to test.Instrument.');
+      return { bond: data };
+    });
+    const { user, onImport } = await setup(decode, 'test.Instrument#Choice');
+    const value = { '@type': 'test.Bond', amount: 21 };
+    fireEvent.change(screen.getByRole('textbox', { name: 'Import JSON data' }), {
+      target: { value: JSON.stringify(value) }
+    });
+    await user.click(screen.getByRole('button', { name: 'Import', exact: true }));
+    await waitFor(() => expect(decode).toHaveBeenCalledWith('test.Instrument#Choice', value, expect.any(AbortSignal)));
+    if (valid) expect(onImport).toHaveBeenCalledWith([{ bond: value }], 'test.Instrument#Choice', 'RUNE_JSON');
+    else {
+      expect(await screen.findByRole('alert')).toHaveTextContent('not assignable');
+      expect(onImport).not.toHaveBeenCalled();
+    }
+  }
+);

@@ -7,15 +7,19 @@ import type { InstanceProvenance, InstanceRecord, ValidationDiagnostic } from '@
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import type { PreviewStaleReason } from './preview-store.js';
 import { useOutputStore, fmtLine } from './output-store.js';
-import type { InstanceReadiness } from '../services/instance-readiness.js';
+import { PREVIEW_PREPARATION_TIMEOUT_MS, type InstanceReadiness } from '../services/instance-readiness.js';
+import { withAbortTimeout } from '../services/with-abort-timeout.js';
 import {
   flushPersistedInstance,
   instancePersistenceContext,
   persistDelete,
   persistInstance,
+  type ExamplePayloadSerializer,
+  type ExamplePayloadDecoder,
   type ExampleRepository
 } from './instance-persistence.js';
 import { create } from 'zustand';
+import { createPreviewSessionClient, type PreviewSessionClient } from '../services/preview-session-client.js';
 
 function ulid(): string {
   // Time-sortable enough for Phase 1's uniqueness needs; swap for a real
@@ -28,6 +32,49 @@ function ulid(): string {
 // the way zustand state is expected to be.
 let workerRef: Worker | undefined;
 let readinessRef: InstanceReadiness | undefined;
+const exampleWaiters = new Set<() => void>();
+
+async function withExampleSession<T>(
+  currentEpoch: () => number,
+  operation: (client: PreviewSessionClient, signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const epoch = currentEpoch();
+  const { worker, readiness } = await withAbortTimeout(
+    (signal) =>
+      new Promise<{ worker: Worker; readiness: InstanceReadiness }>((resolve, reject) => {
+        const cleanup = () => {
+          exampleWaiters.delete(check);
+          signal.removeEventListener('abort', abort);
+        };
+        const abort = () => {
+          cleanup();
+          reject(signal.reason);
+        };
+        const check = () => {
+          if (currentEpoch() !== epoch) {
+            cleanup();
+            reject(new Error('Workspace changed while preparing this example.'));
+          } else if (workerRef && readinessRef) {
+            cleanup();
+            resolve({ worker: workerRef, readiness: readinessRef });
+          }
+        };
+        exampleWaiters.add(check);
+        signal.addEventListener('abort', abort, { once: true });
+        check();
+      }),
+    PREVIEW_PREPARATION_TIMEOUT_MS
+  );
+  const client = createPreviewSessionClient(worker, readiness);
+  try {
+    const value = await operation(client, new AbortController().signal);
+    if (workerRef !== worker || readinessRef !== readiness || currentEpoch() !== epoch)
+      throw new Error('Workspace changed while preparing this example. Retry in its original workspace.');
+    return value;
+  } finally {
+    client.dispose();
+  }
+}
 let requestCounter = 0;
 const pendingRequests = new Map<string, { instanceId: string; epoch: number }>();
 // Tracks the LATEST outstanding validate requestId per instance so an
@@ -107,6 +154,8 @@ interface InstanceStoreState {
   flushInstance(id: string): Promise<void>;
   flushSaves(workspaceId: string): Promise<void>;
   saveRecord(record: InstanceRecord): void;
+  serializeExample: ExamplePayloadSerializer;
+  decodeExample: ExamplePayloadDecoder;
   markSaveFailed(id: string, revision: number, error: unknown): void;
   setWorker(worker: Worker | undefined): void;
   setReadiness(readiness: InstanceReadiness | undefined): void;
@@ -331,10 +380,32 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
 
   setWorker(worker) {
     workerRef = worker;
+    for (const check of exampleWaiters) check();
+  },
+
+  async serializeExample(snapshot, descriptor, payload) {
+    return withExampleSession(
+      () => get().workspaceEpoch,
+      (client, signal) => {
+        const type = descriptor.type;
+        return client.serialize!(snapshot, `${type.namespace}.${type.name}#${type.kind}`, payload, signal);
+      }
+    );
+  },
+
+  async decodeExample(_snapshot, descriptor, payload) {
+    return withExampleSession(
+      () => get().workspaceEpoch,
+      (client, signal) => {
+        const type = descriptor.type;
+        return client.decode!(`${type.namespace}.${type.name}#${type.kind}`, payload, signal);
+      }
+    );
   },
 
   setReadiness(readiness) {
     readinessRef = readiness;
+    for (const check of exampleWaiters) check();
     if (!readiness) return;
     for (const id of Object.keys(get().instances)) void get().prepareInstance(id);
   },
@@ -409,6 +480,7 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
       schemas: new Map(),
       schemaErrors: new Map()
     }));
+    for (const check of exampleWaiters) check();
   },
 
   dispatchValidate(id) {

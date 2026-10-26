@@ -185,11 +185,10 @@ test(`starter validation, fresh workflows and object-only builder at ${width}px`
   const standalone = page.getByRole('region', { name: 'input fields', exact: true });
   await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('1000');
   await page.getByRole('button', { name: 'Object builder', exact: true }).click();
+  await expect(standalone.getByLabel('Amount', { exact: true })).toHaveValue('45');
   await page.getByRole('cell', { name: 'Single cash amount', exact: true }).click();
   await standalone.getByLabel('Value', { exact: true }).fill('88');
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
-  // The grid's new binding request offers to replace the retained Workflow draft.
-  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await expect(standalone.getByLabel('Value', { exact: true })).toHaveValue('1000');
   await page.getByRole('button', { name: 'input node actions', exact: true }).click();
   await page.getByRole('button', { name: 'Clear input', exact: true }).click();

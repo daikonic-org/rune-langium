@@ -297,6 +297,8 @@ data stays in the owner; value edits retain identity, while recipe opening,
 rebinding and object-type selection create a fresh identity. Function-input Undo
 is scoped to its active session and function. Saved recipes never persist these
 transient identities. Node-local Undo/layout state cannot cross draft boundaries.
+Example-selection requests retain their originating surface; visiting the other
+surface never replays a replacement into its retained draft.
 Node-local layout editing uses the shared symbol-associated presentation store.
 The instance grid exposes failed-save retries through the existing instance-store
 persistence action. Draft schema failures can retry their request without losing
@@ -899,7 +901,11 @@ automatic mode remains available to other hosts.
 Project-config owns ExampleDescriptor/path/codec metadata and `readExamples`.
 Studio's `example-repository` adapts these records to the existing instance store;
 WorkspaceProvider binds it to the active ProjectController, while App supplies only
-limited typed legacy storage. Example saves serialize across records and use shared
+limited typed legacy storage. Before publishing reopened Rune JSON records, the repository
+uses the existing linked preview-worker decoder to restore form Choice slots. Worker
+registration uses the existing preparation bound; workspace epochs and controller revisions
+reject stale loads. Decode failures retain the original files and block semantic writes
+until a successful reload. Example saves serialize across records and use shared
 project Save/readback, including explicit CAS removals for deletion. Late completion
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
@@ -1078,7 +1084,12 @@ files, use normal Save/readback, and leave workflow binding explicit. Capture
 refreshes after example saves retain browser state only while the reference key
 matches; workspace/reference changes invalidate pending imports. The dedicated
 object-adaptation request uses the same preview receipt/cancellation boundary as
-execution. See [format support and the XML milestone](../reference-examples/README.md).
+execution. Rune JSON example persistence uses the correlated `instance:serialize`
+worker operation and the shared project-data serializer against linked documents.
+It checks the saved revision against the applied project receipt and rejects a
+changed workspace epoch. Cloned canonical values do not need to retain decoder
+WeakMap annotations. Optional model/version overrides preserve existing headers
+when omitted. See [format support and the XML milestone](../reference-examples/README.md).
 
 Reference code-list resources use the project runtime's `decodeProjectCodeList`;
 `build-config.yml` resource mappings can specify `codeList.format`, scheme/version

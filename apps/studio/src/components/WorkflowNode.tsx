@@ -137,7 +137,8 @@ export const WorkflowNode = withInstrumentation(
                 {onChange ? (
                   <WorkflowImport
                     typeFqn={
-                      schema ? `${schema.targetId}${schema.kind === 'function' ? '#RosettaFunction' : ''}` : undefined
+                      typeNodeId ??
+                      (schema ? `${schema.targetId}${schema.kind === 'function' ? '#RosettaFunction' : ''}` : undefined)
                     }
                     onImport={(items) => {
                       const value = items[0];

@@ -28,6 +28,8 @@ export const projectOperationError = withInstrumentation(
         return { ...base, type: 'instance:generateSchemaStale', reason: 'generation-error', message: error };
       case 'instance:decode':
         return { ...base, type: 'instance:decodeResult', error };
+      case 'instance:serialize':
+        return { ...base, type: 'instance:serializeResult', error };
       case 'instance:validate':
         return {
           ...base,
