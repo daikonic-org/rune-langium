@@ -225,3 +225,57 @@ it('uses stable source-property paths rather than list-item indices for shared p
   expect(formMemberKey('value.prices[4].amount', 'value')).toBe('prices.amount');
   expect(formMemberKey('value.prices[1].amount', 'value')).toBe('prices.amount');
 });
+
+it('waits for live reference identities and reports unavailable saved layouts once outside workflow nodes', async () => {
+  const { FormPresentation } = await import('../../src/components/FormPresentation.js');
+  const { WorkspaceStateContext } = await import('../../src/shell/providers/workspace-context.js');
+  const { ProjectContext } = await import('../../src/shell/providers/project-context.js');
+  const { declarationKey } = await import('@rune-langium/core/project-contract');
+  const type = { model: 'cdm', namespace: 'cdm.base.math', kind: 'Data', name: 'Schedule' };
+  useFormPresentationStore.setState({
+    workspaces: {
+      live: {
+        loaded: true,
+        repository: true,
+        revision: 0,
+        preferences: { layouts: { [declarationKey(type)]: { columns: 1, order: ['value'], spans: {} } }, formats: {} }
+      }
+    }
+  });
+  const workspace = { workspaceId: 'live', files: [], parsedModels: [], deferredExports: [] } as never;
+  const show = (loading: boolean, source = workspace) => (
+    <WorkspaceStateContext value={source}>
+      <ProjectContext
+        value={{
+          status: 'ready',
+          diagnostics: [],
+          runtime: { managed: true, status: 'captured', diagnostics: [] },
+          referenceView: { status: loading ? 'loading' : 'ready', diagnostics: [], retry() {} }
+        }}
+      >
+        <FormPresentation showToolbar={false} showNotices>
+          {null}
+        </FormPresentation>
+        <FormPresentation showToolbar={false}>{null}</FormPresentation>
+      </ProjectContext>
+    </WorkspaceStateContext>
+  );
+  const view = render(show(true));
+  expect(screen.queryByText(/unavailable type/)).toBeNull();
+  view.rerender(show(false));
+  expect(screen.getAllByText(/unavailable type/)).toHaveLength(1);
+  view.rerender(
+    show(false, {
+      ...(workspace as object),
+      files: [{ path: 'ref.rosetta', bundleId: 'cdm' }],
+      parsedModels: [],
+      deferredExports: [
+        { filePath: 'ref.rosetta', namespace: 'cdm.base.math', exports: [{ type: 'Data', name: 'Schedule' }] }
+      ]
+    } as never)
+  );
+  expect(screen.queryByText(/unavailable type/)).toBeNull();
+  expect(useFormPresentationStore.getState().workspaces.live?.preferences.layouts[declarationKey(type)]?.order).toEqual(
+    ['value']
+  );
+});

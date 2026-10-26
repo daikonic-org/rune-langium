@@ -1144,11 +1144,29 @@ async function executeFunction(
 ): Promise<void> {
   const scope = operationScope();
   let functionFqn = qualifiedNameFromNodeId(funcName);
+  let inputConditions: { name: string; description?: string; source?: string }[] = [];
 
   try {
     const { version: documentsVersion, value: documents } = await previewStages.buildDocuments();
     const project = await scope.project;
     if (projectGeneration) functionFqn = resolveEffectiveProjectTargetId(documents, functionFqn, 'RosettaFunction');
+    inputConditions = checksOnly
+      ? documents.flatMap((document) => {
+          const model = document.parseResult.value as RosettaModel;
+          return model.elements
+            .filter(isRosettaFunction)
+            .filter((node) => `${namespaceFromModelName(model.name ?? '')}.${node.name}` === functionFqn)
+            .flatMap((node) =>
+              node.conditions
+                .filter((condition) => !condition.postCondition)
+                .map((condition) => ({
+                  name: condition.name ?? node.name,
+                  description: condition.definition,
+                  source: condition.$cstNode?.text
+                }))
+            );
+        })
+      : [];
     const separator = functionFqn.lastIndexOf('.');
     const selection = project
       ? {
@@ -1307,11 +1325,25 @@ async function executeFunction(
   } catch (e) {
     if (checksOnly) {
       const message = e instanceof Error ? e.message : String(e);
+      const matches = inputConditions.filter((condition) => message.startsWith(`Diagnostic: ${condition.name}:`));
+      const condition = matches.length === 1 ? matches[0] : undefined;
       scope.postMessage({
         type: 'instance:validateResult',
         requestId,
         ...(message.startsWith('Diagnostic:') ? {} : { unavailable: message }),
-        diagnostics: [{ path: '', message }]
+        diagnostics: [
+          {
+            path: '',
+            message,
+            ...(condition
+              ? {
+                  conditionName: condition.name,
+                  conditionDescription: condition.description,
+                  conditionSource: condition.source
+                }
+              : {})
+          }
+        ]
       });
       return;
     }

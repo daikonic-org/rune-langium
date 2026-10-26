@@ -93,8 +93,9 @@ export const createPresentationRepository = withInstrumentation(
       load: () =>
         enqueue(async () => {
           const snapshot = await input.controller.recover();
-          const known = new Set(workspaceDeclarationIdentities(input.source()).map(declarationKey));
-          const read = readPresentations(snapshot, known);
+          // Source identities arrive after the repository snapshot. Availability is
+          // checked against the live reference view, never frozen during load.
+          const read = readPresentations(snapshot);
           const root = portableRecordRoot(snapshot, 'layouts');
           return {
             preferences: projectPreferences(read.presentations),

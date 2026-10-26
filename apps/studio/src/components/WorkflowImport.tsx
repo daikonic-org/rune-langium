@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { jsonCodec, runeJsonCodec } from '@rune-langium/codegen/instances';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
+import { Upload } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { WorkspaceTypePicker } from './WorkspaceTypePicker.js';
@@ -91,7 +92,10 @@ export const WorkflowImport = withInstrumentation(
           setOpen(next);
         }}
       >
-        <PopoverTrigger render={<Button variant="ghost" size="xs" />}>{label}</PopoverTrigger>
+        <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
+          <Upload className="size-3.5" aria-hidden="true" />
+          {label}
+        </PopoverTrigger>
         <PopoverContent className="w-96 max-w-[calc(100vw-1.5rem)] space-y-3" align="end">
           <h3 className="font-semibold">{multiple ? 'Import objects' : 'Import input'}</h3>
           <p className="text-xs text-muted-foreground">

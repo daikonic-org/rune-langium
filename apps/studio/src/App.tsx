@@ -1432,6 +1432,7 @@ function AppContent() {
       workspaceEpoch: workspaceEpochRef.current,
       workspaceKind: restoredWorkspace?.kind,
       workspaceName: restoredWorkspace?.name,
+      starterProvenance: restoredWorkspace?.starterProvenance,
       fileCount: files.filter((f) => !f.readOnly).length,
       files,
       models,
