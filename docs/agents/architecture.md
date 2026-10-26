@@ -180,13 +180,16 @@ The graph's informational legend also passes pointer events to the canvas.
 Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
 workspace creation does not leak into individual declaration forms. Extend uses
 the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
-from the pinned curated source into a distinct local namespace; split dispatch
+from the verified active curated source into a distinct local namespace; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
 then uses the normal file persistence/parse path. Managed actions flush the existing
 source/autosave owners, await the saved revision in the preview worker, and Save
 the copy plus explicit override map in one project transaction. Copy bytes must
-match the verified locked reference documents before their source URI, commit and
-cohort become provenance. Repeated Modify follows the existing mapping. Extend
+match the verified active reference documents before their source URI, commit and
+cohort become provenance. Tagged copies retain locked publication metadata;
+Nightly copies use the verified document's publication metadata, including dependencies,
+without adding a reference lock or changing its moving request. All copied dispatch
+documents must belong to one publication. Repeated Modify follows the existing mapping. Extend
 adds no redirect. Curated sources remain immutable.
 Preview-worker hydration restores references within curated snapshots; their exports
 must also be registered through Langium's index before parsing authored source that

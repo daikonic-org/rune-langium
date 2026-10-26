@@ -492,6 +492,12 @@ current dependency set is still checked for compatible cohorts and valid bytes;
 an interrupted publication reports an error for retry. A model cannot be both
 Nightly and a tagged dependency in the same workspace.
 
+Inspector **Modify** works with verified tagged and Nightly references, including
+their dependencies. It saves an editable local copy and its explicit replacement
+mapping together. The copy records the source URI, commit and publication cohort;
+this is provenance for the copied code, not a Nightly pin or lock. Curated source
+stays read-only and the Nightly reference keeps following the current mirror.
+
 Normal reopen uses the locked commits and verified content cache, without a tag
 lookup or a latest-release fallback. Missing locks, conflicting requirements,
 unavailable bytes and checksum failures retain their diagnostics; **Review
