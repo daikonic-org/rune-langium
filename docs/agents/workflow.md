@@ -303,3 +303,20 @@ Rebuild codegen before Studio consumes new generated metadata. Preserve user-own
 servers and worktrees. Local checks do not establish deployed acceptance.
 
 Prototype/Explore navigation changes: include Studio's `test/services/prototype-navigation.test.ts`, `test/services/workflow-navigation.test.ts`, and `test/components/WorkflowNode.test.tsx`. The `type-navigation` journey in `test/e2e/prototype-workbench.spec.ts` checks input/function navigation, pointer and keyboard context menus, Inspector return actions and retained drafts/results. Native text-field menus remain available; declaration identity includes kind, independently of labels.
+
+Reference example/codec changes: run Core's Rune JSON tests, project-config example
+reader tests, project-runtime reference/example/data suites, Codegen preview and
+metadata suites, and Studio's ReferenceExampleImport, FormPreviewPanel, example
+repository, preview-session-client, project-worker-bridge and real worker suites.
+`PLAYWRIGHT_BASE_URL=http://127.0.0.1:<owned-port> pnpm --filter @rune-langium/studio exec playwright test test/e2e/reference-examples.spec.ts --retries=0`
+checks desktop/390px discovery, metadata-preserving input edits, explicit binding,
+execution, Save/reopen, viewport fit and axe. Its transport/model fixture tests
+integration; the separate pinned CDM payload test establishes upstream byte and
+codec fidelity, not a complete CDM trade. Pinned third-party fixtures are excluded
+from formatting so upstream bytes and integrity hashes stay intact.
+
+Code-list changes: run project-runtime's `code-lists`/`project-capabilities` suites,
+Codegen's `runtime/project-bindings` suite and Studio's `PreviewEnumInput`/
+`FormPreviewPanel` suites. `test/e2e/project-resources.spec.ts` verifies the pinned
+CDM list in desktop/390px Prototype, execution/unknown-code validation and resource
+availability recovery. Preserve pinned third-party bytes and integrity manifests.

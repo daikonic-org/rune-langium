@@ -1838,3 +1838,67 @@ it('retains confirmed numeric constraint errors and uses plain language for a no
   view.rerender(<FormPreviewPanel {...props} values={{ amount: -1 }} errors={{ amount: 'Must be positive' }} />);
   expect(screen.getByText('Must be positive')).toBeVisible();
 });
+
+it('edits imported metadata scalar values without replacing adjacent schemes or keys', () => {
+  const onValuesChange = vi.fn();
+  const schema: FormPreviewSchema = {
+    schemaVersion: 1,
+    targetId: 'imported.Payment',
+    title: 'Payment',
+    status: 'ready',
+    fields: [
+      {
+        path: 'amount',
+        label: 'Amount',
+        kind: 'number',
+        required: true,
+        metadata: { kind: 'field', payloadShape: null }
+      }
+    ]
+  };
+  render(
+    <FormPreviewPanel
+      status={{ state: 'ready' }}
+      schema={schema}
+      values={{ amount: { value: 21, meta: { scheme: 'USD', globalKey: 'amount-1' } } }}
+      errors={{}}
+      onValuesChange={onValuesChange}
+    />
+  );
+  const input = screen.getByRole('spinbutton', { name: 'Amount', exact: true });
+  expect(input).toHaveValue(21);
+  fireEvent.change(input, { target: { value: '22' } });
+  expect(onValuesChange).toHaveBeenLastCalledWith({
+    amount: { value: 22, meta: { scheme: 'USD', globalKey: 'amount-1' } }
+  });
+});
+
+it('removes an optional metadata object as a whole rather than leaving a metadata-only shell', async () => {
+  const onValuesChange = vi.fn();
+  render(
+    <FormPreviewPanel
+      status={{ state: 'ready' }}
+      schema={{
+        schemaVersion: 1,
+        targetId: 'imported.Payment',
+        title: 'Payment',
+        status: 'ready',
+        fields: [
+          {
+            kind: 'object',
+            path: 'money',
+            label: 'Money',
+            required: false,
+            children: [],
+            metadata: { kind: 'field', payloadShape: { amount: 'scalar' } }
+          }
+        ]
+      }}
+      values={{ money: { value: { amount: 21 }, meta: { globalKey: 'money-1' } } }}
+      errors={{}}
+      onValuesChange={onValuesChange}
+    />
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Remove Money' }));
+  expect(onValuesChange).toHaveBeenLastCalledWith({});
+});

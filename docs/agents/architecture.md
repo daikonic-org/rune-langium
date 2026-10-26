@@ -286,8 +286,19 @@ acknowledged without a new file update.
 - The LSP connection adapter converts returned or thrown vscode `ResponseError` values into thrown lspeasy protocol errors for ordinary request handlers. Cancellation must travel in JSON-RPC's error field, never as a successful completion payload.
 
 Prototype's `PrototypeWorkflow` owns equal, detached input drafts and one optional
-`FunctionSession`. `WorkflowNode` composes the existing controlled FormPreview
+`FunctionSession`. Object builder owns a separate draft and renders only a typed
+object editor and payload; switching surfaces preserves the live workflow session.
+New workflow clears only executable draft state, while named recipes remain
+repository-managed. Clear-input undo restores only that input, preserving peer
+parameter edits. `WorkflowNode` composes the existing controlled FormPreview
 renderer; object parameters render separately and primitive inputs remain inline.
+Standalone input nodes are keyed by surface and transient draft identity. Their
+data stays in the owner; value edits retain identity, while recipe opening,
+rebinding and object-type selection create a fresh identity. Function-input Undo
+is scoped to its active session and function. Saved recipes never persist these
+transient identities. Node-local Undo/layout state cannot cross draft boundaries.
+Example-selection requests retain their originating surface; visiting the other
+surface never replays a replacement into its retained draft.
 Node-local layout editing uses the shared symbol-associated presentation store.
 The instance grid exposes failed-save retries through the existing instance-store
 persistence action. Draft schema failures can retry their request without losing
@@ -890,7 +901,11 @@ automatic mode remains available to other hosts.
 Project-config owns ExampleDescriptor/path/codec metadata and `readExamples`.
 Studio's `example-repository` adapts these records to the existing instance store;
 WorkspaceProvider binds it to the active ProjectController, while App supplies only
-limited typed legacy storage. Example saves serialize across records and use shared
+limited typed legacy storage. Before publishing reopened Rune JSON records, the repository
+uses the existing linked preview-worker decoder to restore form Choice slots. Worker
+registration uses the existing preparation bound; workspace epochs and controller revisions
+reject stale loads. Decode failures retain the original files and block semantic writes
+until a successful reload. Example saves serialize across records and use shared
 project Save/readback, including explicit CAS removals for deletion. Late completion
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
@@ -1036,3 +1051,51 @@ The App grants initialization IO only for a freshly created inactive GitHub
 clone. Its adapter also checks the captured workspace generation and ownership
 at write time; ordinary active-project access retains its activation guard.
 Activation, workspace departure and controller disposal revoke pending access.
+
+
+## Rune source highlighting
+
+Studio's shared Rune stream highlighter recognizes documentation references,
+synonyms, rule references and labels as annotation heads only inside bracket
+contexts. Standard annotation names come from core's annotation source, custom
+names are learned from local declarations, and fixed heads/argument labels are
+checked against core's generated keyword contract. Incremental parser copies
+retain independent bracket/declaration state. Strings and comments do not alter
+that context; lists and inline-function brackets retain expression styling.
+Shared editor syntax rules read design-system CSS tokens with canonical JS
+fallbacks; comments use neutral muted text and italic emphasis. Display styling
+never hides or modifies source. Light-theme palette work is tracked in #643.
+
+## Reference example imports
+
+Core's parser-free `/serialization` entry owns JSON/RUNE_JSON wire metadata
+conversion. Project-config's portable example reader and native project-data APIs
+use it directly; codegen's declared-type adapter is shared by imported-object
+normalization, function inputs and worker validation. Preview fields carry their
+declared metadata shape so controls edit envelope value paths while retaining
+adjacent schemes, keys and references. Ordinary Data fields named `value` are not
+inferred to be metadata. Finite preview path relocation has one shared walker.
+
+Verified reference documents carry ephemeral upstream source provenance. Example
+browsing reads immutable Git objects from that source commit, reusing the starter
+reader's bounds and blob verification. Nightly has no new lock or persisted pin.
+Imports preserve exact declaration identity and provenance in portable example
+files, use normal Save/readback, and leave workflow binding explicit. Capture
+refreshes after example saves retain browser state only while the reference key
+matches; workspace/reference changes invalidate pending imports. The dedicated
+object-adaptation request uses the same preview receipt/cancellation boundary as
+execution. Rune JSON example persistence uses the correlated `instance:serialize`
+worker operation and the shared project-data serializer against linked documents.
+It checks the saved revision against the applied project receipt and rejects a
+changed workspace epoch. Cloned canonical values do not need to retain decoder
+WeakMap annotations. Optional model/version overrides preserve existing headers
+when omitted. See [format support and the XML milestone](../reference-examples/README.md).
+
+Reference code-list resources use the project runtime's `decodeProjectCodeList`;
+`build-config.yml` resource mappings can specify `codeList.format`, scheme/version
+expectations and original repository file provenance. Scheme URIs are never
+fetched. One prepared registry supplies generated constraints and preview choices.
+Resource validation unwraps only declared metadata envelopes. Large form code lists
+use the shared searchable command primitives; historical/deprecated values remain
+visible. [The audited artifact matrix](../reference-examples/build-resources.md)
+records remaining parameterized-domain, XML and publication integrations.

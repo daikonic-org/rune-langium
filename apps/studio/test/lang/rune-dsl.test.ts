@@ -6,89 +6,24 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { StringStream } from '@codemirror/language';
 import { runeDslLanguage, runeDslStreamParser } from '../../src/lang/rune-dsl.js';
 
 describe('runeDslStreamParser', () => {
-  function tokenize(line: string): string[] {
-    const tokens: string[] = [];
-    const state = runeDslStreamParser.startState!();
-    const stream = {
-      _str: line,
-      _pos: 0,
-      _start: 0,
-      get pos() {
-        return this._pos;
-      },
-      next(): string | undefined {
-        if (this._pos >= this._str.length) return undefined;
-        return this._str[this._pos++];
-      },
-      peek(): string | undefined {
-        if (this._pos >= this._str.length) return undefined;
-        return this._str[this._pos];
-      },
-      match(pattern: RegExp | string, consume?: boolean): boolean | RegExpMatchArray | null {
-        if (typeof pattern === 'string') {
-          if (this._str.startsWith(pattern, this._pos)) {
-            if (consume !== false) this._pos += pattern.length;
-            return true;
-          }
-          return false;
-        }
-        const sub = this._str.slice(this._pos);
-        const m = sub.match(pattern);
-        if (m && m.index === 0) {
-          if (consume !== false) this._pos += m[0].length;
-          return m;
-        }
-        return null;
-      },
-      eatSpace(): boolean {
-        const before = this._pos;
-        while (this._pos < this._str.length && /\s/.test(this._str[this._pos]!)) {
-          this._pos++;
-        }
-        return this._pos > before;
-      },
-      eatWhile(predicate: (ch: string) => boolean): boolean {
-        const before = this._pos;
-        while (this._pos < this._str.length && predicate(this._str[this._pos]!)) {
-          this._pos++;
-        }
-        return this._pos > before;
-      },
-      eol(): boolean {
-        return this._pos >= this._str.length;
-      },
-      current(): string {
-        return this._str.slice(this._start, this._pos);
-      },
-      skipToEnd(): void {
-        this._pos = this._str.length;
-      },
-      sol(): boolean {
-        return this._pos === 0;
-      },
-      column(): number {
-        return this._start;
-      },
-      indentation(): number {
-        const m = this._str.match(/^\s*/);
-        return m ? m[0].length : 0;
-      },
-      backUp(n: number): void {
-        this._pos -= n;
-      },
-      start: 0
-    };
-
-    while (!stream.eol()) {
-      stream._start = stream._pos;
-      const token = runeDslStreamParser.token(stream as never, state);
-      if (token) tokens.push(token);
+  function tokens(source: string) {
+    const result: { text: string; tag: string | null }[] = [];
+    const state = runeDslStreamParser.startState();
+    for (const line of source.split('\n')) {
+      const stream = new StringStream(line, 4, 4);
+      while (!stream.eol()) {
+        stream.start = stream.pos;
+        const tag = runeDslStreamParser.token(stream, state);
+        if (tag) result.push({ text: stream.current(), tag });
+      }
     }
-    return tokens;
+    return result;
   }
+  const tokenize = (line: string) => tokens(line).map(({ tag }) => tag);
 
   it('tokenizes keywords', () => {
     const tokens = tokenize('namespace foo.bar');
@@ -134,6 +69,94 @@ describe('runeDslStreamParser', () => {
   it('tokenizes operators', () => {
     const tokens = tokenize('and or');
     expect(tokens).toContain('keyword');
+  });
+  it('separates documentation and synonym heads, fields, references and literal values', () => {
+    const source = `[docReference ISDA MasterAgreement
+      rationale "Path [synonym] and // text" rationale_author "Author"
+      provision "5(a)"]
+    [regulatoryReference CFTC Rule reportedField]
+    [synonym FpML value "payment" path "/trade/payment" dateFormat "yyyy-MM-dd"]
+    [ruleReference for payment -> amount Compute]
+    [label for amount "Cash amount"]`;
+    const result = tokens(source);
+    for (const head of ['docReference', 'regulatoryReference', 'synonym', 'ruleReference', 'label'])
+      expect(result).toContainEqual({ text: head, tag: 'annotation' });
+    for (const field of ['rationale', 'rationale_author', 'provision', 'reportedField', 'value', 'path', 'dateFormat'])
+      expect(result).toContainEqual({ text: field, tag: 'propertyName' });
+    expect(result).toContainEqual({ text: 'ISDA', tag: 'variableName' });
+    expect(result).toContainEqual({ text: '"Path [synonym] and // text"', tag: 'string' });
+  });
+
+  it('uses standard annotation declarations and learns custom annotation names', () => {
+    const result = tokens(
+      'annotation custom:\n purpose string (0..1)\ntype Trade:\n [custom purpose]\n [metadata scheme "source"="ISO 4217"]\n [codeImplementation]'
+    );
+    for (const head of ['custom', 'metadata', 'codeImplementation'])
+      expect(result).toContainEqual({ text: head, tag: 'annotation' });
+    expect(result).toContainEqual({ text: 'purpose', tag: 'propertyName' });
+    expect(result).toContainEqual({ text: 'scheme', tag: 'propertyName' });
+    expect(result).toContainEqual({ text: '"ISO 4217"', tag: 'string' });
+  });
+
+  it('preserves ordinary list and lambda highlighting around annotation-like text', () => {
+    const result = tokens('[True, False] [item -> amount] ["docReference", "synonym"]');
+    expect(result.some(({ tag }) => tag === 'annotation')).toBe(false);
+    expect(result.filter(({ tag }) => tag === 'bool')).toHaveLength(2);
+    expect(result).toContainEqual({ text: 'item', tag: 'keyword' });
+  });
+
+  it('keeps annotation-named references in list and inline-function expression roles', () => {
+    for (const expression of [
+      '[calculation, other]',
+      'items extract [calculation -> amount]',
+      'items extract calculation [calculation -> amount]',
+      'set result:\n  [calculation,\n   other]',
+      'alias selected:\n  [calculation]',
+      '[[calculation, other]]'
+    ]) {
+      const result = tokens(expression);
+      expect(
+        result.filter(({ tag }) => tag === 'annotation' || tag === 'propertyName'),
+        expression
+      ).toEqual([]);
+      expect(result, expression).toContainEqual({ text: 'calculation', tag: 'variableName' });
+    }
+    const result = tokens(
+      'func Example:\n  [calculation]\n  set result:\n    [calculation]\ntype Next:\n  [calculation]'
+    );
+    expect(result.filter(({ tag }) => tag === 'annotation')).toEqual([
+      { text: 'calculation', tag: 'annotation' },
+      { text: 'calculation', tag: 'annotation' }
+    ]);
+  });
+
+  it('keeps comment contents out of annotation state, including multiline comments', () => {
+    const result = tokens('/* [docReference ISDA\n [synonym FpML] */\n[metadata scheme] // [label "x"]');
+    expect(result.filter(({ tag }) => tag === 'annotation')).toEqual([{ text: 'metadata', tag: 'annotation' }]);
+    expect(result.at(-1)!.tag).toBe('comment');
+  });
+
+  it('retains multiline literal contents without treating bracketed text as annotations', () => {
+    const result = tokens(
+      '[docReference ISDA MasterAgreement rationale "First line\n[metadata scheme] // literal text\nLast line"]\n[metadata scheme]'
+    );
+    expect(result.filter(({ tag }) => tag === 'annotation')).toEqual([
+      { text: 'docReference', tag: 'annotation' },
+      { text: 'metadata', tag: 'annotation' }
+    ]);
+    expect(result).toContainEqual({ text: '[metadata scheme] // literal text', tag: 'string' });
+  });
+
+  it('copies annotation context without sharing mutable incremental parser state', () => {
+    const state = runeDslStreamParser.startState();
+    const stream = new StringStream('[metadata', 4, 4);
+    while (!stream.eol()) {
+      stream.start = stream.pos;
+      runeDslStreamParser.token(stream, state);
+    }
+    const copy = runeDslStreamParser.copyState(state);
+    runeDslStreamParser.token(new StringStream(']', 4, 4), copy);
+    expect(runeDslStreamParser.token(new StringStream('scheme', 4, 4), state)).toBe('propertyName');
   });
 });
 

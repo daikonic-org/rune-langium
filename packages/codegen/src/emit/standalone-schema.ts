@@ -393,7 +393,7 @@ const CROSS_NAMESPACE_IMPORT_LINE = /^import \{[^}]*\} from '[^']*\.zod\.js';(\r
 export function emitStandaloneZodSchema(
   documents: LangiumDocument[],
   targetId: string,
-  options: { functionInputs?: boolean } = {}
+  options: { functionInputs?: boolean; metadataInputs?: boolean } = {}
 ): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string } {
   const namespaceIndexes = buildNamespaceIndexes(documents);
   let target = options.functionInputs ? undefined : findTargetNode(namespaceIndexes, targetId);
@@ -491,7 +491,11 @@ export function emitStandaloneZodSchema(
   // `RUNTIME_HELPER_JS_SOURCE` — after type-erasure both declare the same
   // `const` helper names, and `new Function()` throws "Identifier has
   // already been declared".
-  const emitOptions: NamespaceEmitterOptions = { suppressBoilerplate: true, functionInputs: options.functionInputs };
+  const emitOptions: NamespaceEmitterOptions = {
+    suppressBoilerplate: true,
+    functionInputs: options.functionInputs,
+    metadataInputs: options.metadataInputs
+  };
   const result = emitNamespace(syntheticModel, emitOptions, { namespaces: new Map() });
   const stripped = result.content.replace(CROSS_NAMESPACE_IMPORT_LINE, '');
   // `runeExtendChoice` backs Data-extends-Choice emission and is NOT part

@@ -142,6 +142,12 @@ Validate the adapted function input structure without evaluating Data conditions
 
 **Type:** `boolean`
 
+#### metadataInputs
+
+Preserve metadata envelopes while retaining ordinary Data condition validation.
+
+**Type:** `boolean`
+
 #### projectResources
 
 Prepared resource lookup from the active project, never parsed configuration.

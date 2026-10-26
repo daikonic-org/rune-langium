@@ -10,15 +10,20 @@ import {
   isPreviewExecuteErrorMessage,
   isPreviewExecuteResultMessage,
   isInstanceValidateResultMessage,
+  isInstanceDecodeResultMessage,
+  isInstanceSerializeResultMessage,
   isProjectionResultMessage,
   isProjectionErrorMessage,
   type ProjectionRequest
 } from './codegen-service.js';
 import type { InstanceReadiness } from './instance-readiness.js';
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
+import type { ProjectSnapshot } from '@rune-langium/project-config';
 import { withInstrumentation } from './instrumentation/core.js';
 
 export interface PreviewSessionClient {
+  serialize?(snapshot: ProjectSnapshot, typeFqn: string, data: unknown, signal: AbortSignal): Promise<string>;
+  decode?(typeFqn: string, data: unknown, signal: AbortSignal): Promise<unknown>;
   schema(typeFqn: string, signal: AbortSignal): Promise<FormPreviewSchema>;
   validate(
     typeFqn: string,
@@ -74,7 +79,11 @@ export const createPreviewSessionClient = withInstrumentation(
 
     function onMessage(event: MessageEvent<unknown>): void {
       const msg = event.data;
-      if (isInstanceValidateResultMessage(msg))
+      if (isInstanceSerializeResultMessage(msg))
+        settle(msg.requestId, (entry) => (msg.error ? entry.reject(new Error(msg.error)) : entry.resolve(msg.text)));
+      else if (isInstanceDecodeResultMessage(msg))
+        settle(msg.requestId, (entry) => (msg.error ? entry.reject(new Error(msg.error)) : entry.resolve(msg.data)));
+      else if (isInstanceValidateResultMessage(msg))
         settle(msg.requestId, (entry) =>
           msg.unavailable ? entry.reject(new Error(msg.unavailable)) : entry.resolve(msg.diagnostics)
         );
@@ -126,6 +135,14 @@ export const createPreviewSessionClient = withInstrumentation(
     }
 
     return {
+      async serialize(snapshot, typeFqn, data, signal) {
+        await this.schema(typeFqn, signal);
+        return request({ type: 'instance:serialize', snapshot, typeFqn, data }, signal, 30_000);
+      },
+      async decode(typeFqn, data, signal) {
+        await this.schema(typeFqn, signal);
+        return request({ type: 'instance:decode', typeFqn, data }, signal, 30_000);
+      },
       async schema(typeFqn, signal) {
         await readiness.ensure(typeFqn.split('#', 1)[0]!, signal);
         const schema = await request<FormPreviewSchema>(

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import type { LangiumDocument } from 'langium';
 import { z } from 'zod';
-import { DeclarationIdentitySchema } from '@rune-langium/core/project-contract';
+import { DeclarationIdentitySchema, RepositoryExampleSourceSchema } from '@rune-langium/core/project-contract';
 import { sha256Hex } from './fingerprint.js';
 
 const InstanceProvenanceSchema = z.object({
   codec: z.string(),
+  reference: RepositoryExampleSourceSchema.optional(),
   source: z.string().optional(),
   inputs: z.array(z.string()).optional(),
   importedAt: z.number()
@@ -14,7 +15,9 @@ export type InstanceProvenance = z.infer<typeof InstanceProvenanceSchema>;
 const ValidationDiagnosticSchema = z.object({
   path: z.string(),
   message: z.string(),
-  conditionName: z.string().optional()
+  conditionName: z.string().optional(),
+  conditionDescription: z.string().optional(),
+  conditionSource: z.string().optional()
 });
 export type ValidationDiagnostic = z.infer<typeof ValidationDiagnosticSchema>;
 

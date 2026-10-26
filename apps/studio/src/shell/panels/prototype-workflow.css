@@ -210,7 +210,12 @@
 
 .workflow-stage--panels {
   background: var(--canvas-background);
-  grid-template-columns: minmax(220px,var(--workflow-input-width)) 12px minmax(250px,var(--workflow-function-width)) 12px minmax(220px,1fr);
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: var(--space-3);
+}
+
+.workflow-stage--panels .workflow-output {
+  grid-column: 2;
 }
 
 .workflow-stage--panels .workflow-connectors {

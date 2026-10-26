@@ -15,6 +15,8 @@ import { useExploreNavigationStore } from '../../src/services/explore-navigation
 import { WorkflowNode } from '../../src/components/WorkflowNode.js';
 import { useFormPresentationStore } from '../../src/store/form-presentation-store.js';
 import { WorkspaceStateContext } from '../../src/shell/providers/workspace-context.js';
+import { PreviewSessionContext } from '../../src/shell/providers/preview-session-context.js';
+import { workflowFieldNodeId, workflowFieldSchema } from '../../src/services/workflow-fields.js';
 
 const saved = {
   layouts: { 'data:test.Money': { columns: 1, order: ['currency', 'amount'], spans: {} } },
@@ -162,3 +164,68 @@ it('shows shared save readiness and keeps layout completion disabled until persi
   await userEvent.click(done);
   expect(screen.queryByRole('button', { name: 'Move Amount' })).toBeNull();
 });
+
+it.each([true, false])(
+  'imports array items against their declared type, not their function (header=%s)',
+  async (header) => {
+    read.mockResolvedValue({ layouts: {}, formats: {} });
+    const field = {
+      path: 'trades',
+      label: 'Trades',
+      kind: 'array' as const,
+      required: false,
+      children: [
+        {
+          path: 'trades[]',
+          label: 'Trade',
+          kind: 'object' as const,
+          required: true,
+          typeSymbol: 'data:example.Trade',
+          referencedTypeFqn: 'example.Trade',
+          children: [{ path: 'trades[].amount', label: 'Amount', kind: 'number' as const, required: true }]
+        }
+      ]
+    };
+    const functionSchema: FormPreviewSchema = {
+      ...schema,
+      kind: 'function',
+      targetId: 'example.CountTrades',
+      fields: [field]
+    };
+    const decode = vi.fn(async (_type: string, data: unknown) => data);
+    const onImport = vi.fn();
+    render(
+      <PreviewSessionContext
+        value={() => ({
+          decode,
+          schema: vi.fn(),
+          validate: vi.fn(),
+          execute: vi.fn(),
+          project: vi.fn(),
+          dispose: vi.fn()
+        })}
+      >
+        <WorkflowNode
+          name="trades"
+          type="Trade[]"
+          typeNodeId={workflowFieldNodeId(field)}
+          schema={workflowFieldSchema(functionSchema, field)}
+          values={{ trades: [] }}
+          onChange={vi.fn()}
+          onImport={onImport}
+        />
+      </PreviewSessionContext>
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'trades node actions' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Import input…' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Import format' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Rune JSON', exact: true }));
+    const value = { ...(header ? { '@type': 'example.Trade' } : {}), amount: 21 };
+    fireEvent.change(screen.getByRole('textbox', { name: 'Import JSON data' }), {
+      target: { value: JSON.stringify([value]) }
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Import', exact: true }));
+    await vi.waitFor(() => expect(onImport).toHaveBeenCalledWith([value]));
+    expect(decode).toHaveBeenCalledWith('example.Trade#Data', value, expect.any(AbortSignal));
+  }
+);

@@ -103,3 +103,27 @@ describe('portable example descriptors', () => {
     );
   });
 });
+
+it('reopens Rune JSON example files through the shared codec with complete import provenance', async () => {
+  const reference = {
+    model: 'cdm',
+    repository: 'https://github.com/finos/common-domain-model',
+    release: 'nightly',
+    commit: 'a'.repeat(40),
+    path: 'examples/trade.json',
+    format: 'RUNE_JSON'
+  };
+  const input = { ...descriptor('rune'), codec: 'RUNE_JSON', provenance: { source: 'upstream', reference } };
+  const read = readExamples(
+    await snapshot([
+      ['samples/rune.example.json', JSON.stringify(input)],
+      ['samples/rune.json', '{"amount":{"@data":10,"@scheme":"USD"},"party":{"@ref:external":"p"}}']
+    ])
+  );
+  expect(read.diagnostics).toEqual([]);
+  expect(read.documents[0]?.payload).toEqual({
+    amount: { value: 10, meta: { scheme: 'USD' } },
+    party: { externalReference: 'p' }
+  });
+  expect(read.examples[0]?.provenance?.reference).toEqual(reference);
+});

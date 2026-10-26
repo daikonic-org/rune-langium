@@ -797,21 +797,6 @@ function AppContent() {
     };
   }, [telemetryEnabled]);
 
-  // Theme — defaults to Daikonic. Override via ?theme=<name> query param
-  // or localStorage. Use ?theme=default to revert to Refactory Dark.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const queryTheme = params.get('theme');
-    const stored = window.localStorage.getItem('rune-studio:theme');
-    const theme = queryTheme ?? stored ?? 'daikonic';
-    if (queryTheme) window.localStorage.setItem('rune-studio:theme', queryTheme);
-    if (theme && theme !== 'default') {
-      document.documentElement.setAttribute('data-theme', theme);
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
-  }, []);
-
   // Keep filesRef in sync so the model-loading effect below can read the
   // current file list without stale-closure issues.
   useEffect(() => {
@@ -1432,6 +1417,7 @@ function AppContent() {
       workspaceEpoch: workspaceEpochRef.current,
       workspaceKind: restoredWorkspace?.kind,
       workspaceName: restoredWorkspace?.name,
+      starterProvenance: restoredWorkspace?.starterProvenance,
       fileCount: files.filter((f) => !f.readOnly).length,
       files,
       models,

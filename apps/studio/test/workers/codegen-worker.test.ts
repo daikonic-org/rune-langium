@@ -156,6 +156,10 @@ vi.mock('@rune-langium/codegen/export', () => ({
   generatePreviewSchemas: generatePreviewSchemasMock,
   emitStandaloneZodSchema: emitStandaloneZodSchemaMock,
   RUNTIME_HELPER_JS_SOURCE: 'const runeToField = undefined; const runeToReference = undefined;',
+  adaptPreviewData: (_documents: unknown, _targetId: string, data: unknown) => ({
+    data,
+    sourcePath: (path: string) => path
+  }),
   normalizePreviewInputs: (_documents: unknown, _targetId: string, inputs: unknown) => inputs
 }));
 

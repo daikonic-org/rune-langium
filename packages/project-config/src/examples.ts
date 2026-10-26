@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { z } from 'zod';
-import { declarationKey } from '@rune-langium/core/project-contract';
+import { parseProjectPayload, projectDataFormat } from '@rune-langium/core/serialization';
+import { declarationKey, RepositoryExampleSourceSchema } from '@rune-langium/core/project-contract';
 import { SymbolIdentitySchema } from './config-schema.js';
 import {
   PortableProjectPathSchema as portablePath,
@@ -17,7 +18,7 @@ export const ExampleDescriptorSchema = z.strictObject({
   type: SymbolIdentitySchema,
   payload: portablePath,
   codec: z.string().min(1),
-  provenance: z.strictObject({ source: z.string() }).optional(),
+  provenance: z.strictObject({ source: z.string(), reference: RepositoryExampleSourceSchema.optional() }).optional(),
   expected: portablePath.optional()
 });
 export type ExampleDescriptor = z.infer<typeof ExampleDescriptorSchema>;
@@ -99,7 +100,7 @@ export function readExamples(
       continue;
     }
     document.rawPayload = raw;
-    if (descriptor.codec !== 'JSON' && descriptor.codec !== 'json') {
+    if (!projectDataFormat(descriptor.codec)) {
       issue(
         'EXAMPLE_CODEC_UNAVAILABLE',
         path,
@@ -108,12 +109,12 @@ export function readExamples(
       continue;
     }
     try {
-      document.payload = JSON.parse(raw);
+      document.payload = parseProjectPayload(raw, descriptor.codec);
     } catch {
       issue(
         'EXAMPLE_PAYLOAD_INVALID',
         descriptor.payload,
-        'The example payload is not valid JSON. Its original bytes are retained.'
+        'The example payload is invalid for its codec. Its original bytes are retained.'
       );
     }
   }

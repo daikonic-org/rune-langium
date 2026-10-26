@@ -18,6 +18,10 @@
     "./project-contract": {
       "types": "./dist/references/project-contract.d.ts",
       "import": "./dist/references/project-contract.js"
+    },
+    "./serialization": {
+      "types": "./dist/serialization/rune-json.d.ts",
+      "import": "./dist/serialization/rune-json.js"
     }
   },
   "files": [

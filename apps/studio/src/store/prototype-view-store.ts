@@ -11,6 +11,7 @@ import { createActivationGuard } from './activation-guard.js';
 export interface PrototypeViewState {
   selectedId: string | null;
   bindingRequestId?: number;
+  bindingSurface?: 'flow' | 'panels';
   query: string;
   typeFqn: string | null;
   nativeLayout?: unknown;
@@ -82,6 +83,7 @@ export const usePrototypeViewStore = create<PrototypeViewStore>((set, get) => ({
           ...DEFAULT_PROTOTYPE_VIEW,
           ...restored,
           workflowWidths: normalizeWorkflowWidths(restored.workflowWidths),
+          bindingSurface: restored.workflowView === 'panels' ? 'panels' : 'flow',
           workflowView: restored.workflowView === 'panels' ? 'panels' : 'flow'
         }
       });
@@ -91,6 +93,11 @@ export const usePrototypeViewStore = create<PrototypeViewStore>((set, get) => ({
     activation.invalidate();
     const workspaceId = get().workspaceId;
     const state = { ...get().state, ...patch };
+    if (
+      Object.prototype.hasOwnProperty.call(patch, 'selectedId') ||
+      Object.prototype.hasOwnProperty.call(patch, 'bindingRequestId')
+    )
+      state.bindingSurface = state.workflowView ?? 'flow';
     set({ state });
     if (workspaceId) void writeWorkbenchSettings(workspaceId, 'prototype-view', state);
   }

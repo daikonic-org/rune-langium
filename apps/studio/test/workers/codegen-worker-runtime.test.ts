@@ -14,6 +14,79 @@ async function waitForMessage(scope: WorkerScope, type: string): Promise<void> {
   });
 }
 
+it('serializes cloned examples with linked metadata roles and refuses a mismatched saved revision', async () => {
+  const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content =
+    'namespace example\ntype Party:\n name string (0..1)\ntype Trade:\n amount number (1..1)\n  [metadata scheme]\n party Party (0..1)\n  [metadata reference]\n';
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Example}'],
+      ['build-config.yml', 'schemaVersion: 1\nsources: ["model/**/*.rosetta"]\n'],
+      ['model/trade.rosetta', content]
+    ]),
+    () => []
+  );
+  const project = await captureProjectRuntimeInput(
+    snapshot,
+    [{ name: 'trade.rosetta', path: 'model/trade.rosetta', content, dirty: false }],
+    []
+  );
+  const { scope, dispatch } = await loadRealWorker();
+  dispatch({ type: 'preview:setFiles', filesRevision: 1, files: [], project, requestId: 'save:install' });
+  await waitForMessage(scope, 'preview:files-ready');
+  const message = {
+    type: 'instance:serialize',
+    snapshot: project.snapshot,
+    typeFqn: 'example.Trade#Data',
+    data: structuredClone({
+      '@model': 'source-model',
+      '@type': 'example.Trade',
+      '@version': '7',
+      amount: { value: 21, meta: { scheme: 'USD' } },
+      party: { externalReference: 'p' }
+    }),
+    requestId: 'save:linked',
+    projectReceipt: project.receipt
+  };
+  dispatch(message);
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'instance:serializeResult', requestId: 'save:linked', text: expect.any(String) })
+    )
+  );
+  const response = scope.postMessage.mock.calls
+    .map(([message]) => message)
+    .find((message) => message.requestId === 'save:linked');
+  expect(JSON.parse(response.text)).toMatchObject({
+    '@model': 'source-model',
+    '@type': 'example.Trade',
+    '@version': '7',
+    amount: { '@data': 21, '@scheme': 'USD' },
+    party: { '@ref:external': 'p' }
+  });
+  const stale = await createProjectDraftSnapshot(
+    snapshot,
+    new Map([['model/trade.rosetta', content + '\n// changed\n']]),
+    () => []
+  );
+  dispatch({ ...message, snapshot: stale, requestId: 'save:stale' });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'instance:serializeResult',
+        requestId: 'save:stale',
+        error: expect.stringMatching(/revision/)
+      })
+    )
+  );
+  expect(scope.postMessage.mock.calls.some(([message]) => message.requestId === 'save:stale' && message.text)).toBe(
+    false
+  );
+  vi.unstubAllGlobals();
+});
+
 describe('codegen-worker parsed/emitted function execution', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -659,3 +732,106 @@ it('uses a managed code list for choices and validation and reports a missing re
   );
   vi.unstubAllGlobals();
 }, 20000);
+
+it('adapts imported metadata and Rune Choice discriminators using the linked model, and retains source diagnostics', async () => {
+  const { decodeRuneJson } = await import('@rune-langium/core/serialization');
+  const { scope, dispatch } = await loadRealWorker();
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 1,
+    files: [
+      {
+        uri: 'file:///imported.rosetta',
+        content: `namespace imported
+type Cash:
+ amount number (1..1)
+  [metadata scheme]
+ condition Positive: amount > 0
+type Security:
+ identifier string (1..1)
+choice Payment:
+ Cash
+ Security
+type Trade:
+ payment Payment (1..1)
+func Amount:
+ inputs: trade Trade (1..1)
+ output: result number (1..1)
+ set result: trade -> payment -> Cash -> amount
+`
+      }
+    ]
+  });
+  const wire = { payment: { '@type': 'imported.Cash', amount: { '@data': 21, '@scheme': 'USD' } } };
+  dispatch({
+    type: 'instance:decode',
+    requestId: 'decode:import',
+    typeFqn: 'imported.Trade#Data',
+    data: decodeRuneJson(wire)
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'decode:import' }))
+  );
+  const result = scope.postMessage.mock.calls
+    .map(([entry]) => entry)
+    .find((entry) => entry.requestId === 'decode:import');
+  expect(result.error).toBeUndefined();
+  expect(result.data).toEqual({
+    payment: { cash: { '@type': 'imported.Cash', amount: { value: 21, meta: { scheme: 'USD' } } } }
+  });
+  dispatch({
+    type: 'instance:decode',
+    requestId: 'decode:function-inputs',
+    typeFqn: 'imported.Amount#RosettaFunction',
+    data: { trade: decodeRuneJson(wire) }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: 'decode:function-inputs', data: { trade: result.data } })
+    )
+  );
+  dispatch({ type: 'instance:validate', requestId: 'decode:validate', typeFqn: 'imported.Trade', data: result.data });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: 'decode:validate', diagnostics: [] })
+    )
+  );
+  dispatch({
+    type: 'instance:validate',
+    requestId: 'decode:plain-error',
+    typeFqn: 'imported.Cash',
+    data: { amount: 'bad' }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'decode:plain-error',
+        diagnostics: [expect.objectContaining({ path: 'amount' })]
+      })
+    )
+  );
+  dispatch({
+    type: 'instance:validate',
+    requestId: 'decode:condition',
+    typeFqn: 'imported.Cash',
+    data: { amount: { value: -1, meta: { scheme: 'USD' } } }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'decode:condition',
+        diagnostics: [expect.objectContaining({ conditionName: 'Positive' })]
+      })
+    )
+  );
+  dispatch({
+    type: 'preview:execute',
+    requestId: 'decode:execute',
+    funcName: 'imported.Amount',
+    inputs: { trade: result.data }
+  });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'decode:execute', output: 21 }))
+  );
+  vi.unstubAllGlobals();
+});

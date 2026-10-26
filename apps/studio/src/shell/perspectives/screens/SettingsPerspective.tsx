@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import type React from 'react';
+import { useState, type ReactElement } from 'react';
+import { applyThemePreference } from '../../../services/theme-preference.js';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { FontScaleButton } from '../../../components/FontScaleButton.js';
 import { useTelemetrySettingsStore } from '../../../store/telemetry-settings.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 
 export const SettingsPerspective = withInstrumentation(
-  function SettingsPerspective(): React.ReactElement {
+  function SettingsPerspective(): ReactElement {
+    const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') ?? 'default');
     const telemetryEnabled = useTelemetrySettingsStore((s) => s.enabled);
     const setTelemetryEnabled = useTelemetrySettingsStore((s) => s.setEnabled);
 
@@ -24,9 +26,22 @@ export const SettingsPerspective = withInstrumentation(
             <FontScaleButton />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Theme is currently fixed (dark). A theme toggle will be added in a future release.
-          </p>
+          <label className="flex items-center gap-3 text-sm">
+            Theme
+            <select
+              aria-label="Theme"
+              className="rounded-md border border-input bg-card px-3 py-2 text-foreground"
+              value={theme}
+              onChange={(event) => {
+                setTheme(event.target.value);
+                applyThemePreference(event.target.value, true);
+              }}
+            >
+              <option value="daikonic">Daikonic dark</option>
+              <option value="light">Studio light</option>
+              <option value="default">Refactory dark</option>
+            </select>
+          </label>
         </section>
 
         {/* ── Privacy ─────────────────────────────────────────────────────── */}

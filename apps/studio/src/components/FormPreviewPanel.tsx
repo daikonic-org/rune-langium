@@ -18,6 +18,7 @@ import {
 } from 'react';
 import {
   expandPreviewField,
+  metadataPreviewField,
   type FormPreviewSchema,
   type PreviewField,
   type PreviewSourceMapEntry
@@ -43,6 +44,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@rune-langium/design-system/ui/dialog';
+import { PreviewEnumInput } from './PreviewEnumInput.js';
 import { PreviewObjectGrid, type PreviewGridColumn, type PreviewGridRow } from './PreviewObjectGrid.js';
 import './form-preview.css';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
@@ -880,7 +882,11 @@ function ChoiceArmChildren({
   arrayIndices
 }: ChoiceArmChildrenProps): ReactElement | null {
   const definitions = useContext(PreviewDefinitions);
-  const field = expandPreviewField(inputField, definitions);
+  const expandedField = expandPreviewField(inputField, definitions);
+  const field = metadataPreviewField(
+    expandedField,
+    getValueAtPath(sample?.values ?? {}, pathToSegments(expandedField.path, arrayIndices))
+  );
   if (field.kind !== 'object' && field.kind !== 'array') return null;
   const choiceArmPaths = field.kind === 'object' ? field.choiceArmPaths : undefined;
   const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], choiceArmPaths);
@@ -891,7 +897,7 @@ function ChoiceArmChildren({
         field.typeSymbol ??
         (field.kind === 'object' && field.referencedTypeFqn ? `data:${field.referencedTypeFqn}` : undefined)
       }
-      parentPath={field.path}
+      parentPath={field.declaredPath ?? field.path}
       fields={otherFields}
       renderField={(child) => (
         <PreviewFieldControl
@@ -1233,7 +1239,7 @@ function PreviewDetailsDialog({
 function PreviewFieldControl({
   field: inputField,
   sample,
-  lookupFieldSource, // oxlint-disable-line only-used-in-recursion
+  lookupFieldSource: lookupDeclaredSource, // oxlint-disable-line only-used-in-recursion
   isResolvingReferences,
   onFieldBlur,
   onFieldChange,
@@ -1246,8 +1252,16 @@ function PreviewFieldControl({
 }: PreviewFieldControlProps): ReactElement {
   const definitions = useContext(PreviewDefinitions);
   const inputId = useId();
-  const field = expandPreviewField(inputField, definitions);
-  const numericPresentation = useNumericPresentation(field);
+  const expandedField = expandPreviewField(inputField, definitions);
+  const field = metadataPreviewField(
+    expandedField,
+    getValueAtPath(sample?.values ?? {}, pathToSegments(expandedField.path, arrayIndices))
+  );
+  const numericPresentation = useNumericPresentation(
+    field.declaredPath ? { ...field, path: field.declaredPath } : field
+  );
+  const lookupFieldSource = (path: string) =>
+    lookupDeclaredSource(path === field.path ? (field.declaredPath ?? path) : path);
   const fieldPath = formatFieldPath(field.path, arrayIndices);
   const [interaction, setInteraction] = useState<string>();
   const interactionKey = `${sample?.targetId ?? ''}:${fieldPath}`;
@@ -1277,7 +1291,12 @@ function PreviewFieldControl({
     onFieldChange,
     onArrayAdd,
     onArrayRemove,
-    onObjectToggle,
+    onObjectToggle: (target: PreviewField, present: boolean, indices?: number[]) =>
+      onObjectToggle(
+        !present && target.path === field.path ? { ...target, path: inputField.path } : target,
+        present,
+        indices
+      ),
     onArmSelect,
     arrayIndices
   };
@@ -1288,34 +1307,24 @@ function PreviewFieldControl({
     const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));
     const stringValue = typeof value === 'string' && value !== '' ? value : undefined;
     const fieldLabel = resolvedFieldLabel(field, arrayIndices);
-    // Select items need non-empty values. Keep the clear option separate from
-    // the sample value so an unset optional enum remains absent for Zod.
-    const CLEAR_SENTINEL = '__rune_enum_unset__';
     return (
       <div className="preview-field" data-field-path={fieldPath}>
         <span className="preview-field__label">{fieldLabel}</span>
-        <Select
+        <PreviewEnumInput
+          label={fieldLabel}
           value={stringValue}
-          onValueChange={(next) => {
-            onFieldChange(field.path, next === CLEAR_SENTINEL ? undefined : next, arrayIndices, true);
+          options={field.enumValues}
+          required={field.required || isChoiceArm}
+          invalid={validationAttributes['aria-invalid']}
+          describedBy={validationAttributes['aria-describedby']}
+          onChange={(next) => {
+            const clearPath =
+              next === undefined && inputField.metadata?.kind === 'field' && !field.required
+                ? inputField.path
+                : field.path;
+            onFieldChange(clearPath, next, arrayIndices, true);
           }}
-        >
-          <SelectTrigger size="sm" aria-label={fieldLabel} className="w-full" {...validationAttributes}>
-            <SelectValue placeholder={field.required || isChoiceArm ? undefined : 'Select…'} />
-          </SelectTrigger>
-          <SelectContent>
-            {!field.required && !isChoiceArm ? (
-              <SelectItem value={CLEAR_SENTINEL} className="text-xs text-muted-foreground">
-                Select…
-              </SelectItem>
-            ) : null}
-            {(field.enumValues ?? []).map((option) => (
-              <SelectItem key={option.value} value={option.value} className="text-xs">
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );
