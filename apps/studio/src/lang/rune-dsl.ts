@@ -11,6 +11,7 @@
 
 import { StreamLanguage, type StringStream } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
+import { ANNOTATIONS_ROSETTA, type RuneDslKeywordNames } from '@rune-langium/core';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -115,6 +116,45 @@ const TYPE_KEYWORDS = new Set([
 
 const BOOLEANS = new Set(['True', 'False']);
 
+// Fixed grammar constructs are checked against core's generated keyword contract.
+const ANNOTATION_HEADS = new Set<string>([
+  'docReference',
+  'regulatoryReference',
+  'synonym',
+  'ruleReference',
+  'label'
+] satisfies RuneDslKeywordNames[]);
+const ANNOTATION_FIELDS = new Set<string>([
+  'for',
+  'as',
+  'rationale',
+  'rationale_author',
+  'structured_provision',
+  'provision',
+  'reportedField',
+  'value',
+  'meta',
+  'hint',
+  'merge',
+  'dateFormat',
+  'pattern',
+  'removeHtml',
+  'mapper',
+  'path',
+  'maps',
+  'tag',
+  'componentID',
+  'definition'
+] satisfies RuneDslKeywordNames[]);
+const STANDARD_ANNOTATIONS = [...ANNOTATIONS_ROSETTA.matchAll(/^annotation\s+([a-zA-Z_][a-zA-Z_0-9]*)/gm)].map(
+  (match) => match[1]!
+);
+interface BracketContext {
+  head: boolean;
+  annotation: boolean;
+  attribute: boolean;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Stream parser state
 // ────────────────────────────────────────────────────────────────────────────
@@ -125,6 +165,9 @@ interface RuneDslState {
   inString: '"' | "'" | null;
   /** Whether the previous token was a type keyword. */
   expectTypeName: boolean;
+  expectAnnotationName: boolean;
+  annotationNames: Set<string>;
+  brackets: BracketContext[];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -147,8 +190,25 @@ export const runeDslStreamParser = {
   name: 'rune-dsl',
 
   startState(): RuneDslState {
-    return { inBlockComment: false, inString: null, expectTypeName: false };
+    return {
+      inBlockComment: false,
+      inString: null,
+      expectTypeName: false,
+      expectAnnotationName: false,
+      annotationNames: new Set(STANDARD_ANNOTATIONS),
+      brackets: []
+    };
   },
+
+  copyState(state: RuneDslState): RuneDslState {
+    return {
+      ...state,
+      annotationNames: new Set(state.annotationNames),
+      brackets: state.brackets.map((frame) => ({ ...frame }))
+    };
+  },
+
+  languageData: { commentTokens: { line: '//', block: { open: '/*', close: '*/' } } },
 
   token(stream: StringStream, state: RuneDslState): string | null {
     if (state.inString) return consumeString(stream, state);
@@ -165,6 +225,7 @@ export const runeDslStreamParser = {
 
     // Skip whitespace
     if (stream.eatSpace()) return null;
+    const frame = state.brackets[state.brackets.length - 1];
 
     // Block comment start
     if (stream.match('/*')) {
@@ -178,30 +239,63 @@ export const runeDslStreamParser = {
       return 'comment';
     }
 
+    if (stream.match('[')) {
+      state.brackets.push({ head: true, annotation: false, attribute: false });
+      return 'bracket';
+    }
+    if (stream.match(']')) {
+      state.brackets.pop();
+      return 'bracket';
+    }
+
     // Strings
     const quote = stream.peek();
     if (quote === '"' || quote === "'") {
+      if (frame) frame.head = false;
       stream.next();
       state.inString = quote;
       return consumeString(stream, state);
     }
 
     // Numbers
-    if (stream.match(/^[0-9]+(?:\.[0-9]+)?/)) return 'number';
+    if (stream.match(/^[0-9]+(?:\.[0-9]+)?/)) {
+      if (frame) frame.head = false;
+      return 'number';
+    }
 
     // Identifiers and keywords
     if (stream.match(/^[a-zA-Z_][a-zA-Z_0-9]*/)) {
       const word = stream.current();
+      if (frame?.head) {
+        frame.head = false;
+        if (ANNOTATION_HEADS.has(word) || state.annotationNames.has(word)) {
+          frame.annotation = true;
+          frame.attribute = !ANNOTATION_HEADS.has(word);
+          return 'annotation';
+        }
+      }
+      if (frame?.annotation) {
+        if (frame.attribute) {
+          frame.attribute = false;
+          return 'propertyName';
+        }
+        if (ANNOTATION_FIELDS.has(word)) return 'propertyName';
+      }
 
       if (BOOLEANS.has(word)) return 'bool';
 
       if (state.expectTypeName) {
         state.expectTypeName = false;
+        if (state.expectAnnotationName) {
+          state.annotationNames.add(word);
+          state.expectAnnotationName = false;
+        }
         return 'typeName';
       }
 
       if (TYPE_KEYWORDS.has(word)) {
         state.expectTypeName = true;
+        state.expectAnnotationName = word === 'annotation';
         return 'keyword';
       }
 

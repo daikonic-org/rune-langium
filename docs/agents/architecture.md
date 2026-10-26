@@ -1036,3 +1036,17 @@ The App grants initialization IO only for a freshly created inactive GitHub
 clone. Its adapter also checks the captured workspace generation and ownership
 at write time; ordinary active-project access retains its activation guard.
 Activation, workspace departure and controller disposal revoke pending access.
+
+
+## Rune source highlighting
+
+Studio's shared Rune stream highlighter recognizes documentation references,
+synonyms, rule references and labels as annotation heads only inside bracket
+contexts. Standard annotation names come from core's annotation source, custom
+names are learned from local declarations, and fixed heads/argument labels are
+checked against core's generated keyword contract. Incremental parser copies
+retain independent bracket/declaration state. Strings and comments do not alter
+that context; lists and inline-function brackets retain expression styling.
+Shared editor syntax rules read design-system CSS tokens with canonical JS
+fallbacks; comments use neutral muted text and italic emphasis. Display styling
+never hides or modifies source. Light-theme palette work is tracked in #643.

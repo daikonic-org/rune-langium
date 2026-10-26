@@ -5,10 +5,8 @@
  * Verifies that the studioEditorHighlightStyle derives its syntax palette
  * from the canonical design tokens rather than hardcoding hex values.
  *
- * The CodeMirror HighlightStyle API does not expose per-tag color values
- * at runtime (it compiles to CSS classes), so we test the source-of-truth
- * directly: asserting the token values themselves, and that the theme module
- * imports from the same token source.
+ * The public HighlightStyle.specs contract verifies theme-variable rules and
+ * canonical fallbacks; source checks retain existing chrome/font regressions.
  */
 
 import { readFileSync } from 'node:fs';
@@ -16,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { syntax } from '@rune-langium/design-system/tokens';
+import { tags as t } from '@lezer/highlight';
+import { studioEditorHighlightStyle } from '../../src/lang/editor-theme.js';
 
 /** The theme module source — used to assert it references the syntax tokens
  * (rather than hardcoded hex), since the compiled HighlightStyle doesn't
@@ -53,23 +53,30 @@ describe('studio editor theme uses design-system syntax tokens', () => {
     expect(mod.studioEditorExtensions).toBeDefined();
   });
 
-  // Source-level: the HighlightStyle rules must reference a syntax.* token for
-  // every remapped tag (proves the theme USES the tokens, not just that they
-  // exist — the compiled style hides colors at runtime).
-  it('references a syntax.* token for each remapped highlight tag', () => {
-    for (const key of [
-      'keyword',
-      'type',
-      'attribute',
-      'string',
-      'comment',
-      'number',
-      'function',
-      'operator',
-      'constant'
+  it('uses theme CSS variables with canonical fallbacks for actual highlighting rules', () => {
+    for (const [tag, key] of [
+      [t.keyword, 'keyword'],
+      [t.function(t.variableName), 'function'],
+      [t.propertyName, 'attribute'],
+      [t.typeName, 'type'],
+      [t.string, 'string'],
+      [t.operator, 'operator'],
+      [t.number, 'number'],
+      [t.bool, 'constant']
     ] as const) {
-      expect(THEME_SRC).toContain(`syntax.${key}`);
+      const rule = studioEditorHighlightStyle.specs.find((spec) =>
+        (Array.isArray(spec.tag) ? spec.tag : [spec.tag]).includes(tag)
+      );
+      expect(rule?.color).toBe(`var(--syntax-${key}, ${syntax[key]})`);
     }
+  });
+
+  it('keeps comments neutral and italic while metadata retains annotation emphasis', () => {
+    const rule = (tag: typeof t.comment) =>
+      studioEditorHighlightStyle.specs.find((spec) => (Array.isArray(spec.tag) ? spec.tag : [spec.tag]).includes(tag));
+    expect(rule(t.comment)).toMatchObject({ color: 'var(--muted-foreground)', fontStyle: 'italic' });
+    expect(rule(t.meta)?.color).toBe(rule(t.annotation)?.color);
+    expect(rule(t.meta)?.fontStyle).toBeUndefined();
   });
 
   // Anti-regression: #C792EA (keyword) and #C3E88D (string) are unique to the
