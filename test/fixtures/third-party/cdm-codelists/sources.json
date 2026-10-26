@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/finos/common-domain-model",
+  "commit": "1704b23907b3dc4b87ba7a0133cb75aad9b43c77",
+  "path": "rosetta-source/src/main/resources/codelist/json/option-type-1-0.json",
+  "license": "Apache-2.0",
+  "sha256": {
+    "LICENSE.md": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21",
+    "option-type-1-0.json": "3cf3c9e5de99e642319cdb910cb38c27cc9f30fb5fbc2e6c120910ba95505063",
+    "NOTICE.md": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+  }
+}

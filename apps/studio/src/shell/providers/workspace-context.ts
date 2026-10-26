@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { createContext, useContext } from 'react';
-import type { WorkspaceKind } from '../../workspace/persistence.js';
+import type { WorkspaceKind, WorkspaceRecord } from '../../workspace/persistence.js';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
 import type { RosettaModel } from '@rune-langium/core';
 import type { DeferredExportEntry } from '../../workers/parser-worker.js';
@@ -17,6 +17,7 @@ export interface WorkspaceState {
   workspaceEpoch?: number;
   workspaceKind?: WorkspaceKind;
   workspaceName?: string;
+  starterProvenance?: WorkspaceRecord['starterProvenance'];
   fileCount: number;
   files: ReadonlyArray<WorkspaceFile>;
   models: RosettaModel[];

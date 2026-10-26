@@ -19,7 +19,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactElement } from 'react';
 import type { SyncStatus } from '@rune-langium/git-sync-engine';
-import type { WorkspaceKind } from '../../../workspace/persistence.js';
+import { useWorkspaceOptional } from '../../providers/workspace-context.js';
+import type { WorkspaceKind, WorkspaceRecord } from '../../../workspace/persistence.js';
 import { subscribeToEngine, resolveConflict, getSyncEngine } from '../../../services/git-sync.js';
 import { SyncStatusBadge } from '../../../components/SyncStatusBadge.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -42,17 +43,38 @@ export interface GitSyncPerspectiveProps {
   workspaceKind?: WorkspaceKind;
 }
 
-function GitNotConnectedEmptyState(): ReactElement {
+function GitNotConnectedEmptyState({ origin }: { origin?: WorkspaceRecord['starterProvenance'] }): ReactElement {
+  const repository = origin && /^[\w.-]+\/[\w.-]+$/.test(origin.repository) ? origin.repository : undefined;
   return (
     <div
       data-testid="git-not-connected"
       className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center"
     >
       <GitBranch className="size-10 text-muted-foreground/40" aria-hidden="true" />
-      <h2 className="text-sm font-semibold text-foreground">Not connected to Git</h2>
+      <h2 className="text-sm font-semibold text-foreground">
+        {repository ? 'Starter copy · saved locally' : 'Not connected to Git'}
+      </h2>
       <p className="max-w-[24rem] text-xs text-muted-foreground">
-        This workspace isn&apos;t connected to a Git repository. Connect a GitHub repo from <strong>Workspaces</strong>{' '}
-        to enable sync.
+        {repository ? (
+          <>
+            This editable workspace was copied from{' '}
+            <a
+              className="underline underline-offset-2"
+              href={`https://github.com/${repository}/tree/${origin!.commit}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {repository}
+            </a>
+            . Changes are saved locally. Connect your own repository or a fork from <strong>Workspaces</strong> to
+            commit and push.
+          </>
+        ) : (
+          <>
+            This workspace isn&apos;t connected to a Git repository. Connect a GitHub repo from{' '}
+            <strong>Workspaces</strong> to enable sync.
+          </>
+        )}
       </p>
     </div>
   );
@@ -60,6 +82,7 @@ function GitNotConnectedEmptyState(): ReactElement {
 
 export const GitSyncPerspective = withInstrumentation(
   function GitSyncPerspective({ workspaceId, workspaceKind }: GitSyncPerspectiveProps): ReactElement {
+    const workspace = useWorkspaceOptional();
     const isGitBacked = workspaceKind === 'git-backed' && !!workspaceId;
 
     const actions = useWorkspaceActionsOptional();
@@ -109,7 +132,9 @@ export const GitSyncPerspective = withInstrumentation(
     return (
       <section data-testid="git-perspective" className="studio-scroll h-full overflow-auto p-6 space-y-6">
         {!isGitBacked ? (
-          <GitNotConnectedEmptyState />
+          <GitNotConnectedEmptyState
+            origin={workspace && workspace.workspaceId === workspaceId ? workspace.starterProvenance : undefined}
+          />
         ) : (
           <div className="space-y-4">
             {/* Live sync status badge */}

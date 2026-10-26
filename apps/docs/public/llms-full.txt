@@ -9284,6 +9284,12 @@ type ProjectResolutionReceipt = z.infer<typeof ProjectResolutionReceiptSchema>
 type ProjectResolutionContext = z.infer<typeof ProjectResolutionContextSchema>
 ```
 
+### RepositoryFileSource
+
+```ts
+type RepositoryFileSource = z.infer<typeof RepositoryFileSourceSchema>
+```
+
 ### RepositoryExampleSource
 
 ```ts
@@ -9850,9 +9856,15 @@ Sent with a complete retained document set, after its semantic snapshots have ar
 const ProjectResolutionContextSchema: ZodObject<{ schemaVersion: ZodLiteral<1>; receipt: ZodObject<{ revision: ZodString; lockDigest: ZodString; overridesDigest: ZodString }, $strip>; models: ZodRecord<ZodString, ZodString>; lock: ZodNullable<ZodUnknown>; overrides: ZodArray<ZodUnknown> }, $strip>
 ```
 
-### RepositoryExampleSourceSchema
+### RepositoryFileSourceSchema
 
-Imported example origin; a Nightly commit records provenance, never a reference lock.
+Verified upstream file origin; Nightly commits record provenance, never a reference lock.
+
+```ts
+const RepositoryFileSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString }, $strict>
+```
+
+### RepositoryExampleSourceSchema
 
 ```ts
 const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString> }, $strict>
@@ -10749,6 +10761,8 @@ FR-001 (output structure).
 
 A generator-time diagnostic (not a Langium validation diagnostic).
 FR-025 (diagnostics).
+
+### CodeListValue
 
 ### PreviewField
 

@@ -67,6 +67,7 @@ export type {
   ExportSelection,
   GeneratorOutput,
   GeneratorDiagnostic,
+  CodeListValue,
   PreviewField,
   PreviewFieldKind,
   PreviewSourceMapEntry,

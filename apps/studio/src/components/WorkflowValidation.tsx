@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { useState, type RefObject } from 'react';
-import { CircleCheck, CircleX, CircleMinus, LoaderCircle } from 'lucide-react';
+import { CircleCheck, CircleX, CircleMinus, LoaderCircle, MoreHorizontal } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import type { WorkflowValidation as Validation } from '../services/workflow-validation.js';
@@ -14,12 +14,14 @@ export const WorkflowValidation = withInstrumentation(
     name,
     validation,
     root,
-    functionChecks = false
+    functionChecks = false,
+    appearance = 'status'
   }: {
     name: string;
     validation: Validation;
     root: RefObject<HTMLElement | null>;
     functionChecks?: boolean;
+    appearance?: 'status' | 'details';
   }) {
     const [open, setOpen] = useState(false);
     const Icon =
@@ -47,13 +49,17 @@ export const WorkflowValidation = withInstrumentation(
             <Button
               size="icon-xs"
               variant="ghost"
-              aria-label={`${name}: ${summary} · View validation`}
+              aria-label={appearance === 'details' ? `${name}: Error details` : `${name}: ${summary} · View validation`}
               className={`workflow-validation workflow-validation--${validation.state}`}
               title={`${name}: ${summary}`}
             />
           }
         >
-          <Icon className={`size-4 ${validation.state === 'pending' ? 'animate-spin' : ''}`} aria-hidden="true" />
+          {appearance === 'details' ? (
+            <MoreHorizontal className="size-4" aria-hidden="true" />
+          ) : (
+            <Icon className={`size-4 ${validation.state === 'pending' ? 'animate-spin' : ''}`} aria-hidden="true" />
+          )}
         </PopoverTrigger>
         <PopoverContent className="workflow-validation-popover" align="end">
           <h3 className="font-semibold">
@@ -97,9 +103,26 @@ export const WorkflowValidation = withInstrumentation(
                   >
                     <CircleX className="size-3.5 shrink-0 text-destructive" aria-hidden="true" />
                     <span>
-                      {diagnostic.path || diagnostic.conditionName || 'Condition'}: {diagnostic.message}
+                      {diagnostic.conditionDescription ??
+                        (diagnostic.conditionName
+                          ? `${diagnostic.conditionName} is not satisfied.`
+                          : `${diagnostic.path || 'Input'}: ${diagnostic.message}`)}
                     </span>
                   </Button>
+                  {diagnostic.conditionSource ? (
+                    <pre
+                      aria-label={`${diagnostic.conditionName ?? 'Condition'} Rune source`}
+                      className="studio-scroll mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 font-mono text-xs"
+                    >
+                      {diagnostic.conditionSource}
+                    </pre>
+                  ) : null}
+                  {diagnostic.conditionName ? (
+                    <details className="mt-1 text-xs text-muted-foreground">
+                      <summary>Technical details</summary>
+                      <p className="mt-1 break-words">{diagnostic.message}</p>
+                    </details>
+                  ) : null}
                 </li>
               ))}
             </ul>

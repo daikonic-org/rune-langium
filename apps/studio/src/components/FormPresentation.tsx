@@ -79,12 +79,14 @@ export const FormPresentation = withInstrumentation(
     children,
     toolbarStart,
     showToolbar = true,
+    showNotices,
     editing: controlledEditing,
     onEditingChange
   }: {
     children: ReactNode;
     toolbarStart?: ReactNode;
     showToolbar?: boolean;
+    showNotices?: boolean;
     editing?: boolean;
     onEditingChange?(editing: boolean): void;
   }) {
@@ -93,6 +95,24 @@ export const FormPresentation = withInstrumentation(
     const retry = useFormPresentationStore((state) => state.retry);
     const setEditing = useFormPresentationStore((state) => state.setEditing);
     const acceptLegacy = useFormPresentationStore((state) => state.acceptLegacy);
+    const project = useProject();
+    const available = new Set(workspace ? workspaceDeclarationIdentities(workspace).map(declarationKey) : []);
+    const keys = new Set([
+      ...Object.keys(entry?.preferences.layouts ?? {}),
+      ...Object.keys(entry?.preferences.formats ?? {}),
+      ...Object.keys(entry?.preferences.fieldFormats ?? {})
+    ]);
+    const missing =
+      entry?.repository &&
+      project.status === 'ready' &&
+      (!project.runtime?.managed || project.referenceView?.status === 'ready')
+        ? [...keys].filter((key) => !available.has(key)).length
+        : 0;
+    const notices = [...new Set(entry?.notices ?? [])];
+    if (missing)
+      notices.push(
+        `${missing} saved ${missing === 1 ? 'presentation refers' : 'presentations refer'} to an unavailable type. Settings are retained until the type is restored.`
+      );
     const editing = ready && (controlledEditing ?? (showToolbar && entry?.editing === true));
     const labelFor = (key: string) =>
       (workspace
@@ -197,8 +217,10 @@ export const FormPresentation = withInstrumentation(
             </Popover>
           </div>
         )}
-        {entry?.notices?.length ? (
-          <p className="px-2 text-xs text-muted-foreground">{entry.notices.join(' ')}</p>
+        {(showNotices ?? (showToolbar || editing)) && notices.length ? (
+          <p role="status" className="px-2 py-1 text-xs text-muted-foreground">
+            {notices.join(' ')}
+          </p>
         ) : null}
         {children}
       </PresentationContext>

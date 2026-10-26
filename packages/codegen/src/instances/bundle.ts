@@ -15,7 +15,9 @@ export type InstanceProvenance = z.infer<typeof InstanceProvenanceSchema>;
 const ValidationDiagnosticSchema = z.object({
   path: z.string(),
   message: z.string(),
-  conditionName: z.string().optional()
+  conditionName: z.string().optional(),
+  conditionDescription: z.string().optional(),
+  conditionSource: z.string().optional()
 });
 export type ValidationDiagnostic = z.infer<typeof ValidationDiagnosticSchema>;
 

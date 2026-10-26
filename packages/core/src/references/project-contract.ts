@@ -31,13 +31,16 @@ export const ProjectResolutionContextSchema = z.object({
 });
 export type ProjectResolutionContext = z.infer<typeof ProjectResolutionContextSchema>;
 
-/** Imported example origin; a Nightly commit records provenance, never a reference lock. */
-export const RepositoryExampleSourceSchema = z.strictObject({
+/** Verified upstream file origin; Nightly commits record provenance, never a reference lock. */
+export const RepositoryFileSourceSchema = z.strictObject({
   model: text,
   repository: z.string().regex(/^https:\/\/github[.]com\/[\w.-]+\/[\w.-]+$/),
   release: text,
   commit: z.string().regex(/^[a-f0-9]{40}$/),
-  path: text,
+  path: text
+});
+export type RepositoryFileSource = z.infer<typeof RepositoryFileSourceSchema>;
+export const RepositoryExampleSourceSchema = RepositoryFileSourceSchema.extend({
   format: z.enum(['JSON', 'RUNE_JSON']),
   version: text.optional()
 });

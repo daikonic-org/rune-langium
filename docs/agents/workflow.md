@@ -314,3 +314,9 @@ execution, Save/reopen, viewport fit and axe. Its transport/model fixture tests
 integration; the separate pinned CDM payload test establishes upstream byte and
 codec fidelity, not a complete CDM trade. Pinned third-party fixtures are excluded
 from formatting so upstream bytes and integrity hashes stay intact.
+
+Code-list changes: run project-runtime's `code-lists`/`project-capabilities` suites,
+Codegen's `runtime/project-bindings` suite and Studio's `PreviewEnumInput`/
+`FormPreviewPanel` suites. `test/e2e/project-resources.spec.ts` verifies the pinned
+CDM list in desktop/390px Prototype, execution/unknown-code validation and resource
+availability recovery. Preserve pinned third-party bytes and integrity manifests.

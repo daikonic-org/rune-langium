@@ -178,3 +178,24 @@ it.each(['typescript', 'zod', 'json-schema'] as const)(
     }
   }
 );
+
+it('validates code-list metadata values at their real payload paths, including list items', () => {
+  const bindings = createProjectBindingRegistry({
+    codeLists: [{ symbol: currency, values: [{ value: 'EUR', label: 'Euro' }] }]
+  });
+  const wrapped = { ...schema.fields[0]!, metadata: { kind: 'field' as const, payloadShape: null } };
+  const preview: FormPreviewSchema = {
+    ...schema,
+    fields: [
+      wrapped,
+      { kind: 'array', path: 'codes', label: 'Codes', required: false, children: [{ ...wrapped, path: 'codes[]' }] }
+    ]
+  };
+  expect(
+    validateProjectPreviewBindings(
+      preview,
+      { currency: { value: 'EUR', meta: { scheme: 'ISO' } }, codes: [{ value: 'USD', meta: {} }] },
+      bindings
+    )
+  ).toEqual([{ path: 'codes[0].value', message: expect.stringContaining('USD') }]);
+});

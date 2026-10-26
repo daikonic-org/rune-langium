@@ -267,9 +267,18 @@ export interface PreviewScalarField extends PreviewFieldBase {
   format?: TemporalWireFormat;
 }
 
+export interface CodeListValue {
+  value: string;
+  label: string;
+  description?: string;
+  deprecatedDate?: string;
+  effectiveDate?: string;
+  source?: string;
+}
+
 export interface PreviewEnumField extends PreviewFieldBase {
   kind: 'enum';
-  enumValues: Array<{ value: string; label: string }>;
+  enumValues: CodeListValue[];
 }
 
 export interface PreviewObjectField extends PreviewFieldBase {
