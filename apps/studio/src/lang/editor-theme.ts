@@ -14,6 +14,8 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 import { syntax } from '@rune-langium/design-system/tokens';
 
+const syntaxColor = (key: keyof typeof syntax) => `var(--syntax-${key}, ${syntax[key]})`;
+
 const editorTextStyle = {
   fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
   fontSize: '13px',
@@ -100,33 +102,34 @@ export const studioEditorTheme = EditorView.theme(
 );
 
 export const studioEditorHighlightStyle = HighlightStyle.define([
-  { tag: t.keyword, color: syntax.keyword },
+  { tag: t.keyword, color: syntaxColor('keyword') },
   { tag: [t.name, t.deleted, t.character, t.macroName], color: 'var(--foreground)' },
-  { tag: [t.function(t.variableName), t.labelName], color: syntax.function },
-  { tag: [t.propertyName], color: syntax.attribute },
-  { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: syntax.variable },
+  { tag: [t.function(t.variableName), t.labelName], color: syntaxColor('function') },
+  { tag: [t.propertyName], color: syntaxColor('attribute') },
+  { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: syntaxColor('variable') },
   { tag: [t.definition(t.name), t.separator], color: 'var(--foreground)' },
   {
     tag: [t.typeName, t.className, t.changed, t.annotation, t.modifier, t.self, t.namespace],
-    color: syntax.type
+    color: syntaxColor('type')
   },
   {
     tag: [t.operator, t.operatorKeyword, t.url, t.escape, t.regexp, t.link, t.special(t.string)],
-    color: syntax.operator
+    color: syntaxColor('operator')
   },
-  { tag: [t.meta, t.comment], color: syntax.comment, fontStyle: 'italic' },
+  { tag: t.meta, color: syntaxColor('type') },
+  { tag: t.comment, color: 'var(--muted-foreground)', fontStyle: 'italic' },
   { tag: t.strong, fontWeight: 'bold' },
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strikethrough, textDecoration: 'line-through' },
-  { tag: t.link, color: syntax.variable, textDecoration: 'underline' },
+  { tag: t.link, color: syntaxColor('variable'), textDecoration: 'underline' },
   { tag: t.heading, fontWeight: 'bold', color: 'var(--foreground)' },
-  { tag: [t.atom, t.bool, t.special(t.variableName)], color: syntax.constant },
-  { tag: [t.processingInstruction, t.string, t.inserted], color: syntax.string },
+  { tag: [t.atom, t.bool, t.special(t.variableName)], color: syntaxColor('constant') },
+  { tag: [t.processingInstruction, t.string, t.inserted], color: syntaxColor('string') },
   // --destructive (not --color-error): the latter is only defined under
   // [data-theme='daikonic'], so it wouldn't resolve under ?theme=default.
   // --destructive is defined in the base palette AND overridden per-theme.
   { tag: t.invalid, color: 'var(--destructive)' },
-  { tag: t.number, color: syntax.number }
+  { tag: t.number, color: syntaxColor('number') }
 ]);
 
 export const studioEditorExtensions = [studioEditorTheme, syntaxHighlighting(studioEditorHighlightStyle)];
