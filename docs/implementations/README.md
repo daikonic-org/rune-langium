@@ -30,7 +30,7 @@ unresolved signatures, foreign annotation identity and missing model ownership.
 
 Implementations live under `packages/codegen/src/implementations/<target>`.
 Signature guards include type kind/qualified identity, parameter order/names,
-cardinality, metadata/argument presence and enum members. A changed signature does
+cardinality, metadata/argument presence and enum wire values. A changed signature does
 not quietly select an old implementation. Both emitters pass their allocated
 parameter names to one native-expression call helper. Array returns populate the
 existing output accumulator. Explicit installed bindings and authored Rune bodies

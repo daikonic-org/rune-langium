@@ -55,6 +55,8 @@ Core's `getEnumValueLiteral` is authoritative for these literal codes. Emitters,
 Prototype, enum expressions, switches and `to-enum` use it. Display labels never
 become wire values. Other synonym sources retain their existing mapping semantics.
 Sanitized member-name collisions are disambiguated while preserving both codes.
+Native signature matching also compares these wire values, so unchanged member
+names cannot select a bundled implementation for a different code contract.
 Generated enum names are derived from the complete declaration identity, and
 single-file bundles order namespace dependencies before their consumers.
 

@@ -6,6 +6,8 @@ import ExcelJS from 'exceljs';
 import {
   createRuneDslServices,
   BASICTYPES_ROSETTA,
+  ANNOTATIONS_ROSETTA,
+  isRosettaFunction,
   getEnumValueLiteral,
   getEnumValues,
   isRosettaEnumeration,
@@ -14,7 +16,12 @@ import {
   serializeRuneModel,
   hydrateModelDocuments
 } from '@rune-langium/core';
-import { generate, generatePreviewSchemas, generatePythonModule } from '../../src/export.js';
+import {
+  generate,
+  generatePreviewSchemas,
+  generatePythonModule,
+  resolveNativeImplementation
+} from '../../src/export.js';
 import { renderCodeListEnum } from '../../src/runtime/code-list-enum.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
@@ -154,4 +161,42 @@ it('renders a self-contained Rune enum document for ordinary parser and generato
   const schema = await generate([document], { target: 'json-schema' });
   expect(schema.flatMap((file) => file.diagnostics).filter((issue) => issue.severity === 'error')).toEqual([]);
   expect(schema.map((file) => file.content).join('\n')).toContain('ACT/360');
+});
+
+it('rejects a bundled native implementation when enum member names hide a different wire contract', async () => {
+  const { RuneDsl } = createRuneDslServices();
+  const texts = [
+    BASICTYPES_ROSETTA,
+    ANNOTATIONS_ROSETTA,
+    'namespace rune.resources\nsynonym source CodeList',
+    `namespace cdm.base.datetime
+import rune.resources.CodeList
+enum DayOfWeekEnum:
+ MON
+  [synonym CodeList value "Monday"]
+ TUE
+ WED
+ THU
+ FRI
+ SAT
+ SUN
+func DayOfWeek:
+ [codeImplementation]
+ inputs: date date (1..1)
+ output: dayOfWeek DayOfWeekEnum (1..1)
+`
+  ];
+  const linked = texts.map((text, index) =>
+    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+      text,
+      URI.parse(`inmemory:///native-contract-${index}.rosetta`)
+    )
+  );
+  await RuneDsl.shared.workspace.DocumentBuilder.build(linked, { validation: true, eagerLinking: true });
+  assertValidDocuments(linked);
+  const root = linked[3]!.parseResult.value;
+  if (!isRosettaModel(root)) throw new Error('Expected model');
+  const func = root.elements.find(isRosettaFunction)!;
+  expect(resolveNativeImplementation(func, 'typescript')?.status).toBe('unsupported');
+  expect(resolveNativeImplementation(func, 'python')?.status).toBe('unsupported');
 });
