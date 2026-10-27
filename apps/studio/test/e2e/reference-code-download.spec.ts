@@ -48,7 +48,7 @@ test('Code tab downloads an accepted reference through the captured project work
   await picker.getByRole('button', { name: /CDM \(Common/ }).click();
   await picker.getByRole('combobox', { name: 'Release', exact: true }).click();
   await page.getByRole('option', { name: '1.0', exact: true }).click();
-  await picker.getByRole('button', { name: 'Review change', exact: true }).click();
+  await picker.getByRole('button', { name: /^(Add|Update) reference$/, exact: true }).click();
   await picker.getByRole('button', { name: 'Save reference change', exact: true }).click();
   await expect(picker.getByRole('heading', { name: 'Review reference change', exact: true })).toHaveCount(0);
   await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('1.0');

@@ -43,7 +43,7 @@ test.describe('J16 — Resilience & chrome', () => {
       await picker.getByRole('button', { name: /CDM \(Common/ }).click();
       await picker.getByRole('combobox', { name: 'Release', exact: true }).click();
       await page.getByRole('option', { name: 'Nightly', exact: true }).click();
-      await picker.getByRole('button', { name: 'Review change', exact: true }).click();
+      await picker.getByRole('button', { name: /^(Add|Update) reference$/, exact: true }).click();
       await inflight;
       await evidence.checkpoint('reference-verification-in-flight');
       await page.getByTestId('rail-explore').click();

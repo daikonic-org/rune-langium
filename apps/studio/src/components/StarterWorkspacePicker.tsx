@@ -2,25 +2,36 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUpRight, LoaderCircle } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, LoaderCircle, GitFork } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { listStarterProjects, type StarterProject } from '../services/starter-registry.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@rune-langium/design-system/ui/dialog';
+import { GitHubWorkspaceFlow, type GitHubWorkspaceFlowProps } from './GitHubWorkspaceFlow.js';
 
 export const StarterWorkspacePicker = withInstrumentation(
   function StarterWorkspacePicker({
     catalog = listStarterProjects(),
-    open
+    open,
+    github
   }: {
     catalog?: readonly StarterProject[];
     open?: (starter: StarterProject, signal: AbortSignal) => Promise<unknown>;
+    github?: Pick<GitHubWorkspaceFlowProps, 'createWorkspace' | 'onCreated' | 'openProjectInitialization'>;
   }) {
     const [selected, setSelected] = useState(catalog[0]?.id),
       [query, setQuery] = useState(''),
       [detail, setDetail] = useState(false),
       [busy, setBusy] = useState(false),
       [error, setError] = useState<string>();
+    const [forking, setForking] = useState<StarterProject>();
     const current = useRef<AbortController | undefined>(undefined),
       selection = useRef<HTMLButtonElement | null>(null);
     const cancel = () => {
@@ -56,6 +67,30 @@ export const StarterWorkspacePicker = withInstrumentation(
     };
     return (
       <section className="starter-section" aria-labelledby="starter-heading">
+        <Dialog
+          open={Boolean(forking)}
+          onOpenChange={(value) => {
+            if (!value) setForking(undefined);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Fork example on GitHub</DialogTitle>
+              <DialogDescription>Sign in to create your own repository and open it in Studio.</DialogDescription>
+            </DialogHeader>
+            {forking && github && (
+              <GitHubWorkspaceFlow
+                {...github}
+                forkSource={forking.repository}
+                onCancel={() => setForking(undefined)}
+                onCreated={async (id) => {
+                  await github.onCreated(id);
+                  setForking(undefined);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
         <div className="studio-launcher__section-heading">
           <h2 id="starter-heading">Start from example</h2>
           <span>Editable GitHub projects</span>
@@ -150,11 +185,24 @@ export const StarterWorkspacePicker = withInstrumentation(
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
+                    variant="outline"
                     disabled={busy || active.status !== 'available' || !open}
                     onClick={() => void useExample()}
                   >
                     {busy && <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />}
-                    {busy ? 'Opening example…' : 'Use example'}
+                    {busy ? 'Opening example…' : 'View example'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={busy || active.status !== 'available' || !github}
+                    onClick={() => {
+                      cancel();
+                      setError(undefined);
+                      setForking(active);
+                    }}
+                  >
+                    <GitFork className="size-3.5" aria-hidden="true" />
+                    Fork example
                   </Button>
                   {busy && (
                     <Button size="sm" variant="ghost" onClick={cancel}>
@@ -163,8 +211,8 @@ export const StarterWorkspacePicker = withInstrumentation(
                   )}
                 </div>
                 <p className="starter-picker__notice">
-                  Open an editable copy without signing in. Clone, fork or connect a writable repository before
-                  committing or pushing.
+                  View without signing in. Fork creates your own GitHub repository for saving and sharing changes.
+                  {!github && ' GitHub sign-in is currently unavailable.'}
                 </p>
                 {busy && <p role="status">Checking source and preparing your working copy…</p>}
                 {error && (

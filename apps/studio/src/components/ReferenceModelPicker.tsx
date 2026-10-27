@@ -21,6 +21,7 @@ import {
 } from '../services/project-references.js';
 import { useWorkspaceActionsOptional } from '../shell/perspectives/workspace-actions-context.js';
 import { ReferenceReleaseReview } from './ReferenceReleaseReview.js';
+import { ReferenceModelDetails } from './ReferenceModelDetails.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export const ReferenceModelPicker = withInstrumentation(
@@ -284,6 +285,13 @@ export const ReferenceModelPicker = withInstrumentation(
                   Back to reference models
                 </Button>
                 <h3>{active.name}</h3>
+                <ReferenceModelDetails
+                  repository={active.repoUrl}
+                  modelId={active.id}
+                  release={release}
+                  catalog={catalog}
+                  transport={transport}
+                />
                 <>
                   {configuredRelease && (
                     <p className="text-xs text-muted-foreground">
@@ -341,7 +349,13 @@ export const ReferenceModelPicker = withInstrumentation(
                       }
                       onClick={() => void prepare()}
                     >
-                      Review change
+                      {phase === 'resolving'
+                        ? 'Verifying reference…'
+                        : phase === 'saving'
+                          ? 'Saving reference…'
+                          : configuredRelease
+                            ? 'Update reference'
+                            : 'Add reference'}
                     </Button>
                   )}
                 </>

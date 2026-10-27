@@ -10,7 +10,8 @@ import type { ExplorerSelectionAction } from '@rune-langium/visual-editor';
 import {
   exportSelectionFromExplorer,
   exportSelectionIdForNode,
-  exportSelectionToExplorerSet
+  exportSelectionToExplorerSet,
+  exportDeclarationFromNode
 } from '../../services/export-explorer-selection.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { viewTypeInExplore } from '../../services/explore-navigation.js';
@@ -21,6 +22,7 @@ export interface ExportSelectionPanelProps {
   included?: ExportSelection['declarations'];
   includedCount?: number;
   onChange(selection: ExportSelection): void;
+  onNavigate?(namespace: string, name: string): void;
 }
 
 /** Reuses the shared type explorer to collect semantic export roots. */
@@ -30,7 +32,8 @@ export const ExportSelectionPanel = withInstrumentation(
     requiredBy,
     included,
     includedCount,
-    onChange
+    onChange,
+    onNavigate
   }: ExportSelectionPanelProps): ReactElement {
     const nodesById = useEditorStore((state) => state.nodesById);
     const repository = selectNodeRepository(nodesById);
@@ -80,7 +83,12 @@ export const ExportSelectionPanel = withInstrumentation(
             onToggleNamespace={() => undefined}
             onExpandAll={() => setExpandedNamespaces(new Set(namespaces))}
             onCollapseAll={() => setExpandedNamespaces(new Set())}
-            onSelectNode={viewTypeInExplore}
+            onSelectNode={(id) => {
+              if (!onNavigate) return viewTypeInExplore(id);
+              const node = repository.all().find((entry) => entry.id === id);
+              const declaration = node && exportDeclarationFromNode(node);
+              if (declaration) onNavigate(declaration.namespace, declaration.name);
+            }}
             selection={{
               explicit,
               requiredBy: requiredBy ?? new Map(),

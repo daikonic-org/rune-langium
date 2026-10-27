@@ -116,7 +116,7 @@ export function InspectorDetailsPane({
             </Button>
           )}
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon-xs"
             aria-expanded={!collapsed}
             aria-controls={id}
@@ -125,9 +125,9 @@ export function InspectorDetailsPane({
             onClick={() => setCollapsed(!collapsed)}
           >
             {collapsed ? (
-              <ChevronUp className="size-3.5" aria-hidden="true" />
-            ) : (
               <ChevronDown className="size-3.5" aria-hidden="true" />
+            ) : (
+              <ChevronUp className="size-3.5" aria-hidden="true" />
             )}
           </Button>
         </div>

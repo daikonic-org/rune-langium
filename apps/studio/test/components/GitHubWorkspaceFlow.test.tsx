@@ -27,6 +27,20 @@ describe('GitHubWorkspaceFlow (T032e / FR-012)', () => {
     // tests, not here.
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((url: URL | string) => {
       const u = String(url);
+      if (u === 'https://api.github.com/user') return Promise.resolve(Response.json({ login: 'octocat' }));
+      if (u === 'https://api.github.com/repos/example/starter/forks')
+        return Promise.resolve(
+          Response.json(
+            {
+              name: 'starter',
+              owner: { login: 'octocat' },
+              default_branch: 'release',
+              fork: true,
+              parent: { full_name: 'example/starter' }
+            },
+            { status: 202 }
+          )
+        );
       if (u.endsWith('/device-init')) {
         return Promise.resolve(
           new Response(
@@ -53,6 +67,37 @@ describe('GitHubWorkspaceFlow (T032e / FR-012)', () => {
     }) as unknown as ReturnType<typeof vi.spyOn>;
   });
   afterEach(() => fetchSpy.mockRestore());
+
+  it('creates a real user fork after sign-in and retries only cloning that fork', async () => {
+    const createWorkspace = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('GitHub is preparing the fork.'))
+      .mockResolvedValueOnce({ id: 'fork-workspace' });
+    const onCreated = vi.fn();
+    render(
+      <GitHubWorkspaceFlow
+        authBase={AUTH_BASE}
+        forkSource="example/starter"
+        onCreated={onCreated}
+        onCancel={vi.fn()}
+        createWorkspace={createWorkspace}
+      />
+    );
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).endsWith('/forks'))).toBe(false);
+    fireEvent.click(await screen.findByRole('button', { name: /check now/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create fork' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('GitHub is preparing');
+    expect(createWorkspace).toHaveBeenCalledWith({
+      name: 'octocat/starter',
+      repoUrl: 'https://github.com/octocat/starter.git',
+      branch: 'release',
+      user: 'octocat',
+      token: 'gho_test'
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open fork' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('fork-workspace'));
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).endsWith('/forks'))).toHaveLength(1);
+  });
 
   it('after auth, surfaces a repo-URL form (transitions auth → url)', async () => {
     const createWorkspace = vi.fn();

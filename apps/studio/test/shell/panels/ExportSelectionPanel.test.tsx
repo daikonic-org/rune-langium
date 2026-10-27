@@ -49,6 +49,23 @@ it('navigates through Explore without changing export inclusion', () => {
   expect(onChange).not.toHaveBeenCalled();
 });
 
+it('routes declaration navigation to generated output when Export supplies a handler', () => {
+  setNodes();
+  const onChange = vi.fn();
+  const onNavigate = vi.fn();
+  render(
+    <ExportSelectionPanel
+      selection={{ namespaces: [], declarations: [] }}
+      onChange={onChange}
+      onNavigate={onNavigate}
+    />
+  );
+  act(() => navigateToType?.('test.Party'));
+  expect(onNavigate).toHaveBeenCalledWith('test', 'Party');
+  expect(viewTypeInExplore).not.toHaveBeenCalled();
+  expect(onChange).not.toHaveBeenCalled();
+});
+
 it('converts shared explorer declaration selection into a codegen root', () => {
   setNodes();
   const onChange = vi.fn();

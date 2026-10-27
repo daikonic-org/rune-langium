@@ -13,6 +13,7 @@ import {
   type WorkspaceActions
 } from '../../src/shell/perspectives/workspace-actions-context.js';
 import { ReferenceModelPicker } from '../../src/components/ReferenceModelPicker.js';
+vi.mock('../../src/components/ReferenceModelDetails.js', () => ({ ReferenceModelDetails: () => <div /> }));
 async function setup(flushWorkspaceSave?: () => Promise<void>, initialCatalogError?: string) {
   const onAccepted = vi.fn();
   const fixture = await referenceFixture({});
@@ -64,7 +65,7 @@ it('shows saved selections while catalogs and Nightly dependencies load independ
   expect(screen.getByRole('button', { name: /CDM \(Common/ })).toHaveTextContent('Nightly');
   expect(screen.getByRole('button', { name: /Rune DSL/ })).toHaveTextContent('Checking dependencies');
   expect(screen.getByText(/Loading workspace dependencies/)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Review change', exact: true })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /^(Add|Update) reference$/, exact: true })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Recheck references' })).toBeEnabled();
   catalog.resolve({ schemaVersion: 1, releases: fixture.releases.get('cdm')! });
   await waitFor(() => expect(screen.queryByText('Loading published releases…')).toBeNull());
@@ -75,7 +76,7 @@ it('saves Nightly as a moving workspace preference without creating a lockfile',
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await user.click(await screen.findByRole('combobox', { name: 'Release' }));
   await user.click(await screen.findByRole('option', { name: 'Nightly', exact: true }));
-  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await user.click(screen.getByRole('button', { name: /^(Add|Update) reference$/ }));
   await screen.findByRole('heading', { name: 'Review reference change' });
   expect(screen.getAllByText(/No saved pin, lock/).length).toBeGreaterThan(1);
   expect(screen.getByRole('list', { name: 'Proposed reference releases' })).toHaveTextContent('rune-dsl Nightly');
@@ -91,7 +92,7 @@ it('activates references only after a failed save is successfully retried', asyn
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await user.click(await screen.findByRole('combobox', { name: 'Release' }));
   await user.click(await screen.findByRole('option', { name: 'Nightly', exact: true }));
-  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await user.click(screen.getByRole('button', { name: /^(Add|Update) reference$/ }));
   await screen.findByRole('heading', { name: 'Review reference change' });
   const save = vi.spyOn(controller, 'save').mockRejectedValueOnce(new Error('Storage unavailable'));
   try {
@@ -112,7 +113,7 @@ it('removes the tagged lock when the last pinned reference switches to Nightly',
   for (const release of ['1.0', 'Nightly']) {
     await user.click(await screen.findByRole('combobox', { name: 'Release' }));
     await user.click(await screen.findByRole('option', { name: release, exact: true }));
-    await user.click(screen.getByRole('button', { name: 'Review change' }));
+    await user.click(screen.getByRole('button', { name: /^(Add|Update) reference$/ }));
     await screen.findByRole('heading', { name: 'Review reference change' });
     await user.click(screen.getByRole('button', { name: 'Save reference change' }));
     await waitFor(() =>
@@ -128,7 +129,7 @@ it('removes the tagged lock when the last pinned reference switches to Nightly',
 it('requires an exact release, reviews its dependency origin, and writes only on acceptance', async () => {
   const { user, controller, adapter } = await setup();
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
-  const review = screen.getByRole('button', { name: 'Review change' });
+  const review = screen.getByRole('button', { name: /^(Add|Update) reference$/ });
   expect(review).toBeDisabled();
   await user.click(await screen.findByRole('combobox', { name: 'Release' }));
   if (screen.getByRole('combobox', { name: 'Release' }).getAttribute('aria-expanded') !== 'true')
@@ -151,7 +152,7 @@ it('canceling a review preserves the old request and a failed catalog can be ret
   await user.click(chooser);
   if (chooser.getAttribute('aria-expanded') !== 'true') await user.keyboard('{ArrowDown}');
   await user.click(await screen.findByRole('option', { name: '2.0', exact: true }));
-  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await user.click(screen.getByRole('button', { name: /^(Add|Update) reference$/ }));
   await screen.findByRole('heading', { name: 'Review reference change' });
   await user.click(screen.getByRole('button', { name: 'Cancel review' }));
   expect(onAccepted).not.toHaveBeenCalled();
@@ -231,7 +232,7 @@ it('builds the selected release proposal from refreshed configuration without ca
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await user.click(await screen.findByRole('combobox', { name: 'Release' }));
   await user.click(await screen.findByRole('option', { name: '1.0', exact: true }));
-  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await user.click(screen.getByRole('button', { name: /^(Add|Update) reference$/ }));
   await screen.findByRole('heading', { name: 'Review reference change' });
   await user.click(screen.getByRole('button', { name: 'Save reference change' }));
   await waitFor(() => expect(controller.current()!.lock?.references.cdm!.release).toBe('1.0'));
@@ -250,7 +251,7 @@ it('waits for pending source Save before preparing a reference review', async ()
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await user.click(await screen.findByRole('combobox', { name: 'Release' }));
   await user.click(await screen.findByRole('option', { name: '1.0', exact: true }));
-  await user.click(screen.getByRole('button', { name: 'Review change' }));
+  await user.click(screen.getByRole('button', { name: /^(Add|Update) reference$/ }));
   expect(screen.queryByRole('heading', { name: 'Review reference change' })).toBeNull();
   await adapter.write('model/pending.rosetta', 'namespace pending\ntype Data:\n value string (1..1)\n', null);
   finish();

@@ -940,7 +940,7 @@ button[data-navigable]:focus-visible {
 
 /* Graph header geometry comes from graph-node-geometry.ts. */
 :root {
-  --rune-chip-padding-y: 1px;
+  --rune-chip-padding-y: 2px;
   --rune-chip-padding-x: 4px;
   --rune-pill-padding-x: 5px;
   --rune-row-indent: 6px;

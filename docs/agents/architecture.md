@@ -65,6 +65,17 @@ finishing after project disposal cannot write through the guarded adapter.
 Binary generator output is persisted as bytes. Preview/download retain the exact
 captured ZIP and become stale on semantic input or configuration errors.
 
+Export settings and generated output share one expandable Dockview panel with
+mounted tabs, preserving target drafts when switching views. Generation diagnostics
+open from a counted disclosure instead of displacing source. Artifact files carry
+small namespace ownership lists derived from emitter source maps and canonical
+target paths; explorer navigation selects the matching captured file within Export.
+These lists survive output-prefix composition without retaining full source maps.
+Reference detail cards fetch public repository descriptions and publication
+inventory independently of activation; tagged inventory uses the shared checksum
+and provenance reader. Add/Update reference retains proposal review and revisioned
+Save before runtime refresh.
+
 Code-tab downloads list namespaces from the provider's current managed semantic
 view, including accepted references. They reuse `generateExport` with the captured
 project, canonical declaration dependency resolution and artifact receipt checks.
@@ -552,6 +563,11 @@ wrappers. Emitters record these fragments during the same traversal that generat
 the full exported declarations. Displayed function bodies return `false` when a
 precondition or postcondition fails; successful bodies retain their normal result.
 Executable function declarations retain diagnostic exceptions for those failures.
+Body projections omit constructor assertions and optional calendar parameter
+annotations, and may call existing `rune` namespace helpers for readable cardinality
+or ordering operations. Exported declarations retain their executable validation,
+metadata and type boundaries. The narrower inverse lens remains authoritative for
+edit availability; readable display alone does not establish round-trip support.
 Public projection selectors default to declarations. Display coverage is independent of inverse-lens coverage. Reverse
 editing opens a private dialog, schema-validates and reparses the converted Rune
 AST, and applies only the captured region with revision guards. Generated function bodies remain read-only. Function provenance includes trailing implementation
@@ -989,6 +1005,11 @@ sample locks release 7.8.0 and its dependencies and calls the upstream Rune
 `UpdateAmount` through an original local wrapper; it does not provide financial
 payment scheduling. Template-generated repositories do not automatically pull
 future template changes.
+View example opens that verified local copy. Fork example uses GitHub sign-in,
+verifies or creates the user's own fork, and enters the shared GitHub clone and
+project-initialization review flow. A clone retry reuses the verified fork; it
+does not repeat repository creation. Public example repositories are never opened
+as the user's writable upstream remote.
 Recent-workspace Rename updates only display metadata and recents in one IndexedDB
 transaction, preserving current backing/UI state and updating the active header.
 It never renames `rune-config.yml` model identity or repository-managed files.

@@ -23,7 +23,7 @@ for (const release of ['Nightly', '7.8.0'])
       await picker.getByRole('button', { name: /CDM \(Common/ }).click();
       await picker.getByRole('combobox', { name: 'Release', exact: true }).click();
       await page.getByRole('option', { name: release, exact: true }).click();
-      await picker.getByRole('button', { name: 'Review change', exact: true }).click();
+      await picker.getByRole('button', { name: /^(Add|Update) reference$/, exact: true }).click();
       await expect(picker.getByRole('heading', { name: 'Review reference change' })).toBeVisible({ timeout: 90000 });
       await evidence.checkpoint('reference-reviewed');
       await picker.getByRole('button', { name: 'Save reference change', exact: true }).click();

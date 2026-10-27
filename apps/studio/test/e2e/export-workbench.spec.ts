@@ -3,7 +3,8 @@
 
 import JSZip from 'jszip';
 import { expect, test } from '@playwright/test';
-import { typeSelectionCheckbox } from '../helpers/type-navigation.js';
+import { typeSelectionCheckbox, typeNavigationButton } from '../helpers/type-navigation.js';
+import AxeBuilder from '@axe-core/playwright';
 import { createRuneDslServices, BASICTYPES_ROSETTA } from '@rune-langium/core';
 import { generate } from '@rune-langium/codegen/export';
 import { URI } from 'langium';
@@ -19,6 +20,7 @@ async function artifact(): Promise<Buffer> {
   const zip = new JSZip();
   const content = 'export interface Party { address: Address }\n';
   zip.file('demo.ts', content);
+  zip.file('notes.txt', 'Additional output');
   zip.file(
     '.rune/export.json',
     JSON.stringify({
@@ -32,14 +34,23 @@ async function artifact(): Promise<Buffer> {
         ],
         requiredBy: { '["demo","Data","Address"]': ['["demo","Data","Party"]'] }
       },
-      files: [{ path: 'demo.ts', kind: 'text', bytes: new TextEncoder().encode(content).byteLength }],
-      diagnostics: []
+      files: [
+        { path: 'demo.ts', kind: 'text', namespaces: ['demo'], bytes: new TextEncoder().encode(content).byteLength },
+        { path: 'notes.txt', kind: 'text', namespaces: [], bytes: 17 }
+      ],
+      diagnostics: Array.from({ length: 25 }, (_, index) => ({
+        severity: 'warning',
+        code: 'example-warning',
+        message: `Example warning ${index}`
+      }))
     })
   );
   return zip.generateAsync({ type: 'nodebuffer' });
 }
 
-test('selects and previews a captured declaration export', async ({ page }) => {
+test('selects, navigates and expands a captured export while diagnostics stay behind a disclosure', async ({
+  page
+}, testInfo) => {
   await page.route('**/api/codegen', async (route) => {
     expect(route.request().postDataJSON()).toMatchObject({
       artifactEnvelope: 1,
@@ -61,6 +72,33 @@ test('selects and previews a captured declaration export', async ({ page }) => {
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
   await expect(page.getByLabel('Generated export code')).toContainText('export interface Party');
   await expect(page.getByTestId('export-selection-summary')).toContainText('2 declarations included');
+  const diagnostics = page.getByRole('button', { name: 'Show generation diagnostics (25)' });
+  await expect(page.getByText('Example warning 0', { exact: true })).not.toBeVisible();
+  await diagnostics.click();
+  await expect(page.getByRole('dialog', { name: 'Generation diagnostics' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(diagnostics).toBeFocused();
+  await page.getByRole('combobox', { name: 'Generated export file' }).selectOption('notes.txt');
+  await expect(page.getByLabel('Generated export code')).toContainText('Additional output');
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await typeNavigationButton(page.getByTestId('export-perspective'), 'demo.Party').click();
+  await expect(page.getByRole('tab', { name: 'Generated output' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue('demo.ts');
+  await expect(page.getByTestId('export-perspective')).toBeVisible();
+  const before = await page.getByTestId('export-workspace').boundingBox();
+  await page.getByRole('button', { name: 'Expand export panel' }).click();
+  await expect(page.getByRole('button', { name: 'Restore export panel' })).toBeVisible();
+  const after = await page.getByTestId('export-workspace').boundingBox();
+  expect(after!.width).toBeGreaterThan(before!.width);
+  await expect(page.getByLabel('Generated export code')).toBeVisible();
+  await testInfo.attach('expanded-export-output', {
+    body: await page.screenshot({ path: '/tmp/rune-export-expanded.png' }),
+    contentType: 'image/png'
+  });
+  expect((await new AxeBuilder({ page }).include('[data-testid="export-perspective"]').analyze()).violations).toEqual(
+    []
+  );
+  await page.getByRole('button', { name: 'Restore export panel' }).click();
 });
 
 test('keeps export selection and settings reachable at a constrained width', async ({ page }) => {
@@ -75,14 +113,16 @@ test('keeps export selection and settings reachable at a constrained width', asy
   await page.getByTestId('rail-export').click();
 
   const perspective = page.getByTestId('export-perspective');
-  const panes = perspective.getByRole('tablist');
+  const panes = perspective
+    .getByRole('tablist')
+    .filter({ has: page.getByRole('tab', { name: 'Selection', exact: true }) });
   const selection = perspective.getByTestId('export-selection').first();
   const settings = perspective.getByTestId('export-settings').first();
   await expect(panes).toBeVisible();
   await expect(selection).toBeVisible();
   await expect(settings).not.toBeVisible();
 
-  await panes.getByRole('tab', { name: 'Settings' }).click();
+  await panes.getByRole('tab', { name: 'Export', exact: true }).click();
   await expect(settings).toBeVisible();
   await expect(selection).not.toBeVisible();
   await panes.getByRole('tab', { name: 'Selection' }).click();

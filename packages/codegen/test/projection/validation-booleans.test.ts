@@ -8,6 +8,7 @@ import { createRuneDslServices, getNodeSourceRegion, isData, isRosettaFunction }
 import { generate, selectTypeScriptProjection } from '../../src/export.js';
 import { generatePythonModule, selectPythonProjection } from '../../src/projection/python-functions.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
+import { RUNTIME_HELPER_JS_SOURCE } from '../../src/helpers.js';
 import { referenceFiles } from '../helpers/cdm-reference.js';
 import { linkedFunctions, runPython } from './python-test-utils.js';
 
@@ -52,7 +53,10 @@ describe('validation failures in displayed bodies', () => {
     const display = body(funcs[0]!, 'function', 'typescript');
     expect(display).not.toContain('throw');
     expect(display.match(/return false;/g)).toHaveLength(2);
-    const validate = new Function('amount', ts.transpileModule(display, {}).outputText);
+    const validate = new Function(
+      'amount',
+      RUNTIME_HELPER_JS_SOURCE + '\n' + ts.transpileModule(display, {}).outputText
+    );
     expect([-1, 5, 20].map((amount) => validate(amount))).toEqual([false, 5, false]);
     const flag = new Function('flag', body(funcs[1]!, 'function', 'typescript'));
     expect([false, true].map((value) => flag(value))).toEqual([false, true]);

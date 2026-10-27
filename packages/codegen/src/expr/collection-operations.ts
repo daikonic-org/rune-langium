@@ -34,7 +34,13 @@ export function renderCollectionOperation(
   const argumentCtx =
     isMapOperation(expr) && expr.function && ctx.emitMode.startsWith('ts-') ? { ...ctx, preserveMetadata: true } : ctx;
   const argument = expr.argument ? render(expr.argument, argumentCtx) : ctx.selfName;
-  const values = nativeCollection(argument, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'));
+  const values = nativeCollection(
+    argument,
+    expr.argument,
+    ctx.implicitMetadata?.many,
+    ctx.emitMode.startsWith('ts-'),
+    ctx.projection
+  );
   const kind = argumentCtx.preserveMetadata
     ? expr.argument
       ? expressionMetadataKind(expr.argument)
@@ -59,15 +65,20 @@ export function renderCollectionOperation(
         : param;
     return isFilterOperation(expr)
       ? `${values}.filter((${param}) => ${arrowBody(body)})`
-      : `${values}.flatMap((${param}) => ${nativeCollection(body, fn?.body, false, ctx.emitMode.startsWith('ts-'))})`;
+      : `${values}.flatMap((${param}) => ${nativeCollection(body, fn?.body, false, ctx.emitMode.startsWith('ts-'), ctx.projection)})`;
   }
   if (isSortOperation(expr)) {
+    if (!fn && !metadata && temporal) return `${values}.slice().sort(Temporal.${temporal}.compare)`;
     const a = freshLocal(ctx, '__sortA');
     const b = freshLocal(ctx, '__sortB');
-    const keyA = freshLocal(ctx, '__keyA');
-    const keyB = freshLocal(ctx, '__keyB');
     const ka = key(a);
     const kb = key(b);
+    if (ctx.projection) {
+      const comparison = temporal ? `Temporal.${temporal}.compare` : '(a, b) => a < b ? -1 : a > b ? 1 : 0';
+      return `${values}.slice().sort((${a}, ${b}) => rune.order(${ka}, ${kb}, ${comparison}))`;
+    }
+    const keyA = freshLocal(ctx, '__keyA');
+    const keyB = freshLocal(ctx, '__keyB');
     return `${values}.slice().sort((${a}, ${b}) => { const ${keyA} = (${ka}); const ${keyB} = (${kb}); return ${nativeOrder(keyA, keyB, true, temporal)}; })`;
   }
   if (isMinOperation(expr) || isMaxOperation(expr)) {
@@ -79,7 +90,13 @@ export function renderCollectionOperation(
     const sign = isMinOperation(expr) ? '<' : '>';
     const itemKeyName = freshLocal(ctx, '__itemKey');
     const bestKeyName = freshLocal(ctx, '__bestKey');
-    const input = nativeCollection(argument, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'));
+    const input = nativeCollection(
+      argument,
+      expr.argument,
+      ctx.implicitMetadata?.many,
+      ctx.emitMode.startsWith('ts-'),
+      ctx.projection
+    );
     return `(() => { const ${values} = ${input}; if (${values}.length === 0) return undefined; return ${values}.slice(1).reduce((${best}, ${item}) => { const ${itemKeyName} = (${itemKey}); const ${bestKeyName} = (${bestKey}); return ${nativeOrder(itemKeyName, bestKeyName, isMinOperation(expr), temporal)} ${sign} 0 ? ${item} : ${best}; }, ${values}[0]); })()`;
   }
   return undefined;

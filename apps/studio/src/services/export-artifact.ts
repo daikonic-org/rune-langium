@@ -14,6 +14,8 @@ export interface ExportArtifactFile {
   kind: 'text' | 'binary';
   mimeType?: string;
   bytes: number;
+  /** Namespace ownership captured by the generator, retained across target-output prefixes. */
+  namespaces?: string[];
 }
 
 export interface ExportArtifactManifest {
@@ -64,6 +66,8 @@ function isArtifactFile(value: unknown): value is ExportArtifactFile {
     typeof file.path === 'string' &&
     (file.kind === 'text' || file.kind === 'binary') &&
     (file.mimeType === undefined || typeof file.mimeType === 'string') &&
+    (file.namespaces === undefined ||
+      (Array.isArray(file.namespaces) && file.namespaces.every((entry) => typeof entry === 'string'))) &&
     typeof file.bytes === 'number' &&
     Number.isSafeInteger(file.bytes) &&
     file.bytes >= 0

@@ -31,9 +31,9 @@ it('opens without authentication, keeps errors recoverable and never offers stan
   const user = userEvent.setup();
   render(<StarterWorkspacePicker catalog={catalog} open={open} />);
   await user.click(screen.getByRole('button', { name: /Model authoring/ }));
-  await user.click(screen.getByRole('button', { name: 'Use example' }));
+  await user.click(screen.getByRole('button', { name: 'View example' }));
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Network unavailable'));
-  expect(screen.getByRole('button', { name: 'Use example' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'View example' })).toBeEnabled();
   expect(open).toHaveBeenCalledOnce();
   expect(screen.queryByRole('button', { name: /Maven/ })).toBeNull();
 });
@@ -42,5 +42,5 @@ it('discloses unpublished examples and disables opening them', async () => {
   render(<StarterWorkspacePicker catalog={[{ ...catalog[0]!, status: 'unavailable' }]} open={vi.fn()} />);
   await user.click(screen.getByRole('button', { name: /Model authoring/ }));
   expect(screen.getByText(/This proposed example is not published/)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Use example' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'View example' })).toBeDisabled();
 });

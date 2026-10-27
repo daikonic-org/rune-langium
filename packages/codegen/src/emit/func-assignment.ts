@@ -19,7 +19,8 @@ import type { FuncBodyContext, RuneFuncAssignment } from '../types/func.js';
 export function renderAssignmentValue(
   value: string,
   expression: RosettaExpression | undefined,
-  targetMany: boolean
+  targetMany: boolean,
+  projection = false
 ): string {
   const sourceMany = expression ? expressionIsMany(expression) : undefined;
   const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
@@ -28,8 +29,8 @@ export function renderAssignmentValue(
       ? collectionValue(value, expression)
       : value
     : targetMany
-      ? nativeCollection(value, expression, undefined, true)
-      : nativeSingle(value, expression, true);
+      ? nativeCollection(value, expression, undefined, true, projection)
+      : nativeSingle(value, expression, true, projection);
 }
 
 export function renderFuncAssignment(
@@ -43,7 +44,7 @@ export function renderFuncAssignment(
   const lines: string[] = [];
   const targetMany = assignment.targetMany ?? (path.length === 0 && ctx.outputAccumulator === 'array');
   const expression = isRosettaExpression(assignment.exprNode) ? assignment.exprNode : undefined;
-  let expr = renderAssignmentValue(renderExpression(assignment.exprNode), expression, targetMany);
+  let expr = renderAssignmentValue(renderExpression(assignment.exprNode), expression, targetMany, ctx.projection);
   const bounds = assignment.targetCardinality;
   const checksFor = (value: string, arraySize?: string) =>
     bounds && !ctx.projection

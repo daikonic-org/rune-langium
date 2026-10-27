@@ -182,5 +182,5 @@ export function emitNamespaceWithContract(
 
   emitter.emitFunctions?.();
 
-  return emitter.finalize();
+  return { ...emitter.finalize(), namespaces: [model.namespace] };
 }

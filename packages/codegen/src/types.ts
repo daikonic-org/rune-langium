@@ -211,6 +211,8 @@ export interface GeneratedFunc {
  * FR-001 (output structure).
  */
 export interface GeneratorOutput {
+  /** Rune namespaces owned by this model file, retained through bundled layouts. */
+  namespaces?: string[];
   /** Shared companion files follow model files in previews and downloads. */
   artifactRole?: 'support';
   /** Source-bound implementation fragments recorded by the target emitter. */

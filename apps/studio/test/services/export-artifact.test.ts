@@ -15,6 +15,29 @@ type Party:
 type Unrelated:
   ignored string (1..1)`;
 
+it('records each namespace in a combined model and leaves support files unowned', async () => {
+  const response = await handleCodegenDownload({
+    request: new Request('http://localhost/api/codegen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        files: [
+          { path: 'party.rune', content: source },
+          { path: 'other.rune', content: 'namespace other\ntype Item:\n name string (1..1)' }
+        ],
+        target: 'typescript',
+        artifactEnvelope: 1,
+        options: { typescript: { layout: 'single-file' } }
+      })
+    })
+  });
+  const artifact = await decodeExportArtifact(response);
+  expect(artifact.manifest.files.find((file) => file.path === 'model.ts')?.namespaces).toEqual(
+    expect.arrayContaining(['test', 'other'])
+  );
+  expect(artifact.manifest.files.find((file) => file.path === 'helpers.ts')?.namespaces).toEqual([]);
+});
+
 it('decodes the exact generated artifact envelope for a selected declaration', async () => {
   const response = await handleCodegenDownload({
     request: new Request('http://localhost/api/codegen', {
@@ -34,6 +57,7 @@ it('decodes the exact generated artifact envelope for a selected declaration', a
   expect(response.headers.get('Content-Disposition')).toContain('filename="typescript-output.zip"');
   const artifact = await decodeExportArtifact(response);
   expect(artifact.manifest.files).toHaveLength(1);
+  expect(artifact.manifest.files[0]?.namespaces).toEqual(['test']);
   expect(artifact.manifest.resolvedSelection?.explicit).toEqual([{ namespace: 'test', name: 'Party', kind: 'Data' }]);
   expect(artifact.manifest.resolvedSelection?.included).toEqual(
     expect.arrayContaining([

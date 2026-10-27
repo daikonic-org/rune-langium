@@ -160,53 +160,31 @@ function readyArtifact(): ExportRunState {
   };
 }
 
-it('starts with compact output and applies selection constraints when restoring without resetting sizes', async () => {
+it('places settings and output in one full-height task panel beside a compact selection explorer', async () => {
   render(<ExportPerspective workspaceId="workspace-a" />);
   await screen.findByTestId('mock-export-workbench');
   const fresh = layoutApi();
   capturedDefinition.buildDefault(fresh.api, 1280);
-  expect(fresh.preview.group.api.setSize).toHaveBeenCalledWith({ height: 128 });
-  expect(fresh.selection.group.api.setConstraints).toHaveBeenCalledWith({ minimumHeight: 352 });
-
+  expect(fresh.api.addPanel.mock.calls.map(([options]) => options.id)).toEqual(['export.selection', 'export.settings']);
+  expect(fresh.selection.group.api.setSize).toHaveBeenCalledWith({ width: expect.closeTo(358.4) });
+  expect(fresh.preview.group.api.setSize).not.toHaveBeenCalled();
   const restored = layoutApi(300);
   capturedDefinition.reconcile?.(restored.api, 1280);
-  expect(restored.selection.group.api.setConstraints).toHaveBeenCalledWith({ minimumHeight: 352 });
+  expect(restored.selection.group.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 220 });
   expect(restored.api.addPanel).not.toHaveBeenCalled();
   expect(restored.selection.group.api.setSize).not.toHaveBeenCalled();
-  expect(restored.preview.group.api.setSize).not.toHaveBeenCalled();
 });
-
-it('expands compact output when its first artifact arrives', async () => {
+it('reveals output when a fresh artifact arrives without resizing restored groups', async () => {
   const { rerender } = render(<ExportPerspective workspaceId="workspace-a" />);
   await screen.findByTestId('mock-export-workbench');
+  expect(screen.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true');
   const layout = layoutApi();
-  capturedDefinition.buildDefault(layout.api, 1280);
-  layout.preview.group.api.setSize.mockClear();
   act(() => capturedReady?.(layout.api));
   state.run = readyArtifact();
   rerender(<ExportPerspective workspaceId="workspace-a" />);
-  expect(layout.preview.group.api.setSize).toHaveBeenCalledOnce();
-  expect(layout.preview.group.api.setSize).toHaveBeenCalledWith({ height: 256 });
-  rerender(<ExportPerspective workspaceId="workspace-a" />);
-  expect(layout.preview.group.api.setSize).toHaveBeenCalledOnce();
+  expect(screen.getByRole('tab', { name: 'Generated output', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(layout.preview.group.api.setSize).not.toHaveBeenCalled();
 });
-
-it.each(['resized', 'tabbed', 'restored'] as const)(
-  'preserves %s output when an artifact arrives',
-  async (arrangement) => {
-    const { rerender } = render(<ExportPerspective workspaceId="workspace-a" />);
-    await screen.findByTestId('mock-export-workbench');
-    const layout = layoutApi();
-    if (arrangement !== 'restored') capturedDefinition.buildDefault(layout.api, 1280);
-    if (arrangement === 'resized') layout.preview.group.api.setSize({ height: 100 });
-    if (arrangement === 'tabbed') layout.preview.group.panels.push('export.settings');
-    layout.preview.group.api.setSize.mockClear();
-    act(() => capturedReady?.(layout.api));
-    state.run = readyArtifact();
-    rerender(<ExportPerspective workspaceId="workspace-a" />);
-    expect(layout.preview.group.api.setSize).not.toHaveBeenCalled();
-  }
-);
 
 it('composes stable selection, settings, and preview workbench panels', async () => {
   render(<ExportPerspective workspaceId="workspace-a" />);
