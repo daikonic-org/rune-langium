@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 import { withRuneJsonEncoding } from '@rune-langium/core/serialization';
 import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
@@ -692,7 +693,7 @@ function buildTypeAliasSchema(
             kind: 'enum',
             required: true,
             enumValues: node.enumValues.map((v) => ({
-              value: v.name,
+              value: getEnumValueLiteral(v),
               label: v.display ?? humanizeLabel(v.name)
             }))
           }
@@ -944,7 +945,7 @@ function buildChoiceOptionField(
         kind: 'enum',
         required: false,
         enumValues: node.enumValues.map((v) => ({
-          value: v.name,
+          value: getEnumValueLiteral(v),
           label: v.display ?? humanizeLabel(v.name)
         }))
       }),
@@ -1294,7 +1295,7 @@ function enumField(ctx: FieldContext, enumNode: RosettaEnumeration): PreviewFiel
     kind: 'enum',
     required: true,
     enumValues: enumNode.enumValues.map((value) => ({
-      value: value.name,
+      value: getEnumValueLiteral(value),
       label: value.display ?? humanizeLabel(value.name)
     }))
   };

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 import {
   getEnumValues,
@@ -244,7 +245,7 @@ function scalarLiteral(expr: RosettaExpression | undefined): string | number | b
     : isRosettaFeatureCall(expr)
       ? expr.feature?.ref
       : undefined;
-  return isRosettaEnumValue(target) ? target.name : undefined;
+  return isRosettaEnumValue(target) ? getEnumValueLiteral(target) : undefined;
 }
 
 /** Carry equality facts within a branch instead of widening correctly typed scalar reads. */
@@ -919,7 +920,9 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
     );
     if (calendarField !== undefined) return calendarField;
     if (ctx.emitMode.startsWith('ts-') && isRosettaEnumValue(feature)) {
-      return ctx.projection ? enumMemberReference(feature, ctx.typeNameResolver) : JSON.stringify(feature.name);
+      return ctx.projection
+        ? enumMemberReference(feature, ctx.typeNameResolver)
+        : JSON.stringify(getEnumValueLiteral(feature));
     }
     if (
       ctx.emitMode.startsWith('ts-') &&
@@ -1465,7 +1468,7 @@ export function transpileToEnum(expr: RosettaExpression, ctx: ExpressionTranspil
     );
   }
   const memberList = getEnumValues(enumRef)
-    .map((v) => `'${v.name}'`)
+    .map((v) => (getEnumValueLiteral(v) === v.name ? `'${v.name}'` : JSON.stringify(getEnumValueLiteral(v))))
     .join(', ');
   return `((__e) => ([${memberList}]${ctx.emitMode.startsWith('ts-') ? ' as const' : ''}).find((value) => value === __e))(${arg})`;
 }
@@ -1779,7 +1782,9 @@ export function transpileExpression(
     }
     if (target?.$type === 'RosettaEnumeration') return target.name;
     if (isRosettaEnumValue(target)) {
-      return ctx.projection ? enumMemberReference(target, ctx.typeNameResolver) : JSON.stringify(target.name);
+      return ctx.projection
+        ? enumMemberReference(target, ctx.typeNameResolver)
+        : JSON.stringify(getEnumValueLiteral(target));
     }
     return attrAccessExpr(name, ctx);
   }

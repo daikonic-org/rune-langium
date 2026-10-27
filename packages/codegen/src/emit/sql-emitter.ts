@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValues, getEnumValueLiteral } from '@rune-langium/core';
 
 /**
  * SQL DDL target emitter (codegen-additional-targets §US2). One CREATE TABLE
@@ -39,21 +40,7 @@ export class SqlNamespaceEmitter extends BaseNamespaceEmitter {
 
   /** Collect enum value names including inherited members (cycle-safe, own first). */
   private static allEnumValueNames(enumNode: RosettaEnumeration): string[] {
-    const names: string[] = [];
-    const seen = new Set<string>();
-    let current: RosettaEnumeration | undefined = enumNode;
-    const visited = new Set<RosettaEnumeration>();
-    while (current && !visited.has(current)) {
-      visited.add(current);
-      for (const v of current.enumValues ?? []) {
-        if (v?.name && !seen.has(v.name)) {
-          seen.add(v.name);
-          names.push(v.name);
-        }
-      }
-      current = (current as { parent?: { ref?: RosettaEnumeration } }).parent?.ref;
-    }
-    return names;
+    return getEnumValues(enumNode).map(getEnumValueLiteral);
   }
 
   /** SQL-escape + quote enum value literals for a CHECK (...) clause. */

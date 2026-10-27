@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 import {
   getOperationArgument,
   getChoiceOptionPaths,
@@ -370,7 +371,7 @@ export function renderNavigation(
 ): string | undefined {
   if (!isRosettaFeatureCall(expr) && !isRosettaDeepFeatureCall(expr)) return undefined;
   const feature = expr.feature?.ref;
-  if (isRosettaEnumValue(feature)) return JSON.stringify(feature.name);
+  if (isRosettaEnumValue(feature)) return JSON.stringify(getEnumValueLiteral(feature));
   const name = isChoiceOption(feature)
     ? featureName(feature)
     : (expr.feature?.$refText ?? (feature && 'name' in feature ? feature.name : undefined));

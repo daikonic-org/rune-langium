@@ -25,12 +25,53 @@ workspace configuration.
 | Artifact | Current support | Remaining integration |
 | --- | --- | --- |
 | Rune sources / declaration identity | Existing reference closure, linking and explicit overrides | Upstream dialect changes need their own audited cohort |
-| Flat JSON code list | Prepared by shared project runtime for TypeScript, Zod, JSON Schema and Prototype | Other generators fail explicitly |
+| Flat JSON code list | Prepared by shared project runtime as a canonical Rune enum for implemented generators and Prototype | Empty lists retain the previous never-value adapter boundary |
 | CDM CodeList JSON | Explicit `cdm-json` mapping; version/scheme checked; labels, descriptions and dates retained | Automatic parameterized coding-scheme/domain resolution is not enabled |
 | Referenced GitHub code-list file | `readReferenceCodeList` verifies exact Git commit/blob and returns bytes, origin and decoded entries for Save | No dedicated resource browser in Studio yet |
 | Genericode XML / XSL | Retain as repository files | No genericode reader or XSL execution; no silent conversion |
 | FpML XML configuration / XSD | Keep upstream configuration/resource files | XML instance translation remains the #647 milestone |
 | Holiday calendars / native engines | Explicit installed providers and capability diagnostics | Concrete engines/data dependencies are tracked by #646 |
+
+## Canonical enum materialization
+
+A non-empty, explicitly mapped list becomes a normal Rune enum in the captured
+project graph. The mapped alias keeps its identity and points to that enum. Native
+builds, managed Studio generation and Prototype therefore see the same declaration;
+SQL, XSD, OpenAPI and Excel do not need a separate code-list implementation.
+The enum builder and source renderer are shared with schema imports.
+
+An enum member's Rune identifier is separate from its external code. Materialized
+enums use the reserved `rune.resources.CodeList` synonym source:
+
+```rosetta
+namespace rune.resources
+synonym source CodeList
+enum Basis:
+  ACT_360 displayName "Actual / 360"
+    [synonym CodeList value "ACT/360"]
+```
+
+Core's `getEnumValueLiteral` is authoritative for these literal codes. Emitters,
+Prototype, enum expressions, switches and `to-enum` use it. Display labels never
+become wire values. Other synonym sources retain their existing mapping semantics.
+Sanitized member-name collisions are disambiguated while preserving both codes.
+Native signature matching also compares these wire values, so unchanged member
+names cannot select a bundled implementation for a different code contract.
+Generated enum names are derived from the complete declaration identity, and
+single-file bundles order namespace dependencies before their consumers.
+
+These documents belong to a fresh resolved graph. They do not overwrite upstream
+sources or create/edit workspace files. The original resource bytes, source
+provenance and checksum remain in the ordinary snapshot and Save/reopen contract.
+Descriptions and effective/deprecation dates remain available in the prepared
+registry; historical values stay selectable. Empty lists retain the existing
+never-value bindings for TypeScript, Zod and JSON Schema; other resource targets
+remain explicitly unavailable for that case.
+
+The existing guard still rejects constrained/parameterized aliases. Materializing
+an enum does not erase a Rune condition, implement `LoadCodeList(domain)`, choose
+an upstream version, or publish additional curated artifacts. Those integrations
+remain open under #645.
 
 ## Explicit resource mapping
 

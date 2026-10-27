@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 import {
   getOperationArgument,
@@ -186,7 +187,7 @@ function primitiveSwitch(
     }
     const target = currentCase.guard.referenceGuard?.ref;
     if (isRosettaEnumValue(target)) {
-      cases.push({ value: options.enumValue?.(target) ?? JSON.stringify(target.name), branch });
+      cases.push({ value: options.enumValue?.(target) ?? JSON.stringify(getEnumValueLiteral(target)), branch });
       continue;
     }
     const targetName = referenceName(currentCase.guard.referenceGuard);

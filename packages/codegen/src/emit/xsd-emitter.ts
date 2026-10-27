@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 /**
  * Emits Rune namespaces as XSD using the vocabulary supported by xsd-reader.ts.
@@ -7,10 +8,10 @@
  * Mapping:
  * - Data becomes a named xs:complexType containing an xs:sequence of elements.
  *   Cardinality maps to minOccurs/maxOccurs; default bounds of 1 are omitted,
- *   and unbounded upper bounds use maxOccurs="unbounded". Type references use
- *   local names in a single document with a fixed xs: prefix.
+ *   and unbounded upper bounds use maxOccurs="unbounded". Foreign declarations
+ *   use namespace-qualified names and relative schema imports.
  * - Enumerations become named xs:simpleType restrictions on xs:string.
- *   Values use Rune identifiers, not the original literals stored in synonyms.
+ *   Values use Core's shared enum wire-literal accessor.
  * - Data.superType becomes xs:complexContent/xs:extension. Only the child's own
  *   attributes are emitted inside the extension.
  * - Required/optional choice conditions group their attributes in xs:choice.
@@ -36,6 +37,7 @@
 import {
   isChoice,
   isData,
+  getElementNamespace,
   type Choice,
   type Data,
   type Attribute,
@@ -49,7 +51,7 @@ import type { GeneratorOptions, GeneratorOutput } from '../types.js';
 import { emitNamespaceWithContract } from './namespace-emitter.js';
 import type { NamespaceEmitterOptions } from './namespace-emitter.js';
 import { BaseNamespaceEmitter, decodeCardinality, choiceOptionFieldName } from './base-namespace-emitter.js';
-import type { NamespaceRegistry } from './namespace-registry.js';
+import { resolveImportPath, type NamespaceRegistry } from './namespace-registry.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { recognizeCondition } from './constraint-recognizer.js';
 import type { ConstraintIR } from '../import/source-model.js';
@@ -91,9 +93,16 @@ export function constraintIRToXsdFacets(ir: ConstraintIR): Record<string, number
   }
 }
 
-/** XML-escapes a string for use as element/attribute text content or a quoted attribute value. */
+/** Attribute-safe XML escaping, preserving whitespace through XML attribute normalization. */
 function escapeXml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/\t/g, '&#9;')
+    .replace(/\n/g, '&#10;')
+    .replace(/\r/g, '&#13;');
 }
 
 function indentLines(lines: readonly string[], depth: number): string[] {
@@ -163,6 +172,7 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
   /** A real document URI (`model.docs[0]?.uri`) — unlike `NamespaceWalkResult` itself, which has no `sourceUri` field — used both as the shared `sourceUri` for `toTypeIndexLookup`'s wrapped entries and as `resolveTypeCallTarget`'s own `fallbackSourceUri` argument. Mirrors json-schema-emitter.ts's identically-named field. */
   private readonly fallbackSourceUri: string;
   private readonly typeIndex: TypeIndexLookup;
+  private readonly externalNamespaces = new Map<string, string>();
 
   constructor(
     model: NamespaceWalkResult,
@@ -202,6 +212,15 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
 
   finalize(): GeneratorOutput {
     const body = [...this.simpleTypeBlocks, ...this.complexTypeBlocks].join('\n\n');
+    const bindings = [...this.externalNamespaces]
+      .map(([namespace, prefix]) => ` xmlns:${prefix}="urn:rune:${escapeXml(namespace)}"`)
+      .join('');
+    const imports = [...this.externalNamespaces]
+      .map(
+        ([namespace]) =>
+          `<xs:import namespace="urn:rune:${escapeXml(namespace)}" schemaLocation="${escapeXml(resolveImportPath(this.model.namespace, namespace, this.registry) + '.xsd')}"/>`
+      )
+      .join('\n');
     // Bind the target namespace as the schema's DEFAULT namespace (xmlns=),
     // not just as targetNamespace with no prefix bound to it. In XSD,
     // type=/base= attribute VALUES are QNames resolved via in-scope
@@ -217,7 +236,8 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
     // target namespace, so bare type="Party" now correctly resolves.
     const content =
       `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<xs:schema xmlns:xs="${XSD_NS}" xmlns="urn:rune:${this.model.namespace}" targetNamespace="urn:rune:${this.model.namespace}" elementFormDefault="qualified">\n\n` +
+      `<xs:schema xmlns:xs="${XSD_NS}" xmlns="urn:rune:${this.model.namespace}" targetNamespace="urn:rune:${this.model.namespace}" elementFormDefault="qualified"${bindings}>\n\n` +
+      (imports ? imports + '\n\n' : '') +
       (body.length > 0 ? `${body}\n\n` : '') +
       `</xs:schema>\n`;
 
@@ -233,6 +253,18 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
   // ---------------------------------------------------------------------------
   // Private instance methods
   // ---------------------------------------------------------------------------
+
+  /** QName and relative schema location share the same resolved declaration namespace. */
+  private qualifiedTypeName(node: Data | Choice | RosettaEnumeration): string {
+    const namespace = getElementNamespace(node);
+    if (!namespace || namespace === this.model.namespace) return node.name;
+    let prefix = this.externalNamespaces.get(namespace);
+    if (!prefix) {
+      prefix = 'ns' + (this.externalNamespaces.size + 1);
+      this.externalNamespaces.set(namespace, prefix);
+    }
+    return prefix + ':' + node.name;
+  }
 
   /**
    * Shared body behind `resolveAttributeType` (a Data attribute's `typeCall`)
@@ -258,9 +290,9 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
           });
           return 'xs:string';
         },
-        onEnum: (node) => node.name,
-        onData: (node) => node.name,
-        onChoice: (node) => node.name,
+        onEnum: (node) => this.qualifiedTypeName(node),
+        onData: (node) => this.qualifiedTypeName(node),
+        onChoice: (node) => this.qualifiedTypeName(node),
         onUnresolved: (refText) => {
           if (refText) {
             this.reportUnresolvedReference(diagnosticLabel, refText, 'xs:string');
@@ -425,7 +457,10 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
     }
 
     const superTypeRef = data.superType?.ref;
-    const parentName = superTypeRef && (isData(superTypeRef) || isChoice(superTypeRef)) ? superTypeRef.name : undefined;
+    const parentName =
+      superTypeRef && (isData(superTypeRef) || isChoice(superTypeRef))
+        ? this.qualifiedTypeName(superTypeRef)
+        : undefined;
 
     if (parentName) {
       const inner = indentLines(['<xs:sequence>', ...indentLines(bodyLines, 1), '</xs:sequence>'], 3);
@@ -499,21 +534,14 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
    * Renders a `RosettaEnumeration` as a top-level named `xs:simpleType` +
    * `xs:restriction base="xs:string"` + one `xs:enumeration` per value.
    *
-   * Uses `enumValue.name` (the Rune-safe identifier) as the literal
-   * `value="..."` — NOT a synonym-recorded original source literal. This
-   * mirrors json-schema-emitter.ts's own `emitEnumDef`, which likewise uses
-   * `v.name` (never reads `v.synonyms`/a `[synonym ... value "..."]`
-   * annotation back out) — no emitter in this codebase currently reads an
-   * enum value's recorded synonym when EMITTING (only the INBOUND readers
-   * ever WRITE one, via `synonym-builder.ts`, to preserve a non-ValidID-safe
-   * original literal). Consistent with that established convention (DRY);
-   * see this module's own top-of-file doc note for the full finding.
+   * External literals come from Core's shared accessor; display labels do not
+   * alter the allowed values.
    */
   private static renderEnumSimpleType(enumNode: RosettaEnumeration): string {
     const lines = [
       `<xs:simpleType name="${escapeXml(enumNode.name)}">`,
       `  <xs:restriction base="xs:string">`,
-      ...enumNode.enumValues.map((v) => `    <xs:enumeration value="${escapeXml(v.name)}"/>`),
+      ...enumNode.enumValues.map((v) => `    <xs:enumeration value="${escapeXml(getEnumValueLiteral(v))}"/>`),
       `  </xs:restriction>`,
       `</xs:simpleType>`
     ];

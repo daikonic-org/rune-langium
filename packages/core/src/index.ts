@@ -113,7 +113,12 @@ export { namespaceFromSource, namespaceFromModelName, expandNamespaceWildcard } 
 // Collection utilities
 export { indexById, fromIndex } from './collections/index-by-id.js';
 
-export { getEnumValues } from './utils/enum-utils.js';
+export {
+  getEnumValues,
+  getEnumValueLiteral,
+  CODE_LIST_ENUM_NAMESPACE,
+  CODE_LIST_ENUM_SOURCE
+} from './utils/enum-utils.js';
 
 export { getExpressionScope } from './utils/expression-scope.js';
 export type { ExpressionScopeEntry } from './utils/expression-scope.js';

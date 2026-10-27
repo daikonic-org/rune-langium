@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValues, getEnumValueLiteral, type RosettaEnumeration } from '@rune-langium/core';
 
 /**
  * Excel data-dictionary emitter — 019 Phase 1.
@@ -77,10 +78,8 @@ export class ExcelWholeModelEmitter implements WholeModelEmitter {
     return data.superType?.$refText ?? '';
   }
 
-  private static enumMemberNames(enumNode: { enumValues?: ReadonlyArray<{ name?: unknown }> }): string[] {
-    return (enumNode.enumValues ?? [])
-      .map((v) => (typeof v.name === 'string' ? v.name : ''))
-      .filter((s) => s.length > 0);
+  private static enumMemberNames(enumNode: RosettaEnumeration): string[] {
+    return getEnumValues(enumNode).map(getEnumValueLiteral);
   }
 
   private static typeAliasBaseName(alias: {

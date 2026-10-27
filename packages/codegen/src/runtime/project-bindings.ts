@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 import {
   declarationKey,
   getElementNamespace,
@@ -271,7 +272,7 @@ export function projectCodeListForAlias(
     if (isRosettaBasicType(target) && target.name === 'string') return values;
     if (
       isRosettaEnumeration(target) &&
-      values.every((value) => getEnumValues(target).some((member) => member.name === value.value))
+      values.every((value) => getEnumValues(target).some((member) => getEnumValueLiteral(member) === value.value))
     )
       return values;
     throw new ProjectBindingUnavailable(

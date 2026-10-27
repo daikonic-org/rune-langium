@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect } from 'vitest';
-import { topoSort } from '../src/topo-sort.js';
+import { topoSort, topoSortComponents } from '../src/topo-sort.js';
 import type { TypeReferenceGraph } from '../src/cycle-detector.js';
 
 function makeGraph(nodes: string[], edges: Record<string, string[]>): TypeReferenceGraph {
@@ -106,5 +106,28 @@ describe('topoSort', () => {
     const graph = makeGraph(['A'], { A: ['A'] });
     const result = topoSort(graph, new Set(['A']));
     expect(result).toEqual(['A']);
+  });
+});
+
+describe('topoSortComponents', () => {
+  it('keeps cycles before every downstream consumer', () => {
+    const graph = makeGraph(['z', 'a', 'b', 'last'], { z: ['a'], a: ['b'], b: ['a'], last: ['z'] });
+    expect(topoSortComponents(graph)).toEqual(['a', 'b', 'z', 'last']);
+  });
+  it('orders multiple cycle groups through their condensation dependencies', () => {
+    const graph = makeGraph(['a', 'b', 'c', 'd', 'consumer'], {
+      a: ['b', 'c'],
+      b: ['a'],
+      c: ['d'],
+      d: ['c'],
+      consumer: ['a']
+    });
+    expect(topoSortComponents(graph)).toEqual(['c', 'd', 'a', 'b', 'consumer']);
+  });
+  it('retains self cycles and excludes dependencies outside the emitted graph', () => {
+    expect(
+      topoSortComponents(makeGraph(['consumer', 'self'], { consumer: ['self'], self: ['self', 'external'] }))
+    ).toEqual(['self', 'consumer']);
+    expect(topoSortComponents(makeGraph([], {}))).toEqual([]);
   });
 });

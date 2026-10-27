@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 /**
  * JSON Schema 2020-12 target emitter for the Rune code generator.
@@ -667,7 +668,7 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
    * exist, but they are not added to the `"enum"` array itself.
    */
   private static emitEnumDef(enumNode: RosettaEnumeration): object {
-    const memberNames = enumNode.enumValues.map((v) => v.name);
+    const memberNames = enumNode.enumValues.map(getEnumValueLiteral);
 
     const def: Record<string, unknown> = {
       type: 'string',
@@ -676,9 +677,9 @@ export class JsonSchemaNamespaceEmitter extends BaseNamespaceEmitter {
 
     const hasDisplayNames = enumNode.enumValues.some((v) => v.display != null);
     if (hasDisplayNames) {
-      const displayMap: Record<string, string> = {};
+      const displayMap: Record<string, string> = Object.create(null);
       for (const v of enumNode.enumValues) {
-        displayMap[v.name] = v.display ?? v.name;
+        displayMap[getEnumValueLiteral(v)] = v.display ?? v.name;
       }
       def['x-rune-enum-display'] = displayMap;
     }

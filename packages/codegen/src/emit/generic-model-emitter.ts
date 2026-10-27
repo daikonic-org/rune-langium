@@ -8,6 +8,8 @@ import type { NamespaceEmitterConstructor, WholeModelEmitter } from './namespace
 import type { NamespaceRegistry } from './namespace-registry.js';
 import type { NamespaceWalkResult } from './namespace-walker.js';
 import type { LanguageProfile } from './language-profile.js';
+import { collectNamespaceDependencies } from '@rune-langium/core';
+import { topoSortComponents } from '../topo-sort.js';
 
 /**
  * Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
@@ -71,9 +73,20 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
     for (const walk of walks.values()) {
       perNs.push(emitNamespaceWithContract(walk, { ...options, suppressBoilerplate: true }, registry, this.innerCtor));
     }
+    const outputNamespaces = new Map(perNs.map((output, index) => [output.relativePath, [...walks.keys()][index]!]));
     perNs.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
     if (layout === 'single-file') {
+      const dependencies = collectNamespaceDependencies([...new Set([...walks.values()].flatMap((walk) => walk.docs))]);
+      const graph = {
+        nodes: [...walks.keys()].sort(),
+        edges: new Map([...dependencies].map(([name, deps]) => [name, [...deps]]))
+      };
+      const order = topoSortComponents(graph);
+      perNs.sort(
+        (a, b) =>
+          order.indexOf(outputNamespaces.get(a.relativePath)!) - order.indexOf(outputNamespaces.get(b.relativePath)!)
+      );
       return this.emitSingleFile(perNs, registry);
     }
 

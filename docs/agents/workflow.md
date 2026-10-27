@@ -377,3 +377,18 @@ cohort's declarations/signatures/target coverage. Source pins and inventory upda
 must be reviewed together; `--write` is explicit. The native calendar browser
 journey in `test/e2e/native-implementations.spec.ts` covers desktop/390px execution,
 viewport fit and axe. Keep unavailable financial engines/data dependencies visible.
+
+Materialized resource enums: include Codegen's `test/runtime/code-list-enum.test.ts`
+and project-runtime's `code-lists`, `project-capabilities` and `build-project`
+suites. They check unsanitized wire codes, identifier collisions, labels,
+standalone TypeScript/Python execution, schema/SQL/XSD generation without injected
+resource adapters, and unchanged source bytes across a fresh graph. The desktop
+`project-resources.spec.ts` journey checks punctuation-bearing values through the
+real managed worker plus invalid-resource recovery; retain the pinned CDM list case.
+
+Generated XSD validation tests require libxml2's `xmllint` on PATH (or
+`XMLLINT_BINARY` pointing to it). macOS supplies it; Debian/Ubuntu use
+`libxml2-utils`, installed explicitly in the main CI job. The shared
+`test/helpers/xsd-validation.ts` compiles the emitted local schema closure with
+network access disabled and validates accepted/rejected XML instances. A parser
+or string-presence assertion alone does not establish XSD correctness.

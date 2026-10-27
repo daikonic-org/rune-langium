@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { TypeReferenceGraph } from './cycle-detector.js';
+import { stronglyConnectedComponents, type TypeReferenceGraph } from './cycle-detector.js';
 
 /**
  * Topologically sorts the non-cyclic types in the graph using Kahn's algorithm
- * over the SCC condensation DAG. Cyclic types are placed at the end in stable
+ * over the non-cyclic subgraph. Cyclic types are placed at the end in stable
  * (alphabetic) order.
  *
  * The output is deterministic for identical input: non-cyclic types are
@@ -87,4 +87,35 @@ export function topoSort(graph: TypeReferenceGraph, cyclicTypes: Set<string>): s
 
   // Append cyclic types at the end, sorted alphabetically
   return [...result, ...cyclicNodes];
+}
+
+/** Dependency-first ordering of whole SCC groups, keeping each cycle before its consumers. */
+export function topoSortComponents(graph: TypeReferenceGraph): string[] {
+  const included = new Set(graph.nodes);
+  const edges = new Map(
+    graph.nodes.map((node) => [node, (graph.edges.get(node) ?? []).filter((dependency) => included.has(dependency))])
+  );
+  const rank = new Map(graph.nodes.map((node, index) => [node, index]));
+  const components = stronglyConnectedComponents({ nodes: graph.nodes, edges })
+    .map((component) => component.sort((a, b) => rank.get(a)! - rank.get(b)!))
+    .sort((a, b) => rank.get(a[0]!)! - rank.get(b[0]!)!);
+  const componentOf = new Map<string, string>();
+  components.forEach((component, index) => component.forEach((node) => componentOf.set(node, String(index))));
+  const condensed = {
+    nodes: components.map((_, index) => String(index)),
+    edges: new Map(
+      components.map((component, index) => [
+        String(index),
+        [
+          ...new Set(
+            component
+              .flatMap((node) => edges.get(node) ?? [])
+              .map((dependency) => componentOf.get(dependency)!)
+              .filter((id) => id !== String(index))
+          )
+        ]
+      ])
+    )
+  };
+  return topoSort(condensed, new Set()).flatMap((id) => components[Number(id)]!);
 }

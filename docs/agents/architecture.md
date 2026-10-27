@@ -1156,3 +1156,22 @@ part of the ordinary function contract. CI audits pinned upstream sources with
 the shared Git reader, registers model ownership before linking and compares the
 [native coverage inventory](../implementations/README.md); known unavailable
 entries remain explicit and must never be described as complete coverage.
+
+### Materialized code-list enums
+
+After linking and validating explicit resource bindings, project-runtime prepares
+non-empty lists as ordinary enum documents in `rune.resources` and rebinds only
+the mapped alias's type reference through Langium. It preserves snapshot bytes,
+receipts, declaration identities and constrained-alias guards. Core's
+`getEnumValueLiteral` interprets the exact `rune.resources.CodeList` synonym;
+identifier sanitization and presentation labels must never change external codes.
+All enum consumers, including expression conversions and Python projections, use
+that shared accessor. Empty lists retain the existing never-value adapter boundary.
+Single-file generation uses Core namespace dependencies and the shared Tarjan
+components. It topologically orders the SCC condensation graph, retaining stable
+order within a cycle and placing the entire cycle before downstream consumers.
+The existing type-level cyclic-last policy remains separate. XSD references use
+resolved declaration namespaces for QNames and relative schema imports, including
+foreign enum restrictions and complex-type inheritance.
+XSD attribute escaping uses numeric references for tabs and line endings so XML
+normalization cannot change an external enum code into a different value.

@@ -5,6 +5,7 @@ import {
   getFunctionInputs,
   getFunctionOutput,
   getEnumValues,
+  getEnumValueLiteral,
   isRosettaEnumeration,
   type Attribute,
   type RosettaFunction
@@ -31,7 +32,7 @@ export function nativeFunctionShape(func: RosettaFunction): NativeFunctionShape 
       kind: target?.$type ?? 'unresolved',
       card: [attribute.card.inf, attribute.card.unbounded ? '*' : (attribute.card.sup ?? 1)],
       plain: !attribute.annotations.length && !attribute.typeCall.arguments.length,
-      ...(isRosettaEnumeration(target) ? { enumValues: getEnumValues(target).map((value) => value.name) } : {})
+      ...(isRosettaEnumeration(target) ? { enumValues: getEnumValues(target).map(getEnumValueLiteral) } : {})
     };
   };
   const output = getFunctionOutput(func);

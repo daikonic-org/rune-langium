@@ -14,8 +14,8 @@
  * Types only — no logic in this module.
  */
 
-/** The inbound sources this feature supports (spec CLI surface + Phase 2's OpenAPI reader + Phase 3's XSD reader). */
-export type SourceKind = 'JsonSchema' | 'OpenApi' | 'TypeScript' | 'Sql' | 'Pydantic' | 'Xsd';
+/** Sources normalized by the common model builder, including prepared resource lists. */
+export type SourceKind = 'JsonSchema' | 'OpenApi' | 'TypeScript' | 'Sql' | 'Pydantic' | 'Xsd' | 'CodeList';
 
 /** A Rune cardinality, pre-rendered form: `(inf..sup)` or `(inf..*)` when `sup` is undefined. */
 export interface SourceCardinality {

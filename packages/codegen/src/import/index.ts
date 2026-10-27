@@ -164,8 +164,10 @@ export async function importModel(source: string, options: ImportOptions): Promi
         : Promise.resolve(readJsonSchema(parseJsonSchemaSource(source) as never, readerOptions)));
 
   const built = buildModel(model, { emitSynonyms: options.synonyms ?? true });
-  const rendered = renderModel({ name: model.namespace, version: '0.0.0', elements: built.elements });
-  const text = splice(rendered, [built.synonymSourceDeclaration, built.operationAnnotationDeclaration]);
+  const text = renderModel(
+    { name: model.namespace, version: '0.0.0', elements: built.elements },
+    { declarations: [built.synonymSourceDeclaration, built.operationAnnotationDeclaration] }
+  );
 
   return { text, model, diagnostics: [...readerDiagnostics, ...built.diagnostics] };
 }
@@ -179,15 +181,4 @@ function parseJsonSchemaSource(source: string): unknown {
       `rune-codegen import: input is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-}
-
-/** Splices declaration-only text (the `synonym source <Name>` line, and/or T4's `annotation openApi: ...` declaration) in right after `version "..."`, mirroring renderModel's own hand-assembled namespace/version lines (see ast-builder.ts / synonym-builder.ts / operation-carrier.ts's module docs — no renderNode case exists for RosettaSynonymSource or Annotation). */
-function splice(rendered: string, declarations: ReadonlyArray<string | undefined>): string {
-  const present = declarations.filter((d): d is string => d !== undefined);
-  if (present.length === 0) return rendered;
-  const lines = rendered.split('\n');
-  const versionIdx = lines.findIndex((l) => l.startsWith('version '));
-  const toInsert = present.flatMap((d) => ['', d]);
-  lines.splice(versionIdx + 1, 0, ...toInsert);
-  return lines.join('\n');
 }

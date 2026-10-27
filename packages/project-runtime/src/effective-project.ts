@@ -42,6 +42,7 @@ import {
 } from './capabilities.js';
 import { projectCapabilityImpact } from './capability-impact.js';
 import { readProjectResolutionContext } from './project-context.js';
+import { prepareCodeListEnums } from './code-list-enums.js';
 export type { EffectiveProjectReceipt } from './project-receipt.js';
 export interface EffectiveProject {
   bindings: ProjectBindingRegistry;
@@ -177,6 +178,33 @@ export async function buildEffectiveProject(
         additionalCodeLists.push({ symbol: entry.identity, unavailable: reason });
       }
     }
+    const enums = await prepareCodeListEnums(
+      declarations,
+      additionalCodeLists.filter((binding) => !binding.unavailable && bindings.codeList(binding.symbol) !== undefined),
+      services,
+      (content, uri) => factory.fromString(content, uri)
+    );
+    for (const document of enums.documents) {
+      register(document, 'local');
+      const root = document.parseResult.value;
+      if (!isRosettaModel(root)) continue;
+      for (const node of root.elements) {
+        const identity = projectDeclarationIdentity(services, node);
+        if (!identity) continue;
+        declarations.push({ identity, node });
+        const key = declarationKey(identity);
+        symbols.add(key);
+        effectiveSymbols.set(key, identity);
+      }
+    }
+    if (enums.documents.length) {
+      await shared.workspace.DocumentBuilder.build(enums.documents, { validation: true, eagerLinking: true });
+      enums.apply();
+      for (const document of documents)
+        if (!enums.documents.includes(document))
+          document.diagnostics = await services.validation.DocumentValidator.validateDocument(document);
+    }
+    context.materializedResources = enums.keys;
     context.resourceErrors = resourceErrors;
     context.additionalCodeLists = additionalCodeLists;
     result.bindings = createProjectBindings(snapshot, providers, context);

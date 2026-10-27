@@ -40,7 +40,7 @@ export type RenderChild = (child: DehydratedNode) => string;
 // --- helpers --------------------------------------------------------------
 
 export function escapeString(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return JSON.stringify(s).slice(1, -1);
 }
 
 function indentBlock(text: string, level = 1): string {
@@ -67,6 +67,8 @@ function definitionLine(def: string | undefined): string | undefined {
 
 /** Options threaded through renderNode/renderModel to the expression-body sites. */
 export interface RenderOpts {
+  /** Declaration-only syntax supplied by the common model builder (for example synonym sources). */
+  declarations?: readonly (string | undefined)[];
   /**
    * Override expression-body rendering (called only with a non-null body;
    * return value used verbatim). The VE cst-reuse layer uses this to slice
@@ -571,6 +573,7 @@ export function renderModel(
   const lines: string[] = [];
   lines.push(`namespace ${modelName(model.name)}`);
   lines.push(`version "${model.version ?? '0.0.0'}"`);
+  for (const declaration of opts?.declarations ?? []) if (declaration !== undefined) lines.push('', declaration);
   for (const element of model.elements) {
     const text = renderNode(element as DehydratedNode, renderChild, opts);
     if (text !== null) {

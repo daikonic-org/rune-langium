@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 import { AstUtils } from 'langium';
 import {
@@ -152,7 +153,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         });
         return `${context.name(target)}(${values.join(', ')})`;
       }
-      if (isRosettaEnumValue(target)) return pyString(target.name);
+      if (isRosettaEnumValue(target)) return pyString(getEnumValueLiteral(target));
       if (isRosettaType(target)) return context.name(target);
       const self = pythonUnwrap(context.self, context.implicit?.metadata, context.implicit?.many);
       const calendar = pythonCalendarField(target, self, context.implicit?.many);
@@ -460,7 +461,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
         argument(false),
         value,
         `${value} if ${value} in [${getEnumValues(enumeration)
-          .map((item) => pyString(item.name))
+          .map((item) => pyString(getEnumValueLiteral(item)))
           .join(', ')}] else None`
       );
     }
@@ -579,7 +580,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
           const guard = current.guard.literalGuard
             ? render(current.guard.literalGuard, valueContext)
             : isRosettaEnumValue(target)
-              ? pyString(target.name)
+              ? pyString(getEnumValueLiteral(target))
               : undefined;
           if (!guard) throw new Error('Unresolved switch guard');
           branches.push(

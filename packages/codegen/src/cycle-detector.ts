@@ -159,18 +159,9 @@ export function buildTypeReferenceGraph(
   return { nodes, edges: edgesAsArrays };
 }
 
-/**
- * Finds all cyclic types in the graph using Tarjan's SCC algorithm.
- * A type is "cyclic" if it is in an SCC of size >= 2, OR if it has
- * a self-referencing edge.
- *
- * FR-006 (cycle detection).
- *
- * @param graph - The type reference graph.
- * @returns A Set of type names that participate in a cycle.
- */
-export function findCyclicTypes(graph: TypeReferenceGraph): Set<string> {
-  const cyclic = new Set<string>();
+/** The shared Tarjan traversal for both type-cycle detection and namespace ordering. */
+export function stronglyConnectedComponents(graph: TypeReferenceGraph): string[][] {
+  const components: string[][] = [];
 
   // Tarjan's SCC algorithm
   const index = new Map<string, number>();
@@ -208,20 +199,7 @@ export function findCyclicTypes(graph: TypeReferenceGraph): Set<string> {
         scc.push(w);
       } while (w !== v);
 
-      // Check for self-loops in single-node SCCs
-      if (scc.length === 1) {
-        const node = scc[0]!;
-        const neighbors = graph.edges.get(node) ?? [];
-        if (neighbors.includes(node)) {
-          // Self-referencing
-          cyclic.add(node);
-        }
-      } else {
-        // Multi-node SCC: all are cyclic
-        for (const node of scc) {
-          cyclic.add(node);
-        }
-      }
+      components.push(scc);
     }
   }
 
@@ -231,5 +209,14 @@ export function findCyclicTypes(graph: TypeReferenceGraph): Set<string> {
     }
   }
 
-  return cyclic;
+  return components;
+}
+
+/** A type is cyclic if its component has multiple members or it references itself. */
+export function findCyclicTypes(graph: TypeReferenceGraph): Set<string> {
+  return new Set(
+    stronglyConnectedComponents(graph)
+      .filter((component) => component.length > 1 || graph.edges.get(component[0]!)?.includes(component[0]!))
+      .flat()
+  );
 }

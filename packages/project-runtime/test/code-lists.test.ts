@@ -3,7 +3,12 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { it, expect, vi } from 'vitest';
-import { generate, generatePreviewSchemas, validateProjectPreviewBindings } from '@rune-langium/codegen/export';
+import {
+  generate,
+  generatePreviewSchemas,
+  validateProjectPreviewBindings,
+  previewTypeSymbol
+} from '@rune-langium/codegen/export';
 import { createProjectSnapshot } from '@rune-langium/project-config';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { decodeProjectCodeList, readReferenceCodeList } from '../src/code-lists.js';
@@ -132,4 +137,163 @@ it('stages a code-list copy from verified Git bytes without fetching its scheme 
   expect(
     fetcher.mock.calls.every(([url]) => url.startsWith('https://api.github.com/repos/finos/common-domain-model/'))
   ).toBe(true);
+});
+
+it('materializes mapped code lists into portable Rune enums consumed without generator-specific bindings', async () => {
+  const codes = [
+    { value: 'ACT/360', label: 'Actual / 360', description: 'First basis' },
+    { value: 'ACT_360', label: 'A distinct code' },
+    { value: "O'Reilly", label: 'Quoted code', deprecatedDate: '2020-01-01' },
+    { value: 'condition', label: 'A keyword' }
+  ];
+  const files = new Map([
+    ['rune-config.yml', 'model: {name: Codes}'],
+    [
+      'build-config.yml',
+      JSON.stringify({
+        schemaVersion: 1,
+        overrides: [
+          {
+            kind: 'resource',
+            source: { model: 'local', id: 'demo.Basis#RosettaTypeAlias' },
+            path: 'resources/basis.json'
+          }
+        ]
+      })
+    ],
+    ['model/demo.rosetta', 'namespace demo\ntypeAlias Basis: string\ntype Contract:\n basis Basis (1..1)'],
+    ['resources/basis.json', JSON.stringify(codes)]
+  ]);
+  const snapshot = await createProjectSnapshot('portable-enums', files, () => []);
+  const graph = await buildEffectiveProject(snapshot, []);
+  expect(graph.diagnostics).toEqual([]);
+  const schema = generatePreviewSchemas([...graph.documents], { targetId: 'demo.Contract' })[0]!;
+  expect(schema.fields[0]).toMatchObject({
+    kind: 'enum',
+    enumValues: codes.map((code) => expect.objectContaining({ value: code.value }))
+  });
+  const outputs = new Map<string, string>();
+  for (const target of ['typescript', 'zod', 'json-schema', 'sql', 'xsd', 'openapi'] as const) {
+    const result = await generate([...graph.documents], { target });
+    expect(result.flatMap((file) => file.diagnostics).filter((issue) => issue.severity === 'error')).toEqual([]);
+    outputs.set(target, result.map((file) => file.content).join('\n'));
+  }
+  for (const target of ['typescript', 'zod', 'json-schema', 'sql', 'xsd', 'openapi'])
+    expect(outputs.get(target)).toContain('ACT/360');
+  const sources = graph.documents
+    .filter((document) => document.uri.toString().startsWith('file:///project-resources/'))
+    .map((document) => document.textDocument.getText())
+    .join('\n');
+  expect(sources).toContain('enum ');
+  expect(sources).toContain('value "ACT/360"');
+  const reopened = await buildEffectiveProject(snapshot, []);
+  expect(reopened.diagnostics).toEqual([]);
+  expect(generatePreviewSchemas([...reopened.documents], { targetId: 'demo.Contract' })).toEqual([schema]);
+  expect(snapshot.files).toEqual(files);
+});
+
+it('keeps empty code lists on the explicit never-value adapter boundary', async () => {
+  const snapshot = await createProjectSnapshot(
+    'empty-list',
+    new Map([
+      ['rune-config.yml', 'model: {name: Empty}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'resource',
+              source: { model: 'local', id: 'empty_list.Code#RosettaTypeAlias' },
+              path: 'resources/empty.json'
+            }
+          ]
+        })
+      ],
+      ['model/empty.rosetta', 'namespace empty_list\ntypeAlias Code: string'],
+      ['resources/empty.json', '[]']
+    ]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, []);
+  expect(graph.diagnostics).toEqual([]);
+  expect(graph.documents.some((document) => document.uri.toString().startsWith('file:///project-resources/'))).toBe(
+    false
+  );
+  expect(graph.bindings.codeListForType(previewTypeSymbol('RosettaTypeAlias', 'empty_list.Code')!)).toEqual([]);
+  const { assertProjectGenerationCapabilities } = await import('../src/effective-project.js');
+  expect(() => assertProjectGenerationCapabilities(graph, undefined, 'sql')).toThrow();
+});
+
+it('materializes an explicitly mapped reference alias while retaining reference and workspace bytes', async () => {
+  const source = 'namespace reference_codes\ntypeAlias Code: string';
+  const references = [{ uri: 'cdm/codes.rosetta', content: source }];
+  const files = new Map([
+    ['rune-config.yml', 'model: {name: ReferenceCodes}'],
+    [
+      'build-config.yml',
+      JSON.stringify({
+        schemaVersion: 1,
+        overrides: [
+          {
+            kind: 'resource',
+            source: { model: 'cdm', id: 'reference_codes.Code#RosettaTypeAlias' },
+            path: 'resources/codes.json'
+          }
+        ]
+      })
+    ],
+    ['model/use.rosetta', 'namespace usage\nimport reference_codes.*\ntype Contract:\n code Code (1..1)'],
+    ['resources/codes.json', '[{"value":"ACT/360","label":"Actual / 360"}]']
+  ]);
+  const snapshot = await createProjectSnapshot('reference-enum', files, () => []);
+  const graph = await buildEffectiveProject(snapshot, references);
+  expect(graph.diagnostics).toEqual([]);
+  const schema = generatePreviewSchemas([...graph.documents], { targetId: 'usage.Contract' })[0]!;
+  expect(schema.fields[0]).toMatchObject({ kind: 'enum', enumValues: [{ value: 'ACT/360', label: 'Actual / 360' }] });
+  expect(references[0]!.content).toBe(source);
+  expect(snapshot.files).toEqual(files);
+});
+
+it.each([
+  { code: 'EUR', xmlValue: 'EUR', rejectedXmlValue: 'USD' },
+  { code: 'A\nB', xmlValue: 'A&#10;B', rejectedXmlValue: 'A B' },
+  { code: 'A\rB', xmlValue: 'A&#13;B', rejectedXmlValue: 'A B' },
+  { code: 'A\tB', xmlValue: 'A&#9;B', rejectedXmlValue: 'A B' },
+  { code: 'A&#10;B', xmlValue: 'A&amp;#10;B', rejectedXmlValue: 'A&#10;B' }
+])('compiles an XSD closure preserving the exact resource code $code', async ({ code, xmlValue, rejectedXmlValue }) => {
+  const { validateGeneratedXsd } = await import('../../../test/helpers/xsd-validation.js');
+  const snapshot = await createProjectSnapshot(
+    'xsd-list',
+    new Map([
+      ['rune-config.yml', 'model: {name: XsdList}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'resource',
+              source: { model: 'local', id: 'quote.Currency#RosettaTypeAlias' },
+              path: 'resources/codes.json'
+            }
+          ]
+        })
+      ],
+      ['model/quote.rosetta', 'namespace quote\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)'],
+      ['resources/codes.json', JSON.stringify([{ value: code, label: 'Allowed code' }])]
+    ]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, []);
+  expect(graph.diagnostics).toEqual([]);
+  const outputs = await generate([...graph.documents], { target: 'xsd' });
+  const entry = { path: 'quote.xsd', namespace: 'urn:rune:quote', type: 'Quote' };
+  const xml = (value: string) =>
+    `<Document xmlns="urn:rune:test" xmlns:q="urn:rune:quote"><q:currency>${value}</q:currency></Document>`;
+  const valid = validateGeneratedXsd(outputs, entry, xml(xmlValue));
+  expect(valid.status, valid.error ?? valid.stderr).toBe(0);
+  const invalid = validateGeneratedXsd(outputs, entry, xml(rejectedXmlValue));
+  expect(invalid.status).not.toBe(0);
+  expect(invalid.stderr).toMatch(/enumeration/);
 });
