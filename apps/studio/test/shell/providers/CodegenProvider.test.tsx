@@ -1181,6 +1181,45 @@ it.each(['manifest publication', 'workspace switch'] as const)(
   }
 );
 
+it('sends captured reference AST bytes once, while retaining reference identity in preview file metadata', async () => {
+  const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
+  const state = wsState('managed-reference');
+  const serialized = JSON.stringify({ $type: 'RosettaModel', name: 'reference', elements: [] });
+  state.files.push({
+    path: '[cdm]/types.rosetta',
+    name: 'types.rosetta',
+    content: 'namespace reference',
+    readOnly: true,
+    refOnly: true,
+    dirty: false,
+    serializedModelJson: serialized
+  });
+  const input = {
+    receipt: { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) },
+    referenceDocuments: [{ uri: 'cdm/types.rosetta', content: 'namespace reference', serialized }]
+  } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
+  render(
+    <WorkspaceStateContext.Provider value={state}>
+      <ProjectContext.Provider
+        value={{
+          status: 'ready',
+          diagnostics: [],
+          runtime: { managed: true, status: 'captured', input, diagnostics: [] }
+        }}
+      >
+        <CodegenProvider>
+          <div />
+        </CodegenProvider>
+      </ProjectContext.Provider>
+    </WorkspaceStateContext.Provider>
+  );
+  const message = FakeWorker.instances[0]!.posted.filter((entry) => entry.type === 'preview:setFiles').at(-1)!;
+  expect(message.project).toBe(input);
+  const reference = message.files.find((entry: { uri: string }) => entry.uri.includes('cdm'));
+  expect(reference).toMatchObject({ content: 'namespace reference', refOnly: true });
+  expect(reference.serializedModelJson).toBeUndefined();
+});
+
 it('requires the current applied project receipt before a Prototype session can fetch its schema', async () => {
   const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
   const receipt = { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) };

@@ -130,6 +130,17 @@ namespace, excludes overridden original bodies and retains linked originals for
 inspection. Preview schemas and Python module bindings share this selection
 boundary. Kind-qualified direct function requests resolve through that same port.
 
+Studio's source-sync fingerprint covers only namespaces with a writable source
+baseline, including their outgoing inheritance edges. Read-only reference ASTs
+remain available for inspection and canonical validation, but are never duplicated
+into the source publication fingerprint. The LSP model cache retains dependency
+metadata across the cohort and compact payloads only for the active closure;
+an idle editor with no override roots releases the cache without serializing it.
+Managed preview messages carry reference AST bytes only in the captured project;
+their parallel file inventory retains source/URI and a reference marker for
+projection checks, without cloning the serialized cohort a second time. Legacy
+preview messages retain their existing serialized-file hydration path.
+
 The LSP client separately tracks model bytes and resolution context, so
 configuration-only edits and reconnects require a fresh applied receipt. Existing
 editor plugins retain didChange ownership while semantic requests wait. Studio

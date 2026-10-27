@@ -89,6 +89,8 @@ export type { CodeGenerationRequest, CodeGenerationResult, GeneratedFile };
 export interface PreviewFileEntry {
   uri: string;
   content: string;
+  /** Captured project references carry AST bytes in project.referenceDocuments only. */
+  refOnly?: boolean;
   /**
    * Pre-serialized Langium AST for curated bundle files (CDM, FpML,
    * rune-dsl). When present, the codegen worker deserializes this

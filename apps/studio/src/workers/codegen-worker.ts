@@ -78,7 +78,7 @@ import type {
 import { findDataNode, getActiveConditionPredicates } from '@rune-langium/codegen/instances';
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
-import type { PreviewWorkerRequest, ProjectionRequest } from '../services/codegen-service.js';
+import type { PreviewWorkerRequest, ProjectionRequest, PreviewFileEntry } from '../services/codegen-service.js';
 import { z } from 'zod';
 import {
   applyEffectiveProject,
@@ -108,17 +108,7 @@ if (isWorkerGlobalScope()) {
 // Message types (inbound)
 // ---------------------------------------------------------------------------
 
-interface FileEntry {
-  uri: string;
-  content: string;
-  /**
-   * Pre-serialized Langium AST for curated bundle files. When present,
-   * `buildDocuments` deserializes this directly instead of parsing
-   * `content` (which is empty for curated refOnly entries). 019
-   * Task #88 follow-up.
-   */
-  serializedModelJson?: string;
-}
+type FileEntry = PreviewFileEntry;
 
 interface SetFilesMessage {
   type: 'codegen:setFiles';
@@ -1019,7 +1009,7 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
     let subject = { ...request.subject, uri: URI.parse(request.subject.uri).toString() };
     if (
       request.kind === 'function' ||
-      currentPreviewFiles.find((file) => file.uri === request.subject.uri)?.serializedModelJson
+      currentPreviewFiles.some((file) => file.uri === request.subject.uri && (file.serializedModelJson || file.refOnly))
     ) {
       const owner = getExpressionOwners(documents.map((doc) => doc.parseResult.value as RosettaModel)).find((node) => {
         const doc = AstUtils.getDocument(node);
@@ -1542,6 +1532,7 @@ if (isWorkerGlobalScope()) {
               !previous ||
               previous.uri !== file.uri ||
               previous.content !== file.content ||
+              previous.refOnly !== file.refOnly ||
               previous.serializedModelJson !== file.serializedModelJson
             );
           });

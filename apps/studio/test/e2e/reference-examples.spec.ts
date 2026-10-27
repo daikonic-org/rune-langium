@@ -74,7 +74,9 @@ for (const width of [1440, 390])
     await page.getByRole('option', { name: '1.0', exact: true }).click();
     await picker.getByRole('button', { name: 'Review change' }).click();
     await picker.getByRole('button', { name: 'Save reference change' }).click();
-    await expect(picker.getByRole('button', { name: 'Review change' })).toBeEnabled();
+    await expect(picker.getByRole('heading', { name: 'Review reference change', exact: true })).toHaveCount(0);
+    await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('1.0');
+    await expect(picker.getByRole('button', { name: 'Review change' })).toBeDisabled();
     await page.getByTestId('rail-prototype').click();
     if (width === 390) await page.getByRole('tab', { name: 'Examples', exact: true }).click();
     await page.getByRole('button', { name: 'Reference examples…' }).click();
