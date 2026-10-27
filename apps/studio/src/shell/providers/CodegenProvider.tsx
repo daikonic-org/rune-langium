@@ -27,7 +27,8 @@ import {
   isPreviewFilesReadyMessage,
   isInstanceValidateResultMessage,
   isInstanceGenerateSchemaResultMessage,
-  isInstanceGenerateSchemaStaleMessage
+  isInstanceGenerateSchemaStaleMessage,
+  type PreviewFileEntry
 } from '../../services/codegen-service.js';
 import { createInstanceReadiness } from '../../services/instance-readiness.js';
 import { createPreviewSessionClient, isPrototypeSessionRequest } from '../../services/preview-session-client.js';
@@ -278,22 +279,28 @@ export const CodegenProvider = withInstrumentation(
 
     const syncWorkerFiles = useCallback(
       (worker: Worker, signal?: AbortSignal): Promise<number> => {
+        const runtime = projectRuntimeRef.current;
+        const project = runtime?.status === 'captured' ? runtime.input : undefined;
         const codegenFiles: Array<{ uri: string; content: string }> = [];
-        const previewFiles: Array<{ uri: string; content: string; serializedModelJson?: string }> = [];
+        const previewFiles: PreviewFileEntry[] = [];
         for (const file of filesRef.current) {
           if (!file.readOnly) codegenFiles.push({ uri: pathToUri(file.path), content: file.content });
           if (file.path.endsWith(BUNDLE_MARKER_SUFFIX) || (file.refOnly && !file.serializedModelJson)) continue;
           previewFiles.push({
             uri: pathToUri(file.path),
             content: file.content,
-            ...(file.serializedModelJson ? { serializedModelJson: file.serializedModelJson } : {})
+            // The captured project already owns these serialized bytes. Sending
+            // them here too clones the entire cohort twice into the worker.
+            ...(project && file.refOnly
+              ? { refOnly: true }
+              : file.serializedModelJson
+                ? { serializedModelJson: file.serializedModelJson }
+                : {})
           });
         }
         const requestId = `preview:files:${++previewRequestSequenceRef.current}`;
         const filesRevision = ++workerFilesRevisionRef.current;
         const epoch = workspaceEpochRef.current;
-        const runtime = projectRuntimeRef.current;
-        const project = runtime?.status === 'captured' ? runtime.input : undefined;
         const projectUnavailable =
           runtime && runtime.status !== 'legacy' && !project
             ? runtime.diagnostics.map((issue) => issue.message).join('\n') ||

@@ -9,7 +9,7 @@ import { withInstrumentation, Capture } from './instrumentation/core.js';
 
 export interface LspModelCacheEntry {
   source: string;
-  compact: string;
+  compact?: string;
   metadata: ReturnType<typeof readLspModelMetadata>;
 }
 const canonicalUri = (path: string) => URI.parse(pathToUri(path)).toString();
@@ -23,6 +23,12 @@ export const collectLspWorkspaceModels = withInstrumentation(
     activeFile?: string,
     additionalRoots: readonly string[] = []
   ): Array<{ uri: string; modelJson: string }> {
+    // Browsing without an editor or override root has no LSP semantic closure.
+    // Do not parse/compact the whole reference cohort merely to return no models.
+    if (!activeFile && !additionalRoots.length) {
+      cache.clear();
+      return [];
+    }
     const parsed = new Map(parsedModels.map((entry) => [entry.filePath, entry.serializedModelJson]));
     const current = new Map<string, LspModelCacheEntry>();
     const uriNamespaces = new Map<string, string>();
@@ -33,7 +39,7 @@ export const collectLspWorkspaceModels = withInstrumentation(
       const uri = canonicalUri(file.path);
       let entry = cache.get(uri);
       if (entry?.source !== source) {
-        entry = { source, compact: compactLspModelJson(source), metadata: readLspModelMetadata(source) };
+        entry = { source, metadata: readLspModelMetadata(source) };
         cache.set(uri, entry);
       }
       current.set(uri, entry);
@@ -45,7 +51,6 @@ export const collectLspWorkspaceModels = withInstrumentation(
     }
     for (const uri of cache.keys()) if (!current.has(uri)) cache.delete(uri);
     const activeNamespace = activeFile ? current.get(canonicalUri(activeFile))?.metadata.namespace : undefined;
-    if (!activeNamespace && !additionalRoots.length) return [];
     const allNamespaces = new Set(uriNamespaces.values());
     const deps = new Map<string, Set<string>>();
     for (const entry of current.values()) {
@@ -64,9 +69,17 @@ export const collectLspWorkspaceModels = withInstrumentation(
         ...closeNamespaceDependencies(namespace, deps)
       ])
     );
-    return [...current]
-      .filter(([, entry]) => entry.metadata.namespace && closure.has(entry.metadata.namespace))
-      .map(([uri, entry]) => ({ uri, modelJson: entry.compact }));
+    const models: Array<{ uri: string; modelJson: string }> = [];
+    for (const [uri, entry] of current) {
+      if (entry.metadata.namespace && closure.has(entry.metadata.namespace)) {
+        entry.compact ??= compactLspModelJson(entry.source);
+        models.push({ uri, modelJson: entry.compact });
+      } else {
+        // Keep small dependency metadata, not payload copies for previously browsed roots.
+        delete entry.compact;
+      }
+    }
+    return models;
   },
   {
     op: 'collectLspWorkspaceModels',

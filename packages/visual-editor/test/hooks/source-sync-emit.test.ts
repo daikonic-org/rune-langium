@@ -80,3 +80,20 @@ describe('useModelSourceSync — deleting the LAST node in the whole graph', () 
     expect(text).not.toContain('type Foo:');
   });
 });
+
+it('does not serialize reference data into the writable source fingerprint', () => {
+  const referenceJson = vi.fn(() => ({ name: 'Reference' }));
+  const reference = {
+    id: 'reference.Type',
+    meta: { namespace: 'reference', deferred: false },
+    data: { $type: 'Data', name: 'Reference', toJSON: referenceJson }
+  } as unknown as TypeGraphNode;
+  const handler = vi.fn();
+  const source = new Map([['local', 'namespace local\n']]);
+  const { rerender } = renderHook(({ nodes }) => useModelSourceSync(nodes, [], handler, 0, [], source, []), {
+    initialProps: { nodes: [reference] }
+  });
+  rerender({ nodes: [{ ...reference, data: { ...reference.data, name: 'Changed reference' } } as TypeGraphNode] });
+  expect(referenceJson).not.toHaveBeenCalled();
+  expect(handler).not.toHaveBeenCalled();
+});

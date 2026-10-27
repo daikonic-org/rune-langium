@@ -69,6 +69,25 @@ describe('LSP workspace models', () => {
     expect(collectLspWorkspaceModels([], [parsed], cache, raw.path)).toEqual([]);
     expect(cache.size).toBe(0);
   });
+
+  it('keeps compact payloads only for the selected semantic closure, and releases them when idle', () => {
+    const files = ['a', 'b', 'unused'].map((name) => ({
+      ...raw,
+      path: `${name}.rosetta`,
+      serializedModelJson: JSON.stringify({ ...model, name })
+    }));
+    const cache = new Map<string, LspModelCacheEntry>();
+    collectLspWorkspaceModels(files, [], cache, 'a.rosetta');
+    expect([...cache.values()].filter((entry) => entry.compact !== undefined)).toHaveLength(1);
+    expect(cache.get('file:///workspace/unused.rosetta')?.compact).toBeUndefined();
+    collectLspWorkspaceModels(files, [], cache, 'b.rosetta');
+    expect(cache.get('file:///workspace/a.rosetta')?.compact).toBeUndefined();
+    expect(cache.get('file:///workspace/b.rosetta')?.compact).toBeTruthy();
+    expect(collectLspWorkspaceModels(files, [], cache, 'missing.rosetta')).toEqual([]);
+    expect([...cache.values()].filter((entry) => entry.compact !== undefined)).toHaveLength(0);
+    expect(collectLspWorkspaceModels(files, [], cache)).toEqual([]);
+    expect(cache.size).toBe(0);
+  });
 });
 
 it('includes the explicit override endpoints and their import closure outside the active namespace', async () => {

@@ -43,11 +43,20 @@ import { buildDirtyIndex } from '../serialize/dirty-paths.js';
  *
  * Extracted from RuneTypeGraph's former source-sync effect and made the sole owner here.
  */
-function computeContentFingerprint(nodes: TypeGraphNode[], edges: TypeGraphEdge[]): string {
+function computeContentFingerprint(
+  nodes: TypeGraphNode[],
+  edges: TypeGraphEdge[],
+  sourceByNamespace: ReadonlyMap<string, string>
+): string {
   const nodeParts: string[] = [];
   // Sort by id so reordering (e.g. drag-reorder) doesn't churn the
   // fingerprint — graph-content equivalence is what we care about.
-  const sortedNodes = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
+  // The source baseline is the publication boundary. Reference-only namespaces
+  // have no writable source and must not become a second serialized cohort here.
+  const sortedNodes = nodes
+    .filter((node) => sourceByNamespace.has(node.meta.namespace))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const writableIds = new Set(sortedNodes.map((node) => node.id));
   for (const n of sortedNodes) {
     // Project to the AST-relevant subset: skip GraphMetadata that
     // changes on view-only operations (position, errors, hasExternalRefs).
@@ -70,7 +79,7 @@ function computeContentFingerprint(nodes: TypeGraphNode[], edges: TypeGraphEdge[
     }
   }
   const edgeParts: string[] = [];
-  const sortedEdges = [...edges].sort((a, b) => a.id.localeCompare(b.id));
+  const sortedEdges = edges.filter((edge) => writableIds.has(edge.source)).sort((a, b) => a.id.localeCompare(b.id));
   for (const e of sortedEdges) {
     edgeParts.push(`${e.id}:${e.data?.kind ?? ''}`);
   }
@@ -360,7 +369,7 @@ export function useModelSourceSync(
       lastParseEpochRef.current = parseEpoch;
       parseBaselineSourceRef.current = rendered.current.originalSourceByNamespace;
     }
-    const fingerprint = computeContentFingerprint(nodes, edges);
+    const fingerprint = computeContentFingerprint(nodes, edges, parseBaselineSourceRef.current);
     if (lastContentFingerprintRef.current === fingerprint) return pending.current;
     lastContentFingerprintRef.current = fingerprint;
     const next = buildSourceForNamespaces({
