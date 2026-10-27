@@ -369,3 +369,11 @@ Codegen's `runtime/project-bindings` suite and Studio's `PreviewEnumInput`/
 `FormPreviewPanel` suites. `test/e2e/project-resources.spec.ts` verifies the pinned
 CDM list in desktop/390px Prototype, execution/unknown-code validation and resource
 availability recovery. Preserve pinned third-party bytes and integrity manifests.
+
+Native catalog changes: run Codegen's `test/implementations` plus Python runtime
+checks and the Studio real-worker suite. Run `pnpm run verify:native-implementations`
+after building Core/Codegen/project-runtime; it verifies Git hashes and the pinned
+cohort's declarations/signatures/target coverage. Source pins and inventory updates
+must be reviewed together; `--write` is explicit. The native calendar browser
+journey in `test/e2e/native-implementations.spec.ts` covers desktop/390px execution,
+viewport fit and axe. Keep unavailable financial engines/data dependencies visible.

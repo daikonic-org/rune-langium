@@ -39,8 +39,15 @@ import { generatePreviewSchemas as runGeneratePreviewSchemas } from './preview-s
 import { resolveExportSelection, type ResolvedExportSelection } from './selection/declaration-selection.js';
 
 export { IMPLEMENTED_TARGETS };
-export { NATIVE_IMPLEMENTATIONS, resolveNativeImplementation } from './implementations/index.js';
+export {
+  NATIVE_IMPLEMENTATIONS,
+  resolveNativeImplementation,
+  nativeFunctionShape,
+  describeNativeFunction
+} from './implementations/index.js';
 export type {
+  NativeFunctionShape,
+  NativeParameterShape,
   NativeImplementation,
   NativeImplementationResolution,
   ImplementationLanguage,

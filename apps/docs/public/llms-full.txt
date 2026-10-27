@@ -10260,6 +10260,30 @@ resolveNativeImplementation(func: RosettaFunction, language: string): NativeImpl
 
 **Returns:** `NativeImplementationResolution | undefined`
 
+### nativeFunctionShape
+
+Exact linked signature, shared by catalog guards and the upstream coverage inventory.
+
+```ts
+nativeFunctionShape(func: RosettaFunction): NativeFunctionShape
+```
+
+**Parameters:**
+- `func: RosettaFunction` —
+
+**Returns:** `NativeFunctionShape`
+
+### describeNativeFunction
+
+```ts
+describeNativeFunction(shape: NativeFunctionShape): string
+```
+
+**Parameters:**
+- `shape: NativeFunctionShape` —
+
+**Returns:** `string`
+
 ### normalizePreviewInputs
 
 Adapt plain form values to the generated function's metadata-bearing input contract.
@@ -10714,6 +10738,10 @@ Files and the dependency-closed receipt produced by a selected export.
 type ProjectBindingRegistry = ReturnType<typeof createProjectBindingRegistry>
 ```
 
+### NativeFunctionShape
+
+### NativeParameterShape
+
 ### NativeImplementation
 
 ### NativeImplementationResolution
@@ -10945,8 +10973,6 @@ const IMPLEMENTED_TARGETS: readonly Target[]
 ```
 
 ### NATIVE_IMPLEMENTATIONS
-
-Audited generator-owned bodies; never executable source loaded from a workspace.
 
 ```ts
 const NATIVE_IMPLEMENTATIONS: readonly NativeImplementation[]

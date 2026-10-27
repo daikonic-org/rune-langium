@@ -77,7 +77,8 @@
     "audit:comments": "node scripts/audit-comments.mjs",
     "test:comment-audit": "ast-grep test --filter comment-audit --skip-snapshot-tests && node --test scripts/audit-comments.test.mjs",
     "audit:source": "oxlint --config oxlint.audit.config.ts --disable-nested-config apps packages",
-    "verify:codegen-corpus": "node scripts/verify-codegen-corpus.mjs"
+    "verify:codegen-corpus": "node scripts/verify-codegen-corpus.mjs",
+    "verify:native-implementations": "node scripts/audit-native-implementations.mjs"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",

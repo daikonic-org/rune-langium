@@ -68,6 +68,11 @@ jobs:
         run: pnpm run build:ci
         timeout-minutes: 15
 
+      - name: Verify versioned native implementation inventory
+        run: pnpm run verify:native-implementations
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Type check
         run: pnpm run type-check
 

@@ -45,7 +45,7 @@ import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
 import type { PythonProjectionContext } from './context.js';
 import type { EmittedProjection, GeneratedProjection, ProjectionSubject } from './types.js';
 import { selectEffectiveProjectDocuments } from '../selection/declaration-selection.js';
-import { resolveNativeImplementation } from '../implementations/index.js';
+import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
 import type { GeneratorDiagnostic } from '../types.js';
 
 export interface PythonModule {
@@ -393,7 +393,10 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   const native = resolveNativeImplementation(func, 'python');
   if (native?.status === 'available')
     lines.push(
-      `${result} = rune.native(${pyString(qualified(func))}, _rune_fallback=lambda: ${native.body.expression})`
+      `${result} = rune.native(${pyString(qualified(func))}${inputs.map((input) => `, ${parameters.get(input)}`).join('')}, _rune_fallback=lambda *_rune_args: ${nativeImplementationExpression(
+        native.body,
+        inputs.map((input) => parameters.get(input)!)
+      )})`
     );
   else if (facts.isAbstract)
     lines.push(

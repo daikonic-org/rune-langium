@@ -1148,3 +1148,11 @@ Resource validation unwraps only declared metadata envelopes. Large form code li
 use the shared searchable command primitives; historical/deprecated values remain
 visible. [The audited artifact matrix](../reference-examples/build-resources.md)
 records remaining parameterized-domain, XML and publication integrations.
+
+Generator-owned native bodies use `nativeFunctionShape` for linked signature
+checks and `nativeImplementationExpression` for allocated parameter bindings.
+The TypeScript output accumulator and Python native-provider arguments remain
+part of the ordinary function contract. CI audits pinned upstream sources with
+the shared Git reader, registers model ownership before linking and compares the
+[native coverage inventory](../implementations/README.md); known unavailable
+entries remain explicit and must never be described as complete coverage.

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
-import { resolveNativeImplementation } from '../implementations/index.js';
+import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
 import {
   getEnumValues,
   isAsOperation,
@@ -2182,7 +2182,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       const call = `${invoke}(${JSON.stringify(key)}, [${args}]) as ${TsNamespaceEmitter.buildFuncOutputType(func)}`;
       bodyLines.push(ctx.outputAccumulator === 'array' ? `  ${result}.push(...(${call}));` : `  ${result} = ${call};`);
     } else if (native?.status === 'available') {
-      bodyLines.push(`  ${result} = ${native.body.expression};`);
+      const expression = nativeImplementationExpression(
+        native.body,
+        func.inputs.map((input) => ctx.localBindings!.get(input.name) ?? input.name)
+      );
+      bodyLines.push(
+        ctx.outputAccumulator === 'array' ? `  ${result}.push(...(${expression}));` : `  ${result} = ${expression};`
+      );
     } else {
       for (const assignment of func.assignments) {
         bodyLines.push(TsNamespaceEmitter.emitFuncSet(assignment, ctx));

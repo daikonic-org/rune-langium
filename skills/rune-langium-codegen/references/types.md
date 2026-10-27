@@ -29,6 +29,20 @@ ReturnType<typeof createProjectBindingRegistry>
 
 ## implementations
 
+### `NativeFunctionShape`
+**Properties:**
+- `inputs: readonly NativeParameterShape[]`
+- `output: NativeParameterShape` (optional)
+
+### `NativeParameterShape`
+**Properties:**
+- `name: string`
+- `type: string`
+- `kind: string`
+- `card: readonly [number, number | "*"]`
+- `plain: boolean`
+- `enumValues: readonly string[]` (optional)
+
 ### `NativeImplementation`
 **Properties:**
 - `id: string`
@@ -51,6 +65,7 @@ ReturnType<typeof createProjectBindingRegistry>
 ### `NativeImplementationBody`
 **Properties:**
 - `expression: string`
+- `call: boolean` (optional)
 - `dependencies: readonly string[]`
 
 ## selection
@@ -402,19 +417,5 @@ Which sheets to emit. Resolves the per-sheet defaults when absent.
 ```ts
 ExcelOptions["sheets"]
 ```
-
-## projection
-
-### `PythonModule`
-**Properties:**
-- `code: string`
-- `projections: EmittedProjection[]`
-- `bindings: ReadonlyMap<string, string>`
-- `diagnostics: GeneratorDiagnostic[]`
-
-### `PythonProjectionContext`
-Linked identities and semantic facts shared with the authoritative codegen utilities.
-**Properties:**
-- `subject: ProjectionSubject`
 
 <!-- truncated -->

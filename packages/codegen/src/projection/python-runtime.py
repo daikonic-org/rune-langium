@@ -403,6 +403,35 @@ def rune_calendar_from_days(days):
     return year + int(month <= 2), month, day
 
 
+def rune_calendar_add_days(value, days):
+    if isinstance(days, bool) or not isinstance(days, (int, float)) or abs(days) > 9007199254740991 or not math.isfinite(days) or int(days) != days:
+        raise TypeError("Calendar days must be a safe integer.")
+    return rune_calendar_text(*rune_calendar_from_days(rune_date_days(value) + int(days)))
+
+
+def rune_leap_year_days(value):
+    year, month, day = rune_calendar_parts(value)
+    previous = year - 1
+    full = 366 * (previous // 4 - previous // 100 + previous // 400)
+    return full + (rune_date_days(value) - rune_date_days(rune_calendar_text(year, 1, 1)) if calendar.isleap(year) else 0)
+
+
+def rune_native_time(hours, minutes, seconds):
+    if any(isinstance(value, bool) or not isinstance(value, (int, float)) or abs(value) > 9007199254740991 or not math.isfinite(value) or int(value) != value for value in (hours, minutes, seconds)):
+        raise TypeError("Time components must be integers.")
+    return time(int(hours), int(minutes), int(seconds)).isoformat()
+
+
+def rune_string_contains(value, needle):
+    if value is None:
+        return False
+    if not isinstance(value, str) or not isinstance(needle, str):
+        raise TypeError("StringContains requires strings.")
+    haystack = value.encode("utf-16-le", "surrogatepass")
+    target = needle.encode("utf-16-le", "surrogatepass")
+    return any(haystack[index:index + len(target)] == target for index in range(0, len(haystack) - len(target) + 1, 2))
+
+
 def rune_offset_seconds(text):
     if text == "Z" or text == "UTC":
         return 0
