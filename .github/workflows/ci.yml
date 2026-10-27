@@ -38,6 +38,9 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Install XML Schema validator for generated XSD tests
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
       - name: Determine CDM fixture cache key
         id: fixture-versions
         run: |

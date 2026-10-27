@@ -254,3 +254,40 @@ it('materializes an explicitly mapped reference alias while retaining reference 
   expect(references[0]!.content).toBe(source);
   expect(snapshot.files).toEqual(files);
 });
+
+it('produces an XSD closure that compiles and enforces a resource-backed alias across namespaces', async () => {
+  const { validateGeneratedXsd } = await import('../../../test/helpers/xsd-validation.js');
+  const snapshot = await createProjectSnapshot(
+    'xsd-list',
+    new Map([
+      ['rune-config.yml', 'model: {name: XsdList}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'resource',
+              source: { model: 'local', id: 'quote.Currency#RosettaTypeAlias' },
+              path: 'resources/codes.json'
+            }
+          ]
+        })
+      ],
+      ['model/quote.rosetta', 'namespace quote\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)'],
+      ['resources/codes.json', '[{"value":"EUR","label":"Euro"}]']
+    ]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, []);
+  expect(graph.diagnostics).toEqual([]);
+  const outputs = await generate([...graph.documents], { target: 'xsd' });
+  const entry = { path: 'quote.xsd', namespace: 'urn:rune:quote', type: 'Quote' };
+  const xml = (value: string) =>
+    `<Document xmlns="urn:rune:test" xmlns:q="urn:rune:quote"><q:currency>${value}</q:currency></Document>`;
+  const valid = validateGeneratedXsd(outputs, entry, xml('EUR'));
+  expect(valid.status, valid.error ?? valid.stderr).toBe(0);
+  const invalid = validateGeneratedXsd(outputs, entry, xml('USD'));
+  expect(invalid.status).not.toBe(0);
+  expect(invalid.stderr).toMatch(/enumeration/);
+});

@@ -1167,5 +1167,9 @@ receipts, declaration identities and constrained-alias guards. Core's
 identifier sanitization and presentation labels must never change external codes.
 All enum consumers, including expression conversions and Python projections, use
 that shared accessor. Empty lists retain the existing never-value adapter boundary.
-Single-file generation uses Core namespace dependencies and the existing graph
-ordering helpers to initialize enum schemas before dependent aliases/objects.
+Single-file generation uses Core namespace dependencies and the shared Tarjan
+components. It topologically orders the SCC condensation graph, retaining stable
+order within a cycle and placing the entire cycle before downstream consumers.
+The existing type-level cyclic-last policy remains separate. XSD references use
+resolved declaration namespaces for QNames and relative schema imports, including
+foreign enum restrictions and complex-type inheritance.

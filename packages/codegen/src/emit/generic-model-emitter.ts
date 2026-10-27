@@ -9,8 +9,7 @@ import type { NamespaceRegistry } from './namespace-registry.js';
 import type { NamespaceWalkResult } from './namespace-walker.js';
 import type { LanguageProfile } from './language-profile.js';
 import { collectNamespaceDependencies } from '@rune-langium/core';
-import { topoSort } from '../topo-sort.js';
-import { findCyclicTypes } from '../cycle-detector.js';
+import { topoSortComponents } from '../topo-sort.js';
 
 /**
  * Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
@@ -83,7 +82,7 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
         nodes: [...walks.keys()].sort(),
         edges: new Map([...dependencies].map(([name, deps]) => [name, [...deps]]))
       };
-      const order = topoSort(graph, findCyclicTypes(graph));
+      const order = topoSortComponents(graph);
       perNs.sort(
         (a, b) =>
           order.indexOf(outputNamespaces.get(a.relativePath)!) - order.indexOf(outputNamespaces.get(b.relativePath)!)
