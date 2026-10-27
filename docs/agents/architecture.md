@@ -58,7 +58,7 @@ and checks the captured file revision. Before a named build, Export flushes edit
 and source autosave, reloads the active project controller, and waits for the
 ordinary provider's matching runtime capture. Preparation is cancelable and
 rejects workspace/source changes or Save failures; it never creates a parallel
-receipt. Only then does Build selected/all stage every chosen artifact before
+receipt. Only then does Generate target/all stage every chosen artifact before
 writes through `project-runtime/browser`; the native host parses an isolated graph, while Studio supplies the existing server generator. Both use
 strict library defaults and shared concrete namespace-scope expansion. A build
 finishing after project disposal cannot write through the guarded adapter.
@@ -300,6 +300,8 @@ data stays in the owner; value edits retain identity, while recipe opening,
 rebinding and object-type selection create a fresh identity. Function-input Undo
 is scoped to its active session and function. Saved recipes never persist these
 transient identities. Node-local Undo/layout state cannot cross draft boundaries.
+Example-selection requests retain their originating surface; visiting the other
+surface never replays a replacement into its retained draft.
 Node-local layout editing uses the shared symbol-associated presentation store.
 The instance grid exposes failed-save retries through the existing instance-store
 persistence action. Draft schema failures can retry their request without losing
@@ -413,6 +415,19 @@ The curated artifact cache has a combined budget of 128 MiB of serialized UTF-16
 ## Form Configuration
 
 Studio's `apps/studio/z2f.config.ts` is the authoritative canonical `@zod-to-form/core` config, imported by its Vite plugin. `components.source: './z2f-components'` resolves relative to each schema module in `src/codegen-forms/`. Generation settings live under `defaults`; `defaults.optimization.compileZod` is independent of optimization level and defaults to false here. Presets expand through the shared resolver, preserving controlled shadcn event props.
+
+The explicit `Input: {}` component override routes uncontrolled generated text
+fields through the shared design-system Input instead of the HTML fallback.
+Workspace settings derive their directories form from `StudioConfigSchema`,
+then use `updateStudioConfig` and the existing controller Save/readback. Companion
+configuration preconditions exclude the transaction's own destination, whose
+write already carries its captured revision; all other companion guards remain.
+Export tabs retain separate named-target drafts and a one-off draft. Target
+removal edits configuration only and keeps generated output. Reference selections
+come from saved requests/locks immediately, plus verified Nightly provenance only
+when the active reference key matches the workspace and its configuration;
+catalog fetches do not block the saved selection. Loading dependencies remain
+distinct from absent models.
 
 Visual-editor's typed `z2f.config.ts` preserves AST hidden fields, sections, schema overrides and array reorder. Its component adapters use `value`/`onChange`; its `FieldTemplate` composes shared design-system primitives. These adapters must override raw shadcn event contracts explicitly. Do not restore removed `fieldTypes`/`formPrimitives` config keys.
 
@@ -902,7 +917,11 @@ automatic mode remains available to other hosts.
 Project-config owns ExampleDescriptor/path/codec metadata and `readExamples`.
 Studio's `example-repository` adapts these records to the existing instance store;
 WorkspaceProvider binds it to the active ProjectController, while App supplies only
-limited typed legacy storage. Example saves serialize across records and use shared
+limited typed legacy storage. Before publishing reopened Rune JSON records, the repository
+uses the existing linked preview-worker decoder to restore form Choice slots. Worker
+registration uses the existing preparation bound; workspace epochs and controller revisions
+reject stale loads. Decode failures retain the original files and block semantic writes
+until a successful reload. Example saves serialize across records and use shared
 project Save/readback, including explicit CAS removals for deletion. Late completion
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
@@ -1087,7 +1106,12 @@ files, use normal Save/readback, and leave workflow binding explicit. Capture
 refreshes after example saves retain browser state only while the reference key
 matches; workspace/reference changes invalidate pending imports. The dedicated
 object-adaptation request uses the same preview receipt/cancellation boundary as
-execution. See [format support and the XML milestone](../reference-examples/README.md).
+execution. Rune JSON example persistence uses the correlated `instance:serialize`
+worker operation and the shared project-data serializer against linked documents.
+It checks the saved revision against the applied project receipt and rejects a
+changed workspace epoch. Cloned canonical values do not need to retain decoder
+WeakMap annotations. Optional model/version overrides preserve existing headers
+when omitted. See [format support and the XML milestone](../reference-examples/README.md).
 
 Reference code-list resources use the project runtime's `decodeProjectCodeList`;
 `build-config.yml` resource mappings can specify `codeList.format`, scheme/version

@@ -253,6 +253,7 @@ export const PrototypeWorkflow = withInstrumentation(
     const draftSchema = draftSchemaState?.schema;
     useEffect(() => {
       if (!record || project.status === 'loading') return;
+      if (view.bindingSurface && view.bindingSurface !== mode) return;
       const request = record.id + ':' + bindingRequestId;
       if (seenInstance.current[mode] === request) return;
       seenInstance.current[mode] = request;
@@ -267,7 +268,7 @@ export const PrototypeWorkflow = withInstrumentation(
           })
         );
       else setBinding({ record });
-    }, [record, prepare, draft, state.functionFqn, bindingRequestId, project.status, mode]);
+    }, [record, prepare, draft, state.functionFqn, bindingRequestId, project.status, mode, view.bindingSurface]);
     const standaloneValidation = useWorkflowValidation(draft?.typeFqn, draft?.values ?? NO_VALUES);
     const functionValidation = useWorkflowValidation(state.schema?.targetId, state.inputs, true);
     const [inputChecks, setInputChecks] = useState<

@@ -80,6 +80,20 @@ it('reuses the target options form registry for Excel exports', () => {
   expect(screen.getByTestId('excel-options-form')).toBeInTheDocument();
 });
 
+it('identifies an unavailable imported generator rather than displaying another generator selection', () => {
+  render(
+    <ExportSettingsPanel
+      config={{ ...config, target: 'java' as never }}
+      onChange={vi.fn()}
+      onGenerate={vi.fn()}
+      onCancel={vi.fn()}
+      status="idle"
+    />
+  );
+  expect(screen.getByRole('option', { name: 'java — provider unavailable' })).toBeDisabled();
+  expect(screen.getByRole('combobox', { name: 'Export target' })).toHaveValue('java');
+});
+
 it('keeps unavailable imported targets separate from usable native targets and shows persisted evidence', async () => {
   const { createProjectSnapshot } = await import('@rune-langium/project-config');
   const { validateProjectTarget } = await import('@rune-langium/project-runtime/browser');
@@ -119,6 +133,7 @@ it('keeps unavailable imported targets separate from usable native targets and s
     ]),
     validateProjectTarget
   );
+  const build = vi.fn();
   render(
     <ExportSettingsPanel
       config={config}
@@ -126,18 +141,60 @@ it('keeps unavailable imported targets separate from usable native targets and s
       onGenerate={vi.fn()}
       onCancel={vi.fn()}
       status="idle"
+      selectedTargetName="types"
+      onBuildTargets={build}
       projectEnabled
       projectSnapshot={snapshot}
       projectDiagnostics={snapshot.project.diagnostics}
     />
   );
-  expect(screen.getByRole('checkbox', { name: 'java', exact: true })).toBeDisabled();
-  expect(screen.getByRole('checkbox', { name: 'types', exact: true })).toBeEnabled();
-  expect(screen.getByRole('button', { name: 'Build all' })).toBeDisabled();
-  await userEvent.click(screen.getByRole('checkbox', { name: 'types', exact: true }));
-  expect(screen.getByRole('button', { name: 'Build selected' })).toBeEnabled();
+  expect(screen.getByRole('tab', { name: 'java', exact: true })).toBeEnabled();
+  expect(screen.getByRole('tab', { name: 'types', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('button', { name: 'Generate all' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Generate target' })).toBeEnabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Generate target' }));
+  expect(build).toHaveBeenCalledWith(['types']);
   await userEvent.click(screen.getByText('Saved initialization report', { exact: true }));
   expect(screen.getByText('Java SDK provider is unavailable.')).toBeVisible();
   expect(screen.getByText('Profiles: pricing')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Import Maven' })).not.toBeInTheDocument();
 });
+
+for (const selectedTargetName of [undefined, 'b'])
+  it(`unblocks Generate all after a dirty target is removed (${selectedTargetName ?? 'one-off'})`, async () => {
+    const { createProjectSnapshot } = await import('@rune-langium/project-config');
+    const { validateProjectTarget } = await import('@rune-langium/project-runtime/browser');
+    const snapshot = (targets: Record<string, unknown>) =>
+      createProjectSnapshot(
+        'targets',
+        new Map([
+          ['rune-config.yml', 'model: {name: Targets}'],
+          ['build-config.yml', JSON.stringify({ schemaVersion: 1, targets })]
+        ]),
+        validateProjectTarget
+      );
+    const a = { generator: 'typescript', output: 'generated/a' };
+    const b = { generator: 'typescript', output: 'generated/b' };
+    const build = vi.fn();
+    const ui = (projectSnapshot: Awaited<ReturnType<typeof snapshot>>) => (
+      <ExportSettingsPanel
+        config={config}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onCancel={vi.fn()}
+        status="idle"
+        projectEnabled
+        projectSnapshot={projectSnapshot}
+        selectedTargetName={selectedTargetName}
+        dirtyTargets={['a']}
+        onBuildTargets={build}
+      />
+    );
+    const view = render(ui(await snapshot({ a, b })));
+    expect(screen.getByRole('button', { name: 'Generate all' })).toBeDisabled();
+    view.rerender(ui(await snapshot({ b })));
+    expect(screen.queryByRole('tab', { name: /a \*/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate all' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate all' }));
+    expect(build).toHaveBeenCalledWith('all');
+  });

@@ -10,8 +10,49 @@ import {
   prepareProjectReferenceChange,
   createProjectReferenceTransport,
   resolveAndSaveProjectReferences,
-  loadProjectReferences
+  loadProjectReferences,
+  currentReferenceReleases
 } from '../../src/services/project-references.js';
+
+it('shows saved releases immediately and scopes Nightly dependency labels to the active reference identity', async () => {
+  const { createProjectDraftSnapshot } = await import('@rune-langium/project-config');
+  const { snapshot } = await referenceFixture({
+    cdm: { repository: 'https://github.com/org/cdm', release: 'nightly' }
+  });
+  const referenceDocuments = [
+    {
+      uri: 'fpml/model.rosetta',
+      content: '',
+      source: { model: 'fpml', repository: 'https://github.com/org/fpml', release: 'nightly', commit: 'a'.repeat(40) }
+    }
+  ];
+  expect(currentReferenceReleases(snapshot).get('cdm')).toBe('nightly');
+  expect(currentReferenceReleases(snapshot).has('fpml')).toBe(false);
+  expect(currentReferenceReleases(snapshot, { snapshot, referenceDocuments }).get('fpml')).toBe('nightly');
+  const edited = await createProjectDraftSnapshot(
+    snapshot,
+    new Map([['model/draft.rosetta', 'namespace draft\n']]),
+    () => []
+  );
+  expect(currentReferenceReleases(edited, { snapshot, referenceDocuments }).get('fpml')).toBe('nightly');
+  expect(
+    currentReferenceReleases({ ...snapshot, workspaceId: 'foreign' }, { snapshot, referenceDocuments }).has('fpml')
+  ).toBe(false);
+  const changed = await createProjectDraftSnapshot(
+    snapshot,
+    new Map([
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          references: { cdm: { repository: 'https://github.com/org/cdm', release: '2.0' } }
+        })
+      ]
+    ]),
+    () => []
+  );
+  expect(currentReferenceReleases(changed, { snapshot, referenceDocuments }).has('fpml')).toBe(false);
+});
 async function setup() {
   const reference = await referenceFixture();
   const adapter = createProjectFileAdapter({

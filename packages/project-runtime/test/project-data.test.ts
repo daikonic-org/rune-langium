@@ -130,3 +130,126 @@ it('uses linked field roles when business attributes share metadata envelope nam
   expect(wire).not.toHaveProperty('@data');
   expect(wire).not.toHaveProperty('@ref');
 });
+
+it('rejects linked Rune JSON exports with unsupported envelope siblings while retaining plain JSON', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const snapshot = await createProjectSnapshot('p', new Map([['rune-config.yml', 'model: {name: Example}']]), () => []);
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/metadata.rosetta',
+      content: 'namespace example\ntype Cash:\n amount number (1..1)\n  [metadata scheme]\n'
+    }
+  ]);
+  expect(graph.diagnostics).toEqual([]);
+  const value = { amount: { value: 21, meta: { scheme: 'USD' }, extra: 'retain-me' } };
+  const context = { documents: graph.documents, typeFqn: 'example.Cash', model: 'Example', version: '1' };
+  expect(() => serializeProjectData(snapshot, value, 'RUNE_JSON', context)).toThrow(/envelope.*supported/);
+  expect(JSON.parse(serializeProjectData(snapshot, value, 'JSON', context))).toEqual(value);
+  const linked = { documents: graph.documents, typeFqn: 'example.Cash' };
+  const plain = { amount: { value: 21, meta: { scheme: 'USD' } } };
+  const output = JSON.parse(serializeProjectData(snapshot, plain, 'RUNE_JSON', linked));
+  expect(output).toEqual({ '@type': 'example.Cash', amount: { '@data': 21, '@scheme': 'USD' } });
+  expect(
+    JSON.parse(serializeProjectData(snapshot, { ...plain, '@model': 'original', '@version': '7' }, 'RUNE_JSON', linked))
+  ).toMatchObject({ '@model': 'original', '@version': '7' });
+});
+
+it('round-trips concrete Choice and derived Data roots through linked assignability checks', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const { importProjectData } = await import('../src/project-data.js');
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([['rune-config.yml', 'model: {name: Example, defaultSerialisationFormat: RUNE_JSON}']]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/model.rosetta',
+      content: `namespace example
+ type Asset:
+  id string (0..1)
+ type Bond extends Asset:
+  amount number (1..1)
+ type Unrelated:
+  name string (0..1)
+ choice Instrument:
+  Bond
+`
+    }
+  ]);
+  expect(graph.diagnostics).toEqual([]);
+  const context = { documents: graph.documents, model: 'Example', version: '1.0.0' };
+  const choice = serializeProjectData(snapshot, { bond: { amount: 21 } }, 'RUNE_JSON', {
+    ...context,
+    typeFqn: 'example.Instrument#Choice'
+  });
+  expect(JSON.parse(choice)['@type']).toBe('example.Bond');
+  const restored = importProjectData(snapshot, choice, 'example.Instrument#Choice', graph.documents);
+  expect(restored.diagnostics).toEqual([]);
+  expect(restored.data).toMatchObject({ bond: { amount: 21 } });
+  const derived = serializeProjectData(snapshot, { '@type': 'example.Bond', amount: 21 }, 'RUNE_JSON', {
+    ...context,
+    typeFqn: 'example.Asset'
+  });
+  const imported = importProjectData(snapshot, derived, 'example.Asset', graph.documents);
+  expect(imported.diagnostics).toEqual([]);
+  expect(imported.data).toMatchObject({ '@type': 'example.Bond', amount: 21 });
+  for (const target of ['example.Asset', 'example.Instrument#Choice']) {
+    for (const type of ['example.Unrelated', 'example.Missing']) {
+      expect(
+        importProjectData(snapshot, JSON.stringify({ '@type': type }), target, graph.documents).diagnostics[0]?.kind
+      ).toBe('identity-mismatch');
+    }
+  }
+  expect(importProjectData(snapshot, choice, 'example.Instrument#Choice').diagnostics[0]?.kind).toBe(
+    'identity-mismatch'
+  );
+});
+
+it('round-trips aliased Data and nested Choice roots without losing their declared slots', async () => {
+  const { buildEffectiveProject } = await import('../src/effective-project.js');
+  const { importProjectData } = await import('../src/project-data.js');
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([['rune-config.yml', 'model: {name: Example, defaultSerialisationFormat: RUNE_JSON}']]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, [
+    {
+      uri: 'local/alias.rosetta',
+      content: `namespace example
+ type Bond:
+  amount number (1..1)
+  bond string (1..1)
+  instrumentAlias string (1..1)
+ typeAlias BondAlias: Bond
+ choice Instrument:
+  Bond
+ typeAlias InstrumentAlias: Instrument
+ choice Outer:
+  InstrumentAlias
+ typeAlias OuterAlias: Outer
+`
+    }
+  ]);
+  expect(graph.diagnostics).toEqual([]);
+  const bond = { amount: 21, bond: 'business-id', instrumentAlias: 'another-business-id' };
+  const cases = [
+    ['BondAlias', bond],
+    ['InstrumentAlias', { bond }],
+    ['OuterAlias', { instrumentAlias: { bond } }]
+  ] as const;
+  for (const [name, value] of cases) {
+    const target = `example.${name}#RosettaTypeAlias`;
+    const text = serializeProjectData(snapshot, value, 'RUNE_JSON', {
+      documents: graph.documents,
+      typeFqn: target,
+      model: 'Example',
+      version: '1'
+    });
+    expect(JSON.parse(text)['@type']).toBe('example.Bond');
+    const result = importProjectData(snapshot, text, target, graph.documents);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.data).toMatchObject(value);
+  }
+});

@@ -14,6 +14,79 @@ async function waitForMessage(scope: WorkerScope, type: string): Promise<void> {
   });
 }
 
+it('serializes cloned examples with linked metadata roles and refuses a mismatched saved revision', async () => {
+  const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content =
+    'namespace example\ntype Party:\n name string (0..1)\ntype Trade:\n amount number (1..1)\n  [metadata scheme]\n party Party (0..1)\n  [metadata reference]\n';
+  const snapshot = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['rune-config.yml', 'model: {name: Example}'],
+      ['build-config.yml', 'schemaVersion: 1\nsources: ["model/**/*.rosetta"]\n'],
+      ['model/trade.rosetta', content]
+    ]),
+    () => []
+  );
+  const project = await captureProjectRuntimeInput(
+    snapshot,
+    [{ name: 'trade.rosetta', path: 'model/trade.rosetta', content, dirty: false }],
+    []
+  );
+  const { scope, dispatch } = await loadRealWorker();
+  dispatch({ type: 'preview:setFiles', filesRevision: 1, files: [], project, requestId: 'save:install' });
+  await waitForMessage(scope, 'preview:files-ready');
+  const message = {
+    type: 'instance:serialize',
+    snapshot: project.snapshot,
+    typeFqn: 'example.Trade#Data',
+    data: structuredClone({
+      '@model': 'source-model',
+      '@type': 'example.Trade',
+      '@version': '7',
+      amount: { value: 21, meta: { scheme: 'USD' } },
+      party: { externalReference: 'p' }
+    }),
+    requestId: 'save:linked',
+    projectReceipt: project.receipt
+  };
+  dispatch(message);
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'instance:serializeResult', requestId: 'save:linked', text: expect.any(String) })
+    )
+  );
+  const response = scope.postMessage.mock.calls
+    .map(([message]) => message)
+    .find((message) => message.requestId === 'save:linked');
+  expect(JSON.parse(response.text)).toMatchObject({
+    '@model': 'source-model',
+    '@type': 'example.Trade',
+    '@version': '7',
+    amount: { '@data': 21, '@scheme': 'USD' },
+    party: { '@ref:external': 'p' }
+  });
+  const stale = await createProjectDraftSnapshot(
+    snapshot,
+    new Map([['model/trade.rosetta', content + '\n// changed\n']]),
+    () => []
+  );
+  dispatch({ ...message, snapshot: stale, requestId: 'save:stale' });
+  await vi.waitFor(() =>
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'instance:serializeResult',
+        requestId: 'save:stale',
+        error: expect.stringMatching(/revision/)
+      })
+    )
+  );
+  expect(scope.postMessage.mock.calls.some(([message]) => message.requestId === 'save:stale' && message.text)).toBe(
+    false
+  );
+  vi.unstubAllGlobals();
+});
+
 describe('codegen-worker parsed/emitted function execution', () => {
   afterEach(() => {
     vi.unstubAllGlobals();

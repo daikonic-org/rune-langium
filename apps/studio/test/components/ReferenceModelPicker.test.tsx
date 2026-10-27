@@ -3,7 +3,7 @@
 import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryReferenceCache } from '@rune-langium/project-runtime/references';
+import { createMemoryReferenceCache, type ReferenceTransport } from '@rune-langium/project-runtime/references';
 import { referenceFixture } from '../../../../test/helpers/project-reference-fixture.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { createProjectController } from '../../src/workspace/project-controller.js';
@@ -13,7 +13,7 @@ import {
   type WorkspaceActions
 } from '../../src/shell/perspectives/workspace-actions-context.js';
 import { ReferenceModelPicker } from '../../src/components/ReferenceModelPicker.js';
-async function setup(flushWorkspaceSave?: () => Promise<void>) {
+async function setup(flushWorkspaceSave?: () => Promise<void>, initialCatalogError?: string) {
   const onAccepted = vi.fn();
   const fixture = await referenceFixture({});
   const transport = {
@@ -23,6 +23,7 @@ async function setup(flushWorkspaceSave?: () => Promise<void>) {
       return JSON.parse(new TextDecoder().decode(fixture.artifacts.get(release.manifest)!));
     })
   };
+  if (initialCatalogError) transport.catalog.mockRejectedValueOnce(new Error(initialCatalogError));
   const adapter = createProjectFileAdapter({
     workspaceId: 'p',
     root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
@@ -46,6 +47,29 @@ async function setup(flushWorkspaceSave?: () => Promise<void>) {
   return { ...fixture, transport, controller, adapter, onAccepted, user: userEvent.setup() };
 }
 
+it('shows saved selections while catalogs and Nightly dependencies load independently', async () => {
+  const fixture = await referenceFixture({ cdm: { repository: 'https://github.com/org/cdm', release: 'nightly' } });
+  const catalog = Promise.withResolvers<Awaited<ReturnType<ReferenceTransport['catalog']>>>();
+  const transport = { ...fixture.transport, catalog: vi.fn(() => catalog.promise) };
+  render(
+    <ReferenceModelPicker
+      controller={{ current: () => fixture.snapshot } as never}
+      snapshot={fixture.snapshot}
+      dependenciesLoading
+      transport={transport}
+      cache={createMemoryReferenceCache()}
+    />
+  );
+  await waitFor(() => expect(screen.getByRole('combobox', { name: 'Release' })).toHaveTextContent('Nightly'));
+  expect(screen.getByRole('button', { name: /CDM \(Common/ })).toHaveTextContent('Nightly');
+  expect(screen.getByRole('button', { name: /Rune DSL/ })).toHaveTextContent('Checking dependencies');
+  expect(screen.getByText(/Loading workspace dependencies/)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Review change', exact: true })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Recheck references' })).toBeEnabled();
+  catalog.resolve({ schemaVersion: 1, releases: fixture.releases.get('cdm')! });
+  await waitFor(() => expect(screen.queryByText('Loading published releases…')).toBeNull());
+});
+
 it('saves Nightly as a moving workspace preference without creating a lockfile', async () => {
   const { user, controller, adapter, onAccepted } = await setup();
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
@@ -53,7 +77,8 @@ it('saves Nightly as a moving workspace preference without creating a lockfile',
   await user.click(await screen.findByRole('option', { name: 'Nightly', exact: true }));
   await user.click(screen.getByRole('button', { name: 'Review change' }));
   await screen.findByRole('heading', { name: 'Review reference change' });
-  expect(screen.getByText(/No saved pin, lock/)).toBeVisible();
+  expect(screen.getAllByText(/No saved pin, lock/).length).toBeGreaterThan(1);
+  expect(screen.getByRole('list', { name: 'Proposed reference releases' })).toHaveTextContent('rune-dsl Nightly');
   await user.click(screen.getByRole('button', { name: 'Save reference change' }));
   await waitFor(() => expect(controller.current()!.project.build.references.cdm?.release).toBe('nightly'));
   expect(controller.current()!.lock).toBeUndefined();
@@ -118,8 +143,7 @@ it('requires an exact release, reviews its dependency origin, and writes only on
   expect(controller.current()!.lock!.references['rune-dsl']!.release).toBe('1.0');
 });
 it('canceling a review preserves the old request and a failed catalog can be retried', async () => {
-  const { user, controller, transport, onAccepted } = await setup();
-  transport.catalog.mockRejectedValueOnce(new Error('Offline catalog unavailable'));
+  const { user, controller, onAccepted } = await setup(undefined, 'Offline catalog unavailable');
   await user.click(screen.getByRole('button', { name: /CDM \(Common/ }));
   await screen.findByText(/Offline catalog unavailable/);
   await user.click(screen.getByRole('button', { name: 'Retry releases' }));
