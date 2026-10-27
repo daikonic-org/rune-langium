@@ -28,6 +28,12 @@ runner has no mirror list.
 
 `@zod-to-form/react@0.13.0` exports the shared `SectionRenderer` used by custom Inspector layouts, from [zod-to-form PR #222](https://github.com/pradeepmouli/zod-to-form/pull/222). Use that public export directly. Keep exact core/React package declarations and workspace overrides aligned, and recheck configured Inspector sections when upgrading.
 
+Keep Studio's explicit `Input: {}` override in its canonical form component map.
+The shadcn preset alone falls back to native HTML for uncontrolled text fields;
+verify the generated form imports the shared Input and renders its `data-slot`
+and focus treatment. Do not replace canonical configuration validation to style
+workspace settings.
+
 Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Workspace and package engine declarations use that combined supported range. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions

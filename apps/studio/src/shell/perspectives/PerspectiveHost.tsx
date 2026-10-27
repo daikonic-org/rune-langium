@@ -14,6 +14,7 @@ import type { PerspectiveId } from './perspective-types.js';
 import { usePerspectiveStore } from '../../store/perspective-store.js';
 import { resolveEffectivePerspective } from './perspective-registry.js';
 import { SettingsPerspective } from './screens/SettingsPerspective.js';
+import { WorkspaceDirectoriesFormAdapter } from '../../codegen-forms/WorkspaceDirectoriesFormAdapter.js';
 import { WorkspacesPerspective } from './screens/WorkspacesPerspective.js';
 import { GitSyncPerspective } from './screens/GitSyncPerspective.js';
 import { ExportPerspective } from './screens/ExportPerspective.js';
@@ -100,7 +101,7 @@ export const PerspectiveHost = withInstrumentation(
             {effective === 'workspaces' && <WorkspacesPerspective />}
             {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
             {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}
-            {effective === 'settings' && <SettingsPerspective />}
+            {effective === 'settings' && <SettingsPerspective workspaceForm={WorkspaceDirectoriesFormAdapter} />}
           </PerspectiveScreen>
         )}
       </div>

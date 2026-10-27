@@ -11,8 +11,10 @@ describe('SettingsPerspective', () => {
     // the font-scale control is surfaced here (reuse of FontScaleButton)
     expect(screen.getByRole('button', { name: /font size/i })).toBeTruthy();
   });
-  it('shows a Project configuration section (forward-looking, .runestudio)', () => {
+  it('shows live Workspace configuration without the retired coming-soon promise', () => {
     render(<SettingsPerspective />);
     expect(screen.getByTestId('settings-project-section')).toBeTruthy();
+    expect(screen.getByText('Workspace configuration')).toBeInTheDocument();
+    expect(screen.queryByText(/coming soon|runestudio\/config/i)).not.toBeInTheDocument();
   });
 });

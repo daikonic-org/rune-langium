@@ -17,6 +17,8 @@ export interface ReferenceDocument {
   uri: string;
   content: string;
   serialized?: string;
+  /** Verified publication identity for a local copy's provenance; never a Nightly lock. */
+  cohort?: CuratedManifest['cohort'];
   /** Active verified source, kept in memory for version-matched example discovery. */
   source?: Omit<RepositoryExampleSource, 'path' | 'format' | 'version'>;
 }

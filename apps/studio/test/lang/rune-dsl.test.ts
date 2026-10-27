@@ -6,7 +6,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { StringStream } from '@codemirror/language';
+import { ensureSyntaxTree, StringStream } from '@codemirror/language';
+import { EditorState, type Extension } from '@codemirror/state';
+import { javascript } from '@codemirror/lang-javascript';
+import { highlightTree, tags } from '@lezer/highlight';
+import { studioEditorHighlightStyle } from '../../src/lang/editor-theme.js';
 import { runeDslLanguage, runeDslStreamParser } from '../../src/lang/rune-dsl.js';
 
 describe('runeDslStreamParser', () => {
@@ -33,7 +37,143 @@ describe('runeDslStreamParser', () => {
   it('tokenizes type keywords', () => {
     const tokens = tokenize('type Foo extends Bar:');
     expect(tokens).toContain('keyword');
+    expect(tokens).toContain('typeName.definition');
     expect(tokens).toContain('typeName');
+  });
+
+  it('assigns declaration, member, type-reference and call roles without relying on capitalization', () => {
+    const result = tokens(`type money:
+  Amount number (1..1)
+func increaseCash:
+  inputs:
+    Cash money (1..1)
+    change number (1..1)
+  output:
+    result money (1..1)
+  condition Positive: Cash -> Amount > 0
+  set result: money { Amount: ApplyChange(Cash -> Amount, change) }`);
+    expect(result).toContainEqual({ text: 'money', tag: 'typeName.definition' });
+    expect(result).toContainEqual({ text: 'increaseCash', tag: 'variableName.function.definition' });
+    expect(result).toContainEqual({ text: 'Positive', tag: 'labelName' });
+    for (const name of ['Amount', 'Cash', 'change', 'result'])
+      expect(result).toContainEqual({ text: name, tag: 'propertyName.definition' });
+    expect(result).toContainEqual({ text: 'number', tag: 'typeName' });
+    expect(result.filter(({ text, tag }) => text === 'money' && tag === 'typeName')).toHaveLength(3);
+    expect(result).toContainEqual({ text: 'Amount', tag: 'propertyName' });
+    expect(result).toContainEqual({ text: 'ApplyChange', tag: 'variableName.function' });
+  });
+
+  it('distinguishes enum constants, choice types and member navigation', () => {
+    const result = tokens(`enum direction:
+  increase
+  decrease displayName "Decrease"
+choice Payment:
+  example.money
+  Security
+func Change:
+  inputs:
+    cash example.money (1..1)
+  output:
+    result direction (1..1)
+  set result: direction -> increase
+  condition Present: cash -> amount exists`);
+    expect(result).toContainEqual({ text: 'direction', tag: 'typeName.definition' });
+    for (const name of ['increase', 'decrease'])
+      expect(result).toContainEqual({ text: name, tag: 'variableName.constant' });
+    expect(result.filter(({ text, tag }) => text === 'increase' && tag === 'variableName.constant')).toHaveLength(2);
+    for (const name of ['example.money', 'Security', 'direction'])
+      expect(result).toContainEqual({ text: name, tag: 'typeName' });
+    expect(result).toContainEqual({ text: 'amount', tag: 'propertyName' });
+    expect(result).toContainEqual({ text: 'displayName', tag: 'keyword' });
+  });
+
+  it('does not leak declaration expectations into later lines or independent parser copies', () => {
+    expect(tokens('type\nnotAType')).toContainEqual({ text: 'notAType', tag: 'variableName' });
+    const state = runeDslStreamParser.startState();
+    const parse = (line: string, target = state) => {
+      const stream = new StringStream(line, 4, 4);
+      const tags = [];
+      while (!stream.eol()) {
+        stream.start = stream.pos;
+        tags.push(runeDslStreamParser.token(stream, target));
+      }
+      return tags;
+    };
+    parse('enum direction:');
+    const copy = runeDslStreamParser.copyState(state);
+    parse('enum other:', copy);
+    expect(parse('  other', state)).toContain('variableName.constant');
+    parse('func Example:', state);
+    expect(parse('  set result: other -> entry', state)).not.toContain('variableName.constant');
+  });
+
+  it('keeps unnamed conditions and aliases in expression roles', () => {
+    const result = tokens(`type Quote:
+  value number (0..1)
+  condition: value exists
+func Copy:
+  inputs:
+    quote Quote (1..1)
+  output:
+    result number (0..1)
+  alias selected: quote -> value
+  set result: selected
+  post-condition: result exists`);
+    expect(result.filter(({ tag }) => tag === 'labelName')).toEqual([]);
+    expect(result).toContainEqual({ text: 'selected', tag: 'variableName.definition' });
+    expect(result).toContainEqual({ text: 'value', tag: 'propertyName' });
+    expect(result).toContainEqual({ text: 'post-condition', tag: 'keyword' });
+  });
+
+  it('distinguishes condition-named attributes and enum values from actual condition headers', () => {
+    const result = tokens(`type Example:
+  condition string (1..1)
+  other number (1..1)
+  condition Valid: other exists
+enum Flag:
+  condition
+  next`);
+    expect(result).toContainEqual({ text: 'condition', tag: 'propertyName.definition' });
+    expect(result).toContainEqual({ text: 'string', tag: 'typeName' });
+    expect(result).toContainEqual({ text: 'other', tag: 'propertyName.definition' });
+    expect(result).toContainEqual({ text: 'number', tag: 'typeName' });
+    expect(result).toContainEqual({ text: 'Valid', tag: 'labelName' });
+    expect(result).toContainEqual({ text: 'condition', tag: 'variableName.constant' });
+    expect(result).toContainEqual({ text: 'next', tag: 'variableName.constant' });
+    expect(result).not.toContainEqual({ text: 'string', tag: 'labelName' });
+  });
+
+  it('does not treat an input shadowing an enum name as an enum receiver', () => {
+    const result = tokens(`enum direction:
+  increase
+func Copy:
+  inputs:
+    direction Quote (1..1)
+  output:
+    result string (1..1)
+  set result: direction -> value`);
+    expect(result).toContainEqual({ text: 'direction', tag: 'propertyName' });
+    expect(result).toContainEqual({ text: 'value', tag: 'propertyName' });
+    expect(result).not.toContainEqual({ text: 'value', tag: 'variableName.constant' });
+  });
+
+  it('keeps chained member receivers distinct from direct enum references', () => {
+    const result = tokens(`enum Direction:
+  up
+type Wrapper:
+  Direction Quote (1..1)
+func Copy:
+  inputs:
+    wrapper Wrapper (1..1)
+  output:
+    result string (1..1)
+  set result: Process(wrapper -> Direction -> value, Direction -> up)
+  condition: wrapper ->> Direction -> other exists`);
+    for (const member of ['Direction', 'value', 'other'])
+      expect(result).toContainEqual({ text: member, tag: 'propertyName' });
+    for (const member of ['value', 'other'])
+      expect(result).not.toContainEqual({ text: member, tag: 'variableName.constant' });
+    expect(result.filter(({ text, tag }) => text === 'up' && tag === 'variableName.constant')).toHaveLength(2);
   });
 
   it('tokenizes strings', () => {
@@ -116,9 +256,11 @@ describe('runeDslStreamParser', () => {
     ]) {
       const result = tokens(expression);
       expect(
-        result.filter(({ tag }) => tag === 'annotation' || tag === 'propertyName'),
+        result.filter(({ tag }) => tag === 'annotation'),
         expression
       ).toEqual([]);
+      if (expression.includes('-> amount'))
+        expect(result, expression).toContainEqual({ text: 'amount', tag: 'propertyName' });
       expect(result, expression).toContainEqual({ text: 'calculation', tag: 'variableName' });
     }
     const result = tokens(
@@ -164,5 +306,44 @@ describe('runeDslLanguage', () => {
   it('returns a CodeMirror Extension', () => {
     const ext = runeDslLanguage();
     expect(ext).toBeDefined();
+  });
+
+  it('renders Rune and TypeScript roles through the same shared highlight rules', () => {
+    function highlights(source: string, language: Extension) {
+      const state = EditorState.create({ doc: source, extensions: [language] });
+      const tree = ensureSyntaxTree(state, source.length, 1000)!;
+      const ranges: { text: string; style: string }[] = [];
+      highlightTree(tree, studioEditorHighlightStyle, (from, to, style) => {
+        ranges.push({ text: source.slice(from, to), style });
+      });
+      return ranges;
+    }
+    const rune = highlights(
+      `type money:
+  amount number (1..1)
+enum direction:
+  increase
+func increaseCash:
+  inputs:
+    cash money (1..1)
+  output:
+    result money (1..1)
+  set result: money { amount: ApplyChange(cash -> amount) }`,
+      runeDslLanguage()
+    );
+    const typescript = highlights(
+      'type money = {amount: number}; function increaseCash(cash: money) { return ApplyChange(cash.amount); }',
+      javascript({ typescript: true })
+    );
+    for (const text of ['money', 'increaseCash', 'amount', 'ApplyChange']) {
+      const runeStyles = new Set(rune.filter((range) => range.text === text).map((range) => range.style));
+      const tsStyles = new Set(typescript.filter((range) => range.text === text).map((range) => range.style));
+      expect(runeStyles, text).toEqual(tsStyles);
+      expect(runeStyles.size, text).toBeGreaterThan(0);
+    }
+    expect(rune).toContainEqual({
+      text: 'increase',
+      style: studioEditorHighlightStyle.style([tags.constant(tags.variableName)])
+    });
   });
 });

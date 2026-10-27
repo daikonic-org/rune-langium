@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import type React from 'react';
-import { useState } from 'react';
+import { usePerspectiveStore } from '../../../store/perspective-store.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { StarterWorkspacePicker } from '../../../components/StarterWorkspacePicker.js';
 import './workspace-launcher.css';
@@ -31,7 +31,8 @@ export const WorkspacesPerspective = withInstrumentation(
     } = useWorkspaceActions();
 
     const project = useProject();
-    const [section, setSection] = useState<'workspaces' | 'references'>('workspaces');
+    const section = usePerspectiveStore((state) => state.workspaceSection);
+    const setSection = usePerspectiveStore((state) => state.setWorkspaceSection);
     return (
       <section data-testid="workspaces-perspective" className="studio-launcher studio-scroll h-full overflow-auto">
         <div className="studio-launcher__body">
@@ -103,6 +104,7 @@ export const WorkspacesPerspective = withInstrumentation(
               controller={project.controller}
               snapshot={project.snapshot}
               activeBaseline={project.runtime?.input}
+              dependenciesLoading={project.runtime?.status === 'loading'}
               onAccepted={project.runtime?.refresh}
             />
           </div>

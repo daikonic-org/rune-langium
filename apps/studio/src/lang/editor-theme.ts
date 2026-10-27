@@ -106,7 +106,7 @@ export const studioEditorHighlightStyle = HighlightStyle.define([
   { tag: [t.name, t.deleted, t.character, t.macroName], color: 'var(--foreground)' },
   { tag: [t.function(t.variableName), t.labelName], color: syntaxColor('function') },
   { tag: [t.propertyName], color: syntaxColor('attribute') },
-  { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: syntaxColor('variable') },
+  { tag: [t.color, t.standard(t.name)], color: syntaxColor('variable') },
   { tag: [t.definition(t.name), t.separator], color: 'var(--foreground)' },
   {
     tag: [t.typeName, t.className, t.changed, t.annotation, t.modifier, t.self, t.namespace],
@@ -123,7 +123,7 @@ export const studioEditorHighlightStyle = HighlightStyle.define([
   { tag: t.strikethrough, textDecoration: 'line-through' },
   { tag: t.link, color: syntaxColor('variable'), textDecoration: 'underline' },
   { tag: t.heading, fontWeight: 'bold', color: 'var(--foreground)' },
-  { tag: [t.atom, t.bool, t.special(t.variableName)], color: syntaxColor('constant') },
+  { tag: [t.atom, t.bool, t.constant(t.name), t.special(t.variableName)], color: syntaxColor('constant') },
   { tag: [t.processingInstruction, t.string, t.inserted], color: syntaxColor('string') },
   // --destructive (not --color-error): the latter is only defined under
   // [data-theme='daikonic'], so it wouldn't resolve under ?theme=default.

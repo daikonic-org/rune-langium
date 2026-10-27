@@ -19,6 +19,62 @@ type Trade:
   // Supporting comment remains readable and editable
 `;
 
+test('Rune roles share theme categories with generated code at desktop width', async ({ page }, info) => {
+  const source = `namespace roles
+version "1.0.0"
+type money:
+  amount number (1..1)
+enum direction:
+  increase
+func IncreaseCash:
+  inputs:
+    cash money (1..1)
+  output:
+    result number (1..1)
+  set result: cash -> amount
+`;
+  await page.setViewportSize({ width: 1440, height: 988 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'roles.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(source)
+  });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await typeNavigationButton(page, 'roles.IncreaseCash', 'RosettaFunction').click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  const editor = fullSourceEditor(page);
+  const token = (text: string) =>
+    editor
+      .locator('.cm-line span')
+      .filter({ hasText: new RegExp(`^${text}$`) })
+      .first();
+  await expect(token('IncreaseCash')).toBeVisible();
+  await expect(token('increase')).toBeVisible();
+  const color = (text: string) => token(text).evaluate((el) => getComputedStyle(el).color);
+  expect(await color('money')).not.toBe(await color('amount'));
+  expect(await color('increase')).not.toBe(await color('money'));
+  await page.screenshot({ path: info.outputPath('rune-syntax-roles.png') });
+  await page.evaluate(() => {
+    for (const [role, color] of Object.entries({
+      type: 'rgb(41, 85, 138)',
+      function: 'rgb(51, 95, 148)',
+      attribute: 'rgb(61, 105, 158)',
+      constant: 'rgb(71, 115, 168)'
+    }))
+      document.documentElement.style.setProperty(`--syntax-${role}`, color);
+  });
+  for (const [text, color] of [
+    ['money', 'rgb(41, 85, 138)'],
+    ['IncreaseCash', 'rgb(51, 95, 148)'],
+    ['amount', 'rgb(61, 105, 158)'],
+    ['increase', 'rgb(71, 115, 168)']
+  ] as const)
+    await expect(token(text)).toHaveCSS('color', color);
+  expect(await codeMirrorDocument(editor)).toBe(source);
+});
+
 for (const width of [1440, 390])
   test(`annotation emphasis and theme-aware syntax preserve source at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 960 });

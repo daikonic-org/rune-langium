@@ -58,7 +58,7 @@ and checks the captured file revision. Before a named build, Export flushes edit
 and source autosave, reloads the active project controller, and waits for the
 ordinary provider's matching runtime capture. Preparation is cancelable and
 rejects workspace/source changes or Save failures; it never creates a parallel
-receipt. Only then does Build selected/all stage every chosen artifact before
+receipt. Only then does Generate target/all stage every chosen artifact before
 writes through `project-runtime/browser`; the native host parses an isolated graph, while Studio supplies the existing server generator. Both use
 strict library defaults and shared concrete namespace-scope expansion. A build
 finishing after project disposal cannot write through the guarded adapter.
@@ -180,13 +180,16 @@ The graph's informational legend also passes pointer events to the canvas.
 Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
 workspace creation does not leak into individual declaration forms. Extend uses
 the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
-from the pinned curated source into a distinct local namespace; split dispatch
+from the verified active curated source into a distinct local namespace; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
 then uses the normal file persistence/parse path. Managed actions flush the existing
 source/autosave owners, await the saved revision in the preview worker, and Save
 the copy plus explicit override map in one project transaction. Copy bytes must
-match the verified locked reference documents before their source URI, commit and
-cohort become provenance. Repeated Modify follows the existing mapping. Extend
+match the verified active reference documents before their source URI, commit and
+cohort become provenance. Tagged copies retain locked publication metadata;
+Nightly copies use the verified document's publication metadata, including dependencies,
+without adding a reference lock or changing its moving request. All copied dispatch
+documents must belong to one publication. Repeated Modify follows the existing mapping. Extend
 adds no redirect. Curated sources remain immutable.
 Preview-worker hydration restores references within curated snapshots; their exports
 must also be registered through Langium's index before parsing authored source that
@@ -412,6 +415,19 @@ The curated artifact cache has a combined budget of 128 MiB of serialized UTF-16
 ## Form Configuration
 
 Studio's `apps/studio/z2f.config.ts` is the authoritative canonical `@zod-to-form/core` config, imported by its Vite plugin. `components.source: './z2f-components'` resolves relative to each schema module in `src/codegen-forms/`. Generation settings live under `defaults`; `defaults.optimization.compileZod` is independent of optimization level and defaults to false here. Presets expand through the shared resolver, preserving controlled shadcn event props.
+
+The explicit `Input: {}` component override routes uncontrolled generated text
+fields through the shared design-system Input instead of the HTML fallback.
+Workspace settings derive their directories form from `StudioConfigSchema`,
+then use `updateStudioConfig` and the existing controller Save/readback. Companion
+configuration preconditions exclude the transaction's own destination, whose
+write already carries its captured revision; all other companion guards remain.
+Export tabs retain separate named-target drafts and a one-off draft. Target
+removal edits configuration only and keeps generated output. Reference selections
+come from saved requests/locks immediately, plus verified Nightly provenance only
+when the active reference key matches the workspace and its configuration;
+catalog fetches do not block the saved selection. Loading dependencies remain
+distinct from absent models.
 
 Visual-editor's typed `z2f.config.ts` preserves AST hidden fields, sections, schema overrides and array reorder. Its component adapters use `value`/`onChange`; its `FieldTemplate` composes shared design-system primitives. These adapters must override raw shadcn event contracts explicitly. Do not restore removed `fieldTypes`/`formPrimitives` config keys.
 
@@ -1064,7 +1080,13 @@ retain independent bracket/declaration state. Strings and comments do not alter
 that context; lists and inline-function brackets retain expression styling.
 Shared editor syntax rules read design-system CSS tokens with canonical JS
 fallbacks; comments use neutral muted text and italic emphasis. Display styling
-never hides or modifies source. Light-theme palette work is tracked in #643.
+never hides or modifies source. Rune uses standard Lezer definition/function,
+type and property tags for declaration names, typed members, constructors,
+calls and navigation. Enum declarations and references to enums learned in the
+current file use constant tags, which share the constant palette with other
+editors. Classification follows syntax rather than capitalization; the stream
+parser does not guess imported symbol kinds. Incremental copies isolate enum,
+member and declaration state. Light-theme palette work is tracked in #643.
 
 ## Reference example imports
 

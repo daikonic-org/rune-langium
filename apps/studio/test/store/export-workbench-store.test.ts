@@ -230,16 +230,18 @@ targets:
   return { adapter, controller, store };
 }
 
-it('does not auto-select a saved target and switches independent SQL settings', async () => {
+it('does not auto-select a saved target and retains independent unsaved tab settings', async () => {
   const { store } = await projectSetup();
   expect(store.getState().selectedTargetName).toBeUndefined();
   store.getState().selectTarget('pg');
   expect(store.getState().config.options.sql).toEqual({ dialect: 'postgres' });
-  store.getState().configure({ ...store.getState().config, options: { sql: { dialect: 'sqlserver' } } });
+  store.getState().configure({ ...store.getState().config, options: { sql: { dialect: 'sqlite' } } });
   store.getState().selectTarget('ss');
   expect(store.getState().config.options.sql).toEqual({ dialect: 'sqlserver' });
   store.getState().selectTarget('pg');
-  expect(store.getState().config.options.sql).toEqual({ dialect: 'postgres' });
+  expect(store.getState().config.options.sql).toEqual({ dialect: 'sqlite' });
+  expect(store.getState().targetDirty).toBe(true);
+  expect(Object.keys(store.getState().targetDrafts)).toEqual(['pg']);
 });
 it('keeps one-off edits isolated and explicitly saves options without run roots', async () => {
   const { store, adapter, controller } = await projectSetup();
@@ -351,6 +353,42 @@ it('does not resolve inherited object keys as saved targets', async () => {
   store.getState().selectTarget('constructor');
   expect(store.getState().selectedTargetName).toBeUndefined();
   expect(store.getState().config.target).toBe('typescript');
+});
+
+it('retains drafts for a real constructor-named target without reading an inherited prototype value', async () => {
+  const { store } = await projectSetup();
+  await store
+    .getState()
+    .saveTarget('constructor', { ...input.config, options: { typescript: { layout: 'single-file' } } });
+  store.getState().configure({ ...store.getState().config, options: { typescript: { layout: 'per-namespace' } } });
+  store.getState().selectTarget('pg');
+  store.getState().selectTarget('constructor');
+  expect(store.getState().selectedTargetName).toBe('constructor');
+  expect(store.getState().targetDirty).toBe(true);
+  expect(store.getState().config.options.typescript).toEqual({ layout: 'per-namespace' });
+  expect(Object.hasOwn(store.getState().targetDrafts, 'constructor')).toBe(true);
+});
+
+it('removes only target settings, retaining generated files and marking a captured artifact stale', async () => {
+  const { store, controller, adapter } = await projectSetup();
+  await adapter.write('generated/pg/keep.sql', 'user-visible output', null);
+  await controller.load();
+  store.getState().selectTarget('pg');
+  await store.getState().generate({ ...input, config: store.getState().config });
+  expect(store.getState().run.status).toBe('ready');
+  await store.getState().removeTarget('pg');
+  expect(Object.hasOwn(controller.current()!.project.build.targets, 'pg')).toBe(false);
+  expect(store.getState().selectedTargetName).toBeUndefined();
+  expect(store.getState().run.status).toBe('stale');
+  expect((await adapter.read('generated/pg/keep.sql'))!.text).toBe('user-visible output');
+});
+
+it('rejects target removal when a collaborator changed the saved configuration', async () => {
+  const { store, adapter } = await projectSetup();
+  const previous = (await adapter.read('build-config.yml'))!;
+  await adapter.write('build-config.yml', previous.text + '# collaborator\n', previous.revision);
+  await expect(store.getState().removeTarget('pg')).rejects.toThrow();
+  expect((await adapter.read('build-config.yml'))!.text).toBe(previous.text + '# collaborator\n');
 });
 
 it('retains the mid-generation freshness guard and writes no outputs after source changes', async () => {

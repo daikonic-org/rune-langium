@@ -11,6 +11,7 @@ import {
   projectDiagnosticsForTargets,
   type ProjectSnapshot,
   type BuildTarget,
+  type BuildConfig,
   type ProjectDiagnostic
 } from '@rune-langium/project-config';
 import type { ProjectController } from '../workspace/project-controller.js';
@@ -57,9 +58,11 @@ export interface ExportWorkbenchState {
   projectSnapshot: ProjectSnapshot | undefined;
   projectDiagnostics: readonly ProjectDiagnostic[];
   targetDirty: boolean;
+  targetDrafts: Record<string, ExportConfig>;
   bindProject(controller: ProjectController | undefined, modelName?: string): () => void;
   selectTarget(name: string | undefined): void;
   saveTarget(name: string, draft: ExportConfig): Promise<ProjectSnapshot>;
+  removeTarget(name: string): Promise<ProjectSnapshot>;
   run: ExportRunState;
   activate(workspaceId: string): Promise<void>;
   configure(config: ExportConfig): void;
@@ -122,6 +125,7 @@ export const createExportWorkbench = withInstrumentation(
     let projectController: ProjectController | undefined;
     let unbind: (() => void) | undefined;
     let modelName = 'Workspace';
+    let oneOffDraft: ExportConfig | undefined;
     const activation = createActivationGuard();
     const cancelActive = () => {
       active?.controller.abort();
@@ -138,12 +142,24 @@ export const createExportWorkbench = withInstrumentation(
         nativeLayout: state.nativeLayout
       });
     };
+    async function writeBuild(controller: ProjectController, snapshot: ProjectSnapshot, build: BuildConfig) {
+      const revisions = new Map<string, string>();
+      for (const [path, text] of snapshot.files)
+        if (path === 'build-config.yml' || path === 'build-config.yaml')
+          revisions.set(path, await projectFileRevision(text));
+      const prepared = prepareBuildConfigSave({ files: snapshot.files, revisions, build, modelName });
+      if (prepared.diagnostics.some((issue) => issue.severity === 'error'))
+        throw new Error(prepared.diagnostics[0]?.message);
+      if (projectController !== controller) throw new Error('Project activation changed.');
+      return controller.save(prepared.writes);
+    }
     return create<ExportWorkbenchState>((set, get) => ({
       workspaceId: undefined,
       selectedTargetName: undefined,
       projectSnapshot: undefined,
       projectDiagnostics: [],
       targetDirty: false,
+      targetDrafts: {},
       config: DEFAULT_CONFIG,
       activeFile: undefined,
       run: { status: 'idle' },
@@ -179,9 +195,23 @@ export const createExportWorkbench = withInstrumentation(
         const state = get();
         const target = namedTarget(state.projectSnapshot, name);
         if (name && !target && state.projectSnapshot) name = undefined;
-        const config = target ? configForTarget(state.config, target) : state.config;
-        if (exportTargetKey(config) !== exportTargetKey(state.config)) state.configure(config);
-        set({ selectedTargetName: name, targetDirty: false, config });
+        if (!state.selectedTargetName && name) oneOffDraft = cloneConfig(state.config);
+        const retained =
+          name && Object.prototype.hasOwnProperty.call(state.targetDrafts, name) ? state.targetDrafts[name] : undefined;
+        const config = retained
+          ? { ...cloneConfig(retained), selection: state.config.selection }
+          : target
+            ? configForTarget(state.config, target)
+            : oneOffDraft
+              ? { ...cloneConfig(oneOffDraft), selection: state.config.selection }
+              : state.config;
+        if (exportTargetKey(config) !== exportTargetKey(state.config)) {
+          activation.invalidate();
+          cancelActive();
+          const previous = capturedExport(state.run);
+          set({ run: previous ? { status: 'stale', ...previous } : { status: 'idle' } });
+        }
+        set({ selectedTargetName: name, targetDirty: Boolean(retained), config });
         persist(get());
       },
       async saveTarget(name, draft) {
@@ -217,27 +247,40 @@ export const createExportWorkbench = withInstrumentation(
             output: previous?.output ?? 'generated/' + name
           }
         };
-        const revisions = new Map<string, string>();
-        for (const [path, text] of snapshot.files)
-          if (path === 'build-config.yml' || path === 'build-config.yaml')
-            revisions.set(path, await projectFileRevision(text));
-        const prepared = prepareBuildConfigSave({ files: snapshot.files, revisions, build, modelName });
-        if (prepared.diagnostics.some((issue) => issue.severity === 'error'))
-          throw new Error(prepared.diagnostics[0]?.message);
-        const saved = await controller.save(prepared.writes);
+        const saved = await writeBuild(controller, snapshot, build);
         if (projectController === controller) {
-          set({ projectSnapshot: saved });
+          const targetDrafts = { ...get().targetDrafts };
+          delete targetDrafts[name];
+          set({ projectSnapshot: saved, targetDrafts });
           get().selectTarget(name);
+        }
+        return saved;
+      },
+      async removeTarget(name) {
+        const controller = projectController,
+          snapshot = get().projectSnapshot;
+        if (!controller || !snapshot || !namedTarget(snapshot, name))
+          throw new Error('The selected target is no longer available. Reload workspace files.');
+        const build = structuredClone(snapshot.project.build);
+        delete build.targets[name];
+        const saved = await writeBuild(controller, snapshot, build);
+        if (projectController === controller) {
+          const targetDrafts = { ...get().targetDrafts };
+          delete targetDrafts[name];
+          set({ projectSnapshot: saved, targetDrafts });
+          if (get().selectedTargetName === name) get().selectTarget(undefined);
         }
         return saved;
       },
       async activate(workspaceId) {
         const generation = activation.begin();
+        oneOffDraft = undefined;
         cancelActive();
         set({
           workspaceId,
           selectedTargetName: undefined,
           targetDirty: false,
+          targetDrafts: {},
           config: cloneConfig(DEFAULT_CONFIG),
           activeFile: undefined,
           nativeLayout: undefined,
@@ -260,14 +303,22 @@ export const createExportWorkbench = withInstrumentation(
         const nextConfig = cloneConfig(config);
         set((state) => {
           const previous = capturedExport(state.run);
+          const targetDirty =
+            Boolean(namedTarget(state.projectSnapshot, state.selectedTargetName)) &&
+            exportTargetKey(nextConfig) !==
+              exportTargetKey(
+                configForTarget(nextConfig, namedTarget(state.projectSnapshot, state.selectedTargetName)!)
+              );
+          const targetDrafts = {
+            ...state.targetDrafts,
+            ...(targetDirty && state.selectedTargetName ? { [state.selectedTargetName]: nextConfig } : {})
+          };
+          if (state.selectedTargetName && !targetDirty) delete targetDrafts[state.selectedTargetName];
+          if (!state.selectedTargetName) oneOffDraft = nextConfig;
           return {
             config: nextConfig,
-            targetDirty:
-              Boolean(namedTarget(state.projectSnapshot, state.selectedTargetName)) &&
-              exportTargetKey(nextConfig) !==
-                exportTargetKey(
-                  configForTarget(nextConfig, namedTarget(state.projectSnapshot, state.selectedTargetName)!)
-                ),
+            targetDirty,
+            targetDrafts,
             run: previous ? { status: 'stale', ...previous } : { status: 'idle' }
           };
         });
