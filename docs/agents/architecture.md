@@ -65,6 +65,12 @@ finishing after project disposal cannot write through the guarded adapter.
 Binary generator output is persisted as bytes. Preview/download retain the exact
 captured ZIP and become stale on semantic input or configuration errors.
 
+Code-tab downloads list namespaces from the provider's current managed semantic
+view, including accepted references. They reuse `generateExport` with the captured
+project, canonical declaration dependency resolution and artifact receipt checks.
+Changing source, project capture or workspace closes stale choices and cancels
+in-flight downloads. The legacy parse dependency graph is used only for legacy workspaces.
+
 Reference release catalogs extend the existing curated artifact contract rather
 than replacing it. GitHub release/tag/commit provenance maps to a checksummed
 immutable cohort manifest; artifact versions never imply release tags. The

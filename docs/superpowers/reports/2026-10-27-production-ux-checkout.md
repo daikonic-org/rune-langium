@@ -77,3 +77,19 @@ The detailed local `REVIEW.md`, case-by-case composite manifest, screenshots,
 traces, axe JSON, endpoint log and rerun logs form the evidence bundle. Initial
 harness failures and superseded attempts remain available there. No browser
 credentials were copied into the test environment.
+
+## Reference-download follow-up
+
+The Code-tab fix now reads managed namespace choices from the current project
+view and reuses Export's captured-project generator, dependency selection and
+artifact receipt validation. Source/capture/workspace changes invalidate the
+dialog and abort pending downloads. Legacy workspaces retain their existing flow.
+The original J11 result above remains the production audit evidence at `83823692`.
+
+The reference regression failed before the fix and passed afterward. Validation:
+34 focused tests, all 2,464 Studio tests (two skipped), Studio type checks and
+production build passed. The desktop pinned-reference browser regression passed
+in 9.4 seconds with real worker generation, ZIP contents/receipt checks and zero
+dialog axe findings. Production J11 now checks the downloaded ZIP as a hard
+assertion; its local attempt was blocked before reference review by hosted
+artifact fetch failure, so it is not counted as deployed acceptance of the fix.

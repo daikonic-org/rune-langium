@@ -3,14 +3,13 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 /**
- * CodePreviewPanel — pure-display code generation preview.
+ * CodePreviewPanel — live preview display and configured downloads.
  *
  * Worker ownership and the codegen:generate request/response cycle live
- * entirely in EditorPage (single owner). This component reads the
+ * entirely in CodegenProvider (single owner). This component reads the
  * generated output from `useCodegenStore` (snapshot, activeTarget, etc.)
- * and renders it — it does NOT subscribe to the worker and does NOT post
- * messages. This prevents double-subscription when both the dock panel
- * and ExportPerspective display the same output.
+ * and renders it without a second preview-worker subscription. Managed
+ * downloads reuse the Export generator and its captured project receipt.
  */
 import { recordOperation } from '../services/operation-feedback.js';
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
@@ -20,6 +19,7 @@ import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '.
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import type { Target } from '@rune-langium/codegen/export';
+import { namespaceFromModelName } from '@rune-langium/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { nameFromNodeId, useLatestRef } from '@rune-langium/visual-editor';
 import { editorExtensions, externalDocumentChange } from '../lang/editor-extensions.js';
@@ -43,6 +43,19 @@ import { uriToPath } from '../utils/uri.js';
 import { minimalDocumentChange } from '../lang/minimal-document-change.js';
 import { findGeneratedDeclarationLine } from '../utils/generated-declaration.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { useProject } from '../shell/providers/project-context.js';
+import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
+import { generateExport } from '../services/export-request.js';
+import { downloadExportArtifact } from '../services/export-artifact.js';
+import type { ProjectRuntimeInput } from '../services/project-runtime-input.js';
+
+interface CodeDownload {
+  target: Target;
+  files: readonly WorkspaceFile[];
+  project?: ProjectRuntimeInput;
+  namespaces: string[];
+  dependencyGraph: Record<string, readonly string[]>;
+}
 
 interface SourcePosition {
   line: number;
@@ -98,10 +111,8 @@ function statusLabel(snapshot: CodePreviewSnapshot, target: Target): string {
 export interface CodePreviewPanelProps {
   sourceEditorRef: SourceEditorHandle | null;
   /**
-   * Workspace files (user-authored only — curated bundles are
-   * server-loaded). Used by the Download flow (018 Task 0.12) to
-   * POST `{ files, target }` to `/api/codegen`. Optional during the
-   * transition; absent → Download is disabled and logs a warning.
+   * Current workspace inventory for legacy downloads and capture invalidation.
+   * Managed generation uses the provider's captured project input.
    */
   files?: ReadonlyArray<WorkspaceFile>;
 }
@@ -143,49 +154,87 @@ export const CodePreviewPanel = withInstrumentation(
       [activeTarget, setActiveTarget, setCodePreviewTarget, target]
     );
 
-    // 018 Task 0.12 — which target's Download is in flight, used to swap
-    // its row buttons for a spinner on the targets table while the POST
-    // to /api/codegen is outstanding. Panel-local state because no other
-    // component needs to observe it.
+    // Download progress belongs to this panel, independently of live preview.
     const { showToast } = useStudioToast();
     const [downloadingTarget, setDownloadingTarget] = useState<Target | undefined>(undefined);
-    // 019 §5.1 — which target's Download config modal is open (undefined =
-    // closed). Clicking Download opens the modal; the modal's Generate fires
-    // the actual /api/codegen request with the chosen layout + namespace subset.
-    const [downloadModalTarget, setDownloadModalTarget] = useState<Target | undefined>(undefined);
+    // Freeze choices and generation input together for one dialog transaction.
+    const [download, setDownload] = useState<CodeDownload>();
+    const downloadAbort = useRef<AbortController | undefined>(undefined);
+    const project = useProject();
+    const workspace = useWorkspaceOptional();
+    const runtime = project.runtime;
+    const managed = Boolean(runtime && runtime.status !== 'legacy');
     const dependencyGraph = useCodegenStore((s) => s.dependencyGraph);
-    // The downloadable namespace set = every namespace /api/parse walked
-    // (user + curated). dependencyGraph keys are that set (§5.2).
-    const namespaceList = useMemo(() => Object.keys(dependencyGraph).sort(), [dependencyGraph]);
+    // The provider's current semantic view includes the accepted reference closure.
+    // Dependency resolution for managed downloads belongs to generateExport.
+    const namespaceList = useMemo(
+      () =>
+        managed
+          ? [
+              ...new Set(
+                workspace?.models.flatMap((model) => {
+                  const namespace = namespaceFromModelName(model.name);
+                  return namespace ? [namespace] : [];
+                }) ?? []
+              )
+            ].sort()
+          : Object.keys(dependencyGraph).sort(),
+      [managed, workspace?.models, dependencyGraph]
+    );
+    useEffect(() => {
+      setDownload(undefined);
+      return () => downloadAbort.current?.abort();
+    }, [files, runtime?.input, runtime?.status, project.referenceView?.status, workspace?.workspaceId]);
 
     // §5.1 — Download click opens the config modal (was: immediate download).
     // The empty-workspace guard stays here so we don't open a modal for a
     // workspace with nothing to emit.
     const handleDownloadTarget = useCallback(
       (newTarget: Target) => {
+        if (
+          managed &&
+          (!runtime?.input ||
+            runtime.status !== 'captured' ||
+            (project.referenceView && project.referenceView.status !== 'ready'))
+        ) {
+          showToast({
+            title: 'Download unavailable',
+            description: 'Wait for the current project and references to finish loading.',
+            variant: 'destructive'
+          });
+          return;
+        }
         const fileList = files ?? [];
         const hasUserFiles = fileList.some((f) => !f.readOnly);
         const hasCurated = collectCuratedBundlesFromWorkspace(fileList).length > 0;
-        if (!hasUserFiles && !hasCurated) {
+        if (!hasUserFiles && !hasCurated && !runtime?.input?.referenceDocuments.length) {
           console.warn(
             '[CodePreviewPanel] Download skipped — workspace has no user files and no curated bundles for target:',
             newTarget
           );
           return;
         }
-        setDownloadModalTarget(newTarget);
+        setDownload({
+          target: newTarget,
+          files: fileList,
+          ...(managed ? { project: runtime!.input } : {}),
+          namespaces: namespaceList,
+          dependencyGraph: managed ? {} : dependencyGraph
+        });
       },
-      [files]
+      [files, managed, runtime, project.referenceView, namespaceList, dependencyGraph, showToast]
     );
 
-    // §5.1/§5.3 — fire the configured download. Maps the modal's layout choice
-    // and target-specific options into `options.<target>` and forwards the
-    // dependency-closed namespace subset to /api/codegen.
+    // Preserve the target's layout/options while sharing managed Export resolution.
     const handleModalGenerate = useCallback(
       async (config: DownloadConfig) => {
+        if (!download) return;
         const newTarget = config.target;
-        setDownloadModalTarget(undefined);
-        const fileList = files ?? [];
+        setDownload(undefined);
+        downloadAbort.current?.abort();
+        const abort = new AbortController();
+        downloadAbort.current = abort;
+        const fileList = download.files;
         const requestFiles = collectRawWorkspaceSources(fileList);
         const { curatedBundles, curatedDocs } = collectCuratedSourcesForCodegen(fileList);
         // Merge layout + target-specific options (e.g. excel sheet toggles) into
@@ -196,15 +245,32 @@ export const CodePreviewPanel = withInstrumentation(
         const options = config.layout || config.options ? { [newTarget]: { ...targetOptions, ...layoutOption } } : {};
         setDownloadingTarget(newTarget);
         try {
+          if (download.project) {
+            const artifact = await generateExport(
+              {
+                workspaceId: download.project.snapshot.workspaceId,
+                sourceRevision: 0,
+                project: download.project,
+                files: fileList,
+                config: { target: newTarget, options, selection: { namespaces: config.namespaces, declarations: [] } }
+              },
+              abort.signal
+            );
+            if (!abort.signal.aborted) downloadExportArtifact(artifact);
+            return;
+          }
           await downloadTargetViaRouter(
             requestFiles,
             newTarget,
             options,
             curatedBundles,
             config.namespaces,
-            curatedDocs
+            curatedDocs,
+            undefined,
+            abort.signal
           );
         } catch (err) {
+          if (abort.signal.aborted) return;
           if (err instanceof CodegenDownloadError) {
             const detail = err.diagnostics.length > 0 ? err.diagnostics.map((d) => d.message).join('; ') : err.message;
             showToast({ title: 'Code generation failed', description: detail, variant: 'destructive' });
@@ -225,10 +291,13 @@ export const CodePreviewPanel = withInstrumentation(
             console.error('[CodePreviewPanel] Download failed for target', newTarget, err);
           }
         } finally {
-          setDownloadingTarget(undefined);
+          if (downloadAbort.current === abort) {
+            downloadAbort.current = undefined;
+            setDownloadingTarget(undefined);
+          }
         }
       },
-      [files, showToast]
+      [download, showToast]
     );
 
     const handleLineClick = useCallback((outputLine: number) => {
@@ -438,15 +507,16 @@ export const CodePreviewPanel = withInstrumentation(
             />
           </>
         ) : null}
-        {downloadModalTarget !== undefined ? (
+        {download ? (
           <DownloadConfigDialog
             open
-            target={downloadModalTarget}
-            namespaces={namespaceList}
-            dependencyGraph={dependencyGraph}
-            onClose={() => setDownloadModalTarget(undefined)}
+            target={download.target}
+            namespaces={download.namespaces}
+            dependencyGraph={download.dependencyGraph}
+            resolveDependenciesOnGenerate={Boolean(download.project)}
+            onClose={() => setDownload(undefined)}
             onGenerate={handleModalGenerate}
-            optionsForm={TARGET_OPTION_FORMS[downloadModalTarget]}
+            optionsForm={TARGET_OPTION_FORMS[download.target]}
           />
         ) : null}
       </section>

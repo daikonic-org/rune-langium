@@ -4,6 +4,8 @@
 import { checkout as test, expect, loadCdm, authorScratchType } from '../fixtures.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 import { ANCHOR_DATA } from '../anchors.js';
+import JSZip from 'jszip';
+import { readFile } from 'node:fs/promises';
 
 // Target keys match packages/codegen/src/types.ts's `Target` union exactly
 // (confirmed live this session) — 'json-schema' is hyphenated, and there is
@@ -20,7 +22,7 @@ test.describe('J11 — Client-side codegen (Code tab)', () => {
   test('J11 Code tab renders selected curated and scratch declarations and regenerates output', async ({
     page,
     evidence
-  }) => {
+  }, info) => {
     // --- Curated anchor -----------------------------------------------------
     await loadCdm(page, evidence);
     await page.getByTestId('rail-explore').click();
@@ -47,30 +49,35 @@ test.describe('J11 — Client-side codegen (Code tab)', () => {
     await expect(page.getByTestId('download-config-dialog__ns-row-cdm.base.datetime')).toBeVisible();
     await evidence.checkpoint('curated-namespace-available-for-download');
 
-    // Download itself is server-backed (`/api/codegen`) — same
-    // historically-503-prone endpoint as the topbar Export Code modal (see
-    // this plan's Global Constraints correction). Treat it as a SOFT
-    // assertion under the existing `KI-codegen-503` ledger entry, matching
-    // J13's precedent for Export — it must not hard-fail this journey.
-    try {
-      const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 20000 }),
-        page.getByTestId('download-config-dialog__generate').click()
-      ]);
-      expect(download.suggestedFilename().length).toBeGreaterThan(0);
-    } catch (err) {
-      evidence.softFinding(
-        'KI-codegen-503',
-        `Curated Download (TypeScript, cdm.base.datetime) failed or timed out: ${err instanceof Error ? err.message : String(err)}`
-      );
-      // Best-effort dialog close so a failed/timed-out Generate doesn't leave
-      // the modal open for the scratch-workspace steps below.
-      await page
-        .getByTestId('download-config-dialog__cancel')
-        .click({ timeout: 2000 })
-        .catch(() => {});
-    }
-    await evidence.checkpoint('curated-download-attempted');
+    // Narrow to the reference namespace. The managed generator closes its
+    // declaration dependencies from this exact capture, without a latest fetch.
+    const dialog = page.getByTestId('download-config-dialog');
+    for (const checkbox of await dialog.getByRole('checkbox').all()) await checkbox.uncheck();
+    await page.getByTestId('download-config-dialog__ns-cdm.base.datetime').check();
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 20000 }),
+      page.getByTestId('download-config-dialog__generate').click()
+    ]);
+    const destination = info.outputPath('reference-code-download.zip');
+    await download.saveAs(destination);
+    const zip = await JSZip.loadAsync(await readFile(destination));
+    const manifest = JSON.parse(await zip.file('.rune/export.json')!.async('string'));
+    expect(manifest.projectReceipt.revision).toMatch(/^[a-f0-9]{64}$/);
+    expect(manifest.selection).toEqual({ namespaces: ['cdm.base.datetime'], declarations: [] });
+    expect(manifest.resolvedSelection.included).toContainEqual({
+      namespace: 'cdm.base.datetime',
+      name: 'BusinessCenters',
+      kind: 'Data'
+    });
+    const outputs = (
+      await Promise.all(
+        manifest.files
+          .filter((file: { kind: string }) => file.kind === 'text')
+          .map((file: { path: string }) => zip.file(file.path)!.async('string'))
+      )
+    ).join('\n');
+    expect(outputs).toContain('BusinessCenters');
+    await evidence.checkpoint('curated-download-verified');
 
     // --- Scratch workspace ---------------------------------------------------
     // The live per-target preview DOES reflect user-authored content — this

@@ -60,6 +60,8 @@ export interface DownloadConfigDialogProps {
    * treated as having no dependencies (closure = {self}).
    */
   dependencyGraph: Record<string, readonly string[]>;
+  /** Managed projects resolve effective declaration dependencies during generation. */
+  resolveDependenciesOnGenerate?: boolean;
   /** When supplied, replaces the legacy namespace allowlist for generation. */
   selection?: ExportSelection;
   onClose: () => void;
@@ -140,6 +142,7 @@ export const DownloadConfigDialog = withInstrumentation(
     target,
     namespaces,
     dependencyGraph,
+    resolveDependenciesOnGenerate,
     selection: exportSelection,
     onClose,
     onGenerate,
@@ -306,6 +309,11 @@ export const DownloadConfigDialog = withInstrumentation(
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Namespaces ({namespaceSelection.emitted.size} selected, {namespaces.length} total)
             </span>
+            {resolveDependenciesOnGenerate && (
+              <p className="text-xs text-muted-foreground">
+                Referenced declarations are included automatically when generated.
+              </p>
+            )}
             {/* Explicit 0: the namespace list's dependency-source tooltips want to
           stay instant (dense, frequently-hovered rows) — preserve that
           pre-existing behavior against the shared TooltipProvider's now-
