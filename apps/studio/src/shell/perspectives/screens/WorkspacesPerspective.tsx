@@ -34,7 +34,7 @@ export const WorkspacesPerspective = withInstrumentation(
     const section = usePerspectiveStore((state) => state.workspaceSection);
     const setSection = usePerspectiveStore((state) => state.setWorkspaceSection);
     return (
-      <section data-testid="workspaces-perspective" className="studio-launcher studio-scroll h-full overflow-auto">
+      <section data-testid="workspaces-perspective" className="studio-launcher h-full">
         <div className="studio-launcher__body">
           <nav className="studio-launcher__navigation" aria-label="Project launcher">
             <Button
@@ -54,7 +54,7 @@ export const WorkspacesPerspective = withInstrumentation(
               Reference models
             </Button>
           </nav>
-          <div hidden={section !== 'workspaces'} className="space-y-6">
+          <div hidden={section !== 'workspaces'} className="studio-launcher__workspaces">
             <FileLoader
               onFilesLoaded={onFilesLoaded}
               existingFiles={files}
@@ -72,7 +72,7 @@ export const WorkspacesPerspective = withInstrumentation(
             />
             <StarterWorkspacePicker open={onOpenStarter} />
           </div>
-          <div hidden={section !== 'references'}>
+          <div hidden={section !== 'references'} className="studio-launcher__references">
             <h2 className="text-sm font-semibold mb-2">Reference models</h2>
             <p className="text-sm text-muted-foreground mb-4">
               Read-only model dependencies belong to the active workspace.

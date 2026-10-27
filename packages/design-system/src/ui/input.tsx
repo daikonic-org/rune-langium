@@ -32,9 +32,10 @@ function Input({ className, type, variant = 'default', ...props }: InputProps) {
       data-slot="input"
       data-variant={variant !== 'default' ? variant : undefined}
       className={cn(
+        'min-h-6 max-h-7',
         // ── default variant ───────────────────────────────────────────────
         variant === 'default' && [
-          'h-6 w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs text-foreground',
+          'h-6 w-full rounded-md border border-input bg-background px-1.5 py-0 text-xs text-foreground',
           'placeholder:text-muted-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
           'disabled:opacity-50'

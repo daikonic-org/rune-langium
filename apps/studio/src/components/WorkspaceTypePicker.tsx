@@ -127,16 +127,18 @@ export const WorkspaceTypePicker = withInstrumentation(
                       <ChevronsUpDown className="size-3 shrink-0" aria-hidden="true" />
                     </Button>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      size="xs"
+                      variant="outline"
+                      className="w-full min-w-0 justify-between font-normal"
                       aria-label={selected ? `${label}: ${displayLabel}` : label}
                       disabled={disabled}
                       onClick={onToggle}
                     >
                       <span className="truncate">{displayLabel}</span>
-                      <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
-                    </button>
+                      <ChevronsUpDown className="size-3 shrink-0 opacity-50" aria-hidden="true" />
+                    </Button>
                   )
                 }
               />

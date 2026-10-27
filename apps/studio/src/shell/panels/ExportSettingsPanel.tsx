@@ -137,15 +137,15 @@ export const ExportSettingsPanel = withInstrumentation(
                   aria-label="Target name"
                   readOnly={Boolean(selectedTargetName) && !adding}
                   placeholder="Target name"
-                  className="h-7 min-w-0 flex-1 rounded border border-input bg-background px-2 text-xs"
+                  className="min-w-0 flex-1"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                 />
                 <Button
                   type="button"
-                  size="sm"
+                  size="xs"
                   variant="outline"
-                  className="h-7 shrink-0 text-xs"
+                  className="shrink-0"
                   disabled={blocked || !name.trim() || !projectSnapshot}
                   onClick={() => {
                     setSaving(true);

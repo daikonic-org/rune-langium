@@ -137,9 +137,13 @@ export const WorkspaceSwitcher = withInstrumentation(
     }
 
     return (
-      <div data-testid="workspace-switcher" className="space-y-2">
+      <section
+        data-testid="workspace-switcher"
+        className="studio-recent-workspaces"
+        aria-labelledby={`${metadataId}-heading`}
+      >
         <div className="studio-launcher__section-heading">
-          <h2>Recent workspaces</h2>
+          <h2 id={`${metadataId}-heading`}>Recent workspaces</h2>
           <span>Stored on this device</span>
           <Button
             variant="ghost"
@@ -165,7 +169,7 @@ export const WorkspaceSwitcher = withInstrumentation(
             No recent workspaces — create one above to get started.
           </p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="studio-recent-workspaces__list studio-scroll" aria-label="Recent workspaces" tabIndex={0}>
             {rows.map((row) => (
               <li
                 key={row.id}
@@ -320,7 +324,7 @@ export const WorkspaceSwitcher = withInstrumentation(
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </section>
     );
   },
   { op: 'WorkspaceSwitcher' }

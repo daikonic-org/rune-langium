@@ -208,6 +208,16 @@ text scaling. Source and generated code retain the monospace family. Borders use
 one-pixel theme-colored hairlines, including Dockview panel edges and headers;
 controls use the stronger input tier. Brand accents and existing glyphs remain.
 
+Shared single-line Button, Input and Select primitives own compact (24px) and
+standard (28px) heights. Existing button size names retain width/icon intent;
+Studio must not add competing global height overrides. Multi-line editors, list
+rows and touch/resize hit areas remain separate. Dockview uses one unlayered sash
+geometry rule set: a theme hairline inside the existing 16px drag target.
+The desktop launcher fills its frame with Recents beside Starters, each owning
+its overflow; Reference Models uses the same full-frame body. Narrow launchers
+retain a stacked layout. Navigation and workspace actions stay outside Recents'
+scroll region.
+
 Panel and section density is configured centrally in design-system `tokens.css`:
 `--panel-padding-inline` defaults to 12 px and `--panel-padding-block` to 8 px.
 The Tailwind bridge exposes `px-panel-x`, `py-panel-y` and their single-edge

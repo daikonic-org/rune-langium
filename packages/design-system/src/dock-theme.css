@@ -26,8 +26,6 @@
     --dv-tabs-and-actions-container-height: var(--studio-panel-header-height, 24px);
     --dv-tabs-and-actions-container-background-color:
       color-mix(in srgb, var(--card) 92%, var(--background) 8%);
-    --dv-sash-color: rgba(148, 163, 184, 0.42);
-    --dv-active-sash-color: rgba(94, 234, 212, 0.9);
     --dv-active-sash-transition-duration: 0.12s;
     --dv-active-sash-transition-delay: 0s;
   }
@@ -77,117 +75,6 @@
      onto `.dv-groupview`. The card chrome (radius / overflow / surface / ring)
      and tab-header styling now live solely on the `.dv-groupview` and
      `.dv-tabs-and-actions-container` rules in the unlayered section below. */
-
-  /* ── Sash (resize handle) — layered portion ─────────────────────── */
-  .studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
-    width: 12px;
-    margin-left: -6px;
-    margin-right: -6px;
-  }
-
-  .studio-app .rune-dock-theme .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-    height: 12px;
-    margin-top: -6px;
-    margin-bottom: -6px;
-  }
-
-  /* Full-height stretch applies ONLY to horizontal-container (column)
-   * sashes. Applying `top: 0 / bottom: 0 !important` to every sash pinned
-   * the vertical-split sash (center stack ↔ bottom utility tray) to the top
-   * of the container — overriding dockview's inline `top: Npx` placement —
-   * so the tray's resize handle was unreachable ("panel not resizable"). */
-  .studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
-    position: absolute !important;
-    top: 0 !important;
-    bottom: 0 !important;
-  }
-  .studio-app .rune-dock-theme .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-    position: absolute !important;
-    left: 0 !important;
-    right: 0 !important;
-  }
-
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container.dv-horizontal
-    > .dv-sash-container
-    > .dv-sash::after {
-    content: '';
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
-    left: 50%;
-    width: 3px;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: var(--dv-sash-color);
-    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.22);
-    transition:
-      background-color 120ms ease,
-      box-shadow 120ms ease,
-      transform 120ms ease;
-  }
-
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container.dv-vertical
-    > .dv-sash-container
-    > .dv-sash::after {
-    content: '';
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    top: 50%;
-    height: 3px;
-    transform: translateY(-50%);
-    border-radius: 999px;
-    background: var(--dv-sash-color);
-    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.22);
-    transition:
-      background-color 120ms ease,
-      box-shadow 120ms ease,
-      transform 120ms ease;
-  }
-
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container
-    .dv-sash-container
-    .dv-sash.dv-enabled:hover::after,
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container
-    .dv-sash-container
-    .dv-sash.dv-enabled:active::after {
-    background: var(--dv-active-sash-color);
-    box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.18);
-  }
-
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container.dv-horizontal
-    > .dv-sash-container
-    > .dv-sash.dv-enabled:hover::after,
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container.dv-horizontal
-    > .dv-sash-container
-    > .dv-sash.dv-enabled:active::after {
-    transform: translateX(-50%) scaleX(1.35);
-  }
-
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container.dv-vertical
-    > .dv-sash-container
-    > .dv-sash.dv-enabled:hover::after,
-  .studio-app
-    .rune-dock-theme
-    .dv-split-view-container.dv-vertical
-    > .dv-sash-container
-    > .dv-sash.dv-enabled:active::after {
-    transform: translateY(-50%) scaleY(1.35);
-  }
 
   /* ── Active / inactive tab states ───────────────────────────────────
    * The reference (.rs-tab.is-active) marks the active tab with a subtle
@@ -297,6 +184,9 @@
  * ::before floats visibly in the center of the gap rather than at an edge. */
 .studio-app .rune-dock-theme {
   --dv-separator-border: transparent;
+  /* Match the unlayered Dockview cascade; interaction bounds remain separate. */
+  --dv-sash-color: var(--border);
+  --dv-active-sash-color: var(--primary);
 }
 
 /* Panel surface: rounded corners, slightly elevated over the dark gap.
@@ -403,6 +293,8 @@
   /* Dockview defaults to 99, above dialogs (50) and their floating menus (60).
    * Keep resize handles above panels but below the shared overlay stack. */
   z-index: 40;
+  /* Dockview paints its sash token across the hit box. Only ::after is ink. */
+  background: transparent;
 }
 
 .studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
@@ -440,11 +332,11 @@
   top: 16px;
   bottom: 16px;
   left: 50%;
-  width: 2px;
+  width: 1px;
   transform: translateX(-50%);
   border-radius: 999px;
   background: var(--dv-sash-color);
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.22);
+  box-shadow: none;
   transition:
     background-color 120ms ease,
     box-shadow 120ms ease,
@@ -457,11 +349,11 @@
   left: 16px;
   right: 16px;
   top: 50%;
-  height: 2px;
+  height: 1px;
   transform: translateY(-50%);
   border-radius: 999px;
   background: var(--dv-sash-color);
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.22);
+  box-shadow: none;
   transition:
     background-color 120ms ease,
     box-shadow 120ms ease,
@@ -471,7 +363,7 @@
 .studio-app .rune-dock-theme .dv-split-view-container .dv-sash-container .dv-sash.dv-enabled:hover::after,
 .studio-app .rune-dock-theme .dv-split-view-container .dv-sash-container .dv-sash.dv-enabled:active::after {
   background: var(--dv-active-sash-color);
-  box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.18);
+  box-shadow: none;
 }
 
 .studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-enabled:hover::after,

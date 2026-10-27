@@ -93,7 +93,7 @@ export const InstanceGridPanel = withInstrumentation(
             value={view.query}
             onChange={(event) => patch({ query: event.target.value })}
             placeholder="Search name or type"
-            className="h-8 min-w-48 flex-1"
+            className="min-w-48 flex-1"
           />
           <WorkflowImport
             multiple

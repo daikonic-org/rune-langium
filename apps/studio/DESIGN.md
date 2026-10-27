@@ -34,6 +34,23 @@ available; no system preference silently replaces an explicit choice.
   Keep code token classification and annotation/comment semantics independent
   of theme colors. All code editors inherit the shared syntax token values.
 
+## Workbench density and frame
+
+- Single-line controls use two heights: compact 24px and standard 28px. The
+  shared Button, Input and Select primitives own sizing; Studio must not override
+  these with additional global minimum heights. Existing button size names keep
+  their width and icon intent. Textareas, list rows, touch affordances and dock
+  resize targets have their own geometry.
+- Settings uses a common label column. Adjacent field/action pairs share the
+  compact height; validation messages sit below their control, including boolean
+  fields, without moving the label away from the checkbox.
+- The launcher fills its available frame. Recent Workspaces sits beside Starters
+  on desktop and scrolls independently; navigation and workspace actions stay
+  visible. Reference Models uses the same full-width, full-height frame. Narrow
+  layouts keep the stacked flow.
+- Splitters paint one theme-colored hairline, with a primary hover cue, inside
+  the existing 16px drag target. Do not add a second shadow outline.
+
 ## Review
 
 Check desktop and 390px launcher/workbench, actual keyboard focus, dialogs and

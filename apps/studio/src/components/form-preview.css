@@ -90,12 +90,20 @@
   gap: 0.375rem;
 }
 .preview-boolean {
-  display: flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: 0.5rem;
+  display: grid;
+  min-height: var(--space-6);
+  gap: var(--field-label-gap);
   font-size: var(--text-sm);
   font-weight: 500;
+}
+.preview-boolean__control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--space-6);
+}
+.preview-boolean > [role="alert"] {
+  margin-inline-start: calc(1rem + .5rem);
 }
 .preview-scalar-list {
   display: grid;

@@ -28,16 +28,18 @@ export const SettingsPerspective = withInstrumentation(
         <section className="space-y-4">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appearance</h2>
 
-          <div className="flex items-center gap-3">
+          <div className="grid grid-cols-[8rem_minmax(0,13rem)] items-center gap-3">
             <span className="text-sm">Pane font size</span>
-            <FontScaleButton />
+            <div className="justify-self-start">
+              <FontScaleButton />
+            </div>
           </div>
 
-          <label className="flex items-center gap-3 text-sm">
+          <label className="grid grid-cols-[8rem_minmax(0,13rem)] items-center gap-3 text-sm">
             Theme
             <ExportSelect
               aria-label="Theme"
-              className="w-52"
+              className="w-full"
               value={theme}
               onChange={(event) => {
                 setTheme(event.target.value);
@@ -64,7 +66,7 @@ export const SettingsPerspective = withInstrumentation(
             Send anonymous diagnostics
           </label>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="max-w-prose text-xs text-muted-foreground">
             Shares anonymised error/warning signatures and operation timings to help us find and fix issues. Never
             includes your model's source content — only curated type names, never scratch workspace text. Off by
             default; disabled entirely on localhost regardless of this setting.

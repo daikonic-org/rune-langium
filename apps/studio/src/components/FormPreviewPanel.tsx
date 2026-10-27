@@ -810,7 +810,7 @@ function ChoiceFieldGroup({ fields, label = 'Choose one option', ...controls }: 
             if (field && field.path !== activeField?.path) controls.onArmSelect(fields, field, controls.arrayIndices);
           }}
         >
-          <SelectTrigger aria-labelledby={id} className="w-full">
+          <SelectTrigger size="sm" aria-labelledby={id} className="w-full">
             <SelectValue placeholder="Choose an option" />
           </SelectTrigger>
           <SelectContent>
@@ -1347,20 +1347,22 @@ function PreviewFieldControl({
   if (field.kind === 'boolean') {
     return (
       <div data-field-path={fieldPath} className="preview-boolean">
-        <Checkbox
-          id={inputId}
-          aria-label={resolvedFieldLabel(field, arrayIndices)}
-          {...validationAttributes}
-          checked={Boolean(value)}
-          // A checkbox toggle is a discrete commit — onFieldChange commits the
-          // new value and the controlled re-render re-validates. Don't also
-          // call onFieldBlur() here: it reads the pre-commit closure value
-          // (stale) and would validate the old state (Codex/Copilot PR #225).
-          onCheckedChange={(checked) => onFieldChange(field.path, checked === true, arrayIndices)}
-        />
-        <label htmlFor={inputId} className="preview-field__label">
-          {resolvedFieldLabel(field, arrayIndices)}
-        </label>
+        <div className="preview-boolean__control">
+          <Checkbox
+            id={inputId}
+            aria-label={resolvedFieldLabel(field, arrayIndices)}
+            {...validationAttributes}
+            checked={Boolean(value)}
+            // A checkbox toggle is a discrete commit — onFieldChange commits the
+            // new value and the controlled re-render re-validates. Don't also
+            // call onFieldBlur() here: it reads the pre-commit closure value
+            // (stale) and would validate the old state (Codex/Copilot PR #225).
+            onCheckedChange={(checked) => onFieldChange(field.path, checked === true, arrayIndices)}
+          />
+          <label htmlFor={inputId} className="preview-field__label">
+            {resolvedFieldLabel(field, arrayIndices)}
+          </label>
+        </div>
         {fieldError ? <FieldError id={errorId} message={fieldError} /> : null}
       </div>
     );

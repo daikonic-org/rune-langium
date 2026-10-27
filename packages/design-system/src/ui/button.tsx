@@ -23,7 +23,7 @@ const buttonVariants = cva(
   // (0.98) as click feedback, on top of settling the hover lift.
   // [&:not(:disabled):hover] and active selectors use Tailwind
   // arbitrary-variant syntax.
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer ' +
+  'inline-flex min-h-6 max-h-7 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer ' +
     // cursor-pointer is unconditional above; restore the not-allowed cursor for
     // disabled / aria-disabled states (the disabled:/aria-disabled: variants have
     // higher specificity than the bare cursor-pointer, so they win for those
@@ -75,22 +75,16 @@ const buttonVariants = cva(
           'aria-pressed:hover:bg-(--glass-btn-bg-active-hover) aria-pressed:hover:border-(--glass-btn-border-active-hover) aria-pressed:hover:text-(--glass-btn-text-active-hover) aria-pressed:hover:shadow-(--glass-btn-shadow-active-hover)'
       },
       size: {
-        default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+        default: 'h-7 px-3 py-0 has-[>svg]:px-2.5',
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
-        icon: 'size-9',
-        // PR #210 audit item #6: shrunk from size-6 (24px) to size-4 (16px)
-        // so inline-icon buttons sit at the same visual weight as the canvas
-        // structure-row `.rune-row-expand` (14px). Default svg sizing kept
-        // at size-3 (12px) → 2px ring inside the button, matching the chip.
-        // Consumers that need a larger button (NamespaceExplorer toolbar,
-        // ConditionSection / AnnotationSection reorder/delete) already
-        // override with `className="size-5"` or hold size-3.5 glyphs that
-        // remain legible inside the new 16px box.
-        'icon-xs': "size-4 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        'icon-sm': 'size-8',
-        'icon-lg': 'size-10'
+        sm: 'h-7 rounded-md gap-1.5 px-2.5 has-[>svg]:px-2',
+        lg: 'h-7 rounded-md px-4 has-[>svg]:px-3',
+        icon: 'size-7',
+        // Existing size names retain their width/icon intent; controls have
+        // only two heights: compact 24px and standard 28px.
+        'icon-xs': "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
+        'icon-sm': 'size-7',
+        'icon-lg': 'size-7'
       }
     },
     defaultVariants: {
