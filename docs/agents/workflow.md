@@ -28,6 +28,12 @@ runner has no mirror list.
 
 `@zod-to-form/react@0.13.0` exports the shared `SectionRenderer` used by custom Inspector layouts, from [zod-to-form PR #222](https://github.com/pradeepmouli/zod-to-form/pull/222). Use that public export directly. Keep exact core/React package declarations and workspace overrides aligned, and recheck configured Inspector sections when upgrading.
 
+Keep Studio's explicit `Input: {}` override in its canonical form component map.
+The shadcn preset alone falls back to native HTML for uncontrolled text fields;
+verify the generated form imports the shared Input and renders its `data-slot`
+and focus treatment. Do not replace canonical configuration validation to style
+workspace settings.
+
 Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Workspace and package engine declarations use that combined supported range. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
@@ -43,6 +49,16 @@ The audit still identifies the patched package as version 3.0.3, so `auditConfig
 Keep TypeScript `6.0.3` in docs and the `typescript-classic` alias in codegen: TypeDoc's peer range and codegen's compiler API need that release, while normal workspace compilation uses TypeScript 7.
 
 The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in both manifests and workspace overrides. Mutative 2 retains the producer API but changes patch ordering and patch-value identity; verify forward/inverse replay, edit reconciliation and source synchronization when upgrading it. Camelcase 10 requires Node 22, within the existing supported range.
+
+The October 26 dependency refresh uses react-day-picker 10 through the shared
+Calendar wrapper and vscode-languageserver 11. Keep resolver 5.9.2 while
+`@zod-to-form/react@0.13.0` and `@zod-to-form/vite@0.5.0` declare the resolver 5
+peer range; resolver 6 needs an upstream compatibility release. TypeDoc and the
+codegen compiler-API alias retain TypeScript 6.0.3, while workspace compilation
+uses TypeScript 7.0.2. The root OpenTelemetry API override stays at 1.9.1 because
+react-doctor's Sentry/OpenTelemetry 2.12 SDK peers exclude 1.10; remove the cap
+when that dependency chain declares support. Do not suppress peer checks. Miniflare retains its scoped Undici 7 override at
+7.30.1 for the HTTP parser fixes; do not force its consumers onto Undici 8.
 
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
@@ -94,6 +110,12 @@ manifests; update those together if deliberately upgrading the generator.
 SQL node types derive from the exactly pinned `@l1xnan/tree-sitter-sql` grammar.
 
 ## Testing and Editor Setup
+
+Vitest configs use `workspaceTestCache(import.meta.url)` for a package-local
+filesystem module cache. Independent `pnpm -r test` processes otherwise share
+the workspace cache and can delete each other's files while invalidating it
+after lockfile changes. Keep this shared cache policy when adding a package;
+it does not change test selection, timeout or retry budgets.
 
 - Use Vitest for public APIs and shared architecture seams. Prefer focused package checks for isolated changes; broaden for affected consumers.
 - Full TypeScript corpus verification: build core, curated-schema, and codegen, then run `pnpm run verify:codegen-corpus`. The check pins upstream commits in `scripts/fixtures/codegen-corpus.json`, reuses the production artifact builder and cached archives, and strictly compiles every generated file. To check a browser download, run `pnpm run verify:codegen-corpus --zip /absolute/path/typescript-output.zip`. Dependencies must be installed; the check uses the real Temporal package. Caches and serialized artifacts stay under ignored `dist/`.

@@ -132,3 +132,12 @@ and failed verification keep the current project intact. Verified locked
 artifacts drive Explorer, Source and semantic hosts together; unavailable bytes
 and conflicts stay visible with recovery controls. The UI does not imply that a
 loaded CDM function has an available business implementation.
+
+The launcher displays saved selections while catalogs load independently. Verified
+moving Nightly dependencies are labeled without a persisted pin or lock. Starter
+commit identities remain provenance rather than primary list copy. Settings links
+to the perspectives that own references, export targets and Git, and edits shared
+directory configuration through the canonical schema and revision-checked YAML
+Save. Export uses target tabs with independent session drafts and explicit
+generation of the active target or all targets; removing target settings keeps
+generated files.

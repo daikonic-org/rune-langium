@@ -87,6 +87,8 @@ export const ExportPerspective = withInstrumentation(
     const bindProject = useExportWorkbenchStore((state) => state.bindProject);
     const selectTarget = useExportWorkbenchStore((state) => state.selectTarget);
     const saveTarget = useExportWorkbenchStore((state) => state.saveTarget);
+    const removeTarget = useExportWorkbenchStore((state) => state.removeTarget);
+    const targetDrafts = useExportWorkbenchStore((state) => state.targetDrafts);
     const buildTargets = useExportWorkbenchStore((state) => state.buildTargets);
     const config = useExportWorkbenchStore((state) => state.config);
     const run = useExportWorkbenchStore((state) => state.run);
@@ -319,6 +321,8 @@ export const ExportPerspective = withInstrumentation(
                 projectDiagnostics={project.diagnostics}
                 selectedTargetName={selectedTargetName}
                 targetDirty={targetDirty}
+                dirtyTargets={Object.keys(targetDrafts)}
+                onRemoveTarget={removeTarget}
                 onSelectTarget={selectTarget}
                 onSaveTarget={async (name) => {
                   await saveTarget(name, config);

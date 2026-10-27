@@ -36,6 +36,15 @@ it('loads the current Nightly dependency closure without a catalog, pin, or lock
   );
   expect(result.diagnostics).toEqual([]);
   expect(result.documents.map((doc) => doc.uri)).toEqual(['cdm/model.rosetta', 'rune-dsl/model.rosetta']);
+  for (const document of result.documents) {
+    const model = document.uri.split('/')[0]!;
+    expect(document.cohort).toBe(fixture.manifests.get(model)!.cohort);
+    expect(document.source).toMatchObject({
+      model,
+      release: 'nightly',
+      commit: fixture.manifests.get(model)!.upstreamCommit
+    });
+  }
   expect(fixture.transport.catalog).not.toHaveBeenCalled();
   expect(fixture.snapshot.lock).toBeUndefined();
   const prepared = await resolveProjectReferences(fixture.snapshot, fixture.transport, new AbortController().signal);

@@ -1,3 +1,4 @@
+import { workspaceTestCache } from './test/helpers/vitest-cache.js';
 import { defineConfig } from 'vitest/config';
 import { decoratorLoweringPlugin } from './packages/codegen/vitest-decorator-plugin.js';
 
@@ -16,6 +17,7 @@ import { decoratorLoweringPlugin } from './packages/codegen/vitest-decorator-plu
 export default defineConfig({
   plugins: [decoratorLoweringPlugin()],
   test: {
+    fsModuleCachePath: workspaceTestCache(import.meta.url),
     globals: true,
     environment: 'node',
     include: ['packages/**/test/**/*.test.ts', 'packages/**/src/**/*.test.ts'],

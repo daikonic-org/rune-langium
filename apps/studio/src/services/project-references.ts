@@ -63,11 +63,28 @@ export const projectReferenceKey = withInstrumentation(
 );
 export type ActiveReferenceBaseline = Pick<ProjectRuntimeInput, 'snapshot' | 'referenceDocuments'>;
 
+/** Immediate saved selection plus only provenance from the matching active closure. */
+export const currentReferenceReleases = withInstrumentation(
+  function currentReferenceReleases(
+    snapshot: ProjectSnapshot,
+    active?: ActiveReferenceBaseline
+  ): ReadonlyMap<string, string> {
+    const result = new Map(Object.entries(snapshot.lock?.references ?? {}).map(([id, entry]) => [id, entry.release]));
+    for (const [id, entry] of Object.entries(snapshot.project.build.references)) result.set(id, entry.release);
+    if (active && projectReferenceKey(active.snapshot) === projectReferenceKey(snapshot))
+      for (const document of active.referenceDocuments)
+        if (document.source?.release === 'nightly') result.set(document.source.model, 'nightly');
+    return result;
+  },
+  { op: 'currentReferenceReleases', capture: 0 }
+);
+
 export interface PreparedReferenceChange {
   projectRevision: string;
   config: BuildConfig;
   lock: ProjectLock;
   diagnostics: readonly ProjectDiagnostic[];
+  nightlyModels?: readonly string[];
   accept(signal: AbortSignal): Promise<ProjectSnapshot>;
 }
 /** Resolving verifies the entire closure without changing the active project. */
@@ -199,6 +216,13 @@ export const prepareProjectReferenceChange = withInstrumentation(
       projectRevision: original.revision,
       config: structuredClone(proposed.project.build),
       lock: structuredClone(result.lock),
+      nightlyModels: [
+        ...new Set(
+          loaded.documents
+            .filter((document) => document.source?.release === 'nightly')
+            .map((document) => document.source!.model)
+        )
+      ],
       diagnostics,
       async accept(acceptSignal) {
         signal.throwIfAborted();

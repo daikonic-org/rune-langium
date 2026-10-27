@@ -1,9 +1,8 @@
 ---
 version: 1
 slug: 'packages-visual-editor-src-components-structureview-tsx'
-primary_target: 'packages/visual-editor/src/components/StructureView.tsx'
-related_targets:
-  ['packages/visual-editor/src/styles.css', 'packages/visual-editor/src/adapters/structure-graph-adapter.ts']
+primary_target: 'src/components/StructureView.tsx'
+related_targets: ['src/styles.css', 'src/adapters/structure-graph-adapter.ts']
 ---
 
 # Structure document
