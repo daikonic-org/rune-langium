@@ -186,6 +186,19 @@ it('reveals output when a fresh artifact arrives without resizing restored group
   expect(layout.preview.group.api.setSize).not.toHaveBeenCalled();
 });
 
+it('reveals output when generation fails without a previous artifact', async () => {
+  const { rerender } = render(<ExportPerspective workspaceId="workspace-a" />);
+  await screen.findByTestId('mock-export-workbench');
+  expect(screen.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true');
+  state.run = {
+    status: 'failed',
+    message: 'Selected declaration cannot be generated.',
+    diagnostics: [{ severity: 'error', code: 'unsupported-expression', message: 'Unsupported expression.' }]
+  };
+  rerender(<ExportPerspective workspaceId="workspace-a" />);
+  expect(screen.getByRole('tab', { name: 'Generated output', exact: true })).toHaveAttribute('aria-selected', 'true');
+});
+
 it('composes stable selection, settings, and preview workbench panels', async () => {
   render(<ExportPerspective workspaceId="workspace-a" />);
   await screen.findByTestId('mock-export-workbench');

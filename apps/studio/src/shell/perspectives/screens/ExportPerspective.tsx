@@ -102,17 +102,18 @@ export const ExportPerspective = withInstrumentation(
     const [view, setView] = useState<'settings' | 'output'>('settings');
     const [expanded, setExpanded] = useState(false);
     const [navigationNotice, setNavigationNotice] = useState<string>();
-    const lastArtifact = useRef<unknown>(undefined);
+    const lastResult = useRef<unknown>(undefined);
     useEffect(() => {
-      if (activationReady && run.status === 'ready' && lastArtifact.current !== run.artifact) {
-        lastArtifact.current = run.artifact;
+      const result = run.status === 'ready' ? run.artifact : run.status === 'failed' ? run : undefined;
+      if (activationReady && result && lastResult.current !== result) {
+        lastResult.current = result;
         setView('output');
       }
     }, [run, activationReady]);
     useEffect(() => {
       setView('settings');
       setNavigationNotice(undefined);
-      lastArtifact.current = undefined;
+      lastResult.current = undefined;
     }, [workspaceId]);
     const navigateOutput = useCallback(
       (namespace: string, name: string) => {

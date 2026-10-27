@@ -129,6 +129,39 @@ test('keeps export selection and settings reachable at a constrained width', asy
   await expect(selection).toBeVisible();
 });
 
+test('reveals generation failures and their diagnostics from Settings without a prior export', async ({ page }) => {
+  await page.route('**/api/codegen', async (route) =>
+    route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: false,
+        error: 'Selected expression cannot be generated.',
+        diagnostics: [
+          { severity: 'error', code: 'unsupported-expression', message: 'The selected expression is unsupported.' }
+        ]
+      })
+    })
+  );
+  await page.goto('./');
+  await page
+    .locator('input[type="file"][accept=".rosetta"]')
+    .setInputFiles({ name: 'demo.rosetta', buffer: Buffer.from(source), mimeType: 'text/plain' });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('rail-export').click();
+  await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
+  await page.getByRole('button', { name: 'Generate 1 selected' }).click();
+  await expect(page.getByRole('tab', { name: 'Generated output' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('export-artifact-status')).toContainText('Selected expression cannot be generated.');
+  await page.getByRole('button', { name: 'Show generation diagnostics (1)' }).click();
+  await expect(page.getByRole('dialog', { name: 'Generation diagnostics' })).toContainText(
+    'The selected expression is unsupported.'
+  );
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true');
+});
+
 test('opens the real single-file model before helpers and downloads both', async ({ page }, testInfo) => {
   const { RuneDsl } = createRuneDslServices();
   const docs = [BASICTYPES_ROSETTA, source].map((content, index) =>
