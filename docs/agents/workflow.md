@@ -75,8 +75,8 @@ outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed
 example repair, and blank workspaces returning from reference review to Explore.
 Local and production wrappers reuse those journey helpers and preserve operation
 evidence across reloads. J17 sweeps both themes; the fixed-dark-theme exception is
-retired. Production workflow journeys are desktop-only, including nested reload
-steps; local viewport tests retain separate phone coverage.
+retired. Set `PROD_UX_DESKTOP_ONLY=1` for a desktop-only production run, including nested
+reload steps. The default suite and local viewport tests retain phone coverage.
 
 Use the existing `codeMirrorDocument` helper to compare source bytes across reload:
 CodeMirror's rendered DOM is virtualized and is not the full document. Review the

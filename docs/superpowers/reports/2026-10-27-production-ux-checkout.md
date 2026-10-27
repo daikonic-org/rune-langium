@@ -54,16 +54,22 @@ document and proves pinned artifact requests are reused across reload.
 J17 now sweeps dark and light themes; its fixed-dark-theme exception was removed.
 Both sweeps passed with zero serious/critical findings under the existing widget
 exclusions. One nested phone step escaped an initial title filter; its result was
-excluded and the production wrapper now explicitly disables phone cases and nested
-phone steps. The affected workflow cases passed again on desktop.
+excluded and the production wrapper now explicitly supports a desktop-only flag for phone cases
+and nested phone steps. Default full-suite coverage is retained. The affected workflow cases passed again on desktop.
+
+The small prototype smoke now uses Add and checks immediate no-transform output
+plus saved-payload isolation. Its old form/Inspector assumptions were stale;
+intermediate attempts also incorrectly expected automatic example writes and an
+Execute button without a transform. The corrected smoke passed against production.
 
 ## Validation
 
 - All nine added J23–J28 cases passed together against production in 1.2 minutes.
 - Existing harness unit tests: 26 passed.
+- Refreshed prototype smoke: one passed in 2.7 seconds, separately from the 60-case review.
 - Scoped lint, formatting, diff checks and Studio source/functions type checks passed.
 - Existing timeouts, retry counts, test selection criteria and coverage thresholds
-  were not relaxed to hide failures. The production viewport scope is explicitly desktop.
+  were not relaxed to hide failures. This checkout used desktop scope; `PROD_UX_DESKTOP_ONLY=1` selects it for future runs.
 - No application source patch, manual deployment/publication, completed OAuth
   authorization, user-tab reload or user-workspace deletion was performed.
 

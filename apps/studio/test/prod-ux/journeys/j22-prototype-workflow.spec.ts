@@ -7,14 +7,15 @@ import { workflowJourneys } from '../../helpers/prototype-workflow.js';
 import { captureOpLogSnapshot, checkout as test } from '../fixtures.js';
 import { REPORT_DIR } from '../evidence.js';
 
-for (const journey of workflowJourneys.filter((journey) => !journey.id.includes('390'))) {
+const desktopOnly = process.env.PROD_UX_DESKTOP_ONLY === '1';
+for (const journey of workflowJourneys.filter((journey) => !desktopOnly || !journey.id.includes('390'))) {
   test(
     `J22 ${journey.title}`,
     { annotation: { type: 'journey-subid', description: journey.id } },
     async ({ page, evidence }, info) => {
       test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'requires a deployed Studio');
       await journey.run(page, {
-        allowPhone: false,
+        allowPhone: !desktopOnly,
         beforeReload: () => captureOpLogSnapshot(page, evidence),
         afterReload: () => evidence.markNavigation(),
         checkpoint: (name) => evidence.checkpoint(name),
