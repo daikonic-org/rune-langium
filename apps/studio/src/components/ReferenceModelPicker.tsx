@@ -291,6 +291,9 @@ export const ReferenceModelPicker = withInstrumentation(
                   release={release}
                   catalog={catalog}
                   transport={transport}
+                  references={snapshot?.project.build.references}
+                  lock={snapshot?.lock}
+                  cache={cache}
                 />
                 <>
                   {configuredRelease && (

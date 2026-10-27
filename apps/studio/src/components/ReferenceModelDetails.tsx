@@ -3,13 +3,18 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useState } from 'react';
 import type { CuratedManifest, ReferenceCatalog } from '@rune-langium/curated-schema';
+import type { BuildConfig, ProjectLock } from '@rune-langium/project-config';
 import {
   createMemoryReferenceCache,
   readReferenceManifest,
   readVerifiedReferenceBytes,
+  resolveProjectReferenceInventory,
+  type ReferenceCache,
   type ReferenceTransport
 } from '@rune-langium/project-runtime/references';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+
+const inventoryCache = createMemoryReferenceCache();
 
 interface RepositoryDetails {
   description?: string;
@@ -49,13 +54,19 @@ export const ReferenceModelDetails = withInstrumentation(
     modelId,
     release,
     catalog,
-    transport
+    transport,
+    references,
+    lock,
+    cache = inventoryCache
   }: {
     repository: string;
     modelId: string;
     release: string;
     catalog?: ReferenceCatalog;
     transport: ReferenceTransport;
+    references?: BuildConfig['references'];
+    lock?: ProjectLock;
+    cache?: ReferenceCache;
   }) {
     const [repositoryDetails, setRepositoryDetails] = useState<RepositoryDetails>();
     const [inventory, setInventory] = useState<CuratedManifest>();
@@ -77,14 +88,27 @@ export const ReferenceModelDetails = withInstrumentation(
       if (!release) return () => abort.abort();
       const load = async () => {
         if (release === 'nightly') return transport.nightly?.(modelId, abort.signal);
-        const entries = catalog?.releases.filter((entry) => entry.modelId === modelId && entry.tag === release) ?? [];
-        if (entries.length !== 1) return undefined;
-        const entry = entries[0]!;
-        const cache = createMemoryReferenceCache();
-        const staged = new Map<string, Uint8Array>();
-        return readReferenceManifest(modelId, { ...entry, release: entry.tag }, (url, checksum) =>
-          readVerifiedReferenceBytes(url, checksum, transport, cache, abort.signal, staged)
+        const installed = Object.prototype.hasOwnProperty.call(lock?.references ?? {}, modelId)
+          ? lock!.references[modelId]
+          : undefined;
+        if (installed?.release === release && installed.repository === repository) {
+          const staged = new Map<string, Uint8Array>();
+          return readReferenceManifest(modelId, installed, (url, checksum) =>
+            readVerifiedReferenceBytes(url, checksum, transport, cache, abort.signal, staged)
+          );
+        }
+        const resolved = await resolveProjectReferenceInventory(
+          { ...references, [modelId]: { repository, release } },
+          {
+            ...transport,
+            catalog: (id, signal) =>
+              id === modelId && catalog ? Promise.resolve(catalog) : transport.catalog(id, signal)
+          },
+          abort.signal,
+          cache,
+          lock
         );
+        return resolved.manifests.get(modelId);
       };
       void load()
         .then((result) => {
@@ -96,7 +120,7 @@ export const ReferenceModelDetails = withInstrumentation(
           if (!abort.signal.aborted) setInventoryUnavailable(true);
         });
       return () => abort.abort();
-    }, [modelId, release, catalog, transport]);
+    }, [modelId, release, catalog, transport, repository, references, lock, cache]);
     const exports = Object.values(inventory?.namespaces ?? {}).flatMap((entry) => entry.exports);
     const typeKinds = new Set([
       'Data',

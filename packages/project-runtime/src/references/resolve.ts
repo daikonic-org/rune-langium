@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { validateReferenceCatalog, type ReferenceCatalog, type ReferenceRelease } from '@rune-langium/curated-schema';
+import {
+  validateReferenceCatalog,
+  type CuratedManifest,
+  type ReferenceCatalog,
+  type ReferenceRelease
+} from '@rune-langium/curated-schema';
 import {
   ProjectLockSchema,
   canonicalProjectJson,
@@ -15,14 +20,20 @@ import { readReferenceManifest, readVerifiedReferenceBytes, loadLockedReferences
 import { ReferenceFailure, referenceFailure, type ReferenceTransport, type ReferenceCache } from './types.js';
 /** Only reference requests affect lock freshness; target/source/example edits do not force a network resolve. */
 export async function projectReferenceConfigHash(snapshot: ProjectSnapshot): Promise<string> {
-  return projectFileRevision(canonicalProjectJson(pinnedReferenceRequests(snapshot)));
+  return referenceConfigHash(snapshot.project.build.references);
 }
 
 /** Nightly follows the moving mirror and is deliberately excluded from persisted locks. */
 export function pinnedReferenceRequests(snapshot: ProjectSnapshot) {
-  return Object.fromEntries(
-    Object.entries(snapshot.project.build.references).filter(([, request]) => request.release !== 'nightly')
-  );
+  return pinnedRequests(snapshot.project.build.references);
+}
+
+type ReferenceRequests = ProjectSnapshot['project']['build']['references'];
+function referenceConfigHash(requests: ReferenceRequests) {
+  return projectFileRevision(canonicalProjectJson(pinnedRequests(requests)));
+}
+function pinnedRequests(requests: ReferenceRequests) {
+  return Object.fromEntries(Object.entries(requests).filter(([, request]) => request.release !== 'nightly'));
 }
 
 /** Explicit resolve/upgrade proposes a verified lock; it never mutates a workspace. */
@@ -32,13 +43,55 @@ export async function resolveProjectReferences(
   signal: AbortSignal,
   cache: ReferenceCache = createMemoryReferenceCache()
 ): Promise<{ lock?: ProjectLock; diagnostics: ProjectDiagnostic[] }> {
+  const result = await selectReferenceManifests(
+    snapshot.project.build.references,
+    transport,
+    signal,
+    cache,
+    snapshot.lock
+  );
+  if (!result.selection) return { diagnostics: result.diagnostics };
+  const { lock, capturedTransport } = result.selection;
+  const loaded = await loadLockedReferences(lock, capturedTransport, cache, signal);
+  return loaded.diagnostics.some((issue) => issue.severity === 'error')
+    ? { diagnostics: loaded.diagnostics }
+    : { lock, diagnostics: [] };
+}
+
+/** Informational inventory uses canonical cohort selection without loading documents or returning an activation lock. */
+export async function resolveProjectReferenceInventory(
+  requests: ReferenceRequests,
+  transport: ReferenceTransport,
+  signal: AbortSignal,
+  cache: ReferenceCache = createMemoryReferenceCache(),
+  previousLock?: ProjectLock
+): Promise<{ manifests: ReadonlyMap<string, CuratedManifest>; diagnostics: ProjectDiagnostic[] }> {
+  const result = await selectReferenceManifests(requests, transport, signal, cache, previousLock);
+  return { manifests: result.selection?.manifests ?? new Map(), diagnostics: result.diagnostics };
+}
+
+async function selectReferenceManifests(
+  requested: ReferenceRequests,
+  transport: ReferenceTransport,
+  signal: AbortSignal,
+  cache: ReferenceCache,
+  previousLock?: ProjectLock
+): Promise<{
+  selection?: {
+    lock: ProjectLock;
+    manifests: ReadonlyMap<string, CuratedManifest>;
+    capturedTransport: ReferenceTransport;
+  };
+  diagnostics: ProjectDiagnostic[];
+}> {
   try {
     signal.throwIfAborted();
     const catalogs = new Map<string, ReferenceCatalog>();
-    const requests = structuredClone(snapshot.project.build.references);
-    const configHash = await projectReferenceConfigHash(snapshot);
+    const requests = structuredClone(requested);
+    const configHash = await referenceConfigHash(requests);
     const staged = new Map<string, Uint8Array>();
     const manifestBytes = new Map<string, Uint8Array>();
+    const manifestByUrl = new Map<string, CuratedManifest>();
     type Request = {
       id: string;
       tag: string;
@@ -104,9 +157,7 @@ export async function resolveProjectReferences(
       let failure: unknown;
       for (const release of candidates) {
         try {
-          const previous = Object.hasOwn(snapshot.lock?.references ?? {}, id)
-            ? snapshot.lock!.references[id]
-            : undefined;
+          const previous = Object.hasOwn(previousLock?.references ?? {}, id) ? previousLock!.references[id] : undefined;
           if (
             previous &&
             previous.repository === release.repository &&
@@ -131,6 +182,7 @@ export async function resolveProjectReferences(
               'Reference releases require different toolchains: ' + path
             );
           const manifest = await readReferenceManifest(id, { ...release, release: tag }, read);
+          manifestByUrl.set(release.manifest, manifest);
           if (
             JSON.stringify(Object.keys(manifest.dependencies ?? {}).sort()) !==
             JSON.stringify(Object.keys(release.dependencies).sort())
@@ -170,7 +222,7 @@ export async function resolveProjectReferences(
       throw failure;
     }
     const result = await search(
-      Object.entries(pinnedReferenceRequests(snapshot))
+      Object.entries(pinnedRequests(requests))
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([id, request]) => ({
           id,
@@ -211,10 +263,10 @@ export async function resolveProjectReferences(
         return manifestBytes.get(url)?.slice() ?? transport.artifact(url, signal);
       }
     };
-    const loaded = await loadLockedReferences(lock, capturedTransport, cache, signal);
-    return loaded.diagnostics.some((issue) => issue.severity === 'error')
-      ? { diagnostics: loaded.diagnostics }
-      : { lock, diagnostics: [] };
+    const manifests = new Map(
+      Object.entries(lock.references).map(([id, entry]) => [id, manifestByUrl.get(entry.manifest)!])
+    );
+    return { selection: { lock, manifests, capturedTransport }, diagnostics: [] };
   } catch (error) {
     return { diagnostics: [referenceFailure(error, signal)] };
   }

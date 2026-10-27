@@ -72,9 +72,12 @@ small namespace ownership lists derived from emitter source maps and canonical
 target paths; explorer navigation selects the matching captured file within Export.
 These lists survive output-prefix composition without retaining full source maps.
 Reference detail cards fetch public repository descriptions and publication
-inventory independently of activation; tagged inventory uses the shared checksum
-and provenance reader. Add/Update reference retains proposal review and revisioned
-Save before runtime refresh.
+inventory independently of activation. Installed references use their locked
+cohort; proposed releases reuse the resolver's cohort selection and manifest
+verification, including dependency constraints and backtracking. Informational
+inventory neither loads model bundles, promotes fetched bytes nor returns an
+activation lock. Add/Update reference retains complete bundle verification,
+proposal review and revisioned Save before runtime refresh.
 
 Code-tab downloads list namespaces from the provider's current managed semantic
 view, including accepted references. They reuse `generateExport` with the captured
