@@ -13,6 +13,7 @@ import type { ProjectController } from '../workspace/project-controller.js';
 import { getModelRegistry } from '../services/model-registry.js';
 import {
   createProjectReferenceTransport,
+  currentReferenceReleases,
   prepareProjectReferenceChange,
   projectReferenceCache,
   type ActiveReferenceBaseline,
@@ -27,6 +28,7 @@ export const ReferenceModelPicker = withInstrumentation(
     controller,
     snapshot,
     activeBaseline,
+    dependenciesLoading = false,
     onAccepted,
     transport: injectedTransport,
     cache = projectReferenceCache
@@ -34,20 +36,26 @@ export const ReferenceModelPicker = withInstrumentation(
     controller?: ProjectController;
     snapshot?: ProjectSnapshot;
     activeBaseline?: ActiveReferenceBaseline;
+    dependenciesLoading?: boolean;
     onAccepted?: () => void;
     transport?: ReferenceTransport;
     cache?: ReferenceCache;
   }) {
     const actions = useWorkspaceActionsOptional();
     const transport = useMemo(() => injectedTransport ?? createProjectReferenceTransport(), [injectedTransport]);
-    const [selected, setSelected] = useState<string>(),
+    const installed = useMemo(
+      () => (snapshot ? currentReferenceReleases(snapshot, activeBaseline) : new Map<string, string>()),
+      [snapshot, activeBaseline]
+    );
+    const [selected, setSelected] = useState<string>(() => installed.keys().next().value ?? getModelRegistry()[0]!.id),
       [query, setQuery] = useState(''),
       [detail, setDetail] = useState(false),
       [catalog, setCatalog] = useState<ReferenceCatalog>(),
       [release, setRelease] = useState(''),
       [error, setError] = useState<string>(),
       [catalogError, setCatalogError] = useState<string>(),
-      [phase, setPhase] = useState<'idle' | 'catalog' | 'resolving' | 'saving'>('idle'),
+      [catalogLoading, setCatalogLoading] = useState(false),
+      [phase, setPhase] = useState<'idle' | 'resolving' | 'saving'>('idle'),
       [review, setReview] = useState<PreparedReferenceChange>(),
       [attempt, setAttempt] = useState(0);
     const operation = useRef<AbortController | undefined>(undefined),
@@ -70,15 +78,14 @@ export const ReferenceModelPicker = withInstrumentation(
         setError(undefined);
       }
     }, [controller, review, snapshot?.revision]);
+    const configuredRelease = selected ? installed.get(selected) : undefined;
+    useEffect(() => setRelease(configuredRelease ?? ''), [selected, configuredRelease]);
     useEffect(() => {
       if (!selected) return;
       const abort = new AbortController();
-      operation.current = abort;
       setCatalog(undefined);
       setCatalogError(undefined);
-      setRelease('');
-      setError(undefined);
-      setPhase('catalog');
+      setCatalogLoading(true);
       void transport
         .catalog(selected, abort.signal)
         .then((result) => {
@@ -89,7 +96,7 @@ export const ReferenceModelPicker = withInstrumentation(
             setCatalogError(error instanceof Error ? error.message : 'Release catalog unavailable.');
         })
         .finally(() => {
-          if (!abort.signal.aborted) setPhase('idle');
+          if (!abort.signal.aborted) setCatalogLoading(false);
         });
       return () => abort.abort();
     }, [selected, transport, attempt]);
@@ -98,7 +105,10 @@ export const ReferenceModelPicker = withInstrumentation(
     );
     const active = entries.find((entry) => entry.id === selected);
     const versions = [
-      ...new Set(catalog?.releases.filter((entry) => entry.modelId === selected).map((entry) => entry.tag) ?? [])
+      ...new Set([
+        ...(configuredRelease && configuredRelease !== 'nightly' ? [configuredRelease] : []),
+        ...(catalog?.releases.filter((entry) => entry.modelId === selected).map((entry) => entry.tag) ?? [])
+      ])
     ];
     const prepare = async (configured = false) => {
       if (!controller || !snapshot || (!configured && (!selected || !release))) return;
@@ -196,10 +206,15 @@ export const ReferenceModelPicker = withInstrumentation(
               </span>
               {Object.keys(snapshot.project.build.references).length > 0 && (
                 <Button size="xs" variant="outline" disabled={phase !== 'idle'} onClick={() => void prepare(true)}>
-                  Review configured references
+                  Recheck references
                 </Button>
               )}
             </div>
+            {dependenciesLoading && (
+              <p role="status" className="text-xs text-muted-foreground">
+                Loading workspace dependencies… Saved selections remain visible.
+              </p>
+            )}
           </>
         )}
         {controller && !snapshot && (
@@ -241,9 +256,10 @@ export const ReferenceModelPicker = withInstrumentation(
                   >
                     <strong>{entry.name}</strong>
                     <span>
-                      {snapshot?.project.build.references[entry.id]?.release === 'nightly'
+                      {installed.get(entry.id) === 'nightly'
                         ? 'Nightly'
-                        : (snapshot?.lock?.references[entry.id]?.release ?? 'Choose a release')}
+                        : (installed.get(entry.id) ??
+                          (dependenciesLoading ? 'Checking dependencies…' : 'Not in workspace'))}
                     </span>
                   </button>
                 </li>
@@ -268,63 +284,67 @@ export const ReferenceModelPicker = withInstrumentation(
                   Back to reference models
                 </Button>
                 <h3>{active.name}</h3>
-                {phase === 'catalog' ? (
-                  <p role="status">Loading published releases…</p>
-                ) : (
-                  <>
-                    <Select
-                      value={release}
-                      onValueChange={(value) => {
-                        cancel();
-                        setRelease(value);
-                        setError(undefined);
-                      }}
-                      disabled={phase === 'saving' || phase === 'resolving'}
-                    >
-                      <SelectTrigger size="sm" aria-label="Release" className="w-full">
-                        <SelectValue placeholder="Choose Nightly or a release…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="nightly">Nightly</SelectItem>
-                        {versions.map((tag) => (
-                          <SelectItem key={tag} value={tag}>
-                            {tag}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {!versions.length && (
-                      <p>No tagged releases are available. Nightly follows the current mirror without a saved pin.</p>
-                    )}
-                    {release === 'nightly' && (
-                      <p className="text-xs text-muted-foreground">
-                        Follows the current curated mirror on open or refresh. No lock or stability guarantees.
-                      </p>
-                    )}
-                    {catalogError && (
-                      <div role="alert" className="text-xs text-muted-foreground">
-                        Could not load releases for {active.name}. Your workspace references are unchanged. Nightly
-                        remains available.{' '}
-                        <Button size="xs" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
-                          Retry releases
-                        </Button>
-                        <details>
-                          <summary>Technical details</summary>
-                          {catalogError}
-                        </details>
-                      </div>
-                    )}
-                    {!review && (
-                      <Button
-                        size="sm"
-                        disabled={!release || !controller || !snapshot || phase !== 'idle'}
-                        onClick={() => void prepare()}
-                      >
-                        Review change
+                <>
+                  {configuredRelease && (
+                    <p className="text-xs text-muted-foreground">
+                      In this workspace: {configuredRelease === 'nightly' ? 'Nightly' : configuredRelease}
+                    </p>
+                  )}
+                  {catalogLoading && <p role="status">Loading published releases…</p>}
+                  <Select
+                    value={release}
+                    onValueChange={(value) => {
+                      cancel();
+                      setRelease(value);
+                      setError(undefined);
+                    }}
+                    disabled={phase === 'saving' || phase === 'resolving'}
+                  >
+                    <SelectTrigger size="sm" aria-label="Release" className="w-full">
+                      <SelectValue placeholder="Choose Nightly or a release…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nightly">Nightly</SelectItem>
+                      {versions.map((tag) => (
+                        <SelectItem key={tag} value={tag}>
+                          {tag}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!catalogLoading && !versions.length && (
+                    <p>No tagged releases are available. Nightly follows the current mirror without a saved pin.</p>
+                  )}
+                  {release === 'nightly' && (
+                    <p className="text-xs text-muted-foreground">
+                      Follows the current curated mirror on open or refresh. No lock or stability guarantees.
+                    </p>
+                  )}
+                  {catalogError && (
+                    <div role="alert" className="text-xs text-muted-foreground">
+                      Could not load releases for {active.name}. Your workspace references are unchanged. Nightly
+                      remains available.{' '}
+                      <Button size="xs" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
+                        Retry releases
                       </Button>
-                    )}
-                  </>
-                )}
+                      <details>
+                        <summary>Technical details</summary>
+                        {catalogError}
+                      </details>
+                    </div>
+                  )}
+                  {!review && (
+                    <Button
+                      size="sm"
+                      disabled={
+                        !release || release === configuredRelease || !controller || !snapshot || phase !== 'idle'
+                      }
+                      onClick={() => void prepare()}
+                    >
+                      Review change
+                    </Button>
+                  )}
+                </>
               </>
             ) : (
               <p className="starter-picker__empty">

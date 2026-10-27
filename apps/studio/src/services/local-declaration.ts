@@ -151,7 +151,10 @@ export const projectDeclarationDestination = withInstrumentation(
 );
 
 /** Create source, never write it: the caller owns the workspace epoch and persistence. */
-async function prepareDeclaration(request: LocalDeclarationRequest, sourceUris: string[]): Promise<WorkspaceFile[]> {
+async function prepareDeclaration(
+  request: LocalDeclarationRequest,
+  sourceDocuments: ReferenceDocument[]
+): Promise<WorkspaceFile[]> {
   const error = localDeclarationError(request);
   if (error) throw new Error(error);
   const { namespace, name, mode, files, nodeId } = request;
@@ -192,7 +195,7 @@ async function prepareDeclaration(request: LocalDeclarationRequest, sourceUris: 
         request.projectReferenceDocuments?.find((document) => resolveEditorFilePath(document.uri, files) === path);
       if (request.projectReceipt && (!verified || (file.sourceLoaded && file.content !== verified.content)))
         throw new Error(
-          'This declaration does not match the locked reference release. Reload that release before modifying it.'
+          'This declaration does not match the verified reference source. Reload that model before modifying it.'
         );
       let source = verified ? verified.content : file.content;
       if (!verified && (!file.bundleVersion || !file.artifactKey))
@@ -218,9 +221,9 @@ async function prepareDeclaration(request: LocalDeclarationRequest, sourceUris: 
           );
         if (!pinned)
           throw new Error(
-            'This declaration does not match the locked reference release. Reload that release before modifying it.'
+            'This declaration does not match the verified reference source. Reload that model before modifying it.'
           );
-        sourceUris.push(pinned.uri);
+        sourceDocuments.push(pinned);
       }
       const slice = (part: Parameters<typeof getNodeSourceRegion>[0]) => {
         const { from, to } = getNodeSourceRegion(part);
@@ -261,8 +264,14 @@ export const modifyProjectDeclaration = withInstrumentation(
         throw new Error('Project changed while preparing the local declaration.');
     };
     const { owner, source } = projectDeclarationOrigin(request);
+    let publication: { commit: string; cohort: string } | undefined = owner
+      ? original.lock?.references[owner]
+      : undefined;
     if (request.mode === 'modify') {
-      if (!owner || !original.lock?.references[owner])
+      const hasNightly = Object.values(original.project.build.references).some(
+        (reference) => reference.release === 'nightly'
+      );
+      if (!owner || (!publication && !hasNightly))
         throw new Error('Select and resolve the original reference model release before modifying it.');
       const existing = declarationOverrides(original, source);
       if (existing?.length) {
@@ -273,9 +282,30 @@ export const modifyProjectDeclaration = withInstrumentation(
       }
     }
     if (request.mode === 'modify' && !request.projectReferenceDocuments)
-      throw new Error('The locked reference release has not been verified for this copy.');
-    const sourceUris: string[] = [];
-    const copies = await prepareDeclaration(request, sourceUris);
+      throw new Error('The active reference source has not been verified for this copy.');
+    const sourceDocuments: ReferenceDocument[] = [];
+    const copies = await prepareDeclaration(request, sourceDocuments);
+    if (request.mode === 'modify' && !publication) {
+      const first = sourceDocuments[0];
+      const origin = first?.source;
+      if (
+        !origin ||
+        origin.release !== 'nightly' ||
+        origin.model !== owner ||
+        !first?.cohort ||
+        sourceDocuments.some(
+          (document) =>
+            document.source?.model !== owner ||
+            document.source.release !== 'nightly' ||
+            document.source.commit !== origin.commit ||
+            document.cohort !== first.cohort
+        )
+      )
+        throw new Error(
+          'The active Nightly source has not been verified for this copy. Reload the reference model and retry.'
+        );
+      publication = { commit: origin.commit, cohort: first.cohort };
+    }
     assertCurrent();
     const build = structuredClone(original.project.build);
     const writes: ProjectWrite[] = [];
@@ -290,14 +320,13 @@ export const modifyProjectDeclaration = withInstrumentation(
       writes.push({ path, text: copy.content, expectedRevision: null });
     }
     if (request.mode === 'modify') {
-      const locked = original.lock!.references[owner!]!;
       build.overrides = [
         ...(build.overrides ?? []),
         {
           kind: 'declaration',
           source,
           replacement: { model: 'local', namespace: request.namespace, kind: source.kind, name: request.name },
-          provenance: { uri: sourceUris[0]!, commit: locked.commit, cohort: locked.cohort }
+          provenance: { uri: sourceDocuments[0]!.uri, commit: publication!.commit, cohort: publication!.cohort }
         }
       ];
       const revisions = new Map<string, string>();

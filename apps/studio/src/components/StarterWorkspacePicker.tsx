@@ -93,7 +93,7 @@ export const StarterWorkspacePicker = withInstrumentation(
                   >
                     <strong>{entry.name}</strong>
                     <span>{entry.description}</span>
-                    <small>{entry.status === 'available' ? entry.ref : 'Not published'}</small>
+                    {entry.status !== 'available' && <small>Not published</small>}
                   </button>
                 </li>
               ))}

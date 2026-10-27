@@ -17,22 +17,23 @@ test('saves independent named SQL targets and builds their repository settings',
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
   await page.getByTestId('rail-export').click();
   const settings = page.getByTestId('export-settings-panel');
-  await expect(settings.getByLabel('Saved target', { exact: true })).toHaveValue('');
+  await expect(settings.getByRole('tab', { name: 'One-off', exact: true })).toHaveAttribute('aria-selected', 'true');
   await settings.getByLabel('Export target', { exact: true }).selectOption('sql');
   await settings.getByLabel('Dialect', { exact: true }).selectOption('postgres');
   await settings.getByLabel('Target name', { exact: true }).fill('pg');
   await settings.getByRole('button', { name: 'Save target settings', exact: true }).click();
-  await expect(settings.getByLabel('Saved target', { exact: true })).toHaveValue('pg');
+  await expect(settings.getByRole('tab', { name: 'pg', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await settings.getByRole('button', { name: 'Add target', exact: true }).click();
+  await expect(settings.getByLabel('Target name', { exact: true })).toBeFocused();
   await settings.getByLabel('Dialect', { exact: true }).selectOption('sqlserver');
   await settings.getByLabel('Target name', { exact: true }).fill('ss');
   await settings.getByRole('button', { name: 'Save target settings', exact: true }).click();
-  await settings.getByLabel('Saved target', { exact: true }).selectOption('pg');
+  await settings.getByRole('tab', { name: 'pg', exact: true }).click();
   await expect(settings.getByLabel('Dialect', { exact: true })).toHaveValue('postgres');
-  await expect(settings.getByRole('button', { name: 'Build selected', exact: true })).toBeDisabled();
-  await settings.getByRole('checkbox', { name: 'pg', exact: true }).check();
-  await settings.getByRole('button', { name: 'Build selected', exact: true }).click();
+  await expect(settings.getByRole('button', { name: 'Generate target', exact: true })).toBeEnabled();
+  await settings.getByRole('button', { name: 'Generate target', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
-  await settings.getByRole('button', { name: 'Build all', exact: true }).click();
+  await settings.getByRole('button', { name: 'Generate all', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
   await expect
     .poll(async () =>
@@ -68,8 +69,28 @@ test('saves independent named SQL targets and builds their repository settings',
   await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeDisabled();
   await page.reload();
   await page.getByTestId('rail-export').click();
-  await expect(settings.getByLabel('Saved target', { exact: true })).toHaveValue('pg');
+  await expect(settings.getByRole('tab', { name: 'pg', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(settings.getByLabel('Dialect', { exact: true })).toHaveValue('sqlserver');
+  await settings.getByRole('tab', { name: 'ss', exact: true }).click();
+  await settings.getByRole('tab', { name: 'pg', exact: true }).click();
+  await settings.getByLabel('Dialect', { exact: true }).selectOption('postgres');
+  await settings.getByRole('tab', { name: 'ss', exact: true }).click();
+  await expect(settings.getByRole('button', { name: 'Generate all', exact: true })).toBeDisabled();
+  const { parseBuildConfig, updateBuildConfig } = await import('@rune-langium/project-config');
+  const filesBeforeRemoval = await projectBackingFiles(page);
+  const document = { path: 'build-config.yml', text: filesBeforeRemoval['build-config.yml']! };
+  const build = parseBuildConfig(document).value!;
+  delete build.targets.pg;
+  await projectBackingFiles(page, { 'build-config.yml': updateBuildConfig(document, build) });
+  await settings.getByRole('button', { name: 'Reload project files', exact: true }).click();
+  await expect(settings.getByRole('tab', { name: /^pg/ })).toHaveCount(0);
+  await expect(settings.getByRole('button', { name: 'Generate all', exact: true })).toBeEnabled();
+  await settings.getByRole('button', { name: 'Generate all', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeEnabled();
+  await settings.getByRole('button', { name: 'Remove ss target', exact: true }).click();
+  await expect(settings.getByRole('tab', { name: 'ss', exact: true })).toHaveCount(0);
+  const afterRemove = await projectBackingFiles(page);
+  expect(afterRemove[ssPath]).toBe(generated[ssPath]);
 });
 
 test('keeps named-target controls reachable in a fresh compact workspace', async ({ page }) => {
@@ -84,12 +105,12 @@ test('keeps named-target controls reachable in a fresh compact workspace', async
   await page.getByTestId('rail-export').click();
   await page.getByTestId('export-perspective').getByRole('tab', { name: 'Settings', exact: true }).click();
   const settings = page.getByTestId('export-settings-panel');
-  await expect(settings.getByLabel('Saved target', { exact: true })).toBeVisible();
+  await expect(settings.getByRole('tab', { name: 'One-off', exact: true })).toBeVisible();
   await expect(settings.getByRole('button', { name: 'Save target settings', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-for (const action of ['Build selected', 'Build all'])
+for (const action of ['Generate target', 'Generate all'])
   test(`builds freshly autosaved source with ${action}`, async ({ page }) => {
     const source = 'namespace demo\ntype Party:\n name string (1..1)\n';
     await page.goto('./');
@@ -102,7 +123,7 @@ for (const action of ['Build selected', 'Build all'])
     await settings.getByLabel('Export target', { exact: true }).selectOption('sql');
     await settings.getByLabel('Target name', { exact: true }).fill('pg');
     await settings.getByRole('button', { name: 'Save target settings', exact: true }).click();
-    await expect(settings.getByLabel('Saved target', { exact: true })).toHaveValue('pg');
+    await expect(settings.getByRole('tab', { name: 'pg', exact: true })).toHaveAttribute('aria-selected', 'true');
     await page.getByTestId('rail-explore').click();
     await page.getByRole('button', { name: 'Source', exact: true }).click();
     await dismissLocalTransportNotices(page);
@@ -112,7 +133,6 @@ for (const action of ['Build selected', 'Build all'])
     await page.keyboard.insertText(source + ' amount number (0..1)\n');
     await expect.poll(async () => (await projectBackingFiles(page))['demo.rosetta']).toContain('amount number');
     await page.getByTestId('rail-export').click();
-    await settings.getByRole('checkbox', { name: 'pg', exact: true }).check();
     await settings.getByRole('button', { name: action, exact: true }).click();
     await expect
       .poll(async () =>

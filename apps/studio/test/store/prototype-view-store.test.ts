@@ -41,3 +41,15 @@ it('rejects corrupt or unbounded persisted workflow widths', async () => {
     expect(normalizeWorkflowWidths(input)).toEqual([32, 28]);
   expect(normalizeWorkflowWidths([30, 30])).toEqual([30, 30]);
 });
+
+it('keeps example binding requests attached to the surface where they originated', () => {
+  const store = usePrototypeViewStore.getState();
+  store.patch({ workflowView: 'flow', selectedId: 'first', bindingRequestId: 1 });
+  expect(usePrototypeViewStore.getState().state.bindingSurface).toBe('flow');
+  store.patch({ workflowView: 'panels' });
+  expect(usePrototypeViewStore.getState().state.bindingSurface).toBe('flow');
+  store.patch({ selectedId: 'first', bindingRequestId: 2 });
+  expect(usePrototypeViewStore.getState().state.bindingSurface).toBe('panels');
+  store.patch({ workflowView: 'flow' });
+  expect(usePrototypeViewStore.getState().state.bindingSurface).toBe('panels');
+});

@@ -34,7 +34,7 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
  *   instance:generateSchemaStale  — When schema inputs are missing, unsupported, or stale.
  */
 
-import type { InstanceDecodeMessage } from '../services/codegen-service.js';
+import type { InstanceDecodeMessage, InstanceSerializeMessage } from '../services/codegen-service.js';
 import type { LangiumDocument } from 'langium';
 import { URI, AstUtils } from 'langium';
 import { transform } from 'sucrase';
@@ -85,7 +85,8 @@ import {
   assertProjectGenerationCapabilities,
   type EffectiveProject
 } from '@rune-langium/project-runtime/effective';
-import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import { createProjectReceipt, projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+import { serializeProjectData } from '@rune-langium/project-runtime/data';
 import type { ProjectResolutionReceipt } from '@rune-langium/core/project-contract';
 import { projectOperationError } from '../services/project-worker-bridge.js';
 import { formatGeneratedProjection } from '../services/projection-format.js';
@@ -160,6 +161,7 @@ type WorkerOperation =
   | PreviewExecuteMessage
   | InstanceValidateMessage
   | InstanceDecodeMessage
+  | InstanceSerializeMessage
   | ProjectionRequest
   | InstanceGenerateSchemaMessage;
 type WorkerInboundMessage = WorkerOperation & { projectReceipt?: ProjectResolutionReceipt };
@@ -1468,6 +1470,29 @@ async function decodeInstance(typeFqn: string, data: unknown, requestId: string)
   }
 }
 
+async function serializeInstance(message: InstanceSerializeMessage): Promise<void> {
+  const scope = operationScope();
+  try {
+    const { value: documents } = await previewStages.buildDocuments();
+    const project = await scope.project;
+    if (project && !projectReceiptMatches(await createProjectReceipt(message.snapshot), project.receipt))
+      throw new Error(
+        'The saved project revision is not applied for example serialization. Retry after saving sources.'
+      );
+    const text = serializeProjectData(message.snapshot, message.data, 'RUNE_JSON', {
+      documents,
+      typeFqn: message.typeFqn
+    });
+    scope.postMessage({ type: 'instance:serializeResult', requestId: message.requestId, text });
+  } catch (error) {
+    scope.postMessage({
+      type: 'instance:serializeResult',
+      requestId: message.requestId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Message handler
 // ---------------------------------------------------------------------------
@@ -1588,6 +1613,8 @@ if (isWorkerGlobalScope()) {
         previewStages.generateProjection(msg).catch(console.error);
       } else if (msg.type === 'instance:decode') {
         decodeInstance(msg.typeFqn, msg.data, msg.requestId).catch(console.error);
+      } else if (msg.type === 'instance:serialize') {
+        serializeInstance(msg).catch(console.error);
       } else if (msg.type === 'instance:validate') {
         const { typeFqn, data, requestId } = msg;
         (msg.functionInputs

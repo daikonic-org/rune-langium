@@ -166,7 +166,7 @@ func Compute:
   });
 });
 
-async function projectForDeclaration() {
+async function projectForDeclaration(nightly = false) {
   const { referenceFixture } = await import('../../../../test/helpers/project-reference-fixture.js');
   const { resolveProjectReferences, createMemoryReferenceCache } =
     await import('@rune-langium/project-runtime/references');
@@ -189,12 +189,94 @@ async function projectForDeclaration() {
     privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
     isWritable: () => true
   });
-  for (const [path, text] of reference.snapshot.files) await adapter.write(path, text, null);
-  await adapter.write('build-config.lock.json', JSON.stringify(lock), null);
+  const build = structuredClone(reference.snapshot.project.build);
+  if (nightly) {
+    const { CURATED_MODEL_REPOSITORIES } = await import('@rune-langium/curated-schema');
+    build.references = { cdm: { repository: CURATED_MODEL_REPOSITORIES.cdm, release: 'nightly' } };
+  }
+  for (const [path, text] of reference.snapshot.files) {
+    await adapter.write(path, nightly && path === 'build-config.yml' ? JSON.stringify(build) : text, null);
+  }
+  if (!nightly) await adapter.write('build-config.lock.json', JSON.stringify(lock), null);
   const controller = createProjectController({ workspaceId: 'p', adapter, validateTarget: () => [] });
   const snapshot = await controller.load();
-  return { controller, adapter, receipt: await createProjectReceipt(snapshot) };
+  return { controller, adapter, receipt: await createProjectReceipt(snapshot), publication: lock.references };
 }
+
+it.each([
+  ['cdm', 'RosettaFunction'],
+  ['rune-dsl', 'RosettaFunction'],
+  ['cdm', 'Data']
+])('modifies verified Nightly %s %s declarations without pinning the moving reference', async (owner, kind) => {
+  const { request } = await fixture([
+    kind === 'Data'
+      ? 'namespace demo.source\ntype Compute:\n value number (1..1)'
+      : 'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n set result: 1'
+  ]);
+  request.nodeId = `demo.source.Compute#${kind}`;
+  const { controller, adapter, receipt, publication } = await projectForDeclaration(true);
+  const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+  request.files = request.files.map((file) => ({
+    ...file,
+    path: file.path.replace('[cdm]', `[${owner}]`),
+    bundleId: owner
+  }));
+  request.models = request.models.map((entry) => ({
+    ...entry,
+    filePath: entry.filePath.replace('[cdm]', `[${owner}]`)
+  }));
+  const original = publication[owner]!;
+  request.projectReferenceDocuments = [
+    {
+      uri: `${owner}/f0.rosetta`,
+      content: request.files[0]!.content,
+      cohort: original.cohort,
+      source: { model: owner, repository: original.repository, release: 'nightly', commit: original.commit }
+    }
+  ];
+  const before = controller.current()!;
+  const saved = await modifyProjectDeclaration({ ...request, projectReceipt: receipt }, controller);
+  expect(saved.project.build.references).toEqual(before.project.build.references);
+  expect(saved.project.build.overrides![0]).toMatchObject({
+    source: { model: owner },
+    provenance: { uri: `${owner}/f0.rosetta`, commit: original.commit, cohort: original.cohort }
+  });
+  expect(saved.lock).toBeUndefined();
+  expect(await adapter.read('build-config.lock.json')).toBeUndefined();
+  expect(sourceLoader).not.toHaveBeenCalled();
+  const { createProjectReceipt } = await import('@rune-langium/project-runtime/receipt');
+  expect(
+    await modifyProjectDeclaration({ ...request, projectReceipt: await createProjectReceipt(saved) }, controller)
+  ).toBe(saved);
+});
+
+it.each(['missing', 'foreign', 'inconsistent'])(
+  'rejects %s Nightly publication provenance before saving a local copy',
+  async (caseName) => {
+    const { request } = await fixture([
+      'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n',
+      'namespace demo.source\nfunc Compute:\n output: result number (1..1)\n'
+    ]);
+    const { controller, receipt, publication } = await projectForDeclaration(true);
+    const original = publication.cdm!;
+    request.projectReferenceDocuments = request.projectReferenceDocuments!.map((document, index) => ({
+      ...document,
+      cohort: caseName === 'missing' ? undefined : original.cohort,
+      source: {
+        model: caseName === 'foreign' ? 'fpml' : 'cdm',
+        repository: original.repository,
+        release: 'nightly',
+        commit: caseName === 'inconsistent' && index ? 'f'.repeat(40) : original.commit
+      }
+    }));
+    const save = vi.spyOn(controller, 'save');
+    const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
+    await expect(modifyProjectDeclaration({ ...request, projectReceipt: receipt }, controller)).rejects.toThrow(
+      /Nightly source/
+    );
+    expect(save).not.toHaveBeenCalled();
+  }
+);
 it('saves a copied dispatch family and its explicit provenance mapping once', async () => {
   const { request } = await fixture([
     'namespace demo.source\nenum Kind:\n Cash\nfunc Compute:\n inputs: kind Kind (1..1)\n output: result number (1..1)\n',
@@ -263,7 +345,7 @@ it('refuses to stamp locked provenance on a copy loaded from another curated coh
       },
       controller
     )
-  ).rejects.toThrow(/locked reference release/);
+  ).rejects.toThrow(/verified reference source/);
   expect(controller.current()).toBe(before);
 });
 it('copies verified locked source without requiring legacy namespace-artifact metadata', async () => {

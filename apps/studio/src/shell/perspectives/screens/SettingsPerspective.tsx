@@ -2,14 +2,23 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import type React from 'react';
+import { useState, type ReactElement, type ComponentType } from 'react';
+import { applyThemePreference } from '../../../services/theme-preference.js';
+import {
+  WorkspaceConfiguration,
+  type WorkspaceDirectoriesFormProps
+} from '../../../components/WorkspaceConfiguration.js';
+import { ExportSelect } from '../../../components/ExportSelect.js';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { FontScaleButton } from '../../../components/FontScaleButton.js';
 import { useTelemetrySettingsStore } from '../../../store/telemetry-settings.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 
 export const SettingsPerspective = withInstrumentation(
-  function SettingsPerspective(): React.ReactElement {
+  function SettingsPerspective({
+    workspaceForm
+  }: { workspaceForm?: ComponentType<WorkspaceDirectoriesFormProps> } = {}): ReactElement {
+    const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') ?? 'default');
     const telemetryEnabled = useTelemetrySettingsStore((s) => s.enabled);
     const setTelemetryEnabled = useTelemetrySettingsStore((s) => s.setEnabled);
 
@@ -24,9 +33,22 @@ export const SettingsPerspective = withInstrumentation(
             <FontScaleButton />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Theme is currently fixed (dark). A theme toggle will be added in a future release.
-          </p>
+          <label className="flex items-center gap-3 text-sm">
+            Theme
+            <ExportSelect
+              aria-label="Theme"
+              className="w-52"
+              value={theme}
+              onChange={(event) => {
+                setTheme(event.target.value);
+                applyThemePreference(event.target.value, true);
+              }}
+            >
+              <option value="daikonic">Daikonic dark</option>
+              <option value="light">Studio light</option>
+              <option value="default">Refactory dark</option>
+            </ExportSelect>
+          </label>
         </section>
 
         {/* ── Privacy ─────────────────────────────────────────────────────── */}
@@ -49,33 +71,7 @@ export const SettingsPerspective = withInstrumentation(
           </p>
         </section>
 
-        {/* ── Project configuration ────────────────────────────────────────── */}
-        <section data-testid="settings-project-section" className="space-y-4">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Project configuration</h2>
-
-          <p className="text-xs text-muted-foreground">
-            The following settings will be configurable per-project via{' '}
-            <code className="font-mono">.runestudio/config.json</code> once git-backed shared project config ships.{' '}
-            <span className="ml-1 inline-flex items-center rounded-full border border-border px-1.5 py-px text-3xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Coming soon
-            </span>
-          </p>
-
-          <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside opacity-60" aria-disabled="true">
-            <li>
-              <span className="font-medium">Project</span> — name, description
-            </li>
-            <li>
-              <span className="font-medium">Curated models</span> — model ID + version list
-            </li>
-            <li>
-              <span className="font-medium">Sync</span> — auto-sync enabled, debounce interval (ms), branch
-            </li>
-            <li>
-              <span className="font-medium">Codegen</span> — target, layout, namespaces, options
-            </li>
-          </ul>
-        </section>
+        <WorkspaceConfiguration Form={workspaceForm} />
       </section>
     );
   },

@@ -1690,6 +1690,25 @@ function createPreviewValueAdapter(
     }
     return false;
   }
+  function choiceAcceptsNode(node: Data, expected: Choice, seen = new Set<Choice>()): boolean {
+    if (extendsNode(node, expected)) return true;
+    if (seen.has(expected)) return false;
+    const next = new Set(seen).add(expected);
+    return expected.attributes.some((option) =>
+      resolveTypeCallTarget(
+        option.typeCall,
+        typeIndex,
+        {
+          onPrimitive: () => false,
+          onEnum: () => false,
+          onData: (target) => extendsNode(node, target),
+          onChoice: (target) => choiceAcceptsNode(node, target, next),
+          onUnresolved: () => false
+        },
+        ''
+      )
+    );
+  }
   function normalizeNode(node: Data | Choice, value: unknown, path = ''): unknown {
     if (value == null) return undefined;
     const declared =
@@ -1723,16 +1742,7 @@ function createPreviewValueAdapter(
           throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
         return withRuneJsonEncoding({ ...headers, ...body }, body);
       }
-      if (
-        actual &&
-        existing &&
-        !node.attributes.some((option) =>
-          Object.prototype.hasOwnProperty.call(
-            existing,
-            choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '')
-          )
-        )
-      ) {
+      if (actual && existing) {
         const options = node.attributes.filter((option) =>
           resolveTypeCallTarget(
             option.typeCall,
@@ -1740,7 +1750,7 @@ function createPreviewValueAdapter(
             {
               onPrimitive: () => false,
               onEnum: () => false,
-              onChoice: (target) => extendsNode(actual, target),
+              onChoice: (target) => choiceAcceptsNode(actual, target),
               onData: (target) => extendsNode(actual, target),
               onUnresolved: () => false
             },
@@ -1817,6 +1827,9 @@ function previewDataAdapter(
           qualifiedTypeId(entry.node) === id &&
           !namespace.duplicateChoiceNames.has(entry.node.name)
       ),
+      ...[...namespace.typeAliasByName.values()].filter(
+        (entry) => (!requestedKind || requestedKind === 'RosettaTypeAlias') && qualifiedTypeId(entry.node) === id
+      ),
       ...(requestedKind === 'RosettaFunction'
         ? [...namespace.funcByName.values()].filter(
             (entry) =>
@@ -1829,6 +1842,23 @@ function previewDataAdapter(
   );
   if (matches.length !== 1) throw new Error('Object type is missing or ambiguous: ' + targetId);
   const target = matches[0]!;
+  const notObjectAlias = () => {
+    throw new Error('Object type alias does not resolve to Data or Choice: ' + targetId);
+  };
+  const node = isRosettaTypeAlias(target.node)
+    ? resolveTypeCallTarget<Data | Choice>(
+        target.node.typeCall,
+        target.namespace,
+        {
+          onData: (node) => node,
+          onChoice: (node) => node,
+          onPrimitive: notObjectAlias,
+          onEnum: notObjectAlias,
+          onUnresolved: notObjectAlias
+        },
+        ''
+      )
+    : target.node;
   const adapter = createPreviewValueAdapter(
     namespaces,
     target.namespace,
@@ -1839,9 +1869,9 @@ function previewDataAdapter(
     (id) => resolveEffectiveProjectTargetId(documents, id, 'Data'),
     mode
   );
-  const data = isRosettaFunction(target.node)
-    ? adapter.normalizeObject(value, adapter.attributeFields(functionInputs(target.node)))
-    : adapter.normalizeNode(target.node, value);
+  const data = isRosettaFunction(node)
+    ? adapter.normalizeObject(value, adapter.attributeFields(functionInputs(node)))
+    : adapter.normalizeNode(node, value);
   return { data, sourcePath: adapter.sourcePath };
 }
 
