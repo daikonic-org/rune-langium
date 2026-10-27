@@ -7,11 +7,11 @@ import { projectBackingFiles } from '../helpers/project-backing.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 const content = `namespace quote
-typeAlias Currency: string
-func EchoCurrency:
- inputs: currency Currency (1..1)
- output: result Currency (1..1)
- set result: currency`;
+typeAlias Basis: string
+func EchoBasis:
+ inputs: basis Basis (1..1)
+ output: result Basis (1..1)
+ set result: basis`;
 async function reloadProject(page: Page) {
   await page.getByTestId('rail-export').click();
   await page.getByRole('button', { name: 'Reload project files', exact: true }).click();
@@ -35,39 +35,39 @@ test('uses saved project code lists for real form choices, execution and unavail
       overrides: [
         {
           kind: 'resource',
-          source: { model: 'local', id: 'quote.Currency#RosettaTypeAlias' },
-          path: 'resources/currency.json'
+          source: { model: 'local', id: 'quote.Basis#RosettaTypeAlias' },
+          path: 'resources/basis.json'
         }
       ]
     }),
-    'resources/currency.json': '[{"value":"EUR","label":"Euro"}]'
+    'resources/basis.json': '[{"value":"ACT/360","label":"Actual / 360"}]'
   });
   await page.reload();
   await page.getByTestId('rail-prototype').click();
   await page.getByRole('button', { name: /^Choose a function/ }).click();
-  await page.getByRole('option', { name: /EchoCurrency.*quote/ }).click();
-  const currency = page.getByRole('combobox', { name: 'Currency', exact: true });
-  await expect(currency).toBeVisible({ timeout: 20000 });
-  await currency.click();
-  await expect(page.getByRole('option', { name: 'Euro', exact: true })).toBeVisible();
-  await expect(page.getByRole('option', { name: /Dollar|GBP/ })).toHaveCount(0);
-  await page.getByRole('option', { name: 'Euro', exact: true }).click();
+  await page.getByRole('option', { name: /EchoBasis.*quote/ }).click();
+  const basis = page.getByRole('combobox', { name: 'Basis', exact: true });
+  await expect(basis).toBeVisible({ timeout: 20000 });
+  await basis.click();
+  await expect(page.getByRole('option', { name: 'Actual / 360', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Dollar/ })).toHaveCount(0);
+  await page.getByRole('option', { name: 'Actual / 360', exact: true }).click();
   const execute = page.getByRole('button', { name: 'Execute', exact: true });
   await expect(execute).toBeEnabled({ timeout: 20000 });
   await execute.click();
-  await expect(page.getByRole('region', { name: 'result output' })).toContainText('EUR');
-  await projectBackingFiles(page, { 'resources/currency.json': '{broken' });
+  await expect(page.getByRole('region', { name: 'result output' })).toContainText('ACT/360');
+  await projectBackingFiles(page, { 'resources/basis.json': '{broken' });
   await reloadProject(page);
   await expect(execute).toBeDisabled({ timeout: 20000 });
   await expect(page.getByText(/JSON|decod|Expected property|unsupported/i).first()).toBeVisible();
-  await projectBackingFiles(page, { 'resources/currency.json': '[{"value":"GBP","label":"Pound sterling"}]' });
+  await projectBackingFiles(page, { 'resources/basis.json': '[{"value":"30E/360","label":"30E / 360"}]' });
   await reloadProject(page);
-  await expect(currency).toBeVisible({ timeout: 20000 });
-  await currency.click();
-  await page.getByRole('option', { name: 'Pound sterling', exact: true }).click();
+  await expect(basis).toBeVisible({ timeout: 20000 });
+  await basis.click();
+  await page.getByRole('option', { name: '30E / 360', exact: true }).click();
   await expect(execute).toBeEnabled({ timeout: 20000 });
   await execute.click();
-  await expect(page.getByRole('region', { name: 'result output' })).toContainText('GBP');
+  await expect(page.getByRole('region', { name: 'result output' })).toContainText('30E/360');
   await dismissLocalTransportNotices(page);
   const a11y = await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze();
   expect(a11y.violations).toEqual([]);

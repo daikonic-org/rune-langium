@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 import {
   isAttribute,
@@ -62,7 +63,7 @@ export function pythonNavigation(
 ): string | undefined {
   if (expression.$type !== 'RosettaFeatureCall' && expression.$type !== 'RosettaDeepFeatureCall') return undefined;
   const feature = expression.feature?.ref;
-  if (isRosettaEnumValue(feature)) return pyString(feature.name);
+  if (isRosettaEnumValue(feature)) return pyString(getEnumValueLiteral(feature));
   if (!feature) throw new Error(`Unresolved navigation '${expression.feature?.$refText ?? '?'}'`);
   const calendar = pythonCalendarField(
     feature,

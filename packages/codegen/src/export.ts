@@ -212,3 +212,5 @@ export {
 } from './options/target-options.js';
 
 export * from './runtime/project-bindings.js';
+
+export { renderCodeListEnum } from './runtime/code-list-enum.js';

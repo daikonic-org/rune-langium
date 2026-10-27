@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 import {
   getEnumValues,
@@ -120,7 +121,7 @@ export function pythonTypeDeclarations(
       return [
         `${name} = Literal[${
           getEnumValues(node)
-            .map((value) => pyString(value.name))
+            .map((value) => pyString(getEnumValueLiteral(value)))
             .join(', ') || 'None'
         }]`
       ];

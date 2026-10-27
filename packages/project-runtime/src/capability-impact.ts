@@ -139,7 +139,9 @@ export function assertProjectGenerationCapabilities(
 ): void {
   const unavailable = graph.capabilities
     .map((capability) =>
-      capability.id.startsWith('resource:') && !['typescript', 'zod', 'json-schema'].includes(generator)
+      capability.id.startsWith('resource:') &&
+      capability.resourceRepresentation !== 'enum' &&
+      !['typescript', 'zod', 'json-schema'].includes(generator)
         ? {
             ...capability,
             status: 'unavailable',

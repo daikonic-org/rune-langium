@@ -1426,11 +1426,15 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
           ...issue,
           path: adapted.sourcePath(issue.path)
         }));
+    const resourcePaths = new Set(resourceDiagnostics.map((issue) => issue.path));
 
     scope.postMessage({
       type: 'instance:validateResult',
       requestId,
-      diagnostics: [...diagnostics, ...resourceDiagnostics]
+      diagnostics: [
+        ...diagnostics.filter((issue) => issue.conditionName || !resourcePaths.has(issue.path)),
+        ...resourceDiagnostics
+      ]
     });
   } catch (err) {
     console.error('[codegen-worker] Instance validation error:', err);

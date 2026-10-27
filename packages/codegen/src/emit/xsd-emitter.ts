@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
 
 /**
  * Emits Rune namespaces as XSD using the vocabulary supported by xsd-reader.ts.
@@ -513,7 +514,7 @@ export class XsdNamespaceEmitter extends BaseNamespaceEmitter {
     const lines = [
       `<xs:simpleType name="${escapeXml(enumNode.name)}">`,
       `  <xs:restriction base="xs:string">`,
-      ...enumNode.enumValues.map((v) => `    <xs:enumeration value="${escapeXml(v.name)}"/>`),
+      ...enumNode.enumValues.map((v) => `    <xs:enumeration value="${escapeXml(getEnumValueLiteral(v))}"/>`),
       `  </xs:restriction>`,
       `</xs:simpleType>`
     ];

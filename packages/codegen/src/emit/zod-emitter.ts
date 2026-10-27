@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
+import { escapeSingleQuotedString } from './string-literal.js';
 
 /**
  * Zod target emitter for the Rune code generator.
@@ -1086,7 +1088,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     const name = enumNode.name;
     const schemaName = `${name}Schema`;
 
-    const memberNames = getEnumValues(enumNode).map((v) => v.name);
+    const memberNames = getEnumValues(enumNode).map(getEnumValueLiteral);
 
     if (memberNames.length === 0) {
       this.ctx.diagnostics.push({
@@ -1099,7 +1101,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       );
     }
 
-    const memberLiterals = memberNames.map((m) => `'${m}'`).join(', ');
+    const memberLiterals = memberNames.map((m) => `'${escapeSingleQuotedString(m)}'`).join(', ');
     const lines: string[] = [
       `export const ${schemaName} = z.enum([${memberLiterals}]);`,
       `export type ${name} = z.infer<typeof ${schemaName}>;`
@@ -1110,11 +1112,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     if (hasDisplayNames) {
       const displayEntries = getEnumValues(enumNode).map((v) => {
         // Use single-quoted value (oxfmt singleQuote: true); key unquoted (valid ES5+ property key)
-        const displayName =
-          v.display != null
-            ? ZodNamespaceEmitter.escapeDisplayName(v.display)
-            : ZodNamespaceEmitter.escapeDisplayName(v.name);
-        return `  ${v.name}: '${displayName}'`;
+        const displayName = v.display != null ? escapeSingleQuotedString(v.display) : escapeSingleQuotedString(v.name);
+        return `  ${getEnumValueLiteral(v) === v.name && v.name !== '__proto__' ? v.name : `[${JSON.stringify(getEnumValueLiteral(v))}]`}: '${displayName}'`;
       });
       lines.push('');
       lines.push(`export const ${name}DisplayNames: Record<${name}, string> = {\n${displayEntries.join(',\n')}\n};`);
@@ -1304,15 +1303,6 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     // All valid identifiers (including JS reserved words) can be used unquoted
     // as property keys in object literals per ES5+. Return key as-is.
     return key;
-  }
-
-  /**
-   * Escape a display-name string for use in a single-quoted TypeScript string literal.
-   * Spec edge case: display names may contain `'` or backslashes.
-   * We use single quotes to match the oxfmt singleQuote: true style.
-   */
-  private static escapeDisplayName(name: string): string {
-    return name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   }
 
   /**

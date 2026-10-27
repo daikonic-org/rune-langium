@@ -20,6 +20,7 @@ export interface Capability {
   affectedTargets: string[];
   affectedFunctions: SymbolIdentity[];
   affectedDeclarations?: SymbolIdentity[];
+  resourceRepresentation?: 'enum';
 }
 function callableTargets(snapshot: ProjectSnapshot) {
   return Object.entries(snapshot.project.build.targets)
@@ -27,6 +28,7 @@ function callableTargets(snapshot: ProjectSnapshot) {
     .map(([name]) => name);
 }
 export interface ProjectBindingContext {
+  materializedResources?: ReadonlySet<string>;
   symbols?: ReadonlySet<string>;
   additionalCodeLists?: readonly ProjectCodeListBinding[];
   effectiveSymbols?: ReadonlyMap<string, SymbolIdentity>;
@@ -99,7 +101,10 @@ function prepared(
         ...(reason ? { reason } : {}),
         affectedTargets: [],
         affectedFunctions: [],
-        ...(symbol ? { affectedDeclarations: [symbol] } : {})
+        ...(symbol ? { affectedDeclarations: [symbol] } : {}),
+        ...(symbol && context.materializedResources?.has(declarationKey(symbol))
+          ? { resourceRepresentation: 'enum' as const }
+          : {})
       });
       if (symbol) codeLists.push({ symbol, ...(reason ? { unavailable: reason } : { values }) });
     }

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { getEnumValueLiteral } from '@rune-langium/core';
+import { escapeSingleQuotedString } from './string-literal.js';
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
@@ -1603,9 +1605,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private emitEnumDeclaration(enumNode: RosettaEnumeration): string {
     const name = this.typeName(enumNode);
     const memberNames = getEnumValues(enumNode).map((v) => v.name);
-    const members = memberNames.map((member) => {
+    const literals = getEnumValues(enumNode).map(getEnumValueLiteral);
+    const members = memberNames.map((member, index) => {
       const key = member === '__proto__' ? `[${JSON.stringify(member)}]` : JSON.stringify(member);
-      return `  ${key}: ${JSON.stringify(member)}`;
+      return `  ${key}: ${JSON.stringify(literals[index])}`;
     });
     const valueObject = `export const ${name} = {${members.length ? `\n${members.join(',\n')}\n` : ''}} as const;`;
 
@@ -1617,7 +1620,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ].join('\n');
     }
 
-    const memberLiterals = memberNames.map((m) => `'${m}'`).join(' | ');
+    const memberLiterals = literals.map((m) => `'${escapeSingleQuotedString(m)}'`).join(' | ');
     const valuesArr = memberNames.map((m) => `${name}[${JSON.stringify(m)}]`).join(', ');
 
     const lines: string[] = [
@@ -1630,8 +1633,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     if (hasDisplayNames) {
       const displayEntries = getEnumValues(enumNode).map((v) => {
         const displayName = v.display != null ? v.display : v.name;
-        const escaped = displayName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return `  ${v.name}: '${escaped}'`;
+        const escaped = escapeSingleQuotedString(displayName);
+        return `  ${getEnumValueLiteral(v) === v.name && v.name !== '__proto__' ? v.name : `[${JSON.stringify(getEnumValueLiteral(v))}]`}: '${escaped}'`;
       });
       lines.push('');
       lines.push(

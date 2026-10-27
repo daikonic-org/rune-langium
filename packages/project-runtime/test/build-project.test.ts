@@ -23,7 +23,7 @@ const targets = {
   pg: { generator: 'sql', output: 'generated/pg', options: { dialect: 'postgres' } },
   ss: { generator: 'sql', output: 'generated/ss', options: { dialect: 'sqlserver' } }
 } as const;
-it('writes constrained project code lists and refuses unsupported resource generators before publication', async () => {
+it('writes the same materialized code-list enum through schema and SQL project builds', async () => {
   const { root, parent } = await setup(
     {
       overrides: [
@@ -35,7 +35,8 @@ it('writes constrained project code lists and refuses unsupported resource gener
       ],
       targets: {
         schema: { generator: 'json-schema', output: 'generated/schema' },
-        sql: { generator: 'sql', output: 'generated/sql' }
+        sql: { generator: 'sql', output: 'generated/sql' },
+        enums: { generator: 'json-schema', output: 'generated/enums', namespaces: ['rune.resources'] }
       }
     },
     'namespace example\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)'
@@ -56,10 +57,19 @@ it('writes constrained project code lists and refuses unsupported resource gener
   );
   expect(json.$defs.Currency).toMatchObject({ allOf: expect.arrayContaining([{ enum: ['EUR'] }]) });
   expect(JSON.stringify(json.$defs.Quote)).toContain('"EUR"');
-  const unsupported = await buildProject(snapshot, { targets: ['sql'] }, adapter);
-  expect(unsupported.status).toBe('failed');
-  expect(unsupported.outputs).toEqual([]);
-  expect(await readdir(join(root, 'generated'))).toEqual(['schema']);
+  const sql = await buildProject(snapshot, { targets: ['sql'] }, adapter);
+  expect(sql.status).toBe('success');
+  expect(sql.outputs.length).toBeGreaterThan(0);
+  const ddl = (await Promise.all(sql.outputs.map((path) => readFile(join(root, path), 'utf8')))).join('\n');
+  expect(ddl).toContain("'EUR'");
+  expect(ddl).toMatch(/CHECK/);
+  const enums = await buildProject(snapshot, { targets: ['enums'] }, adapter);
+  expect(enums.status).toBe('success');
+  expect(enums.outputs.length).toBeGreaterThan(0);
+  expect((await Promise.all(enums.outputs.map((path) => readFile(join(root, path), 'utf8')))).join('\n')).toContain(
+    'EUR'
+  );
+  expect((await readdir(join(root, 'generated'))).sort()).toEqual(['enums', 'schema', 'sql']);
 });
 async function setup(build: Record<string, unknown> = { targets }, model = source) {
   const parent = await mkdtemp(join(tmpdir(), 'rune-build-'));
