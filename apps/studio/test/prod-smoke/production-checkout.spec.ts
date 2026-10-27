@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { openReferenceModels } from '../helpers/workspace-launcher.js';
+import { loadCurrentCdm as loadCdm } from '../helpers/workspace-launcher.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
-import { Buffer } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
-import { expectSourceReadOnly } from '../prod-ux/readiness.js';
+import { expectSourceReadOnly, expectReadyReferenceGraph } from '../prod-ux/readiness.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 
 const CF_PAGES_PROJECT = 'daikonic-dev';
@@ -38,7 +37,6 @@ function resolveMasterCommit(): string {
   }
 }
 
-const CDM_BUTTON = 'CDM (Common Domain Model)';
 // Anchors must be corpus-stable: BusinessCenterEnum was migrated upstream to
 // the codelist pattern (cdm.base.staticdata.codelist.BusinessCenter) in the
 // 2026-07-02 curated build. Both anchors below match the single 'Business'
@@ -48,34 +46,6 @@ const DATA_NODE_ID = 'cdm.base.datetime.BusinessCenters';
 // Regression: cdm.base.staticdata.party is never pre-hydrated at load time.
 // First navigation to it must populate Inspector members (resolveNodeFileRef fix).
 const COUNTERPARTY_NODE_ID = 'cdm.base.staticdata.party.Counterparty';
-const WORKSPACE_FILE_NAME = 'starter.rosetta';
-const WORKSPACE_FILE_CONTENT = 'namespace example\n';
-
-async function loadCdm(page: import('@playwright/test').Page) {
-  await page.goto('./');
-  await page.waitForLoadState('domcontentloaded');
-  await expect(page).toHaveTitle(/Rune Studio/);
-  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
-
-  const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
-  await fileInput.setInputFiles([
-    {
-      name: WORKSPACE_FILE_NAME,
-      mimeType: 'text/plain',
-      buffer: Buffer.from(WORKSPACE_FILE_CONTENT)
-    }
-  ]);
-  await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
-  await page.getByTestId('rail-workspaces').click();
-  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
-
-  await openReferenceModels(page);
-  await page.getByTestId('model-loader').getByRole('button', { name: CDM_BUTTON }).click();
-
-  await expect(page.getByText('Loaded Models', { exact: false })).toBeVisible({ timeout: 90000 });
-  await expect(page.getByRole('button', { name: `Unload ${CDM_BUTTON}` })).toBeVisible({ timeout: 90000 });
-}
-
 test.describe('production checkout smoke', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
 
@@ -151,36 +121,9 @@ test.describe('production checkout smoke', () => {
     await expectSourceReadOnly(source);
   });
 
-  test('graph node shows a hydrating spinner while a never-hydrated namespace loads', async ({ page }) => {
-    // Regression for the BaseFlowNode hydrating-placeholder indicator (spec
-    // 021 follow-up). Production's on-demand hydration round-trip
-    // (/api/parse) is normally too fast to reliably observe the transient
-    // spinner state, so this test deliberately delays that one endpoint —
-    // the delay only affects when the browser's real request completes, it
-    // does not fabricate the response — giving the spinner a guaranteed
-    // window to assert against before it clears.
-    await page.route('**/api/parse', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await route.continue();
-    });
-
+  test('accepted reference closure opens a hydrated Graph', async ({ page }) => {
     await loadCdm(page);
-
-    await page.getByTestId('rail-explore').click();
-    await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20_000 });
-
-    const namespaceSearch = page.getByTestId('namespace-search');
-    await namespaceSearch.fill('Counterparty');
-    await typeNavigationButton(page, COUNTERPARTY_NODE_ID).click();
-
-    await expect(page.getByTestId('rune-node-hydrating-spinner')).toBeVisible({ timeout: 5_000 });
-
-    // The spinner clears once hydration completes and attributes populate
-    // (DataTypeForm's "Attributes (N)" — see the previous test for why).
-    const centerStack = page.getByTestId('center-stack');
-    await page.getByRole('button', { name: 'Inspector' }).click();
-    await expect(centerStack.getByText(/Attributes \([1-9]/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('rune-node-hydrating-spinner')).toHaveCount(0);
+    await expectReadyReferenceGraph(page, COUNTERPARTY_NODE_ID, 'Counterparty');
   });
 });
 

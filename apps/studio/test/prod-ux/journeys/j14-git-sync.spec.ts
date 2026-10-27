@@ -20,7 +20,7 @@
  *    "SyncStatusBadge unauthenticated" state.
  *
  * 2. `FileLoader.tsx` / `WorkspacesPerspective.tsx` / `workspace-actions-
- *    context.ts` / `App.tsx` — the "Open from GitHub repository…" CTA (only
+ *    context.ts` / `App.tsx` — the "Open GitHub" CTA (only
  *    rendered when `config.githubAuthEnabled && createGitBackedWorkspace`,
  *    both true in production: `githubAuthEnabled` defaults `true` via
  *    `VITE_ENABLE_GITHUB_AUTH`, and `WorkspacesPerspective` always receives a
@@ -100,10 +100,10 @@ test.describe('J14 — Git / Sync perspective', () => {
       await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
 
       // Confirmed live this session: reached via WorkspacesPerspective's
-      // FileLoader "Open from GitHub repository…" CTA (see file-header
+      // FileLoader "Open GitHub" CTA (see file-header
       // comment), not via rail-git — matches an accessible-name substring
       // match either way.
-      await page.getByRole('button', { name: /Open from GitHub/i }).click();
+      await page.getByRole('button', { name: 'Open GitHub', exact: true }).click();
       const dialog = page.getByTestId('github-connect-dialog');
       await expect(dialog).toBeVisible({ timeout: 10000 });
 

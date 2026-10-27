@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
+import { reloadJourney, type JourneyObserver } from './journey-observer.js';
 import { dismissLocalTransportNotices } from './expression-workspace.js';
 
 export interface WorkflowJourney {
@@ -10,9 +11,9 @@ export interface WorkflowJourney {
   run: (page: Page, evidence: WorkflowEvidence) => Promise<void>;
 }
 
-interface WorkflowEvidence {
+interface WorkflowEvidence extends JourneyObserver {
+  allowPhone?: boolean;
   checkpoint: (name: string) => Promise<void>;
-  beforeReload?: () => Promise<void>;
   accessibility: (name: string, results: Awaited<ReturnType<AxeBuilder['analyze']>>) => Promise<void>;
 }
 
@@ -444,8 +445,7 @@ journey(
     await page.getByRole('button', { name: 'Execute', exact: true }).click();
     await expect(page.getByTestId('instance-payload-output')).toContainText('1275.12345');
     await evidence.checkpoint('formatted-raw-result');
-    await evidence.beforeReload?.();
-    await page.reload();
+    await reloadJourney(page, evidence);
     await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
     await page.getByTestId('rail-prototype').click();
     await choose(page, 'AddMoney');
@@ -454,12 +454,14 @@ journey(
     await value.getByLabel('Amount', { exact: true }).fill('1250.12345');
     await value.getByLabel('Currency', { exact: true }).fill('USD');
     await expect(value.getByLabel('Amount', { exact: true })).toHaveValue('$1,250.12');
-    await page.setViewportSize({ width: 390, height: 1000 });
-    await value.getByLabel('Amount', { exact: true }).scrollIntoViewIfNeeded();
-    const bounds = (await value.getByLabel('Amount', { exact: true }).boundingBox())!;
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
-    await evidence.checkpoint('restored-layout-phone');
+    if (evidence.allowPhone !== false) {
+      await page.setViewportSize({ width: 390, height: 1000 });
+      await value.getByLabel('Amount', { exact: true }).scrollIntoViewIfNeeded();
+      const bounds = (await value.getByLabel('Amount', { exact: true }).boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+      await evidence.checkpoint('restored-layout-phone');
+    }
   }
 );
 
@@ -484,8 +486,7 @@ journey(
     await expect(row).toContainText('workflow.Money');
     await expect(row.getByText('saved', { exact: true })).toBeVisible();
     await evidence.checkpoint('saved-function-output');
-    await evidence.beforeReload?.();
-    await page.reload();
+    await reloadJourney(page, evidence);
     await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
     await page.getByTestId('rail-prototype').click();
     await expect(row).toContainText('workflow.Money');

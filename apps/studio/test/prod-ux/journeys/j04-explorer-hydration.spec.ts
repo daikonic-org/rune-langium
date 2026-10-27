@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { expectReadyReferenceGraph } from '../readiness.js';
 import { fullSourceEditor } from '../../helpers/source-editor.js';
 import { checkout as test, expect, loadCdm } from '../fixtures.js';
 import { typeNameButton, typeNavigationButton } from '../../helpers/type-navigation.js';
@@ -79,40 +80,12 @@ test.describe('J04 — explorer navigation & on-demand hydration', () => {
     await evidence.checkpoint('hydration-complete');
   });
 
-  test('J04c graph node shows a hydrating spinner while a never-hydrated namespace loads', async ({
+  test('J04c accepted reference closure opens a hydrated Graph without an indefinite spinner', async ({
     page,
     evidence
   }) => {
-    // Regression for the BaseFlowNode hydrating-placeholder indicator (spec
-    // 021 follow-up). Production's on-demand hydration round-trip
-    // (/api/parse) is normally too fast to reliably observe the transient
-    // spinner state, so this test deliberately delays that one endpoint —
-    // the delay only affects when the browser's real request completes, it
-    // does not fabricate the response — giving the spinner a guaranteed
-    // window to assert against before it clears.
-    await page.route('**/api/parse', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await route.continue();
-    });
-
     await loadCdm(page, evidence);
-
-    await page.getByTestId('rail-explore').click();
-    await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Graph', exact: true }).click();
-
-    const namespaceSearch = page.getByTestId('namespace-search');
-    await namespaceSearch.fill('Counterparty');
-    await typeNavigationButton(page, COUNTERPARTY_NODE_ID).click();
-
-    await expect(page.getByTestId('rune-node-hydrating-spinner')).toBeVisible({ timeout: 5_000 });
-    await evidence.checkpoint('hydration-spinner-visible');
-
-    // The spinner clears once hydration completes and members populate.
-    const centerStack = page.getByTestId('center-stack');
-    await page.getByRole('button', { name: 'Inspector' }).click();
-    await expectPopulatedAttributes(centerStack);
-    await expect(page.getByTestId('rune-node-hydrating-spinner')).toHaveCount(0);
-    await evidence.checkpoint('hydration-complete');
+    await expectReadyReferenceGraph(page, COUNTERPARTY_NODE_ID, 'Counterparty');
+    await evidence.checkpoint('accepted-reference-graph-ready');
   });
 });

@@ -3,16 +3,18 @@
 
 import type { Route } from '@playwright/test';
 import { checkout as test, expect, loadCdm, captureOpLogSnapshot } from '../fixtures.js';
+import { openReferenceModels } from '../../helpers/workspace-launcher.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 
 test.describe('J16 — Resilience & chrome', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
 
   test(
-    'J16 closing a workspace during namespace hydration ignores its late result',
-    { annotation: { type: 'journey-subid', description: 'cancel-hydration' } },
+    'J16 closing a workspace during reference verification ignores its late result',
+    { annotation: { type: 'journey-subid', description: 'cancel-reference' } },
     async ({ page, evidence }) => {
-      await loadCdm(page, evidence);
+      await page.goto('./');
+      await page.getByRole('button', { name: 'New workspace', exact: true }).click();
       let release!: () => void;
       let started!: () => void;
       let finished!: () => void;
@@ -25,43 +27,44 @@ test.describe('J16 — Resilience & chrome', () => {
       const settled = new Promise<void>((resolve) => {
         finished = resolve;
       });
-      await page.route('**/api/parse', async (route) => {
-        const body = route.request().postDataJSON();
-        if (!body.hydrateNamespaces?.includes('cdm.base.datetime')) return route.continue();
+      await page.route('**/curated/cdm/manifest.json', async (route) => {
         const response = await route.fetch();
         started();
         await held;
         try {
           await route.fulfill({ response });
         } catch {
-          /* Closing may abort the request. */
+          /* Workspace departure can abort this request. */
         } finally {
           finished();
         }
       });
-      await page.getByTestId('rail-explore').click();
-      await page.getByTestId('namespace-search').fill('BusinessCenters');
-      await typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data').click();
+      const picker = await openReferenceModels(page);
+      await picker.getByRole('button', { name: /CDM \(Common/ }).click();
+      await picker.getByRole('combobox', { name: 'Release', exact: true }).click();
+      await page.getByRole('option', { name: 'Nightly', exact: true }).click();
+      await picker.getByRole('button', { name: 'Review change', exact: true }).click();
       await inflight;
-      await evidence.checkpoint('namespace-hydration-in-flight');
+      await evidence.checkpoint('reference-verification-in-flight');
+      await page.getByTestId('rail-explore').click();
       await captureOpLogSnapshot(page, evidence);
       await page.getByRole('button', { name: /Workspace menu/ }).click();
       await page.getByRole('menuitem', { name: /Close .*return to start page/ }).click();
-      await expect(page.getByRole('button', { name: 'New workspace', exact: true })).toBeVisible();
       await expect(page.getByTestId('rail-explore')).toBeDisabled();
-      await expect(page.getByTestId('explore-workbench')).toBeHidden();
+      await page
+        .getByRole('navigation', { name: 'Project launcher' })
+        .getByRole('button', { name: 'Workspaces', exact: true })
+        .click();
       await page.getByRole('button', { name: 'New workspace', exact: true }).click();
-      await expect(page.getByTestId('explore-workbench')).toBeVisible();
       release();
       await settled;
       await page.getByTestId('namespace-search').fill('BusinessCenters');
       await expect(typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data')).toHaveCount(0);
-      await expect(page.getByRole('button', { name: /Workspace menu.*untitled/ })).toBeVisible();
-      await evidence.checkpoint('late-hydration-discarded');
+      await evidence.checkpoint('late-reference-discarded');
       await captureOpLogSnapshot(page, evidence);
       await page.reload();
       evidence.markNavigation();
-      await expect(page.getByRole('button', { name: /Workspace menu.*untitled/ })).toBeVisible();
+      await expect(page.getByTestId('explore-workbench')).toBeVisible();
       await page.getByTestId('namespace-search').fill('BusinessCenters');
       await expect(typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data')).toHaveCount(0);
       await evidence.checkpoint('replacement-workspace-restored');

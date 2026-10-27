@@ -62,6 +62,28 @@ when that dependency chain declares support. Do not suppress peer checks. Minifl
 
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
+## Production UX checkout
+
+`pnpm --filter @rune-langium/studio run test:prod-ux` exercises the deployed Studio.
+Smoke and UX suites share `loadCurrentCdm` in `test/helpers/workspace-launcher.ts`:
+select a release, review its closure, Save, and wait for a visible reference type.
+The project-reference flow publishes linked references before Explore; deferred
+legacy-loader spinner assumptions do not apply to that flow.
+
+J23–J28 cover workspace YAML in both themes, named Export targets and retained
+outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed
+example repair, and blank workspaces returning from reference review to Explore.
+Local and production wrappers reuse those journey helpers and preserve operation
+evidence across reloads. J17 sweeps both themes; the fixed-dark-theme exception is
+retired. Production workflow journeys are desktop-only, including nested reload
+steps; local viewport tests retain separate phone coverage.
+
+Use the existing `codeMirrorDocument` helper to compare source bytes across reload:
+CodeMirror's rendered DOM is virtualized and is not the full document. Review the
+manifest, screenshots, traces, endpoint checks and canonical deployment separately;
+a passing selector does not establish that the visible state is useful. Keep real
+production failures visible instead of weakening assertions or adding ledger entries.
+
 ## Public CLI and LSP dependency closure
 
 The CLI and LSP server ship compiled modules rather than bundled workspace

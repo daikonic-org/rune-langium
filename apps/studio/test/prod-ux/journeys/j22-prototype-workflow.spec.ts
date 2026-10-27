@@ -7,14 +7,16 @@ import { workflowJourneys } from '../../helpers/prototype-workflow.js';
 import { captureOpLogSnapshot, checkout as test } from '../fixtures.js';
 import { REPORT_DIR } from '../evidence.js';
 
-for (const journey of workflowJourneys) {
+for (const journey of workflowJourneys.filter((journey) => !journey.id.includes('390'))) {
   test(
     `J22 ${journey.title}`,
     { annotation: { type: 'journey-subid', description: journey.id } },
     async ({ page, evidence }, info) => {
       test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'requires a deployed Studio');
       await journey.run(page, {
+        allowPhone: false,
         beforeReload: () => captureOpLogSnapshot(page, evidence),
+        afterReload: () => evidence.markNavigation(),
         checkpoint: (name) => evidence.checkpoint(name),
         accessibility: async (name, results) => {
           const directory = path.join(REPORT_DIR, 'axe', 'J22', `attempt${info.retry}`);

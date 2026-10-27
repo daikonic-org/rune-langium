@@ -13,10 +13,6 @@ test.describe('J15 — Settings perspective', () => {
     await expect(page.getByTestId('settings-perspective')).toBeVisible({ timeout: 20000 });
     await evidence.checkpoint('settings-loaded');
 
-    // SPEC ADAPTATION: no theme toggle exists (confirmed via source —
-    // SettingsPerspective.tsx's own doc comment: theme is fixed at dark,
-    // "a theme toggle will be added in a future release"). Not testable.
-
     // LIVE FINDING (see file-header comment #2): FontScaleButton is mounted
     // in both AppHeader (always visible) and SettingsPerspective — an
     // unscoped getByRole match hits both. Scope to settings-perspective.

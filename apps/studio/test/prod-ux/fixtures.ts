@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { openReferenceModels } from '../helpers/workspace-launcher.js';
+import { loadCurrentCdm } from '../helpers/workspace-launcher.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
@@ -252,29 +252,12 @@ export const CDM_BUTTON = 'CDM (Common Domain Model)';
 const WORKSPACE_FILE_NAME = 'starter.rosetta';
 const WORKSPACE_FILE_CONTENT = 'namespace example\n';
 
-/** Ported verbatim from test/prod-smoke/production-checkout.spec.ts's loadCdm helper. */
+/** Production smoke and UX journeys share the real reference transaction. */
 export async function loadCdm(page: Page, evidence?: EvidenceCollector): Promise<void> {
-  await page.goto('./');
-  await page.waitForLoadState('domcontentloaded');
-  await expect(page).toHaveTitle(/Rune Studio/);
-  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
-
-  const fileInput = page.locator('input[type="file"][accept=".rosetta"]');
-  await fileInput.setInputFiles([
-    { name: WORKSPACE_FILE_NAME, mimeType: 'text/plain', buffer: Buffer.from(WORKSPACE_FILE_CONTENT) }
-  ]);
-  await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
-  if (process.env.ENABLE_TELEMETRY === '1') await enableCheckoutTelemetry(page);
-  await page.getByTestId('rail-workspaces').click();
-  await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
-
   const startedAt = Date.now();
-  await openReferenceModels(page);
-  await page.getByTestId('model-loader').getByRole('button', { name: CDM_BUTTON }).click();
-
-  await expect(page.getByText('Loaded Models', { exact: false })).toBeVisible({ timeout: 90000 });
-  await expect(page.getByRole('button', { name: `Unload ${CDM_BUTTON}` })).toBeVisible({ timeout: 90000 });
-  evidence?.recordTiming('modelLoad', 'cdm loaded in UI', Date.now() - startedAt);
+  await loadCurrentCdm(page);
+  evidence?.recordTiming('modelLoad', 'cdm reference ready', Date.now() - startedAt);
+  if (process.env.ENABLE_TELEMETRY === '1') await enableCheckoutTelemetry(page);
 }
 
 export async function enableCheckoutTelemetry(page: Page): Promise<void> {

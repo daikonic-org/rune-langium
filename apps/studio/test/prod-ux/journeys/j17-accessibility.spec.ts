@@ -34,71 +34,47 @@ async function sweepAxe(page: Page, checkpointName: string, artifactDir: string)
   return { checkpoint: checkpointName, blocking: blocking.length };
 }
 
-test.describe('J17 — Accessibility sweep', () => {
-  test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
-
-  test('J17 axe sweep across all perspectives and the Import/Export dialogs', async ({ page, evidence }, testInfo) => {
-    const results: AxeSweepResult[] = [];
-    const artifactDir = path.join(REPORT_DIR, 'axe', 'J17', `attempt${testInfo.retry}`);
-
-    await loadCdm(page, evidence);
-
-    await page.getByTestId('rail-explore').click();
-    await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
-    results.push(await sweepAxe(page, 'explore', artifactDir));
-    await evidence.checkpoint('axe-explore');
-
-    await page.getByTestId('rail-workspaces').click();
-    await expect(page.getByTestId('workspaces-perspective')).toBeVisible({ timeout: 20000 });
-    results.push(await sweepAxe(page, 'workspaces', artifactDir));
-    await evidence.checkpoint('axe-workspaces');
-
-    await page.getByTestId('rail-git').click();
-    await expect(page.getByTestId('git-perspective')).toBeVisible({ timeout: 20000 });
-    results.push(await sweepAxe(page, 'git', artifactDir));
-    await evidence.checkpoint('axe-git');
-
-    await page.getByTestId('rail-export').click();
-    await expect(page.getByTestId('export-perspective')).toBeVisible({ timeout: 20000 });
-    results.push(await sweepAxe(page, 'export', artifactDir));
-    await evidence.checkpoint('axe-export');
-
-    await page.getByTestId('rail-settings').click();
-    await expect(page.getByTestId('settings-perspective')).toBeVisible({ timeout: 20000 });
-    results.push(await sweepAxe(page, 'settings', artifactDir));
-    await evidence.checkpoint('axe-settings');
-
-    await page.getByTestId('rail-explore').click();
-    await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
-    await page.getByRole('button', { name: 'Import Model' }).click();
-    await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
-    results.push(await sweepAxe(page, 'import-dialog', artifactDir));
-    await evidence.checkpoint('axe-import-dialog');
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('import-dialog')).not.toBeVisible({ timeout: 5000 });
-
-    await page.getByTestId('rail-explore').click();
-    const explore = page.getByTestId('explore-workbench');
-    await explore.getByTestId('namespace-search').fill('BusinessCenters');
-    await typeNavigationButton(explore, ANCHOR_DATA).click();
-    await page.getByRole('tab', { name: 'Code' }).click();
-    await page.getByTestId('codegen-targets-table__download-zod').click();
-    await expect(page.getByTestId('download-config-dialog')).toBeVisible({ timeout: 10000 });
-    results.push(await sweepAxe(page, 'download-config-dialog', artifactDir));
-    await evidence.checkpoint('axe-download-config-dialog');
-    await page.getByTestId('download-config-dialog__cancel').click();
-    await expect(page.getByTestId('download-config-dialog')).not.toBeVisible({ timeout: 5000 });
-
-    // SPEC ADAPTATION: "both themes" is unreachable — J15 confirmed theme
-    // is currently fixed at dark, no toggle exists. Recording rather than
-    // fabricating a second sweep under an unreachable theme.
-    evidence.softFinding(
-      'KI-a11y-single-theme-only',
-      "Axe sweep ran once under the app's fixed dark theme — no light-theme toggle exists to exercise the " +
-        'spec\'s "both themes" requirement. Settings provides font scaling and layout reset, but no theme switch.'
-    );
-
-    const totalBlocking = results.reduce((sum, r) => sum + r.blocking, 0);
-    expect(totalBlocking, `serious/critical axe violations: ${JSON.stringify(results)}`).toBe(0);
-  });
-});
+for (const theme of ['daikonic', 'light'])
+  test(
+    `J17 axe sweep across perspectives and dialogs in ${theme} theme`,
+    { annotation: { type: 'journey-subid', description: theme } },
+    async ({ page, evidence }, testInfo) => {
+      test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'requires a deployed Studio');
+      const results: AxeSweepResult[] = [];
+      const artifactDir = path.join(REPORT_DIR, 'axe', 'J17', theme, `attempt${testInfo.retry}`);
+      await loadCdm(page, evidence);
+      await page.getByTestId('rail-settings').click();
+      await page.getByTestId('settings-perspective').getByLabel('Theme', { exact: true }).selectOption(theme);
+      for (const [rail, surface] of [
+        ['explore', 'explore-workbench'],
+        ['workspaces', 'workspaces-perspective'],
+        ['git', 'git-perspective'],
+        ['export', 'export-perspective'],
+        ['settings', 'settings-perspective']
+      ]) {
+        await page.getByTestId(`rail-${rail}`).click();
+        await expect(page.getByTestId(surface)).toBeVisible({ timeout: 20000 });
+        results.push(await sweepAxe(page, rail, artifactDir));
+        await evidence.checkpoint(`axe-${theme}-${rail}`);
+      }
+      await page.getByTestId('rail-explore').click();
+      await page.getByRole('button', { name: 'Import Model' }).click();
+      await expect(page.getByTestId('import-dialog')).toBeVisible({ timeout: 10000 });
+      results.push(await sweepAxe(page, 'import-dialog', artifactDir));
+      await evidence.checkpoint(`axe-${theme}-import-dialog`);
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('import-dialog')).not.toBeVisible();
+      await page.getByTestId('namespace-search').fill('BusinessCenters');
+      await typeNavigationButton(page, ANCHOR_DATA).click();
+      await page.getByRole('tab', { name: 'Code', exact: true }).click();
+      await page.getByTestId('codegen-targets-table__download-zod').click();
+      await expect(page.getByTestId('download-config-dialog')).toBeVisible({ timeout: 10000 });
+      results.push(await sweepAxe(page, 'download-config-dialog', artifactDir));
+      await evidence.checkpoint(`axe-${theme}-download-config-dialog`);
+      await page.getByTestId('download-config-dialog__cancel').click();
+      expect(
+        results.reduce((sum, r) => sum + r.blocking, 0),
+        `serious/critical axe violations: ${JSON.stringify(results)}`
+      ).toBe(0);
+    }
+  );

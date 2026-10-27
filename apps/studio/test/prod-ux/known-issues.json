@@ -2,12 +2,6 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "id": "KI-a11y-single-theme-only",
-      "issueUrl": null,
-      "expires": "2026-11-10",
-      "reason": "Studio supports a fixed dark theme. The second-theme requirement is future coverage, not an observed accessibility failure."
-    },
-    {
       "id": "KI-cold-curated-hydration-tail",
       "issueUrl": "https://github.com/pradeepmouli/rune-langium/issues/540",
       "expires": "2026-11-10",
