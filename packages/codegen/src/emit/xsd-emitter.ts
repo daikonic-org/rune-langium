@@ -93,9 +93,16 @@ export function constraintIRToXsdFacets(ir: ConstraintIR): Record<string, number
   }
 }
 
-/** XML-escapes a string for use as element/attribute text content or a quoted attribute value. */
+/** Attribute-safe XML escaping, preserving whitespace through XML attribute normalization. */
 function escapeXml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/\t/g, '&#9;')
+    .replace(/\n/g, '&#10;')
+    .replace(/\r/g, '&#13;');
 }
 
 function indentLines(lines: readonly string[], depth: number): string[] {

@@ -1173,3 +1173,5 @@ order within a cycle and placing the entire cycle before downstream consumers.
 The existing type-level cyclic-last policy remains separate. XSD references use
 resolved declaration namespaces for QNames and relative schema imports, including
 foreign enum restrictions and complex-type inheritance.
+XSD attribute escaping uses numeric references for tabs and line endings so XML
+normalization cannot change an external enum code into a different value.

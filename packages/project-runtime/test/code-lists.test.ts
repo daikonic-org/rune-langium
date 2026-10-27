@@ -255,7 +255,13 @@ it('materializes an explicitly mapped reference alias while retaining reference 
   expect(snapshot.files).toEqual(files);
 });
 
-it('produces an XSD closure that compiles and enforces a resource-backed alias across namespaces', async () => {
+it.each([
+  { code: 'EUR', xmlValue: 'EUR', rejectedXmlValue: 'USD' },
+  { code: 'A\nB', xmlValue: 'A&#10;B', rejectedXmlValue: 'A B' },
+  { code: 'A\rB', xmlValue: 'A&#13;B', rejectedXmlValue: 'A B' },
+  { code: 'A\tB', xmlValue: 'A&#9;B', rejectedXmlValue: 'A B' },
+  { code: 'A&#10;B', xmlValue: 'A&amp;#10;B', rejectedXmlValue: 'A&#10;B' }
+])('compiles an XSD closure preserving the exact resource code $code', async ({ code, xmlValue, rejectedXmlValue }) => {
   const { validateGeneratedXsd } = await import('../../../test/helpers/xsd-validation.js');
   const snapshot = await createProjectSnapshot(
     'xsd-list',
@@ -275,7 +281,7 @@ it('produces an XSD closure that compiles and enforces a resource-backed alias a
         })
       ],
       ['model/quote.rosetta', 'namespace quote\ntypeAlias Currency: string\ntype Quote:\n currency Currency (1..1)'],
-      ['resources/codes.json', '[{"value":"EUR","label":"Euro"}]']
+      ['resources/codes.json', JSON.stringify([{ value: code, label: 'Allowed code' }])]
     ]),
     () => []
   );
@@ -285,9 +291,9 @@ it('produces an XSD closure that compiles and enforces a resource-backed alias a
   const entry = { path: 'quote.xsd', namespace: 'urn:rune:quote', type: 'Quote' };
   const xml = (value: string) =>
     `<Document xmlns="urn:rune:test" xmlns:q="urn:rune:quote"><q:currency>${value}</q:currency></Document>`;
-  const valid = validateGeneratedXsd(outputs, entry, xml('EUR'));
+  const valid = validateGeneratedXsd(outputs, entry, xml(xmlValue));
   expect(valid.status, valid.error ?? valid.stderr).toBe(0);
-  const invalid = validateGeneratedXsd(outputs, entry, xml('USD'));
+  const invalid = validateGeneratedXsd(outputs, entry, xml(rejectedXmlValue));
   expect(invalid.status).not.toBe(0);
   expect(invalid.stderr).toMatch(/enumeration/);
 });
