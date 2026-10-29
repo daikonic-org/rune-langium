@@ -63,6 +63,13 @@ function inlineBindingArgument(
   return argument ? { argument, element: !isThenOperation(operation) } : undefined;
 }
 
+/** Authored empty is absence, not a competing array shape in a value branch. */
+function valueBranches(expressions: readonly (RosettaExpression | undefined)[]): RosettaExpression[] {
+  return expressions.filter(
+    (node): node is RosettaExpression => !!node && !(isListLiteral(node) && node.elements.length === 0)
+  );
+}
+
 /** A multi-valued expression may mix scalar and array branches; keep that distinction. */
 export function collectionShape(
   expression: RosettaExpression | undefined,
@@ -72,6 +79,10 @@ export function collectionShape(
   seen.add(expression);
   const from = (node: RosettaExpression | undefined) => collectionShape(node, new Set(seen));
   const merge = (left: CollectionShape, right: CollectionShape) => (left === right ? left : 'mixed');
+  const branches = (nodes: readonly (RosettaExpression | undefined)[]): CollectionShape => {
+    const shapes = valueBranches(nodes).map(from);
+    return shapes.length ? shapes.reduce(merge) : 'array';
+  };
   const elementFrom = (argument: RosettaExpression | undefined): CollectionShape =>
     collectionDepth(argument) > 1 || from(argument) === 'unknown' ? 'unknown' : 'scalar';
   const binding = inlineBindingArgument(expression);
@@ -80,13 +91,11 @@ export function collectionShape(
   if (isReduceOperation(expression))
     return merge(elementFrom(getOperationArgument(expression)), from(expression.function?.body));
   if (isListLiteral(expression)) return 'array';
-  if (isRosettaConditionalExpression(expression))
-    return expression.elsethen ? merge(from(expression.ifthen), from(expression.elsethen)) : from(expression.ifthen);
-  if (isDefaultOperation(expression)) return merge(from(expression.left), from(expression.right));
+  if (isRosettaConditionalExpression(expression)) return branches([expression.ifthen, expression.elsethen]);
+  if (isDefaultOperation(expression)) return branches([expression.left, expression.right]);
   if (isThenOperation(expression)) return from(expression.function?.body ?? expression.argument);
   if (isSwitchOperation(expression)) {
-    const branches = expression.cases.map((branch) => from(branch.expression));
-    return branches.length ? branches.reduce(merge) : 'unknown';
+    return branches(expression.cases.map((branch) => branch.expression));
   }
   if (isRosettaSymbolReference(expression)) {
     const ref = expression.symbol.ref;
@@ -195,9 +204,12 @@ export function collectionDepth(
   if (['FilterOperation', 'SortOperation', 'ReverseOperation', 'DistinctOperation'].includes(expression.$type))
     return depth(getOperationArgument(expression)) || 1;
   if (isThenOperation(expression)) return depth(expression.function?.body ?? getOperationArgument(expression));
-  if (isRosettaConditionalExpression(expression)) return Math.max(depth(expression.ifthen), depth(expression.elsethen));
-  if (isDefaultOperation(expression)) return Math.max(depth(expression.left), depth(expression.right));
-  if (isSwitchOperation(expression)) return Math.max(0, ...expression.cases.map((branch) => depth(branch.expression)));
+  if (isRosettaConditionalExpression(expression))
+    return Math.max(0, ...valueBranches([expression.ifthen, expression.elsethen]).map(depth));
+  if (isDefaultOperation(expression))
+    return Math.max(0, ...valueBranches([expression.left, expression.right]).map(depth));
+  if (isSwitchOperation(expression))
+    return Math.max(0, ...valueBranches(expression.cases.map((branch) => branch.expression)).map(depth));
   if (isRosettaSymbolReference(expression)) {
     const target = expression.symbol.ref;
     if (isShortcutDeclaration(target) || isRosettaRule(target)) return depth(target.expression);

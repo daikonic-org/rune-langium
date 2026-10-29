@@ -7,6 +7,14 @@ import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 const source = `namespace projection
+type Asset:
+ amount int (1..1)
+type Trade:
+ asset Asset (0..1)
+func Deep:
+ inputs: trade Trade (1..1)
+ output: result int (0..1)
+ set result: trade ->> amount
 func Transform:
  inputs: values int (0..*) cutoff int (1..1)
  output: adjusted int (0..*)
@@ -70,6 +78,28 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await expect(rune).toContainText('amount extract [2]');
   await rune.press('ControlOrMeta+z');
   await expect(rune).toContainText('amount extract [1]');
+  await page.getByTestId('namespace-search').fill('Deep');
+  await typeNavigationButton(page, 'projection.Deep', 'RosettaFunction').click();
+  await rune.locator('.cm-line').filter({ hasText: 'set result:' }).click();
+  await page.keyboard.press('End');
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(generated).toContainText('trade._.amount');
+  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
+  await draft.press('ControlOrMeta+a');
+  await page.keyboard.insertText('trade._.amount + 1');
+  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+  await expect(rune).toContainText('trade ->> amount + 1');
+  await rune.press('ControlOrMeta+z');
+  await expect(rune).toContainText('trade ->> amount');
+  await expect(rune).not.toContainText('amount + 1');
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(generated).toContainText('trade._.amount');
+  await expect(implementation.getByText(/Showing the last valid source/)).not.toBeVisible();
+  const deepScreenshot = testInfo.outputPath('source-projection-deep.png');
+  await page.screenshot({ path: deepScreenshot });
+  await testInfo.attach('source-projection-deep', { path: deepScreenshot, contentType: 'image/png' });
   await page.getByTestId('namespace-search').fill('External');
   await typeNavigationButton(page, 'projection.External', 'RosettaFunction').click();
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();

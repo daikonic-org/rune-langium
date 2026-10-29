@@ -4,6 +4,7 @@
 import {
   isRosettaRule,
   isData,
+  isChoice,
   isAnnotation,
   isRosettaEnumeration,
   type RosettaFunction,
@@ -33,7 +34,11 @@ export class CallableNames {
   private readonly scopedAliases = new Map<string, string>();
   private readonly reservedAliases: Set<string>;
 
-  constructor(registry: NamespaceRegistry, enumReservedNames?: ReadonlySet<string>) {
+  constructor(
+    registry: NamespaceRegistry,
+    enumReservedNames?: ReadonlySet<string>,
+    runtimeReserved: readonly string[] = []
+  ) {
     for (const [namespace, manifest] of registry.namespaces) {
       const typeNames = new Set([
         ...manifest.exportedDataNames,
@@ -41,7 +46,7 @@ export class CallableNames {
         ...manifest.exportedTypeAliasNames,
         ...manifest.exportedAnnotationNames
       ]);
-      const helpers = new Set<string>(RUNE_HELPER_NAMES);
+      const helpers = new Set<string>([...RUNE_HELPER_NAMES, ...runtimeReserved]);
       const reserved = new Set([
         ...typeNames,
         ...manifest.exportedFuncNames,
@@ -71,6 +76,13 @@ export class CallableNames {
       for (const name of [...manifest.exportedEnumNames].sort())
         if (enumReservedNames?.has(name)) allocate(name, 'Enum', this.enumExports, ['Values', 'DisplayNames']);
       const names = new Set([
+        ...(runtimeReserved.length
+          ? [...manifest.exportedDataNames].flatMap((name) =>
+              ['', 'Input', 'Type', 'Data'].map(
+                (suffix) => `$${this.dataExported(namespace, name)}${suffix ? `$${suffix}` : ''}`
+              )
+            )
+          : []),
         ...[...manifest.exportedDataNames].map((name) => this.dataExported(namespace, name)),
         ...[...manifest.exportedDataNames].flatMap((name) => [`${name}Shape`, `is${name}`]),
         ...[...manifest.exportedEnumNames].map((name) => this.enumExported(namespace, name)),
@@ -122,7 +134,7 @@ export class CallableNames {
   }
 
   declarationExported(namespace: string, declaration: AstNode & { name: string }, name = declaration.name): string {
-    if (isData(declaration)) return this.dataExported(namespace, name);
+    if (isData(declaration) || isChoice(declaration)) return this.dataExported(namespace, name);
     if (isRosettaEnumeration(declaration)) {
       const exported = this.enumExported(namespace, declaration.name);
       for (const suffix of ['', 'Values', 'DisplayNames'])

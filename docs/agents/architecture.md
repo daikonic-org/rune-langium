@@ -1206,3 +1206,33 @@ Rune function identities and preserves the catalog entry in core provenance.
 Studio and the whole-corpus CI gate reuse that reader and the linked worker decoder.
 Function argument bundles are distinct from Data objects; selecting a bundle is an
 explicit workflow activation, while import alone never changes the active workflow.
+
+
+## Generated public value views
+
+Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
+shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
+around the existing RuneList runtime; `new Trade` retains one model construction.
+Internal data classes and public constructor/factory values are separate so child
+factories do not violate TypeScript static-side inheritance. Plain Shapes and
+function boundaries remain unchanged. The normalizer owns only the supplied value
+graph, preserves cycles and reuses generated construction guards. Conditions are
+separate from shape checks. Field/deep selectors retain descriptors and compose
+bounds; ambiguous names require linked declaration identity. The `._.` syntax lens
+maps directly to Rune deep navigation and keeps its existing edit transaction.
+
+`expr/deep-paths.ts` owns the canonical direct-first, cycle-protected path selection
+used by executable lowering and public views. A generated source string embeds
+that same function in exported runtimes; do not maintain another traversal.
+Reachable descriptor inventories share metadata across cyclic graphs. No full CDM
+object graph is materialized merely by importing generated modules.
+
+Runtime descriptor getter types are erased only at the shared execution boundary;
+selection generics retain the exact linked model. This prevents TypeScript from
+recursively comparing whole cyclic schema graphs merely to validate a descriptor.
+A 64-type cyclic compilation regression and the pinned corpus cover this boundary.
+
+Bare extraction/filtering inside a pipeline uses Core's `getOperationArgument` for
+shape analysis and the current bound value for execution. An absent explicit
+receiver does not imply a collection; scalar pipelines retain scalar results,
+while many-valued extraction keeps groups until its declared boundary.

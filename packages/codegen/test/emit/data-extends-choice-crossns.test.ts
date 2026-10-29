@@ -82,7 +82,7 @@ describe('Data-extends-Choice — cross-namespace Choice supertype', () => {
     // getTargetRelativePath's layout) — previously emitted as the
     // unresolvable `../base.js` (resolveImportPath's off-by-one, fixed
     // alongside this suite).
-    expect(productOutput!.content).toContain("import { Asset, AssetShape } from './base.js';");
+    expect(productOutput!.content).toMatch(/import \{[^}]*\bAsset, AssetShape\b[^}]*\} from '\.\/base.js';/);
   });
 
   it('the child constrains its generic Shape alias and class on the imported <Choice>Shape', async () => {
@@ -93,7 +93,9 @@ describe('Data-extends-Choice — cross-namespace Choice supertype', () => {
     expect(productOutput!.content).toContain(
       'export type TransferableProductShape<T extends AssetShape = AssetShape> = T & {\n  weight?: number;\n};'
     );
-    expect(productOutput!.content).toContain('export class TransferableProduct<T extends AssetShape = AssetShape>');
+    expect(productOutput!.content).toContain(
+      'export class $TransferableProduct$Data<T extends AssetShape = AssetShape>'
+    );
   });
 
   it('MULTI-FILE compile check: both emitted namespaces typecheck together under real tsc --strict (imports actually resolved)', async () => {

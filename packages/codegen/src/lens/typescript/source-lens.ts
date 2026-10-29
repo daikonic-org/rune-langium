@@ -240,8 +240,15 @@ class SourceReader {
       }
       case 'ternary_expression':
         return `if (${read(field(node, 'condition'))}) then (${read(field(node, 'consequence'))}) else (${read(field(node, 'alternative'))})`;
-      case 'member_expression':
-        return `(${read(field(node, 'object'))}) -> ${id(field(node, 'property'))}`;
+      case 'member_expression': {
+        const receiver = strip(field(node, 'object'));
+        const property = id(field(node, 'property'));
+        if (receiver.type === 'member_expression' && field(receiver, 'property').text === '_')
+          return `(${read(field(receiver, 'object'))}) ->> ${property}`;
+        if (property === '_')
+          return this.fail(node, 'Select a deep property after ._, or use field("_") for the actual field.');
+        return `(${read(receiver)}) -> ${property}`;
+      }
       case 'subscript_expression':
         return `(${read(field(node, 'index'))}) to-enum ${qualified(field(node, 'object'))}`;
       case 'as_expression':
@@ -273,6 +280,11 @@ class SourceReader {
           if (['map', 'filter', 'flatMap', 'reduce'].includes(method) && args.length === 1) {
             const operation = `${base} ${method === 'filter' ? 'filter' : method === 'reduce' ? 'reduce' : 'extract'} ${this.inline(args[0]!, scope)}`;
             return method === 'flatMap' ? `(${operation}) flatten` : operation;
+          }
+          if (method === 'field' && args.length === 1 && args[0]!.type === 'string') {
+            const name = stringValue(args[0]!);
+            if (!isRuneValidId(name)) return this.fail(args[0]!, 'Expected a Rune field name.');
+            return `${base} -> ${name}`;
           }
           if (method === 'prop' && args.length === 1) {
             const fn = this.lambda(args[0]!, scope),

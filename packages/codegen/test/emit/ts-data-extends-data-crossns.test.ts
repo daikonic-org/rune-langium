@@ -80,7 +80,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('export class Dog extends Animal implements DogShape');
+    expect(productOutput!.content).toContain('export class $Dog$Data extends $Animal$Data implements DogShape');
   });
 
   it('the type guard overload set includes the cross-namespace parent chain (not silently dropped)', async () => {
@@ -96,7 +96,11 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain("import { Animal, AnimalShape } from './base.js';");
+    const imports = productOutput!.content
+      .match(/import \{([^}]+)\} from '\.\/base.js';/)![1]!
+      .split(',')
+      .map((name) => name.trim());
+    expect(imports).toEqual(expect.arrayContaining(['$Animal$Data', 'Animal', 'AnimalShape']));
   });
 
   it('MULTI-FILE compile check: both emitted namespaces typecheck together under real tsc --strict', async () => {

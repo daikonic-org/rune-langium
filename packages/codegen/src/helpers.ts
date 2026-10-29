@@ -9,6 +9,7 @@ import { temporalRuntimeSource } from './expr/temporal-runtime.js';
 import { functionDataRuntimeSource } from './expr/function-data-runtime.js';
 import { runeListRuntimeSource } from './expr/rune-list-runtime.js';
 import { collectionRuntimeSource } from './expr/collection-runtime.js';
+import { runeValueRuntimeSource } from './expr/rune-value-runtime.js';
 
 /** Namespace members reference the authoritative implementations, retaining generic types. */
 const RUNTIME_NAMESPACE_MEMBERS = {
@@ -45,7 +46,7 @@ const METADATA_NAMESPACE_MEMBERS = {
 } as const;
 
 /** Compose inline, sidecar and executable runtimes before creating their shared namespace. */
-export function runtimeHelperSource(typescript: boolean, exported = false, metadata = false): string {
+export function runtimeHelperSource(typescript: boolean, exported = false, metadata = false, values = false): string {
   const prefix = exported ? 'export ' : '';
   const type = (value: string) => (typescript ? value : '');
   const scalar = [
@@ -68,6 +69,7 @@ export function runtimeHelperSource(typescript: boolean, exported = false, metad
     collectionRuntimeSource(typescript, exported),
     scalar,
     runeListRuntimeSource(typescript, exported),
+    ...(typescript && values ? [runeValueRuntimeSource(exported)] : []),
     ...(metadata ? [metadataRuntimeSource(typescript, exported)] : []),
     valueEqualitySource(typescript, exported, {
       ...RUNTIME_NAMESPACE_MEMBERS,

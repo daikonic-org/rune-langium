@@ -337,7 +337,9 @@ export class SourceExpressionRenderer {
           scope.self &&
           typeFeatures(scope.type).includes(target)
         )
-          return atom(`${parenthesize(scope.self, 10)}.${featureName(target)}`);
+          return featureName(target) === '_'
+            ? this.method(scope.self, 'field', [JSON.stringify('_')])
+            : atom(`${parenthesize(scope.self, 10)}.${featureName(target)}`);
         if (expression.explicitArguments)
           return atom(
             `${name}(${this.ordered(expression.rawArgs, scope)
@@ -353,8 +355,7 @@ export class SourceExpressionRenderer {
         const name = referenceName(expression.feature);
         if (isRosettaEnumValue(feature)) return atom(`${receiver.code}.${feature.name}`);
         if (expression.$type === 'RosettaDeepFeatureCall') {
-          const item = this.parameter(scope);
-          return this.method(receiver, 'prop', [`${item} => ${item}.${name}`]);
+          return atom(`${parenthesize(receiver, 10)}._.${name}`);
         }
         if (expressionIsMany(expression.receiver)) {
           const item = this.parameter(scope);
@@ -363,8 +364,11 @@ export class SourceExpressionRenderer {
             isAttribute(feature) || isChoiceOption(feature) || isRosettaRecordFeature(feature)
               ? featureIsMany(feature)
               : false;
-          return this.method(receiver, many ? 'flatMap' : 'map', [`${item} => ${calendar ?? `${item}.${name}`}`]);
+          return this.method(receiver, many ? 'flatMap' : 'map', [
+            `${item} => ${calendar ?? (name === '_' ? `${item}.field("_")` : `${item}.${name}`)}`
+          ]);
         }
+        if (name === '_') return this.method(receiver, 'field', [JSON.stringify(name)]);
         const present = expressionIsPresent(expression.receiver);
         const calendar = renderCalendarField(feature, () => receiver.code, false, true, present, undefined, true);
         return atom(calendar ?? `${parenthesize(receiver, 10)}${present ? '.' : '?.'}${name}`);

@@ -73,7 +73,7 @@ describe('TS emitter — Choice-typed attribute cross-namespace import', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
     expect(holderOutput).toBeDefined();
-    expect(holderOutput!.content).toContain("import { Asset } from './base.js';");
+    expect(holderOutput!.content).toMatch(/import \{[^}]*\bAsset\b[^}]*\} from '\.\/base.js';/);
     expect(holderOutput!.content).toContain('asset?: Asset;');
   });
 

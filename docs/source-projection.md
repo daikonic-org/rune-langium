@@ -20,7 +20,7 @@ JavaScript equality, collection or calendar behavior for Rune operations.
 | --- | --- |
 | `trades -> amount` | `trades.map(item => item.amount)` |
 | `trades -> amounts` | `trades.flatMap(item => item.amounts)` |
-| `trade ->> amount` | `trade.prop(item => item.amount)` |
+| `trade ->> amount` | `trade._.amount` |
 | `trade -> child -> amount` | `trade.child?.amount` when only child is optional |
 | `trades extract [quantity * price]` | `trades.map(item => item.quantity * item.price)` |
 | `trades extract [amounts]` | `trades.map(item => item.amounts)` (groups retained) |
@@ -88,6 +88,10 @@ comparison tolerates formatting and quote changes. Supported edits replace uniqu
 original subexpressions while retaining navigation/extraction and scalar-binding
 identity. Repeated or overlapping origins refuse rather than guess.
 
+Deep navigation uses `receiver._.field`; `.field("_")` selects an actual field
+named `_` without entering the deep view. Older `.prop(item => item.field)`
+drafts remain readable. A dangling deep view is not a Rune expression.
+
 Without an origin, map canonically means extract, flatMap means extract followed
 by flatten, and property access means Rune navigation. Collection membership and
 quantifiers lower back to their Rune operations. The core parser remains the
@@ -121,3 +125,46 @@ cover formatting, implementation status, private drafts and guarded application.
 these guards to Rune type selection plus existence; it does not require exported
 Data interfaces to be JavaScript constructors. Single/multiple-exists retain their
 cardinality helpers. Standalone authored type selection retains `value as Cash`.
+
+## Generated public value API
+
+Generated TypeScript exposes `Trade.from(input)` alongside `new Trade(shape)`.
+The factory returns a uniform fluent view for one value, an optional value or a
+collection. It accepts typed model inputs, JSON text, unknown external payloads
+and existing views; it normalizes scalar/list fields, checks declared bounds and
+field types, and materializes nested models without mutating the input. Authored
+business conditions remain explicit validation methods. `new Trade(shape)` keeps
+single-instance construction; it does not perform the factory's normalization.
+
+```typescript
+const trade = Trade.from({ transfers: [{ asset: { amount: 3 } }] });
+const total = trade._.asset.amount.sum();
+const first = Trade.from([inputA, inputB]).first();
+const payload = first.unwrap();
+const items = trade.toArray();
+```
+
+Linked field descriptors supply both runtime traversal and TypeScript field types.
+Direct and deep selection compose lower/upper cardinality bounds. Required single
+values unwrap to `T`; optional singles to `T | undefined`; many-valued views to
+scalar/nonempty-tuple/absence unions as their bounds permit. Literal tuples retain
+their root size. Bounded field inputs and payloads use tuple unions up to 32;
+larger bounds widen statically while retaining full runtime checks. Unknown/JSON
+inputs are conservatively `0..*`. Cyclic deep paths also widen to `0..*`; runtime
+path selection still uses the canonical linked traversal, with cycle protection.
+Legacy plain Shapes and exported function array signatures stay interoperable and
+do not encode every bound; call `.unwrap()` or `.toArray()` at those boundaries.
+
+Operations share the existing RuneList implementation. Selection, filtering,
+sorting and element selectors keep model descriptors, so chaining works after
+`first()` or `min()`. `map` retains array-valued groups; `flatMap` and `flat` make
+flattening explicit. Sorting uses Rune value/Temporal ordering and does not mutate
+inputs. `unwrap()` returns the current plain model payload, `toArray()` returns an
+owned array, and `toJSON()` serializes through the shared Rune data adapter.
+
+An authored field that collides with a view operation is available through
+`view.field('map')` or `view.field('_')`. Deep names that identify several distinct
+linked fields are deliberately unavailable; use
+`view.select('namespace.Owner#field')` to disambiguate. Traversal follows declared
+model fields, not arbitrary JavaScript object keys. Metadata payload navigation
+hides representation wrappers while retaining actual authored `value` fields.

@@ -430,3 +430,19 @@ Rune function identity, retaining the original catalog entry in provenance. Impo
 leaves the current workflow unchanged; explicitly selecting the saved bundle opens
 the function and seeds its argument fields. Java-only catalog functions remain
 unavailable until their implementation is supported.
+
+
+## Deep-navigation runtime generation
+
+Codegen builds regenerate `expr/generated/deep-runtime-source.ts` from the shared
+`expr/deep-paths.ts`. Edit the canonical traversal, then run
+`pnpm --filter @rune-langium/codegen run generate:deep-runtime`.
+`node packages/codegen/scripts/generate-deep-runtime.mjs --check` checks the
+formatter-stable output; the Python Projections workflow runs this with its
+existing runtime source check. Both generators share `scripts/runtime-source.mjs`.
+
+Public value changes require the strict generated compilation/runtime tests in
+`test/emit/value-api.test.ts`, inheritance/namespace tests and the pinned codegen
+corpus check. Rebuild Codegen before Studio consumes it. The desktop
+`test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
+real expression-edit pipeline; it is separate from production acceptance.

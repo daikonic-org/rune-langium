@@ -20,6 +20,7 @@ type Child:
   amount number (1..1)
 type Trade:
   amount number (1..1)
+  _ number (0..1)
   amounts number (0..*)
   quantity number (1..1)
   price number (1..1)
@@ -61,9 +62,11 @@ func Example:
 describe('source-facing TypeScript expressions', () => {
   it.each([
     ['trades -> amount', 'trades.map(item => item.amount)'],
+    ['trades -> _', 'trades.map(item => item.field("_"))'],
+    ['trades extract [_]', 'trades.map(item => item.field("_"))'],
     ['trades -> amounts', 'trades.flatMap(item => item.amounts)'],
     ['trade -> child -> amount', 'trade.child?.amount'],
-    ['trade ->> amount', 'trade.prop(item => item.amount)'],
+    ['trade ->> amount', 'trade._.amount'],
     ['trades filter [amount > 0]', 'trades.filter(item => item.amount > 0)'],
     ['trades extract [quantity * price]', 'trades.map(item => item.quantity * item.price)'],
     ['trades extract [amounts]', 'trades.map(item => item.amounts)'],

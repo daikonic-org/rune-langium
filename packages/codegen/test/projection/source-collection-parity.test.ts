@@ -165,3 +165,88 @@ it('keeps scalar boundaries and extraction callback groups consistent in Python'
     ...Array.from({ length: 6 }, () => ({ value: [] }))
   ]);
 });
+
+it('retains scalar and collection shapes for bare pipeline extraction and filtering', async () => {
+  const functions = await linkedFunctions(`namespace test.pipelineShapes
+ type Group:
+  values int (0..*)
+ func ScalarObject:
+  inputs: group Group (0..1)
+  output: result Group (0..1)
+  set result: group then extract Group { values: values }
+ func ScalarList:
+  inputs: group Group (0..1)
+  output: result int (0..*)
+  set result: group then extract values
+ func ManyList:
+  inputs: groups Group (0..*)
+  output: result int (0..*)
+  set result: groups then extract values
+ func FirstScalar:
+  inputs: groups Group (0..*)
+  output: result int (0..1)
+  set result: groups first then extract values first
+ func ScalarSwitch:
+  inputs: group Group (0..1) selector int (1..1)
+  output: result int (0..*)
+  alias selected: selector switch 1 then group, default empty
+  add result: selected extract values first
+ func ScalarConditional:
+  inputs: group Group (0..1) flag boolean (1..1)
+  output: result int (0..*)
+  alias selected: if flag then group else empty
+  add result: selected extract values first
+ func ScalarFilter:
+  inputs: amount int (0..1)
+  output: result int (0..1)
+  set result: amount then filter [item > 0]
+`);
+  const document = AstUtils.getDocument(functions[0]!);
+  const integer = functions.find((func) => func.name === 'ScalarFilter')!.inputs[0]!.typeCall!.type.ref!;
+  const outputs = await generate([AstUtils.getDocument(integer), document], {
+    target: 'typescript',
+    typescript: { layout: 'single-file' }
+  });
+  const api = compileGeneratedTypeScript<Record<string, (...inputs: unknown[]) => unknown>>(outputs);
+  expect(api.ScalarObject!({ values: [1, 2] })).toEqual({ values: [1, 2] });
+  expect(api.ScalarObject!()).toBeUndefined();
+  expect(api.ScalarList!({ values: [1, 2] })).toEqual([1, 2]);
+  expect(api.ScalarList!()).toEqual([]);
+  expect(api.ManyList!([{ values: [1, 2] }, { values: [3] }])).toEqual([1, 2, 3]);
+  expect(api.FirstScalar!([{ values: [1, 2] }, { values: [3] }])).toBe(1);
+  expect(api.FirstScalar!([])).toBeUndefined();
+  expect(api.ScalarFilter!(7)).toBe(7);
+  expect(api.ScalarFilter!(-1)).toBeUndefined();
+  expect(api.ScalarSwitch!({ values: [1, 2] }, 1)).toEqual([1]);
+  expect(api.ScalarSwitch!({ values: [1, 2] }, 0)).toEqual([]);
+  expect(api.ScalarConditional!({ values: [1, 2] }, true)).toEqual([1]);
+  expect(api.ScalarConditional!({ values: [1, 2] }, false)).toEqual([]);
+  const expressions = [
+    'ScalarObject({"group": {"values": [1, 2]}})',
+    'ScalarObject(None)',
+    'ScalarList({"group": {"values": [1, 2]}})',
+    'ScalarList(None)',
+    'ManyList([{"values": [1, 2]}, {"values": [3]}])',
+    'FirstScalar([{"values": [1, 2]}, {"values": [3]}])',
+    'FirstScalar([])',
+    'ScalarFilter(7)',
+    'ScalarFilter(-1)'
+  ];
+  expect(
+    runPython(
+      expressions.map((expression) => ({ expression })),
+      generatePythonModule([document]).code,
+      { includeRuntime: false }
+    )
+  ).toEqual([
+    { value: { values: [1, 2] } },
+    { value: null },
+    { value: [1, 2] },
+    { value: [] },
+    { value: [1, 2, 3] },
+    { value: 1 },
+    { value: null },
+    { value: 7 },
+    { value: null }
+  ]);
+});

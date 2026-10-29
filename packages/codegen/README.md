@@ -242,3 +242,15 @@ worker; authored Rune source and executable exports are unchanged by formatting.
 `typeIdentity` optionally carries the portable model/namespace/kind/name identity;
 `parseInstanceRecord` validates the legacy record envelope before migration. Its
 payload remains semantic data, independent of display formatting.
+
+
+## Cardinality-aware TypeScript views
+
+Generated `Trade.from(input)` returns a fluent value view for scalar, optional and
+collection inputs, with linked field types/cardinality and deep access such as
+`trade._.asset`. Use `.unwrap()` for a plain scalar/optional/collection payload or
+`.toArray()` for an owned array before calling ordinary exported functions.
+`new Trade(shape)` still constructs one model instance. Factory normalization
+checks shape/cardinality, preserves metadata and does not replace authored
+business-condition validation. See [source projections and the public value API](../../docs/source-projection.md#generated-public-value-api)
+for bounds, collision escapes and serialization behavior.
