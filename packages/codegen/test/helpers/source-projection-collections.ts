@@ -128,4 +128,32 @@ func IdentityCount:
 func Constant:
  inputs: groups Group (0..*)
  output: result int (0..*)
- set result: (groups extract [values]) extract [1]`;
+ set result: (groups extract [values]) extract [1]
+func First:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) first
+func Last:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) last
+func Only:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) only-element
+func Min:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) min [item count]
+func Max:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) max [item count]
+func Reduced:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) reduce left, right [left]
+func FirstScalar:
+ inputs: groups Group (0..*)
+ output: result int (0..1)
+ set result: (groups extract [values]) first`;

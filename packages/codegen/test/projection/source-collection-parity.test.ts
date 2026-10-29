@@ -131,7 +131,16 @@ it('keeps scalar boundaries and extraction callback groups consistent in Python'
       expression: `${name}([{"values": [1, 2]}, {"values": [3]}])`
     })),
     { expression: 'IdentityCount([{"values": [1, 2]}, {"values": [3]}])' },
-    { expression: 'Constant([{"values": [1, 2]}, {"values": [3]}])' }
+    { expression: 'Constant([{"values": [1, 2]}, {"values": [3]}])' },
+    ...['First', 'Last', 'Min', 'Max', 'Reduced'].map((name) => ({
+      expression: `${name}([{"values": [1, 2]}, {"values": [3]}])`
+    })),
+    { expression: 'Only([{"values": [1, 2]}])' },
+    { expression: 'Only([{"values": []}, {"values": [1]}])' },
+    { expression: 'FirstScalar([{"values": [1]}, {"values": [2]}])' },
+    { expression: 'FirstScalar([{"values": []}, {"values": [2]}])' },
+    { expression: 'FirstScalar([{"values": [1, 2]}])' },
+    ...['First', 'Last', 'Only', 'Min', 'Max', 'Reduced'].map((name) => ({ expression: `${name}([])` }))
   ];
   expect(runPython(cases, python.code, { includeRuntime: false })).toEqual([
     { value: 1 },
@@ -142,6 +151,17 @@ it('keeps scalar boundaries and extraction callback groups consistent in Python'
     { value: [1, 2, 3] },
     { value: [1, 2, 3] },
     { value: 2 },
-    { value: [1, 1] }
+    { value: [1, 1] },
+    { value: [1, 2] },
+    { value: [3] },
+    { value: [3] },
+    { value: [1, 2] },
+    { value: [1, 2] },
+    { value: [1, 2] },
+    { value: [] },
+    { value: 1 },
+    { value: null },
+    { error: 'Expected at most one value' },
+    ...Array.from({ length: 6 }, () => ({ value: [] }))
   ]);
 });

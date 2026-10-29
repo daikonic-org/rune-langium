@@ -106,6 +106,19 @@ func Increment:
       expect(funcs[name]!({ groups })).toEqual([1, 2, 3]);
     expect(funcs.IdentityCount!({ groups })).toBe(2);
     expect(funcs.Constant!({ groups })).toEqual([1, 1]);
+    expect(funcs.First!({ groups })).toEqual([1, 2]);
+    expect(funcs.Last!({ groups })).toEqual([3]);
+    expect(funcs.Min!({ groups })).toEqual([3]);
+    expect(funcs.Max!({ groups })).toEqual([1, 2]);
+    expect(funcs.Reduced!({ groups })).toEqual([1, 2]);
+    expect(funcs.Only!({ groups: [{ values: [1, 2] }] })).toEqual([1, 2]);
+    expect(funcs.Only!({ groups })).toEqual([]);
+    expect(funcs.Only!({ groups: [{ values: [] }, { values: [1] }] })).toEqual([]);
+    expect(funcs.FirstScalar!({ groups: [{ values: [1] }, { values: [2] }] })).toBe(1);
+    expect(funcs.FirstScalar!({ groups: [{ values: [] }, { values: [2] }] })).toBeUndefined();
+    expect(() => funcs.FirstScalar!({ groups })).toThrow(/at most one/);
+    for (const name of ['First', 'Last', 'Only', 'Min', 'Max', 'Reduced'])
+      expect(funcs[name]!({ groups: [] })).toEqual([]);
   });
 
   it('omits empty Choice list entries and enforces their required boundaries', async () => {

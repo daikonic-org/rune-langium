@@ -107,6 +107,9 @@ predicates, and keep sort/reverse nonmutating. Ordering accepts the linked
 comparison callback for calendar types. External API and JSON values remain arrays.
 SET copies arrays before ADD, including when inputs are frozen. Python shares the
 same shape facts and preserves groups until declared array boundaries.
+Element selectors (`first`, `last`, `only-element`, `min`, `max`) and reducers
+retain selected groups too; their declared scalar or array boundaries normalize
+the selected values without flattening the collection before selection.
 
 Focused tests cover syntax, inverse refusal and origin retention, lazy switch
 lifting, contract phases, scalar callback absence, group/flatten parity, ownership,

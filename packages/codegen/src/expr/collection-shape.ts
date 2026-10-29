@@ -20,6 +20,7 @@ import {
   isRosettaConditionalExpression,
   isThenOperation,
   isMapOperation,
+  isReduceOperation,
   isDefaultOperation,
   isSwitchOperation,
   type RosettaExpression
@@ -31,6 +32,14 @@ import { functionOutput } from '../types/func.js';
 import { parenthesizeReceiver } from './syntax.js';
 
 export type CollectionShape = 'scalar' | 'array' | 'mixed' | 'unknown';
+
+const elementSelectors = new Set([
+  'FirstOperation',
+  'LastOperation',
+  'RosettaOnlyElement',
+  'MinOperation',
+  'MaxOperation'
+]);
 
 function inlineBindingArgument(
   expression: RosettaExpression
@@ -45,7 +54,9 @@ function inlineBindingArgument(
   const operation = owner.$container;
   if (
     !isThenOperation(operation) &&
-    !['MapOperation', 'FilterOperation', 'SortOperation', 'MinOperation', 'MaxOperation'].includes(operation.$type)
+    !['MapOperation', 'FilterOperation', 'SortOperation', 'MinOperation', 'MaxOperation', 'ReduceOperation'].includes(
+      operation.$type
+    )
   )
     return undefined;
   const argument = getOperationArgument(operation);
@@ -61,15 +72,13 @@ export function collectionShape(
   seen.add(expression);
   const from = (node: RosettaExpression | undefined) => collectionShape(node, new Set(seen));
   const merge = (left: CollectionShape, right: CollectionShape) => (left === right ? left : 'mixed');
+  const elementFrom = (argument: RosettaExpression | undefined): CollectionShape =>
+    collectionDepth(argument) > 1 || from(argument) === 'unknown' ? 'unknown' : 'scalar';
   const binding = inlineBindingArgument(expression);
-  if (binding)
-    return binding.element
-      ? collectionDepth(binding.argument) > 1
-        ? 'unknown'
-        : from(binding.argument) === 'unknown'
-          ? 'unknown'
-          : 'scalar'
-      : from(binding.argument);
+  if (binding) return binding.element ? elementFrom(binding.argument) : from(binding.argument);
+  if (elementSelectors.has(expression.$type)) return elementFrom(getOperationArgument(expression));
+  if (isReduceOperation(expression))
+    return merge(elementFrom(getOperationArgument(expression)), from(expression.function?.body));
   if (isListLiteral(expression)) return 'array';
   if (isRosettaConditionalExpression(expression))
     return expression.elsethen ? merge(from(expression.ifthen), from(expression.elsethen)) : from(expression.ifthen);
@@ -95,7 +104,7 @@ export function collectionShape(
     expression.$type === 'WithMetaOperation'
   )
     return from(getOperationArgument(expression));
-  if (expression.$type === 'ReduceOperation' || expression.$type === 'RosettaSuperCall') return 'unknown';
+  if (expression.$type === 'RosettaSuperCall') return 'unknown';
   return expressionIsMany(expression) ? 'array' : 'scalar';
 }
 
@@ -171,6 +180,9 @@ export function collectionDepth(
   const depth = (node: RosettaExpression | undefined) => collectionDepth(node, new Set(seen));
   const binding = inlineBindingArgument(expression);
   if (binding) return Math.max(0, depth(binding.argument) - (binding.element ? 1 : 0));
+  if (elementSelectors.has(expression.$type)) return Math.max(0, depth(getOperationArgument(expression)) - 1);
+  if (isReduceOperation(expression))
+    return Math.max(0, depth(getOperationArgument(expression)) - 1, depth(expression.function?.body));
   if (isListLiteral(expression)) return Math.max(1, ...expression.elements.map(depth));
   if (isMapOperation(expression)) {
     if (!expression.function) return depth(getOperationArgument(expression));

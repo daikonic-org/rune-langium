@@ -11,7 +11,7 @@ import {
   renderCheckedValue
 } from '../expr/cardinality.js';
 import { expressionIsMany } from '../expr/navigation.js';
-import { nativeCollection } from '../expr/collection-shape.js';
+import { collectionDepth, nativeCollection } from '../expr/collection-shape.js';
 import { freshLocal } from '../expr/inline-function.js';
 import { isListLiteral, isRosettaExpression, type RosettaExpression } from '@rune-langium/core';
 import type { FuncBodyContext, RuneFuncAssignment } from '../types/func.js';
@@ -25,6 +25,8 @@ export function renderAssignmentValue(
 ): string {
   const sourceMany = expression ? expressionIsMany(expression) : undefined;
   const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
+  if (collectionDepth(expression) > 0)
+    return targetMany ? collectionValue(value, expression, true) : singleValue(value, expression, true, projection);
   return sourceMany === targetMany && !emptyList
     ? targetMany
       ? collectionValue(value, expression, true)
