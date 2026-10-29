@@ -155,7 +155,7 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
 
     const compilerOptions = {
       strict: true,
-      target: ts.ScriptTarget.ES2022,
+      target: ts.ScriptTarget.ESNext,
       module: ts.ModuleKind.NodeNext,
       moduleResolution: ts.ModuleResolutionKind.NodeNext,
       noEmit: true,

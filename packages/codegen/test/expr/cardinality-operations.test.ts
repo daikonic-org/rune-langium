@@ -26,7 +26,7 @@ function emit(source: string): string {
 }
 function run(source: string, data: unknown): unknown {
   const javascript = ts.transpileModule(`const result = ${emit(source)};`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    compilerOptions: { target: ts.ScriptTarget.ESNext }
   }).outputText;
   return Function('data', `${RUNTIME_HELPER_JS_SOURCE}\n${javascript}\nreturn result;`)(data);
 }

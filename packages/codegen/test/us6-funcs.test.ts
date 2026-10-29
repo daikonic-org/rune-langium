@@ -254,7 +254,7 @@ describe('US6 funcs: constructor-expr (T128)', () => {
   ] as const)('executes %s constructor values', async (name, input, expected) => {
     const source = await generateFuncFixture('constructor-expr');
     const javascript = ts.transpileModule(source, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
+      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS }
     }).outputText;
     const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
     new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));

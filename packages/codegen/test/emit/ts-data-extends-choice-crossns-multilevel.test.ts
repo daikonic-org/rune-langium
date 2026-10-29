@@ -99,7 +99,7 @@ describe('TS emitter — multi-level cross-namespace Data-extends-Choice chain',
 
     const compilerOptions: ts.CompilerOptions = {
       strict: true,
-      target: ts.ScriptTarget.ES2022,
+      target: ts.ScriptTarget.ESNext,
       module: ts.ModuleKind.NodeNext,
       moduleResolution: ts.ModuleResolutionKind.NodeNext,
       noEmit: true,

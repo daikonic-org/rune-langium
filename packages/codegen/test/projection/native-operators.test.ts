@@ -31,7 +31,7 @@ function render(text: string) {
 }
 function evaluate(text: string, data: unknown = {}) {
   const code = ts.transpileModule('const result = (' + render(text) + ');', {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    compilerOptions: { target: ts.ScriptTarget.ESNext }
   }).outputText;
   return new Function('data', RUNTIME_HELPER_JS_SOURCE + '\n' + code + '\nreturn result;')(data);
 }
@@ -76,7 +76,7 @@ func RequiredOutput:
       expect(expression).not.toContain('rune.binary');
       const javascript = ts.transpileModule(
         `function run(result: unknown, pending: unknown) { return ${expression}; }`,
-        { compilerOptions: { target: ts.ScriptTarget.ES2022 } }
+        { compilerOptions: { target: ts.ScriptTarget.ESNext } }
       ).outputText;
       expect(
         new Function(
@@ -284,7 +284,7 @@ func Check:
         { encoding: 'utf8' }
       );
       expect(compile.status, compile.stdout + compile.stderr).toBe(0);
-      const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+      const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext } }).outputText;
       const run = new Function('data', javascript + '\nreturn execute(data);');
       expect(run({ flag: false })).toBe(true);
       expect(run({ flag: true })).toBe(true);

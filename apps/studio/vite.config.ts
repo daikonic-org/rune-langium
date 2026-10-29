@@ -112,7 +112,7 @@ export default defineConfig(() => {
       }
     },
     build: {
-      target: 'es2020',
+      target: 'esnext',
       outDir: 'dist',
       // e2e-batch fix #9: enable hidden sourcemaps for prod debuggability.
       // 'hidden' generates .map files but doesn't add the //# sourceMappingURL

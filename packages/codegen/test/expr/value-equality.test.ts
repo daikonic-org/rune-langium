@@ -9,7 +9,7 @@ import { valueEqualitySource } from '../../src/expr/value-equality.js';
 describe.each([false, true])('value equality (TypeScript=%s)', (typescript) => {
   const source = valueEqualitySource(typescript);
   const executable = typescript
-    ? ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+    ? ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext } }).outputText
     : source;
   const {
     rune: { equals: equal },

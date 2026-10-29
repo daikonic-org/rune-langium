@@ -22,7 +22,8 @@ export function compileGeneratedTypeScript<
       strict: true,
       noEmit: true,
       skipLibCheck: true,
-      target: ts.ScriptTarget.ES2022,
+      target: ts.ScriptTarget.ESNext,
+      lib: ['lib.esnext.d.ts'],
       module: ts.ModuleKind.CommonJS,
       types: []
     };

@@ -6,10 +6,23 @@ Read root and affected-package `package.json` scripts before choosing commands.
 Use the pinned pnpm version and preserve overrides/patches in
 `pnpm-workspace.yaml` during dependency changes.
 
+Root `tsconfig.json` owns the ESNext target; active workspace packages inherit it.
+Explicit standard-library lists also use ESNext, retaining each host's DOM/worker
+types. Studio's Vite bundle and generated/projection TypeScript checks target
+ESNext as well. The generated-module test compiler loads only the ESNext standard
+library, avoiding browser-library work in strict server-module checks. Runtime
+engine requirements remain those declared in `package.json`.
+ESNext preserves native decorators that supported Node engines cannot execute.
+Codegen's build and Vitest plugin share `scripts/explicit-decorators.ts`, lowering
+only the existing authored instrumentation decorators with the newest named
+compiler target (ES2025). The post-build pass regenerates those JavaScript files
+and source maps from their TypeScript source; declarations and projections retain
+ESNext. Do not widen its decorator matcher or inject new instrumentation sites.
+
 - The pre-commit hook runs `lint-staged`, applying Oxlint fixes before formatting staged JS/TS files with oxfmt; JSON-family files are formatted directly. Formatting runs last so import rewrites cannot leave CI style drift. The pre-push hook runs type checking. Prefer the existing `simple-git-hooks` / `lint-staged` setup for hook changes.
 - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses hooks; report skipped verification when relevant.
 - After codegen render changes, run `pnpm --filter @rune-langium/codegen run build` so consumers receive updated dist output.
-- After switching stacked branches, force affected TypeScript builds with `pnpm --filter <package> exec tsc -b --force` before testing consumers. Incremental build caches can leave `dist` from the previous branch; source-only tests do not verify those exports.
+- After switching stacked branches, force affected TypeScript builds with `pnpm --filter <package> exec tsc -b --force` before testing consumers. For Codegen, follow a forced compiler run with its package `build` to reapply explicit decorator lowering. Incremental build caches can leave `dist` from the previous branch; source-only tests do not verify those exports.
 - The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core` and `@rune-langium/core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.

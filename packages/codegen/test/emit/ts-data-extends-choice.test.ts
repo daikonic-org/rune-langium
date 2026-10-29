@@ -78,7 +78,7 @@ import { generate } from '../../src/export.js';
 function typeCheckFile(filePath: string, source: string): readonly string[] {
   const compilerOptions: ts.CompilerOptions = {
     strict: true,
-    target: ts.ScriptTarget.ES2022,
+    target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
     noEmit: true,

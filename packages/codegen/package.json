@@ -45,7 +45,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "pnpm run generate:python-runtime && tsc -b",
+    "build": "pnpm run generate:python-runtime && tsc -b && node scripts/lower-decorators.mjs",
     "generate:python-runtime": "node scripts/generate-python-runtime.mjs",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "generate:sql-node-types": "node scripts/generate-tree-sitter-node-types.mjs --input node_modules/@l1xnan/tree-sitter-sql/src/node-types.json --output src/import/sources/generated/sql-node-types.ts --prefix Sql && oxfmt src/import/sources/generated/sql-node-types.ts",

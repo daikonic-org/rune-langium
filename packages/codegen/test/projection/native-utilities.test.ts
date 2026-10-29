@@ -23,7 +23,7 @@ const context: ExpressionTranspilerContext = {
 
 function execute(code: string, data: unknown) {
   const javascript = ts.transpileModule(`const result = (${code});`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    compilerOptions: { target: ts.ScriptTarget.ESNext }
   }).outputText;
   return new Function('data', 'Temporal', RUNTIME_HELPER_JS_SOURCE + '\n' + javascript + '\nreturn result;')(
     data,

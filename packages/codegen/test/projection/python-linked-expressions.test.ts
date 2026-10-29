@@ -405,7 +405,7 @@ describe('linked Python expressions', () => {
         diagnostics: []
       });
       const source = ts.transpileModule(`function execute(data) { return (${expression}); }`, {
-        compilerOptions: { target: ts.ScriptTarget.ES2022 }
+        compilerOptions: { target: ts.ScriptTarget.ESNext }
       }).outputText;
       return new Function('Temporal', 'data', RUNTIME_HELPER_JS_SOURCE + '\n' + source + '\nreturn execute(data);')(
         Temporal,

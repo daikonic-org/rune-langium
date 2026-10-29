@@ -87,7 +87,7 @@ function compile(source: string, functionName: string): (input: Record<string, u
   const options: ts.CompilerOptions = {
     strict: true,
     noEmit: true,
-    target: ts.ScriptTarget.ES2022,
+    target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.CommonJS,
     skipLibCheck: true,
     types: []
@@ -100,7 +100,7 @@ function compile(source: string, functionName: string): (input: Record<string, u
     []
   );
   const js = ts.transpileModule(source, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS }
   }).outputText;
   const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
   new Function('exports', 'require', js)(exports, createRequire(import.meta.url));

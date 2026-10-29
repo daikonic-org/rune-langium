@@ -209,7 +209,7 @@ func ShadowAgain:
         });
         const program = ts.createProgram(files, {
           strict: true,
-          target: ts.ScriptTarget.ES2022,
+          target: ts.ScriptTarget.ESNext,
           module: ts.ModuleKind.NodeNext,
           moduleResolution: ts.ModuleResolutionKind.NodeNext,
           skipLibCheck: true,

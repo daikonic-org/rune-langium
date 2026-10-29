@@ -9,6 +9,11 @@ The renderer consumes existing linked facts and is shared with expression editin
 It does not infer types in the UI. Public declaration selectors retain executable
 output by default; body selectors return source-facing syntax and implementation status.
 
+Readable projections and executable TypeScript target ESNext (ES2026-era syntax).
+They are not constrained to older ECMAScript syntax. Rune operators and helpers
+retain the agreed semantics; the modern target does not substitute native
+JavaScript equality, collection or calendar behavior for Rune operations.
+
 ## Syntax
 
 | Rune | TypeScript projection |

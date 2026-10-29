@@ -17,7 +17,7 @@ import ts from 'typescript-classic';
 describe('emitted runtime namespace', () => {
   it('preserves falsy values and empty collection semantics through namespaced built-ins', () => {
     const javascript = ts.transpileModule(RUNTIME_HELPER_SOURCE.replace(/^import .*;\n/gm, ''), {
-      compilerOptions: { target: ts.ScriptTarget.ES2022 }
+      compilerOptions: { target: ts.ScriptTarget.ESNext }
     }).outputText;
     const evaluate = new Function(
       'value',
