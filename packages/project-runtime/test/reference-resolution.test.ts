@@ -2,10 +2,34 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { it, expect, vi } from 'vitest';
 import { referenceFixture, repository } from '../../../test/helpers/project-reference-fixture.js';
-import { resolveProjectReferences, projectReferenceLockDiagnostics } from '../src/references/resolve.js';
+import {
+  resolveProjectReferences,
+  resolveProjectReferenceInventory,
+  projectReferenceLockDiagnostics
+} from '../src/references/resolve.js';
 import { loadLockedReferences } from '../src/references/load.js';
 import { createMemoryReferenceCache } from '../src/references/cache.js';
 const signal = () => new AbortController().signal;
+
+it('resolves informational inventory without exposing an activation lock, fetching bundles or promoting bytes', async () => {
+  const { snapshot, transport, artifacts } = await referenceFixture();
+  const cache = createMemoryReferenceCache();
+  const put = vi.spyOn(cache, 'put');
+  for (const [url] of artifacts) if (url.endsWith('.serialized.json.gz')) artifacts.set(url, new Uint8Array([1, 2, 3]));
+  const inventory = await resolveProjectReferenceInventory(
+    snapshot.project.build.references,
+    transport,
+    signal(),
+    cache
+  );
+  expect(inventory.diagnostics).toEqual([]);
+  expect([...inventory.manifests.keys()]).toEqual(['cdm', 'rune-dsl']);
+  expect(inventory).not.toHaveProperty('lock');
+  expect(transport.artifact.mock.calls.every(([url]) => url.endsWith('/manifest.json'))).toBe(true);
+  expect(put).not.toHaveBeenCalled();
+  expect((await resolveProjectReferences(snapshot, transport, signal(), cache)).lock).toBeUndefined();
+  expect(put).not.toHaveBeenCalled();
+});
 it('resolves one exact release per model and loads locked content without catalog/latest lookup', async () => {
   const { snapshot, transport } = await referenceFixture();
   const cache = createMemoryReferenceCache();
@@ -140,6 +164,11 @@ it('keeps an older parent release resolvable when its dependency tag has a newer
   const resolved = await resolveProjectReferences(snapshot, transport, signal());
   expect(resolved.diagnostics).toEqual([]);
   expect(resolved.lock!.references['rune-dsl']!.cohort).toBe(original.cohort);
+  transport.artifact.mockClear();
+  const inventory = await resolveProjectReferenceInventory(snapshot.project.build.references, transport, signal());
+  expect(inventory.diagnostics).toEqual([]);
+  expect(inventory.manifests.get('rune-dsl')?.cohort).toBe(original.cohort);
+  expect(transport.artifact.mock.calls.every(([url]) => url.endsWith('/manifest.json'))).toBe(true);
 });
 
 it('backtracks artifact cohorts when a later parent constrains an explicitly selected dependency', async () => {

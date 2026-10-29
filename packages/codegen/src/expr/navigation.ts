@@ -48,6 +48,7 @@ import { AstUtils } from 'langium';
 import { choiceOptionFieldName } from '../emit/base-namespace-emitter.js';
 import { functionOutput } from '../types/func.js';
 import { nativeCollection } from './collection-shape.js';
+import { parenthesizeReceiver } from './syntax.js';
 
 type Feature = Attribute | ChoiceOption | RosettaRecordFeature;
 
@@ -258,7 +259,8 @@ export function renderCalendarField(
   many = false,
   temporal = false,
   required = false,
-  receiverExpression?: RosettaExpression
+  receiverExpression?: RosettaExpression,
+  projection = false
 ): string | undefined {
   if (
     !isRosettaRecordFeature(feature) ||
@@ -282,13 +284,13 @@ export function renderCalendarField(
         : 'ZonedDateTime';
   const read = (value: string, knownPresent: boolean) =>
     temporal
-      ? knownPresent
-        ? `${value}.${field}`
-        : `((value: Temporal.${temporalType} | undefined) => value?.${field})(${value})`
+      ? projection || knownPresent
+        ? `${parenthesizeReceiver(value)}${knownPresent ? '.' : '?.'}${field}`
+        : `((value?: Temporal.${temporalType}) => value?.${field})(${value})`
       : `rune.dateField(${value}, ${JSON.stringify(feature.$container.name)}, ${JSON.stringify(feature.name)})`;
   const value = receiver();
   return many
-    ? `${nativeCollection(value, receiverExpression, undefined, temporal)}.map((value) => ${read('value', true)})`
+    ? `${nativeCollection(value, receiverExpression, undefined, temporal, projection)}.map((value) => ${read('value', true)})`
     : read(value, required);
 }
 
@@ -345,7 +347,13 @@ export function choiceOptionPaths(choice: Choice, goal: RosettaType, exact = fal
 }
 
 /** Project a path while retaining TypeScript's union narrowing at each choice arm. */
-export function renderFeaturePath(receiver: string, path: readonly string[], many = false, typescript = false): string {
+export function renderFeaturePath(
+  receiver: string,
+  path: readonly string[],
+  many = false,
+  typescript = false,
+  projection = false
+): string {
   if (path.length === 0) return receiver;
   // Keep the emitted expression linear in the path length. Each step is
   // wrapped once; the previous implementation recursively rendered the
@@ -354,6 +362,13 @@ export function renderFeaturePath(receiver: string, path: readonly string[], man
   let result = receiver;
   for (const key of path) {
     const field = JSON.stringify(key);
+    if (projection) {
+      const access = `[${field}]`;
+      result = many
+        ? `rune.list(${result}).flatMap((value) => rune.list(value?.${access}))`
+        : `${parenthesizeReceiver(result)}?.${access}`;
+      continue;
+    }
     const access = `__value != null && (typeof __value === 'object' || typeof __value === 'function') && ${field} in __value ? __value[${field}] : undefined`;
     if (!many) {
       result = `((__value) => ${access})(${result})`;
@@ -367,7 +382,8 @@ export function renderFeaturePath(receiver: string, path: readonly string[], man
 export function renderNavigation(
   expr: RosettaExpression,
   render: (expr: RosettaExpression) => string,
-  typescript = false
+  typescript = false,
+  projection = false
 ): string | undefined {
   if (!isRosettaFeatureCall(expr) && !isRosettaDeepFeatureCall(expr)) return undefined;
   const feature = expr.feature?.ref;
@@ -387,12 +403,18 @@ export function renderNavigation(
       if (paths.length === 1) return read(receiver, paths[0]!);
       return `((__root) => ${paths.map((path) => read('__root', path)).join(' ?? ')})(${receiver})`;
     }
-    const projections = paths.map((path) => renderFeaturePath('__root', path.map(featureName), many, typescript));
+    const projections = paths.map((path) =>
+      renderFeaturePath('__root', path.map(featureName), many, typescript, projection)
+    );
     const projected = many ? `[${projections.map((value) => `...${value}`).join(', ')}]` : projections.join(' ?? ');
     return `((__root) => ${projected})(${receiver})`;
   }
-  if (isChoice(expressionType(expr.receiver)) || expressionIsMany(expr.receiver)) {
-    return renderFeaturePath(receiver, [name], expressionIsMany(expr), typescript);
+  if (isChoice(expressionType(expr.receiver))) {
+    return renderFeaturePath(receiver, [name], expressionIsMany(expr), typescript, projection);
+  }
+  if (expressionIsMany(expr.receiver)) {
+    const values = nativeCollection(receiver, expr.receiver, undefined, typescript, projection);
+    return `${values}.flatMap((value) => value?.[${JSON.stringify(name)}] ?? [])`;
   }
   return `${receiver}?.${name}`;
 }

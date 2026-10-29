@@ -832,11 +832,12 @@ function TypeItemRow({
             />
             {isRequired && (
               <span
+                role="img"
                 aria-label={`Required by ${requiredBy.join(', ')}`}
                 title={`Required by ${requiredBy.join(', ')}`}
                 className="text-muted-foreground"
               >
-                <Link className="size-3" />
+                <Link className="size-3" aria-hidden="true" />
               </span>
             )}
           </>

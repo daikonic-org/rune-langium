@@ -87,7 +87,8 @@ export function nativeCollection(
   value: string,
   expression?: RosettaExpression,
   implicitMany?: boolean,
-  typescript = false
+  typescript = false,
+  projection = false
 ): string {
   const shape = expression
     ? collectionShape(expression)
@@ -98,6 +99,7 @@ export function nativeCollection(
         : 'scalar';
   if (shape === 'array') return collectionIsPresent(expression) ? `(${value})` : `(${value} ?? [])`;
   if (shape === 'scalar' && expressionIsPresent(expression)) return `[${value}]`;
+  if (projection) return `rune.list(${value})`;
   const parameter = typescript ? '<const T>(value: T)' : '(value)';
   if (shape === 'scalar') return `(${parameter} => value == null ? [] : [value])(${value})`;
   return `(${parameter} => value == null ? [] : [value].flat())(${value})`;
@@ -117,8 +119,14 @@ export function nativeCount(value: string, expression?: RosettaExpression, impli
 }
 
 /** A many-to-single conversion is an authored cardinality operation, not input validation. */
-export function nativeSingle(value: string, expression?: RosettaExpression, typescript = false): string {
+export function nativeSingle(
+  value: string,
+  expression?: RosettaExpression,
+  typescript = false,
+  projection = false
+): string {
   if (collectionShape(expression) === 'scalar') return value;
+  if (projection) return `rune.single(${value})`;
   const parameter = typescript ? '<const T>(value: T)' : '(value)';
   return `(${parameter} => { if (value == null) return undefined; const values = [value].flat(); if (values.length > 1) throw new Error('Expected at most one value'); return values[0]; })(${value})`;
 }

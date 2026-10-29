@@ -16,7 +16,7 @@ test('J03 loads the live Nightly closure and cancels a recheck without changing 
   const picker = await openReferenceModels(page);
   for (const name of [/CDM \(Common/, /FpML/, /Rune DSL/])
     await expect(picker.getByRole('button', { name })).toContainText('Nightly');
-  await expect(picker.getByRole('button', { name: 'Review change', exact: true })).toBeDisabled();
+  await expect(picker.getByRole('button', { name: /^(Add|Update) reference$/, exact: true })).toBeDisabled();
   await evidence.checkpoint('nightly-closure-ready');
   await picker.getByRole('button', { name: 'Recheck references', exact: true }).click();
   await expect(picker.getByRole('heading', { name: 'Review reference change' })).toBeVisible({ timeout: 90000 });

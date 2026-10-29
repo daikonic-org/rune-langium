@@ -23,6 +23,7 @@ import { ExportSettingsPanel } from '../../panels/ExportSettingsPanel.js';
 import { useProject } from '../../providers/project-context.js';
 import { useWorkspaceOptional } from '../../providers/workspace-context.js';
 import { ExportPreviewPanel } from '../../panels/ExportPreviewPanel.js';
+import { ExportWorkspacePanel } from '../../panels/ExportWorkspacePanel.js';
 
 export interface ExportPerspectiveProps {
   files?: ReadonlyArray<WorkspaceFile>;
@@ -30,21 +31,13 @@ export interface ExportPerspectiveProps {
   workspaceId?: string;
 }
 
-const COMPACT_OUTPUT_HEIGHT = 128;
-const EXPANDED_OUTPUT_HEIGHT = 256;
-
-/** Constraints belong to dock groups, so restored layouts receive them too. */
+/** Keep the task surface usable beside a compact selection explorer. */
 function reconcileExportLayout(api: DockviewApi): void {
   const selection = api.getPanel('export.selection');
   const settings = api.getPanel('export.settings');
-  const preview = api.getPanel('export.preview');
-  const height = api.height || 640;
-  selection?.group.api.setConstraints({ minimumHeight: Math.min(352, Math.floor(height * 0.55)) });
-  if (preview && preview.group !== selection?.group) {
-    preview.group.api.setConstraints({ minimumHeight: Math.min(96, Math.floor(height * 0.2)) });
-  }
   if (settings && settings.group !== selection?.group && api.width >= 768) {
     settings.group.api.setConstraints({ minimumWidth: 320 });
+    selection?.group.api.setConstraints({ minimumWidth: 220 });
   }
 }
 
@@ -106,31 +99,42 @@ export const ExportPerspective = withInstrumentation(
     const sourceRevisionRef = useRef(sourceRevision);
     const activationRef = useRef<{ workspaceId: string; promise: Promise<void> } | undefined>(undefined);
     const [workbenchApi, setWorkbenchApi] = useState<DockviewApi>();
-    const hasArtifact =
-      run.status === 'ready' ||
-      run.status === 'stale' ||
-      ((run.status === 'generating' || run.status === 'failed') && run.previous !== undefined);
-    const hadArtifact = useRef(hasArtifact);
-    const compactOutput = useRef<{ groupId: string; height: number } | undefined>(undefined);
-
+    const [view, setView] = useState<'settings' | 'output'>('settings');
+    const [expanded, setExpanded] = useState(false);
+    const [navigationNotice, setNavigationNotice] = useState<string>();
+    const lastResult = useRef<unknown>(undefined);
     useEffect(() => {
-      const arrived = hasArtifact && !hadArtifact.current;
-      hadArtifact.current = hasArtifact;
-      if (!arrived || !workbenchApi) return;
-      const initialOutput = compactOutput.current;
-      compactOutput.current = undefined;
-      const preview = workbenchApi.getPanel('export.preview');
-      // Only expand the untouched default. Restored, resized, or tabbed groups
-      // retain their arrangement, including deliberately compact output.
-      if (
-        preview &&
-        initialOutput?.groupId === preview.group.id &&
-        preview.group.panels.length === 1 &&
-        Math.abs(preview.group.api.height - initialOutput.height) <= 2
-      ) {
-        preview.group.api.setSize({ height: Math.min(EXPANDED_OUTPUT_HEIGHT, workbenchApi.height * 0.4) });
+      const result = run.status === 'ready' ? run.artifact : run.status === 'failed' ? run : undefined;
+      if (activationReady && result && lastResult.current !== result) {
+        lastResult.current = result;
+        setView('output');
       }
-    }, [hasArtifact, workbenchApi]);
+    }, [run, activationReady]);
+    useEffect(() => {
+      setView('settings');
+      setNavigationNotice(undefined);
+      lastResult.current = undefined;
+    }, [workspaceId]);
+    const navigateOutput = useCallback(
+      (namespace: string, name: string) => {
+        const artifact =
+          run.status === 'ready' || run.status === 'stale'
+            ? run.artifact
+            : run.status === 'generating' || run.status === 'failed'
+              ? run.previous?.artifact
+              : undefined;
+        const file = artifact?.manifest.files.find(
+          (file) => file.kind === 'text' && file.namespaces?.includes(namespace)
+        );
+        if (file) {
+          setActiveFile(file.path);
+          setView('output');
+          setNavigationNotice(undefined);
+        } else setNavigationNotice(`Generate output for ${namespace}.${name} to view its source.`);
+        workbenchApi?.getPanel('export.settings')?.api.setActive();
+      },
+      [run, setActiveFile, workbenchApi]
+    );
     const requiredBy = useMemo(
       () =>
         new Map(
@@ -304,55 +308,70 @@ export const ExportPerspective = withInstrumentation(
                 includedCount={
                   run.status === 'ready' ? run.artifact.manifest.resolvedSelection?.included.length : undefined
                 }
+                onNavigate={navigateOutput}
                 onChange={handleSelectionChange}
               />
             </div>
           ),
           'export.settings': () => (
-            <div data-testid="export-settings" className="h-full min-h-0">
-              <ExportSettingsPanel
-                config={config}
-                onChange={configure}
-                onGenerate={handleGenerate}
-                onCancel={handleCancel}
-                status={preparing ? 'generating' : run.status}
-                projectEnabled={Boolean(project.controller)}
-                projectSnapshot={project.snapshot}
-                projectDiagnostics={project.diagnostics}
-                selectedTargetName={selectedTargetName}
-                targetDirty={targetDirty}
-                dirtyTargets={Object.keys(targetDrafts)}
-                onRemoveTarget={removeTarget}
-                onSelectTarget={selectTarget}
-                onSaveTarget={async (name) => {
-                  await saveTarget(name, config);
-                }}
-                onReloadProject={async () => {
-                  await project.controller?.load();
-                }}
-                onBuildTargets={(names) => {
-                  void handleBuildTargets(names);
-                }}
-              />
-            </div>
-          ),
-          'export.preview': () => (
-            <div data-testid="export-preview" className="h-full min-h-0">
-              <ExportPreviewPanel
-                run={run}
-                activeFile={activeFile}
-                onActiveFileChange={setActiveFile}
-                onDownload={() => {
-                  if (run.status === 'ready') downloadExportArtifact(run.artifact);
-                }}
-              />
-            </div>
+            <ExportWorkspacePanel
+              view={view}
+              onViewChange={setView}
+              expanded={expanded}
+              notice={navigationNotice}
+              onToggleExpanded={() => {
+                const panel = workbenchApi?.getPanel('export.settings');
+                if (!workbenchApi || !panel) return;
+                if (workbenchApi.hasMaximizedGroup()) workbenchApi.exitMaximizedGroup();
+                else workbenchApi.maximizeGroup(panel);
+                setExpanded(workbenchApi.hasMaximizedGroup());
+              }}
+              settings={
+                <div data-testid="export-settings" className="h-full min-h-0">
+                  <ExportSettingsPanel
+                    config={config}
+                    onChange={configure}
+                    onGenerate={handleGenerate}
+                    onCancel={handleCancel}
+                    status={preparing ? 'generating' : run.status}
+                    projectEnabled={Boolean(project.controller)}
+                    projectSnapshot={project.snapshot}
+                    projectDiagnostics={project.diagnostics}
+                    selectedTargetName={selectedTargetName}
+                    targetDirty={targetDirty}
+                    dirtyTargets={Object.keys(targetDrafts)}
+                    onRemoveTarget={removeTarget}
+                    onSelectTarget={selectTarget}
+                    onSaveTarget={async (name) => {
+                      await saveTarget(name, config);
+                    }}
+                    onReloadProject={async () => {
+                      await project.controller?.load();
+                    }}
+                    onBuildTargets={(names) => {
+                      void handleBuildTargets(names);
+                    }}
+                  />
+                </div>
+              }
+              output={
+                <div data-testid="export-preview" className="h-full min-h-0">
+                  <ExportPreviewPanel
+                    run={run}
+                    activeFile={activeFile}
+                    onActiveFileChange={setActiveFile}
+                    onDownload={() => {
+                      if (run.status === 'ready') downloadExportArtifact(run.artifact);
+                    }}
+                  />
+                </div>
+              }
+            />
           )
         },
         titles: {
           'export.selection': 'Selection',
-          'export.settings': 'Settings',
-          'export.preview': 'Generated output'
+          'export.settings': 'Export'
         },
         buildDefault(api, width) {
           const selection = api.addPanel({
@@ -363,23 +382,14 @@ export const ExportPerspective = withInstrumentation(
           api.addPanel({
             id: 'export.settings',
             component: 'export.settings',
-            title: 'Settings',
+            title: 'Export',
             position:
               width < 768
                 ? { referenceGroup: selection.group, direction: 'within' }
                 : { referencePanel: selection.id, direction: 'right' }
           });
-          const preview = api.addPanel({
-            id: 'export.preview',
-            component: 'export.preview',
-            title: 'Generated output',
-            position: { referencePanel: selection.id, direction: 'below' }
-          });
           reconcileExportLayout(api);
-          preview.group.api.setSize({ height: hasArtifact ? EXPANDED_OUTPUT_HEIGHT : COMPACT_OUTPUT_HEIGHT });
-          compactOutput.current = hasArtifact
-            ? undefined
-            : { groupId: preview.group.id, height: preview.group.api.height };
+          if (width >= 768) selection.group.api.setSize({ width: Math.min(400, Math.max(240, width * 0.28)) });
           if (width < 768) selection.api.setActive();
         },
         reconcile: reconcileExportLayout
@@ -391,7 +401,11 @@ export const ExportPerspective = withInstrumentation(
         configure,
         handleGenerate,
         handleSelectionChange,
-        hasArtifact,
+        view,
+        expanded,
+        navigationNotice,
+        navigateOutput,
+        workbenchApi,
         requiredBy,
         run,
         setActiveFile,

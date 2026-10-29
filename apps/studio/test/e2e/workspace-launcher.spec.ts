@@ -27,7 +27,7 @@ for (const width of [1440, 390])
     await project.focus();
     await page.keyboard.press('Enter');
     await expect(launcher.getByRole('heading', { name: 'Model authoring', exact: true })).toBeVisible();
-    await expect(launcher.getByRole('button', { name: 'Use example', exact: true })).toBeDisabled();
+    await expect(launcher.getByRole('button', { name: 'View example', exact: true })).toBeDisabled();
     if (width === 390) {
       await launcher.getByRole('button', { name: 'Back to examples', exact: true }).click();
       await expect(project).toBeFocused();
@@ -38,7 +38,7 @@ for (const width of [1440, 390])
     await expect(project).toHaveAttribute('aria-pressed', 'true');
     await launcher.getByRole('button', { name: 'Reference models', exact: true }).click();
     await expect(launcher.getByRole('heading', { name: 'Reference models', exact: true })).toBeVisible();
-    await expect(launcher.getByRole('button', { name: 'Use example', exact: true })).toBeHidden();
+    await expect(launcher.getByRole('button', { name: 'View example', exact: true })).toBeHidden();
     await launcher.getByRole('button', { name: 'Workspaces', exact: true }).click();
     expect(await launcher.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(

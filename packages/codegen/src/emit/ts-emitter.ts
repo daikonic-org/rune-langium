@@ -2134,7 +2134,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         const statement = renderTranspiledSwitch(assignment.exprNode, ctx, {
           returnStatement: true,
           returnValue: (value, expression) =>
-            expression ? renderAssignmentValue(value, expression, targetMany) : targetMany ? '[]' : value,
+            expression
+              ? renderAssignmentValue(value, expression, targetMany, ctx.projection)
+              : targetMany
+                ? '[]'
+                : value,
           selectorName: freshLocal(ctx, 'switchValue')
         });
         if (statement) return statement.split('\n').map((line) => `  ${line}`);

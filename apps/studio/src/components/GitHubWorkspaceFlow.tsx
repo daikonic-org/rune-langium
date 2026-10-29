@@ -24,9 +24,20 @@ import type { GitHubInitializationSession } from '../workspace/project-initializ
 import { ProjectInitializationReview } from './ProjectInitializationReview.js';
 import { GitHubConnectDialog } from './GitHubConnectDialog.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { prepareGitHubFork, type GitHubFork } from '../services/github-fork.js';
+
+export const defaultGithubAuthBase = withInstrumentation(
+  function defaultGithubAuthBase(): string {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/rune-studio/api/github-auth`;
+  },
+  { op: 'defaultGithubAuthBase', sanitize: () => undefined }
+);
 
 export interface GitHubWorkspaceFlowProps {
-  authBase: string;
+  authBase?: string;
+  /** Explicitly create/reuse the signed-in user's fork before the normal clone flow. */
+  forkSource?: string;
   /** Called when the user successfully clones a repo into a new workspace. */
   onCreated: (workspaceId: string) => void | Promise<void>;
   openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
@@ -47,10 +58,11 @@ export interface GitHubWorkspaceFlowProps {
 }
 
 interface FlowState {
-  phase: 'auth' | 'url' | 'cloning' | 'error' | 'review' | 'opening';
+  phase: 'auth' | 'url' | 'forking' | 'cloning' | 'error' | 'review' | 'opening';
   workspaceId?: string;
   token?: string;
   errorReason?: string;
+  fork?: GitHubFork;
 }
 
 /**
@@ -110,7 +122,8 @@ function parseRepoUrl(raw: string): { user: string; repo: string; canonicalUrl: 
 
 export const GitHubWorkspaceFlow = withInstrumentation(
   function GitHubWorkspaceFlow({
-    authBase,
+    authBase = defaultGithubAuthBase(),
+    forkSource,
     onCreated,
     onCancel,
     createWorkspace,
@@ -122,13 +135,39 @@ export const GitHubWorkspaceFlow = withInstrumentation(
     const [session, setSession] = useState<GitHubInitializationSession>();
     const sessionRef = useRef<GitHubInitializationSession | undefined>(undefined);
     const alive = useRef(true);
+    const operation = useRef(new AbortController());
     useEffect(() => {
       alive.current = true;
+      operation.current = new AbortController();
       return () => {
         alive.current = false;
+        operation.current.abort();
         sessionRef.current?.dispose();
       };
     }, []);
+    async function cloneRepository(input: Parameters<GitHubWorkspaceFlowProps['createWorkspace']>[0]) {
+      const result = await createWorkspace(input);
+      if (!alive.current) return;
+      try {
+        const prepared = await openProjectInitialization?.(result.id);
+        if (!alive.current) {
+          prepared?.dispose();
+          return;
+        }
+        if (prepared) {
+          sessionRef.current = prepared;
+          setSession(prepared);
+          setState({ phase: 'review', workspaceId: result.id });
+        } else await activate(result.id);
+      } catch (error) {
+        if (alive.current)
+          setState({
+            phase: 'review',
+            workspaceId: result.id,
+            errorReason: error instanceof Error ? error.message : 'Project settings could not be inspected.'
+          });
+      }
+    }
     async function activate(workspaceId: string) {
       try {
         setState((current) => ({ ...current, phase: 'opening', workspaceId, errorReason: undefined }));
@@ -179,6 +218,58 @@ export const GitHubWorkspaceFlow = withInstrumentation(
         </div>
       );
     }
+    if (state.phase === 'forking') return <p role="status">Preparing your GitHub fork…</p>;
+    if (forkSource) {
+      return (
+        <section aria-label="Fork example" className="space-y-3 text-sm">
+          <p>
+            Create a fork of <strong>{forkSource}</strong> in your GitHub account, then open it in Studio.
+          </p>
+          {state.fork && (
+            <p>
+              Your fork is ready:{' '}
+              <a href={state.fork.repoUrl.replace(/\.git$/, '')} target="_blank" rel="noopener noreferrer">
+                {state.fork.name}
+              </a>
+              . Retry opening it when GitHub finishes preparing its files.
+            </p>
+          )}
+          {state.errorReason && (
+            <Alert variant="destructive">
+              <AlertDescription>{state.errorReason}</AlertDescription>
+            </Alert>
+          )}
+          <p className="text-muted-foreground">The fork stays on GitHub if opening it in Studio fails.</p>
+          <Button
+            size="sm"
+            onClick={async () => {
+              if (!state.token) return;
+              let fork = state.fork;
+              setState({ ...state, phase: fork ? 'cloning' : 'forking', errorReason: undefined });
+              try {
+                fork ??= await prepareGitHubFork(forkSource, state.token, operation.current.signal);
+                if (!alive.current) return;
+                setState({ phase: 'cloning', token: state.token, fork });
+                await cloneRepository({ ...fork, token: state.token });
+              } catch (error) {
+                if (alive.current)
+                  setState({
+                    phase: 'error',
+                    token: state.token,
+                    fork,
+                    errorReason: error instanceof Error ? error.message : 'The fork could not be opened. Try again.'
+                  });
+              }
+            }}
+          >
+            {state.fork ? 'Open fork' : 'Create fork'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        </section>
+      );
+    }
 
     // 'url' or 'error' — both render the form, with an error banner on retry.
     const parsed = parseRepoUrl(repoUrl);
@@ -222,33 +313,13 @@ export const GitHubWorkspaceFlow = withInstrumentation(
             if (!parsed || !state.token) return;
             setState({ phase: 'cloning', token: state.token });
             try {
-              const result = await createWorkspace({
+              await cloneRepository({
                 name: `${parsed.user}/${parsed.repo}`,
                 repoUrl: parsed.canonicalUrl,
                 branch: branch.trim() || 'main',
                 user: parsed.user,
                 token: state.token
               });
-              if (!alive.current) return;
-              try {
-                const prepared = await openProjectInitialization?.(result.id);
-                if (!alive.current) {
-                  prepared?.dispose();
-                  return;
-                }
-                if (prepared) {
-                  sessionRef.current = prepared;
-                  setSession(prepared);
-                  setState({ phase: 'review', workspaceId: result.id });
-                } else await activate(result.id);
-              } catch (error) {
-                if (alive.current)
-                  setState({
-                    phase: 'review',
-                    workspaceId: result.id,
-                    errorReason: error instanceof Error ? error.message : 'Project settings could not be inspected.'
-                  });
-              }
             } catch (err) {
               if (!alive.current) return;
               setState({

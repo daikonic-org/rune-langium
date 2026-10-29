@@ -214,3 +214,4 @@ export {
 export * from './runtime/project-bindings.js';
 
 export { renderCodeListEnum } from './runtime/code-list-enum.js';
+export { getTargetRelativePath } from './emit/namespace-walker.js';

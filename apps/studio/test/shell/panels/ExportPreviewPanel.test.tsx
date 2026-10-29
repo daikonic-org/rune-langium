@@ -54,7 +54,9 @@ it('renders generator diagnostics when an export fails', () => {
       onDownload={vi.fn()}
     />
   );
-  expect(screen.getByTestId('export-artifact-status')).toHaveTextContent('test.Party is unavailable');
+  expect(screen.queryByText('test.Party is unavailable')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Show generation diagnostics (1)' }));
+  expect(screen.getByTestId('export-artifact-diagnostics')).toHaveTextContent('test.Party is unavailable');
 });
 
 it('keeps a failed regeneration visible with its previous output', async () => {
@@ -93,6 +95,8 @@ it('renders manifest diagnostics when an export succeeds', () => {
       onDownload={vi.fn()}
     />
   );
+  expect(screen.queryByText('Renamed duplicate column.')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Show generation diagnostics (1)' }));
   expect(screen.getByTestId('export-artifact-diagnostics')).toHaveTextContent('Renamed duplicate column.');
 });
 

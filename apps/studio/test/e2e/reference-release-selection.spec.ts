@@ -53,11 +53,11 @@ for (const width of [1440, 390])
     }
     await picker.getByRole('combobox', { name: 'Release', exact: true }).click();
     await page.getByRole('option', { name: '1.0', exact: true }).click();
-    await picker.getByRole('button', { name: 'Review change' }).click();
+    await picker.getByRole('button', { name: /^(Add|Update) reference$/ }).click();
     await expect(picker.getByText('Required by cdm', { exact: false })).toBeVisible();
     expect((await projectBackingFiles(page))['build-config.lock.json']).toBeUndefined();
     await picker.getByRole('button', { name: 'Cancel review' }).click();
-    await picker.getByRole('button', { name: 'Review change' }).click();
+    await picker.getByRole('button', { name: /^(Add|Update) reference$/ }).click();
     await picker.getByRole('button', { name: 'Save reference change' }).click();
     await expect
       .poll(
@@ -65,7 +65,7 @@ for (const width of [1440, 390])
           JSON.parse((await projectBackingFiles(page))['build-config.lock.json'] ?? '{}').references?.cdm?.release
       )
       .toBe('1.0');
-    await expect(picker.getByRole('button', { name: 'Review change' })).toBeDisabled();
+    await expect(picker.getByRole('button', { name: /^(Add|Update) reference$/ })).toBeDisabled();
     expect(await picker.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(
       (await new AxeBuilder({ page }).include('[data-testid="reference-model-picker"]').analyze()).violations
@@ -105,7 +105,7 @@ for (const width of [1440, 390])
       await picker.getByRole('button', { name: /CDM \(Common/ }).click();
       await picker.getByRole('combobox', { name: 'Release' }).click();
       await page.getByRole('option', { name: '2.0', exact: true }).click();
-      await picker.getByRole('button', { name: 'Review change' }).click();
+      await picker.getByRole('button', { name: /^(Add|Update) reference$/ }).click();
       await picker.getByRole('button', { name: 'Save reference change' }).click();
       await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('2.0');
       await page.getByTestId('workspaces-perspective').getByRole('button', { name: 'Workspaces', exact: true }).click();
@@ -186,14 +186,14 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   await picker.getByRole('combobox', { name: 'Release' }).click();
   await expect(page.getByRole('option', { name: '1.0', exact: true })).toBeVisible();
   await page.getByRole('option', { name: 'Nightly', exact: true }).click();
-  await picker.getByRole('button', { name: 'Review change' }).click();
+  await picker.getByRole('button', { name: /^(Add|Update) reference$/ }).click();
   await expect(picker.getByRole('list', { name: 'Proposed reference releases' })).toContainText('fpml Nightly');
   await expect(picker.getByRole('list', { name: 'Proposed reference releases' })).toContainText('rune-dsl Nightly');
   await picker.getByRole('button', { name: 'Save reference change' }).click();
   await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('Nightly');
   await expect(picker.getByRole('button', { name: /FpML/ })).toContainText('Nightly');
   await expect(picker.getByRole('combobox', { name: 'Release' })).toHaveText('Nightly');
-  await expect(picker.getByRole('button', { name: 'Review change', exact: true })).toBeDisabled();
+  await expect(picker.getByRole('button', { name: /^(Add|Update) reference$/, exact: true })).toBeDisabled();
   await expect
     .poll(async () => (await projectBackingFiles(page))['build-config.yml'] ?? '')
     .toMatch(/release:\s*nightly/);
@@ -245,7 +245,7 @@ test('Nightly stays moving without a lock and can be replaced by a tagged worksp
   await picker.getByRole('button', { name: /CDM \(Common/ }).click();
   await picker.getByRole('combobox', { name: 'Release' }).click();
   await page.getByRole('option', { name: '1.0', exact: true }).click();
-  await picker.getByRole('button', { name: 'Review change' }).click();
+  await picker.getByRole('button', { name: /^(Add|Update) reference$/ }).click();
   await picker.getByRole('button', { name: 'Save reference change' }).click();
   await expect
     .poll(

@@ -26,7 +26,7 @@ export async function loadCurrentCdm(page: Page, release = 'Nightly'): Promise<v
   await picker.getByRole('button', { name: /CDM \(Common Domain Model\)/ }).click();
   await picker.getByRole('combobox', { name: 'Release', exact: true }).click();
   await page.getByRole('option', { name: release, exact: true }).click();
-  await picker.getByRole('button', { name: 'Review change', exact: true }).click();
+  await picker.getByRole('button', { name: /^(Add|Update) reference$/, exact: true }).click();
   await expect(picker.getByRole('heading', { name: 'Review reference change' })).toBeVisible({ timeout: 90000 });
   await picker.getByRole('button', { name: 'Save reference change', exact: true }).click();
   await expect(picker.getByRole('heading', { name: 'Review reference change' })).toHaveCount(0, { timeout: 90000 });

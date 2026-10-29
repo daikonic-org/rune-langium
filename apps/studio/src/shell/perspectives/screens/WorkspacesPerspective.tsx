@@ -12,6 +12,7 @@ import { ReferenceModelPicker } from '../../../components/ReferenceModelPicker.j
 import { useProject } from '../../providers/project-context.js';
 import { useWorkspaceActions } from '../workspace-actions-context.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
+import { config } from '../../../config.js';
 
 export const WorkspacesPerspective = withInstrumentation(
   function WorkspacesPerspective(): React.ReactElement {
@@ -70,7 +71,18 @@ export const WorkspacesPerspective = withInstrumentation(
               onDelete={onDeleteWorkspace}
               onRename={onRenameWorkspace}
             />
-            <StarterWorkspacePicker open={onOpenStarter} />
+            <StarterWorkspacePicker
+              open={onOpenStarter}
+              github={
+                config.githubAuthEnabled
+                  ? {
+                      createWorkspace: createGitBackedWorkspace,
+                      onCreated: onGitHubWorkspaceCreated,
+                      openProjectInitialization
+                    }
+                  : undefined
+              }
+            />
           </div>
           <div hidden={section !== 'references'} className="studio-launcher__references">
             <h2 className="text-sm font-semibold mb-2">Reference models</h2>

@@ -21,7 +21,7 @@ import {
 } from '@rune-langium/design-system/ui/dialog';
 import { cn } from '@rune-langium/design-system/utils';
 import type { GitHubInitializationSession } from '../workspace/project-initialization.js';
-import { GitHubWorkspaceFlow } from './GitHubWorkspaceFlow.js';
+import { GitHubWorkspaceFlow, defaultGithubAuthBase } from './GitHubWorkspaceFlow.js';
 import { config } from '../config.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -60,11 +60,6 @@ export interface FileLoaderProps {
    */
   onGitHubWorkspaceCreated?: (workspaceId: string) => void | Promise<void>;
   openProjectInitialization?: (workspaceId: string) => Promise<GitHubInitializationSession | undefined>;
-}
-
-function defaultGithubAuthBase(): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/rune-studio/api/github-auth`;
 }
 
 export const FileLoader = withInstrumentation(

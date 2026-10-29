@@ -6,20 +6,52 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import type { GeneratorDiagnostic } from '@rune-langium/codegen/export';
 import type { ExportRunState } from '../../store/export-workbench-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import { CircleAlert } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@rune-langium/design-system/ui/dialog';
 
 function ArtifactDiagnostics({ diagnostics }: { diagnostics: readonly GeneratorDiagnostic[] }): ReactElement | null {
+  const [open, setOpen] = useState(false);
   if (diagnostics.length === 0) return null;
   return (
-    <div data-testid="export-artifact-diagnostics" role="status" className="border-b border-border px-3 py-2 text-xs">
-      <p className="font-medium">Generation diagnostics</p>
-      <ul className="mt-1 space-y-1 text-muted-foreground">
-        {diagnostics.map((diagnostic) => (
-          <li key={`${diagnostic.severity}:${diagnostic.code}:${diagnostic.message}`}>
-            {diagnostic.severity}: {diagnostic.message}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        aria-label={`Show generation diagnostics (${diagnostics.length})`}
+      >
+        <CircleAlert className="size-3.5" aria-hidden="true" />
+        Diagnostics ({diagnostics.length})
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Generation diagnostics</DialogTitle>
+            <DialogDescription>
+              {diagnostics.filter((entry) => entry.severity === 'error').length} errors,{' '}
+              {diagnostics.filter((entry) => entry.severity === 'warning').length} warnings
+            </DialogDescription>
+          </DialogHeader>
+          <ul
+            data-testid="export-artifact-diagnostics"
+            className="studio-scroll min-h-0 overflow-auto space-y-2 text-xs text-muted-foreground"
+          >
+            {diagnostics.map((diagnostic) => (
+              <li key={`${diagnostic.severity}:${diagnostic.code}:${diagnostic.message}`}>
+                {diagnostic.severity}: {diagnostic.message}
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -113,11 +145,7 @@ export const ExportPreviewPanel = withInstrumentation(
           className="space-y-2 p-4 text-sm text-destructive"
         >
           <p>{run.message}</p>
-          {run.diagnostics.map((diagnostic) => (
-            <p key={`${diagnostic.code}:${diagnostic.message}`} className="text-xs">
-              {diagnostic.message}
-            </p>
-          ))}
+          <ArtifactDiagnostics diagnostics={run.diagnostics} />
           {artifact ? <p className="text-xs">Previous output is shown below.</p> : null}
         </div>
       ) : null;
@@ -147,8 +175,8 @@ export const ExportPreviewPanel = withInstrumentation(
     return (
       <section data-testid="export-artifact-preview" className="flex h-full min-h-0 flex-col">
         {statusNotice}
-        <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-1.5">
-          <span className="truncate text-sm font-medium">{textFile.path}</span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{textFile.path}</span>
           {dependencyCount > 0 && (
             <span
               className="text-xs text-muted-foreground"
@@ -175,6 +203,7 @@ export const ExportPreviewPanel = withInstrumentation(
             </select>
           )}
           <span className="ml-auto text-xs text-muted-foreground">{run.status === 'ready' ? 'Ready' : 'Outdated'}</span>
+          <ArtifactDiagnostics diagnostics={artifact.manifest.diagnostics} />
           <Button type="button" size="sm" disabled={text === undefined} onClick={() => void copyActiveFile()}>
             {copyStatus ?? 'Copy file'}
           </Button>
@@ -182,11 +211,11 @@ export const ExportPreviewPanel = withInstrumentation(
             Download export
           </Button>
         </div>
-        <ArtifactDiagnostics diagnostics={artifact.manifest.diagnostics} />
         {dependencyNames.length > 0 && (
-          <p className="shrink-0 border-b border-border px-3 py-1 text-xs text-muted-foreground">
-            Included: {dependencyNames.join(', ')}
-          </p>
+          <details className="shrink-0 border-b border-border px-3 py-1 text-xs text-muted-foreground">
+            <summary>Included dependencies ({dependencyNames.length})</summary>
+            <p className="max-h-32 overflow-auto studio-scroll">Included: {dependencyNames.join(', ')}</p>
+          </details>
         )}
         <pre
           className="studio-scroll min-h-0 flex-1 overflow-auto p-3 text-xs whitespace-pre"

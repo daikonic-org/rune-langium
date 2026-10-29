@@ -126,6 +126,7 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
     }
 
     const main = this.profile.concatenate(perNs, registry);
+    main.namespaces = [...new Set(perNs.flatMap((output) => output.namespaces ?? []))];
     const sidecars = this.sharedArtifacts(perNs, registry);
     return sidecars.length > 0 ? [main, ...sidecars] : [main];
   }

@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import {
   IMPLEMENTED_TARGETS,
   TARGET_DESCRIPTORS,
+  getTargetRelativePath,
   type ExportSelection,
   type GeneratorDiagnostic,
   type GeneratorOptions,
@@ -638,7 +639,8 @@ async function artifactEnvelopeResponse(
   selection: ExportSelection | undefined,
   resolvedSelection?: ExportArtifactManifest['resolvedSelection'],
   resolvedCohorts?: ExportArtifactManifest['resolvedCohorts'],
-  projectReceipt?: ExportArtifactManifest['projectReceipt']
+  projectReceipt?: ExportArtifactManifest['projectReceipt'],
+  namespaceByUri: ReadonlyMap<string, string> = new Map()
 ): Promise<Response> {
   const zip = new JSZip();
   const files: ExportArtifactManifest['files'] = [];
@@ -654,6 +656,16 @@ async function artifactEnvelopeResponse(
       path: output.relativePath,
       kind: output.binary ? 'binary' : 'text',
       ...(output.mimeType ? { mimeType: output.mimeType } : {}),
+      namespaces: output.namespaces ?? [
+        ...new Set([
+          ...output.sourceMap.flatMap((entry) =>
+            namespaceByUri.has(entry.sourceUri) ? [namespaceByUri.get(entry.sourceUri)!] : []
+          ),
+          ...[...namespaceByUri.values()].filter(
+            (namespace) => getTargetRelativePath(namespace, target) === output.relativePath
+          )
+        ])
+      ],
       bytes: typeof payload === 'string' ? new TextEncoder().encode(payload).byteLength : payload.byteLength
     });
   }
@@ -1056,7 +1068,15 @@ export const handleCodegenDownload = withInstrumentation(
                 }
               : undefined,
             resolvedCohorts,
-            project?.receipt
+            project?.receipt,
+            new Map(
+              documents.flatMap((document) => {
+                const model = document.parseResult.value;
+                return 'name' in model && typeof model.name === 'string'
+                  ? [[document.uri.toString(), model.name] as const]
+                  : [];
+              })
+            )
           );
         }
         if (outputs.length === 1) {
