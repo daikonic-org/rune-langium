@@ -15,7 +15,7 @@ This file is the shared instruction source for Codex, Claude, Copilot, and other
 
 ## Setup and Verification
 
-- `package.json` and `pnpm-workspace.yaml` are authoritative for versions, scripts, overrides, and patches. Currently: Node ^22.22.2 || ^24.15.0 || >=26.0.0, pnpm >=11, package manager `pnpm@11.5.0`.
+- `package.json` and `pnpm-workspace.yaml` are authoritative for versions, scripts, overrides, and patches. Development/CI: Node 26.13.0 LTS (pinned in `.node-version`), pnpm >=11, package manager `pnpm@11.5.0`.
 - Install: `pnpm install`; build: `pnpm run build`; development: `pnpm dev`.
 - Check code changes with `pnpm run lint`, `pnpm test`, `pnpm run format:check`, and `pnpm run type-check`, scoped to the affected packages when appropriate.
 - Codegen-only changes: `pnpm --filter @rune-langium/codegen test` and `pnpm --filter @rune-langium/codegen run type-check`. Rebuild codegen after render changes; Studio and visual-editor consume its dist output.

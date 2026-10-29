@@ -91,7 +91,7 @@ pnpm add @rune-langium/core
 pnpm add @rune-langium/cli @rune-langium/codegen @rune-langium/lsp-server
 ```
 
-Requires **Node.js `^22.22.2 || ^24.15.0 || >=26.0.0`** and **pnpm ≥ 11** for local development. Use the
+Local development and CI use **Node.js 26.13.0 LTS**, pinned in `.node-version`, and **pnpm ≥ 11**. Use the
 `packageManager` version in `package.json` (currently `pnpm@11.5.0`).
 
 ## Quick Start

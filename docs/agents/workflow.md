@@ -11,7 +11,10 @@ Explicit standard-library lists also use ESNext, retaining each host's DOM/worke
 types. Studio's Vite bundle and generated/projection TypeScript checks target
 ESNext as well. The generated-module test compiler loads only the ESNext standard
 library, avoiding browser-library work in strict server-module checks. Runtime
-engine requirements remain those declared in `package.json`.
+engine requirements remain those declared in each package manifest. Development
+and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
+that file. This tooling baseline does not change published package compatibility
+or the independent Cloudflare workerd/V8 and browser engine feature sets.
 ESNext preserves native decorators that supported Node engines cannot execute.
 Codegen's build and Vitest plugin share `scripts/explicit-decorators.ts`, lowering
 only the existing authored instrumentation decorators with the newest named
@@ -47,7 +50,7 @@ verify the generated form imports the shared Input and renders its `data-slot`
 and focus treatment. Do not replace canonical configuration validation to style
 workspace settings.
 
-Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Workspace and package engine declarations use that combined supported range. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
+Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
 
@@ -136,8 +139,9 @@ not imply generated coverage of `/import` or `/rosetta`.
 Domain generation applies the same safe lint fixes as the commit hook before
 formatting, so its type-only imports reproduce in CI.
 The pinned `langium-zod@0.12.2` patch retains setters for contained-node unions, including recursive `RosettaAttributeReference.receiver`. Union setters use the canonical dehydrated field type; mixed primitive/node unions remain excluded. Core's generator and public-domain tests cover this surface. Remove the patch after an upstream release supports these operations and regeneration preserves the exported API.
-The current Langium CLI's JSON-schema validation fails with `Invalid URL` on
-Node 24/26. Node 22.13.0 was historically verified for grammar generation, before the current Node 22.22.2 floor. When the CLI asks
+Langium CLI 4.4.0 grammar generation is verified on the Node 26.13.0 tooling
+baseline. The former `Invalid URL` limitation on Node 24/26 no longer applies to
+this toolchain. When the CLI asks
 whether to delete additional generated files, retain `domain.ts` and
 `zod-schemas.ts`; their separate generators own them.
 `langium-zod` is exactly pinned in workspace overrides and core/visual-editor
