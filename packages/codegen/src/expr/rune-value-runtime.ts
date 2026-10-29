@@ -152,8 +152,14 @@ const runeValueOrder = (left: unknown, right: unknown): number => {
 ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null, Model extends RuneValueType = RuneEmptyType> implements Iterable<T> {
   declare readonly $rune$cardinality?: readonly [T, Min, Max];
   private readonly $list: RuneList<T>;
+  private readonly $type: (() => Model) | undefined;
+  private readonly $min: Min;
+  private readonly $max: Max;
   private $deep?: RuneDeepView<Model, Min, Max>;
-  constructor(items: readonly T[], private readonly $type: (() => Model) | undefined, private readonly $min: Min, private readonly $max: Max) {
+  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max) {
+    this.$type = $type;
+    this.$min = $min;
+    this.$max = $max;
     this.$list = new RuneList(items);
     runeValueBounds(this.$list.count(), $min, $max, 'Rune value');
     const choice = $type?.().choice;

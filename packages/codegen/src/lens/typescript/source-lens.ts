@@ -97,7 +97,8 @@ const conversions: Record<string, string> = {
 };
 interface Scope {
   parameters: ReadonlySet<string>;
-  aliases?: ReadonlyMap<string, string>;
+  // null retains a lexical binding that has no faithful Rune name in this scope.
+  aliases?: ReadonlyMap<string, string | null>;
 }
 const emptyScope: Scope = { parameters: new Set() };
 
@@ -116,17 +117,34 @@ class SourceReader {
       return this.fail(node, 'Inline function parameters must be distinct Rune names.');
     const body = field(node, 'body');
     if (body.type === 'statement_block') return this.fail(body, 'Edit a statement-shaped callback in Rune source.');
-    return { names, body, scope: { parameters: new Set([...scope.parameters, ...names]) } };
+    const aliases = new Map(scope.aliases);
+    // A new Rune callback rebinds implicit item; it cannot capture the outer one.
+    for (const [name, alias] of aliases) if (alias === 'item') aliases.set(name, null);
+    for (const name of names) {
+      aliases.delete(name);
+      if (name === 'item') aliases.set(name, 'item');
+    }
+    return { names, body, scope: { parameters: new Set([...scope.parameters, ...names]), aliases } };
   }
   private inline(node: Node, scope: Scope): string {
     const fn = this.lambda(node, scope);
     return `${fn.names.length === 1 && fn.names[0] === 'item' ? '' : fn.names.join(', ') + ' '}[${this.read(fn.body, fn.scope)}]`;
   }
+  private reference(node: Node, scope: Scope): string {
+    const name = id(node);
+    const alias = scope.aliases?.get(name);
+    if (alias === null)
+      return this.fail(
+        node,
+        `Rune cannot retain the captured callback binding '${name}' here; edit this expression in Rune source.`
+      );
+    return alias ?? name;
+  }
   private fields(node: Node, scope: Scope): string {
     if (node.type !== 'object') return this.fail(node, 'Expected named constructor fields.');
     return node.namedChildren
       .map((pair) => {
-        if (pair.type === 'shorthand_property_identifier') return `${id(pair)}: ${id(pair)}`;
+        if (pair.type === 'shorthand_property_identifier') return `${id(pair)}: ${this.reference(pair, scope)}`;
         if (pair.type !== 'pair') return this.fail(pair, 'Only named Rune fields can be constructed.');
         return `${id(field(pair, 'key'))}: ${this.read(field(pair, 'value'), scope)}`;
       })
@@ -145,6 +163,9 @@ class SourceReader {
   private comparison(node: Node, receiver: Node, method: string, args: Node[], scope: Scope): string {
     if (args.length !== 1) return this.fail(node, 'Expected one comparison callback.');
     const fn = this.lambda(args[0]!, scope);
+    const outsideAliases = new Map(scope.aliases);
+    for (const name of fn.names) outsideAliases.set(name, null);
+    const outsideScope = { ...scope, aliases: outsideAliases };
     const body = strip(fn.body);
     if (body.type === 'call_expression') {
       const call = field(body, 'function');
@@ -156,12 +177,13 @@ class SourceReader {
       if (comparison.type !== 'binary_expression') return this.fail(comparison);
       const operator = comparison.children[1]!.text;
       if (
+        inner.names.some((name) => fn.names.includes(name)) ||
         !['<', '<=', '>', '>='].includes(operator) ||
         field(comparison, 'left').text !== fn.names[0] ||
         field(comparison, 'right').text !== inner.names[0]
       )
         return this.fail(comparison);
-      return `(${this.read(receiver, scope)}) ${method === 'every' ? 'all' : 'any'} ${operator} (${this.read(field(call, 'object'), scope)})`;
+      return `(${this.read(receiver, scope)}) ${method === 'every' ? 'all' : 'any'} ${operator} (${this.read(field(call, 'object'), outsideScope)})`;
     }
     if (body.type !== 'binary_expression') return this.fail(body, 'Only Rune quantified comparisons use every/some.');
     const operator = body.children[1]!.text;
@@ -184,14 +206,14 @@ class SourceReader {
         return this.fail(right, 'Indexed callbacks represent positional equality only.');
       right = field(right, 'object');
     } else if (fn.names.length !== 1) return this.fail(body);
-    return `(${this.read(receiver, scope)}) ${method === 'every' ? 'all' : 'any'} ${operator === '==' ? '=' : operator === '!=' ? '<>' : operator} (${this.read(right, scope)})`;
+    return `(${this.read(receiver, scope)}) ${method === 'every' ? 'all' : 'any'} ${operator === '==' ? '=' : operator === '!=' ? '<>' : operator} (${this.read(right, outsideScope)})`;
   }
   read(node: Node, scope: Scope = emptyScope): string {
     node = strip(node);
     const read = (part: Node) => this.read(part, scope);
     switch (node.type) {
       case 'identifier':
-        return scope.aliases?.get(node.text) ?? id(node);
+        return this.reference(node, scope);
       case 'null':
         return 'empty';
       case 'true':
@@ -308,7 +330,9 @@ class SourceReader {
           const fn = this.lambda(args[1]!, scope);
           if (name === 'then') {
             if (fn.names.length !== 1) return this.fail(args[1]!);
-            return `(${read(args[0]!)}) then (${this.read(fn.body, { ...fn.scope, aliases: new Map([[fn.names[0]!, 'item']]) })})`;
+            const aliases = new Map(fn.scope.aliases);
+            aliases.set(fn.names[0]!, 'item');
+            return `(${read(args[0]!)}) then (${this.read(fn.body, { ...fn.scope, aliases })})`;
           }
           return `(${read(args[0]!)}) ${name} ${this.inline(args[1]!, scope)}`;
         }

@@ -15,3 +15,7 @@ Preserve scalar results for implicit pipeline extraction/filtering using the
 canonical bound receiver, with strict generated compilation and Python parity
 regressions. Keep deep cyclic descriptor graphs compilable without recursive
 runtime-shape comparisons.
+
+Preserve lexical callback scope and constructor shorthand values in inverse edits,
+refusing captures that cannot retain their Rune meaning. Keep generated value
+constructors compatible with Node strip-only execution.

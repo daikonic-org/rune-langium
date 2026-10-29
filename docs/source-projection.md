@@ -101,6 +101,13 @@ remain in force. Full function bodies and lifted statement expressions are displ
 only; this change does not enable arbitrary JavaScript or whole-function editing.
 The legacy subset lens exports remain for compatibility; Studio uses the source lens.
 
+Callback parameters follow lexical shadowing, including constructor shorthand:
+`then(amount, x => Point({ x }))` retains field `x` with the pipeline value. Rune
+pipelines expose only implicit `item`; edits that capture that binding inside
+another callback are refused when they cannot preserve its meaning. Named Rune
+closure captures remain supported. Quantified comparisons also refuse callbacks
+whose shadowed parameters cannot be represented by the corresponding Rune operator.
+
 ## Runtime and validation
 
 One generated RuneList implementation composes owned arrays for inline modules,

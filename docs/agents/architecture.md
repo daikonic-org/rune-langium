@@ -1236,3 +1236,10 @@ Bare extraction/filtering inside a pipeline uses Core's `getOperationArgument` f
 shape analysis and the current bound value for execution. An absent explicit
 receiver does not imply a collection; scalar pipelines retain scalar results,
 while many-valued extraction keeps groups until its declared boundary.
+
+SourceReader retains lexical bindings across callbacks and masks shadowed names.
+An outer implicit pipeline/item binding becomes unavailable in a nested Rune
+callback; references to it refuse the edit instead of binding to the inner item.
+Constructor shorthand shares identifier resolution while preserving its field key.
+Generated public view constructors use ordinary fields and assignments so the
+helper introduces no parameter-property transform requirement for Node type stripping.
