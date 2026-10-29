@@ -22,3 +22,6 @@ constructors compatible with Node strip-only execution.
 
 Retain enclosing callback aliases in serialized projection origins, restoring
 hygienic implicit names during partial edits and refusing unrecoverable bindings.
+
+Size embedded Rune, projection and draft editors to their visible content with a
+four-line minimum and bounded scrolling, retaining the expanded height limit.

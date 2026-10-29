@@ -2510,25 +2510,25 @@ html {
   outline-offset: -2px;
 }
 
-/* Embedded bodies fill spare space. Short Inspectors scroll the form rather
- * than shrinking the signature or clipping CodeMirror below its usable size. */
-.expression-workspace {
-  --expression-editor-height: 100%;
-}
-
+/* Embedded source, projections and drafts grow with visible (including wrapped)
+ * code. Only the CodeMirror scroller caps the height; no document measurements
+ * or editor remounts are needed when content changes. */
 .expression-workspace[data-expanded="true"] {
-  --expression-editor-height: min(70dvh, 48rem);
+  --expression-editor-max-height: min(70dvh, 48rem);
 }
 
-.expression-workspace > [data-testid="generated-expression"],
-.expression-workspace [data-testid="implementation-editor"] {
-  min-height: 8rem;
-  flex: 1 1 0;
+.expression-code-editor {
+  flex: none;
 }
 
-.expression-workspace[data-expanded="true"] > [data-testid="generated-expression"],
-.expression-workspace[data-expanded="true"] [data-testid="implementation-editor"] {
-  min-height: var(--expression-editor-height);
+.expression-code-editor .studio-source-editor,
+.expression-code-editor .cm-editor {
+  height: auto;
+}
+
+.expression-code-editor .cm-scroller {
+  min-height: calc(4lh + 2 * var(--space-2));
+  max-height: var(--expression-editor-max-height, min(50dvh, 24rem));
 }
 
 .preview-panel__body :is(label, legend, input, select, textarea, button) {

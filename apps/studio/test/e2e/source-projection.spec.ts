@@ -61,8 +61,24 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit expression as TypeScript' });
   const draft = dialog.getByRole('textbox', { name: 'TypeScript expression draft' });
+  const draftScroller = dialog.locator('.cm-scroller');
+  const minimumDraftHeight = await draft.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return 4 * parseFloat(style.lineHeight) + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  });
+  await expect.poll(async () => (await draftScroller.boundingBox())!.height).toBeCloseTo(minimumDraftHeight, 0);
+  const shortDraftHeight = (await draftScroller.boundingBox())!.height;
+  await draft.press('ControlOrMeta+a');
+  await page.keyboard.insertText(Array.from({ length: 500 }, () => 'cutoff').join(' + '));
+  await expect.poll(async () => (await draftScroller.boundingBox())!.height).toBeGreaterThan(shortDraftHeight);
+  await expect.poll(() => draftScroller.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  expect((await draftScroller.boundingBox())!.height).toBeLessThanOrEqual(384);
+  const wrappedScreenshot = testInfo.outputPath('bounded-wrapped-expression-draft.png');
+  await page.screenshot({ path: wrappedScreenshot });
+  await testInfo.attach('bounded-wrapped-expression-draft', { path: wrappedScreenshot, contentType: 'image/png' });
   await draft.press('ControlOrMeta+a');
   await page.keyboard.insertText('filter(values, item => item > cutoff + 1).sort()');
+  await expect.poll(async () => (await draftScroller.boundingBox())!.height).toBeCloseTo(shortDraftHeight, 0);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('item > cutoff');
