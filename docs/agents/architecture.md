@@ -606,7 +606,7 @@ uses a native, single-evaluation presence predicate. Constructor context and lit
 cardinality generics retain enum types without literal casts; matched scalar and
 collection shapes skip redundant normalization. Checked argument boundaries share
 the same depth-aware collection materialization as assignments, including mixed
-scalar/group branches. Extraction wraps arrays directly rather than spreading them
+scalar/group branches and switch branch depths. Extraction wraps arrays directly rather than spreading them
 into function arguments, avoiding the host's argument-count limit.
 TypeScript source projections preserve authored equality as `==`/`!=` and authored
 casts as `value as Type`, without requiring object equality methods. These are Rune

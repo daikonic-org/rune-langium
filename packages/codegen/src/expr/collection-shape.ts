@@ -146,6 +146,7 @@ export function collectionDepth(
   if (isThenOperation(expression)) return depth(expression.function?.body);
   if (isRosettaConditionalExpression(expression)) return Math.max(depth(expression.ifthen), depth(expression.elsethen));
   if (isDefaultOperation(expression)) return Math.max(depth(expression.left), depth(expression.right));
+  if (isSwitchOperation(expression)) return Math.max(0, ...expression.cases.map((branch) => depth(branch.expression)));
   if (isRosettaSymbolReference(expression)) {
     const target = expression.symbol.ref;
     if (isShortcutDeclaration(target) || isRosettaRule(target)) return depth(target.expression);

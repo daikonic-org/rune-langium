@@ -48,4 +48,12 @@ func CheckedGroups:
 func MixedGroups:
  inputs: groups Group (0..*) flag boolean (1..1)
  output: result int (1..1)
- set result: Three(if flag then groups extract [values] else 1)`;
+ set result: Three(if flag then groups extract [values] else 1)
+func SwitchGroups:
+ inputs: groups Group (0..*) selector int (1..1)
+ output: result int (1..1)
+ set result: Three(selector switch 0 then [4, 5, 6], 1 then (groups extract [values]), default empty)
+func SwitchValues:
+ inputs: groups Group (0..*) selector int (1..1)
+ output: result int (0..*)
+ set result: selector switch 0 then [4, 5, 6], 1 then (groups extract [values]), default empty`;
