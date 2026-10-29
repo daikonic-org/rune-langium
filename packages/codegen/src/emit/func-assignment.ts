@@ -5,12 +5,13 @@ import { metadataPropertyPath } from '../expr/metadata-runtime.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import {
   collectionValue,
+  singleValue,
   expressionFitsCardinality,
   renderCardinalityChecks,
   renderCheckedValue
 } from '../expr/cardinality.js';
 import { expressionIsMany } from '../expr/navigation.js';
-import { nativeCollection, nativeSingle } from '../expr/collection-shape.js';
+import { nativeCollection } from '../expr/collection-shape.js';
 import { freshLocal } from '../expr/inline-function.js';
 import { isListLiteral, isRosettaExpression, type RosettaExpression } from '@rune-langium/core';
 import type { FuncBodyContext, RuneFuncAssignment } from '../types/func.js';
@@ -26,11 +27,11 @@ export function renderAssignmentValue(
   const emptyList = expression && isListLiteral(expression) && !expression.elements.length;
   return sourceMany === targetMany && !emptyList
     ? targetMany
-      ? collectionValue(value, expression)
+      ? collectionValue(value, expression, true)
       : value
     : targetMany
       ? nativeCollection(value, expression, undefined, true, projection)
-      : nativeSingle(value, expression, true, projection);
+      : singleValue(value, expression, true, projection);
 }
 
 export function renderFuncAssignment(

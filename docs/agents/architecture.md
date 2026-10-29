@@ -606,8 +606,10 @@ uses a native, single-evaluation presence predicate. Constructor context and lit
 cardinality generics retain enum types without literal casts; matched scalar and
 collection shapes skip redundant normalization. Checked argument boundaries share
 the same depth-aware collection materialization as assignments, including mixed
-scalar/group branches and switch branch depths. Pipeline bindings retain their
-argument's shape and depth through the same lexical binding lookup. Python
+scalar/group branches and switch branch depths. Scalar boundaries materialize
+groups before single-value checks. Inline bindings share one lexical lookup:
+pipelines bind the complete argument, while extraction callbacks bind an element
+and reduce its grouping depth by one. Python
 normalizes mixed scalar/group values before boundary flattening, preserving zero
 and empty values. Extraction wraps arrays directly rather than spreading them
 into function arguments, avoiding the host's argument-count limit.

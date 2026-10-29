@@ -89,3 +89,43 @@ func MixedPipeValues:
  inputs: groups Group (0..*) flag boolean (1..1) amount int (0..1)
  output: result int (0..*)
  set result: (if flag then groups extract [values] else amount) then item`;
+
+export const sourceProjectionBoundaries = `namespace test.projectionBoundaries
+type Group:
+ values int (0..*)
+func Scalar:
+ inputs: value int (1..1)
+ output: result int (1..1)
+ set result: value
+func ScalarArgument:
+ inputs: groups Group (0..*)
+ output: result int (1..1)
+ set result: Scalar(groups extract [values])
+func ScalarAssignment:
+ inputs: groups Group (0..*)
+ output: result int (1..1)
+ set result: groups extract [values]
+func OptionalAssignment:
+ inputs: groups Group (0..*)
+ output: result int (0..1)
+ set result: groups extract [values]
+func Identity:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) extract [item]
+func NamedIdentity:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) extract group [group]
+func BareIdentity:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) extract
+func IdentityCount:
+ inputs: groups Group (0..*)
+ output: result int (1..1)
+ set result: ((groups extract [values]) extract [item]) count
+func Constant:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) extract [1]`;

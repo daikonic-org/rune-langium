@@ -88,6 +88,20 @@ export function collectionValue(value: string, expression: RosettaExpression | u
   return depth > 1 ? `(${array}).flat(${depth - 1})` : array;
 }
 
+/** Materialize extraction groups before enforcing a declared scalar boundary. */
+export function singleValue(
+  value: string,
+  expression: RosettaExpression | undefined,
+  typescript = false,
+  projection = false
+): string {
+  if (collectionDepth(expression) > 1) {
+    value = collectionValue(value, expression, typescript);
+    expression = undefined;
+  }
+  return nativeSingle(value, expression, typescript, projection);
+}
+
 /** Shared runtime bounds for function arguments, outputs, and nested assignments. */
 export function renderCardinalityChecks(
   value: string,
@@ -123,7 +137,7 @@ export function normalizeCardinalityValue(
   typescript = false
 ): string {
   const many = cardinality.upper === null || cardinality.upper > 1;
-  value = many ? collectionValue(value, expression, typescript) : nativeSingle(value, expression, typescript);
+  value = many ? collectionValue(value, expression, typescript) : singleValue(value, expression, typescript);
   const checks = renderCardinalityChecks(
     'value',
     cardinality,

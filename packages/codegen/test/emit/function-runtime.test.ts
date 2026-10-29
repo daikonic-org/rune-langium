@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { sourceProjectionCollections } from '../helpers/source-projection-collections.js';
+import { sourceProjectionBoundaries, sourceProjectionCollections } from '../helpers/source-projection-collections.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
@@ -87,6 +87,25 @@ func Increment:
     const result = funcs.Increment!({ values }) as number[];
     expect(result).toEqual(values.map((value) => value + 1));
     expect(values[0]).toBe(0);
+  });
+
+  it('flattens declared scalar boundaries while preserving intermediate extraction groups', async () => {
+    const funcs = await compile(sourceProjectionBoundaries);
+    for (const groups of [[{ values: [1] }], [{ values: [1] }, { values: [] }], [{}, { values: [1] }]]) {
+      expect(funcs.ScalarArgument!({ groups })).toBe(1);
+      expect(funcs.ScalarAssignment!({ groups })).toBe(1);
+      expect(funcs.OptionalAssignment!({ groups })).toBe(1);
+    }
+    expect(funcs.OptionalAssignment!({ groups: [{ values: [] }] })).toBeUndefined();
+    expect(() => funcs.ScalarArgument!({ groups: [] })).toThrow(/requires a value/);
+    expect(() => funcs.ScalarAssignment!({ groups: [] })).toThrow(/produced no result/);
+    for (const name of ['ScalarArgument', 'ScalarAssignment', 'OptionalAssignment'])
+      expect(() => funcs[name]!({ groups: [{ values: [1, 2] }] })).toThrow(/at most one/);
+    const groups = [{ values: [1, 2] }, { values: [3] }];
+    for (const name of ['Identity', 'NamedIdentity', 'BareIdentity'])
+      expect(funcs[name]!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.IdentityCount!({ groups })).toBe(2);
+    expect(funcs.Constant!({ groups })).toEqual([1, 1]);
   });
 
   it('omits empty Choice list entries and enforces their required boundaries', async () => {
@@ -286,7 +305,7 @@ func ComputedNaN:
       '',
       false,
       (source) => {
-        const file = ts.createSourceFile('generated.ts', source, ts.ScriptTarget.ES2022, true);
+        const file = ts.createSourceFile('generated.ts', source, ts.ScriptTarget.ESNext, true);
         for (const statement of file.statements) {
           if (ts.isFunctionDeclaration(statement) && statement.name)
             declarations.set(statement.name.text, statement.getText(file));

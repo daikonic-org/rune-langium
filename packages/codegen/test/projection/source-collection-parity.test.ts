@@ -6,7 +6,7 @@ import { AstUtils } from 'langium';
 import { isThenOperation, type ClosureParameter } from '@rune-langium/core';
 import { generate } from '../../src/export.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
-import { sourceProjectionCollections } from '../helpers/source-projection-collections.js';
+import { sourceProjectionBoundaries, sourceProjectionCollections } from '../helpers/source-projection-collections.js';
 import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { linkedFunctions, runPython } from './python-test-utils.js';
 
@@ -117,4 +117,31 @@ it('preserves explicit pipeline parameter depth in both executable exports', asy
       { includeRuntime: false }
     )
   ).toEqual([{ value: [1, 2, 3] }, { value: [0] }, { value: [] }]);
+});
+
+it('keeps scalar boundaries and extraction callback groups consistent in Python', async () => {
+  const functions = await linkedFunctions(sourceProjectionBoundaries);
+  const python = generatePythonModule([AstUtils.getDocument(functions[0]!)]);
+  const cases = [
+    ...['ScalarArgument', 'ScalarAssignment', 'OptionalAssignment'].map((name) => ({
+      expression: `${name}([{"values": [1]}, {"values": []}])`
+    })),
+    { expression: 'OptionalAssignment([{"values": []}])' },
+    ...['Identity', 'NamedIdentity', 'BareIdentity'].map((name) => ({
+      expression: `${name}([{"values": [1, 2]}, {"values": [3]}])`
+    })),
+    { expression: 'IdentityCount([{"values": [1, 2]}, {"values": [3]}])' },
+    { expression: 'Constant([{"values": [1, 2]}, {"values": [3]}])' }
+  ];
+  expect(runPython(cases, python.code, { includeRuntime: false })).toEqual([
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: null },
+    { value: [1, 2, 3] },
+    { value: [1, 2, 3] },
+    { value: [1, 2, 3] },
+    { value: 2 },
+    { value: [1, 1] }
+  ]);
 });
