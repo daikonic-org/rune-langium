@@ -77,11 +77,14 @@ for (const theme of ['light', 'daikonic']) {
       const style = getComputedStyle(el, '::after');
       return { width: style.width, shadow: style.boxShadow, color: style.backgroundColor };
     });
-    expect(paint.width).toBe('1px');
+    expect(paint.width).toBe('4px');
     expect(paint.shadow).toBe('none');
-    expect(paint.color).not.toBe('rgba(0, 0, 0, 0)');
+    expect(paint.color).toBe('rgba(0, 0, 0, 0)');
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
     await expect(sash).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect
+      .poll(() => sash.evaluate((el) => getComputedStyle(el, '::after').backgroundColor))
+      .not.toBe('rgba(0, 0, 0, 0)');
     await page.mouse.down();
     await page.mouse.move(handle.x + handle.width / 2 + 24, handle.y + handle.height / 2, { steps: 5 });
     await page.mouse.up();
@@ -103,6 +106,19 @@ for (const theme of ['light', 'daikonic']) {
     const save = page.getByRole('button', { name: 'Save target settings', exact: true });
     expect((await box(name)).height).toBe(24);
     expect((await box(save)).height).toBe(24);
+    const exportSash = page.locator('.dv-sash.dv-enabled').filter({ visible: true }).first();
+    await page.mouse.move(4, 4);
+    await expect
+      .poll(() => exportSash.evaluate((el) => getComputedStyle(el, '::after').backgroundColor))
+      .toBe('rgba(0, 0, 0, 0)');
+    await exportSash.hover();
+    await expect
+      .poll(() => exportSash.evaluate((el) => getComputedStyle(el, '::after').backgroundColor))
+      .not.toBe('rgba(0, 0, 0, 0)');
+    await page.mouse.move(4, 4);
+    await expect
+      .poll(() => exportSash.evaluate((el) => getComputedStyle(el, '::after').backgroundColor))
+      .toBe('rgba(0, 0, 0, 0)');
     await page.screenshot({ path: info.outputPath(`${theme}-export.png`) });
     await page.getByTestId('rail-prototype').click();
     const form = await createPrototypeExample(page, 'Party', 'Aligned Party');

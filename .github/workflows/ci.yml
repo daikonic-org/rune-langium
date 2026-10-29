@@ -20,14 +20,12 @@ jobs:
         with:
           version: 11.5.0
 
-      - name: Use Node.js 22.x
-        # Pinned to Node 22 to match Cloudflare Workers/Pages `nodejs_compat`
-        # production target — every wrangler.toml in the repo enables
-        # `nodejs_compat`, which selects Node 22 LTS API surface regardless of
-        # the specific compatibility_date used.
+      - name: Use project Node.js LTS
+        # Tooling uses the shared LTS pin. Cloudflare runs workerd/V8 with
+        # API compatibility controlled independently by its date and flags.
         uses: actions/setup-node@v7
         with:
-          node-version: '22.x'
+          node-version-file: '.node-version'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -75,6 +73,17 @@ jobs:
         run: pnpm run verify:native-implementations
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify complete reference example corpus
+        run: pnpm run verify:reference-examples
+
+      - name: Upload reference example inventory
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reference-example-import-inventory
+          path: dist/reference-example-import-report.json
+          if-no-files-found: error
 
       - name: Type check
         run: pnpm run type-check
@@ -152,10 +161,10 @@ jobs:
         with:
           version: 11.5.0
 
-      - name: Use Node.js 22.x
+      - name: Use project Node.js LTS
         uses: actions/setup-node@v7
         with:
-          node-version: '22.x'
+          node-version-file: '.node-version'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -219,10 +228,10 @@ jobs:
         with:
           version: 11.5.0
 
-      - name: Use Node.js 22.x
+      - name: Use project Node.js LTS
         uses: actions/setup-node@v7
         with:
-          node-version: '22.x'
+          node-version-file: '.node-version'
           cache: 'pnpm'
 
       - name: Install dependencies

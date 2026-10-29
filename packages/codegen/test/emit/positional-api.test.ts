@@ -62,7 +62,7 @@ func MissingSentinel:
 function assertModuleSyntax(code: string) {
   const result = spawnSync(process.execPath, ['--input-type=module', '--check'], {
     input: ts.transpileModule(code, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
+      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext }
     }).outputText,
     encoding: 'utf8'
   });

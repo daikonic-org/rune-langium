@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import {
+  getOperationArgument,
+  isRosettaExpression,
+  isClosureParameter,
   isArithmeticOperation,
   isEqualityOperation,
   isComparisonOperation,
@@ -31,6 +34,7 @@ import {
 } from '@rune-langium/core';
 import { AstUtils } from 'langium';
 import { expressionIsMany, expressionType, featureIsRequired } from './navigation.js';
+import { expressionMetadataKind } from './metadata-type.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
 import { resolveTypeCallTarget, type TypeIndexLookup } from '../emit/type-ref-resolver.js';
 import { functionOutput, type FuncTypeNameResolver } from '../types/func.js';
@@ -150,6 +154,17 @@ export function expressionIsPresent(
     if (isRosettaSymbolReference(expression)) {
       const declaration = expression.symbol.ref;
       if (isRosettaEnumValue(declaration)) return true;
+      if (isClosureParameter(declaration) && isInlineFunction(declaration.$container)) {
+        const operation = declaration.$container.$container;
+        const argument = isRosettaExpression(operation) ? getOperationArgument(operation) : undefined;
+        return (
+          !!argument &&
+          ['MapOperation', 'FilterOperation', 'SortOperation', 'MinOperation', 'MaxOperation'].includes(
+            operation.$type
+          ) &&
+          !expressionMetadataKind(argument)
+        );
+      }
       if (isShortcutDeclaration(declaration)) return expressionIsPresent(declaration.expression, visiting);
       if (isRosettaFunction(declaration)) return requiredScalarKind(expression) !== undefined;
       return (

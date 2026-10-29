@@ -48,8 +48,8 @@ available; no system preference silently replaces an explicit choice.
   on desktop and scrolls independently; navigation and workspace actions stay
   visible. Reference Models uses the same full-width, full-height frame. Narrow
   layouts keep the stacked flow.
-- Splitters paint one theme-colored hairline, with a primary hover cue, inside
-  the existing 16px drag target. Do not add a second shadow outline.
+- Splitters stay invisible at rest and highlight the full 4px gap on hover or
+  drag. Keep the existing transparent 16px drag target without a shadow outline.
 
 ## Review
 

@@ -55,7 +55,7 @@ describe('metadata expression rendering', () => {
     expect(fieldMetadataKind(schemeThenReference)).toBe('reference');
     const runtime = ts.transpileModule(metadataRuntimeSource(true), {
       reportDiagnostics: true,
-      compilerOptions: { target: ts.ScriptTarget.ES2022 }
+      compilerOptions: { target: ts.ScriptTarget.ESNext }
     });
     expect(runtime.diagnostics).toHaveLength(0);
     expect(metadataRuntimeSource(true, true)).toContain('export const runeWithMeta');

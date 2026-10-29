@@ -12,7 +12,7 @@ const source = `namespace test.projection
   Increase
   Decrease
   Replace
- type Object:
+ type ValueRecord:
   value number (1..1)
  type Money:
   value number (1..1)
@@ -50,12 +50,12 @@ const source = `namespace test.projection
   output: result InterestRatePayout (0..*)
   set result: economicTerms -> payout as InterestRatePayout
  func Same:
-  inputs: left Object (1..1)
-          right Object (1..1)
+  inputs: left ValueRecord (1..1)
+          right ValueRecord (1..1)
   output: result boolean (1..1)
   set result: left = right
  func Missing:
-  inputs: left Object (0..1)
+  inputs: left ValueRecord (0..1)
   output: result boolean (1..1)
   set result: left = empty
  func EnumSame:
@@ -66,12 +66,12 @@ const source = `namespace test.projection
   output: result string (1..1)
   set result: "Increase"
  func OptionalSame:
-  inputs: left Object (0..1)
-          right Object (0..1)
+  inputs: left ValueRecord (0..1)
+          right ValueRecord (0..1)
   output: result boolean (1..1)
   set result: left = right
  func MissingMany:
-  inputs: values Object (0..*)
+  inputs: values ValueRecord (0..*)
   output: result boolean (1..1)
   set result: values = empty
  func NotInterest:
@@ -87,8 +87,8 @@ const source = `namespace test.projection
   output: result boolean (1..1)
   set result: payouts as InterestRatePayout exists
  func ManySame:
-  inputs: left Object (0..*)
-          right Object (0..*)
+  inputs: left ValueRecord (0..*)
+          right ValueRecord (0..*)
   output: result boolean (1..1)
   set result: left = right
 `;
@@ -121,26 +121,25 @@ describe('validated Rune object display contract', () => {
   });
   it('displays plain calls and an inferred output while executable APIs retain boundary checks', () => {
     const display = body('Margin');
-    expect(display).toMatch(/Rate\(schedule\?\.durationInYears\)/);
+    expect(display).toMatch(/Rate\(schedule\.durationInYears\)/);
     expect(display).not.toMatch(/RuneFuncData|NonNullable|throw new Error| as /);
     expect(outputs.map((output) => output.content).join('\n')).toContain("Argument 'durationInYears' requires a value");
   });
   it('narrows purpose-built collection elements with a named type guard', () => {
-    expect(body('Payment')).toContain('.filter(isInterestRatePayout)');
+    expect(body('Payment')).toContain('economicTerms.payout as InterestRatePayout');
     expect(body('Payment')).not.toMatch(/typeof|__as|__result/);
   });
-  it('fuses choice narrowing and presence as a type-membership predicate', () => {
-    expect(body('NotInterest')).toBe('return !isInterestRatePayout(payout);');
-    expect(body('HasInterest')).toBe('return isInterestRatePayout(payout);');
-    expect(body('ManyInterest')).toContain('.some(isInterestRatePayout)');
-    const absent = new Function('payout', 'isInterestRatePayout', body('NotInterest'));
-    const guard = (value: { kind?: string } | undefined) => value?.kind === 'interest';
-    expect(absent(undefined, guard)).toBe(true);
-    expect(absent({ kind: 'other' }, guard)).toBe(true);
-    expect(absent({ kind: 'interest' }, guard)).toBe(false);
+  it('preserves authored selection and presence while executable exports narrow choices', () => {
+    expect(body('NotInterest')).toContain('!exists(payout as InterestRatePayout)');
+    expect(body('HasInterest')).toContain('payout instanceof InterestRatePayout');
+    expect(body('ManyInterest')).toContain('payouts.some(item => item instanceof InterestRatePayout)');
+    const runtime = compileGeneratedTypeScript(outputs);
+    expect(runtime.NotInterest!(undefined)).toBe(true);
+    expect(runtime.NotInterest!({ otherPayout: { value: 1 } })).toBe(true);
+    expect(runtime.NotInterest!({ interestRatePayout: {} })).toBe(false);
   });
   it('uses the declared enum member while retaining ordinary string literals', () => {
-    expect(body('EnumSame')).toContain('direction === Direction.Increase');
+    expect(body('EnumSame')).toContain('direction == Direction.Increase');
     expect(body('EnumSame')).not.toContain('"Increase"');
     expect(body('Literal')).toMatch(/['"]Increase['"]/);
     const same = new Function('direction', 'Direction', body('EnumSame'));
@@ -200,34 +199,20 @@ describe('validated Rune object display contract', () => {
     },
     20_000
   );
-  it('does not invoke object equality when either optional operand is absent', () => {
-    const same = new Function('left', 'right', body('OptionalSame'));
-    let calls = 0;
-    const object = {
-      equals(other: unknown) {
-        calls++;
-        return other === object;
-      }
-    };
-    expect(same(object, undefined)).toBe(false);
-    expect(same(undefined, object)).toBe(false);
-    expect(same(undefined, null)).toBe(true);
-    expect(calls).toBe(0);
-    expect(same(object, object)).toBe(true);
-    expect(calls).toBe(1);
-    expect(body('MissingMany')).not.toContain('equals');
-    const absent = new Function('values', body('MissingMany'));
-    expect(absent([])).toBe(true);
-    expect(absent([object])).toBe(false);
-  });
-  it('uses object equality methods but native null presence comparisons', () => {
-    expect(body('Same')).toContain('left.equals(right)');
+  it('retains structural and empty equality in exported functions', () => {
+    const runtime = compileGeneratedTypeScript(outputs);
+    expect(body('OptionalSame')).toContain('left == right');
+    expect(runtime.OptionalSame!({ value: 1 }, undefined)).toBe(false);
+    expect(runtime.OptionalSame!(undefined, { value: 1 })).toBe(false);
+    expect(runtime.OptionalSame!(undefined, null)).toBe(true);
+    expect(runtime.OptionalSame!({ value: 1 }, { value: 1 })).toBe(true);
+    expect(runtime.MissingMany!([])).toBe(true);
+    expect(runtime.MissingMany!([{ value: 1 }])).toBe(false);
+    expect(body('Same')).toContain('left == right');
     expect(body('Missing')).toContain('left == null');
-    expect(body('Missing')).not.toMatch(/equals|valueKey/);
-    const absent = new Function('left', body('Missing'));
-    expect(absent(undefined)).toBe(true);
-    expect(absent({ value: 1 })).toBe(false);
-    expect(body('ManySame')).toContain('a.equals(b)');
-    expect(body('ManySame')).not.toContain('valueKey');
+    expect(runtime.Missing!(undefined)).toBe(true);
+    expect(runtime.Missing!({ value: 1 })).toBe(false);
+    expect(body('ManySame')).toContain('left == right');
+    expect(runtime.ManySame!([{ value: 1 }], [{ value: 1 }])).toBe(true);
   });
 });

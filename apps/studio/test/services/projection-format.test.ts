@@ -62,4 +62,24 @@ describe('generated projection formatting', () => {
     expect(formatted.code.split('\n').length).toBeGreaterThan(3);
     expect(formatted.code).not.toContain('_projection');
   });
+
+  it('formats Rune parent calls without exposing its constructor wrapper', async () => {
+    const formatted = await formatGeneratedProjection(
+      projection('typescript', 'const result=super();\nreturn result;'),
+      'function'
+    );
+    expect(formatted.code).toBe('const result = super();\nreturn result;');
+    expect(formatted.code).not.toContain('$Projection');
+  });
+
+  it('formats statement-shaped predicates without eagerly rewriting their switch', async () => {
+    const input = {
+      ...projection('typescript', 'let value;\nswitch(amount){case 1:value=2;break;}\nreturn value > 0;'),
+      syntax: 'statements' as const
+    };
+    const formatted = await formatGeneratedProjection(input, 'condition');
+    expect(formatted.code).toContain('switch (amount)');
+    expect(formatted.code).toContain('return value > 0;');
+    expect(formatted.syntax).toBe('statements');
+  });
 });

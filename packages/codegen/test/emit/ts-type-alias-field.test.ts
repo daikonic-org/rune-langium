@@ -102,6 +102,6 @@ type Foo:
     expect(output.content).toContain('b?: string;');
     expect(output.content).toContain('c?: string;');
     expect(output.content).toContain('d?: string;');
-    expect(output.content).not.toContain('unknown;');
+    expect(output.content.match(/export interface FooShape \{([^}]+)\}/)![1]).not.toContain('unknown');
   });
 });

@@ -54,7 +54,7 @@ const FIXTURE_DIR = resolve(new URL('.', import.meta.url).pathname, '../fixtures
 function typeCheckFile(filePath: string, source: string): readonly string[] {
   const compilerOptions: ts.CompilerOptions = {
     strict: true,
-    target: ts.ScriptTarget.ES2022,
+    target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
     noEmit: true,
@@ -161,7 +161,7 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
-    expect(output.content).toContain('export class ObservableItem<T extends AssetShape = AssetShape> {');
+    expect(output.content).toContain('export class $ObservableItem$Data<T extends AssetShape = AssetShape> {');
     expect(output.content).not.toContain('implements ObservableItemShape');
     expect(output.content).toContain('constructor(data: ObservableItemShape<T>) {');
     expect(output.content).toContain('validateAsset(): { valid: boolean; errors: string[] } {');
@@ -171,7 +171,7 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
-    expect(output.content).toContain('export class BasketConstituent extends ObservableItem {');
+    expect(output.content).toContain('export class $BasketConstituent$Data extends $ObservableItem$Data {');
     expect(output.content).not.toContain('implements BasketConstituentShape');
     expect(output.content).not.toContain('class BasketConstituent<T');
   });

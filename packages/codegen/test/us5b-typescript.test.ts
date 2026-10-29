@@ -63,7 +63,7 @@ describe('T099: basic-types TypeScript target', () => {
 
   it('contains static from(', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('static from(');
+    expect(output).toContain('from<const I>(');
   });
 
   it('contains isTypeName( type guards', async () => {
@@ -86,13 +86,13 @@ describe('T099: basic-types TypeScript target', () => {
 describe('T100: inheritance TypeScript target', () => {
   it('emits class Child extends Parent (not implements)', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('class Dog extends Animal');
+    expect(output).toContain('class $Dog$Data extends $Animal$Data');
     expect(output).not.toContain('class Dog implements');
   });
 
   it('emits three-level inheritance chain', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('class Poodle extends Dog');
+    expect(output).toContain('class $Poodle$Data extends $Dog$Data');
   });
 
   it('emits discriminator function isDog(x: Animal): x is Dog', async () => {

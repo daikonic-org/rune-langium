@@ -3,12 +3,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LanguageLensEditor } from '../../src/components/LanguageLensEditor.js';
-import { parseTs, parsePy } from '@rune-langium/codegen/lens';
+import { parseSourceTs, parsePy } from '@rune-langium/codegen/lens';
 import { getPyWasmBytes } from '../../src/lens/py-wasm-asset.js';
 
 // Real WASM fetch is exercised by ts-wasm-asset.test.ts (Step 1 of this
 // task) and by parse-ts.test.ts's Node-path tests (Task 3) — this
-// component test only needs SOME bytes to reach parseTs, not a real
+// component test only needs SOME bytes to reach parseSourceTs, not a real
 // network fetch, so it stubs the asset fetcher deterministically.
 vi.mock('../../src/lens/ts-wasm-asset.js', () => ({
   getTsWasmBytes: vi.fn(async () => {
@@ -33,17 +33,17 @@ vi.mock('../../src/lens/py-wasm-asset.js', () => ({
   })
 }));
 
-// `parseTs`/`parsePy` are wrapped in a `vi.fn` that calls through to the
+// `parseSourceTs`/`parsePy` are wrapped in a `vi.fn` that calls through to the
 // real implementation by default, so every other test still exercises the
-// real tree-sitter parse-back path. The "parseTs rejects" test below
-// overrides `parseTs` with `mockRejectedValueOnce` to simulate an internal
+// real tree-sitter parse-back path. The "parseSourceTs rejects" test below
+// overrides `parseSourceTs` with `mockRejectedValueOnce` to simulate an internal
 // web-tree-sitter/Parser.init() failure unrelated to the WASM fetch; the
-// no-op-blur tests await `parseTs`/`parsePy`'s recorded return promise
+// no-op-blur tests await `parseSourceTs`/`parsePy`'s recorded return promise
 // directly to deterministically wait past the async blur handler's
 // no-op-detection check (there's no DOM change to assert on for a no-op).
 vi.mock('@rune-langium/codegen/lens', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@rune-langium/codegen/lens')>();
-  return { ...actual, parseTs: vi.fn(actual.parseTs), parsePy: vi.fn(actual.parsePy) };
+  return { ...actual, parseSourceTs: vi.fn(actual.parseSourceTs), parsePy: vi.fn(actual.parsePy) };
 });
 
 describe('LanguageLensEditor', () => {
@@ -56,7 +56,7 @@ describe('LanguageLensEditor', () => {
   it('projects to TypeScript on toggle', async () => {
     render(<LanguageLensEditor value="currency exists" onChange={vi.fn()} onBlur={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /typescript/i }));
-    await waitFor(() => expect(screen.getByText('currency != null')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('exists(currency)')).toBeInTheDocument());
   });
 
   it('commits a valid TS edit back as canonical Rune text via onChange', async () => {
@@ -83,17 +83,17 @@ describe('LanguageLensEditor', () => {
     fireEvent.input(editor, { target: { textContent: 'value.toFixed(2)' } });
     fireEvent.blur(editor);
 
-    await waitFor(() => expect(screen.getByText(/not supported/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Rune source|Rune inverse/i)).toBeInTheDocument());
     expect(onChange).not.toHaveBeenCalled();
     // A refusal is still a real DOM blur — upstream form state (touched/
     // validation) must see it even though nothing was committed.
     expect(onBlur).toHaveBeenCalledTimes(1);
   });
 
-  it('shows an inline error, notifies onBlur, and does not commit when parseTs rejects (thrown, not a refusal)', async () => {
+  it('shows an inline error, notifies onBlur, and does not commit when parseSourceTs rejects (thrown, not a refusal)', async () => {
     const onChange = vi.fn();
     const onBlur = vi.fn();
-    vi.mocked(parseTs).mockRejectedValueOnce(new Error('boom — Parser.init() failure'));
+    vi.mocked(parseSourceTs).mockRejectedValueOnce(new Error('boom — Parser.init() failure'));
 
     render(<LanguageLensEditor value="value >= 0" onChange={onChange} onBlur={onBlur} />);
     fireEvent.click(screen.getByRole('button', { name: /typescript/i }));
@@ -110,10 +110,12 @@ describe('LanguageLensEditor', () => {
 
   it('shows read-only Rune with a notice for expressions outside S, never a TS toggle result', () => {
     // 'items count' is outside S (RosettaCountOperation) — renderTs returns null.
-    render(<LanguageLensEditor value="items count" onChange={vi.fn()} onBlur={vi.fn()} />);
+    render(
+      <LanguageLensEditor value="Point { x: value switch 1 then 2, default 3 }" onChange={vi.fn()} onBlur={vi.fn()} />
+    );
     fireEvent.click(screen.getByRole('button', { name: /typescript/i }));
     expect(screen.getByText(/can.t be shown in typescript/i)).toBeInTheDocument();
-    expect(screen.getByText('items count')).toBeInTheDocument();
+    expect(screen.getByText('Point { x: value switch 1 then 2, default 3 }')).toBeInTheDocument();
   });
 
   it('skips onChange but still calls onBlur when blurring the TS lens without any edit', async () => {
@@ -123,7 +125,7 @@ describe('LanguageLensEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: /typescript/i }));
     await waitFor(() => screen.getByText('value >= 0'));
 
-    const resultsBefore = vi.mocked(parseTs).mock.results.length;
+    const resultsBefore = vi.mocked(parseSourceTs).mock.results.length;
     const editor = screen.getByRole('textbox', { name: /typescript expression/i });
     fireEvent.blur(editor);
 
@@ -133,8 +135,8 @@ describe('LanguageLensEditor', () => {
     // continuation on it first, so this deterministically waits past the
     // no-op check without relying on a DOM change (onChange not firing isn't
     // observable in the DOM; onBlur firing is asserted directly below).
-    await waitFor(() => expect(vi.mocked(parseTs).mock.results.length).toBeGreaterThan(resultsBefore));
-    await vi.mocked(parseTs).mock.results.at(-1)!.value;
+    await waitFor(() => expect(vi.mocked(parseSourceTs).mock.results.length).toBeGreaterThan(resultsBefore));
+    await vi.mocked(parseSourceTs).mock.results.at(-1)!.value;
 
     // onBlur is the slot's blur notification (marks the field touched /
     // triggers validation upstream, e.g. FunctionForm's `field.onBlur()`
@@ -149,7 +151,7 @@ describe('LanguageLensEditor', () => {
   // 'python' entry in LENSES, proving the generalization in
   // LanguageLensEditor.tsx is genuinely shared, not per-language duplicated
   // logic. Uses the real renderPy/parsePy (see the `@rune-langium/codegen/lens`
-  // mock above — only parseTs is overridden with a vi.fn wrapper; parsePy
+  // mock above — only parseSourceTs is overridden with a vi.fn wrapper; parsePy
   // passes through to the actual implementation).
   it('projects to Python on toggle', async () => {
     render(<LanguageLensEditor value="currency exists" onChange={vi.fn()} onBlur={vi.fn()} />);
@@ -212,10 +214,12 @@ describe('LanguageLensEditor', () => {
   it('shows read-only Rune with a notice for expressions outside S, never a Python toggle result', () => {
     // 'items count' is outside S (RosettaCountOperation) — renderPy returns
     // null too (same isInSubsetS gate as renderTs, see subset.ts).
-    render(<LanguageLensEditor value="items count" onChange={vi.fn()} onBlur={vi.fn()} />);
+    render(
+      <LanguageLensEditor value="Point { x: value switch 1 then 2, default 3 }" onChange={vi.fn()} onBlur={vi.fn()} />
+    );
     fireEvent.click(screen.getByRole('button', { name: /python/i }));
     expect(screen.getByText(/can.t be shown in python/i)).toBeInTheDocument();
-    expect(screen.getByText('items count')).toBeInTheDocument();
+    expect(screen.getByText('Point { x: value switch 1 then 2, default 3 }')).toBeInTheDocument();
   });
 
   it('skips onChange but still calls onBlur when blurring the Python lens without any edit', async () => {

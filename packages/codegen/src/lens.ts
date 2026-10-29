@@ -20,3 +20,8 @@ export { parseTs } from './lens/typescript/parse-ts.js';
 export { renderPy } from './lens/python/render-py.js';
 export { parsePy } from './lens/python/parse-py.js';
 export type { WasmSource } from './lens/typescript/ts-grammar-loader.js';
+
+export { renderSourceTs, parseSourceTs } from './lens/typescript/source-lens.js';
+export { renderSourceTypeScriptExpression } from './projection/source-typescript-expression.js';
+export type { ProjectionOrigin } from './projection/types.js';
+export type { SourceTypeScriptOptions, SourceTypeScriptExpression } from './projection/source-typescript-expression.js';

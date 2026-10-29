@@ -6,10 +6,14 @@ import { escapeSingleQuotedString } from './string-literal.js';
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
 import {
+  renderSourceTypeScriptFunction,
+  type SourceFunctionProjection
+} from '../projection/source-typescript-function.js';
+import { renderSourceTypeScriptExpression } from '../projection/source-typescript-expression.js';
+import {
   getEnumValues,
   isAsOperation,
   isSwitchCaseGuard,
-  isSwitchOperation,
   isChoice,
   isAttribute,
   isChoiceOption,
@@ -20,10 +24,12 @@ import {
   isRosettaExpression,
   isRosettaConstructorExpression,
   isData,
+  isRosettaRecordType,
   type Choice,
   type Condition,
   type Data,
   type Attribute,
+  type ChoiceOption,
   type RosettaEnumeration,
   type RosettaExpression,
   type RosettaCardinality,
@@ -39,12 +45,19 @@ import {
 import { projectBindingHeader, projectBindingNames, projectCodeListForAlias } from '../runtime/project-bindings.js';
 import { emittedTypeScriptProjection } from '../projection/typescript.js';
 import type { EmittedProjection } from '../projection/types.js';
-import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveType } from '../expr/navigation.js';
+import {
+  expressionIsMany,
+  expressionType,
+  featureIsMany,
+  featureName,
+  typeFeatures,
+  resolveType,
+  type Feature
+} from '../expr/navigation.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
-import { renderFuncAssignment, renderAssignmentValue } from './func-assignment.js';
-import { freshLocal } from '../expr/inline-function.js';
+import { renderFuncAssignment } from './func-assignment.js';
 import { expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
@@ -90,11 +103,12 @@ import {
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { debug } from '../instrument.js';
 import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
+import { ValueApiEmitter } from './value-api.js';
+import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES } from '../expr/rune-value-runtime.js';
 import {
   attrAccessExpr,
   transpileCondition,
   transpileExpression,
-  renderTranspiledSwitch,
   type ExpressionTranspilerContext
 } from '../expr/transpiler.js';
 import {
@@ -231,6 +245,28 @@ export function emitNamespace(
 }
 
 export class TsNamespaceEmitter extends BaseNamespaceEmitter {
+  private readonly valueApi = new ValueApiEmitter(
+    (node, suffix = '') => {
+      if (isRosettaRecordType(node))
+        return `$record$${this.model.namespace.replace(/[^\w]/g, '$')}$${getElementNamespace(node)?.replace(/[^\w]/g, '$')}$${node.name}$${suffix}`;
+      const namespace = getElementNamespace(node) ?? this.model.namespace;
+      const name = this.callableNames.declarationExported(namespace, node);
+      return this.typeName(node, `$${name}${suffix ? `$${suffix}` : ''}`);
+    },
+    (field) => this.resolveTypeExprAsTs(field, false),
+    (record) => this.ctx.builtinTypeMap[record.name] ?? 'unknown',
+    (node) => (isRosettaRecordType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
+    (node) => {
+      if (isData(node)) return this.emitFromFactory(node, true);
+      if (isChoice(node))
+        return `(value: unknown) => { if (!${this.typeName(node, `is${node.name}`)}(value)) throw new TypeError('not a ${node.name}'); return value; }`;
+      const type = this.ctx.builtinTypeMap[node.name] ?? 'unknown';
+      return type.startsWith('Temporal.')
+        ? `(value: unknown) => ${type === 'Temporal.ZonedDateTime' ? `typeof value === 'string' ? rune.parseZonedDateTime(value) : ${type}.from(value as ${type})` : `${type}.from(value as ${type} | string)`}`
+        : '(value: unknown) => value';
+    },
+    (field) => this.valueGuard(field)
+  );
   private readonly ctx: EmissionContext;
   private readonly typeIndex: TypeIndexLookup;
   private readonly sections: string[] = [];
@@ -252,7 +288,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.typeIndex = toTypeIndexLookup(this.ctx, this.ctx.namespace);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
-    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES);
+    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES, RUNE_VALUE_NAMES);
     this.singleFile = options.typescript?.layout === 'single-file';
     this.inputChecks = options.typescript?.inputChecks === true;
     this.projectBindings = options.projectBindings;
@@ -329,6 +365,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.sections.push('');
     this.sections.push(this.emitTypeGuard(data));
     this.sections.push('');
+    this.sections.push(this.valueApi.emit(data));
+    this.sections.push('');
   }
 
   /**
@@ -350,6 +388,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.sections.push(this.emitChoiceShapeTypeDeclaration(choice));
     this.sections.push('');
     this.sections.push(this.emitChoiceTypeGuard(choice));
+    this.sections.push('');
+    this.sections.push(this.valueApi.emit(choice));
     this.sections.push('');
   }
 
@@ -396,7 +436,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     );
 
     for (const func of sortedFuncs) {
-      const bodies = new Map<RuneFunc, string>();
+      const bodies = new Map<RuneFunc, SourceFunctionProjection>();
       const isHoisted = cyclicNames.has(func.name);
       const funcCtx = {
         ...TsNamespaceEmitter.buildFuncBodyContext(func, callGraph, this.ctx.diagnostics),
@@ -426,21 +466,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
                   onConditionProjection: (condition: Condition, code: string, predicate: string) =>
                     this.recordProjection(condition.expression, code, 'condition', predicate)
                 });
-                bodies.set(
-                  variant,
-                  TsNamespaceEmitter.emitFuncBody(variant, {
-                    ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, []),
-                    projectImplementation: this.projectImplementation(variant),
-                    callableName: this.callableName,
-                    typeNameResolver: this.typeName,
-                    objectEquality: 'method',
-                    projection: true
-                  })
-                    .join('\n')
-                    .split('\n')
-                    .map((line) => line.slice(2))
-                    .join('\n')
-                );
+                bodies.set(variant, renderSourceTypeScriptFunction(variant, this.projectImplementation(variant)));
                 return lines;
               }
             });
@@ -450,8 +476,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       this.sections.push(funcText);
       const sources = group.flatMap((variant) => {
         const fragment = variant.source
-          ? this.recordProjection(variant.source, funcText, 'function', bodies.get(variant))
+          ? this.recordProjection(variant.source, funcText, 'function', bodies.get(variant)?.code)
           : undefined;
+        const implementation = bodies.get(variant)?.implementation;
+        if (fragment?.body) {
+          fragment.body.implementation = implementation;
+          fragment.body.origins = bodies.get(variant)?.origins;
+        }
         return fragment ? fragment.sourceMap : [];
       });
       this.ctx.sourceMap.push(...sources.map((entry) => ({ ...entry, outputLine: outputLine + entry.outputLine })));
@@ -495,7 +526,22 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     kind: EmittedProjection['kind'],
     body?: string
   ): EmittedProjection | undefined {
-    const projection = emittedTypeScriptProjection(node, code, kind, body);
+    const source =
+      kind === 'condition' && body !== undefined && isRosettaExpression(node)
+        ? renderSourceTypeScriptExpression(node, {
+            owner: AstUtils.getContainerOfType(node, isRosettaFunction),
+            trackOrigins: false
+          })
+        : undefined;
+    const sourceBody = source
+      ? source.statements.length
+        ? [...source.statements, `return ${source.code};`].join('\n')
+        : source.code
+      : body;
+    const projection = emittedTypeScriptProjection(node, code, kind, sourceBody);
+    if (projection?.body && source) projection.body.origins = [source.origin];
+    if (projection?.body)
+      projection.body.syntax = kind === 'function' || source?.statements.length ? 'statements' : 'expression';
     if (projection) this.projections.push(projection);
     return projection;
   }
@@ -599,6 +645,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         // now the symbol exists and the same tracking is simply correct.
         trackRef(parentRef, `${parentRef.name}Shape`);
         trackRef(parentRef, parentRef.name);
+        if (isData(parentRef)) {
+          const rawName = `$${this.callableNames.declarationExported(getElementNamespace(parentRef) ?? this.ctx.namespace, parentRef)}$Data`;
+          trackRef(parentRef, rawName, this.valueApi.name(parentRef, 'Data'));
+        }
       }
       // Multi-level Data-extends-Choice: the child's generic Shape alias
       // constraint references the Choice ANCESTOR's `<Choice>Shape` even
@@ -727,6 +777,17 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       }
     }
 
+    for (const root of [...this.ctx.dataByName.values(), ...this.ctx.choiceByName.values()]) {
+      for (const feature of this.valueApi.features(root)) trackAttributePositionImport(feature.typeCall);
+      for (const dependency of this.valueApi.dependencies(root)) {
+        if (isRosettaRecordType(dependency)) continue;
+        for (const suffix of ['Input', 'Type']) {
+          const exportedName = `$${this.callableNames.declarationExported(getElementNamespace(dependency) ?? this.ctx.namespace, dependency)}$${suffix}`;
+          trackRef(dependency, exportedName, this.valueApi.name(dependency, suffix));
+        }
+        trackRef(dependency, dependency.name);
+      }
+    }
     return buildCrossNsImportLines(imports, this.ctx.namespace, this.ctx.registry, '.js');
   }
 
@@ -734,7 +795,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Resolve the TypeScript type expression for an attribute.
    * T105.
    */
-  private resolveTypeExprAsTs(attr: Attribute): string {
+  private resolveTypeExprAsTs(attr: Feature, metadata = true): string {
     const type = resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
@@ -763,7 +824,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         onChoice: (node) => this.typeName(node),
         onUnresolved: (refText) => {
           if (refText) return refText; // preserves this file's existing permissive refText shortcut
-          this.reportUnresolvedReference(attr.name, undefined, 'unknown');
+          this.reportUnresolvedReference(featureName(attr), undefined, 'unknown');
           return 'unknown';
         }
       },
@@ -771,7 +832,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       this.projectResources,
       projectTsCodeList
     );
-    return metadataType(type, fieldMetadataKind(attr));
+    return metadata && (isAttribute(attr) || isChoiceOption(attr)) ? metadataType(type, fieldMetadataKind(attr)) : type;
   }
 
   /**
@@ -779,6 +840,27 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Returns undefined when the type is not a scalar (e.g., Data reference).
    * T108.
    */
+  private valueGuard(field: Feature): string | undefined {
+    return resolveTypeCallTarget<string | undefined>(
+      field.typeCall,
+      this.typeIndex,
+      {
+        onPrimitive: (name) => {
+          const kind = this.ctx.typeofMap[name];
+          return kind
+            ? `(value: unknown) => !(${TsNamespaceEmitter.negTypeofGuard('value', kind, this.ctx.builtinTypeMap[name])})`
+            : undefined;
+        },
+        onEnum: (node) =>
+          `(value: unknown) => Object.values(${this.typeName(node)}).includes(value as ${this.typeName(node)})`,
+        onData: () => undefined,
+        onChoice: () => undefined,
+        onUnresolved: () => undefined
+      },
+      this.ctx.namespace
+    );
+  }
+
   private resolveTypeofStr(attr: Attribute): string | undefined {
     if (hasFieldMetadata(attr)) return 'object';
     return resolveTypeCallTarget<string | undefined>(
@@ -970,13 +1052,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * T106.
    */
   private emitClass(data: Data): string {
-    const name = this.typeName(data);
+    const name = this.valueApi.name(data, 'Data');
+    const publicName = this.typeName(data);
     const interfaceName = this.typeName(data, `${data.name}Shape`);
     const parentRef = data.superType?.ref;
     // Item 2: NOT gated on `dataByName.has` — see emitInterface's doc
     // comment for the full cross-namespace rationale.
     const parentData = parentRef && isData(parentRef) ? parentRef : undefined;
-    const parentName = parentData ? this.typeName(parentData) : undefined;
+    const parentName = parentData ? this.valueApi.name(parentData, 'Data') : undefined;
     const choiceParent = parentRef && isChoice(parentRef) ? parentRef : undefined;
     // Multi-level (Data extends Data extends Choice, per T105's
     // emitInterface): once the PARENT's own Shape is itself the generic
@@ -1036,17 +1119,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push('  }');
     }
 
-    // static from factory (T107)
-    lines.push('');
-    lines.push(this.emitFromFactory(data, shapeIsGeneric));
-
     // Data-extends-Choice: exactly-one-of validator over the inherited
     // Choice's option names, mirroring emitOneOf's ts-method emission
     // convention (rune.checkOneOf + errors.push), read off `this` since the
     // option keys were copied on via Object.assign in the constructor.
     if (choiceParent) {
       lines.push('');
-      lines.push(this.emitChoiceParentValidateMethod(choiceParent, name));
+      lines.push(this.emitChoiceParentValidateMethod(choiceParent, publicName));
     }
 
     // validate methods (T110)
@@ -1056,6 +1135,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     }
 
     lines.push('}');
+    const generic = choiceParent
+      ? `<T extends ${this.typeName(choiceParent, `${choiceParent.name}Shape`)} = ${this.typeName(choiceParent, `${choiceParent.name}Shape`)}>`
+      : '';
+    lines.push(`export type ${publicName}${generic} = ${name}${choiceParent ? '<T>' : ''};`);
     return lines.join('\n');
   }
 
@@ -1580,6 +1663,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
               `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`,
               [
                 ...libraryHelpers,
+                ...RUNE_VALUE_IMPORTS,
                 ...(this.usesMetadata()
                   ? ['type RuneFieldWithMeta', 'type RuneReferenceWithMeta', 'type RuneMetadata']
                   : [])
@@ -1588,7 +1672,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
             ``
           ]
         : [
-            runtimeHelperSource(true, false, this.usesMetadata()),
+            runtimeHelperSource(true, false, this.usesMetadata(), true),
             ...(libraryHelpers.length ? [TS_LIBRARY_RUNTIME_SOURCE] : []),
             ''
           ]),
@@ -1878,7 +1962,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Emit the `static from(json: unknown): <TypeName>` factory method.
+   * Emit the checked one-instance creator used by model view normalization.
    * T107.
    *
    * @param castThroughUnknown - Data-extends-Choice (direct or inherited via
@@ -1898,7 +1982,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const shapeName = this.typeName(data, `${data.name}Shape`);
     const castExpr = castThroughUnknown ? `json as unknown as ${shapeName}` : `json as ${shapeName}`;
     return [
-      `  static from(json: unknown): ${name} {`,
+      `  (json: unknown) => {`,
       `    if (!${this.typeName(data, `is${data.name}`)}(json)) {`,
       `      throw new TypeError('not a ${data.name}: ' + JSON.stringify(json).slice(0, 100));`,
       `    }`,
@@ -2127,22 +2211,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       !func.preConditions.length &&
       !func.postConditions.length &&
       isRosettaExpression(assignment.exprNode) &&
-      (ctx.projection || expressionFitsCardinality(assignment.exprNode, func.output.cardinality))
+      expressionFitsCardinality(assignment.exprNode, func.output.cardinality)
     ) {
-      if (ctx.projection && isSwitchOperation(assignment.exprNode)) {
-        const targetMany = assignment.targetMany ?? ctx.outputAccumulator === 'array';
-        const statement = renderTranspiledSwitch(assignment.exprNode, ctx, {
-          returnStatement: true,
-          returnValue: (value, expression) =>
-            expression
-              ? renderAssignmentValue(value, expression, targetMany, ctx.projection)
-              : targetMany
-                ? '[]'
-                : value,
-          selectorName: freshLocal(ctx, 'switchValue')
-        });
-        if (statement) return statement.split('\n').map((line) => `  ${line}`);
-      }
       const statement = TsNamespaceEmitter.emitFuncSet(assignment, ctx);
       if (statement.startsWith(`  ${result} = `) && !statement.includes('\n')) {
         // A local preserves structural assignment for constructor literals with additional fields.
@@ -2231,7 +2301,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     func: RuneFunc,
     ctx: FuncBodyContext,
     _isHoisted: boolean,
-    onBody: (body: string) => void
+    onBody: (body: SourceFunctionProjection) => void
   ): string {
     const parameters = TsNamespaceEmitter.buildFuncParameters(func);
     const outputType = TsNamespaceEmitter.buildFuncOutputType(func);
@@ -2239,19 +2309,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     const bodyLines = TsNamespaceEmitter.emitFuncBody(func, ctx);
     const body = bodyLines.join('\n');
-    onBody(
-      TsNamespaceEmitter.emitFuncBody(func, {
-        ...ctx,
-        diagnostics: [],
-        objectEquality: 'method',
-        projection: true,
-        onConditionProjection: undefined
-      })
-        .join('\n')
-        .split('\n')
-        .map((line) => line.slice(2))
-        .join('\n')
-    );
+    onBody(renderSourceTypeScriptFunction(func, ctx.projectImplementation));
 
     return `${signature} {\n${body}\n}`;
   }

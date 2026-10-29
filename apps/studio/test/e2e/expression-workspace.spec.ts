@@ -60,16 +60,25 @@ for (const width of [1280, 800, 390]) {
     const geometry = await editor.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       const scroller = element.querySelector('.cm-scroller')!.getBoundingClientRect();
-      return { height: rect.height, codeHeight: scroller.height, width: document.documentElement.scrollWidth };
+      const content = getComputedStyle(element.querySelector('.cm-content')!);
+      return {
+        height: rect.height,
+        codeHeight: scroller.height,
+        minimum:
+          4 * parseFloat(content.lineHeight) + parseFloat(content.paddingTop) + parseFloat(content.paddingBottom),
+        width: document.documentElement.scrollWidth
+      };
     });
-    expect(geometry.height).toBeGreaterThanOrEqual(128);
-    expect(geometry.codeHeight).toBeGreaterThanOrEqual(120);
+    expect(geometry.codeHeight).toBeCloseTo(geometry.minimum, 0);
+    expect(geometry.height).toBeLessThan(geometry.minimum + 4);
     expect(geometry.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: testInfo.outputPath(`inspector-${width}.png`) });
     await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
     const generated = implementation.getByRole('textbox', { name: 'Generated typescript' });
     await expect(generated).toContainText('amount');
-    expect((await generated.boundingBox())!.height).toBeGreaterThanOrEqual(120);
+    expect(
+      await generated.evaluate((element) => element.closest('.cm-scroller')!.getBoundingClientRect().height)
+    ).toBeCloseTo(geometry.minimum, 0);
     await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
     await expect(editor.locator('.cm-content')).toContainText('set result: amount + 1');
   });
@@ -104,13 +113,35 @@ func Run:
   expect(spacing.content).toBe('8px');
   expect(spacing.line).toBe('8px');
   expect(spacing.gutter).toBe(0);
-  // Wait for the Inspector's arrival layout before comparing expanded/collapsed sizes.
+  // Expansion changes the cap, rather than adding blank space to a short body.
   await implementation.getByRole('button', { name: 'Expand editor', exact: true }).scrollIntoViewIfNeeded();
   const initialHeight = (await editor.boundingBox())!.height;
   await implementation.getByRole('button', { name: 'Expand editor', exact: true }).click();
-  await expect.poll(async () => (await editor.boundingBox())!.height).toBeGreaterThan(initialHeight);
+  await expect.poll(async () => (await editor.boundingBox())!.height).toBeCloseTo(initialHeight, 0);
   await implementation.getByRole('button', { name: 'Collapse editor', exact: true }).click();
-  await expect.poll(async () => (await editor.boundingBox())!.height).toBe(initialHeight);
+  const content = editor.locator('.cm-content');
+  await content.click();
+  await content.press('ControlOrMeta+Home');
+  await page.keyboard.insertText(Array.from({ length: 40 }, (_, index) => ` alias step${index}: amount\n`).join(''));
+  const longHeight = Math.min(0.5 * page.viewportSize()!.height, 384);
+  await expect
+    .poll(async () => (await editor.locator('.cm-scroller').boundingBox())!.height)
+    .toBeCloseTo(longHeight, 0);
+  expect(await editor.locator('.cm-scroller').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+    true
+  );
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  const longProjection = implementation.getByRole('textbox', { name: 'Generated typescript' });
+  await expect.poll(() => codeMirrorDocument(longProjection)).toContain('step39');
+  const projectedScroller = implementation.getByTestId('generated-expression').locator('.cm-scroller');
+  await expect.poll(async () => (await projectedScroller.boundingBox())!.height).toBeCloseTo(longHeight, 0);
+  await implementation.getByRole('button', { name: 'Expand editor', exact: true }).click();
+  await expect.poll(async () => (await projectedScroller.boundingBox())!.height).toBeGreaterThan(longHeight);
+  await implementation.getByRole('button', { name: 'Collapse editor', exact: true }).click();
+  await expect.poll(async () => (await projectedScroller.boundingBox())!.height).toBeCloseTo(longHeight, 0);
+  await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+  await content.press('ControlOrMeta+z');
+  await expect.poll(async () => (await editor.boundingBox())!.height).toBeCloseTo(initialHeight, 0);
   await page.getByTestId('panel-formPreview').getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.locator('.execution-error')).toContainText('amount:');
   await page.getByLabel('Amount', { exact: true }).fill('2');
@@ -118,7 +149,8 @@ func Run:
   await expect(page.locator('.execution-result')).toContainText('42');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
-  await expect(projection).toContainText('return 42;');
+  await expect(projection).toContainText('const result = 42;');
+  await expect(projection).toContainText('return result;');
   await expect(projection).not.toContainText('input =');
   await expect(projection).not.toContainText('rune.single');
   await expect(projection).not.toContainText('export function');
@@ -165,7 +197,7 @@ func Days:
   const implementation = page.getByRole('region', { name: 'Function implementation' });
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
-  await expect(projection).toContainText('right.until(left).days');
+  await expect(projection).toContainText('left - right');
   await expect(projection).not.toContainText('rune.');
   await expect(projection).not.toContainText('.from(');
   await expect(projection).not.toContainText('export function');

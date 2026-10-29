@@ -209,7 +209,7 @@ func ShadowAgain:
         });
         const program = ts.createProgram(files, {
           strict: true,
-          target: ts.ScriptTarget.ES2022,
+          target: ts.ScriptTarget.ESNext,
           module: ts.ModuleKind.NodeNext,
           moduleResolution: ts.ModuleResolutionKind.NodeNext,
           skipLibCheck: true,
@@ -258,9 +258,12 @@ func ShadowAgain:
         expect(funcs.KeepSide({ value: 'Alpha' })).toBe('Alpha');
         const alphaDerived = layout === 'per-namespace' ? require('./alpha.js').Derived : funcs.__rune$alpha$Derived;
         const betaDerived = layout === 'per-namespace' ? require('./beta.js').Derived : funcs.__rune$beta$Derived;
-        expect(alphaDerived.from({ alphaValue: 7, extra: 1 })).toMatchObject({ alphaValue: 7, extra: 1 });
-        expect(betaDerived.from({ betaValue: 'beta', extra: 2 })).toMatchObject({ betaValue: 'beta', extra: 2 });
-        expect(() => alphaDerived.from({ betaValue: 'beta', extra: 1 })).toThrow('not a Derived');
+        expect(alphaDerived.from({ alphaValue: 7, extra: 1 }).unwrap()).toMatchObject({ alphaValue: 7, extra: 1 });
+        expect(betaDerived.from({ betaValue: 'beta', extra: 2 }).unwrap()).toMatchObject({
+          betaValue: 'beta',
+          extra: 2
+        });
+        expect(() => alphaDerived.from({ betaValue: 'beta', extra: 1 })).toThrow('alphaValue: expected 1..1');
         expect(funcs.ConvertFoo({ value: { alphaValue: 7 } })).toEqual({ betaValue: 'converted' });
         for (const name of ['ConstructRemote', 'AssignRemote']) {
           expect(funcs[name]({ value: 4 })).toEqual({ amount: { value: 4, meta: {} }, link: { value: 4 } });

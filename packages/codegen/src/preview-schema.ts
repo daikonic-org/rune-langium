@@ -1625,48 +1625,44 @@ function createPreviewValueAdapter(
     }
   }
 
+  function normalizeFeatureItem(feature: Attribute | ChoiceOption, item: unknown, path: string): unknown {
+    if (item == null) return undefined;
+    const kind = fieldMetadataKind(feature);
+    if (kind && isMetadataInputEnvelope(item, metadataPayloadShape(feature.typeCall, typeIndex))) {
+      const envelope = Object.prototype.hasOwnProperty.call(item, 'value')
+        ? {
+            ...item,
+            ...(mode === 'wire' ? { meta: item.meta ?? {} } : {}),
+            value: normalizeType(feature.typeCall, item.value, path + '.value')
+          }
+        : { ...item };
+      return mode === 'wire' ? withRuneJsonEncoding(envelope, 'envelope') : envelope;
+    }
+    if (kind) sourcePaths.set(path + '.value', sourcePath(path));
+    const normalized = normalizeType(feature.typeCall, item, kind ? path + '.value' : path);
+    return kind ? wrappers[kind](normalized) : normalized;
+  }
   function attributeFields(attributes: readonly Attribute[]): Map<string, (value: unknown, path: string) => unknown> {
     return new Map(
       attributes.map((attr) => [
         attr.name,
-        (value: unknown, path: string) => {
-          if (value == null) return undefined;
-          const kind = fieldMetadataKind(attr);
-          const shape = kind ? metadataPayloadShape(attr.typeCall, typeIndex) : null;
-          const normalizeItem = (item: unknown, itemPath: string) => {
-            if (item == null) return undefined;
-            if (kind && isMetadataInputEnvelope(item, shape)) {
-              const envelope = Object.prototype.hasOwnProperty.call(item, 'value')
-                ? {
-                    ...item,
-                    ...(mode === 'wire' ? { meta: item.meta ?? {} } : {}),
-                    value: normalizeType(attr.typeCall, item.value, itemPath + '.value')
-                  }
-                : { ...item };
-              return mode === 'wire' ? withRuneJsonEncoding(envelope, 'envelope') : envelope;
-            }
-            if (kind) sourcePaths.set(itemPath + '.value', sourcePath(itemPath));
-            const normalized = normalizeType(attr.typeCall, item, kind ? itemPath + '.value' : itemPath);
-            return kind ? wrappers[kind](normalized) : normalized;
-          };
-          return isArrayCardinality(decodeCardinality(attr.card)) && Array.isArray(value)
-            ? value.map((item, index) => normalizeItem(item, path + '[' + index + ']'))
-            : normalizeItem(value, path);
-        }
+        (value: unknown, path: string) =>
+          isArrayCardinality(decodeCardinality(attr.card)) && Array.isArray(value)
+            ? value.map((item, index) => normalizeFeatureItem(attr, item, path + '[' + index + ']'))
+            : normalizeFeatureItem(attr, value, path)
       ])
     );
   }
-
   function choiceFields(choice: Choice): Map<string, (value: unknown, path: string) => unknown> {
     return new Map(
       choice.attributes.map((option) => [
         choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? ''),
-        (value: unknown, path: string) => normalizeType(option.typeCall, value, path)
+        (value: unknown, path: string) => normalizeFeatureItem(option, value, path)
       ])
     );
   }
 
-  function concreteNode(value: unknown): Data | undefined {
+  function concreteNode(value: unknown): Data | Choice | undefined {
     if (
       !value ||
       typeof value !== 'object' ||
@@ -1676,7 +1672,7 @@ function createPreviewValueAdapter(
       return undefined;
     const id = resolveTypeId((value as Record<string, unknown>)['@type'] as string);
     const matches = namespaces
-      .flatMap((entry) => [...entry.dataByName.values()].map((target) => target.node))
+      .flatMap((entry) => [...entry.dataByName.values(), ...entry.choiceByName.values()].map((target) => target.node))
       .filter((node) => qualifiedTypeId(node) === id);
     if (matches.length !== 1) throw new Error('Rune JSON concrete type is missing or ambiguous: ' + String(id));
     return matches[0];
@@ -1691,8 +1687,8 @@ function createPreviewValueAdapter(
     }
     return false;
   }
-  function choiceAcceptsNode(node: Data, expected: Choice, seen = new Set<Choice>()): boolean {
-    if (extendsNode(node, expected)) return true;
+  function choiceAcceptsNode(node: Data | Choice, expected: Choice, seen = new Set<Choice>()): boolean {
+    if (node === expected || (isData(node) && extendsNode(node, expected))) return true;
     if (seen.has(expected)) return false;
     const next = new Set(seen).add(expected);
     return expected.attributes.some((option) =>
@@ -1702,7 +1698,7 @@ function createPreviewValueAdapter(
         {
           onPrimitive: () => false,
           onEnum: () => false,
-          onData: (target) => extendsNode(node, target),
+          onData: (target) => isData(node) && extendsNode(node, target),
           onChoice: (target) => choiceAcceptsNode(node, target, next),
           onUnresolved: () => false
         },
@@ -1716,7 +1712,29 @@ function createPreviewValueAdapter(
       value && typeof value === 'object' && !Array.isArray(value)
         ? (value as Record<string, unknown>)['@type']
         : undefined;
-    const actual = declared === qualifiedTypeId(node) ? (isData(node) ? node : undefined) : concreteNode(value);
+    if (
+      mode === 'canonical' &&
+      isChoice(node) &&
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      Object.prototype.hasOwnProperty.call(value, '@data') &&
+      (declared === undefined || declared === qualifiedTypeId(node))
+    ) {
+      const wire = value as Record<string, unknown>;
+      const selected = normalizeNode(node, wire['@data'], path);
+      return {
+        ...Object.fromEntries(Object.entries(wire).filter(([key]) => key !== '@type' && key !== '@data')),
+        ...(selected as object)
+      };
+    }
+    const candidate =
+      isChoice(node) &&
+      isMetadataInputEnvelope(value, metadataPayloadShape(node, typeIndex)) &&
+      Object.prototype.hasOwnProperty.call(value, 'value')
+        ? value.value
+        : value;
+    const actual = declared === qualifiedTypeId(node) ? (isData(node) ? node : undefined) : concreteNode(candidate);
     if (isChoice(node)) {
       const existing =
         value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
@@ -1733,7 +1751,7 @@ function createPreviewValueAdapter(
         );
         if (present.length !== 1) throw new Error('Rune JSON serialization requires exactly one Choice option.');
         const arm = present[0]!;
-        const body = normalizeType(arm.option.typeCall, existing[arm.name], path ? path + '.' + arm.name : arm.name);
+        const body = normalizeFeatureItem(arm.option, existing[arm.name], path ? path + '.' + arm.name : arm.name);
         if (!body || typeof body !== 'object' || Array.isArray(body))
           throw new Error('Rune JSON Choice option must serialize as an object.');
         const headers = Object.fromEntries(
@@ -1752,24 +1770,64 @@ function createPreviewValueAdapter(
               onPrimitive: () => false,
               onEnum: () => false,
               onChoice: (target) => choiceAcceptsNode(actual, target),
-              onData: (target) => extendsNode(actual, target),
+              onData: (target) => isData(actual) && extendsNode(actual, target),
               onUnresolved: () => false
             },
             ''
           )
         );
-        if (options.length !== 1) throw new Error('Rune JSON concrete type does not select exactly one Choice option.');
-        const option = options[0]!,
+        const exact = options.filter((option) =>
+          resolveTypeCallTarget(
+            option.typeCall,
+            typeIndex,
+            {
+              onPrimitive: () => false,
+              onEnum: () => false,
+              onUnresolved: () => false,
+              onData: (target) => target === actual,
+              onChoice: (target) => target === actual
+            },
+            ''
+          )
+        );
+        const dataAlternatives = options.every((option) =>
+          resolveTypeCallTarget(
+            option.typeCall,
+            typeIndex,
+            {
+              onPrimitive: () => false,
+              onEnum: () => false,
+              onUnresolved: () => false,
+              onData: () => true,
+              onChoice: () => false
+            },
+            ''
+          )
+        );
+        const selected = exact.length && dataAlternatives ? exact : options;
+        if (selected.length !== 1)
+          throw new Error(
+            'Rune JSON type ' +
+              qualifiedTypeId(actual) +
+              ' does not select exactly one Choice option (' +
+              selected.length +
+              ') for ' +
+              qualifiedTypeId(node) +
+              ' at ' +
+              (path || '$') +
+              '.'
+          );
+        const option = selected[0]!,
           arm = choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '');
         const armPath = path ? path + '.' + arm : arm;
         sourcePaths.set(armPath, sourcePath(path));
-        return { [arm]: normalizeType(option.typeCall, value, armPath) };
+        return { [arm]: normalizeFeatureItem(option, value, armPath) };
       }
       return normalizeObject(value, choiceFields(node), path);
     }
-    if (actual && actual !== node && !extendsNode(actual, node))
+    if (actual && actual !== node && (!isData(actual) || !extendsNode(actual, node)))
       throw new Error('Rune JSON concrete type is not assignable to ' + qualifiedTypeId(node));
-    const { attributes, choiceAncestor, metadata } = collectInheritedAttributes(actual ?? node);
+    const { attributes, choiceAncestor, metadata } = collectInheritedAttributes(isData(actual) ? actual : node);
     const normalized = normalizeObject(
       value,
       new Map([...(choiceAncestor ? choiceFields(choiceAncestor) : []), ...attributeFields(attributes)]),

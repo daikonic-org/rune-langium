@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { StrictMode } from 'react';
+import { parseWorkspace } from '@rune-langium/core';
+import { useEditorStore } from '@rune-langium/visual-editor';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createHash } from 'node:crypto';
@@ -33,12 +35,32 @@ const path = 'examples/payment.json';
 afterEach(async () => {
   useInstanceStore.getState().setExampleRepository(undefined);
   vi.unstubAllGlobals();
+  useEditorStore.getState().loadModels([]);
 });
-async function setup(options: { bad?: boolean; version?: string } = {}) {
+async function setup(
+  options: { bad?: boolean; version?: string; text?: string; legacy?: boolean; catalog?: boolean } = {}
+) {
   const entries = new Map([
-    [path, options.version ? payload.replace('0.0.0.master-SNAPSHOT', options.version) : payload],
+    [path, options.text ?? (options.version ? payload.replace('0.0.0.master-SNAPSHOT', options.version) : payload)],
+    ...(options.legacy ? ([['examples/legacy.json', '{"amount":12}']] as [string, string][]) : []),
     ...(options.bad ? ([['examples/bad.json', '{bad']] as [string, string][]) : [])
   ]);
+  if (options.catalog) {
+    entries.set('examples/function-input.json', JSON.stringify({ payment: { amount: 12 } }));
+    entries.set(
+      'execution-descriptor.json',
+      JSON.stringify([
+        {
+          name: 'Payment calculation',
+          description: 'Run a payment example',
+          inputFile: 'examples/function-input.json',
+          expectedOutputFile: path,
+          executableFunctionClass: 'example.functions.Calculate',
+          nativeFunction: true
+        }
+      ])
+    );
+  }
   const blobs = [...entries].map(([path, text]) => {
     const bytes = new TextEncoder().encode(text);
     return {
@@ -95,7 +117,10 @@ async function setup(options: { bad?: boolean; version?: string } = {}) {
         readOnly: true,
         refOnly: true,
         dirty: false,
-        exports: [{ name: 'Payment', type: 'Data' }]
+        exports: [
+          { name: 'Payment', type: 'Data' },
+          { name: 'Calculate', type: 'RosettaFunction' }
+        ]
       }
     ]
   };
@@ -158,15 +183,12 @@ it('saves single/bulk imports with provenance, reports partial failures and pres
   await screen.findByText(/already in the library/);
   expect(Object.values(useInstanceStore.getState().instances)).toHaveLength(1);
 });
-it('requires an explicit acknowledgement for payload version mismatches', async () => {
+it('imports corpus examples by default while showing version differences as information', async () => {
   const { user } = await setup({ version: '7.0.0' });
   await user.click(screen.getByRole('button', { name: path, exact: true }));
   await screen.findByText(/Payload version 7.0.0 differs/);
+  expect(screen.queryByRole('checkbox', { name: /version warnings/ })).toBeNull();
   await user.click(screen.getByRole('checkbox', { name: `Select ${path}` }));
-  await user.click(screen.getByRole('button', { name: 'Import 1 into library' }));
-  await screen.findByText(/Review and acknowledge/);
-  expect(Object.values(useInstanceStore.getState().instances)).toHaveLength(0);
-  await user.click(screen.getByRole('checkbox', { name: /Import selected payloads with version warnings/ }));
   await user.click(screen.getByRole('button', { name: 'Import 1 into library' }));
   await screen.findByText(`${path}: imported.`);
 });
@@ -194,4 +216,62 @@ it('retains selections during capture refresh but invalidates them for a changed
 it('renders safely before the project and reference capture are available', () => {
   render(<ReferenceExampleImport />);
   expect(screen.getByRole('button', { name: 'Reference examples…' })).toBeVisible();
+});
+
+it('provides a source link and an actionable error for unreadable examples', async () => {
+  const { user } = await setup({ text: '' });
+  await user.click(screen.getByRole('button', { name: path, exact: true }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('This example is not valid JSON');
+  expect(screen.getByRole('link', { name: 'Open example source' })).toHaveAttribute(
+    'href',
+    `${origin.repository}/blob/${origin.commit}/${path}`
+  );
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+});
+
+it('clears a manual object type and lets a typed sample supply its own identity', async () => {
+  const parsed = await parseWorkspace([
+    { uri: 'example.rosetta', content: 'namespace example\ntype Payment:\n amount number (1..1)' }
+  ]);
+  useEditorStore.getState().loadModels(parsed.map((result) => result.value));
+  const { user } = await setup({ legacy: true });
+  await user.click(screen.getByRole('button', { name: 'examples/legacy.json', exact: true }));
+  await user.click(await screen.findByRole('button', { name: 'Example object type', exact: true }));
+  await user.click(await screen.findByRole('option', { name: /Payment.*example/ }));
+  await screen.findByText('example.Payment · Data');
+  await user.click(screen.getByRole('button', { name: 'Clear object type' }));
+  await screen.findByText(/Choose its exact object type before importing/);
+  await user.click(screen.getByRole('button', { name: 'Example object type', exact: true }));
+  await user.click(await screen.findByRole('option', { name: /Payment.*example/ }));
+  await user.click(screen.getByRole('button', { name: path, exact: true }));
+  await screen.findByText('example.Payment · Data');
+  expect(screen.queryByRole('button', { name: /^Example object type/ })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Clear object type' }));
+  expect(screen.getByText('example.Payment · Data')).toBeVisible();
+});
+
+it('uses the execution catalog identity for a function argument bundle and saves the original catalog provenance', async () => {
+  const { user, controller } = await setup({ catalog: true });
+  await user.click(screen.getByRole('button', { name: 'examples/function-input.json', exact: true }));
+  await screen.findByText('Payment calculation · Function inputs');
+  expect(screen.getByText('Run a payment example')).toBeVisible();
+  expect(screen.queryByRole('button', { name: /^Example object type/ })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Execution catalog' })).toHaveAttribute(
+    'href',
+    `${origin.repository}/blob/${origin.commit}/execution-descriptor.json`
+  );
+  await user.click(screen.getByRole('checkbox', { name: 'Select examples/function-input.json' }));
+  await user.click(screen.getByRole('button', { name: 'Import 1 into library' }));
+  await screen.findByText('examples/function-input.json: imported.');
+  const record = Object.values(useInstanceStore.getState().instances)[0]!;
+  expect(record.typeIdentity?.kind).toBe('RosettaFunction');
+  expect(record.typeFqn).toBe('example.Calculate#RosettaFunction');
+  expect(record.provenance?.reference?.execution?.descriptor.name).toBe('Payment calculation');
+  expect(record.data).toEqual({ payment: { amount: 12 } });
+  expect(usePrototypeViewStore.getState().state.selectedId).toBe('existing-input');
+  const descriptor = [...controller.current()!.files].find(([path]) => path.endsWith('.example.json'));
+  expect(JSON.parse(descriptor![1]).provenance.reference.execution.descriptor.executableFunctionClass).toBe(
+    'example.functions.Calculate'
+  );
 });

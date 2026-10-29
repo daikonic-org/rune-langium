@@ -19,7 +19,7 @@ jobs:
           version: 11.5.0
       - uses: actions/setup-node@v7
         with:
-          node-version: '22.22.2'
+          node-version-file: '.node-version'
           cache: pnpm
       - uses: actions/setup-python@v7
         with:
@@ -30,6 +30,7 @@ jobs:
       - name: Check authoritative runtime and target types
         run: |
           node packages/codegen/scripts/generate-python-runtime.mjs --check
+          node packages/codegen/scripts/generate-deep-runtime.mjs --check
           pnpm --filter @rune-langium/codegen run type-check
       - name: Grammar census, syntax, execution parity and inverse lenses
         run: pnpm --filter @rune-langium/codegen exec vitest run test/projection test/lens/python/roundtrip.test.ts test/lens/typescript/roundtrip.test.ts

@@ -536,7 +536,7 @@ checks separate from local unit-test results.
 
 ## Expression editing
 
-Studio's Inspector reuses SourceEditor and `documentExtensions` for continuous function implementation and active Data condition editing. Core's implementation range retains same-line, comment-only and trailing body trivia for parsed and serialized models; a body without comments or statements remains a zero-length insertion. Trailing comments on later lines must be indented beyond the declaration; following top-level documentation stays protected. Region views keep the complete owning file in CodeMirror, conceal and protect other regions, and retain full-file UTF-16 offsets (including CRLF bytes). Shared editing transactions preserve CRLF for Enter and paste while retaining one undo entry and leaving externally synchronized bytes intact. The shared editor theme owns typography and content padding. Embedded function/condition and generated editors use minimal CodeMirror chrome without gutters or active-line decoration; Source retains compact gutters. Embedded views resize vertically and expand without recreating their editing session.
+Studio's Inspector reuses SourceEditor and `documentExtensions` for continuous function implementation and active Data condition editing. Core's implementation range retains same-line, comment-only and trailing body trivia for parsed and serialized models; a body without comments or statements remains a zero-length insertion. Trailing comments on later lines must be indented beyond the declaration; following top-level documentation stays protected. Region views keep the complete owning file in CodeMirror, conceal and protect other regions, and retain full-file UTF-16 offsets (including CRLF bytes). Shared editing transactions preserve CRLF for Enter and paste while retaining one undo entry and leaving externally synchronized bytes intact. The shared editor theme owns typography and content padding. Embedded function/condition and generated editors use minimal CodeMirror chrome without gutters or active-line decoration; Source retains compact gutters. Embedded views grow with visible and wrapped content, with a four-line minimum and a maximum of `min(50dvh, 24rem)`; expansion raises the maximum to `min(70dvh, 48rem)`. CodeMirror scrolls beyond that bound without recreating the editing session.
 
 `ExpressionDocument` captures file identity, workspace generation, revision and expected range text for guarded edits. It retains mapped regions by file/declaration/target so invalid drafts remain editable after Inspector disposal; edits outside a retained region require fresh parsed coordinates. Parsed workspace entries retain their exact input source while structural form edits wait for reconciliation. Curated source loads on demand for either Source or Inspector and remains read-only. `LspClientService.claimDocumentView` assigns one plugin owner per URI, transfers it on focus, and flushes final pending edits before detachment; closing an inactive view cannot untrack its active peer. A current parse that removes or renames the selected declaration invalidates its editor binding.
 
@@ -560,27 +560,27 @@ errors do not block a valid owner; no request continues against another
 request's documents.
 
 Generated expression views use codegen's recorded projection metadata and the
-existing preview worker/session client. Embedded function views display body-only
-fragments; condition views display the predicate without declaration or diagnostic
-wrappers. Emitters record these fragments during the same traversal that generates
-the full exported declarations. Displayed function bodies return `false` when a
-precondition or postcondition fails; successful bodies retain their normal result.
-Executable function declarations retain diagnostic exceptions for those failures.
-Body projections omit constructor assertions and optional calendar parameter
-annotations, and may call existing `rune` namespace helpers for readable cardinality
-or ordering operations. Exported declarations retain their executable validation,
-metadata and type boundaries. The narrower inverse lens remains authoritative for
-edit availability; readable display alone does not establish round-trip support.
-Public projection selectors default to declarations. Display coverage is independent of inverse-lens coverage. Reverse
-editing opens a private dialog, schema-validates and reparses the converted Rune
-AST, and applies only the captured region with revision guards. Generated function bodies remain read-only. Function provenance includes trailing implementation
-comments through core's source-region helper. The projection worker resolves the
-canonical owner and validates the current body binding against source before
-selecting its declaration range, including hydrated models without document text;
-responses retain the original editor binding. Native scalar operators share the export emitter's
-linked type/cardinality proof; collections, metadata, missing values and structured
-equality retain their required runtime behavior. Preview file receipts acknowledge
-delivery; identical content preserves the linked/generation caches.
+existing preview worker/session client. TypeScript body/predicate fragments use
+one source-facing syntax renderer over canonical linked facts; executable exports
+use the checked lowering backend. The display is a Rune syntax lens, so familiar
+JS operators retain Rune equality, ordering, absence and collection semantics.
+Authored contracts remain named `assert(...)` calls in their original phases.
+Switch lifting preserves lazy scopes and evaluation order; terminal returns never
+skip postconditions. Native/project/bodyless functions carry implementation status
+outside the editor, with actual bundled source when available.
+See [source projection syntax](../source-projection.md) for the spelling and inverse contracts.
+
+Public projection selectors still default to executable declarations. Readable
+display coverage does not imply inverse coverage. Expression reverse edits reuse
+the source renderer, parse the familiar syntax into canonical Rune, validate and
+reparse the AST, then apply only the captured region through existing workspace,
+revision, dependency and read-only guards. Serializable origins preserve existing
+operation identity across whitespace/quote changes and supported subtree edits;
+ambiguous edits retain their draft and require Rune source. Full generated bodies,
+statement-lifted expressions and real external implementations remain read-only.
+Function provenance includes trailing implementation comments through core's
+source-region helper. The worker resolves the canonical owner, validates the
+current binding and retains the original editor identity in replies.
 
 Projection lookup compares canonical Langium URIs while replies retain the original
 editor binding. Both languages use codegen's `resolveExportSelection` to generate
@@ -593,7 +593,7 @@ syntax or reference errors in their closure; other preview consumers retain the
 cached valid-document view. Worker and main-thread parse results collect lexer
 and parser errors through the same helper, including original-source coordinates.
 
-Equality projections and exports use compact native scalar comparisons when the
+Executable TypeScript equality uses compact native scalar comparisons when the
 linked type proof permits them, including optional scalars over prevalidated JSON.
 Enum constants use the same scalar proof in both feature-call and symbol-reference
 forms, including hydrated models. Boolean comparisons against literals reduce to
@@ -604,19 +604,21 @@ field collections have required payloads, while reference collections check for
 an actual payload because reference-only entries are valid. Unknown cardinality
 uses a native, single-evaluation presence predicate. Constructor context and literal-preserving
 cardinality generics retain enum types without literal casts; matched scalar and
-collection shapes skip redundant normalization.
-Displayed TypeScript condition predicates use `false` for a missing `else`.
-Executable validators retain implication semantics: a condition passes when its
-antecedent does not apply. A missing branch in a function value expression remains
-`undefined`; nested value expressions within predicates retain that behavior.
-Executable structured values compare canonical `rune.valueKey` results. Scalar
-structural comparisons in displayed TypeScript bodies assume purpose-built Rune
-objects with `.equals()` implementing that same recursive contract; optional objects
-retain null/undefined equivalence. This representation does not execute in the preview. Primitive collection
-comparisons inline the same quantified equality source used by the runtime;
-structured collections retain `rune.equals(left, right, quantifier?, unequal?)`. Computed scalars use native
-target-language comparisons as well. Built-ins whose source is not loaded and
-linked aliases resolve through the same declared-type resolver as signatures.
+collection shapes skip redundant normalization. Checked argument boundaries share
+the same depth-aware collection materialization as assignments, including mixed
+scalar/group branches and switch branch depths. Scalar boundaries materialize
+groups before single-value checks. Inline bindings share one lexical lookup:
+pipelines bind the complete argument, while extraction callbacks bind an element
+and reduce its grouping depth by one. Python
+normalizes mixed scalar/group values before boundary flattening, preserving zero
+and empty values. Extraction wraps arrays directly rather than spreading them
+into function arguments, avoiding the host's argument-count limit.
+TypeScript source projections preserve authored equality as `==`/`!=` and authored
+casts as `value as Type`, without requiring object equality methods. These are Rune
+operations in familiar syntax; executing the text directly as JavaScript would not
+preserve their semantics. Executable validators retain conditional implication,
+Temporal comparisons, structural equality and absence handling. Both-empty and
+quantified collection rules stay in canonical lowering, not in UI rendering.
 `collection-shape` distinguishes uniformly scalar/array expressions from mixed branches,
 using the linked navigation facts. Native list materialization, count, filtering,
 mapping, edges, ordering and primitive set operations serve projections and exports.
@@ -774,17 +776,15 @@ badge with Retry. It wraps recovery controls on narrow screens and truncates the
 selected declaration ID while retaining the complete ID in its title. Transport
 error details remain in operation logs rather than a second footer indicator.
 
-Displayed TypeScript bodies assume purpose-built, validated Rune objects. The
-object methods belong to that explanatory display contract, not the structural
-`RuneFuncData` arguments accepted by executable exports. Copying a display body
-into the JSON API does not substitute for executable code generation. Named
-type guards express narrowing; narrowing followed by presence fuses to a guard
-(or its negation). Object comparisons use `.equals`; primitives and null presence
-checks use native operators. Resolved enum values use their declared members (including switch cases), while string literals remain strings. Displayed calls omit runtime argument assertions and
-output accumulators infer their types. Simple enum return dispatch uses `switch`.
-Executable exports retain their required boundary and metadata/cardinality checks.
-Collection comparisons reuse the shared quantified equality source with the object
-method predicate, preserving empty, broadcasting and positional rules.
+TypeScript source bodies omit generated annotations, metadata payload access,
+input assertions and representation guards. Constructors preserve explicitly
+authored types (`Point({ x })`); optional navigation follows linked cardinality.
+Exports retain runtime metadata/cardinality checks. The generated RuneList wrapper
+uses composition over an owned array, without changing native prototypes or
+external plain-array values. Collection extraction preserves intermediate groups;
+explicit flattening and declared array boundaries materialize them. SET owns an
+array before a later ADD can extend it. Inline, sidecar and preview helpers share
+one authoritative runtime source.
 Projected switch statement returns reuse ordinary assignment value shaping,
 including scalar-to-collection conversion, empty branches and omitted defaults.
 Expression and statement switches share `renderTranspiledSwitch`, retaining the
@@ -1199,3 +1199,51 @@ resolved declaration namespaces for QNames and relative schema imports, includin
 foreign enum restrictions and complex-type inheritance.
 XSD attribute escaping uses numeric references for tabs and line endings so XML
 normalization cannot change an external enum code into a different value.
+
+Reference execution catalogs retain the upstream execution-descriptor contract in
+project-config. Project-runtime resolves verified catalog links to kind-qualified
+Rune function identities and preserves the catalog entry in core provenance.
+Studio and the whole-corpus CI gate reuse that reader and the linked worker decoder.
+Function argument bundles are distinct from Data objects; selecting a bundle is an
+explicit workflow activation, while import alone never changes the active workflow.
+
+
+## Generated public value views
+
+Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
+shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
+around the existing RuneList runtime; `new Trade` retains one model construction.
+Internal data classes and public constructor/factory values are separate so child
+factories do not violate TypeScript static-side inheritance. Plain Shapes and
+function boundaries remain unchanged. The normalizer owns only the supplied value
+graph, preserves cycles and reuses generated construction guards. Conditions are
+separate from shape checks. Field/deep selectors retain descriptors and compose
+bounds; ambiguous names require linked declaration identity. The `._.` syntax lens
+maps directly to Rune deep navigation and keeps its existing edit transaction.
+
+`expr/deep-paths.ts` owns the canonical direct-first, cycle-protected path selection
+used by executable lowering and public views. A generated source string embeds
+that same function in exported runtimes; do not maintain another traversal.
+Reachable descriptor inventories share metadata across cyclic graphs. No full CDM
+object graph is materialized merely by importing generated modules.
+
+Runtime descriptor getter types are erased only at the shared execution boundary;
+selection generics retain the exact linked model. This prevents TypeScript from
+recursively comparing whole cyclic schema graphs merely to validate a descriptor.
+A 64-type cyclic compilation regression and the pinned corpus cover this boundary.
+
+Bare extraction/filtering inside a pipeline uses Core's `getOperationArgument` for
+shape analysis and the current bound value for execution. An absent explicit
+receiver does not imply a collection; scalar pipelines retain scalar results,
+while many-valued extraction keeps groups until its declared boundary.
+
+SourceReader retains lexical bindings across callbacks and masks shadowed names.
+An outer implicit pipeline/item binding becomes unavailable in a nested Rune
+callback; references to it refuse the edit instead of binding to the inner item.
+Constructor shorthand shares identifier resolution while preserving its field key.
+Serialized origin fragments retain the renderer's callback aliases; partial edits
+restore hygienic implicit names in that original scope. Legacy callback origins
+require a fresh draft, and substituted scalar scopes refuse nonliteral edits
+whose binding cannot be recovered safely.
+Generated public view constructors use ordinary fields and assignments so the
+helper introduces no parameter-property transform requirement for Node type stripping.

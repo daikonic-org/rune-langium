@@ -32,6 +32,7 @@ import { recordedProjection, findProjectionFragment } from './provenance.js';
 import { renderPythonExpression } from './python.js';
 import {
   pythonRead,
+  pythonArrayBoundary,
   pythonUnwrap,
   pythonCollection,
   pythonNormalize,
@@ -179,7 +180,7 @@ function assignmentLines(
   if (!root) throw new Error(`Unresolved Python assignment root '${assignment.target ?? ''}'`);
   const bounds = assignment.targetCardinality;
   const sourceKind = expressionMetadataKind(expression);
-  const wrapped = pythonNormalize(value, sourceKind, assignment.metadataKind);
+  const wrapped = pythonNormalize(pythonArrayBoundary(value, expression), sourceKind, assignment.metadataKind);
   const normalized = many
     ? pythonCollection(wrapped, expression)
     : collectionShape(expression) === 'scalar'

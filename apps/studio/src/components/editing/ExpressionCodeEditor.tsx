@@ -51,12 +51,7 @@ export const ExpressionCodeEditor = withInstrumentation(
           annotations: externalDocumentChange.of(true)
         });
     }, [code]);
-    return (
-      <div
-        ref={parent}
-        className="min-h-32 h-[var(--expression-editor-height,20rem)] resize-y overflow-hidden rounded-sm border border-border"
-      />
-    );
+    return <div ref={parent} className="expression-code-editor overflow-hidden rounded-sm border border-border" />;
   },
   { op: 'ExpressionCodeEditor' }
 );

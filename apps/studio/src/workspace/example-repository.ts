@@ -283,7 +283,8 @@ export const createExampleRepository = withInstrumentation(
           for (const entry of read.documents) {
             const descriptor = entry.descriptor;
             const type = descriptor.type;
-            const typeFqn = type.namespace + '.' + type.name;
+            const typeFqn =
+              type.namespace + '.' + type.name + (type.kind === 'RosettaFunction' ? '#RosettaFunction' : '');
             let data = entry.payload;
             unreadable.delete(descriptor.id);
             if (data !== undefined && descriptor.codec === 'RUNE_JSON' && input.decode) {

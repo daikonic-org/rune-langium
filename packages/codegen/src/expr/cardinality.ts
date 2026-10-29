@@ -14,7 +14,13 @@ import {
 import { expressionIsMany } from './navigation.js';
 import { expressionIsPresent, attributeReferenceIsValidated } from './scalar-operators.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
-import { collectionIsPresent, collectionShape, nativeCollection, nativeSingle } from './collection-shape.js';
+import {
+  collectionDepth,
+  collectionIsPresent,
+  collectionShape,
+  nativeCollection,
+  nativeSingle
+} from './collection-shape.js';
 
 /** Reuse linked bounds when passing already validated values to another declaration. */
 export function expressionFitsCardinality(
@@ -65,15 +71,35 @@ export function adaptCardinalityValue(
   typescript = false
 ): string {
   if (expressionFitsCardinality(expression, cardinality)) {
-    return expressionIsMany(expression) ? collectionValue(value, expression) : value;
+    return expressionIsMany(expression) ? collectionValue(value, expression, typescript) : value;
   }
   return normalizeCardinalityValue(value, cardinality, label, expression, typescript);
 }
 
 /** Collection-producing operations already return arrays; optional fields can be absent. */
-export function collectionValue(value: string, expression: RosettaExpression | undefined): string {
-  if (collectionShape(expression) !== 'array') return nativeCollection(value, expression);
-  return collectionIsPresent(expression) ? value : `(${value} ?? [])`;
+export function collectionValue(value: string, expression: RosettaExpression | undefined, typescript = false): string {
+  const array =
+    collectionShape(expression) !== 'array'
+      ? nativeCollection(value, expression, undefined, typescript)
+      : collectionIsPresent(expression)
+        ? value
+        : `(${value} ?? [])`;
+  const depth = collectionDepth(expression);
+  return depth > 1 ? `(${array}).flat(${depth - 1})` : array;
+}
+
+/** Materialize extraction groups before enforcing a declared scalar boundary. */
+export function singleValue(
+  value: string,
+  expression: RosettaExpression | undefined,
+  typescript = false,
+  projection = false
+): string {
+  if (collectionDepth(expression) > 1) {
+    value = collectionValue(value, expression, typescript);
+    expression = undefined;
+  }
+  return nativeSingle(value, expression, typescript, projection);
 }
 
 /** Shared runtime bounds for function arguments, outputs, and nested assignments. */
@@ -111,9 +137,7 @@ export function normalizeCardinalityValue(
   typescript = false
 ): string {
   const many = cardinality.upper === null || cardinality.upper > 1;
-  value = many
-    ? nativeCollection(value, expression, undefined, typescript)
-    : nativeSingle(value, expression, typescript);
+  value = many ? collectionValue(value, expression, typescript) : singleValue(value, expression, typescript);
   const checks = renderCardinalityChecks(
     'value',
     cardinality,

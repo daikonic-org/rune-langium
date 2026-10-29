@@ -60,36 +60,26 @@ func Partial:
     ).code;
   };
   expect(body('Select')).toContain('switch (direction)');
-  const runtime = compileGeneratedTypeScript<{
-    Select: (direction: string, value: number | undefined, values: number[] | undefined) => number[];
-    displayedSelect: (direction: string, value: number | undefined, values: number[] | undefined) => number[];
-    Partial: (direction: string, value: number) => number[];
-    displayedPartial: (direction: string, value: number) => number[];
-    Scalar: (direction: string, value: number | undefined, values: number[] | undefined) => number | undefined;
-    displayedScalar: (direction: string, value: number | undefined, values: number[] | undefined) => number | undefined;
-  }>(
-    outputs.map((output) => ({
-      ...output,
-      content: `${output.content}
-export function displayedSelect(direction: Direction, value: number | undefined, values: number[] | undefined): number[] { ${body('Select')} }
-export function displayedPartial(direction: Direction, value: number): number[] { ${body('Partial')} }
-export function displayedScalar(direction: Direction, value: number | undefined, values: number[] | undefined): number | undefined { ${body('Scalar')} }
-`
-    }))
-  );
+  expect(body('Select')).toContain('return value;');
+  expect(body('Select')).toContain('return null;');
+  expect(body('Partial')).not.toContain('default:');
+  const runtime = compileGeneratedTypeScript<Record<string, (...args: unknown[]) => unknown>>(outputs);
   for (const direction of ['One', 'Many', 'Missing']) {
     for (const value of [7, undefined]) {
       for (const values of [[3, 4], [3], [], undefined]) {
-        expect(runtime.displayedSelect(direction, value, values)).toEqual(runtime.Select(direction, value, values));
+        expect(runtime.Select!(direction, value, values)).toEqual(
+          direction === 'One' ? (value == null ? [] : [value]) : direction === 'Many' ? (values ?? []) : []
+        );
         if (direction === 'Many' && values && values.length > 1) {
-          expect(() => runtime.Scalar(direction, value, values)).toThrow('Expected at most one value');
-          expect(() => runtime.displayedScalar(direction, value, values)).toThrow('Expected at most one value');
+          expect(() => runtime.Scalar!(direction, value, values)).toThrow('Expected at most one value');
         } else {
-          expect(runtime.displayedScalar(direction, value, values)).toEqual(runtime.Scalar(direction, value, values));
+          expect(runtime.Scalar!(direction, value, values)).toEqual(
+            direction === 'One' ? value : direction === 'Many' ? values?.[0] : undefined
+          );
         }
       }
     }
-    expect(runtime.displayedPartial(direction, 7)).toEqual(runtime.Partial(direction, 7));
+    expect(runtime.Partial!(direction, 7)).toEqual(direction === 'One' ? [7] : []);
   }
 }, 20_000);
 
@@ -148,38 +138,17 @@ func Payload:
       ).code;
     };
     type Input = { value?: string; meta?: { scheme?: string }; externalReference?: string } | undefined;
-    const parameter =
-      annotation === 'scheme'
-        ? '{ value: Kind; meta: { scheme?: string } } | undefined'
-        : '{ value?: Kind; meta?: { scheme?: string }; externalReference?: string } | undefined';
-    const runtime = compileGeneratedTypeScript<Record<string, (selector: Input) => string | undefined>>(
-      outputs.map((output) => ({
-        ...output,
-        content: `${output.content}
-export function displayedRead(selector: ${parameter}): string | undefined { ${body('Read')} }
-export function displayedPayload(selector: ${parameter}): Kind | undefined { ${body('Payload')} }
-`
-      }))
-    );
+    expect(body('Read')).toContain('const item = selector;');
+    expect(body('Read')).toContain('ReadMetadata(item)');
+    expect(body('Payload')).not.toContain('.value');
+    const runtime = compileGeneratedTypeScript<Record<string, (selector: Input) => string | undefined>>(outputs);
     for (const value of annotation === 'scheme' ? ['Cash', 'Credit'] : ['Cash', 'Credit', undefined]) {
       const selector =
         annotation === 'scheme' ? { value, meta: { scheme: 'urn:test' } } : { value, externalReference: 'key' };
-      expect(runtime.displayedRead!(selector)).toBe(runtime.Read!(selector));
-      expect(runtime.displayedRead!(selector)).toBe(annotation === 'scheme' ? 'urn:test' : 'key');
-      expect(runtime.displayedPayload!(selector)).toBe(runtime.Payload!(selector));
+      expect(runtime.Read!(selector)).toBe(annotation === 'scheme' ? 'urn:test' : 'key');
+      expect(runtime.Payload!(selector)).toBe(value);
     }
-    expect(runtime.displayedRead!(undefined)).toBe(runtime.Read!(undefined));
-    let reads = 0;
-    const selector = {
-      get value() {
-        reads++;
-        return 'Cash';
-      },
-      meta: { scheme: 'urn:test' },
-      externalReference: 'key'
-    };
-    expect(runtime.displayedRead!(selector)).toBe(annotation === 'scheme' ? 'urn:test' : 'key');
-    expect(reads).toBe(1);
+    expect(runtime.Read!(undefined)).toBeUndefined();
   },
   20_000
 );

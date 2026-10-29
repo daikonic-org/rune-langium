@@ -78,7 +78,7 @@ import { generate } from '../../src/export.js';
 function typeCheckFile(filePath: string, source: string): readonly string[] {
   const compilerOptions: ts.CompilerOptions = {
     strict: true,
-    target: ts.ScriptTarget.ES2022,
+    target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
     noEmit: true,
@@ -167,7 +167,7 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('export class BasketConstituent<T extends AssetShape = AssetShape>');
+    expect(output.content).toContain('export class $BasketConstituent$Data<T extends AssetShape = AssetShape>');
   });
 
   it("the constructor threads the generic (data: <Name>Shape<T>) and Object.assign's the T-surface", async () => {
@@ -204,7 +204,10 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('static from(json: unknown): BasketConstituent {');
+    expect(output.content).toContain('export const BasketConstituent = Object.assign($BasketConstituent$Data,');
+    expect(output.content).toContain(
+      'from<const I>(input: I & RuneFactoryInput<I, $BasketConstituent$Input, BasketConstituent>)'
+    );
     // Cast through `unknown` first: bare `BasketConstituentShape` (default
     // `T=Asset`, a union) does not structurally overlap with `json`
     // (typed `unknown`) closely enough for a direct `as` under real `tsc
@@ -381,9 +384,9 @@ describe('ts-emitter — Data extends Choice (emitted-runtime behavior, real exe
   it('static from(json) delegates to `new BasketConstituent(...)` and round-trips', async () => {
     const mod = await loadEmittedModule();
     const BasketConstituent = mod['BasketConstituent'] as {
-      from(json: unknown): { weight?: number };
+      from(json: unknown): { unwrap(): { weight?: number } };
     };
     const bc = BasketConstituent.from({ cash: { amount: 1 }, weight: 7 });
-    expect(bc.weight).toBe(7);
+    expect(bc.unwrap().weight).toBe(7);
   });
 });

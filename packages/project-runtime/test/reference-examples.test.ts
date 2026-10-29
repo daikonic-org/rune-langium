@@ -8,7 +8,8 @@ import {
   isRepositoryExample,
   openReferenceExamples,
   prepareReferenceExample,
-  referenceExampleKey
+  referenceExampleKey,
+  referenceExecutionBindings
 } from '../src/reference-examples.js';
 const origin = {
   model: 'cdm',
@@ -47,7 +48,9 @@ it('rejects model/type collisions and requires explicit legacy type selection', 
     data: { tradeDate: { value: '2001-04-29', meta: {} } },
     source: { format: 'RUNE_JSON' }
   });
-  expect(() => prepareReferenceExample(origin, path, text, [type], { ...type, model: 'local' })).toThrow(/differs/);
+  expect(prepareReferenceExample(origin, path, text, [type], { ...type, model: 'local', name: 'Wrong' }).type).toEqual(
+    type
+  );
 });
 it('reports release mismatch and leaves the active source identity unchanged', () => {
   const example = prepareReferenceExample({ ...origin, release: '6.0.0' }, path, text, [type]);
@@ -107,4 +110,46 @@ it('distinguishes full declaration identities when a legacy payload can be impor
   const source = { ...origin, path, format: 'JSON' as const };
   expect(referenceExampleKey(source, type)).not.toBe(referenceExampleKey(source, { ...type, name: 'Other' }));
   expect(referenceExampleKey(source, type)).not.toBe(referenceExampleKey(source, { ...type, kind: 'Choice' }));
+});
+
+it('includes documentation snippets and commodity pipeline payloads without admitting descriptors', () => {
+  for (const path of [
+    'tests/src/test/resources/serialisation/output/json/example.json',
+    'docs/code-snippets/repo.json',
+    'website/versioned_docs/version-6/code-snippets/repo.json',
+    'rosetta-source/src/main/resources/ingest/output/rates/physical-oil-pipeline.json'
+  ])
+    expect(isRepositoryExample(path)).toBe(true);
+});
+
+it('adopts execution-descriptor input/output links and refuses traversal, conflicts and unavailable functions', () => {
+  const descriptor = {
+    name: 'Calculate',
+    description: 'A catalog example',
+    inputFile: 'functions/input.json',
+    expectedOutputFile: 'functions/output.json',
+    executableFunctionClass: 'cdm.test.functions.Calculate',
+    nativeFunction: true
+  };
+  const path = 'rosetta-source/src/main/resources/functions/execution-descriptor.json';
+  const bindings = referenceExecutionBindings(path, JSON.stringify([descriptor]));
+  const input = bindings.get('rosetta-source/src/main/resources/functions/input.json')!;
+  const fn = { model: 'cdm', namespace: 'cdm.test', kind: 'RosettaFunction', name: 'Calculate' };
+  const prepared = prepareReferenceExample(origin, 'functions/input.json', '{"amount":2}', [fn], type, input);
+  expect(prepared.type).toEqual(fn);
+  expect(prepared.source.execution).toEqual(input);
+  expect(prepared.name).toBe('Calculate inputs');
+  expect(bindings.get('rosetta-source/src/main/resources/functions/output.json')?.role).toBe('output');
+  expect(() => prepareReferenceExample(origin, 'functions/input.json', '{"amount":2}', [type], type, input)).toThrow(
+    /catalog function.*unavailable/
+  );
+  expect(() =>
+    referenceExecutionBindings(path, JSON.stringify([{ ...descriptor, inputFile: '../escape.json' }]))
+  ).toThrow();
+  expect(() =>
+    referenceExecutionBindings(
+      path,
+      JSON.stringify([descriptor, { ...descriptor, executableFunctionClass: 'cdm.other.functions.Calculate' }])
+    )
+  ).toThrow(/conflict/);
 });

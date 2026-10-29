@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { sourceProjectionBoundaries, sourceProjectionCollections } from '../helpers/source-projection-collections.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
@@ -36,6 +37,90 @@ async function compile(
 }
 
 describe('generated TypeScript function execution', () => {
+  it('owns SET collections before ADD and preserves extraction groups', async () => {
+    const funcs = await compile(sourceProjectionCollections);
+    const values = Object.freeze([1, 2]);
+    expect(funcs.Append!({ values })).toEqual([1, 2, 9]);
+    expect(values).toEqual([1, 2]);
+    const groups = [{ values: [1, 2] }, { values: [3] }];
+    expect(funcs.GroupCount!({ groups })).toBe(2);
+    expect(funcs.GroupCount!({ groups: [{}, { values: [] }] })).toBe(2);
+    expect(funcs.EmptyCount!({ groups })).toBe(0);
+    expect(funcs.ScalarEmpty!({ amount: 7 })).toBeUndefined();
+    expect(funcs.Flat!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.Mix!({ groups, amount: 4 })).toEqual([1, 2, 3, 4]);
+    expect(funcs.CheckedGroups!({ groups })).toBe(6);
+    expect(funcs.MixedGroups!({ groups, flag: true })).toBe(6);
+    expect(funcs.SwitchGroups!({ groups, selector: 1 })).toBe(6);
+    expect(funcs.SwitchGroups!({ groups, selector: 0 })).toBe(15);
+    expect(funcs.SwitchValues!({ groups, selector: 1 })).toEqual([1, 2, 3]);
+    expect(funcs.SwitchValues!({ groups, selector: 0 })).toEqual([4, 5, 6]);
+    expect(funcs.SwitchValues!({ groups, selector: 2 })).toEqual([]);
+    expect(funcs.PipeGroups!({ groups })).toBe(6);
+    expect(funcs.PipeValues!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.NestedPipeValues!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.BarePipeValues!({ groups })).toEqual([1, 2, 3]);
+    for (const name of ['MixedValues', 'MixedArguments', 'MixedPipeValues']) {
+      expect(funcs[name]!({ groups, flag: true })).toEqual([1, 2, 3]);
+      expect(funcs[name]!({ groups, flag: false, amount: 1 })).toEqual([1]);
+      expect(funcs[name]!({ groups, flag: false, amount: 0 })).toEqual([0]);
+      expect(funcs[name]!({ groups, flag: false })).toEqual([]);
+    }
+    expect(() => funcs.SwitchGroups!({ groups: [{ values: [1, 2] }], selector: 1 })).toThrow(/too few/);
+    expect(() => funcs.MixedGroups!({ groups, flag: false })).toThrow(/too few/);
+    expect(() => funcs.CheckedGroups!({ groups: [{ values: [1, 2] }] })).toThrow(/too few/);
+    expect(() => funcs.CheckedGroups!({ groups: [{ values: [1, 2, 3, 4] }] })).toThrow(/too many/);
+    expect(funcs.Scalar!({})).toBeUndefined();
+    expect(funcs.Scalar!({ amount: 7 })).toBe(1);
+    expect(funcs.ScalarFilter!({ amount: 7 })).toBe(7);
+    expect(funcs.ScalarFilter!({ amount: -1 })).toBeUndefined();
+  });
+
+  it('maps collections beyond the JavaScript function argument limit', async () => {
+    const funcs = await compile(`namespace test.largeCollections
+func Increment:
+ inputs: values int (0..*)
+ output: result int (0..*)
+ set result: values extract [item + 1]
+`);
+    const values = Object.freeze(Array.from({ length: 150_000 }, (_, index) => index));
+    const result = funcs.Increment!({ values }) as number[];
+    expect(result).toEqual(values.map((value) => value + 1));
+    expect(values[0]).toBe(0);
+  });
+
+  it('flattens declared scalar boundaries while preserving intermediate extraction groups', async () => {
+    const funcs = await compile(sourceProjectionBoundaries);
+    for (const groups of [[{ values: [1] }], [{ values: [1] }, { values: [] }], [{}, { values: [1] }]]) {
+      expect(funcs.ScalarArgument!({ groups })).toBe(1);
+      expect(funcs.ScalarAssignment!({ groups })).toBe(1);
+      expect(funcs.OptionalAssignment!({ groups })).toBe(1);
+    }
+    expect(funcs.OptionalAssignment!({ groups: [{ values: [] }] })).toBeUndefined();
+    expect(() => funcs.ScalarArgument!({ groups: [] })).toThrow(/requires a value/);
+    expect(() => funcs.ScalarAssignment!({ groups: [] })).toThrow(/produced no result/);
+    for (const name of ['ScalarArgument', 'ScalarAssignment', 'OptionalAssignment'])
+      expect(() => funcs[name]!({ groups: [{ values: [1, 2] }] })).toThrow(/at most one/);
+    const groups = [{ values: [1, 2] }, { values: [3] }];
+    for (const name of ['Identity', 'NamedIdentity', 'BareIdentity'])
+      expect(funcs[name]!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.IdentityCount!({ groups })).toBe(2);
+    expect(funcs.Constant!({ groups })).toEqual([1, 1]);
+    expect(funcs.First!({ groups })).toEqual([1, 2]);
+    expect(funcs.Last!({ groups })).toEqual([3]);
+    expect(funcs.Min!({ groups })).toEqual([3]);
+    expect(funcs.Max!({ groups })).toEqual([1, 2]);
+    expect(funcs.Reduced!({ groups })).toEqual([1, 2]);
+    expect(funcs.Only!({ groups: [{ values: [1, 2] }] })).toEqual([1, 2]);
+    expect(funcs.Only!({ groups })).toEqual([]);
+    expect(funcs.Only!({ groups: [{ values: [] }, { values: [1] }] })).toEqual([]);
+    expect(funcs.FirstScalar!({ groups: [{ values: [1] }, { values: [2] }] })).toBe(1);
+    expect(funcs.FirstScalar!({ groups: [{ values: [] }, { values: [2] }] })).toBeUndefined();
+    expect(() => funcs.FirstScalar!({ groups })).toThrow(/at most one/);
+    for (const name of ['First', 'Last', 'Only', 'Min', 'Max', 'Reduced'])
+      expect(funcs[name]!({ groups: [] })).toEqual([]);
+  });
+
   it('omits empty Choice list entries and enforces their required boundaries', async () => {
     const funcs = await compile([BASICTYPES_ROSETTA, emptyChoiceSource], '', true);
     expect(funcs.EmptyList!({})).toEqual([]);
@@ -233,7 +318,7 @@ func ComputedNaN:
       '',
       false,
       (source) => {
-        const file = ts.createSourceFile('generated.ts', source, ts.ScriptTarget.ES2022, true);
+        const file = ts.createSourceFile('generated.ts', source, ts.ScriptTarget.ESNext, true);
         for (const statement of file.statements) {
           if (ts.isFunctionDeclaration(statement) && statement.name)
             declarations.set(statement.name.text, statement.getText(file));

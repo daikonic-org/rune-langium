@@ -47,22 +47,32 @@ export const formatGeneratedProjection = withInstrumentation(
         import('prettier/plugins/typescript'),
         import('prettier/plugins/estree')
       ]);
-      const wrapper = kind === 'function' ? `function $projection() {\n${code}\n}` : `const $projection = ${code};`;
+      const statements = projection.syntax === 'statements' || (projection.syntax === undefined && kind === 'function');
+      // A constructor wrapper accepts Rune's super() spelling without rewriting it.
+      const wrapper = statements
+        ? `class $Projection extends $Base { constructor() {\n${code}\n} }`
+        : `const $projection = ${code};`;
       const result = await format(wrapper, {
         parser: 'typescript',
         plugins: [typescript, estree],
         printWidth: 100,
         tabWidth: 2,
         singleQuote: true,
+        arrowParens: 'avoid',
         trailingComma: 'none'
       });
-      formatted =
-        kind === 'function'
-          ? unwrapBody(result.slice(0, result.lastIndexOf('}')), 2)
-          : result
-              .slice(result.indexOf('=') + 1)
-              .trim()
-              .replace(/;$/, '');
+      formatted = statements
+        ? unwrapBody(
+            result.slice(
+              result.indexOf('{', result.indexOf('constructor')) + 1,
+              result.lastIndexOf('}', result.lastIndexOf('}') - 1)
+            ),
+            4
+          )
+        : result
+            .slice(result.indexOf('=') + 1)
+            .trim()
+            .replace(/;$/, '');
     } else {
       const { format } = await loadPythonFormatter();
       const wrapper =

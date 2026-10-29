@@ -31,12 +31,13 @@ export const studioEditorTheme = EditorView.theme(
       height: '100%'
     },
     '.cm-scroller': {
+      lineHeight: 'inherit',
       overflow: 'auto'
     },
     '.cm-content': {
       caretColor: 'var(--primary)',
       ...editorTextStyle,
-      padding: '8px 0'
+      padding: 'var(--space-2, 8px) 0'
     },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: 'var(--primary)'

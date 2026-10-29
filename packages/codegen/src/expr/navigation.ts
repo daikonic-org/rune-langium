@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { getEnumValueLiteral } from '@rune-langium/core';
+import { runeDeepPaths } from './deep-paths.js';
 import {
   getOperationArgument,
   getChoiceOptionPaths,
@@ -50,7 +51,7 @@ import { functionOutput } from '../types/func.js';
 import { nativeCollection } from './collection-shape.js';
 import { parenthesizeReceiver } from './syntax.js';
 
-type Feature = Attribute | ChoiceOption | RosettaRecordFeature;
+export type Feature = Attribute | ChoiceOption | RosettaRecordFeature;
 
 export type ExpressionType = RosettaType | { $type: 'IntrinsicType'; name: IntrinsicTypeName };
 
@@ -113,14 +114,20 @@ export function expressionIsMany(
   try {
     if (isRosettaOnlyElement(expr)) return false;
     if (expr.$type === 'AsOperation') return from(getOperationArgument(expr));
-    if (
-      isFilterOperation(expr) ||
-      isMapOperation(expr) ||
-      isSortOperation(expr) ||
-      isReverseOperation(expr) ||
-      isDistinctOperation(expr) ||
-      isFlattenOperation(expr)
-    )
+    if (isFilterOperation(expr)) {
+      const argument = getOperationArgument(expr);
+      return argument ? (isRosettaSymbolReference(argument) && !argument.symbol.ref) || from(argument) : true;
+    }
+    if (isMapOperation(expr)) {
+      const argument = getOperationArgument(expr);
+      return (
+        !argument ||
+        (isRosettaSymbolReference(argument) && !argument.symbol.ref) ||
+        from(argument) ||
+        from(expr.function?.body)
+      );
+    }
+    if (isSortOperation(expr) || isReverseOperation(expr) || isDistinctOperation(expr) || isFlattenOperation(expr))
       return true;
     if (isListLiteral(expr)) return expr.elements.length > 0;
     if (isRosettaDeepFeatureCall(expr)) {
@@ -300,17 +307,14 @@ export function deepFeaturePaths(
   seen: Set<RosettaType> = new Set(),
   target?: Feature
 ): Feature[][] {
-  if (!type || type.$type === 'IntrinsicType' || seen.has(type)) return [];
-  const features = typeFeatures(type);
-  const direct = features.filter(
-    (feature) => featureName(feature) === name && (!target || featureMatches(feature, target))
+  return runeDeepPaths<ExpressionType, Feature>(
+    type,
+    typeFeatures,
+    (feature) => resolveType(feature.typeCall),
+    (feature) => featureName(feature) === name && (!target || featureMatches(feature, target)),
+    featureName,
+    seen
   );
-  if (direct.length > 0) return direct.map((feature) => [feature]);
-  const nextSeen = new Set(seen).add(type);
-  const paths = features.flatMap((feature) =>
-    deepFeaturePaths(resolveType(feature.typeCall), name, nextSeen, target).map((path) => [feature, ...path])
-  );
-  return [...new Map(paths.map((path) => [path.map(featureName).join('\u0000'), path])).values()];
 }
 
 function deepNavigationPaths(expr: RosettaDeepFeatureCall): Feature[][] {

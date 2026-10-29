@@ -134,6 +134,7 @@ Namespace and declaration roots requested for an export.
 One emitted output file from the generator.
 FR-001 (output structure).
 **Properties:**
+- `namespaces: string[]` (optional) — Rune namespaces owned by this model file, retained through bundled layouts.
 - `artifactRole: "support"` (optional) — Shared companion files follow model files in previews and downloads.
 - `projections: EmittedProjection[]` (optional) — Source-bound implementation fragments recorded by the target emitter.
 - `relativePath: string` — Relative path of the emitted file (e.g. 'cdm/base/math.zod.ts').
@@ -411,11 +412,5 @@ canonical shape and bytes are reasonable for typical models.
 - `namespaces: Map<string, NamespaceManifest>`
 
 ## options
-
-### `ExcelSheetToggles`
-Which sheets to emit. Resolves the per-sheet defaults when absent.
-```ts
-ExcelOptions["sheets"]
-```
 
 <!-- truncated -->

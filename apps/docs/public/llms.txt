@@ -754,6 +754,7 @@ dep map produced by `collectNamespaceDependencies`.
 - `indexById`: Build an id→item Map, insertion order preserved. Defaults the key to `item.id`.
 - `fromIndex`: Derive the value array from an id→item Map (insertion order).
 - `getEnumValues`: Effective enum members, with child declarations overriding inherited names.
+- `getEnumValueLiteral`: The member identifier and the external code are distinct; displayName is presentation only.
 - `getExpressionScope`: Describe the existing language-service scope at an expression, without a second resolver.
 - `getSourceComments`: Hidden comment tokens, in UTF-16 source coordinates; string literals are not comments.
 - `getAnnotationDefinitions`: Scope facts from the actual linked references, without rebuilding import/name resolution.
@@ -861,6 +862,8 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `LSP_MODEL_SYNC_METHOD`
 - `LSP_REQUEST_TIMEOUT_MS`: Request budget includes reconstruction of dependency models after cold wake.
 - `RUNE_SERIALIZE_OPTIONS`: The Langium serialize option triple for the canonical Rune wire form.
+- `CODE_LIST_ENUM_NAMESPACE`: Portable synonym source used by materialized resource enums. Ordinary enum synonyms remain mappings only.
+- `CODE_LIST_ENUM_SOURCE`
 
 ## Optional
 
@@ -1126,6 +1129,8 @@ target's transitive closure (Task 2) assembled into a single synthetic
 - `validateTargetOptions`
 - `getGeneratorCapabilities`
 - `getTargetLayouts`
+- `renderCodeListEnum`: Use the same canonical enum builder and Rune renderer as schema imports.
+- `getTargetRelativePath`: Convert a dot-separated Rune namespace to the emitted relative file path for a target.
 - `ProjectBindingUnavailable`
 - `GeneratorError`: Thrown when strict mode is enabled and any error diagnostic is produced.
 FR-022.

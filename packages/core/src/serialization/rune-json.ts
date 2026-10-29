@@ -17,7 +17,7 @@ function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export type RuneJsonEncodingKind = 'data' | 'data-metadata' | 'envelope';
+export type RuneJsonEncodingKind = 'data' | 'data-metadata' | 'envelope' | 'envelope-data' | 'choice';
 const encodingKinds = new WeakMap<object, RuneJsonEncodingKind>();
 /** Ephemeral declaration/wire context for serialization; never persisted or inferred from field names. */
 export function withRuneJsonEncoding<T extends object>(value: T, kind: RuneJsonEncodingKind | object): T {
@@ -45,11 +45,25 @@ export function decodeRuneJson(value: unknown): unknown {
   }
   if (meta.length && own(value, 'meta')) throw new Error('Rune JSON contains conflicting wire and legacy metadata.');
   if (own(value, '@data')) {
-    if (entries.length || own(value, 'value') || (value['@data'] !== null && typeof value['@data'] === 'object'))
-      throw new Error('Rune @data must not mix with object attributes.');
+    const payload = value['@data'];
+    const choice = record(payload) && typeof payload['@type'] === 'string';
+    const headers = entries.every(
+      ([key, child]) => ['@type', '@model', '@version'].includes(key) && typeof child === 'string'
+    );
+    if (choice && headers && (entries.length || (!meta.length && !refs.length))) {
+      const body = withRuneJsonEncoding({ ...Object.fromEntries(entries), '@data': decodeRuneJson(payload) }, 'choice');
+      if (own(value, '@key:scoped') || own(value, '@scheme') || refs.length)
+        return withRuneJsonEncoding(
+          { value: body, meta: Object.fromEntries(meta), ...Object.fromEntries(refs) },
+          'envelope'
+        );
+      return withRuneJsonEncoding({ ...body, ...(meta.length ? { meta: Object.fromEntries(meta) } : {}) }, 'choice');
+    }
+    if (entries.length || own(value, 'value') || (payload !== null && typeof payload === 'object' && !choice))
+      throw new Error('Rune JSON @data requires a scalar or typed Choice payload, without sibling object fields.');
     return withRuneJsonEncoding(
       { value: decodeRuneJson(value['@data']), meta: Object.fromEntries(meta), ...Object.fromEntries(refs) },
-      'envelope'
+      choice ? 'envelope-data' : 'envelope'
     );
   }
   for (const [key] of refs)
@@ -58,7 +72,7 @@ export function decodeRuneJson(value: unknown): unknown {
   // Scoped locations and schemes belong to attributes rather than a Data type.
   if ((own(value, '@key:scoped') || own(value, '@scheme') || refs.length) && entries.length) {
     return withRuneJsonEncoding(
-      { value: body, meta: Object.fromEntries(meta), ...Object.fromEntries(refs) },
+      { value: withRuneJsonEncoding(body, 'data'), meta: Object.fromEntries(meta), ...Object.fromEntries(refs) },
       'envelope'
     );
   }
@@ -84,7 +98,7 @@ export function encodeRuneJson(value: unknown): unknown {
     throw new Error(
       'This record has no supported unambiguous Rune JSON representation without declaration context. Save as JSON or supply linked context.'
     );
-  const envelope = kind === 'envelope';
+  const envelope = kind === 'envelope' || kind === 'envelope-data';
   if (envelope && !shape)
     throw new Error(
       'This metadata envelope has no supported Rune JSON representation; save as JSON to retain sibling fields.'
@@ -94,6 +108,7 @@ export function encodeRuneJson(value: unknown): unknown {
   const wrapped = own(value, 'value') && envelope && (meta || referenceEnvelope);
   const ordinary = Object.entries(value).filter(([key]) => !key.startsWith('@') && key !== 'meta');
   if (
+    !kind &&
     !wrapped &&
     !referenceEnvelope &&
     !own(value, '@type') &&
@@ -108,7 +123,7 @@ export function encodeRuneJson(value: unknown): unknown {
   const result: [string, unknown][] = [];
   if (wrapped) {
     const payload = encodeRuneJson(value.value);
-    if (record(payload)) result.push(...Object.entries(payload));
+    if (record(payload) && kind !== 'envelope-data') result.push(...Object.entries(payload));
     else result.push(['@data', payload]);
   } else {
     for (const [key, child] of Object.entries(value)) {

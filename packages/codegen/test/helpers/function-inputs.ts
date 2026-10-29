@@ -20,7 +20,7 @@ export function functionInputs(
     throw new Error(JSON.stringify(result.diagnostics));
   const source = result.code.replace(/^import .*;$/gm, '').replace(/^export /gm, '');
   const javascript = ts.transpileModule(source, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None }
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.None }
   }).outputText;
   const { schema, wrappers } = new Function(
     'z',

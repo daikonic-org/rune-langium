@@ -23,7 +23,7 @@ const context: ExpressionTranspilerContext = {
 
 function execute(code: string, data: unknown) {
   const javascript = ts.transpileModule(`const result = (${code});`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    compilerOptions: { target: ts.ScriptTarget.ESNext }
   }).outputText;
   return new Function('data', 'Temporal', RUNTIME_HELPER_JS_SOURCE + '\n' + javascript + '\nreturn result;')(
     data,
@@ -186,7 +186,7 @@ func Same:
     ).toBe(true);
     expect(reads).toBe(2);
   });
-  it('preserves missing collections, ordering and values without collection helpers', async () => {
+  it('preserves missing collections, ordering and values with the shared collection runtime', async () => {
     const texts = [
       'values count',
       'values first',
@@ -217,7 +217,7 @@ func Case${index}:
           .join('\n')
     );
     const code = funcs.map((func) => transpileExpression(func.operations[0]!.expression, context));
-    for (const expression of code) expect(expression).not.toMatch(/rune\./);
+    for (const expression of code) expect(expression).not.toMatch(/rune\.(?!List)/);
     expect(code.map((expression) => execute(expression, { values: [3, 1, 2, 1] }))).toEqual([
       4,
       3,

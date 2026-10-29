@@ -92,7 +92,7 @@ describe('T065: annotation declaration emits typed decorator factory (TypeScript
   it('annotation declarations appear before data type declarations', async () => {
     const output = await runFixture('usage-type', 'typescript');
     const annIdx = output.indexOf('export interface sourceArgs');
-    const classIdx = output.indexOf('export class Trade');
+    const classIdx = output.indexOf('export class $Trade$Data');
     expect(annIdx).toBeGreaterThanOrEqual(0);
     expect(classIdx).toBeGreaterThan(annIdx);
   });

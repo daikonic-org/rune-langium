@@ -9,14 +9,44 @@ export interface ProjectionSubject {
   nodeId: string;
   region: SourceRegion;
 }
+export interface ProjectionImplementation {
+  status: 'available' | 'unavailable';
+  language: 'typescript' | 'python';
+  label: string;
+  reference?: string;
+}
+/** Serializable origin retained independently of formatted display offsets. */
+export interface ProjectionOrigin {
+  code: string;
+  rune: string;
+  fragments: {
+    code: string;
+    from: number;
+    to: number;
+    kind: string;
+    /** Generated callback names to Rune names; null entries forbid captures of a rebound implicit item.
+     * A null map marks a substituted scope that cannot be inverted independently. Absent on legacy origins.
+     */
+    aliases?: [string, string | null][] | null;
+  }[];
+}
 export interface GeneratedProjection {
   language: 'typescript' | 'python';
   subject: ProjectionSubject;
   code: string;
   sourceMap: SourceMapEntry[];
   requiredHelpers: readonly string[];
+  implementation?: ProjectionImplementation;
+  syntax?: 'expression' | 'statements';
+  origins?: ProjectionOrigin[];
   /** Emitter-recorded body or predicate for an embedded editor. */
-  body?: { code: string; sourceMap: SourceMapEntry[] };
+  body?: {
+    code: string;
+    sourceMap: SourceMapEntry[];
+    implementation?: ProjectionImplementation;
+    syntax?: 'expression' | 'statements';
+    origins?: ProjectionOrigin[];
+  };
 }
 /** Provenance recorded during emission, independent of an editor's node-ID format. */
 export interface EmittedProjection {
@@ -24,5 +54,11 @@ export interface EmittedProjection {
   source: { uri: string; region: SourceRegion };
   code: string;
   sourceMap: SourceMapEntry[];
-  body?: { code: string; sourceMap: SourceMapEntry[] };
+  body?: {
+    code: string;
+    sourceMap: SourceMapEntry[];
+    implementation?: ProjectionImplementation;
+    syntax?: 'expression' | 'statements';
+    origins?: ProjectionOrigin[];
+  };
 }

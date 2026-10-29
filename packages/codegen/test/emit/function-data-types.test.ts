@@ -31,7 +31,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
   const options: ts.CompilerOptions = {
     strict: true,
     noEmit: true,
-    target: ts.ScriptTarget.ES2022,
+    target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.CommonJS,
     skipLibCheck: true,
     types: []
@@ -45,7 +45,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
   ).toEqual([]);
 
   const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS }
   }).outputText;
   const exports: Record<string, (input: unknown) => unknown> = {};
   new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
@@ -229,7 +229,7 @@ func ReadValue:
         const program = ts.createProgram(files, {
           strict: true,
           noEmit: true,
-          target: ts.ScriptTarget.ES2022,
+          target: ts.ScriptTarget.ESNext,
           module: ts.ModuleKind.NodeNext,
           moduleResolution: ts.ModuleResolutionKind.NodeNext,
           skipLibCheck: true,

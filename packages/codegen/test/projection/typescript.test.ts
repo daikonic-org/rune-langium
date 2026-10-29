@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AstUtils, URI } from 'langium';
 import { Temporal } from '@js-temporal/polyfill';
-import ts from 'typescript-classic';
 import {
   BASICTYPES_ROSETTA,
   createRuneDslServices,
@@ -107,22 +107,16 @@ func Calendar:
         'condition',
         'body'
       );
-      const predicate = new Function(
-        'left',
-        'right',
-        'result',
-        'Temporal',
-        ts.transpileModule(`return ${projected.code};`, {
-          compilerOptions: { target: ts.ScriptTarget.ES2022 }
-        }).outputText
-      );
-      const left = Temporal.PlainDate.from('2026-10-10');
-      const right = Temporal.PlainDate.from('2026-10-10');
-      expect(predicate(left, right, left, Temporal), kind).toBe(true);
-      const earlier = Temporal.PlainDate.from('2026-10-09');
-      expect(predicate(left, earlier, left, Temporal), kind).toBe(false);
-      expect(projected.code).toContain(kind === 'precondition' ? 'Temporal.PlainDate.compare(' : '.equals(');
+      expect(projected.code).toBe(kind === 'precondition' ? 'left <= right' : 'left == right');
+      expect(projected.origins?.[0]?.rune).toBe(kind === 'precondition' ? 'left <= right' : 'left = right');
     }
+    const runtime = compileGeneratedTypeScript(generated, {
+      entry: generated.find((output) => output.content.includes('export function Calendar('))!.relativePath
+    });
+    const left = Temporal.PlainDate.from('2026-10-10');
+    expect(runtime.Calendar!(left, Temporal.PlainDate.from('2026-10-10'))).toEqual(left);
+    expect(() => runtime.Calendar!(left, Temporal.PlainDate.from('2026-10-09'))).toThrow('Ordered');
+    expect(() => runtime.Calendar!(left, Temporal.PlainDate.from('2026-10-11'))).toThrow('Same');
   });
 
   it('retains provenance when namespaces are bundled into a single file', async () => {

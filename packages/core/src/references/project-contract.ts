@@ -42,6 +42,10 @@ export const RepositoryFileSourceSchema = z.strictObject({
 export type RepositoryFileSource = z.infer<typeof RepositoryFileSourceSchema>;
 export const RepositoryExampleSourceSchema = RepositoryFileSourceSchema.extend({
   format: z.enum(['JSON', 'RUNE_JSON']),
-  version: text.optional()
+  version: text.optional(),
+  /** Original catalog entry retained as provenance; project-config validates its execution contract. */
+  execution: z
+    .object({ descriptorPath: text, role: z.enum(['input', 'output']), descriptor: z.record(text, z.unknown()) })
+    .optional()
 });
 export type RepositoryExampleSource = z.infer<typeof RepositoryExampleSourceSchema>;

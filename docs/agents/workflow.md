@@ -6,10 +6,26 @@ Read root and affected-package `package.json` scripts before choosing commands.
 Use the pinned pnpm version and preserve overrides/patches in
 `pnpm-workspace.yaml` during dependency changes.
 
+Root `tsconfig.json` owns the ESNext target; active workspace packages inherit it.
+Explicit standard-library lists also use ESNext, retaining each host's DOM/worker
+types. Studio's Vite bundle and generated/projection TypeScript checks target
+ESNext as well. The generated-module test compiler loads only the ESNext standard
+library, avoiding browser-library work in strict server-module checks. Runtime
+engine requirements remain those declared in each package manifest. Development
+and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
+that file. This tooling baseline does not change published package compatibility
+or the independent Cloudflare workerd/V8 and browser engine feature sets.
+ESNext preserves native decorators that supported Node engines cannot execute.
+Codegen's build and Vitest plugin share `scripts/explicit-decorators.ts`, lowering
+only the existing authored instrumentation decorators with the newest named
+compiler target (ES2025). The post-build pass regenerates those JavaScript files
+and source maps from their TypeScript source; declarations and projections retain
+ESNext. Do not widen its decorator matcher or inject new instrumentation sites.
+
 - The pre-commit hook runs `lint-staged`, applying Oxlint fixes before formatting staged JS/TS files with oxfmt; JSON-family files are formatted directly. Formatting runs last so import rewrites cannot leave CI style drift. The pre-push hook runs type checking. Prefer the existing `simple-git-hooks` / `lint-staged` setup for hook changes.
 - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses hooks; report skipped verification when relevant.
 - After codegen render changes, run `pnpm --filter @rune-langium/codegen run build` so consumers receive updated dist output.
-- After switching stacked branches, force affected TypeScript builds with `pnpm --filter <package> exec tsc -b --force` before testing consumers. Incremental build caches can leave `dist` from the previous branch; source-only tests do not verify those exports.
+- After switching stacked branches, force affected TypeScript builds with `pnpm --filter <package> exec tsc -b --force` before testing consumers. For Codegen, follow a forced compiler run with its package `build` to reapply explicit decorator lowering. Incremental build caches can leave `dist` from the previous branch; source-only tests do not verify those exports.
 - The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core` and `@rune-langium/core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
@@ -34,7 +50,7 @@ verify the generated form imports the shared Input and renders its `data-slot`
 and focus treatment. Do not replace canonical configuration validation to style
 workspace settings.
 
-Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Workspace and package engine declarations use that combined supported range. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
+Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
 
@@ -123,8 +139,9 @@ not imply generated coverage of `/import` or `/rosetta`.
 Domain generation applies the same safe lint fixes as the commit hook before
 formatting, so its type-only imports reproduce in CI.
 The pinned `langium-zod@0.12.2` patch retains setters for contained-node unions, including recursive `RosettaAttributeReference.receiver`. Union setters use the canonical dehydrated field type; mixed primitive/node unions remain excluded. Core's generator and public-domain tests cover this surface. Remove the patch after an upstream release supports these operations and regeneration preserves the exported API.
-The current Langium CLI's JSON-schema validation fails with `Invalid URL` on
-Node 24/26. Node 22.13.0 was historically verified for grammar generation, before the current Node 22.22.2 floor. When the CLI asks
+Langium CLI 4.4.0 grammar generation is verified on the Node 26.13.0 tooling
+baseline. The former `Invalid URL` limitation on Node 24/26 no longer applies to
+this toolchain. When the CLI asks
 whether to delete additional generated files, retain `domain.ts` and
 `zod-schemas.ts`; their separate generators own them.
 `langium-zod` is exactly pinned in workspace overrides and core/visual-editor
@@ -392,3 +409,40 @@ Generated XSD validation tests require libxml2's `xmllint` on PATH (or
 `test/helpers/xsd-validation.ts` compiles the emitted local schema closure with
 network access disabled and validates accepted/rejected XML instances. A parser
 or string-presence assertion alone does not establish XSD correctness.
+
+## Reference example corpus gate
+
+Run `pnpm run verify:reference-examples` after building core, codegen and
+project-runtime. CI uses checksum-pinned CDM 7.8.0 with its FpML 3.8.0 and Rune
+10.15.1 dependencies, scans every JSON/XML path, checks descriptor references and
+imports typed JSON examples through shared preparation plus the linked decoder.
+The report at `dist/reference-example-import-report.json` distinguishes genuine
+imports from headerless selection requirements, array inputs and pinned empty
+upstream files. Unknown Rune payloads outside discovery roots fail the gate.
+Review the complete inventory when changing pins; never normalize upstream bytes
+or add a blanket expected-failure allowance. XML remains a separate codec milestone.
+
+Execution catalogs use the upstream `*-execution-descriptor.json` array contract
+(`inputFile`, `expectedOutputFile`, `executableFunctionClass`, name/description and
+optional Markdown/native-function metadata). Shared schema/path validation refuses
+traversal and conflicting bindings. Cataloged input bundles import with the exact
+Rune function identity, retaining the original catalog entry in provenance. Import
+leaves the current workflow unchanged; explicitly selecting the saved bundle opens
+the function and seeds its argument fields. Java-only catalog functions remain
+unavailable until their implementation is supported.
+
+
+## Deep-navigation runtime generation
+
+Codegen builds regenerate `expr/generated/deep-runtime-source.ts` from the shared
+`expr/deep-paths.ts`. Edit the canonical traversal, then run
+`pnpm --filter @rune-langium/codegen run generate:deep-runtime`.
+`node packages/codegen/scripts/generate-deep-runtime.mjs --check` checks the
+formatter-stable output; the Python Projections workflow runs this with its
+existing runtime source check. Both generators share `scripts/runtime-source.mjs`.
+
+Public value changes require the strict generated compilation/runtime tests in
+`test/emit/value-api.test.ts`, inheritance/namespace tests and the pinned codegen
+corpus check. Rebuild Codegen before Studio consumes it. The desktop
+`test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
+real expression-edit pipeline; it is separate from production acceptance.

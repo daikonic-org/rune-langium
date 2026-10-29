@@ -8074,6 +8074,19 @@ getEnumValues(enumeration: RosettaEnumeration): RosettaEnumValue[]
 
 **Returns:** `RosettaEnumValue[]`
 
+### getEnumValueLiteral
+
+The member identifier and the external code are distinct; displayName is presentation only.
+
+```ts
+getEnumValueLiteral(value: RosettaEnumValue): string
+```
+
+**Parameters:**
+- `value: RosettaEnumValue` —
+
+**Returns:** `string`
+
 ### getExpressionScope
 
 Describe the existing language-service scope at an expression, without a second resolver.
@@ -9867,7 +9880,7 @@ const RepositoryFileSourceSchema: ZodObject<{ model: ZodString; repository: ZodS
 ### RepositoryExampleSourceSchema
 
 ```ts
-const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString> }, $strict>
+const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString>; execution: ZodOptional<ZodObject<{ descriptorPath: ZodString; role: ZodEnum<{ output: "output"; input: "input" }>; descriptor: ZodRecord<ZodString, ZodUnknown> }, $strip>> }, $strict>
 ```
 
 ### BASE_TYPE_FILES
@@ -9966,6 +9979,20 @@ The Langium serialize option triple for the canonical Rune wire form.
 
 ```ts
 const RUNE_SERIALIZE_OPTIONS: JsonSerializeOptions
+```
+
+### CODE_LIST_ENUM_NAMESPACE
+
+Portable synonym source used by materialized resource enums. Ordinary enum synonyms remain mappings only.
+
+```ts
+const CODE_LIST_ENUM_NAMESPACE: "rune.resources"
+```
+
+### CODE_LIST_ENUM_SOURCE
+
+```ts
+const CODE_LIST_ENUM_SOURCE: "CodeList"
 ```
 
 ---
@@ -10668,6 +10695,43 @@ getTargetLayouts(target: string): readonly string[]
 - `target: string` —
 
 **Returns:** `readonly string[]`
+
+### renderCodeListEnum
+
+Use the same canonical enum builder and Rune renderer as schema imports.
+
+```ts
+renderCodeListEnum(name: string, values: readonly CodeListValue[], options: { declareSource?: boolean }): string
+```
+
+**Parameters:**
+- `name: string` —
+- `values: readonly CodeListValue[]` —
+- `options: { declareSource?: boolean }` —
+
+**Returns:** `string`
+
+### getTargetRelativePath
+
+Convert a dot-separated Rune namespace to the emitted relative file path for a target.
+
+Extensions are sourced from TARGET_DESCRIPTORS so the registry stays
+the single source of truth (018 Phase 0 Task 0.5).
+
+Whole-model targets (excel, graphql) emit a single bundled file rather than
+one-per-namespace, so the path is `model<ext>` and the `namespace` argument
+is ignored. Namespace-contract targets (zod, typescript, json-schema, sql,
+markdown) map `cdm.base.math` → `cdm/base/math<ext>`.
+
+```ts
+getTargetRelativePath(namespace: string, target: Target): string
+```
+
+**Parameters:**
+- `namespace: string` —
+- `target: Target` —
+
+**Returns:** `string`
 
 ### ProjectBindingUnavailable
 

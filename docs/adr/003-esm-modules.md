@@ -48,7 +48,7 @@ Node.js supports both CommonJS (CJS) and ES Modules (ESM). We needed to choose w
   "type": "module",
   "compilerOptions": {
     "module": "ESNext",
-    "target": "ES2022"
+    "target": "ESNext"
   }
 }
 ```

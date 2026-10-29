@@ -51,7 +51,7 @@ test('selected objects, compact guards, details and regenerated code remain conn
     .getByRole('region', { name: 'Condition expression' })
     .getByRole('button', { name: 'TypeScript', exact: true })
     .click();
-  await expect(page.getByRole('textbox', { name: 'Generated typescript' })).toContainText('!isCash(data.underlier)');
+  await expect(page.getByRole('textbox', { name: 'Generated typescript' })).toContainText('!exists(underlier as Cash)');
   await expect(page.getByRole('textbox', { name: 'Generated typescript' })).not.toContainText('typeof');
   await expect(page.getByRole('textbox', { name: 'Generated typescript' })).toContainText('AssetClass.Security');
   await page.screenshot({ path: info.outputPath('enum-member-condition.png') });
@@ -74,14 +74,10 @@ test('selected objects, compact guards, details and regenerated code remain conn
   await expect(implementation.getByText('Implementation', { exact: true })).toHaveCount(0);
   const rune = implementation.getByTestId('implementation-editor');
   await expect(rune).toContainText('set result');
-  const bounds = await rune.evaluate((element) => ({
-    editor: element.getBoundingClientRect().bottom,
-    main: element.closest('[data-slot="tabs-content"]')!.getBoundingClientRect().bottom
-  }));
-  expect(Math.abs(bounds.main - bounds.editor)).toBeLessThan(12);
+  expect((await rune.boundingBox())!.height).toBeLessThan(160);
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
-  await expect(projection).toContainText('Rate(schedule?.durationInYears)');
+  await expect(projection).toContainText('Rate(schedule.durationInYears)');
   await expect(projection).not.toContainText('RuneFuncData');
   await expect(projection).not.toContainText('Argument');
   await dismissLocalTransportNotices(page);

@@ -172,8 +172,6 @@ function errMessage(err: unknown): string {
 }
 
 function withCause(err: Error, cause: unknown): Error {
-  // Manual cause attachment — `new Error(msg, { cause })` is ES2022;
-  // the studio targets ES2020 to keep the bundle lean.
   (err as Error & { cause?: unknown }).cause = cause;
   return err;
 }

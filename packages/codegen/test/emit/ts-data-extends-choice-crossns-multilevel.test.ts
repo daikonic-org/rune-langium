@@ -66,7 +66,11 @@ describe('TS emitter — multi-level cross-namespace Data-extends-Choice chain',
     const bOutput = outputs.find((o) => o.relativePath.includes('/b'));
     expect(bOutput).toBeDefined();
     expect(bOutput!.content).toContain('export type ObservableItemShape<T extends AssetShape = AssetShape> = T & {');
-    expect(bOutput!.content).toContain("import { Asset, AssetShape, Cash } from './a.js';");
+    const imports = bOutput!.content
+      .match(/import \{([^}]+)\} from '\.\/a.js';/)![1]!
+      .split(',')
+      .map((name) => name.trim());
+    expect(imports).toEqual(expect.arrayContaining(['Asset', 'AssetShape', 'Cash', '$Cash$Type', '$Cash$Input']));
   });
 
   it('C (BasketConstituent, the leaf) threads the SAME T through the intermediate B, importing AssetShape across the 2-hop chain', async () => {
@@ -99,7 +103,7 @@ describe('TS emitter — multi-level cross-namespace Data-extends-Choice chain',
 
     const compilerOptions: ts.CompilerOptions = {
       strict: true,
-      target: ts.ScriptTarget.ES2022,
+      target: ts.ScriptTarget.ESNext,
       module: ts.ModuleKind.NodeNext,
       moduleResolution: ts.ModuleResolutionKind.NodeNext,
       noEmit: true,

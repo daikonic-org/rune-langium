@@ -11,3 +11,5 @@ source versions and integrity manifests alongside each cohort.
   with metadata/reference and repository-import provenance checks.
 
 - [CDM code lists](cdm-codelists/README.md): versioned option-type resource with upstream license, notice and integrity metadata.
+
+- [Complete reference import corpus](reference-example-corpus/README.md): checksum-pinned repository archives and complete discovery/import CI inventory.

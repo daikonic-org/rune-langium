@@ -220,7 +220,7 @@ async function toEvaluableJs(tsCode: string): Promise<string> {
     .map((line) => line.replace(/^export\s+/, ''))
     .join('\n');
   return ts.transpileModule(withoutBoilerplate, {
-    compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 }
+    compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ESNext }
   }).outputText;
 }
 

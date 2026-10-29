@@ -12,7 +12,7 @@ import { expressionIsMany, expressionType, typeFeatures, featureName, featureIsM
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { fieldMetadataKind, type FieldMetadataKind } from '../expr/metadata-runtime.js';
 import { expressionFitsCardinality } from '../expr/cardinality.js';
-import { collectionShape } from '../expr/collection-shape.js';
+import { collectionDepth, collectionShape } from '../expr/collection-shape.js';
 import { expressionIsPresent } from '../expr/scalar-operators.js';
 import type { PythonProjectionContext } from './context.js';
 import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
@@ -56,6 +56,14 @@ export function pythonUnwrap(value: string, kind: FieldMetadataKind | undefined,
       `${collection('_rune_field')} if isinstance(_rune_field, list) else ${pythonRead('_rune_field', ['value'])}`
     );
   return pythonRead(value, ['value']);
+}
+
+/** Flatten extraction groups only when handing a value to a declared array boundary. */
+export function pythonArrayBoundary(value: string, expression: RosettaExpression | undefined): string {
+  for (let depth = collectionDepth(expression); depth > 1; depth--) {
+    value = `[child for group in ${pythonCollection(value)} for child in ${pythonCollection('group')}]`;
+  }
+  return value;
 }
 
 /** Native materialization; mixed cardinality is an authored expression shape. */
@@ -139,6 +147,7 @@ export function pythonArgument(
   argument: RosettaExpression | undefined,
   context: PythonRenderContext
 ): string {
+  value = pythonArrayBoundary(value, argument);
   const target = fieldMetadataKind(parameter),
     input = argument ? expressionMetadataKind(argument) : context.implicit?.metadata;
   if (target) value = pythonNormalize(value, input, target);

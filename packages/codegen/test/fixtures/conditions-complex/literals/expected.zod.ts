@@ -136,6 +136,48 @@ const runeToDateTime = (v: unknown): string | undefined =>
 const runeToZonedDateTime = (v: unknown): string | undefined =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})(\[[^\]]+\])?$/.test(v) ? v : undefined;
 
+class RuneList<T> {
+  private readonly items: T[];
+  constructor(items: readonly T[]) { this.items = items.filter(item => item != null); }
+  static from<T>(...items: T[]): RuneList<T> { return new RuneList(items); }
+  [Symbol.iterator]() { return this.items[Symbol.iterator](); }
+  toArray(): T[] { return [...this.items]; }
+  toJSON(): T[] { return this.toArray(); }
+  map<U>(project: (item: T, index: number) => U): RuneList<NonNullable<U>> {
+    return new RuneList(this.items.map(project).filter((value): value is NonNullable<U> => value != null));
+  }
+  flatMap<U>(project: (item: T, index: number) => U | readonly U[] | null | undefined): RuneList<U> {
+    return new RuneList(this.items.flatMap((item, index) => [...runeList(project(item, index))]) as U[]);
+  }
+  filter(predicate: (item: T, index: number) => boolean) { return new RuneList(this.items.filter(predicate)); }
+  first() { return this.items[0]; }
+  last() { return this.items[this.items.length - 1]; }
+  count() { return this.items.length; }
+  sum(this: RuneList<number>) { return this.items.reduce((total, item) => total + item, 0); }
+  onlyElement() { return this.items.length === 1 ? this.items[0] : undefined; }
+  distinct() { return new RuneList(runeDistinct(this.items)); }
+  reverse() { return new RuneList([...this.items].reverse()); }
+  flat<U>(this: RuneList<U | readonly U[]>): RuneList<U> {
+    return new RuneList(this.items.flatMap(value => [...runeList(value)]) as U[]);
+  }
+  sort<K = T>(key: (item: T) => K = (item) => item as unknown as K, compare: (a: NonNullable<K>, b: NonNullable<K>) => number = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
+    return new RuneList([...this.items].sort((a, b) => runeOrder(key(a), key(b), compare)));
+  }
+  min<K = T>(key: (item: T) => K = (item) => item as unknown as K, compare: (a: NonNullable<K>, b: NonNullable<K>) => number = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
+    return this.items.reduce<T | undefined>((best, item) => best === undefined || runeOrder(key(item), key(best), compare) < 0 ? item : best, undefined);
+  }
+  max<K = T>(key: (item: T) => K = (item) => item as unknown as K, compare: (a: NonNullable<K>, b: NonNullable<K>) => number = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
+    return this.items.reduce<T | undefined>((best, item) => best === undefined || runeOrder(key(item), key(best), compare, false) > 0 ? item : best, undefined);
+  }
+  reduce(reduce: (previous: T, current: T) => T) { return this.items.length ? this.items.reduce(reduce) : undefined; }
+  join(separator = '') { return this.items.join(separator); }
+  has(value: unknown) { return runeContains(this.items, [value]); }
+  isSupersetOf(values: unknown) { return runeContains(this.items, values instanceof RuneList ? values.items : values); }
+  isDisjointFrom(values: unknown) { return runeDisjoint(this.items, values instanceof RuneList ? values.items : values); }
+}
+const runeExtract = <T, U>(value: T, project: (value: NonNullable<T>) => U): U | undefined => value == null ? undefined : project(value);
+const runeFilter = <T>(value: T, predicate: (value: NonNullable<T>) => boolean): T | undefined => value != null && predicate(value) ? value : undefined;
+
 const runeValueKey = (value: unknown): string => {
   if (value == null) return 'null';
   if (typeof value !== 'object') return typeof value + ':' + String(value);
@@ -166,6 +208,9 @@ const rune = {
       : (unequal && l.length !== r.length) || l.some((a, i) => i < r.length && compare(a, r[i]));
   },
   list: runeList,
+  List: RuneList,
+  extract: runeExtract,
+  filter: runeFilter,
   single: runeSingle,
   contains: runeContains,
   disjoint: runeDisjoint,
