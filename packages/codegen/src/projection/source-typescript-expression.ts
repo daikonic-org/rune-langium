@@ -55,6 +55,7 @@ interface Scope {
   type?: ExpressionType;
   bindings: ReadonlyMap<AstNode, Value>;
   names?: ReadonlySet<string>;
+  originAliases?: ReadonlyMap<string, string | null> | null;
 }
 
 const atom = (code: string): Value => ({ code, precedence: 11 });
@@ -80,7 +81,11 @@ export class SourceExpressionRenderer {
   private readonly authoredNames = new Set<string>();
   private statements: string[] = [];
   private scope?: Scope;
-  private fragments: { node: RosettaExpression; code: string }[] = [];
+  private fragments: {
+    node: RosettaExpression;
+    code: string;
+    aliases: ProjectionOrigin['fragments'][number]['aliases'];
+  }[] = [];
 
   constructor(private readonly options: SourceTypeScriptOptions) {
     if (options.owner) {
@@ -109,13 +114,13 @@ export class SourceExpressionRenderer {
       /* Older serialized bundles have no source coordinates. */
     }
     const rune = expression.$cstNode?.text ?? renderExpression(expression);
-    const fragments = this.fragments.flatMap(({ node, code }) => {
+    const fragments = this.fragments.flatMap(({ node, code, aliases }) => {
       if (!root || !expression.$cstNode) return [];
       try {
         const region = getNodeSourceRegion(node);
         const from = region.from - root.from,
           to = region.to - root.from;
-        return from >= 0 && to <= rune.length && to > from ? [{ code, from, to, kind: node.$type }] : [];
+        return from >= 0 && to <= rune.length && to > from ? [{ code, from, to, kind: node.$type, aliases }] : [];
       } catch {
         return [];
       }
@@ -180,7 +185,9 @@ export class SourceExpressionRenderer {
   private inlineScope(fn: InlineFunction, argument: RosettaExpression | undefined, value: Value, scope: Scope): Scope {
     const bindings = new Map(scope.bindings);
     for (const parameter of fn.parameters) bindings.set(parameter, value);
-    return { self: value, type: expressionType(argument), bindings };
+    // Inlining substitutes an arbitrary receiver for Rune's callback parameter. Its
+    // spelling may also name an authored reference, so do not guess an inverse alias.
+    return { ...scope, self: value, type: expressionType(argument), bindings, originAliases: null };
   }
 
   private lambda(fn: InlineFunction | undefined, argument: RosettaExpression | undefined, scope: Scope): string {
@@ -190,11 +197,17 @@ export class SourceExpressionRenderer {
       : [this.parameter(scope)];
     const bindings = new Map(scope.bindings);
     fn.parameters.forEach((parameter, index) => bindings.set(parameter, atom(parameters[index]!)));
+    const originAliases = scope.originAliases === null ? null : new Map(scope.originAliases);
+    if (originAliases) {
+      for (const [name, alias] of originAliases) if (alias === 'item') originAliases.set(name, null);
+      parameters.forEach((name, index) => originAliases.set(name, fn.parameters[index]?.name ?? 'item'));
+    }
     const childScope = {
       self: atom(parameters[0]!),
       type: expressionType(argument),
       bindings,
-      names: new Set([...(scope.names ?? []), ...parameters])
+      names: new Set([...(scope.names ?? []), ...parameters]),
+      originAliases
     };
     const body = this.capture(() => this.value(fn.body, childScope));
     const names = parameters.length === 1 ? parameters[0]! : `(${parameters.join(', ')})`;
@@ -289,6 +302,7 @@ export class SourceExpressionRenderer {
       const child: Scope = {
         ...scope,
         self: atom(selector),
+        originAliases: null,
         type: isRosettaType(reference) ? reference : expressionType(argument)
       };
       const frame = this.capture(() => this.value(branch.expression, child));
@@ -307,7 +321,11 @@ export class SourceExpressionRenderer {
     try {
       const value = this.valueImpl(expression, scope, preferred);
       if (expression && this.options.trackOrigins !== false)
-        this.fragments.push({ node: expression, code: value.code });
+        this.fragments.push({
+          node: expression,
+          code: value.code,
+          aliases: scope.originAliases === null ? null : [...(scope.originAliases ?? [])]
+        });
       return value;
     } finally {
       this.scope = parent;

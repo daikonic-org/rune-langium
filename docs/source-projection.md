@@ -108,6 +108,12 @@ another callback are refused when they cannot preserve its meaning. Named Rune
 closure captures remain supported. Quantified comparisons also refuse callbacks
 whose shadowed parameters cannot be represented by the corresponding Rune operator.
 
+Origin fragments carry serializable callback aliases, so an edit to a hygienic
+`item1` inside a nested callback restores Rune's implicit `item` in that callback.
+Legacy callback origins without binding information require reopening the draft.
+Substituted scalar callbacks permit literal edits but refuse larger fragment edits
+when their original binding cannot be recovered without guessing.
+
 ## Runtime and validation
 
 One generated RuneList implementation composes owned arrays for inline modules,

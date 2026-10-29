@@ -1241,5 +1241,9 @@ SourceReader retains lexical bindings across callbacks and masks shadowed names.
 An outer implicit pipeline/item binding becomes unavailable in a nested Rune
 callback; references to it refuse the edit instead of binding to the inner item.
 Constructor shorthand shares identifier resolution while preserving its field key.
+Serialized origin fragments retain the renderer's callback aliases; partial edits
+restore hygienic implicit names in that original scope. Legacy callback origins
+require a fresh draft, and substituted scalar scopes refuse nonliteral edits
+whose binding cannot be recovered safely.
 Generated public view constructors use ordinary fields and assignments so the
 helper introduces no parameter-property transform requirement for Node type stripping.

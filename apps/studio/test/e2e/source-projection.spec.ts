@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+import { codeMirrorDocument } from '../helpers/source-editor.js';
 
 const source = `namespace projection
 type Asset:
@@ -25,6 +26,10 @@ func Optional:
  inputs: amount int (0..1)
  output: result int (0..1)
  set result: amount extract [1]
+func Nested:
+ inputs: values int (0..*) other int (0..*)
+ output: result int (0..*)
+ set result: (values extract [other extract [item + 1]]) flatten
 func External:
  inputs: amount int (1..1)
  output: result int (1..1)
@@ -93,6 +98,34 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('amount extract [1]');
+  await page.getByTestId('namespace-search').fill('Nested');
+  await typeNavigationButton(page, 'projection.Nested', 'RosettaFunction').click();
+  await rune.locator('.cm-line').filter({ hasText: 'set result:' }).click();
+  await page.keyboard.press('End');
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(generated).toContainText('item1 + 1');
+  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
+  const nestedDraft = await codeMirrorDocument(draft);
+  expect(nestedDraft).toContain('item1 + 1');
+  await draft.press('ControlOrMeta+a');
+  await page.keyboard.insertText(nestedDraft.replace('item1 + 1', 'item1 * 2'));
+  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+  await expect(rune).toContainText('other extract [item * 2]');
+  await expect(rune).not.toContainText('item1');
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(generated).toContainText('item1 * 2');
+  await expect(implementation.getByText(/Showing the last valid source/)).not.toBeVisible();
+  await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+  const nestedScreenshot = testInfo.outputPath('source-projection-nested-binding.png');
+  await page.screenshot({ path: nestedScreenshot });
+  await testInfo.attach('source-projection-nested-binding', { path: nestedScreenshot, contentType: 'image/png' });
+  await rune.press('ControlOrMeta+z');
+  await expect(rune).toContainText('other extract [item + 1]');
+  await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(generated).toContainText('item1 + 1');
+  await expect(implementation.getByText(/Showing the last valid source/)).not.toBeVisible();
   await page.getByTestId('namespace-search').fill('Deep');
   await typeNavigationButton(page, 'projection.Deep', 'RosettaFunction').click();
   await rune.locator('.cm-line').filter({ hasText: 'set result:' }).click();

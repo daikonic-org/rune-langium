@@ -19,3 +19,6 @@ runtime-shape comparisons.
 Preserve lexical callback scope and constructor shorthand values in inverse edits,
 refusing captures that cannot retain their Rune meaning. Keep generated value
 constructors compatible with Node strip-only execution.
+
+Retain enclosing callback aliases in serialized projection origins, restoring
+hygienic implicit names during partial edits and refusing unrecoverable bindings.

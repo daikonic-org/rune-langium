@@ -154,6 +154,107 @@ describe('source-facing expression inverse', () => {
     if (result.ok) expect(renderExpression(result.node)).toBe('amount extract [item * 3]');
   });
   it.each([
+    [
+      'values extract [other extract [item + 1]]',
+      'item1 + 1',
+      'item1 * 1',
+      'values extract [other extract [item * 1]]'
+    ],
+    ['values then (other extract [item + 1])', 'item1 + 1', 'item1 * 1', 'values then (other extract [item * 1])'],
+    [
+      'values extract outer [other extract inner [outer + inner]]',
+      'outer + inner',
+      'outer * inner',
+      'values extract outer [other extract inner [outer * inner]]'
+    ],
+    [
+      'values extract [other extract [Point {x: item}]]',
+      'x: item1',
+      'x: item1 + 1',
+      'values extract [other extract [Point {x: item + 1}]]'
+    ]
+  ])('restores the callback bindings of an origin fragment in %s', async (rune, before, after, expected) => {
+    const expression = parseExpression(rune!);
+    expect(expression.hasErrors).toBe(false);
+    const projection = renderSourceTypeScriptExpression(expression.value);
+    expect(projection.code).toContain(before);
+    const result = await parseSourceTs(
+      projection.code.replace(before!, after!),
+      undefined,
+      structuredClone(projection.origin)
+    );
+    expect(result).toMatchObject({ ok: true });
+    if (result.ok)
+      expect(treesEquivalent(parseExpression(expected!).value, result.node), renderExpression(result.node)).toBe(true);
+  });
+  it('links and executes an edited nested callback without capturing a same-named input', async () => {
+    const source = `namespace lens.origin
+ func Nested:
+  inputs: values int (0..*) other int (0..*) item1 int (1..1)
+  output: result int (0..*)
+  set result: (values extract [other extract [item + 2]]) flatten
+`;
+    const [original] = await linkedFunctions(source);
+    const projection = renderSourceTypeScriptExpression(original!.operations[0]!.expression, { owner: original });
+    expect(projection.code).toContain('item2 + 2');
+    const result = await parseSourceTs(
+      projection.code.replace('item2 + 2', 'item2 * 2'),
+      undefined,
+      structuredClone(projection.origin)
+    );
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    const [edited] = await linkedFunctions(
+      source.replace('(values extract [other extract [item + 2]]) flatten', renderExpression(result.node))
+    );
+    const documents = [AstUtils.getDocument(edited!.inputs[0]!.typeCall!.type.ref!), AstUtils.getDocument(edited!)];
+    const outputs = await generate(documents, { target: 'typescript', typescript: { layout: 'single-file' } });
+    const api = compileGeneratedTypeScript<{ Nested(values: number[], other: number[], item1: number): number[] }>(
+      outputs
+    );
+    expect(api.Nested([3, 4], [2, 5], 99)).toEqual([4, 10, 4, 10]);
+  });
+  it('refuses an origin edit that would capture a rebound outer implicit item', async () => {
+    const expression = parseExpression('values extract [other extract [item + 1]]');
+    const projection = renderSourceTypeScriptExpression(expression.value);
+    const result = await parseSourceTs(
+      projection.code.replace('item1 + 1', 'item1 + item'),
+      undefined,
+      projection.origin
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      reason: { kind: 'out-of-subset', message: expect.stringContaining('cannot retain the captured callback binding') }
+    });
+  });
+  it('requires a fresh origin when legacy callback fragments lack binding information', async () => {
+    const expression = parseExpression('values extract [other extract [item + 1]]');
+    const projection = renderSourceTypeScriptExpression(expression.value);
+    const origin = structuredClone(projection.origin);
+    for (const fragment of origin.fragments) delete fragment.aliases;
+    expect(await parseSourceTs(projection.code.replace('item1 + 1', 'item1 * 1'), undefined, origin)).toMatchObject({
+      ok: false,
+      reason: { message: expect.stringContaining('Reopen the draft') }
+    });
+  });
+  it('does not guess callback bindings after scalar inlining, while allowing literal edits', async () => {
+    const [fn] = await linkedFunctions(`namespace lens.inline
+ func Case:
+  inputs: amount int (1..1)
+  output: result int (1..1)
+  set result: amount extract [item + amount + 2]
+`);
+    const projection = renderSourceTypeScriptExpression(fn!.operations[0]!.expression, { owner: fn });
+    expect(projection.code).toBe('amount + amount + 2');
+    const literal = await parseSourceTs(projection.code.replace('2', '3'), undefined, projection.origin);
+    expect(literal.ok).toBe(true);
+    if (literal.ok) expect(renderExpression(literal.node)).toBe('amount extract [item + amount + 3]');
+    expect(await parseSourceTs(projection.code.replace('+ 2', '* 2'), undefined, projection.origin)).toMatchObject({
+      ok: false,
+      reason: { message: expect.stringContaining('substituted callback binding') }
+    });
+  });
+  it.each([
     'values.map(item => { return item; })',
     'value.toFixed(2)',
     'value = 3',

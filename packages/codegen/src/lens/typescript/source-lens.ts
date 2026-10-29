@@ -454,7 +454,22 @@ export async function parseSourceTs(
             after = after.parent;
           }
         }
-        let replacement = reader.read(after);
+        if (match.aliases === undefined) {
+          for (let ancestor: Node | null = before.parent; ancestor; ancestor = ancestor.parent)
+            if (ancestor.type === 'arrow_function')
+              throw new OutOfSubset('This callback origin has no binding information. Reopen the draft.', after);
+        }
+        if (
+          match.aliases === null &&
+          !['number', 'string', 'true', 'false', 'null', 'undefined'].includes(strip(after).type)
+        )
+          throw new OutOfSubset(
+            'This substituted callback binding cannot be restored safely. Edit its Rune source.',
+            after
+          );
+        const aliases = new Map(match.aliases ?? []);
+        const scope: Scope = { parameters: new Set(aliases.keys()), aliases };
+        let replacement = reader.read(after, scope);
         if (match.kind === 'RosettaFeatureCall' && after.type === 'call_expression') {
           const callee = field(after, 'function'),
             args = field(after, 'arguments').namedChildren;
@@ -470,7 +485,7 @@ export async function parseSourceTs(
           const parameter = callback.childForFieldName('parameter');
           if (member.type !== 'member_expression' || !parameter || field(member, 'object').text !== parameter.text)
             throw new OutOfSubset('A navigation edit must still select one field.', after);
-          replacement = `(${reader.read(field(callee, 'object'))}) -> ${id(field(member, 'property'))}`;
+          replacement = `(${reader.read(field(callee, 'object'), scope)}) -> ${id(field(member, 'property'))}`;
         }
         replacements.push({ ...match, text: replacement });
       }
