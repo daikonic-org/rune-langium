@@ -8,6 +8,10 @@ import {
   isRosettaFunction,
   isRosettaRule,
   isRosettaSymbolReference,
+  isRosettaImplicitVariable,
+  isClosureParameter,
+  isInlineFunction,
+  isSwitchCaseOrDefault,
   isRosettaFeatureCall,
   isRosettaDeepFeatureCall,
   isRosettaEnumValue,
@@ -19,12 +23,25 @@ import {
   isSwitchOperation,
   type RosettaExpression
 } from '@rune-langium/core';
+import { AstUtils } from 'langium';
 import { expressionIsMany, featureIsMany } from './navigation.js';
 import { expressionIsPresent } from './scalar-operators.js';
 import { functionOutput } from '../types/func.js';
 import { parenthesizeReceiver } from './syntax.js';
 
 export type CollectionShape = 'scalar' | 'array' | 'mixed' | 'unknown';
+
+function pipelineBindingArgument(expression: RosettaExpression): RosettaExpression | undefined {
+  const target = isRosettaSymbolReference(expression) ? expression.symbol.ref : undefined;
+  const owner = isClosureParameter(target)
+    ? target.$container
+    : isRosettaImplicitVariable(expression)
+      ? AstUtils.getContainerOfType(expression, (node) => isInlineFunction(node) || isSwitchCaseOrDefault(node))
+      : undefined;
+  return isInlineFunction(owner) && isThenOperation(owner.$container)
+    ? getOperationArgument(owner.$container)
+    : undefined;
+}
 
 /** A multi-valued expression may mix scalar and array branches; keep that distinction. */
 export function collectionShape(
@@ -35,6 +52,8 @@ export function collectionShape(
   seen.add(expression);
   const from = (node: RosettaExpression | undefined) => collectionShape(node, new Set(seen));
   const merge = (left: CollectionShape, right: CollectionShape) => (left === right ? left : 'mixed');
+  const binding = pipelineBindingArgument(expression);
+  if (binding) return from(binding);
   if (isListLiteral(expression)) return 'array';
   if (isRosettaConditionalExpression(expression))
     return expression.elsethen ? merge(from(expression.ifthen), from(expression.elsethen)) : from(expression.ifthen);
@@ -134,6 +153,8 @@ export function collectionDepth(
   if (!expression || seen.has(expression)) return 0;
   seen.add(expression);
   const depth = (node: RosettaExpression | undefined) => collectionDepth(node, new Set(seen));
+  const binding = pipelineBindingArgument(expression);
+  if (binding) return depth(binding);
   if (isListLiteral(expression)) return Math.max(1, ...expression.elements.map(depth));
   if (expression.$type === 'MapOperation')
     return (
@@ -143,7 +164,7 @@ export function collectionDepth(
   if (expression.$type === 'FlattenOperation') return Math.max(1, depth(getOperationArgument(expression)) - 1);
   if (['FilterOperation', 'SortOperation', 'ReverseOperation', 'DistinctOperation'].includes(expression.$type))
     return depth(getOperationArgument(expression)) || 1;
-  if (isThenOperation(expression)) return depth(expression.function?.body);
+  if (isThenOperation(expression)) return depth(expression.function?.body ?? getOperationArgument(expression));
   if (isRosettaConditionalExpression(expression)) return Math.max(depth(expression.ifthen), depth(expression.elsethen));
   if (isDefaultOperation(expression)) return Math.max(depth(expression.left), depth(expression.right));
   if (isSwitchOperation(expression)) return Math.max(0, ...expression.cases.map((branch) => depth(branch.expression)));

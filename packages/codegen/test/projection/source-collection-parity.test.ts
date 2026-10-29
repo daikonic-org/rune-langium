@@ -3,6 +3,9 @@
 
 import { expect, it } from 'vitest';
 import { AstUtils } from 'langium';
+import { isThenOperation, type ClosureParameter } from '@rune-langium/core';
+import { generate } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { sourceProjectionCollections } from '../helpers/source-projection-collections.js';
 import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { linkedFunctions, runPython } from './python-test-utils.js';
@@ -17,11 +20,22 @@ it('keeps scalar extraction and collection groups consistent in Python exports',
       { expression: 'Mix([{"values": [1, 2]}, {"values": [3]}], 4)' },
       { expression: 'CheckedGroups([{"values": [1, 2]}, {"values": [3]}])' },
       { expression: 'MixedGroups([{"values": [1, 2]}, {"values": [3]}], True)' },
+      { expression: 'MixedGroups([], False)' },
       { expression: 'SwitchGroups([{"values": [1, 2]}, {"values": [3]}], 1)' },
       { expression: 'SwitchGroups([], 0)' },
       { expression: 'SwitchValues([{"values": [1, 2]}, {"values": [3]}], 1)' },
       { expression: 'SwitchValues([], 0)' },
       { expression: 'SwitchValues([], 2)' },
+      { expression: 'PipeGroups([{"values": [1, 2]}, {"values": [3]}])' },
+      { expression: 'PipeValues([{"values": [1, 2]}, {"values": [3]}])' },
+      { expression: 'NestedPipeValues([{"values": [1, 2]}, {"values": [3]}])' },
+      { expression: 'BarePipeValues([{"values": [1, 2]}, {"values": [3]}])' },
+      ...['MixedValues', 'MixedArguments', 'MixedPipeValues'].flatMap((name) => [
+        { expression: `${name}([{"values": [1, 2]}, {"values": [3]}], True, None)` },
+        { expression: `${name}([], False, 1)` },
+        { expression: `${name}([], False, 0)` },
+        { expression: `${name}([], False, None)` }
+      ]),
       { expression: 'GroupCount([{}, {"values": []}])' },
       { expression: 'EmptyCount([{"values": [1]}])' },
       { expression: 'ScalarEmpty(7)' },
@@ -39,11 +53,22 @@ it('keeps scalar extraction and collection groups consistent in Python exports',
     { value: [1, 2, 3, 4] },
     { value: 6 },
     { value: 6 },
+    { error: 'values has too few values' },
     { value: 6 },
     { value: 15 },
     { value: [1, 2, 3] },
     { value: [4, 5, 6] },
     { value: [] },
+    { value: 6 },
+    { value: [1, 2, 3] },
+    { value: [1, 2, 3] },
+    { value: [1, 2, 3] },
+    ...['MixedValues', 'MixedArguments', 'MixedPipeValues'].flatMap(() => [
+      { value: [1, 2, 3] },
+      { value: [1] },
+      { value: [0] },
+      { value: [] }
+    ]),
     { value: 2 },
     { value: 0 },
     { value: null },
@@ -52,4 +77,44 @@ it('keeps scalar extraction and collection groups consistent in Python exports',
     { value: 7 },
     { value: null }
   ]);
+});
+
+it('preserves explicit pipeline parameter depth in both executable exports', async () => {
+  const functions = await linkedFunctions(sourceProjectionCollections);
+  const pipeline = functions.find((func) => func.name === 'MixedPipeValues')!.operations[0]!.expression;
+  if (!isThenOperation(pipeline) || !pipeline.function) throw new Error('Expected pipeline');
+  const fn = pipeline.function;
+  const parameter: ClosureParameter = { $type: 'ClosureParameter', $container: fn, name: 'grouped' };
+  fn.parameters.push(parameter);
+  fn.body = {
+    $type: 'RosettaSymbolReference',
+    $container: fn,
+    explicitArguments: false,
+    rawArgs: [],
+    symbol: { $refText: parameter.name, ref: parameter }
+  };
+  AstUtils.linkContentToContainer(fn);
+  const document = AstUtils.getDocument(pipeline);
+  const integer = functions.find((func) => func.name === 'Three')!.inputs[0]!.typeCall!.type.ref!;
+  const outputs = await generate([AstUtils.getDocument(integer), document], {
+    target: 'typescript',
+    typescript: { layout: 'single-file' }
+  });
+  const runtime = compileGeneratedTypeScript<{
+    MixedPipeValues: (groups: unknown[], flag: boolean, amount?: number) => unknown;
+  }>(outputs);
+  expect(runtime.MixedPipeValues([{ values: [1, 2] }, { values: [3] }], true)).toEqual([1, 2, 3]);
+  expect(runtime.MixedPipeValues([], false, 0)).toEqual([0]);
+  expect(runtime.MixedPipeValues([], false)).toEqual([]);
+  expect(
+    runPython(
+      [
+        { expression: 'MixedPipeValues([{"values": [1, 2]}, {"values": [3]}], True, None)' },
+        { expression: 'MixedPipeValues([], False, 0)' },
+        { expression: 'MixedPipeValues([], False, None)' }
+      ],
+      generatePythonModule([document]).code,
+      { includeRuntime: false }
+    )
+  ).toEqual([{ value: [1, 2, 3] }, { value: [0] }, { value: [] }]);
 });

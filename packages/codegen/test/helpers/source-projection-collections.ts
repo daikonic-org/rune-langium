@@ -56,4 +56,36 @@ func SwitchGroups:
 func SwitchValues:
  inputs: groups Group (0..*) selector int (1..1)
  output: result int (0..*)
- set result: selector switch 0 then [4, 5, 6], 1 then (groups extract [values]), default empty`;
+ set result: selector switch 0 then [4, 5, 6], 1 then (groups extract [values]), default empty
+func CopyValues:
+ inputs: values int (0..*)
+ output: result int (0..*)
+ set result: values
+func MixedValues:
+ inputs: groups Group (0..*) flag boolean (1..1) amount int (0..1)
+ output: result int (0..*)
+ set result: if flag then groups extract [values] else amount
+func MixedArguments:
+ inputs: groups Group (0..*) flag boolean (1..1) amount int (0..1)
+ output: result int (0..*)
+ set result: CopyValues(if flag then groups extract [values] else amount)
+func PipeGroups:
+ inputs: groups Group (0..*)
+ output: result int (1..1)
+ set result: Three((groups extract [values]) then item)
+func PipeValues:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) then item
+func NestedPipeValues:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) then (item then item)
+func BarePipeValues:
+ inputs: groups Group (0..*)
+ output: result int (0..*)
+ set result: (groups extract [values]) then
+func MixedPipeValues:
+ inputs: groups Group (0..*) flag boolean (1..1) amount int (0..1)
+ output: result int (0..*)
+ set result: (if flag then groups extract [values] else amount) then item`;

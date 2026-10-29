@@ -56,6 +56,16 @@ describe('generated TypeScript function execution', () => {
     expect(funcs.SwitchValues!({ groups, selector: 1 })).toEqual([1, 2, 3]);
     expect(funcs.SwitchValues!({ groups, selector: 0 })).toEqual([4, 5, 6]);
     expect(funcs.SwitchValues!({ groups, selector: 2 })).toEqual([]);
+    expect(funcs.PipeGroups!({ groups })).toBe(6);
+    expect(funcs.PipeValues!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.NestedPipeValues!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.BarePipeValues!({ groups })).toEqual([1, 2, 3]);
+    for (const name of ['MixedValues', 'MixedArguments', 'MixedPipeValues']) {
+      expect(funcs[name]!({ groups, flag: true })).toEqual([1, 2, 3]);
+      expect(funcs[name]!({ groups, flag: false, amount: 1 })).toEqual([1]);
+      expect(funcs[name]!({ groups, flag: false, amount: 0 })).toEqual([0]);
+      expect(funcs[name]!({ groups, flag: false })).toEqual([]);
+    }
     expect(() => funcs.SwitchGroups!({ groups: [{ values: [1, 2] }], selector: 1 })).toThrow(/too few/);
     expect(() => funcs.MixedGroups!({ groups, flag: false })).toThrow(/too few/);
     expect(() => funcs.CheckedGroups!({ groups: [{ values: [1, 2] }] })).toThrow(/too few/);

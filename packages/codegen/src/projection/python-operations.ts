@@ -61,7 +61,7 @@ export function pythonUnwrap(value: string, kind: FieldMetadataKind | undefined,
 /** Flatten extraction groups only when handing a value to a declared array boundary. */
 export function pythonArrayBoundary(value: string, expression: RosettaExpression | undefined): string {
   for (let depth = collectionDepth(expression); depth > 1; depth--) {
-    value = `[child for group in (${value} or []) for child in ${pythonCollection('group')}]`;
+    value = `[child for group in ${pythonCollection(value)} for child in ${pythonCollection('group')}]`;
   }
   return value;
 }
