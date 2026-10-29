@@ -76,7 +76,7 @@ export function renderCollectionOperation(
       return `rune.${isFilterOperation(expr) ? 'filter' : 'extract'}(${argument}, (${param}) => ${arrowBody(mapped)})`;
     return isFilterOperation(expr)
       ? `${values}.filter((${param}) => ${arrowBody(body)})`
-      : `rune.List.from(...${values}).map((${param}) => ${arrowBody(mapped)}).toArray()`;
+      : `new rune.List(${values}).map((${param}) => ${arrowBody(mapped)}).toArray()`;
   }
   if (isSortOperation(expr)) {
     if (!fn && !metadata && temporal) return `${values}.slice().sort(Temporal.${temporal}.compare)`;

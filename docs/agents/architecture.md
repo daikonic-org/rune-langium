@@ -604,7 +604,10 @@ field collections have required payloads, while reference collections check for
 an actual payload because reference-only entries are valid. Unknown cardinality
 uses a native, single-evaluation presence predicate. Constructor context and literal-preserving
 cardinality generics retain enum types without literal casts; matched scalar and
-collection shapes skip redundant normalization.
+collection shapes skip redundant normalization. Checked argument boundaries share
+the same depth-aware collection materialization as assignments, including mixed
+scalar/group branches. Extraction wraps arrays directly rather than spreading them
+into function arguments, avoiding the host's argument-count limit.
 TypeScript source projections preserve authored equality as `==`/`!=` and authored
 casts as `value as Type`, without requiring object equality methods. These are Rune
 operations in familiar syntax; executing the text directly as JavaScript would not

@@ -36,4 +36,16 @@ func ScalarEmpty:
 func Mix:
  inputs: groups Group (0..*) amount int (1..1)
  output: result int (0..*)
- set result: [groups extract [values], amount]`;
+ set result: [groups extract [values], amount]
+func Three:
+ inputs: values int (3..3)
+ output: result int (1..1)
+ set result: values sum
+func CheckedGroups:
+ inputs: groups Group (0..*)
+ output: result int (1..1)
+ set result: Three(groups extract [values])
+func MixedGroups:
+ inputs: groups Group (0..*) flag boolean (1..1)
+ output: result int (1..1)
+ set result: Three(if flag then groups extract [values] else 1)`;

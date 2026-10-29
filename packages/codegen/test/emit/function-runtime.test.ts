@@ -49,10 +49,28 @@ describe('generated TypeScript function execution', () => {
     expect(funcs.ScalarEmpty!({ amount: 7 })).toBeUndefined();
     expect(funcs.Flat!({ groups })).toEqual([1, 2, 3]);
     expect(funcs.Mix!({ groups, amount: 4 })).toEqual([1, 2, 3, 4]);
+    expect(funcs.CheckedGroups!({ groups })).toBe(6);
+    expect(funcs.MixedGroups!({ groups, flag: true })).toBe(6);
+    expect(() => funcs.MixedGroups!({ groups, flag: false })).toThrow(/too few/);
+    expect(() => funcs.CheckedGroups!({ groups: [{ values: [1, 2] }] })).toThrow(/too few/);
+    expect(() => funcs.CheckedGroups!({ groups: [{ values: [1, 2, 3, 4] }] })).toThrow(/too many/);
     expect(funcs.Scalar!({})).toBeUndefined();
     expect(funcs.Scalar!({ amount: 7 })).toBe(1);
     expect(funcs.ScalarFilter!({ amount: 7 })).toBe(7);
     expect(funcs.ScalarFilter!({ amount: -1 })).toBeUndefined();
+  });
+
+  it('maps collections beyond the JavaScript function argument limit', async () => {
+    const funcs = await compile(`namespace test.largeCollections
+func Increment:
+ inputs: values int (0..*)
+ output: result int (0..*)
+ set result: values extract [item + 1]
+`);
+    const values = Object.freeze(Array.from({ length: 150_000 }, (_, index) => index));
+    const result = funcs.Increment!({ values }) as number[];
+    expect(result).toEqual(values.map((value) => value + 1));
+    expect(values[0]).toBe(0);
   });
 
   it('omits empty Choice list entries and enforces their required boundaries', async () => {

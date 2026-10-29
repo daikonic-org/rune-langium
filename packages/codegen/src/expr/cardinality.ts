@@ -71,15 +71,19 @@ export function adaptCardinalityValue(
   typescript = false
 ): string {
   if (expressionFitsCardinality(expression, cardinality)) {
-    return expressionIsMany(expression) ? collectionValue(value, expression) : value;
+    return expressionIsMany(expression) ? collectionValue(value, expression, typescript) : value;
   }
   return normalizeCardinalityValue(value, cardinality, label, expression, typescript);
 }
 
 /** Collection-producing operations already return arrays; optional fields can be absent. */
-export function collectionValue(value: string, expression: RosettaExpression | undefined): string {
-  if (collectionShape(expression) !== 'array') return nativeCollection(value, expression);
-  const array = collectionIsPresent(expression) ? value : `(${value} ?? [])`;
+export function collectionValue(value: string, expression: RosettaExpression | undefined, typescript = false): string {
+  const array =
+    collectionShape(expression) !== 'array'
+      ? nativeCollection(value, expression, undefined, typescript)
+      : collectionIsPresent(expression)
+        ? value
+        : `(${value} ?? [])`;
   const depth = collectionDepth(expression);
   return depth > 1 ? `(${array}).flat(${depth - 1})` : array;
 }
@@ -119,9 +123,7 @@ export function normalizeCardinalityValue(
   typescript = false
 ): string {
   const many = cardinality.upper === null || cardinality.upper > 1;
-  value = many
-    ? nativeCollection(value, expression, undefined, typescript)
-    : nativeSingle(value, expression, typescript);
+  value = many ? collectionValue(value, expression, typescript) : nativeSingle(value, expression, typescript);
   const checks = renderCardinalityChecks(
     'value',
     cardinality,
