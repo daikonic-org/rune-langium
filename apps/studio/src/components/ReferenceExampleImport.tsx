@@ -70,8 +70,7 @@ export const ReferenceExampleImport = withInstrumentation(
       [selected, setSelected] = useState<Set<string>>(new Set());
     const [preview, setPreview] = useState<PreparedReferenceExample>(),
       [active, setActive] = useState('');
-    const [chosenType, setChosenType] = useState<string | null>(null),
-      [acknowledged, setAcknowledged] = useState(false);
+    const [chosenType, setChosenType] = useState<string | null>(null);
     const [error, setError] = useState(''),
       [report, setReport] = useState<string[]>([]),
       [busy, setBusy] = useState(false),
@@ -96,15 +95,8 @@ export const ReferenceExampleImport = withInstrumentation(
       () => (displayedPreview ? JSON.stringify(displayedPreview.data, null, 2) : ''),
       [displayedPreview]
     );
-    const typedPreview =
-      displayedPreview?.data &&
-      typeof displayedPreview.data === 'object' &&
-      Object.prototype.hasOwnProperty.call(displayedPreview.data, '@type');
-    const versionWarnings = Boolean(
-      displayedPreview?.warnings.length ||
-      selected.size > 1 ||
-      report.some((line) => line.includes('Review and acknowledge'))
-    );
+    const execution = activeVisible ? catalog?.bindings.get(active) : undefined;
+    const typedPreview = displayedPreview?.embeddedType || execution?.role === 'input';
     useEffect(() => {
       operation.current?.abort();
       setCatalog(undefined);
@@ -112,7 +104,6 @@ export const ReferenceExampleImport = withInstrumentation(
       setSelected(new Set());
       setError('');
       setReport([]);
-      setAcknowledged(false);
       if (!open || !origin) {
         setBusy(false);
         return;
@@ -136,7 +127,6 @@ export const ReferenceExampleImport = withInstrumentation(
     }, [open, contextKey, model, attempt]);
     useEffect(() => {
       setPreview(undefined);
-      setAcknowledged(false);
       if (!catalog || !active) return;
       const file = catalog.entries.find((entry) => entry.path === active);
       if (!file) return;
@@ -145,7 +135,16 @@ export const ReferenceExampleImport = withInstrumentation(
         .read(file)
         .then((text) => {
           if (!cancelled) {
-            setPreview(prepareReferenceExample(catalog.origin, file.path, text, symbols, manualType));
+            setPreview(
+              prepareReferenceExample(
+                catalog.origin,
+                file.path,
+                text,
+                symbols,
+                manualType,
+                catalog.bindings.get(file.path)
+              )
+            );
             setError('');
           }
         })
@@ -190,11 +189,10 @@ export const ReferenceExampleImport = withInstrumentation(
               path,
               await catalog.read(file),
               symbols,
-              manualType
+              manualType,
+              catalog.bindings.get(path)
             );
             assertCurrent();
-            if (prepared.warnings.length && !acknowledged)
-              throw new Error(prepared.warnings.join(' ') + ' Review and acknowledge version warnings first.');
             const key = referenceExampleKey(prepared.source, prepared.type);
             const existing = Object.values(useInstanceStore.getState().instances).find(
               (record) =>
@@ -215,16 +213,23 @@ export const ReferenceExampleImport = withInstrumentation(
             assertCurrent();
             const id = useInstanceStore
               .getState()
-              .createInstance(prepared.type.namespace + '.' + prepared.type.name, prepared.name, {
-                data,
-                typeIdentity: prepared.type,
-                provenance: {
-                  codec: prepared.source.format,
-                  source: `${prepared.source.repository}/blob/${prepared.source.commit}/${prepared.source.path}`,
-                  reference: prepared.source,
-                  importedAt: Date.now()
+              .createInstance(
+                prepared.type.namespace +
+                  '.' +
+                  prepared.type.name +
+                  (prepared.type.kind === 'RosettaFunction' ? '#RosettaFunction' : ''),
+                prepared.name,
+                {
+                  data,
+                  typeIdentity: prepared.type,
+                  provenance: {
+                    codec: prepared.source.format,
+                    source: `${prepared.source.repository}/blob/${prepared.source.commit}/${prepared.source.path}`,
+                    reference: prepared.source,
+                    importedAt: Date.now()
+                  }
                 }
-              });
+              );
             await useInstanceStore.getState().flushInstance(id);
             assertCurrent();
             outcomes.push(`${path}: imported.`);
@@ -351,7 +356,7 @@ export const ReferenceExampleImport = withInstrumentation(
                           aria-pressed={active === file.path}
                           onClick={() => {
                             setActive(file.path);
-                            setAcknowledged(false);
+                            setError('');
                           }}
                         >
                           {file.path}
@@ -360,6 +365,11 @@ export const ReferenceExampleImport = withInstrumentation(
                     ))}
                   </div>
                   <div className="min-w-0 space-y-2 text-xs">
+                    {chosenType ? (
+                      <Button size="xs" variant="ghost" onClick={() => setChosenType(null)}>
+                        Clear object type
+                      </Button>
+                    ) : null}
                     {activeVisible && !typedPreview ? (
                       <>
                         <WorkspaceTypePicker
@@ -374,6 +384,26 @@ export const ReferenceExampleImport = withInstrumentation(
                         </p>
                       </>
                     ) : null}
+                    {execution ? (
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {execution.descriptor.name} ·{' '}
+                          {execution.role === 'input' ? 'Function inputs' : 'Expected output'}
+                        </p>
+                        {execution.descriptor.description ? (
+                          <p className="text-muted-foreground">{execution.descriptor.description}</p>
+                        ) : null}
+                        <p className="break-all">{execution.descriptor.executableFunctionClass}</p>
+                        <a
+                          className="underline"
+                          href={`${catalog!.origin.repository}/blob/${catalog!.origin.commit}/${execution.descriptorPath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Execution catalog
+                        </a>
+                      </div>
+                    ) : null}
                     {displayedPreview ? (
                       <>
                         <TypeChip
@@ -383,13 +413,25 @@ export const ReferenceExampleImport = withInstrumentation(
                             '.' +
                             displayedPreview.type.name +
                             ' · ' +
-                            displayedPreview.type.kind
+                            (displayedPreview.type.kind === 'RosettaFunction'
+                              ? 'Function inputs'
+                              : displayedPreview.type.kind)
                           }
-                          typeKind={displayedPreview.type.kind === 'Choice' ? 'Choice' : 'Data'}
+                          typeKind={
+                            displayedPreview.type.kind === 'RosettaFunction'
+                              ? 'Func'
+                              : displayedPreview.type.kind === 'Choice'
+                                ? 'Choice'
+                                : 'Data'
+                          }
                           className="max-w-full"
                           title={displayedPreview.type.namespace + '.' + displayedPreview.type.name}
                         />
-                        <pre className="max-h-48 overflow-auto rounded bg-muted p-2">
+                        <pre
+                          tabIndex={0}
+                          aria-label="Example payload"
+                          className="max-h-48 overflow-auto rounded bg-muted p-2 focus-visible:outline-2 focus-visible:outline-ring"
+                        >
                           {previewText.slice(0, 12_000)}
                         </pre>
                         {previewText.length > 12_000 ? (
@@ -404,17 +446,6 @@ export const ReferenceExampleImport = withInstrumentation(
                     ) : (
                       <p className="text-muted-foreground">Select a filename to inspect its type and payload.</p>
                     )}
-                    {versionWarnings ? (
-                      <label className="flex gap-2">
-                        <input
-                          type="checkbox"
-                          checked={acknowledged}
-                          onChange={(event) => setAcknowledged(event.target.checked)}
-                          disabled={busy}
-                        />
-                        Import selected payloads with version warnings; validate against the selected reference.
-                      </label>
-                    ) : null}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
@@ -441,9 +472,20 @@ export const ReferenceExampleImport = withInstrumentation(
             {error ? (
               <div role="alert" className="text-sm text-destructive">
                 {error}{' '}
-                <Button size="xs" variant="ghost" onClick={() => setAttempt((value) => value + 1)} disabled={busy}>
-                  Retry
-                </Button>
+                {active && origin ? (
+                  <a
+                    className="underline"
+                    href={`${origin.repository}/blob/${origin.commit}/${active}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open example source
+                  </a>
+                ) : (
+                  <Button size="xs" variant="ghost" onClick={() => setAttempt((value) => value + 1)} disabled={busy}>
+                    Reload examples
+                  </Button>
+                )}
               </div>
             ) : null}
             {report.length ? (

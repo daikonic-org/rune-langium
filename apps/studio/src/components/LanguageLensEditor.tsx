@@ -47,7 +47,7 @@ import { parseExpression } from '@rune-langium/core';
 import { renderExpression, treesEquivalent } from '@rune-langium/codegen/rosetta';
 import { cn } from '@rune-langium/design-system/utils';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { FOREIGN_LENSES as LENSES } from '../lens/lens-descriptors.js';
+import { FOREIGN_LENSES as LENSES, expressionOrigin } from '../lens/lens-descriptors.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 type Language = 'rune' | 'typescript' | 'python';
@@ -120,7 +120,12 @@ export const LanguageLensEditor = withInstrumentation(
       }
 
       try {
-        const result = await activeDescriptor.parse(foreignDraft, wasmBytes);
+        const baseline = parseExpression(value);
+        const result = await activeDescriptor.parse(
+          foreignDraft,
+          wasmBytes,
+          baseline.hasErrors ? undefined : expressionOrigin(language, baseline.value)
+        );
         if (!result.ok) {
           setForeignError(result.reason.message);
           onBlur();

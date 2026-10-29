@@ -118,7 +118,8 @@ func Run:
   await expect(page.locator('.execution-result')).toContainText('42');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
-  await expect(projection).toContainText('return 42;');
+  await expect(projection).toContainText('const result = 42;');
+  await expect(projection).toContainText('return result;');
   await expect(projection).not.toContainText('input =');
   await expect(projection).not.toContainText('rune.single');
   await expect(projection).not.toContainText('export function');
@@ -165,7 +166,7 @@ func Days:
   const implementation = page.getByRole('region', { name: 'Function implementation' });
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const projection = implementation.getByRole('textbox', { name: 'Generated typescript' });
-  await expect(projection).toContainText('right.until(left).days');
+  await expect(projection).toContainText('left - right');
   await expect(projection).not.toContainText('rune.');
   await expect(projection).not.toContainText('.from(');
   await expect(projection).not.toContainText('export function');

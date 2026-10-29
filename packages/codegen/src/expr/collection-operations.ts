@@ -3,7 +3,8 @@
 import { unwrapMetadata } from './metadata-runtime.js';
 import { expressionMetadataKind } from './metadata-type.js';
 import { inlineContext, freshLocal, arrowBody } from './inline-function.js';
-import { nativeCollection } from './collection-shape.js';
+import { expressionIsMany } from './navigation.js';
+import { collectionShape, nativeCollection, nativeSingle } from './collection-shape.js';
 import { primitiveElementKind, temporalScalarTypes } from './scalar-operators.js';
 
 import {
@@ -63,9 +64,19 @@ export function renderCollectionOperation(
       : fn
         ? render(fn.body, inlineContext(fn, ctx, [param], metadata))
         : param;
+    const mapped =
+      isMapOperation(expr) && fn
+        ? expressionIsMany(fn.body)
+          ? nativeCollection(body, fn.body, false, ctx.emitMode.startsWith('ts-'), ctx.projection)
+          : collectionShape(fn.body) === 'unknown'
+            ? body
+            : nativeSingle(body, fn.body, ctx.emitMode.startsWith('ts-'), ctx.projection)
+        : body;
+    if (expr.argument && collectionShape(expr.argument) === 'scalar')
+      return `rune.${isFilterOperation(expr) ? 'filter' : 'extract'}(${argument}, (${param}) => ${arrowBody(mapped)})`;
     return isFilterOperation(expr)
       ? `${values}.filter((${param}) => ${arrowBody(body)})`
-      : `${values}.flatMap((${param}) => ${nativeCollection(body, fn?.body, false, ctx.emitMode.startsWith('ts-'), ctx.projection)})`;
+      : `rune.List.from(...${values}).map((${param}) => ${arrowBody(mapped)}).toArray()`;
   }
   if (isSortOperation(expr)) {
     if (!fn && !metadata && temporal) return `${values}.slice().sort(Temporal.${temporal}.compare)`;

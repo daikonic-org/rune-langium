@@ -14,7 +14,13 @@ import {
 import { expressionIsMany } from './navigation.js';
 import { expressionIsPresent, attributeReferenceIsValidated } from './scalar-operators.js';
 import { hasFieldMetadata } from './metadata-runtime.js';
-import { collectionIsPresent, collectionShape, nativeCollection, nativeSingle } from './collection-shape.js';
+import {
+  collectionDepth,
+  collectionIsPresent,
+  collectionShape,
+  nativeCollection,
+  nativeSingle
+} from './collection-shape.js';
 
 /** Reuse linked bounds when passing already validated values to another declaration. */
 export function expressionFitsCardinality(
@@ -73,7 +79,9 @@ export function adaptCardinalityValue(
 /** Collection-producing operations already return arrays; optional fields can be absent. */
 export function collectionValue(value: string, expression: RosettaExpression | undefined): string {
   if (collectionShape(expression) !== 'array') return nativeCollection(value, expression);
-  return collectionIsPresent(expression) ? value : `(${value} ?? [])`;
+  const array = collectionIsPresent(expression) ? value : `(${value} ?? [])`;
+  const depth = collectionDepth(expression);
+  return depth > 1 ? `(${array}).flat(${depth - 1})` : array;
 }
 
 /** Shared runtime bounds for function arguments, outputs, and nested assignments. */

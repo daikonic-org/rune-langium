@@ -35,7 +35,7 @@ it('keeps no-metadata primitive wrappers and object values distinct', () => {
     expect(encodeRuneJson(decodeRuneJson(wire))).toEqual(wire);
 });
 it('rejects ambiguous mixed representations instead of overwriting user fields', () => {
-  expect(() => decodeRuneJson({ '@data': 1, other: 2 })).toThrow(/mix/);
+  expect(() => decodeRuneJson({ '@data': 1, other: 2 })).toThrow(/sibling|scalar/);
   expect(() => decodeRuneJson({ '@key': 'a', meta: { globalKey: 'b' } })).toThrow(/conflicting/);
   expect(() => decodeRuneJson({ '@ref': 'a', globalReference: 'b' })).toThrow(/conflicting/);
   expect(() => encodeRuneJson({ meta: { template: 'x' } })).toThrow(/no supported/);
@@ -51,7 +51,7 @@ it('preserves ordinary Data reference properties and inline reference values', (
   expect(encodeRuneJson(ordinary)).toEqual(ordinary);
   const inline = { '@ref:external': 'party', name: 'Party A' };
   expect(encodeRuneJson(decodeRuneJson(inline))).toEqual(inline);
-  expect(() => decodeRuneJson({ '@data': { name: 'not a scalar wrapper' } })).toThrow(/mix/);
+  expect(() => decodeRuneJson({ '@data': { name: 'not a scalar wrapper' } })).toThrow(/sibling|scalar/);
 });
 
 it('distinguishes wire-origin Data attributes from metadata envelopes and refuses context-free ambiguous exports', () => {
@@ -83,4 +83,21 @@ it('rejects unsupported envelope siblings rather than silently dropping them', (
   }
   const business = { value: 'USD', meta: { scheme: 'ordinary-data' }, extra: 'retain-me' };
   expect(encodeRuneJson(withRuneJsonEncoding(business, 'data'))).toEqual(business);
+});
+
+it('round-trips typed Choice @data envelopes, preserving nested metadata and rejecting object siblings', () => {
+  const wire = {
+    '@type': 'example.Outer',
+    '@data': { '@type': 'example.Inner', '@key:scoped': 'inner', '@data': { '@type': 'example.Leaf', amount: 2 } }
+  };
+  expect(encodeRuneJson(decodeRuneJson(wire))).toEqual(wire);
+  const located = { '@key:scoped': 'outer', '@data': wire };
+  expect(encodeRuneJson(decodeRuneJson(located))).toEqual(located);
+  expect(() => decodeRuneJson({ ...wire, amount: 3 })).toThrow(/sibling/);
+  expect(() => decodeRuneJson({ '@data': [] })).toThrow(/scalar/);
+});
+
+it('retains context on an inline reference containing a single typed field', () => {
+  const wire = { '@ref:scoped': 'basket', basket: { '@type': 'example.Basket', amount: 1 } };
+  expect(encodeRuneJson(decodeRuneJson(wire))).toEqual(wire);
 });

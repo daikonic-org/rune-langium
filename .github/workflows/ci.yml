@@ -76,6 +76,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: Verify complete reference example corpus
+        run: pnpm run verify:reference-examples
+
+      - name: Upload reference example inventory
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reference-example-import-inventory
+          path: dist/reference-example-import-report.json
+          if-no-files-found: error
+
       - name: Type check
         run: pnpm run type-check
 

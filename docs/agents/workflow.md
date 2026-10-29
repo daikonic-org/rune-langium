@@ -392,3 +392,24 @@ Generated XSD validation tests require libxml2's `xmllint` on PATH (or
 `test/helpers/xsd-validation.ts` compiles the emitted local schema closure with
 network access disabled and validates accepted/rejected XML instances. A parser
 or string-presence assertion alone does not establish XSD correctness.
+
+## Reference example corpus gate
+
+Run `pnpm run verify:reference-examples` after building core, codegen and
+project-runtime. CI uses checksum-pinned CDM 7.8.0 with its FpML 3.8.0 and Rune
+10.15.1 dependencies, scans every JSON/XML path, checks descriptor references and
+imports typed JSON examples through shared preparation plus the linked decoder.
+The report at `dist/reference-example-import-report.json` distinguishes genuine
+imports from headerless selection requirements, array inputs and pinned empty
+upstream files. Unknown Rune payloads outside discovery roots fail the gate.
+Review the complete inventory when changing pins; never normalize upstream bytes
+or add a blanket expected-failure allowance. XML remains a separate codec milestone.
+
+Execution catalogs use the upstream `*-execution-descriptor.json` array contract
+(`inputFile`, `expectedOutputFile`, `executableFunctionClass`, name/description and
+optional Markdown/native-function metadata). Shared schema/path validation refuses
+traversal and conflicting bindings. Cataloged input bundles import with the exact
+Rune function identity, retaining the original catalog entry in provenance. Import
+leaves the current workflow unchanged; explicitly selecting the saved bundle opens
+the function and seeds its argument fields. Java-only catalog functions remain
+unavailable until their implementation is supported.

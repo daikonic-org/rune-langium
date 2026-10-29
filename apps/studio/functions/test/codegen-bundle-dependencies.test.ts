@@ -89,7 +89,7 @@ it.each(['codegen', 'parse'])(
       .mockImplementation(async (id) => [serialized.get(id)!]);
     const handler = mode === 'parse' ? parseWorkspace : onRequestPost;
     const response = await handler({ request: request(artifactEnvelope) } as never);
-    expect(response.status).toBe(200);
+    expect(response.status, await response.clone().text()).toBe(200);
     expect(manifests.mock.calls.map((call) => call[0])).toEqual(
       artifactEnvelope ? ['cdm', 'cdm', 'fpml'] : ['cdm', 'fpml']
     );

@@ -34,6 +34,9 @@ export function selectTypeScriptProjection(
     subject,
     code: selected.code,
     sourceMap: selected.sourceMap,
+    ...(form === 'body' && fragment.body?.implementation ? { implementation: fragment.body.implementation } : {}),
+    ...(form === 'body' && fragment.body?.syntax ? { syntax: fragment.body.syntax } : {}),
+    ...(form === 'body' && fragment.body?.origins ? { origins: fragment.body.origins } : {}),
     requiredHelpers: runtimeNames.filter((name) => new RegExp(`\\b${name}\\b`).test(selected.code))
   };
 }

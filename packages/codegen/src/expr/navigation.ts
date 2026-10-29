@@ -113,14 +113,20 @@ export function expressionIsMany(
   try {
     if (isRosettaOnlyElement(expr)) return false;
     if (expr.$type === 'AsOperation') return from(getOperationArgument(expr));
-    if (
-      isFilterOperation(expr) ||
-      isMapOperation(expr) ||
-      isSortOperation(expr) ||
-      isReverseOperation(expr) ||
-      isDistinctOperation(expr) ||
-      isFlattenOperation(expr)
-    )
+    if (isFilterOperation(expr)) {
+      const argument = getOperationArgument(expr);
+      return argument ? (isRosettaSymbolReference(argument) && !argument.symbol.ref) || from(argument) : true;
+    }
+    if (isMapOperation(expr)) {
+      const argument = getOperationArgument(expr);
+      return (
+        !argument ||
+        (isRosettaSymbolReference(argument) && !argument.symbol.ref) ||
+        from(argument) ||
+        from(expr.function?.body)
+      );
+    }
+    if (isSortOperation(expr) || isReverseOperation(expr) || isDistinctOperation(expr) || isFlattenOperation(expr))
       return true;
     if (isListLiteral(expr)) return expr.elements.length > 0;
     if (isRosettaDeepFeatureCall(expr)) {

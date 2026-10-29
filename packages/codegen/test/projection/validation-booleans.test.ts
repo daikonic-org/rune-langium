@@ -3,12 +3,10 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AstUtils, URI, type AstNode } from 'langium';
-import ts from 'typescript-classic';
 import { createRuneDslServices, getNodeSourceRegion, isData, isRosettaFunction } from '@rune-langium/core';
 import { generate, selectTypeScriptProjection } from '../../src/export.js';
 import { generatePythonModule, selectPythonProjection } from '../../src/projection/python-functions.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
-import { RUNTIME_HELPER_JS_SOURCE } from '../../src/helpers.js';
 import { referenceFiles } from '../helpers/cdm-reference.js';
 import { linkedFunctions, runPython } from './python-test-utils.js';
 
@@ -49,17 +47,14 @@ describe('validation failures in displayed bodies', () => {
       : selectPythonProjection(python, subject, kind, 'body').code;
   }
 
-  it('returns false for failed TypeScript preconditions and postconditions, retaining successful values', () => {
+  it('shows authored assertions in their original phases', () => {
     const display = body(funcs[0]!, 'function', 'typescript');
-    expect(display).not.toContain('throw');
-    expect(display.match(/return false;/g)).toHaveLength(2);
-    const validate = new Function(
-      'amount',
-      RUNTIME_HELPER_JS_SOURCE + '\n' + ts.transpileModule(display, {}).outputText
-    );
-    expect([-1, 5, 20].map((amount) => validate(amount))).toEqual([false, 5, false]);
-    const flag = new Function('flag', body(funcs[1]!, 'function', 'typescript'));
-    expect([false, true].map((value) => flag(value))).toEqual([false, true]);
+    expect(display).toContain('assert(amount > 0, "Positive");');
+    expect(display).toContain('assert(result <= limit, "WithinLimit");');
+    expect(display.indexOf('assert(amount')).toBeLessThan(display.indexOf('const result'));
+    expect(display.indexOf('assert(result')).toBeGreaterThan(display.indexOf('const result'));
+    expect(display).not.toContain('return false;');
+    expect(body(funcs[1]!, 'function', 'typescript')).toContain('assert(flag == true, "Enabled")');
   });
 
   it('returns False for failed Python preconditions and postconditions, retaining successful values', () => {
@@ -125,10 +120,10 @@ describe('validation failures in displayed bodies', () => {
       region: getNodeSourceRegion(func)
     };
     const generated = await generate(documents, { target: 'typescript' });
-    const tsBody = selectTypeScriptProjection(generated, subject, 'function', 'body').code;
-    expect(new Function('nearest', ts.transpileModule(tsBody, {}).outputText)(-1)).toBe(false);
-    // Native implementation availability is independent of a failed validation check.
-    expect(tsBody).toContain('not_implemented');
+    const projection = selectTypeScriptProjection(generated, subject, 'function', 'body');
+    expect(projection.code).toContain('assert(');
+    expect(projection.code).not.toContain('not_implemented');
+    expect(projection.implementation?.status).toBe('unavailable');
     const pyBody = selectPythonProjection(generatePythonModule(documents), subject, 'function', 'body').code;
     const code = `def projected(nearest):\n${pyBody
       .split('\n')

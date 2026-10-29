@@ -81,3 +81,21 @@ emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string,
 - `targetId: string`
 - `options: { functionInputs?: boolean; metadataInputs?: boolean }` — default: `{}`
 **Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }`
+
+### `getTargetRelativePath`
+Convert a dot-separated Rune namespace to the emitted relative file path for a target.
+
+Extensions are sourced from TARGET_DESCRIPTORS so the registry stays
+the single source of truth (018 Phase 0 Task 0.5).
+
+Whole-model targets (excel, graphql) emit a single bundled file rather than
+one-per-namespace, so the path is `model&lt;ext&gt;` and the `namespace` argument
+is ignored. Namespace-contract targets (zod, typescript, json-schema, sql,
+markdown) map `cdm.base.math` → `cdm/base/math&lt;ext&gt;`.
+```ts
+getTargetRelativePath(namespace: string, target: Target): string
+```
+**Parameters:**
+- `namespace: string`
+- `target: Target`
+**Returns:** `string`

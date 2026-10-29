@@ -185,7 +185,8 @@
 .studio-app .rune-dock-theme {
   --dv-separator-border: transparent;
   /* Match the unlayered Dockview cascade; interaction bounds remain separate. */
-  --dv-sash-color: var(--border);
+  --dv-sash-color: transparent;
+  --rune-sash-gap: 4px;
   --dv-active-sash-color: var(--primary);
 }
 
@@ -329,10 +330,10 @@
 .studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
   content: '';
   position: absolute;
-  top: 16px;
-  bottom: 16px;
+  top: 0;
+  bottom: 0;
   left: 50%;
-  width: 1px;
+  width: var(--rune-sash-gap);
   transform: translateX(-50%);
   border-radius: 999px;
   background: var(--dv-sash-color);
@@ -346,10 +347,10 @@
 .studio-app .rune-dock-theme .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
   content: '';
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 0;
+  right: 0;
   top: 50%;
-  height: 1px;
+  height: var(--rune-sash-gap);
   transform: translateY(-50%);
   border-radius: 999px;
   background: var(--dv-sash-color);
@@ -364,14 +365,4 @@
 .studio-app .rune-dock-theme .dv-split-view-container .dv-sash-container .dv-sash.dv-enabled:active::after {
   background: var(--dv-active-sash-color);
   box-shadow: none;
-}
-
-.studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-enabled:hover::after,
-.studio-app .rune-dock-theme .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-enabled:active::after {
-  transform: translateX(-50%) scaleX(1.35);
-}
-
-.studio-app .rune-dock-theme .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash.dv-enabled:hover::after,
-.studio-app .rune-dock-theme .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash.dv-enabled:active::after {
-  transform: translateY(-50%) scaleY(1.35);
 }

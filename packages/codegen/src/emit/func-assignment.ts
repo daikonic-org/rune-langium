@@ -58,6 +58,8 @@ export function renderFuncAssignment(
         )
       : [];
   if (assignment.kind === 'set') {
+    // Rune SET owns the array that a later ADD can extend. Never retain an input array.
+    if (targetMany) expr = `(${expr}).slice()`;
     const checks = !path.length && bounds && expressionFitsCardinality(expression, bounds) ? [] : checksFor('value');
     expr = renderCheckedValue(expr, checks, targetMany, true, bounds?.upper === 0);
   }

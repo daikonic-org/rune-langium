@@ -2476,3 +2476,55 @@ it('uses concrete identity when Data attributes collide with Choice slot names',
     expect(adaptPreviewData([doc], id, { '@type': `collisionImport.${target}`, ...value }).data).toMatchObject(value);
   }
 });
+
+it('restores typed Choice @data layers and prefers an exact Data arm over its ancestor', async () => {
+  const doc = await parseModel(`namespace wireChoice
+ type Base:
+  amount number (1..1)
+ type Leaf extends Base:
+ choice Inner:
+  Base
+  Leaf
+ choice Outer:
+  Inner
+ `);
+  const { decodeRuneJson } = await import('@rune-langium/core/serialization');
+  const wire = {
+    '@type': 'wireChoice.Outer',
+    '@data': { '@type': 'wireChoice.Inner', '@data': { '@type': 'wireChoice.Leaf', amount: 2 } }
+  };
+  expect(adaptPreviewData([doc], 'wireChoice.Outer#Choice', decodeRuneJson(wire)).data).toMatchObject({
+    inner: { leaf: { amount: 2 } }
+  });
+});
+
+it('restores metadata on a nested Choice arm rather than leaving an opaque value envelope', async () => {
+  const doc = await parseModel(`namespace locatedChoice
+ type Leaf:
+  amount number (1..1)
+ choice Inner:
+  Leaf
+ choice Outer:
+  Inner
+   [metadata location]
+ type Trade:
+  asset Outer (1..1)
+ `);
+  const { decodeRuneJson, encodeRuneJson } = await import('@rune-langium/core/serialization');
+  const wire = {
+    asset: {
+      '@type': 'locatedChoice.Inner',
+      '@key:scoped': 'index-1',
+      '@data': { '@type': 'locatedChoice.Leaf', amount: 2 }
+    }
+  };
+  expect(encodeRuneJson(decodeRuneJson(wire))).toEqual(wire);
+  const restored = adaptPreviewData([doc], 'locatedChoice.Trade', structuredClone(decodeRuneJson(wire))).data;
+  expect(restored).toMatchObject({
+    asset: { inner: { value: { leaf: { amount: 2 } }, meta: { scopedKey: 'index-1' } } }
+  });
+  const projected = encodeRuneJson(projectRuneJsonData([doc], 'locatedChoice.Trade', restored));
+  expect(adaptPreviewData([doc], 'locatedChoice.Trade', decodeRuneJson(projected)).data).toMatchObject(
+    restored as object
+  );
+});

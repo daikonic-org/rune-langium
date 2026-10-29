@@ -1,0 +1,41 @@
+{
+  "sources": [
+    {
+      "id": "cdm",
+      "owner": "finos",
+      "repo": "common-domain-model",
+      "release": "7.8.0",
+      "commit": "5b852ed61573467c8f8e6bb5cc02779a70df032d",
+      "sha256": "951e4c8f5846f88e4a1341dfde782018b9ea3d33842830ac9df211738d6513eb",
+      "jsonFiles": 1296,
+      "exampleFiles": 1002,
+      "emptyFiles": [
+        "rosetta-source/src/main/resources/ingest/output/fpml-confirmation-to-trade-state/fpml-5-10-incomplete-products-loan/loan_trade_ex002.json",
+        "rosetta-source/src/main/resources/ingest/output/fpml-confirmation-to-trade-state/fpml-5-10-incomplete-products-loan/loan_trade_ex003.json",
+        "rosetta-source/src/main/resources/ingest/output/fpml-confirmation-to-trade-state/fpml-5-10-incomplete-products-loan/loan_trade_ex004.json"
+      ]
+    },
+    {
+      "id": "fpml",
+      "owner": "rosetta-models",
+      "repo": "rune-fpml",
+      "release": "3.8.0",
+      "commit": "ab92e75df45e882e6775a5ce94dc6f520fe446f6",
+      "sha256": "3bd060ba7ce82a8b73c91993fea2a951096f15bbf9674706f6a8b683108c46fb",
+      "jsonFiles": 830,
+      "exampleFiles": 817,
+      "emptyFiles": []
+    },
+    {
+      "id": "rune-dsl",
+      "owner": "finos",
+      "repo": "rune-dsl",
+      "release": "10.15.1",
+      "commit": "4fa22a75f957940ee2c70a6ead5d53597dbd97a1",
+      "sha256": "a334f2e82a40f258b83f39c80f97b9baf3991691e507ca0f7ccba1db7f08fe5a",
+      "jsonFiles": 11,
+      "exampleFiles": 0,
+      "emptyFiles": []
+    }
+  ]
+}

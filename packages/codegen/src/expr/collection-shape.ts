@@ -72,14 +72,9 @@ export function collectionIsPresent(expression: RosettaExpression | undefined): 
   if (isThenOperation(expression)) return collectionIsPresent(expression.function?.body ?? expression.argument);
   if (isRosettaConditionalExpression(expression))
     return collectionIsPresent(expression.ifthen) && collectionIsPresent(expression.elsethen);
-  return [
-    'MapOperation',
-    'FilterOperation',
-    'SortOperation',
-    'ReverseOperation',
-    'DistinctOperation',
-    'FlattenOperation'
-  ].includes(expression.$type);
+  if (expression.$type === 'MapOperation' || expression.$type === 'FilterOperation')
+    return !getOperationArgument(expression) || expressionIsMany(getOperationArgument(expression));
+  return ['SortOperation', 'ReverseOperation', 'DistinctOperation', 'FlattenOperation'].includes(expression.$type);
 }
 
 /** Native list materialization preserves legitimate missing and mixed-cardinality values. */
@@ -129,4 +124,31 @@ export function nativeSingle(
   if (projection) return `rune.single(${value})`;
   const parameter = typescript ? '<const T>(value: T)' : '(value)';
   return `(${parameter} => { if (value == null) return undefined; const values = [value].flat(); if (values.length > 1) throw new Error('Expected at most one value'); return values[0]; })(${value})`;
+}
+
+/** Collection extraction retains groups until an explicit flatten or an array boundary. */
+export function collectionDepth(
+  expression: RosettaExpression | undefined,
+  seen = new Set<RosettaExpression>()
+): number {
+  if (!expression || seen.has(expression)) return 0;
+  seen.add(expression);
+  const depth = (node: RosettaExpression | undefined) => collectionDepth(node, new Set(seen));
+  if (isListLiteral(expression)) return Math.max(1, ...expression.elements.map(depth));
+  if (expression.$type === 'MapOperation')
+    return (
+      (!getOperationArgument(expression) || expressionIsMany(getOperationArgument(expression)) ? 1 : 0) +
+      depth(expression.function?.body)
+    );
+  if (expression.$type === 'FlattenOperation') return Math.max(1, depth(getOperationArgument(expression)) - 1);
+  if (['FilterOperation', 'SortOperation', 'ReverseOperation', 'DistinctOperation'].includes(expression.$type))
+    return depth(getOperationArgument(expression)) || 1;
+  if (isThenOperation(expression)) return depth(expression.function?.body);
+  if (isRosettaConditionalExpression(expression)) return Math.max(depth(expression.ifthen), depth(expression.elsethen));
+  if (isDefaultOperation(expression)) return Math.max(depth(expression.left), depth(expression.right));
+  if (isRosettaSymbolReference(expression)) {
+    const target = expression.symbol.ref;
+    if (isShortcutDeclaration(target) || isRosettaRule(target)) return depth(target.expression);
+  }
+  return expressionIsMany(expression) ? 1 : 0;
 }

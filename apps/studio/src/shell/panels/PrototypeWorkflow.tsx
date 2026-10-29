@@ -252,7 +252,12 @@ export const PrototypeWorkflow = withInstrumentation(
     const draftSchemaState = useWorkflowSchema(draft?.typeFqn);
     const draftSchema = draftSchemaState?.schema;
     useEffect(() => {
-      if (!record || project.status === 'loading') return;
+      if (
+        !record ||
+        project.status === 'loading' ||
+        (mode === 'flow' && record.typeIdentity?.kind === 'RosettaFunction')
+      )
+        return;
       if (view.bindingSurface && view.bindingSurface !== mode) return;
       const request = record.id + ':' + bindingRequestId;
       if (seenInstance.current[mode] === request) return;
@@ -451,6 +456,41 @@ export const PrototypeWorkflow = withInstrumentation(
       },
       [session, state, draft, sources, sourceIds, objectFields]
     );
+    // Selecting a catalog input bundle explicitly opens that function; importing never does.
+    useEffect(() => {
+      if (
+        !record ||
+        mode !== 'flow' ||
+        project.status === 'loading' ||
+        !session ||
+        record.typeIdentity?.kind !== 'RosettaFunction'
+      )
+        return;
+      if (view.bindingSurface && view.bindingSurface !== mode) return;
+      const request = record.id + ':' + bindingRequestId;
+      if (seenInstance.current[mode] === request) return;
+      if (
+        !workspace ||
+        !resolveExampleType(workspace, record, 'RosettaFunction') ||
+        !record.data ||
+        typeof record.data !== 'object' ||
+        Array.isArray(record.data)
+      )
+        return;
+      seenInstance.current[mode] = request;
+      void prepare(record.id);
+      pendingSeed.current = createDraft({
+        sourceId: record.id,
+        typeFqn: record.typeFqn,
+        values: structuredClone(record.data) as Record<string, unknown>,
+        source: record.name
+      });
+      previousInputs.current = undefined;
+      setDraft(undefined);
+      setSources({});
+      setSourceIds({});
+      void session.selectFunction(record.typeFqn.split('#')[0]!, record.typeFqn);
+    }, [record, mode, project.status, session, workspace, bindingRequestId, view.bindingSurface, prepare]);
     // Hydrating a closure republishes models without changing editable source.
     // Restart only for source/cohort changes, not while users fill the form.
     const sourceRevision = useMemo(
@@ -526,6 +566,21 @@ export const PrototypeWorkflow = withInstrumentation(
     };
     useEffect(() => {
       if (!session || !state.schema || state.schemaStatus === 'loading') return;
+      const bundle = pendingSeed.current;
+      if (bundle?.typeFqn.endsWith('#RosettaFunction') && bundle.typeFqn.split('#')[0] === state.functionFqn) {
+        pendingSeed.current = undefined;
+        previousInputs.current = undefined;
+        const fields = state.schema.fields.filter((field) =>
+          Object.prototype.hasOwnProperty.call(bundle.values, field.path)
+        );
+        session.setInputs(
+          Object.fromEntries(fields.map((field) => [field.path, structuredClone(bundle.values[field.path])]))
+        );
+        setSources(Object.fromEntries(fields.map((field) => [field.path, bundle.source])));
+        // A bundle is not an individual argument object; recipes retain these values by value.
+        setSourceIds({});
+        return;
+      }
       const previous = previousInputs.current;
       previousInputs.current = undefined;
       if (previous) {

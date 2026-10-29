@@ -180,3 +180,25 @@ reference documents and the current locked generation. It returns graph,
 portable binding and canonical preview-schema impacts without adopting either
 graph. Callers must show warnings and refuse hard graph errors before Save.
 Target-qualified diagnostics do not invalidate independent preview/build scopes.
+
+Reference example imports use the payload's explicit type header ahead of a manual
+selection. Headerless legacy objects still require an exact type; release/version
+differences are informational, and imported records retain source provenance.
+Typed Choice `@data` envelopes use the shared wire codec and linked preview decoder.
+
+`pnpm run verify:reference-examples` scans the complete checksum-pinned CDM, FpML
+and Rune repository trees, checks descriptor links and imports every typed JSON
+example through the same preparation/decoder path as Studio. Its JSON inventory
+also records headerless objects requiring a selection, collection inputs, empty
+upstream files, configuration/code lists, and XML inputs requiring a separate codec.
+CI publishes that inventory; none of those categories is silently skipped. Pins
+and expected whole-tree counts are in `test/fixtures/third-party/reference-example-corpus/sources.json`.
+
+Execution catalogs use the upstream `*-execution-descriptor.json` array contract
+(`inputFile`, `expectedOutputFile`, `executableFunctionClass`, name/description and
+optional Markdown/native-function metadata). Shared schema/path validation refuses
+traversal and conflicting bindings. Cataloged input bundles import with the exact
+Rune function identity, retaining the original catalog entry in provenance. Import
+leaves the current workflow unchanged; explicitly selecting the saved bundle opens
+the function and seeds its argument fields. Java-only catalog functions remain
+unavailable until their implementation is supported.

@@ -13,7 +13,7 @@ import {
   DialogFooter
 } from '@rune-langium/design-system/ui/dialog';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { FOREIGN_LENSES } from '../../lens/lens-descriptors.js';
+import { FOREIGN_LENSES, expressionOrigin } from '../../lens/lens-descriptors.js';
 import type { DocumentBinding, DocumentEdit, CommitResult } from '../../services/expression-document.js';
 import { ExpressionCodeEditor } from './ExpressionCodeEditor.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -49,7 +49,11 @@ export const ForeignExpressionDialog = withInstrumentation(
       if (binding.readOnly || pending || initial === null) return;
       setPending(true);
       try {
-        const parsed = await descriptor.parse(draft, await descriptor.getWasmBytes());
+        const parsed = await descriptor.parse(
+          draft,
+          await descriptor.getWasmBytes(),
+          original.hasErrors ? undefined : expressionOrigin(language, original.value)
+        );
         if (!mounted.current) return;
         if (!parsed.ok) {
           setError(parsed.reason.message);

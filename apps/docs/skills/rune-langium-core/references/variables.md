@@ -383,7 +383,7 @@ const RepositoryFileSourceSchema: ZodObject<{ model: ZodString; repository: ZodS
 
 ### `RepositoryExampleSourceSchema`
 ```ts
-const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString> }, $strict>
+const RepositoryExampleSourceSchema: ZodObject<{ model: ZodString; repository: ZodString; release: ZodString; commit: ZodString; path: ZodString; format: ZodEnum<{ JSON: "JSON"; RUNE_JSON: "RUNE_JSON" }>; version: ZodOptional<ZodString>; execution: ZodOptional<ZodObject<{ descriptorPath: ZodString; role: ZodEnum<{ output: "output"; input: "input" }>; descriptor: ZodRecord<ZodString, ZodUnknown> }, $strip>> }, $strict>
 ```
 
 ## stdlib
@@ -416,10 +416,5 @@ const ANNOTATIONS_ROSETTA: string
 ### `RuneDslModule`
 Dependency-injection module for the Rune DSL language.
 ```ts
-const RuneDslModule: { serializer: { JsonSerializer: (services: RuneDslServices) => RuneJsonSerializer }; parser: { LangiumParser: (services: RuneDslServices) => RuneDslParser }; references: { Linker: (services: RuneDslServices) => RuneDslLinker; ScopeComputation: (services: RuneDslServices) => RuneDslScopeComputation; ScopeProvider: (services: RuneDslServices) => RuneDslScopeProvider } }
-```
-
-### `RuneDslSharedModule`
-Shared services module that overrides Langium's default IndexManager with
 
 <!-- truncated -->

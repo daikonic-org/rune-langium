@@ -7,11 +7,15 @@ import { binaryRuntimeSource } from './expr/binary-runtime.js';
 import { TEMPORAL_CONVERSION_PATTERNS, matchesTemporalWireFormat } from './expr/temporal-conversions.js';
 import { temporalRuntimeSource } from './expr/temporal-runtime.js';
 import { functionDataRuntimeSource } from './expr/function-data-runtime.js';
+import { runeListRuntimeSource } from './expr/rune-list-runtime.js';
 import { collectionRuntimeSource } from './expr/collection-runtime.js';
 
 /** Namespace members reference the authoritative implementations, retaining generic types. */
 const RUNTIME_NAMESPACE_MEMBERS = {
   list: 'runeList',
+  List: 'RuneList',
+  extract: 'runeExtract',
+  filter: 'runeFilter',
   single: 'runeSingle',
   contains: 'runeContains',
   disjoint: 'runeDisjoint',
@@ -63,6 +67,7 @@ export function runtimeHelperSource(typescript: boolean, exported = false, metad
     binaryRuntimeSource(typescript, exported),
     collectionRuntimeSource(typescript, exported),
     scalar,
+    runeListRuntimeSource(typescript, exported),
     ...(metadata ? [metadataRuntimeSource(typescript, exported)] : []),
     valueEqualitySource(typescript, exported, {
       ...RUNTIME_NAMESPACE_MEMBERS,

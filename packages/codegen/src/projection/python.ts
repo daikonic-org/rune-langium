@@ -323,12 +323,25 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
             preserveMetadata: expression.$type === 'FilterOperation' ? false : context.preserveMetadata
           })
         : pythonUnwrap(item, context.preserveMetadata ? undefined : expressionMetadataKind(arg));
+      const bodyNode = expression.function?.body;
+      const mappedBody =
+        expression.$type === 'MapOperation' && bodyNode
+          ? expressionIsMany(bodyNode)
+            ? pythonCollection(body, bodyNode)
+            : bodyNode.$type === 'ListLiteral' && !bodyNode.elements.length
+              ? 'None'
+              : body
+          : body;
       const input = argument(preserve);
       const mapped = pythonFresh(context, 'mapped');
+      if (arg && !expressionIsMany(arg)) {
+        const scalar = expression.$type === 'FilterOperation' ? `${item} if ${body} else None` : mappedBody;
+        return pythonBind(input, item, `(${scalar}) if ${item} is not None else None`);
+      }
       const result =
         expression.$type === 'FilterOperation'
           ? `[${item} for ${item} in ${pythonCollection(input, arg)} if ${body}]`
-          : `[${mapped} for ${item} in ${pythonCollection(input, arg)} for ${mapped} in ${pythonCollection(body, expression.function?.body)}]`;
+          : `[${mapped} for ${item} in ${pythonCollection(input, arg)} for ${mapped} in [${mappedBody}] if ${mapped} is not None]`;
       return expression.$type === 'FilterOperation' && !context.preserveMetadata
         ? pythonUnwrap(result, expressionMetadataKind(arg), true)
         : result;

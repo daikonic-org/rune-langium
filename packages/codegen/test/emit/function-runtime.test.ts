@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { sourceProjectionCollections } from '../helpers/source-projection-collections.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { recordFunctionExports } from '../helpers/record-function-exports.js';
 import { describe, expect, it } from 'vitest';
@@ -36,6 +37,24 @@ async function compile(
 }
 
 describe('generated TypeScript function execution', () => {
+  it('owns SET collections before ADD and preserves extraction groups', async () => {
+    const funcs = await compile(sourceProjectionCollections);
+    const values = Object.freeze([1, 2]);
+    expect(funcs.Append!({ values })).toEqual([1, 2, 9]);
+    expect(values).toEqual([1, 2]);
+    const groups = [{ values: [1, 2] }, { values: [3] }];
+    expect(funcs.GroupCount!({ groups })).toBe(2);
+    expect(funcs.GroupCount!({ groups: [{}, { values: [] }] })).toBe(2);
+    expect(funcs.EmptyCount!({ groups })).toBe(0);
+    expect(funcs.ScalarEmpty!({ amount: 7 })).toBeUndefined();
+    expect(funcs.Flat!({ groups })).toEqual([1, 2, 3]);
+    expect(funcs.Mix!({ groups, amount: 4 })).toEqual([1, 2, 3, 4]);
+    expect(funcs.Scalar!({})).toBeUndefined();
+    expect(funcs.Scalar!({ amount: 7 })).toBe(1);
+    expect(funcs.ScalarFilter!({ amount: 7 })).toBe(7);
+    expect(funcs.ScalarFilter!({ amount: -1 })).toBeUndefined();
+  });
+
   it('omits empty Choice list entries and enforces their required boundaries', async () => {
     const funcs = await compile([BASICTYPES_ROSETTA, emptyChoiceSource], '', true);
     expect(funcs.EmptyList!({})).toEqual([]);

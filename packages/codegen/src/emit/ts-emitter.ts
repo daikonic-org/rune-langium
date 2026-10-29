@@ -6,10 +6,14 @@ import { escapeSingleQuotedString } from './string-literal.js';
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
 import {
+  renderSourceTypeScriptFunction,
+  type SourceFunctionProjection
+} from '../projection/source-typescript-function.js';
+import { renderSourceTypeScriptExpression } from '../projection/source-typescript-expression.js';
+import {
   getEnumValues,
   isAsOperation,
   isSwitchCaseGuard,
-  isSwitchOperation,
   isChoice,
   isAttribute,
   isChoiceOption,
@@ -43,8 +47,7 @@ import { expressionIsMany, expressionType, featureIsMany, typeFeatures, resolveT
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
-import { renderFuncAssignment, renderAssignmentValue } from './func-assignment.js';
-import { freshLocal } from '../expr/inline-function.js';
+import { renderFuncAssignment } from './func-assignment.js';
 import { expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
@@ -94,7 +97,6 @@ import {
   attrAccessExpr,
   transpileCondition,
   transpileExpression,
-  renderTranspiledSwitch,
   type ExpressionTranspilerContext
 } from '../expr/transpiler.js';
 import {
@@ -396,7 +398,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     );
 
     for (const func of sortedFuncs) {
-      const bodies = new Map<RuneFunc, string>();
+      const bodies = new Map<RuneFunc, SourceFunctionProjection>();
       const isHoisted = cyclicNames.has(func.name);
       const funcCtx = {
         ...TsNamespaceEmitter.buildFuncBodyContext(func, callGraph, this.ctx.diagnostics),
@@ -426,21 +428,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
                   onConditionProjection: (condition: Condition, code: string, predicate: string) =>
                     this.recordProjection(condition.expression, code, 'condition', predicate)
                 });
-                bodies.set(
-                  variant,
-                  TsNamespaceEmitter.emitFuncBody(variant, {
-                    ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, []),
-                    projectImplementation: this.projectImplementation(variant),
-                    callableName: this.callableName,
-                    typeNameResolver: this.typeName,
-                    objectEquality: 'method',
-                    projection: true
-                  })
-                    .join('\n')
-                    .split('\n')
-                    .map((line) => line.slice(2))
-                    .join('\n')
-                );
+                bodies.set(variant, renderSourceTypeScriptFunction(variant, this.projectImplementation(variant)));
                 return lines;
               }
             });
@@ -450,8 +438,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       this.sections.push(funcText);
       const sources = group.flatMap((variant) => {
         const fragment = variant.source
-          ? this.recordProjection(variant.source, funcText, 'function', bodies.get(variant))
+          ? this.recordProjection(variant.source, funcText, 'function', bodies.get(variant)?.code)
           : undefined;
+        const implementation = bodies.get(variant)?.implementation;
+        if (fragment?.body) {
+          fragment.body.implementation = implementation;
+          fragment.body.origins = bodies.get(variant)?.origins;
+        }
         return fragment ? fragment.sourceMap : [];
       });
       this.ctx.sourceMap.push(...sources.map((entry) => ({ ...entry, outputLine: outputLine + entry.outputLine })));
@@ -495,7 +488,22 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     kind: EmittedProjection['kind'],
     body?: string
   ): EmittedProjection | undefined {
-    const projection = emittedTypeScriptProjection(node, code, kind, body);
+    const source =
+      kind === 'condition' && body !== undefined && isRosettaExpression(node)
+        ? renderSourceTypeScriptExpression(node, {
+            owner: AstUtils.getContainerOfType(node, isRosettaFunction),
+            trackOrigins: false
+          })
+        : undefined;
+    const sourceBody = source
+      ? source.statements.length
+        ? [...source.statements, `return ${source.code};`].join('\n')
+        : source.code
+      : body;
+    const projection = emittedTypeScriptProjection(node, code, kind, sourceBody);
+    if (projection?.body && source) projection.body.origins = [source.origin];
+    if (projection?.body)
+      projection.body.syntax = kind === 'function' || source?.statements.length ? 'statements' : 'expression';
     if (projection) this.projections.push(projection);
     return projection;
   }
@@ -2127,22 +2135,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       !func.preConditions.length &&
       !func.postConditions.length &&
       isRosettaExpression(assignment.exprNode) &&
-      (ctx.projection || expressionFitsCardinality(assignment.exprNode, func.output.cardinality))
+      expressionFitsCardinality(assignment.exprNode, func.output.cardinality)
     ) {
-      if (ctx.projection && isSwitchOperation(assignment.exprNode)) {
-        const targetMany = assignment.targetMany ?? ctx.outputAccumulator === 'array';
-        const statement = renderTranspiledSwitch(assignment.exprNode, ctx, {
-          returnStatement: true,
-          returnValue: (value, expression) =>
-            expression
-              ? renderAssignmentValue(value, expression, targetMany, ctx.projection)
-              : targetMany
-                ? '[]'
-                : value,
-          selectorName: freshLocal(ctx, 'switchValue')
-        });
-        if (statement) return statement.split('\n').map((line) => `  ${line}`);
-      }
       const statement = TsNamespaceEmitter.emitFuncSet(assignment, ctx);
       if (statement.startsWith(`  ${result} = `) && !statement.includes('\n')) {
         // A local preserves structural assignment for constructor literals with additional fields.
@@ -2231,7 +2225,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     func: RuneFunc,
     ctx: FuncBodyContext,
     _isHoisted: boolean,
-    onBody: (body: string) => void
+    onBody: (body: SourceFunctionProjection) => void
   ): string {
     const parameters = TsNamespaceEmitter.buildFuncParameters(func);
     const outputType = TsNamespaceEmitter.buildFuncOutputType(func);
@@ -2239,19 +2233,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     const bodyLines = TsNamespaceEmitter.emitFuncBody(func, ctx);
     const body = bodyLines.join('\n');
-    onBody(
-      TsNamespaceEmitter.emitFuncBody(func, {
-        ...ctx,
-        diagnostics: [],
-        objectEquality: 'method',
-        projection: true,
-        onConditionProjection: undefined
-      })
-        .join('\n')
-        .split('\n')
-        .map((line) => line.slice(2))
-        .join('\n')
-    );
+    onBody(renderSourceTypeScriptFunction(func, ctx.projectImplementation));
 
     return `${signature} {\n${body}\n}`;
   }

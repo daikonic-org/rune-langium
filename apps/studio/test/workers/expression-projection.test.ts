@@ -34,7 +34,7 @@ async function requestFixture(language: 'typescript' | 'python' = 'typescript') 
 }
 
 describe('linked expression projections', () => {
-  it.each(['typescript', 'python'] as const)('displays %s validation failures as false returns', async (language) => {
+  it.each(['typescript', 'python'] as const)('preserves authored validation phases in %s views', async (language) => {
     const fixture = `namespace test
 func ValidateAmount:
  inputs: amount number (1..1)
@@ -70,9 +70,10 @@ func ValidateAmount:
       .map(([message]) => message)
       .find((message) => message.requestId === 'validation');
     expect(response.projection.code).not.toMatch(/throw|raise/);
-    expect(response.projection.code.match(language === 'typescript' ? /return false;/g : /return False/g)).toHaveLength(
-      2
-    );
+    if (language === 'typescript') {
+      expect(response.projection.code).toContain("assert(amount > 0, 'Positive')");
+      expect(response.projection.code).toContain("assert(result < 10, 'Bounded')");
+    } else expect(response.projection.code.match(/return False/g)).toHaveLength(2);
     expect(response.projection.code).toContain('return result');
   });
   it('executes and projects pinned CDM functions with an implicit serialized Rune dependency after restore', async () => {
@@ -303,8 +304,7 @@ func ValidateAmount:
     const response = scope.postMessage.mock.calls
       .map(([message]) => message)
       .find((message) => message.requestId === type);
-    const calendar = ['date', 'time', 'dateTime', 'zonedDateTime', 'DateAlias'].includes(type);
-    expect(response.projection.code).toContain(language === 'typescript' ? (calendar ? '.equals(' : '===') : '==');
+    expect(response.projection.code).toContain('left == right');
     expect(response.projection.code).not.toMatch(/rune\.|\.from\(|export function|def Check\(/);
   });
   it.each([
@@ -526,7 +526,9 @@ func Retain:
           .map(([message]) => message)
           .find((message) => message.requestId === kind);
         expect(response.projection.subject).toEqual(subject);
-        expect(response.projection.code).toContain(kind === 'function' ? 'return 1' : 'amount');
+        expect(response.projection.code).toContain(
+          kind === 'function' ? (language === 'typescript' ? 'result' : 'return 1') : 'amount'
+        );
         expect(response.projection.code).not.toContain('Neighbor');
         dispatch({
           type: 'projection:generate',

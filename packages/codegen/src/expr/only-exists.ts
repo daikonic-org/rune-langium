@@ -26,6 +26,7 @@ export function onlyExistsSelection(
       parentText: string | undefined;
       features: ReadonlyMap<string, ReturnType<typeof typeFeatures>[number]> | undefined;
       attributes: readonly string[];
+      selected: readonly string[];
       forbidden: string[];
     }
   | undefined {
@@ -52,7 +53,14 @@ export function onlyExistsSelection(
   const attributes = features ? [...features.keys()] : rootAttributes;
   const allowed = new Set(names);
   const parentText = parent ? render(parent) : undefined;
-  return { parent, parentText, features, attributes, forbidden: attributes.filter((name) => !allowed.has(name)) };
+  return {
+    parent,
+    parentText,
+    features,
+    attributes,
+    selected: names,
+    forbidden: attributes.filter((name) => !allowed.has(name))
+  };
 }
 
 export function renderOnlyExists(

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { isAttribute, isChoiceOption, isData, type Data, type Choice, type TypeCall } from '@rune-langium/core';
+import {
+  isAttribute,
+  isChoiceOption,
+  isData,
+  isChoice,
+  type Data,
+  type Choice,
+  type TypeCall
+} from '@rune-langium/core';
 import { isScalarTypeCall, resolveTypeCallTarget, type TypeIndexLookup } from '../emit/type-ref-resolver.js';
 import { featureName, typeFeatures } from './navigation.js';
 import { fieldMetadataKind, hasTypeMetadata } from './metadata-runtime.js';
@@ -9,7 +17,11 @@ import { fieldMetadataKind, hasTypeMetadata } from './metadata-runtime.js';
 export type MetadataPayloadShape = Readonly<Record<string, 'scalar' | 'object' | 'array'>> | null;
 
 /** Declared payload fields distinguish JSON metadata envelopes from ordinary Data records. */
-export function metadataPayloadShape(call: TypeCall | undefined, index: TypeIndexLookup): MetadataPayloadShape {
+export function metadataPayloadShape(
+  call: TypeCall | Data | Choice | undefined,
+  index: TypeIndexLookup
+): MetadataPayloadShape {
+  if (isData(call) || isChoice(call)) return fields(call);
   return resolveTypeCallTarget(
     call,
     index,

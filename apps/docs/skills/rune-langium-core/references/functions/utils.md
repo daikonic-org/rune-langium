@@ -224,6 +224,15 @@ getEnumValues(enumeration: RosettaEnumeration): RosettaEnumValue[]
 - `enumeration: RosettaEnumeration`
 **Returns:** `RosettaEnumValue[]`
 
+### `getEnumValueLiteral`
+The member identifier and the external code are distinct; displayName is presentation only.
+```ts
+getEnumValueLiteral(value: RosettaEnumValue): string
+```
+**Parameters:**
+- `value: RosettaEnumValue`
+**Returns:** `string`
+
 ### `getExpressionScope`
 Describe the existing language-service scope at an expression, without a second resolver.
 ```ts

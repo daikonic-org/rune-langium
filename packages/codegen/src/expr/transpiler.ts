@@ -1024,13 +1024,9 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
   if (isEqualityOperation(expr)) {
     const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
     const right = transpileExpression(expr.right, ctx);
-    if (ctx.projection) {
-      const empty = (node: RosettaExpression | undefined) => isListLiteral(node) && node.elements.length === 0;
-      const absent = empty(expr.right) ? expr.left : empty(expr.left) ? expr.right : undefined;
-      if (absent) {
-        return transpilePresence(absent, ctx, expr.operator !== '<>');
-      }
-    }
+    const empty = (node: RosettaExpression | undefined) => isListLiteral(node) && node.elements.length === 0;
+    const absent = empty(expr.right) ? expr.left : empty(expr.left) ? expr.right : undefined;
+    if (absent) return transpilePresence(absent, ctx, expr.operator !== '<>');
     if (ctx.emitMode.startsWith('ts-') && nativeTemporalOperands(expr.left, expr.right))
       return `${expr.operator === '<>' ? '!' : ''}${left}.equals(${right})`;
     const calendar = primitiveElementKind(expr.left);
