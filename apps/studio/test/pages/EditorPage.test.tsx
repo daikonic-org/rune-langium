@@ -2331,11 +2331,41 @@ describe('EditorPage workspace chrome', () => {
         frames.delete(id);
         callback(0);
       });
-      expect(runeTypeGraphMockState.relayout).toHaveBeenCalledWith({
-        engine: 'dagre',
-        direction: 'TB',
-        groupByInheritance: false
+      expect(runeTypeGraphMockState.relayout).toHaveBeenCalledWith(
+        {
+          engine: 'dagre',
+          direction: 'TB',
+          groupByInheritance: false
+        },
+        undefined
+      );
+
+      editorStoreState.selectedNodeId = 'test.Counterparty#Data';
+      act(() => {
+        firstObserver?.callback([], {} as ResizeObserver);
+        for (const [id, callback] of frames) {
+          frames.delete(id);
+          callback(0);
+        }
       });
+      expect(runeTypeGraphMockState.fitView).toHaveBeenLastCalledWith('test.Counterparty#Data');
+
+      vi.mocked(firstCanvas.getBoundingClientRect).mockReturnValue({ width: 1100, height: 700 } as DOMRect);
+      act(() => {
+        firstObserver?.callback([], {} as ResizeObserver);
+        for (const [id, callback] of frames) {
+          frames.delete(id);
+          callback(0);
+        }
+      });
+      expect(runeTypeGraphMockState.relayout).toHaveBeenLastCalledWith(
+        {
+          engine: 'dagre',
+          direction: 'LR',
+          groupByInheritance: false
+        },
+        'test.Counterparty#Data'
+      );
 
       act(() => centerStackMockState.setShowGraph?.(false));
       expect(firstObserver?.disconnected).toBe(true);

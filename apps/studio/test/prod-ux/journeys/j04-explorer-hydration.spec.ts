@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { expectReadyReferenceGraph } from '../readiness.js';
+import { captureResizeObserverErrors, expectNoResizeObserverErrors } from '../../helpers/graph.js';
 import { fullSourceEditor } from '../../helpers/source-editor.js';
 import { checkout as test, expect, loadCdm } from '../fixtures.js';
 import { typeNameButton, typeNavigationButton } from '../../helpers/type-navigation.js';
@@ -84,8 +85,10 @@ test.describe('J04 — explorer navigation & on-demand hydration', () => {
     page,
     evidence
   }) => {
+    await captureResizeObserverErrors(page);
     await loadCdm(page, evidence);
     await expectReadyReferenceGraph(page, COUNTERPARTY_NODE_ID, 'Counterparty');
     await evidence.checkpoint('accepted-reference-graph-ready');
+    await expectNoResizeObserverErrors(page);
   });
 });

@@ -513,12 +513,13 @@ export interface RuneTypeGraphProps {
  * @category Visual Editor
  */
 export interface RuneTypeGraphRef {
-  fitView(): void;
+  /** Fit the whole graph, or retain a specific node as the viewport target. */
+  fitView(nodeId?: string): void;
   focusNode(nodeId: string): void;
   search(query: string): string[];
   setFilters(filters: GraphFilters): void;
   getFilters(): GraphFilters;
-  relayout(options?: LayoutOptions): void;
+  relayout(options?: LayoutOptions, focusNodeId?: string): void;
   exportImage(format: 'svg' | 'png'): Promise<Blob>;
   exportRosetta(): Map<string, string>;
   /** Get current data for a node by ID (returns null if not found). */

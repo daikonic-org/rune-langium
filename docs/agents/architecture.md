@@ -194,6 +194,18 @@ owns explicit Fit View/re-layout actions and responsive container changes, and
 must not re-fit the entire graph on every selection. The graph permits zoom down
 to 5% so Fit View can include tall/wide namespaces while retaining viewport
 culling; selecting a type restores a readable detail view.
+Responsive container fits retain the selected node as their target, including
+when a direction change requires asynchronous layout. Explicit Fit View still
+fits the complete visible graph.
+Semantic zoom hides detail without changing node dimensions: summaries overlay
+the retained body space, and hidden cardinalities keep their layout width.
+The pinned XYFlow ESM patch batches its internal node measurements per animation
+frame, drops detached elements and cancels queued work on unmount; applying a
+second delay only in `onNodesChange` leaves its internal observer updates exposed.
+
+The header truncates long workspace labels while retaining their full accessible
+name and tooltip. At compact desktop widths the brand text and search hint yield
+space before workspace identity; the switcher keeps its 28 px height.
 
 Declaration context menus share pointer placement and navigation actions across
 the Type explorer, Graph, Structure and Inspector type references. Each owner

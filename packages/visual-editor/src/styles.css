@@ -240,7 +240,18 @@
 }
 
 .rune-node-summary {
-  display: none;
+  /* Zoom changes presentation, never the box measured by React Flow. */
+  position: absolute;
+  top: calc(var(--rune-header-height) + var(--space-2));
+  left: var(--space-3);
+  right: var(--space-3);
+  visibility: hidden;
+  font-size: var(--text-3xs);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .rune-enum-disclosure {
@@ -532,28 +543,17 @@ button[data-navigable]:focus-visible {
 }
 
 .rune-type-graph--zoom-mid .rune-node-member-cardinality {
-  display: none;
-}
-
-.rune-type-graph--zoom-low .rune-node {
-  min-width: 176px;
-}
-
-.rune-type-graph--zoom-low .rune-node-header {
-  padding: var(--space-2) var(--space-3);
+  visibility: hidden;
 }
 
 .rune-type-graph--zoom-low .rune-node-summary {
-  display: block;
-  padding: 0 var(--space-3) var(--space-2);
-  font-size: var(--text-3xs);
-  color: var(--muted-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  visibility: visible;
 }
 
-.rune-type-graph--zoom-low .rune-node-body,
+.rune-type-graph--zoom-low .rune-node-body {
+  visibility: hidden;
+}
+
 .rune-type-graph--zoom-low .rune-edge-label,
 .rune-type-graph--zoom-low .react-flow__minimap {
   display: none;
@@ -561,7 +561,7 @@ button[data-navigable]:focus-visible {
 
 .rune-type-graph--zoom-low .rune-graph-group__description,
 .rune-type-graph--zoom-low .rune-graph-breadcrumbs {
-  display: none;
+  visibility: hidden;
 }
 
 /* ── Panel styles ─────────────────────────────────────────────── */

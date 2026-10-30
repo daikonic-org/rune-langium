@@ -82,7 +82,7 @@ function WorkspaceSwitcherTrigger({
             type="button"
             className="studio-topbar__ws-btn"
             aria-label={`Workspace menu — ${initial} ${name} ${fileCountLabel}`}
-            title="Switch / create / close workspace"
+            title={`${name} — Switch / create / close workspace`}
           >
             <span className="studio-topbar__ws-mark" aria-hidden="true">
               {initial}{' '}

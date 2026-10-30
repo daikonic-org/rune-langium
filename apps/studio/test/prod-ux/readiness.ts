@@ -50,9 +50,12 @@ export async function expectReadyReferenceGraph(page: Page, nodeId: string, name
   await page.getByTestId('rail-explore').click();
   await page.getByRole('button', { name: 'Graph', exact: true }).click();
   await page.getByTestId('namespace-search').fill(name);
-  const { typeNavigationButton } = await import('../helpers/type-navigation.js');
+  const { declarationNodeId, typeNavigationButton } = await import('../helpers/type-navigation.js');
   await typeNavigationButton(page, nodeId).click();
   await expect(page.getByTestId('rune-node-hydrating-spinner')).toHaveCount(0);
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
   await expectPopulatedAttributes(page.getByTestId('center-stack'));
+  const node = page.locator(`.react-flow__node[data-id="${declarationNodeId(nodeId)}"]`);
+  await expect(node).toBeInViewport();
+  await expect.poll(async () => (await node.boundingBox())?.width ?? 0).toBeGreaterThan(100);
 }

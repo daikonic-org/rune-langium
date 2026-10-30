@@ -26,6 +26,7 @@ overrides:
 packageExtensionsChecksum: sha256-tPitCNUFutwUwyNLYfr/kXx7HP/Rj2KZog+7pbgM8ws=
 
 patchedDependencies:
+  '@xyflow/react@12.12.0': d274963edfaf4aa6dca38fb2efbf3a1e91ff256902c6a8f607df1c9f4ca49cb7
   braces@3.0.3: 34eb31fe97613665c68c7d975f52a39cfe1a8be6064d9d12687b19ab626b4564
   langium-zod@0.12.2: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
 
@@ -336,7 +337,7 @@ importers:
         version: 0.15.20
       '@xyflow/react':
         specifier: ^12.12.0
-        version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 12.12.0(patch_hash=d274963edfaf4aa6dca38fb2efbf3a1e91ff256902c6a8f607df1c9f4ca49cb7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -844,7 +845,7 @@ importers:
         version: 3.14.22(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@xyflow/react':
         specifier: ^12.12.0
-        version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 12.12.0(patch_hash=d274963edfaf4aa6dca38fb2efbf3a1e91ff256902c6a8f607df1c9f4ca49cb7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@zod-to-form/core':
         specifier: 0.12.0
         version: 0.12.0(jiti@2.7.0)(zod@4.6.7)
@@ -9341,7 +9342,7 @@ snapshots:
 
   '@wasm-fmt/ruff_fmt@0.15.20': {}
 
-  '@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@xyflow/react@12.12.0(patch_hash=d274963edfaf4aa6dca38fb2efbf3a1e91ff256902c6a8f607df1c9f4ca49cb7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@xyflow/system': 0.0.83
       classcat: 5.0.5

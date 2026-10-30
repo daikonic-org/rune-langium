@@ -708,16 +708,20 @@ export const ExplorePerspective = withInstrumentation(
       const rect = graphContainerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const direction = resolveResponsiveLayoutDirection(rect.width, rect.height, graphLayoutDirectionRef.current);
+      const targetNodeId = useEditorStore.getState().selectedNodeId ?? undefined;
       if (direction !== graphLayoutDirectionRef.current) {
         updateGraphLayoutDirection(direction);
-        graphRef.current?.relayout({
-          engine: useEditorStore.getState().layoutOptions.engine ?? 'elk',
-          direction,
-          groupByInheritance: groupedLayoutRef.current
-        });
+        graphRef.current?.relayout(
+          {
+            engine: useEditorStore.getState().layoutOptions.engine ?? 'elk',
+            direction,
+            groupByInheritance: groupedLayoutRef.current
+          },
+          targetNodeId
+        );
         return;
       }
-      graphRef.current?.fitView();
+      graphRef.current?.fitView(targetNodeId);
     }, [updateGraphLayoutDirection]);
 
     const setGraphContainerRef = useCallback(

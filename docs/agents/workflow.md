@@ -54,6 +54,16 @@ Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor f
 
 ## Dependency Compatibility and Audit Exceptions
 
+`@xyflow/react@12.12.0` has a narrow ESM measurement patch in
+`patches/@xyflow__react@12.12.0.patch`. Both browser and Node ESM entries defer
+the internal ResizeObserver update, coalesce changes by node identity and cancel
+pending work on unmount. The UMD entry is not used by Studio and is unmodified.
+On upgrade, recheck native observer errors, node geometry across semantic zoom
+and Graph selection after reference hydration before dropping the patch. The
+`selected-object-polish.spec.ts` browser suite covers zoom geometry, pane resizing
+and long-name header bounds; J04c also checks the selected node is in view and
+reports native ResizeObserver errors. Keep existing time/retry budgets.
+
 `@lspeasy/core@3.0.1` imports `type-fest` in its published declarations without declaring the dependency. The workspace package extension supplies `type-fest@5.10.0` so type checking cannot pick up an incompatible hoisted copy from another tool. [Upstream issue #307](https://github.com/pradeepmouli/lspeasy/issues/307) tracks removal after the package declares its own dependency.
 
 `patchedDependencies` applies a nesting/AST traversal guard to every transitive `braces@3.0.3` copy used by development tooling. The patch backports only the structural guards from [upstream PR #82 at commit `1f11eb5`](https://github.com/micromatch/braces/pull/82/commits/1f11eb558be9ea0cda87861408bb766e2e714086); it does not include that PR's separate range or parent-queue changes. Parsing permits at most 128 nested brace/parenthesis containers. Recursive walkers reject child depth over 128, child cycles and more than 65,536 visits with `SyntaxError` / `ERR_BRACES_COMPLEXITY`. Shared acyclic children remain valid. Terminal nodes add an edge, so 127 parsed containers leave room for a literal leaf in subsequent traversal. These bounds do not limit Cartesian expansion cardinality or arbitrary AST property getters.

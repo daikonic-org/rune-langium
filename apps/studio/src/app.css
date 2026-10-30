@@ -501,6 +501,9 @@ html {
     align-items: center;
     gap: var(--space-2);
     height: 28px;
+    min-width: 0;
+    max-width: 24rem;
+    white-space: nowrap;
     padding: 0 var(--space-3) 0 var(--space-2);
     border-radius: var(--radius);
     color: var(--foreground);
@@ -542,6 +545,18 @@ html {
     color: var(--muted-foreground);
     font-size: var(--text-2xs);
     font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+
+  .studio-app .studio-topbar__ws-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .studio-app .studio-topbar__ws-btn > svg {
+    flex-shrink: 0;
   }
 
   .studio-app .studio-topbar__ws-mark {
@@ -2535,7 +2550,8 @@ html {
   font-size: var(--text-xs);
 }
 
-@media (width <= 640px) {
+/* Preserve workspace identity before decorative branding and the search hint. */
+@media (width <= 1100px) {
   .studio-app .studio-topbar__search :is(span, kbd),
   .studio-app .studio-brand__name { display: none; }
   .studio-app .studio-topbar__search {
