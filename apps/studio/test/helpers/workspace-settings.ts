@@ -2,12 +2,18 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { projectBackingFiles } from './project-backing.js';
+import { projectBackingFiles, seedProjectBackingFiles } from './project-backing.js';
 import { dismissLocalTransportNotices } from './expression-workspace.js';
 
 import { reloadJourney, type JourneyObserver } from './journey-observer.js';
 
 export async function checkWorkspaceSettings(page: Page, theme: string, observer: JourneyObserver = {}): Promise<void> {
+  const restorationErrors: string[] = [];
+  const collectRestorationErrors = (message: import('@playwright/test').ConsoleMessage) => {
+    if (message.type() === 'error' && message.text().includes('Failed to load instances from OPFS'))
+      restorationErrors.push(message.text());
+  };
+  page.on('console', collectRestorationErrors);
   await page.setViewportSize({ width: 1461, height: 988 });
   await page.goto('./');
   const source = 'namespace settings\nversion "1.0.0"\ntype Money:\n amount number (1..1)\n';
@@ -15,14 +21,27 @@ export async function checkWorkspaceSettings(page: Page, theme: string, observer
     .locator('input[type="file"][accept=".rosetta"]')
     .setInputFiles({ name: 'money.rosetta', mimeType: 'text/plain', buffer: Buffer.from(source) });
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
-  await projectBackingFiles(page, {
-    'money.rosetta': source,
-    'rune-config.yml': 'model: {name: Workspace settings}\n',
-    'build-config.yml':
-      'schemaVersion: 1\nsources: ["**/*.rosetta"]\ntargets:\n  types: {generator: typescript, output: generated/types}\n',
-    'studio-config.yaml': '# Shared folders\nschemaVersion: 1\nexamples: examples # input examples\ncustom: retained\n'
-  });
-  await reloadJourney(page, observer);
+  await seedProjectBackingFiles(
+    page,
+    {
+      'money.rosetta': source,
+      'rune-config.yml': 'model: {name: Workspace settings}\n',
+      'build-config.yml':
+        'schemaVersion: 1\nsources: ["**/*.rosetta"]\ntargets:\n  types: {generator: typescript, output: generated/types}\n',
+      'studio-config.yaml':
+        '# Shared folders\nschemaVersion: 1\nexamples: examples # input examples\ncustom: retained\n',
+      'workspace-examples/saved.example.json': JSON.stringify({
+        schemaVersion: 1,
+        id: 'saved',
+        name: 'Saved settings example',
+        type: { model: 'local', namespace: 'settings', name: 'Money', kind: 'Data' },
+        codec: 'JSON',
+        payload: 'workspace-examples/saved.json'
+      }),
+      'workspace-examples/saved.json': '{"amount":21}\n'
+    },
+    observer
+  );
   await page.getByTestId('rail-settings').click();
   await dismissLocalTransportNotices(page);
   const settings = page.getByTestId('settings-perspective');
@@ -65,4 +84,12 @@ export async function checkWorkspaceSettings(page: Page, theme: string, observer
   await page.getByTestId('rail-settings').click();
   await settings.getByRole('button', { name: 'Configure exports', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'types', exact: true })).toBeVisible();
+  await page.getByTestId('rail-prototype').click();
+  await expect(
+    page.getByTestId('prototype-grid').locator('tbody tr').filter({ hasText: 'Saved settings example' })
+  ).toContainText('saved');
+  expect((await projectBackingFiles(page))['workspace-examples/saved.json']).toBe('{"amount":21}\n');
+  await observer.checkpoint?.('saved-example-restored');
+  page.off('console', collectRestorationErrors);
+  expect(restorationErrors).toEqual([]);
 }

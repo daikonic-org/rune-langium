@@ -347,7 +347,34 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
     [activeLayout, layoutedNodes, visibleEdges]
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<DisplayGraphNode>([]);
+  const [nodes, setNodes, applyNodesChange] = useNodesState<DisplayGraphNode>([]);
+  const pendingDimensions = useRef<Parameters<typeof applyNodesChange>[0]>([]);
+  const dimensionFrame = useRef<number | undefined>(undefined);
+  // Measurement can trigger layout and semantic zoom, resizing the observed nodes.
+  // Apply dimensions after observer delivery; drag and selection remain immediate.
+  const onNodesChange = useCallback<typeof applyNodesChange>(
+    (changes) => {
+      const immediate = changes.filter((change) => change.type !== 'dimensions');
+      if (immediate.length) applyNodesChange(immediate);
+      pendingDimensions.current.push(...changes.filter((change) => change.type === 'dimensions'));
+      if (!pendingDimensions.current.length || dimensionFrame.current !== undefined) return;
+      dimensionFrame.current = requestAnimationFrame(() => {
+        dimensionFrame.current = undefined;
+        const dimensions = pendingDimensions.current;
+        pendingDimensions.current = [];
+        applyNodesChange(dimensions);
+      });
+    },
+    [applyNodesChange]
+  );
+  useEffect(
+    () => () => {
+      if (dimensionFrame.current !== undefined) cancelAnimationFrame(dimensionFrame.current);
+      dimensionFrame.current = undefined;
+      pendingDimensions.current = [];
+    },
+    []
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState<TypeGraphEdge>([]);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);

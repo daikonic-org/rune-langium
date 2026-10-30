@@ -70,13 +70,17 @@ export const findGeneratedDeclarationLine = withInstrumentation(
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/'/g, '&apos;');
+      const modelType = target === 'typescript' && ['data', 'choice'].includes(kind.toLowerCase());
       lines.forEach((line, index) => {
         let identifier: string | undefined;
         if (target === 'typescript' || target === 'zod') {
-          identifier =
-            /^\s*(?:export\s+)?(?:async\s+)?(?:const|class|interface|type|function|enum)\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)/u.exec(
+          const match =
+            /^\s*(?:export\s+)?(?:async\s+)?(const|class|interface|type|function|enum)\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)/u.exec(
               line
-            )?.[1];
+            );
+          // Data/Choice expose both a public type and a same-name value factory.
+          // Navigate to the type; repeated type declarations remain ambiguous.
+          if (!modelType || (match && ['type', 'interface', 'class'].includes(match[1]!))) identifier = match?.[2];
         } else if (target === 'sql') {
           const table = /^CREATE TABLE (?:"([^"]+)"|\[([^\]]+)\]) \($/.exec(line);
           identifier = table?.[1] ?? table?.[2];

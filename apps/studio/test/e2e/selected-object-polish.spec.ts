@@ -4,6 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 
 const source = `namespace polish
 annotation marking:
@@ -92,4 +93,80 @@ test('selected objects, compact guards, details and regenerated code remain conn
   await expect(page.getByTestId('code-preview-editor')).toContainText('function Margin(');
   await expect(page.getByTestId('code-preview-editor')).toBeVisible();
   await page.screenshot({ path: info.outputPath('selected-code-regenerated.png') });
+});
+
+test('Code preview follows model and Choice types alongside their public factories across namespace files', async ({
+  page
+}, info) => {
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles([
+    {
+      name: 'other.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace aaa\ntype Party:\n name string (1..1)\n')
+    },
+    {
+      name: 'model.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace model\ntype Party:\n name string (1..1)\nchoice Selected:\n Party\n')
+    }
+  ]);
+  await page.getByTestId('namespace-search').fill('Party');
+  await typeNavigationButton(page, 'model.Party', 'Data').click();
+  await page.getByRole('tab', { name: 'Code', exact: true }).click();
+  await page.getByTestId('codegen-targets-table__view-typescript').click();
+  const preview = page.getByTestId('code-preview-editor');
+  await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
+  await expect(preview).toContainText('export type Party =');
+  await page.getByRole('button', { name: 'Regenerate TypeScript preview', exact: true }).click();
+  await expect(page.getByTestId('codegen-status')).toContainText('Generated');
+  await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
+  await page.getByTestId('namespace-search').fill('Party');
+  await typeNavigationButton(page, 'aaa.Party', 'Data').click();
+  await expect(page.getByTestId('codegen-relative-path')).toHaveText('aaa.ts');
+  await page.getByTestId('namespace-search').fill('Selected');
+  await typeNavigationButton(page, 'model.Selected', 'Choice').click();
+  await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
+  await expect(preview).toContainText('export type Selected =');
+  await typeNavigationButton(page, 'model.Selected', 'Choice').click();
+  await expect(preview.locator('.cm-source-reveal-line')).toContainText('export type Selected =');
+  await page.screenshot({ path: info.outputPath('public-type-navigation.png') });
+});
+
+test('graph measurement and semantic zoom settle while center panes resize', async ({ page }, info) => {
+  await page.addInitScript(() => {
+    const errors: string[] = [];
+    Object.defineProperty(window, '__testResizeErrors', { value: errors });
+    window.addEventListener('error', (event) => {
+      if (/ResizeObserver/.test(event.message)) errors.push(event.message);
+    });
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles(
+    expressionReferenceFiles().map(({ uri, content }) => ({
+      name: uri.split('/').at(-1)!,
+      mimeType: 'text/plain',
+      buffer: Buffer.from(content)
+    }))
+  );
+  await page.getByTestId('namespace-search').fill('BusinessCenters');
+  await typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data').click();
+  for (const name of ['Graph', 'Source', 'Inspector']) {
+    const button = page.getByRole('button', { name, exact: true });
+    if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
+  }
+  const structure = page.getByRole('button', { name: 'Structure', exact: true });
+  if ((await structure.getAttribute('aria-pressed')) === 'true') await structure.click();
+  const stack = page.getByTestId('center-stack');
+  await expect(stack).toHaveAttribute('data-count', '3');
+  await expect(page.locator('.react-flow__node').first()).toBeVisible();
+  for (const width of [1440, 1000, 1280]) {
+    await page.setViewportSize({ width, height: 720 });
+    await stack.locator('[data-pane="inspector"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`graph-resize-${width}.png`) });
+  }
+  expect(await page.evaluate(() => (window as Window & { __testResizeErrors: string[] }).__testResizeErrors)).toEqual(
+    []
+  );
 });

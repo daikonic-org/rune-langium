@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { checkout as test, expect, loadCdm } from '../fixtures.js';
+import { checkout as test, expect, loadCdm, readCombinedOpLog } from '../fixtures.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 import { expectPopulatedAttributes } from '../readiness.js';
 import { ANCHOR_DATA } from '../anchors.js';
@@ -66,6 +66,11 @@ test.describe('J05 — Inspector pane', () => {
       await inspector.scrollIntoViewIfNeeded();
       await expectPopulatedAttributes(inspector);
       await evidence.checkpoint('narrow-three-pane-inspector');
+      expect(
+        (await readCombinedOpLog(page)).filter(
+          (entry) => entry.op === 'clientError' && /ResizeObserver/.test(entry.message)
+        )
+      ).toEqual([]);
     }
   );
 });
