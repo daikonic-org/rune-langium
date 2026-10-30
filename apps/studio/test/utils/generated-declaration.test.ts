@@ -85,6 +85,36 @@ const cases: { target: Target; content: string; expected: string }[] = [
 ];
 
 describe('generated declaration destinations', () => {
+  it.each(['Data', 'Choice', 'data', 'choice'])(
+    'locates the public %s type alongside its same-name value factory',
+    (kind) => {
+      const file = {
+        relativePath: 'test.ts',
+        sourceMap: [],
+        content: [
+          '// Source namespace: test',
+          'export const Party = Object.assign($Party$Data, { from: () => undefined });',
+          'export class $Party$Data {}',
+          'export type Party = $Party$Data;'
+        ].join('\n')
+      };
+      expect(findGeneratedDeclarationLine('typescript', file, { ...declaration, kind })).toBe(3);
+      expect(
+        findGeneratedDeclarationLine(
+          'typescript',
+          { ...file, content: file.content + '\nexport type Party = Other;' },
+          {
+            ...declaration,
+            kind
+          }
+        )
+      ).toBeUndefined();
+      expect(
+        findGeneratedDeclarationLine('typescript', file, { ...declaration, namespace: 'other', kind })
+      ).toBeUndefined();
+    }
+  );
+
   it.each(cases)('locates exact scoped declarations for $target', ({ target, content, expected }) => {
     const line = findGeneratedDeclarationLine(target, { content, sourceMap: [], relativePath: 'model' }, declaration);
     expect(line).toBeDefined();
@@ -162,6 +192,7 @@ it('uses matching one-based source coordinates only to disambiguate real declara
   };
   const target = {
     ...declaration,
+    kind: 'RosettaFunction',
     sourceUri: 'file:///test.rune',
     sourceRange: { start: { line: 4, character: 0 }, end: { line: 5, character: 0 } }
   };

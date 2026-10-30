@@ -26,12 +26,24 @@ export async function expectBodyProjection(
 
 export async function expectEditorExpansion(region: Locator) {
   const editor = region.getByTestId('implementation-editor');
-  const original = await editor.elementHandle();
+  const liveEditor = editor.locator('.cm-editor');
+  const original = await liveEditor.elementHandle();
+  const scroller = editor.locator('.cm-scroller');
+  const maxHeight = () => scroller.evaluate((element) => Number.parseFloat(getComputedStyle(element).maxHeight));
+  const initialMax = await maxHeight();
   const initialHeight = (await editor.boundingBox())!.height;
   await region.getByRole('button', { name: 'Expand editor', exact: true }).click();
-  await expect.poll(async () => (await editor.boundingBox())!.height).toBeGreaterThan(initialHeight);
-  expect(await editor.evaluate((element, previous) => element === previous, original)).toBe(true);
+  await expect.poll(maxHeight).toBeGreaterThan(initialMax);
+  const expandedHeight = (await editor.boundingBox())!.height;
+  const contentHeight = await scroller.evaluate((element) => element.scrollHeight);
+  // Expansion raises the cap; short bodies keep their content-sized height.
+  expect(expandedHeight).toBeGreaterThanOrEqual(initialHeight);
+  if (contentHeight > initialMax + 1) expect(expandedHeight).toBeGreaterThan(initialHeight);
+  else expect(expandedHeight).toBeCloseTo(initialHeight, 0);
+  expect(await liveEditor.evaluate((element, previous) => element === previous, original)).toBe(true);
   await region.getByRole('button', { name: 'Collapse editor', exact: true }).click();
+  await expect.poll(maxHeight).toBe(initialMax);
   await expect.poll(async () => (await editor.boundingBox())!.height).toBe(initialHeight);
+  expect(await liveEditor.evaluate((element, previous) => element === previous, original)).toBe(true);
   await original?.dispose();
 }

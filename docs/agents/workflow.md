@@ -359,6 +359,12 @@ view; production formatter imports remain lazy.
 
 ## Prototype workflow verification
 
+Browser fixtures that replace a complete project configuration use
+`seedProjectBackingFiles` with Studio unloaded, then restore the same workspace.
+Writing a new configuration piecemeal into a running app exposes empty files and
+Chromium swap entries to background snapshot capture. Live external-edit tests
+still use `projectBackingFiles`; preserve conflict/validation errors there.
+
 For Flow changes, run Studio's `workflow-validation`, `preview-session-client`,
 `function-session-store`, `InstanceInspectorPanel`, arrival and Prototype perspective
 unit suites, plus `packages/codegen/test/emit/function-input-checks.test.ts`.

@@ -49,6 +49,34 @@ it('highlights generated code arrivals, including repeated already-loaded target
   expect(lines()).toEqual([]);
 });
 
+it('follows public model types across files, regeneration and repeated type/factory arrivals', () => {
+  useCodegenStore.setState({ codePreviewTarget: 'typescript', activeTarget: 'typescript' });
+  const deliver = (prefix = '') =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'typescript',
+      files: ['other', 'test'].map((namespace) => ({
+        relativePath: `${namespace}.ts`,
+        sourceMap: [],
+        content: `${prefix}// Source namespace: ${namespace}\nexport type Party = $Party$Data;\nexport const Party = Object.assign($Party$Data, { from: () => undefined });`
+      }))
+    });
+  deliver();
+  const { container } = render(<CodePreviewPanel sourceEditorRef={null} />);
+  const selectedFile = () => {
+    const snapshot = useCodegenStore.getState().snapshot;
+    return 'activeRelativePath' in snapshot ? snapshot.activeRelativePath : undefined;
+  };
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(selectedFile()).toBe('test.ts');
+  expect(container.querySelector('.cm-source-reveal-line')).toHaveTextContent('export type Party =');
+  act(() => vi.advanceTimersByTime(1000));
+  act(() => deliver('// Regenerated\n'));
+  expect(selectedFile()).toBe('test.ts');
+  expect(container.querySelector('.cm-source-reveal-line')).toBeNull();
+  act(() => usePreviewStore.getState().selectTarget('test.Party'));
+  expect(container.querySelector('.cm-source-reveal-line')).toHaveTextContent('export type Party =');
+});
+
 it('populates and cues an already-generated file when reopening its preview', () => {
   useCodegenStore.setState({ activeTarget: undefined });
   usePreviewStore.getState().selectTarget('test.Trade');

@@ -6,6 +6,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { fullSourceEditor, codeMirrorDocument } from '../helpers/source-editor.js';
+import { expectEditorExpansion } from '../helpers/body-projection.js';
 import {
   loadPinnedFunction,
   openBuilder,
@@ -130,6 +131,7 @@ func Run:
   expect(await editor.locator('.cm-scroller').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
     true
   );
+  await expectEditorExpansion(implementation);
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
   const longProjection = implementation.getByRole('textbox', { name: 'Generated typescript' });
   await expect.poll(() => codeMirrorDocument(longProjection)).toContain('step39');
