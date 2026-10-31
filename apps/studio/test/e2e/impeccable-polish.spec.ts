@@ -47,7 +47,13 @@ for (const width of [1440, 390])
       .click();
     const detail = launcher.locator('.starter-picker__detail');
     await expect(detail.getByRole('alert')).toContainText('Your workspace references are unchanged');
-    await expect(detail.getByText(/HTTP 503/)).toBeHidden();
+    const technical = detail.locator('details');
+    await expect(technical).toHaveJSProperty('open', false);
+    await technical.locator('summary').click();
+    await expect(technical).toHaveJSProperty('open', true);
+    await expect(technical).toContainText('HTTP 503');
+    await technical.locator('summary').click();
+    await expect(technical).toHaveJSProperty('open', false);
     await expect(detail.getByRole('button', { name: 'Retry releases' })).toBeVisible();
     await dismissLocalTransportNotices(page);
     await page.screenshot({ path: info.outputPath('catalog-error.png') });
@@ -55,6 +61,6 @@ for (const width of [1440, 390])
       (await new AxeBuilder({ page }).include('[data-testid="workspaces-perspective"]').analyze()).violations
     ).toEqual([]);
     await detail.getByRole('button', { name: 'Retry releases' }).click();
-    await expect(detail.getByText(/No published compatible releases/)).toBeVisible();
+    await expect(detail.getByText(/No tagged releases are available/)).toBeVisible();
     expect(attempts).toBe(2);
   });

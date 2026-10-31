@@ -68,19 +68,20 @@ export const ReferenceModelDetails = withInstrumentation(
     lock?: ProjectLock;
     cache?: ReferenceCache;
   }) {
+    const href = repository.replace(/\.git$/, '');
     const [repositoryDetails, setRepositoryDetails] = useState<RepositoryDetails>();
     const [inventory, setInventory] = useState<CuratedManifest>();
     const [inventoryUnavailable, setInventoryUnavailable] = useState(false);
     useEffect(() => {
       const abort = new AbortController();
       setRepositoryDetails(undefined);
-      void readReferenceRepositoryDetails(repository, abort.signal)
+      void readReferenceRepositoryDetails(href, abort.signal)
         .then((result) => {
           if (!abort.signal.aborted) setRepositoryDetails(result);
         })
         .catch(() => {});
       return () => abort.abort();
-    }, [repository]);
+    }, [href]);
     useEffect(() => {
       const abort = new AbortController();
       setInventory(undefined);
@@ -91,14 +92,14 @@ export const ReferenceModelDetails = withInstrumentation(
         const installed = Object.prototype.hasOwnProperty.call(lock?.references ?? {}, modelId)
           ? lock!.references[modelId]
           : undefined;
-        if (installed?.release === release && installed.repository === repository) {
+        if (installed?.release === release && installed.repository === href) {
           const staged = new Map<string, Uint8Array>();
           return readReferenceManifest(modelId, installed, (url, checksum) =>
             readVerifiedReferenceBytes(url, checksum, transport, cache, abort.signal, staged)
           );
         }
         const resolved = await resolveProjectReferenceInventory(
-          { ...references, [modelId]: { repository, release } },
+          { ...references, [modelId]: { repository: href, release } },
           {
             ...transport,
             catalog: (id, signal) =>
@@ -120,7 +121,7 @@ export const ReferenceModelDetails = withInstrumentation(
           if (!abort.signal.aborted) setInventoryUnavailable(true);
         });
       return () => abort.abort();
-    }, [modelId, release, catalog, transport, repository, references, lock, cache]);
+    }, [modelId, release, catalog, transport, href, references, lock, cache]);
     const exports = Object.values(inventory?.namespaces ?? {}).flatMap((entry) => entry.exports);
     const typeKinds = new Set([
       'Data',
@@ -130,7 +131,6 @@ export const ReferenceModelDetails = withInstrumentation(
       'RosettaBasicType',
       'RosettaRecordType'
     ]);
-    const href = repository.replace(/\.git$/, '');
     return (
       <div className="space-y-2 text-xs text-muted-foreground" data-testid="reference-model-details">
         {repositoryDetails?.description && <p>{repositoryDetails.description}</p>}

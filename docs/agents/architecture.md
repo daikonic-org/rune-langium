@@ -78,6 +78,11 @@ verification, including dependency constraints and backtracking. Informational
 inventory neither loads model bundles, promotes fetched bytes nor returns an
 activation lock. Add/Update reference retains complete bundle verification,
 proposal review and revisioned Save before runtime refresh.
+Reference details normalize the registry's Git clone suffix before matching
+catalog/lock repository identity, so release inventory uses the same cohort as
+activation. LSP metadata extraction uses native JSON parsing followed by an
+iterative object/reference walk; it retains body-only edges without invoking a
+reviver for every source/token-position scalar.
 
 Code-tab downloads list namespaces from the provider's current managed semantic
 view, including accepted references. They reuse `generateExport` with the captured

@@ -67,7 +67,7 @@ export const ExpressionBuilderDialog = withInstrumentation(
             onBlur={() => {}}
             scope={scope}
             renderTextEditor={({ value, onChange, onBlur }) => (
-              <div className="h-64 min-h-32" data-testid="text-editor" onBlur={onBlur}>
+              <div className="expression-code-editor min-w-0" data-testid="text-editor" onBlur={onBlur}>
                 <SourceEditor
                   hideTabs
                   activeFile="/builder-draft.rosetta"

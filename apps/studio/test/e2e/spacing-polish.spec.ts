@@ -85,12 +85,20 @@ for (const width of [1280, 800]) {
           })
         )
         .toBeLessThan(1);
-      const rightInset = await control.evaluate((el) => {
-        const box = el.querySelector('select')!.getBoundingClientRect();
+      const spacing = await control.evaluate((el) => {
+        const select = el.querySelector('select')!;
+        const box = select.getBoundingClientRect();
         const arrow = el.querySelector('svg')!.getBoundingClientRect();
-        return box.right - arrow.right;
+        const style = getComputedStyle(select);
+        return {
+          rightInset: box.right - arrow.right,
+          leadingInset: parseFloat(style.paddingLeft),
+          trailingPadding: parseFloat(style.paddingRight),
+          arrowWidth: arrow.width
+        };
       });
-      expect(rightInset).toBeGreaterThanOrEqual(8);
+      expect(spacing.rightInset).toBeCloseTo(spacing.leadingInset, 0);
+      expect(spacing.rightInset + spacing.arrowWidth).toBeLessThanOrEqual(spacing.trailingPadding);
     }
     await settings.getByLabel('Export layout', { exact: true }).selectOption('single-file');
     await expect(settings.getByLabel('Export layout', { exact: true })).toHaveValue('single-file');

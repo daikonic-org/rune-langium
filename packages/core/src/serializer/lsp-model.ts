@@ -34,13 +34,25 @@ export function readLspModelMetadata(json: string): {
   references: string[];
 } {
   const references = new Set<string>();
-  const model = JSON.parse(json, (key, value) => {
+  const model = JSON.parse(json);
+  // A JSON reviver crosses into JavaScript for every scalar/token-span field.
+  // Visit only objects and reference fields after the native parse instead.
+  const pending: Array<[string, unknown]> = [['', model]];
+  while (pending.length) {
+    const [key, value] = pending.pop()!;
     const targets = key === '$ref' ? [value] : key === '$refs' && Array.isArray(value) ? value : [];
     for (const target of targets) {
       if (typeof target === 'string' && !target.startsWith('#')) references.add(target.split('#')[0]!);
     }
-    return value;
-  });
+    if (!value || typeof value !== 'object') continue;
+    const entries = Object.entries(value);
+    for (let index = entries.length - 1; index >= 0; index--) {
+      const entry = entries[index]!;
+      if (entry[0] === '$ref' || entry[0] === '$refs' || (entry[1] && typeof entry[1] === 'object')) {
+        pending.push(entry);
+      }
+    }
+  }
   return {
     namespace: namespaceFromModelName(model.name),
     sourceUri: model.$textRegion?.documentURI,

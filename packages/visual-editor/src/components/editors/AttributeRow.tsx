@@ -96,13 +96,10 @@ export interface AttributeRowProps extends InspectorRowProps {
   onRevert?: () => void;
 }
 
-// Grid columns: handle | name (takes all flex) | type (sizes to its chip,
-// capped so a long type-ref truncates instead of starving the name) |
-// cardinality (content) | trailing. The type column is `fit-content` rather
-// than a fraction so the type field hugs its chip — no full-width "phantom box"
-// pushing the name to ~half width.
+// Let short type chips hug their contents; cap long chips relative to the
+// actual row width so compact Inspectors retain room for member names.
 const ATTRIBUTE_ROW_LAYOUT =
-  'grid w-full items-center gap-x-1 [grid-template-columns:12px_minmax(0,1fr)_fit-content(11rem)_auto_minmax(0,max-content)]';
+  'grid w-full items-center gap-x-1 [grid-template-columns:12px_minmax(0,1fr)_fit-content(40%)_auto_minmax(0,max-content)]';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -258,6 +255,7 @@ function AttributeRow({
             data-slot="attribute-name"
             type="text"
             value={field.value}
+            title={field.value}
             onChange={(e) => {
               field.onChange(e);
               debouncedName(nameDraft(e.target.value));
@@ -392,7 +390,11 @@ function InheritedAttributeRow({
       {/* Spacer aligns with drag handle */}
       <span className="w-3 shrink-0 justify-self-center" />
 
-      <span data-slot="attribute-name" className={`${INSPECTOR_ROW_NAME_CLASS} text-muted-foreground truncate`}>
+      <span
+        data-slot="attribute-name"
+        title={name}
+        className={`${INSPECTOR_ROW_NAME_CLASS} text-muted-foreground truncate`}
+      >
         {name}
       </span>
 
