@@ -7,6 +7,7 @@ import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js
 import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
 import { expectWorkspaceHeaderBounds } from '../helpers/app-header.js';
 import { captureResizeObserverErrors, expectNoResizeObserverErrors } from '../helpers/graph.js';
+import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
 
 const source = `namespace polish
 annotation marking:
@@ -39,6 +40,47 @@ func Margin:
  alias rate: Rate(schedule -> durationInYears)
  set result -> value: rate
 `;
+
+test('compact Inspector keeps short member names readable beside long type chips', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'members.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'namespace members\nenum CounterpartyRoleEnum:\n Party1\n Party2\ntype Counterparty:\n role CounterpartyRoleEnum (1..1)\n'
+    )
+  });
+  await page.getByTestId('namespace-search').fill('Counterparty');
+  await typeNavigationButton(page, 'members.Counterparty').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  for (const theme of ['daikonic', 'light']) {
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-perspective').getByLabel('Theme', { exact: true }).selectOption(theme);
+    await page.getByTestId('rail-explore').click();
+    const name = page.getByTestId('center-stack').getByLabel('Attribute name: role', { exact: true });
+    await expect(name).toBeVisible();
+    const geometry = await name.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      const style = getComputedStyle(input);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      context.font = style.font;
+      const row = input.closest('[data-slot="attribute-row"]')!;
+      return {
+        available: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+        textWidth: context.measureText(input.value).width,
+        rowWidth: row.clientWidth,
+        overflowWidth: row.scrollWidth
+      };
+    });
+    expect(geometry.available).toBeGreaterThanOrEqual(geometry.textWidth);
+    expect(geometry.overflowWidth).toBeLessThanOrEqual(geometry.rowWidth + 1);
+    await waitForEntranceAnimations(page);
+    await page.screenshot({ path: info.outputPath(`member-name-${theme}.png`) });
+  }
+});
 
 test('long workspace names stay within the compact header at large font sizes', async ({ page }, info) => {
   await page.setViewportSize({ width: 800, height: 800 });

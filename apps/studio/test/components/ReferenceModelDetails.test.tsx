@@ -34,46 +34,52 @@ async function releaseCohorts() {
   return { ...fixture, lock: locked.lock!, original, variant };
 }
 
-it('shows the installed cohort inventory when the same release has newer published cohorts', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => Response.json({}))
-  );
-  const fixture = await releaseCohorts();
-  render(
-    <ReferenceModelDetails
-      repository="https://github.com/org/cdm"
-      modelId="cdm"
-      release="1.0"
-      catalog={{ schemaVersion: 1, releases: fixture.releases.get('cdm')! }}
-      transport={fixture.transport}
-      lock={fixture.lock}
-    />
-  );
-  expect(await screen.findByText('2026-10-23')).toBeVisible();
-  expect(screen.queryByText('2026-10-24')).toBeNull();
-  expect(fixture.transport.catalog).not.toHaveBeenCalled();
-  expect(fixture.transport.artifact.mock.calls.map(([url]) => url)).toEqual([fixture.original.manifest]);
-});
+it.each(['https://github.com/org/cdm', 'https://github.com/org/cdm.git'])(
+  'shows the installed cohort inventory with repository %s when newer cohorts exist',
+  async (repository) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({}))
+    );
+    const fixture = await releaseCohorts();
+    render(
+      <ReferenceModelDetails
+        repository={repository}
+        modelId="cdm"
+        release="1.0"
+        catalog={{ schemaVersion: 1, releases: fixture.releases.get('cdm')! }}
+        transport={fixture.transport}
+        lock={fixture.lock}
+      />
+    );
+    expect(await screen.findByText('2026-10-23')).toBeVisible();
+    expect(screen.queryByText('2026-10-24')).toBeNull();
+    expect(fixture.transport.catalog).not.toHaveBeenCalled();
+    expect(fixture.transport.artifact.mock.calls.map(([url]) => url)).toEqual([fixture.original.manifest]);
+  }
+);
 
-it('uses canonical cohort selection for a proposed release with multiple variants without fetching bundles', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => Response.json({}))
-  );
-  const fixture = await releaseCohorts();
-  render(
-    <ReferenceModelDetails
-      repository="https://github.com/org/cdm"
-      modelId="cdm"
-      release="1.0"
-      catalog={{ schemaVersion: 1, releases: fixture.releases.get('cdm')! }}
-      transport={fixture.transport}
-    />
-  );
-  expect(await screen.findByText('2026-10-24')).toBeVisible();
-  expect(fixture.transport.artifact.mock.calls.every(([url]) => url.endsWith('/manifest.json'))).toBe(true);
-});
+it.each(['https://github.com/org/cdm', 'https://github.com/org/cdm.git'])(
+  'uses canonical cohort selection for proposed repository %s without fetching bundles',
+  async (repository) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({}))
+    );
+    const fixture = await releaseCohorts();
+    render(
+      <ReferenceModelDetails
+        repository={repository}
+        modelId="cdm"
+        release="1.0"
+        catalog={{ schemaVersion: 1, releases: fixture.releases.get('cdm')! }}
+        transport={fixture.transport}
+      />
+    );
+    expect(await screen.findByText('2026-10-24')).toBeVisible();
+    expect(fixture.transport.artifact.mock.calls.every(([url]) => url.endsWith('/manifest.json'))).toBe(true);
+  }
+);
 
 it('shows a public repository description and publication inventory without loading model bytes', async () => {
   vi.stubGlobal(

@@ -44,6 +44,10 @@ available; no system preference silently replaces an explicit choice.
 - Settings uses a common label column. Adjacent field/action pairs share the
   compact height; validation messages sit below their control, including boolean
   fields, without moving the label away from the checkbox.
+- Inspector member names retain readable space beside type references. Long type
+  chips truncate relative to the row width; full member names remain available in
+  tooltips. Expression Text dialogs use the shared content-sized code surface,
+  with a four-line minimum and a bounded scrollable maximum.
 - The launcher fills its available frame. Recent Workspaces sits beside Starters
   on desktop and scrolls independently; navigation and workspace actions stay
   visible. Reference Models uses the same full-width, full-height frame. Narrow

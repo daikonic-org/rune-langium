@@ -38,6 +38,35 @@ function captureLsp(page: Page) {
   return { sent, errors };
 }
 
+test('Builder Text draft grows to its cap and shrinks without remounting', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loadPinnedFunction(page);
+  const dialog = await openBuilder(page);
+  await dialog.getByRole('button', { name: 'Text', exact: true }).click();
+  const editor = dialog.getByTestId('text-editor');
+  const content = editor.locator('.cm-content');
+  const scroller = editor.locator('.cm-scroller');
+  const original = await editor.locator('.cm-editor').elementHandle();
+  const short = (await scroller.boundingBox())!.height;
+  const lineHeight = await content.evaluate((element) => parseFloat(getComputedStyle(element).lineHeight));
+  expect(short).toBeLessThan(6 * lineHeight);
+  await page.screenshot({ path: info.outputPath('builder-text-short.png') });
+  await content.click();
+  await content.press('ControlOrMeta+a');
+  await page.keyboard.insertText(`[\n${Array.from({ length: 60 }, (_, index) => index).join(',\n')}\n]`);
+  await expect.poll(async () => (await scroller.boundingBox())!.height).toBeGreaterThan(short);
+  const tall = await scroller.evaluate((element) => ({ height: element.clientHeight, content: element.scrollHeight }));
+  expect(tall.height).toBeLessThanOrEqual(400);
+  expect(tall.content).toBeGreaterThan(tall.height);
+  await page.screenshot({ path: info.outputPath('builder-text-long.png') });
+  await content.press('ControlOrMeta+a');
+  await page.keyboard.insertText('1 + 2');
+  await expect.poll(async () => (await scroller.boundingBox())!.height).toBeCloseTo(short, 0);
+  expect(await editor.locator('.cm-editor').evaluate((element, previous) => element === previous, original)).toBe(true);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await original?.dispose();
+});
+
 for (const width of [1280, 800, 390]) {
   test(`short Inspector preserves usable code and signature at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 720 });
