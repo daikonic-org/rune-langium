@@ -17,6 +17,7 @@ import {
 } from '../../helpers/expression-workspace.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 import { expectBodyProjection, expectEditorExpansion } from '../../helpers/body-projection.js';
+import { expectWorkspaceHeaderBounds } from '../../helpers/app-header.js';
 
 test.describe('J19 — Expression workspace production acceptance', () => {
   test.skip(!process.env.PLAYWRIGHT_PROD_SMOKE, 'set PLAYWRIGHT_PROD_SMOKE=1 to run against a deployed Studio');
@@ -227,6 +228,7 @@ func Compute(kind: Kind -> Cash):
       await loadPinnedFunction(page);
       const font = page.getByRole('button', { name: /Pane font size:/ }).first();
       while ((await font.getAttribute('data-font-scale-current')) !== 'lg') await font.click();
+      await expectWorkspaceHeaderBounds(page);
       await evidence.checkpoint('compact-large-font-inspector');
       await expectCenterPaneBounds(page);
       const dialog = await openBuilder(page);

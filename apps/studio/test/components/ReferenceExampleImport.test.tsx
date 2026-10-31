@@ -248,7 +248,7 @@ it('clears a manual object type and lets a typed sample supply its own identity'
   await screen.findByText('example.Payment · Data');
   expect(screen.queryByRole('button', { name: /^Example object type/ })).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Clear object type' }));
-  expect(screen.getByText('example.Payment · Data')).toBeVisible();
+  expect(await screen.findByText('example.Payment · Data')).toBeVisible();
 });
 
 it('uses the execution catalog identity for a function argument bundle and saves the original catalog provenance', async () => {

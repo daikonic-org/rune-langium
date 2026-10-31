@@ -347,34 +347,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
     [activeLayout, layoutedNodes, visibleEdges]
   );
 
-  const [nodes, setNodes, applyNodesChange] = useNodesState<DisplayGraphNode>([]);
-  const pendingDimensions = useRef<Parameters<typeof applyNodesChange>[0]>([]);
-  const dimensionFrame = useRef<number | undefined>(undefined);
-  // Measurement can trigger layout and semantic zoom, resizing the observed nodes.
-  // Apply dimensions after observer delivery; drag and selection remain immediate.
-  const onNodesChange = useCallback<typeof applyNodesChange>(
-    (changes) => {
-      const immediate = changes.filter((change) => change.type !== 'dimensions');
-      if (immediate.length) applyNodesChange(immediate);
-      pendingDimensions.current.push(...changes.filter((change) => change.type === 'dimensions'));
-      if (!pendingDimensions.current.length || dimensionFrame.current !== undefined) return;
-      dimensionFrame.current = requestAnimationFrame(() => {
-        dimensionFrame.current = undefined;
-        const dimensions = pendingDimensions.current;
-        pendingDimensions.current = [];
-        applyNodesChange(dimensions);
-      });
-    },
-    [applyNodesChange]
-  );
-  useEffect(
-    () => () => {
-      if (dimensionFrame.current !== undefined) cancelAnimationFrame(dimensionFrame.current);
-      dimensionFrame.current = undefined;
-      pendingDimensions.current = [];
-    },
-    []
-  );
+  const [nodes, setNodes, onNodesChange] = useNodesState<DisplayGraphNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<TypeGraphEdge>([]);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
@@ -893,8 +866,12 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
   useImperativeHandle(
     ref,
     () => ({
-      fitView() {
-        runViewportAction({ mode: 'fit-graph', fitOptions: { duration: 200 } });
+      fitView(nodeId?: string) {
+        runViewportAction({
+          focusNodeId: nodeId,
+          mode: nodeId ? 'fit-node' : 'fit-graph',
+          fitOptions: nodeId ? undefined : { duration: 200 }
+        });
       },
 
       focusNode(nodeId: string) {
@@ -946,9 +923,14 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         return { ...filtersRef.current };
       },
 
-      relayout(options?: LayoutOptions) {
+      relayout(options?: LayoutOptions, focusNodeId?: string) {
         if (options?.engine) setRuntimeLayoutEngine(options.engine);
-        return runViewportAction({ relayout: true, layoutOptions: options ?? activeLayout, mode: 'fit-graph' });
+        return runViewportAction({
+          relayout: true,
+          layoutOptions: options ?? activeLayout,
+          focusNodeId,
+          mode: focusNodeId ? 'fit-node' : 'fit-graph'
+        });
       },
 
       async exportImage(_format: 'svg' | 'png'): Promise<Blob> {

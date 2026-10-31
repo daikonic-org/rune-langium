@@ -94,8 +94,10 @@ packageExtensions:
     dependencies:
       type-fest: 5.10.0
 
-# GHSA-vfj7-8cjw-p6xm: structural guards backported from micromatch/braces#82.
 patchedDependencies:
+  # Defer ESM node measurement until after ResizeObserver delivery.
+  '@xyflow/react@12.12.0': patches/@xyflow__react@12.12.0.patch
+  # GHSA-vfj7-8cjw-p6xm: structural guards backported from micromatch/braces#82.
   braces@3.0.3: patches/braces@3.0.3.patch
   # Preserve contained-node union setters until langium-zod publishes support.
   langium-zod@0.12.2: patches/langium-zod@0.12.2.patch

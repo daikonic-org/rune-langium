@@ -2,9 +2,11 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { test, expect } from '@playwright/test';
-import { typeNavigationButton } from '../helpers/type-navigation.js';
+import { declarationNodeId, typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 import { expressionReferenceFiles } from '../../../../packages/codegen/test/helpers/cdm-reference.js';
+import { expectWorkspaceHeaderBounds } from '../helpers/app-header.js';
+import { captureResizeObserverErrors, expectNoResizeObserverErrors } from '../helpers/graph.js';
 
 const source = `namespace polish
 annotation marking:
@@ -37,6 +39,26 @@ func Margin:
  alias rate: Rate(schedule -> durationInYears)
  set result -> value: rate
 `;
+
+test('long workspace names stay within the compact header at large font sizes', async ({ page }, info) => {
+  await page.setViewportSize({ width: 800, height: 800 });
+  await page.goto('./');
+  const name = 'cdm.base.datetime-model-authoring-base-datetime-enum-with-a-long-workspace-name';
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: `${name}.rosetta`,
+    mimeType: 'text/plain',
+    buffer: Buffer.from(source)
+  });
+  const font = page.getByRole('button', { name: /Pane font size:/ }).first();
+  while ((await font.getAttribute('data-font-scale-current')) !== 'lg') await font.click();
+  await dismissLocalTransportNotices(page);
+  for (const width of [800, 1100, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expectWorkspaceHeaderBounds(page);
+    await expect(page.getByRole('button', { name: /^Workspace menu/ })).toHaveAccessibleName(new RegExp(name));
+    await page.screenshot({ path: info.outputPath(`long-workspace-header-${width}.png`) });
+  }
+});
 
 test('selected objects, compact guards, details and regenerated code remain connected', async ({ page }, info) => {
   await page.setViewportSize({ width: 1646, height: 988 });
@@ -134,13 +156,7 @@ test('Code preview follows model and Choice types alongside their public factori
 });
 
 test('graph measurement and semantic zoom settle while center panes resize', async ({ page }, info) => {
-  await page.addInitScript(() => {
-    const errors: string[] = [];
-    Object.defineProperty(window, '__testResizeErrors', { value: errors });
-    window.addEventListener('error', (event) => {
-      if (/ResizeObserver/.test(event.message)) errors.push(event.message);
-    });
-  });
+  await captureResizeObserverErrors(page);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('./');
   await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles(
@@ -166,7 +182,59 @@ test('graph measurement and semantic zoom settle while center panes resize', asy
     await stack.locator('[data-pane="inspector"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`graph-resize-${width}.png`) });
   }
-  expect(await page.evaluate(() => (window as Window & { __testResizeErrors: string[] }).__testResizeErrors)).toEqual(
-    []
-  );
+  await expectNoResizeObserverErrors(page);
+});
+
+test('semantic zoom hides detail without changing measured node geometry', async ({ page }, info) => {
+  await captureResizeObserverErrors(page);
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'polish.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(source)
+  });
+  await typeNavigationButton(page, 'polish.Payout').click();
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const graph = page.locator('.rune-type-graph');
+  const node = graph.locator(`.react-flow__node[data-id="${declarationNodeId('polish.Payout')}"]`);
+  await expect(node).toBeInViewport();
+  await expect(node.locator('.rune-node-body')).toBeVisible();
+  const dimensions = () =>
+    node.evaluate((el) => ({ width: (el as HTMLElement).offsetWidth, height: (el as HTMLElement).offsetHeight }));
+  const fullSize = await dimensions();
+  for (let i = 0; i < 6; i++) await graph.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+  await expect(graph).toHaveClass(/rune-type-graph--zoom-low/);
+  await expect(node).toBeInViewport();
+  await expect(node.locator('.rune-node-body')).toBeHidden();
+  await expect(node.locator('.rune-node-summary')).toBeVisible();
+  await expect.poll(dimensions).toEqual(fullSize);
+  await page.screenshot({ path: info.outputPath('stable-low-zoom.png') });
+  for (let i = 0; i < 6; i++) await graph.getByRole('button', { name: 'Zoom In', exact: true }).click();
+  await expect(node.locator('.rune-node-body')).toBeVisible();
+  await expect.poll(dimensions).toEqual(fullSize);
+  await expectNoResizeObserverErrors(page);
+});
+
+test('graph selection stays readable when opening and resizing its companion pane', async ({ page }, info) => {
+  await captureResizeObserverErrors(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('./');
+  const dense = `namespace graph.fit\ntype Counterparty:\n role string (1..1)\n${Array.from({ length: 60 }, (_, index) => `type Peer${index}:\n party Counterparty (1..1)\n`).join('')}`;
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'parties.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(dense)
+  });
+  await page.getByTestId('namespace-search').fill('Counterparty');
+  await typeNavigationButton(page, 'graph.fit.Counterparty').click();
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  const node = page.locator(`.react-flow__node[data-id="${declarationNodeId('graph.fit.Counterparty')}"]`);
+  for (const width of [1280, 1000, 1440]) {
+    await page.setViewportSize({ width, height: 720 });
+    await expect(node).toBeInViewport();
+    await expect.poll(async () => (await node.boundingBox())?.width ?? 0).toBeGreaterThan(100);
+    await page.screenshot({ path: info.outputPath(`selected-party-${width}.png`) });
+  }
+  await expectNoResizeObserverErrors(page);
 });
