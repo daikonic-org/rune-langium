@@ -14,8 +14,13 @@ import {
   prepareProjectReferenceView,
   materializeProjectReferenceView
 } from '../../src/services/project-reference-view.js';
-import { workspaceDeclarationIdentities } from '../../src/workspace/example-identity.js';
+import {
+  workspaceDeclarationIdentities,
+  resolveExampleType,
+  resolvePresentationType
+} from '../../src/workspace/example-identity.js';
 import { createProjectSnapshot } from '@rune-langium/project-config';
+import { previewTypeSymbol } from '@rune-langium/codegen/export';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import { createOpfsRoot, writeBytes } from '../setup/opfs-mock.js';
@@ -177,6 +182,19 @@ it('publishes the complete index before materializing references and links selec
     signal
   );
   expect(view.models).toHaveLength(0);
+  expect(view.deferredExports.every((entry) => view.files.some((file) => file.path === entry.filePath))).toBe(true);
+  expect(resolveExampleType(view, { typeFqn: 'pinned.Payment' })).toEqual({
+    model: 'cdm',
+    namespace: 'pinned',
+    kind: 'Data',
+    name: 'Payment'
+  });
+  expect(resolvePresentationType(view, previewTypeSymbol('Data', 'pinned.Payment'))).toEqual({
+    model: 'cdm',
+    namespace: 'pinned',
+    kind: 'Data',
+    name: 'Payment'
+  });
   expect(view.deferredExports.flatMap((entry) => entry.exports).some((entry) => entry.name.includes('.'))).toBe(false);
   expect(view.deferredExports).toContainEqual(
     expect.objectContaining({

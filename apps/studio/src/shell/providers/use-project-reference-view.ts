@@ -46,13 +46,14 @@ export const useProjectReferenceView = withInstrumentation(
         .then((view) => {
           currentView = view;
           if (!abort.signal.aborted) {
-            if (referenceDocuments.current !== input.referenceDocuments) {
+            const sameReferenceCapture = referenceDocuments.current === input.referenceDocuments;
+            if (!sameReferenceCapture) {
               useEditorStore.getState().resetHydration();
               referenceDocuments.current = input.referenceDocuments;
             }
             const previous = latestView.current;
             const retained =
-              previous && previous.workspaceId === state.workspaceId
+              sameReferenceCapture && previous && previous.workspaceId === state.workspaceId
                 ? previous.parsedModels.filter((model) => {
                     const old = previous.files.find((file) => file.path === model.filePath);
                     const next = view.files.find((file) => file.path === model.filePath);

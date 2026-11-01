@@ -19,13 +19,10 @@ export const prepareReferenceArtifact = withInstrumentation(
     const bundle: DecodedReferenceArtifact = decodeReferenceArtifact(bytes);
     for (const doc of bundle.documents) {
       const sourceHash = await projectFileRevision(doc.modelJson);
-      doc.lsp = await curatedArtifactCache.referenceDerived(sourceHash);
-      if (!doc.lsp) {
-        doc.lsp = { metadata: readLspModelMetadata(doc.modelJson), compact: compactLspModelJson(doc.modelJson) };
-        await curatedArtifactCache.putReferenceDerived(sourceHash, doc.lsp);
-      }
-      // Older publications may omit the index. Use ScopeComputation, never a parallel AST approximation.
-      if (!doc.exports) {
+      let derived = await curatedArtifactCache.referenceDerived(sourceHash);
+      if (!derived) {
+        // Publication indexes contain declaration names, not Core's complete
+        // qualified/enum scope. Derive that authoritative index even when present.
         const services = createRuneDslServices(EmptyFileSystem);
         const { document } = hydrateModelDocument(
           services,
@@ -33,10 +30,18 @@ export const prepareReferenceArtifact = withInstrumentation(
           doc.modelJson,
           { register: 'always' }
         );
-        doc.exports = (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(document)).map(
+        const exports = (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(document)).map(
           ({ type, name, path }) => ({ type, name, path })
         );
+        derived = {
+          metadata: readLspModelMetadata(doc.modelJson),
+          compact: compactLspModelJson(doc.modelJson),
+          exports
+        };
+        await curatedArtifactCache.putReferenceDerived(sourceHash, derived);
       }
+      doc.lsp = { metadata: derived.metadata, compact: derived.compact };
+      doc.exports = derived.exports;
     }
     return bundle;
   },

@@ -259,8 +259,9 @@ export const createCuratedArtifactCache = withInstrumentation(
         const value = await read('reference-derived', sourceHash);
         const parsed = z
           .object({
-            version: z.literal(2),
+            version: z.literal(3),
             compact: z.string(),
+            exports: z.array(CuratedSerializedDocumentExportSchema),
             metadata: z.object({
               namespace: z.string().optional(),
               sourceUri: z.string().optional(),
@@ -270,13 +271,17 @@ export const createCuratedArtifactCache = withInstrumentation(
             })
           })
           .safeParse(value);
-        return parsed.success ? { metadata: parsed.data.metadata, compact: parsed.data.compact } : undefined;
+        return parsed.success
+          ? { metadata: parsed.data.metadata, compact: parsed.data.compact, exports: parsed.data.exports }
+          : undefined;
       },
       async putReferenceDerived(
         sourceHash: string,
-        value: import('@rune-langium/project-runtime/references').ReferenceModelInfo
+        value: import('@rune-langium/project-runtime/references').ReferenceModelInfo & {
+          exports: HydrationDocument['exports'];
+        }
       ) {
-        await write('reference-derived', sourceHash, { version: 2, ...value });
+        await write('reference-derived', sourceHash, { version: 3, ...value });
       },
       async referenceBytes(checksum: string): Promise<Uint8Array | undefined> {
         const value = await read('reference-bytes', checksum);

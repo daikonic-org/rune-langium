@@ -1281,7 +1281,10 @@ Studio deduplicates concurrent immutable-artifact decodes by verified checksum i
 a bounded LRU (192 MiB, conservative UTF-16 payload accounting). Cancellation
 belongs to each consumer; it cannot cancel another consumer's shared decode.
 Failures are not retained. The existing bounded IndexedDB artifact store retains
-versioned canonical dependency metadata and compact LSP payloads by source digest.
+versioned canonical dependency metadata, compact LSP payloads and ScopeComputation
+exports by source digest. Publication declaration indexes are not complete scope
+indexes; the worker derives the qualified and enum aliases with Core and caches
+them separately from the authored declaration inventory.
 Bump the derived format version when those Core contracts change. Derived cache
 storage failure is a miss; no cache can waive compressed-byte verification.
 
@@ -1292,8 +1295,11 @@ by workspace ownership to that pinned document set; it cannot fall back to a
 moving server mirror. Linking materializes the selected namespace and transitively
 needed models. Before UI publication, that subset passes through Core hydration
 so consumers receive linked ASTs with container/reference contracts, not wire
-snapshots. Authored root declarations remain distinct from qualified scope aliases. Unchanged serialized reference snapshots survive source-only
-refreshes, while a new reference capture resets hydration readiness. Reinstalling
+snapshots. Deferred declaration ownership uses the matching workspace file path.
+Authored root declarations remain distinct from qualified scope aliases. Linked
+reference snapshots survive source-only refreshes only within the same reference
+capture; a new capture drops the entire retained graph and resets hydration readiness
+so unchanged documents cannot retain pointers into changed dependencies. Reinstalling
 an identical parser document set preserves its linked state. Selection/focus and
 read-only ownership survive placeholder replacement. Derived LSP/index data stays
 out of preview/download semantic worker payloads.

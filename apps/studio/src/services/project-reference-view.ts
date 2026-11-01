@@ -83,10 +83,11 @@ export const prepareProjectReferenceView = withInstrumentation(
       const info = referenceInfo.get(entry.uri);
       const root = roots.get(entry.uri);
       const exports =
-        info?.exports ??
-        (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(root!.document)).map(
-          ({ name, type, path }) => ({ name, type, path })
-        );
+        info?.lsp && info.exports
+          ? info.exports
+          : (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(root!.document)).map(
+              ({ name, type, path }) => ({ name, type, path })
+            );
       documents.push({
         uri: entry.uri,
         content: entry.file.content,
@@ -111,7 +112,7 @@ export const prepareProjectReferenceView = withInstrumentation(
         serializedModelJson: entry.json
       })),
       deferredExports: documents.map((doc) => ({
-        filePath: referenceInfo.get(doc.uri)?.uri ?? entries.find((entry) => entry.uri === doc.uri)!.file.path,
+        filePath: entries.find((entry) => entry.uri === doc.uri)!.file.path,
         namespace: namespace(doc.uri),
         exports:
           referenceInfo.get(doc.uri)?.lsp?.metadata.declarations ??

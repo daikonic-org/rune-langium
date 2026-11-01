@@ -16,6 +16,8 @@ import {
   setWorkspaceFilesDeps
 } from '../../../src/workspace/workspace-files.js';
 import { createOpfsRoot, writeBytes } from '../../setup/opfs-mock.js';
+import { createRuneDslServices, serializeRuneModel, type Data } from '@rune-langium/core';
+import { EmptyFileSystem, URI } from 'langium';
 
 vi.mock('../../../src/services/project-reference-view.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/services/project-reference-view.js')>()),
@@ -167,4 +169,81 @@ it('rejects an invalid materialized document through the request and retains the
   await expect(hydrateProjectNamespaces('editing', ['pinned'])).rejects.toThrow('current verified view');
   expect(result.current.state.models).toEqual([]);
   expect(result.current.referenceView?.status).toBe('ready');
+});
+
+it('retains linked ASTs for source edits only, and relinks unchanged A when its dependency B changes', async () => {
+  const state = stateFor([]);
+  const services = createRuneDslServices(EmptyFileSystem);
+  const documents = [
+    ['a', 'namespace pinned\ntype A:\n child B (1..1)'],
+    ['b', 'namespace pinned\ntype B:']
+  ].map(([name, source]) =>
+    services.shared.workspace.LangiumDocumentFactory.fromString(source!, URI.parse(`file:///[cdm]/${name}.rosetta`))
+  );
+  for (const document of documents) services.shared.workspace.LangiumDocuments.addDocument(document);
+  await services.shared.workspace.DocumentBuilder.build(documents, { validation: false, eagerLinking: true });
+  const parsedModels = documents.map((document, index) => ({
+    filePath: `[cdm]/${index ? 'b' : 'a'}.rosetta`,
+    model: document.parseResult.value as import('@rune-langium/core').RosettaModel,
+    source: document.textDocument.getText(),
+    serializedModelJson: serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, document.parseResult.value)
+  }));
+  const files = parsedModels.map((entry) => ({
+    ...file(entry.filePath, entry.source),
+    namespace: 'pinned',
+    readOnly: true,
+    refOnly: true,
+    serializedModelJson: entry.serializedModelJson,
+    bundleId: 'cdm'
+  }));
+  const a = parsedModels[0]!.model.elements[0] as Data;
+  const oldB = parsedModels[1]!.model.elements[0];
+  expect(a.attributes[0]!.typeCall!.type?.ref).toBe(oldB);
+  const initialView = { ...state, files, parsedModels, models: parsedModels.map((entry) => entry.model) };
+  const inventory = { ...state, files };
+  const capture = files.map((entry) => ({
+    uri: entry.path,
+    content: entry.content,
+    serialized: entry.serializedModelJson
+  }));
+  const initialRuntime = { ...runtime, input: { referenceDocuments: capture } as ProjectRuntimeInput };
+  vi.mocked(prepareProjectReferenceView).mockResolvedValueOnce(initialView).mockResolvedValueOnce(inventory);
+  const { result, rerender } = renderHook(({ active }) => useProjectReferenceView(active, state), {
+    initialProps: { active: initialRuntime }
+  });
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  // A new source capture reuses the exact same immutable reference capture.
+  rerender({ active: { ...initialRuntime, input: { ...initialRuntime.input! } } });
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  expect(result.current.state.models[0]!.elements[0]).toBe(a);
+  const changedB = JSON.parse(files[1]!.serializedModelJson);
+  changedB.elements[0].definition = 'new capture';
+  const nextFiles = [files[0]!, { ...files[1]!, serializedModelJson: JSON.stringify(changedB) }];
+  vi.mocked(prepareProjectReferenceView).mockResolvedValueOnce({ ...state, files: nextFiles });
+  const nextCapture = nextFiles.map((entry) => ({
+    uri: entry.path,
+    content: entry.content,
+    serialized: entry.serializedModelJson
+  }));
+  rerender({ active: { ...initialRuntime, input: { referenceDocuments: nextCapture } as ProjectRuntimeInput } });
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  // A's bytes are unchanged, but its old pointer to B cannot cross capture boundaries.
+  expect(result.current.state.models).toEqual([]);
+  vi.mocked(linkDocument).mockResolvedValue({
+    linked: true,
+    errors: [],
+    newModels: documents.map((document) => ({
+      ...document.parseResult.value,
+      $textRegion: { documentURI: document.uri.toString() }
+    })) as never
+  });
+  await act(async () => {
+    await hydrateProjectNamespaces('editing', ['pinned']);
+  });
+  const nextA = result.current.state.models[0]!.elements[0] as Data;
+  const nextB = result.current.state.models[1]!.elements[0];
+  expect(nextA).not.toBe(a);
+  expect(nextA.attributes[0]!.typeCall!.type?.ref).toBe(nextB);
+  expect(nextB).not.toBe(oldB);
+  expect(nextB).toMatchObject({ definition: 'new capture' });
 });

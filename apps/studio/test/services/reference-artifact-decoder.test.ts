@@ -9,7 +9,8 @@ import {
   compactLspModelJson,
   readLspModelMetadata
 } from '@rune-langium/core';
-import { EmptyFileSystem } from 'langium';
+import { EmptyFileSystem, URI } from 'langium';
+import type { Data } from '@rune-langium/core';
 import {
   createReferenceArtifactDecoder,
   prepareReferenceArtifact
@@ -18,7 +19,7 @@ import { curatedArtifactCache } from '../../src/services/curated-artifact-cache.
 import { projectFileRevision } from '@rune-langium/project-config';
 
 afterEach(() => vi.restoreAllMocks());
-async function fixture() {
+async function fixture(indexed = false) {
   const source = 'namespace reference\ntype Payment:\n amount number (1..1)';
   const parsed = await parse(source);
   const services = createRuneDslServices(EmptyFileSystem);
@@ -32,13 +33,23 @@ async function fixture() {
         modelId: 'cdm',
         version: '2026-10-31',
         langiumVersion: '4.4.0',
-        documents: [{ path: 'payment.rosetta', modelJson }]
+        documents: [
+          {
+            path: 'payment.rosetta',
+            modelJson,
+            ...(indexed
+              ? {
+                  exports: [{ name: 'Payment', type: 'Data', path: '/elements@0' }]
+                }
+              : {})
+          }
+        ]
       })
     )
   };
 }
-it('prepares canonical index/metadata/compaction and restores derived data on the next decode', async () => {
-  const { bytes, modelJson } = await fixture();
+it.each([false, true])('prepares and caches canonical scope even with publication index=%s', async (indexed) => {
+  const { bytes, modelJson } = await fixture(indexed);
   const hash = await projectFileRevision(modelJson);
   let stored: Awaited<ReturnType<typeof curatedArtifactCache.referenceDerived>>;
   vi.spyOn(curatedArtifactCache, 'referenceDerived').mockImplementation(async (key) =>
@@ -53,8 +64,42 @@ it('prepares canonical index/metadata/compaction and restores derived data on th
     compact: compactLspModelJson(modelJson)
   });
   expect(first.documents[0]!.exports).toContainEqual({ name: 'Payment', type: 'Data', path: '/elements@0' });
-  expect((await prepareReferenceArtifact(bytes)).documents[0]!.lsp).toEqual(first.documents[0]!.lsp);
+  expect(first.documents[0]!.exports).toContainEqual({ name: 'reference.Payment', type: 'Data', path: '/elements@0' });
+  const next = (await prepareReferenceArtifact(bytes)).documents[0]!;
+  expect(next.lsp).toEqual(first.documents[0]!.lsp);
+  expect(next.exports).toEqual(first.documents[0]!.exports);
   expect(write).toHaveBeenCalledOnce();
+});
+
+it.each(['reference.Payment', 'ref.Payment'])('lazily loads an indexed publication through %s', async (typeName) => {
+  const { createParserWorkerHarness } = await import('../workers/parser-worker-harness.js');
+  const { _testInternals } = await import('../../src/workers/parser-worker.js');
+  const worker = createParserWorkerHarness();
+  const { bytes } = await fixture(true);
+  const artifact = await prepareReferenceArtifact(bytes);
+  const document = artifact.documents[0]!;
+  const referenceUri = 'file:///[cdm]/payment.rosetta';
+  const ownerUri = 'file:///owner.rosetta';
+  const source = `namespace local\nimport reference.* as ref\ntype Owned:\n payment ${typeName} (1..1)`;
+  const installed = await worker.send({
+    type: 'parseWorkspace',
+    id: typeName,
+    files: [
+      {
+        name: referenceUri,
+        content: 'namespace reference',
+        serializedModelJson: document.modelJson,
+        exports: document.exports!
+      },
+      { name: ownerUri, content: source }
+    ]
+  });
+  expect(installed).toMatchObject({ errors: {} });
+  expect(worker.findExport('reference.Payment')).toBeDefined();
+  const owner = _testInternals().services.shared.workspace.LangiumDocuments.getDocument(URI.parse(ownerUri))!;
+  const owned = (owner.parseResult.value as import('@rune-langium/core').RosettaModel).elements[0] as Data;
+  expect(owned.attributes[0]!.typeCall!.type?.ref).toMatchObject({ $type: 'Data', name: 'Payment' });
+  expect(worker.hasDeferredModel(referenceUri)).toBe(false);
 });
 it('deduplicates concurrent verified decodes without sharing cancellation and bounds retained payloads', async () => {
   const { bytes } = await fixture();
