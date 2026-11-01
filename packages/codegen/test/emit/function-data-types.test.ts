@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { generatedDirectory } from '../helpers/generated-directory.js';
+import { generatedTypeScriptCompilerOptions } from '../helpers/compiled-typescript.js';
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,14 +29,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
   ).toEqual([]);
   const code = outputs[0]!.content;
   const fileName = new URL('./generated-function-data-types.ts', import.meta.url).pathname;
-  const options: ts.CompilerOptions = {
-    strict: true,
-    noEmit: true,
-    target: ts.ScriptTarget.ESNext,
-    module: ts.ModuleKind.CommonJS,
-    skipLibCheck: true,
-    types: []
-  };
+  const options = generatedTypeScriptCompilerOptions({ module: ts.ModuleKind.CommonJS });
   const host = ts.createCompilerHost(options);
   const readFile = host.readFile.bind(host);
   host.readFile = (file) => (file === fileName ? `${code}\n${assertions}` : readFile(file));
@@ -226,15 +220,13 @@ func ReadValue:
           writeFileSync(path, output.content);
           return path;
         });
-        const program = ts.createProgram(files, {
-          strict: true,
-          noEmit: true,
-          target: ts.ScriptTarget.ESNext,
-          module: ts.ModuleKind.NodeNext,
-          moduleResolution: ts.ModuleResolutionKind.NodeNext,
-          skipLibCheck: true,
-          types: []
-        });
+        const program = ts.createProgram(
+          files,
+          generatedTypeScriptCompilerOptions({
+            module: ts.ModuleKind.NodeNext,
+            moduleResolution: ts.ModuleResolutionKind.NodeNext
+          })
+        );
         expect(
           ts
             .getPreEmitDiagnostics(program)
