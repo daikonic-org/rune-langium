@@ -85,6 +85,7 @@ for (const width of [1440, 390])
     await expect(page.getByTestId('explore-workbench')).toBeVisible();
     await page.getByTestId('namespace-search').fill('Payment');
     await typeNavigationButton(page, 'pinned.Payment', 'Data').click();
+    await expect(page.locator('.rune-structure-document')).toContainText('amount');
     expect(artifactReads).toBe(reads);
     expect(catalogReads).toBe(catalogs);
     if (width === 390) {

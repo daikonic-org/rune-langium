@@ -414,45 +414,6 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
   }, [activeLayout.direction, activeLayout.engine, activeLayout.groupByInheritance, graphNodes, nodesInitialized]);
   const measuredLayoutKeyRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!measuredLayoutKey) {
-      measuredLayoutKeyRef.current = null;
-      return;
-    }
-    if (measuredLayoutKeyRef.current === measuredLayoutKey) return;
-    // Guard against the same staleness hazard as the focus-fit/selection-fit
-    // effects above: `graphNodes` is derived from local `nodes` state, which
-    // can still reflect the PRE-update value when this effect fires in the
-    // same commit as the "sync store data into local ReactFlow state" effect
-    // (e.g. right after a `selectNode` call changes `visibility`). Relaying
-    // out over that stale set here would silently clobber the sync effect's
-    // correct, freshly-filtered `setNodes` result back to the unfiltered
-    // node list. Only proceed once `graphNodes` actually agrees with the
-    // current store-derived `visibleNodes` set — a mismatch means the sync
-    // effect's update hasn't landed yet, and this effect will re-fire
-    // correctly (with a fresh `measuredLayoutKey`) once it has.
-    if (
-      graphNodes.length !== visibleNodes.length ||
-      !graphNodes.every((n) => visibleNodes.some((v) => v.id === n.id))
-    ) {
-      return;
-    }
-    measuredLayoutKeyRef.current = measuredLayoutKey;
-    if ((activeLayout.engine ?? 'dagre') === 'elk') {
-      computeLayoutAsync(graphNodes, edges, activeLayout).then((relayoutedNodes) => {
-        if (!relayoutedNodes) return;
-        if (shouldReplaceLayoutPositions(graphNodes, relayoutedNodes)) {
-          setNodes(relayoutedNodes);
-        }
-      });
-      return;
-    }
-    const relayoutedNodes = computeLayout(graphNodes, edges, activeLayout);
-    if (shouldReplaceLayoutPositions(graphNodes, relayoutedNodes)) {
-      setNodes(relayoutedNodes);
-    }
-  }, [activeLayout, edges, graphNodes, measuredLayoutKey, setNodes, visibleNodes]);
-
   // Initial viewport restore — runs once after nodes are measured for the first time.
   // Replaces the old setTimeout(50) approach which fired before dimensions were ready.
   useEffect(() => {
@@ -600,6 +561,56 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
     },
     [activeLayout, edges, focusMode, graphNodes, scheduleFitView, setCenter, setNodes]
   );
+
+  // Remeasuring can move a selected node even when its identity is unchanged.
+  // Apply layout and viewport together using the same canonical view action.
+  useEffect(() => {
+    if (!measuredLayoutKey) {
+      measuredLayoutKeyRef.current = null;
+      return;
+    }
+    if (measuredLayoutKeyRef.current === measuredLayoutKey) return;
+    // Guard against the same staleness hazard as the focus-fit/selection-fit
+    // effects above: `graphNodes` is derived from local `nodes` state, which
+    // can still reflect the PRE-update value when this effect fires in the
+    // same commit as the "sync store data into local ReactFlow state" effect
+    // (e.g. right after a `selectNode` call changes `visibility`). Relaying
+    // out over that stale set here would silently clobber the sync effect's
+    // correct, freshly-filtered `setNodes` result back to the unfiltered
+    // node list. Only proceed once `graphNodes` actually agrees with the
+    // current store-derived `visibleNodes` set — a mismatch means the sync
+    // effect's update hasn't landed yet, and this effect will re-fire
+    // correctly (with a fresh `measuredLayoutKey`) once it has.
+    if (
+      graphNodes.length !== visibleNodes.length ||
+      !graphNodes.every((n) => visibleNodes.some((v) => v.id === n.id))
+    ) {
+      return;
+    }
+    measuredLayoutKeyRef.current = measuredLayoutKey;
+    if (selectedNodeId)
+      return runViewportAction({
+        relayout: true,
+        layoutOptions: activeLayout,
+        relayoutNodes: graphNodes,
+        relayoutEdges: edges,
+        focusNodeId: selectedNodeId,
+        mode: 'fit-node'
+      });
+    if ((activeLayout.engine ?? 'dagre') === 'elk') {
+      computeLayoutAsync(graphNodes, edges, activeLayout).then((relayoutedNodes) => {
+        if (!relayoutedNodes) return;
+        if (shouldReplaceLayoutPositions(graphNodes, relayoutedNodes)) {
+          setNodes(relayoutedNodes);
+        }
+      });
+      return;
+    }
+    const relayoutedNodes = computeLayout(graphNodes, edges, activeLayout);
+    if (shouldReplaceLayoutPositions(graphNodes, relayoutedNodes)) {
+      setNodes(relayoutedNodes);
+    }
+  }, [activeLayout, edges, graphNodes, measuredLayoutKey, runViewportAction, selectedNodeId, setNodes, visibleNodes]);
 
   // Re-layout and fit view whenever the focus subgraph changes.
   // Guard with `nodesInitialized` (canonical React Flow pattern) so layout runs

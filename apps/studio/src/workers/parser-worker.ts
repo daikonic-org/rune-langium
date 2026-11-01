@@ -10,6 +10,10 @@
  * and returns parsed results.
  */
 
+import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
+import type { ProjectDiagnostic } from '@rune-langium/project-config';
+import { prepareReferenceArtifact } from '../services/reference-artifact-decoder.js';
+import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { isRecord } from '../services/message-guards.js';
 import {
   getExpressionScope,
@@ -69,6 +73,8 @@ export interface LinkDocumentRequest {
   type: 'linkDocument';
   id: string;
   uri: string;
+  /** Return the selected root even when another consumer linked it first. */
+  snapshot?: boolean;
 }
 
 export interface LinkDocumentResponse {
@@ -146,7 +152,31 @@ export interface InspectNamespaceResponse {
   error?: string;
 }
 
+export interface DecodeReferenceRequest {
+  type: 'decodeReference';
+  id: string;
+  bytes: Uint8Array;
+}
+export interface DecodeReferenceResponse {
+  type: 'decodeReferenceResult';
+  id: string;
+  artifact?: DecodedReferenceArtifact;
+  error?: string;
+}
+export interface ReviewReferenceRequest {
+  type: 'reviewReference';
+  id: string;
+  input: Parameters<typeof reviewProjectCompatibility>;
+}
+export interface ReviewReferenceResponse {
+  type: 'reviewReferenceResult';
+  id: string;
+  diagnostics?: ProjectDiagnostic[];
+  error?: string;
+}
 export type WorkerRequest =
+  | ReviewReferenceRequest
+  | DecodeReferenceRequest
   | ParseRequest
   | ParseWorkspaceRequest
   | LinkDocumentRequest
@@ -189,6 +219,8 @@ export interface ParseWorkspaceResponse {
 }
 
 export type WorkerResponse =
+  | ReviewReferenceResponse
+  | DecodeReferenceResponse
   | ParseResponse
   | ParseWorkspaceResponse
   | LinkDocumentResponse
@@ -200,6 +232,7 @@ export type WorkerResponse =
 // Populated by handleParseWorkspace, consumed lazily by RuneDslLinker.loadAstNode
 // when Langium resolves cross-references during handleLinkDocument.
 const deferredModelJson = new Map<string, string>();
+let installedProjectDocuments: HydrateRequest['documents'] | undefined;
 const deferredArtifactKeys = new Map<string, string>();
 const invalidArtifactKeys = new Set<string>();
 // User models are already published in the routed parse response.
@@ -363,6 +396,7 @@ async function resetWorkspace(): Promise<void> {
     documents.map((document) => document.uri)
   );
   for (const uri of indexedUris.values()) indexManager.remove(uri);
+  installedProjectDocuments = undefined;
   deferredModelJson.clear();
   deferredArtifactKeys.clear();
   invalidArtifactKeys.clear();
@@ -559,6 +593,8 @@ const handleLinkDocument = withInstrumentation(
           invalidArtifactKeys: [...invalidArtifactKeys]
         };
       }
+      if (req.snapshot && !newModelsAccumulator.includes(doc.parseResult.value as RosettaModel))
+        newModelsAccumulator.push(doc.parseResult.value as RosettaModel);
       return {
         type: 'linkDocumentResult',
         id: req.id,
@@ -593,6 +629,20 @@ const handleLinkDocument = withInstrumentation(
 
 async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
   try {
+    if (
+      installedProjectDocuments?.length === req.documents.length &&
+      req.documents.every((doc, index) => {
+        const previous = installedProjectDocuments![index]!;
+        return (
+          doc.uri === previous.uri &&
+          doc.serializedModel === previous.serializedModel &&
+          doc.bundleId === previous.bundleId &&
+          doc.artifactKey === previous.artifactKey &&
+          JSON.stringify(doc.exports) === JSON.stringify(previous.exports)
+        );
+      })
+    )
+      return { type: 'hydrateResult', id: req.id, ok: true };
     await resetWorkspace();
 
     // Register each document using a single canonical URI for both the deferred-model
@@ -613,6 +663,7 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
         indexManager.registerExports(uri, descriptions);
       }
     }
+    installedProjectDocuments = req.documents;
     return { type: 'hydrateResult', id: req.id, ok: true };
   } catch (err) {
     return {
@@ -721,6 +772,30 @@ export const dispatchWorkerRequest = withInstrumentation(
   async function dispatchWorkerRequest(req: WorkerRequest): Promise<WorkerResponse> {
     const run = async (): Promise<WorkerResponse> => {
       switch (req.type) {
+        case 'reviewReference':
+          try {
+            return {
+              type: 'reviewReferenceResult',
+              id: req.id,
+              diagnostics: await reviewProjectCompatibility(...req.input)
+            };
+          } catch (error) {
+            return {
+              type: 'reviewReferenceResult',
+              id: req.id,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        case 'decodeReference':
+          try {
+            return { type: 'decodeReferenceResult', id: req.id, artifact: await prepareReferenceArtifact(req.bytes) };
+          } catch (error) {
+            return {
+              type: 'decodeReferenceResult',
+              id: req.id,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
         case 'parse':
           return handleParse(req);
         case 'parseWorkspace':

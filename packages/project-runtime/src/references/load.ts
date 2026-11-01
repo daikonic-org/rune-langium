@@ -20,7 +20,8 @@ import {
   referenceFailure,
   type ReferenceTransport,
   type ReferenceCache,
-  type ReferenceDocument
+  type ReferenceDocument,
+  type DecodedReferenceArtifact
 } from './types.js';
 
 /** Verify the whole pinned closure before exposing documents or promoting fetched bytes. */
@@ -50,7 +51,9 @@ export async function loadLockedReferences(
           throw new ReferenceFailure('REFERENCE_DEPENDENCY', 'Locked dependency mismatch: ' + id + ' -> ' + dependency);
       }
       documents.push(
-        ...(await readReferenceDocuments(id, manifest, lock.toolchain.langium, read)).map((document) =>
+        ...(
+          await readReferenceDocuments(id, manifest, lock.toolchain.langium, read, transport.decodeArtifact, signal)
+        ).map((document) =>
           document.source
             ? { ...document, source: { ...document.source, release: entry.release, repository: entry.repository } }
             : document
@@ -126,12 +129,19 @@ export async function readReferenceManifest(
   return manifest;
 }
 
+/** Canonical decoder shared by native hosts and browser workers. */
+export function decodeReferenceArtifact(bytes: Uint8Array) {
+  return CuratedSerializedWorkspaceArtifactSchema.parse(JSON.parse(new TextDecoder().decode(inflate(bytes))));
+}
+
 /** Shared bundle, checksum, format and document-path validation for tagged and moving references. */
 export async function readReferenceDocuments(
   id: string,
   manifest: CuratedManifest,
   langiumVersion: string | undefined,
-  read: (url: string, checksum: string) => Promise<Uint8Array>
+  read: (url: string, checksum: string) => Promise<Uint8Array>,
+  decode?: ReferenceTransport['decodeArtifact'],
+  signal: AbortSignal = new AbortController().signal
 ): Promise<ReferenceDocument[]> {
   const artifact = manifest.artifacts?.serializedWorkspace;
   if (!artifact || !artifact.url.includes('/artifacts/') || artifact.url.includes('/latest'))
@@ -139,7 +149,10 @@ export async function readReferenceDocuments(
   const bytes = await read(artifact.url, artifact.sha256);
   if (bytes.byteLength !== artifact.sizeBytes)
     throw new ReferenceFailure('REFERENCE_CHECKSUM', 'Serialized artifact size mismatch: ' + id);
-  const bundle = CuratedSerializedWorkspaceArtifactSchema.parse(JSON.parse(new TextDecoder().decode(inflate(bytes))));
+  const bundle: DecodedReferenceArtifact = decode
+    ? await decode(bytes, artifact.sha256, signal)
+    : decodeReferenceArtifact(bytes);
+  signal.throwIfAborted();
   if (
     bundle.modelId !== id ||
     bundle.langiumVersion !== artifact.langiumVersion ||
@@ -158,6 +171,8 @@ export async function readReferenceDocuments(
       uri: `${id}/${path}`,
       content: doc.content ?? '',
       serialized: doc.modelJson,
+      exports: doc.exports,
+      ...(doc.lsp ? { lsp: doc.lsp } : {}),
       ...(manifest.cohort ? { cohort: manifest.cohort } : {}),
       ...(Object.hasOwn(CURATED_MODEL_REPOSITORIES, id) && /^[a-f0-9]{40}$/.test(manifest.upstreamCommit)
         ? {

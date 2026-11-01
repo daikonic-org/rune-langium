@@ -51,3 +51,18 @@ export const captureProjectRuntimeInput = withInstrumentation(
   { op: 'captureProjectRuntimeInput', capture: 0 }
 );
 export type ProjectRuntimeInput = Awaited<ReturnType<typeof captureProjectRuntimeInput>>;
+
+/** Derived LSP/index caches stay in the UI host; semantic workers receive one AST payload. */
+export const semanticReferenceDocuments = withInstrumentation(
+  function semanticReferenceDocuments(documents: readonly ReferenceDocument[]) {
+    return documents.map(({ lsp: _lsp, exports: _exports, ...document }) => document);
+  },
+  { op: 'semanticReferenceDocuments', capture: 0 }
+);
+export const projectWorkerInput = withInstrumentation(
+  function projectWorkerInput(input: ProjectRuntimeInput): ProjectRuntimeInput {
+    if (!input.referenceDocuments?.some((document) => document.lsp || document.exports)) return input;
+    return { ...input, referenceDocuments: semanticReferenceDocuments(input.referenceDocuments) };
+  },
+  { op: 'projectWorkerInput', capture: 0 }
+);

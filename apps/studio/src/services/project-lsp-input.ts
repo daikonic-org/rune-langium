@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
+import { URI } from 'langium';
 import { projectSourcePaths } from '@rune-langium/project-config';
 import { projectReferenceUri } from '@rune-langium/project-runtime/context';
 import type { ProjectRuntimeInput } from './project-runtime-input.js';
@@ -26,6 +27,11 @@ export const collectProjectLspInput = withInstrumentation(
       }
     );
     for (const document of input.referenceDocuments) {
+      if (document.lsp && document.serialized)
+        cache.set(URI.parse(projectReferenceUri(document.uri)).toString(), {
+          source: document.serialized,
+          ...document.lsp
+        });
       if (!document.serialized) throw new Error(`The locked semantic document is unavailable: ${document.uri}`);
       files.push({
         path: projectReferenceUri(document.uri),

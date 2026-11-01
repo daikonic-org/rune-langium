@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { projectWorkerInput, type ProjectRuntimeInput } from './project-runtime-input.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
 export type CodegenDownloadReply =
@@ -64,7 +65,9 @@ export const requestCodegenDownload = withInstrumentation(
         reject(new Error('Could not read the generated download'));
       };
       try {
-        worker.postMessage(body);
+        worker.postMessage(
+          body.project ? { ...body, project: projectWorkerInput(body.project as ProjectRuntimeInput) } : body
+        );
       } catch (error) {
         finish();
         reject(error);

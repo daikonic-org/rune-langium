@@ -114,3 +114,24 @@ describe('hydrate handler', () => {
     harness.dispose();
   });
 });
+
+it('retains linked documents for an identical install and can return a selected snapshot again', async () => {
+  const { createParserWorkerHarness } = await import('./parser-worker-harness.js');
+  const harness = createParserWorkerHarness();
+  const documents = [
+    {
+      uri: 'file:///[cdm]/repeat.rosetta',
+      content: '',
+      bundleId: 'cdm',
+      serializedModel: harness.serializeSample('repeat', 'Repeat'),
+      exports: []
+    }
+  ];
+  await harness.send({ type: 'hydrate', id: 'first', documents });
+  const first = await harness.send({ type: 'linkDocument', id: 'first-link', uri: documents[0]!.uri });
+  expect(first).toMatchObject({ linked: true, newModels: [expect.objectContaining({ name: 'repeat' })] });
+  await harness.send({ type: 'hydrate', id: 'same', documents });
+  expect(harness.hasDeferredModel(documents[0]!.uri)).toBe(false);
+  const snapshot = await harness.send({ type: 'linkDocument', id: 'again', uri: documents[0]!.uri, snapshot: true });
+  expect(snapshot).toMatchObject({ linked: true, newModels: [expect.objectContaining({ name: 'repeat' })] });
+});

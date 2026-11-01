@@ -10,7 +10,10 @@ import {
 } from '@rune-langium/project-runtime/references';
 import { createReferenceArtifacts } from '../../../../test/helpers/project-reference-artifacts.js';
 import { captureProjectRuntimeInput } from '../../src/services/project-runtime-input.js';
-import { prepareProjectReferenceView } from '../../src/services/project-reference-view.js';
+import {
+  prepareProjectReferenceView,
+  materializeProjectReferenceView
+} from '../../src/services/project-reference-view.js';
 import { workspaceDeclarationIdentities } from '../../src/workspace/example-identity.js';
 import { createProjectSnapshot } from '@rune-langium/project-config';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
@@ -141,4 +144,57 @@ it('preserves excluded Rune files through a bound-folder edit and autosave while
   } finally {
     setWorkspaceFilesDeps({ getFolderProjectAdapter: undefined });
   }
+});
+
+it('publishes the complete index before materializing references and links selected documents through the worker', async () => {
+  const { prepareReferenceArtifact } = await import('../../src/services/reference-artifact-decoder.js');
+  const { dispatchWorkerRequest, _testInternals } = await import('../../src/workers/parser-worker.js');
+  const fixture = await createReferenceArtifacts(undefined, undefined, {
+    cdm: 'namespace pinned\ntype Payment:\n amount number (1..1)',
+    'rune-dsl': 'namespace pinned.base\ntype Support:\n name string (0..1)'
+  });
+  const transport = { ...fixture.transport, decodeArtifact: prepareReferenceArtifact };
+  const cache = createMemoryReferenceCache();
+  const signal = new AbortController().signal;
+  const { lock } = await resolveProjectReferences(fixture.snapshot, transport, signal, cache);
+  const loaded = await loadLockedReferences(lock!, transport, cache, signal);
+  const state = {
+    workspaceId: 'p',
+    fileCount: 0,
+    files: [],
+    models: [],
+    parsedModels: [],
+    deferredExports: [],
+    parseErrors: new Map()
+  };
+  const input = await captureProjectRuntimeInput({ ...fixture.snapshot, lock: lock! }, [], loaded.documents);
+  const view = await prepareProjectReferenceView(
+    input,
+    state,
+    async (documents) => {
+      expect((await dispatchWorkerRequest({ type: 'hydrate', id: 'managed', documents })).type).toBe('hydrateResult');
+    },
+    signal
+  );
+  expect(view.models).toHaveLength(0);
+  expect(view.deferredExports.flatMap((entry) => entry.exports).some((entry) => entry.name.includes('.'))).toBe(false);
+  expect(view.deferredExports).toContainEqual(
+    expect.objectContaining({
+      namespace: 'pinned',
+      exports: expect.arrayContaining([{ type: 'Data', name: 'Payment' }])
+    })
+  );
+  expect(_testInternals().deferredModelJson.size).toBe(2);
+  const linked = await dispatchWorkerRequest({
+    type: 'linkDocument',
+    id: 'selected',
+    uri: 'file:///[cdm]/model.rosetta'
+  });
+  expect(linked).toMatchObject({ linked: true, errors: [], newModels: [expect.objectContaining({ name: 'pinned' })] });
+  expect(_testInternals().deferredModelJson.size).toBe(1);
+  if (linked.type !== 'linkDocumentResult') throw new Error('Expected linked model');
+  const materialized = materializeProjectReferenceView(view, linked.newModels);
+  expect(materialized.models).toHaveLength(1);
+  expect(materialized.models[0]!.elements[0]!.$container).toBe(materialized.models[0]);
+  expect(materializeProjectReferenceView(materialized, linked.newModels)).toBe(materialized);
 });

@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { hydrateProjectNamespaces } from '../../../src/services/project-namespace-hydration.js';
+import { linkDocument } from '../../../src/services/workspace.js';
 import { useProjectReferenceView } from '../../../src/shell/providers/use-project-reference-view.js';
 import { prepareProjectReferenceView } from '../../../src/services/project-reference-view.js';
 import type { WorkspaceState } from '../../../src/shell/providers/workspace-context.js';
@@ -19,7 +21,10 @@ vi.mock('../../../src/services/project-reference-view.js', async (importOriginal
   ...(await importOriginal<typeof import('../../../src/services/project-reference-view.js')>()),
   prepareProjectReferenceView: vi.fn()
 }));
-vi.mock('../../../src/services/workspace.js', () => ({ installProjectParserDocuments: vi.fn() }));
+vi.mock('../../../src/services/workspace.js', () => ({
+  installProjectParserDocuments: vi.fn(),
+  linkDocument: vi.fn()
+}));
 
 afterEach(() => {
   vi.mocked(prepareProjectReferenceView).mockReset();
@@ -112,4 +117,54 @@ it('keeps additions, deletions and current workspace metadata while a retained v
   expect(result.current.referenceView?.status).toBe('loading');
   rerender({ state: stateFor([file('next.rosetta', 'namespace next')], 'next') });
   expect(result.current.state.files.map((entry) => entry.path)).toEqual(['next.rosetta']);
+});
+
+it('routes managed namespace demand to the pinned parser and unregisters on workspace disposal', async () => {
+  const state = stateFor([]);
+  const entry = {
+    ...reference,
+    namespace: 'pinned',
+    serializedModelJson: JSON.stringify({
+      $type: 'RosettaModel',
+      name: 'pinned',
+      imports: [],
+      elements: [],
+      version: ''
+    })
+  };
+  const model = {
+    $type: 'RosettaModel',
+    name: 'pinned',
+    elements: [],
+    $textRegion: { documentURI: 'file:///[cdm]/model.rosetta' }
+  };
+  vi.mocked(prepareProjectReferenceView).mockResolvedValue({ ...state, files: [entry] });
+  vi.mocked(linkDocument).mockResolvedValue({ linked: true, errors: [], newModels: [model as never] });
+  const { result, unmount } = renderHook(() => useProjectReferenceView(runtime, state));
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  await act(async () => {
+    await hydrateProjectNamespaces('editing', ['pinned']);
+  });
+  expect(linkDocument).toHaveBeenCalledWith('file:///[cdm]/model.rosetta', true);
+  expect(result.current.state.models).toEqual([expect.objectContaining({ name: 'pinned' })]);
+  unmount();
+  expect(hydrateProjectNamespaces('editing', ['pinned'])).toBeUndefined();
+});
+
+it('rejects an invalid materialized document through the request and retains the last valid view', async () => {
+  const state = stateFor([]);
+  const entry = { ...reference, namespace: 'pinned', serializedModelJson: '{}' };
+  vi.mocked(prepareProjectReferenceView).mockResolvedValue({ ...state, files: [entry] });
+  vi.mocked(linkDocument).mockResolvedValue({
+    linked: true,
+    errors: [],
+    newModels: [
+      { $type: 'RosettaModel', name: 'unknown', $textRegion: { documentURI: 'file:///unknown.rosetta' } } as never
+    ]
+  });
+  const { result } = renderHook(() => useProjectReferenceView(runtime, state));
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  await expect(hydrateProjectNamespaces('editing', ['pinned'])).rejects.toThrow('current verified view');
+  expect(result.current.state.models).toEqual([]);
+  expect(result.current.referenceView?.status).toBe('ready');
 });

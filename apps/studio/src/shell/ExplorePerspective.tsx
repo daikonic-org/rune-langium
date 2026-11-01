@@ -795,7 +795,13 @@ export const ExplorePerspective = withInstrumentation(
       // `workspace.models`.
       if (pinnedView) corpusModelsRef.current.clear();
       useEditorStore.getState().loadDeferredExports(deferredExports);
+      const selected = useEditorStore.getState().selectedNodeId;
       useEditorStore.getState().loadModels([...models, ...corpusModelsRef.current.values()] as unknown[]);
+      if (pinnedView && selected) {
+        const editor = useEditorStore.getState();
+        editor.selectNode(selected, { reapplyFocusMode: true });
+        if (!editor.focusMode) editor.revealNeighbors(selected);
+      }
     }, [models, deferredExports, workspaceId, pinnedView]);
 
     const publishCorpusModels = useCallback((newModels: RosettaModel[]) => {
@@ -965,6 +971,10 @@ export const ExplorePerspective = withInstrumentation(
       if (selectedNodeId === prevSelectedRef.current) return;
       prevSelectedRef.current = selectedNodeId;
       if (!selectedNodeId || !selectedNodeData) return;
+      if (pinnedView) {
+        if (selectedNodeMeta?.deferred) requestNamespaceHydration(selectedNodeMeta.namespace);
+        return;
+      }
 
       const filePath = resolveNodeFile(selectedNodeData, selectedNodeMeta);
       // Trigger on-demand linking for the selected node's document (ADR 007 Phase 2).
@@ -996,7 +1006,7 @@ export const ExplorePerspective = withInstrumentation(
         if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedNodeId, selectedNodeData, workspaceId]);
+    }, [selectedNodeId, selectedNodeData, workspaceId, pinnedView, requestNamespaceHydration]);
 
     // Publish hydrated namespaces into the UI, including expanded children and bases.
     //
@@ -1014,7 +1024,7 @@ export const ExplorePerspective = withInstrumentation(
     }, [hydrationNonce, structureHydrationRetry, workspaceId]);
 
     useEffect(() => {
-      if (hydrationNonce === 0 || !selectedNodeId) return;
+      if (pinnedView || hydrationNonce === 0 || !selectedNodeId) return;
       // Link ALL files for newly hydrated namespaces and the selected namespace. The curated artifact
       // format aggregates namespace-level exports onto the first document's export
       // list, so per-type file mapping (nodeIdToFilePath) is unreliable — it may
@@ -1051,7 +1061,7 @@ export const ExplorePerspective = withInstrumentation(
         }
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, structureHydrationRetry, workspaceId]);
+    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, structureHydrationRetry, workspaceId, pinnedView]);
 
     const functionScope: FunctionScope = useMemo(() => {
       const d = selectedNodeData as any;

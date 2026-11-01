@@ -25,6 +25,10 @@ import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/iden
 import { CURATED_MODEL_IDS, type CuratedSerializedDocument } from '@rune-langium/curated-schema';
 import type { CachedFile, LoadedModel } from '../types/model-types.js';
 import type {
+  ReviewReferenceRequest,
+  ReviewReferenceResponse,
+  DecodeReferenceRequest,
+  DecodeReferenceResponse,
   WorkerRequest,
   ExpressionScopeRequest,
   ExpressionScopeResponse,
@@ -45,6 +49,7 @@ import { routeTelemetryRecord } from './instrumentation/browser-sink.js';
 import { isTelemetryRecordMessage } from './instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 import { pathToUri } from '../utils/uri.js';
+import { semanticReferenceDocuments } from './project-runtime-input.js';
 import { parseErrorMessages } from './parse-errors.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
 import { curatedCacheClient } from './curated-cache-client.js';
@@ -420,6 +425,8 @@ function resetWorkerState(nextError: Error): void {
 function workerRequest(msg: Extract<WorkerRequest, { type: 'parse' }>): Promise<ParseResponse>;
 function workerRequest(msg: Extract<WorkerRequest, { type: 'parseWorkspace' }>): Promise<ParseWorkspaceResponse>;
 function workerRequest(msg: LinkDocumentRequest): Promise<LinkDocumentResponse>;
+function workerRequest(msg: ReviewReferenceRequest): Promise<ReviewReferenceResponse>;
+function workerRequest(msg: DecodeReferenceRequest): Promise<DecodeReferenceResponse>;
 function workerRequest(msg: HydrateRequest): Promise<HydrateResponse>;
 function workerRequest(msg: ExpressionScopeRequest): Promise<ExpressionScopeResponse>;
 function workerRequest(msg: InspectNamespaceRequest): Promise<InspectNamespaceResponse>;
@@ -448,6 +455,24 @@ function workerRequest(msg: WorkerRequest): Promise<WorkerResponse> {
       if (e.data?.id === id) {
         clearPendingTimeout();
         cleanupListeners();
+        if (msg.type === 'reviewReference') {
+          const data = e.data as ReviewReferenceResponse;
+          if (data.type !== 'reviewReferenceResult') {
+            reject(new Error('Invalid compatibility response'));
+            return;
+          }
+          resolve(data);
+          return;
+        }
+        if (msg.type === 'decodeReference') {
+          const data = e.data as DecodeReferenceResponse;
+          if (data.type !== 'decodeReferenceResult') {
+            reject(new Error('Invalid reference decoder response'));
+            return;
+          }
+          resolve(data);
+          return;
+        }
         if (msg.type === 'parse') {
           if (!isParseResponse(e.data)) {
             const error = new Error('Worker returned an invalid parse response');
@@ -605,6 +630,37 @@ export const parseFile = withInstrumentation(
       return { parseMode: result.parseMode, errorCount: result.errors.length };
     }
   }
+);
+
+/** Canonical compatibility review runs away from the UI without adopting the proposed graph. */
+export const reviewProjectReferencesInWorker = withInstrumentation(
+  async function reviewProjectReferencesInWorker(...input: ReviewReferenceRequest['input']) {
+    const response = await workerRequest({
+      type: 'reviewReference',
+      id: `review:${++requestId}`,
+      input: [
+        input[0],
+        semanticReferenceDocuments(input[1]),
+        input[2]
+          ? { ...input[2], referenceDocuments: semanticReferenceDocuments(input[2].referenceDocuments) }
+          : undefined
+      ]
+    });
+    if (!response.diagnostics || response.error)
+      throw new Error(response.error ?? 'Reference compatibility review unavailable');
+    return response.diagnostics;
+  },
+  { op: 'reviewProjectReferencesInWorker', capture: 0 }
+);
+
+/** Share the existing parser worker and its bounded request lifecycle. */
+export const decodeProjectReferenceArtifact = withInstrumentation(
+  async function decodeProjectReferenceArtifact(bytes: Uint8Array) {
+    const response = await workerRequest({ type: 'decodeReference', id: `reference:${++requestId}`, bytes });
+    if (!response.artifact || response.error) throw new Error(response.error ?? 'Reference decoder unavailable');
+    return response.artifact;
+  },
+  { op: 'decodeProjectReferenceArtifact', capture: 0 }
 );
 
 /** Install one complete verified project document set using the existing parser worker. */
@@ -1166,14 +1222,18 @@ export const requestExpressionScope = withInstrumentation(
 );
 
 export const linkDocument = withInstrumentation(
-  async function linkDocument(uri: string): Promise<{ linked: boolean; errors: string[]; newModels: RosettaModel[] }> {
+  async function linkDocument(
+    uri: string,
+    snapshot = false
+  ): Promise<{ linked: boolean; errors: string[]; newModels: RosettaModel[] }> {
     try {
       const id = String(++requestId);
       const recovery = curatedLinkRecovery;
       let response = await workerRequest({
         type: 'linkDocument',
         id,
-        uri
+        uri,
+        snapshot
       });
       if (
         isLinkDocumentResponse(response) &&
@@ -1197,7 +1257,7 @@ export const linkDocument = withInstrumentation(
           return true;
         })();
         if (await recovery.pending) {
-          response = await workerRequest({ type: 'linkDocument', id: String(++requestId), uri });
+          response = await workerRequest({ type: 'linkDocument', id: String(++requestId), uri, snapshot });
         }
       }
       if (isLinkDocumentResponse(response)) {
@@ -1358,9 +1418,12 @@ export const BUNDLE_MARKER_SUFFIX = '/.bundle-marker';
 
 /** Files available for workspace authoring controls such as tabs and search. */
 // oxlint-disable-next-line rune/no-uninstrumented-export -- Pure per-file render predicate; tracing every file would add noise.
-export function isUserWorkspaceFile(file: WorkspaceFile): boolean {
-  return !file.readOnly && !file.refOnly && !file.path.endsWith(BUNDLE_MARKER_SUFFIX);
-}
+export const isUserWorkspaceFile = withInstrumentation(
+  function isUserWorkspaceFile(file: WorkspaceFile): boolean {
+    return !file.readOnly && !file.refOnly && !file.path.endsWith(BUNDLE_MARKER_SUFFIX);
+  },
+  { op: 'isUserWorkspaceFile', capture: 0 }
+);
 
 export const mergeModelFiles = withInstrumentation(
   function mergeModelFiles(currentFiles: WorkspaceFile[], model: LoadedModel): WorkspaceFile[] {

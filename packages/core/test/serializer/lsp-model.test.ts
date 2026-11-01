@@ -48,7 +48,25 @@ describe('semantic LSP model transport', () => {
       namespace: 'example.model',
       sourceUri: 'file:///a.rosetta',
       imports: ['other.*'],
-      references: ['file:///b.rosetta', 'file:///c.rosetta']
+      references: ['file:///b.rosetta', 'file:///c.rosetta'],
+      declarations: []
     });
   });
+});
+
+it('reports authored root names separately from qualified linker aliases', () => {
+  expect(
+    readLspModelMetadata(
+      JSON.stringify({
+        name: 'example',
+        elements: [
+          { $type: 'RosettaFunction', name: 'Caller', inputs: [{ name: 'amount' }] },
+          { $type: 'Data', name: 'Trade' }
+        ]
+      })
+    ).declarations
+  ).toEqual([
+    { type: 'RosettaFunction', name: 'Caller' },
+    { type: 'Data', name: 'Trade' }
+  ]);
 });

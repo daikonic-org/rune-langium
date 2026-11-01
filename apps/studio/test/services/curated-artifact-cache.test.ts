@@ -216,3 +216,22 @@ it('shares its capacity and persistence with checksum-addressed reference bytes'
   await reopened.putReferenceBytes('a'.repeat(64), bytes);
   expect(await reopened.referenceBytes('a'.repeat(64))).toBeUndefined();
 });
+
+it('persists versioned derived metadata by source digest and treats stale formats as misses', async () => {
+  const { value, databaseName } = cache();
+  const hash = 'a'.repeat(64);
+  const info = {
+    metadata: { namespace: 'test', imports: [], references: ['file:///other.rosetta'] },
+    compact: '{"name":"test"}'
+  };
+  await value.putReferenceDerived(hash, info);
+  await value.close();
+  const reopened = createCuratedArtifactCache({ databaseName });
+  expect(await reopened.referenceDerived(hash)).toEqual(info);
+  expect(await reopened.referenceDerived('b'.repeat(64))).toBeUndefined();
+  const db = await openDB(databaseName, 1);
+  await db.put('payloads', JSON.stringify({ version: 0, ...info }), JSON.stringify(['reference-derived', hash]));
+  db.close();
+  expect(await reopened.referenceDerived(hash)).toBeUndefined();
+  await reopened.close();
+});

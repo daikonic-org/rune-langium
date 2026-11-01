@@ -257,6 +257,7 @@ async function selectReferenceManifests(
       )
     };
     const capturedTransport: ReferenceTransport = {
+      decodeArtifact: transport.decodeArtifact,
       catalog: (id, signal) => transport.catalog(id, signal),
       artifact: async (url, signal) => {
         signal.throwIfAborted();
