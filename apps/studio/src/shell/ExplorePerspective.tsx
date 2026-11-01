@@ -968,13 +968,14 @@ export const ExplorePerspective = withInstrumentation(
     // Link the selected graph node document on demand.
     const prevSelectedRef = useRef<string | null>(null);
     useEffect(() => {
-      if (selectedNodeId === prevSelectedRef.current) return;
+      const sameSelection = selectedNodeId === prevSelectedRef.current;
       prevSelectedRef.current = selectedNodeId;
       if (!selectedNodeId || !selectedNodeData) return;
       if (pinnedView) {
         if (selectedNodeMeta?.deferred) requestNamespaceHydration(selectedNodeMeta.namespace);
         return;
       }
+      if (sameSelection) return;
 
       const filePath = resolveNodeFile(selectedNodeData, selectedNodeMeta);
       // Trigger on-demand linking for the selected node's document (ADR 007 Phase 2).

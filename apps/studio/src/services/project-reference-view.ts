@@ -15,7 +15,7 @@ import type { WorkspaceState } from '../shell/providers/workspace-context.js';
 import type { HydrateRequest } from '../workers/parser-worker.js';
 import { pathToUri } from '../utils/uri.js';
 import { withInstrumentation } from './instrumentation/core.js';
-import type { WorkspaceFile } from './workspace.js';
+import { linkDocument, type WorkspaceFile } from './workspace.js';
 
 /** Editable inventory stays live; only locked reference files come from a captured view. */
 export const mergeProjectReferenceFiles = withInstrumentation(
@@ -33,7 +33,8 @@ export const prepareProjectReferenceView = withInstrumentation(
     input: ProjectRuntimeInput,
     state: WorkspaceState,
     install: (documents: HydrateRequest['documents']) => Promise<void>,
-    signal: AbortSignal
+    signal: AbortSignal,
+    link: typeof linkDocument = linkDocument
   ): Promise<WorkspaceState> {
     const sources = new Set(projectSourcePaths(input.snapshot.files, input.snapshot.project.build.sources));
     const references: WorkspaceFile[] = [];
@@ -101,7 +102,7 @@ export const prepareProjectReferenceView = withInstrumentation(
     signal.throwIfAborted();
     const namespace = (uri: string) =>
       referenceInfo.get(uri)?.lsp?.metadata.namespace ?? namespaceFromModelName(roots.get(uri)?.model.name ?? '') ?? '';
-    return {
+    const view: WorkspaceState = {
       ...state,
       files: files.map((file) => (file.refOnly ? { ...file, namespace: namespace(pathToUri(file.path)) } : file)),
       models: hydrated.map((entry) => entry.model),
@@ -121,6 +122,18 @@ export const prepareProjectReferenceView = withInstrumentation(
       })),
       curatedCacheSeeds: []
     };
+    // Concrete local models are published as ready. Their inherited members and
+    // type references must therefore share a linked graph with their dependencies.
+    if (fallback.length === entries.length) return view;
+    const additions = [];
+    for (const entry of entries.filter((entry) => sources.has(entry.file.path))) {
+      const result = await link(entry.uri, true);
+      signal.throwIfAborted();
+      if (!result.linked || result.errors.length)
+        throw new Error(result.errors.join('\n') || 'Local reference dependencies are unavailable: ' + entry.file.path);
+      additions.push(...result.newModels);
+    }
+    return materializeProjectReferenceView(view, additions);
   },
   {
     op: 'prepareProjectReferenceView',
@@ -138,10 +151,22 @@ export const materializeProjectReferenceView = withInstrumentation(
     const canonical = (uri: string) => URI.parse(uri).toString();
     const files = new Map(view.files.map((file) => [canonical(pathToUri(file.path)), file]));
     const parsed = new Map(view.parsedModels.map((entry) => [entry.filePath, entry]));
+    // The HTTP parser records file:///name while the editor uses
+    // file:///workspace/name. Accept only aliases proved by this capture's
+    // canonical serialized metadata, and never guess through an ambiguous alias.
+    const sourceFiles = new Map<string, WorkspaceFile | undefined>();
+    for (const entry of parsed.values()) {
+      if (!entry.serializedModelJson) continue;
+      const sourceUri = readLspModelMetadata(entry.serializedModelJson).sourceUri;
+      const file = view.files.find((file) => file.path === entry.filePath);
+      if (!sourceUri || !file) continue;
+      const key = canonical(sourceUri);
+      sourceFiles.set(key, !sourceFiles.has(key) || sourceFiles.get(key) === file ? file : undefined);
+    }
     const wanted = new Set(parsed.keys());
     for (const model of additions) {
       const uri = (model as unknown as { $textRegion?: { documentURI?: string } }).$textRegion?.documentURI;
-      const file = uri && files.get(canonical(uri));
+      const file = uri && (files.get(canonical(uri)) ?? sourceFiles.get(canonical(uri)));
       if (!file) throw new Error('The linked reference document is not in the current verified view.');
       wanted.add(file.path);
     }

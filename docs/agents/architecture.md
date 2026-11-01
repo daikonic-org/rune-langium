@@ -1296,6 +1296,14 @@ moving server mirror. Linking materializes the selected namespace and transitive
 needed models. Before UI publication, that subset passes through Core hydration
 so consumers receive linked ASTs with container/reference contracts, not wire
 snapshots. Deferred declaration ownership uses the matching workspace file path.
+Concrete local source models publish only after their reference dependencies have
+been linked and included in that same Core hydration batch. Repeated worker
+snapshot requests return the complete linked closure, including dependencies
+already materialized by a previous consumer. Inventory-only placeholders are an
+intentional deferral and do not count as stripped concrete models in the graph's
+degraded-reparse guard; concrete source peers retain that corruption protection.
+HTTP-parser source URI aliases are accepted only from the current capture's
+serialized metadata; unknown or ambiguous snapshot identities remain rejected.
 Authored root declarations remain distinct from qualified scope aliases. Linked
 reference snapshots survive source-only refreshes only within the same reference
 capture; a new capture drops the entire retained graph and resets hydration readiness

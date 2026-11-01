@@ -28,12 +28,21 @@ import {
   serializeRuneModel,
   hydrateModelDocument,
   hydrateModelDocuments,
+  relinkModelReferences,
   isRosettaModel,
   type DeferredModelProvider,
   type RosettaModel
 } from '@rune-langium/core';
 import type { CuratedSerializedDocument } from '@rune-langium/curated-schema';
-import { URI, EmptyFileSystem, type AstNode, type AstNodeDescription, type LangiumDocument } from 'langium';
+import {
+  AstUtils,
+  isMultiReference,
+  URI,
+  EmptyFileSystem,
+  type AstNode,
+  type AstNodeDescription,
+  type LangiumDocument
+} from 'langium';
 import { parseErrorMessages } from '../services/parse-errors.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
@@ -73,7 +82,7 @@ export interface LinkDocumentRequest {
   type: 'linkDocument';
   id: string;
   uri: string;
-  /** Return the selected root even when another consumer linked it first. */
+  /** Return the root and its linked closure, including already materialized dependencies. */
   snapshot?: boolean;
 }
 
@@ -82,7 +91,7 @@ export interface LinkDocumentResponse {
   id: string;
   linked: boolean;
   errors: string[];
-  /** Corpus models that were lazily deserialized during this link request. */
+  /** Newly linked corpus models, or the complete linked closure when snapshot was requested. */
   newModels: RosettaModel[];
   /** Immutable artifacts whose deferred models failed to materialize. */
   invalidArtifactKeys?: string[];
@@ -245,6 +254,9 @@ const deferredSerializer = {
   deserialize<T extends AstNode>(content: string): T {
     const model = serializer.deserialize<T>(content);
     if (!isRosettaModel(model)) throw new Error('Expected a serialized RosettaModel');
+    // Serialized external pointers can precede their deferred documents. Rebuild
+    // authored references through Core's existing lazy linker before publication.
+    relinkModelReferences(RuneDsl, model);
     return model;
   }
 };
@@ -583,6 +595,35 @@ const handleLinkDocument = withInstrumentation(
         // `Diagnostic.message` widened to `string | MarkupContent` in newer LSP types.
         errors.push(typeof diag.message === 'string' ? diag.message : diag.message.value);
       }
+      const snapshots = new Set(newModelsAccumulator);
+      if (req.snapshot) {
+        // A repeated request still needs the whole linked closure, even when
+        // these dependencies were materialized by an earlier consumer/install.
+        const pending = [doc];
+        const visited = new Set<string>();
+        const installed =
+          installedProjectDocuments &&
+          new Set(installedProjectDocuments.map((entry) => URI.parse(entry.uri).toString()));
+        while (pending.length) {
+          const current = pending.pop()!;
+          const uri = current.uri.toString();
+          if (visited.has(uri)) continue;
+          visited.add(uri);
+          const model = current.parseResult.value;
+          if (!isRosettaModel(model)) continue;
+          snapshots.add(model);
+          for (const node of AstUtils.streamAst(model)) {
+            for (const { reference } of AstUtils.streamReferences(node)) {
+              const targets = isMultiReference(reference) ? reference.items.map((item) => item.ref) : [reference.ref];
+              for (const target of targets) {
+                if (!target) continue;
+                const dependency = AstUtils.getDocument(target);
+                if (!installed || installed.has(dependency.uri.toString())) pending.push(dependency);
+              }
+            }
+          }
+        }
+      }
       if (invalidArtifactKeys.size) {
         return {
           type: 'linkDocumentResult',
@@ -593,14 +634,12 @@ const handleLinkDocument = withInstrumentation(
           invalidArtifactKeys: [...invalidArtifactKeys]
         };
       }
-      if (req.snapshot && !newModelsAccumulator.includes(doc.parseResult.value as RosettaModel))
-        newModelsAccumulator.push(doc.parseResult.value as RosettaModel);
       return {
         type: 'linkDocumentResult',
         id: req.id,
         linked: true,
         errors,
-        newModels: newModelsAccumulator.map((model) => modelSnapshot(model))
+        newModels: [...snapshots].map((model) => modelSnapshot(model))
       };
     } catch (error) {
       if (targetArtifactKey) invalidArtifactKeys.add(targetArtifactKey);
