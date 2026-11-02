@@ -171,15 +171,16 @@ export const CodePreviewPanel = withInstrumentation(
       () =>
         managed
           ? [
-              ...new Set(
-                workspace?.models.flatMap((model) => {
+              ...new Set([
+                ...(workspace?.models.flatMap((model) => {
                   const namespace = namespaceFromModelName(model.name);
                   return namespace ? [namespace] : [];
-                }) ?? []
-              )
+                }) ?? []),
+                ...(workspace?.deferredExports?.map((entry) => entry.namespace).filter(Boolean) ?? [])
+              ])
             ].sort()
           : Object.keys(dependencyGraph).sort(),
-      [managed, workspace?.models, dependencyGraph]
+      [managed, workspace?.models, workspace?.deferredExports, dependencyGraph]
     );
     useEffect(() => {
       setDownload(undefined);

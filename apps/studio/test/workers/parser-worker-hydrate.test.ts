@@ -135,3 +135,52 @@ it('retains linked documents for an identical install and can return a selected 
   const snapshot = await harness.send({ type: 'linkDocument', id: 'again', uri: documents[0]!.uri, snapshot: true });
   expect(snapshot).toMatchObject({ linked: true, newModels: [expect.objectContaining({ name: 'repeat' })] });
 });
+
+it('rejects a malformed transitive artifact without publishing a partial closure and permits a repaired install', async () => {
+  const { createParserWorkerHarness } = await import('./parser-worker-harness.js');
+  const harness = createParserWorkerHarness();
+  const rootUri = 'file:///[cdm]/root.rosetta';
+  const dependencyUri = 'file:///[cdm]/dependency.rosetta';
+  const root = JSON.parse(harness.serializeSample('pinned', 'Parent'));
+  root.elements[0].attributes[0].typeCall.type = {
+    $ref: `${dependencyUri}#/elements@0`,
+    $refText: 'Support'
+  };
+  const documents = [
+    {
+      uri: rootUri,
+      content: '',
+      bundleId: 'cdm',
+      artifactKey: 'root-artifact',
+      serializedModel: JSON.stringify(root),
+      exports: []
+    },
+    {
+      uri: dependencyUri,
+      content: '',
+      bundleId: 'cdm',
+      artifactKey: 'dependency-artifact',
+      serializedModel: '{',
+      exports: []
+    }
+  ];
+  await harness.send({ type: 'hydrate', id: 'broken', documents });
+  const failed = await harness.send({ type: 'linkDocument', id: 'failed', uri: rootUri, snapshot: true });
+  expect(failed).toMatchObject({ linked: false, newModels: [] });
+  if (failed.type !== 'linkDocumentResult') throw new Error('Unexpected response');
+  expect(failed.invalidArtifactKeys?.sort()).toEqual(['dependency-artifact', 'root-artifact']);
+  expect(harness.hasDeferredModel(rootUri)).toBe(true);
+  expect(harness.hasDeferredModel(dependencyUri)).toBe(true);
+
+  const repairedDocuments = documents.map((document) =>
+    document.uri === dependencyUri
+      ? { ...document, serializedModel: harness.serializeSample('support', 'Support') }
+      : document
+  );
+  await harness.send({ type: 'hydrate', id: 'repaired', documents: repairedDocuments });
+  const repaired = await harness.send({ type: 'linkDocument', id: 'relinked', uri: rootUri, snapshot: true });
+  expect(repaired).toMatchObject({ linked: true, errors: [] });
+  if (repaired.type !== 'linkDocumentResult') throw new Error('Unexpected response');
+  expect(repaired.newModels.map((model) => model.name).sort()).toEqual(['pinned', 'support']);
+  expect(repaired.invalidArtifactKeys).toBeUndefined();
+});

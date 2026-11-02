@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { it, expect, vi } from 'vitest';
+import { afterEach, it, expect, vi } from 'vitest';
 import { parse, createRuneDslServices, serializeRuneModel, hydrateModelDocuments, type Data } from '@rune-langium/core';
 import { EmptyFileSystem, URI } from 'langium';
 import {
@@ -26,6 +26,9 @@ import { pathToUri } from '../../src/utils/uri.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import { createOpfsRoot, writeBytes } from '../setup/opfs-mock.js';
+
+afterEach(() => vi.restoreAllMocks());
+
 it('projects exact locked ASTs into Explorer and parser hydration without a latest-model request', async () => {
   const fixture = await createReferenceArtifacts(undefined, undefined, {
     cdm: 'namespace pinned\ntype Payment:\n amount number (1..1)',
@@ -219,9 +222,73 @@ it('publishes the complete index before materializing references and links selec
   expect(materializeProjectReferenceView(materialized, linked.newModels)).toBe(materialized);
 });
 
+it('revives an immutable cross-document cycle without forcing name resolution or loading unrelated documents', async () => {
+  const { dispatchWorkerRequest, _testInternals } = await import('../../src/workers/parser-worker.js');
+  const services = createRuneDslServices(EmptyFileSystem);
+  const documents = [
+    ['a', 'namespace cycle.a\ntype A:\n peer cycle.b.B (0..1)'],
+    ['b', 'namespace cycle.b\ntype B:\n peer cycle.a.A (0..1)']
+  ].map(([name, source]) =>
+    services.shared.workspace.LangiumDocumentFactory.fromString(source!, URI.parse(`file:///[cdm]/${name}.rosetta`))
+  );
+  for (const document of documents) services.shared.workspace.LangiumDocuments.addDocument(document);
+  await services.shared.workspace.DocumentBuilder.build(documents, { eagerLinking: true, validation: false });
+  const installed = await Promise.all(
+    documents.map(async (document) => ({
+      uri: document.uri.toString(),
+      content: '',
+      bundleId: 'cdm',
+      serializedModel: serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, document.parseResult.value),
+      exports: (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(document)).map(
+        ({ type, name, path }) => ({ type, name, path })
+      )
+    }))
+  );
+  const warn = vi.spyOn(console, 'warn');
+  try {
+    await dispatchWorkerRequest({
+      type: 'hydrate',
+      id: 'cycle',
+      documents: [
+        ...installed,
+        {
+          uri: 'file:///unrelated.rosetta',
+          content: '',
+          serializedModel: '{"$type":"RosettaModel","name":"unrelated","elements":[]}',
+          exports: [],
+          bundleId: 'other'
+        }
+      ]
+    });
+    for (const id of ['first', 'repeated']) {
+      const response = await dispatchWorkerRequest({
+        type: 'linkDocument',
+        id,
+        uri: installed[0]!.uri,
+        snapshot: true
+      });
+      expect(response).toMatchObject({ linked: true, errors: [] });
+      if (response.type !== 'linkDocumentResult') throw new Error('Expected link result');
+      expect(response.newModels.map((model) => model.name).sort()).toEqual(['cycle.a', 'cycle.b']);
+      const live = _testInternals().services.shared.workspace.LangiumDocuments.getDocument(
+        URI.parse(installed[0]!.uri)
+      )!.parseResult.value as import('@rune-langium/core').RosettaModel;
+      const a = live.elements[0] as Data;
+      const b = a.attributes[0]!.typeCall!.type!.ref as Data;
+      expect(b.name).toBe('B');
+      expect(b.attributes[0]!.typeCall!.type!.ref).toBe(a);
+      expect(_testInternals().deferredModelJson.size).toBe(1);
+    }
+    expect(warn.mock.calls.filter(([message]) => String(message).includes('ComputedScopes state'))).toEqual([]);
+  } finally {
+    warn.mockRestore();
+  }
+});
+
 it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
   'publishes local inheritance with its linked reference closure from %s, including repeated installs',
   async (sourceUri) => {
+    const warn = vi.spyOn(console, 'warn');
     const { prepareReferenceArtifact } = await import('../../src/services/reference-artifact-decoder.js');
     const { dispatchWorkerRequest, _testInternals } = await import('../../src/workers/parser-worker.js');
     const fixture = await createReferenceArtifacts(undefined, undefined, {
@@ -297,5 +364,7 @@ it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
       expect(view.models.map((model) => model.name).sort()).toEqual(['local', 'pinned']);
       expect(_testInternals().deferredModelJson.size).toBe(1); // The unrelated support model stays deferred.
     }
+    expect(warn.mock.calls.filter(([message]) => String(message).includes('ComputedScopes state'))).toEqual([]);
+    warn.mockRestore();
   }
 );

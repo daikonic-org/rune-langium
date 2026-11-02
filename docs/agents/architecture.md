@@ -85,7 +85,8 @@ iterative object/reference walk; it retains body-only edges without invoking a
 reviver for every source/token-position scalar.
 
 Code-tab downloads list namespaces from the provider's current managed semantic
-view, including accepted references. They reuse `generateExport` with the captured
+view, including deferred reference inventory before namespace materialization.
+They reuse `generateExport` with the captured
 project, canonical declaration dependency resolution and artifact receipt checks.
 Changing source, project capture or workspace closes stale choices and cancels
 in-flight downloads. The legacy parse dependency graph is used only for legacy workspaces.
@@ -1296,6 +1297,12 @@ moving server mirror. Linking materializes the selected namespace and transitive
 needed models. Before UI publication, that subset passes through Core hydration
 so consumers receive linked ASTs with container/reference contracts, not wire
 snapshots. Deferred declaration ownership uses the matching workspace file path.
+The parser worker closes immutable serialized-reference edges and registers their
+roots together through Core's batch deserializer, preserving verified pointers
+and cross-document cycles. The deferred linker reuses roots registered by that
+batch. Only editable source snapshots rebuild authored references through the
+live scope/link boundary; immutable dependencies are not re-resolved by name
+before their scopes exist.
 Concrete local source models publish only after their reference dependencies have
 been linked and included in that same Core hydration batch. Repeated worker
 snapshot requests return the complete linked closure, including dependencies

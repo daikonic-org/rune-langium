@@ -10,9 +10,11 @@ import type { AstNode, AstNodeDescription, LangiumCoreServices, LangiumDocumentF
  *
  * The `RuneDslLinker` calls `getModel` when Langium encounters a cross-reference
  * to a corpus document that has not yet been deserialized. The implementation in
- * the parser worker reads raw JSON from the `deferredModelJson` map and calls
- * `JsonSerializer.deserialize` at that moment.
+ * the parser worker reads raw JSON from the `deferredModelJson` map and hydrates
+ * it through Core's shared serializer boundary at that moment.
  *
+ * Providers may register a complete batch before returning its root, including
+ * cyclic dependencies. The linker reuses that registered document.
  * `consume` is called immediately after so the worker can drop the JSON string
  * and avoid double-deserialization on subsequent linking passes.
  */
@@ -50,8 +52,11 @@ export class RuneDslLinker extends DefaultLinker {
     if (!doc && this.deferredProvider) {
       const model = this.deferredProvider.getModel(uri.toString());
       if (model !== undefined) {
-        doc = this.factory.fromModel(model, uri);
-        langiumDocs.addDocument(doc);
+        doc = langiumDocs.getDocument(uri);
+        if (!doc) {
+          doc = this.factory.fromModel(model, uri);
+          langiumDocs.addDocument(doc);
+        }
         this.deferredProvider.consume(uri.toString());
       }
     }

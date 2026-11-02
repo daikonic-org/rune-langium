@@ -113,6 +113,15 @@ CodeMirror's rendered DOM is virtualized and is not the full document. Review th
 manifest, screenshots, traces, endpoint checks and canonical deployment separately;
 a passing selector does not establish that the visible state is useful. Keep real
 production failures visible instead of weakening assertions or adding ledger entries.
+Production journey teardown also fails on premature `ComputedScopes` reference
+resolution warnings, retaining the console evidence and a failing manifest verdict.
+Blank-reference ready checkpoints require selected Inspector content, not only
+the declaration inventory or preview form.
+To validate candidate assets against live endpoints without deploying, serve an
+owned optimized preview and set `PROD_UX_ASSET_ORIGIN=http://127.0.0.1:<port>`.
+The isolated checkout context substitutes only Studio static assets while retaining
+the deployed page origin and real endpoint requests. Label this candidate coverage,
+not production deployment acceptance; the default run uses deployed assets.
 
 ## Public CLI and LSP dependency closure
 

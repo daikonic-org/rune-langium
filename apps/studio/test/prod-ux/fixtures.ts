@@ -38,6 +38,32 @@ export function computeJourneyId(title: string, subId?: string): string {
 }
 
 export const checkout = base.extend<CheckoutFixtures>({
+  context: async ({ context, baseURL }, use) => {
+    const assetOrigin = process.env.PROD_UX_ASSET_ORIGIN;
+    if (assetOrigin) {
+      const candidate = new URL(assetOrigin);
+      if (!['127.0.0.1', 'localhost'].includes(candidate.hostname))
+        throw new Error('Candidate assets must be served locally');
+      const deployed = new URL(baseURL ?? 'https://www.daikonic.dev/rune-studio/studio/');
+      await context.route(
+        (url) =>
+          url.origin === deployed.origin &&
+          (url.pathname.startsWith(deployed.pathname) || url.pathname.startsWith('/assets/')),
+        async (route) => {
+          const url = new URL(route.request().url());
+          const path = url.pathname.startsWith(deployed.pathname)
+            ? '/' + url.pathname.slice(deployed.pathname.length)
+            : url.pathname;
+          const response = await route.fetch({ url: new URL(path + url.search, candidate).href });
+          if (response.headers()['content-type']?.includes('text/html')) {
+            const body = (await response.text()).replaceAll('="/assets/', `="${deployed.pathname}assets/`);
+            await route.fulfill({ response, body });
+          } else await route.fulfill({ response });
+        }
+      );
+    }
+    await use(context);
+  },
   evidence: async ({ page }, use, testInfo) => {
     const subId = testInfo.annotations.find((a) => a.type === 'journey-subid')?.description;
     const journeyId = computeJourneyId(testInfo.title, subId);
@@ -64,7 +90,13 @@ export const checkout = base.extend<CheckoutFixtures>({
     const degraded = collector.hasSoftFindings || exceedsBudget(collector.opLog);
     const verdict = baseVerdict === 'PASS' && degraded ? 'DEGRADED' : baseVerdict;
     const record: JourneyRecord = await collector.finish(verdict);
+    const prematureReferences = record.consoleErrors.filter((message) => message.includes('ComputedScopes state'));
+    if (prematureReferences.length) record.verdict = 'FAIL';
     await appendJourneyRecord(record);
+    expect(
+      prematureReferences.length,
+      `Premature reference resolution: ${prematureReferences.slice(0, 3).join('\n')}`
+    ).toBe(0);
   }
 });
 
