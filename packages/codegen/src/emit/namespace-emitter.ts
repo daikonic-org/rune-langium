@@ -13,6 +13,7 @@ import type {
 import type { GeneratorOptions, GeneratorOutput } from '../types.js';
 import type { NamespaceRegistry } from './namespace-registry.js';
 import type { NamespaceWalkResult } from './namespace-walker.js';
+import type { ExpressionTranspilerContext } from '../expr/transpiler.js';
 
 /**
  * Options passed to a `NamespaceEmitter` constructor.
@@ -35,6 +36,8 @@ export interface NamespaceEmitterOptions extends GeneratorOptions {
   functionInputs?: boolean;
   /** Preserve metadata envelopes while retaining ordinary Data condition validation. */
   metadataInputs?: boolean;
+  /** Host bindings for condition callables in a standalone schema. */
+  conditionFunctionName?: ExpressionTranspilerContext['callableName'];
 }
 
 export interface NamespaceEmitter {

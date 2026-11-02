@@ -445,6 +445,11 @@ Run `pnpm run verify:reference-examples` after building core, codegen and
 project-runtime. CI uses checksum-pinned CDM 7.8.0 with its FpML 3.8.0 and Rune
 10.15.1 dependencies, scans every JSON/XML path, checks descriptor references and
 imports typed JSON examples through shared preparation plus the linked decoder.
+It also runs the same validator compiler and generated-module loader as Prototype,
+including inherited collections and condition-function dependencies. Compilation
+and validator exceptions fail the gate. Ordinary Rune issues from incomplete upstream
+translations are recorded in each entry's `validation` result and are not presented
+as successful validation.
 The report at `dist/reference-example-import-report.json` distinguishes genuine
 imports from headerless selection requirements, array inputs and pinned empty
 upstream files. Unknown Rune payloads outside discovery roots fail the gate.

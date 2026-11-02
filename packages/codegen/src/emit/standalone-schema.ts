@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { LangiumDocument } from 'langium';
-import { isData, isChoice, isRosettaEnumeration, getFunctionInputs } from '@rune-langium/core';
-import type { Data, Choice, RosettaEnumeration, RosettaTypeAlias } from '@rune-langium/core';
+import { AstUtils, type LangiumDocument } from 'langium';
+import {
+  isData,
+  isChoice,
+  isRosettaEnumeration,
+  getFunctionInputs,
+  getElementNamespace,
+  isRosettaSymbolReference,
+  isRosettaFunction
+} from '@rune-langium/core';
+import type { Data, Choice, RosettaEnumeration, RosettaTypeAlias, RosettaFunction } from '@rune-langium/core';
 import { buildNamespaceIndexes, type NamespaceIndex } from '../preview-schema.js';
 import { resolveTypeCallTarget, nodeSourceUri } from './type-ref-resolver.js';
 import type { TypeIndexLookup, TypeIndexEntry, TypeResolutionVisitor } from './type-ref-resolver.js';
@@ -15,6 +23,7 @@ import type { TypeReferenceGraph } from '../cycle-detector.js';
 import { topoSort } from '../topo-sort.js';
 import type { GeneratorDiagnostic } from '../types.js';
 import { RUNE_EXTEND_CHOICE_HELPER_JS_SOURCE } from './zod-runtime-helpers.js';
+import { callableExportName } from './callable-names.js';
 
 export interface ResolvedTarget {
   kind: 'data' | 'choice' | 'enum' | 'typeAlias';
@@ -355,6 +364,9 @@ const CROSS_NAMESPACE_IMPORT_LINE = /^import \{[^}]*\} from '[^']*\.zod\.js';(\r
  * is left to the caller, exactly as
  * `RUNTIME_HELPER_JS_SOURCE` is already caller-prepended rather than
  * bundled into this return value.
+ * When `functions` is present, load each linked function's generated module
+ * closure and bind its `bindingName` before evaluating the schema. Function
+ * inputs use the same canonical adapters and input validators as execution.
  *
  * Caveat inherited from `namespace-emitter.ts` (pre-existing there, not
  * introduced by this function): if `targetId` itself resolves to a
@@ -394,7 +406,12 @@ export function emitStandaloneZodSchema(
   documents: LangiumDocument[],
   targetId: string,
   options: { functionInputs?: boolean; metadataInputs?: boolean } = {}
-): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string } {
+): {
+  code: string;
+  diagnostics: GeneratorDiagnostic[];
+  schemaName?: string;
+  functions?: Array<{ namespace: string; name: string; bindingName: string }>;
+} {
   const namespaceIndexes = buildNamespaceIndexes(documents);
   let target = options.functionInputs ? undefined : findTargetNode(namespaceIndexes, targetId);
   if (options.functionInputs) {
@@ -458,6 +475,25 @@ export function emitStandaloneZodSchema(
     return { code: '', diagnostics: closure.diagnostics };
   }
 
+  const functions = new Map<RosettaFunction, { namespace: string; name: string; bindingName: string }>();
+  if (!options.functionInputs) {
+    for (const data of closure.dataByName.values()) {
+      for (const condition of data.conditions) {
+        if (!condition.expression) continue;
+        for (const expression of AstUtils.streamAst(condition.expression)) {
+          if (!isRosettaSymbolReference(expression) || !isRosettaFunction(expression.symbol.ref)) continue;
+          const func = expression.symbol.ref;
+          if (functions.has(func)) continue;
+          functions.set(func, {
+            namespace: getElementNamespace(func) ?? '',
+            name: func.name,
+            bindingName: `$rune$condition${functions.size}`
+          });
+        }
+      }
+    }
+  }
+
   const graph = buildClosureReferenceGraph(closure, globalIndex);
   const cyclicTypes = findCyclicTypes(graph);
   const emitOrder = topoSort(graph, cyclicTypes);
@@ -494,7 +530,10 @@ export function emitStandaloneZodSchema(
   const emitOptions: NamespaceEmitterOptions = {
     suppressBoilerplate: true,
     functionInputs: options.functionInputs,
-    metadataInputs: options.metadataInputs
+    metadataInputs: options.metadataInputs,
+    conditionFunctionName: (declaration) =>
+      (isRosettaFunction(declaration) ? functions.get(declaration)?.bindingName : undefined) ??
+      callableExportName(declaration)
   };
   const result = emitNamespace(syntheticModel, emitOptions, { namespaces: new Map() });
   const stripped = result.content.replace(CROSS_NAMESPACE_IMPORT_LINE, '');
@@ -520,6 +559,7 @@ export function emitStandaloneZodSchema(
   return {
     code,
     diagnostics: [...closure.diagnostics, ...result.diagnostics],
+    ...(functions.size ? { functions: [...functions.values()] } : {}),
     ...(options.functionInputs ? { schemaName: `${target.node.name}Schema` } : {})
   };
 }
