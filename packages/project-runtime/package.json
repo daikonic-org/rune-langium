@@ -77,7 +77,7 @@
   },
   "devDependencies": {
     "@js-temporal/polyfill": "^0.5.1",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/semver": "7.8.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
