@@ -10,6 +10,10 @@ Run `pnpm run verify:reference-examples` after building the workspace dependenci
 The report enumerates all JSON and XML paths, including payloads in documentation,
 serialization outputs and those linked from execution catalogs. Shared codecs and
 linked decoders check imports; known empty upstream files are asserted individually.
+Generated validators and their condition functions run through Prototype's shared
+compiler and module loader on the decoded payloads. Compilation/runtime exceptions
+fail CI; ordinary validation issues from incomplete upstream translations remain
+distinct report results.
 Rootless objects, collection payloads, Java-only functions and XML are reported
 explicitly when additional binding or codec support is needed. Discovery counts
 and unexpected Rune payloads outside known roots fail CI.

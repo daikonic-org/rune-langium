@@ -67,3 +67,14 @@ projectCodeListForAlias(alias: RosettaTypeAlias, resources: Pick<{ implementatio
 - `alias: RosettaTypeAlias`
 - `resources: Pick<{ implementationSymbols: { model: string; namespace: string; kind: string; name: string; dispatch?: string }[]; implementationStatus: any; codeList: any; codeListForType: any; validateCode: any; invokeByKey: (key: string, args: readonly unknown[]) => unknown; invoke: any }, "codeListForType"> | undefined`
 **Returns:** `readonly { value: string; label: string }[] | undefined`
+
+### `renderCodeListEnum`
+Use the same canonical enum builder and Rune renderer as schema imports.
+```ts
+renderCodeListEnum(name: string, values: readonly CodeListValue[], options: { declareSource?: boolean }): string
+```
+**Parameters:**
+- `name: string`
+- `values: readonly CodeListValue[]`
+- `options: { declareSource?: boolean }` — default: `{}`
+**Returns:** `string`

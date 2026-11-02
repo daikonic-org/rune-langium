@@ -34,6 +34,10 @@ for (const release of ['Nightly', '7.8.0'])
       await page.getByTestId('namespace-search').fill('BusinessCenters');
       await typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data').click();
       await expect(page.getByTestId('center-stack')).toContainText('BusinessCenters');
+      await expect(
+        page.getByTestId('center-stack').getByRole('heading', { name: 'BusinessCenters', exact: true })
+      ).toBeVisible();
+      await expect(page.getByTestId('rune-node-hydrating-spinner')).toHaveCount(0);
       expect(crashes).toEqual([]);
       await expect(page.getByRole('button', { name: 'Inspector', exact: true })).toHaveAttribute(
         'aria-pressed',

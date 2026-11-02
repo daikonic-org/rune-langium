@@ -37,7 +37,12 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 import type { InstanceDecodeMessage, InstanceSerializeMessage } from '../services/codegen-service.js';
 import type { LangiumDocument } from 'langium';
 import { URI, AstUtils } from 'langium';
-import { transform } from 'sucrase';
+import {
+  compileStandaloneValidator,
+  createGeneratedModuleLoader,
+  runInWorkerSandbox,
+  type StandaloneValidatorResult
+} from '../services/generated-preview-runtime.js';
 import {
   createRuneDslServices,
   hydrateModelDocuments,
@@ -55,11 +60,7 @@ import {
   generateSelected,
   generatePreviewSchemas,
   validateProjectPreviewBindings,
-  bindGeneratedProjectModule,
   ProjectBindingUnavailable,
-  type ProjectBindingRegistry,
-  emitStandaloneZodSchema,
-  RUNTIME_HELPER_JS_SOURCE,
   normalizePreviewInputs,
   adaptPreviewData,
   selectTypeScriptProjection,
@@ -68,13 +69,7 @@ import {
   generatePythonModule,
   selectPythonProjection
 } from '@rune-langium/codegen/export';
-import type {
-  Target,
-  FormPreviewSchema,
-  GeneratorOutput,
-  GeneratorDiagnostic,
-  PythonModule
-} from '@rune-langium/codegen/export';
+import type { Target, FormPreviewSchema, GeneratorOutput, PythonModule } from '@rune-langium/codegen/export';
 import { findDataNode, getActiveConditionPredicates } from '@rune-langium/codegen/instances';
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
@@ -398,65 +393,6 @@ async function getOrComputeAsync<T>(
     cache.set(key, entry);
   }
   return entry;
-}
-
-interface StandaloneValidatorResult {
-  validator: z.ZodTypeAny | undefined;
-  diagnostics: GeneratorDiagnostic[];
-}
-
-/**
- * Compiles `typeFqn`'s real Zod schema via `emitStandaloneZodSchema`
- * (packages/codegen/src/emit/standalone-schema.ts) and evaluates it through
- * `runInWorkerSandbox` — the same hardened `new Function` path
- * `executeFunction`/`validateInstance`'s condition predicates already use;
- * do not add a second one.
- *
- * Fully synchronous — `emitStandaloneZodSchema` and the sandbox eval both
- * have no `await` anywhere in this call — so its cache (below) uses the
- * sync `getOrCompute`, not `getOrComputeAsync`.
- */
-function compileStandaloneValidator(
-  documents: LangiumDocument[],
-  typeFqn: string,
-  functionInputs: boolean | 'metadata' = false
-): StandaloneValidatorResult {
-  const { code, diagnostics, schemaName } = functionInputs
-    ? emitStandaloneZodSchema(
-        documents,
-        typeFqn,
-        functionInputs === 'metadata' ? { metadataInputs: true } : { functionInputs: true }
-      )
-    : emitStandaloneZodSchema(documents, typeFqn);
-  if (diagnostics.some((d) => d.severity === 'error')) {
-    return { validator: undefined, diagnostics };
-  }
-  // emitStandaloneZodSchema always names the target's own schema constant
-  // `${bareName}Schema` (zod-emitter.ts's schemaName convention), and
-  // typeFqn's own bare name (its final `.`-segment) is exactly that name.
-  const targetName = typeFqn.slice(typeFqn.lastIndexOf('.') + 1);
-  try {
-    const stripped = transpileGeneratedTypeScript(code.replace(/^import .*;$/gm, ''), `${typeFqn}.zod.ts`);
-    const validator = runInWorkerSandbox(
-      `const exports = {};\n${stripped}`,
-      'z',
-      z,
-      `exports[${JSON.stringify(schemaName ?? `${targetName}Schema`)}]`
-    ) as z.ZodTypeAny;
-    return { validator, diagnostics };
-  } catch (err) {
-    return {
-      validator: undefined,
-      diagnostics: [
-        ...diagnostics,
-        {
-          severity: 'error',
-          code: 'compile-error',
-          message: err instanceof Error ? err.message : String(err)
-        }
-      ]
-    };
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -848,152 +784,6 @@ async function runInstanceSchema(typeFqn: string, requestId: string): Promise<vo
 }
 
 // ---------------------------------------------------------------------------
-// TypeScript → JavaScript transpilation for @rune-langium/codegen output
-// ---------------------------------------------------------------------------
-
-/** Parse and erase TypeScript syntax without using a host module resolver. */
-function transpileGeneratedTypeScript(tsCode: string, moduleName: string): string {
-  try {
-    return transform(tsCode, {
-      transforms: ['typescript', 'imports'],
-      filePath: moduleName,
-      disableESTransforms: true
-    }).code;
-  } catch (error) {
-    throw new Error(
-      `Unable to transpile generated module '${moduleName}': ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hardened `new Function(...)` execution — shared sandbox wrapper
-// ---------------------------------------------------------------------------
-
-/**
- * Runs `jsSource` (with the runtime-helper bundle prepended) inside
- * `new Function(...)`, evaluates `returnExpr` as the final statement, and
- * returns its result. `argValue` is bound to the parameter named `argName`
- * inside that source.
- *
- * The `new Function(...)` constructor evaluates the given source in a
- * dedicated module-level scope, but it is NOT a sandbox:
- * - Identifier shadowing (`fetch`, `WebSocket`, `XMLHttpRequest`, `importScripts`
- *   passed as params) prevents direct calls to those names from the evaluated
- *   code, but `globalThis.fetch` etc. remain reachable.
- * - Other Worker globals (`postMessage`, `self`, `addEventListener`) are not
- *   shadowed.
- * - This worker runs in a dedicated Web Worker context, so the blast radius is
- *   limited to that worker, but the evaluated code can still exfil via globalThis.
- * - For stronger isolation, rely on the Cloudflare Workers / browser CSP to
- *   block network egress at the runtime level.
- *
- * Shared by `executeFunction` (generated Rune func bodies) and the
- * `instance:validate` handler (condition predicates) — the single hardened-
- * execution path in this worker; do not add a second one.
- *
- * react-doctor false positive: this is `new Function`, not `eval`, but the rule
- * flags both. Disable comment preserved.
- */
-function runInWorkerSandbox(
-  jsSource: string,
-  argName: string,
-  argValue: unknown,
-  returnExpr: string,
-  includeRuntimeHelpers = true
-): unknown {
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-  // react-doctor-disable-next-line react-doctor/no-eval
-  const wrapper = new Function(
-    argName,
-    'Temporal',
-    'fetch',
-    'WebSocket',
-    'XMLHttpRequest',
-    'importScripts',
-    `${includeRuntimeHelpers ? `${RUNTIME_HELPER_JS_SOURCE}\n\n` : ''}${jsSource}\nreturn ${returnExpr};`
-  );
-  return wrapper(argValue, Temporal, undefined, undefined, undefined, undefined);
-}
-
-interface GeneratedModuleRecord {
-  exports: Record<string, unknown>;
-}
-
-interface GeneratedModuleRuntime {
-  module: GeneratedModuleRecord;
-  require: (specifier: string) => Record<string, unknown>;
-}
-
-function normalizeGeneratedModulePath(path: string): string {
-  const segments: string[] = [];
-  for (const segment of path.replace(/\\/g, '/').split('/')) {
-    if (!segment || segment === '.') continue;
-    if (segment === '..') segments.pop();
-    else segments.push(segment);
-  }
-  return segments.join('/');
-}
-
-function resolveGeneratedModulePath(importer: string, specifier: string): string {
-  if (!specifier.startsWith('.')) {
-    throw new Error(`Generated preview module '${importer}' requested unsupported dependency '${specifier}'.`);
-  }
-  const lastSlash = importer.lastIndexOf('/');
-  const directory = lastSlash === -1 ? '' : importer.slice(0, lastSlash);
-  const joined = normalizeGeneratedModulePath(`${directory}/${specifier}`);
-  return joined.replace(/\.js$/, '.ts');
-}
-
-/** Evaluate generated modules with a require closure over generated outputs. */
-function createGeneratedModuleLoader(
-  outputs: readonly GeneratorOutput[],
-  bindings?: ProjectBindingRegistry
-): {
-  load: (relativePath: string) => Record<string, unknown>;
-} {
-  const sources = new Map<string, string>();
-  for (const output of outputs) {
-    const path = normalizeGeneratedModulePath(output.relativePath);
-    // Content is the complete emitted module. Snippets cannot resolve imports
-    // or sibling calls and are therefore not a valid execution source.
-    const source = output.content;
-    if (source) sources.set(path, source);
-  }
-  const modules = new Map<string, GeneratedModuleRecord>();
-
-  const load = (relativePath: string): Record<string, unknown> => {
-    const path = normalizeGeneratedModulePath(relativePath).replace(/\.js$/, '.ts');
-    const existing = modules.get(path);
-    if (existing) return existing.exports;
-    const source = sources.get(path);
-    if (source === undefined) throw new Error(`Generated preview module '${path}' was not emitted.`);
-
-    const module: GeneratedModuleRecord = { exports: {} };
-    // Cache before evaluation so generated recursive functions/modules can
-    // observe the same CommonJS export object during a cycle.
-    modules.set(path, module);
-    const runtime: GeneratedModuleRuntime = {
-      module,
-      require: (specifier) =>
-        specifier === '@js-temporal/polyfill' ? { Temporal } : load(resolveGeneratedModulePath(path, specifier))
-    };
-    const javascript = transpileGeneratedTypeScript(source, path);
-    runInWorkerSandbox(
-      `const exports = $rune$module.module.exports;\nconst require = $rune$module.require;\n${javascript}`,
-      '$rune$module',
-      runtime,
-      '$rune$module.module.exports',
-      false
-    );
-    if (bindings) bindGeneratedProjectModule(module.exports, bindings);
-    return module.exports;
-  };
-
-  return { load };
-}
-
-// ---------------------------------------------------------------------------
 // Function execution
 // ---------------------------------------------------------------------------
 
@@ -1228,10 +1018,10 @@ async function executeFunction(
 
     if (selectedModulePath === undefined) throw new Error(`Function '${functionFqn}' not found in generated code.`);
 
-    const { value: compiled } = getOrCompute(
+    const { value: compiled } = await getOrComputeAsync(
       standaloneValidatorCache,
       `function-inputs:${selectedTargetId}`,
-      documentsVersion,
+      () => documentsVersion,
       () => compileStandaloneValidator(documents, selectedTargetId, true)
     );
     if (!compiled.validator) {
@@ -1394,8 +1184,18 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
     const project = await scope.project;
     if (projectGeneration)
       typeFqn = resolveEffectiveProjectTargetId(documents, qualifiedNameFromNodeId(typeFqn), 'Data');
-    const { value: compiled } = getOrCompute(standaloneValidatorCache, 'metadata:' + typeFqn, documentsVersion, () =>
-      compileStandaloneValidator(documents, typeFqn, 'metadata')
+    const { value: compiled } = await getOrComputeAsync(
+      standaloneValidatorCache,
+      'metadata:' + typeFqn,
+      () => documentsVersion,
+      () =>
+        compileStandaloneValidator(documents, typeFqn, 'metadata', {
+          generatorOptions: { projectBindings: project?.implementationBindings, projectResources: project?.bindings },
+          bindings: project?.bindings,
+          beforeGenerate: (selection) => {
+            if (project) assertProjectGenerationCapabilities(project, selection, 'typescript');
+          }
+        })
     );
 
     if (!compiled.validator) {

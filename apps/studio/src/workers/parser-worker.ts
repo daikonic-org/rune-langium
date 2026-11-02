@@ -26,8 +26,8 @@ import {
   namespaceFromSource,
   preserveCstText,
   serializeRuneModel,
-  hydrateModelDocument,
   hydrateModelDocuments,
+  readLspModelMetadata,
   relinkModelReferences,
   isRosettaModel,
   type DeferredModelProvider,
@@ -247,20 +247,6 @@ const invalidArtifactKeys = new Set<string>();
 // User models are already published in the routed parse response.
 const publishedUserModelUris = new Set<string>();
 
-// Initialised after createRuneDslServices() below — safe because getModel is only
-// called during build(), which happens inside handleLinkDocument (post-init).
-let serializer: { deserialize<T extends AstNode>(content: string): T };
-const deferredSerializer = {
-  deserialize<T extends AstNode>(content: string): T {
-    const model = serializer.deserialize<T>(content);
-    if (!isRosettaModel(model)) throw new Error('Expected a serialized RosettaModel');
-    // Serialized external pointers can precede their deferred documents. Rebuild
-    // authored references through Core's existing lazy linker before publication.
-    relinkModelReferences(RuneDsl, model);
-    return model;
-  }
-};
-
 // Accumulates models deserialized via the deferred provider during a single
 // handleLinkDocument call so they can be returned in LinkDocumentResponse.newModels.
 // Reset at the start of each handleLinkDocument call.
@@ -268,15 +254,42 @@ let newModelsAccumulator: RosettaModel[] = [];
 
 const deferredProvider: DeferredModelProvider = {
   getModel(uri: string): AstNode | undefined {
-    const json = deferredModelJson.get(uri);
-    if (json === undefined) return undefined;
+    if (!deferredModelJson.has(uri)) return undefined;
+    const entries: Array<{ uri: string; json: string }> = [];
     try {
-      const model = deferredSerializer.deserialize<RosettaModel>(json);
-      if (!publishedUserModelUris.has(uri)) newModelsAccumulator.push(model);
-      return model;
+      // Immutable serialized pointers already identify their exact targets.
+      // Register their closure together before Core revives any references,
+      // including cycles; do not resolve the corpus again through name scopes.
+      const pending = [uri];
+      const visited = new Set<string>();
+      while (pending.length) {
+        const current = pending.pop()!;
+        if (visited.has(current)) continue;
+        visited.add(current);
+        const json = deferredModelJson.get(current);
+        if (json === undefined) continue;
+        entries.push({ uri: current, json });
+        for (const dependency of readLspModelMetadata(json).references) {
+          pending.push(URI.parse(dependency).toString());
+        }
+      }
+      const hydrated = hydrateModelDocuments({ RuneDsl, shared: RuneDsl.shared }, entries);
+      for (const { model, document } of hydrated) {
+        if (!isRosettaModel(model)) throw new Error('Expected a serialized RosettaModel');
+        const key = document.uri.toString();
+        if (publishedUserModelUris.has(key)) {
+          // Editable source snapshots may predate the reference capture. Keep
+          // their authored names on the canonical live scope/link boundary.
+          relinkModelReferences(RuneDsl, model);
+        } else newModelsAccumulator.push(model);
+        deferredModelJson.delete(key);
+      }
+      return hydrated[0]!.model;
     } catch (error) {
-      const key = deferredArtifactKeys.get(uri);
-      if (key) invalidArtifactKeys.add(key);
+      for (const entry of entries) {
+        const key = deferredArtifactKeys.get(entry.uri);
+        if (key) invalidArtifactKeys.add(key);
+      }
       throw error;
     }
   },
@@ -289,7 +302,6 @@ const { RuneDsl } = createRuneDslServices(EmptyFileSystem, deferredProvider);
 const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
 const builder = RuneDsl.shared.workspace.DocumentBuilder;
 const indexManager = RuneDsl.shared.workspace.IndexManager as RuneDslIndexManager;
-serializer = RuneDsl.serializer.JsonSerializer;
 
 // Track the active Langium services used by the most recent parseWorkspace.
 let activeBuilder: typeof builder = builder;
@@ -568,15 +580,8 @@ const handleLinkDocument = withInstrumentation(
       // Corpus documents are stored as raw JSON until first link request.
       // Materialize the target document now if it hasn't been deserialized yet.
       if (deferredModelJson.has(targetUri.toString())) {
-        const { model, document } = hydrateModelDocument(
-          { RuneDsl: { serializer: { JsonSerializer: deferredSerializer } }, shared: RuneDsl.shared },
-          targetUri,
-          deferredModelJson.get(targetUri.toString())!,
-          { register: 'always' }
-        );
-        if (!publishedUserModelUris.has(targetUri.toString())) newModelsAccumulator.push(model);
-        doc = document;
-        deferredModelJson.delete(targetUri.toString());
+        deferredProvider.getModel(targetUri.toString());
+        doc = activeLangiumDocs.getDocument(targetUri);
       } else if (activeLangiumDocs.hasDocument(targetUri)) {
         doc = activeLangiumDocs.getDocument(targetUri);
       }

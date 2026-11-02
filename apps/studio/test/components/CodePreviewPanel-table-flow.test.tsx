@@ -74,7 +74,15 @@ async function managedDownloadFixture() {
   const models = await Promise.all(
     [...files, ...input.referenceDocuments].map(async (file) => (await parse(file.content)).value!)
   );
-  const workspace = { workspaceId: 'p', models } as WorkspaceState;
+  const workspace = {
+    workspaceId: 'p',
+    models: models.slice(0, files.length),
+    deferredExports: models.slice(files.length).map((model) => ({
+      filePath: '[cdm]/functions.rosetta',
+      namespace: model.name,
+      exports: model.elements.map((node) => ({ type: node.$type, name: (node as { name: string }).name }))
+    }))
+  } as WorkspaceState;
   const ui = (runtime: ProjectRuntimeState = { managed: true, status: 'captured', input, diagnostics: [] }) => (
     <ProjectContext.Provider value={{ status: 'ready', diagnostics: [], runtime }}>
       <WorkspaceStateContext.Provider value={workspace}>
@@ -228,7 +236,7 @@ describe('CodePreviewPanel table-as-landing flow', () => {
     vi.restoreAllMocks();
   });
 
-  it('downloads accepted reference namespaces from the captured project, with effective dependencies and receipt', async () => {
+  it('downloads unmaterialized reference namespaces from the captured inventory, with effective dependencies and receipt', async () => {
     const { input, ui } = await managedDownloadFixture();
     useCodegenStore.getState().setDependencyGraph({ stale: ['stale'] });
     const request = vi.mocked(requestCodegenDownload).mockImplementation(generateResponse);

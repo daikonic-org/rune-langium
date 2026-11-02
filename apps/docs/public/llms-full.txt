@@ -9334,9 +9334,11 @@ Contract for on-demand corpus document materialization (ADR 007).
 
 The `RuneDslLinker` calls `getModel` when Langium encounters a cross-reference
 to a corpus document that has not yet been deserialized. The implementation in
-the parser worker reads raw JSON from the `deferredModelJson` map and calls
-`JsonSerializer.deserialize` at that moment.
+the parser worker reads raw JSON from the `deferredModelJson` map and hydrates
+it through Core's shared serializer boundary at that moment.
 
+Providers may register a complete batch before returning its root, including
+cyclic dependencies. The linker reuses that registered document.
 `consume` is called immediately after so the worker can drop the JSON string
 and avoid double-deserialization on subsequent linking passes.
 
@@ -10527,6 +10529,9 @@ preserved. Turning this into directly `new Function`-evaluable JavaScript
 is left to the caller, exactly as
 `RUNTIME_HELPER_JS_SOURCE` is already caller-prepended rather than
 bundled into this return value.
+When `functions` is present, load each linked function's generated module
+closure and bind its `bindingName` before evaluating the schema. Function
+inputs use the same canonical adapters and input validators as execution.
 
 Caveat inherited from `namespace-emitter.ts` (pre-existing there, not
 introduced by this function): if `targetId` itself resolves to a
@@ -10563,7 +10568,7 @@ to cyclic ordering, and genuinely out of scope for this module — it is
 NOT fixed here.
 
 ```ts
-emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean; metadataInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
+emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean; metadataInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string; functions?: { namespace: string; name: string; bindingName: string }[] }
 ```
 
 **Parameters:**
@@ -10571,7 +10576,7 @@ emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string,
 - `targetId: string` —
 - `options: { functionInputs?: boolean; metadataInputs?: boolean }` —
 
-**Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }`
+**Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string; functions?: { namespace: string; name: string; bindingName: string }[] }`
 
 ### selectTypeScriptProjection
 

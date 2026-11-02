@@ -148,6 +148,12 @@ Preserve metadata envelopes while retaining ordinary Data condition validation.
 
 **Type:** `boolean`
 
+#### conditionFunctionName
+
+Host bindings for condition callables in a standalone schema.
+
+**Type:** `(declaration: CallableDeclaration, forceAlias?: boolean) => string`
+
 #### projectResources
 
 Prepared resource lookup from the active project, never parsed configuration.

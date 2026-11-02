@@ -55,6 +55,9 @@ import { describe, it, expect } from 'vitest';
 import ts from 'typescript-classic';
 import { walkNamespace } from '../../src/emit/namespace-walker.js';
 import { emitNamespace } from '../../src/emit/zod-emitter.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
+import { inheritedArraySource, inheritedArrayValue } from '../helpers/inherited-schema.js';
+import type { ZodType } from 'zod';
 
 async function parseSource(source: string, uri: string) {
   const { RuneDsl } = createRuneDslServices();
@@ -84,6 +87,17 @@ function toEvaluableJs(tsCode: string): string {
 }
 
 describe('zod-emitter — cyclic-reference wrapping (real per-namespace pipeline)', () => {
+  it('validates inherited arrays whose acyclic item schema emits after the child of a cyclic parent', async () => {
+    const doc = await parseSource(inheritedArraySource, 'inmemory:///inherited-array.rosetta');
+    const output = emitNamespace(walkNamespace([doc], 'test.inheritedArray'), {});
+    const { TradeSchema } = compileGeneratedTypeScript<{ TradeSchema: ZodType }>([output]);
+    expect(TradeSchema.safeParse(inheritedArrayValue)).toMatchObject({ success: true, data: inheritedArrayValue });
+    expect(TradeSchema.safeParse({ tradeIdentifier: [{ assignedIdentifier: [] }] }).success).toBe(false);
+    expect(TradeSchema.safeParse({ tradeIdentifier: [{ assignedIdentifier: [{ identifier: 123 }] }] }).success).toBe(
+      false
+    );
+  });
+
   it('an acyclic Data referencing a cyclic Data is wrapped, and genuinely evaluates', async () => {
     const doc = await parseSource(
       `

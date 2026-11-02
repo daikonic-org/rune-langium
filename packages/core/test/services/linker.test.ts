@@ -2,9 +2,14 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect, vi } from 'vitest';
-import { createRuneDslServices, RuneDslIndexManager } from '../../src/index.js';
-import type { DeferredModelProvider } from '../../src/index.js';
-import type { Data, RosettaModel } from '../../src/index.js';
+import {
+  createRuneDslServices,
+  type RuneDslIndexManager,
+  type RuneDslLinker,
+  type DeferredModelProvider,
+  type Data,
+  type RosettaModel
+} from '../../src/index.js';
 import { URI, EmptyFileSystem } from 'langium';
 import type { AstNode, AstNodeDescription } from 'langium';
 
@@ -48,6 +53,33 @@ function registerDeferredCorpus(
 }
 
 describe('RuneDslLinker — deferred corpus materialization (ADR 007)', () => {
+  it('reuses a document registered by a batch materializer instead of registering its root twice', () => {
+    const models = new Map<string, AstNode>();
+    const provider: DeferredModelProvider = {
+      getModel(uri) {
+        const model = models.get(uri)!;
+        const document = services.shared.workspace.LangiumDocumentFactory.fromModel(model, URI.parse(uri));
+        services.shared.workspace.LangiumDocuments.addDocument(document);
+        return model;
+      },
+      consume: (uri) => {
+        models.delete(uri);
+      }
+    };
+    const services = createRuneDslServices(EmptyFileSystem, provider);
+    const uri = 'file:///batch.rosetta';
+    registerDeferredCorpus(services, uri, 'namespace batch\ntype Party:', [], models);
+    const root = models.get(uri) as RosettaModel;
+    const target = (services.RuneDsl.references.Linker as RuneDslLinker).loadAstNode({
+      name: 'Party',
+      type: 'Data',
+      path: '/elements@0',
+      documentUri: URI.parse(uri)
+    });
+    expect(target).toBe(root.elements[0]);
+    expect(services.shared.workspace.LangiumDocuments.getDocument(URI.parse(uri))?.parseResult.value).toBe(root);
+    expect(models.size).toBe(0);
+  });
   it('calls getModel during eagerLinking, not at parse time', async () => {
     const deferredModels = new Map<string, AstNode>();
     const getModel = vi.fn((uri: string) => deferredModels.get(uri));

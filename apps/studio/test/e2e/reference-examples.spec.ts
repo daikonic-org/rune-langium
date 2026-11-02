@@ -13,10 +13,20 @@ type Cash:
  value number (1..1)
 choice Method:
  Cash
-type Payment:
+type Payment extends Identifier:
  method Method (0..1)
  amount number (1..1)
   [metadata scheme]
+ condition PositiveAmount: Positive(amount)
+type Identifier:
+ assignedIdentifier AssignedIdentifier (0..*)
+ parent Identifier (0..1)
+type AssignedIdentifier:
+ identifier string (1..1)
+func Positive:
+ inputs: value number (1..1)
+ output: result boolean (1..1)
+ set result: value > 0
 func Double:
  inputs: payment Payment (1..1)
  output: result Payment (1..1)
@@ -38,6 +48,7 @@ for (const catalog of [false, true])
           '@type': 'reference.example.Payment',
           '@version': '1.0',
           amount: { '@data': 21, '@scheme': 'USD' },
+          assignedIdentifier: [{ identifier: 'gas-trade' }],
           method: { '@type': 'reference.example.Method', '@data': { '@type': 'reference.example.Cash', value: 1 } }
         };
       const payload = JSON.stringify(catalog ? { payment } : payment);
@@ -168,6 +179,7 @@ for (const catalog of [false, true])
       const amount = page
         .getByRole('region', { name: 'payment fields', exact: true })
         .getByRole('spinbutton', { name: 'Amount', exact: true });
+      await expect(page.getByRole('region', { name: 'payment fields', exact: true })).toContainText('gas-trade');
       await expect(amount).toHaveValue('21');
       await amount.fill('22');
       await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();

@@ -85,7 +85,8 @@ iterative object/reference walk; it retains body-only edges without invoking a
 reviver for every source/token-position scalar.
 
 Code-tab downloads list namespaces from the provider's current managed semantic
-view, including accepted references. They reuse `generateExport` with the captured
+view, including deferred reference inventory before namespace materialization.
+They reuse `generateExport` with the captured
 project, canonical declaration dependency resolution and artifact receipt checks.
 Changing source, project capture or workspace closes stale choices and cancels
 in-flight downloads. The legacy parse dependency graph is used only for legacy workspaces.
@@ -518,6 +519,16 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - `getTargetRelativePath` centralizes output paths. TypeScript and Python function emitters consume the shared extraction facts in `types/func.ts`; target syntax and runtime remain separate.
 - Studio function forms use resolved inherited/dispatch signatures. Codegen `normalizePreviewInputs` adapts plain form values using the shared type resolver and metadata runtime helpers, traversing actual input values independently of form expansion depth. Python input normalization and this adapter share declaration-derived metadata payload shapes from `expr/metadata-input.ts`, including aliases, inherited Data/Choice fields and own/inherited key or template metadata. JSON envelopes retain their metadata and normalize only their payload; records matching declared payload fields take precedence where the two shapes are ambiguous. Python marks runtime-created wrappers with an internal dictionary subclass so repeated function-input normalization preserves their representation without adding JSON keys. Metadata conversion preserves absence before wrapping, including call and constructor boundaries; required cardinality checks still reject missing values.
 - Studio function preview and standalone schema compilation share the Sucrase TypeScript compiler. Function preview transpiles complete generated modules and resolves imports among generated outputs plus the explicit `@js-temporal/polyfill` runtime dependency. Keep private evaluator binding names outside the Rune identifier alphabet (use `$`). Keep the worker execution restrictions and test real parsed/emitted functions when changing this path.
+- Zod schema references follow the actual declaration order, including acyclic
+  targets copied into children of cyclic parents. Defer forward references with
+  the emitter's shared lazy-reference helper; exported validators and Prototype
+  selection must validate inherited arrays without capturing undefined item schemas.
+- Standalone schemas expose linked condition-function dependencies. The shared
+  generated preview runtime loads their selected TypeScript module closure and
+  reuses canonical argument adaptation and function-input validators, including
+  Temporal conversion. Named imports resolve lazily within the cached module graph
+  so cyclic field dependencies cannot initialize foreign child classes too early.
+  Prototype and the pinned corpus CI gate use this same compiler and loader.
 - Builder scope requests include the current workspace sources and serialized dependencies, with canonical file URIs. The parser worker serializes each complete parse/link/scope request so router fallback and concurrent updates cannot query missing or stale documents.
 - Core `getFunctionInputs` resolves inherited inputs and dispatch signatures for both codegen and expression scope; external callable scope entries count their declared parameters, and reporting/eligibility rules expose zero or one argument from their declared input. Scope inspection materializes deferred callable descriptions through the shared Rune linker before reading signatures; unrelated model stubs stay deferred.
 - Core `getFunctionSignature` resolves dispatch bases from namespace declarations and linked selectors. Language-service scopes and codegen share it, including overloads split across files. Output enum-member scope derives from that effective signature, retaining the correct declaration identity for inherited and dispatch functions when global enum names collide.
@@ -1296,6 +1307,12 @@ moving server mirror. Linking materializes the selected namespace and transitive
 needed models. Before UI publication, that subset passes through Core hydration
 so consumers receive linked ASTs with container/reference contracts, not wire
 snapshots. Deferred declaration ownership uses the matching workspace file path.
+The parser worker closes immutable serialized-reference edges and registers their
+roots together through Core's batch deserializer, preserving verified pointers
+and cross-document cycles. The deferred linker reuses roots registered by that
+batch. Only editable source snapshots rebuild authored references through the
+live scope/link boundary; immutable dependencies are not re-resolved by name
+before their scopes exist.
 Concrete local source models publish only after their reference dependencies have
 been linked and included in that same Core hydration batch. Repeated worker
 snapshot requests return the complete linked closure, including dependencies

@@ -18,6 +18,7 @@ import {
 } from '../packages/core/dist/index.js';
 import { decodeRuneJson, encodeRuneJson, isRuneJsonPayload } from '../packages/core/dist/serialization/rune-json.js';
 import { adaptPreviewData } from '../packages/codegen/dist/src/export.js';
+import { compileStandaloneValidator } from '../apps/studio/src/services/generated-preview-runtime.ts';
 import { isCuratedSourceFile } from '../packages/curated-schema/dist/index.js';
 import {
   isRepositoryExample,
@@ -38,6 +39,29 @@ const { RuneDsl } = createRuneDslServices();
 const documents = [],
   inventories = [],
   failures = [];
+const validators = new Map();
+
+/** Exercise the actual Prototype compiler, module loader and validator after linked import. */
+async function validateExample(entry, typeId, data) {
+  if (!validators.has(typeId)) {
+    const [target, kind] = typeId.split('#');
+    validators.set(
+      typeId,
+      await compileStandaloneValidator(documents, target, kind === 'RosettaFunction' ? true : 'metadata')
+    );
+  }
+  const compiled = validators.get(typeId);
+  assert(compiled.validator, `${typeId}: ${compiled.diagnostics.map((diagnostic) => diagnostic.message).join('; ')}`);
+  // Incomplete upstream translations may produce ordinary Rune validation issues.
+  // A generated validator throwing instead of returning those issues is a failure.
+  const result = compiled.validator.safeParse(data);
+  entry.validation = {
+    status: result.success ? 'valid' : 'invalid',
+    issueCount: result.error?.issues.length ?? 0,
+    ...(result.success ? {} : { issues: result.error.issues.map(({ path, message }) => ({ path, message })) })
+  };
+}
+
 async function files(directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -224,7 +248,9 @@ try {
             }
             const prepared = prepareReferenceExample(origin, entry.path, text, symbols, undefined, binding);
             const id = `${prepared.type.namespace}.${prepared.type.name}#RosettaFunction`;
-            assert(adaptPreviewData(documents, id, structuredClone(prepared.data)).data);
+            const data = adaptPreviewData(documents, id, structuredClone(prepared.data)).data;
+            assert(data);
+            await validateExample(entry, id, data);
             assert.deepEqual(prepared.source.execution, binding);
             entry.function = id;
             entry.result = 'imported as catalog-declared function argument bundle';
@@ -241,9 +267,10 @@ try {
             );
             assert(type, 'Missing upstream FpML Document root');
             const prepared = prepareReferenceExample(origin, entry.path, text, symbols, type);
-            assert(
-              adaptPreviewData(documents, `${type.namespace}.${type.name}#Data`, structuredClone(prepared.data)).data
-            );
+            const id = `${type.namespace}.${type.name}#Data`;
+            const data = adaptPreviewData(documents, id, structuredClone(prepared.data)).data;
+            assert(data);
+            await validateExample(entry, id, data);
             entry.result = 'imported with upstream-declared FpML Document type';
             continue;
           }
@@ -255,6 +282,7 @@ try {
         // Same linked decoder as the Studio preview worker, including structured-clone transport.
         const decoded = adaptPreviewData(documents, id, structuredClone(prepared.data)).data;
         assert(decoded && typeof decoded === 'object', `${entry.path}: linked import produced no object`);
+        await validateExample(entry, id, decoded);
         entry.result = 'imported through shared preparation and linked worker decoder';
       } catch (error) {
         entry.result = 'FAILED';

@@ -36,6 +36,16 @@ const getDocumentMock = vi.fn((_uri: unknown) => ({
 const registerExportsMock = vi.fn();
 
 vi.mock('@rune-langium/core', () => ({
+  readLspModelMetadata: () => ({ references: [] }),
+  hydrateModelDocuments: (_services: unknown, entries: Array<{ uri: string; json: string }>) =>
+    entries.map((entry) => {
+      const model = deserializeMock(entry.json);
+      const document = fromModelMock(model, entry.uri);
+      document.uri = entry.uri;
+      addDocumentMock(document);
+      getDocumentMock.mockReturnValue(document);
+      return { model, document };
+    }),
   isRosettaModel: (node: { $type?: string }) => node.$type === 'RosettaModel',
   RuneDslIndexManager: class {},
   namespaceFromSource: (text: string) => text.match(/^\s*namespace\s+([\w.]+)/m)?.[1] ?? '',

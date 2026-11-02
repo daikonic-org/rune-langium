@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
 import { escapeSingleQuotedString } from './string-literal.js';
 
 /**
@@ -15,6 +14,7 @@ import { resolveProjectTypeCall, projectTsCodeList, projectZodCodeList } from '.
 import { projectCodeListForAlias } from '../runtime/project-bindings.js';
 import { TEMPORAL_CONVERSION_PATTERNS } from '../expr/temporal-conversions.js';
 import {
+  getEnumValueLiteral,
   getEnumValues,
   getElementNamespace,
   isChoice,
@@ -226,6 +226,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly sections: string[] = [];
   private readonly functionInputs: boolean;
   private readonly metadataInputs: boolean;
+  private readonly emissionPositions: ReadonlyMap<string, number>;
+  private readonly conditionFunctionName: NamespaceEmitterOptions['conditionFunctionName'];
 
   constructor(
     model: NamespaceWalkResult,
@@ -236,6 +238,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     this.functionInputs = options.functionInputs ?? false;
     this.metadataInputs = this.functionInputs || (options.metadataInputs ?? false);
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
+    this.emissionPositions = new Map(model.emitOrder.map((name, index) => [name, index]));
+    this.conditionFunctionName = options.conditionFunctionName;
     if (this.functionInputs) {
       const builtinTypeMap = { ...this.ctx.builtinTypeMap };
       for (const [kind, temporalType] of Object.entries(typescriptProfile.recordTypeMap).concat([
@@ -456,26 +460,17 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   /**
-   * Reference a Data/Choice schema by name from within `ownerName`'s own
-   * declaration. When `name` is itself cyclic (`this.ctx.lazyTypes`), a bare
-   * `${name}Schema` reference can be emitted BEFORE that `const` is
-   * declared — `topoSort` always places cyclic types after every non-cyclic
-   * one, regardless of whether a non-cyclic type depends on one of them —
-   * throwing a TDZ `ReferenceError` at evaluation time. `z.lazy(() => ...)`
-   * defers evaluation past module-initialization time, making the
-   * reference safe regardless of emit order.
-   *
-   * Only wraps when `ownerName` itself is NOT cyclic: a reference from
-   * WITHIN a cyclic type's own body (including a genuine self-reference, or
-   * a reference between two members of the same mutual cycle — A and B are
-   * each individually cyclic) is already safe, since `ownerName`'s own
-   * declaration is already inside its own `z.lazy()` closure — confirmed by
-   * `test/us1-structural.test.ts`'s byte-identical golden fixture for
-   * mutual cycles and self-references, which asserts the ORIGINAL
-   * unwrapped form for exactly this case.
+   * Defer references to schemas that initialize later. Folded inherited fields
+   * can introduce forward references to acyclic types too: the child's graph
+   * edge names its cyclic parent, not every attribute copied from that parent.
+   * A cyclic Data owner already evaluates its whole body lazily. Choice emission
+   * passes an empty owner because its body has no such outer lazy boundary.
    */
   private schemaRefExpr(name: string, ownerName: string): string {
-    return this.ctx.lazyTypes.has(name) && !this.ctx.lazyTypes.has(ownerName)
+    const targetPosition = this.emissionPositions.get(name);
+    const ownerPosition = this.emissionPositions.get(ownerName);
+    const forward = targetPosition !== undefined && ownerPosition !== undefined && targetPosition >= ownerPosition;
+    return (this.ctx.lazyTypes.has(name) || forward) && !this.ctx.lazyTypes.has(ownerName)
       ? `z.lazy(() => ${name}Schema)`
       : `${name}Schema`;
   }
@@ -1020,6 +1015,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     conditionName: string
   ): ExpressionTranspilerContext {
     const context = buildConditionTranspilerContext(data, emitMode, conditionName, this.ctx.diagnostics);
+    if (this.conditionFunctionName) context.callableName = this.conditionFunctionName;
     if (!this.metadataInputs) return context;
     const localMetadata = new Map<string, { kind: 'field' | 'reference'; many: boolean } | undefined>();
     for (const feature of typeFeatures(data)) {

@@ -113,6 +113,15 @@ CodeMirror's rendered DOM is virtualized and is not the full document. Review th
 manifest, screenshots, traces, endpoint checks and canonical deployment separately;
 a passing selector does not establish that the visible state is useful. Keep real
 production failures visible instead of weakening assertions or adding ledger entries.
+Production journey teardown also fails on premature `ComputedScopes` reference
+resolution warnings, retaining the console evidence and a failing manifest verdict.
+Blank-reference ready checkpoints require selected Inspector content, not only
+the declaration inventory or preview form.
+To validate candidate assets against live endpoints without deploying, serve an
+owned optimized preview and set `PROD_UX_ASSET_ORIGIN=http://127.0.0.1:<port>`.
+The isolated checkout context substitutes only Studio static assets while retaining
+the deployed page origin and real endpoint requests. Label this candidate coverage,
+not production deployment acceptance; the default run uses deployed assets.
 
 ## Public CLI and LSP dependency closure
 
@@ -436,6 +445,11 @@ Run `pnpm run verify:reference-examples` after building core, codegen and
 project-runtime. CI uses checksum-pinned CDM 7.8.0 with its FpML 3.8.0 and Rune
 10.15.1 dependencies, scans every JSON/XML path, checks descriptor references and
 imports typed JSON examples through shared preparation plus the linked decoder.
+It also runs the same validator compiler and generated-module loader as Prototype,
+including inherited collections and condition-function dependencies. Compilation
+and validator exceptions fail the gate. Ordinary Rune issues from incomplete upstream
+translations are recorded in each entry's `validation` result and are not presented
+as successful validation.
 The report at `dist/reference-example-import-report.json` distinguishes genuine
 imports from headerless selection requirements, array inputs and pinned empty
 upstream files. Unknown Rune payloads outside discovery roots fail the gate.

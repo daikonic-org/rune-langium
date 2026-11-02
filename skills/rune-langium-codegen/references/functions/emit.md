@@ -39,6 +39,9 @@ preserved. Turning this into directly `new Function`-evaluable JavaScript
 is left to the caller, exactly as
 `RUNTIME_HELPER_JS_SOURCE` is already caller-prepended rather than
 bundled into this return value.
+When `functions` is present, load each linked function's generated module
+closure and bind its `bindingName` before evaluating the schema. Function
+inputs use the same canonical adapters and input validators as execution.
 
 Caveat inherited from `namespace-emitter.ts` (pre-existing there, not
 introduced by this function): if `targetId` itself resolves to a
@@ -74,10 +77,28 @@ This is a `namespace-walker.ts`-level cross-namespace concern, unrelated
 to cyclic ordering, and genuinely out of scope for this module — it is
 NOT fixed here.
 ```ts
-emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean; metadataInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }
+emitStandaloneZodSchema(documents: LangiumDocument<AstNode>[], targetId: string, options: { functionInputs?: boolean; metadataInputs?: boolean }): { code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string; functions?: { namespace: string; name: string; bindingName: string }[] }
 ```
 **Parameters:**
 - `documents: LangiumDocument<AstNode>[]`
 - `targetId: string`
 - `options: { functionInputs?: boolean; metadataInputs?: boolean }` — default: `{}`
-**Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string }`
+**Returns:** `{ code: string; diagnostics: GeneratorDiagnostic[]; schemaName?: string; functions?: { namespace: string; name: string; bindingName: string }[] }`
+
+### `getTargetRelativePath`
+Convert a dot-separated Rune namespace to the emitted relative file path for a target.
+
+Extensions are sourced from TARGET_DESCRIPTORS so the registry stays
+the single source of truth (018 Phase 0 Task 0.5).
+
+Whole-model targets (excel, graphql) emit a single bundled file rather than
+one-per-namespace, so the path is `model&lt;ext&gt;` and the `namespace` argument
+is ignored. Namespace-contract targets (zod, typescript, json-schema, sql,
+markdown) map `cdm.base.math` → `cdm/base/math&lt;ext&gt;`.
+```ts
+getTargetRelativePath(namespace: string, target: Target): string
+```
+**Parameters:**
+- `namespace: string`
+- `target: Target`
+**Returns:** `string`
