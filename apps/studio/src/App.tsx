@@ -9,6 +9,7 @@
  * and LSP client lifecycle.
  */
 
+import { hydrateProjectNamespaces } from './services/project-namespace-hydration.js';
 import type { CuratedCacheSeed } from './services/curated-cache-seeds.js';
 import { recordOperation } from './services/operation-feedback.js';
 import type { AddActivityMeta } from './store/activity-store.js';
@@ -398,11 +399,16 @@ function AppContent() {
     const startedAt = performance.now();
     const hydrationOpId = recordOperation('curated', `Loading ${label}…`);
     const toastId = showLoadingToast({ description: `Loading ${label}…` });
-    void parseWorkspaceFiles(files, { hydrateNamespaces: requested, requireCuratedHydration: true })
+    const managed = hydrateProjectNamespaces(restoredWorkspace?.id, requested);
+    void (
+      managed
+        ? managed.then(() => undefined)
+        : parseWorkspaceFiles(files, { hydrateNamespaces: requested, requireCuratedHydration: true })
+    )
       .then((result) => {
         if (cancelled || epoch !== workspaceEpochRef.current) return;
-        applyParseResult(result, { preserveSemanticModelOnErrors: true });
-        if (result.errors.size > 0) {
+        if (result) applyParseResult(result, { preserveSemanticModelOnErrors: true });
+        if (result && result.errors.size > 0) {
           // The last valid semantic model is still in use. Keep this namespace
           // retryable rather than claiming its new declarations were applied.
           useEditorStore.getState().dequeuePendingHydration(pendingHydration);
@@ -440,7 +446,15 @@ function AppContent() {
     // `files` in deps: an edit during an in-flight hydration re-fires this and
     // issues a second round-trip; the `cancelled` flag discards the stale result,
     // so it's a wasted request but correctness-safe.
-  }, [pendingHydration, files, applyParseResult, reportWorkspaceError, showLoadingToast, dismissToast]);
+  }, [
+    pendingHydration,
+    files,
+    restoredWorkspace?.id,
+    applyParseResult,
+    reportWorkspaceError,
+    showLoadingToast,
+    dismissToast
+  ]);
 
   const invalidateWorkspaceParses = useCallback(() => {
     invalidateCuratedCacheRecovery();

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
+import { createReferenceArtifactDecoder } from './reference-artifact-decoder.js';
+import { decodeProjectReferenceArtifact, reviewProjectReferencesInWorker } from './workspace.js';
 import { CURATED_MIRROR_BASE } from '@rune-langium/curated-schema';
 import {
   createReferenceTransport,
@@ -29,19 +31,25 @@ import { CURATED_FETCH_TIMEOUT_MS, type CuratedFetcher } from './curated-fetch.j
 import { withAbortTimeout } from './with-abort-timeout.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
+const decodeArtifact = createReferenceArtifactDecoder(decodeProjectReferenceArtifact);
+
 export const createProjectReferenceTransport = withInstrumentation(
   function createProjectReferenceTransport(
     fetcher: CuratedFetcher = fetch,
     baseUrl = CURATED_MIRROR_BASE
   ): ReferenceTransport {
-    return createReferenceTransport(
-      (url, init) =>
-        withAbortTimeout(
-          (signal) => fetcher(url, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, signal]) : signal }),
-          CURATED_FETCH_TIMEOUT_MS
-        ),
-      baseUrl
-    );
+    return {
+      decodeArtifact,
+      ...createReferenceTransport(
+        (url, init) =>
+          withAbortTimeout(
+            (signal) =>
+              fetcher(url, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, signal]) : signal }),
+            CURATED_FETCH_TIMEOUT_MS
+          ),
+        baseUrl
+      )
+    };
   },
   { op: 'createProjectReferenceTransport' }
 );
@@ -158,7 +166,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
         : undefined;
     const diagnostics = [
       ...result.diagnostics,
-      ...(await reviewProjectCompatibility(
+      ...(await (transport.decodeArtifact ? reviewProjectReferencesInWorker : reviewProjectCompatibility)(
         reviewedSnapshot,
         loaded.documents,
         active ??

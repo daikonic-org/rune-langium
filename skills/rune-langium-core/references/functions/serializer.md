@@ -14,11 +14,11 @@ compactLspModelJson(json: string): string
 ### `readLspModelMetadata`
 Read canonical import and resolved-reference edges, including function bodies.
 ```ts
-readLspModelMetadata(json: string): { namespace?: string; sourceUri?: string; imports: string[]; references: string[] }
+readLspModelMetadata(json: string): { namespace?: string; sourceUri?: string; imports: string[]; references: string[]; declarations?: { type: string; name: string }[] }
 ```
 **Parameters:**
 - `json: string`
-**Returns:** `{ namespace?: string; sourceUri?: string; imports: string[]; references: string[] }`
+**Returns:** `{ namespace?: string; sourceUri?: string; imports: string[]; references: string[]; declarations?: { type: string; name: string }[] }`
 
 ### `runeBigIntReplacer`
 Canonical BigInt JSON replacer for Rune wire serialization: bigint → Number.

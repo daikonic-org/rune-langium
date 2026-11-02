@@ -16,6 +16,7 @@
  */
 
 import { generatedDirectory } from '../helpers/generated-directory.js';
+import { generatedTypeScriptCompilerOptions } from '../helpers/compiled-typescript.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
@@ -101,14 +102,10 @@ describe('TS emitter — multi-level cross-namespace Data-extends-Choice chain',
     }
     expect(cPath).not.toBe('');
 
-    const compilerOptions: ts.CompilerOptions = {
-      strict: true,
-      target: ts.ScriptTarget.ESNext,
+    const compilerOptions = generatedTypeScriptCompilerOptions({
       module: ts.ModuleKind.NodeNext,
-      moduleResolution: ts.ModuleResolutionKind.NodeNext,
-      noEmit: true,
-      skipLibCheck: true
-    };
+      moduleResolution: ts.ModuleResolutionKind.NodeNext
+    });
     const program = ts.createProgram([cPath], compilerOptions, ts.createCompilerHost(compilerOptions));
     const diagnostics = ts
       .getPreEmitDiagnostics(program)

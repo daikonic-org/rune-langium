@@ -722,7 +722,9 @@ export function isDegradedReparse(incoming: TypeGraphNode[], current: TypeGraphN
   let common = 0;
   for (const cur of current) {
     const inc = incomingById.get(cur.id);
-    if (!inc) continue; // missing node may be a legit delete — don't judge it here
+    // A catalog placeholder intentionally omits attributes. It is not a parsed
+    // concrete model; accepting it lets a new capture request its fresh AST.
+    if (!inc || inc.meta?.deferred) continue;
     common++;
     currentTotal += nodeAttributeCount(cur);
     incomingTotal += nodeAttributeCount(inc);

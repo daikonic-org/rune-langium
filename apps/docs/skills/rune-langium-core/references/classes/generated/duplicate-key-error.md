@@ -13,3 +13,5 @@ constructor(key: string): DuplicateKeyError
 - `message: string`
 - `stack: string` (optional)
 - `cause: unknown` (optional)
+**Methods:**
+- `isError(error: unknown): error is Error` — Indicates whether the argument provided is a built-in Error instance or not.

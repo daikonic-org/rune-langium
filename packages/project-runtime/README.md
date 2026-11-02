@@ -202,3 +202,12 @@ Rune function identity, retaining the original catalog entry in provenance. Impo
 leaves the current workflow unchanged; explicitly selecting the saved bundle opens
 the function and seeds its argument fields. Java-only catalog functions remain
 unavailable until their implementation is supported.
+
+Browser hosts may provide `ReferenceTransport.decodeArtifact(bytes, checksum,
+signal)` to run `decodeReferenceArtifact` in a Worker and reuse decoded immutable
+artifacts. This hook runs after compressed checksum and size verification; the
+loader still checks artifact identity, compiler format, document paths and the
+complete manifest/dependency closure. The default native decoder is unchanged.
+Derived `ReferenceDocument.exports` and `lsp` information is optional and must
+come from the canonical publication/Core services; it is not an activation or
+semantic-readiness receipt.

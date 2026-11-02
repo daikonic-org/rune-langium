@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { test, expect, type Page } from '@playwright/test';
-import { openReferenceModels } from '../helpers/workspace-launcher.js';
 import AxeBuilder from '@axe-core/playwright';
 import JSZip from 'jszip';
 import { readFile } from 'node:fs/promises';
@@ -12,7 +11,7 @@ import { createReferenceArtifacts, repository } from '../../../../test/helpers/p
 import { serveCuratedDeclarations } from '../helpers/curated-declaration-server.js';
 import { typeNavigationButton, typeSelectionCheckbox } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
-import { projectBackingFiles as projectFiles } from '../helpers/project-backing.js';
+import { projectBackingFiles as projectFiles, seedProjectBackingFiles } from '../helpers/project-backing.js';
 
 const source = `namespace example.functions
 func Compute:
@@ -43,6 +42,12 @@ test('managed Modify persists one map and drives curated caller execution and re
   context
 }, info) => {
   test.setTimeout(120000);
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /\b(?:TypeError|ReferenceError)\b/.test(message.text()))
+      runtimeErrors.push(message.text());
+  });
   await page.setViewportSize({ width: 1461, height: 988 });
   await serveCuratedDeclarations(context, [['functions', source]]);
   const fixture = await createReferenceArtifacts(
@@ -68,13 +73,13 @@ test('managed Modify persists one map and drives curated caller execution and re
     await route.fulfill({ status: 500, body: 'Managed exports must use the captured project worker.' });
   });
   await page.goto('./');
-  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
-  await openReferenceModels(page);
-  await page.getByTestId('model-loader').getByRole('button', { name: /CDM/ }).first().click();
-  await page.getByTestId('rail-explore').click();
-  await page.getByTestId('namespace-search').fill('Compute');
-  await typeNavigationButton(page, 'example.functions.Compute', 'RosettaFunction').click();
-  await projectFiles(page, {
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'seed.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace scratch\ntype Seed:\n value string (0..1)\n')
+  });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await seedProjectBackingFiles(page, {
     'rune-config.yml': 'model: {name: Demo}',
     'build-config.yml': JSON.stringify({
       schemaVersion: 1,
@@ -83,14 +88,13 @@ test('managed Modify persists one map and drives curated caller execution and re
     }),
     'build-config.lock.json': JSON.stringify(lock)
   });
-  await page.reload();
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
   await executeCaller(page, '11');
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('namespace-search').fill('Compute');
   await typeNavigationButton(page, 'example.functions.Compute', 'RosettaFunction').click();
   const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
-  if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
+  if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click({ timeout: 5000 });
   const title = page.locator('[data-pane="inspector"] [data-slot="type-header"]');
   await title.getByRole('button', { name: 'Modify local copy' }).click();
   const dialog = page.getByRole('dialog', { name: 'Modify Compute', exact: true });
@@ -164,4 +168,5 @@ test('managed Modify persists one map and drives curated caller execution and re
     (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
   ).toEqual([]);
   await page.screenshot({ path: info.outputPath('managed-project-caller.png') });
+  expect(runtimeErrors).toEqual([]);
 });

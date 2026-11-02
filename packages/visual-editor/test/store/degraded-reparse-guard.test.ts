@@ -16,7 +16,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isDegradedReparse } from '../../src/store/editor-store.js';
+import { createEditorStore, isDegradedReparse } from '../../src/store/editor-store.js';
+import { parse } from '@rune-langium/core';
 import type { TypeGraphNode } from '../../src/types.js';
 
 // Minimal node shape the guard reads: id + data.attributes length.
@@ -71,5 +72,40 @@ describe('isDegradedReparse', () => {
     const current = [node('ns.Alpha', 4), node('ns.Beta', 3)];
     const incoming = [node('ns.Alpha', 4)];
     expect(isDegradedReparse(incoming, current)).toBe(false);
+  });
+
+  it('allows intentional deferred placeholders but still rejects stripped concrete source peers', () => {
+    const current = [node('reference.Parent', 5), node('local.Child', 3)];
+    const placeholder = { ...node('reference.Parent', 0), meta: { deferred: true } } as TypeGraphNode;
+    expect(isDegradedReparse([placeholder, node('local.Child', 3)], current)).toBe(false);
+    expect(isDegradedReparse([placeholder, node('local.Child', 0)], current)).toBe(true);
+  });
+
+  it('replaces an attributed reference with a deferred inventory and then accepts the new capture', async () => {
+    const store = createEditorStore();
+    const previous = await parse(
+      'namespace pinned\ntype Payment:\n oldA string (1..1)\n oldB string (1..1)\n oldC string (1..1)'
+    );
+    store.getState().loadModels(previous.value);
+    const id = store.getState().nodes[0]!.id;
+    store.getState().selectNode(id);
+    const epoch = store.getState().parseEpoch;
+    store
+      .getState()
+      .loadDeferredExports([
+        { filePath: '[cdm]/payment.rosetta', namespace: 'pinned', exports: [{ type: 'Data', name: 'Payment' }] }
+      ]);
+    store.getState().loadModels([]);
+    expect(store.getState().nodes[0]!.meta.deferred).toBe(true);
+    expect(store.getState().parseEpoch).toBe(epoch + 1);
+    expect(store.getState().selectedNodeId).toBe(id);
+    const next = await parse(
+      'namespace pinned\ntype Payment:\n nextA string (1..1)\n nextB string (1..1)\n nextC string (1..1)'
+    );
+    store.getState().loadModels(next.value);
+    expect(store.getState().nodes[0]!.meta.deferred).not.toBe(true);
+    expect(
+      (store.getState().nodes[0]!.data as { attributes: Array<{ name: string }> }).attributes.map((field) => field.name)
+    ).toEqual(['nextA', 'nextB', 'nextC']);
   });
 });

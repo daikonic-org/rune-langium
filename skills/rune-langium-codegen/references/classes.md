@@ -12,6 +12,8 @@ constructor(message?: string): ProjectBindingUnavailable
 - `message: string`
 - `stack: string` (optional)
 - `cause: unknown` (optional)
+**Methods:**
+- `isError(error: unknown): error is Error` — Indicates whether the argument provided is a built-in Error instance or not.
 
 ## types
 
@@ -28,6 +30,8 @@ constructor(message: string, diagnostics: GeneratorDiagnostic[]): GeneratorError
 - `message: string`
 - `stack: string` (optional)
 - `cause: unknown` (optional)
+**Methods:**
+- `isError(error: unknown): error is Error` — Indicates whether the argument provided is a built-in Error instance or not.
 
 ## emit
 

@@ -10,6 +10,10 @@
  * and returns parsed results.
  */
 
+import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
+import type { ProjectDiagnostic } from '@rune-langium/project-config';
+import { prepareReferenceArtifact } from '../services/reference-artifact-decoder.js';
+import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { isRecord } from '../services/message-guards.js';
 import {
   getExpressionScope,
@@ -24,12 +28,21 @@ import {
   serializeRuneModel,
   hydrateModelDocument,
   hydrateModelDocuments,
+  relinkModelReferences,
   isRosettaModel,
   type DeferredModelProvider,
   type RosettaModel
 } from '@rune-langium/core';
 import type { CuratedSerializedDocument } from '@rune-langium/curated-schema';
-import { URI, EmptyFileSystem, type AstNode, type AstNodeDescription, type LangiumDocument } from 'langium';
+import {
+  AstUtils,
+  isMultiReference,
+  URI,
+  EmptyFileSystem,
+  type AstNode,
+  type AstNodeDescription,
+  type LangiumDocument
+} from 'langium';
 import { parseErrorMessages } from '../services/parse-errors.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
@@ -69,6 +82,8 @@ export interface LinkDocumentRequest {
   type: 'linkDocument';
   id: string;
   uri: string;
+  /** Return the root and its linked closure, including already materialized dependencies. */
+  snapshot?: boolean;
 }
 
 export interface LinkDocumentResponse {
@@ -76,7 +91,7 @@ export interface LinkDocumentResponse {
   id: string;
   linked: boolean;
   errors: string[];
-  /** Corpus models that were lazily deserialized during this link request. */
+  /** Newly linked corpus models, or the complete linked closure when snapshot was requested. */
   newModels: RosettaModel[];
   /** Immutable artifacts whose deferred models failed to materialize. */
   invalidArtifactKeys?: string[];
@@ -146,7 +161,31 @@ export interface InspectNamespaceResponse {
   error?: string;
 }
 
+export interface DecodeReferenceRequest {
+  type: 'decodeReference';
+  id: string;
+  bytes: Uint8Array;
+}
+export interface DecodeReferenceResponse {
+  type: 'decodeReferenceResult';
+  id: string;
+  artifact?: DecodedReferenceArtifact;
+  error?: string;
+}
+export interface ReviewReferenceRequest {
+  type: 'reviewReference';
+  id: string;
+  input: Parameters<typeof reviewProjectCompatibility>;
+}
+export interface ReviewReferenceResponse {
+  type: 'reviewReferenceResult';
+  id: string;
+  diagnostics?: ProjectDiagnostic[];
+  error?: string;
+}
 export type WorkerRequest =
+  | ReviewReferenceRequest
+  | DecodeReferenceRequest
   | ParseRequest
   | ParseWorkspaceRequest
   | LinkDocumentRequest
@@ -189,6 +228,8 @@ export interface ParseWorkspaceResponse {
 }
 
 export type WorkerResponse =
+  | ReviewReferenceResponse
+  | DecodeReferenceResponse
   | ParseResponse
   | ParseWorkspaceResponse
   | LinkDocumentResponse
@@ -200,6 +241,7 @@ export type WorkerResponse =
 // Populated by handleParseWorkspace, consumed lazily by RuneDslLinker.loadAstNode
 // when Langium resolves cross-references during handleLinkDocument.
 const deferredModelJson = new Map<string, string>();
+let installedProjectDocuments: HydrateRequest['documents'] | undefined;
 const deferredArtifactKeys = new Map<string, string>();
 const invalidArtifactKeys = new Set<string>();
 // User models are already published in the routed parse response.
@@ -212,6 +254,9 @@ const deferredSerializer = {
   deserialize<T extends AstNode>(content: string): T {
     const model = serializer.deserialize<T>(content);
     if (!isRosettaModel(model)) throw new Error('Expected a serialized RosettaModel');
+    // Serialized external pointers can precede their deferred documents. Rebuild
+    // authored references through Core's existing lazy linker before publication.
+    relinkModelReferences(RuneDsl, model);
     return model;
   }
 };
@@ -363,6 +408,7 @@ async function resetWorkspace(): Promise<void> {
     documents.map((document) => document.uri)
   );
   for (const uri of indexedUris.values()) indexManager.remove(uri);
+  installedProjectDocuments = undefined;
   deferredModelJson.clear();
   deferredArtifactKeys.clear();
   invalidArtifactKeys.clear();
@@ -549,6 +595,35 @@ const handleLinkDocument = withInstrumentation(
         // `Diagnostic.message` widened to `string | MarkupContent` in newer LSP types.
         errors.push(typeof diag.message === 'string' ? diag.message : diag.message.value);
       }
+      const snapshots = new Set(newModelsAccumulator);
+      if (req.snapshot) {
+        // A repeated request still needs the whole linked closure, even when
+        // these dependencies were materialized by an earlier consumer/install.
+        const pending = [doc];
+        const visited = new Set<string>();
+        const installed =
+          installedProjectDocuments &&
+          new Set(installedProjectDocuments.map((entry) => URI.parse(entry.uri).toString()));
+        while (pending.length) {
+          const current = pending.pop()!;
+          const uri = current.uri.toString();
+          if (visited.has(uri)) continue;
+          visited.add(uri);
+          const model = current.parseResult.value;
+          if (!isRosettaModel(model)) continue;
+          snapshots.add(model);
+          for (const node of AstUtils.streamAst(model)) {
+            for (const { reference } of AstUtils.streamReferences(node)) {
+              const targets = isMultiReference(reference) ? reference.items.map((item) => item.ref) : [reference.ref];
+              for (const target of targets) {
+                if (!target) continue;
+                const dependency = AstUtils.getDocument(target);
+                if (!installed || installed.has(dependency.uri.toString())) pending.push(dependency);
+              }
+            }
+          }
+        }
+      }
       if (invalidArtifactKeys.size) {
         return {
           type: 'linkDocumentResult',
@@ -564,7 +639,7 @@ const handleLinkDocument = withInstrumentation(
         id: req.id,
         linked: true,
         errors,
-        newModels: newModelsAccumulator.map((model) => modelSnapshot(model))
+        newModels: [...snapshots].map((model) => modelSnapshot(model))
       };
     } catch (error) {
       if (targetArtifactKey) invalidArtifactKeys.add(targetArtifactKey);
@@ -593,6 +668,20 @@ const handleLinkDocument = withInstrumentation(
 
 async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
   try {
+    if (
+      installedProjectDocuments?.length === req.documents.length &&
+      req.documents.every((doc, index) => {
+        const previous = installedProjectDocuments![index]!;
+        return (
+          doc.uri === previous.uri &&
+          doc.serializedModel === previous.serializedModel &&
+          doc.bundleId === previous.bundleId &&
+          doc.artifactKey === previous.artifactKey &&
+          JSON.stringify(doc.exports) === JSON.stringify(previous.exports)
+        );
+      })
+    )
+      return { type: 'hydrateResult', id: req.id, ok: true };
     await resetWorkspace();
 
     // Register each document using a single canonical URI for both the deferred-model
@@ -613,6 +702,7 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
         indexManager.registerExports(uri, descriptions);
       }
     }
+    installedProjectDocuments = req.documents;
     return { type: 'hydrateResult', id: req.id, ok: true };
   } catch (err) {
     return {
@@ -721,6 +811,30 @@ export const dispatchWorkerRequest = withInstrumentation(
   async function dispatchWorkerRequest(req: WorkerRequest): Promise<WorkerResponse> {
     const run = async (): Promise<WorkerResponse> => {
       switch (req.type) {
+        case 'reviewReference':
+          try {
+            return {
+              type: 'reviewReferenceResult',
+              id: req.id,
+              diagnostics: await reviewProjectCompatibility(...req.input)
+            };
+          } catch (error) {
+            return {
+              type: 'reviewReferenceResult',
+              id: req.id,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        case 'decodeReference':
+          try {
+            return { type: 'decodeReferenceResult', id: req.id, artifact: await prepareReferenceArtifact(req.bytes) };
+          } catch (error) {
+            return {
+              type: 'decodeReferenceResult',
+              id: req.id,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
         case 'parse':
           return handleParse(req);
         case 'parseWorkspace':

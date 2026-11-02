@@ -1196,7 +1196,15 @@ it('sends captured reference AST bytes once, while retaining reference identity 
   });
   const input = {
     receipt: { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) },
-    referenceDocuments: [{ uri: 'cdm/types.rosetta', content: 'namespace reference', serialized }]
+    referenceDocuments: [
+      {
+        uri: 'cdm/types.rosetta',
+        content: 'namespace reference',
+        serialized,
+        lsp: { metadata: { namespace: 'reference', imports: [], references: [] }, compact: serialized },
+        exports: []
+      }
+    ]
   } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
   render(
     <WorkspaceStateContext.Provider value={state}>
@@ -1214,7 +1222,11 @@ it('sends captured reference AST bytes once, while retaining reference identity 
     </WorkspaceStateContext.Provider>
   );
   const message = FakeWorker.instances[0]!.posted.filter((entry) => entry.type === 'preview:setFiles').at(-1)!;
-  expect(message.project).toBe(input);
+  expect(message.project).toEqual({
+    ...input,
+    referenceDocuments: [{ uri: 'cdm/types.rosetta', content: 'namespace reference', serialized }]
+  });
+  expect(input.referenceDocuments[0]!.lsp).toBeDefined();
   const reference = message.files.find((entry: { uri: string }) => entry.uri.includes('cdm'));
   expect(reference).toMatchObject({ content: 'namespace reference', refOnly: true });
   expect(reference.serializedModelJson).toBeUndefined();

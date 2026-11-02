@@ -1268,3 +1268,46 @@ require a fresh draft, and substituted scalar scopes refuse nonliteral edits
 whose binding cannot be recovered safely.
 Generated public view constructors use ordinary fields and assignments so the
 helper introduces no parameter-property transform requirement for Node type stripping.
+
+## Reference loading and derived caches
+
+Managed browser opens retain full checksum, manifest, toolchain and closure
+verification. The optional `ReferenceTransport.decodeArtifact` port runs the
+shared project-runtime decoder in Studio's existing parser worker. Compatibility
+review uses the same worker and canonical runtime implementation without adopting
+the proposed graph. Native hosts retain the synchronous decoder fallback.
+
+Studio deduplicates concurrent immutable-artifact decodes by verified checksum in
+a bounded LRU (192 MiB, conservative UTF-16 payload accounting). Cancellation
+belongs to each consumer; it cannot cancel another consumer's shared decode.
+Failures are not retained. The existing bounded IndexedDB artifact store retains
+versioned canonical dependency metadata, compact LSP payloads and ScopeComputation
+exports by source digest. Publication declaration indexes are not complete scope
+indexes; the worker derives the qualified and enum aliases with Core and caches
+them separately from the authored declaration inventory.
+Bump the derived format version when those Core contracts change. Derived cache
+storage failure is a miss; no cache can waive compressed-byte verification.
+
+Reference activation publishes the complete verified declaration inventory and
+registers serialized documents with the existing deferred parser/index. It does
+not reconstruct every reference AST on the UI thread. Namespace demand is routed
+by workspace ownership to that pinned document set; it cannot fall back to a
+moving server mirror. Linking materializes the selected namespace and transitively
+needed models. Before UI publication, that subset passes through Core hydration
+so consumers receive linked ASTs with container/reference contracts, not wire
+snapshots. Deferred declaration ownership uses the matching workspace file path.
+Concrete local source models publish only after their reference dependencies have
+been linked and included in that same Core hydration batch. Repeated worker
+snapshot requests return the complete linked closure, including dependencies
+already materialized by a previous consumer. Inventory-only placeholders are an
+intentional deferral and do not count as stripped concrete models in the graph's
+degraded-reparse guard; concrete source peers retain that corruption protection.
+HTTP-parser source URI aliases are accepted only from the current capture's
+serialized metadata; unknown or ambiguous snapshot identities remain rejected.
+Authored root declarations remain distinct from qualified scope aliases. Linked
+reference snapshots survive source-only refreshes only within the same reference
+capture; a new capture drops the entire retained graph and resets hydration readiness
+so unchanged documents cannot retain pointers into changed dependencies. Reinstalling
+an identical parser document set preserves its linked state. Selection/focus and
+read-only ownership survive placeholder replacement. Derived LSP/index data stays
+out of preview/download semantic worker payloads.

@@ -1,6 +1,7 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
+import { projectWorkerInput } from '../../services/project-runtime-input.js';
 import { recordOperation } from '../../services/operation-feedback.js';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
@@ -280,7 +281,7 @@ export const CodegenProvider = withInstrumentation(
     const syncWorkerFiles = useCallback(
       (worker: Worker, signal?: AbortSignal): Promise<number> => {
         const runtime = projectRuntimeRef.current;
-        const project = runtime?.status === 'captured' ? runtime.input : undefined;
+        const project = runtime?.status === 'captured' && runtime.input ? projectWorkerInput(runtime.input) : undefined;
         const codegenFiles: Array<{ uri: string; content: string }> = [];
         const previewFiles: PreviewFileEntry[] = [];
         for (const file of filesRef.current) {

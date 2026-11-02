@@ -10,8 +10,12 @@ Root `tsconfig.json` owns the ESNext target; active workspace packages inherit i
 Explicit standard-library lists also use ESNext, retaining each host's DOM/worker
 types. Studio's Vite bundle and generated/projection TypeScript checks target
 ESNext as well. The generated-module test compiler loads only the ESNext standard
-library, avoiding browser-library work in strict server-module checks. Runtime
-engine requirements remain those declared in each package manifest. Development
+library, avoiding browser-library work in strict server-module checks.
+Generated-module oracle tests reuse `generatedTypeScriptCompilerOptions` from
+codegen's `test/helpers/compiled-typescript.ts`; NodeNext checks retain their module
+resolution settings. This keeps strict diagnostics while avoiding default DOM
+libraries and unrelated ambient test types, including under root V8 coverage.
+Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility
 or the independent Cloudflare workerd/V8 and browser engine feature sets.

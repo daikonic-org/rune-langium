@@ -795,7 +795,13 @@ export const ExplorePerspective = withInstrumentation(
       // `workspace.models`.
       if (pinnedView) corpusModelsRef.current.clear();
       useEditorStore.getState().loadDeferredExports(deferredExports);
+      const selected = useEditorStore.getState().selectedNodeId;
       useEditorStore.getState().loadModels([...models, ...corpusModelsRef.current.values()] as unknown[]);
+      if (pinnedView && selected) {
+        const editor = useEditorStore.getState();
+        editor.selectNode(selected, { reapplyFocusMode: true });
+        if (!editor.focusMode) editor.revealNeighbors(selected);
+      }
     }, [models, deferredExports, workspaceId, pinnedView]);
 
     const publishCorpusModels = useCallback((newModels: RosettaModel[]) => {
@@ -962,9 +968,14 @@ export const ExplorePerspective = withInstrumentation(
     // Link the selected graph node document on demand.
     const prevSelectedRef = useRef<string | null>(null);
     useEffect(() => {
-      if (selectedNodeId === prevSelectedRef.current) return;
+      const sameSelection = selectedNodeId === prevSelectedRef.current;
       prevSelectedRef.current = selectedNodeId;
       if (!selectedNodeId || !selectedNodeData) return;
+      if (pinnedView) {
+        if (selectedNodeMeta?.deferred) requestNamespaceHydration(selectedNodeMeta.namespace);
+        return;
+      }
+      if (sameSelection) return;
 
       const filePath = resolveNodeFile(selectedNodeData, selectedNodeMeta);
       // Trigger on-demand linking for the selected node's document (ADR 007 Phase 2).
@@ -996,7 +1007,7 @@ export const ExplorePerspective = withInstrumentation(
         if (linkDocumentTimerRef.current) clearTimeout(linkDocumentTimerRef.current);
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedNodeId, selectedNodeData, workspaceId]);
+    }, [selectedNodeId, selectedNodeData, workspaceId, pinnedView, requestNamespaceHydration]);
 
     // Publish hydrated namespaces into the UI, including expanded children and bases.
     //
@@ -1014,7 +1025,7 @@ export const ExplorePerspective = withInstrumentation(
     }, [hydrationNonce, structureHydrationRetry, workspaceId]);
 
     useEffect(() => {
-      if (hydrationNonce === 0 || !selectedNodeId) return;
+      if (pinnedView || hydrationNonce === 0 || !selectedNodeId) return;
       // Link ALL files for newly hydrated namespaces and the selected namespace. The curated artifact
       // format aggregates namespace-level exports onto the first document's export
       // list, so per-type file mapping (nodeIdToFilePath) is unreliable — it may
@@ -1051,7 +1062,7 @@ export const ExplorePerspective = withInstrumentation(
         }
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, structureHydrationRetry, workspaceId]);
+    }, [hydrationNonce, hydratedNamespaces, selectedNodeId, structureHydrationRetry, workspaceId, pinnedView]);
 
     const functionScope: FunctionScope = useMemo(() => {
       const d = selectedNodeData as any;
@@ -2369,28 +2380,14 @@ export const ExplorePerspective = withInstrumentation(
       handleEditorViewCreated
     ]);
 
-    // Namespaces that belong to refOnly curated files. Earlier revisions
-    // inferred this by matching `deferredExports[i].filePath.split('/')[0]`
-    // against loaded refOnly bundle ids — that false-positive'd for user
-    // files saved under `${bundleId}/foo.rosetta` paths (Codex P2 review
-    // of PR #163). The correct anchor is the workspace file's `refOnly`
-    // flag itself; we resolve each refOnly file's server-side filePath
-    // (the form the server emits in deferredExports, which is
-    // `${bundleId}/${pathInBundle}` without the studio's bracket prefix)
-    // and look up the matching deferredExports entry to recover the
-    // namespace. Pure intersection — no inference required.
+    // Resolve both managed workspace paths and legacy server paths through the
+    // shared ownership resolver. User files under a bundle-like directory remain editable.
     const refOnlyNamespaces = useMemo(() => {
-      if (deferredExports.length === 0) return new Set<string>();
-      const refOnlyServerPaths = new Set<string>();
-      for (const f of files) {
-        if (!f.refOnly) continue;
-        const m = /^\[([^\]]+)\]\/(.*)$/.exec(f.path);
-        if (m) refOnlyServerPaths.add(`${m[1]}/${m[2]}`);
-      }
-      if (refOnlyServerPaths.size === 0) return new Set<string>();
+      const refOnlyPaths = new Set(files.filter((file) => file.refOnly).map((file) => file.path));
       const ns = new Set<string>();
       for (const d of deferredExports) {
-        if (refOnlyServerPaths.has(d.filePath)) ns.add(d.namespace);
+        const path = resolveEditorFilePath(d.filePath, files);
+        if (path && refOnlyPaths.has(path)) ns.add(d.namespace);
       }
       return ns;
     }, [files, deferredExports]);

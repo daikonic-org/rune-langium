@@ -15,7 +15,7 @@ import { curatedArtifactIdentity } from './curated-artifact-identity.js';
 
 type HydrationDocument = HydrateRequest['documents'][number];
 type SourceDocument = Pick<HydrationDocument, 'uri' | 'content'>;
-type CacheKind = 'documents' | 'source' | 'reference-bytes';
+type CacheKind = 'documents' | 'source' | 'reference-bytes' | 'reference-derived';
 
 // Bump when the serialized hydration contract changes. This disposable database
 // is separate from workspace storage, so eviction never touches user files.
@@ -76,7 +76,7 @@ function artifactBundle(key: string): string | undefined {
 }
 
 function cacheIdentity(kind: CacheKind, key: string): boolean {
-  return kind === 'reference-bytes' ? CuratedSha256Schema.safeParse(key).success : Boolean(artifactBundle(key));
+  return kind.startsWith('reference-') ? CuratedSha256Schema.safeParse(key).success : Boolean(artifactBundle(key));
 }
 function bytePayload(value: unknown): value is Uint8Array {
   return ArrayBuffer.isView(value) && Object.prototype.toString.call(value) === '[object Uint8Array]';
@@ -255,6 +255,34 @@ export const createCuratedArtifactCache = withInstrumentation(
 
     return {
       documentKeys,
+      async referenceDerived(sourceHash: string) {
+        const value = await read('reference-derived', sourceHash);
+        const parsed = z
+          .object({
+            version: z.literal(3),
+            compact: z.string(),
+            exports: z.array(CuratedSerializedDocumentExportSchema),
+            metadata: z.object({
+              namespace: z.string().optional(),
+              sourceUri: z.string().optional(),
+              imports: z.array(z.string()),
+              references: z.array(z.string()),
+              declarations: z.array(z.object({ type: z.string(), name: z.string() })).optional()
+            })
+          })
+          .safeParse(value);
+        return parsed.success
+          ? { metadata: parsed.data.metadata, compact: parsed.data.compact, exports: parsed.data.exports }
+          : undefined;
+      },
+      async putReferenceDerived(
+        sourceHash: string,
+        value: import('@rune-langium/project-runtime/references').ReferenceModelInfo & {
+          exports: HydrationDocument['exports'];
+        }
+      ) {
+        await write('reference-derived', sourceHash, { version: 3, ...value });
+      },
       async referenceBytes(checksum: string): Promise<Uint8Array | undefined> {
         const value = await read('reference-bytes', checksum);
         return bytePayload(value) ? value : undefined;

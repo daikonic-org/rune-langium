@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { it, expect, vi } from 'vitest';
-import { parse, createRuneDslServices, serializeRuneModel } from '@rune-langium/core';
-import { EmptyFileSystem } from 'langium';
+import { parse, createRuneDslServices, serializeRuneModel, hydrateModelDocuments, type Data } from '@rune-langium/core';
+import { EmptyFileSystem, URI } from 'langium';
 import {
   createMemoryReferenceCache,
   resolveProjectReferences,
@@ -10,9 +10,19 @@ import {
 } from '@rune-langium/project-runtime/references';
 import { createReferenceArtifacts } from '../../../../test/helpers/project-reference-artifacts.js';
 import { captureProjectRuntimeInput } from '../../src/services/project-runtime-input.js';
-import { prepareProjectReferenceView } from '../../src/services/project-reference-view.js';
-import { workspaceDeclarationIdentities } from '../../src/workspace/example-identity.js';
+import {
+  prepareProjectReferenceView,
+  materializeProjectReferenceView
+} from '../../src/services/project-reference-view.js';
+import {
+  workspaceDeclarationIdentities,
+  resolveExampleType,
+  resolvePresentationType
+} from '../../src/workspace/example-identity.js';
 import { createProjectSnapshot } from '@rune-langium/project-config';
+import { previewTypeSymbol } from '@rune-langium/codegen/export';
+import { projectReferenceUri } from '@rune-langium/project-runtime/context';
+import { pathToUri } from '../../src/utils/uri.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import { createOpfsRoot, writeBytes } from '../setup/opfs-mock.js';
@@ -142,3 +152,150 @@ it('preserves excluded Rune files through a bound-folder edit and autosave while
     setWorkspaceFilesDeps({ getFolderProjectAdapter: undefined });
   }
 });
+
+it('publishes the complete index before materializing references and links selected documents through the worker', async () => {
+  const { prepareReferenceArtifact } = await import('../../src/services/reference-artifact-decoder.js');
+  const { dispatchWorkerRequest, _testInternals } = await import('../../src/workers/parser-worker.js');
+  const fixture = await createReferenceArtifacts(undefined, undefined, {
+    cdm: 'namespace pinned\ntype Payment:\n amount number (1..1)',
+    'rune-dsl': 'namespace pinned.base\ntype Support:\n name string (0..1)'
+  });
+  const transport = { ...fixture.transport, decodeArtifact: prepareReferenceArtifact };
+  const cache = createMemoryReferenceCache();
+  const signal = new AbortController().signal;
+  const { lock } = await resolveProjectReferences(fixture.snapshot, transport, signal, cache);
+  const loaded = await loadLockedReferences(lock!, transport, cache, signal);
+  const state = {
+    workspaceId: 'p',
+    fileCount: 0,
+    files: [],
+    models: [],
+    parsedModels: [],
+    deferredExports: [],
+    parseErrors: new Map()
+  };
+  const input = await captureProjectRuntimeInput({ ...fixture.snapshot, lock: lock! }, [], loaded.documents);
+  const view = await prepareProjectReferenceView(
+    input,
+    state,
+    async (documents) => {
+      expect((await dispatchWorkerRequest({ type: 'hydrate', id: 'managed', documents })).type).toBe('hydrateResult');
+    },
+    signal
+  );
+  expect(view.models).toHaveLength(0);
+  expect(view.deferredExports.every((entry) => view.files.some((file) => file.path === entry.filePath))).toBe(true);
+  expect(resolveExampleType(view, { typeFqn: 'pinned.Payment' })).toEqual({
+    model: 'cdm',
+    namespace: 'pinned',
+    kind: 'Data',
+    name: 'Payment'
+  });
+  expect(resolvePresentationType(view, previewTypeSymbol('Data', 'pinned.Payment'))).toEqual({
+    model: 'cdm',
+    namespace: 'pinned',
+    kind: 'Data',
+    name: 'Payment'
+  });
+  expect(view.deferredExports.flatMap((entry) => entry.exports).some((entry) => entry.name.includes('.'))).toBe(false);
+  expect(view.deferredExports).toContainEqual(
+    expect.objectContaining({
+      namespace: 'pinned',
+      exports: expect.arrayContaining([{ type: 'Data', name: 'Payment' }])
+    })
+  );
+  expect(_testInternals().deferredModelJson.size).toBe(2);
+  const linked = await dispatchWorkerRequest({
+    type: 'linkDocument',
+    id: 'selected',
+    uri: 'file:///[cdm]/model.rosetta'
+  });
+  expect(linked).toMatchObject({ linked: true, errors: [], newModels: [expect.objectContaining({ name: 'pinned' })] });
+  expect(_testInternals().deferredModelJson.size).toBe(1);
+  if (linked.type !== 'linkDocumentResult') throw new Error('Expected linked model');
+  const materialized = materializeProjectReferenceView(view, linked.newModels);
+  expect(materialized.models).toHaveLength(1);
+  expect(materialized.models[0]!.elements[0]!.$container).toBe(materialized.models[0]);
+  expect(materializeProjectReferenceView(materialized, linked.newModels)).toBe(materialized);
+});
+
+it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
+  'publishes local inheritance with its linked reference closure from %s, including repeated installs',
+  async (sourceUri) => {
+    const { prepareReferenceArtifact } = await import('../../src/services/reference-artifact-decoder.js');
+    const { dispatchWorkerRequest, _testInternals } = await import('../../src/workers/parser-worker.js');
+    const fixture = await createReferenceArtifacts(undefined, undefined, {
+      cdm: 'namespace pinned\ntype Grandparent:\n code string (1..1)\ntype Parent extends Grandparent:\n amount number (1..1)',
+      'rune-dsl': 'namespace unused\ntype Support:\n value string (0..1)'
+    });
+    const transport = { ...fixture.transport, decodeArtifact: prepareReferenceArtifact };
+    const cache = createMemoryReferenceCache();
+    const signal = new AbortController().signal;
+    const { lock } = await resolveProjectReferences(fixture.snapshot, transport, signal, cache);
+    const loaded = await loadLockedReferences(lock!, transport, cache, signal);
+    const content = 'namespace local\nimport pinned.*\ntype Child extends Parent:\n own int (0..1)';
+    const services = createRuneDslServices(EmptyFileSystem);
+    const referenceModels = hydrateModelDocuments(
+      services,
+      loaded.documents.map((doc) => ({
+        uri: projectReferenceUri(doc.uri),
+        json: doc.serialized!
+      }))
+    );
+    const local = services.shared.workspace.LangiumDocumentFactory.fromString(content, URI.parse(sourceUri));
+    services.shared.workspace.LangiumDocuments.addDocument(local);
+    await services.shared.workspace.DocumentBuilder.build([...referenceModels.map((entry) => entry.document), local], {
+      validation: false,
+      eagerLinking: true
+    });
+    expect((local.parseResult.value as import('@rune-langium/core').RosettaModel).elements[0]).toMatchObject({
+      superType: { ref: { name: 'Parent' } }
+    });
+    const serializedModelJson = serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, local.parseResult.value);
+    const files = new Map(fixture.snapshot.files);
+    files.set('child.rosetta', content);
+    files.set('build-config.yml', JSON.stringify({ ...fixture.snapshot.project.build, sources: ['**/*.rosetta'] }));
+    files.set('build-config.lock.json', JSON.stringify(lock));
+    const snapshot = await createProjectSnapshot('p', files, () => []);
+    const file = { path: 'child.rosetta', name: 'child.rosetta', content, dirty: false };
+    const state = {
+      workspaceId: 'p',
+      fileCount: 1,
+      files: [file],
+      models: [local.parseResult.value as import('@rune-langium/core').RosettaModel],
+      parsedModels: [
+        {
+          filePath: file.path,
+          model: local.parseResult.value as import('@rune-langium/core').RosettaModel,
+          source: content,
+          serializedModelJson
+        }
+      ],
+      deferredExports: [],
+      parseErrors: new Map()
+    };
+    const input = await captureProjectRuntimeInput(snapshot, [file], loaded.documents);
+    const install = async (documents: import('../../src/workers/parser-worker.js').HydrateRequest['documents']) => {
+      expect(await dispatchWorkerRequest({ type: 'hydrate', id: 'local-roots', documents })).toMatchObject({
+        ok: true
+      });
+    };
+    const link = async (uri: string, snapshot = false) => {
+      const result = await dispatchWorkerRequest({ type: 'linkDocument', id: 'local-closure', uri, snapshot });
+      if (result.type !== 'linkDocumentResult') throw new Error('Expected link response');
+      return result;
+    };
+    for (let round = 0; round < 2; round++) {
+      const view = await prepareProjectReferenceView(input, state, install, signal, link);
+      const child = view.models.find((model) => model.name === 'local')!.elements[0] as Data;
+      const parent = child.superType?.ref as Data;
+      expect(parent).toMatchObject({ name: 'Parent', attributes: [expect.objectContaining({ name: 'amount' })] });
+      expect(parent.superType?.ref).toMatchObject({
+        name: 'Grandparent',
+        attributes: [expect.objectContaining({ name: 'code' })]
+      });
+      expect(view.models.map((model) => model.name).sort()).toEqual(['local', 'pinned']);
+      expect(_testInternals().deferredModelJson.size).toBe(1); // The unrelated support model stays deferred.
+    }
+  }
+);

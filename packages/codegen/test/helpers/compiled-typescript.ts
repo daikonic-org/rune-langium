@@ -10,6 +10,19 @@ import { expect } from 'vitest';
 import type { GeneratorOutput } from '../../src/types.js';
 import { generatedDirectory } from './generated-directory.js';
 
+/** Strict generated-module checks share the ESNext host, without ambient test/browser libraries. */
+export function generatedTypeScriptCompilerOptions(overrides: ts.CompilerOptions = {}): ts.CompilerOptions {
+  return {
+    strict: true,
+    noEmit: true,
+    skipLibCheck: true,
+    target: ts.ScriptTarget.ESNext,
+    lib: ['lib.esnext.d.ts'],
+    types: [],
+    ...overrides
+  };
+}
+
 /** Compile the emitted file set and let Node resolve its actual module imports. */
 export function compileGeneratedTypeScript<
   T extends Record<string, unknown> = Record<string, (...args: unknown[]) => unknown>
@@ -18,15 +31,7 @@ export function compileGeneratedTypeScript<
   const entry = options.entry ?? outputs[0]!.relativePath;
   const require = createRequire(join(directory, 'entry.js'));
   try {
-    const compilerOptions: ts.CompilerOptions = {
-      strict: true,
-      noEmit: true,
-      skipLibCheck: true,
-      target: ts.ScriptTarget.ESNext,
-      lib: ['lib.esnext.d.ts'],
-      module: ts.ModuleKind.CommonJS,
-      types: []
-    };
+    const compilerOptions = generatedTypeScriptCompilerOptions({ module: ts.ModuleKind.CommonJS });
     for (const output of outputs) {
       const path = join(directory, output.relativePath);
       mkdirSync(dirname(path), { recursive: true });
