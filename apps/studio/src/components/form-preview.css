@@ -65,8 +65,8 @@
 .preview-object__fields {
   display: grid;
   min-width: 0;
-  gap: 0.875rem;
-  padding-block: var(--panel-padding-block);
+  gap: var(--space-2);
+  padding-block: var(--space-1);
 }
 .preview-object__fields .preview-object__fields {
   padding-inline: 0;
@@ -98,9 +98,12 @@
 }
 .preview-boolean__control {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: start;
+  gap: var(--space-2);
   min-height: var(--space-6);
+}
+.preview-boolean__control > [data-slot="checkbox"] {
+  margin-block-start: max(0px, calc((1.4em - var(--space-4)) / 2));
 }
 .preview-boolean > [role="alert"] {
   margin-inline-start: calc(1rem + .5rem);
@@ -313,7 +316,8 @@
   display: grid;
   grid-template-columns: repeat(var(--layout-columns), minmax(0, 1fr));
   align-items: start;
-  gap: var(--space-3);
+  row-gap: var(--space-2);
+  column-gap: var(--space-3);
 }
 .preview-layout-field {
   --requested-span: 1;

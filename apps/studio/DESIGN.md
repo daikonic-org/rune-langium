@@ -48,6 +48,11 @@ available; no system preference silently replaces an explicit choice.
 - Settings uses a common label column. Adjacent field/action pairs share the
   compact height; validation messages sit below their control, including boolean
   fields, without moving the label away from the checkbox.
+- Checkbox labels have an 8px control gap, including generated import options.
+  Descriptions and errors align with the label column; wrapping never expands
+  the checkbox to the row width. Form-grid rows use 8px spacing with 12px between
+  columns, while nested fields avoid stacking multiple section insets. Settings
+  reuses the shared 12px horizontal and 8px vertical panel insets.
 - Inspector member names retain readable space beside type references. Long type
   chips truncate relative to the row width; full member names remain available in
   tooltips. Expression Text dialogs use the shared content-sized code surface,

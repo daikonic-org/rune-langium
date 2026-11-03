@@ -2480,22 +2480,30 @@ html[data-theme="light"] .preview-panel__editor {
  * reflow just that case to a row, leaving every other field type untouched.
  */
 .z2f-field:has(> button[role='checkbox']) {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-2);
+  row-gap: var(--field-label-gap);
 }
 
 .z2f-field:has(> button[role='checkbox']) > button[role='checkbox'] {
-  order: 1;
+  grid-column: 1;
+  grid-row: 1;
+  width: var(--space-4);
+  margin-block-start: max(0px, calc((1lh - var(--space-4)) / 2));
 }
 
 .z2f-field:has(> button[role='checkbox']) > label {
-  order: 2;
+  grid-column: 2;
+  grid-row: 1;
+  width: auto;
+  line-height: var(--line-height-normal);
 }
 
-.z2f-field:has(> button[role='checkbox']) > p {
-  flex-basis: 100%;
-  order: 3;
+.z2f-field:has(> button[role='checkbox']) > :is(p, [data-slot='field-error']) {
+  grid-column: 2;
+  width: auto;
 }
 
 /* z2f emits a bare <form>{...Field...}</form> with no gap between sibling
@@ -2503,7 +2511,14 @@ html[data-theme="light"] .preview-panel__editor {
  * field's label. Space out siblings only — no trailing margin after the
  * form's last field. */
 .z2f-field + .z2f-field {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.studio-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--panel-padding-block) var(--panel-padding-inline);
 }
 
 

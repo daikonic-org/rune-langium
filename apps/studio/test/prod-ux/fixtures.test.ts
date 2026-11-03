@@ -87,6 +87,16 @@ describe('computeJourneyId', () => {
 });
 
 describe('appendJourneyRecord + computeJourneyId (journey-subid disambiguation)', () => {
+  it('redacts signed session URLs before persisting current and previous attempt evidence', async () => {
+    const token = 'synthetic-manifest-session.signature';
+    const record = makeRecord({ id: 'J99', title: 'redaction', consoleErrors: [`wss://lsp.test/ws/${token} closed`] });
+    await appendJourneyRecord(record);
+    await appendJourneyRecord({ ...record, retry: 1 });
+    const text = await readFile(MANIFEST_PATH, 'utf8');
+    expect(text).not.toContain(token);
+    expect(text).toContain('[REDACTED]');
+    expect((await readManifest()).journeys[0].previousAttempts).toHaveLength(1);
+  });
   it('two tests sharing a group but with different journey-subid annotations produce two distinct, non-nested top-level manifest entries', async () => {
     const renderId = computeJourneyId(RENDER_TITLE, 'render');
     const generateId = computeJourneyId(GENERATE_TITLE, 'generate');

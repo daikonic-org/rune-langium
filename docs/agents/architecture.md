@@ -111,6 +111,10 @@ Langium support range determine artifact compatibility.
 Development/latest manifests remain separate. The mirror serves `/releases/*`
 with its existing CORS/ETag/error conventions. See
 [curated publication](../curated-publishing.md) for the dry-run and upload order.
+The scheduled publisher reconciles missing stable GitHub releases through that
+same immutable release path before its independent moving Nightly build. A release
+build failure cannot advertise its catalog entry, advance Nightly pointers, or
+prevent attempts for other independently valid releases.
 
 Core's pure `project-contract` entry owns declaration identity, receipt and
 resolution-context schemas; project-config aliases its identity schema rather

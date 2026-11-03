@@ -21,7 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:ux-candidate": "pnpm run build && playwright test --config playwright.candidate.config.ts",
+    "test:ux-candidate": "node --test scripts/redact-test-artifacts.test.mjs && pnpm run build && playwright test --config playwright.candidate.config.ts",
     "test:z2f-hmr": "PLAYWRIGHT_ISOLATED_SERVER=1 playwright test test/e2e/z2f-hmr.spec.ts --retries=0",
     "test:prod-smoke": "PLAYWRIGHT_PROD_SMOKE=1 playwright test --config playwright.prod.config.ts prod-smoke",
     "test:prod-ux": "PLAYWRIGHT_PROD_SMOKE=1 playwright test --config playwright.prod.config.ts prod-ux/journeys",

@@ -122,8 +122,10 @@ function renderInlineChildren(items: ReadonlyArray<unknown> | undefined, renderC
 // --- per-construct renderers ----------------------------------------------
 
 function renderSchema(schema: Dehydrated<Schema>, renderChild: RenderChild): string {
+  const definition = definitionLine(typeof schema.definition === 'string' ? schema.definition : undefined);
   return [
     `schema ${schema.name} ${refText(schema.format) ?? ''}`,
+    ...(definition ? [indentBlock(definition)] : []),
     ...schema.annotations.map((annotation) => indentBlock(renderChild(annotation)))
   ].join('\n');
 }

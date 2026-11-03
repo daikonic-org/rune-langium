@@ -5,6 +5,7 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { TypeChip } from '@rune-langium/visual-editor';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import {
   Dialog,
@@ -335,21 +336,21 @@ export const ReferenceExampleImport = withInstrumentation(
                     ) : null}
                     {visible.map((file) => (
                       <div key={file.path} className="flex items-start gap-1 rounded p-1 hover:bg-accent">
-                        <input
-                          type="checkbox"
-                          className="size-6 shrink-0 accent-primary"
-                          aria-label={`Select ${file.path}`}
-                          checked={selected.has(file.path)}
-                          disabled={busy}
-                          onChange={(event) =>
-                            setSelected((current) => {
-                              const next = new Set(current);
-                              if (event.target.checked) next.add(file.path);
-                              else next.delete(file.path);
-                              return next;
-                            })
-                          }
-                        />
+                        <label className="flex size-6 shrink-0 cursor-pointer items-center justify-center">
+                          <Checkbox
+                            aria-label={`Select ${file.path}`}
+                            checked={selected.has(file.path)}
+                            disabled={busy}
+                            onCheckedChange={(checked) =>
+                              setSelected((current) => {
+                                const next = new Set(current);
+                                if (checked) next.add(file.path);
+                                else next.delete(file.path);
+                                return next;
+                              })
+                            }
+                          />
+                        </label>
                         <button
                           type="button"
                           className="min-h-6 min-w-0 flex-1 break-all text-left text-xs focus-visible:outline-2 focus-visible:outline-ring"

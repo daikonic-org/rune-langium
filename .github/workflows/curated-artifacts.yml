@@ -54,9 +54,21 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build core (required for Langium services)
+        id: build-core
         run: pnpm --filter '@rune-langium/core...' --filter '@rune-langium/curated-schema' run build
 
+      - name: Reconcile newly published CDM releases
+        if: ${{ !inputs.cdm_release }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/reconcile-curated-releases.mjs
+
       - name: Build serialized artifacts
+        id: build-artifacts
+        # A release failure stays red but must not prevent the independent Nightly build.
+        if: ${{ !cancelled() && steps.build-core.outcome == 'success' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CDM_RELEASE: ${{ inputs.cdm_release }}
@@ -69,6 +81,7 @@ jobs:
           fi
 
       - name: Upload artifacts to R2
+        if: ${{ !cancelled() && steps.build-artifacts.outcome == 'success' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -82,4 +95,6 @@ jobs:
           path: |
             dist/curated-artifacts/*/artifact-meta.json
             dist/curated-artifacts/resolved-sources.json
+            dist/curated-releases/*/*/artifact-meta.json
+            dist/curated-releases/*/resolved-sources.json
           retention-days: 7

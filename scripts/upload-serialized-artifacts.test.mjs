@@ -43,7 +43,7 @@ function publication(
     mkdirSync(join(root, 'scripts/lib'));
     writeFileSync(
       join(root, 'scripts/lib/curated-releases.mjs'),
-      `import {main} from ${JSON.stringify(new URL('./lib/curated-releases.mjs', import.meta.url).href)}; await main(process.argv.slice(2),async()=>new Response('',{status:404}));`
+      `import {main} from ${JSON.stringify(new URL('./lib/curated-releases.mjs', import.meta.url).href)}; await main(process.argv.slice(2),async(url,options)=>{if(options?.cache!=='no-store')throw new Error('Publication requires a fresh catalog');return new Response('',{status:404});});`
     );
   }
   const log = join(root, 'uploads');

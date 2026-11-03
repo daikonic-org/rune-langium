@@ -8,6 +8,7 @@ import type { OpLogEntry } from '../../src/services/op-log.js';
 import { waitForEntranceAnimations } from './readiness.js';
 import { buildTimingsRollup, type TimingRecord } from './timings.js';
 import { captureNetworkResponse, type NetworkRecord } from './network-evidence.js';
+import { redactEvidenceText } from '../../scripts/redact-test-artifacts.mjs';
 
 export interface Checkpoint {
   name: string;
@@ -116,14 +117,16 @@ export class EvidenceCollector {
     this.startedAt = Date.now();
     page.on('console', (msg: ConsoleMessage) => {
       if (msg.type() === 'error' || msg.type() === 'warning') {
-        this.consoleErrors.push(`[${msg.type()}] ${msg.text()}`);
+        this.consoleErrors.push(redactEvidenceText(`[${msg.type()}] ${msg.text()}`));
       }
     });
     page.on('pageerror', (err: Error) => {
-      this.consoleErrors.push(`[pageerror] ${err.message}`);
+      this.consoleErrors.push(redactEvidenceText(`[pageerror] ${err.message}`));
     });
     page.on('requestfailed', (req: Request) => {
-      this.failedRequests.push(`${req.method()} ${req.url()} — ${req.failure()?.errorText ?? 'unknown'}`);
+      this.failedRequests.push(
+        redactEvidenceText(`${req.method()} ${req.url()} — ${req.failure()?.errorText ?? 'unknown'}`)
+      );
     });
     // requestfailed only fires for network-level failures (DNS, connection
     // refused, aborted) — a first-party request that COMPLETES with a 4xx/5xx
@@ -148,7 +151,7 @@ export class EvidenceCollector {
         sameOrigin = false;
       }
       if (!sameOrigin) return;
-      const line = `${response.request().method()} ${response.url()} — HTTP ${status}`;
+      const line = redactEvidenceText(`${response.request().method()} ${response.url()} — HTTP ${status}`);
       const index = this.failedRequests.push(line) - 1;
       // Best-effort: append the response body (e.g. Pages Functions' `{ ok:
       // false, diagnostics, error }` envelopes) so a triager doesn't have to
@@ -164,7 +167,7 @@ export class EvidenceCollector {
           response
             .text()
             .then((body) => {
-              this.failedRequests[index] = `${line} — ${body.slice(0, 4000)}`;
+              this.failedRequests[index] = `${line} — ${redactEvidenceText(body).slice(0, 4000)}`;
             })
             .catch(() => {
               // Body unavailable (evicted/consumed) — the status-only line already recorded stands.
@@ -398,5 +401,5 @@ export async function appendJourneyRecord(record: JourneyRecord): Promise<void> 
   manifest.journeys = manifest.journeys.filter((j) => j.id !== record.id);
   manifest.journeys.push(finalRecord);
   manifest.timings = buildTimingsRollup(manifest.journeys);
-  await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+  await writeFile(manifestPath, redactEvidenceText(JSON.stringify(manifest, null, 2)), 'utf-8');
 }

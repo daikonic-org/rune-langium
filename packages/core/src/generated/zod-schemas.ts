@@ -872,6 +872,7 @@ export const SchemaSchema = z.looseObject({
   $type: z.literal('Schema'),
   name: ValidIDSchema,
   format: ReferenceSchema,
+  definition: z.string().optional(),
   annotations: z.array(AnnotationRefSchema)
 });
 
