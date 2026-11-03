@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEditorStore } from '@rune-langium/visual-editor';
+import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import { pathToUri } from '../../utils/uri.js';
 import { registerProjectNamespaceHydrator } from '../../services/project-namespace-hydration.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -96,19 +97,43 @@ export const useProjectReferenceView = withInstrumentation(
             const targets = view.files.filter((file) => file.refOnly && requested.has(file.namespace ?? ''));
             if ([...requested].some((namespace) => !view.files.some((file) => file.namespace === namespace)))
               throw new Error('Requested namespace is absent from the current verified reference inventory');
-            const results = await Promise.all(targets.map((file) => linkDocument(pathToUri(file.path), true)));
-            abort.signal.throwIfAborted();
-            if (results.some((result) => !result.linked || result.errors.length))
-              throw new Error(
-                results.flatMap((result) => result.errors).join('\n') || 'Reference namespace is unavailable'
+            const publish = (results: Awaited<ReturnType<typeof linkDocument>>[]) => {
+              abort.signal.throwIfAborted();
+              if (results.some((result) => !result.linked || result.errors.length))
+                throw new Error(
+                  results.flatMap((result) => result.errors).join('\n') || 'Reference namespace is unavailable'
+                );
+              // Materialization can fail: reject through the namespace request's
+              // normal error channel, rather than throwing inside React's updater.
+              currentView = materializeProjectReferenceView(
+                currentView ?? view,
+                results.flatMap((result) => result.newModels)
               );
-            const additions = results.flatMap((result) => result.newModels);
-            // Materialization can fail: reject through the namespace request's
-            // normal error channel, rather than throwing inside React's updater.
-            currentView = materializeProjectReferenceView(currentView ?? view, additions);
-            latestView.current = currentView;
-            const materialized = currentView;
-            setPublished((previous) => (previous?.input === input ? { ...previous, view: materialized } : previous));
+              latestView.current = currentView;
+              const materialized = currentView;
+              setPublished((previous) => (previous?.input === input ? { ...previous, view: materialized } : previous));
+            };
+            // The verified per-document declaration index identifies the selected
+            // owner, including kind. Do not make its Inspector wait for unrelated
+            // functions in the same namespace and their larger dependency closures.
+            const selected = useEditorStore.getState().selectedNodeId;
+            const owners = new Set(
+              view.deferredExports
+                .filter((entry) =>
+                  entry.exports.some(
+                    (entryExport) => makeNodeId(entry.namespace, entryExport.name, entryExport.type) === selected
+                  )
+                )
+                .map((entry) => entry.filePath)
+            );
+            const priority = owners.size === 1 ? targets.find((file) => owners.has(file.path)) : undefined;
+            if (priority && targets.length > 1) {
+              publish([await linkDocument(pathToUri(priority.path), true)]);
+            }
+            const remaining = priority && targets.length > 1 ? targets.filter((file) => file !== priority) : targets;
+            publish(await Promise.all(remaining.map((file) => linkDocument(pathToUri(file.path), true))));
+            // The namespace promise resolves only after every file is linked.
+            // App owns marking the whole namespace hydrated at that boundary.
           })
         : undefined;
       return () => {

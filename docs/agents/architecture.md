@@ -154,6 +154,10 @@ Parser-worker dependency snapshots link all already-materialized documents befor
 reading or serializing their references; deferred corpus entries remain lazy.
 Function-output navigation prefers the worker's canonical schema and only reads
 AST references when the owning document has computed scopes.
+Managed namespace demand uses the verified per-document declaration index to
+publish a uniquely selected owner's linked closure before unrelated namespace
+files finish. Namespace hydration still awaits every requested file; ambiguous
+owners use the complete namespace path, and failures retain the last valid view.
 
 Codegen's selection view uses core's resolved declaration targets, including
 explicitly selected original roots. It emits the replacement's canonical

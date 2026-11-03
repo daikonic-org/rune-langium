@@ -11,3 +11,5 @@ Apply native `override namespace` declarations through shared linking, generatio
 Keep Inspector declaration headings at the second level while source edits parse, preserving heading order independently of panel arrangement.
 
 Validate native callable replacements with the same signature, type-argument and cardinality comparison as configured overrides, including positional parameter order. Reject incompatible native replacements in bare Rune validation and captured project activation.
+
+Prioritize the selected Inspector declaration's verified linked closure ahead of unrelated functions in the same namespace, while retaining whole-namespace readiness and failure handling.
