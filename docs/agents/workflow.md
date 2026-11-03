@@ -116,6 +116,15 @@ or response caching. Local/deployed reviews remain anonymous unless this candida
 transport is explicitly configured. Explore exposes its authoritative project/reference
 loading state as `aria-busy`; restored-layout checks wait for readiness within the
 existing workbench deadline before searching its inventory.
+Before any UX evidence upload, `apps/studio/scripts/redact-test-artifacts.mjs`
+scrubs signed LSP socket paths, session JSON and bearer headers from manifests,
+trace ZIP resources/events and embedded HTML report archives. Upload is gated on
+successful sanitization, including on failed test runs; unreadable archives fail
+closed. The collector also redacts its text sinks before persistence. Keep the
+real Playwright response/warning canary and embedded-report tests in the candidate
+gate. Tracing remains enabled for failure diagnosis; this does not change browser
+or Worker instrumentation. Production builds omit untagged instrumentation unless
+`VITE_ENABLE_INSTRUMENTATION=true`, and runtime diagnostics remain separately gated.
 The candidate teardown rejects empty reports, degraded or blocked journeys and
 retried evidence, including soft codegen failures and timing-budget findings.
 Keep assertions about warning-free acknowledged edits and the selected root's

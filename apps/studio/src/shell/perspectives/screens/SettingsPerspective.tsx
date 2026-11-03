@@ -23,9 +23,9 @@ export const SettingsPerspective = withInstrumentation(
     const setTelemetryEnabled = useTelemetrySettingsStore((s) => s.setEnabled);
 
     return (
-      <section data-testid="settings-perspective" className="studio-scroll h-full overflow-auto p-6 space-y-8">
+      <section data-testid="settings-perspective" className="studio-settings studio-scroll h-full overflow-auto">
         {/* ── Appearance ──────────────────────────────────────────────────── */}
-        <section className="space-y-4">
+        <section className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appearance</h2>
 
           <div className="grid grid-cols-[8rem_minmax(0,13rem)] items-center gap-3">
@@ -54,7 +54,7 @@ export const SettingsPerspective = withInstrumentation(
         </section>
 
         {/* ── Privacy ─────────────────────────────────────────────────────── */}
-        <section data-testid="settings-privacy-section" className="space-y-4">
+        <section data-testid="settings-privacy-section" className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Privacy</h2>
 
           <label className="flex items-center gap-3 text-sm">

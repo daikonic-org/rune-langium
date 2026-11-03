@@ -153,7 +153,9 @@ export async function main(args = process.argv.slice(2), fetchImpl = fetch) {
   }
   const catalogs = new Map();
   for (const source of sources.filter((source) => source.release)) {
-    const response = await fetchImpl(new URL('/releases/' + encodeURIComponent(source.id), values.base));
+    const response = await fetchImpl(new URL('/releases/' + encodeURIComponent(source.id), values.base), {
+      cache: 'no-store'
+    });
     if (response.status === 404) continue;
     if (!response.ok) throw new Error('Release catalog HTTP ' + response.status + ' for ' + source.id);
     catalogs.set(source.id, validateReferenceCatalog(await response.json()));

@@ -411,6 +411,14 @@ export const RuneDslGrammar = (): Grammar =>
           {
             "$type": "RuleCall",
             "rule": {
+              "$ref": "#/rules@31"
+            },
+            "arguments": [],
+            "cardinality": "?"
+          },
+          {
+            "$type": "RuleCall",
+            "rule": {
               "$ref": "#/rules@12"
             },
             "arguments": [],

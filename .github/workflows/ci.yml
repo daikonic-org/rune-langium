@@ -74,6 +74,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: Verify curated release reconciliation and publication
+        run: node --test scripts/lib/curated-sources.test.mjs scripts/lib/curated-releases.test.mjs scripts/reconcile-curated-releases.test.mjs scripts/upload-serialized-artifacts.test.mjs
+
       - name: Verify complete reference example corpus
         run: pnpm run verify:reference-examples
 
@@ -208,8 +211,13 @@ jobs:
           # The Node-only transport scopes this credential to public CDM GETs.
           STUDIO_TEST_GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Upload candidate UX evidence
+      - name: Redact candidate UX credentials
+        id: redact-ux
         if: always()
+        run: node apps/studio/scripts/redact-test-artifacts.mjs dist/ux-candidate
+
+      - name: Upload candidate UX evidence
+        if: always() && steps.redact-ux.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: studio-ux-candidate

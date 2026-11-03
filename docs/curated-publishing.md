@@ -58,6 +58,27 @@ nothing. It does not claim the proposed objects have been published.
 
 ## Publication order
 
+The scheduled Nightly workflow first reconciles the public CDM release list with
+the curated catalog. `node scripts/reconcile-curated-releases.mjs --list` performs
+read-only discovery. It ignores drafts/prereleases and discovers missing stable
+tags published since the first already-curated release, including maintenance
+releases from older major lines. A catalog must be explicitly seeded first.
+
+Reconciliation builds each tag through the same release verifier and publisher
+as an explicit dispatch, in its own `dist/curated-releases/<tag>` directory.
+`CURATED_ARTIFACT_DIR` selects that directory for the existing uploader. Every tag
+must pass linking, checksum and immutable upload-receipt gates. A failed tag is
+reported without promoting it. Catalog preparation bypasses HTTP caches so a
+second publication cannot overwrite a preceding release using a stale catalog.
+Other releases are still attempted; any failure keeps the workflow red.
+The independent Nightly build still runs and retains its moving identity. Release
+catalog writes never advance Nightly pointers or label a tagged release Nightly.
+
+FpML 3.13.0's documented `schema` declarations require Rune's optional definition
+after the format. Core parses and serializes that documentation; source rendering
+preserves it. CDM 7.9.0 resolves to FpML 3.13.0 and Rune DSL 10.15.3. Local builds
+and publication dry runs do not establish a published release.
+
 The upload script prepares the entire set first. Publication uploads all
 versioned bundles and namespace artifacts, then every immutable cohort manifest.
 Only successful upload receipts permit catalog promotion. Dependency catalogs

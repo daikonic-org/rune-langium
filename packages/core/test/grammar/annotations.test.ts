@@ -18,6 +18,17 @@ async function parseOk(input: string) {
 }
 
 describe('Annotation Parsing (T092)', () => {
+  it('preserves upstream FpML schema documentation before its annotations', async () => {
+    const result = await parseOk(`namespace fpml.consolidated
+      schema fpml514RecordkeepingXML XML <"Schema serialization guidance">
+        [externalConfig]
+    `);
+    expect(result.value.elements[0]).toMatchObject({
+      $type: 'Schema',
+      name: 'fpml514RecordkeepingXML',
+      definition: 'Schema serialization guidance'
+    });
+  });
   it('should parse an annotation declaration', async () => {
     const result = await parseOk(`
       namespace test.annots

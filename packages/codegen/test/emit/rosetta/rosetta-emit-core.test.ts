@@ -13,6 +13,17 @@ const regen: RenderChild = (c) => {
 };
 
 describe('renderNode — implemented scalars', () => {
+  it('preserves schema documentation when regenerating upstream declarations', () => {
+    expect(
+      regen({
+        $type: 'Schema',
+        name: 'FpML',
+        format: { $refText: 'XML' },
+        definition: 'Schema serialization guidance',
+        annotations: []
+      } as never)
+    ).toBe('schema FpML XML\n  <"Schema serialization guidance">');
+  });
   it('renders schema declarations and their annotations', () => {
     expect(
       regen({

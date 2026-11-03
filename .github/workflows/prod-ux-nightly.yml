@@ -69,12 +69,17 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      - name: Redact UX credentials
+        id: redact-ux
+        if: always()
+        run: node apps/studio/scripts/redact-test-artifacts.mjs apps/studio/test/prod-ux/report apps/studio/test-results
+
       - name: Upload evidence bundle
         # Includes Playwright's default trace/output directory alongside the
         # manifest — playwright.prod.config.ts's `trace: 'on-first-retry'`
         # writes trace.zip under test-results/, not report/, and the nightly
         # reviewer needs that trace to distinguish a regression from a flake.
-        if: always()
+        if: always() && steps.redact-ux.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: prod-ux-report

@@ -4767,6 +4767,7 @@ export interface Schema extends langium.AstNode {
   readonly $container: RosettaModel;
   readonly $type: 'Schema';
   annotations: Array<AnnotationRef>;
+  definition?: string;
   format: langium.Reference<RosettaEnumValue>;
   name: ValidID;
 }
@@ -4774,6 +4775,7 @@ export interface Schema extends langium.AstNode {
 export const Schema = {
   $type: 'Schema',
   annotations: 'annotations',
+  definition: 'definition',
   format: 'format',
   name: 'name'
 } as const;
@@ -8151,6 +8153,10 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
         annotations: {
           name: Schema.annotations,
           defaultValue: [],
+          optional: true
+        },
+        definition: {
+          name: Schema.definition,
           optional: true
         },
         format: {

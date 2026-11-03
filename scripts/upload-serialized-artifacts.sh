@@ -24,7 +24,7 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUCKET="rune-curated-mirror"
 MIRROR_BASE="https://www.daikonic.dev/curated"
-ARTIFACT_DIR="$REPO_ROOT/dist/curated-artifacts"
+ARTIFACT_DIR="${CURATED_ARTIFACT_DIR:-$REPO_ROOT/dist/curated-artifacts}"
 WRANGLER=(pnpm --filter @rune-langium/curated-mirror-worker exec wrangler)
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
