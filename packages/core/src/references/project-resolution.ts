@@ -32,6 +32,7 @@ interface ResolutionState {
   nodes?: Map<string, AstNode | undefined>;
   identities?: WeakMap<AstNode, DeclarationIdentity>;
   namespaceOverrides?: boolean;
+  namespaceTargets?: ReadonlyMap<AstNode, AstNode | undefined>;
   diagnostics?: Array<{ node: AstNode; code: string; message: string }>;
 }
 const projects = new WeakMap<object, ResolutionState>();
@@ -68,6 +69,7 @@ export function invalidateProjectResolution(services: LangiumCoreServices): void
     value.nodes = undefined;
     value.identities = undefined;
     value.namespaceOverrides = undefined;
+    value.namespaceTargets = undefined;
     value.diagnostics = undefined;
   }
 }
@@ -185,6 +187,7 @@ function index(services: LangiumCoreServices): ResolutionState {
     }
   }
   const { targets: nativeTargets, diagnostics } = resolveNamespaceOverrides(models);
+  value.namespaceTargets = nativeTargets;
   value.diagnostics.push(...diagnostics);
   const nodeFor = (node: AstNode) => (nativeTargets.has(node) ? nativeTargets.get(node) : node);
   const keyed = new Map<string, Set<AstNode | undefined>>();
@@ -226,6 +229,10 @@ export function initializeProjectResolution(services: LangiumCoreServices): void
 }
 export function namespaceOverrideDiagnostics(services: LangiumCoreServices, model: RosettaModel) {
   return index(services).diagnostics!.filter((issue) => issue.node.$container === model);
+}
+/** The same native replacement pairs selected by linking, available after indexing. */
+export function getNamespaceOverrideTargets(services: LangiumCoreServices): ReadonlyMap<AstNode, AstNode | undefined> {
+  return index(services).namespaceTargets!;
 }
 /** All consumers select through the same generation-local declaration targets as core linking. */
 export function getEffectiveProjectDeclaration(node: AstNode): AstNode | undefined {

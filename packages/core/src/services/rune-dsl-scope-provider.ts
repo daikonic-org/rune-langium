@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { redirectProjectScope } from '../references/project-resolution.js';
+import { redirectProjectScope, redirectProjectNode } from '../references/project-resolution.js';
 import { buildImportAliasMap, buildImportScope, importScopeCandidates } from '../naming/import-aliases.js';
 import type { AstNode, AstNodeDescription, ReferenceInfo, Scope, LangiumCoreServices } from 'langium';
 import { AstUtils, EMPTY_SCOPE, DefaultScopeProvider, MapScope, stream } from 'langium';
@@ -929,16 +929,25 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
    * e.g. `func YearFraction(dayCountFractionEnum: DayCountFractionEnum -> _1_1):`
    * looks up `dayCountFractionEnum` from the base `func YearFraction:` inputs.
    */
-  private dispatchSignature(func: RosettaFunction): RosettaFunction {
+  private dispatchSignature(original: RosettaFunction): RosettaFunction {
+    const effectiveFunction = redirectProjectNode(this.projectServices, original);
+    const func = isRosettaFunction(effectiveFunction) ? effectiveFunction : original;
     const name = qualifiedExportPath(func.$container.name, func.name);
-    const declarations = func.$container.elements.filter(isRosettaFunction);
+    const declarations = [
+      ...new Set(
+        func.$container.elements
+          .map((node) => redirectProjectNode(this.projectServices, node))
+          .filter(isRosettaFunction)
+      )
+    ];
     const local = getFunctionSignature(func, declarations);
     if (local !== func) return local;
     for (const description of this.indexManager.allElements('RosettaFunction')) {
       if (description.name !== name) continue;
       const root = this.documents.getDocument(description.documentUri)?.parseResult.value;
       const node = description.node ?? (root ? this.locator.getAstNode(root, description.path) : undefined);
-      if (isRosettaFunction(node)) declarations.push(node);
+      const effective = node && redirectProjectNode(this.projectServices, node);
+      if (isRosettaFunction(effective) && !declarations.includes(effective)) declarations.push(effective);
     }
     return getFunctionSignature(func, declarations);
   }

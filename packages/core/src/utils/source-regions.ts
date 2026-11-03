@@ -15,6 +15,14 @@ export type ExpressionRegion = Readonly<{
   expression: RosettaExpression | Dehydrated<RosettaExpression>;
 }>;
 
+/** Owning document identity shared by parsed and serialized model consumers. */
+export function getModelSourceUri(model: unknown): string | undefined {
+  const root = model as
+    | { $document?: { uri?: { toString(): string } }; $textRegion?: { documentURI?: string } }
+    | undefined;
+  return root?.$document?.uri?.toString() ?? root?.$textRegion?.documentURI;
+}
+
 /** Resolve declaration identity, using the unique base for a function dispatch group. */
 export function findExpressionOwner(
   model: Pick<RosettaModel, 'elements'>,

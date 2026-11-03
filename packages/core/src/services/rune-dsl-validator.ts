@@ -3,6 +3,7 @@
 
 import type { ValidationAcceptor, ValidationChecks, LangiumCoreServices } from 'langium';
 import { namespaceOverrideDiagnostics } from '../references/project-resolution.js';
+import { namespaceOverrideSignatureDiagnostics } from '../references/override-validation.js';
 import {
   isRosettaFeatureCall,
   isRosettaDeepFeatureCall,
@@ -99,7 +100,10 @@ export class RuneDslValidator {
         this.checkModelNoDuplicateElements,
         this.checkModelNamespaceValid,
         (model, accept) => {
-          for (const issue of namespaceOverrideDiagnostics(services, model))
+          for (const issue of [
+            ...namespaceOverrideDiagnostics(services, model),
+            ...namespaceOverrideSignatureDiagnostics(services, model)
+          ])
             accept('error', issue.message, { node: issue.node, code: issue.code });
         }
       ],

@@ -95,6 +95,23 @@ export interface SourceSyncFile {
   namespace: string;
   text: string;
   nodeIds: ReadonlySet<string>;
+  /** Authoritative parsed-document URI aliases for snapshot-current ownership after a rename. */
+  sourceUris?: ReadonlySet<string>;
+}
+
+function sourceFilesForSnapshot(files: ReadonlyMap<string, SourceSyncFile>, nodes: readonly TypeGraphNode[]) {
+  const output = new Map([...files].map(([path, file]) => [path, { ...file, nodeIds: new Set(file.nodeIds) }]));
+  const byUri = new Map<string, string | undefined>();
+  for (const [path, file] of files)
+    for (const uri of file.sourceUris ?? []) {
+      if (!byUri.has(uri)) byUri.set(uri, path);
+      else if (byUri.get(uri) !== path) byUri.set(uri, undefined);
+    }
+  for (const node of nodes) {
+    const path = node.meta.sourceUri && byUri.get(node.meta.sourceUri);
+    if (path) output.get(path)!.nodeIds.add(node.id);
+  }
+  return output;
 }
 export interface BuildSourceArgs {
   nodes: TypeGraphNode[];
@@ -117,7 +134,7 @@ export interface BuildSourceArgs {
 export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, string> {
   if (args.sourceFiles) {
     const output = new Map<string, string>();
-    for (const [path, file] of args.sourceFiles) {
+    for (const [path, file] of sourceFilesForSnapshot(args.sourceFiles, args.nodes)) {
       const owned = (patch: Patches[number]) => patch.path[0] !== 'nodes' || file.nodeIds.has(String(patch.path[1]));
       const text = buildSourceForNamespaces({
         ...args,
@@ -399,9 +416,21 @@ export function useModelSourceSync(
       parseBaselineSourceRef.current = rendered.current.originalSourceByNamespace;
       parseBaselineFilesRef.current = rendered.current.sourceFiles;
     }
-    const ownedIds =
-      rendered.current.sourceFiles &&
-      new Set([...rendered.current.sourceFiles.values()].flatMap((file) => [...file.nodeIds]));
+    const snapshotFiles =
+      parseBaselineFilesRef.current &&
+      sourceFilesForSnapshot(
+        new Map(
+          [...parseBaselineFilesRef.current].map(([path, file]) => [
+            path,
+            {
+              ...file,
+              nodeIds: new Set([...file.nodeIds, ...(rendered.current.sourceFiles?.get(path)?.nodeIds ?? [])])
+            }
+          ])
+        ),
+        nodes
+      );
+    const ownedIds = snapshotFiles && new Set([...snapshotFiles.values()].flatMap((file) => [...file.nodeIds]));
     const fingerprint = computeContentFingerprint(nodes, edges, parseBaselineSourceRef.current, ownedIds);
     if (lastContentFingerprintRef.current === fingerprint) return pending.current;
     lastContentFingerprintRef.current = fingerprint;
@@ -411,14 +440,7 @@ export function useModelSourceSync(
       originalSourceByNamespace: parseBaselineSourceRef.current,
       patches,
       inversePatches,
-      sourceFiles:
-        parseBaselineFilesRef.current &&
-        new Map(
-          [...parseBaselineFilesRef.current].map(([path, file]) => [
-            path,
-            { ...file, nodeIds: rendered.current.sourceFiles?.get(path)?.nodeIds ?? file.nodeIds }
-          ])
-        )
+      sourceFiles: snapshotFiles
     });
     if (parseAdvanced || (!hasFiredInitialSerializeRef.current && (!explicit || patches.length === 0))) {
       hasFiredInitialSerializeRef.current = true;

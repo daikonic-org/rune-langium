@@ -4,7 +4,7 @@ import { it, expect } from 'vitest';
 import { createProjectSnapshot, type ProjectOverride } from '@rune-langium/project-config';
 import { AstUtils } from 'langium';
 import { isRosettaSymbolReference, isRosettaFunction, isData } from '@rune-langium/core';
-import { buildEffectiveProject } from '../src/effective-project.js';
+import { applyEffectiveProject, buildEffectiveProject } from '../src/effective-project.js';
 const identity = (model: string, namespace: string, kind: string, name: string) => ({ model, namespace, kind, name });
 const mapping: ProjectOverride = {
   kind: 'declaration',
@@ -42,6 +42,49 @@ it('applies native namespace overrides to serialized curated callers without a c
   ).toBe(local);
   expect(JSON.stringify(serialized)).toBe(before);
 });
+
+it.each([false, true])(
+  'refuses native positional input reordering before host adoption, serialized=%s',
+  async (serialized) => {
+    const { snapshot, documents } = await fixture([]);
+    documents[0]!.content =
+      'namespace ref\nfunc Compute:\n inputs:\n a number (1..1)\n b number (1..1)\n output: result number (1..1)\n set result: a - b\nfunc Caller:\n output: result number (1..1)\n set result: Compute(10, 3)';
+    const original = await buildEffectiveProject(snapshot, documents);
+    expect(original.diagnostics).toEqual([]);
+    const { serializeRuneModel } = await import('@rune-langium/core');
+    const references = serialized
+      ? original.documents
+          .filter((document) => document.uri.path.includes('/[cdm]/'))
+          .map((document) => ({
+            ...documents[0]!,
+            serialized: serializeRuneModel(original.services.serializer.JsonSerializer, document.parseResult.value)
+          }))
+      : documents;
+    const files = new Map(snapshot.files);
+    files.set(
+      'model/custom.rosetta',
+      'override namespace ref\nfunc Compute:\n inputs:\n b number (1..1)\n a number (1..1)\n output: result number (1..1)\n set result: b - a'
+    );
+    const current = await createProjectSnapshot('p', files, () => []);
+    const graph = await buildEffectiveProject(current, references);
+    expect(graph.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: 'NAMESPACE_OVERRIDE_SIGNATURE',
+        message: expect.stringContaining('Namespace override callable signature differs')
+      })
+    );
+    const { createProjectResolutionContext } = await import('../src/project-context.js');
+    await expect(
+      applyEffectiveProject({
+        snapshot: current,
+        referenceDocuments: references,
+        resolution: await createProjectResolutionContext(current, {}),
+        receipt: graph.receipt
+      })
+    ).rejects.toThrow('Namespace override callable signature differs');
+  }
+);
+
 it('rejects a native override competing with an existing configured replacement', async () => {
   const { snapshot, documents } = await fixture();
   const files = new Map(snapshot.files);

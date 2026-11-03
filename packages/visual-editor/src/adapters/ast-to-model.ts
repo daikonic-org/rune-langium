@@ -26,7 +26,8 @@ import {
   getAnnotationDefinitions,
   buildImportAliasMap,
   importAliasCandidates,
-  selectNamespaceOverrideModels
+  selectNamespaceOverrideModels,
+  getModelSourceUri
 } from '@rune-langium/core';
 import type { RosettaModel, RosettaRootElement } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge, GraphNodeMeta, GraphFilters, TypeKind } from '../types.js';
@@ -213,7 +214,7 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
       importedNamespace,
       namespaceAlias
     }));
-    const modelUri = (m as unknown as { $document?: { uri?: { toString(): string } } }).$document?.uri?.toString();
+    const modelUri = getModelSourceUri(m);
     const isReadOnly = modelUri?.startsWith('system://') ?? false;
 
     for (const element of elements) {
@@ -238,9 +239,7 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
         const node = buildGraphNode(element as { $type: string; name: string }, namespace, nodeId, isReadOnly);
         node.meta.imports = imports;
         if (m.overridden) node.meta.namespaceOverride = true;
-        const sourceUri =
-          modelUri ?? (m as unknown as { $textRegion?: { documentURI?: string } }).$textRegion?.documentURI;
-        if (sourceUri) node.meta.sourceUri = sourceUri;
+        if (modelUri) node.meta.sourceUri = modelUri;
         nodes.push(node);
         nodeIdSet.add(nodeId);
       }

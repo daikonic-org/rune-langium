@@ -116,8 +116,8 @@ same immutable release path before its independent moving Nightly build. A relea
 build failure cannot advertise its catalog entry, advance Nightly pointers, or
 prevent attempts for other independently valid releases.
 
-Core's pure `project-contract` entry owns declaration identity, receipt and
-resolution-context schemas; project-config aliases its identity schema rather
+Core's pure `project-contract` entry owns declaration identity, receipt,
+canonical JSON and resolution-context schemas; project-config aliases these contracts rather
 than maintaining another shape. This entry imports only Zod. Core remains
 independent of project configuration/runtime packages.
 
@@ -251,6 +251,13 @@ unmodified siblings remain available. Competing replacements and incomplete disp
 families fail validation. Existing explicit project mappings remain supported, and
 Modify retains its verified provenance mapping; a competing mapping cannot silently
 win over native source syntax. The Rune renderer preserves the namespace marker.
+Native and configured callable replacements share Core's signature comparison:
+ordered input/output names, resolved type identities, type arguments and cardinalities.
+Native pairs come from the linking inventory and are checked after scopes exist;
+bare Rune sources and captured projects both diagnose incompatible replacements.
+Deferred root registration invalidates that inventory before its first reference
+lookup, including provider-registered batches. Split dispatch signature candidates
+resolve and deduplicate through the same effective targets as ordinary linking.
 Managed actions flush the existing
 source/autosave owners, await the saved revision in the preview worker, and Save
 the copy plus explicit override map in one project transaction. Copy bytes must
@@ -265,6 +272,12 @@ synchronization captures each writable file's own baseline and declaration set,
 including renames and removals; sharing a namespace never copies immutable siblings
 or writes one override declaration into another override file. Graph exports retain
 the owning namespace marker, while metadata stays outside declaration payloads.
+Parsed roots map document URIs to authoritative workspace paths; parsed namespaces
+take precedence over initial file metadata. Save derives current declaration IDs
+from the supplied store snapshot as well as baseline IDs, so a form rename flushed
+before React rerenders cannot publish a deletion. New local declaration filenames
+include their AST kind, keeping same-name functions and types distinct without
+changing their Rune identities.
 Preview-worker hydration restores references within curated snapshots; their exports
 must also be registered through Langium's index before parsing authored source that
 imports them. Index each hydrated batch once and remove exports when it is replaced.

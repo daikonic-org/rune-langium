@@ -30,6 +30,42 @@ async function fixture() {
 }
 
 describe('semantic LSP dependency index', () => {
+  it('rejects an incompatible native snapshot before acknowledgement and recovers after correction', async () => {
+    const lsp = createRuneLspServer();
+    await lsp.shared.workspace.WorkspaceManager.initialized({});
+    const replacementUri = 'file:///workspace/override.rosetta';
+    const signature = (inputs: string) =>
+      `func Compute:\n inputs:\n ${inputs}\n output: result number (1..1)\n set result: 0`;
+    await lsp.syncModels({
+      document: {
+        uri: depUri,
+        modelJson: await modelJson('namespace upstream\n' + signature('a number (1..1)\n b number (1..1)'))
+      }
+    });
+    await lsp.syncModels({
+      document: {
+        uri: replacementUri,
+        modelJson: await modelJson(
+          'override namespace upstream\n' + signature('b number (1..1)\n a number (1..1)'),
+          replacementUri
+        )
+      }
+    });
+    await expect(lsp.syncModels({ retain: [depUri, replacementUri] })).rejects.toThrow(
+      'Namespace override callable signature differs'
+    );
+    await lsp.syncModels({
+      document: {
+        uri: replacementUri,
+        modelJson: await modelJson(
+          'override namespace upstream\n' + signature('a number (1..1)\n b number (1..1)'),
+          replacementUri
+        )
+      }
+    });
+    await expect(lsp.syncModels({ retain: [depUri, replacementUri] })).resolves.toBeUndefined();
+  });
+
   it('navigates to a native namespace override and restores the original when it is removed', async () => {
     const { lsp, user } = await fixture();
     const replacementUri = 'file:///workspace/override.rosetta';

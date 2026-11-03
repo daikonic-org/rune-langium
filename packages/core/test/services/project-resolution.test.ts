@@ -91,6 +91,28 @@ it('selects namespace overrides even for declarations with no references to link
     (docs[2]!.parseResult.value as RosettaModel).elements[0]
   );
 });
+
+it.each([
+  ['input order', 'b number (1..1)\n a number (1..1)', 'result number (1..1)'],
+  ['input type', 'a string (1..1)\n b number (1..1)', 'result number (1..1)'],
+  ['type arguments', 'a number(digits: 4) (1..1)\n b number (1..1)', 'result number (1..1)'],
+  ['input cardinality', 'a number (0..1)\n b number (1..1)', 'result number (1..1)'],
+  ['output cardinality', 'a number (1..1)\n b number (1..1)', 'result number (0..1)'],
+  ['output type', 'a number (1..1)\n b number (1..1)', 'result string (1..1)']
+])('rejects a bare namespace override that changes %s', async (_name, inputs, output) => {
+  const original =
+    'namespace upstream\nfunc Compute:\n inputs:\n a number (1..1)\n b number (1..1)\n output: result number (1..1)\n set result: a - b';
+  const replacement = `override namespace upstream\nfunc Compute:\n inputs:\n ${inputs}\n output: ${output}\n set result: 0`;
+  for (const sources of [
+    [original, replacement],
+    [replacement, original]
+  ]) {
+    const { docs } = await namespaceOverrides(sources);
+    const local = docs.find((document) => (document.parseResult.value as RosettaModel).overridden)!;
+    expect(local.diagnostics?.some((issue) => issue.code === 'NAMESPACE_OVERRIDE_SIGNATURE')).toBe(true);
+  }
+});
+
 it('rejects an incomplete native function dispatch override', async () => {
   const base = 'func Compute:\n inputs: kind Kind (1..1)\n output: result number (1..1)\n set result: 1';
   const { docs } = await namespaceOverrides([
@@ -116,6 +138,31 @@ it('accepts a complete native dispatch override while retaining its shared enum'
   expect(getEffectiveProjectDeclaration(original.elements[1]!)).toBe(local.elements[0]);
   expect(getEffectiveProjectDeclaration(original.elements[2]!)).toBe(local.elements[1]);
 });
+
+it.each([false, true])(
+  'resolves split native dispatch members to the effective base with originals first, variantFirst=%s',
+  async (variantFirst) => {
+    const base = 'func Compute:\n inputs: kind Kind (1..1)\n output: result number (1..1)\n set result: 1';
+    const original =
+      'namespace upstream\nenum Kind:\n Cash\n' + base + '\nfunc Compute(kind: Kind -> Cash):\n set result: 2';
+    const localBase = 'override namespace upstream\n' + base;
+    const localVariant = 'override namespace upstream\nfunc Compute(kind: Kind -> Cash):\n set result: 4';
+    const { docs } = await namespaceOverrides([
+      original,
+      ...(variantFirst ? [localVariant, localBase] : [localBase, localVariant])
+    ]);
+    expect(docs.flatMap((document) => document.diagnostics ?? []).filter((issue) => issue.severity === 1)).toEqual([]);
+    const { isRosettaFunction } = await import('../../src/index.js');
+    const replacements = docs
+      .flatMap((document) => (document.parseResult.value as RosettaModel).elements)
+      .filter(isRosettaFunction)
+      .filter((node) => node.$container.overridden);
+    const signature = replacements.find((node) => !node.dispatchAttribute)!;
+    const variant = replacements.find((node) => node.dispatchAttribute)!;
+    expect(variant.dispatchAttribute!.ref).toBe(signature.inputs[0]);
+    expect(variant.operations[0]!.assignRoot.ref).toBe(signature.output);
+  }
+);
 
 it('rejects competing namespace override declarations instead of choosing by file order', async () => {
   const { docs } = await namespaceOverrides([

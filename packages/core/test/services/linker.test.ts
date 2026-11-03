@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   createRuneDslServices,
+  initializeProjectResolution,
   type RuneDslIndexManager,
   type RuneDslLinker,
   type DeferredModelProvider,
@@ -53,6 +54,51 @@ function registerDeferredCorpus(
 }
 
 describe('RuneDslLinker — deferred corpus materialization (ADR 007)', () => {
+  it.each([false, true])(
+    'applies native overrides on the first deferred lookup, provider registers batch=%s',
+    (batch) => {
+      const models = new Map<string, AstNode>();
+      const provider: DeferredModelProvider = {
+        getModel(uri) {
+          if (batch)
+            for (const [path, root] of models)
+              services.shared.workspace.LangiumDocuments.addDocument(
+                services.shared.workspace.LangiumDocumentFactory.fromModel(root, URI.parse(path))
+              );
+          return models.get(uri);
+        },
+        consume: (uri) => {
+          models.delete(uri);
+        }
+      };
+      const services = createRuneDslServices(EmptyFileSystem, provider);
+      for (const name of ['First', 'Second'])
+        registerDeferredCorpus(
+          services,
+          `file:///${name}.rosetta`,
+          `namespace upstream\ntype ${name}:\n original string (0..1)`,
+          [],
+          models
+        );
+      const local = services.shared.workspace.LangiumDocumentFactory.fromString<RosettaModel>(
+        'override namespace upstream\ntype First:\n localValue string (0..1)\ntype Second:\n localValue string (0..1)',
+        URI.parse('file:///local.rosetta')
+      );
+      services.shared.workspace.LangiumDocuments.addDocument(local);
+      initializeProjectResolution(services.RuneDsl);
+      const linker = services.RuneDsl.references.Linker as RuneDslLinker;
+      for (const [index, name] of ['First', 'Second'].entries())
+        expect(
+          linker.loadAstNode({
+            name,
+            type: 'Data',
+            path: '/elements@0',
+            documentUri: URI.parse(`file:///${name}.rosetta`)
+          })
+        ).toBe(local.parseResult.value.elements[index]);
+    }
+  );
+
   it('reuses a document registered by a batch materializer instead of registering its root twice', () => {
     const models = new Map<string, AstNode>();
     const provider: DeferredModelProvider = {

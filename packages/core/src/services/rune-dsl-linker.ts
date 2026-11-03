@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { redirectProjectNode, initializeProjectResolution } from '../references/project-resolution.js';
+import {
+  redirectProjectNode,
+  initializeProjectResolution,
+  invalidateProjectResolution
+} from '../references/project-resolution.js';
 import { DefaultLinker } from 'langium';
 import type { AstNode, AstNodeDescription, LangiumCoreServices, LangiumDocumentFactory } from 'langium';
 
@@ -58,14 +62,20 @@ export class RuneDslLinker extends DefaultLinker {
     let doc = langiumDocs.getDocument(uri);
 
     if (!doc && this.deferredProvider) {
-      const model = this.deferredProvider.getModel(uri.toString());
-      if (model !== undefined) {
-        doc = langiumDocs.getDocument(uri);
-        if (!doc) {
-          doc = this.factory.fromModel(model, uri);
-          langiumDocs.addDocument(doc);
+      try {
+        const model = this.deferredProvider.getModel(uri.toString());
+        if (model !== undefined) {
+          doc = langiumDocs.getDocument(uri);
+          if (!doc) {
+            doc = this.factory.fromModel(model, uri);
+            langiumDocs.addDocument(doc);
+          }
+          this.deferredProvider.consume(uri.toString());
         }
-        this.deferredProvider.consume(uri.toString());
+      } finally {
+        // Providers can register a whole batch themselves, including roots other
+        // than the requested one. Resolve the first pointer against that inventory.
+        invalidateProjectResolution(this.services);
       }
     }
 

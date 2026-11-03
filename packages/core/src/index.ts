@@ -73,6 +73,7 @@ export type { HydrateServices, HydrateOptions } from './serializer/hydrate-model
 // Utility functions
 export {
   getNodeSourceRegion,
+  getModelSourceUri,
   getFunctionImplementationRegion,
   getExpressionRegions,
   findExpressionOwner,
@@ -138,4 +139,5 @@ export {
 export type { NamespaceImport, ImportScope } from './naming/import-aliases.js';
 
 export * from './references/project-resolution.js';
+export * from './references/override-validation.js';
 export { relinkReference, relinkModelReferences } from './serializer/relink-model-references.js';

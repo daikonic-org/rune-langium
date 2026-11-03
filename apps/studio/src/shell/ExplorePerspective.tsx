@@ -90,6 +90,7 @@ import { SourceEditor } from '../components/SourceEditor.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
 import { buildExpressionOwnerFiles } from './expression-owner-files.js';
+import { buildSourceFileOwnership } from './source-file-ownership.js';
 import type { SourceEditorRef } from '../components/SourceEditor.js';
 import { ConnectionStatus } from '../components/ConnectionStatus.js';
 import { LspConnectionBadge } from '../components/LspConnectionBadge.js';
@@ -776,6 +777,10 @@ export const ExplorePerspective = withInstrumentation(
     );
 
     const expressionOwnerFiles = useMemo(() => buildExpressionOwnerFiles(resolvedModelFiles), [resolvedModelFiles]);
+    const sourceFileOwnership = useMemo(
+      () => buildSourceFileOwnership(resolvedModelFiles, files),
+      [resolvedModelFiles, files]
+    );
 
     useEffect(() => {
       workspaceIdRef.current = workspaceId;
@@ -1204,7 +1209,9 @@ export const ExplorePerspective = withInstrumentation(
       (nodeData: AnyGraphNode, meta: GraphNodeMeta | undefined): string | undefined => {
         const d = nodeData as any;
         if (meta?.sourceUri) {
-          const path = resolveEditorFilePath(meta.sourceUri, files);
+          const path = sourceFileOwnership.byUri.has(meta.sourceUri)
+            ? sourceFileOwnership.byUri.get(meta.sourceUri)
+            : resolveEditorFilePath(meta.sourceUri, files);
           if (path) return path;
         }
         if (meta?.namespace) {
@@ -1225,7 +1232,7 @@ export const ExplorePerspective = withInstrumentation(
         const nodeId = makeNodeId(meta.namespace, d.name, typeof d.$type === 'string' ? d.$type : undefined);
         return nodeIdToFilePath.get(nodeId);
       },
-      [files, nodeIdToFilePath, expressionOwnerFiles]
+      [files, nodeIdToFilePath, expressionOwnerFiles, sourceFileOwnership]
     );
     // Ref for the full deferredExports list so the hydration relink effect can
     // link ALL files for the selected namespace, not just the one the per-type
@@ -1244,13 +1251,20 @@ export const ExplorePerspective = withInstrumentation(
       files
     );
     const sourceSyncFiles = useMemo(() => {
-      const output = new Map<string, { namespace: string; text: string; nodeIds: Set<string> }>();
+      const output = new Map<
+        string,
+        { namespace: string; text: string; nodeIds: Set<string>; sourceUris?: ReadonlySet<string> }
+      >();
       for (const file of files) {
         if (!isUserWorkspaceFile(file) || !file.path.endsWith('.rosetta')) continue;
-        const namespace =
-          file.namespace ??
-          namespaceFromModelName(resolvedModelFiles.find((entry) => entry.filePath === file.path)?.model.name);
-        if (namespace) output.set(file.path, { namespace, text: file.content, nodeIds: new Set() });
+        const namespace = sourceFileOwnership.namespaceByFile.get(file.path) ?? file.namespace;
+        if (namespace)
+          output.set(file.path, {
+            namespace,
+            text: file.content,
+            nodeIds: new Set(),
+            sourceUris: sourceFileOwnership.urisByFile.get(file.path)
+          });
       }
       for (const [id, path] of nodeIdToFilePath) output.get(path)?.nodeIds.add(id);
       for (const node of storeNodes) {
@@ -1258,7 +1272,7 @@ export const ExplorePerspective = withInstrumentation(
         if (path) output.get(path)?.nodeIds.add(node.id);
       }
       return output;
-    }, [files, resolvedModelFiles, nodeIdToFilePath, storeNodes, resolveNodeFile, namespaceToFile]);
+    }, [files, sourceFileOwnership, nodeIdToFilePath, storeNodes, resolveNodeFile, namespaceToFile]);
     useEffect(() => {
       for (const sourcePath of new Set([activeEditorFile, selectedSourceFilePath])) {
         const file = files.find((candidate) => candidate.path === sourcePath);

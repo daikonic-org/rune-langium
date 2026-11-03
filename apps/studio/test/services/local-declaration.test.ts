@@ -54,6 +54,30 @@ async function fixture(sources: readonly string[]) {
 }
 
 describe('local declaration creation', () => {
+  it('can modify a same-named function and type without changing their Rune identities or colliding files', async () => {
+    const { request, RuneDsl } = await fixture([
+      'namespace demo.source\ntype Compute:\n value string (0..1)\nfunc Compute:\n output: result number (1..1)\n set result: 0'
+    ]);
+    const [functionCopy] = await prepareLocalDeclaration(request);
+    const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+      functionCopy!.content,
+      URI.parse('file:///local-function.rosetta')
+    );
+    const typeRequest = {
+      ...request,
+      nodeId: 'demo.source.Compute#Data',
+      files: [...request.files, functionCopy!],
+      models: [...request.models, { filePath: functionCopy!.path, model: document.parseResult.value as RosettaModel }]
+    };
+    expect(localDeclarationError(typeRequest)).toBeUndefined();
+    const [typeCopy] = await prepareLocalDeclaration(typeRequest);
+    expect(functionCopy!.path).toBe('demo/source/Compute.function.rosetta');
+    expect(typeCopy!.path).toBe('demo/source/Compute.data.rosetta');
+    expect(functionCopy!.content).toContain('func Compute:');
+    expect(typeCopy!.content).toContain('type Compute:');
+    expect(typeCopy!.content).toContain('override namespace demo.source');
+  });
+
   it('copies exact source with comments and dependencies, keeps the same-named type separate, and leaves curated files unchanged', async () => {
     const source = `namespace demo.source
 import other.ns.* as other
@@ -72,7 +96,7 @@ func Compute:
     const { request, RuneDsl } = await fixture([source]);
     const before = JSON.stringify(request.files);
     const [copy] = await prepareLocalDeclaration(request);
-    expect(copy).toMatchObject({ path: 'demo/source/Compute.rosetta', dirty: true });
+    expect(copy).toMatchObject({ path: 'demo/source/Compute.function.rosetta', dirty: true });
     expect(copy!.readOnly).toBeUndefined();
     expect(copy!.refOnly).toBeUndefined();
     expect(copy!.content).toMatch(/^override namespace demo.source\n/);
@@ -155,7 +179,12 @@ func Compute:
         ...request,
         files: [
           ...request.files,
-          { name: 'Compute.rosetta', path: 'demo/source/Compute.rosetta', content: 'user work', dirty: true }
+          {
+            name: 'Compute.function.rosetta',
+            path: 'demo/source/Compute.function.rosetta',
+            content: 'user work',
+            dirty: true
+          }
         ]
       })
     ).toMatch(/already exists/);
@@ -404,7 +433,7 @@ it.each(['Data', 'Choice', 'RosettaEnumeration', 'RosettaFunction'])(
     };
     const saved = await modifyProjectDeclaration(request, controller);
     const destination = projectDeclarationDestination(saved, request);
-    const source = [...saved.files.entries()].find(([path]) => path.endsWith('Derived.rosetta'))![1];
+    const source = [...saved.files.entries()].find(([path]) => path.endsWith('.rosetta'))![1];
     const { RuneDsl } = createRuneDslServices();
     const doc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
       source,
