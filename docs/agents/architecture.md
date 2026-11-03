@@ -1337,9 +1337,15 @@ out of preview/download semantic worker payloads.
 
 Explore reuses its side-group collapse mechanism under measured space pressure;
 explicit visibility overrides, manual arrangements and focused preview inputs
-remain authoritative. Automatic changes are transient for layout persistence.
+remain authoritative. Every native layout snapshot retains automatic expansion
+intent in `studioAutomaticPreviewWidths`, separate from unchanged native geometry.
+Reload restores that intent and lets actual center space determine when to reopen;
+manual visibility clears it. Never redistribute another group's saved width to
+serialize a temporary collapse. Workbench-owned size memory survives header remounts.
 Center focus hides peers without removing their mounted editors, then restores
-split fractions. Preview focus uses Dockview's native maximize/restore.
+split fractions. Explicit Inspect/file navigation shares a reveal action that
+clears focus before showing its destination; Reset also clears focus. Preview
+focus uses Dockview's native maximize/restore.
 
 `codegen/instances` owns Zod issue translation, including relative union-branch
 paths and accepted-form reasons. Studio preserves these through worker messages

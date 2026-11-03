@@ -192,3 +192,28 @@ test('help and importer guidance are accessible without changing the active draf
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath('import-recovery.png') });
 });
+
+test('explicit Inspect and file navigation reveal their destination while a peer is focused', async ({ page }) => {
+  await quote(page);
+  const center = page.getByTestId('center-stack');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Focus Structure', exact: true }).click();
+  await expect(center.locator('[data-pane="inspector"]')).toBeHidden();
+  await page.getByRole('group', { name: 'Quote type actions', exact: true }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Inspect type', exact: true }).click();
+  await expect(center.locator('[data-pane="inspector"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Focus Structure', exact: true }).click();
+  await expect(center.locator('[data-pane="source"]')).toBeHidden();
+  await page.getByRole('button', { name: 'Search types, text & files… ⌘K', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Search types, files and commands', exact: true }).fill('reading.rosetta');
+  await page.getByRole('option', { name: 'reading.rosetta', exact: true }).click();
+  await expect(center.locator('[data-pane="source"]')).toBeVisible();
+  await expect(center).not.toHaveAttribute('data-focused-pane');
+  await page.getByRole('button', { name: 'Focus Source', exact: true }).click();
+  await page
+    .getByRole('toolbar', { name: 'Studio layout presets', exact: true })
+    .getByRole('button', { name: 'Reset layout', exact: true })
+    .click();
+  await expect(page.getByTestId('center-stack')).not.toHaveAttribute('data-focused-pane');
+});

@@ -19,6 +19,7 @@ import {
   type AuxiliaryPanelLayout
 } from './auxiliary-panel-layout.js';
 import { PanelCollapseButton } from './PanelCollapseButton.js';
+import { automaticPreviewWidths, expandedPreviewSnapshot, COLLAPSED_SIDE_WIDTH } from './responsive-layout.js';
 import { EXPLORE_PREVIEW_WIDTH, PANEL_TITLES } from './layout-factory.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
@@ -31,15 +32,26 @@ interface SidePanelLayout {
   expandedAt?: { available: number; panes: number; scale: number };
 }
 
+function createSidePanelLayout(
+  group: IDockviewHeaderActionsProps['group'],
+  direction: 'left' | 'right'
+): SidePanelLayout {
+  return {
+    expandedWidth: direction === 'left' ? 240 : EXPLORE_PREVIEW_WIDTH,
+    expandedConstraints: {
+      minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
+      maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
+    },
+    ownsCollapsedConstraints: false
+  };
+}
+
 const HeaderActionsContext = createContext<{
   auxiliary: AuxiliaryPanelLayout | null;
   sideLayouts: WeakMap<IDockviewHeaderActionsProps['group'], SidePanelLayout>;
   refresh(): void;
-  transient(work: () => void): void;
   original?: WorkbenchHostProps['rightHeaderActionsComponent'];
-}>({ auxiliary: null, sideLayouts: new WeakMap(), refresh: () => {}, transient: (work) => work() });
-
-const COLLAPSED_SIDE_WIDTH = 52;
+}>({ auxiliary: null, sideLayouts: new WeakMap(), refresh: () => {} });
 
 function setPreviewPanelTitles(group: IDockviewHeaderActionsProps['group'], collapsed: boolean): void {
   for (const panel of group.panels) {
@@ -69,14 +81,7 @@ function SidePanelHeaderAction({
   const { sideLayouts } = useContext(HeaderActionsContext);
   let layout = sideLayouts.get(group);
   if (!layout) {
-    layout = {
-      expandedWidth: direction === 'left' ? 240 : EXPLORE_PREVIEW_WIDTH,
-      expandedConstraints: {
-        minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
-        maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
-      },
-      ownsCollapsedConstraints: false
-    };
+    layout = createSidePanelLayout(group, direction);
     sideLayouts.set(group, layout);
   }
   const sideLayout = layout;
@@ -150,7 +155,6 @@ function SidePanelHeaderAction({
       }
     }
   };
-  const { transient } = useContext(HeaderActionsContext);
   const measure = () => {
     const center = group.element.closest('.dv-dockview')?.querySelector<HTMLElement>('[data-testid="center-stack"]');
     if (!center) return;
@@ -179,10 +183,10 @@ function SidePanelHeaderAction({
         size.scale <= override.scale;
       if (!isCollapsed() && size.available - group.api.width < minimum && !explicitlyOpened) {
         sideLayout.automaticallyCollapsed = true;
-        transient(() => setCollapsedLayout(true));
+        setCollapsedLayout(true);
       } else if (isCollapsed() && sideLayout.automaticallyCollapsed && size.available - expandedWidth >= minimum + 48) {
         sideLayout.automaticallyCollapsed = false;
-        transient(() => setCollapsedLayout(false));
+        setCollapsedLayout(false);
       }
     };
     const schedule = () => {
@@ -211,7 +215,7 @@ function SidePanelHeaderAction({
       dimensions.dispose();
       host.removeEventListener('focusout', schedule);
     };
-  }, [group, direction, transient]);
+  }, [group, direction]);
   const toggle = () => {
     sideLayout.automaticallyCollapsed = false;
     sideLayout.expandedAt = collapsed ? measure() : undefined;
@@ -350,18 +354,6 @@ export const WorkbenchHost = withInstrumentation(
     const [, setPinRevision] = useState(0);
     const collapseAuxiliary = useDesignPreviewStore((state) => state.preferences.auxiliary);
     const restoringPreviewRef = useRef(false);
-    const transientFrame = useRef(0);
-    const transient = useCallback((work: () => void) => {
-      restoringPreviewRef.current = true;
-      cancelAnimationFrame(transientFrame.current);
-      try {
-        work();
-      } finally {
-        transientFrame.current = requestAnimationFrame(() => {
-          restoringPreviewRef.current = false;
-        });
-      }
-    }, []);
 
     useEffect(() => {
       mountedRef.current = true;
@@ -440,12 +432,40 @@ export const WorkbenchHost = withInstrumentation(
         }
       }
 
+      const automatic = automaticPreviewWidths(initialNativeLayoutRef.current);
+      for (const group of event.api.groups ?? []) {
+        const width = automatic.get(group.id);
+        if (!width || getExploreSidePanel(group.panels.map((panel) => panel.api.component))?.direction !== 'right')
+          continue;
+        const remembered = sideLayouts.get(group) ?? createSidePanelLayout(group, 'right');
+        Object.assign(remembered, {
+          expandedWidth: width,
+          ownsCollapsedConstraints: group.api.location.type === 'grid',
+          automaticallyCollapsed: true
+        });
+        sideLayouts.set(group, remembered);
+        if (group.api.location.type === 'edge') group.api.collapse();
+        else {
+          group.api.setConstraints({ minimumWidth: COLLAPSED_SIDE_WIDTH, maximumWidth: COLLAPSED_SIDE_WIDTH });
+          group.api.setSize({ width: COLLAPSED_SIDE_WIDTH });
+        }
+      }
+
       listenerRef.current = event.api.onDidLayoutChange(() => {
         if (event.api.panels.length === 0) return;
         // Comparing designs must not overwrite the workspace's saved arrangement.
         if (restoringPreviewRef.current || useDesignPreviewStore.getState().preferences.auxiliary) return;
         try {
-          onNativeLayoutChangeRef.current(event.api.toJSON());
+          const expanded = new Map<string, number>();
+          for (const group of event.api.groups ?? []) {
+            const side = sideLayouts.get(group);
+            if (
+              side?.automaticallyCollapsed &&
+              getExploreSidePanel(group.panels.map((panel) => panel.api.component))?.direction === 'right'
+            )
+              expanded.set(group.id, side.expandedWidth);
+          }
+          onNativeLayoutChangeRef.current(expandedPreviewSnapshot(event.api.toJSON(), expanded));
         } catch (error) {
           onNativeLayoutErrorRef.current?.(error);
         }
@@ -457,7 +477,6 @@ export const WorkbenchHost = withInstrumentation(
       () => () => {
         listenerRef.current?.dispose();
         listenerRef.current = null;
-        cancelAnimationFrame(transientFrame.current);
       },
       []
     );
@@ -468,7 +487,6 @@ export const WorkbenchHost = withInstrumentation(
           value={{
             auxiliary,
             sideLayouts,
-            transient,
             refresh: () => setPinRevision((revision) => revision + 1),
             original: rightHeaderActionsComponent
           }}

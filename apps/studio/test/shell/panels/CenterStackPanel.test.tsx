@@ -13,7 +13,7 @@
  * of the same class.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -40,23 +40,39 @@ vi.mock('lucide-react', () => ({
 function makeContextValue(activePanes: Set<string>): CenterPanesContextValue {
   return {
     activePanes: activePanes as Set<import('../../../src/shell/center-panes-context.js').CenterPane>,
+    focusedPane: null,
+    focus: vi.fn(),
+    reveal: vi.fn(),
     toggle: vi.fn()
   };
 }
 
 function renderWithPanes(activePanes: Set<string>, props?: Partial<React.ComponentProps<typeof CenterStackPanel>>) {
-  const ctx = makeContextValue(activePanes);
-  return render(
-    <CenterPanesContext.Provider value={ctx}>
-      <CenterStackPanel
-        renderGraph={() => React.createElement('div', { 'data-testid': 'graph-pane' })}
-        renderSource={() => React.createElement('div', { 'data-testid': 'source-pane' })}
-        renderInspector={() => React.createElement('div', { 'data-testid': 'inspector-pane' })}
-        renderStructure={() => React.createElement('div', { 'data-testid': 'structure-empty-state' })}
-        {...props}
-      />
-    </CenterPanesContext.Provider>
-  );
+  function Provider() {
+    const [focusedPane, focus] = useState<CenterPanesContextValue['focusedPane']>(null);
+    const [panes, setPanes] = useState(activePanes);
+    const ctx = {
+      ...makeContextValue(panes),
+      focusedPane,
+      focus,
+      reveal(pane: import('../../../src/shell/center-panes-context.js').CenterPane) {
+        focus(null);
+        setPanes((prev) => new Set([...prev, pane]));
+      }
+    };
+    return (
+      <CenterPanesContext.Provider value={ctx}>
+        <CenterStackPanel
+          renderGraph={() => React.createElement('div', { 'data-testid': 'graph-pane' })}
+          renderSource={() => React.createElement('div', { 'data-testid': 'source-pane' })}
+          renderInspector={() => React.createElement('div', { 'data-testid': 'inspector-pane' })}
+          renderStructure={() => React.createElement('div', { 'data-testid': 'structure-empty-state' })}
+          {...props}
+        />
+      </CenterPanesContext.Provider>
+    );
+  }
+  return render(<Provider />);
 }
 
 describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regression guard)', () => {
@@ -182,4 +198,16 @@ it('focuses a pane and restores its peers without replacing their drafts', async
   expect(inspector).toBeVisible();
   expect(inspector).toHaveValue('retained');
   expect(screen.getByRole('textbox', { name: 'Source draft' })).toBe(source);
+});
+
+it('reveals an already-open Inspector when Inspect is invoked from a focused view', async () => {
+  const user = userEvent.setup();
+  renderWithPanes(new Set(['structure', 'source', 'inspector']), {
+    renderStructure: (inspect) => <button onClick={inspect}>Inspect selected type</button>
+  });
+  await user.click(screen.getByRole('button', { name: 'Focus Structure', exact: true }));
+  expect(screen.getByTestId('inspector-pane')).not.toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Inspect selected type', exact: true }));
+  expect(screen.getByTestId('inspector-pane')).toBeVisible();
+  expect(screen.getByTestId('center-stack')).not.toHaveAttribute('data-focused-pane');
 });

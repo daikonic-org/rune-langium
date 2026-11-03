@@ -68,7 +68,9 @@ available; no system preference silently replaces an explicit choice.
   reading space, including larger text. Auto-collapse is reversible and does not
   remove its editors; explicit show/hide choices take precedence. Source and
   Inspector can be focused and restored without replacing peer drafts; Code can
-  use native maximize/restore. Automatic size changes do not replace saved layouts.
+  use native maximize/restore. Automatic collapse keeps expansion intent beside
+  native saved geometry; it never borrows space from another saved group. Explicit
+  navigation reveals its destination and Reset leaves focus mode.
 - Validation leads with a short field/condition label, retaining full paths and
   canonical union alternatives in disclosures. A failed union stays one issue;
   presentation must not invent a validator or suppress a genuine failure.

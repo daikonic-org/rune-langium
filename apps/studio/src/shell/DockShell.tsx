@@ -263,13 +263,19 @@ export const DockShell = withInstrumentation(
       layout.dockview && layout.dockview.shape === 'factory' ? (layout.dockview.preset ?? 'edit') : 'edit'
     );
     const [activePanes, setActivePanes] = useState<Set<CenterPane>>(() => new Set<CenterPane>(['structure']));
+    const [focusedPane, setFocusedPane] = useState<CenterPane | null>(null);
+    const revealCenterPane = useCallback((pane: Extract<CenterPane, 'source' | 'inspector'>) => {
+      setFocusedPane(null);
+      setActivePanes((previous) => (previous.has(pane) ? previous : new Set([...previous, pane])));
+    }, []);
     const requestedSourceFile = useExploreFileNavStore((state) => state.requestedSourceFile);
     useEffect(() => {
       if (requestedSourceFile === undefined) return;
-      setActivePanes((previous) => new Set([...previous, 'source']));
+      revealCenterPane('source');
       useExploreFileNavStore.getState().clearSourceRequest();
-    }, [requestedSourceFile]);
+    }, [requestedSourceFile, revealCenterPane]);
     const toggleCenterPane = useCallback((pane: CenterPane) => {
+      setFocusedPane(null);
       setActivePanes((prev) => {
         const next = new Set(prev);
         if (next.has(pane)) {
@@ -288,11 +294,11 @@ export const DockShell = withInstrumentation(
       });
     }, []);
     // Memoized so CenterPanesContext consumers don't re-render on every
-    // DockShell render — only when activePanes itself actually changes
-    // (toggleCenterPane is stable via the functional setState form above).
+    // DockShell render — only when pane visibility or focus actually changes
+    // (pane actions are stable via functional state updates).
     const centerPanesContextValue = useMemo(
-      () => ({ activePanes, toggle: toggleCenterPane }),
-      [activePanes, toggleCenterPane]
+      () => ({ activePanes, focusedPane, focus: setFocusedPane, reveal: revealCenterPane, toggle: toggleCenterPane }),
+      [activePanes, focusedPane, revealCenterPane, toggleCenterPane]
     );
     const [utilitiesCollapsed, setUtilitiesCollapsedState] = useState<boolean>(() =>
       layout.dockview && layout.dockview.shape === 'factory' ? layout.dockview.bottomGroup.collapsed : false
@@ -504,6 +510,7 @@ export const DockShell = withInstrumentation(
     }, [focusPanel]);
 
     function resetLayout(): void {
+      setFocusedPane(null);
       const fresh = buildDefaultLayout({ studioVersion, viewportWidth: getViewportWidth() });
       setLayout(fresh);
       setLayoutPreset(fresh.dockview?.shape === 'factory' ? (fresh.dockview.preset ?? 'edit') : 'edit');

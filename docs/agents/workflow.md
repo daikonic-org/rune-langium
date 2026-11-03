@@ -496,8 +496,12 @@ real expression-edit pipeline; it is separate from production acceptance.
 `test/e2e/workbench-reading-space.spec.ts` checks desktop/narrow-desktop automatic
 Preview yielding, explicit visibility overrides, retained form/code nodes,
 Source focus at full measured width, native preview maximize/restore, wide reload
-recovery, search/count contrast, keyboard help/legend disclosure and complete
-import-error visibility above the footer. Keep geometry assertions: hiding peers
+recovery, explicit Inspect/file navigation out of focus, Reset focus clearing,
+search/count contrast, keyboard help/legend disclosure and complete import-error
+visibility above the footer. `WorkbenchHost-side-panels.test.tsx` saves an automatic
+collapse after another group is resized, then reloads with enough actual center
+space to reopen. `responsive-layout.test.ts` preserves native geometry/topology
+and removes stale automatic intent after manual choices. Keep geometry assertions: hiding peers
 alone does not prove a focused editor gained space. This local coverage is
 separate from deployed production acceptance.
 

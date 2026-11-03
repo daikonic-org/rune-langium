@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DockviewApi } from 'dockview-react';
@@ -140,4 +140,88 @@ it('does not hide a mobile tab group shared with the main task', () => {
   );
   expect(screen.queryByRole('button', { name: 'Hide Type explorer' })).not.toBeInTheDocument();
   unmount();
+});
+
+it('does not persist automatic collapse when another dock group is resized', async () => {
+  let api: DockviewApi | undefined;
+  const originalBounds = HTMLElement.prototype.getBoundingClientRect;
+  const bounds = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+    const model = api?.getPanel('model')?.group;
+    const form = api?.getPanel('form')?.group;
+    const left = api?.getPanel('types')?.group.api.width ?? 0;
+    if (this.dataset.testid === 'center-stack') return new DOMRect(left, 0, model?.api.width ?? 0, 700);
+    if (this === form?.element) return new DOMRect(left + (model?.api.width ?? 0), 0, form.api.width, 700);
+    return originalBounds.call(this);
+  });
+  const saved = vi.fn();
+  const definition = {
+    id: 'explore' as const,
+    titles: {},
+    panels: {
+      'workspace.visualPreview': () => (
+        <div data-testid="center-stack" data-count="3">
+          Model
+        </div>
+      ),
+      'workspace.fileTree': () => <div>Types</div>,
+      'workspace.formPreview': () => <input aria-label="Draft" defaultValue="retained" />
+    },
+    buildDefault(ready: DockviewApi) {
+      const model = ready.addPanel({ id: 'model', component: 'workspace.visualPreview' });
+      ready.addPanel({
+        id: 'types',
+        component: 'workspace.fileTree',
+        position: { referencePanel: model.id, direction: 'left' }
+      });
+      ready.addPanel({
+        id: 'form',
+        component: 'workspace.formPreview',
+        position: { referencePanel: model.id, direction: 'right' }
+      });
+    }
+  };
+  try {
+    const first = render(
+      <WorkbenchHost
+        definition={definition}
+        onNativeLayoutChange={saved}
+        onReady={(ready) => {
+          api = ready;
+          ready.layout(1280, 720);
+          ready.getPanel('types')!.group.api.setSize({ width: 240 });
+        }}
+      />
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show Preview panel' })).toBeInTheDocument());
+    saved.mockClear();
+    act(() => api!.getPanel('types')!.group.api.setSize({ width: 270 }));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    const json = saved.mock.lastCall![0];
+    const find = (node: { data: unknown; size?: number }): number | undefined =>
+      Array.isArray(node.data)
+        ? node.data.map(find).find((size) => size !== undefined)
+        : (node.data as { id?: string }).id === api!.getPanel('form')!.group.id
+          ? node.size
+          : undefined;
+    expect(find(json.grid.root)).toBe(52);
+    expect(json.studioAutomaticPreviewWidths[api!.getPanel('form')!.group.id]).toBe(320);
+    first.unmount();
+    const second = render(
+      <WorkbenchHost
+        definition={definition}
+        initialNativeLayout={json}
+        onNativeLayoutChange={saved}
+        onReady={(ready) => {
+          api = ready;
+          ready.layout(2560, 720);
+        }}
+      />
+    );
+    await waitFor(() => expect(api!.getPanel('form')!.group.api.width).toBe(320));
+    expect(api!.getPanel('model')!.group.api.width).toBeGreaterThanOrEqual(900);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hide Preview panel' })).toBeInTheDocument());
+    second.unmount();
+  } finally {
+    bounds.mockRestore();
+  }
 });

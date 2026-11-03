@@ -48,9 +48,9 @@ export const CenterStackPanel = withInstrumentation(
     renderStructure,
     sourceNavigationPending: pendingOverride
   }: CenterStackPanelProps): React.ReactElement {
-    const { activePanes, toggle } = useCenterPanes();
+    const { activePanes, focusedPane, focus: setFocusedPane, reveal, toggle } = useCenterPanes();
     const showInspector = () => {
-      if (!activePanes.has('inspector')) toggle('inspector');
+      reveal('inspector');
     };
     const pendingContext = useContext(SourceNavigationFeedbackContext);
     const sourceNavigationPending = pendingOverride === undefined ? pendingContext : pendingOverride;
@@ -63,7 +63,6 @@ export const CenterStackPanel = withInstrumentation(
     }, [sourceVisible, sourceNavigationPending]);
     const sourcePending =
       sourceVisible && Boolean(sourceNavigationPending) && visibleRequest === sourceNavigationPending;
-    const [focusedPane, setFocusedPane] = useState<CenterPane | null>(null);
     useEffect(() => {
       if (focusedPane && !activePanes.has(focusedPane)) setFocusedPane(null);
     }, [activePanes, focusedPane]);
