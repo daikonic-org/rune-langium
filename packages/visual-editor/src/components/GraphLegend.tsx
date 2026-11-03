@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 /**
- * GraphLegend — always-on key for the type graph.
+ * GraphLegend — collapsible key for the type graph.
  *
  * Decodes the two visual encodings a new user can't otherwise read: node
  * accent colour → type kind, and edge style → relationship. Mirrors the
@@ -26,26 +26,32 @@ const LEGEND_KINDS: ReadonlyArray<{ kind: TypeKind; dotClass: string }> = [
 
 export function GraphLegend(): React.ReactElement {
   return (
-    <div
+    <details
       data-slot="graph-legend"
-      className="rune-graph-legend flex flex-col gap-1 rounded-md border bg-card/90 px-2.5 py-2 text-2xs text-muted-foreground shadow-sm backdrop-blur-sm"
+      className="rune-graph-legend flex flex-col gap-1 rounded-md border bg-card/90 px-2.5 py-2 text-2xs text-muted-foreground shadow-sm"
       aria-label="Graph legend"
     >
-      {LEGEND_KINDS.map(({ kind, dotClass }) => (
-        <div key={kind} className="flex items-center gap-2">
-          <span className={`inline-block size-2 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
-          <span>{KIND_LABEL[kind]}</span>
+      <summary className="cursor-pointer font-medium">Graph legend</summary>
+      <div className="mt-2 flex flex-col gap-1">
+        {LEGEND_KINDS.map(({ kind, dotClass }) => (
+          <div key={kind} className="flex items-center gap-2">
+            <span className={`inline-block size-2 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
+            <span>{KIND_LABEL[kind]}</span>
+          </div>
+        ))}
+        <div className="my-0.5 h-px bg-border" aria-hidden="true" />
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-4 shrink-0 border-t border-muted-foreground" aria-hidden="true" />
+          <span>Extends / contains</span>
         </div>
-      ))}
-      <div className="my-0.5 h-px bg-border" aria-hidden="true" />
-      <div className="flex items-center gap-2">
-        <span className="inline-block w-4 shrink-0 border-t border-muted-foreground" aria-hidden="true" />
-        <span>Extends / contains</span>
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-block w-4 shrink-0 border-t border-dashed border-muted-foreground"
+            aria-hidden="true"
+          />
+          <span>Reference</span>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="inline-block w-4 shrink-0 border-t border-dashed border-muted-foreground" aria-hidden="true" />
-        <span>Reference</span>
-      </div>
-    </div>
+    </details>
   );
 }

@@ -1332,3 +1332,16 @@ so unchanged documents cannot retain pointers into changed dependencies. Reinsta
 an identical parser document set preserves its linked state. Selection/focus and
 read-only ownership survive placeholder replacement. Derived LSP/index data stays
 out of preview/download semantic worker payloads.
+
+## Responsive reading and diagnostic presentation
+
+Explore reuses its side-group collapse mechanism under measured space pressure;
+explicit visibility overrides, manual arrangements and focused preview inputs
+remain authoritative. Automatic changes are transient for layout persistence.
+Center focus hides peers without removing their mounted editors, then restores
+split fractions. Preview focus uses Dockview's native maximize/restore.
+
+`codegen/instances` owns Zod issue translation, including relative union-branch
+paths and accepted-form reasons. Studio preserves these through worker messages
+and metadata path adaptation; its validation UI only presents them. Union details
+do not increase the number of validator issues or introduce a second validator.

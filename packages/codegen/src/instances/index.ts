@@ -21,3 +21,5 @@ export {
   type ImportCodecResult,
   type ImportDiagnostic
 } from './json-codec.js';
+
+export { formatIssuePath, translateValidationIssues } from './validation-diagnostics.js';

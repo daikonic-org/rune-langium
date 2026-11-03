@@ -17,7 +17,8 @@ const ValidationDiagnosticSchema = z.object({
   message: z.string(),
   conditionName: z.string().optional(),
   conditionDescription: z.string().optional(),
-  conditionSource: z.string().optional()
+  conditionSource: z.string().optional(),
+  alternatives: z.array(z.array(z.object({ path: z.string(), message: z.string() }))).optional()
 });
 export type ValidationDiagnostic = z.infer<typeof ValidationDiagnosticSchema>;
 

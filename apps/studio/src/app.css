@@ -2208,7 +2208,7 @@ html[data-theme="light"] .preview-panel__editor {
 }
 
 /* Inset the drawing viewport, preserving React Flow's own hit-test geometry. */
-.studio-app .studio-center-stack__pane:is([data-pane='graph'], [data-pane='structure']) > * {
+.studio-app .studio-center-stack__pane:is([data-pane='graph'], [data-pane='structure']) > .studio-center-stack__pane-content {
   padding: calc(var(--space-3) / 2);
   box-sizing: border-box;
 }
@@ -2587,4 +2587,28 @@ html[data-theme="light"] .preview-panel__editor {
   .studio-app .studio-topbar {
     gap: var(--space-2);
   }
+}
+
+/* Focus keeps peer editors mounted, with their drafts and split fractions intact. */
+.studio-app .studio-center-stack__pane[hidden] {
+  display: none;
+}
+
+.studio-app .studio-center-stack__pane-heading {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  border-bottom: var(--hairline) solid var(--border);
+}
+
+.studio-app .studio-center-stack__pane-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }

@@ -71,7 +71,7 @@ import {
 } from '@rune-langium/codegen/export';
 import type { Target, FormPreviewSchema, GeneratorOutput, PythonModule } from '@rune-langium/codegen/export';
 import { findDataNode, getActiveConditionPredicates } from '@rune-langium/codegen/instances';
-import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
+import { formatIssuePath, translateValidationIssues, type ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { PreviewWorkerRequest, ProjectionRequest, PreviewFileEntry } from '../services/codegen-service.js';
 import { z } from 'zod';
@@ -1142,40 +1142,6 @@ async function executeFunction(
 // Instance validation
 // ---------------------------------------------------------------------------
 
-function formatIssuePath(path: ReadonlyArray<PropertyKey>): string {
-  return path
-    .filter((segment): segment is string | number => typeof segment === 'string' || typeof segment === 'number')
-    .map((segment) => (typeof segment === 'number' ? `[${segment}]` : segment))
-    .join('.')
-    .replace(/\.\[/g, '[');
-}
-
-/**
- * Attribute condition issues only when the message matches the active condition
- * selected by the issue path, or the sole active condition for a root-path issue.
- * Preserve full structural paths so the form can attach errors to their controls.
- */
-function translateValidationIssues(
-  issues: z.ZodError['issues'],
-  activeConditionNames: string[]
-): ValidationDiagnostic[] {
-  const conditionNameSet = new Set(activeConditionNames);
-  const soleConditionName = activeConditionNames.length === 1 ? activeConditionNames[0] : undefined;
-  return issues.map((issue) => {
-    const first = issue.path[0];
-    const conditionName =
-      issue.path.length === 0
-        ? soleConditionName
-        : typeof first === 'string' && conditionNameSet.has(first)
-          ? first
-          : undefined;
-    if (conditionName && issue.message.startsWith(conditionName)) {
-      return { path: conditionName, message: issue.message, conditionName };
-    }
-    return { path: formatIssuePath(issue.path), message: issue.message };
-  });
-}
-
 async function validateInstance(typeFqn: string, data: Record<string, unknown>, requestId: string): Promise<void> {
   const scope = operationScope();
 
@@ -1224,7 +1190,12 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
       ? []
       : translateValidationIssues(result.error.issues, activeConditionNames).map((issue) => ({
           ...issue,
-          path: adapted.sourcePath(issue.path)
+          path: adapted.sourcePath(issue.path),
+          ...(issue.alternatives && {
+            alternatives: issue.alternatives.map((branch) =>
+              branch.map((detail) => ({ ...detail, path: adapted.sourcePath(detail.path) }))
+            )
+          })
         }));
     const resourcePaths = new Set(resourceDiagnostics.map((issue) => issue.path));
 

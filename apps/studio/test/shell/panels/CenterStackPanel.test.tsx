@@ -28,6 +28,8 @@ vi.mock('../../../src/components/GraphFilterMenu.js', () => ({
 
 // lucide-react icons — provide stubs so jsdom doesn't have to handle SVG.
 vi.mock('lucide-react', () => ({
+  Maximize2: () => React.createElement('span'),
+  Minimize2: () => React.createElement('span'),
   Network: () => React.createElement('span'),
   FileCode2: (props: React.HTMLAttributes<HTMLSpanElement>) => React.createElement('span', props),
   Info: () => React.createElement('span'),
@@ -72,20 +74,20 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
   });
   it('renders a Structure segment button in the pane-switcher', () => {
     renderWithPanes(new Set(['graph']));
-    expect(screen.getByRole('button', { name: /structure/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Structure', exact: true })).toBeInTheDocument();
   });
 
   it('renders all 4 pane segments (Graph, Structure, Source, Inspector)', () => {
     renderWithPanes(new Set(['graph']));
     expect(screen.getByRole('button', { name: /graph/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /structure/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Structure', exact: true })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /source/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /inspector/i })).toBeInTheDocument();
   });
 
   it('Structure segment is not active by default', () => {
     renderWithPanes(new Set(['graph']));
-    const btn = screen.getByRole('button', { name: /structure/i });
+    const btn = screen.getByRole('button', { name: 'Structure', exact: true });
     expect(btn).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -102,7 +104,7 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
         />
       </CenterPanesContext.Provider>
     );
-    await user.click(screen.getByRole('button', { name: /structure/i }));
+    await user.click(screen.getByRole('button', { name: 'Structure', exact: true }));
     expect(ctx.toggle).toHaveBeenCalledWith('structure');
   });
 
@@ -114,7 +116,7 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
 
   it('Structure segment is marked active when the pane is in activePanes', () => {
     renderWithPanes(new Set(['graph', 'structure']));
-    expect(screen.getByRole('button', { name: /structure/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Structure', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });
 
@@ -160,4 +162,24 @@ describe('Source navigation feedback', () => {
       vi.useRealTimers();
     }
   });
+});
+
+it('focuses a pane and restores its peers without replacing their drafts', async () => {
+  const user = userEvent.setup();
+  renderWithPanes(new Set(['structure', 'source', 'inspector']), {
+    renderSource: () => <input aria-label="Source draft" defaultValue="unfinished" />,
+    renderInspector: () => <input aria-label="Inspector draft" defaultValue="retained" />
+  });
+  const source = screen.getByRole('textbox', { name: 'Source draft' });
+  await user.clear(source);
+  await user.type(source, 'edited');
+  const inspector = screen.getByRole('textbox', { name: 'Inspector draft' });
+  await user.click(screen.getByRole('button', { name: 'Focus Source', exact: true }));
+  expect(inspector).not.toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'Source draft' })).toBe(source);
+  expect(source).toHaveValue('edited');
+  await user.keyboard('{Escape}');
+  expect(inspector).toBeVisible();
+  expect(inspector).toHaveValue('retained');
+  expect(screen.getByRole('textbox', { name: 'Source draft' })).toBe(source);
 });

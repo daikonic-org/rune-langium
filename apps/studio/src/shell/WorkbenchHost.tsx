@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps, IDockviewHeaderActionsProps } from 'dockview-react';
-import { Pin, PinOff } from 'lucide-react';
+import { Maximize2, Minimize2, Pin, PinOff } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { DockLayout } from '@rune-langium/design-system/ui/dock-layout';
 import { restoreNativeLayout } from './dockview-bridge.js';
@@ -27,14 +27,17 @@ interface SidePanelLayout {
   expandedWidth: number;
   expandedConstraints: { minimumWidth: number; maximumWidth: number };
   ownsCollapsedConstraints: boolean;
+  automaticallyCollapsed?: boolean;
+  expandedAt?: { available: number; panes: number; scale: number };
 }
 
 const HeaderActionsContext = createContext<{
   auxiliary: AuxiliaryPanelLayout | null;
   sideLayouts: WeakMap<IDockviewHeaderActionsProps['group'], SidePanelLayout>;
   refresh(): void;
+  transient(work: () => void): void;
   original?: WorkbenchHostProps['rightHeaderActionsComponent'];
-}>({ auxiliary: null, sideLayouts: new WeakMap(), refresh: () => {} });
+}>({ auxiliary: null, sideLayouts: new WeakMap(), refresh: () => {}, transient: (work) => work() });
 
 const COLLAPSED_SIDE_WIDTH = 52;
 
@@ -125,15 +128,17 @@ function SidePanelHeaderAction({
     const position = collapsed ? direction : 'top';
     if (group.api.getHeaderPosition() !== position) group.api.setHeaderPosition(position);
   }, [group, collapsed, direction]);
-  const toggle = () => {
+  const setCollapsedLayout = (next: boolean) => {
+    // Hiding a focused preview must reveal the main task, not leave a maximized rail.
+    if (next && group.api.location.type === 'grid' && group.api.isMaximized()) group.api.exitMaximized();
     if (group.api.location.type === 'edge') {
-      if (auxiliary?.isManaged(group.id)) auxiliary.setCollapsed(group.id, !collapsed);
-      else if (collapsed) group.api.expand();
+      if (auxiliary?.isManaged(group.id)) auxiliary.setCollapsed(group.id, next);
+      else if (!next) group.api.expand();
       else group.api.collapse();
     } else {
       // Match the utility tray's resize approach without removing the panel's DOM.
       const width = sideLayout.expandedWidth;
-      if (collapsed) {
+      if (!next) {
         sideLayout.ownsCollapsedConstraints = false;
         group.api.setConstraints(sideLayout.expandedConstraints);
         group.api.setSize({ width });
@@ -145,10 +150,114 @@ function SidePanelHeaderAction({
       }
     }
   };
+  const { transient } = useContext(HeaderActionsContext);
+  const measure = () => {
+    const center = group.element.closest('.dv-dockview')?.querySelector<HTMLElement>('[data-testid="center-stack"]');
+    if (!center) return;
+    const rect = center.getBoundingClientRect();
+    const side = group.element.getBoundingClientRect();
+    // A manually moved/floating preview is not a competing right column.
+    if (rect.width <= 0 || side.left < rect.right - 2) return;
+    const scale = Number.parseFloat(getComputedStyle(center.querySelector('[data-pane]') ?? center).zoom) || 1;
+    return { available: rect.width + group.api.width, panes: Number(center.dataset.count) || 1, scale };
+  };
+  useEffect(() => {
+    if (direction !== 'right') return;
+    const host = group.element.closest('.dv-dockview');
+    if (!host) return;
+    let frame = 0;
+    const reconcile = () => {
+      const size = measure();
+      if (!size || group.element.contains(document.activeElement)) return;
+      const minimum = Math.max(480, size.panes * 300) * size.scale;
+      const expandedWidth = sideLayout.expandedWidth;
+      const override = sideLayout.expandedAt;
+      const explicitlyOpened =
+        override &&
+        size.available >= override.available - 48 &&
+        size.panes <= override.panes &&
+        size.scale <= override.scale;
+      if (!isCollapsed() && size.available - group.api.width < minimum && !explicitlyOpened) {
+        sideLayout.automaticallyCollapsed = true;
+        transient(() => setCollapsedLayout(true));
+      } else if (isCollapsed() && sideLayout.automaticallyCollapsed && size.available - expandedWidth >= minimum + 48) {
+        sideLayout.automaticallyCollapsed = false;
+        transient(() => setCollapsedLayout(false));
+      }
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(reconcile);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(host);
+    const center = host.querySelector('[data-testid="center-stack"]');
+    if (center) resize.observe(center);
+    const mutation = new MutationObserver(schedule);
+    mutation.observe(host, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['data-count', 'data-focused-pane']
+    });
+    mutation.observe(document.documentElement, { attributes: true, attributeFilter: ['data-font-scale'] });
+    host.addEventListener('focusout', schedule);
+    const dimensions = group.api.onDidDimensionsChange(schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutation.disconnect();
+      dimensions.dispose();
+      host.removeEventListener('focusout', schedule);
+    };
+  }, [group, direction, transient]);
+  const toggle = () => {
+    sideLayout.automaticallyCollapsed = false;
+    sideLayout.expandedAt = collapsed ? measure() : undefined;
+    setCollapsedLayout(!collapsed);
+  };
   return (
     <div className="studio-panel-actions mr-1">
+      {direction === 'right' && !collapsed && group.api.location.type === 'grid' ? (
+        <PreviewFocusButton group={group} />
+      ) : null}
       <PanelCollapseButton label={label} direction={direction} collapsed={collapsed} onToggle={toggle} />
     </div>
+  );
+}
+
+function PreviewFocusButton({ group }: { group: IDockviewHeaderActionsProps['group'] }) {
+  const [maximized, setMaximized] = useState(() => group.api.isMaximized());
+  useEffect(() => {
+    let mounted = true;
+    const listener = group.api.onDidDimensionsChange(() =>
+      queueMicrotask(() => {
+        if (mounted) setMaximized(group.api.isMaximized());
+      })
+    );
+    return () => {
+      mounted = false;
+      listener.dispose();
+    };
+  }, [group]);
+  const action = maximized ? 'Restore preview layout' : 'Focus preview';
+  const Icon = maximized ? Minimize2 : Maximize2;
+  return (
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      aria-label={action}
+      title={action}
+      aria-pressed={maximized}
+      onClick={() => {
+        if (group.api.isMaximized()) group.api.exitMaximized();
+        else group.api.maximize();
+        setMaximized(group.api.isMaximized());
+      }}
+    >
+      <Icon className="size-3.5" aria-hidden="true" />
+    </Button>
   );
 }
 
@@ -241,6 +350,18 @@ export const WorkbenchHost = withInstrumentation(
     const [, setPinRevision] = useState(0);
     const collapseAuxiliary = useDesignPreviewStore((state) => state.preferences.auxiliary);
     const restoringPreviewRef = useRef(false);
+    const transientFrame = useRef(0);
+    const transient = useCallback((work: () => void) => {
+      restoringPreviewRef.current = true;
+      cancelAnimationFrame(transientFrame.current);
+      try {
+        work();
+      } finally {
+        transientFrame.current = requestAnimationFrame(() => {
+          restoringPreviewRef.current = false;
+        });
+      }
+    }, []);
 
     useEffect(() => {
       mountedRef.current = true;
@@ -336,6 +457,7 @@ export const WorkbenchHost = withInstrumentation(
       () => () => {
         listenerRef.current?.dispose();
         listenerRef.current = null;
+        cancelAnimationFrame(transientFrame.current);
       },
       []
     );
@@ -346,6 +468,7 @@ export const WorkbenchHost = withInstrumentation(
           value={{
             auxiliary,
             sideLayouts,
+            transient,
             refresh: () => setPinRevision((revision) => revision + 1),
             original: rightHeaderActionsComponent
           }}

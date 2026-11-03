@@ -107,6 +107,7 @@ J29 adds live pinned CDM gas-example selection/validation in Object builder,
 source-preserving reload and execution-catalog input binding. It exercises the
 published examples and actual workers without fixture endpoint substitution;
 returned Rune diagnostics are distinct from validator exceptions. The gas cases
+retain six actual Rune issues and disclose canonical union alternatives; they
 check multiline diagnostic geometry in both themes and reject premature missing-type
 warnings after reload. Binding the
 catalog input is not acceptance of its full business-event execution.
@@ -491,3 +492,11 @@ Public value changes require the strict generated compilation/runtime tests in
 corpus check. Rebuild Codegen before Studio consumes it. The desktop
 `test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
 real expression-edit pipeline; it is separate from production acceptance.
+
+`test/e2e/workbench-reading-space.spec.ts` checks desktop/narrow-desktop automatic
+Preview yielding, explicit visibility overrides, retained form/code nodes,
+Source focus at full measured width, native preview maximize/restore, wide reload
+recovery, search/count contrast, keyboard help/legend disclosure and complete
+import-error visibility above the footer. Keep geometry assertions: hiding peers
+alone does not prove a focused editor gained space. This local coverage is
+separate from deployed production acceptance.

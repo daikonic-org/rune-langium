@@ -9,7 +9,7 @@
  * see docs/superpowers/specs/2026-07-06-explorer-import-dialog-design.md).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { Input } from '@rune-langium/design-system/ui/input';
@@ -93,6 +93,12 @@ export const ImportDialog = withInstrumentation(
     const [sourceText, setSourceText] = useState('');
     const [namespaceField, setNamespaceField] = useState('');
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+    const errorRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      if (phase.kind !== 'error' && phase.kind !== 'internal-error') return;
+      const frame = requestAnimationFrame(() => errorRef.current?.scrollIntoView({ block: 'nearest' }));
+      return () => cancelAnimationFrame(frame);
+    }, [phase.kind]);
     const [formatOptions, setFormatOptions] = useState<Record<string, unknown>>({});
     const [onCollision, setOnCollision] = useState<MergeOptions['onCollision']>(
       () => MergeOptionsSchema.parse({}).onCollision
@@ -184,7 +190,10 @@ export const ImportDialog = withInstrumentation(
         }
         setPhase({ kind: 'previewed', result, matchedPath: null, merge: null });
       } catch (err) {
-        setPhase({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+        setPhase({
+          kind: 'error',
+          message: (err instanceof Error ? err.message : String(err)).replace(/^rune-codegen import:\s*/, '')
+        });
       }
     }, [sourceText, format, namespaceField, namespaceToFile, files, formatOptions, onCollision]);
 
@@ -228,7 +237,7 @@ export const ImportDialog = withInstrumentation(
         description="Pick a source format, provide the source, preview the generated model, and add it to the workspace."
         width="w-[640px]"
         testId="import-dialog"
-        bodyClassName="p-4 gap-4 overflow-hidden"
+        bodyClassName="studio-scroll p-4 gap-4 overflow-auto"
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={onClose} data-testid="import-dialog__cancel">
@@ -271,7 +280,24 @@ export const ImportDialog = withInstrumentation(
           Drop a file here, or paste the source below.
         </div>
 
+        <details className="text-xs">
+          <summary>How to import a model</summary>
+          <p className="mt-2 text-muted-foreground">
+            Paste a schema in the selected format, or drop its file above. Enter a namespace such as example.quote
+            (required for SQL), then select Preview. Review the Rune model before adding it; Cancel leaves your
+            workspace unchanged.
+          </p>
+          {format === 'json-schema' ? (
+            <pre
+              className="studio-scroll mt-2 overflow-auto whitespace-pre-wrap rounded bg-background p-2 font-mono"
+              aria-label="JSON Schema import example"
+            >
+              {'{ "$defs": { "Quote": { "type": "object", "properties": { "amount": { "type": "number" } } } } }'}
+            </pre>
+          ) : null}
+        </details>
         <Textarea
+          aria-label="Import source"
           value={sourceText}
           onChange={(e) => setSourceText(e.target.value)}
           placeholder="Paste source text…"
@@ -334,13 +360,19 @@ export const ImportDialog = withInstrumentation(
         )}
 
         {phase.kind === 'error' && (
-          <Alert variant="destructive" data-testid="import-dialog__error">
-            <AlertDescription>{phase.message}</AlertDescription>
+          <Alert ref={errorRef} className="shrink-0" variant="destructive" data-testid="import-dialog__error">
+            <AlertTitle>Could not preview model</AlertTitle>
+            <AlertDescription>
+              <p>{phase.message}</p>
+              <p className="mt-2 text-xs">
+                Correct the source and select Preview again. Your workspace has not changed.
+              </p>
+            </AlertDescription>
           </Alert>
         )}
 
         {phase.kind === 'internal-error' && (
-          <Alert variant="destructive" data-testid="import-dialog__internal-error">
+          <Alert ref={errorRef} variant="destructive" data-testid="import-dialog__internal-error">
             <AlertTitle>Internal error</AlertTitle>
             <AlertDescription>{phase.message}</AlertDescription>
           </Alert>

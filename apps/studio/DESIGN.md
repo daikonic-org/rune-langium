@@ -64,6 +64,18 @@ available; no system preference silently replaces an explicit choice.
 - Enabled inactive dock tabs use muted text tokens, not translucent foreground
   text. Light generated-code surfaces use the white working-card token so syntax
   colors retain their intended contrast.
+- The Preview panel yields automatically when the current center panes need
+  reading space, including larger text. Auto-collapse is reversible and does not
+  remove its editors; explicit show/hide choices take precedence. Source and
+  Inspector can be focused and restored without replacing peer drafts; Code can
+  use native maximize/restore. Automatic size changes do not replace saved layouts.
+- Validation leads with a short field/condition label, retaining full paths and
+  canonical union alternatives in disclosures. A failed union stays one issue;
+  presentation must not invent a validator or suppress a genuine failure.
+- Studio help is available from the activity rail without leaving the active task.
+  Import guidance is inline; errors retain parser locations, scroll into view and
+  explain how to retry. The graph legend is a keyboard-accessible disclosure.
+  Explorer placeholders and kind counts use full muted ink, with no extra alpha.
 - Splitters stay invisible at rest and highlight the full 4px gap on hover or
   drag. Keep the existing transparent 16px drag target without a shadow outline.
 

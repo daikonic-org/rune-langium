@@ -166,7 +166,8 @@ vi.mock('@rune-langium/codegen/export', () => ({
 const getActiveConditionPredicatesMock = vi.fn(() => []);
 const findDataNodeMock = vi.fn(() => undefined);
 
-vi.mock('@rune-langium/codegen/instances', () => ({
+vi.mock('@rune-langium/codegen/instances', async () => ({
+  ...(await import('../../../../packages/codegen/dist/src/instances/validation-diagnostics.js')),
   getActiveConditionPredicates: getActiveConditionPredicatesMock,
   findDataNode: findDataNodeMock
 }));

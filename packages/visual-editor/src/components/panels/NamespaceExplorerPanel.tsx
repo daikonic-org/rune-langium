@@ -420,7 +420,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
               aria-label="Filter types or namespaces"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-7 border-border/70 bg-background/55 pl-8 pr-2 text-2xs shadow-none placeholder:text-muted-foreground/70"
+              className="h-7 border-border/70 bg-background/55 pl-8 pr-2 text-2xs shadow-none placeholder:text-muted-foreground"
               data-testid="namespace-search"
             />
           </div>
@@ -471,7 +471,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium transition-colors ${
                   active
                     ? 'border-border bg-accent/60 text-foreground'
-                    : 'border-border/50 bg-transparent text-muted-foreground/70 hover:text-muted-foreground'
+                    : 'border-border/50 bg-transparent text-muted-foreground hover:text-muted-foreground'
                 }`}
               >
                 <span
@@ -479,7 +479,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                   aria-hidden="true"
                 />
                 {KIND_LABEL[kind]}
-                <span className="text-muted-foreground/70 tabular-nums">{kindCounts[kind]}</span>
+                <span className="text-muted-foreground tabular-nums">{kindCounts[kind]}</span>
               </button>
             );
           })}

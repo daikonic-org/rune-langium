@@ -8,6 +8,7 @@
  * disabled until a workspace is loaded.
  */
 import type React from 'react';
+import { StudioHelp } from '../components/StudioHelp.js';
 import { PERSPECTIVES } from './perspectives/perspective-registry.js';
 import type { Perspective } from './perspectives/perspective-types.js';
 import { usePerspectiveStore } from '../store/perspective-store.js';
@@ -55,7 +56,10 @@ export const ActivityBar = withInstrumentation(
       <nav aria-label="Studio activity bar" data-testid="activity-bar" className="studio-rail">
         <div className="studio-rail__group">{mainButtons}</div>
         <div className="studio-rail__spacer" />
-        <div className="studio-rail__group">{bottomButtons}</div>
+        <div className="studio-rail__group">
+          <StudioHelp />
+          {bottomButtons}
+        </div>
       </nav>
     );
   },

@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+// Copyright (c) 2026 Pradeep Mouli
+
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+
+async function quote(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'reading.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace review\ntype Quote:\n amount number (1..1)\n')
+  });
+  await page.getByTestId('namespace-search').fill('Quote');
+  await page.getByRole('button', { name: 'Navigate to Quote', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+}
+
+for (const theme of ['light', 'daikonic'])
+  test(`preview yields space and respects explicit controls in ${theme}`, async ({ page }, info) => {
+    await quote(page);
+    await page.getByTestId('rail-settings').click();
+    await page.getByLabel('Theme', { exact: true }).selectOption(theme);
+    await page.getByTestId('rail-explore').click();
+    await expect(page.getByRole('button', { name: 'Hide Preview panel', exact: true })).toBeVisible();
+    const placeholder = await page
+      .getByTestId('namespace-search')
+      .evaluate((el) => getComputedStyle(el, '::placeholder').color);
+    const muted = await page
+      .getByTestId('namespace-explorer')
+      .locator('p')
+      .first()
+      .evaluate((el) => getComputedStyle(el).color);
+    expect(placeholder).toBe(muted);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[aria-label="Filter types by kind"]')
+          .withRules(['color-contrast'])
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    const form = page.getByTestId('panel-formPreview');
+    const field = form.getByRole('spinbutton', { name: 'Amount', exact: true });
+    await field.fill('123');
+    const node = await field.elementHandle();
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
+    await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await expect(page.getByRole('button', { name: 'Show Preview panel', exact: true })).toBeVisible();
+    const center = page.getByTestId('center-stack');
+    expect((await center.boundingBox())!.width).toBeGreaterThan(650);
+    await page.getByRole('button', { name: 'Focus Source', exact: true }).click();
+    await expect(center).toHaveAttribute('data-focused-pane', 'source');
+    await expect
+      .poll(
+        async () =>
+          (await center.locator('[data-pane="source"]').boundingBox())!.width - (await center.boundingBox())!.width
+      )
+      .toBeGreaterThan(-2);
+    await page.screenshot({ path: info.outputPath(`focused-source-${theme}.png`) });
+    await expect(center.locator('[data-pane="inspector"]')).toBeHidden();
+    await page.keyboard.press('Escape');
+    await expect(center).not.toHaveAttribute('data-focused-pane');
+    await expect(center.locator('[data-pane="inspector"]')).toBeVisible();
+    await page.getByRole('button', { name: 'Show Preview panel', exact: true }).click();
+    await expect(field).toHaveValue('123');
+    expect(await node!.evaluate((el) => el.isConnected)).toBe(true);
+    // Explicit show stays open under the same pressure, even after focus leaves it.
+    await page.getByTestId('namespace-search').focus();
+    await expect(page.getByRole('button', { name: 'Hide Preview panel', exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Code', exact: true }).click();
+    await page.getByTestId('codegen-targets-table__view-typescript').click();
+    await expect(page.getByTestId('code-preview-editor')).toContainText('Quote');
+    const code = await page.getByTestId('code-preview-editor').elementHandle();
+    await page.getByRole('button', { name: 'Focus preview', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Restore preview layout', exact: true })).toBeVisible();
+    expect((await page.getByTestId('code-preview-editor').boundingBox())!.width).toBeGreaterThan(900);
+    await page.screenshot({ path: info.outputPath(`focused-code-${theme}.png`) });
+    await page.getByRole('button', { name: 'Restore preview layout', exact: true }).click();
+    expect(await code!.evaluate((el) => el.isConnected)).toBe(true);
+    await page.getByRole('button', { name: 'Focus preview', exact: true }).click();
+    await page.getByRole('button', { name: 'Hide Preview panel', exact: true }).click();
+    await expect(center).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show Preview panel', exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 1920, height: 1000 });
+    await expect(page.getByRole('button', { name: 'Show Preview panel', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Show Preview panel', exact: true }).click();
+    await page.setViewportSize({ width: 800, height: 800 });
+    await page.getByTestId('namespace-search').focus();
+    await expect(page.getByRole('button', { name: 'Show Preview panel', exact: true })).toBeVisible();
+    await page.reload();
+    await page.setViewportSize({ width: 1920, height: 1000 });
+    await expect(page.getByRole('button', { name: 'Hide Preview panel', exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`restored-layout-${theme}.png`) });
+  });
+
+test('help and importer guidance are accessible without changing the active draft', async ({ page }, info) => {
+  await quote(page);
+  const help = page.getByRole('button', { name: 'Studio help', exact: true });
+  await help.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Studio help' })).toBeVisible();
+  expect((await new AxeBuilder({ page }).include('[data-slot="popover-content"]').analyze()).violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath('help.png') });
+  await page.keyboard.press('Escape');
+  await expect(help).toBeFocused();
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const legend = page.locator('[data-slot="graph-legend"]');
+  await expect(legend).not.toHaveAttribute('open');
+  await legend.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(legend).toHaveAttribute('open', '');
+  await expect(legend.getByText('Extends / contains', { exact: true })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(legend).not.toHaveAttribute('open');
+  await page.getByRole('button', { name: 'Import Model', exact: true }).click();
+  await page.getByText('How to import a model', { exact: true }).click();
+  const example = page.getByLabel('JSON Schema import example');
+  await expect(example).toBeVisible();
+  await page.getByRole('textbox', { name: 'Import source', exact: true }).fill(await example.innerText());
+  await page.getByTestId('import-dialog__namespace').fill('example.quote');
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  await expect(page.getByTestId('import-dialog__preview')).toContainText('type Quote');
+  await expect(page.getByTestId('import-dialog__summary')).toContainText('1 type(s)');
+  await expect(page.getByTestId('import-dialog__confirm')).toBeEnabled();
+  await page.getByRole('textbox', { name: 'Import source', exact: true }).fill('{broken');
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  const error = page.getByTestId('import-dialog__error');
+  await expect(error).toContainText('Could not preview model');
+  await expect(error).not.toContainText('rune-codegen');
+  await expect(page.getByRole('textbox', { name: 'Import source', exact: true })).toHaveValue('{broken');
+  const errorBounds = (await error.boundingBox())!;
+  const footerBounds = (await page.getByTestId('import-dialog__confirm').boundingBox())!;
+  expect(errorBounds.y + errorBounds.height).toBeLessThanOrEqual(footerBounds.y);
+  await expect(
+    error.getByText('Correct the source and select Preview again. Your workspace has not changed.', { exact: true })
+  ).toBeVisible();
+  await page.screenshot({ path: info.outputPath('import-recovery.png') });
+});

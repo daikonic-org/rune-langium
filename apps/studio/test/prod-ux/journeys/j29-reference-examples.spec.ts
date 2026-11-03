@@ -87,7 +87,7 @@ for (const [version, theme] of [
       await expect(page.getByRole('heading', { name: 'input · validation', exact: true })).toBeVisible();
       const issues = page.locator('.workflow-validation-popover');
       await expect(issues).not.toContainText(/_zod|is not defined|unavailable/i);
-      const geometry = await issues.locator('li').evaluateAll((rows) =>
+      const geometry = await issues.locator(':scope > ul > li').evaluateAll((rows) =>
         rows.map((row) => {
           const button = row.querySelector('button')!;
           const text = button.querySelector('span')!;
@@ -106,6 +106,12 @@ for (const [version, theme] of [
         expect(row.noHorizontalOverflow).toBe(true);
         if (index > 0) expect(row.top).toBeGreaterThanOrEqual(geometry[index - 1]!.bottom);
       }
+      await expect(issues.locator(':scope > ul > li')).toHaveCount(6);
+      const alternatives = issues.locator(':scope > ul > li > details').filter({ hasText: 'Accepted forms' });
+      expect(await alternatives.count()).toBeGreaterThan(0);
+      await alternatives.first().locator('summary').click();
+      await expect(alternatives.first().locator('ol')).toBeVisible();
+      await expect(alternatives.first().locator('ol')).toContainText('Invalid input:');
       await evidence.checkpoint('gas-validated-in-object-builder');
       await page.keyboard.press('Escape');
       expect(await savedExample(page, path)).toEqual(original);

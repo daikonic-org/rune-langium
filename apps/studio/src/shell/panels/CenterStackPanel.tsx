@@ -4,7 +4,8 @@
 
 import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type React from 'react';
-import { Network, FileCode2, Info, Layers } from 'lucide-react';
+import { Network, FileCode2, Info, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { GraphFilterMenu } from '../../components/GraphFilterMenu.js';
 import { useCenterPanes, type CenterPane } from '../center-panes-context.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -62,6 +63,11 @@ export const CenterStackPanel = withInstrumentation(
     }, [sourceVisible, sourceNavigationPending]);
     const sourcePending =
       sourceVisible && Boolean(sourceNavigationPending) && visibleRequest === sourceNavigationPending;
+    const [focusedPane, setFocusedPane] = useState<CenterPane | null>(null);
+    useEffect(() => {
+      if (focusedPane && !activePanes.has(focusedPane)) setFocusedPane(null);
+    }, [activePanes, focusedPane]);
+    const focused = focusedPane && activePanes.has(focusedPane) ? focusedPane : null;
     const ordered = PANE_ORDER.filter((p) => activePanes.has(p));
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -185,12 +191,19 @@ export const CenterStackPanel = withInstrumentation(
         <div
           ref={containerRef}
           className={isDragging ? 'studio-center-stack is-dragging' : 'studio-center-stack'}
-          data-count={ordered.length}
+          data-count={focused ? 1 : ordered.length}
+          data-focused-pane={focused ?? undefined}
+          onKeyDown={(event) => {
+            if (focused && event.key === 'Escape' && !event.defaultPrevented) {
+              setFocusedPane(null);
+              event.stopPropagation();
+            }
+          }}
           data-testid="center-stack"
         >
           {ordered.map((pane, i) => (
             <Fragment key={pane}>
-              {i > 0 && (
+              {i > 0 && !focused && (
                 <div
                   className="studio-center-stack__split"
                   role="separator"
@@ -202,6 +215,7 @@ export const CenterStackPanel = withInstrumentation(
               <div
                 className="studio-center-stack__pane text-sm"
                 data-pane={pane}
+                hidden={Boolean(focused && pane !== focused)}
                 style={{
                   // e2e-batch fix: was `flex: <grow> 1 0%`, which gives a 0% basis
                   // and stops children from growing past the equal split. Inner
@@ -218,12 +232,31 @@ export const CenterStackPanel = withInstrumentation(
                   // viewport). Dropped — `minWidth: 0` lets panes genuinely shrink,
                   // and the user can collapse panes via the pane-switcher pill
                   // when more space is needed for the active ones.
-                  flex: `${fractions[i] ?? 1 / ordered.length} 1 0`,
+                  flex: focused === pane ? '1 1 0' : `${fractions[i] ?? 1 / ordered.length} 1 0`,
                   minWidth: 0,
                   minHeight: 0
                 }}
               >
-                {renderPane(pane)}
+                {ordered.length > 1 ? (
+                  <div className="studio-center-stack__pane-heading">
+                    <span>{PANE_LABELS[pane]}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={focused === pane ? 'Restore panes' : `Focus ${PANE_LABELS[pane]}`}
+                      title={focused === pane ? 'Restore panes (Escape)' : `Focus ${PANE_LABELS[pane]}`}
+                      aria-pressed={focused === pane}
+                      onClick={() => setFocusedPane(focused === pane ? null : pane)}
+                    >
+                      {focused === pane ? (
+                        <Minimize2 className="size-3.5" aria-hidden="true" />
+                      ) : (
+                        <Maximize2 className="size-3.5" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="studio-center-stack__pane-content">{renderPane(pane)}</div>
               </div>
             </Fragment>
           ))}

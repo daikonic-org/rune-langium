@@ -61,7 +61,11 @@ export const WorkflowValidation = withInstrumentation(
             <Icon className={`size-4 ${validation.state === 'pending' ? 'animate-spin' : ''}`} aria-hidden="true" />
           )}
         </PopoverTrigger>
-        <PopoverContent className="workflow-validation-popover" align="end">
+        <PopoverContent
+          aria-label={`${name} ${functionChecks ? 'input checks' : 'validation'}`}
+          className="workflow-validation-popover"
+          align="end"
+        >
           <h3 className="font-semibold">
             {name} · {functionChecks ? 'input checks' : 'validation'}
           </h3>
@@ -103,10 +107,17 @@ export const WorkflowValidation = withInstrumentation(
                   >
                     <CircleX className="mt-0.5 size-3.5 shrink-0 text-destructive" aria-hidden="true" />
                     <span className="min-w-0 [overflow-wrap:anywhere]">
-                      {diagnostic.conditionDescription ??
-                        (diagnostic.conditionName
-                          ? `${diagnostic.conditionName} is not satisfied.`
-                          : `${diagnostic.path || 'Input'}: ${diagnostic.message}`)}
+                      <span className="block font-medium">
+                        {diagnostic.conditionName ?? (diagnostic.path.split('.').at(-1) || 'Input')}:
+                      </span>{' '}
+                      <span className="block">
+                        {diagnostic.conditionDescription ??
+                          (diagnostic.conditionName
+                            ? `${diagnostic.conditionName} is not satisfied.`
+                            : diagnostic.alternatives?.length
+                              ? 'Does not match an accepted form. Review the alternatives below.'
+                              : diagnostic.message)}
+                      </span>
                     </span>
                   </Button>
                   {diagnostic.conditionSource ? (
@@ -117,10 +128,32 @@ export const WorkflowValidation = withInstrumentation(
                       {diagnostic.conditionSource}
                     </pre>
                   ) : null}
-                  {diagnostic.conditionName ? (
+                  {diagnostic.alternatives?.length ? (
+                    <details className="mt-1 text-xs">
+                      <summary>Accepted forms · {diagnostic.alternatives.length} alternatives</summary>
+                      <ol className="mt-2 space-y-2">
+                        {diagnostic.alternatives.map((branch, branchIndex) => (
+                          <li key={branchIndex}>
+                            <p className="font-medium">Alternative {branchIndex + 1}</p>
+                            <ul className="mt-1 space-y-1">
+                              {branch.map((issue, issueIndex) => (
+                                <li key={issueIndex} className="[overflow-wrap:anywhere]">
+                                  {issue.path || diagnostic.path || 'Input'}: {issue.message}
+                                </li>
+                              ))}
+                            </ul>
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  ) : null}
+                  {diagnostic.conditionName || diagnostic.path || diagnostic.alternatives?.length ? (
                     <details className="mt-1 text-xs text-muted-foreground">
                       <summary>Technical details</summary>
-                      <p className="mt-1 [overflow-wrap:anywhere]">{diagnostic.message}</p>
+                      <p className="mt-1 [overflow-wrap:anywhere]">
+                        {diagnostic.path ? `${diagnostic.path}: ` : ''}
+                        {diagnostic.message}
+                      </p>
                     </details>
                   ) : null}
                 </li>
