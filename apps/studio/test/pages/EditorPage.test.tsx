@@ -9,6 +9,7 @@ import { usePreviewStore } from '../../src/store/preview-store.js';
 import { usePerspectiveStore } from '../../src/store/perspective-store.js';
 import { useExploreFileNavStore } from '../../src/shell/explore-file-nav-store.js';
 import { setRuneStudioTestApi } from '../../src/test-api.js';
+import { ProjectContext, type ProjectState } from '../../src/shell/providers/project-context.js';
 
 const {
   editorStoreState,
@@ -643,6 +644,25 @@ describe('EditorPage preview target identity', () => {
     setRuneStudioTestApi(() => undefined);
     vi.unstubAllGlobals();
     cleanup();
+  });
+
+  it('announces reference capture as busy until the explorer inventory is ready', () => {
+    let project: ProjectState = {
+      status: 'ready',
+      diagnostics: [],
+      runtime: { managed: true, status: 'captured', diagnostics: [] },
+      referenceView: { status: 'loading', diagnostics: [], retry: vi.fn() }
+    };
+    const props = {
+      files: [{ name: 'test.rosetta', path: 'test.rosetta', content: 'namespace example', dirty: false }]
+    };
+    const view = renderEditorPage(props, {
+      wrapper: ({ children }) => <ProjectContext.Provider value={project}>{children}</ProjectContext.Provider>
+    });
+    expect(screen.getByTestId('explore-workbench')).toHaveAttribute('aria-busy', 'true');
+    project = { ...project, referenceView: { ...project.referenceView!, status: 'ready' } };
+    view.rerenderEditorPage(props);
+    expect(screen.getByTestId('explore-workbench')).toHaveAttribute('aria-busy', 'false');
   });
 
   it('forwards the selected function operation through the Inspector adapter', async () => {

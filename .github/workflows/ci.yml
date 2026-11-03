@@ -154,6 +154,8 @@ jobs:
   # ---------------------------------------------------------------------------
   studio-a11y:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v7
@@ -201,6 +203,10 @@ jobs:
         # The shared harness substitutes only this build's static assets. Public
         # hosted APIs remain real; canonical freshness is checked after deploy.
         run: pnpm --filter @rune-langium/studio run test:ux-candidate
+        env:
+          # Public source reads share the runner IP's tiny anonymous GitHub quota.
+          # The Node-only transport scopes this credential to public CDM GETs.
+          STUDIO_TEST_GITHUB_TOKEN: ${{ github.token }}
 
       - name: Upload candidate UX evidence
         if: always()

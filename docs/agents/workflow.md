@@ -108,6 +108,14 @@ not deployed. All other production UX journeys plus focused Export, reading-spac
 recents and nested-validation cases run with zero retries and unchanged time budgets.
 Focused tests (`test.only`) are forbidden, so an accidentally committed focus
 cannot silently reduce the pre-merge gate's coverage.
+CI authenticates public CDM GitHub GETs through a Node-only transport so shared
+runner IP rate limits do not block source discovery. The credential never enters
+browser requests or Playwright's API tracing; other hosts, repositories, methods
+and redirects are excluded. Response bytes still come from GitHub, without fixtures
+or response caching. Local/deployed reviews remain anonymous unless this candidate-only
+transport is explicitly configured. Explore exposes its authoritative project/reference
+loading state as `aria-busy`; restored-layout checks wait for readiness within the
+existing workbench deadline before searching its inventory.
 The candidate teardown rejects empty reports, degraded or blocked journeys and
 retried evidence, including soft codegen failures and timing-budget findings.
 Keep assertions about warning-free acknowledged edits and the selected root's
