@@ -4,7 +4,8 @@
 import { loadCurrentCdm } from '../helpers/workspace-launcher.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
 import { Buffer } from 'node:buffer';
-import { test as base, expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { test as base } from '../helpers/studio-test.js';
 import { EvidenceCollector, appendJourneyRecord, type JourneyRecord } from './evidence.js';
 import { exceedsBudget } from './timings.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
@@ -38,32 +39,6 @@ export function computeJourneyId(title: string, subId?: string): string {
 }
 
 export const checkout = base.extend<CheckoutFixtures>({
-  context: async ({ context, baseURL }, use) => {
-    const assetOrigin = process.env.PROD_UX_ASSET_ORIGIN;
-    if (assetOrigin) {
-      const candidate = new URL(assetOrigin);
-      if (!['127.0.0.1', 'localhost'].includes(candidate.hostname))
-        throw new Error('Candidate assets must be served locally');
-      const deployed = new URL(baseURL ?? 'https://www.daikonic.dev/rune-studio/studio/');
-      await context.route(
-        (url) =>
-          url.origin === deployed.origin &&
-          (url.pathname.startsWith(deployed.pathname) || url.pathname.startsWith('/assets/')),
-        async (route) => {
-          const url = new URL(route.request().url());
-          const path = url.pathname.startsWith(deployed.pathname)
-            ? '/' + url.pathname.slice(deployed.pathname.length)
-            : url.pathname;
-          const response = await route.fetch({ url: new URL(path + url.search, candidate).href });
-          if (response.headers()['content-type']?.includes('text/html')) {
-            const body = (await response.text()).replaceAll('="/assets/', `="${deployed.pathname}assets/`);
-            await route.fulfill({ response, body });
-          } else await route.fulfill({ response });
-        }
-      );
-    }
-    await use(context);
-  },
   evidence: async ({ page }, use, testInfo) => {
     const subId = testInfo.annotations.find((a) => a.type === 'journey-subid')?.description;
     const journeyId = computeJourneyId(testInfo.title, subId);

@@ -102,11 +102,8 @@ test.describe('J18 — Data-type closure mapping (scripted completeness check)',
     // resolved for form preview." This is a real, verified DOM marker — not
     // the "unconfirmed" fallback the plan flagged, so this asserts its
     // absence directly rather than narrowing to a throws/no-throw check.
-    // "Form" is a Dockview panel tab (role="tab"), separate from the
-    // graph/source/inspector multi-select toggle J8 exercises — it's already
-    // the default-active sub-tab on node selection (confirmed live in J9
-    // this session), so this only waits for it rather than clicking it,
-    // exactly like J9 does.
+    // Explicitly reveal Form: narrow layouts may have yielded Preview while
+    // the closure walk inspected the other panes.
     //
     // walkTypeClosure's BFS leaves whatever node it visited LAST selected —
     // for this closure that's ScratchClosureVariantB (a leaf with a single
@@ -119,13 +116,16 @@ test.describe('J18 — Data-type closure mapping (scripted completeness check)',
     // A source reveal used to focus CodeMirror after node selection. Keep
     // Structure active and assert that each query reached the filter rather
     // than the source document.
-    await page.getByRole('button', { name: 'Structure' }).click();
+    const structure = page.getByRole('button', { name: 'Structure', exact: true });
+    if ((await structure.getAttribute('aria-pressed')) !== 'true') await structure.click();
     const namespaceSearch = page.getByTestId('namespace-search');
     await namespaceSearch.fill('ScratchClosureRoot');
     await expect(namespaceSearch).toHaveValue('ScratchClosureRoot');
     await typeNavigationButton(page, SCRATCH_ROOT_FQN).click();
+    await page.getByRole('tab', { name: /^Form(?: Preview)?$/ }).click();
     const formPreviewPanel = page.getByTestId('panel-formPreview');
     await expect(formPreviewPanel).toBeVisible({ timeout: 20000 });
+    await expect(formPreviewPanel.getByRole('heading', { name: 'ScratchClosureRoot', exact: true })).toBeVisible();
 
     await expect(formPreviewPanel.getByText(/could not be resolved for form preview/i)).toHaveCount(0);
 
@@ -142,9 +142,14 @@ test.describe('J18 — Data-type closure mapping (scripted completeness check)',
     await expect(namespaceSearch).toHaveValue('ScratchClosureChoice');
     await expect(typeNavigationButton(page, SCRATCH_CHOICE_FQN, 'Choice')).toBeVisible({ timeout: 10000 });
     await typeNavigationButton(page, SCRATCH_CHOICE_FQN, 'Choice').click();
-    await page.getByRole('button', { name: 'Inspector' }).click();
-    await expect(page.getByRole('heading', { name: 'ScratchClosureChoice' })).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('[data-slot="type-link"][disabled]')).toHaveCount(0);
+    const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
+    if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
+    const choiceInspector = page.getByRole('complementary', { name: 'Edit ScratchClosureChoice', exact: true });
+    await expect(choiceInspector.getByRole('textbox', { name: 'Choice type name', exact: true })).toHaveValue(
+      'ScratchClosureChoice'
+    );
+    await expect(choiceInspector.locator('[data-slot="type-link"]')).toHaveCount(2);
+    await expect(choiceInspector.locator('[data-slot="type-link"][disabled]')).toHaveCount(0);
     await evidence.checkpoint('scratch-choice-typelink-checked');
 
     const scratchUnmapped = scratchResult.unmapped;

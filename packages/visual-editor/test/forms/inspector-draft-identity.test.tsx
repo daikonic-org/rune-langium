@@ -18,6 +18,73 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it.each(['attributes', 'inputs', 'enumValues'])(
+  'acknowledges a committed new %s row without discarding another draft',
+  (collection) => {
+    const source = { [collection]: [{ name: 'alpha', definition: '' }] };
+    const { result, rerender } = renderHook(
+      ({ source, epoch }) => {
+        const form = useForm({ defaultValues: source });
+        useInspectorExternalSync(form, source, (value) => value, { parseEpoch: epoch });
+        return form;
+      },
+      { initialProps: { source, epoch: 1 } }
+    );
+    act(() => {
+      result.current.setValue(`${collection}.0.definition`, 'Unsaved alpha', { shouldDirty: true });
+      result.current.setValue(`${collection}.1`, { name: 'notes', definition: '' }, { shouldDirty: true });
+    });
+    rerender({ source: { [collection]: [...source[collection]!, { name: 'notes', definition: '' }] }, epoch: 2 });
+    expect(result.current.getValues(`${collection}.0.definition`)).toBe('Unsaved alpha');
+    expect(result.current.getValues(`${collection}.1.name`)).toBe('notes');
+    expect(result.current.formState.errors.root?.identity).toBeUndefined();
+  }
+);
+
+it('acknowledges a committed rename after a reparse without reporting a lost draft', () => {
+  const source = { attributes: [{ name: 'alpha', definition: '', $cstRange: { offset: 10, end: 20 } }] };
+  const { result, rerender } = renderHook(
+    ({ source, epoch }) => {
+      const form = useForm({ defaultValues: source });
+      useInspectorExternalSync(form, source, (value) => value, { parseEpoch: epoch });
+      return form;
+    },
+    { initialProps: { source, epoch: 1 } }
+  );
+  act(() => result.current.setValue('attributes.0.name', 'renamed', { shouldDirty: true }));
+  rerender({
+    source: { attributes: [{ name: 'renamed', definition: '', $cstRange: { offset: 15, end: 30 } }] },
+    epoch: 2
+  });
+  expect(result.current.getValues('attributes.0.name')).toBe('renamed');
+  expect(result.current.formState.errors.root?.identity).toBeUndefined();
+  expect(result.current.formState.dirtyFields).toEqual({});
+});
+
+it.each(['existing', 'new'])('does not mistake a rename draft for an acknowledged %s sibling', (sibling) => {
+  const source = {
+    attributes: [
+      { name: 'alpha', definition: '', $cstRange: { offset: 10, end: 20 } },
+      { name: 'beta', definition: '', $cstRange: { offset: 30, end: 40 } }
+    ]
+  };
+  const { result, rerender } = renderHook(
+    ({ source, epoch }) => {
+      const form = useForm({ defaultValues: source });
+      useInspectorExternalSync(form, source, (value) => value, { parseEpoch: epoch });
+      return form;
+    },
+    { initialProps: { source, epoch: 1 } }
+  );
+  const name = sibling === 'existing' ? 'beta' : 'gamma';
+  act(() => result.current.setValue('attributes.0.name', name, { shouldDirty: true }));
+  const next = structuredClone(source);
+  if (sibling === 'new') next.attributes.push({ name, definition: '', $cstRange: { offset: 50, end: 60 } });
+  rerender({ source: next, epoch: 2 });
+  expect(result.current.getValues('attributes.0.name')).toBe(name);
+  expect(result.current.formState.dirtyFields.attributes?.[0]?.name).toBe(true);
+});
+
 it.each(['deleted', 'ambiguous origin', 'ambiguous destination'])(
   'clears a %s member draft instead of retargeting another member',
   (scenario) => {

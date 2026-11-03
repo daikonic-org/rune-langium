@@ -51,16 +51,21 @@ test.describe('J05 — Inspector pane', () => {
       if ((await structure.getAttribute('aria-pressed')) === 'true') await structure.click();
       const stack = page.getByTestId('center-stack');
       await expect(stack).toHaveAttribute('data-count', '3');
-      await expect(stack).toHaveCSS('display', 'grid');
-      const panes = await stack.locator('[data-pane]').evaluateAll((elements) =>
-        elements.map((element) => ({
-          width: element.getBoundingClientRect().width,
-          parentWidth: element.parentElement!.getBoundingClientRect().width
-        }))
-      );
+      const measurePanes = () =>
+        stack.locator('[data-pane]').evaluateAll((elements) =>
+          elements.map((element) => ({
+            width: element.getBoundingClientRect().width,
+            parentWidth: element.parentElement!.getBoundingClientRect().width,
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth
+          }))
+        );
+      await expect.poll(async () => (await measurePanes()).every((pane) => pane.width > 300)).toBe(true);
+      const panes = await measurePanes();
       for (const pane of panes) {
         expect(pane.width).toBeGreaterThan(300);
         expect(pane.width).toBeLessThanOrEqual(pane.parentWidth);
+        expect(pane.scrollWidth).toBeLessThanOrEqual(pane.clientWidth);
       }
       const inspector = stack.locator('[data-pane="inspector"]');
       await inspector.scrollIntoViewIfNeeded();

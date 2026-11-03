@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { expect, type Locator } from '@playwright/test';
+import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
 
 export async function expectBodyProjection(
   region: Locator,
@@ -25,6 +26,7 @@ export async function expectBodyProjection(
 }
 
 export async function expectEditorExpansion(region: Locator) {
+  await waitForEntranceAnimations(region.page());
   const editor = region.getByTestId('implementation-editor');
   const liveEditor = editor.locator('.cm-editor');
   const original = await liveEditor.elementHandle();
@@ -34,6 +36,7 @@ export async function expectEditorExpansion(region: Locator) {
   const initialHeight = (await editor.boundingBox())!.height;
   await region.getByRole('button', { name: 'Expand editor', exact: true }).click();
   await expect.poll(maxHeight).toBeGreaterThan(initialMax);
+  await waitForEntranceAnimations(region.page());
   const expandedHeight = (await editor.boundingBox())!.height;
   const contentHeight = await scroller.evaluate((element) => element.scrollHeight);
   // Expansion raises the cap; short bodies keep their content-sized height.
@@ -43,6 +46,7 @@ export async function expectEditorExpansion(region: Locator) {
   expect(await liveEditor.evaluate((element, previous) => element === previous, original)).toBe(true);
   await region.getByRole('button', { name: 'Collapse editor', exact: true }).click();
   await expect.poll(maxHeight).toBe(initialMax);
+  await waitForEntranceAnimations(region.page());
   await expect.poll(async () => (await editor.boundingBox())!.height).toBe(initialHeight);
   expect(await liveEditor.evaluate((element, previous) => element === previous, original)).toBe(true);
   await original?.dispose();

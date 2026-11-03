@@ -59,14 +59,28 @@ export function useInspectorExternalSync<T extends FieldValues, S>(
           let destination = path;
           if (MEMBERS.has(path[0] ?? '') && path.length > 1) {
             const member = at(current, path.slice(0, 2)) as Record<string, unknown> | undefined;
+            const candidates = rows(at(values, [path[0]!]));
             const oldRows = rows(at(previous, [path[0]!]));
-            const ranged = oldRows.filter((row) => sameRange(row.$cstRange, member?.$cstRange));
             const identity = getMetadataMemberName(member);
+            const ranged = oldRows.filter((row) => sameRange(row.$cstRange, member?.$cstRange));
             const old = ranged.length
               ? ranged
               : oldRows.filter((row) => identity !== undefined && getMetadataMemberName(row) === identity);
             const origin = old.length === 1 ? old[0] : undefined;
-            const candidates = rows(at(values, [path[0]!]));
+            const baselineMember = oldRows[Number(path[1])];
+            // A committed addition/rename can precede RHF's new baseline. Only
+            // acknowledge a new identity once the whole authored member agrees,
+            // and its old identity is absent (or this was a new/unnamed row).
+            // An identical sibling must never acknowledge an uncommitted rename.
+            if (
+              identity !== undefined &&
+              !oldRows.some((row) => getMetadataMemberName(row) === identity) &&
+              candidates.filter((row) => authoredValuesEqual(member, row)).length === 1 &&
+              (origin
+                ? !candidates.some((row) => getMetadataMemberName(row) === getMetadataMemberName(origin))
+                : !baselineMember || !getMetadataMemberName(baselineMember))
+            )
+              return [];
             const indexed = candidates.map((row, index) => ({ row, index }));
             const sameEpoch = epoch.current === baselineEpoch.current;
             const rangeMatches = indexed.filter(

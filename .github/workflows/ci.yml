@@ -138,13 +138,15 @@ jobs:
           STUDIO_MAX_BUNDLE_BYTES: ${{ vars.STUDIO_MAX_BUNDLE_BYTES }}
 
   # ---------------------------------------------------------------------------
-  # studio-a11y: axe-core gate against the studio's main routes (T088 / T115).
+  # studio-a11y: browser accessibility and pre-deployment Studio UX gate.
   #
   # Runs Playwright headlessly on a single Node version, executes the e2e
   # suite at apps/studio/test/e2e/a11y.spec.ts, and fails the job on any
   # 'serious' or 'critical' violation in code we own. Monaco / ReactFlow
   # / dockview surfaces are excluded inside the spec — their a11y posture
   # is upstream's responsibility per FR-A04.
+  # The optimized candidate UX suite also checks the public workflows and
+  # focused reading-space/diagnostic cases before merge, retaining its evidence.
   #
   # Why a separate job: keeps the unit-test job fast on the matrix (no
   # browser install per Node version) and makes a11y regressions easy to
@@ -194,6 +196,19 @@ jobs:
         # routed through the pnpm-script `--` boundary (which made
         # playwright interpret "--grep" as a test-file path).
         run: pnpm --filter @rune-langium/studio exec playwright test --grep "Studio a11y"
+
+      - name: Review candidate Studio UX before deployment
+        # The shared harness substitutes only this build's static assets. Public
+        # hosted APIs remain real; canonical freshness is checked after deploy.
+        run: pnpm --filter @rune-langium/studio run test:ux-candidate
+
+      - name: Upload candidate UX evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: studio-ux-candidate
+          path: dist/ux-candidate
+          if-no-files-found: error
 
       - name: Verify Inspector schema hot reload
         run: pnpm --filter @rune-langium/studio run test:z2f-hmr

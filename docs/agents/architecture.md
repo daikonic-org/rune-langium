@@ -71,6 +71,9 @@ open from a counted disclosure instead of displacing source. Artifact files carr
 small namespace ownership lists derived from emitter source maps and canonical
 target paths; explorer navigation selects the matching captured file within Export.
 These lists survive output-prefix composition without retaining full source maps.
+The first preview prefers a text file owned by an explicitly selected root's
+namespace, using that captured metadata rather than archive order. A still-valid
+explicit file choice remains selected across regeneration.
 Reference detail cards fetch public repository descriptions and publication
 inventory independently of activation. Installed references use their locked
 cohort; proposed releases reuse the resolver's cohort selection and manifest
@@ -761,6 +764,11 @@ The Inspector uses one declaration form and generated canonical schema. `Inspect
 Inspector sections mount on first activation and remain mounted while hidden afterward. This avoids creating inactive expression editors on selection while preserving visited drafts, CodeMirror views/undo and registered commit flushes. Section IDs retain their sessions across tab reordering; removing a section unmounts its content. Browser checks for the complete file editor use `fullSourceEditor` in Studio's shared test helpers, scoped to the center stack's Source pane; embedded expression editors also use the shared SourceEditor component.
 
 `useInspectorTargets` maps form keys to canonical member range/name/type-reference identity before paging, including the source-reset frame. `useInspectorSelection` maintains form-local RHF/pointer/range identity and requires a unique match after reparse. `useInspectorExternalSync` uses upstream source triggering and RHF public form-state subscription to rebase dirty leaves/errors through that same authored member identity; removed/ambiguous drafts cannot migrate to a replacement child. Guarded name-only callbacks preserve current Source signatures/display. Nothing persists these child keys. `metadata-target` guards owner, epoch and expected item; `metadata-ops` validates the edited canonical field and uses the existing graph recipe/history/patch path. Valid pending metadata commits blocked by parsing retain their draft and reject the existing save barrier until retry. Rich form payloads detach on acceptance, and unchanged item leases can renew across reparse. Inherited/curated metadata stays readonly; explicit existing override actions retain their meaning.
+
+A uniquely matching complete authored member in an incoming snapshot acknowledges
+an already committed addition or rename before dirty-field rebasing. Other pending
+member drafts still require the existing unique identity match; removed or
+ambiguous drafts retain their warning and cannot migrate to another member.
 
 `EditorCommitRegistry` flushes existing debounced fields and focused rich item edits before a root rename or Studio workspace/source/storage barrier. Source sync's explicit flush awaits the same ordered publication receipt and immutable parsed baseline as its observer. CodeMirror keeps its view during temporary readonly/signature-coordinate transitions and reconfigures editability in place; stale source coordinates cannot authorize edits or projections. Studio does not manufacture a Saved label.
 

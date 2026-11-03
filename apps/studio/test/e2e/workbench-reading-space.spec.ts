@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
 import AxeBuilder from '@axe-core/playwright';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 

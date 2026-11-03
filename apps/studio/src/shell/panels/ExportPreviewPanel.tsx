@@ -81,7 +81,12 @@ export const ExportPreviewPanel = withInstrumentation(
           ? run.previous?.artifact
           : undefined;
     const textFiles = artifact?.manifest.files.filter((file) => file.kind === 'text') ?? [];
-    const textFile = textFiles.find((file) => file.path === selectedPath) ?? textFiles[0];
+    const textFile =
+      textFiles.find((file) => file.path === selectedPath) ??
+      textFiles.find((file) =>
+        artifact?.manifest.resolvedSelection?.explicit.some((root) => file.namespaces?.includes(root.namespace))
+      ) ??
+      textFiles[0];
     const dependencyCount = artifact?.manifest.resolvedSelection
       ? Math.max(
           0,
@@ -104,11 +109,11 @@ export const ExportPreviewPanel = withInstrumentation(
 
     useEffect(() => {
       if (!textFiles.some((file) => file.path === selectedPath)) {
-        const nextPath = textFiles[0]?.path;
+        const nextPath = textFile?.path;
         setUncontrolledPath(nextPath);
         onActiveFileChange?.(nextPath);
       }
-    }, [onActiveFileChange, selectedPath, textFiles]);
+    }, [onActiveFileChange, selectedPath, textFiles, textFile?.path]);
 
     useEffect(() => {
       let active = true;
