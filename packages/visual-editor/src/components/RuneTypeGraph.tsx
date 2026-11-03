@@ -1127,7 +1127,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
           {mergedConfig.showControls && <Controls />}
           {mergedConfig.showMinimap && <MiniMap />}
           {mergedConfig.showLegend && (
-            <Panel position="top-right" style={{ pointerEvents: 'none' }}>
+            <Panel position="top-right">
               <GraphLegend />
             </Panel>
           )}

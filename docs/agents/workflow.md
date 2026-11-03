@@ -103,6 +103,18 @@ legacy-loader spinner assumptions do not apply to that flow.
 J23–J28 cover workspace YAML in both themes, named Export targets and retained
 outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed
 example repair, and blank workspaces returning from reference review to Explore.
+J29 adds live pinned CDM gas-example selection/validation in Object builder,
+source-preserving reload and execution-catalog input binding. It exercises the
+published examples and actual workers without fixture endpoint substitution;
+returned Rune diagnostics are distinct from validator exceptions. The gas cases
+retain six actual Rune issues and disclose canonical union alternatives; they
+check multiline diagnostic geometry in both themes and reject premature missing-type
+warnings after reload. Binding the
+catalog input is not acceptance of its full business-event execution.
+`test/e2e/prod-review-polish.spec.ts` checks narrow desktop workspace identity at
+Medium/Large text, the Git recovery route, generated-code reading height and
+light dock/code contrast. The contrast scan includes the dock headers that the
+broader J17 sweep excludes as third-party chrome.
 Local and production wrappers reuse those journey helpers and preserve operation
 evidence across reloads. J17 sweeps both themes; the fixed-dark-theme exception is
 retired. Set `PROD_UX_DESKTOP_ONLY=1` for a desktop-only production run, including nested
@@ -480,3 +492,30 @@ Public value changes require the strict generated compilation/runtime tests in
 corpus check. Rebuild Codegen before Studio consumes it. The desktop
 `test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
 real expression-edit pipeline; it is separate from production acceptance.
+
+`test/e2e/workbench-reading-space.spec.ts` checks desktop/narrow-desktop automatic
+Preview yielding, explicit visibility overrides, retained form/code nodes,
+Source focus at full measured width, native preview maximize/restore, wide reload
+recovery, explicit Inspect/file navigation out of focus, file tabs/New file and
+global file search from maximized Code Preview, Reset focus clearing,
+search/count contrast, keyboard help/legend disclosure and complete import-error
+visibility above the footer. `WorkbenchHost-side-panels.test.tsx` saves an automatic
+collapse after another group is resized, then reloads with enough actual center
+space to reopen. `responsive-layout.test.ts` preserves native geometry/topology
+and removes stale automatic intent after manual choices. Keep geometry assertions: hiding peers
+alone does not prove a focused editor gained space. This local coverage is
+separate from deployed production acceptance.
+
+The compact type-glyph regression also composites browser-converted foreground
+and ancestor background colors, stopping at an opaque surface. Keep it alongside
+Axe: the selected Daikonic glyph's layered OKLCH colors passed Axe despite a
+computed ratio below 4.5. Unsupported painted/opacity layers must require a fresh
+measurement rather than silently assuming a background.
+
+Nested union diagnostic changes require translator and saved-record round-trip
+coverage in `packages/codegen/test/instances/validation-diagnostics.test.ts`,
+recursive source-path adaptation through the real-validator worker test, and
+`WorkflowValidation.test.tsx` disclosure checks. Rebuild Codegen first: Studio's
+worker consumes its public dist entry. The real-Rune nested Choice journey in
+`test/e2e/workflow-nested-validation.spec.ts` checks both themes through a saved
+workflow and the actual worker; separate branches must remain separate forms.

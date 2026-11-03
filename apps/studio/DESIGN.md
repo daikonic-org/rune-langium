@@ -41,6 +41,10 @@ available; no system preference silently replaces an explicit choice.
   these with additional global minimum heights. Existing button size names keep
   their width and icon intent. Textareas, list rows, touch affordances and dock
   resize targets have their own geometry.
+- Multiline diagnostic actions grow with their text. Wrap long field paths and
+  keep the icon aligned with the first line; never cap a diagnostic row to a
+  single-line control height. Validation disclosures stay inside the viewport
+  and scroll without hiding the recovery action.
 - Settings uses a common label column. Adjacent field/action pairs share the
   compact height; validation messages sit below their control, including boolean
   fields, without moving the label away from the checkbox.
@@ -51,7 +55,31 @@ available; no system preference silently replaces an explicit choice.
 - The launcher fills its available frame. Recent Workspaces sits beside Starters
   on desktop and scrolls independently; navigation and workspace actions stay
   visible. Reference Models uses the same full-width, full-height frame. Narrow
-  layouts keep the stacked flow.
+  layouts keep the stacked flow. In a narrow recent-workspace column, metadata
+  moves beneath the name before it can crowd out workspace identity.
+- Generated Code offers a reversible target-list disclosure that retains the
+  editor, file and target selection. The Git empty state links directly to
+  Workspaces without starting authorization. Import options explain their effect
+  on the Rune model through the authoritative schema metadata.
+- Enabled inactive dock tabs use muted text tokens, not translucent foreground
+  text. Light generated-code surfaces use the white working-card token so syntax
+  colors retain their intended contrast.
+- The Preview panel yields automatically when the current center panes need
+  reading space, including larger text. Auto-collapse is reversible and does not
+  remove its editors; explicit show/hide choices take precedence. Source and
+  Inspector can be focused and restored without replacing peer drafts; Code can
+  use native maximize/restore. Automatic collapse keeps expansion intent beside
+  native saved geometry; it never borrows space from another saved group. Explicit
+  navigation reveals its destination and Reset leaves focus mode.
+- Validation leads with a short field/condition label, retaining full paths and
+  canonical union alternatives in disclosures. A failed union stays one issue;
+  presentation must not invent a validator or suppress a genuine failure.
+- Studio help is available from the activity rail without leaving the active task.
+  Import guidance is inline; errors retain parser locations, scroll into view and
+  explain how to retry. The graph legend is a keyboard-accessible disclosure.
+  Explorer placeholders and kind counts use full muted ink, with no extra alpha.
+  Compact kind glyphs use foreground ink; their colored fill and border retain
+  type identity without weakening the contrast of a tiny letter.
 - Splitters stay invisible at rest and highlight the full 4px gap on hover or
   drag. Keep the existing transparent 16px drag target without a shadow outline.
 

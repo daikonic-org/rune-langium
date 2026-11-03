@@ -13,7 +13,7 @@
  * of the same class.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -28,6 +28,8 @@ vi.mock('../../../src/components/GraphFilterMenu.js', () => ({
 
 // lucide-react icons — provide stubs so jsdom doesn't have to handle SVG.
 vi.mock('lucide-react', () => ({
+  Maximize2: () => React.createElement('span'),
+  Minimize2: () => React.createElement('span'),
   Network: () => React.createElement('span'),
   FileCode2: (props: React.HTMLAttributes<HTMLSpanElement>) => React.createElement('span', props),
   Info: () => React.createElement('span'),
@@ -38,23 +40,39 @@ vi.mock('lucide-react', () => ({
 function makeContextValue(activePanes: Set<string>): CenterPanesContextValue {
   return {
     activePanes: activePanes as Set<import('../../../src/shell/center-panes-context.js').CenterPane>,
+    focusedPane: null,
+    focus: vi.fn(),
+    reveal: vi.fn(),
     toggle: vi.fn()
   };
 }
 
 function renderWithPanes(activePanes: Set<string>, props?: Partial<React.ComponentProps<typeof CenterStackPanel>>) {
-  const ctx = makeContextValue(activePanes);
-  return render(
-    <CenterPanesContext.Provider value={ctx}>
-      <CenterStackPanel
-        renderGraph={() => React.createElement('div', { 'data-testid': 'graph-pane' })}
-        renderSource={() => React.createElement('div', { 'data-testid': 'source-pane' })}
-        renderInspector={() => React.createElement('div', { 'data-testid': 'inspector-pane' })}
-        renderStructure={() => React.createElement('div', { 'data-testid': 'structure-empty-state' })}
-        {...props}
-      />
-    </CenterPanesContext.Provider>
-  );
+  function Provider() {
+    const [focusedPane, focus] = useState<CenterPanesContextValue['focusedPane']>(null);
+    const [panes, setPanes] = useState(activePanes);
+    const ctx = {
+      ...makeContextValue(panes),
+      focusedPane,
+      focus,
+      reveal(pane: import('../../../src/shell/center-panes-context.js').CenterPane) {
+        focus(null);
+        setPanes((prev) => new Set([...prev, pane]));
+      }
+    };
+    return (
+      <CenterPanesContext.Provider value={ctx}>
+        <CenterStackPanel
+          renderGraph={() => React.createElement('div', { 'data-testid': 'graph-pane' })}
+          renderSource={() => React.createElement('div', { 'data-testid': 'source-pane' })}
+          renderInspector={() => React.createElement('div', { 'data-testid': 'inspector-pane' })}
+          renderStructure={() => React.createElement('div', { 'data-testid': 'structure-empty-state' })}
+          {...props}
+        />
+      </CenterPanesContext.Provider>
+    );
+  }
+  return render(<Provider />);
 }
 
 describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regression guard)', () => {
@@ -72,20 +90,20 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
   });
   it('renders a Structure segment button in the pane-switcher', () => {
     renderWithPanes(new Set(['graph']));
-    expect(screen.getByRole('button', { name: /structure/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Structure', exact: true })).toBeInTheDocument();
   });
 
   it('renders all 4 pane segments (Graph, Structure, Source, Inspector)', () => {
     renderWithPanes(new Set(['graph']));
     expect(screen.getByRole('button', { name: /graph/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /structure/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Structure', exact: true })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /source/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /inspector/i })).toBeInTheDocument();
   });
 
   it('Structure segment is not active by default', () => {
     renderWithPanes(new Set(['graph']));
-    const btn = screen.getByRole('button', { name: /structure/i });
+    const btn = screen.getByRole('button', { name: 'Structure', exact: true });
     expect(btn).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -102,7 +120,7 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
         />
       </CenterPanesContext.Provider>
     );
-    await user.click(screen.getByRole('button', { name: /structure/i }));
+    await user.click(screen.getByRole('button', { name: 'Structure', exact: true }));
     expect(ctx.toggle).toHaveBeenCalledWith('structure');
   });
 
@@ -114,7 +132,7 @@ describe('CenterStackPanel — Structure segment reachability (Phase 7.5 regress
 
   it('Structure segment is marked active when the pane is in activePanes', () => {
     renderWithPanes(new Set(['graph', 'structure']));
-    expect(screen.getByRole('button', { name: /structure/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Structure', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });
 
@@ -160,4 +178,36 @@ describe('Source navigation feedback', () => {
       vi.useRealTimers();
     }
   });
+});
+
+it('focuses a pane and restores its peers without replacing their drafts', async () => {
+  const user = userEvent.setup();
+  renderWithPanes(new Set(['structure', 'source', 'inspector']), {
+    renderSource: () => <input aria-label="Source draft" defaultValue="unfinished" />,
+    renderInspector: () => <input aria-label="Inspector draft" defaultValue="retained" />
+  });
+  const source = screen.getByRole('textbox', { name: 'Source draft' });
+  await user.clear(source);
+  await user.type(source, 'edited');
+  const inspector = screen.getByRole('textbox', { name: 'Inspector draft' });
+  await user.click(screen.getByRole('button', { name: 'Focus Source', exact: true }));
+  expect(inspector).not.toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'Source draft' })).toBe(source);
+  expect(source).toHaveValue('edited');
+  await user.keyboard('{Escape}');
+  expect(inspector).toBeVisible();
+  expect(inspector).toHaveValue('retained');
+  expect(screen.getByRole('textbox', { name: 'Source draft' })).toBe(source);
+});
+
+it('reveals an already-open Inspector when Inspect is invoked from a focused view', async () => {
+  const user = userEvent.setup();
+  renderWithPanes(new Set(['structure', 'source', 'inspector']), {
+    renderStructure: (inspect) => <button onClick={inspect}>Inspect selected type</button>
+  });
+  await user.click(screen.getByRole('button', { name: 'Focus Structure', exact: true }));
+  expect(screen.getByTestId('inspector-pane')).not.toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Inspect selected type', exact: true }));
+  expect(screen.getByTestId('inspector-pane')).toBeVisible();
+  expect(screen.getByTestId('center-stack')).not.toHaveAttribute('data-focused-pane');
 });

@@ -489,3 +489,17 @@ describe('ImportDialog', () => {
     expect(screen.getByTestId('import-dialog__on-collision')).toHaveTextContent(/skip/i);
   });
 });
+
+it('keeps parser location and recovery guidance without the CLI prefix or losing source', async () => {
+  vi.mocked(importModel).mockRejectedValue(new Error('rune-codegen import: input is not valid JSON: line 2 column 3'));
+  const props = baseProps();
+  render(<ImportDialog {...props} />);
+  fireEvent.change(screen.getByTestId('import-dialog__source'), { target: { value: 'invalid source' } });
+  await userEvent.click(screen.getByText('Preview', { exact: true }));
+  const alert = await screen.findByTestId('import-dialog__error');
+  expect(alert).toHaveTextContent('line 2 column 3');
+  expect(alert).not.toHaveTextContent('rune-codegen');
+  expect(alert).toHaveTextContent('Correct the source and select Preview again');
+  expect(screen.getByRole('textbox', { name: 'Import source' })).toHaveValue('invalid source');
+  expect(props.onFilesChange).not.toHaveBeenCalled();
+});

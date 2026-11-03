@@ -13,14 +13,16 @@ export const JsonSchemaImportOptionsSchema = z.object({
     .boolean()
     .optional()
     .default(false)
-    .describe('Structural import only — never populate constraints arrays.'),
+    .describe('Import types and fields without their validation conditions.')
+    .meta({ title: 'Skip validation conditions' }),
   includeUnreferencedDefs: z
     .boolean()
     .optional()
     .default(true)
     .describe(
-      'Import every $defs/definitions entry (current behavior). Turn off to keep only defs reachable from a def nothing else references (a "root") — drops isolated defs/groups nothing outside ever points to.'
+      'Include all named type definitions. Turn off to omit isolated definitions that no imported root type uses.'
     )
+    .meta({ title: 'Include unused type definitions' })
 });
 
 export type JsonSchemaImportOptions = z.input<typeof JsonSchemaImportOptionsSchema>;

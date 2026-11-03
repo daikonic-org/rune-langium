@@ -15,14 +15,13 @@ export const SqlImportOptionsSchema = z.object({
     .enum(['postgres', 'sqlserver'])
     .optional()
     .default('postgres')
-    .describe(
-      'Matches the outbound SQL emitter default; currently informational (the tree-sitter grammar is dialect-tolerant).'
-    ),
+    .describe('Record the source database dialect. The importer currently accepts both dialects with the same parser.'),
   skipConditions: z
     .boolean()
     .optional()
     .default(false)
-    .describe('Structural import only — never populate constraints arrays.')
+    .describe('Import tables and fields without their validation conditions.')
+    .meta({ title: 'Skip validation conditions' })
 });
 
 export type SqlImportOptions = z.input<typeof SqlImportOptionsSchema>;

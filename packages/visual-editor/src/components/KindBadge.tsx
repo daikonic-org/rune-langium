@@ -54,7 +54,7 @@ export function KindBadge({ kind, shape = 'label', className }: KindBadgeProps):
         variant={kind}
         aria-label={KIND_LABEL[kind]}
         className={cn(
-          'rune-kind-glyph h-[18px] w-[18px] justify-center rounded-[5px] p-0 font-mono text-3xs font-bold',
+          'rune-kind-glyph h-[18px] w-[18px] justify-center rounded-[5px] p-0 font-mono text-3xs font-bold text-foreground',
           className
         )}
       >

@@ -40,6 +40,10 @@ const selectProjectionMock = vi.fn((_outputs, subject) => ({
 }));
 const generatePreviewSchemasMock = vi.fn(() => []);
 const emitStandaloneZodSchemaMock = vi.fn(() => ({ code: '', diagnostics: [] }));
+const adaptPreviewDataMock = vi.fn((_documents: unknown, _targetId: string, data: unknown) => ({
+  data,
+  sourcePath: (path: string) => path
+}));
 // 019 Task #88 follow-up — curated entries hit `RuneDsl.serializer.JsonSerializer.deserialize`
 // in `buildDocuments`. Mock returns a marker object that the assertions
 // can identify in the deserialized-docs array.
@@ -156,17 +160,15 @@ vi.mock('@rune-langium/codegen/export', () => ({
   generatePreviewSchemas: generatePreviewSchemasMock,
   emitStandaloneZodSchema: emitStandaloneZodSchemaMock,
   RUNTIME_HELPER_JS_SOURCE: 'const runeToField = undefined; const runeToReference = undefined;',
-  adaptPreviewData: (_documents: unknown, _targetId: string, data: unknown) => ({
-    data,
-    sourcePath: (path: string) => path
-  }),
+  adaptPreviewData: adaptPreviewDataMock,
   normalizePreviewInputs: (_documents: unknown, _targetId: string, inputs: unknown) => inputs
 }));
 
 const getActiveConditionPredicatesMock = vi.fn(() => []);
 const findDataNodeMock = vi.fn(() => undefined);
 
-vi.mock('@rune-langium/codegen/instances', () => ({
+vi.mock('@rune-langium/codegen/instances', async () => ({
+  ...(await import('../../../../packages/codegen/dist/src/instances/validation-diagnostics.js')),
   getActiveConditionPredicates: getActiveConditionPredicatesMock,
   findDataNode: findDataNodeMock
 }));
@@ -2273,6 +2275,49 @@ export const TradeSchema = z.object({ orders: z.array(z.object({ lines: z.array(
       requestId: 'nested',
       diagnostics: [{ path: 'orders[0].lines[1].amount', message: expect.any(String) }]
     });
+  });
+
+  it('adapts paths at every nested union level without combining alternative forms', async () => {
+    emitStandaloneZodSchemaMock.mockReturnValue({
+      code: `import { z } from 'zod';
+export const TradeSchema = z.object({settlement: z.object({value: z.union([
+  z.object({payout: z.union([z.object({cash: z.number()}), z.object({asset: z.string()})])}),
+  z.object({transfer: z.string()})
+])})});`,
+      diagnostics: []
+    });
+    await adaptPreviewDataMock.withImplementation(
+      (_documents, _targetId, data) => ({
+        data,
+        sourcePath: (path) => path.replace('settlement.value', 'settlement')
+      }),
+      async () => {
+        const { scope, dispatch } = await loadWorkerModule();
+        await setFilesAndFlush(dispatch, flushWorker);
+        dispatch({
+          type: 'instance:validate',
+          typeFqn: 'beta.Trade',
+          data: { settlement: { value: { payout: {} } } },
+          requestId: 'nested-union'
+        });
+        await flushWorker();
+        const response = scope.postMessage.mock.calls.at(-1)![0];
+        expect(response.type).toBe('instance:validateResult');
+        expect(response.diagnostics).toHaveLength(1);
+        expect(response.diagnostics[0]).toMatchObject({
+          path: 'settlement',
+          alternatives: [
+            [
+              {
+                path: 'settlement.payout',
+                alternatives: [[{ path: 'settlement.payout.cash' }], [{ path: 'settlement.payout.asset' }]]
+              }
+            ],
+            [{ path: 'settlement.transfer' }]
+          ]
+        });
+      }
+    );
   });
 
   it('attributes a multi-condition superRefine issue to its condition name via path', async () => {

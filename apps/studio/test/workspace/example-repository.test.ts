@@ -141,11 +141,13 @@ it('adapts repository examples to the existing store, serializing saves and reta
   };
   await Promise.all([repository.write(record), repository.write({ ...record, id: 'two', name: 'Trade two' })]);
   expect((await repository.load()).records.map((entry) => entry.id)).toEqual(['one', 'two']);
-  const reopened = createExampleRepository({ workspaceId: 'examples', controller, resolveType: () => undefined });
+  const resolveType = vi.fn(() => undefined);
+  const reopened = createExampleRepository({ workspaceId: 'examples', controller, resolveType });
   const read = await reopened.load();
   expect(read.records[0]?.data).toEqual(record.data);
   expect(read.records[0]?.typeIdentity).toEqual(type);
-  expect(read.diagnostics.some((entry) => entry.code === 'EXAMPLE_TYPE_UNAVAILABLE')).toBe(true);
+  expect(resolveType).not.toHaveBeenCalled();
+  expect(read.diagnostics).toEqual([]);
   await reopened.remove('one');
   expect((await reopened.load()).records.map((entry) => entry.id)).toEqual(['two']);
 });

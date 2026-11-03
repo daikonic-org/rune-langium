@@ -35,7 +35,12 @@ export async function captureNetworkResponse(response: Response): Promise<Networ
     headersMs: timing.responseStart,
     totalMs: timing.responseEnd,
     transferMs: timing.responseEnd - timing.responseStart,
-    responseBytes: sizes?.responseBodySize,
+    // Chromium can report negative sizes for cache/revalidation responses.
+    // Unknown wire bytes must not become zero or a decoded-body byte count.
+    responseBytes:
+      sizes && Number.isFinite(sizes.responseBodySize) && sizes.responseBodySize >= 0
+        ? sizes.responseBodySize
+        : undefined,
     serverTiming: response.headers()['server-timing']
   };
   if (path === '/api/parse') {

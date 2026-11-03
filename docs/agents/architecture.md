@@ -1004,7 +1004,11 @@ project Save/readback, including explicit CAS removals for deletion. Late comple
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
 Full type identity accompanies the internal display FQN; unknown/ambiguous legacy
-bindings retain data. Only typed legacy record files are inspected, and readback
+bindings retain data. Portable descriptors restore their explicit identity without
+consulting the UI's still-loading declaration inventory. Instance preparation and
+the canonical preview worker establish readiness and report genuinely missing
+types; the repository does not maintain a second semantic availability check.
+Only typed legacy record files are inspected, and readback
 precedes private migration markers. No private directory-tree copy is permitted.
 
 Named Prototype workflows are explicit portable recipes under `studio.workflows`.
@@ -1328,3 +1332,28 @@ so unchanged documents cannot retain pointers into changed dependencies. Reinsta
 an identical parser document set preserves its linked state. Selection/focus and
 read-only ownership survive placeholder replacement. Derived LSP/index data stays
 out of preview/download semantic worker payloads.
+
+## Responsive reading and diagnostic presentation
+
+Explore reuses its side-group collapse mechanism under measured space pressure;
+explicit visibility overrides, manual arrangements and focused preview inputs
+remain authoritative. Every native layout snapshot retains automatic expansion
+intent in `studioAutomaticPreviewWidths`, separate from unchanged native geometry.
+Reload restores that intent and lets actual center space determine when to reopen;
+manual visibility clears it. Never redistribute another group's saved width to
+serialize a temporary collapse. Workbench-owned size memory survives header remounts.
+Center focus hides peers without removing their mounted editors, then restores
+split fractions. Explicit Inspect/file navigation shares a reveal action that
+exits native Dockview maximization and clears center focus before showing its
+destination; Reset also clears focus. File tabs and New file use explicit source
+requests, while selection/hydration synchronization remains non-revealing.
+Preview focus uses Dockview's native maximize/restore.
+
+`codegen/instances` owns Zod issue translation, including relative union-branch
+paths and accepted-form reasons. Studio preserves these through worker messages
+and recursive metadata path adaptation; its validation UI only presents them.
+The recursive diagnostic schema retains nested choices through saved-record
+parsing: failures within one branch belong together, while nested alternatives
+remain disjoint choices. Never flatten them into a list of simultaneous failures
+or expand a Cartesian product. Nested disclosures preserve this structure without
+increasing top-level issue counts or introducing a second validator.

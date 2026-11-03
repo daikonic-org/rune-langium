@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps, IDockviewHeaderActionsProps } from 'dockview-react';
-import { Pin, PinOff } from 'lucide-react';
+import { Maximize2, Minimize2, Pin, PinOff } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { DockLayout } from '@rune-langium/design-system/ui/dock-layout';
 import { restoreNativeLayout } from './dockview-bridge.js';
@@ -19,6 +19,7 @@ import {
   type AuxiliaryPanelLayout
 } from './auxiliary-panel-layout.js';
 import { PanelCollapseButton } from './PanelCollapseButton.js';
+import { automaticPreviewWidths, expandedPreviewSnapshot, COLLAPSED_SIDE_WIDTH } from './responsive-layout.js';
 import { EXPLORE_PREVIEW_WIDTH, PANEL_TITLES } from './layout-factory.js';
 
 export const WorkbenchDefinitionContext = createContext<WorkbenchDefinition | null>(null);
@@ -27,6 +28,22 @@ interface SidePanelLayout {
   expandedWidth: number;
   expandedConstraints: { minimumWidth: number; maximumWidth: number };
   ownsCollapsedConstraints: boolean;
+  automaticallyCollapsed?: boolean;
+  expandedAt?: { available: number; panes: number; scale: number };
+}
+
+function createSidePanelLayout(
+  group: IDockviewHeaderActionsProps['group'],
+  direction: 'left' | 'right'
+): SidePanelLayout {
+  return {
+    expandedWidth: direction === 'left' ? 240 : EXPLORE_PREVIEW_WIDTH,
+    expandedConstraints: {
+      minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
+      maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
+    },
+    ownsCollapsedConstraints: false
+  };
 }
 
 const HeaderActionsContext = createContext<{
@@ -35,8 +52,6 @@ const HeaderActionsContext = createContext<{
   refresh(): void;
   original?: WorkbenchHostProps['rightHeaderActionsComponent'];
 }>({ auxiliary: null, sideLayouts: new WeakMap(), refresh: () => {} });
-
-const COLLAPSED_SIDE_WIDTH = 52;
 
 function setPreviewPanelTitles(group: IDockviewHeaderActionsProps['group'], collapsed: boolean): void {
   for (const panel of group.panels) {
@@ -66,14 +81,7 @@ function SidePanelHeaderAction({
   const { sideLayouts } = useContext(HeaderActionsContext);
   let layout = sideLayouts.get(group);
   if (!layout) {
-    layout = {
-      expandedWidth: direction === 'left' ? 240 : EXPLORE_PREVIEW_WIDTH,
-      expandedConstraints: {
-        minimumWidth: group.minimumWidth === COLLAPSED_SIDE_WIDTH ? 0 : group.minimumWidth,
-        maximumWidth: group.maximumWidth === COLLAPSED_SIDE_WIDTH ? Infinity : group.maximumWidth
-      },
-      ownsCollapsedConstraints: false
-    };
+    layout = createSidePanelLayout(group, direction);
     sideLayouts.set(group, layout);
   }
   const sideLayout = layout;
@@ -125,15 +133,17 @@ function SidePanelHeaderAction({
     const position = collapsed ? direction : 'top';
     if (group.api.getHeaderPosition() !== position) group.api.setHeaderPosition(position);
   }, [group, collapsed, direction]);
-  const toggle = () => {
+  const setCollapsedLayout = (next: boolean) => {
+    // Hiding a focused preview must reveal the main task, not leave a maximized rail.
+    if (next && group.api.location.type === 'grid' && group.api.isMaximized()) group.api.exitMaximized();
     if (group.api.location.type === 'edge') {
-      if (auxiliary?.isManaged(group.id)) auxiliary.setCollapsed(group.id, !collapsed);
-      else if (collapsed) group.api.expand();
+      if (auxiliary?.isManaged(group.id)) auxiliary.setCollapsed(group.id, next);
+      else if (!next) group.api.expand();
       else group.api.collapse();
     } else {
       // Match the utility tray's resize approach without removing the panel's DOM.
       const width = sideLayout.expandedWidth;
-      if (collapsed) {
+      if (!next) {
         sideLayout.ownsCollapsedConstraints = false;
         group.api.setConstraints(sideLayout.expandedConstraints);
         group.api.setSize({ width });
@@ -145,10 +155,113 @@ function SidePanelHeaderAction({
       }
     }
   };
+  const measure = () => {
+    const center = group.element.closest('.dv-dockview')?.querySelector<HTMLElement>('[data-testid="center-stack"]');
+    if (!center) return;
+    const rect = center.getBoundingClientRect();
+    const side = group.element.getBoundingClientRect();
+    // A manually moved/floating preview is not a competing right column.
+    if (rect.width <= 0 || side.left < rect.right - 2) return;
+    const scale = Number.parseFloat(getComputedStyle(center.querySelector('[data-pane]') ?? center).zoom) || 1;
+    return { available: rect.width + group.api.width, panes: Number(center.dataset.count) || 1, scale };
+  };
+  useEffect(() => {
+    if (direction !== 'right') return;
+    const host = group.element.closest('.dv-dockview');
+    if (!host) return;
+    let frame = 0;
+    const reconcile = () => {
+      const size = measure();
+      if (!size || group.element.contains(document.activeElement)) return;
+      const minimum = Math.max(480, size.panes * 300) * size.scale;
+      const expandedWidth = sideLayout.expandedWidth;
+      const override = sideLayout.expandedAt;
+      const explicitlyOpened =
+        override &&
+        size.available >= override.available - 48 &&
+        size.panes <= override.panes &&
+        size.scale <= override.scale;
+      if (!isCollapsed() && size.available - group.api.width < minimum && !explicitlyOpened) {
+        sideLayout.automaticallyCollapsed = true;
+        setCollapsedLayout(true);
+      } else if (isCollapsed() && sideLayout.automaticallyCollapsed && size.available - expandedWidth >= minimum + 48) {
+        sideLayout.automaticallyCollapsed = false;
+        setCollapsedLayout(false);
+      }
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(reconcile);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(host);
+    const center = host.querySelector('[data-testid="center-stack"]');
+    if (center) resize.observe(center);
+    const mutation = new MutationObserver(schedule);
+    mutation.observe(host, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['data-count', 'data-focused-pane']
+    });
+    mutation.observe(document.documentElement, { attributes: true, attributeFilter: ['data-font-scale'] });
+    host.addEventListener('focusout', schedule);
+    const dimensions = group.api.onDidDimensionsChange(schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutation.disconnect();
+      dimensions.dispose();
+      host.removeEventListener('focusout', schedule);
+    };
+  }, [group, direction]);
+  const toggle = () => {
+    sideLayout.automaticallyCollapsed = false;
+    sideLayout.expandedAt = collapsed ? measure() : undefined;
+    setCollapsedLayout(!collapsed);
+  };
   return (
     <div className="studio-panel-actions mr-1">
+      {direction === 'right' && !collapsed && group.api.location.type === 'grid' ? (
+        <PreviewFocusButton group={group} />
+      ) : null}
       <PanelCollapseButton label={label} direction={direction} collapsed={collapsed} onToggle={toggle} />
     </div>
+  );
+}
+
+function PreviewFocusButton({ group }: { group: IDockviewHeaderActionsProps['group'] }) {
+  const [maximized, setMaximized] = useState(() => group.api.isMaximized());
+  useEffect(() => {
+    let mounted = true;
+    const listener = group.api.onDidDimensionsChange(() =>
+      queueMicrotask(() => {
+        if (mounted) setMaximized(group.api.isMaximized());
+      })
+    );
+    return () => {
+      mounted = false;
+      listener.dispose();
+    };
+  }, [group]);
+  const action = maximized ? 'Restore preview layout' : 'Focus preview';
+  const Icon = maximized ? Minimize2 : Maximize2;
+  return (
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      aria-label={action}
+      title={action}
+      aria-pressed={maximized}
+      onClick={() => {
+        if (group.api.isMaximized()) group.api.exitMaximized();
+        else group.api.maximize();
+        setMaximized(group.api.isMaximized());
+      }}
+    >
+      <Icon className="size-3.5" aria-hidden="true" />
+    </Button>
   );
 }
 
@@ -319,12 +432,40 @@ export const WorkbenchHost = withInstrumentation(
         }
       }
 
+      const automatic = automaticPreviewWidths(initialNativeLayoutRef.current);
+      for (const group of event.api.groups ?? []) {
+        const width = automatic.get(group.id);
+        if (!width || getExploreSidePanel(group.panels.map((panel) => panel.api.component))?.direction !== 'right')
+          continue;
+        const remembered = sideLayouts.get(group) ?? createSidePanelLayout(group, 'right');
+        Object.assign(remembered, {
+          expandedWidth: width,
+          ownsCollapsedConstraints: group.api.location.type === 'grid',
+          automaticallyCollapsed: true
+        });
+        sideLayouts.set(group, remembered);
+        if (group.api.location.type === 'edge') group.api.collapse();
+        else {
+          group.api.setConstraints({ minimumWidth: COLLAPSED_SIDE_WIDTH, maximumWidth: COLLAPSED_SIDE_WIDTH });
+          group.api.setSize({ width: COLLAPSED_SIDE_WIDTH });
+        }
+      }
+
       listenerRef.current = event.api.onDidLayoutChange(() => {
         if (event.api.panels.length === 0) return;
         // Comparing designs must not overwrite the workspace's saved arrangement.
         if (restoringPreviewRef.current || useDesignPreviewStore.getState().preferences.auxiliary) return;
         try {
-          onNativeLayoutChangeRef.current(event.api.toJSON());
+          const expanded = new Map<string, number>();
+          for (const group of event.api.groups ?? []) {
+            const side = sideLayouts.get(group);
+            if (
+              side?.automaticallyCollapsed &&
+              getExploreSidePanel(group.panels.map((panel) => panel.api.component))?.direction === 'right'
+            )
+              expanded.set(group.id, side.expandedWidth);
+          }
+          onNativeLayoutChangeRef.current(expandedPreviewSnapshot(event.api.toJSON(), expanded));
         } catch (error) {
           onNativeLayoutErrorRef.current?.(error);
         }

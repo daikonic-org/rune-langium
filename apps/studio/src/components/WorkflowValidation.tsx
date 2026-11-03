@@ -9,6 +9,34 @@ import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-sy
 import type { WorkflowValidation as Validation } from '../services/workflow-validation.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
+const ValidationAlternatives = withInstrumentation(
+  function ValidationAlternatives({ diagnostic }: { diagnostic: Validation['diagnostics'][number] }) {
+    if (!diagnostic.alternatives?.length) return null;
+    return (
+      <details className="mt-1 text-xs">
+        <summary>Accepted forms · {diagnostic.alternatives.length} alternatives</summary>
+        <ol className="mt-2 space-y-2">
+          {diagnostic.alternatives.map((branch, branchIndex) => (
+            <li key={branchIndex}>
+              <p className="font-medium">Alternative {branchIndex + 1}</p>
+              <ul className="mt-1 space-y-1 pl-3">
+                {branch.map((issue, issueIndex) => (
+                  <li key={issueIndex} className="[overflow-wrap:anywhere]">
+                    {issue.path || diagnostic.path || 'Input'}:{' '}
+                    {issue.alternatives?.length ? 'Does not match an accepted form.' : issue.message}
+                    <ValidationAlternatives diagnostic={issue} />
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      </details>
+    );
+  },
+  { op: 'ValidationAlternatives', sanitize: () => '[diagnostic]' }
+);
+
 export const WorkflowValidation = withInstrumentation(
   function WorkflowValidation({
     name,
@@ -61,7 +89,11 @@ export const WorkflowValidation = withInstrumentation(
             <Icon className={`size-4 ${validation.state === 'pending' ? 'animate-spin' : ''}`} aria-hidden="true" />
           )}
         </PopoverTrigger>
-        <PopoverContent className="workflow-validation-popover" align="end">
+        <PopoverContent
+          aria-label={`${name} ${functionChecks ? 'input checks' : 'validation'}`}
+          className="workflow-validation-popover"
+          align="end"
+        >
           <h3 className="font-semibold">
             {name} · {functionChecks ? 'input checks' : 'validation'}
           </h3>
@@ -80,7 +112,7 @@ export const WorkflowValidation = withInstrumentation(
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-auto w-full justify-start whitespace-normal text-left text-xs"
+                    className="h-auto w-full items-start justify-start py-1 whitespace-normal text-left text-xs"
                     onClick={() => {
                       const fields = [...(root.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? [])];
                       const path = diagnostic.path;
@@ -101,26 +133,37 @@ export const WorkflowValidation = withInstrumentation(
                       }
                     }}
                   >
-                    <CircleX className="size-3.5 shrink-0 text-destructive" aria-hidden="true" />
-                    <span>
-                      {diagnostic.conditionDescription ??
-                        (diagnostic.conditionName
-                          ? `${diagnostic.conditionName} is not satisfied.`
-                          : `${diagnostic.path || 'Input'}: ${diagnostic.message}`)}
+                    <CircleX className="mt-0.5 size-3.5 shrink-0 text-destructive" aria-hidden="true" />
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
+                      <span className="block font-medium">
+                        {diagnostic.conditionName ?? (diagnostic.path.split('.').at(-1) || 'Input')}:
+                      </span>{' '}
+                      <span className="block">
+                        {diagnostic.conditionDescription ??
+                          (diagnostic.conditionName
+                            ? `${diagnostic.conditionName} is not satisfied.`
+                            : diagnostic.alternatives?.length
+                              ? 'Does not match an accepted form. Review the alternatives below.'
+                              : diagnostic.message)}
+                      </span>
                     </span>
                   </Button>
                   {diagnostic.conditionSource ? (
                     <pre
                       aria-label={`${diagnostic.conditionName ?? 'Condition'} Rune source`}
-                      className="studio-scroll mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 font-mono text-xs"
+                      className="studio-scroll mt-1 max-h-48 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded bg-background p-2 font-mono text-xs"
                     >
                       {diagnostic.conditionSource}
                     </pre>
                   ) : null}
-                  {diagnostic.conditionName ? (
+                  <ValidationAlternatives diagnostic={diagnostic} />
+                  {diagnostic.conditionName || diagnostic.path || diagnostic.alternatives?.length ? (
                     <details className="mt-1 text-xs text-muted-foreground">
                       <summary>Technical details</summary>
-                      <p className="mt-1 break-words">{diagnostic.message}</p>
+                      <p className="mt-1 [overflow-wrap:anywhere]">
+                        {diagnostic.path ? `${diagnostic.path}: ` : ''}
+                        {diagnostic.message}
+                      </p>
                     </details>
                   ) : null}
                 </li>

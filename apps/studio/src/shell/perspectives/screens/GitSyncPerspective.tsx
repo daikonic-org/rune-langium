@@ -25,6 +25,7 @@ import { subscribeToEngine, resolveConflict, getSyncEngine } from '../../../serv
 import { SyncStatusBadge } from '../../../components/SyncStatusBadge.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { useWorkspaceActionsOptional } from '../workspace-actions-context.js';
+import { usePerspectiveStore } from '../../../store/perspective-store.js';
 import { GitBranch } from 'lucide-react';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 
@@ -76,6 +77,9 @@ function GitNotConnectedEmptyState({ origin }: { origin?: WorkspaceRecord['start
           </>
         )}
       </p>
+      <Button size="sm" onClick={() => usePerspectiveStore.getState().openWorkspaces('workspaces')}>
+        Open Workspaces
+      </Button>
     </div>
   );
 }

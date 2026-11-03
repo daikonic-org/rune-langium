@@ -21,6 +21,8 @@ import { json } from '@codemirror/lang-json';
 import type { Target } from '@rune-langium/codegen/export';
 import { namespaceFromModelName } from '@rune-langium/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
+import { Button } from '@rune-langium/design-system/ui/button';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { nameFromNodeId, useLatestRef } from '@rune-langium/visual-editor';
 import { editorExtensions, externalDocumentChange } from '../lang/editor-extensions.js';
 import {
@@ -133,6 +135,7 @@ export const CodePreviewPanel = withInstrumentation(
     const setCodePreviewTarget = useCodegenStore((s) => s.setCodePreviewTarget);
     const setActiveCodePreviewFile = useCodegenStore((s) => s.setActiveCodePreviewFile);
     const activeFile = useMemo(() => activeFileFromSnapshot(snapshot), [snapshot]);
+    const [showTargets, setShowTargets] = useState(true);
 
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<EditorView | null>(null);
@@ -428,8 +431,8 @@ export const CodePreviewPanel = withInstrumentation(
     const activeRelativePath =
       snapshot.status === 'ready' || snapshot.status === 'stale' ? snapshot.activeRelativePath : undefined;
 
-    // 019 polish — stacked layout: targets table always at the top; when
-    // `activeTarget` is set, the viewer expands below it. Clicking the
+    // Keep targets mounted while their disclosure gives space back to code.
+    // When `activeTarget` is set, the viewer expands below it. Clicking the
     // active row regenerates its preview. `inflightTarget`
     // reflects the in-flight Download POST (Task 0.12) so the clicked
     // row shows a spinner while `/api/codegen` is outstanding.
@@ -443,7 +446,19 @@ export const CodePreviewPanel = withInstrumentation(
         data-component="workspace.codePreview"
         className="preview-panel preview-panel--code flex h-full min-h-0 flex-col overflow-hidden"
       >
-        <div className="shrink-0 border-b border-border/70">
+        {viewerOpen ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            className="shrink-0 self-start my-1 mx-2"
+            aria-expanded={showTargets}
+            onClick={() => setShowTargets((visible) => !visible)}
+          >
+            {showTargets ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+            {showTargets ? 'Hide generation targets' : 'Show generation targets'}
+          </Button>
+        ) : null}
+        <div hidden={viewerOpen && !showTargets} className="shrink-0 border-b border-border/70">
           <CodegenTargetsTable
             onView={handleViewTarget}
             onDownload={handleDownloadTarget}

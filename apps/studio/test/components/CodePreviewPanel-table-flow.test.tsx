@@ -151,6 +151,19 @@ describe('CodePreviewPanel table-as-landing flow', () => {
     expect(screen.getByTestId('code-preview-editor')).toBe(editor);
   });
 
+  it('gives space back to generated code without remounting its editor or resetting its target', () => {
+    render(<CodePreviewPanel sourceEditorRef={null} />);
+    fireEvent.click(screen.getByTestId('codegen-targets-table__view-typescript'));
+    const editor = screen.getByTestId('code-preview-editor');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide generation targets' }));
+    expect(screen.getByTestId('codegen-targets-table')).not.toBeVisible();
+    expect(screen.getByTestId('code-preview-editor')).toBe(editor);
+    expect(useCodegenStore.getState().activeTarget).toBe('typescript');
+    fireEvent.click(screen.getByRole('button', { name: 'Show generation targets' }));
+    expect(screen.getByTestId('codegen-targets-table')).toBeVisible();
+    expect(screen.getByTestId('code-preview-editor')).toBe(editor);
+  });
+
   it('clicking the eye on a different row swaps the preview without closing it', () => {
     render(<CodePreviewPanel sourceEditorRef={null} />);
     fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));

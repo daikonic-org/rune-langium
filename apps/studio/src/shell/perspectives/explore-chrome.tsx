@@ -9,7 +9,7 @@
  * Content MOVED VERBATIM from `ExplorePerspective`'s private header; each is
  * a zero-arg component reading its own hooks/stores rather than props
  * threaded from `ExplorePerspective` — the FileTabStrip's real dependencies
- * (activeEditorFile, openFileInSource, combinedFileDiagnostics) now come from
+ * (activeEditorFile, requestSourceFile, combinedFileDiagnostics) now come from
  * `useWorkspace()`, `useDiagnosticsStore()`, and `explore-file-nav-store.ts`.
  */
 
@@ -169,7 +169,7 @@ export const ExploreCenterSlot = withInstrumentation(
     const { onFilesChange } = useWorkspaceActions();
     const { fileDiagnostics } = useDiagnosticsStore();
     const activeEditorFile = useExploreFileNavStore((s) => s.activeEditorFile);
-    const openFileInSource = useExploreFileNavStore((s) => s.openFileInSource);
+    const requestSourceFile = useExploreFileNavStore((s) => s.requestSourceFile);
     const setActiveEditorFile = useExploreFileNavStore((s) => s.setActiveEditorFile);
 
     const effectiveParseErrors = parseErrors ?? EMPTY_PARSE_ERRORS;
@@ -181,7 +181,7 @@ export const ExploreCenterSlot = withInstrumentation(
     const handleCreateFile = () => {
       const file = createBlankWorkspaceFile(files);
       onFilesChange?.([...files, file]);
-      openFileInSource(file.path);
+      requestSourceFile(file.path);
     };
 
     // Issue #405 — no UI action previously deleted a workspace file. Native
@@ -209,7 +209,7 @@ export const ExploreCenterSlot = withInstrumentation(
       <FileTabStrip
         files={files}
         activeFile={activeEditorFile}
-        onSelectFile={openFileInSource}
+        onSelectFile={requestSourceFile}
         onCreateFile={handleCreateFile}
         onDeleteFile={handleDeleteFile}
         fileDiagnostics={combinedFileDiagnostics}

@@ -328,14 +328,9 @@ export const createExampleRepository = withInstrumentation(
             if (entry.payload === undefined)
               failures[record.id] =
                 'Repair or restore this example payload before saving. Its original bytes are retained.';
-            const resolved = input.resolveType(record);
-            if (!resolved || declarationKey(resolved) !== declarationKey(type))
-              diagnostics.push({
-                code: 'EXAMPLE_TYPE_UNAVAILABLE',
-                severity: 'warning',
-                path: entry.descriptorPath,
-                message: 'This example type is unavailable. Its saved payload is retained.'
-              });
+            // Portable descriptors already carry an exact identity. The shared
+            // instance preparation/worker validates its availability after model
+            // readiness; the UI inventory may still be empty during restoration.
             if (!records.has(record.id)) records.set(record.id, record);
             else failures[record.id] = 'Repair duplicate example IDs before saving.';
           }
