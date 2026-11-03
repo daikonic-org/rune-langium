@@ -9,6 +9,34 @@ import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-sy
 import type { WorkflowValidation as Validation } from '../services/workflow-validation.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
+const ValidationAlternatives = withInstrumentation(
+  function ValidationAlternatives({ diagnostic }: { diagnostic: Validation['diagnostics'][number] }) {
+    if (!diagnostic.alternatives?.length) return null;
+    return (
+      <details className="mt-1 text-xs">
+        <summary>Accepted forms · {diagnostic.alternatives.length} alternatives</summary>
+        <ol className="mt-2 space-y-2">
+          {diagnostic.alternatives.map((branch, branchIndex) => (
+            <li key={branchIndex}>
+              <p className="font-medium">Alternative {branchIndex + 1}</p>
+              <ul className="mt-1 space-y-1 pl-3">
+                {branch.map((issue, issueIndex) => (
+                  <li key={issueIndex} className="[overflow-wrap:anywhere]">
+                    {issue.path || diagnostic.path || 'Input'}:{' '}
+                    {issue.alternatives?.length ? 'Does not match an accepted form.' : issue.message}
+                    <ValidationAlternatives diagnostic={issue} />
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      </details>
+    );
+  },
+  { op: 'ValidationAlternatives', sanitize: () => '[diagnostic]' }
+);
+
 export const WorkflowValidation = withInstrumentation(
   function WorkflowValidation({
     name,
@@ -128,25 +156,7 @@ export const WorkflowValidation = withInstrumentation(
                       {diagnostic.conditionSource}
                     </pre>
                   ) : null}
-                  {diagnostic.alternatives?.length ? (
-                    <details className="mt-1 text-xs">
-                      <summary>Accepted forms · {diagnostic.alternatives.length} alternatives</summary>
-                      <ol className="mt-2 space-y-2">
-                        {diagnostic.alternatives.map((branch, branchIndex) => (
-                          <li key={branchIndex}>
-                            <p className="font-medium">Alternative {branchIndex + 1}</p>
-                            <ul className="mt-1 space-y-1">
-                              {branch.map((issue, issueIndex) => (
-                                <li key={issueIndex} className="[overflow-wrap:anywhere]">
-                                  {issue.path || diagnostic.path || 'Input'}: {issue.message}
-                                </li>
-                              ))}
-                            </ul>
-                          </li>
-                        ))}
-                      </ol>
-                    </details>
-                  ) : null}
+                  <ValidationAlternatives diagnostic={diagnostic} />
                   {diagnostic.conditionName || diagnostic.path || diagnostic.alternatives?.length ? (
                     <details className="mt-1 text-xs text-muted-foreground">
                       <summary>Technical details</summary>

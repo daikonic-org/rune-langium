@@ -1344,10 +1344,16 @@ manual visibility clears it. Never redistribute another group's saved width to
 serialize a temporary collapse. Workbench-owned size memory survives header remounts.
 Center focus hides peers without removing their mounted editors, then restores
 split fractions. Explicit Inspect/file navigation shares a reveal action that
-clears focus before showing its destination; Reset also clears focus. Preview
-focus uses Dockview's native maximize/restore.
+exits native Dockview maximization and clears center focus before showing its
+destination; Reset also clears focus. File tabs and New file use explicit source
+requests, while selection/hydration synchronization remains non-revealing.
+Preview focus uses Dockview's native maximize/restore.
 
 `codegen/instances` owns Zod issue translation, including relative union-branch
 paths and accepted-form reasons. Studio preserves these through worker messages
-and metadata path adaptation; its validation UI only presents them. Union details
-do not increase the number of validator issues or introduce a second validator.
+and recursive metadata path adaptation; its validation UI only presents them.
+The recursive diagnostic schema retains nested choices through saved-record
+parsing: failures within one branch belong together, while nested alternatives
+remain disjoint choices. Never flatten them into a list of simultaneous failures
+or expand a Cartesian product. Nested disclosures preserve this structure without
+increasing top-level issue counts or introducing a second validator.

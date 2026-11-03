@@ -265,6 +265,8 @@ export const DockShell = withInstrumentation(
     const [activePanes, setActivePanes] = useState<Set<CenterPane>>(() => new Set<CenterPane>(['structure']));
     const [focusedPane, setFocusedPane] = useState<CenterPane | null>(null);
     const revealCenterPane = useCallback((pane: Extract<CenterPane, 'source' | 'inspector'>) => {
+      const api = apiRef.current;
+      if (api?.hasMaximizedGroup()) api.exitMaximizedGroup();
       setFocusedPane(null);
       setActivePanes((previous) => (previous.has(pane) ? previous : new Set([...previous, pane])));
     }, []);

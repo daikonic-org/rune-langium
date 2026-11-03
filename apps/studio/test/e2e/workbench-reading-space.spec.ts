@@ -217,3 +217,42 @@ test('explicit Inspect and file navigation reveal their destination while a peer
     .click();
   await expect(page.getByTestId('center-stack')).not.toHaveAttribute('data-focused-pane');
 });
+
+test('file tabs and new files reveal Source while another center pane is focused', async ({ page }) => {
+  await quote(page);
+  const center = page.getByTestId('center-stack');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Focus Structure', exact: true }).click();
+  await page
+    .getByRole('group', { name: 'Open files', exact: true })
+    .getByRole('button', { name: /^reading\.rosetta / })
+    .click();
+  await expect(center.locator('[data-pane="source"]')).toBeVisible();
+  await expect(center).not.toHaveAttribute('data-focused-pane');
+  await page.getByRole('button', { name: 'Focus Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'New file', exact: true }).click();
+  await expect(center.locator('[data-pane="source"]')).toBeVisible();
+  await expect(center).not.toHaveAttribute('data-focused-pane');
+  await expect(
+    page.getByRole('group', { name: 'Open files', exact: true }).locator('button[aria-pressed="true"]')
+  ).not.toContainText('reading.rosetta');
+});
+
+test('global file search reveals Source from a maximized Code preview', async ({ page }, info) => {
+  await quote(page);
+  await page.getByRole('tab', { name: 'Code', exact: true }).click();
+  await page.getByTestId('codegen-targets-table__view-typescript').click();
+  await expect(page.getByTestId('code-preview-editor')).toContainText('Quote');
+  const code = await page.getByTestId('code-preview-editor').elementHandle();
+  await page.getByRole('button', { name: 'Focus preview', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Restore preview layout', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Search types, text & files… ⌘K', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Search types, files and commands', exact: true }).fill('reading.rosetta');
+  await page.getByRole('option', { name: 'reading.rosetta', exact: true }).click();
+  await expect(page.getByTestId('center-stack').locator('[data-pane="source"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore preview layout', exact: true })).toHaveCount(0);
+  expect(await code!.evaluate((el) => el.isConnected)).toBe(true);
+  await expect(page.getByRole('dialog', { name: 'Search Studio', exact: true })).toBeHidden();
+  await page.screenshot({ path: info.outputPath('revealed-source-after-preview-focus.png') });
+});

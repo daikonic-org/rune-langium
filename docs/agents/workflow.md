@@ -496,7 +496,8 @@ real expression-edit pipeline; it is separate from production acceptance.
 `test/e2e/workbench-reading-space.spec.ts` checks desktop/narrow-desktop automatic
 Preview yielding, explicit visibility overrides, retained form/code nodes,
 Source focus at full measured width, native preview maximize/restore, wide reload
-recovery, explicit Inspect/file navigation out of focus, Reset focus clearing,
+recovery, explicit Inspect/file navigation out of focus, file tabs/New file and
+global file search from maximized Code Preview, Reset focus clearing,
 search/count contrast, keyboard help/legend disclosure and complete import-error
 visibility above the footer. `WorkbenchHost-side-panels.test.tsx` saves an automatic
 collapse after another group is resized, then reloads with enough actual center
@@ -510,3 +511,11 @@ and ancestor background colors, stopping at an opaque surface. Keep it alongside
 Axe: the selected Daikonic glyph's layered OKLCH colors passed Axe despite a
 computed ratio below 4.5. Unsupported painted/opacity layers must require a fresh
 measurement rather than silently assuming a background.
+
+Nested union diagnostic changes require translator and saved-record round-trip
+coverage in `packages/codegen/test/instances/validation-diagnostics.test.ts`,
+recursive source-path adaptation through the real-validator worker test, and
+`WorkflowValidation.test.tsx` disclosure checks. Rebuild Codegen first: Studio's
+worker consumes its public dist entry. The real-Rune nested Choice journey in
+`test/e2e/workflow-nested-validation.spec.ts` checks both themes through a saved
+workflow and the actual worker; separate branches must remain separate forms.

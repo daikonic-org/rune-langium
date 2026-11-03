@@ -32,14 +32,8 @@ export function translateValidationIssues(
     const alternatives =
       issue.code === 'invalid_union'
         ? issue.errors.map((branch) =>
-            branch.flatMap((nested) => {
-              // Zod union branch paths are relative to the failed union's path.
-              const translated = translateValidationIssues([{ ...nested, path: [...issue.path, ...nested.path] }]);
-              return translated.flatMap(
-                (diagnostic) =>
-                  diagnostic.alternatives?.flat() ?? [{ path: diagnostic.path, message: diagnostic.message }]
-              );
-            })
+            // Paths at each nested union are relative to that union, not the outermost one.
+            translateValidationIssues(branch.map((nested) => ({ ...nested, path: [...issue.path, ...nested.path] })))
           )
         : undefined;
     return { path: formatIssuePath(issue.path), message: issue.message, ...(alternatives && { alternatives }) };

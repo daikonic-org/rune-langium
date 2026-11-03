@@ -120,6 +120,7 @@ describe('FileTabStrip chrome (Gap 1)', () => {
     useDiagnosticsStore.getState().clearAll();
     usePerspectiveStore.getState().setActivePerspective('workspaces');
     useExploreFileNavStore.getState().setActiveEditorFile(undefined);
+    useExploreFileNavStore.getState().clearSourceRequest();
     vi.restoreAllMocks();
     cleanup();
   });
@@ -161,6 +162,19 @@ describe('FileTabStrip chrome (Gap 1)', () => {
     const next = onFilesChange.mock.calls[0]![0] as WorkspaceFile[];
     expect(next).toHaveLength(3);
     expect(next.some((f) => f.path === 'untitled.rosetta')).toBe(true);
+    expect(useExploreFileNavStore.getState().requestedSourceFile).toBe('untitled.rosetta');
+  });
+
+  it('explicit file selection requests Source without making automatic synchronization reveal it', () => {
+    renderEditorPage({ files: makeFiles() });
+    useExploreFileNavStore.getState().clearSourceRequest();
+    fireEvent.click(tabByName(FILE_B));
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe(FILE_B);
+    expect(useExploreFileNavStore.getState().requestedSourceFile).toBe(FILE_B);
+    useExploreFileNavStore.getState().clearSourceRequest();
+    useExploreFileNavStore.getState().openFileInSource(FILE_A);
+    expect(useExploreFileNavStore.getState().activeEditorFile).toBe(FILE_A);
+    expect(useExploreFileNavStore.getState().requestedSourceFile).toBeUndefined();
   });
 
   // Issue #405 — no UI action deleted a workspace file; resolveEffectivePerspective's

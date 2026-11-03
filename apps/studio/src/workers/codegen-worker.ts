@@ -1186,17 +1186,14 @@ async function validateInstance(typeFqn: string, data: Record<string, unknown>, 
     const resourceDiagnostics = projectResourceDiagnostics(project, documents, documentsVersion, typeFqn, data);
     const adapted = adaptPreviewData(documents, typeFqn, data);
     const result = compiled.validator.safeParse(adapted.data);
+    const sourceDiagnostic = (issue: ValidationDiagnostic): ValidationDiagnostic => ({
+      ...issue,
+      path: adapted.sourcePath(issue.path),
+      ...(issue.alternatives && { alternatives: issue.alternatives.map((branch) => branch.map(sourceDiagnostic)) })
+    });
     const diagnostics: ValidationDiagnostic[] = result.success
       ? []
-      : translateValidationIssues(result.error.issues, activeConditionNames).map((issue) => ({
-          ...issue,
-          path: adapted.sourcePath(issue.path),
-          ...(issue.alternatives && {
-            alternatives: issue.alternatives.map((branch) =>
-              branch.map((detail) => ({ ...detail, path: adapted.sourcePath(detail.path) }))
-            )
-          })
-        }));
+      : translateValidationIssues(result.error.issues, activeConditionNames).map(sourceDiagnostic);
     const resourcePaths = new Set(resourceDiagnostics.map((issue) => issue.path));
 
     scope.postMessage({
