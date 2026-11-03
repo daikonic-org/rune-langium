@@ -42,6 +42,58 @@ for (const theme of ['light', 'daikonic'])
           .analyze()
       ).violations
     ).toEqual([]);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-testid="namespace-explorer"] .rune-kind-glyph')
+          .withRules(['color-contrast'])
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    const glyphContrast = await page
+      .getByTestId('namespace-explorer')
+      .locator('.rune-kind-glyph')
+      .first()
+      .evaluate((el) => {
+        // Read actual browser color conversion and composite every translucent ancestor.
+        // Axe can miss an OKLCH foreground; this assertion covers that measurement gap.
+        const ctx = new OffscreenCanvas(1, 1).getContext('2d')!;
+        const rgba = (color: string) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = color;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data).map((value) => value / 255);
+        };
+        const layers: number[][] = [];
+        for (let node: Element | null = el; node; node = node.parentElement) {
+          const style = getComputedStyle(node);
+          if (style.backgroundImage !== 'none' || style.opacity !== '1')
+            throw new Error('Glyph contrast needs a painted-background measurement');
+          const background = rgba(style.backgroundColor);
+          layers.push(background);
+          if (background[3] === 1) break;
+        }
+        const background = layers
+          .reverse()
+          .reduce(
+            (under, over) => over.slice(0, 3).map((value, i) => value * over[3]! + under[i]! * (1 - over[3]!)),
+            [1, 1, 1]
+          );
+        const foreground = rgba(getComputedStyle(el).color);
+        const luminance = (values: number[]) =>
+          values
+            .slice(0, 3)
+            .reduce(
+              (sum, value, i) =>
+                sum +
+                [0.2126, 0.7152, 0.0722][i]! * (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4),
+              0
+            );
+        const a = luminance(foreground),
+          b = luminance(background);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      });
+    expect(glyphContrast).toBeGreaterThanOrEqual(4.5);
     const form = page.getByTestId('panel-formPreview');
     const field = form.getByRole('spinbutton', { name: 'Amount', exact: true });
     await field.fill('123');

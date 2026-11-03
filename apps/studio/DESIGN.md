@@ -76,6 +76,8 @@ available; no system preference silently replaces an explicit choice.
   Import guidance is inline; errors retain parser locations, scroll into view and
   explain how to retry. The graph legend is a keyboard-accessible disclosure.
   Explorer placeholders and kind counts use full muted ink, with no extra alpha.
+  Compact kind glyphs use foreground ink; their colored fill and border retain
+  type identity without weakening the contrast of a tiny letter.
 - Splitters stay invisible at rest and highlight the full 4px gap on hover or
   drag. Keep the existing transparent 16px drag target without a shadow outline.
 

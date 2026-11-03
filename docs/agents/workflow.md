@@ -500,3 +500,9 @@ recovery, search/count contrast, keyboard help/legend disclosure and complete
 import-error visibility above the footer. Keep geometry assertions: hiding peers
 alone does not prove a focused editor gained space. This local coverage is
 separate from deployed production acceptance.
+
+The compact type-glyph regression also composites browser-converted foreground
+and ancestor background colors, stopping at an opaque surface. Keep it alongside
+Axe: the selected Daikonic glyph's layered OKLCH colors passed Axe despite a
+computed ratio below 4.5. Unsupported painted/opacity layers must require a fresh
+measurement rather than silently assuming a background.

@@ -10,4 +10,4 @@ Keep multiline validation actions and recent workspace names readable, improve i
 Automatically yield the Preview panel under reading-space pressure, preserve
 explicit controls and drafts, add reversible pane/code focus, expose canonical
 union validation reasons, and keep import guidance/recovery and task help usable.
-Collapse the graph legend on demand and retain full-contrast explorer hints/counts.
+Collapse the graph legend on demand and retain full-contrast explorer hints/counts and compact type letters.
