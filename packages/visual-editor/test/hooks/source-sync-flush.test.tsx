@@ -5,6 +5,64 @@ import { renderHook, act } from '@testing-library/react';
 import { it, expect, vi } from 'vitest';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
 import { useModelSourceSync, type SourceSyncSnapshot } from '../../src/hooks/useModelSourceSync.js';
+import { parseWorkspace } from '@rune-langium/core';
+import { createEditorStore } from '../../src/store/editor-store.js';
+
+it('flushes a rename into its owning file before React rerenders, preserving a same-namespace sibling file', async () => {
+  const sources = ['A', 'B'].map((name) => `override namespace shared\ntype ${name}:\n value string (0..1)\n`);
+  const entries = sources.map((content, index) => ({ content, uri: `file:///${index}.rosetta` }));
+  const parsed = await parseWorkspace(entries);
+  expect(parsed.every((entry) => !entry.hasErrors)).toBe(true);
+  const store = createEditorStore();
+  store.getState().loadModels(parsed.map((entry) => entry.value));
+  const initial = store.getState();
+  const files = new Map(
+    ['A', 'B'].map((name, index) => {
+      const node = initial.nodes.find((entry) => entry.data.name === name)!;
+      return [
+        `${name}.rosetta`,
+        {
+          namespace: 'shared',
+          text: sources[index]!,
+          nodeIds: new Set([node.id]),
+          sourceUris: new Set([entries[index]!.uri])
+        }
+      ] as const;
+    })
+  );
+  const handler = vi.fn();
+  const { result } = renderHook(() =>
+    useModelSourceSync(
+      initial.nodes,
+      initial.edges,
+      handler,
+      initial.parseEpoch,
+      [],
+      new Map([['shared', sources[0]!]]),
+      [],
+      files
+    )
+  );
+  const oldId = initial.nodes.find((node) => node.data.name === 'B')!.id;
+  store.getState().renameType(oldId, 'RenamedB');
+  const latest = store.getState();
+  // No rerender: the publication barrier must use this exact store snapshot.
+  await act(async () =>
+    result.current.flush({
+      nodes: latest.nodes,
+      edges: latest.edges,
+      parseEpoch: latest.parseEpoch,
+      patches: latest.pendingEditPatches,
+      inversePatches: latest.pendingInversePatches
+    })
+  );
+  expect(handler).toHaveBeenCalledTimes(1);
+  const saved = handler.mock.calls[0]![0] as Map<string, string>;
+  expect(saved.get('A.rosetta')).toBe(sources[0]);
+  expect(saved.get('B.rosetta')).toContain('type RenamedB:');
+  expect(saved.get('B.rosetta')).not.toContain('type B:');
+  expect(saved.get('B.rosetta')).not.toContain('type A:');
+});
 
 it('explicit flush awaits the existing publication receipt and retries a failed receipt', async () => {
   const { store, source, getNode } = await loadInspectorFixture();

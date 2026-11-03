@@ -60,6 +60,9 @@ describe('renderNode — RosettaTypeAlias', () => {
 });
 
 describe('renderModel — QualifiedName support', () => {
+  it('retains the native namespace override marker', () => {
+    expect(renderModel({ name: 'upstream', overridden: true, elements: [] })).toMatch(/^override namespace upstream\n/);
+  });
   it('renders namespace from a segments-based QualifiedName', () => {
     const result = renderModel({ name: { segments: ['a', 'b'] }, version: '1.0.0', elements: [] });
     expect(result.startsWith('namespace a.b')).toBe(true);

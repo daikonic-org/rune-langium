@@ -82,7 +82,8 @@ vi.mock('@rune-langium/core', () => ({
   }
 }));
 
-vi.mock('langium', () => ({
+vi.mock('langium', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('langium')>()),
   URI: {
     parse: (value: string) => value
   },

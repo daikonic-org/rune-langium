@@ -46,6 +46,10 @@ import type { NamespaceImport } from '@rune-langium/core';
 
 export interface GraphNodeMeta {
   namespace: string;
+  /** Owning Rune source uses the native namespace override marker. */
+  namespaceOverride?: boolean;
+  /** Authoritative owning document; retained across edits and renames. */
+  sourceUri?: string;
   /** File-local import bindings for authored reference labels and navigation. */
   imports?: readonly NamespaceImport[];
   errors: ValidationError[];

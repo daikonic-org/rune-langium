@@ -26,27 +26,41 @@ export async function createReferenceArtifacts(
   const mirrorOrigin = new URL(baseUrl).origin;
   const artifacts = new Map<string, Uint8Array>();
   const releases = new Map<string, ReferenceRelease[]>();
+  const serializedModels = new Map<string, string>();
+  if (Object.keys(modelSources).length) {
+    const { serializeRuneModel } = await import('../../packages/core/src/index.js');
+    const { buildEffectiveProject } = await import('../../packages/project-runtime/src/effective-project.js');
+    const { projectReferenceUri } = await import('../../packages/project-runtime/src/project-uri.js');
+    const compilerSnapshot = await createProjectSnapshot(
+      'fixture',
+      new Map([
+        ['rune-config.yml', 'model: {name: Fixture}'],
+        ['build-config.yml', 'schemaVersion: 1']
+      ]),
+      () => []
+    );
+    const graph = await buildEffectiveProject(
+      compilerSnapshot,
+      Object.entries(modelSources).map(([id, content]) => ({ uri: `${id}/model.rosetta`, content }))
+    );
+    if (graph.diagnostics.length) throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
+    for (const id of Object.keys(modelSources)) {
+      const document = graph.documents.find(
+        (document) => document.uri.toString(true) === projectReferenceUri(`${id}/model.rosetta`)
+      );
+      if (!document) throw new Error('Missing linked fixture model: ' + id);
+      serializedModels.set(
+        id,
+        serializeRuneModel(graph.services.serializer.JsonSerializer, document.parseResult.value)
+      );
+    }
+  }
   for (const [id, tag, dependencies] of definitions) {
     const commit = createHash('sha1')
       .update(id + tag)
       .digest('hex');
     const content = modelSources[id] ?? `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)`;
-    let modelJson = JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
-    if (modelSources[id]) {
-      const { serializeRuneModel } = await import('../../packages/core/src/index.js');
-      const { buildEffectiveProject } = await import('../../packages/project-runtime/src/effective-project.js');
-      const compilerSnapshot = await createProjectSnapshot(
-        'fixture',
-        new Map([
-          ['rune-config.yml', 'model: {name: Fixture}'],
-          ['build-config.yml', 'schemaVersion: 1']
-        ]),
-        () => []
-      );
-      const graph = await buildEffectiveProject(compilerSnapshot, [{ uri: `${id}/model.rosetta`, content }]);
-      if (graph.diagnostics.length) throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
-      modelJson = serializeRuneModel(graph.services.serializer.JsonSerializer, graph.documents[0]!.parseResult.value);
-    }
+    const modelJson = serializedModels.get(id) ?? JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
     const bytes = gzipSync(
       JSON.stringify({
         schemaVersion: 1,

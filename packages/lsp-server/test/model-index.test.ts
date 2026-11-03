@@ -7,9 +7,9 @@ import { createRuneLspServer } from '../src/rune-dsl-server.js';
 
 const depUri = 'file:///workspace/dependency.rosetta';
 const userUri = 'file:///workspace/user.rosetta';
-async function modelJson(text: string) {
+async function modelJson(text: string, uri = depUri) {
   const { RuneDsl, shared } = createRuneDslServices(EmptyFileSystem);
-  const document = shared.workspace.LangiumDocumentFactory.fromString(text, URI.parse(depUri));
+  const document = shared.workspace.LangiumDocumentFactory.fromString(text, URI.parse(uri));
   shared.workspace.LangiumDocuments.addDocument(document);
   await shared.workspace.DocumentBuilder.build([document], { validation: false });
   return compactLspModelJson(serializeRuneModel(RuneDsl.serializer.JsonSerializer, document.parseResult.value));
@@ -30,6 +30,63 @@ async function fixture() {
 }
 
 describe('semantic LSP dependency index', () => {
+  it('rejects an incompatible native snapshot before acknowledgement and recovers after correction', async () => {
+    const lsp = createRuneLspServer();
+    await lsp.shared.workspace.WorkspaceManager.initialized({});
+    const replacementUri = 'file:///workspace/override.rosetta';
+    const signature = (inputs: string) =>
+      `func Compute:\n inputs:\n ${inputs}\n output: result number (1..1)\n set result: 0`;
+    await lsp.syncModels({
+      document: {
+        uri: depUri,
+        modelJson: await modelJson('namespace upstream\n' + signature('a number (1..1)\n b number (1..1)'))
+      }
+    });
+    await lsp.syncModels({
+      document: {
+        uri: replacementUri,
+        modelJson: await modelJson(
+          'override namespace upstream\n' + signature('b number (1..1)\n a number (1..1)'),
+          replacementUri
+        )
+      }
+    });
+    await expect(lsp.syncModels({ retain: [depUri, replacementUri] })).rejects.toThrow(
+      'Namespace override callable signature differs'
+    );
+    await lsp.syncModels({
+      document: {
+        uri: replacementUri,
+        modelJson: await modelJson(
+          'override namespace upstream\n' + signature('a number (1..1)\n b number (1..1)'),
+          replacementUri
+        )
+      }
+    });
+    await expect(lsp.syncModels({ retain: [depUri, replacementUri] })).resolves.toBeUndefined();
+  });
+
+  it('navigates to a native namespace override and restores the original when it is removed', async () => {
+    const { lsp, user } = await fixture();
+    const replacementUri = 'file:///workspace/override.rosetta';
+    const replacement = await modelJson(
+      'override namespace example\ntype Party:\n localName string (1..1)\n',
+      replacementUri
+    );
+    await lsp.syncModels({ document: { uri: replacementUri, modelJson: replacement } });
+    await lsp.syncModels({ retain: [depUri, replacementUri] });
+    const definition = () =>
+      lsp.services.lsp.DefinitionProvider!.getDefinition(user, {
+        textDocument: { uri: userUri },
+        position: { line: 3, character: 9 }
+      });
+    expect(user.diagnostics?.filter((issue) => issue.severity === 1)).toEqual([]);
+    expect(await definition()).toMatchObject([{ targetUri: replacementUri }]);
+    await lsp.syncModels({ retain: [depUri] });
+    expect(user.diagnostics?.filter((issue) => issue.severity === 1)).toEqual([]);
+    expect(await definition()).toMatchObject([{ targetUri: depUri }]);
+  });
+
   it('indexes dependency scopes without eagerly linking every serialized body', async () => {
     const lsp = createRuneLspServer();
     await lsp.shared.workspace.WorkspaceManager.initialized({});

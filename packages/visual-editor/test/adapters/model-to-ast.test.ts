@@ -59,6 +59,10 @@ function elementsOf(models: ReturnType<typeof modelsToAst>, namespace: string): 
 // ---------------------------------------------------------------------------
 
 describe('modelsToAst — cross-namespace inheritance qualification', () => {
+  it('preserves the native namespace marker when exporting an override graph', () => {
+    const node = makeNode('upstream', 'Value', { $type: 'Data', attributes: [] }, { namespaceOverride: true });
+    expect(modelsToAst([node], [])[0]).toMatchObject({ name: 'upstream', overridden: true });
+  });
   it('preserves a QUALIFIED Data superType $refText from node.data (does not re-derive bare name from edge)', () => {
     const parent = makeNode('ns.a', 'Base', { $type: 'Data', attributes: [] });
     const child = makeNode('ns.b', 'Child', {

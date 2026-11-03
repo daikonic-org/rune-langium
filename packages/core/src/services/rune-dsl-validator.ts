@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { ValidationAcceptor, ValidationChecks } from 'langium';
-import type { LangiumCoreServices } from 'langium';
+import type { ValidationAcceptor, ValidationChecks, LangiumCoreServices } from 'langium';
+import { namespaceOverrideDiagnostics } from '../references/project-resolution.js';
+import { namespaceOverrideSignatureDiagnostics } from '../references/override-validation.js';
 import {
   isRosettaFeatureCall,
   isRosettaDeepFeatureCall,
@@ -95,7 +96,17 @@ export class RuneDslValidator {
         this.checkEnumValueNaming
       ],
       Choice: [this.checkChoiceNoDuplicateOptions, this.checkChoiceNaming, this.checkChoiceMinOptions],
-      RosettaModel: [this.checkModelNoDuplicateElements, this.checkModelNamespaceValid],
+      RosettaModel: [
+        this.checkModelNoDuplicateElements,
+        this.checkModelNamespaceValid,
+        (model, accept) => {
+          for (const issue of [
+            ...namespaceOverrideDiagnostics(services, model),
+            ...namespaceOverrideSignatureDiagnostics(services, model)
+          ])
+            accept('error', issue.message, { node: issue.node, code: issue.code });
+        }
+      ],
       Condition: [this.checkConditionNaming, this.checkConditionHasExpression],
       ChoiceOption: [],
       RosettaEnumValue: [this.checkEnumValueNamingRule],

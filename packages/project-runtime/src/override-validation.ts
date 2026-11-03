@@ -2,17 +2,14 @@
 // Copyright (c) 2026 Pradeep Mouli
 import {
   declarationKey,
-  projectDeclarationIdentity,
-  getFunctionInputs,
-  getFunctionOutput,
+  callableOverrideSignaturesMatch,
+  namespaceOverrideSignatureDiagnostics,
   isRosettaFunction,
   type DeclarationIdentity,
   type DeclarationRedirects,
-  type RuneDslServices,
-  type Attribute,
-  type RosettaFunction
+  type RuneDslServices
 } from '@rune-langium/core';
-import { type AstNode } from 'langium';
+import { AstUtils, type AstNode } from 'langium';
 import { canonicalProjectJson, type ProjectOverride, type ProjectDiagnostic } from '@rune-langium/project-config';
 export interface ProjectDeclarations {
   identity: DeclarationIdentity;
@@ -135,41 +132,22 @@ export function validateProjectOverrides(
     for (const entry of sourceFamily) {
       const target = targetFamily.find((candidate) => candidate.identity.dispatch === entry.identity.dispatch);
       if (target && isRosettaFunction(entry.node) && isRosettaFunction(target.node)) {
-        const attribute = (attr: Attribute | undefined) =>
-          attr
-            ? {
-                name: attr.name,
-                type: attr.typeCall.type.ref
-                  ? projectDeclarationIdentity(services, attr.typeCall.type.ref)
-                  : { unresolved: attr.typeCall.type.$refText },
-                arguments: [...attr.typeCall.arguments, ...attr.typeCallArgs].map((argument) => ({
-                  parameter: argument.parameter.$refText,
-                  value: JSON.parse(
-                    services.serializer.JsonSerializer.serialize(argument.value, {
-                      refText: true,
-                      replacer: (key, value, defaultReplacer) =>
-                        ['$textRegion', '$sourceText', '$comment'].includes(key)
-                          ? undefined
-                          : typeof value === 'bigint'
-                            ? Number(value)
-                            : defaultReplacer(key, value)
-                    })
-                  )
-                })),
-                card: { inf: attr.card.inf, sup: attr.card.sup, unbounded: attr.card.unbounded }
-              }
-            : null;
-        const signature = (node: RosettaFunction) => ({
-          inputs: getFunctionInputs(node).map(attribute),
-          output: attribute(getFunctionOutput(node))
-        });
-        if (canonicalProjectJson(signature(entry.node)) !== canonicalProjectJson(signature(target.node)))
+        if (!callableOverrideSignaturesMatch(services, entry.node, target.node))
           diagnostics.push(
             issue('OVERRIDE_SIGNATURE', 'Replacement callable signature differs: ' + declarationKey(entry.identity))
           );
       }
     }
   }
+  if (signatures)
+    diagnostics.push(
+      ...namespaceOverrideSignatureDiagnostics(services).map(({ node, code, message }) => ({
+        code,
+        message,
+        severity: 'error' as const,
+        path: AstUtils.getDocument(node).uri.toString()
+      }))
+    );
   return diagnostics;
 }
 function issue(code: string, message: string): ProjectDiagnostic {

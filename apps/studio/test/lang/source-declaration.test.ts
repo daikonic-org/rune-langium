@@ -12,6 +12,9 @@ function select(source: string, token: string, offset = 1) {
 }
 
 describe('source declaration selection', () => {
+  it('recognizes declarations in an overriding namespace', () => {
+    expect(select('override namespace example\nfunc Compute:\n', 'Compute')).toBe('example.Compute#RosettaFunction');
+  });
   it.each(['is', 'between', 'construct', 'source'])('ignores %s in documentation', (token) => {
     for (const comment of [`// the type ${token}`, `/*\ntype ${token}\n*/`, `<"the type ${token}">`]) {
       expect(select(`namespace example\n${comment}\ntype Valid:\n`, token)).toBeNull();

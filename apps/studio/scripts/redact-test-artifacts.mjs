@@ -29,7 +29,7 @@ function redactStructuredText(text) {
       if (typeof input === 'string') {
         const output = /^(token|access_token|session_token)$/i.test(key)
           ? '[REDACTED]'
-            : /^\s*[{[]/.test(input)
+          : /^\s*[{[]/.test(input)
             ? redactStructuredText(input)
             : redactEvidenceText(input);
         if (output !== input) changed = true;

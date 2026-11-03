@@ -5,6 +5,7 @@ import type { Data, RosettaFunction, RosettaExpression, RosettaModel } from '../
 import type { Dehydrated } from '../serializer/dehydrated.js';
 import { CstUtils, isLeafCstNode } from 'langium';
 import { namespaceFromModelName } from '../naming/namespace.js';
+import { selectNamespaceOverrideModels } from '../references/project-resolution.js';
 
 export type SourceRegion = Readonly<{ from: number; to: number }>;
 export type ExpressionRegion = Readonly<{
@@ -13,6 +14,14 @@ export type ExpressionRegion = Readonly<{
   index: number;
   expression: RosettaExpression | Dehydrated<RosettaExpression>;
 }>;
+
+/** Owning document identity shared by parsed and serialized model consumers. */
+export function getModelSourceUri(model: unknown): string | undefined {
+  const root = model as
+    | { $document?: { uri?: { toString(): string } }; $textRegion?: { documentURI?: string } }
+    | undefined;
+  return root?.$document?.uri?.toString() ?? root?.$textRegion?.documentURI;
+}
 
 /** Resolve declaration identity, using the unique base for a function dispatch group. */
 export function findExpressionOwner(
@@ -36,7 +45,7 @@ export function getExpressionOwners(
   models: readonly Pick<RosettaModel, 'name' | 'elements'>[]
 ): (Data | RosettaFunction)[] {
   const groups = new Map<string, (Data | RosettaFunction)[]>();
-  for (const model of models) {
+  for (const model of selectNamespaceOverrideModels(models)) {
     const namespace = namespaceFromModelName(model.name) ?? 'unknown';
     for (const element of model.elements ?? []) {
       if (element.$type !== 'Data' && element.$type !== 'RosettaFunction') continue;

@@ -18,6 +18,8 @@ import {
 import { createOpfsRoot, writeBytes } from '../../setup/opfs-mock.js';
 import { createRuneDslServices, serializeRuneModel, type Data } from '@rune-langium/core';
 import { EmptyFileSystem, URI } from 'langium';
+import { useEditorStore } from '@rune-langium/visual-editor';
+import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
 
 vi.mock('../../../src/services/project-reference-view.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/services/project-reference-view.js')>()),
@@ -30,6 +32,8 @@ vi.mock('../../../src/services/workspace.js', () => ({
 
 afterEach(() => {
   vi.mocked(prepareProjectReferenceView).mockReset();
+  vi.mocked(linkDocument).mockReset();
+  useEditorStore.setState({ selectedNodeId: null });
   setWorkspaceFilesDeps({ getFolderProjectAdapter: undefined });
 });
 
@@ -50,6 +54,99 @@ const runtime: ProjectRuntimeState = {
   diagnostics: []
 };
 const reference = { ...file('[cdm]/model.rosetta', 'namespace pinned'), readOnly: true, refOnly: true };
+
+it.each([
+  { failure: false, ambiguous: false },
+  { failure: true, ambiguous: false },
+  { failure: false, ambiguous: true }
+])(
+  'keeps selected-owner publication and namespace readiness correct, ambiguous=$ambiguous, later failure=$failure',
+  async ({ failure, ambiguous }) => {
+    const services = createRuneDslServices(EmptyFileSystem);
+    const entries = [
+      ['functions', ambiguous ? 'Data' : 'RosettaFunction', `namespace pinned\n${ambiguous ? 'type' : 'func'} Same:`],
+      ['types', 'Data', 'namespace pinned\ntype Same:']
+    ].map(([name, kind, source]) => {
+      const path = `[cdm]/${name}.rosetta`;
+      const document = services.shared.workspace.LangiumDocumentFactory.fromString(
+        source!,
+        URI.parse(`file:///${path}`)
+      );
+      const serialized = serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, document.parseResult.value);
+      return {
+        path,
+        kind: kind!,
+        source: source!,
+        serialized,
+        model: { ...JSON.parse(serialized), $textRegion: { documentURI: document.uri.toString() } }
+      };
+    });
+    const state = stateFor([]);
+    vi.mocked(prepareProjectReferenceView).mockResolvedValue({
+      ...state,
+      files: entries.map((entry) => ({
+        ...file(entry.path, entry.source),
+        readOnly: true,
+        refOnly: true,
+        namespace: 'pinned',
+        serializedModelJson: entry.serialized
+      })),
+      deferredExports: entries.map((entry) => ({
+        filePath: entry.path,
+        namespace: 'pinned',
+        exports: [{ type: entry.kind, name: 'Same' }]
+      }))
+    });
+    const remaining = Promise.withResolvers<Awaited<ReturnType<typeof linkDocument>>>();
+    vi.mocked(linkDocument).mockImplementation((uri) =>
+      uri.endsWith('/types.rosetta')
+        ? Promise.resolve({ linked: true, errors: [], newModels: [entries[1]!.model] })
+        : remaining.promise
+    );
+    useEditorStore.setState({ selectedNodeId: makeNodeId('pinned', 'Same', 'Data') });
+    const { result } = renderHook(() => useProjectReferenceView(runtime, state));
+    await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+    let work!: Promise<void>;
+    let settled = false;
+    await act(async () => {
+      work = hydrateProjectNamespaces('editing', ['pinned'])!;
+      void work.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        }
+      );
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(result.current.state.parsedModels.map((entry) => entry.filePath)).toEqual(
+        ambiguous ? [] : [entries[1]!.path]
+      )
+    );
+    expect(linkDocument).toHaveBeenNthCalledWith(1, `file:///[cdm]/${ambiguous ? 'functions' : 'types'}.rosetta`, true);
+    expect(linkDocument).toHaveBeenNthCalledWith(2, `file:///[cdm]/${ambiguous ? 'types' : 'functions'}.rosetta`, true);
+    expect(settled).toBe(false);
+    await act(async () => {
+      remaining.resolve(
+        failure
+          ? { linked: false, errors: ['Remaining namespace file failed'], newModels: [] }
+          : { linked: true, errors: [], newModels: [entries[0]!.model] }
+      );
+      if (failure) await expect(work).rejects.toThrow('Remaining namespace file failed');
+      else await work;
+    });
+    expect(result.current.state.parsedModels.map((entry) => entry.filePath)).toEqual(
+      failure
+        ? [entries[1]!.path]
+        : ambiguous
+          ? entries.map((entry) => entry.path)
+          : [entries[1]!.path, entries[0]!.path]
+    );
+    expect(result.current.referenceView?.status).toBe('ready');
+  }
+);
 
 it('reports an initial failure without a previous view or workspace identity', async () => {
   const state = { ...stateFor([]), workspaceId: undefined };

@@ -72,7 +72,7 @@ export const InspectorDeclarationActions = withInstrumentation(
     const open = (next: LocalDeclarationMode) => {
       setMode(next);
       setName(next === 'extend' ? `${origin.name}Extension` : origin.name);
-      setNamespace(`local.${origin.namespace}`);
+      setNamespace(next === 'modify' ? origin.namespace : `local.${origin.namespace}`);
       setError(undefined);
     };
     const finishClose = () => {
@@ -164,9 +164,7 @@ export const InspectorDeclarationActions = withInstrumentation(
               <DialogDescription>
                 {mode === 'extend'
                   ? 'Create a local declaration that inherits from this one.'
-                  : managed
-                    ? 'Save an editable copy and an explicit replacement mapping in your workspace. References to the original will use your implementation.'
-                    : 'Create an editable copy in your workspace. The curated original stays unchanged; select the local copy to use your implementation.'}
+                  : 'Create an editable namespace override. Existing references use your implementation; the reference model stays unchanged.'}
               </DialogDescription>
             </DialogHeader>
             <form
@@ -180,6 +178,7 @@ export const InspectorDeclarationActions = withInstrumentation(
                 Local namespace
                 <Input
                   value={namespace}
+                  readOnly={mode === 'modify'}
                   onChange={(event) => {
                     setNamespace(event.target.value);
                     setError(undefined);

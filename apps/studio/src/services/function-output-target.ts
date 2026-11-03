@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { getFunctionOutput, isChoice, isData, isRosettaFunction, type RosettaModel } from '@rune-langium/core';
+import {
+  getFunctionOutput,
+  isChoice,
+  isData,
+  isRosettaFunction,
+  selectNamespaceOverrideModels,
+  type RosettaModel
+} from '@rune-langium/core';
+import { DocumentState } from 'langium';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
 import { withInstrumentation } from './instrumentation/core.js';
@@ -37,10 +45,14 @@ export const resolveFunctionOutputTarget = withInstrumentation(
     if (schemaOutput && isSingularPreviewOutput(schemaOutput.cardinality)) {
       return { typeFqn: schemaOutput.typeFqn, kind: schemaOutput.kind };
     }
-    const functionNode = models
+    const functionNode = selectNamespaceOverrideModels(models)
       .flatMap((model) => model.elements)
       .find((element) => isRosettaFunction(element) && `${element.$container.name}.${element.name}` === functionFqn);
     if (!functionNode || !isRosettaFunction(functionNode)) return undefined;
+    // UI snapshots may arrive before their local scopes. The worker's schema
+    // above is authoritative; only linked/ready declarations support this fallback.
+    const document = functionNode.$container.$document;
+    if (!document || document.state < DocumentState.ComputedScopes) return undefined;
     const output = getFunctionOutput(functionNode);
     const target = output?.typeCall.type.ref;
     if (!output || !target || !isSingular(output.card) || (!isData(target) && !isChoice(target))) return undefined;

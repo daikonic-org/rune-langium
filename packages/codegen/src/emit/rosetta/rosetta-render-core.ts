@@ -568,12 +568,12 @@ function modelName(name: unknown): string {
 }
 
 export function renderModel(
-  model: { name: unknown; version?: string; elements: unknown[] },
+  model: { name: unknown; version?: string; elements: unknown[]; overridden?: boolean },
   opts?: RenderOpts
 ): string {
   const renderChild: RenderChild = (c: DehydratedNode) => renderNode(c, renderChild, opts) ?? '';
   const lines: string[] = [];
-  lines.push(`namespace ${modelName(model.name)}`);
+  lines.push(`${model.overridden ? 'override ' : ''}namespace ${modelName(model.name)}`);
   lines.push(`version "${model.version ?? '0.0.0'}"`);
   for (const declaration of opts?.declarations ?? []) if (declaration !== undefined) lines.push('', declaration);
   for (const element of model.elements) {

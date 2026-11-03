@@ -8,6 +8,44 @@ import type { Patches } from 'mutative';
 import type { TypeGraphNode } from '../../src/types.js';
 
 describe('buildSourceForNamespaces', () => {
+  it('writes separate override files without copying read-only siblings from their shared namespace', () => {
+    const source = (name: string) =>
+      `override namespace shared\nversion "1.0.0"\n\ntype ${name}:\n  value string (0..1)\n`;
+    const node = (name: string, text: string) =>
+      ({
+        id: `shared.${name}`,
+        meta: { namespace: 'shared' },
+        data: {
+          $type: 'Data',
+          name,
+          $cstRange: { offset: text.indexOf('type '), end: text.length - 1 },
+          attributes: [],
+          conditions: [],
+          annotations: [],
+          references: [],
+          synonyms: []
+        }
+      }) as unknown as TypeGraphNode;
+    const a = source('A');
+    const b = source('B');
+    const foreign = source('Protected');
+    const nodes = [node('A', a), node('B', b), node('Protected', foreign)];
+    const out = buildSourceForNamespaces({
+      nodes,
+      edges: [],
+      originalSourceByNamespace: new Map(),
+      patches: [],
+      sourceFiles: new Map([
+        ['a.rosetta', { namespace: 'shared', text: a, nodeIds: new Set(['shared.A']) }],
+        ['b.rosetta', { namespace: 'shared', text: b, nodeIds: new Set(['shared.B']) }]
+      ])
+    });
+    expect([...out]).toEqual([
+      ['a.rosetta', a],
+      ['b.rosetta', b]
+    ]);
+    expect([...out.values()].join('')).not.toContain('Protected');
+  });
   it('returns one entry per namespace, reusing source when clean', () => {
     const src = 'namespace test\nversion "1.0.0"\n\ntype Foo:\n  bar string (0..1)\n';
     const node = {

@@ -79,12 +79,18 @@ import type {
 import { useStructureViewStore } from '../store/structure-view-store.js';
 import type { WorkspaceFile } from '../services/workspace.js';
 import type { RosettaModel } from '@rune-langium/core';
-import { getNodeSourceRegion, namespaceFromModelName, RuneDslTerminals } from '@rune-langium/core';
+import {
+  getNodeSourceRegion,
+  namespaceFromModelName,
+  RuneDslTerminals,
+  resolveNamespaceOverrides
+} from '@rune-langium/core';
 import { createScopedMetadataActions } from './inspector-metadata-actions.js';
 import { SourceEditor } from '../components/SourceEditor.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
 import { buildExpressionOwnerFiles } from './expression-owner-files.js';
+import { buildSourceFileOwnership } from './source-file-ownership.js';
 import type { SourceEditorRef } from '../components/SourceEditor.js';
 import { ConnectionStatus } from '../components/ConnectionStatus.js';
 import { LspConnectionBadge } from '../components/LspConnectionBadge.js';
@@ -765,8 +771,16 @@ export const ExplorePerspective = withInstrumentation(
         return file ? [{ filePath: file.path, model }] : [];
       });
     }, [files, models, parsedModels]);
+    const nativeDeclarationTargets = useMemo(
+      () => resolveNamespaceOverrides(resolvedModelFiles.map((entry) => entry.model)).targets,
+      [resolvedModelFiles]
+    );
 
     const expressionOwnerFiles = useMemo(() => buildExpressionOwnerFiles(resolvedModelFiles), [resolvedModelFiles]);
+    const sourceFileOwnership = useMemo(
+      () => buildSourceFileOwnership(resolvedModelFiles, files),
+      [resolvedModelFiles, files]
+    );
 
     useEffect(() => {
       workspaceIdRef.current = workspaceId;
@@ -879,6 +893,7 @@ export const ExplorePerspective = withInstrumentation(
         const sourceUri = pathToUri(modelUriValue?.path ?? modelUriValue?.toString() ?? entry.filePath);
         const namespace = namespaceFromModelName(model.name) ?? 'unknown';
         for (const [sourceIndex, element] of (model.elements ?? []).entries()) {
+          if (nativeDeclarationTargets.has(element) && nativeDeclarationTargets.get(element) !== element) continue;
           const name = (element as { name?: string }).name;
           if (!name) {
             continue;
@@ -933,7 +948,7 @@ export const ExplorePerspective = withInstrumentation(
           };
         })
         .filter((target): target is FormPreviewTarget => target !== undefined);
-    }, [resolvedModelFiles, storeNodes]);
+    }, [resolvedModelFiles, storeNodes, nativeDeclarationTargets]);
 
     useEffect(() => {
       setPreviewTargets(previewTargets, selectionRekey);
@@ -1166,13 +1181,11 @@ export const ExplorePerspective = withInstrumentation(
     const nodeIdToFilePath = useMemo(() => {
       const map = new Map<string, string>();
       for (const entry of resolvedModelFiles) {
-        const model = entry.model as {
-          name?: unknown;
-          elements?: Array<{ name?: string; $type?: string }>;
-        };
+        const model = entry.model;
         const ns = namespaceFromModelName(model.name) ?? 'unknown';
         for (const element of model.elements ?? []) {
-          const name = element.name ?? 'unknown';
+          if (nativeDeclarationTargets.has(element) && nativeDeclarationTargets.get(element) !== element) continue;
+          const name = 'name' in element ? element.name : 'unknown';
           const nodeId = makeNodeId(ns, name, element.$type);
           if (expressionOwnerFiles.has(nodeId)) continue;
           if (!map.has(nodeId)) map.set(nodeId, entry.filePath);
@@ -1190,11 +1203,17 @@ export const ExplorePerspective = withInstrumentation(
         }
       }
       return map;
-    }, [resolvedModelFiles, deferredExports, expressionOwnerFiles]);
+    }, [resolvedModelFiles, deferredExports, expressionOwnerFiles, nativeDeclarationTargets]);
 
     const resolveNodeFile = useCallback(
       (nodeData: AnyGraphNode, meta: GraphNodeMeta | undefined): string | undefined => {
         const d = nodeData as any;
+        if (meta?.sourceUri) {
+          const path = sourceFileOwnership.byUri.has(meta.sourceUri)
+            ? sourceFileOwnership.byUri.get(meta.sourceUri)
+            : resolveEditorFilePath(meta.sourceUri, files);
+          if (path) return path;
+        }
         if (meta?.namespace) {
           const nodeId = makeNodeId(meta.namespace, d.name, d.$type);
           if (expressionOwnerFiles.has(nodeId)) return expressionOwnerFiles.get(nodeId)?.filePath;
@@ -1213,7 +1232,7 @@ export const ExplorePerspective = withInstrumentation(
         const nodeId = makeNodeId(meta.namespace, d.name, typeof d.$type === 'string' ? d.$type : undefined);
         return nodeIdToFilePath.get(nodeId);
       },
-      [files, nodeIdToFilePath, expressionOwnerFiles]
+      [files, nodeIdToFilePath, expressionOwnerFiles, sourceFileOwnership]
     );
     // Ref for the full deferredExports list so the hydration relink effect can
     // link ALL files for the selected namespace, not just the one the per-type
@@ -1231,6 +1250,29 @@ export const ExplorePerspective = withInstrumentation(
       selectedNodeData ? resolveNodeFile(selectedNodeData, selectedNodeMeta) : undefined,
       files
     );
+    const sourceSyncFiles = useMemo(() => {
+      const output = new Map<
+        string,
+        { namespace: string; text: string; nodeIds: Set<string>; sourceUris?: ReadonlySet<string> }
+      >();
+      for (const file of files) {
+        if (!isUserWorkspaceFile(file) || !file.path.endsWith('.rosetta')) continue;
+        const namespace = sourceFileOwnership.namespaceByFile.get(file.path) ?? file.namespace;
+        if (namespace)
+          output.set(file.path, {
+            namespace,
+            text: file.content,
+            nodeIds: new Set(),
+            sourceUris: sourceFileOwnership.urisByFile.get(file.path)
+          });
+      }
+      for (const [id, path] of nodeIdToFilePath) output.get(path)?.nodeIds.add(id);
+      for (const node of storeNodes) {
+        const path = resolveNodeFile(node.data, node.meta) ?? namespaceToFile.get(node.meta.namespace);
+        if (path) output.get(path)?.nodeIds.add(node.id);
+      }
+      return output;
+    }, [files, sourceFileOwnership, nodeIdToFilePath, storeNodes, resolveNodeFile, namespaceToFile]);
     useEffect(() => {
       for (const sourcePath of new Set([activeEditorFile, selectedSourceFilePath])) {
         const file = files.find((candidate) => candidate.path === sourcePath);
@@ -1736,7 +1778,7 @@ export const ExplorePerspective = withInstrumentation(
         const merged = filesAtStart.map((f) => {
           if (f.readOnly || f.refOnly) return f;
           for (const [ns, text] of serialized) {
-            if (namespaceToFile.get(ns) !== f.path) continue;
+            if ((namespaceToFile.get(ns) ?? ns) !== f.path) continue;
             if (text === f.content) return f;
             return { ...f, content: text, dirty: true };
           }
@@ -1760,7 +1802,8 @@ export const ExplorePerspective = withInstrumentation(
       storeParseEpoch,
       storePendingEditPatches,
       originalSourceByNamespace,
-      storePendingInversePatches
+      storePendingInversePatches,
+      sourceSyncFiles
     );
 
     useEffect(
@@ -2397,9 +2440,13 @@ export const ExplorePerspective = withInstrumentation(
     }, [files, deferredExports]);
 
     const selectedNodeIsRefOnly = useMemo(() => {
+      if (selectedSourceFilePath) {
+        const file = files.find((file) => file.path === selectedSourceFilePath);
+        return Boolean(file?.refOnly || file?.readOnly);
+      }
       const namespace = selectedNodeMeta?.namespace;
       return !!(namespace && refOnlyNamespaces.has(namespace));
-    }, [selectedNodeMeta, refOnlyNamespaces]);
+    }, [selectedNodeMeta, refOnlyNamespaces, selectedSourceFilePath, files]);
 
     const selectedExpressionFile = files.find((file) => file.path === selectedSourceFilePath);
     const selectedParsedModel = parsedModels?.find((entry) => entry.filePath === selectedSourceFilePath);

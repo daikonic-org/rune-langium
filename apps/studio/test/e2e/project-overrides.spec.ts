@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { test, expect, type Page } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
+import { expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import JSZip from 'jszip';
 import { readFile } from 'node:fs/promises';
 import { parseBuildConfig } from '@rune-langium/project-config';
-import { CURATED_MIRROR_BASE } from '@rune-langium/curated-schema';
-import { resolveProjectReferences } from '@rune-langium/project-runtime/references';
-import { createReferenceArtifacts, repository } from '../../../../test/helpers/project-reference-artifacts.js';
-import { serveCuratedDeclarations } from '../helpers/curated-declaration-server.js';
+import { serveCuratedDeclarations, servePinnedReferenceProject } from '../helpers/curated-declaration-server.js';
 import { typeNavigationButton, typeSelectionCheckbox } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 import { projectBackingFiles as projectFiles, seedProjectBackingFiles } from '../helpers/project-backing.js';
@@ -45,28 +43,13 @@ test('managed Modify persists one map and drives curated caller execution and re
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
   page.on('console', (message) => {
+    if (message.text().includes('ComputedScopes')) runtimeErrors.push(message.text());
     if (message.type() === 'error' && /\b(?:TypeError|ReferenceError)\b/.test(message.text()))
       runtimeErrors.push(message.text());
   });
   await page.setViewportSize({ width: 1461, height: 988 });
   await serveCuratedDeclarations(context, [['functions', source]]);
-  const fixture = await createReferenceArtifacts(
-    { cdm: { repository: repository('cdm'), release: '1.0' } },
-    [['cdm', '1.0', {}]],
-    { cdm: source },
-    CURATED_MIRROR_BASE
-  );
-  const resolved = await resolveProjectReferences(fixture.snapshot, fixture.transport, new AbortController().signal);
-  expect(resolved.diagnostics).toEqual([]);
-  const lock = resolved.lock!;
-  await context.route('**/curated/cdm/artifacts/**', async (route) => {
-    const bytes = fixture.artifacts.get(route.request().url());
-    await route.fulfill({
-      status: bytes ? 200 : 404,
-      body: bytes ? Buffer.from(bytes) : 'Unknown fixture artifact',
-      headers: { 'Access-Control-Allow-Origin': '*' }
-    });
-  });
+  const { lock, references } = await servePinnedReferenceProject(context, { cdm: source });
   let legacyExports = 0;
   await context.route('**/api/codegen', async (route) => {
     legacyExports++;
@@ -84,7 +67,7 @@ test('managed Modify persists one map and drives curated caller execution and re
     'build-config.yml': JSON.stringify({
       schemaVersion: 1,
       sources: ['**/*.rosetta'],
-      references: fixture.snapshot.project.build.references
+      references
     }),
     'build-config.lock.json': JSON.stringify(lock)
   });
@@ -98,12 +81,14 @@ test('managed Modify persists one map and drives curated caller execution and re
   const title = page.locator('[data-pane="inspector"] [data-slot="type-header"]');
   await title.getByRole('button', { name: 'Modify local copy' }).click();
   const dialog = page.getByRole('dialog', { name: 'Modify Compute', exact: true });
-  await dialog.getByLabel('Local namespace').fill('custom');
+  await expect(dialog.getByLabel('Local namespace')).toHaveValue('example.functions');
+  await expect(dialog.getByLabel('Local namespace')).toHaveAttribute('readonly');
   await dialog.getByRole('button', { name: 'Create local copy', exact: true }).click();
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
   const editor = page.getByTestId('implementation-editor').locator('.cm-content');
-  await expect(title.getByText('custom', { exact: true })).toBeVisible();
+  await expect(title.getByText('example.functions', { exact: true })).toBeVisible();
   await expect(editor).toHaveAttribute('contenteditable', 'true');
+  await expect(title.getByText('Reference Only', { exact: true })).toHaveCount(0);
   await editor.click();
   await editor.press('ControlOrMeta+A');
   await page.keyboard.insertText('set result: amount + 2');
@@ -117,18 +102,43 @@ test('managed Modify persists one map and drives curated caller execution and re
   expect(
     parseBuildConfig({ path: 'build-config.yml', text: saved['build-config.yml']! }).value?.overrides
   ).toHaveLength(1);
-  expect(Object.keys(saved).filter((path) => path.includes('custom') && path.endsWith('.rosetta'))).toHaveLength(1);
+  // Another declaration in the same namespace stays read-only until it is explicitly overridden.
+  await page.getByTestId('rail-explore').click();
+  await page.getByTestId('namespace-search').fill('Caller');
+  await typeNavigationButton(page, 'example.functions.Caller', 'RosettaFunction').click();
+  await expect(title.getByText('Reference Only', { exact: true })).toBeVisible();
+  await title.getByRole('button', { name: 'Modify local copy' }).click();
+  const callerDialog = page.getByRole('dialog', { name: 'Modify Caller', exact: true });
+  await callerDialog.getByRole('button', { name: 'Create local copy', exact: true }).click();
+  await expect(callerDialog).not.toBeVisible({ timeout: 30000 });
+  await page.getByTestId('namespace-search').fill('Compute');
+  await typeNavigationButton(page, 'example.functions.Compute', 'RosettaFunction').click();
+  await expect(editor).toHaveAttribute('contenteditable', 'true');
+  await editor.click();
+  await editor.press('ControlOrMeta+A');
+  await page.keyboard.insertText('set result: amount + 3');
+  await editor.press('Tab');
+  await expect
+    .poll(async () => Object.values(await projectFiles(page)).some((text) => text.includes('set result: amount + 3')))
+    .toBe(true);
+  const multiple = Object.values(await projectFiles(page)).filter((text) =>
+    text.startsWith('override namespace example.functions')
+  );
+  expect(multiple).toHaveLength(2);
+  expect(multiple.find((text) => text.includes('func Caller:'))).toContain('set result: Compute(amount)');
+  await executeCaller(page, '13');
+  expect(Object.values(saved).filter((text) => text.startsWith('override namespace example.functions'))).toHaveLength(
+    1
+  );
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('namespace-search').fill('Compute');
   await typeNavigationButton(page, 'example.functions.Compute', 'RosettaFunction').click();
-  await title.getByRole('button', { name: 'Modify local copy' }).click();
-  await dialog.getByRole('button', { name: 'Create local copy', exact: true }).click();
-  await expect(dialog).not.toBeVisible({ timeout: 30000 });
-  await expect(title.getByText('custom', { exact: true })).toBeVisible();
+  await expect(title.getByRole('button', { name: 'Modify local copy' })).toHaveCount(0);
+  await expect(editor).toHaveAttribute('contenteditable', 'true');
   expect(
     parseBuildConfig({ path: 'build-config.yml', text: (await projectFiles(page))['build-config.yml']! }).value
       ?.overrides
-  ).toHaveLength(1);
+  ).toHaveLength(2);
   await page.getByTestId('rail-export').click();
   await typeSelectionCheckbox(
     page.getByTestId('export-perspective'),
@@ -147,7 +157,7 @@ test('managed Modify persists one map and drives curated caller execution and re
   expect(manifest.projectReceipt.revision).toMatch(/^[a-f0-9]{64}$/);
   expect(manifest.resolvedCohorts.cdm).toBe(lock.references.cdm!.cohort);
   expect(manifest.resolvedSelection.included).toContainEqual({
-    namespace: 'custom',
+    namespace: 'example.functions',
     name: 'Compute',
     kind: 'RosettaFunction'
   });
@@ -158,11 +168,11 @@ test('managed Modify persists one map and drives curated caller execution and re
         .map((file: { path: string }) => zip.file(file.path)!.async('string'))
     )
   ).join('\n');
-  expect(code).toMatch(/amount\s*\+\s*2/);
+  expect(code).toMatch(/amount\s*\+\s*3/);
   expect(code).not.toMatch(/amount\s*\+\s*1/);
   expect(legacyExports).toBe(0);
   await page.reload();
-  await executeCaller(page, '12');
+  await executeCaller(page, '13');
   await dismissLocalTransportNotices(page);
   expect(
     (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations

@@ -4,6 +4,35 @@ import { expect, type BrowserContext } from '@playwright/test';
 import { URI } from 'langium';
 import { createRuneDslServices, serializeRuneModel } from '@rune-langium/core';
 import { declarationDocuments } from './curated-declaration-fixture.js';
+import { createReferenceArtifacts, repository } from '../../../../test/helpers/project-reference-artifacts.js';
+import { CURATED_MIRROR_BASE } from '@rune-langium/curated-schema';
+import { resolveProjectReferences } from '@rune-langium/project-runtime/references';
+
+/** Real serialized closures and receipts; only their HTTP artifact transport is replaced. */
+export async function servePinnedReferenceProject(context: BrowserContext, sources: Readonly<Record<string, string>>) {
+  const peers = Object.keys(sources).filter((id) => id !== 'cdm');
+  const fixture = await createReferenceArtifacts(
+    { cdm: { repository: repository('cdm'), release: '1.0' } },
+    Object.keys(sources).map((id) => [
+      id,
+      '1.0',
+      id === 'cdm' ? Object.fromEntries(peers.map((peer) => [peer, { modelId: peer, release: '1.0' }])) : {}
+    ]),
+    sources,
+    CURATED_MIRROR_BASE
+  );
+  const resolved = await resolveProjectReferences(fixture.snapshot, fixture.transport, new AbortController().signal);
+  expect(resolved.diagnostics).toEqual([]);
+  await context.route('**/curated/*/artifacts/**', async (route) => {
+    const bytes = fixture.artifacts.get(route.request().url());
+    await route.fulfill({
+      status: bytes ? 200 : 404,
+      body: bytes ? Buffer.from(bytes) : 'Unknown fixture artifact',
+      headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+  });
+  return { lock: resolved.lock!, references: fixture.snapshot.project.build.references };
+}
 export async function serveCuratedDeclarations(
   context: BrowserContext,
   sources: readonly (readonly [string, string])[]
