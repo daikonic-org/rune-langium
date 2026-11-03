@@ -23,7 +23,7 @@
  */
 
 import type React from 'react';
-import { render } from '@testing-library/react';
+import { render, type RenderOptions } from '@testing-library/react';
 import type { RosettaModel } from '@rune-langium/core';
 import { CodegenProvider } from '../../src/shell/providers/CodegenProvider.js';
 import { WorkspaceStateContext, type WorkspaceState } from '../../src/shell/providers/workspace-context.js';
@@ -119,8 +119,8 @@ function EditorPageHarness(props: EditorPageHarnessProps): React.ReactElement {
 }
 
 /** Render EditorPage with the former prop set mapped onto context. */
-export function renderEditorPage(props: EditorPageHarnessProps = {}) {
-  const view = render(<EditorPageHarness {...props} />);
+export function renderEditorPage(props: EditorPageHarnessProps = {}, options?: RenderOptions) {
+  const view = render(<EditorPageHarness {...props} />, options);
   return {
     ...view,
     rerenderEditorPage: (next: EditorPageHarnessProps) => view.rerender(<EditorPageHarness {...next} />)

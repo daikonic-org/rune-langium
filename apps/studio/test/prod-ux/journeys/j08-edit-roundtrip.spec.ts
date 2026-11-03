@@ -28,7 +28,7 @@ import type { Page } from '@playwright/test';
 async function ensureSourcePaneOpen(page: Page): Promise<void> {
   const sourceEditor = fullSourceEditor(page);
   if (await sourceEditor.isVisible().catch(() => false)) return;
-  await page.getByRole('button', { name: 'Source' }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
   await expect(sourceEditor).toBeVisible({ timeout: 10000 });
 }
 
@@ -62,7 +62,8 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
     // node's Inspector (a 3-way split alongside Structure/Source, not a
     // separate view) via the nav-arrow testid, matching J04's pattern.
     await typeNavigationButton(page, NODE_ID).click();
-    await page.getByRole('button', { name: 'Inspector' }).click();
+    const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
+    if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
     // TypeHeader renders the editable name as an <Input data-slot="type-name-input">
     // (aria-label "Data type name"), not a heading — the heading role only
     // appears in read-only mode (not applicable here) and in the unrelated
@@ -106,6 +107,7 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
     await newRow.locator('[data-slot="attribute-name"]').fill('notes');
     const attributeSaveOpId = await waitForPerfLogStart(page, 'workspaceSave', opIdBeforeAttributeName);
     await waitForPerfLogOpId(page, 'workspaceSave', attributeSaveOpId);
+    await expect(page.getByText(/A draft was cleared/)).toHaveCount(0);
     await evidence.checkpoint('attribute-added');
 
     // Set cardinality via CardinalityPicker — trigger + role="option"
@@ -120,11 +122,13 @@ test.describe('J8 — Edit round-trip (workspace file only, never curated)', () 
     await evidence.checkpoint('cardinality-set');
 
     await waitForPerfLogOpId(page, 'workspaceSave', targetSaveOpId);
+    await expect(page.getByText(/A draft was cleared/)).toHaveCount(0);
     await expect(page.locator('[data-slot="attribute-row"]')).toHaveCount(2);
     const opIdBeforeRename = await lastStartedPerfOpId(page, 'workspaceSave');
     await nameInput.fill(RENAMED_TYPE_NAME);
     const renameSaveOpId = await waitForPerfLogStart(page, 'workspaceSave', opIdBeforeRename);
     await waitForPerfLogOpId(page, 'workspaceSave', renameSaveOpId);
+    await expect(page.getByText(/A draft was cleared/)).toHaveCount(0);
     await expect(nameInput).toHaveValue(RENAMED_TYPE_NAME);
     await evidence.checkpoint('renamed');
 

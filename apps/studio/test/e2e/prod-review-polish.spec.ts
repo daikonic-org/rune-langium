@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
 import AxeBuilder from '@axe-core/playwright';
+import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 
 for (const width of [1024, 800])
@@ -41,6 +43,7 @@ for (const width of [1024, 800])
         await expect(name).toHaveAttribute('title', (await name.innerText()).trim());
       }
       await dismissLocalTransportNotices(page);
+      await waitForEntranceAnimations(page);
       await page.screenshot({ path: info.outputPath(`recents-${label}.png`) });
     }
     expect(

@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import JSZip from 'jszip';
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
 import { typeSelectionCheckbox, typeNavigationButton } from '../helpers/type-navigation.js';
 import AxeBuilder from '@axe-core/playwright';
 import { createRuneDslServices, BASICTYPES_ROSETTA } from '@rune-langium/core';
@@ -21,6 +22,7 @@ async function artifact(): Promise<Buffer> {
   const content = 'export interface Party { address: Address }\n';
   zip.file('demo.ts', content);
   zip.file('notes.txt', 'Additional output');
+  zip.file('dependency.ts', 'export {};');
   zip.file(
     '.rune/export.json',
     JSON.stringify({
@@ -35,6 +37,7 @@ async function artifact(): Promise<Buffer> {
         requiredBy: { '["demo","Data","Address"]': ['["demo","Data","Party"]'] }
       },
       files: [
+        { path: 'dependency.ts', kind: 'text', namespaces: ['base'], bytes: 10 },
         { path: 'demo.ts', kind: 'text', namespaces: ['demo'], bytes: new TextEncoder().encode(content).byteLength },
         { path: 'notes.txt', kind: 'text', namespaces: [], bytes: 17 }
       ],
@@ -213,7 +216,8 @@ test('opens the real single-file model before helpers and downloads both', async
   await expect(picker).toHaveValue('model.ts');
   const preview = page.getByLabel('Generated export code');
   await expect(preview).toContainText("from './helpers.js'");
-  await expect(preview).toContainText('export class Party');
+  await expect(preview).toContainText('export interface PartyShape');
+  await expect(preview).toContainText('export const Party =');
   await expect(preview).not.toContainText('const rune =');
   await testInfo.attach('single-file-model', { body: await page.screenshot(), contentType: 'image/png' });
   await picker.selectOption('helpers.ts');

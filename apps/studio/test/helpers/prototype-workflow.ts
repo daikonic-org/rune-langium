@@ -135,7 +135,9 @@ journey(
     await expect(page.getByRole('button', { name: /^other: Checks passed/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: /^AddMoney: 1 issue/ }).click();
-    await expect(page.getByRole('button', { name: 'SameCurrency is not satisfied.', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'SameCurrency: SameCurrency is not satisfied.', exact: true })
+    ).toBeVisible();
     await evidence.checkpoint('function-condition-invalid');
     await page.keyboard.press('Escape');
     await page.getByRole('region', { name: 'other fields' }).getByRole('textbox', { name: 'Currency' }).fill('USD');
@@ -149,8 +151,8 @@ journey(
     await expect(page.getByTestId('instance-payload-output')).toHaveCount(0);
     await page.getByRole('button', { name: /^value: .*issues?/ }).click();
     await page
-      .getByRole('button', { name: /value.amount:/ })
-      .first()
+      .getByRole('dialog', { name: 'value validation', exact: true })
+      .getByRole('button', { name: /^amount:/ })
       .click();
     await expect(
       page.getByRole('region', { name: 'value fields' }).getByRole('spinbutton', { name: 'Amount' })

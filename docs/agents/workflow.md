@@ -94,6 +94,36 @@ After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/s
 
 ## Production UX checkout
 
+Before merging Studio UX changes, build the workspace dependencies and run
+`pnpm --filter @rune-langium/studio run test:ux-candidate`, which rebuilds Studio
+before testing its optimized output. The browser CI job runs
+this gate on every PR and uploads `dist/ux-candidate`: journey manifest,
+screenshots, failed-test traces and Playwright reports. Its owned strict-port
+preview serves the optimized candidate bundle through the same static-asset
+substitution fixture used by manual candidate reviews; public hosted APIs remain
+real. This tests candidate frontend code against deployed services, not candidate
+Pages Functions. Function changes still require their unit/integration checks.
+The post-deployment freshness gate is excluded because a candidate is intentionally
+not deployed. All other production UX journeys plus focused Export, reading-space,
+recents and nested-validation cases run with zero retries and unchanged time budgets.
+Focused tests (`test.only`) are forbidden, so an accidentally committed focus
+cannot silently reduce the pre-merge gate's coverage.
+CI authenticates public CDM GitHub GETs through a Node-only transport so shared
+runner IP rate limits do not block source discovery. The credential never enters
+browser requests or Playwright's API tracing; other hosts, repositories, methods
+and redirects are excluded. Response bytes still come from GitHub, without fixtures
+or response caching. Local/deployed reviews remain anonymous unless this candidate-only
+transport is explicitly configured. Explore exposes its authoritative project/reference
+loading state as `aria-busy`; restored-layout checks wait for readiness within the
+existing workbench deadline before searching its inventory.
+The candidate teardown rejects empty reports, degraded or blocked journeys and
+retried evidence, including soft codegen failures and timing-budget findings.
+Keep assertions about warning-free acknowledged edits and the selected root's
+visible generated declaration, rather than successful Save/download alone.
+Geometry assertions measure panes and wait for finite layout animations before
+comparing content-sized editors; use exact accessible names when focus controls
+share a pane name. Reuse these helpers in local and production tests.
+
 `pnpm --filter @rune-langium/studio run test:prod-ux` exercises the deployed Studio.
 Smoke and UX suites share `loadCurrentCdm` in `test/helpers/workspace-launcher.ts`:
 select a release, review its closure, Save, and wait for a visible reference type.

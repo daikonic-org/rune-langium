@@ -17,6 +17,47 @@ const artifact = {
   readText: vi.fn().mockResolvedValue('export interface Party {}')
 };
 
+it.each([undefined, 'removed.ts'])(
+  'opens the explicitly selected namespace before dependency output when active file is %s',
+  async (activeFile) => {
+    const selectedArtifact = {
+      ...artifact,
+      manifest: {
+        ...artifact.manifest,
+        resolvedSelection: {
+          explicit: [{ namespace: 'test', name: 'Party', kind: 'Data' }],
+          included: [{ namespace: 'test', name: 'Party', kind: 'Data' }]
+        },
+        files: [
+          { path: 'dependency.ts', kind: 'text' as const, bytes: 1, namespaces: ['base'] },
+          { path: 'test.ts', kind: 'text' as const, bytes: 1, namespaces: ['test'] }
+        ]
+      },
+      readText: vi.fn().mockImplementation(async (path: string) => path)
+    };
+    const onActiveFileChange = vi.fn();
+    const { rerender } = render(
+      <ExportPreviewPanel
+        run={{ status: 'ready', inputKey: 'input', artifact: selectedArtifact }}
+        activeFile={activeFile}
+        onActiveFileChange={onActiveFileChange}
+        onDownload={vi.fn()}
+      />
+    );
+    expect(await screen.findByLabelText('Generated export code')).toHaveTextContent('test.ts');
+    expect(onActiveFileChange).toHaveBeenLastCalledWith('test.ts');
+    rerender(
+      <ExportPreviewPanel
+        run={{ status: 'ready', inputKey: 'input', artifact: selectedArtifact }}
+        activeFile="dependency.ts"
+        onActiveFileChange={onActiveFileChange}
+        onDownload={vi.fn()}
+      />
+    );
+    await expect.poll(() => screen.getByLabelText('Generated export code').textContent).toBe('dependency.ts');
+  }
+);
+
 it('renders text from the captured export artifact and downloads it on demand', async () => {
   const onDownload = vi.fn();
   render(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={onDownload} />);

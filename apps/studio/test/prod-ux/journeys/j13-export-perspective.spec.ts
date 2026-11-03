@@ -64,6 +64,7 @@ test.describe('J13 — Export perspective', () => {
       }
 
       await expect(preview.getByLabel('Generated export code')).not.toBeEmpty();
+      await expect(preview.getByLabel('Generated export code')).toContainText('BusinessCenters');
       await expect(page.getByTestId('export-selection-summary')).toContainText('declarations included');
       const [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 20000 }),

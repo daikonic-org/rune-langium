@@ -470,6 +470,10 @@ export const ExplorePerspective = withInstrumentation(
     // Workspace model data — formerly props, now from WorkspaceProvider.
     const workspace = useWorkspace();
     const project = useProject();
+    const referencesLoading =
+      project.status === 'loading' ||
+      project.runtime?.status === 'loading' ||
+      project.referenceView?.status === 'loading';
     const pinnedView = Boolean(project.runtime?.managed && project.referenceView?.status === 'ready');
     const pinnedViewRef = useLatestRef(pinnedView);
     const { models, parsedModels, files } = workspace;
@@ -3039,13 +3043,20 @@ export const ExplorePerspective = withInstrumentation(
     // graph data. Deferred-only curated loads are valid Explore content because
     // loadModels([]) materializes placeholder nodes from deferredExports.
     if (fileCount === 0 && models.length === 0 && deferredExports.length === 0) {
-      return <div data-testid="explore-workbench" className="flex flex-col h-full overflow-hidden" />;
+      return (
+        <div
+          data-testid="explore-workbench"
+          aria-busy={referencesLoading}
+          className="flex flex-col h-full overflow-hidden"
+        />
+      );
     }
 
     return (
       <div
         className="flex flex-col h-full overflow-hidden"
         data-testid="explore-workbench"
+        aria-busy={referencesLoading}
         onKeyDown={handleEditorPageKeyDown}
         tabIndex={-1}
       >
