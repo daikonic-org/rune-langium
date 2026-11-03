@@ -187,6 +187,24 @@ describe('instance-store', () => {
     ]);
   });
 
+  it('keeps an actually missing restored type unavailable through canonical preparation', async () => {
+    const postMessage = vi.fn();
+    useInstanceStore.getState().setWorker({ postMessage } as unknown as Worker);
+    useInstanceStore.getState().setReadiness({
+      ensure: vi.fn(async () => {
+        throw new Error('Saved type curated.RemovedParty is no longer available.');
+      }),
+      dispose: vi.fn()
+    });
+    const id = useInstanceStore.getState().createInstance('curated.RemovedParty', 'Retained party');
+    await vi.waitFor(() => expect(useInstanceStore.getState().validationStatus[id]).toBe('unavailable'));
+    expect(useInstanceStore.getState().schemaErrors.get('curated.RemovedParty')?.message).toContain(
+      'no longer available'
+    );
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(useInstanceStore.getState().instances[id]?.data).toEqual({});
+  });
+
   it('createInstance adds a record keyed by id, with provenance defaulting to manual authoring', () => {
     const id = useInstanceStore.getState().createInstance('test.Party', 'My Party');
     const record = useInstanceStore.getState().instances[id];

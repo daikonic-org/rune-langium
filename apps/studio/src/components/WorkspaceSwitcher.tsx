@@ -238,6 +238,7 @@ export const WorkspaceSwitcher = withInstrumentation(
                       </button>
                       <span
                         id={`${metadataId}-${row.id}-name`}
+                        title={row.name}
                         className="studio-recent-workspace__name pointer-events-none min-w-0 flex-1 truncate font-medium"
                       >
                         {row.name}

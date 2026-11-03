@@ -103,6 +103,17 @@ legacy-loader spinner assumptions do not apply to that flow.
 J23–J28 cover workspace YAML in both themes, named Export targets and retained
 outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed
 example repair, and blank workspaces returning from reference review to Explore.
+J29 adds live pinned CDM gas-example selection/validation in Object builder,
+source-preserving reload and execution-catalog input binding. It exercises the
+published examples and actual workers without fixture endpoint substitution;
+returned Rune diagnostics are distinct from validator exceptions. The gas cases
+check multiline diagnostic geometry in both themes and reject premature missing-type
+warnings after reload. Binding the
+catalog input is not acceptance of its full business-event execution.
+`test/e2e/prod-review-polish.spec.ts` checks narrow desktop workspace identity at
+Medium/Large text, the Git recovery route, generated-code reading height and
+light dock/code contrast. The contrast scan includes the dock headers that the
+broader J17 sweep excludes as third-party chrome.
 Local and production wrappers reuse those journey helpers and preserve operation
 evidence across reloads. J17 sweeps both themes; the fixed-dark-theme exception is
 retired. Set `PROD_UX_DESKTOP_ONLY=1` for a desktop-only production run, including nested

@@ -35,7 +35,7 @@
     min-height: 28px;
     border-radius: 6px;
     user-select: none;
-    color: color-mix(in srgb, var(--foreground) 52%, transparent);
+    color: var(--muted-foreground);
     transition:
       color var(--motion-fast),
       background-color var(--motion-fast),
@@ -91,7 +91,7 @@
   }
 
   .studio-app .rune-dock-theme .dv-groupview.dv-active-group .dv-tab.dv-inactive-tab {
-    color: color-mix(in srgb, var(--foreground) 52%, transparent);
+    color: var(--muted-foreground);
   }
 
   .studio-app .rune-dock-theme .dv-groupview.dv-inactive-group .dv-tab.dv-active-tab {
@@ -99,7 +99,7 @@
   }
 
   .studio-app .rune-dock-theme .dv-groupview.dv-inactive-group .dv-tab.dv-inactive-tab {
-    color: color-mix(in srgb, var(--foreground) 34%, transparent);
+    color: var(--muted-foreground);
   }
 
   .studio-app .rune-dock-theme .dv-tab.dv-inactive-tab:hover {
@@ -274,7 +274,7 @@
 
 .studio-app .rune-dock-theme .dv-groupview.dv-active-group .dv-tab.dv-inactive-tab {
   background: transparent !important;
-  color: color-mix(in srgb, var(--foreground) 52%, transparent) !important;
+  color: var(--muted-foreground) !important;
 }
 
 .studio-app .rune-dock-theme .dv-groupview.dv-inactive-group .dv-tab.dv-active-tab {
@@ -284,7 +284,7 @@
 
 .studio-app .rune-dock-theme .dv-groupview.dv-inactive-group .dv-tab.dv-inactive-tab {
   background: transparent !important;
-  color: color-mix(in srgb, var(--foreground) 34%, transparent) !important;
+  color: var(--muted-foreground) !important;
 }
 
 /* Sash (resize handle) — outside @layer so it beats dockview's 4px default.

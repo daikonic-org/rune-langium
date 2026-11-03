@@ -9,14 +9,13 @@ export const XsdImportOptionsSchema = z.object({
     .boolean()
     .optional()
     .default(false)
-    .describe('Structural import only — never populate constraints arrays.'),
+    .describe('Import types and fields without their validation conditions.')
+    .meta({ title: 'Skip validation conditions' }),
   importTopLevelElements: z
     .boolean()
     .optional()
     .default(false)
-    .describe(
-      'Also import top-level xs:element declarations as standalone types. Off by default (current behavior): top-level elements are only used for ref= resolution and diagnostics.'
-    )
+    .describe('Create a standalone Rune type for each top-level XML element, as well as the named schema types.')
 });
 
 export type XsdImportOptions = z.input<typeof XsdImportOptionsSchema>;

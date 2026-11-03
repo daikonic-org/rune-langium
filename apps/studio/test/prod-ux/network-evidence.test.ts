@@ -55,4 +55,23 @@ describe('production request evidence', () => {
     expect(record.documentCount).toBeUndefined();
     expect(record.curatedDocumentCount).toBeUndefined();
   });
+
+  it.each([-663, Number.NaN, Number.POSITIVE_INFINITY])(
+    'keeps invalid wire size %s unknown while retaining document counts',
+    async (responseBodySize) => {
+      const response = responseFixture(3);
+      const request = response.request();
+      vi.spyOn(request, 'sizes').mockResolvedValue({
+        requestBodySize: 0,
+        requestHeadersSize: 0,
+        responseBodySize,
+        responseHeadersSize: 0
+      });
+      vi.spyOn(response, 'request').mockReturnValue(request);
+      const record = await captureNetworkResponse(response);
+      expect(record.responseBytes).toBeUndefined();
+      expect(record.curatedDocumentCount).toBe(2);
+      expect(record.totalMs).toBe(210);
+    }
+  );
 });

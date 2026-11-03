@@ -130,7 +130,7 @@ test.describe('J12 — Import dialog (inbound codegen)', () => {
     // explicit `false`. `.setChecked(false)` would incorrectly no-op here
     // (it trusts the already-"false"-looking aria-checked), so this uses
     // two direct clicks with explicit aria-checked assertions instead.
-    const includeUnreferencedDefsCheckbox = page.getByLabel('Include Unreferenced Defs');
+    const includeUnreferencedDefsCheckbox = page.getByLabel('Include unused type definitions');
     await includeUnreferencedDefsCheckbox.click();
     await expect(includeUnreferencedDefsCheckbox).toHaveAttribute('aria-checked', 'true');
     await includeUnreferencedDefsCheckbox.click();

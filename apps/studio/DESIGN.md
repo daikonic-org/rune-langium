@@ -41,6 +41,10 @@ available; no system preference silently replaces an explicit choice.
   these with additional global minimum heights. Existing button size names keep
   their width and icon intent. Textareas, list rows, touch affordances and dock
   resize targets have their own geometry.
+- Multiline diagnostic actions grow with their text. Wrap long field paths and
+  keep the icon aligned with the first line; never cap a diagnostic row to a
+  single-line control height. Validation disclosures stay inside the viewport
+  and scroll without hiding the recovery action.
 - Settings uses a common label column. Adjacent field/action pairs share the
   compact height; validation messages sit below their control, including boolean
   fields, without moving the label away from the checkbox.
@@ -51,7 +55,15 @@ available; no system preference silently replaces an explicit choice.
 - The launcher fills its available frame. Recent Workspaces sits beside Starters
   on desktop and scrolls independently; navigation and workspace actions stay
   visible. Reference Models uses the same full-width, full-height frame. Narrow
-  layouts keep the stacked flow.
+  layouts keep the stacked flow. In a narrow recent-workspace column, metadata
+  moves beneath the name before it can crowd out workspace identity.
+- Generated Code offers a reversible target-list disclosure that retains the
+  editor, file and target selection. The Git empty state links directly to
+  Workspaces without starting authorization. Import options explain their effect
+  on the Rune model through the authoritative schema metadata.
+- Enabled inactive dock tabs use muted text tokens, not translucent foreground
+  text. Light generated-code surfaces use the white working-card token so syntax
+  colors retain their intended contrast.
 - Splitters stay invisible at rest and highlight the full 4px gap on hover or
   drag. Keep the existing transparent 16px drag target without a shadow outline.
 

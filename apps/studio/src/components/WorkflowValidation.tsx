@@ -80,7 +80,7 @@ export const WorkflowValidation = withInstrumentation(
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-auto w-full justify-start whitespace-normal text-left text-xs"
+                    className="h-auto w-full items-start justify-start py-1 whitespace-normal text-left text-xs"
                     onClick={() => {
                       const fields = [...(root.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? [])];
                       const path = diagnostic.path;
@@ -101,8 +101,8 @@ export const WorkflowValidation = withInstrumentation(
                       }
                     }}
                   >
-                    <CircleX className="size-3.5 shrink-0 text-destructive" aria-hidden="true" />
-                    <span>
+                    <CircleX className="mt-0.5 size-3.5 shrink-0 text-destructive" aria-hidden="true" />
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
                       {diagnostic.conditionDescription ??
                         (diagnostic.conditionName
                           ? `${diagnostic.conditionName} is not satisfied.`
@@ -112,7 +112,7 @@ export const WorkflowValidation = withInstrumentation(
                   {diagnostic.conditionSource ? (
                     <pre
                       aria-label={`${diagnostic.conditionName ?? 'Condition'} Rune source`}
-                      className="studio-scroll mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 font-mono text-xs"
+                      className="studio-scroll mt-1 max-h-48 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded bg-background p-2 font-mono text-xs"
                     >
                       {diagnostic.conditionSource}
                     </pre>
@@ -120,7 +120,7 @@ export const WorkflowValidation = withInstrumentation(
                   {diagnostic.conditionName ? (
                     <details className="mt-1 text-xs text-muted-foreground">
                       <summary>Technical details</summary>
-                      <p className="mt-1 break-words">{diagnostic.message}</p>
+                      <p className="mt-1 [overflow-wrap:anywhere]">{diagnostic.message}</p>
                     </details>
                   ) : null}
                 </li>

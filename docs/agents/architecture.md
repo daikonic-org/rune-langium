@@ -1004,7 +1004,11 @@ project Save/readback, including explicit CAS removals for deletion. Late comple
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
 Full type identity accompanies the internal display FQN; unknown/ambiguous legacy
-bindings retain data. Only typed legacy record files are inspected, and readback
+bindings retain data. Portable descriptors restore their explicit identity without
+consulting the UI's still-loading declaration inventory. Instance preparation and
+the canonical preview worker establish readiness and report genuinely missing
+types; the repository does not maintain a second semantic availability check.
+Only typed legacy record files are inspected, and readback
 precedes private migration markers. No private directory-tree copy is permitted.
 
 Named Prototype workflows are explicit portable recipes under `studio.workflows`.

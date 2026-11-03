@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import { GitSyncPerspective } from '../../src/shell/perspectives/screens/GitSyncPerspective.js';
+import { usePerspectiveStore } from '../../src/store/perspective-store.js';
 
 // ---------------------------------------------------------------------------
 // Mock the git-sync service so tests don't need a real engine or OPFS.
@@ -94,6 +95,16 @@ describe('GitSyncPerspective', () => {
   it('shows the empty state when workspaceKind is "browser-only"', () => {
     render(<GitSyncPerspective workspaceId="ws-1" workspaceKind="browser-only" />);
     expect(screen.getByTestId('git-not-connected')).toBeTruthy();
+  });
+
+  it('opens the workspace connection flow without starting a Git operation', () => {
+    usePerspectiveStore.getState().openWorkspaces('references');
+    usePerspectiveStore.getState().setActivePerspective('git');
+    render(<GitSyncPerspective workspaceId="ws-1" workspaceKind="browser-only" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Workspaces', exact: true }));
+    expect(usePerspectiveStore.getState().activePerspective).toBe('workspaces');
+    expect(usePerspectiveStore.getState().workspaceSection).toBe('workspaces');
+    expect(syncNow).not.toHaveBeenCalled();
   });
 
   it('shows the empty state when workspaceKind is "folder-backed"', () => {

@@ -23,7 +23,7 @@ const buttonVariants = cva(
   // (0.98) as click feedback, on top of settling the hover lift.
   // [&:not(:disabled):hover] and active selectors use Tailwind
   // arbitrary-variant syntax.
-  'inline-flex min-h-6 max-h-7 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer ' +
+  'inline-flex min-h-6 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer ' +
     // cursor-pointer is unconditional above; restore the not-allowed cursor for
     // disabled / aria-disabled states (the disabled:/aria-disabled: variants have
     // higher specificity than the bare cursor-pointer, so they win for those
