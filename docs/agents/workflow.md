@@ -106,6 +106,8 @@ Pages Functions. Function changes still require their unit/integration checks.
 The post-deployment freshness gate is excluded because a candidate is intentionally
 not deployed. All other production UX journeys plus focused Export, reading-space,
 recents and nested-validation cases run with zero retries and unchanged time budgets.
+Focused tests (`test.only`) are forbidden, so an accidentally committed focus
+cannot silently reduce the pre-merge gate's coverage.
 The candidate teardown rejects empty reports, degraded or blocked journeys and
 retried evidence, including soft codegen failures and timing-budget findings.
 Keep assertions about warning-free acknowledged edits and the selected root's

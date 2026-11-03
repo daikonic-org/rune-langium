@@ -80,9 +80,9 @@ for (const [version, theme] of [
       await expect(page.getByRole('region', { name: 'input fields', exact: true })).toHaveCount(0);
       const original = await savedExample(page, path);
       await row.click();
-      await expect(page.getByRole('region', { name: 'input fields', exact: true })).toBeVisible();
       const validation = page.getByRole('button', { name: /^input: (Checks passed|\d+ issues?) · View validation$/ });
       await expect(validation).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('region', { name: 'input fields', exact: true })).toBeVisible();
       await validation.click();
       await expect(page.getByRole('heading', { name: 'input · validation', exact: true })).toBeVisible();
       const issues = page.locator('.workflow-validation-popover');

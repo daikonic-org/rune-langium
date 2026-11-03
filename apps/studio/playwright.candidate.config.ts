@@ -13,6 +13,7 @@ process.env.PROD_UX_REPORT_DIR ??= '../../dist/ux-candidate/report';
 /** Pre-merge UX gate: this checkout's optimized bundle, with public hosted APIs. */
 export default defineConfig({
   ...production,
+  forbidOnly: true,
   metadata: { reviewTarget: 'candidate', staticAssetOrigin: process.env.PROD_UX_ASSET_ORIGIN, backend: 'deployed' },
   globalTeardown: './test/prod-ux/candidate-teardown.ts',
   retries: 0,
