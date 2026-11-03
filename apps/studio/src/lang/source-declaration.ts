@@ -25,7 +25,7 @@ export const sourceDeclarationAt = withInstrumentation(
 
     for (let number = line.number; number >= 1; number--) {
       const candidate = state.doc.line(number);
-      const namespace = /^(\s*)namespace\s+(?:"([^"]+)"|([\w.]+))/.exec(candidate.text);
+      const namespace = /^(\s*)(?:override\s+)?namespace\s+(?:"([^"]+)"|([\w.]+))/.exec(candidate.text);
       if (!namespace) continue;
       if (tree?.resolveInner(candidate.from + namespace[1]!.length, 1).name !== 'keyword') continue;
       return makeNodeId(

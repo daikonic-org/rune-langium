@@ -41,7 +41,7 @@ async function fixture(sources: readonly string[]) {
   const request: LocalDeclarationRequest = {
     mode: 'modify',
     nodeId: 'demo.source.Compute#RosettaFunction',
-    namespace: 'local.demo',
+    namespace: 'demo.source',
     name: 'Compute',
     files,
     models,
@@ -72,10 +72,11 @@ func Compute:
     const { request, RuneDsl } = await fixture([source]);
     const before = JSON.stringify(request.files);
     const [copy] = await prepareLocalDeclaration(request);
-    expect(copy).toMatchObject({ path: 'local/demo/Compute.rosetta', dirty: true });
+    expect(copy).toMatchObject({ path: 'demo/source/Compute.rosetta', dirty: true });
     expect(copy!.readOnly).toBeUndefined();
     expect(copy!.refOnly).toBeUndefined();
-    expect(copy!.content).toContain('import demo.source.*\nimport other.ns.* as other');
+    expect(copy!.content).toMatch(/^override namespace demo.source\n/);
+    expect(copy!.content).toContain('import other.ns.* as other');
     expect(copy!.content).toContain(source.slice(source.indexOf('func Compute:')).trimEnd());
     expect(copy!.content).not.toContain('type Compute:');
     expect(JSON.stringify(request.files)).toBe(before);
@@ -146,7 +147,7 @@ func Compute:
 
   it('rejects collisions, invalid names, curated namespaces and mutable source before writing anything', async () => {
     const { request } = await fixture(['namespace demo.source\nfunc Compute:\n']);
-    expect(localDeclarationError({ ...request, namespace: 'demo.source' })).toMatch(/local namespace/);
+    expect(localDeclarationError({ ...request, namespace: 'local.demo' })).toMatch(/original namespace/);
     expect(localDeclarationError({ ...request, namespace: 'a..b' })).toMatch(/valid local namespace/);
     expect(localDeclarationError({ ...request, name: '../Escape' })).toMatch(/Invalid identifier/);
     expect(
@@ -154,7 +155,7 @@ func Compute:
         ...request,
         files: [
           ...request.files,
-          { name: 'Compute.rosetta', path: 'local/demo/Compute.rosetta', content: 'user work', dirty: true }
+          { name: 'Compute.rosetta', path: 'demo/source/Compute.rosetta', content: 'user work', dirty: true }
         ]
       })
     ).toMatch(/already exists/);
@@ -289,7 +290,7 @@ it('saves a copied dispatch family and its explicit provenance mapping once', as
   expect(saved.project.build.overrides![0]).toMatchObject({
     kind: 'declaration',
     source: { model: 'cdm', name: 'Compute', kind: 'RosettaFunction' },
-    replacement: { model: 'local', namespace: 'local.demo' },
+    replacement: { model: 'local', namespace: 'demo.source' },
     provenance: { uri: 'cdm/f0.rosetta', commit: saved.lock!.references.cdm!.commit }
   });
   const copies = [...saved.files].filter(([path]) => path.endsWith('.rosetta'));
@@ -309,7 +310,7 @@ it('saves an extension without redirecting curated callers', async () => {
   const { controller, receipt } = await projectForDeclaration();
   const { modifyProjectDeclaration } = await import('../../src/services/local-declaration.js');
   const saved = await modifyProjectDeclaration(
-    { ...request, mode: 'extend', name: 'Derived', projectReceipt: receipt },
+    { ...request, mode: 'extend', namespace: 'local.demo', name: 'Derived', projectReceipt: receipt },
     controller
   );
   expect(saved.project.build.overrides ?? []).toEqual([]);

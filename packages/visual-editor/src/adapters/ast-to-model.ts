@@ -25,7 +25,8 @@ import {
   getExpressionOwners,
   getAnnotationDefinitions,
   buildImportAliasMap,
-  importAliasCandidates
+  importAliasCandidates,
+  selectNamespaceOverrideModels
 } from '@rune-langium/core';
 import type { RosettaModel, RosettaRootElement } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge, GraphNodeMeta, GraphFilters, TypeKind } from '../types.js';
@@ -188,7 +189,7 @@ function getAttributeEdges(
  * UI/editor metadata (namespace, errors, isReadOnly, …) lives on `node.meta`.
  */
 export function astToModel(models: unknown, options?: AstToModelOptions): AstToModelResult {
-  const modelArray = Array.isArray(models) ? models : [models];
+  const modelArray = selectNamespaceOverrideModels((Array.isArray(models) ? models : [models]) as RosettaModel[]);
   const expressionOwners = new Set<RosettaRootElement>(getExpressionOwners(modelArray));
   const expressionOwnerIds = new Set<string>();
   for (const model of modelArray) {
@@ -236,6 +237,10 @@ export function astToModel(models: unknown, options?: AstToModelOptions): AstToM
       ) {
         const node = buildGraphNode(element as { $type: string; name: string }, namespace, nodeId, isReadOnly);
         node.meta.imports = imports;
+        if (m.overridden) node.meta.namespaceOverride = true;
+        const sourceUri =
+          modelUri ?? (m as unknown as { $textRegion?: { documentURI?: string } }).$textRegion?.documentURI;
+        if (sourceUri) node.meta.sourceUri = sourceUri;
         nodes.push(node);
         nodeIdSet.add(nodeId);
       }

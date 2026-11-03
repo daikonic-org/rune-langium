@@ -218,7 +218,7 @@ export { expressionScopeFromEntries } from './adapters/expression-scope.js';
 
 export { createEditorCommitRegistry } from './hooks/editor-commit-lifecycle.js';
 export type { EditorCommitRegistry } from './hooks/editor-commit-lifecycle.js';
-export type { SourceSyncHandle, SourceSyncSnapshot } from './hooks/useModelSourceSync.js';
+export type { SourceSyncHandle, SourceSyncSnapshot, SourceSyncFile } from './hooks/useModelSourceSync.js';
 
 export { InspectorFrame } from './components/editors/inspector/InspectorFrame.js';
 export type { InspectorFrameProps, InspectorSection } from './components/editors/inspector/InspectorFrame.js';

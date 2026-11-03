@@ -1,16 +1,32 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createRuneDslServices } from '@rune-langium/core';
+import { URI, DocumentState } from 'langium';
 import type { RosettaModel } from '@rune-langium/core';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { resolveFunctionOutputTarget } from '../../src/services/function-output-target.js';
 
 function model(name: string, elements: object[]): RosettaModel {
-  return { name, elements } as unknown as RosettaModel;
+  return { name, elements, $document: { state: DocumentState.Linked } } as unknown as RosettaModel;
 }
 
 describe('resolveFunctionOutputTarget', () => {
+  it('does not resolve lazy output references in a not-yet-linked UI snapshot', () => {
+    const { RuneDsl } = createRuneDslServices();
+    const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+      'namespace local\nfunc Build:\n output: result Missing (1..1)',
+      URI.parse('file:///pending.rosetta')
+    );
+    const warn = vi.spyOn(console, 'warn');
+    try {
+      expect(resolveFunctionOutputTarget([document.parseResult.value as RosettaModel], 'local.Build')).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
   it('uses the hydrated function schema when the declaration is curated', () => {
     const schema: FormPreviewSchema = {
       schemaVersion: 1,

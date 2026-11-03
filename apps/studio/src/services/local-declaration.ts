@@ -63,15 +63,15 @@ export const localDeclarationError = withInstrumentation(
     if (!origin.kind || !origin.namespace) return 'The original declaration is not available yet.';
     if (mode === 'extend' && !canExtendDeclaration(origin.kind)) return 'This declaration cannot be extended.';
     if (mode === 'modify' && name !== origin.name) return 'A local copy retains the original declaration name.';
-    if (files.some((file) => (file.refOnly || file.readOnly) && file.namespace === namespace))
+    if (mode === 'extend' && files.some((file) => (file.refOnly || file.readOnly) && file.namespace === namespace))
       return 'Choose a local namespace, separate from the curated model.';
-    if (mode === 'modify' && namespace === origin.namespace)
-      return 'Choose a local namespace, separate from the curated model.';
+    if (mode === 'modify' && namespace !== origin.namespace) return 'A local override retains the original namespace.';
     const targetKind =
       mode === 'extend' ? EXTENSION_PARENT[origin.kind as keyof typeof EXTENSION_PARENT][0] : origin.kind;
     if (
       models.some(
-        ({ model }) =>
+        ({ model, filePath }) =>
+          !files.some((file) => file.refOnly && file.path === resolveEditorFilePath(filePath, files)) &&
           namespaceFromModelName(model.name) === namespace &&
           model.elements.some((node) => 'name' in node && node.name === name && node.$type === targetKind)
       )
@@ -96,6 +96,8 @@ function declarationGroups(request: LocalDeclarationRequest) {
   const origin = { ...splitNodeId(request.nodeId), kind: kindFromNodeId(request.nodeId) };
   const groups = request.models.flatMap((entry) => {
     if (namespaceFromModelName(entry.model.name) !== origin.namespace) return [];
+    const path = resolveEditorFilePath(entry.filePath, request.files) ?? entry.filePath;
+    if (request.mode === 'modify' && !request.files.some((file) => file.path === path && file.refOnly)) return [];
     const nodes = entry.model.elements.filter(
       (node) => 'name' in node && node.name === origin.name && node.$type === origin.kind
     );
@@ -230,9 +232,9 @@ async function prepareDeclaration(
         if (to > source.length || to <= from) throw new Error('Curated source does not match its declaration ranges.');
         return source.slice(from, to);
       };
-      const imports = new Set([`import ${origin.namespace}.*`, ...entry.model.imports.map(slice)]);
+      const imports = new Set(entry.model.imports.map(slice));
       // A separate local file per original file preserves alias and import precedence.
-      const content = `${renderModel({ name: namespace, version: entry.model.version, elements: [] }).trimEnd()}\n\n${[...imports].join('\n')}\n\n${nodes.map(slice).join('\n\n')}\n`;
+      const content = `${renderModel({ name: namespace, overridden: true, version: entry.model.version, elements: [] }).trimEnd()}\n\n${[...imports].join('\n')}\n\n${nodes.map(slice).join('\n\n')}\n`;
       copies.push(makeFile(content, index));
     }
     return copies;

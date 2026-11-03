@@ -150,6 +150,10 @@ bridge tags operations for preview, Prototype, validation and code preview,
 rejects mismatched replies and preserves legacy message shapes. Worker replies
 capture their originating generation before yielding; they cannot borrow a
 newer receipt. Identical receipts reuse the same immutable graph.
+Parser-worker dependency snapshots link all already-materialized documents before
+reading or serializing their references; deferred corpus entries remain lazy.
+Function-output navigation prefers the worker's canonical schema and only reads
+AST references when the owning document has computed scopes.
 
 Codegen's selection view uses core's resolved declaration targets, including
 explicitly selected original roots. It emits the replacement's canonical
@@ -234,11 +238,20 @@ interactive.
 The graph's informational legend also passes pointer events to the canvas.
 
 Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
-workspace creation does not leak into individual declaration forms. Extend uses
+workspace creation does not leak into individual declaration forms. Its declaration
+title is a level-two heading beneath the perspective heading, including transient
+read-only states; heading order cannot depend on neighboring Dockview panels. Extend uses
 the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
-from the verified active curated source into a distinct local namespace; split dispatch
+from the verified active curated source into editable override files; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
-then uses the normal file persistence/parse path. Managed actions flush the existing
+then uses the normal file persistence/parse path. Modify emits `override namespace`
+with the original namespace and declaration names. Core's namespace override view
+owns selection for linking, serialized references, code generation and editor models;
+unmodified siblings remain available. Competing replacements and incomplete dispatch
+families fail validation. Existing explicit project mappings remain supported, and
+Modify retains its verified provenance mapping; a competing mapping cannot silently
+win over native source syntax. The Rune renderer preserves the namespace marker.
+Managed actions flush the existing
 source/autosave owners, await the saved revision in the preview worker, and Save
 the copy plus explicit override map in one project transaction. Copy bytes must
 match the verified active reference documents before their source URI, commit and
@@ -247,6 +260,11 @@ Nightly copies use the verified document's publication metadata, including depen
 without adding a reference lock or changing its moving request. All copied dispatch
 documents must belong to one publication. Repeated Modify follows the existing mapping. Extend
 adds no redirect. Curated sources remain immutable.
+Studio resolves read-only state and source ownership per declaration/file. Source
+synchronization captures each writable file's own baseline and declaration set,
+including renames and removals; sharing a namespace never copies immutable siblings
+or writes one override declaration into another override file. Graph exports retain
+the owning namespace marker, while metadata stays outside declaration payloads.
 Preview-worker hydration restores references within curated snapshots; their exports
 must also be registered through Langium's index before parsing authored source that
 imports them. Index each hydrated batch once and remove exports when it is replaced.

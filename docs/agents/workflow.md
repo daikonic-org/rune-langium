@@ -108,6 +108,10 @@ not deployed. All other production UX journeys plus focused Export, reading-spac
 recents and nested-validation cases run with zero retries and unchanged time budgets.
 Focused tests (`test.only`) are forbidden, so an accidentally committed focus
 cannot silently reduce the pre-merge gate's coverage.
+The candidate suite includes native namespace override/Extend journeys: read-only
+siblings, multiple local files sharing a reference namespace, real-worker execution,
+receipt-backed export, and reload persistence. Their pinned artifact fixtures use
+the canonical resolver and serialized decoder; only HTTP transport is replaced.
 CI authenticates public CDM GitHub GETs through a Node-only transport so shared
 runner IP rate limits do not block source discovery. The credential never enters
 browser requests or Playwright's API tracing; other hosts, repositories, methods

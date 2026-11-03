@@ -11,6 +11,54 @@ const mapping: ProjectOverride = {
   source: identity('cdm', 'ref', 'RosettaFunction', 'Compute'),
   replacement: identity('local', 'custom', 'RosettaFunction', 'Compute')
 };
+it('applies native namespace overrides to serialized curated callers without a configuration redirect', async () => {
+  const { snapshot, documents } = await fixture([]);
+  const original = await buildEffectiveProject(snapshot, documents);
+  expect(original.diagnostics).toEqual([]);
+  const { serializeRuneModel } = await import('@rune-langium/core');
+  const serialized = original.documents
+    .filter((document) => document.uri.path.includes('/[cdm]/'))
+    .map((document) => ({
+      ...documents[0]!,
+      serialized: serializeRuneModel(original.services.serializer.JsonSerializer, document.parseResult.value)
+    }));
+  const before = JSON.stringify(serialized);
+  const files = new Map(snapshot.files);
+  files.set(
+    'model/custom.rosetta',
+    'override namespace ref\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2'
+  );
+  const current = await buildEffectiveProject(await createProjectSnapshot('p', files, () => []), serialized);
+  expect(current.diagnostics).toEqual([]);
+  const functions = current.documents.flatMap((document) =>
+    AstUtils.streamAllContents(document.parseResult.value).filter(isRosettaFunction).toArray()
+  );
+  const local = functions.find((node) => node.name === 'Compute' && node.$container.overridden)!;
+  const caller = functions.find((node) => node.name === 'Caller')!;
+  expect(
+    AstUtils.streamAllContents(caller)
+      .filter(isRosettaSymbolReference)
+      .find((node) => node.symbol.$refText === 'Compute')!.symbol.ref
+  ).toBe(local);
+  expect(JSON.stringify(serialized)).toBe(before);
+});
+it('rejects a native override competing with an existing configured replacement', async () => {
+  const { snapshot, documents } = await fixture();
+  const files = new Map(snapshot.files);
+  files.set(
+    'model/native.rosetta',
+    'override namespace ref\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 3'
+  );
+  const graph = await buildEffectiveProject(await createProjectSnapshot('p', files, () => []), documents);
+  expect(graph.diagnostics).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'PROJECT_LINK',
+        message: expect.stringContaining('configured replacement and namespace override compete')
+      })
+    ])
+  );
+});
 async function fixture(
   overrides: ProjectOverride[] = [mapping],
   replacement = 'func Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2'

@@ -30,6 +30,7 @@ export interface ModelOutput {
   version: string;
   elements: unknown[];
   imports: never[];
+  overridden?: boolean;
 }
 
 // Keep legacy type names for backward compatibility
@@ -106,6 +107,7 @@ export function modelsToAst(nodes: TypeGraphNode[], edges: TypeGraphEdge[]): Mod
     }
 
     models.push({
+      ...(nsNodes.some((node) => node.meta.namespaceOverride) ? { overridden: true } : {}),
       $type: 'RosettaModel',
       name: namespace,
       version: '0.0.0',

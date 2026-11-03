@@ -85,9 +85,9 @@ export function TypeHeader({
             name="name"
             render={({ field, fieldState }) =>
               nameReadOnly ? (
-                <h3 data-slot="type-name" className="truncate px-1 text-lg font-semibold">
+                <h2 data-slot="type-name" className="truncate px-1 text-lg font-semibold">
                   {field.value}
-                </h3>
+                </h2>
               ) : (
                 <Field>
                   <Input
@@ -109,9 +109,9 @@ export function TypeHeader({
             }
           />
         ) : (
-          <h3 data-slot="type-name" className="truncate px-1 text-lg font-semibold">
+          <h2 data-slot="type-name" className="truncate px-1 text-lg font-semibold">
             {name}
-          </h3>
+          </h2>
         )}
       </div>
       {actions}

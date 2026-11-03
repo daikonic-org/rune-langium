@@ -41,6 +41,8 @@ it('creates a local copy after flushing pending edits and reports recoverable so
   render(<InspectorDeclarationActions {...p} />);
   fireEvent.click(screen.getByRole('button', { name: 'Modify local copy' }));
   expect(screen.getByLabelText('Name')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Local namespace')).toHaveValue('demo');
+  expect(screen.getByLabelText('Local namespace')).toHaveAttribute('readonly');
   fireEvent.click(screen.getByRole('button', { name: 'Create local copy' }));
   await screen.findByText('Source unavailable');
   expect(p.onCreate).not.toHaveBeenCalled();

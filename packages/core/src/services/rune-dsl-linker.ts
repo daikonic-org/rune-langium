@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { redirectProjectNode } from '../references/project-resolution.js';
+import { redirectProjectNode, initializeProjectResolution } from '../references/project-resolution.js';
 import { DefaultLinker } from 'langium';
 import type { AstNode, AstNodeDescription, LangiumCoreServices, LangiumDocumentFactory } from 'langium';
 
@@ -39,6 +39,14 @@ export class RuneDslLinker extends DefaultLinker {
     this.services = services;
     this.deferredProvider = deferredProvider;
     this.factory = services.shared.workspace.LangiumDocumentFactory;
+  }
+
+  override async link(
+    document: Parameters<DefaultLinker['link']>[0],
+    cancelToken?: Parameters<DefaultLinker['link']>[1]
+  ): Promise<void> {
+    initializeProjectResolution(this.services);
+    await super.link(document, cancelToken);
   }
 
   /** Resolve a description through the same deferred-document path used by linking. */

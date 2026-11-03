@@ -5,8 +5,32 @@ import { describe, expect, it } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
 import { declarationKey, generate, generateSelected, resolveExportSelection } from '../src/export.js';
+import { compileGeneratedTypeScript } from './helpers/compiled-typescript.js';
 
 describe('declaration selection', () => {
+  it('compiles and executes a selected original caller through a same-namespace override', async () => {
+    const { shared } = createRuneDslServices();
+    await shared.workspace.WorkspaceManager.initializeWorkspace([]);
+    const documents = [
+      'namespace native\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 1\nfunc Caller:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: Compute(amount)',
+      'override namespace native\nfunc Compute:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount + 2'
+    ].map((text, i) =>
+      shared.workspace.LangiumDocumentFactory.fromString(text, URI.parse(`inmemory:///native-${i}.rosetta`))
+    );
+    for (const document of documents) shared.workspace.LangiumDocuments.addDocument(document);
+    await shared.workspace.DocumentBuilder.build(documents, { validation: true, eagerLinking: true });
+    expect(documents.flatMap((document) => document.diagnostics ?? [])).toEqual([]);
+    const result = await generateSelected(
+      documents,
+      { namespaces: [], declarations: [{ namespace: 'native', kind: 'RosettaFunction', name: 'Caller' }] },
+      { target: 'typescript' }
+    );
+    expect(result.outputs.flatMap((output) => output.diagnostics)).toEqual([]);
+    const code = result.outputs.map((output) => output.content).join('\n');
+    expect(code).not.toMatch(/amount\s*\+\s*1/);
+    const compiled = compileGeneratedTypeScript<{ Caller: (amount: number) => number }>(result.outputs);
+    expect(compiled.Caller(10)).toBe(12);
+  });
   it('includes a selected declaration dependency and excludes an unrelated sibling', async () => {
     const { RuneDsl } = createRuneDslServices();
     await RuneDsl.shared.workspace.WorkspaceManager.initializeWorkspace([]);

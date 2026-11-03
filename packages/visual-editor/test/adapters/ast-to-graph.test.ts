@@ -25,6 +25,33 @@ import {
 
 describe('astToModel', () => {
   it.each([false, true])(
+    'uses the native override declaration and preserves unmodified reference siblings, serialized=%s',
+    async (serialized) => {
+      const { RuneDsl } = createRuneDslServices();
+      const sources = [
+        'namespace shared\ntype Value:\n original string (1..1)\ntype Retained:\n name string (1..1)',
+        'override namespace shared\ntype Value:\n replacement string (1..1)'
+      ];
+      const models = await Promise.all(
+        sources.map(async (source) => {
+          const { value, parserErrors } = await parse(source);
+          expect(parserErrors).toEqual([]);
+          return serialized ? JSON.parse(serializeRuneModel(RuneDsl.serializer.JsonSerializer, value)) : value;
+        })
+      );
+      for (const order of [models, [...models].reverse()]) {
+        const nodes = astToModel(order).nodes;
+        expect(nodes).toHaveLength(2);
+        const replacement = nodes.find((node) => node.data.name === 'Value')!;
+        expect(replacement.data.$type === 'Data' && replacement.data.attributes.map((attr) => attr.name)).toEqual([
+          'replacement'
+        ]);
+        expect(replacement.meta.namespaceOverride).toBe(true);
+        expect(nodes.find((node) => node.data.name === 'Retained')!.meta.namespaceOverride).toBeUndefined();
+      }
+    }
+  );
+  it.each([false, true])(
     'uses the unique split dispatch base regardless of file order, serialized=%s',
     async (serialized) => {
       const { RuneDsl } = createRuneDslServices();

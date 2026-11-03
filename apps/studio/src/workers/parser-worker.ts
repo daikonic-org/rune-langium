@@ -36,6 +36,7 @@ import {
 import type { CuratedSerializedDocument } from '@rune-langium/curated-schema';
 import {
   AstUtils,
+  DocumentState,
   isMultiReference,
   URI,
   EmptyFileSystem,
@@ -593,7 +594,18 @@ const handleLinkDocument = withInstrumentation(
       // eagerLinking: true runs Langium's linker immediately.
       // RuneDslLinker.loadAstNode handles transitive corpus deps on demand,
       // each calling deferredProvider.getModel() which appends to newModelsAccumulator.
-      await activeBuilder.build([doc], { validation: false, eagerLinking: true });
+      // Only already-materialized documents participate. Compute their scopes
+      // together before linking or serializing a newly captured dependency closure.
+      // Deferred corpus entries remain lazy and do not enter this batch.
+      const linkMaterialized = async (requested?: LangiumDocument) => {
+        const unlinked = () => activeLangiumDocs.all.toArray().filter((entry) => entry.state < DocumentState.Linked);
+        let pending = [...new Set([...(requested ? [requested] : []), ...unlinked()])];
+        while (pending.length) {
+          await activeBuilder.build(pending, { validation: false, eagerLinking: true });
+          pending = unlinked();
+        }
+      };
+      await linkMaterialized(doc);
 
       const errors: string[] = [];
       for (const diag of doc.diagnostics ?? []) {
@@ -614,6 +626,7 @@ const handleLinkDocument = withInstrumentation(
           const uri = current.uri.toString();
           if (visited.has(uri)) continue;
           visited.add(uri);
+          if (current.state < DocumentState.Linked) await linkMaterialized(current);
           const model = current.parseResult.value;
           if (!isRosettaModel(model)) continue;
           snapshots.add(model);
@@ -639,6 +652,7 @@ const handleLinkDocument = withInstrumentation(
           invalidArtifactKeys: [...invalidArtifactKeys]
         };
       }
+      await linkMaterialized();
       return {
         type: 'linkDocumentResult',
         id: req.id,

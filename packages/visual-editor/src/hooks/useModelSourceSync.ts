@@ -46,7 +46,8 @@ import { buildDirtyIndex } from '../serialize/dirty-paths.js';
 function computeContentFingerprint(
   nodes: TypeGraphNode[],
   edges: TypeGraphEdge[],
-  sourceByNamespace: ReadonlyMap<string, string>
+  sourceByNamespace: ReadonlyMap<string, string>,
+  writableNodeIds?: ReadonlySet<string>
 ): string {
   const nodeParts: string[] = [];
   // Sort by id so reordering (e.g. drag-reorder) doesn't churn the
@@ -54,7 +55,7 @@ function computeContentFingerprint(
   // The source baseline is the publication boundary. Reference-only namespaces
   // have no writable source and must not become a second serialized cohort here.
   const sortedNodes = nodes
-    .filter((node) => sourceByNamespace.has(node.meta.namespace))
+    .filter((node) => sourceByNamespace.has(node.meta.namespace) && (!writableNodeIds || writableNodeIds.has(node.id)))
     .sort((a, b) => a.id.localeCompare(b.id));
   const writableIds = new Set(sortedNodes.map((node) => node.id));
   for (const n of sortedNodes) {
@@ -90,6 +91,11 @@ function computeContentFingerprint(
 // Pure helper — exported so it can be unit-tested without React
 // ---------------------------------------------------------------------------
 
+export interface SourceSyncFile {
+  namespace: string;
+  text: string;
+  nodeIds: ReadonlySet<string>;
+}
 export interface BuildSourceArgs {
   nodes: TypeGraphNode[];
   edges: TypeGraphEdge[];
@@ -101,10 +107,31 @@ export interface BuildSourceArgs {
    * excluded from the assembled output. Defaults to [] (no deletions).
    */
   inversePatches?: Patches;
+  /** Optional per-file ownership for namespaces shared by local and reference declarations. */
+  sourceFiles?: ReadonlyMap<string, SourceSyncFile>;
+  /** Linked read-only peers used for qualified inheritance names while rendering one owned file. */
+  scopeNodes?: readonly TypeGraphNode[];
 }
 
 /** Pure: produce Map<namespace, full .rosetta source> via CST-reuse. */
 export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, string> {
+  if (args.sourceFiles) {
+    const output = new Map<string, string>();
+    for (const [path, file] of args.sourceFiles) {
+      const owned = (patch: Patches[number]) => patch.path[0] !== 'nodes' || file.nodeIds.has(String(patch.path[1]));
+      const text = buildSourceForNamespaces({
+        ...args,
+        sourceFiles: undefined,
+        nodes: args.nodes.filter((node) => file.nodeIds.has(node.id)),
+        scopeNodes: args.nodes,
+        originalSourceByNamespace: new Map([[file.namespace, file.text]]),
+        patches: args.patches.filter(owned),
+        inversePatches: args.inversePatches?.filter(owned)
+      }).get(file.namespace);
+      if (text !== undefined) output.set(path, text);
+    }
+    return output;
+  }
   const { nodes, edges, originalSourceByNamespace, patches, inversePatches = [] } = args;
   const dirty = buildDirtyIndex(patches);
 
@@ -127,7 +154,7 @@ export function buildSourceForNamespaces(args: BuildSourceArgs): Map<string, str
     }
   }
   // Build an id→node map for namespace lookup (needed for B2 cross-ns qualify).
-  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const byId = new Map([...(args.scopeNodes ?? []), ...nodes].map((n) => [n.id, n]));
   const forceDirtyNodeIds = new Set<string>();
   const effectiveNodes = nodes.map((n) => {
     const targetId = inheritanceTarget.get(n.id);
@@ -316,7 +343,8 @@ export function useModelSourceSync(
    * those ranges are omitted from the assembled output. Defaults to [] so
    * legacy/test callers without deletion support keep the old behavior.
    */
-  inversePatches: Patches = []
+  inversePatches: Patches = [],
+  sourceFiles?: ReadonlyMap<string, SourceSyncFile>
 ): SourceSyncHandle {
   // Keep a stable ref so the effect doesn't need to re-register when the
   // callback identity changes (e.g. inline arrow in EditorPage).
@@ -343,9 +371,10 @@ export function useModelSourceSync(
   // slices the exact text the offsets point at — never live file content.
   // Initialised to the mount-time source (the authoritative parsed text at load).
   const parseBaselineSourceRef = useRef(originalSourceByNamespace);
+  const parseBaselineFilesRef = useRef(sourceFiles);
 
-  const rendered = useRef({ parseEpoch, originalSourceByNamespace });
-  rendered.current = { parseEpoch, originalSourceByNamespace };
+  const rendered = useRef({ parseEpoch, originalSourceByNamespace, sourceFiles });
+  rendered.current = { parseEpoch, originalSourceByNamespace, sourceFiles };
   const pending = useRef<Promise<void>>(Promise.resolve());
   const busy = useRef(false);
   const queued = useRef<Map<string, string> | null>(null);
@@ -368,8 +397,12 @@ export function useModelSourceSync(
     if (parseAdvanced) {
       lastParseEpochRef.current = parseEpoch;
       parseBaselineSourceRef.current = rendered.current.originalSourceByNamespace;
+      parseBaselineFilesRef.current = rendered.current.sourceFiles;
     }
-    const fingerprint = computeContentFingerprint(nodes, edges, parseBaselineSourceRef.current);
+    const ownedIds =
+      rendered.current.sourceFiles &&
+      new Set([...rendered.current.sourceFiles.values()].flatMap((file) => [...file.nodeIds]));
+    const fingerprint = computeContentFingerprint(nodes, edges, parseBaselineSourceRef.current, ownedIds);
     if (lastContentFingerprintRef.current === fingerprint) return pending.current;
     lastContentFingerprintRef.current = fingerprint;
     const next = buildSourceForNamespaces({
@@ -377,7 +410,15 @@ export function useModelSourceSync(
       edges,
       originalSourceByNamespace: parseBaselineSourceRef.current,
       patches,
-      inversePatches
+      inversePatches,
+      sourceFiles:
+        parseBaselineFilesRef.current &&
+        new Map(
+          [...parseBaselineFilesRef.current].map(([path, file]) => [
+            path,
+            { ...file, nodeIds: rendered.current.sourceFiles?.get(path)?.nodeIds ?? file.nodeIds }
+          ])
+        )
     });
     if (parseAdvanced || (!hasFiredInitialSerializeRef.current && (!explicit || patches.length === 0))) {
       hasFiredInitialSerializeRef.current = true;
@@ -419,6 +460,6 @@ export function useModelSourceSync(
   }, []);
   useEffect(() => {
     void publish({ nodes, edges, parseEpoch, patches, inversePatches }, false).catch(() => {});
-  }, [nodes, edges, parseEpoch, patches, originalSourceByNamespace, inversePatches, publish]);
+  }, [nodes, edges, parseEpoch, patches, originalSourceByNamespace, inversePatches, sourceFiles, publish]);
   return { flush: useCallback((snapshot: SourceSyncSnapshot) => publish(snapshot, true), [publish]) };
 }
