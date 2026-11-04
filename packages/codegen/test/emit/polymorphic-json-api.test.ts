@@ -13,7 +13,7 @@ type Model = {
   new (value: unknown): { toJSON(options: Options): unknown };
   fromJSON(value: unknown, options: Options): View;
 };
-type Api = Record<'Animal' | 'Dog' | 'Poodle' | 'Shelter', Model>;
+type Api = Record<'Animal' | 'Dog' | 'Poodle' | 'Shelter' | 'ExactShelter', Model>;
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
   'preserves assignable concrete types across namespace modules (%s)',
@@ -22,7 +22,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     const sources = [
       BASICTYPES_ROSETTA,
       'namespace animals\ntype Animal:\n name string (1..1)\nchoice Pet:\n Animal\nchoice Nested:\n Pet\nchoice Ambiguous:\n Animal\n Pet\ntype Shelter:\n pet Animal (1..1)\n pets Animal (0..*)\n chosen Pet (0..1)\nnested Nested (0..1)\nambiguous Ambiguous (0..1)',
-      'namespace dogs\nimport animals.*\ntype Dog extends Animal:\n breed string (1..1)\ntype Poodle extends Dog:\n clipped boolean (1..1)'
+      'namespace dogs\nimport animals.*\ntype Dog extends Animal:\n breed string (1..1)\ntype Poodle extends Dog:\n clipped boolean (1..1)\ntype Other:\n value string (1..1)\nchoice OtherChoice:\n Other\nchoice ExactWithUnrelated:\n Animal\n Dog\n OtherChoice\ntype ExactShelter:\n selected ExactWithUnrelated (1..1)'
     ];
     const docs = sources.map((text, index) =>
       RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
@@ -43,13 +43,16 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       outputs.push({
         ...outputs[0]!,
         relativePath: entry,
-        content: "export { Animal, Shelter } from './animals.js';\nexport { Dog, Poodle } from './dogs.js';\n"
+        content:
+          "export { Animal, Shelter } from './animals.js';\nexport { Dog, Poodle, ExactShelter } from './dogs.js';\n"
       });
     }
     const api = compileGeneratedTypeScript<Api>(outputs, { entry });
     const options: Options = { format: 'RUNE_JSON' };
     const dog = new api.Dog({ name: 'Fido', breed: 'Poodle' });
     const dogWire = dog.toJSON(options);
+    const exactWire = { '@type': 'dogs.ExactShelter', selected: dogWire };
+    expect(api.ExactShelter.fromJSON(exactWire, options).toJSON(options)).toEqual(exactWire);
     const restored = api.Animal.fromJSON(dogWire, options);
     expect(restored.unwrap()).toBeInstanceOf(api.Dog);
     expect(restored.unwrap()).toMatchObject({ name: 'Fido', breed: 'Poodle' });

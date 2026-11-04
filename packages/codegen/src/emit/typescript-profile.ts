@@ -101,6 +101,7 @@ function makeSingleFileContent(perNs: ReadonlyArray<GeneratorOutput>, registry: 
     `// Single-file bundle for namespaces: ${namespaces}`,
     ``,
     "import { Temporal } from '@js-temporal/polyfill';",
+    `export { RuneObject, is } from './${typescriptHelperModuleName(registry)}.js';`,
     buildRuntimeHelperImportLine(`./${typescriptHelperModuleName(registry)}.js`, [
       ...RUNE_VALUE_IMPORTS,
       ...(perNs.some((output) => output.content.includes('isLeapYear')) ? ['isLeapYear'] : []),

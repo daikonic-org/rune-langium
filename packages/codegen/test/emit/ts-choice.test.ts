@@ -67,16 +67,14 @@ describe('ts-emitter — Choice emission (W2)', () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.choice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('is(x: unknown): x is Asset {');
+    expect(output.content).toContain('is.Asset = Asset.is;');
   });
 
-  it('the type guard checks exactly-one-of the option keys via rune.checkOneOf', async () => {
+  it('the shared Choice guard receives the linked option inventory', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.choice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain(
-      'return rune.checkOneOf([("cash" in x ? x.cash : undefined), ("commodity" in x ? x.commodity : undefined)]);'
-    );
+    expect(output.content).toContain('choice: ["cash","commodity"]');
   });
 
   it('a Data attribute TYPED BY a Choice resolves to the Choice name, not unknown', async () => {

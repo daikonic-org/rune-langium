@@ -80,17 +80,15 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain(
-      'export class Dog extends (Animal as RuneDataClass<typeof Animal>) implements Dog.Shape'
-    );
+    expect(productOutput!.content).toContain('export class Dog extends Animal implements Dog.Shape');
   });
 
-  it('the type guard overload set includes the cross-namespace parent chain (not silently dropped)', async () => {
+  it('the shared guard retains the cross-namespace concrete class', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('static is(x: Animal): x is Dog;');
+    expect(productOutput!.content).toContain('is.Dog = RuneObject.guard(Dog);');
   });
 
   it('the previously-unused cross-namespace import is now load-bearing', async () => {

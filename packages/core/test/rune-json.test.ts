@@ -7,7 +7,8 @@ import {
   withRuneJsonEncoding,
   normalizeRuneJsonChoiceWrapper,
   projectRuneJsonChoice,
-  acceptsRuneJsonChoice
+  acceptsRuneJsonChoice,
+  selectRuneJsonChoiceCandidates
 } from '../src/serialization/rune-json.js';
 
 it('shares recursive Choice acceptance and terminates cyclic alternatives without hiding valid siblings', () => {
@@ -30,6 +31,15 @@ it('shares recursive Choice acceptance and terminates cyclic alternatives withou
       (type) => choices.get(type)
     )
   ).toBe(false);
+});
+
+it('prefers exact Data arms among matching candidates while retaining nested ambiguity', () => {
+  const kind = (candidate: string) => candidate !== 'Nested';
+  expect(selectRuneJsonChoiceCandidates(['Animal', 'Dog'], (candidate) => candidate === 'Dog', kind)).toEqual(['Dog']);
+  expect(selectRuneJsonChoiceCandidates(['Animal', 'Dog', 'Nested'], (candidate) => candidate === 'Dog', kind)).toEqual(
+    ['Animal', 'Dog', 'Nested']
+  );
+  expect(selectRuneJsonChoiceCandidates([], () => true, kind)).toEqual([]);
 });
 
 it('serializes native patterns as wire strings and refuses to discard flags', () => {

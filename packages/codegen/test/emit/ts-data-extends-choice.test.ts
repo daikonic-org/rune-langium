@@ -200,16 +200,14 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     expect(output.content).not.toContain('type Constructor<');
   });
 
-  it('static from(...) still delegates to `new <Name>(...)` — single construction path preserved', async () => {
+  it('the shared factory uses the generated constructor without duplicating its implementation', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
     expect(output.content).toContain('export class BasketConstituent');
-    expect(output.content).toContain(
-      'from<const I>(input: I & RuneFactoryInput<I, BasketConstituent.Input, BasketConstituent>)'
-    );
-    // The generated guard proves the class/Choice-shape intersection.
-    expect(output.content).toContain('return new BasketConstituent(json);');
+    expect(output.content).toContain('RuneObject.create(BasketConstituent)');
+    expect(output.content).toContain('extends RuneObject');
+    expect(output.content).toContain('is.BasketConstituent = RuneObject.guard(BasketConstituent);');
     expect(output.content).not.toContain('as unknown as');
   });
 

@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+
+import { expect, it } from 'vitest';
+import { Temporal } from '@js-temporal/polyfill';
+import { assertValidDocuments, BASICTYPES_ROSETTA, createRuneDslServices } from '@rune-langium/core';
+import { URI } from 'langium';
+import { generate } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
+
+const source = `namespace codecs
+annotation metadata:
+ reference string (0..1)
+type Quote:
+ amount number (1..1)
+ date date (1..1)
+ time time (1..1)
+ pattern pattern (0..1)
+ end date (0..1)
+ condition Positive: amount > 0
+ condition Ordered: if end exists then date <= end
+type Special extends Quote:
+ note string (1..1)
+choice Selected:
+ Quote
+type Tagged extends Selected:
+ note string (0..1)
+type Portfolio:
+ quote Quote (1..1)
+ quotes Quote (0..*)
+ selected Selected (0..1)
+ reference Quote (0..1)
+  [metadata reference]
+type Node:
+ quote Quote (1..1)
+ next Node (0..1)
+`;
+
+async function documents() {
+  const { RuneDsl } = createRuneDslServices();
+  const docs = [BASICTYPES_ROSETTA, source].map((text, index) =>
+    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(text, URI.parse(`inmemory:///codecs-${index}.rosetta`))
+  );
+  await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
+  assertValidDocuments(docs);
+  return docs;
+}
+
+type View = { unwrap(): unknown; toJSON(options?: { format: 'RUNE_JSON' }): unknown };
+type Model = { from(input: unknown): View; fromJSON(input: unknown, options?: { format: 'RUNE_JSON' }): View };
+
+it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
+  'imports generated Zod codecs for optional serialization (%s)',
+  async (layout) => {
+    const outputs = await generate(await documents(), {
+      target: 'typescript',
+      typescript: { serialization: 'zod', ...(layout === 'inline' ? { inlineHelpers: true } : { layout }) }
+    });
+    const model = outputs.find((output) => output.content.includes('export class Quote '))!;
+    expect(model.content).toContain('.QuoteCodec');
+    expect(outputs.some((output) => output.relativePath === 'codecs.zod.ts')).toBe(true);
+    const api = compileGeneratedTypeScript<
+      Record<'Quote' | 'Special' | 'Portfolio' | 'Tagged' | 'Node' | 'Selected', Model>
+    >(outputs, { entry: model.relativePath });
+    const plain = { amount: 2, date: '2026-11-04', time: '12:30:00', pattern: '^a+$' };
+    const quote = api.Quote.fromJSON(plain);
+    const value = quote.unwrap() as { date: unknown; time: unknown; pattern: unknown };
+    expect(Object.prototype.toString.call(value.date)).toBe('[object Temporal.PlainDate]');
+    expect(Object.prototype.toString.call(value.time)).toBe('[object Temporal.PlainTime]');
+    expect(value.pattern).toBeInstanceOf(RegExp);
+    expect(quote.toJSON()).toEqual(plain);
+    expect(() => api.Quote.fromJSON({ ...plain, amount: -1 })).toThrow();
+    expect(() => api.Quote.fromJSON({ ...plain, date: '2026-02-30' })).toThrow();
+    expect(() => api.Quote.fromJSON({ ...plain, end: '2026-11-03' })).toThrow();
+    expect(() => api.Quote.fromJSON({ ...plain, pattern: '[' })).toThrow();
+    expect(() =>
+      api.Quote.from({
+        ...plain,
+        date: Temporal.PlainDate.from(plain.date),
+        time: Temporal.PlainTime.from(plain.time),
+        pattern: /a/i
+      }).toJSON()
+    ).toThrow(/flags/);
+    const options = { format: 'RUNE_JSON' as const };
+    const wire = { '@type': 'codecs.Special', ...plain, note: 'special' };
+    const portfolio = {
+      '@type': 'codecs.Portfolio',
+      quote: wire,
+      quotes: [wire],
+      selected: wire,
+      reference: { ...wire, '@ref:external': 'q1' }
+    };
+    expect(api.Portfolio.fromJSON(portfolio, options).toJSON(options)).toEqual(portfolio);
+    expect(api.Quote.fromJSON([wire, wire], options).toJSON(options)).toEqual([wire, wire]);
+    expect(api.Selected.fromJSON(wire, options).toJSON(options)).toEqual(wire);
+    expect(() => api.Selected.fromJSON({ ...wire, amount: -1 }, options)).toThrow();
+    const tagged = { '@type': 'codecs.Tagged', quote: wire, note: 'tag' };
+    expect(api.Tagged.fromJSON(tagged, options).toJSON(options)).toEqual(tagged);
+    const recursive = { quote: plain, next: { quote: plain } };
+    expect(api.Node.fromJSON(recursive).toJSON()).toEqual(recursive);
+  }
+);
+
+it('keeps default TypeScript output independent of Zod', async () => {
+  const outputs = await generate(await documents(), { target: 'typescript' });
+  expect(outputs.some((output) => output.relativePath.endsWith('.zod.ts'))).toBe(false);
+  expect(outputs.some((output) => /from ['"].*\.zod\.js/.test(output.content))).toBe(false);
+});
+
+it.each(['per-namespace', 'barrel', 'single-file'] as const)('exposes standalone Zod codecs (%s)', async (layout) => {
+  const outputs = await generate(await documents(), { target: 'zod', zod: { codecs: true, layout } });
+  const model = outputs.find((output) => output.content.includes('export const QuoteCodec'))!;
+  const api = compileGeneratedTypeScript<{
+    QuoteCodec: { parse(value: unknown): unknown; encode(value: unknown): unknown };
+  }>(outputs, { entry: model.relativePath });
+  const plain = { amount: 2, date: '2026-11-04', time: '12:30:00' };
+  expect(api.QuoteCodec.encode(api.QuoteCodec.parse(plain))).toEqual(plain);
+});

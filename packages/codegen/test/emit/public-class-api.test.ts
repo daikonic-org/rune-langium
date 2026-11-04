@@ -18,7 +18,9 @@ type ModelClass = {
   fromJSON(input: unknown, options?: JsonOptions): ModelView;
   is(input: unknown): boolean;
 };
-type PublicApi = Record<'Quote' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass>;
+type PublicApi = Record<'Quote' | 'Lookalike' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass> & {
+  is: Record<'Quote' | 'Base', (value: unknown) => boolean>;
+};
 
 const source = `namespace publicApi
 annotation metadata:
@@ -29,6 +31,9 @@ type Quote:
  currency string (1..1)
 type Portfolio:
  quotes Quote (1..*)
+type Lookalike:
+ amount number (1..1)
+ currency string (1..1)
 type Base:
  value int (1..1)
 type Child extends Base:
@@ -68,7 +73,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     expect(model.content).not.toContain('$Quote$Data');
     expect(model.content).not.toContain('export const Quote =');
     expect(model.content).not.toMatch(/\$Quote\$|QuoteShape|export function isQuote/);
-    expect(model.content).toContain('static readonly Type: Quote.Type');
+    expect(model.content).not.toContain('static readonly Type:');
     expect(model.content).toContain('export interface Shape');
     expect(model.content).toContain('Copy(quote: Quote.Shape): Quote.Shape');
     expect(model.content.includes('runtime helpers (inlined)')).toBe(layout === 'inline');
@@ -80,6 +85,12 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
 const quote: Quote.Shape = { amount: 5, currency: 'USD' };
 const copied: Quote.Shape = Copy(quote);
 const portfolio: Portfolio.Shape = { quotes: [quote] };
+const structural: unknown = {};
+if (is.Quote(structural)) { const shape: Quote.Shape = structural;
+// @ts-expect-error shapes are not instances
+const instance: Quote = structural; }
+const known: RuneObject = new Child({ value: 1, extra: 'child' });
+if (is.Quote(known)) { const instance: Quote = known; }
 const inherited: Base = new Child({ value: 1, extra: 'child' });
 const one: number = Quote.from(quote).amount.unwrap();
 const many: [number, number, ...number[]] = Quote.from([quote, quote]).amount.unwrap();
@@ -92,9 +103,16 @@ Child.from({ value: 1 });
     const input = { amount: 5, currency: 'USD' };
     const quote = new api.Quote(input);
     expect(quote.constructor.name).toBe('Quote');
-    expect(Object.getOwnPropertyNames(api.Quote)).toEqual(expect.arrayContaining(['Type', 'is', 'from', 'fromJSON']));
+    expect(Object.getOwnPropertyNames(api.Quote)).not.toEqual(expect.arrayContaining(['Type']));
+    for (const name of ['is', 'from', 'fromJSON']) expect(Object.hasOwn(api.Quote, name)).toBe(false);
     expect(Object.keys(api).some((name) => name.startsWith('$Quote$') || name === 'isQuote')).toBe(false);
     expect(api.Quote.is(quote)).toBe(true);
+    expect(api.is.Quote(quote)).toBe(true);
+    expect(api.is.Quote(input)).toBe(true);
+    expect(api.is.Quote(new api.Lookalike(input))).toBe(false);
+    expect(api.is.Base(new api.Child({ value: 1, extra: 'child' }))).toBe(true);
+    expect(api.is.Quote([input])).toBe(false);
+    expect(api.is.Quote({ amount: 5, currency: null })).toBe(false);
     expect(api.Quote.is({ '@type': 'publicApi.Quote', ...input })).toBe(true);
     expect(api.Quote.is({ '@type': 'other.Quote', ...input })).toBe(false);
     expect(api.Quote.is({ '@type': 'publicApi.Quote' })).toBe(false);

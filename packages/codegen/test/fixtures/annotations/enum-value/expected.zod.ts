@@ -242,8 +242,10 @@ const rune = {
 
 // --- end runtime helpers ---
 
-const runeExtendChoice = <T extends z.ZodUnion<readonly z.ZodObject[]>>(choice: T, shape: z.ZodRawShape) =>
-  z.union(choice.options.map((arm) => arm.extend(shape)));
+function runeExtendChoice<T extends z.ZodUnion<readonly z.ZodObject[]>, S extends z.ZodRawShape>(choice: T, shape: S): z.ZodType<z.output<T> & z.output<z.ZodObject<S>>, z.input<T> & z.input<z.ZodObject<S>>>;
+function runeExtendChoice(choice: z.ZodUnion<readonly z.ZodObject[]>, shape: z.ZodRawShape) {
+  return z.union(choice.options.map((arm) => arm.extend(shape)));
+}
 
 export const CurrencySchema = z.enum(['USD', 'EUR', 'GBP']);
 export type Currency = z.infer<typeof CurrencySchema>;

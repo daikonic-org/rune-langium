@@ -68,13 +68,13 @@ describe('T099: basic-types TypeScript target', () => {
 
   it('contains static from(', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('from<const I>(');
+    expect(output).toContain('RuneObject.create(Person)');
   });
 
   it('contains isTypeName( type guards', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('Person.is(');
-    expect(output).toContain('Empty.is(');
+    expect(output).toContain('is.Person = RuneObject.guard(Person)');
+    expect(output).toContain('is.Empty = RuneObject.guard(Empty)');
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {
@@ -89,20 +89,20 @@ describe('T099: basic-types TypeScript target', () => {
 // ---------------------------------------------------------------------------
 
 describe('T100: inheritance TypeScript target', () => {
-  it('emits class Child extends (Parent as RuneDataClass<typeof Parent>) (not implements)', async () => {
+  it('emits class Child extends Parent (not implements)', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('class Dog extends (Animal as RuneDataClass<typeof Animal>)');
+    expect(output).toContain('class Dog extends Animal');
     expect(output).not.toContain('class Dog implements');
   });
 
   it('emits three-level inheritance chain', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('class Poodle extends (Dog as RuneDataClass<typeof Dog>)');
+    expect(output).toContain('class Poodle extends Dog');
   });
 
   it('emits discriminator function isDog(x: Animal): x is Dog', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('static is(x: Animal): x is Dog');
+    expect(output).toContain('is.Dog = RuneObject.guard(Dog)');
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {

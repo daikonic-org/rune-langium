@@ -1,23 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-/**
- * Regression coverage for `resolveTypeofStr`/`resolveBuiltinTsType` in
- * ts-emitter.ts after migrating them onto the shared `resolveTypeCallTarget`
- * resolver (type-ref-resolver.ts). Before the migration, both helpers only
- * recognized a LINKED `RosettaBasicType` and never chased a
- * `RosettaTypeAlias` or recognized a genuinely-linked `RosettaRecordType` —
- * so an alias-to-primitive field's `is<TypeName>` guard silently degraded to
- * a presence-only check, and a locally-declared `recordType date {}` field's
- * guard was skipped entirely on the linked path.
- */
+/** Linked descriptor guards retain alias, native, enum and nested model checks. */
 
 import { describe, it, expect } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
 import { generate } from '../src/export.js';
+import { compileGeneratedTypeScript } from './helpers/compiled-typescript.js';
 
-async function runTs(content: string, name: string): Promise<string> {
+async function runTs(content: string, name: string) {
   const { RuneDsl } = createRuneDslServices();
   const doc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
     content,
@@ -29,12 +21,14 @@ async function runTs(content: string, name: string): Promise<string> {
   }
   const outputs = await generate(doc, { target: 'typescript' });
   if (outputs.length === 0) throw new Error(`No output for ${name}`);
-  return outputs[0]!.content;
+  return compileGeneratedTypeScript<{
+    Foo: { is(value: unknown): boolean; fromJSON(value: unknown): { unwrap(): unknown } };
+  }>(outputs);
 }
 
 describe('ts-emitter type-guard helpers resolve type-alias/record-type references', () => {
   it('a type-alias-to-primitive field gets a real typeof guard, not just a presence check', async () => {
-    const output = await runTs(
+    const api = await runTs(
       `
         namespace "test.alias"
         version "1"
@@ -47,12 +41,12 @@ describe('ts-emitter type-guard helpers resolve type-alias/record-type reference
       'alias-typeof'
     );
 
-    expect(output).toContain(`typeof x.bar !== 'string'`);
-    expect(output).not.toContain(`x.bar === undefined) return false;`);
+    expect(api.Foo.is({ bar: 'valid' })).toBe(true);
+    expect(api.Foo.is({ bar: 42 })).toBe(false);
   });
 
   it('a genuinely-linked RosettaRecordType field gets its instanceof guard on the linked path', async () => {
-    const output = await runTs(
+    const api = await runTs(
       `
         namespace "test.record"
         version "1"
@@ -65,11 +59,12 @@ describe('ts-emitter type-guard helpers resolve type-alias/record-type reference
       'record-instanceof'
     );
 
-    expect(output).toContain('instanceof Temporal.PlainDate');
+    expect(api.Foo.is(api.Foo.fromJSON({ createdAt: '2026-11-04' }).unwrap())).toBe(true);
+    expect(api.Foo.is({ createdAt: '2026-11-04' })).toBe(false);
   });
 
   it('plain builtin, Data, Enum, and Choice fields are unaffected (no regression)', async () => {
-    const output = await runTs(
+    const api = await runTs(
       `
         namespace "test.plain"
         version "1"
@@ -91,9 +86,10 @@ describe('ts-emitter type-guard helpers resolve type-alias/record-type reference
       'plain-fields'
     );
 
-    expect(output).toContain(`typeof x.name !== 'string'`);
-    // Enum/Data/Choice fields have no typeof/instanceof guard — presence-only checks.
-    expect(output).toContain(`x.color === undefined) return false;`);
-    expect(output).toContain(`x.address === undefined) return false;`);
+    const valid = { name: 'name', color: 'RED', address: { street: 'Main' } };
+    expect(api.Foo.is(valid)).toBe(true);
+    expect(api.Foo.is({ ...valid, color: 'unknown' })).toBe(false);
+    expect(api.Foo.is({ ...valid, address: { street: 2 } })).toBe(false);
+    expect(api.Foo.is({ ...valid, shape: {} })).toBe(false);
   });
 });

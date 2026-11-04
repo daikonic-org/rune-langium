@@ -57,11 +57,16 @@ export class ValueApiEmitter {
     private readonly output: (node: Model) => string,
     private readonly create: (node: Model) => string,
     private readonly check: (field: Feature) => string | undefined,
-    private readonly namespaceOutput: (node: Model) => string
+    private readonly namespaceOutput: (node: Model) => string,
+    private readonly codec: (node: Model) => string | undefined = () => undefined
   ) {}
 
   name(node: Model, suffix: string): string {
     return this.names(node, suffix);
+  }
+
+  runtime(node: Model): string {
+    return isTypeScriptNativeType(node) ? this.name(node, 'Type') : `runeModel(${this.output(node)})`;
   }
 
   private field(feature: Feature): Field {
@@ -185,7 +190,7 @@ export class ValueApiEmitter {
 
   private scopedType(node: Model, member: 'Input' | 'Type'): string {
     if (!MODEL_NAMESPACE_MEMBERS.has(this.output(node))) return this.name(node, member);
-    const descriptor = `typeof ${this.name(node, 'Type')}`;
+    const descriptor = `RuneModel<typeof ${this.output(node)}>`;
     return member === 'Type' ? descriptor : `NonNullable<(${descriptor})['input']>`;
   }
 
@@ -233,7 +238,7 @@ export class ValueApiEmitter {
       const check = this.check(field.feature);
       const read = calendar ? `, read: (value: unknown) => ${calendar}` : '';
       const pathStep = `${JSON.stringify(step).slice(0, -1)}${read}}`;
-      return `{ id: ${JSON.stringify(field.id)}, key: ${JSON.stringify(field.key)}, min: ${bounds.min}, max: ${bounds.max}${direct ? `, paths: [[${pathStep}]]` : ''}${step.metadata ? `, metadata: true, wireMin: ${field.wireBounds.min}, wireMax: ${field.wireBounds.max}` : ''}${read}${check ? `, check: ${check}` : ''}${field.model ? `, type: () => ${this.name(field.model, 'Type')}` : ''} }`;
+      return `{ id: ${JSON.stringify(field.id)}, key: ${JSON.stringify(field.key)}, min: ${bounds.min}, max: ${bounds.max}${direct ? `, paths: [[${pathStep}]]` : ''}${step.metadata ? `, metadata: true, wireMin: ${field.wireBounds.min}, wireMax: ${field.wireBounds.max}` : ''}${read}${check ? `, check: ${check}` : ''}${field.model ? `, type: () => ${this.runtime(field.model)}` : ''} }`;
     };
     const fields = own.map((field) => {
       const type = metadataType(
@@ -257,11 +262,12 @@ export class ValueApiEmitter {
     const native = isTypeScriptNativeType(node);
     const data = isData(node);
     const ownerType = this.name(inventoryOwner, 'Type');
+    const ownerRuntime = this.runtime(inventoryOwner);
     const selectionsType = existingInventory
       ? isTypeScriptNativeType(inventoryOwner)
         ? `${ownerType}$Selections`
         : MODEL_NAMESPACE_MEMBERS.has(this.output(inventoryOwner))
-          ? `(typeof ${ownerType})['selections']`
+          ? `RuneModel<typeof ${this.output(inventoryOwner)}>['selections']`
           : this.name(inventoryOwner, 'Selections')
       : native
         ? `${modelName}$Selections`
@@ -270,27 +276,19 @@ export class ValueApiEmitter {
       ? isTypeScriptNativeType(inventoryOwner)
         ? `${ownerType}$Deep`
         : MODEL_NAMESPACE_MEMBERS.has(this.output(inventoryOwner))
-          ? `(typeof ${ownerType})['inventory']['deep']`
+          ? `RuneModel<typeof ${this.output(inventoryOwner)}>['inventory']['deep']`
           : this.name(inventoryOwner, 'Deep')
       : native
         ? `${modelName}$Deep`
         : 'Deep';
     const selectionsValue = existingInventory
-      ? `${ownerType}.selections`
+      ? `${ownerRuntime}.selections`
       : native
         ? `${modelName}$Selections`
-        : data
-          ? `${this.output(node)}.#selections`
-          : '__selections';
-    const deepValue = existingInventory
-      ? `${ownerType}.inventory.deep`
-      : native
-        ? `${modelName}$Deep`
-        : data
-          ? `${this.output(node)}.#deep`
-          : '__deep';
+        : '__selections';
+    const deepValue = existingInventory ? `${ownerRuntime}.inventory.deep` : native ? `${modelName}$Deep` : '__deep';
     const inventoryValue = existingInventory
-      ? `${ownerType}.inventory`
+      ? `${ownerRuntime}.inventory`
       : `{ selections: ${selectionsValue}, deep: ${deepValue} }`;
     const baseDeep = [...byName]
       .filter(([, matches]) => matches.length === 1)
@@ -338,24 +336,23 @@ export class ValueApiEmitter {
     ].join('\n');
     const inventoryMembers = !existingInventory
       ? [
-          `${data ? 'static readonly #selections' : `const ${selectionsValue}`}: ${data || !native ? this.name(node, 'Selections') : selectionsType} = { ${reachable.map((field) => `${JSON.stringify(field.id)}: ${descriptor(field, conservative)}`).join(', ')} };`,
-          `${data ? 'static readonly #deep' : `const ${deepValue}`}: ${data || !native ? this.name(node, 'Deep') : deepType} = { ${baseDeep.map(({ key, field }) => `${objectKey(key)}: ${selectionsValue}[${JSON.stringify(field.id)}]`).join(', ')} };`
+          `const ${selectionsValue}: ${data || !native ? this.name(node, 'Selections') : selectionsType} = { ${reachable.map((field) => `${JSON.stringify(field.id)}: ${descriptor(field, conservative)}`).join(', ')} };`,
+          `const ${deepValue}: ${data || !native ? this.name(node, 'Deep') : deepType} = { ${baseDeep.map(({ key, field }) => `${objectKey(key)}: ${selectionsValue}[${JSON.stringify(field.id)}]`).join(', ')} };`
         ]
       : [];
     const members = [
       ...inventoryMembers,
-      `${data ? 'static readonly Type' : `const ${native ? modelName : '__descriptor'}`}: ${modelName} = runeRegisterValueType<${modelName}>({`,
+      `${data ? `this.define<${modelName}>({` : `const ${native ? modelName : '__descriptor'}: ${modelName} = runeRegisterValueType<${modelName}>({`}`,
       `  identity: ${JSON.stringify(`${getElementNamespace(node)}.${node.name}`)},`,
       `  inventory: ${inventoryValue},`,
       ...(isData(node) ? ['  derived: new globalThis.Map<string, RuneValueType>(),'] : []),
       ...(isData(node) ? [`  prototype: ${this.output(node)}.prototype,`] : []),
-      ...(isData(node) && isData(node.superType?.ref)
-        ? [`  parent: () => ${this.name(node.superType.ref, 'Type')},`]
-        : []),
+      ...(isData(node) && isData(node.superType?.ref) ? [`  parent: () => ${this.runtime(node.superType.ref)},`] : []),
       ...(isChoice(node) ? [`  kind: 'choice',`] : []),
       ...(isData(node) && hasTypeMetadata(node) ? ['  metadata: true,'] : []),
       ...(isTypeScriptNativeType(node) ? ['  native: true,'] : []),
-      `  create: ${this.create(node)},`,
+      ...(!isChoice(node) ? [`  create: ${this.create(node)},`] : []),
+      ...(this.codec(node) ? [`  codec: () => ${this.codec(node)},`] : []),
       ...(own.some((field) => isChoiceOption(field.feature))
         ? [
             `  choice: ${JSON.stringify(own.filter((field) => isChoiceOption(field.feature)).map((field) => field.key))},`
@@ -373,14 +370,5 @@ export class ValueApiEmitter {
     };
     this.emissions.set(node, result);
     return result;
-  }
-
-  factory(node: Model): string {
-    if (isTypeScriptNativeType(node)) return '';
-    const input = this.name(node, 'Input');
-    const schema = this.name(node, 'Type');
-    const output = this.output(node);
-    const method = `from<const I>(input: I & RuneFactoryInput<I, ${input}, ${output}>): RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}> { return runeValue<I, ${schema}>(input, () => ${schema}); }`;
-    return isData(node) ? `  static ${method}` : method;
   }
 }

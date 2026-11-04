@@ -2530,9 +2530,14 @@ it('restores typed Choice @data layers and prefers an exact Data arm over its an
  type Base:
   amount number (1..1)
  type Leaf extends Base:
+ type Other:
+  name string (1..1)
+ choice Unrelated:
+  Other
  choice Inner:
   Base
   Leaf
+  Unrelated
  choice Outer:
   Inner
  `);

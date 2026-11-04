@@ -3,47 +3,40 @@
 // Source namespace: test.funcs.constructor
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
+import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
 
-export class Point implements Point.Shape {
+declare module '../../helpers.js' {
+  namespace is {
+    function Point<I>(value: I): value is I & (I extends RuneObject ? Point : Point.Shape);
+    function Box<I>(value: I): value is I & (I extends RuneObject ? Box : Box.Shape);
+  }
+}
+export { RuneObject, is };
+export class Point extends RuneObject implements Point.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Point.Type>;
   x: number;
   y: number;
 
   constructor(data: Point.Shape) {
+    super();
     this.x = data.x;
     this.y = data.y;
   }
 
-  static is(x: unknown): x is Point {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Point) return true;
-    if ('@type' in x && x['@type'] !== "test.funcs.constructor.Point") return false;
-    if (!("x" in x) || typeof x.x !== 'number') return false;
-    if (!("y" in x) || typeof x.y !== 'number') return false;
-    return true;
+  static {
+    const __selections: Point.Selections = { "test.funcs.constructor.Point#x": { id: "test.funcs.constructor.Point#x", key: "x", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.funcs.constructor.Point#y": { id: "test.funcs.constructor.Point#y", key: "y", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
+    const __deep: Point.Deep = { "x": __selections["test.funcs.constructor.Point#x"], "y": __selections["test.funcs.constructor.Point#y"] };
+    this.define<Point.Type>({
+      identity: "test.funcs.constructor.Point",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Point.prototype,
+      create: RuneObject.create(Point),
+      fields: { "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, paths: [[{"key":"x","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, paths: [[{"key":"y","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
+      deep: Object.assign(Object.create(__deep), { "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Point.Input, Point>): RuneView<Point, RuneFromMin<I>, RuneFromMax<I>, Point.Type> { return runeValue<I, Point.Type>(input, () => Point.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Point.from(runeValueFromJSON(input, () => Point.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Point.Type, options); }
-
-  static readonly #selections: Point.Selections = { "test.funcs.constructor.Point#x": { id: "test.funcs.constructor.Point#x", key: "x", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.funcs.constructor.Point#y": { id: "test.funcs.constructor.Point#y", key: "y", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-  static readonly #deep: Point.Deep = { "x": Point.#selections["test.funcs.constructor.Point#x"], "y": Point.#selections["test.funcs.constructor.Point#y"] };
-  static readonly Type: Point.Type = runeRegisterValueType<Point.Type>({
-    identity: "test.funcs.constructor.Point",
-    inventory: { selections: Point.#selections, deep: Point.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Point.prototype,
-    create:   (json: unknown) => {
-      if (!Point.is(json)) {
-        throw new TypeError('not a Point: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Point(json);
-    },
-    fields: { "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, paths: [[{"key":"x","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, paths: [[{"key":"y","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-    deep: Object.assign(Object.create(Point.#deep), { "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-    selections: Point.#selections
-  });
 }
 
 export namespace Point {
@@ -66,45 +59,33 @@ export namespace Point {
   }
 }
 
-export class Box implements Box.Shape {
+is.Point = RuneObject.guard(Point);
+
+export class Box extends RuneObject implements Box.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Box.Type>;
   origin: Point.Shape;
   width: number;
 
   constructor(data: Box.Shape) {
+    super();
     this.origin = data.origin;
     this.width = data.width;
   }
 
-  static is(x: unknown): x is Box {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Box) return true;
-    if ('@type' in x && x['@type'] !== "test.funcs.constructor.Box") return false;
-    if (!("origin" in x) || x.origin === undefined) return false;
-    if (!("width" in x) || typeof x.width !== 'number') return false;
-    return true;
+  static {
+    const __selections: Box.Selections = { "test.funcs.constructor.Box#origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 0, max: null, type: () => runeModel(Point) }, "test.funcs.constructor.Point#x": { id: "test.funcs.constructor.Point#x", key: "x", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.funcs.constructor.Point#y": { id: "test.funcs.constructor.Point#y", key: "y", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.funcs.constructor.Box#width": { id: "test.funcs.constructor.Box#width", key: "width", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
+    const __deep: Box.Deep = { "origin": __selections["test.funcs.constructor.Box#origin"], "x": __selections["test.funcs.constructor.Point#x"], "y": __selections["test.funcs.constructor.Point#y"], "width": __selections["test.funcs.constructor.Box#width"] };
+    this.define<Box.Type>({
+      identity: "test.funcs.constructor.Box",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Box.prototype,
+      create: RuneObject.create(Box),
+      fields: { "origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 1, max: 1, paths: [[{"key":"origin","min":1,"max":1}]], type: () => runeModel(Point) }, "width": { id: "test.funcs.constructor.Box#width", key: "width", min: 1, max: 1, paths: [[{"key":"width","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
+      deep: Object.assign(Object.create(__deep), { "origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 1, max: 1, type: () => runeModel(Point) }, "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "width": { id: "test.funcs.constructor.Box#width", key: "width", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Box.Input, Box>): RuneView<Box, RuneFromMin<I>, RuneFromMax<I>, Box.Type> { return runeValue<I, Box.Type>(input, () => Box.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Box.from(runeValueFromJSON(input, () => Box.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Box.Type, options); }
-
-  static readonly #selections: Box.Selections = { "test.funcs.constructor.Box#origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 0, max: null, type: () => Point.Type }, "test.funcs.constructor.Point#x": { id: "test.funcs.constructor.Point#x", key: "x", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.funcs.constructor.Point#y": { id: "test.funcs.constructor.Point#y", key: "y", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.funcs.constructor.Box#width": { id: "test.funcs.constructor.Box#width", key: "width", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-  static readonly #deep: Box.Deep = { "origin": Box.#selections["test.funcs.constructor.Box#origin"], "x": Box.#selections["test.funcs.constructor.Point#x"], "y": Box.#selections["test.funcs.constructor.Point#y"], "width": Box.#selections["test.funcs.constructor.Box#width"] };
-  static readonly Type: Box.Type = runeRegisterValueType<Box.Type>({
-    identity: "test.funcs.constructor.Box",
-    inventory: { selections: Box.#selections, deep: Box.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Box.prototype,
-    create:   (json: unknown) => {
-      if (!Box.is(json)) {
-        throw new TypeError('not a Box: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Box(json);
-    },
-    fields: { "origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 1, max: 1, paths: [[{"key":"origin","min":1,"max":1}]], type: () => Point.Type }, "width": { id: "test.funcs.constructor.Box#width", key: "width", min: 1, max: 1, paths: [[{"key":"width","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-    deep: Object.assign(Object.create(Box.#deep), { "origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 1, max: 1, type: () => Point.Type }, "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "width": { id: "test.funcs.constructor.Box#width", key: "width", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-    selections: Box.#selections
-  });
 }
 
 export namespace Box {
@@ -126,6 +107,8 @@ export namespace Box {
     readonly inventory: { readonly selections: Selections; readonly deep: Deep };
   }
 }
+
+is.Box = RuneObject.guard(Box);
 
 
 export function MakePoint(x: number, y: number): Point.Shape {

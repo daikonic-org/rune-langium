@@ -54,6 +54,7 @@ import { debug } from '../instrument.js';
 import type { GeneratorOptions, GeneratorOutput, SourceMapEntry, GeneratorDiagnostic } from '../types.js';
 import { RUNTIME_HELPER_SOURCE, buildRuntimeHelperImportLine } from '../helpers.js';
 import { RUNE_EXTEND_CHOICE_HELPER_SOURCE } from './zod-runtime-helpers.js';
+import { RUNE_PATTERN_RUNTIME_SOURCE } from '../expr/generated/rune-json-runtime-source.js';
 import {
   transpileCondition,
   transpileExpression,
@@ -225,6 +226,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly typeIndex: TypeIndexLookup;
   private readonly sections: string[] = [];
   private readonly functionInputs: boolean;
+  private readonly codecs: boolean;
   private readonly metadataInputs: boolean;
   private readonly emissionPositions: ReadonlyMap<string, number>;
   private readonly conditionFunctionName: NamespaceEmitterOptions['conditionFunctionName'];
@@ -236,7 +238,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   ) {
     super(model, options, registry);
     this.functionInputs = options.functionInputs ?? false;
-    this.metadataInputs = this.functionInputs || (options.metadataInputs ?? false);
+    this.codecs = options.zod?.codecs ?? false;
+    this.metadataInputs = this.functionInputs || this.codecs || (options.metadataInputs ?? false);
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.emissionPositions = new Map(model.emitOrder.map((name, index) => [name, index]));
     this.conditionFunctionName = options.conditionFunctionName;
@@ -251,6 +254,19 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         builtinTypeMap[kind] =
           `z.string().regex(new RegExp(${JSON.stringify(TEMPORAL_CONVERSION_PATTERNS[kind as keyof typeof TEMPORAL_CONVERSION_PATTERNS])}))` +
           `.transform((value, ctx) => { try { return ${parse}(value); } catch { ctx.addIssue({ code: 'custom', message: 'Invalid ${kind}' }); return z.NEVER; } })`;
+      }
+      this.ctx = { ...this.ctx, builtinTypeMap };
+    }
+    if (this.codecs) {
+      const builtinTypeMap = { ...this.ctx.builtinTypeMap };
+      builtinTypeMap.pattern = `z.codec(z.string(), z.instanceof(RegExp), { decode: (value, ctx) => { try { return new RegExp(value); } catch { ctx.issues.push({ code: 'custom', input: value, message: 'Invalid pattern' }); return z.NEVER; } }, encode: value => runeSerializePattern(value) })`;
+      for (const [kind, temporalType] of Object.entries(typescriptProfile.recordTypeMap).concat([
+        ['time', typescriptProfile.basicTypeMap.time!]
+      ])) {
+        const wire = ZOD_BUILTIN_TYPE_MAP[kind]!;
+        const parse = kind === 'zonedDateTime' ? 'rune.parseZonedDateTime' : `${temporalType}.from`;
+        builtinTypeMap[kind] =
+          `z.codec(${wire}, z.instanceof(${temporalType}), { decode: (value, ctx) => { try { return ${parse}(value); } catch { ctx.issues.push({ code: 'custom', input: value, message: 'Invalid ${kind}' }); return z.NEVER; } }, encode: value => String(value) })`;
       }
       this.ctx = { ...this.ctx, builtinTypeMap };
     }
@@ -297,6 +313,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     this.sections.push(this.emitTypeSchema(data));
     const alias = this.emitInferAlias(data);
     if (alias) this.sections.push(alias);
+    if (this.codecs) this.sections.push(`export const ${data.name}Codec = ${data.name}Schema;`);
     this.sections.push('');
   }
 
@@ -310,6 +327,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   emitChoice(choice: Choice): void {
     this.sections.push(this.emitChoiceSchema(choice));
     this.sections.push(`export type ${choice.name} = z.infer<typeof ${choice.name}Schema>;`);
+    if (this.codecs) this.sections.push(`export const ${choice.name}Codec = ${choice.name}Schema;`);
     this.sections.push('');
   }
 
@@ -583,20 +601,28 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       // .strict(): non-strict objects allow unknown keys, so {cash, commodity}
       // would satisfy the first arm — strict arms make multi-option objects
       // fail every arm, enforcing the exactly-one-of Choice semantics.
-      return `z.strictObject({ ${fieldName}: ${optionSchemaExpr} })`;
+      return `z.${this.codecs ? 'looseObject' : 'strictObject'}({ ${fieldName}: ${optionSchemaExpr} })`;
     });
 
     if (optionSchemas.length === 0) {
       return `export const ${schemaName} = z.never();`;
     }
 
-    return `export const ${schemaName} = z.union([${optionSchemas.join(', ')}]);`;
+    const check = this.codecs ? this.choiceCodecCheck(choice) : '';
+    return `export const ${schemaName} = z.union([${optionSchemas.join(', ')}])${check};`;
   }
 
   /**
    * Emit a single attribute as a Zod object property entry.
    * FR-003 (cardinality), FR-009 (reserved-word quoting).
    */
+  private choiceCodecCheck(choice: Choice): string {
+    const keys = choice.attributes.map((option) =>
+      choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '')
+    );
+    return `.refine(data => [${keys.map((key) => `(${JSON.stringify(key)} in data ? data.${key} : undefined)`).join(', ')}].filter(value => value != null).length === 1, 'Expected exactly one Choice option')`;
+  }
+
   private emitAttribute(attr: Attribute, ownerName: string): string {
     let baseTypeExpr = this.resolveTypeExpr(attr, ownerName);
     const kind = this.metadataInputs ? fieldMetadataKind(attr) : undefined;
@@ -604,8 +630,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       const metadata = 'z.record(z.string(), z.unknown())';
       baseTypeExpr =
         kind === 'field'
-          ? `z.object({ value: ${baseTypeExpr}, meta: ${metadata} })`
-          : `z.object({ value: ${baseTypeExpr}.optional(), meta: ${metadata}.optional(), reference: z.object({ reference: z.unknown().optional(), scope: z.unknown().optional(), pointsTo: z.unknown().optional() }).optional(), externalReference: z.unknown().optional(), globalReference: z.unknown().optional() })`;
+          ? `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}, meta: ${metadata} })`
+          : `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}.optional(), meta: ${metadata}.optional(), reference: z.object({ reference: z.unknown().optional(), scope: z.unknown().optional(), pointsTo: z.unknown().optional() }).optional(), externalReference: z.unknown().optional(), globalReference: z.unknown().optional() })`;
     }
     const card = attr.card;
     let zodExpr = ZodNamespaceEmitter.applyCardinality(card, baseTypeExpr);
@@ -622,11 +648,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    */
   private emitObjectBody(data: Data): string {
     if (data.attributes.length === 0) {
-      return 'z.object({})'; // FR-008
+      return this.codecs ? 'z.looseObject({})' : 'z.object({})'; // FR-008
     }
     const attrs = data.attributes.map((attr) => this.emitAttribute(attr, data.name));
     // Join with comma+newline between entries; no trailing comma (linter rule: trailingComma: "none")
-    return `z.object({\n${attrs.join(',\n')}\n})`;
+    return `z.${this.codecs ? 'looseObject' : 'object'}({\n${attrs.join(',\n')}\n})`;
   }
 
   /**
@@ -783,11 +809,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           attrLines.push(this.emitAttribute(attr, data.name));
         }
         if (attrLines.length === 0) {
-          return 'z.object({})';
+          return this.codecs ? 'z.looseObject({})' : 'z.object({})';
         }
         const reindented =
           attrIndent === '' ? attrLines.join(',\n') : attrLines.map((a) => `${attrIndent}${a}`).join(',\n');
-        return `z.object({\n${reindented}\n})`;
+        return `z.${this.codecs ? 'looseObject' : 'object'}({\n${reindented}\n})`;
       }
       if (data.attributes.length === 0) {
         return `${parentSchema}.safeExtend({})`;
@@ -812,7 +838,10 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     // cyclic the whole call — not just `choiceSchema` — is wrapped in
     // z.lazy() to defer the (otherwise eager) reference past
     // module-initialization time.
-    const wrap = (expr: string): string => (this.ctx.lazyTypes.has(choice.name) ? `z.lazy(() => ${expr})` : expr);
+    const wrap = (expr: string): string => {
+      const checked = this.codecs ? `${expr}${this.choiceCodecCheck(choice)}` : expr;
+      return this.ctx.lazyTypes.has(choice.name) ? `z.lazy(() => ${checked})` : checked;
+    };
 
     const seen = new Set<string>();
     const attrLines: string[] = [];
@@ -900,7 +929,9 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         // Build object body with 4-space attribute indentation.
         // emitAttribute returns '  key: val' (2-space prefix), so add 2 more for 4 total.
         const objectBody =
-          attrLines.length === 0 ? `.object({})` : `.object({\n${attrLines.map((a) => `  ${a}`).join(',\n')}\n  })`;
+          attrLines.length === 0
+            ? `.${this.codecs ? 'looseObject' : 'object'}({})`
+            : `.${this.codecs ? 'looseObject' : 'object'}({\n${attrLines.map((a) => `  ${a}`).join(',\n')}\n  })`;
         // Condition block indented 2 spaces
         const condIndented = condBlock
           .split('\n')
@@ -955,11 +986,12 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       this.typeIndex,
       {
         onPrimitive: (basicTypeName) => {
-          const mapped = this.functionInputs
-            ? (typescriptProfile.basicTypeMap[basicTypeName] ??
-              typescriptProfile.recordTypeMap[basicTypeName] ??
-              typescriptProfile.typeAliasMap[basicTypeName])
-            : ZOD_TS_TYPE_MAP[basicTypeName];
+          const mapped =
+            this.functionInputs || this.codecs
+              ? (typescriptProfile.basicTypeMap[basicTypeName] ??
+                typescriptProfile.recordTypeMap[basicTypeName] ??
+                typescriptProfile.typeAliasMap[basicTypeName])
+              : ZOD_TS_TYPE_MAP[basicTypeName];
           if (typeof mapped === 'string') return mapped;
           this.ctx.diagnostics.push({
             severity: 'warning',
@@ -1016,7 +1048,10 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     emitMode: 'zod-refine' | 'zod-superRefine',
     conditionName: string
   ): ExpressionTranspilerContext {
-    const context = buildConditionTranspilerContext(data, emitMode, conditionName, this.ctx.diagnostics);
+    const context = {
+      ...buildConditionTranspilerContext(data, emitMode, conditionName, this.ctx.diagnostics),
+      ...(this.codecs ? { nativeValues: true } : {})
+    };
     if (this.conditionFunctionName) context.callableName = this.conditionFunctionName;
     if (!this.metadataInputs) return context;
     const localMetadata = new Map<string, { kind: 'field' | 'reference'; many: boolean } | undefined>();
@@ -1281,7 +1316,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
             ),
             ``
           ]
-        : ['', RUNTIME_HELPER_SOURCE, '', RUNE_EXTEND_CHOICE_HELPER_SOURCE, ''])
+        : ['', RUNTIME_HELPER_SOURCE, '', RUNE_EXTEND_CHOICE_HELPER_SOURCE, '']),
+      ...(this.codecs ? [RUNE_PATTERN_RUNTIME_SOURCE, ''] : [])
     ].join('\n');
   }
 

@@ -1322,15 +1322,23 @@ encoding, generated helpers and Studio worker output; flags fail explicitly.
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
 around the existing RuneList runtime; `new Trade` retains one model construction.
-Each Data emits one public class with static factories and a merged `.Shape`
-interface for structural function boundaries. `Type` and `is` are class statics;
-Input/Type/Selections/Deep types live in the merged namespace, with no parallel
-model-prefixed support exports. Runtime inventories use private class statics and
-are shared by descriptor inventory identity across cyclic models. The merged
-namespace contains only types, preserving erasable TypeScript syntax. Scope-safe
-type queries keep authored models named Shape/Input/Type distinct from members.
-Constructor-only parent types erase incompatible inherited static factory signatures while preserving JavaScript
-inheritance and `instanceof`. Nested Shapes contain structural data and Temporal
+Each Data emits one public class extending `RuneObject`, which owns factories,
+JSON methods and inferred guards. Only linked definitions and model-specific
+fields/conditions are emitted per class. Metadata is registered on a private
+symbol; there is no public runtime `.Type` field. Input/Type/Selections/Deep/Shape
+remain type-only merged namespace members. Natural subclassing and type-only model
+tags preserve inherited factory/cardinality inference without parent casts.
+Runtime inventories remain shared across cyclic models. Shared `is.Model` guards
+are module-augmented: RuneObject inputs narrow to instances, unknown/plain data to
+structural Shapes. Generated instances use class identity, plain data uses linked
+shape checks. Scope-safe queries preserve models named Shape/Input/Type.
+Optional TypeScript `serialization: zod` composes the canonical Zod namespace
+emitter with the same walks and imports its generated codec companions. Scalar
+codecs convert Temporal/RegExp fields; condition lowering shares native-value
+operators while retaining Zod diagnostics. The Rune JSON visitor still owns
+metadata, Choice envelopes and concrete-type selection. Default exports do not
+import Zod. Standalone `zod.codecs` exposes the same bidirectional native schemas.
+Nested Shapes contain structural data and Temporal
 values directly; public function signatures do not require `RuneFuncData`.
 The normalizer owns only the supplied value
 graph, preserves cycles and reuses generated construction guards. Conditions are

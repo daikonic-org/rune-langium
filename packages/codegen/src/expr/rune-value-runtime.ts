@@ -3,13 +3,19 @@
 
 import { DEEP_RUNTIME_SOURCE } from './generated/deep-runtime-source.js';
 import { RUNE_JSON_RUNTIME_SOURCE } from './generated/rune-json-runtime-source.js';
+import { runeObjectRuntimeSource } from './rune-object-runtime.js';
 
 export const RUNE_VALUE_IMPORTS = [
+  'RuneObject',
+  'is',
+  'runeModel',
+  'type RuneModel',
+  'type RuneModelTag',
+  'type RuneGuarded',
   'runeValue',
   'runeValueJSON',
   'runeValueFromJSON',
   'runeRegisterValueType',
-  'type RuneDataClass',
   'type RuneJsonOptions',
   'type RuneValueSelection',
   'type RuneValueType',
@@ -25,6 +31,16 @@ export const RUNE_VALUE_IMPORTS = [
   'type RuneFromMax'
 ] as const;
 export const RUNE_VALUE_NAMES = [
+  'runeObjectType',
+  'RuneModelOwner',
+  'RuneObjectConstructor',
+  'RuneTypeGuard',
+  'RuneSerializationCodec',
+  'RuneChoice',
+  'runeObjectDefinition',
+  'runeObjectInstanceModel',
+  'runeObjectShape',
+  'runeObjectMatches',
   '__descriptor',
   '__selections',
   '__deep',
@@ -64,9 +80,8 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice }; })();
+return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
-${e}type RuneDataClass<C extends abstract new (...args: never[]) => unknown> = new (...args: ConstructorParameters<C>) => InstanceType<C>;
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
 ${e}type RuneBounded<T, Min extends number, Max extends number, A extends T[] = RuneTuple<T, Min>, Result = never> = number extends A['length'] ? T | T[] | undefined : A['length'] extends Max ? Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : A) : A['length'] extends 32 ? T | T[] | undefined : RuneBounded<T, Min, Max, [...A, T], Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : A)>;
@@ -105,6 +120,8 @@ ${e}interface RuneValueType<T = unknown, Output = T> {
   readonly metadata?: boolean;
   readonly input?: T;
   readonly output?: Output;
+  readonly shape?: unknown;
+  readonly codec?: () => RuneSerializationCodec;
   readonly create?: (value: unknown) => Output;
   readonly native?: boolean;
   readonly prototype?: object;
@@ -316,10 +333,11 @@ ${e}function runeValue(input: unknown, type: () => RuneValueType): RuneValue<unk
 ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
   const active = new WeakSet<object>();
+  let codecProjection = false;
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
     if (value == null || typeof value !== 'object') return value;
-    if (value instanceof RegExp) return runeJson.pattern(value);
-    if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return runeFormat ? String(value) : value;
+    if (value instanceof RegExp) return codecProjection ? value : runeJson.pattern(value);
+    if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return runeFormat && !codecProjection ? String(value) : value;
     if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
     const model = declaredModel && runeValueConcreteType(value, declaredModel);
     active.add(value);
@@ -338,6 +356,7 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
         if (Object.hasOwn(value, field.key)) result[field.key] = Array.isArray(raw) ? raw.map(item) : item(raw);
       }
       if (model?.kind === 'choice' && model.choice) {
+        if (codecProjection) return result;
         return runeJson.projectChoice(result, model.identity, model.choice, (_arm, value) => value);
       }
       if (!model) return result;
@@ -345,11 +364,27 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
       return runeJson.context(result, model.metadata ? 'data-metadata' : 'data');
     } finally { active.delete(value); }
   };
-  return runeFormat ? runeJson.encode(visit(input, type())) : visit(input);
+  const encode = (value: unknown): unknown => {
+    if (value == null) return value;
+    if (Array.isArray(value)) return value.map(encode);
+    const model = runeValueConcreteType(value, type());
+    const codec = model.codec?.();
+    if (!codec) return value;
+    codecProjection = true;
+    try { return codec.encode(runeFormat ? visit(value, model) : value); }
+    finally { codecProjection = false; }
+  };
+  const encoded = encode(input);
+  return runeFormat ? runeJson.encode(visit(encoded, type())) : visit(encoded);
 };
 ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, options: RuneJsonOptions = {}): unknown => {
   const parsed: unknown = typeof input === 'string' ? JSON.parse(input) : input;
-  if (options.format !== 'RUNE_JSON') return parsed;
+  const decode = (value: unknown): unknown => {
+    if (value == null) return value;
+    if (Array.isArray(value)) return value.map(decode);
+    return runeValueConcreteType(value, type()).codec?.().decode(value) ?? value;
+  };
+  if (options.format !== 'RUNE_JSON') return decode(parsed);
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
     if (Array.isArray(value)) return value.map(item => visit(item, declaredModel));
     if (!value || typeof value !== 'object' || !declaredModel) return value;
@@ -369,9 +404,9 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
             return target ? [target] : [];
           }) : undefined);
       });
-      const exact = candidates.filter(key => runeValueType(model.fields[key]!)?.().identity === record['@type']);
-      const dataAlternatives = model.choice.every(key => runeValueType(model.fields[key]!)?.().kind !== 'choice');
-      const selected = exact.length && dataAlternatives ? exact : candidates;
+      const selected = runeJson.selectChoice(candidates,
+        key => runeValueType(model.fields[key]!)?.().identity === record['@type'],
+        key => runeValueType(model.fields[key]!)?.().kind !== 'choice');
       if (selected.length !== 1) throw new TypeError('Rune JSON type does not select exactly one Choice option');
       return { [selected[0]!]: visit(value, runeValueType(model.fields[selected[0]!]!)?.()) };
     }
@@ -384,6 +419,7 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     }
     return result;
   };
-  return visit(runeJson.decode(parsed), type());
-};`;
+  return decode(visit(runeJson.decode(parsed), type()));
+};
+${runeObjectRuntimeSource(exported)}`;
 }

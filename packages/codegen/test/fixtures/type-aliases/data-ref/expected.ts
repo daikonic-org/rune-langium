@@ -3,49 +3,41 @@
 // Source namespace: test.aliases
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
+declare module '../helpers.js' {
+  namespace is {
+    function Address<I>(value: I): value is I & (I extends RuneObject ? Address : Address.Shape);
+  }
+}
+export { RuneObject, is };
 
 export type HomeAddress = Address.Shape;
-export class Address implements Address.Shape {
+export class Address extends RuneObject implements Address.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Address.Type>;
   street: string;
   city: string;
 
   constructor(data: Address.Shape) {
+    super();
     this.street = data.street;
     this.city = data.city;
   }
 
-  static is(x: unknown): x is Address {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Address) return true;
-    if ('@type' in x && x['@type'] !== "test.aliases.Address") return false;
-    if (!("street" in x) || typeof x.street !== 'string') return false;
-    if (!("city" in x) || typeof x.city !== 'string') return false;
-    return true;
+  static {
+    const __selections: Address.Selections = { "test.aliases.Address#street": { id: "test.aliases.Address#street", key: "street", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.aliases.Address#city": { id: "test.aliases.Address#city", key: "city", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+    const __deep: Address.Deep = { "street": __selections["test.aliases.Address#street"], "city": __selections["test.aliases.Address#city"] };
+    this.define<Address.Type>({
+      identity: "test.aliases.Address",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Address.prototype,
+      create: RuneObject.create(Address),
+      fields: { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, paths: [[{"key":"street","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, paths: [[{"key":"city","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+      deep: Object.assign(Object.create(__deep), { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Address.Input, Address>): RuneView<Address, RuneFromMin<I>, RuneFromMax<I>, Address.Type> { return runeValue<I, Address.Type>(input, () => Address.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Address.from(runeValueFromJSON(input, () => Address.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Address.Type, options); }
-
-  static readonly #selections: Address.Selections = { "test.aliases.Address#street": { id: "test.aliases.Address#street", key: "street", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.aliases.Address#city": { id: "test.aliases.Address#city", key: "city", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-  static readonly #deep: Address.Deep = { "street": Address.#selections["test.aliases.Address#street"], "city": Address.#selections["test.aliases.Address#city"] };
-  static readonly Type: Address.Type = runeRegisterValueType<Address.Type>({
-    identity: "test.aliases.Address",
-    inventory: { selections: Address.#selections, deep: Address.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Address.prototype,
-    create:   (json: unknown) => {
-      if (!Address.is(json)) {
-        throw new TypeError('not a Address: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Address(json);
-    },
-    fields: { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, paths: [[{"key":"street","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, paths: [[{"key":"city","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-    deep: Object.assign(Object.create(Address.#deep), { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-    selections: Address.#selections
-  });
 }
 
 export namespace Address {
@@ -67,3 +59,5 @@ export namespace Address {
     readonly inventory: { readonly selections: Selections; readonly deep: Deep };
   }
 }
+
+is.Address = RuneObject.guard(Address);

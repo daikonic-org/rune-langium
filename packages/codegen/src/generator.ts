@@ -308,6 +308,17 @@ export async function runGenerate(
         }
       }
 
+      if (target === 'typescript' && options.typescript?.serialization === 'zod') {
+        const codecOptions = {
+          ...options,
+          target: 'zod' as const,
+          zod: { layout: 'per-namespace' as const, codecs: true }
+        };
+        for (const walked of walks.values()) {
+          const companion = emitNamespaceWithContract(walked, codecOptions, registry, ZodNamespaceEmitter);
+          outputs.push({ ...companion, artifactRole: 'support' });
+        }
+      }
       outputs.sort(
         (a, b) =>
           Number(a.artifactRole === 'support') - Number(b.artifactRole === 'support') ||

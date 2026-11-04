@@ -161,7 +161,7 @@ Pair.from({ a: { amount: 'a' }, b: { amount: 1 } })._.amount;
     expect(api.Wrapped!.from(wrapped).payload.value.unwrap()).toBe('authored');
     expect(api.Holder!.from({ wrapped })._.value.unwrap()).toBe('authored');
     expect(api.Wrapped!.from(wrapped).toJSON()).toEqual(wrapped);
-    expect(() => api.Wrapped!.from({})).toThrow(/not a Wrapped/);
+    expect(() => api.Wrapped!.from({})).toThrow(/exactly one selected option/);
     const node: { value: number; next?: unknown } = { value: 1 };
     node.next = node;
     expect(api.Node!.from(node)._.value.unwrap()).toBe(1);
@@ -254,7 +254,16 @@ it.each(['single-file', 'barrel'] as const)(
   'escapes view helpers and proxy globals in model bindings (%s)',
   async (layout) => {
     const { RuneDsl } = createRuneDslServices();
-    const source = ['Proxy', 'Reflect', 'RuneValue', 'RuneFactoryInput', 'RuneDeepView']
+    const source = [
+      'Proxy',
+      'Reflect',
+      'RuneValue',
+      'RuneFactoryInput',
+      'RuneDeepView',
+      'RuneObject',
+      'RuneChoice',
+      'RuneModel'
+    ]
       .map((name) => `type ${name}:\n amount int (1..1)`)
       .join('\n');
     const docs = [BASICTYPES_ROSETTA, `namespace collisions\n${source}`].map((text, index) =>
@@ -270,7 +279,16 @@ it.each(['single-file', 'barrel'] as const)(
     const api = compileGeneratedTypeScript<Record<string, { from(input: unknown): { count(): number } }>>(outputs, {
       entry: entry.relativePath
     });
-    for (const name of ['Proxy', 'Reflect', 'RuneValue', 'RuneFactoryInput', 'RuneDeepView'])
+    for (const name of [
+      'Proxy',
+      'Reflect',
+      'RuneValue',
+      'RuneFactoryInput',
+      'RuneDeepView',
+      'RuneObject',
+      'RuneChoice',
+      'RuneModel'
+    ])
       expect(api[`${name}Data`]!.from({ amount: 3 }).count()).toBe(1);
   }
 );
@@ -292,9 +310,13 @@ it('compiles deep cyclic descriptor graphs without recursive runtime-shape compa
   assertValidDocuments(docs);
   const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'barrel' } });
   const entry = outputs.find((output) => output.content.includes('export class Layer0 '))!;
-  const api = compileGeneratedTypeScript<Record<'Layer0' | 'Layer1', { Type: { inventory: unknown } }>>(outputs, {
-    entry: entry.relativePath,
-    assertions: 'const absent: undefined = Layer0.from(undefined)._.amount63.unwrap();'
-  });
-  expect(api.Layer0.Type.inventory).toBe(api.Layer1.Type.inventory);
+  const api = compileGeneratedTypeScript<Record<'Layer0' | 'Layer1', { [key: symbol]: () => { inventory: unknown } }>>(
+    outputs,
+    {
+      entry: entry.relativePath,
+      assertions: 'const absent: undefined = Layer0.from(undefined)._.amount63.unwrap();'
+    }
+  );
+  const definition = Symbol.for('rune-langium.object.definition');
+  expect(api.Layer0[definition]!().inventory).toBe(api.Layer1[definition]!().inventory);
 });

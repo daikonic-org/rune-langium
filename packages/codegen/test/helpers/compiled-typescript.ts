@@ -53,7 +53,11 @@ export function compileGeneratedTypeScript<
         compilerOptions
       );
       expect(
-        ts.getPreEmitDiagnostics(program).map((error) => ts.flattenDiagnosticMessageText(error.messageText, '\n'))
+        ts.getPreEmitDiagnostics(program).map((error) => {
+          const position =
+            error.file && error.start !== undefined ? error.file.getLineAndCharacterOfPosition(error.start) : undefined;
+          return `${position ? `${error.file!.fileName}:${position.line + 1}: ` : ''}${ts.flattenDiagnosticMessageText(error.messageText, '\n')}`;
+        })
       ).toEqual([]);
     }
     return require(join(directory, entry.replace(/\.ts$/, '.js')));

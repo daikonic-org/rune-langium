@@ -3,50 +3,41 @@
 // Source namespace: test.rules
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export class Position implements Position.Shape {
+declare module '../helpers.js' {
+  namespace is {
+    function Position<I>(value: I): value is I & (I extends RuneObject ? Position : Position.Shape);
+  }
+}
+export { RuneObject, is };
+export class Position extends RuneObject implements Position.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Position.Type>;
   quantity: number;
   price: number;
   currency: string;
 
   constructor(data: Position.Shape) {
+    super();
     this.quantity = data.quantity;
     this.price = data.price;
     this.currency = data.currency;
   }
 
-  static is(x: unknown): x is Position {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Position) return true;
-    if ('@type' in x && x['@type'] !== "test.rules.Position") return false;
-    if (!("quantity" in x) || typeof x.quantity !== 'number') return false;
-    if (!("price" in x) || typeof x.price !== 'number') return false;
-    if (!("currency" in x) || typeof x.currency !== 'string') return false;
-    return true;
+  static {
+    const __selections: Position.Selections = { "test.rules.Position#quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#price": { id: "test.rules.Position#price", key: "price", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#currency": { id: "test.rules.Position#currency", key: "currency", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+    const __deep: Position.Deep = { "quantity": __selections["test.rules.Position#quantity"], "price": __selections["test.rules.Position#price"], "currency": __selections["test.rules.Position#currency"] };
+    this.define<Position.Type>({
+      identity: "test.rules.Position",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Position.prototype,
+      create: RuneObject.create(Position),
+      fields: { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, paths: [[{"key":"quantity","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, paths: [[{"key":"price","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, paths: [[{"key":"currency","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+      deep: Object.assign(Object.create(__deep), { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Position.Input, Position>): RuneView<Position, RuneFromMin<I>, RuneFromMax<I>, Position.Type> { return runeValue<I, Position.Type>(input, () => Position.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Position.from(runeValueFromJSON(input, () => Position.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Position.Type, options); }
-
-  static readonly #selections: Position.Selections = { "test.rules.Position#quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#price": { id: "test.rules.Position#price", key: "price", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#currency": { id: "test.rules.Position#currency", key: "currency", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-  static readonly #deep: Position.Deep = { "quantity": Position.#selections["test.rules.Position#quantity"], "price": Position.#selections["test.rules.Position#price"], "currency": Position.#selections["test.rules.Position#currency"] };
-  static readonly Type: Position.Type = runeRegisterValueType<Position.Type>({
-    identity: "test.rules.Position",
-    inventory: { selections: Position.#selections, deep: Position.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Position.prototype,
-    create:   (json: unknown) => {
-      if (!Position.is(json)) {
-        throw new TypeError('not a Position: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Position(json);
-    },
-    fields: { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, paths: [[{"key":"quantity","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, paths: [[{"key":"price","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, paths: [[{"key":"currency","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-    deep: Object.assign(Object.create(Position.#deep), { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-    selections: Position.#selections
-  });
 }
 
 export namespace Position {
@@ -70,6 +61,8 @@ export namespace Position {
     readonly inventory: { readonly selections: Selections; readonly deep: Deep };
   }
 }
+
+is.Position = RuneObject.guard(Position);
 
 
 export function validateIsSignificant(position: Position.Shape): boolean {

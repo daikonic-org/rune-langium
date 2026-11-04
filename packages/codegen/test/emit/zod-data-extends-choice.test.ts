@@ -85,7 +85,7 @@ describe('zod-emitter — Data extends Choice (emitted source text)', () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.dataExtendsChoice');
     const output = emitNamespace(model, {});
-    const occurrences = output.content.split('const runeExtendChoice = ').length - 1;
+    const occurrences = output.content.split('function runeExtendChoice(choice:').length - 1;
     expect(occurrences).toBe(1);
   });
 

@@ -10,6 +10,7 @@
  * logic separate from the expression dispatcher so the dispatcher can share
  * it between conditions and nested expressions.
  */
+import { usesNativeValues } from './value-representation.js';
 import {
   isEqualityOperation,
   isListLiteral,
@@ -66,7 +67,7 @@ export function renderCardinalityOperation(
     return `((left, right) => { const unequal = ${unequal}; ${quantifiedEqualityBody(compare, false, String(quantifier === 'all'))} })(${left}, ${right})`;
   }
   if (kind && kind === primitiveElementKind(binary.right) && ['number', 'string', 'boolean'].includes(kind)) {
-    const ts = ctx.emitMode.startsWith('ts-');
+    const ts = usesNativeValues(ctx);
     const equal = kind === 'number' ? '(a === b || (Number.isNaN(a) && Number.isNaN(b)))' : '(a === b)';
     const comparison = binary.operator === '<>' ? `!${equal}` : equal;
     const parameters = ts ? '(left: unknown, right: unknown)' : '(left, right)';

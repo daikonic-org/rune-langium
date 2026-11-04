@@ -6,7 +6,8 @@ import {
   normalizeRuneJsonChoiceWrapper,
   projectRuneJsonChoice,
   isRuneJsonAssignableType,
-  acceptsRuneJsonChoice
+  acceptsRuneJsonChoice,
+  selectRuneJsonChoiceCandidates
 } from '@rune-langium/core/serialization';
 import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
 import { resolveNativeImplementation } from './implementations/index.js';
@@ -1764,35 +1765,35 @@ function createPreviewValueAdapter(
             ''
           )
         );
-        const exact = options.filter((option) =>
-          resolveTypeCallTarget(
-            option.typeCall,
-            typeIndex,
-            {
-              onPrimitive: () => false,
-              onEnum: () => false,
-              onUnresolved: () => false,
-              onData: (target) => target === actual,
-              onChoice: (target) => target === actual
-            },
-            ''
-          )
+        const selected = selectRuneJsonChoiceCandidates(
+          options,
+          (option) =>
+            resolveTypeCallTarget(
+              option.typeCall,
+              typeIndex,
+              {
+                onPrimitive: () => false,
+                onEnum: () => false,
+                onUnresolved: () => false,
+                onData: (target) => target === actual,
+                onChoice: (target) => target === actual
+              },
+              ''
+            ),
+          (option) =>
+            resolveTypeCallTarget(
+              option.typeCall,
+              typeIndex,
+              {
+                onPrimitive: () => false,
+                onEnum: () => false,
+                onUnresolved: () => false,
+                onData: () => true,
+                onChoice: () => false
+              },
+              ''
+            )
         );
-        const dataAlternatives = options.every((option) =>
-          resolveTypeCallTarget(
-            option.typeCall,
-            typeIndex,
-            {
-              onPrimitive: () => false,
-              onEnum: () => false,
-              onUnresolved: () => false,
-              onData: () => true,
-              onChoice: () => false
-            },
-            ''
-          )
-        );
-        const selected = exact.length && dataAlternatives ? exact : options;
         if (selected.length !== 1)
           throw new Error(
             'Rune JSON type ' +

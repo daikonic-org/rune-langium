@@ -28,7 +28,6 @@ import {
   type Choice,
   type Condition,
   type Data,
-  type Attribute,
   type RosettaEnumeration,
   type RosettaExpression,
   type RosettaCardinality,
@@ -248,9 +247,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     (record) => this.ctx.builtinTypeMap[record.name] ?? 'unknown',
     (node) => (isTypeScriptNativeType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
     (node) => {
-      if (isData(node)) return this.emitFromFactory(node);
-      if (isChoice(node))
-        return `(value: unknown) => { if (!${this.typeName(node, `is${node.name}`)}(value)) throw new TypeError('not a ${node.name}'); return value; }`;
+      if (isData(node)) return `RuneObject.create(${this.typeName(node)})`;
+      if (isChoice(node)) return '';
       const type = this.ctx.builtinTypeMap[node.name] ?? 'unknown';
       if (type === 'RegExp')
         return `(value: unknown) => { if (value instanceof RegExp) return value; if (typeof value === 'string') return new RegExp(value); throw new TypeError('Expected RegExp or a pattern string'); }`;
@@ -272,7 +270,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         ? `InstanceType<typeof ${this.typeName(node)}>`
         : isChoice(node)
           ? this.choiceUnion(node, true)
-          : (this.ctx.builtinTypeMap[node.name] ?? 'unknown')
+          : (this.ctx.builtinTypeMap[node.name] ?? 'unknown'),
+    (node) =>
+      this.zodSerialization && !isTypeScriptNativeType(node)
+        ? `RuneObject.codec(${this.typeName(node)}, ${this.codecModule(getElementNamespace(node) ?? this.model.namespace)}.${node.name}Codec)`
+        : undefined
   );
   private readonly ctx: EmissionContext;
   private readonly typeIndex: TypeIndexLookup;
@@ -283,6 +285,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly callableNames: CallableNames;
   private readonly singleFile: boolean;
   private readonly inputChecks: boolean;
+  private readonly zodSerialization: boolean;
   private readonly projectBindings: NamespaceEmitterOptions['projectBindings'];
   private readonly localCallableAliases = new Map<string, string>();
 
@@ -298,6 +301,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES, RUNE_VALUE_NAMES, true);
     this.singleFile = options.typescript?.layout === 'single-file';
     this.inputChecks = options.typescript?.inputChecks === true;
+    this.zodSerialization = options.typescript?.serialization === 'zod';
     this.projectBindings = options.projectBindings;
   }
 
@@ -338,8 +342,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private modelTypeReference(node: Data | Choice, shape = false, inNamespace = false): string {
     const root = this.typeName(node);
     if (!inNamespace || !MODEL_NAMESPACE_MEMBERS.has(root)) return shape ? `${root}.Shape` : root;
-    if (shape) return `NonNullable<(typeof ${root}.Type)['shape']>`;
-    return isData(node) ? `InstanceType<typeof ${root}>` : `NonNullable<(typeof ${root}.Type)['output']>`;
+    if (shape) return `NonNullable<RuneModel<typeof ${root}>['shape']>`;
+    return isData(node) ? `InstanceType<typeof ${root}>` : `NonNullable<RuneModel<typeof ${root}>['output']>`;
   }
 
   private enumTypeReference(node: RosettaEnumeration, inNamespace = false): string {
@@ -348,7 +352,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   emitHeader(): void {
-    this.sections.push(this.buildFileHeader());
+    this.sections.push(this.buildFileHeader(), this.guardDeclarations());
   }
 
   emitBuiltin(node: TypeScriptNativeType): void {
@@ -396,7 +400,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const api = this.valueApi.emit(data);
     if (api.prelude) this.sections.push(api.prelude, '');
     this.sections.push(this.emitClass(data, api.members), '');
-    this.sections.push(this.emitModelNamespace(data, `${this.emitInterface(data)}\n${api.types}`), '');
+    this.sections.push(
+      this.emitModelNamespace(data, `${this.emitInterface(data)}\n${api.types}`),
+      '',
+      `is.${this.guardName(data)} = RuneObject.guard(${this.typeName(data)});`,
+      ''
+    );
   }
 
   /**
@@ -418,13 +427,37 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const name = this.typeName(choice);
     this.sections.push(this.emitChoiceTypeDeclaration(choice), '');
     this.sections.push(
-      `export const ${name} = (() => {\n${api.members}\nreturn { Type: __descriptor, ${this.emitChoiceTypeGuard(choice)}, ${this.valueApi.factory(choice)} };\n})();`,
+      `export const ${name} = (() => {\n${api.members}\nreturn RuneObject.choice<${name}.Type>(__descriptor);\n})();`,
       ''
     );
     this.sections.push(
       this.emitModelNamespace(choice, `${this.emitChoiceShapeTypeDeclaration(choice)}\n${api.types}`),
       ''
     );
+    this.sections.push(`is.${this.guardName(choice)} = ${name}.is;`, '');
+  }
+
+  private guardName(node: Data | Choice): string {
+    const namespace = getElementNamespace(node) ?? this.model.namespace;
+    const name = this.callableNames.declarationExported(namespace, node);
+    const bundled = this.callableNames.bundled(namespace, name);
+    return ['name', 'length', 'prototype', 'arguments', 'caller'].includes(bundled)
+      ? `__rune$${namespace.replace(/[^\w$]/g, '$')}$${name}`
+      : bundled;
+  }
+
+  private guardDeclarations(): string {
+    const models = [...this.ctx.dataByName.values(), ...this.ctx.choiceByName.values()];
+    if (!models.length) return this.singleFile ? '' : 'export { RuneObject, is };';
+    const declarations = models.map((node) => {
+      const name = this.typeName(node);
+      return `    function ${this.guardName(node)}<I>(value: I): value is I & ${isData(node) ? `(I extends RuneObject ? ${name} : ${name}.Shape)` : `${name}.Shape`};`;
+    });
+    const body = `  namespace is {\n${declarations.join('\n')}\n  }`;
+    const augmentation = this.suppressBoilerplate
+      ? `declare module '${this.singleFile ? `./${typescriptHelperModuleName(this.registry)}.js` : `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`}' {\n${body}\n}`
+      : `declare namespace is {\n${declarations.map((line) => line.slice(2)).join('\n')}\n}`;
+    return `${augmentation}${this.singleFile ? '' : '\nexport { RuneObject, is };'}`;
   }
 
   private emitModelNamespace(node: Data | Choice, content: string): string {
@@ -900,46 +933,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     );
   }
 
-  private resolveTypeofStr(attr: Attribute): string | undefined {
-    if (hasFieldMetadata(attr)) return 'object';
-    return resolveTypeCallTarget<string | undefined>(
-      attr.typeCall,
-      this.typeIndex,
-      {
-        onPrimitive: (basicTypeName) => this.ctx.typeofMap[basicTypeName],
-        onEnum: () => undefined,
-        onData: () => undefined,
-        onChoice: () => undefined,
-        onUnresolved: () => undefined
-      },
-      this.ctx.namespace
-    );
-  }
-
-  /**
-   * Resolve the emitted TS type for a builtin attribute (e.g. `Temporal.PlainDate`,
-   * `string`). Used to make `instanceof` guards precise for the Temporal record
-   * mappings. Returns undefined for non-builtin (Data/Enum) references.
-   */
-  private resolveBuiltinTsType(attr: Attribute): string | undefined {
-    return resolveTypeCallTarget<string | undefined>(
-      attr.typeCall,
-      this.typeIndex,
-      {
-        onPrimitive: (basicTypeName) => this.ctx.builtinTypeMap[basicTypeName],
-        onEnum: () => undefined,
-        onData: () => undefined,
-        onChoice: () => undefined,
-        onUnresolved: () => undefined
-      },
-      this.ctx.namespace
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // T105: emitInterface
-  // ---------------------------------------------------------------------------
-
   /**
    * Walk UP a Data's `extends` chain (NOT including `data` itself, mirroring
    * zod-emitter.ts's `findChoiceAncestor` cycle-guard contract) and report
@@ -1107,8 +1100,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // comment for the full cross-namespace rationale.
     const parentData = parentRef && isData(parentRef) ? parentRef : undefined;
     const parentName = parentData ? this.typeName(parentData) : undefined;
-    // Runtime inheritance stays nominal; constructors do not inherit a parent's narrower static factory signature.
-    const parentBase = parentName ? `(${parentName} as RuneDataClass<typeof ${parentName}>)` : undefined;
+    // The base factory infers the concrete descriptor from its polymorphic static receiver.
+    const parentBase = parentName ?? 'RuneObject';
     const choiceParent = parentRef && isChoice(parentRef) ? parentRef : undefined;
     // Multi-level (Data extends Data extends Choice, per T105's
     // emitInterface): once the PARENT's own Shape is itself the generic
@@ -1123,14 +1116,17 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const shapeIsGeneric = choiceParent !== undefined || inheritedChoiceAncestor !== undefined;
 
     const classHeader = choiceParent
-      ? `export class ${name}<T extends ${this.typeName(choiceParent, `${choiceParent.name}Shape`)} = ${this.typeName(choiceParent, `${choiceParent.name}Shape`)}>`
+      ? `export class ${name}<T extends ${this.typeName(choiceParent, `${choiceParent.name}Shape`)} = ${this.typeName(choiceParent, `${choiceParent.name}Shape`)}> extends RuneObject`
       : parentName
         ? shapeIsGeneric
           ? `export class ${name} extends ${parentBase}`
           : `export class ${name} extends ${parentBase} implements ${interfaceName}`
-        : `export class ${name} implements ${interfaceName}`;
+        : `export class ${name} extends RuneObject implements ${interfaceName}`;
 
-    const lines: string[] = [`${classHeader} {`];
+    const lines: string[] = [
+      `${classHeader} {`,
+      `  static readonly [key: symbol]: RuneModelTag<typeof ${parentBase}, ${name}.Type>;`
+    ];
 
     if (hasTypeMetadata(data)) lines.push('  meta?: RuneMetadata;');
 
@@ -1144,9 +1140,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // Constructor body lines
     const ctorBodyLines: string[] = [];
     if (choiceParent) {
-      ctorBodyLines.push(`    Object.assign(this, data);`);
+      ctorBodyLines.push('    super();', `    Object.assign(this, data);`);
     } else if (parentName) {
       ctorBodyLines.push(`    super(data);`);
+    } else {
+      ctorBodyLines.push('    super();');
     }
     if (hasTypeMetadata(data)) ctorBodyLines.push('    this.meta = data.meta;');
     for (const attr of data.attributes) {
@@ -1168,22 +1166,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push('  }');
     }
 
-    lines.push(
-      '',
-      ...this.emitTypeGuard(data)
-        .split('\n')
-        .map((line) => `  ${line}`),
-      '',
-      this.valueApi.factory(data)
-    );
-    const model = this.valueApi.name(data, 'Type');
-    lines.push(
-      `  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return ${name}.from(runeValueFromJSON(input, () => ${model}, options)); }`
-    );
-    lines.push(
-      `  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => ${model}, options); }`
-    );
-
     // Data-extends-Choice: exactly-one-of validator over the inherited
     // Choice's option names, mirroring emitOneOf's ts-method emission
     // convention (rune.checkOneOf + errors.push), read off `this` since the
@@ -1199,7 +1181,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push(this.emitValidateMethods(data));
     }
 
-    lines.push('', ...valueMembers.split('\n').map((line) => `  ${line}`), '}');
+    lines.push('', '  static {', ...valueMembers.split('\n').map((line) => `    ${line}`), '  }', '}');
     return lines.join('\n');
   }
 
@@ -1248,69 +1230,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       `    return { valid: errors.length === 0, errors };`,
       `  }`
     ].join('\n');
-  }
-
-  // ---------------------------------------------------------------------------
-  // T108: emitTypeGuard
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Build the field-check lines for a type guard body.
-   */
-  private buildTypeGuardChecks(data: Data): string[] {
-    const lines: string[] = [];
-    for (const attr of typeFeatures(data).filter(isAttribute)) {
-      const present = `${JSON.stringify(attr.name)} in x`;
-      const access = `x.${attr.name}`;
-      const typeofStr = this.resolveTypeofStr(attr);
-      const optional = TsNamespaceEmitter.isOptionalCardinality(attr.card);
-      const invalid = TsNamespaceEmitter.isArrayCardinality(attr.card)
-        ? `!Array.isArray(${access})`
-        : typeofStr
-          ? TsNamespaceEmitter.negTypeofGuard(access, typeofStr, this.resolveBuiltinTsType(attr))
-          : `${access} === undefined`;
-      lines.push(
-        optional
-          ? `  if (${present} && ${access} !== undefined && ${invalid}) return false;`
-          : `  if (!(${present}) || ${invalid}) return false;`
-      );
-    }
-    return lines;
-  }
-
-  /**
-   * Emit `export function is<TypeName>(x: unknown): x is <TypeName>`.
-   * T108, T109.
-   */
-  private emitTypeGuard(data: Data): string {
-    const name = this.typeName(data);
-    const parentRef = data.superType?.ref;
-    // Item 2: NOT gated on `dataByName.has` — see emitInterface's doc
-    // comment for the full cross-namespace rationale.
-    const parentName = parentRef && isData(parentRef) ? this.typeName(parentRef) : undefined;
-
-    const checkLines = this.buildTypeGuardChecks(data);
-    const guardedType = TsNamespaceEmitter.findChoiceAncestor(data)
-      ? `${name} & ${this.typeName(data, `${data.name}Shape`)}`
-      : name;
-
-    const guard = 'is';
-    const lines: string[] = [
-      ...(parentName
-        ? [
-            `static ${guard}(x: unknown): x is ${guardedType};`,
-            `static ${guard}(x: ${parentName}): x is ${guardedType};`
-          ]
-        : []),
-      `static ${guard}(x: unknown): x is ${guardedType} {`,
-      `  if (typeof x !== 'object' || x === null) return false;`,
-      `  if (x instanceof ${name}) return true;`,
-      `  if ('@type' in x && x['@type'] !== ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)}) return false;`,
-      ...checkLines,
-      `  return true;`,
-      `}`
-    ];
-    return lines.join('\n');
   }
 
   // ---------------------------------------------------------------------------
@@ -1467,31 +1386,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       return `export type ${name} = never;`;
     }
     return `export type ${name} = ${options};`;
-  }
-
-  /**
-   * Emit `export function is<ChoiceName>(x: unknown): x is <ChoiceName>` —
-   * an "exactly one of the option keys is present" validator, mirroring
-   * rune.checkOneOf's one-of semantics (same as the ChoiceOperation condition
-   * validator) but as a standalone type guard for the emitted union type.
-   */
-  private emitChoiceTypeGuard(choice: Choice): string {
-    const name = this.typeName(choice);
-    const fieldNames = choice.attributes.map((option) => {
-      const optionTypeRef = option.typeCall?.type;
-      const optionTypeName = optionTypeRef?.ref?.name ?? optionTypeRef?.$refText ?? '?';
-      return choiceOptionFieldName(optionTypeName);
-    });
-
-    const accessors = fieldNames.map((f) => `(${JSON.stringify(f)} in x ? x.${f} : undefined)`).join(', ');
-
-    const lines: string[] = [
-      `is(x: unknown): x is ${name} {`,
-      `  if (typeof x !== 'object' || x === null) return false;`,
-      `  return rune.checkOneOf([${accessors}]);`,
-      `}`
-    ];
-    return lines.join('\n');
   }
 
   // ---------------------------------------------------------------------------
@@ -1675,6 +1569,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     );
   }
 
+  private codecModule(namespace: string): string {
+    return `$codec$${namespace.replace(/[^\w]/g, '$')}`;
+  }
+
   private buildFileHeader(): string {
     const libraryHelpers = [...this.ctx.libraryFuncsByName.keys()].flatMap((name) => {
       const binding = typescriptProfile.libraryFuncMap[name];
@@ -1705,6 +1603,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
             ...(libraryHelpers.length ? [TS_LIBRARY_RUNTIME_SOURCE] : []),
             ''
           ]),
+      ...(this.zodSerialization
+        ? [
+            `import * as ${this.codecModule(this.model.namespace)} from '${this.singleFile ? `./${this.model.namespace.replaceAll('.', '/')}` : resolveImportPath(this.model.namespace, this.model.namespace, this.registry)}.zod.js';`,
+            ''
+          ]
+        : []),
       ...([...(this.projectBindings?.keys() ?? [])].some((node) => getElementNamespace(node) === this.model.namespace)
         ? [projectBindingHeader(this.model.namespace), '']
         : [])
@@ -1896,17 +1800,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     return true;
   }
 
-  /**
-   * Determine whether a cardinality is optional (can be absent).
-   */
-  private static isOptionalCardinality(card: RosettaCardinality): boolean {
-    const { lower, upper } = decodeCardinality(card);
-    if (upper === null && lower === 0) return true;
-    if (upper === 1 && lower === 0) return true;
-    if (upper === 0 && lower === 0) return true;
-    return false;
-  }
-
   /** True when the scalar field does not match its builtin type. */
   private static negTypeofGuard(access: string, typeofStr: string, tsType?: string): string {
     if (typeofStr === 'object') {
@@ -1914,23 +1807,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       return `(typeof ${access} !== 'object' || ${access} === null || Array.isArray(${access}))`;
     }
     return `typeof ${access} !== '${typeofStr}'`;
-  }
-
-  // ---------------------------------------------------------------------------
-  // T107: emitFromFactory
-  // ---------------------------------------------------------------------------
-
-  /** Emit a creator whose input is narrowed by the generated model guard. */
-  private emitFromFactory(data: Data): string {
-    const name = this.typeName(data);
-    return [
-      `  (json: unknown) => {`,
-      `    if (!${this.typeName(data, `is${data.name}`)}(json)) {`,
-      `      throw new TypeError('not a ${data.name}: ' + JSON.stringify(json).slice(0, 100));`,
-      `    }`,
-      `    return new ${name}(json);`,
-      `  }`
-    ].join('\n');
   }
 
   // ---------------------------------------------------------------------------

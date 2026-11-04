@@ -3,44 +3,40 @@
 // Source namespace: test.inheritance
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export class Animal implements Animal.Shape {
+declare module '../helpers.js' {
+  namespace is {
+    function Animal<I>(value: I): value is I & (I extends RuneObject ? Animal : Animal.Shape);
+    function Dog<I>(value: I): value is I & (I extends RuneObject ? Dog : Dog.Shape);
+    function Poodle<I>(value: I): value is I & (I extends RuneObject ? Poodle : Poodle.Shape);
+    function Sibling<I>(value: I): value is I & (I extends RuneObject ? Sibling : Sibling.Shape);
+  }
+}
+export { RuneObject, is };
+export class Animal extends RuneObject implements Animal.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Animal.Type>;
   name: string;
 
   constructor(data: Animal.Shape) {
+    super();
     this.name = data.name;
   }
 
-  static is(x: unknown): x is Animal {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Animal) return true;
-    if ('@type' in x && x['@type'] !== "test.inheritance.Animal") return false;
-    if (!("name" in x) || typeof x.name !== 'string') return false;
-    return true;
+  static {
+    const __selections: Animal.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+    const __deep: Animal.Deep = { "name": __selections["test.inheritance.Animal#name"] };
+    this.define<Animal.Type>({
+      identity: "test.inheritance.Animal",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Animal.prototype,
+      create: RuneObject.create(Animal),
+      fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+      deep: Object.assign(Object.create(__deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Animal.Input, Animal>): RuneView<Animal, RuneFromMin<I>, RuneFromMax<I>, Animal.Type> { return runeValue<I, Animal.Type>(input, () => Animal.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Animal.from(runeValueFromJSON(input, () => Animal.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Animal.Type, options); }
-
-  static readonly #selections: Animal.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-  static readonly #deep: Animal.Deep = { "name": Animal.#selections["test.inheritance.Animal#name"] };
-  static readonly Type: Animal.Type = runeRegisterValueType<Animal.Type>({
-    identity: "test.inheritance.Animal",
-    inventory: { selections: Animal.#selections, deep: Animal.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Animal.prototype,
-    create:   (json: unknown) => {
-      if (!Animal.is(json)) {
-        throw new TypeError('not a Animal: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Animal(json);
-    },
-    fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-    deep: Object.assign(Object.create(Animal.#deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-    selections: Animal.#selections
-  });
 }
 
 export namespace Animal {
@@ -61,7 +57,10 @@ export namespace Animal {
   }
 }
 
-export class Dog extends (Animal as RuneDataClass<typeof Animal>) implements Dog.Shape {
+is.Animal = RuneObject.guard(Animal);
+
+export class Dog extends Animal implements Dog.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof Animal, Dog.Type>;
   breed: string;
 
   constructor(data: Dog.Shape) {
@@ -69,39 +68,21 @@ export class Dog extends (Animal as RuneDataClass<typeof Animal>) implements Dog
     this.breed = data.breed;
   }
 
-  static is(x: unknown): x is Dog;
-  static is(x: Animal): x is Dog;
-  static is(x: unknown): x is Dog {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Dog) return true;
-    if ('@type' in x && x['@type'] !== "test.inheritance.Dog") return false;
-    if (!("name" in x) || typeof x.name !== 'string') return false;
-    if (!("breed" in x) || typeof x.breed !== 'string') return false;
-    return true;
+  static {
+    const __selections: Dog.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Dog#breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+    const __deep: Dog.Deep = { "name": __selections["test.inheritance.Animal#name"], "breed": __selections["test.inheritance.Dog#breed"] };
+    this.define<Dog.Type>({
+      identity: "test.inheritance.Dog",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Dog.prototype,
+      parent: () => runeModel(Animal),
+      create: RuneObject.create(Dog),
+      fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, paths: [[{"key":"breed","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+      deep: Object.assign(Object.create(__deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Dog.Input, Dog>): RuneView<Dog, RuneFromMin<I>, RuneFromMax<I>, Dog.Type> { return runeValue<I, Dog.Type>(input, () => Dog.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Dog.from(runeValueFromJSON(input, () => Dog.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Dog.Type, options); }
-
-  static readonly #selections: Dog.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Dog#breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-  static readonly #deep: Dog.Deep = { "name": Dog.#selections["test.inheritance.Animal#name"], "breed": Dog.#selections["test.inheritance.Dog#breed"] };
-  static readonly Type: Dog.Type = runeRegisterValueType<Dog.Type>({
-    identity: "test.inheritance.Dog",
-    inventory: { selections: Dog.#selections, deep: Dog.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Dog.prototype,
-    parent: () => Animal.Type,
-    create:   (json: unknown) => {
-      if (!Dog.is(json)) {
-        throw new TypeError('not a Dog: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Dog(json);
-    },
-    fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, paths: [[{"key":"breed","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-    deep: Object.assign(Object.create(Dog.#deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-    selections: Dog.#selections
-  });
 }
 
 export namespace Dog {
@@ -123,7 +104,10 @@ export namespace Dog {
   }
 }
 
-export class Sibling extends (Animal as RuneDataClass<typeof Animal>) implements Sibling.Shape {
+is.Dog = RuneObject.guard(Dog);
+
+export class Sibling extends Animal implements Sibling.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof Animal, Sibling.Type>;
   age: number;
 
   constructor(data: Sibling.Shape) {
@@ -131,39 +115,21 @@ export class Sibling extends (Animal as RuneDataClass<typeof Animal>) implements
     this.age = data.age;
   }
 
-  static is(x: unknown): x is Sibling;
-  static is(x: Animal): x is Sibling;
-  static is(x: unknown): x is Sibling {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Sibling) return true;
-    if ('@type' in x && x['@type'] !== "test.inheritance.Sibling") return false;
-    if (!("name" in x) || typeof x.name !== 'string') return false;
-    if (!("age" in x) || typeof x.age !== 'number') return false;
-    return true;
+  static {
+    const __selections: Sibling.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Sibling#age": { id: "test.inheritance.Sibling#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
+    const __deep: Sibling.Deep = { "name": __selections["test.inheritance.Animal#name"], "age": __selections["test.inheritance.Sibling#age"] };
+    this.define<Sibling.Type>({
+      identity: "test.inheritance.Sibling",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Sibling.prototype,
+      parent: () => runeModel(Animal),
+      create: RuneObject.create(Sibling),
+      fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.inheritance.Sibling#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
+      deep: Object.assign(Object.create(__deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.inheritance.Sibling#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Sibling.Input, Sibling>): RuneView<Sibling, RuneFromMin<I>, RuneFromMax<I>, Sibling.Type> { return runeValue<I, Sibling.Type>(input, () => Sibling.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Sibling.from(runeValueFromJSON(input, () => Sibling.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Sibling.Type, options); }
-
-  static readonly #selections: Sibling.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Sibling#age": { id: "test.inheritance.Sibling#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-  static readonly #deep: Sibling.Deep = { "name": Sibling.#selections["test.inheritance.Animal#name"], "age": Sibling.#selections["test.inheritance.Sibling#age"] };
-  static readonly Type: Sibling.Type = runeRegisterValueType<Sibling.Type>({
-    identity: "test.inheritance.Sibling",
-    inventory: { selections: Sibling.#selections, deep: Sibling.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Sibling.prototype,
-    parent: () => Animal.Type,
-    create:   (json: unknown) => {
-      if (!Sibling.is(json)) {
-        throw new TypeError('not a Sibling: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Sibling(json);
-    },
-    fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.inheritance.Sibling#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-    deep: Object.assign(Object.create(Sibling.#deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.inheritance.Sibling#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-    selections: Sibling.#selections
-  });
 }
 
 export namespace Sibling {
@@ -185,7 +151,10 @@ export namespace Sibling {
   }
 }
 
-export class Poodle extends (Dog as RuneDataClass<typeof Dog>) implements Poodle.Shape {
+is.Sibling = RuneObject.guard(Sibling);
+
+export class Poodle extends Dog implements Poodle.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof Dog, Poodle.Type>;
   size: string;
 
   constructor(data: Poodle.Shape) {
@@ -193,40 +162,21 @@ export class Poodle extends (Dog as RuneDataClass<typeof Dog>) implements Poodle
     this.size = data.size;
   }
 
-  static is(x: unknown): x is Poodle;
-  static is(x: Dog): x is Poodle;
-  static is(x: unknown): x is Poodle {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Poodle) return true;
-    if ('@type' in x && x['@type'] !== "test.inheritance.Poodle") return false;
-    if (!("name" in x) || typeof x.name !== 'string') return false;
-    if (!("breed" in x) || typeof x.breed !== 'string') return false;
-    if (!("size" in x) || typeof x.size !== 'string') return false;
-    return true;
+  static {
+    const __selections: Poodle.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Dog#breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Poodle#size": { id: "test.inheritance.Poodle#size", key: "size", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+    const __deep: Poodle.Deep = { "name": __selections["test.inheritance.Animal#name"], "breed": __selections["test.inheritance.Dog#breed"], "size": __selections["test.inheritance.Poodle#size"] };
+    this.define<Poodle.Type>({
+      identity: "test.inheritance.Poodle",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Poodle.prototype,
+      parent: () => runeModel(Dog),
+      create: RuneObject.create(Poodle),
+      fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, paths: [[{"key":"breed","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "size": { id: "test.inheritance.Poodle#size", key: "size", min: 1, max: 1, paths: [[{"key":"size","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+      deep: Object.assign(Object.create(__deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "size": { id: "test.inheritance.Poodle#size", key: "size", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Poodle.Input, Poodle>): RuneView<Poodle, RuneFromMin<I>, RuneFromMax<I>, Poodle.Type> { return runeValue<I, Poodle.Type>(input, () => Poodle.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Poodle.from(runeValueFromJSON(input, () => Poodle.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Poodle.Type, options); }
-
-  static readonly #selections: Poodle.Selections = { "test.inheritance.Animal#name": { id: "test.inheritance.Animal#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Dog#breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.inheritance.Poodle#size": { id: "test.inheritance.Poodle#size", key: "size", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-  static readonly #deep: Poodle.Deep = { "name": Poodle.#selections["test.inheritance.Animal#name"], "breed": Poodle.#selections["test.inheritance.Dog#breed"], "size": Poodle.#selections["test.inheritance.Poodle#size"] };
-  static readonly Type: Poodle.Type = runeRegisterValueType<Poodle.Type>({
-    identity: "test.inheritance.Poodle",
-    inventory: { selections: Poodle.#selections, deep: Poodle.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Poodle.prototype,
-    parent: () => Dog.Type,
-    create:   (json: unknown) => {
-      if (!Poodle.is(json)) {
-        throw new TypeError('not a Poodle: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Poodle(json);
-    },
-    fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, paths: [[{"key":"breed","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "size": { id: "test.inheritance.Poodle#size", key: "size", min: 1, max: 1, paths: [[{"key":"size","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-    deep: Object.assign(Object.create(Poodle.#deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "size": { id: "test.inheritance.Poodle#size", key: "size", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-    selections: Poodle.#selections
-  });
 }
 
 export namespace Poodle {
@@ -248,3 +198,5 @@ export namespace Poodle {
     readonly inventory: { readonly selections: Selections; readonly deep: Deep };
   }
 }
+
+is.Poodle = RuneObject.guard(Poodle);

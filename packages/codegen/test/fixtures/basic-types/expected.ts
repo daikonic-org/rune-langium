@@ -3,39 +3,35 @@
 // Source namespace: test.basic
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export class Empty implements Empty.Shape {
-  constructor(data: Empty.Shape) {}
-
-  static is(x: unknown): x is Empty {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Empty) return true;
-    if ('@type' in x && x['@type'] !== "test.basic.Empty") return false;
-    return true;
+declare module '../helpers.js' {
+  namespace is {
+    function Empty<I>(value: I): value is I & (I extends RuneObject ? Empty : Empty.Shape);
+    function Person<I>(value: I): value is I & (I extends RuneObject ? Person : Person.Shape);
+  }
+}
+export { RuneObject, is };
+export class Empty extends RuneObject implements Empty.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Empty.Type>;
+  constructor(data: Empty.Shape) {
+    super();
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, Empty.Input, Empty>): RuneView<Empty, RuneFromMin<I>, RuneFromMax<I>, Empty.Type> { return runeValue<I, Empty.Type>(input, () => Empty.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Empty.from(runeValueFromJSON(input, () => Empty.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Empty.Type, options); }
-
-  static readonly #selections: Empty.Selections = {  };
-  static readonly #deep: Empty.Deep = {  };
-  static readonly Type: Empty.Type = runeRegisterValueType<Empty.Type>({
-    identity: "test.basic.Empty",
-    inventory: { selections: Empty.#selections, deep: Empty.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Empty.prototype,
-    create:   (json: unknown) => {
-      if (!Empty.is(json)) {
-        throw new TypeError('not a Empty: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Empty(json);
-    },
-    fields: {  },
-    deep: Object.assign(Object.create(Empty.#deep), {  }),
-    selections: Empty.#selections
-  });
+  static {
+    const __selections: Empty.Selections = {  };
+    const __deep: Empty.Deep = {  };
+    this.define<Empty.Type>({
+      identity: "test.basic.Empty",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Empty.prototype,
+      create: RuneObject.create(Empty),
+      fields: {  },
+      deep: Object.assign(Object.create(__deep), {  }),
+      selections: __selections
+    });
+  }
 }
 
 export namespace Empty {
@@ -53,51 +49,37 @@ export namespace Empty {
   }
 }
 
-export class Person implements Person.Shape {
+is.Empty = RuneObject.guard(Empty);
+
+export class Person extends RuneObject implements Person.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Person.Type>;
   name: string;
   age: number;
   active: boolean;
   birthday: Temporal.PlainDate;
 
   constructor(data: Person.Shape) {
+    super();
     this.name = data.name;
     this.age = data.age;
     this.active = data.active;
     this.birthday = data.birthday;
   }
 
-  static is(x: unknown): x is Person {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Person) return true;
-    if ('@type' in x && x['@type'] !== "test.basic.Person") return false;
-    if (!("name" in x) || typeof x.name !== 'string') return false;
-    if (!("age" in x) || typeof x.age !== 'number') return false;
-    if (!("active" in x) || typeof x.active !== 'boolean') return false;
-    if (!("birthday" in x) || !(x.birthday instanceof Temporal.PlainDate)) return false;
-    return true;
+  static {
+    const __selections: Person.Selections = { "test.basic.Person#name": { id: "test.basic.Person#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.basic.Person#age": { id: "test.basic.Person#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.basic.Person#active": { id: "test.basic.Person#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') }, "test.basic.Person#birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } };
+    const __deep: Person.Deep = { "name": __selections["test.basic.Person#name"], "age": __selections["test.basic.Person#age"], "active": __selections["test.basic.Person#active"], "birthday": __selections["test.basic.Person#birthday"] };
+    this.define<Person.Type>({
+      identity: "test.basic.Person",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Person.prototype,
+      create: RuneObject.create(Person),
+      fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
+      deep: Object.assign(Object.create(__deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Person.Input, Person>): RuneView<Person, RuneFromMin<I>, RuneFromMax<I>, Person.Type> { return runeValue<I, Person.Type>(input, () => Person.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Person.from(runeValueFromJSON(input, () => Person.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Person.Type, options); }
-
-  static readonly #selections: Person.Selections = { "test.basic.Person#name": { id: "test.basic.Person#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.basic.Person#age": { id: "test.basic.Person#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.basic.Person#active": { id: "test.basic.Person#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') }, "test.basic.Person#birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } };
-  static readonly #deep: Person.Deep = { "name": Person.#selections["test.basic.Person#name"], "age": Person.#selections["test.basic.Person#age"], "active": Person.#selections["test.basic.Person#active"], "birthday": Person.#selections["test.basic.Person#birthday"] };
-  static readonly Type: Person.Type = runeRegisterValueType<Person.Type>({
-    identity: "test.basic.Person",
-    inventory: { selections: Person.#selections, deep: Person.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Person.prototype,
-    create:   (json: unknown) => {
-      if (!Person.is(json)) {
-        throw new TypeError('not a Person: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Person(json);
-    },
-    fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
-    deep: Object.assign(Object.create(Person.#deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
-    selections: Person.#selections
-  });
 }
 
 export namespace Person {
@@ -123,3 +105,5 @@ export namespace Person {
     readonly inventory: { readonly selections: Selections; readonly deep: Deep };
   }
 }
+
+is.Person = RuneObject.guard(Person);

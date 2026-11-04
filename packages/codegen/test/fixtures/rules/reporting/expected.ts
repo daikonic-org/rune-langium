@@ -3,47 +3,39 @@
 // Source namespace: test.rules
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export class Trade implements Trade.Shape {
+declare module '../helpers.js' {
+  namespace is {
+    function Trade<I>(value: I): value is I & (I extends RuneObject ? Trade : Trade.Shape);
+  }
+}
+export { RuneObject, is };
+export class Trade extends RuneObject implements Trade.Shape {
+  static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Trade.Type>;
   tradeDate: Temporal.PlainDate;
   counterparty: string;
 
   constructor(data: Trade.Shape) {
+    super();
     this.tradeDate = data.tradeDate;
     this.counterparty = data.counterparty;
   }
 
-  static is(x: unknown): x is Trade {
-    if (typeof x !== 'object' || x === null) return false;
-    if (x instanceof Trade) return true;
-    if ('@type' in x && x['@type'] !== "test.rules.Trade") return false;
-    if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
-    if (!("counterparty" in x) || typeof x.counterparty !== 'string') return false;
-    return true;
+  static {
+    const __selections: Trade.Selections = { "test.rules.Trade#tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.rules.Trade#counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+    const __deep: Trade.Deep = { "tradeDate": __selections["test.rules.Trade#tradeDate"], "counterparty": __selections["test.rules.Trade#counterparty"] };
+    this.define<Trade.Type>({
+      identity: "test.rules.Trade",
+      inventory: { selections: __selections, deep: __deep },
+      derived: new globalThis.Map<string, RuneValueType>(),
+      prototype: Trade.prototype,
+      create: RuneObject.create(Trade),
+      fields: { "tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 1, max: 1, paths: [[{"key":"counterparty","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+      deep: Object.assign(Object.create(__deep), { "tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+      selections: __selections
+    });
   }
-
-  static from<const I>(input: I & RuneFactoryInput<I, Trade.Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, Trade.Type> { return runeValue<I, Trade.Type>(input, () => Trade.Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => Trade.Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Trade.Type, options); }
-
-  static readonly #selections: Trade.Selections = { "test.rules.Trade#tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.rules.Trade#counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-  static readonly #deep: Trade.Deep = { "tradeDate": Trade.#selections["test.rules.Trade#tradeDate"], "counterparty": Trade.#selections["test.rules.Trade#counterparty"] };
-  static readonly Type: Trade.Type = runeRegisterValueType<Trade.Type>({
-    identity: "test.rules.Trade",
-    inventory: { selections: Trade.#selections, deep: Trade.#deep },
-    derived: new globalThis.Map<string, RuneValueType>(),
-    prototype: Trade.prototype,
-    create:   (json: unknown) => {
-      if (!Trade.is(json)) {
-        throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
-      }
-      return new Trade(json);
-    },
-    fields: { "tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 1, max: 1, paths: [[{"key":"counterparty","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-    deep: Object.assign(Object.create(Trade.#deep), { "tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-    selections: Trade.#selections
-  });
 }
 
 export namespace Trade {
@@ -65,6 +57,8 @@ export namespace Trade {
     readonly inventory: { readonly selections: Selections; readonly deep: Deep };
   }
 }
+
+is.Trade = RuneObject.guard(Trade);
 
 
 export function extractExtractTradeDate(trade: Trade.Shape) {

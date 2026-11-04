@@ -55,6 +55,16 @@ export function acceptsRuneJsonChoice<T>(
   return visit(expected);
 }
 
+/** Prefer an exact Data arm only among matching alternatives; nested matches remain ambiguous. */
+export function selectRuneJsonChoiceCandidates<T>(
+  matches: readonly T[],
+  isExact: (candidate: T) => boolean,
+  isData: (candidate: T) => boolean
+): readonly T[] {
+  const exact = matches.filter(isExact);
+  return exact.length && matches.every(isData) ? exact : matches;
+}
+
 /** Unwrap a declared Choice while retaining the wrapper's headers and decoded metadata. */
 export function normalizeRuneJsonChoiceWrapper(
   value: unknown,

@@ -85,7 +85,7 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
 
     const fooOutput = outputs.find((o) => o.relativePath === 'foo.ts');
     expect(fooOutput?.content).toMatch(
-      /import \{ rune, type RuneFuncData, runeValue,.*type RuneView,.*\} from '\.\/helpers.js';/
+      /import \{ rune, type RuneFuncData,.*runeValue,.*type RuneView,.*\} from '\.\/helpers.js';/
     );
     expect(fooOutput?.content).not.toContain('// --- rune-codegen runtime helpers (inlined) ---');
 

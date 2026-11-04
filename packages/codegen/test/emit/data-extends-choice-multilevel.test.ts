@@ -161,7 +161,9 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
-    expect(output.content).toContain('export class ObservableItem<T extends Asset.Shape = Asset.Shape> {');
+    expect(output.content).toContain(
+      'export class ObservableItem<T extends Asset.Shape = Asset.Shape> extends RuneObject {'
+    );
     expect(output.content).not.toContain('implements ObservableItem.Shape');
     expect(output.content).toContain('constructor(data: ObservableItem.Shape<T>) {');
     expect(output.content).toContain('validateAsset(): { valid: boolean; errors: string[] } {');
@@ -171,9 +173,7 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
-    expect(output.content).toContain(
-      'export class BasketConstituent extends (ObservableItem as RuneDataClass<typeof ObservableItem>) {'
-    );
+    expect(output.content).toContain('export class BasketConstituent extends ObservableItem {');
     expect(output.content).not.toContain('implements BasketConstituent.Shape');
     expect(output.content).not.toContain('class BasketConstituent<T');
   });
