@@ -105,7 +105,9 @@ Child.from({ value: 1 });
     const wire = quote.toJSON({ format: 'RUNE_JSON' });
     expect(wire).toEqual({ '@type': 'publicApi.Quote', ...input });
     expect(api.Quote.fromJSON(JSON.stringify(wire), { format: 'RUNE_JSON' }).toJSON()).toMatchObject(input);
-    expect(() => api.Quote.fromJSON({ '@type': 'other.Quote', ...input }, { format: 'RUNE_JSON' })).toThrow(/differs/);
+    expect(() => api.Quote.fromJSON({ '@type': 'other.Quote', ...input }, { format: 'RUNE_JSON' })).toThrow(
+      /not assignable/
+    );
     const reference = api.Reference.from({ quote: { value: input, meta: {}, externalReference: 'q1' } });
     const referenceWire = reference.toJSON({ format: 'RUNE_JSON' });
     expect(referenceWire).toMatchObject({ quote: { '@type': 'publicApi.Quote', '@ref:external': 'q1', amount: 5 } });

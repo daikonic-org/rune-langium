@@ -3,7 +3,7 @@
 // Source namespace: test.funcs.preconditionAlias
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
+import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
 
 export interface WrapperShape {
   payload?: string;
@@ -42,8 +42,9 @@ export interface $Wrapper$Type extends RuneValueType<$Wrapper$Input, Wrapper> {
   deep: Omit<$Wrapper$Type$Reachable$Deep, "payload"> & { "payload": RuneValueSelection<string, 0, 1, RuneEmptyType> };
   selections: $Wrapper$Type$Reachable$Selections;
 }
-export const $Wrapper$Type: $Wrapper$Type = {
+export const $Wrapper$Type: $Wrapper$Type = runeRegisterValueType<$Wrapper$Type>({
   identity: "test.funcs.preconditionAlias.Wrapper",
+  derived: new globalThis.Map<string, RuneValueType>(),
   create:   (json: unknown) => {
     if (!isWrapper(json)) {
       throw new TypeError('not a Wrapper: ' + JSON.stringify(json).slice(0, 100));
@@ -53,7 +54,7 @@ export const $Wrapper$Type: $Wrapper$Type = {
   fields: { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, paths: [[{"key":"payload","min":0,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Wrapper$Type$Reachable$Deep), { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
   selections: $Wrapper$Type$Reachable$Selections
-};
+});
 
 
 export function UsePayload(wrapper: Wrapper.Shape): string {

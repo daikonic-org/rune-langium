@@ -3,7 +3,7 @@
 // Source namespace: test.rules
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
 export interface TradeShape {
   notional: number;
@@ -47,8 +47,9 @@ export interface $Trade$Type extends RuneValueType<$Trade$Input, Trade> {
   deep: Omit<$Trade$Type$Reachable$Deep, "notional" | "active"> & { "notional": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType> };
   selections: $Trade$Type$Reachable$Selections;
 }
-export const $Trade$Type: $Trade$Type = {
+export const $Trade$Type: $Trade$Type = runeRegisterValueType<$Trade$Type>({
   identity: "test.rules.Trade",
+  derived: new globalThis.Map<string, RuneValueType>(),
   create:   (json: unknown) => {
     if (!isTrade(json)) {
       throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
@@ -58,7 +59,7 @@ export const $Trade$Type: $Trade$Type = {
   fields: { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') } },
   deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') } }),
   selections: $Trade$Type$Reachable$Selections
-};
+});
 
 
 export function validateIsLargeTrade(trade: Trade.Shape): boolean {

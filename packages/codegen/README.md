@@ -150,7 +150,11 @@ constructs one instance; `Quote.from` retains cardinality-polymorphic views.
 structural checks for untagged inputs. Shape validation and cardinality checks
 remain part of factory normalization. `Quote.fromJSON(input, { format: 'RUNE_JSON' })`
 decodes Rune wire metadata using Core's codec; instance/view
-`toJSON({ format: 'RUNE_JSON' })` encodes linked fields. Plain JSON remains the
+`toJSON({ format: 'RUNE_JSON' })` encodes linked fields. Base-typed factories and
+fields retain known tagged descendants and validate the concrete fields before
+creating their instances. Descendants register as their modules load; importing
+the bundle barrel registers the complete generated set. Unknown, unloaded or
+unrelated concrete types are rejected. Plain JSON remains the
 default, including `JSON.stringify(instance)`. Unknown fields are retained by
 factory normalization; unsupported ambiguous Choice representations fail explicitly.
 

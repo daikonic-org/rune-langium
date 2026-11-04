@@ -3,7 +3,7 @@
 // Source namespace: test.basic
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
 export interface EmptyShape {}
 
@@ -34,8 +34,9 @@ export interface $Empty$Type extends RuneValueType<$Empty$Input, Empty> {
   deep: Omit<$Empty$Type$Reachable$Deep, never> & {  };
   selections: $Empty$Type$Reachable$Selections;
 }
-export const $Empty$Type: $Empty$Type = {
+export const $Empty$Type: $Empty$Type = runeRegisterValueType<$Empty$Type>({
   identity: "test.basic.Empty",
+  derived: new globalThis.Map<string, RuneValueType>(),
   create:   (json: unknown) => {
     if (!isEmpty(json)) {
       throw new TypeError('not a Empty: ' + JSON.stringify(json).slice(0, 100));
@@ -45,7 +46,7 @@ export const $Empty$Type: $Empty$Type = {
   fields: {  },
   deep: Object.assign(Object.create($Empty$Type$Reachable$Deep), {  }),
   selections: $Empty$Type$Reachable$Selections
-};
+});
 
 export interface PersonShape {
   name: string;
@@ -99,8 +100,9 @@ export interface $Person$Type extends RuneValueType<$Person$Input, Person> {
   deep: Omit<$Person$Type$Reachable$Deep, "name" | "age" | "active" | "birthday"> & { "name": RuneValueSelection<string, 1, 1, RuneEmptyType>; "age": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType> };
   selections: $Person$Type$Reachable$Selections;
 }
-export const $Person$Type: $Person$Type = {
+export const $Person$Type: $Person$Type = runeRegisterValueType<$Person$Type>({
   identity: "test.basic.Person",
+  derived: new globalThis.Map<string, RuneValueType>(),
   create:   (json: unknown) => {
     if (!isPerson(json)) {
       throw new TypeError('not a Person: ' + JSON.stringify(json).slice(0, 100));
@@ -110,4 +112,4 @@ export const $Person$Type: $Person$Type = {
   fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
   deep: Object.assign(Object.create($Person$Type$Reachable$Deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
   selections: $Person$Type$Reachable$Selections
-};
+});

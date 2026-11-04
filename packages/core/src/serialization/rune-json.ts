@@ -27,6 +27,18 @@ export function withRuneJsonEncoding<T extends object>(value: T, kind: RuneJsonE
   return value;
 }
 
+/** Linked ASTs and generated descriptors use the same cycle-safe ancestry rule. */
+export function isRuneJsonAssignableType<T>(actual: T, expected: T, parent: (type: T) => T | undefined): boolean {
+  const seen = new Set<T>();
+  let current: T | undefined = actual;
+  while (current !== undefined && !seen.has(current)) {
+    if (current === expected) return true;
+    seen.add(current);
+    current = parent(current);
+  }
+  return false;
+}
+
 /** Unwrap a declared Choice while retaining the wrapper's headers and decoded metadata. */
 export function normalizeRuneJsonChoiceWrapper(
   value: unknown,

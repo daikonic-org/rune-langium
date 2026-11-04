@@ -112,7 +112,13 @@ export class ValueApiEmitter {
   }
 
   dependencies(node: Model): Model[] {
-    return [...new Set(this.reachable(node).flatMap((field) => (field.model ? [field.model] : [])))];
+    const parent = isData(node) && isData(node.superType?.ref) ? node.superType.ref : undefined;
+    return [
+      ...new Set([
+        ...this.reachable(node).flatMap((field) => (field.model ? [field.model] : [])),
+        ...(parent ? [parent] : [])
+      ])
+    ];
   }
 
   features(node: Model): Feature[] {
@@ -274,8 +280,12 @@ export class ValueApiEmitter {
       `  deep: Omit<${inventory}$Deep, ${omit}> & { ${deep.map(({ key, field, bounds }) => `${JSON.stringify(key)}: ${selection(field, bounds)}`).join('; ')} };`,
       `  selections: ${inventory}$Selections;`,
       '}',
-      `export const ${modelName}: ${modelName} = {`,
+      `export const ${modelName}: ${modelName} = runeRegisterValueType<${modelName}>({`,
       `  identity: ${JSON.stringify(`${getElementNamespace(node)}.${node.name}`)},`,
+      ...(isData(node) ? ['  derived: new globalThis.Map<string, RuneValueType>(),'] : []),
+      ...(isData(node) && isData(node.superType?.ref)
+        ? [`  parent: () => ${this.name(node.superType.ref, 'Type')},`]
+        : []),
       ...(isChoice(node) ? [`  kind: 'choice',`] : []),
       ...(isData(node) && hasTypeMetadata(node) ? ['  metadata: true,'] : []),
       ...(isTypeScriptNativeType(node) ? ['  native: true,'] : []),
@@ -288,7 +298,7 @@ export class ValueApiEmitter {
       `  fields: { ${own.map((field) => `${objectKey(field.key)}: ${descriptor(field, field.bounds, true)}`).join(', ')} },`,
       `  deep: Object.assign(Object.create(${inventory}$Deep), { ${deep.map(({ key, field, bounds }) => `${objectKey(key)}: ${descriptor(field, bounds)}`).join(', ')} }),`,
       `  selections: ${inventory}$Selections`,
-      '};',
+      '});',
       ...(isData(node) ? [] : [this.factory(node)])
     ].join('\n');
   }

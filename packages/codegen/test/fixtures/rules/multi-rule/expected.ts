@@ -3,7 +3,7 @@
 // Source namespace: test.rules
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
 export interface AccountShape {
   balance: number;
@@ -52,8 +52,9 @@ export interface $Account$Type extends RuneValueType<$Account$Input, Account> {
   deep: Omit<$Account$Type$Reachable$Deep, "balance" | "status" | "tier"> & { "balance": RuneValueSelection<number, 1, 1, RuneEmptyType>; "status": RuneValueSelection<string, 1, 1, RuneEmptyType>; "tier": RuneValueSelection<string, 1, 1, RuneEmptyType> };
   selections: $Account$Type$Reachable$Selections;
 }
-export const $Account$Type: $Account$Type = {
+export const $Account$Type: $Account$Type = runeRegisterValueType<$Account$Type>({
   identity: "test.rules.Account",
+  derived: new globalThis.Map<string, RuneValueType>(),
   create:   (json: unknown) => {
     if (!isAccount(json)) {
       throw new TypeError('not a Account: ' + JSON.stringify(json).slice(0, 100));
@@ -63,7 +64,7 @@ export const $Account$Type: $Account$Type = {
   fields: { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, paths: [[{"key":"balance","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, paths: [[{"key":"status","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, paths: [[{"key":"tier","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Account$Type$Reachable$Deep), { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
   selections: $Account$Type$Reachable$Selections
-};
+});
 
 
 export function validateIsActive(account: Account.Shape): boolean {

@@ -543,7 +543,8 @@ the Codegen build can regenerate them, then checks generated target types after
 the build. A post-build source comparison alone cannot detect committed drift.
 
 Public value changes require the strict generated compilation/runtime tests in
-`test/emit/value-api.test.ts`, inheritance/namespace tests and the pinned codegen
+`test/emit/value-api.test.ts`, `test/emit/polymorphic-json-api.test.ts`,
+inheritance/namespace tests and the pinned codegen
 corpus check. Rebuild Codegen before Studio consumes it. The desktop
 `test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
 real expression-edit pipeline; it is separate from production acceptance.

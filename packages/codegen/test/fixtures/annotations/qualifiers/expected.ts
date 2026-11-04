@@ -3,7 +3,7 @@
 // Source namespace: test.annotations
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
 
 export interface sourceArgs {
@@ -52,8 +52,9 @@ export interface $Trade$Type extends RuneValueType<$Trade$Input, Trade> {
   deep: Omit<$Trade$Type$Reachable$Deep, "tradeDate"> & { "tradeDate": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType> };
   selections: $Trade$Type$Reachable$Selections;
 }
-export const $Trade$Type: $Trade$Type = {
+export const $Trade$Type: $Trade$Type = runeRegisterValueType<$Trade$Type>({
   identity: "test.annotations.Trade",
+  derived: new globalThis.Map<string, RuneValueType>(),
   create:   (json: unknown) => {
     if (!isTrade(json)) {
       throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
@@ -63,4 +64,4 @@ export const $Trade$Type: $Trade$Type = {
   fields: { "tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
   deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
   selections: $Trade$Type$Reachable$Selections
-};
+});

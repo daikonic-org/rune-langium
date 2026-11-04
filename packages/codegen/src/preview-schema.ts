@@ -4,7 +4,8 @@
 import {
   withRuneJsonEncoding,
   normalizeRuneJsonChoiceWrapper,
-  projectRuneJsonChoice
+  projectRuneJsonChoice,
+  isRuneJsonAssignableType
 } from '@rune-langium/core/serialization';
 import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
 import { resolveNativeImplementation } from './implementations/index.js';
@@ -1683,14 +1684,9 @@ function createPreviewValueAdapter(
     return matches[0];
   }
   function extendsNode(node: Data, expected: Data | Choice): boolean {
-    const seen = new Set<Data | Choice>();
-    let current: Data | Choice | undefined = node;
-    while (current && !seen.has(current)) {
-      if (current === expected) return true;
-      seen.add(current);
-      current = isData(current) ? current.superType?.ref : undefined;
-    }
-    return false;
+    return isRuneJsonAssignableType<Data | Choice>(node, expected, (type) =>
+      isData(type) ? type.superType?.ref : undefined
+    );
   }
   function choiceAcceptsNode(node: Data | Choice, expected: Choice, seen = new Set<Choice>()): boolean {
     if (node === expected || (isData(node) && extendsNode(node, expected))) return true;

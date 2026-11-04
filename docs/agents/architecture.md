@@ -1297,6 +1297,15 @@ explicit workflow activation, while import alone never changes the active workfl
 
 ## Generated public value views
 
+Generated Data descriptors register with their ancestors as their modules load.
+Registration mutates the ancestor descriptor's descendant map rather than a
+process-global registry, so independently inlined helpers share only the imported
+model objects and unrelated generated bundles remain isolated. Both preview ASTs
+and emitted descriptors use Core's `isRuneJsonAssignableType` ancestry rule.
+Tagged base-typed JSON selects an available concrete descendant before validating
+fields, creating the instance or serializing it; unknown/unloaded and unrelated
+types remain errors. Import the bundle barrel to register all generated modules.
+
 Native built-in descriptors are selected from the TypeScript profile, including
 BasicType `time` and `pattern` as well as calendar RecordTypes. The same descriptor
 creation path hydrates strings at JSON boundaries; native field/function values
