@@ -8,6 +8,7 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 import type { ProjectFileAdapter } from '@rune-langium/project-config';
 import type { StarterProject } from '../../services/starter-registry.js';
 import type { LegacyExampleStorage } from '../../opfs/instances-fs.js';
+import type { WorkspaceSaveState } from '../../services/workspace-autosave.js';
 
 /**
  * Actions + data the WorkspacesPerspective launcher needs, lifted from
@@ -30,6 +31,8 @@ export interface WorkspaceActions {
   files: WorkspaceFile[];
   /** Finish editor/source publication and portable-record saves in the active working copy. */
   flushWorkspaceSave?: () => Promise<void>;
+  /** Actual source persistence state; independent of uncommitted Git changes. */
+  workspaceSaveState?: WorkspaceSaveState;
   registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;
   /** Called when the user loads files via drag-drop / file picker / new. */
   onFilesLoaded: (files: WorkspaceFile[]) => void;

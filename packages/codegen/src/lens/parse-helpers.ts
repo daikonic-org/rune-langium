@@ -13,7 +13,12 @@ export class OutOfSubset extends Error {
   }
 }
 
-export function refusal(kind: RefusalReason['kind'], message: string, offset: number, length: number): LensResult {
+export function refusal(
+  kind: RefusalReason['kind'],
+  message: string,
+  offset: number,
+  length: number
+): Extract<LensResult, { ok: false }> {
   return { ok: false, reason: { kind, message, offset, length } };
 }
 

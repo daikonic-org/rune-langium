@@ -97,8 +97,14 @@ by flatten, and property access means Rune navigation. Collection membership and
 quantifiers lower back to their Rune operations. The core parser remains the
 syntax authority; no JavaScript is evaluated. Invalid or unsupported edits retain
 the draft and do not write. Existing revision/workspace/dependency/read-only gates
-remain in force. Full function bodies and lifted statement expressions are display
-only; this change does not enable arbitrary JavaScript or whole-function editing.
+remain in force. Studio edits TypeScript expression values directly in the body
+view, with Apply/Discard for a private draft. `parseSourceTsBody` locates authored
+initializer, assignment, assertion and add-value slots, checks the surrounding
+statement structure, and delegates each value to the same origin-aware inverse.
+All changed Rune regions commit in one document transaction and one undo step.
+Changing declaration names, targets, returns or control flow requires Rune source.
+Lifted statement expressions without a matching origin are refused; no JavaScript
+is evaluated and unsupported drafts remain available for correction or discard.
 The legacy subset lens exports remain for compatibility; Studio uses the source lens.
 
 Callback parameters follow lexical shadowing, including constructor shorthand:

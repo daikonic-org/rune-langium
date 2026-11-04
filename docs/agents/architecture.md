@@ -52,6 +52,10 @@ until their saved state stabilizes, including edits queued during the wait. Sett
 blocking until explicitly retried; Git stages only after the complete barrier
 succeeds. Example payload/descriptor writes and removals retain their normal transaction/readback and workspace ownership checks.
 
+The Source bar reports the actual source autosave state and its Save action drains
+that same shared barrier. A file's Git modification flag is independent of local
+persistence; saving never marks uncommitted work as committed.
+
 Named-target settings are repository state; the selected target and ad hoc root
 selection remain personal run preferences. Explicit Save preserves YAML comments
 and checks the captured file revision. Before a named build, Export flushes editor

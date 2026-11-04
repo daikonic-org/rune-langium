@@ -25,7 +25,7 @@ workspace configuration.
 | Artifact | Current support | Remaining integration |
 | --- | --- | --- |
 | Rune sources / declaration identity | Existing reference closure, linking and explicit overrides | Upstream dialect changes need their own audited cohort |
-| Flat JSON code list | Prepared by shared project runtime as a canonical Rune enum for implemented generators and Prototype | Empty lists retain the previous never-value adapter boundary |
+| Flat JSON code list (entry array or code-to-label object) | Prepared by shared project runtime as a canonical Rune enum for implemented generators and Prototype | Empty lists retain the previous never-value adapter boundary |
 | CDM CodeList JSON | Explicit `cdm-json` mapping; version/scheme checked; labels, descriptions and dates retained | Automatic parameterized coding-scheme/domain resolution is not enabled |
 | Referenced GitHub code-list file | `readReferenceCodeList` verifies exact Git commit/blob and returns bytes, origin and decoded entries for Save | No dedicated resource browser in Studio yet |
 | Genericode XML / XSL | Retain as repository files | No genericode reader or XSL execution; no silent conversion |
@@ -33,6 +33,14 @@ workspace configuration.
 | Holiday calendars / native engines | Explicit installed providers and capability diagnostics | Concrete engines/data dependencies are tracked by #646 |
 
 ## Canonical enum materialization
+
+Plain JSON accepts either entries such as `[{"value":"USD","label":"US Dollar"}]`
+or a code-to-label map such as `{"USD":"US Dollar","EUR":"Euro"}`. Both use the
+same decoder and enum materializer; codes remain wire values. A pinned currency
+map under `test/fixtures/third-party/currency-list` covers this path through an
+actual in-memory Rune enum and form choices. It includes historical currencies.
+CDM's metadata-only `currency-1-0.json` identifies a scheme but supplies no codes;
+it cannot substitute for a populated currency list.
 
 A non-empty, explicitly mapped list becomes a normal Rune enum in the captured
 project graph. The mapped alias keeps its identity and points to that enum. Native

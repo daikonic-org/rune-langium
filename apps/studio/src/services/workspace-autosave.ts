@@ -6,10 +6,13 @@ import { allocateOpId } from './op-log.js';
 import { recordPerf, recordPerfStart } from './perf-log.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
+export type WorkspaceSaveState = 'pending' | 'saving' | 'saved' | 'error';
+
 export const createWorkspaceAutosave = withInstrumentation(
   function createWorkspaceAutosave(
     save: (workspaceId: string, files: readonly WorkspaceFile[]) => Promise<void>,
-    onError: (error: unknown) => void
+    onError: (error: unknown) => void,
+    onState?: (workspaceId: string, state: WorkspaceSaveState) => void
   ) {
     const pending = new Map<
       string,
@@ -33,11 +36,13 @@ export const createWorkspaceAutosave = withInstrumentation(
       const opId = allocateOpId();
       recordPerfStart('workspaceSave', opId);
       const startedAt = performance.now();
+      onState?.(workspaceId, 'saving');
       const operation = Promise.resolve()
         .then(() => save(workspaceId, files))
         .then(
           () => {
             if (unsaved.get(workspaceId) === files) unsaved.delete(workspaceId);
+            onState?.(workspaceId, unsaved.has(workspaceId) ? 'pending' : 'saved');
             recordPerf({
               op: 'workspaceSave',
               ok: true,
@@ -55,6 +60,7 @@ export const createWorkspaceAutosave = withInstrumentation(
               opId
             });
             onError(error);
+            onState?.(workspaceId, 'error');
             throw error;
           }
         );
@@ -68,6 +74,7 @@ export const createWorkspaceAutosave = withInstrumentation(
     return {
       schedule(workspaceId: string, files: readonly WorkspaceFile[]): void {
         unsaved.set(workspaceId, files);
+        onState?.(workspaceId, 'pending');
         const existing = pending.get(workspaceId);
         if (existing) {
           clearTimeout(existing.trailing);

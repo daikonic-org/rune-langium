@@ -62,7 +62,8 @@ export function decodeProjectCodeList(
       ...(description ? { description } : {})
     }));
   } else {
-    values = z.array(entry).parse(raw);
+    const parsed = z.union([z.array(entry), z.record(entry.shape.value, entry.shape.label)]).parse(raw);
+    values = Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([value, label]) => ({ value, label }));
   }
   if (expected.canonicalUri !== undefined && expected.canonicalUri !== canonicalUri)
     throw new Error('The code-list scheme URI differs from the configured identity.');

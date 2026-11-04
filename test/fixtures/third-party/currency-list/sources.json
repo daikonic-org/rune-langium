@@ -1,0 +1,12 @@
+{
+  "model": "currency-list",
+  "repository": "https://github.com/umpirsky/currency-list",
+  "release": "4ab0b8244b44aa41fc859809e90d6e9fe00ae59e",
+  "commit": "4ab0b8244b44aa41fc859809e90d6e9fe00ae59e",
+  "path": "data/en/currency.json",
+  "license": "MIT",
+  "sha256": {
+    "currency.json": "7d97c00a7f423b1758ff4022e4fabf6d2817600146a5b507bb062606149e4dbf",
+    "LICENSE": "80979ed32b44ace5c2b8d44cbb35702cc59e764bfc306d13b3723f7824fae1d4"
+  }
+}

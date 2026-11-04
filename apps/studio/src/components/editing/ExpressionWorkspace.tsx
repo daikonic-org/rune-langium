@@ -27,7 +27,6 @@ import { ExpressionBuilderDialog } from './ExpressionBuilderDialog.js';
 import { RuneRegionEditor } from './RuneRegionEditor.js';
 import { GeneratedExpressionView } from './GeneratedExpressionView.js';
 import { useExpressionProjection } from './use-expression-projection.js';
-import { ForeignExpressionDialog } from './ForeignExpressionDialog.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { protectedRegion } from '../../lang/document-extensions.js';
 
@@ -94,12 +93,6 @@ export const ExpressionWorkspace = withInstrumentation(
       dependencies: ExpressionWorkspaceProps['dependencySnapshot'];
     } | null>(null);
     const [builderPending, setBuilderPending] = useState(false);
-    const [foreign, setForeign] = useState<{
-      binding: DocumentBinding;
-      region: SourceRegion;
-      language: 'typescript' | 'python';
-      dependencies: ExpressionWorkspaceProps['dependencySnapshot'];
-    } | null>(null);
     const [builderError, setBuilderError] = useState<string>();
     const requestRef = useRef(0);
     useEffect(
@@ -232,7 +225,9 @@ export const ExpressionWorkspace = withInstrumentation(
       const entries = getExpressionRegions(owner);
       const expression = target
         ? entries.find((entry) => entry.kind === target.kind && entry.index === target.index)
-        : entries.find((entry) => selection && entry.region.from <= selection.from && entry.region.to >= selection.to);
+        : (entries.find(
+            (entry) => selection && entry.region.from <= selection.from && entry.region.to >= selection.to
+          ) ?? (entries.length === 1 ? entries[0] : undefined));
       if (!expression) {
         setBuilderError('Place the cursor inside an expression to open the builder.');
         return;
@@ -269,7 +264,7 @@ export const ExpressionWorkspace = withInstrumentation(
         if (request === requestRef.current) setBuilderPending(false);
       }
     };
-    const applyExpressionEdit = (edit: DocumentEdit, dependencies: ExpressionWorkspaceProps['dependencySnapshot']) => {
+    const applyExpressionEdit = (edit: DocumentEdit, dependencies: unknown) => {
       const view = viewRef.current;
       if (!view || view.state.doc.toString() !== edit.binding.source || dependenciesRef.current !== dependencies)
         return { ok: false as const, reason: 'stale' as const };
@@ -281,6 +276,35 @@ export const ExpressionWorkspace = withInstrumentation(
         })
       );
     };
+    const projectionEdit =
+      language === 'typescript' &&
+      active &&
+      !active.readOnly &&
+      !readOnly &&
+      !file?.readOnly &&
+      parseCurrent &&
+      projection.status === 'ready' &&
+      projection.revision === active.revision &&
+      projection.projection.syntax &&
+      !projection.projection.implementation
+        ? {
+            capture: () => {
+              if (!parsed || parsed.source !== active.source) return;
+              const owner = findExpressionOwner(parsed.model, {
+                name: nameFromNodeId(nodeId),
+                kind: kindFromNodeId(nodeId)
+              });
+              if (!owner) return;
+              const regions = getExpressionRegions(owner)
+                .filter((entry) => entry.region.from >= active.region.from && entry.region.to <= active.region.to)
+                .map((entry) => entry.region);
+              const captured = documents.capture(active.uri, nodeId, active.region);
+              if (!captured || captured.revision !== active.revision || !regions.length) return;
+              return { binding: captured, regions, dependencies: dependencySnapshot };
+            },
+            apply: applyExpressionEdit
+          }
+        : undefined;
     const returnFocus = () => requestAnimationFrame(() => viewRef.current?.focus());
     return (
       <section
@@ -305,25 +329,6 @@ export const ExpressionWorkspace = withInstrumentation(
             ))}
           </div>
           <div role="group" aria-label="Expression actions" className="flex flex-wrap items-center gap-1">
-            {language !== 'rune' && (
-              <Button
-                variant="ghost"
-                size="xs"
-                disabled={!active || !parseCurrent || readOnly || file?.readOnly || active?.readOnly}
-                onClick={() => {
-                  const selected = captureTarget();
-                  if (selected)
-                    setForeign({
-                      binding: selected.binding,
-                      region: selected.target.region,
-                      language,
-                      dependencies: selected.dependencies
-                    });
-                }}
-              >
-                Edit expression…
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="xs"
@@ -391,9 +396,15 @@ export const ExpressionWorkspace = withInstrumentation(
         )}
         {language !== 'rune' && originalSourceCurrent && (
           <>
-            <p className="shrink-0 text-xs text-muted-foreground">Generated · read-only</p>
+            <p className="shrink-0 text-xs text-muted-foreground">
+              {projectionEdit ? 'Edit expressions in place · Apply to update Rune' : 'Generated · read-only'}
+            </p>
             {'projection' in projection && projection.projection && (
-              <GeneratedExpressionView projection={projection.projection} />
+              <GeneratedExpressionView
+                key={`${displayed?.uri}:${nodeId}:${language}`}
+                projection={projection.projection}
+                edit={projectionEdit}
+              />
             )}
             {projection.status === 'loading' && (
               <p role="status" className="text-xs text-muted-foreground">
@@ -435,16 +446,6 @@ export const ExpressionWorkspace = withInstrumentation(
               returnFocus();
             }}
             onApply={(edit) => applyExpressionEdit(edit, builder.dependencies)}
-          />
-        )}
-        {foreign && (
-          <ForeignExpressionDialog
-            {...foreign}
-            onApply={(edit) => applyExpressionEdit(edit, foreign.dependencies)}
-            onClose={() => {
-              setForeign(null);
-              returnFocus();
-            }}
           />
         )}
       </section>
