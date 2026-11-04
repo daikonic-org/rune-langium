@@ -75,7 +75,7 @@ describe('ts-emitter — Choice emission (W2)', () => {
     const model = walkNamespace([doc], 'test.choice');
     const output = emitNamespace(model, {});
     expect(output.content).toContain(
-      'return rune.checkOneOf([(x as Record<string, unknown>).cash, (x as Record<string, unknown>).commodity]);'
+      'return rune.checkOneOf([("cash" in x ? x.cash : undefined), ("commodity" in x ? x.commodity : undefined)]);'
     );
   });
 

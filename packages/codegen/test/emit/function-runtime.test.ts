@@ -2672,14 +2672,21 @@ func Reference:
  output: result Item (1..1)
   [metadata reference]
  set result: source as-key
+func OptionalReference:
+ inputs: source Item (0..1)
+ output: result Item (1..1)
+  [metadata reference]
+ set result: source as-key
 `,
       `
+const emptyReference: RuneReferenceWithMeta<Item.Shape> = OptionalReference(undefined);
 const item: Item.Shape = {name: 'A', meta: {externalKey: 'item-1'}};
 const reference: RuneReferenceWithMeta<Item.Shape> = Reference(item);
 // @ts-expect-error Reference outputs are wrappers, not direct data values.
 const value: Item = Reference(item);
 `
     );
+    expect(funcs.OptionalReference!({})).toEqual({});
     expect(funcs.Reference!({ source: { name: 'A', meta: { externalKey: 'item-1' } } })).toEqual({
       externalReference: 'item-1'
     });

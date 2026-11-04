@@ -92,7 +92,7 @@ Optional top-level declaration roots for a dependency-closed export.
 
 #### typescript
 
-**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean }`
+**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean; inlineHelpers?: boolean }`
 
 #### json-schema
 
@@ -213,7 +213,7 @@ Optional top-level declaration roots for a dependency-closed export.
 
 #### typescript
 
-**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean }`
+**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean; inlineHelpers?: boolean }`
 
 #### json-schema
 

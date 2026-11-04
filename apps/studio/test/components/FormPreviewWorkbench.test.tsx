@@ -90,7 +90,7 @@ describe('preview collection workbench', () => {
     expect(within(dialog).getByRole('checkbox', { name: 'Enabled' })).toBeChecked();
     expect(screen.getByTestId('values')).toHaveTextContent('"enabled":true');
     await user.click(within(dialog).getByRole('button', { name: 'Done' }));
-    expect(within(table).getByRole('cell', { name: 'Updated' })).toBeInTheDocument();
+    expect(within(table).getByRole('textbox', { name: 'Parties 1 Name' })).toHaveValue('Updated');
     expect(opener).toHaveFocus();
   });
 
@@ -120,7 +120,7 @@ describe('preview collection workbench', () => {
   it('shows grid validation cues and the actual error alongside the field in full details', async () => {
     const user = userEvent.setup();
     render(<Editor errors={{ 'parties[1].name': 'Name is required' }} />);
-    const cell = screen.getByRole('cell', { name: 'Beta' });
+    const cell = screen.getByRole('textbox', { name: 'Parties 2 Name' }).closest('td');
     expect(cell).toHaveAttribute('data-invalid', 'true');
     expect(cell).toHaveAttribute('title', 'Name is required');
     await user.click(screen.getByRole('button', { name: 'Open Parties 2 details' }));

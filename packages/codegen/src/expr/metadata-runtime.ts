@@ -130,7 +130,7 @@ ${prefix}type RuneWithMetaResult<T, K extends string = string, S extends RuneMet
   : [Extract<K, 'address' | 'reference'>] extends [never]
     ? [Exclude<K, 'key' | 'template'>] extends [never] ? T : RuneFieldWithMeta<T>
     : RuneReferenceWithMeta<T>;
-${prefix}type RuneAsKeyResult<T> = T extends readonly (infer I)[] ? RuneReferenceWithMeta<NonNullable<I>>[] : RuneReferenceWithMeta<T>;
+${prefix}type RuneAsKeyResult<T> = T extends readonly (infer I)[] ? RuneReferenceWithMeta<NonNullable<I>>[] : RuneReferenceWithMeta<NonNullable<T>>;
 ${prefix}type RuneToFieldResult<T> = T extends readonly (infer I)[] ? RuneFieldWithMeta<NonNullable<I>>[] : RuneFieldWithMeta<T>;
 ${prefix}type RuneToReferenceResult<T> = T extends readonly (infer I)[] ? RuneReferenceWithMeta<NonNullable<I>>[] : RuneReferenceWithMeta<T>;
 ${prefix}type RuneToFieldInput<T> = T extends readonly (infer I)[] ? T | RuneFieldWithMeta<NonNullable<I>>[] : T | RuneFieldWithMeta<T>;

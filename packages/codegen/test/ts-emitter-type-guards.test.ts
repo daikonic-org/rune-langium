@@ -47,8 +47,8 @@ describe('ts-emitter type-guard helpers resolve type-alias/record-type reference
       'alias-typeof'
     );
 
-    expect(output).toContain(`typeof (x as Record<string, unknown>).bar !== 'string'`);
-    expect(output).not.toContain(`(x as Record<string, unknown>).bar === undefined) return false;`);
+    expect(output).toContain(`typeof x.bar !== 'string'`);
+    expect(output).not.toContain(`x.bar === undefined) return false;`);
   });
 
   it('a genuinely-linked RosettaRecordType field gets its instanceof guard on the linked path', async () => {
@@ -91,9 +91,9 @@ describe('ts-emitter type-guard helpers resolve type-alias/record-type reference
       'plain-fields'
     );
 
-    expect(output).toContain(`typeof (x as Record<string, unknown>).name !== 'string'`);
+    expect(output).toContain(`typeof x.name !== 'string'`);
     // Enum/Data/Choice fields have no typeof/instanceof guard — presence-only checks.
-    expect(output).toContain(`(x as Record<string, unknown>).color === undefined) return false;`);
-    expect(output).toContain(`(x as Record<string, unknown>).address === undefined) return false;`);
+    expect(output).toContain(`x.color === undefined) return false;`);
+    expect(output).toContain(`x.address === undefined) return false;`);
   });
 });

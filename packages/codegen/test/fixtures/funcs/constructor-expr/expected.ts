@@ -19,7 +19,7 @@ export class Point implements PointShape {
     this.y = data.y;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Point$Input, Point>): RuneView<Point, RuneFromMin<I>, RuneFromMax<I>, $Point$Type> { return runeValue(input, () => $Point$Type) as unknown as RuneView<Point, RuneFromMin<I>, RuneFromMax<I>, $Point$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Point$Input, Point>): RuneView<Point, RuneFromMin<I>, RuneFromMax<I>, $Point$Type> { return runeValue<I, $Point$Type>(input, () => $Point$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Point.from(runeValueFromJSON(input, () => $Point$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Point$Type, options); }
 }
@@ -29,8 +29,8 @@ export function isPoint(x: unknown): x is Point {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Point) return true;
   if ('@type' in x) return x['@type'] === "test.funcs.constructor.Point";
-  if (typeof (x as Record<string, unknown>).x !== 'number') return false;
-  if (typeof (x as Record<string, unknown>).y !== 'number') return false;
+  if (!("x" in x) || typeof x.x !== 'number') return false;
+  if (!("y" in x) || typeof x.y !== 'number') return false;
   return true;
 }
 
@@ -53,7 +53,7 @@ export const $Point$Type: $Point$Type = {
     if (!isPoint(json)) {
       throw new TypeError('not a Point: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Point(json as unknown as PointShape);
+    return new Point(json);
   },
   fields: { "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, paths: [[{"key":"x","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, paths: [[{"key":"y","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
   deep: Object.assign(Object.create($Point$Type$Reachable$Deep), { "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
@@ -74,7 +74,7 @@ export class Box implements BoxShape {
     this.width = data.width;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Box$Input, Box>): RuneView<Box, RuneFromMin<I>, RuneFromMax<I>, $Box$Type> { return runeValue(input, () => $Box$Type) as unknown as RuneView<Box, RuneFromMin<I>, RuneFromMax<I>, $Box$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Box$Input, Box>): RuneView<Box, RuneFromMin<I>, RuneFromMax<I>, $Box$Type> { return runeValue<I, $Box$Type>(input, () => $Box$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Box.from(runeValueFromJSON(input, () => $Box$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Box$Type, options); }
 }
@@ -84,8 +84,8 @@ export function isBox(x: unknown): x is Box {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Box) return true;
   if ('@type' in x) return x['@type'] === "test.funcs.constructor.Box";
-  if ((x as Record<string, unknown>).origin === undefined) return false;
-  if (typeof (x as Record<string, unknown>).width !== 'number') return false;
+  if (!("origin" in x) || x.origin === undefined) return false;
+  if (!("width" in x) || typeof x.width !== 'number') return false;
   return true;
 }
 
@@ -108,7 +108,7 @@ export const $Box$Type: $Box$Type = {
     if (!isBox(json)) {
       throw new TypeError('not a Box: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Box(json as unknown as BoxShape);
+    return new Box(json);
   },
   fields: { "origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 1, max: 1, paths: [[{"key":"origin","min":1,"max":1}]], type: () => $Point$Type }, "width": { id: "test.funcs.constructor.Box#width", key: "width", min: 1, max: 1, paths: [[{"key":"width","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
   deep: Object.assign(Object.create($Box$Type$Reachable$Deep), { "origin": { id: "test.funcs.constructor.Box#origin", key: "origin", min: 1, max: 1, type: () => $Point$Type }, "x": { id: "test.funcs.constructor.Point#x", key: "x", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "y": { id: "test.funcs.constructor.Point#y", key: "y", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "width": { id: "test.funcs.constructor.Box#width", key: "width", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),

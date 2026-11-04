@@ -243,12 +243,12 @@ function AttributeRow({
       {...typeDrop.dragOverHandlers}
       onDragStart={reorder.onDragStart}
       onDragOver={(event) =>
-        Array.from(event.dataTransfer.types).includes(TYPE_REF_PAYLOAD_MIME)
+        Array.from(event.dataTransfer?.types ?? []).includes(TYPE_REF_PAYLOAD_MIME)
           ? typeDrop.dragOverHandlers.onDragOver(event)
           : reorder.onDragOver(event)
       }
       onDrop={(event) =>
-        Array.from(event.dataTransfer.types).includes(TYPE_REF_PAYLOAD_MIME)
+        Array.from(event.dataTransfer?.types ?? []).includes(TYPE_REF_PAYLOAD_MIME)
           ? typeDrop.dragOverHandlers.onDrop(event)
           : reorder.onDrop(event)
       }

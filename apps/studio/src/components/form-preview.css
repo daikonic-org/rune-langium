@@ -269,13 +269,13 @@
 }
 
 @container preview-collection (width < 32rem) {
-  .preview-object-grid [data-summary-column="2"] {
+  .preview-object-grid [data-summary-column="2"]:not([data-editable]) {
     display: none;
   }
 }
 
 @container preview-collection (width < 20rem) {
-  .preview-object-grid [data-summary-column="1"] {
+  .preview-object-grid [data-summary-column="1"]:not([data-editable]) {
     display: none;
   }
 }

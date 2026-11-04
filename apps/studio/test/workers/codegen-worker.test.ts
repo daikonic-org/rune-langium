@@ -1437,7 +1437,7 @@ describe('codegen-worker code preview messages', () => {
     });
     await flushWorker();
 
-    expect(generateMock).toHaveBeenCalledWith(expect.any(Array), { target: 'zod' });
+    expect(generateMock).toHaveBeenCalledWith(expect.any(Array), { target: 'zod', zod: { layout: 'barrel' } });
     expect(scope.postMessage).toHaveBeenLastCalledWith({
       type: 'codegen:result',
       target: 'zod',
@@ -2525,7 +2525,7 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'selected:1', selection });
     await flushWorker();
     expect(generateMock).toHaveBeenCalledTimes(1);
-    expect(generateMock).toHaveBeenLastCalledWith(expect.any(Array), { target: 'zod' });
+    expect(generateMock).toHaveBeenLastCalledWith(expect.any(Array), { target: 'zod', zod: { layout: 'barrel' } });
     expect(scope.postMessage).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: 'codegen:result', requestId: 'selected:1' })
     );

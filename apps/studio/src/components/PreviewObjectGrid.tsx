@@ -15,6 +15,7 @@ import {
 export interface PreviewGridColumn {
   path: string;
   label: string;
+  editable?: boolean;
 }
 export interface PreviewGridRow {
   path: string;
@@ -48,7 +49,12 @@ export const PreviewObjectGrid = withInstrumentation(
           <thead>
             <tr>
               {columns.map((column, columnIndex) => (
-                <th scope="col" key={column.path} data-summary-column={columnIndex}>
+                <th
+                  scope="col"
+                  key={column.path}
+                  data-summary-column={columnIndex}
+                  data-editable={column.editable ? 'true' : undefined}
+                >
                   {column.label}
                 </th>
               ))}
@@ -72,6 +78,7 @@ export const PreviewObjectGrid = withInstrumentation(
                   <td
                     key={cell.path}
                     data-summary-column={columnIndex}
+                    data-editable={cell.editor ? 'true' : undefined}
                     data-field-path={cell.path}
                     tabIndex={-1}
                     title={cell.error ?? cell.text}

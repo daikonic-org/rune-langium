@@ -16,7 +16,7 @@ export class Wrapper implements WrapperShape {
     this.payload = data.payload;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Wrapper$Input, Wrapper>): RuneView<Wrapper, RuneFromMin<I>, RuneFromMax<I>, $Wrapper$Type> { return runeValue(input, () => $Wrapper$Type) as unknown as RuneView<Wrapper, RuneFromMin<I>, RuneFromMax<I>, $Wrapper$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Wrapper$Input, Wrapper>): RuneView<Wrapper, RuneFromMin<I>, RuneFromMax<I>, $Wrapper$Type> { return runeValue<I, $Wrapper$Type>(input, () => $Wrapper$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Wrapper.from(runeValueFromJSON(input, () => $Wrapper$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Wrapper$Type, options); }
 }
@@ -26,7 +26,7 @@ export function isWrapper(x: unknown): x is Wrapper {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Wrapper) return true;
   if ('@type' in x) return x['@type'] === "test.funcs.preconditionAlias.Wrapper";
-  if ((x as Record<string, unknown>).payload !== undefined && typeof (x as Record<string, unknown>).payload !== 'string') return false;
+  if ("payload" in x && x.payload !== undefined && typeof x.payload !== 'string') return false;
   return true;
 }
 
@@ -48,7 +48,7 @@ export const $Wrapper$Type: $Wrapper$Type = {
     if (!isWrapper(json)) {
       throw new TypeError('not a Wrapper: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Wrapper(json as unknown as WrapperShape);
+    return new Wrapper(json);
   },
   fields: { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, paths: [[{"key":"payload","min":0,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Wrapper$Type$Reachable$Deep), { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),

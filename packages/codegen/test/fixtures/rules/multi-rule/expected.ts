@@ -22,7 +22,7 @@ export class Account implements AccountShape {
     this.tier = data.tier;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Account$Input, Account>): RuneView<Account, RuneFromMin<I>, RuneFromMax<I>, $Account$Type> { return runeValue(input, () => $Account$Type) as unknown as RuneView<Account, RuneFromMin<I>, RuneFromMax<I>, $Account$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Account$Input, Account>): RuneView<Account, RuneFromMin<I>, RuneFromMax<I>, $Account$Type> { return runeValue<I, $Account$Type>(input, () => $Account$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Account.from(runeValueFromJSON(input, () => $Account$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Account$Type, options); }
 }
@@ -32,9 +32,9 @@ export function isAccount(x: unknown): x is Account {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Account) return true;
   if ('@type' in x) return x['@type'] === "test.rules.Account";
-  if (typeof (x as Record<string, unknown>).balance !== 'number') return false;
-  if (typeof (x as Record<string, unknown>).status !== 'string') return false;
-  if (typeof (x as Record<string, unknown>).tier !== 'string') return false;
+  if (!("balance" in x) || typeof x.balance !== 'number') return false;
+  if (!("status" in x) || typeof x.status !== 'string') return false;
+  if (!("tier" in x) || typeof x.tier !== 'string') return false;
   return true;
 }
 
@@ -58,7 +58,7 @@ export const $Account$Type: $Account$Type = {
     if (!isAccount(json)) {
       throw new TypeError('not a Account: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Account(json as unknown as AccountShape);
+    return new Account(json);
   },
   fields: { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, paths: [[{"key":"balance","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, paths: [[{"key":"status","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, paths: [[{"key":"tier","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Account$Type$Reachable$Deep), { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),

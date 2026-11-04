@@ -297,7 +297,7 @@ export class ValueApiEmitter {
     const input = this.name(node, 'Input');
     const schema = this.name(node, 'Type');
     const output = this.output(node);
-    const method = `from<const I>(input: I & RuneFactoryInput<I, ${input}, ${output}>): RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}> { return runeValue(input, () => ${schema}) as unknown as RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}>; }`;
+    const method = `from<const I>(input: I & RuneFactoryInput<I, ${input}, ${output}>): RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}> { return runeValue<I, ${schema}>(input, () => ${schema}); }`;
     return isData(node) ? `  static ${method}` : `export const ${output} = { ${method} };`;
   }
 }

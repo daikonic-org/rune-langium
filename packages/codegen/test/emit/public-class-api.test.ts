@@ -7,6 +7,20 @@ import { URI } from 'langium';
 import { generate } from '../../src/export.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
+type JsonOptions = { format: 'RUNE_JSON' };
+interface ModelView extends Record<'quote' | 'selected' | 'amount', ModelView> {
+  unwrap(): unknown;
+  toJSON(options?: JsonOptions): unknown;
+}
+type ModelClass = {
+  new (input: unknown): { toJSON(options?: JsonOptions): unknown };
+  from(input: unknown): ModelView;
+  fromJSON(input: unknown, options?: JsonOptions): ModelView;
+};
+type PublicApi = Record<'Quote' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass> & {
+  isQuote(input: unknown): boolean;
+};
+
 const source = `namespace publicApi
 annotation metadata:
  scheme string (0..1)
@@ -27,6 +41,8 @@ choice Selected:
  Quote
 type Selection:
  selected Selected (1..1)
+type Tagged extends Selected:
+ extra string (0..1)
 func Copy:
  inputs:
   quote Quote (1..1)
@@ -48,13 +64,14 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       target: 'typescript',
       typescript: layout === 'inline' ? { layout: 'per-namespace', inlineHelpers: true } : { layout }
     });
+    for (const output of outputs) expect(output.content).not.toMatch(/\bas unknown as\b|\bas any\b/);
     const model = outputs.find((output) => output.content.includes('export class Quote '))!;
     expect(model.content).not.toContain('$Quote$Data');
     expect(model.content).not.toContain('export const Quote =');
     expect(model.content).toContain('Copy(quote: Quote.Shape): Quote.Shape');
     expect(model.content.includes('runtime helpers (inlined)')).toBe(layout === 'inline');
     if (layout !== 'inline') expect(outputs.some((output) => /helpers.*\.ts$/.test(output.relativePath))).toBe(true);
-    const api = compileGeneratedTypeScript<Record<string, any>>(outputs, {
+    const api = compileGeneratedTypeScript<PublicApi>(outputs, {
       entry: model.relativePath,
       assertions: `
 const quote: Quote.Shape = { amount: 5, currency: 'USD' };
@@ -84,11 +101,12 @@ Child.from({ value: 1 });
     expect(() => api.Quote.fromJSON({ '@type': 'other.Quote', ...input }, { format: 'RUNE_JSON' })).toThrow(/differs/);
     const reference = api.Reference.from({ quote: { value: input, meta: {}, externalReference: 'q1' } });
     const referenceWire = reference.toJSON({ format: 'RUNE_JSON' });
-    expect(referenceWire.quote).toMatchObject({ '@type': 'publicApi.Quote', '@ref:external': 'q1', amount: 5 });
+    expect(referenceWire).toMatchObject({ quote: { '@type': 'publicApi.Quote', '@ref:external': 'q1', amount: 5 } });
     expect(api.Reference.fromJSON(referenceWire, { format: 'RUNE_JSON' }).quote.amount.unwrap()).toBe(5);
+    expect(api.Tagged.from({ quote: input }).unwrap()).toBeInstanceOf(api.Tagged);
     const selected = api.Selection.from({ selected: { quote: input } });
     const selectionWire = selected.toJSON({ format: 'RUNE_JSON' });
-    expect(selectionWire.selected).toMatchObject({ '@type': 'publicApi.Quote', amount: 5 });
+    expect(selectionWire).toMatchObject({ selected: { '@type': 'publicApi.Quote', amount: 5 } });
     expect(api.Selection.fromJSON(selectionWire, { format: 'RUNE_JSON' }).selected.quote.amount.unwrap()).toBe(5);
   }
 );

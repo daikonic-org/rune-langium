@@ -22,7 +22,7 @@ export class Position implements PositionShape {
     this.currency = data.currency;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Position$Input, Position>): RuneView<Position, RuneFromMin<I>, RuneFromMax<I>, $Position$Type> { return runeValue(input, () => $Position$Type) as unknown as RuneView<Position, RuneFromMin<I>, RuneFromMax<I>, $Position$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Position$Input, Position>): RuneView<Position, RuneFromMin<I>, RuneFromMax<I>, $Position$Type> { return runeValue<I, $Position$Type>(input, () => $Position$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Position.from(runeValueFromJSON(input, () => $Position$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Position$Type, options); }
 }
@@ -32,9 +32,9 @@ export function isPosition(x: unknown): x is Position {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Position) return true;
   if ('@type' in x) return x['@type'] === "test.rules.Position";
-  if (typeof (x as Record<string, unknown>).quantity !== 'number') return false;
-  if (typeof (x as Record<string, unknown>).price !== 'number') return false;
-  if (typeof (x as Record<string, unknown>).currency !== 'string') return false;
+  if (!("quantity" in x) || typeof x.quantity !== 'number') return false;
+  if (!("price" in x) || typeof x.price !== 'number') return false;
+  if (!("currency" in x) || typeof x.currency !== 'string') return false;
   return true;
 }
 
@@ -58,7 +58,7 @@ export const $Position$Type: $Position$Type = {
     if (!isPosition(json)) {
       throw new TypeError('not a Position: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Position(json as unknown as PositionShape);
+    return new Position(json);
   },
   fields: { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, paths: [[{"key":"quantity","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, paths: [[{"key":"price","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, paths: [[{"key":"currency","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Position$Type$Reachable$Deep), { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),

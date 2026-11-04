@@ -106,6 +106,11 @@ Pages Functions. Function changes still require their unit/integration checks.
 The post-deployment freshness gate is excluded because a candidate is intentionally
 not deployed. All other production UX journeys plus focused Export, reading-space,
 recents and nested-validation cases run with zero retries and unchanged time budgets.
+The candidate polish cases also cover inherited enum options after native row
+drops, required scalar grid editing in both themes, byte-preserving source-doc
+folding, metadata semantics, and Export's vertical split. These cases and child
+annotation persistence use the shared `studio-test` fixture so candidate reviews
+exercise built assets rather than the deployed frontend.
 Focused tests (`test.only`) are forbidden, so an accidentally committed focus
 cannot silently reduce the pre-merge gate's coverage.
 The candidate suite includes native namespace override/Extend journeys: read-only

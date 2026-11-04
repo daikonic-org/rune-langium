@@ -136,6 +136,7 @@ const runeToDateTime = (v: unknown): string | undefined =>
 const runeToZonedDateTime = (v: unknown): string | undefined =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})(\[[^\]]+\])?$/.test(v) ? v : undefined;
 
+type RuneKeyArguments<T, K> = [key?: undefined, compare?: (a: NonNullable<T>, b: NonNullable<T>) => number] | [key: (item: T) => K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number];
 class RuneList<T> {
   private readonly items: T[];
   constructor(items: readonly T[]) { this.items = items.filter(item => item != null); }
@@ -160,14 +161,19 @@ class RuneList<T> {
   flat<U>(this: RuneList<U | readonly U[]>): RuneList<U> {
     return new RuneList(this.items.flatMap(value => [...runeList(value)]) as U[]);
   }
-  sort<K = T>(key: (item: T) => K = (item) => item as unknown as K, compare: (a: NonNullable<K>, b: NonNullable<K>) => number = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
-    return new RuneList([...this.items].sort((a, b) => runeOrder(key(a), key(b), compare)));
+  sort<K = T>(...args: RuneKeyArguments<T, K>) {
+    const [key, compare] = args;
+    return new RuneList([...this.items].sort((a, b) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0)) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0))));
   }
-  min<K = T>(key: (item: T) => K = (item) => item as unknown as K, compare: (a: NonNullable<K>, b: NonNullable<K>) => number = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
-    return this.items.reduce<T | undefined>((best, item) => best === undefined || runeOrder(key(item), key(best), compare) < 0 ? item : best, undefined);
+  min<K = T>(...args: RuneKeyArguments<T, K>) {
+    const [key, compare] = args;
+    const order = (a: T, b: T) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0)) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0));
+    return this.items.reduce<T | undefined>((best, item) => best === undefined || order(item, best) < 0 ? item : best, undefined);
   }
-  max<K = T>(key: (item: T) => K = (item) => item as unknown as K, compare: (a: NonNullable<K>, b: NonNullable<K>) => number = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
-    return this.items.reduce<T | undefined>((best, item) => best === undefined || runeOrder(key(item), key(best), compare, false) > 0 ? item : best, undefined);
+  max<K = T>(...args: RuneKeyArguments<T, K>) {
+    const [key, compare] = args;
+    const order = (a: T, b: T) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false);
+    return this.items.reduce<T | undefined>((best, item) => best === undefined || order(item, best) > 0 ? item : best, undefined);
   }
   reduce(reduce: (previous: T, current: T) => T) { return this.items.length ? this.items.reduce(reduce) : undefined; }
   join(separator = '') { return this.items.join(separator); }

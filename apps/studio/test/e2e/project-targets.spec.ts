@@ -24,7 +24,7 @@ test('keeps named-target controls reachable in a fresh compact workspace', async
   });
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
   await page.getByTestId('rail-export').click();
-  await page.getByTestId('export-perspective').getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByTestId('export-perspective').getByRole('tab', { name: 'Export', exact: true }).click();
   const settings = page.getByTestId('export-settings-panel');
   await expect(settings.getByRole('tab', { name: 'One-off', exact: true })).toBeVisible();
   await expect(settings.getByRole('button', { name: 'Save target settings', exact: true })).toBeVisible();

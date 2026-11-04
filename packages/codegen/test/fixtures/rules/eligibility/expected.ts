@@ -19,7 +19,7 @@ export class Trade implements TradeShape {
     this.active = data.active;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue(input, () => $Trade$Type) as unknown as RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue<I, $Trade$Type>(input, () => $Trade$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => $Trade$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Trade$Type, options); }
 }
@@ -29,8 +29,8 @@ export function isTrade(x: unknown): x is Trade {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Trade) return true;
   if ('@type' in x) return x['@type'] === "test.rules.Trade";
-  if (typeof (x as Record<string, unknown>).notional !== 'number') return false;
-  if (typeof (x as Record<string, unknown>).active !== 'boolean') return false;
+  if (!("notional" in x) || typeof x.notional !== 'number') return false;
+  if (!("active" in x) || typeof x.active !== 'boolean') return false;
   return true;
 }
 
@@ -53,7 +53,7 @@ export const $Trade$Type: $Trade$Type = {
     if (!isTrade(json)) {
       throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Trade(json as unknown as TradeShape);
+    return new Trade(json);
   },
   fields: { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') } },
   deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') } }),

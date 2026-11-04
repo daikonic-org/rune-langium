@@ -283,3 +283,31 @@ func MakeTwo:
     ).toHaveLength(1);
   });
 });
+
+it('keeps nested metadata Choice fields structural in function shapes', async () => {
+  const funcs = await compile(
+    `namespace test.nestedChoiceShape
+annotation metadata:
+ scheme string (0..1)
+type Amount:
+ value int (1..1)
+choice Inner:
+ Amount
+choice Outer:
+ Inner
+type Container:
+ selected Outer (1..1)
+  [metadata scheme]
+func Echo:
+ inputs: source Container (1..1)
+ output: result Container (1..1)
+ set result: source
+`,
+    `
+const input: Container.Shape = { selected: { value: { inner: { amount: { value: 5 } } }, meta: {} } };
+const output: Container.Shape = Echo(input);
+`
+  );
+  const input = { selected: { value: { inner: { amount: { value: 5 } } }, meta: {} } };
+  expect(funcs.Echo!({ source: input })).toEqual(input);
+});

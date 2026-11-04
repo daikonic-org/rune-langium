@@ -19,7 +19,7 @@ export class Trade implements TradeShape {
     this.notional = data.notional;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue(input, () => $Trade$Type) as unknown as RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue<I, $Trade$Type>(input, () => $Trade$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => $Trade$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Trade$Type, options); }
 }
@@ -29,8 +29,8 @@ export function isTrade(x: unknown): x is Trade {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Trade) return true;
   if ('@type' in x) return x['@type'] === "test.reports.Trade";
-  if (!((x as Record<string, unknown>).tradeDate instanceof Temporal.PlainDate)) return false;
-  if (typeof (x as Record<string, unknown>).notional !== 'number') return false;
+  if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
+  if (!("notional" in x) || typeof x.notional !== 'number') return false;
   return true;
 }
 
@@ -53,7 +53,7 @@ export const $Trade$Type: $Trade$Type = {
     if (!isTrade(json)) {
       throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Trade(json as unknown as TradeShape);
+    return new Trade(json);
   },
   fields: { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
   deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
@@ -74,7 +74,7 @@ export class TradeReport implements TradeReportShape {
     this.amount = data.amount;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $TradeReport$Input, TradeReport>): RuneView<TradeReport, RuneFromMin<I>, RuneFromMax<I>, $TradeReport$Type> { return runeValue(input, () => $TradeReport$Type) as unknown as RuneView<TradeReport, RuneFromMin<I>, RuneFromMax<I>, $TradeReport$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $TradeReport$Input, TradeReport>): RuneView<TradeReport, RuneFromMin<I>, RuneFromMax<I>, $TradeReport$Type> { return runeValue<I, $TradeReport$Type>(input, () => $TradeReport$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return TradeReport.from(runeValueFromJSON(input, () => $TradeReport$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $TradeReport$Type, options); }
 }
@@ -84,8 +84,8 @@ export function isTradeReport(x: unknown): x is TradeReport {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof TradeReport) return true;
   if ('@type' in x) return x['@type'] === "test.reports.TradeReport";
-  if (!((x as Record<string, unknown>).date instanceof Temporal.PlainDate)) return false;
-  if (typeof (x as Record<string, unknown>).amount !== 'number') return false;
+  if (!("date" in x) || !(x.date instanceof Temporal.PlainDate)) return false;
+  if (!("amount" in x) || typeof x.amount !== 'number') return false;
   return true;
 }
 
@@ -108,7 +108,7 @@ export const $TradeReport$Type: $TradeReport$Type = {
     if (!isTradeReport(json)) {
       throw new TypeError('not a TradeReport: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new TradeReport(json as unknown as TradeReportShape);
+    return new TradeReport(json);
   },
   fields: { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, paths: [[{"key":"date","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, paths: [[{"key":"amount","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
   deep: Object.assign(Object.create($TradeReport$Type$Reachable$Deep), { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),

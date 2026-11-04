@@ -256,13 +256,21 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     (record) => this.ctx.builtinTypeMap[record.name] ?? 'unknown',
     (node) => (isRosettaRecordType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
     (node) => {
-      if (isData(node)) return this.emitFromFactory(node, true);
+      if (isData(node)) return this.emitFromFactory(node);
       if (isChoice(node))
         return `(value: unknown) => { if (!${this.typeName(node, `is${node.name}`)}(value)) throw new TypeError('not a ${node.name}'); return value; }`;
       const type = this.ctx.builtinTypeMap[node.name] ?? 'unknown';
-      return type.startsWith('Temporal.')
-        ? `(value: unknown) => ${type === 'Temporal.ZonedDateTime' ? `typeof value === 'string' ? rune.parseZonedDateTime(value) : ${type}.from(value as ${type})` : `${type}.from(value as ${type} | string)`}`
-        : '(value: unknown) => value';
+      if (!type.startsWith('Temporal.')) return '(value: unknown) => value';
+      const parse = type === 'Temporal.ZonedDateTime' ? 'rune.parseZonedDateTime(value)' : `${type}.from(value)`;
+      const dateKeys = ['year', 'month', 'day'];
+      const present = (key: string) => `('${key}' in value && typeof value.${key} === 'number')`;
+      const bags =
+        type === 'Temporal.PlainTime'
+          ? ['hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']
+              .map((key) => `if (${present(key)}) return ${type}.from({ ...value, ${key}: value.${key} });`)
+              .join(' ')
+          : `if (${dateKeys.map(present).join(' && ')}${type === 'Temporal.ZonedDateTime' ? " && ('timeZone' in value && typeof value.timeZone === 'string')" : ''}) return ${type}.from({ ...value, ${dateKeys.map((key) => `${key}: value.${key}`).join(', ')}${type === 'Temporal.ZonedDateTime' ? ', timeZone: value.timeZone' : ''} });`;
+      return `(value: unknown) => { if (value instanceof ${type}) return value; if (typeof value === 'string') return ${parse}; if (Object.prototype.toString.call(value) === '[object ${type}]') return ${type}.from(String(value)); if (value !== null && typeof value === 'object') { ${bags} } throw new TypeError('Expected ${type}, temporal fields or an ISO string'); }`;
     },
     (field) => this.valueGuard(field)
   );
@@ -711,10 +719,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     for (const choice of this.ctx.choiceByName.values()) {
       for (const option of choice.attributes) {
         trackAttributePositionImport(option.typeCall);
-        // emitChoiceShapeTypeDeclaration additionally references
-        // `<Name>Shape` for options that resolve to a Data (only Data —
-        // preserves that function's exact pre-existing Data-only special
-        // case; Enum/Choice options use the same bare name in both unions).
+        // Nested Choice/Data shape unions both require their structural imports.
         resolveTypeCallTarget(
           option.typeCall,
           this.typeIndex,
@@ -722,7 +727,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
             onPrimitive: () => undefined,
             onEnum: () => undefined,
             onData: (node) => trackRef(node, `${node.name}Shape`),
-            onChoice: () => undefined,
+            onChoice: (node) => trackRef(node, `${node.name}Shape`),
             onUnresolved: () => undefined
           },
           this.ctx.namespace
@@ -857,8 +862,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
             ? `(value: unknown) => !(${TsNamespaceEmitter.negTypeofGuard('value', kind, this.ctx.builtinTypeMap[name])})`
             : undefined;
         },
-        onEnum: (node) =>
-          `(value: unknown) => Object.values(${this.typeName(node)}).includes(value as ${this.typeName(node)})`,
+        onEnum: (node) => `(value: unknown) => Object.values(${this.typeName(node)}).some(member => member === value)`,
         onData: () => undefined,
         onChoice: () => undefined,
         onUnresolved: () => undefined
@@ -1181,14 +1185,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * (base-namespace-emitter.ts's `buildAttrAccessorNamesMap` doc comment
    * has the full rationale).
    *
-   * The read is cast via `(this as unknown as Record<string, unknown>)`
-   * (matching `buildTypeGuardChecks`'s existing convention elsewhere in
-   * this file): the class does NOT statically declare the option keys as
-   * members (they only exist on `this` at runtime, via `Object.assign` in
-   * the constructor) — a direct `this.cash` fails real `tsc --strict`
-   * (TS2339, "Property 'cash' does not exist"), since TypeScript classes
-   * cannot declare members from a type parameter (the same documented
-   * limitation the spec's amended TS-class section calls out).
+   * Reads use `in` guards because generic Choice child classes cannot declare
+   * members from their type parameter. The constructor copies these keys from
+   * the selected union arm; guarded access keeps their values unknown.
    */
   private emitChoiceParentValidateMethod(choice: Choice, childName: string): string {
     const optionNames = choice.attributes.map((option) => {
@@ -1196,7 +1195,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       return optionTypeRef?.ref?.name ?? optionTypeRef?.$refText ?? '?';
     });
     const accessors = optionNames
-      .map((n) => `(this as unknown as Record<string, unknown>).${choiceOptionFieldName(n)}`)
+      .map(
+        (n) => `(${JSON.stringify(choiceOptionFieldName(n))} in this ? this.${choiceOptionFieldName(n)} : undefined)`
+      )
       .join(', ');
     const message = `${choice.name}: exactly one of [${optionNames.join(', ')}] must be present in ${childName}`;
 
@@ -1220,54 +1221,22 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    */
   private buildTypeGuardChecks(data: Data): string[] {
     const lines: string[] = [];
-    const obj = 'x';
-
-    const allAttrs: Attribute[] = [];
-    const parentRef = data.superType?.ref;
-    if (parentRef && isData(parentRef)) {
-      const parent = parentRef;
-      for (const attr of parent.attributes) {
-        allAttrs.push(attr);
-      }
-    }
-    for (const attr of data.attributes) {
-      allAttrs.push(attr);
-    }
-
-    for (const attr of allAttrs) {
-      const card = attr.card;
+    for (const attr of typeFeatures(data).filter(isAttribute)) {
+      const present = `${JSON.stringify(attr.name)} in x`;
+      const access = `x.${attr.name}`;
       const typeofStr = this.resolveTypeofStr(attr);
-      const isArray = TsNamespaceEmitter.isArrayCardinality(card);
-      const isOpt = TsNamespaceEmitter.isOptionalCardinality(card);
-
-      if (isArray) {
-        const { lower } = decodeCardinality(card);
-        if (lower > 0) {
-          lines.push(`  if (!Array.isArray((${obj} as Record<string, unknown>).${attr.name})) return false;`);
-        } else {
-          lines.push(
-            `  if ((${obj} as Record<string, unknown>).${attr.name} !== undefined && !Array.isArray((${obj} as Record<string, unknown>).${attr.name})) return false;`
-          );
-        }
-      } else if (isOpt) {
-        if (typeofStr) {
-          const access = `(${obj} as Record<string, unknown>).${attr.name}`;
-          const tsType = this.resolveBuiltinTsType(attr);
-          lines.push(
-            `  if (${access} !== undefined && ${TsNamespaceEmitter.negTypeofGuard(access, typeofStr, tsType)}) return false;`
-          );
-        }
-      } else {
-        if (typeofStr) {
-          const access = `(${obj} as Record<string, unknown>).${attr.name}`;
-          const tsType = this.resolveBuiltinTsType(attr);
-          lines.push(`  if (${TsNamespaceEmitter.negTypeofGuard(access, typeofStr, tsType)}) return false;`);
-        } else {
-          lines.push(`  if ((${obj} as Record<string, unknown>).${attr.name} === undefined) return false;`);
-        }
-      }
+      const optional = TsNamespaceEmitter.isOptionalCardinality(attr.card);
+      const invalid = TsNamespaceEmitter.isArrayCardinality(attr.card)
+        ? `!Array.isArray(${access})`
+        : typeofStr
+          ? TsNamespaceEmitter.negTypeofGuard(access, typeofStr, this.resolveBuiltinTsType(attr))
+          : `${access} === undefined`;
+      lines.push(
+        optional
+          ? `  if (${present} && ${access} !== undefined && ${invalid}) return false;`
+          : `  if (!(${present}) || ${invalid}) return false;`
+      );
     }
-
     return lines;
   }
 
@@ -1283,12 +1252,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const parentName = parentRef && isData(parentRef) ? this.typeName(parentRef) : undefined;
 
     const checkLines = this.buildTypeGuardChecks(data);
+    const guardedType = TsNamespaceEmitter.findChoiceAncestor(data)
+      ? `${name} & ${this.typeName(data, `${data.name}Shape`)}`
+      : name;
 
     if (parentName) {
       const lines: string[] = [
-        `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${name};`,
-        `export function ${this.typeName(data, `is${data.name}`)}(x: ${parentName}): x is ${name};`,
-        `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${name} {`,
+        `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${guardedType};`,
+        `export function ${this.typeName(data, `is${data.name}`)}(x: ${parentName}): x is ${guardedType};`,
+        `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${guardedType} {`,
         `  if (typeof x !== 'object' || x === null) return false;`,
         `  if (x instanceof ${name}) return true;`,
         `  if ('@type' in x) return x['@type'] === ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)};`,
@@ -1300,7 +1272,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     }
 
     const lines: string[] = [
-      `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${name} {`,
+      `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${guardedType} {`,
       `  if (typeof x !== 'object' || x === null) return false;`,
       `  if (x instanceof ${name}) return true;`,
       `  if ('@type' in x) return x['@type'] === ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)};`,
@@ -1377,7 +1349,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         },
         onEnum: (node) => this.typeName(node),
         onData: (node) => this.typeName(node, `${node.name}Shape`),
-        onChoice: (node) => this.typeName(node),
+        onChoice: (node) => this.typeName(node, `${node.name}Shape`),
         onUnresolved: (refText) => {
           if (refText) return refText;
           this.reportUnresolvedReference(diagnosticLabel, undefined, 'unknown');
@@ -1477,7 +1449,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       return choiceOptionFieldName(optionTypeName);
     });
 
-    const accessors = fieldNames.map((f) => `(x as Record<string, unknown>).${f}`).join(', ');
+    const accessors = fieldNames.map((f) => `(${JSON.stringify(f)} in x ? x.${f} : undefined)`).join(', ');
 
     const lines: string[] = [
       `export function ${this.typeName(choice, `is${choice.name}`)}(x: unknown): x is ${name} {`,
@@ -1984,32 +1956,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   // T107: emitFromFactory
   // ---------------------------------------------------------------------------
 
-  /**
-   * Emit the checked one-instance creator used by model view normalization.
-   * T107.
-   *
-   * @param castThroughUnknown - Data-extends-Choice (direct or inherited via
-   *   a Data parent, per T105's `findChoiceAncestor`): bare `<Name>Shape`
-   *   is `<Choice> & {...}`, a union-rooted intersection. `json` (typed
-   *   `unknown` at this point, after the `is<Name>` guard) does not
-   *   structurally overlap with that union closely enough for a single
-   *   `as` — real `tsc --strict` reports TS2352 ("neither type sufficiently
-   *   overlaps with the other") on a direct `json as <Name>Shape`. An
-   *   `unknown` intermediate cast is the standard, narrower escape hatch
-   *   (still a real assertion, not a semantic change — `is<Name>` already
-   *   validated the runtime shape immediately above). Plain Data-extends-
-   *   Data keeps the direct cast (unchanged, non-goal).
-   */
-  private emitFromFactory(data: Data, castThroughUnknown: boolean): string {
+  /** Emit a creator whose input is narrowed by the generated model guard. */
+  private emitFromFactory(data: Data): string {
     const name = this.typeName(data);
-    const shapeName = this.typeName(data, `${data.name}Shape`);
-    const castExpr = castThroughUnknown ? `json as unknown as ${shapeName}` : `json as ${shapeName}`;
     return [
       `  (json: unknown) => {`,
       `    if (!${this.typeName(data, `is${data.name}`)}(json)) {`,
       `      throw new TypeError('not a ${data.name}: ' + JSON.stringify(json).slice(0, 100));`,
       `    }`,
-      `    return new ${name}(${castExpr});`,
+      `    return new ${name}(json);`,
       `  }`
     ].join('\n');
   }

@@ -16,7 +16,7 @@ export class Animal implements AnimalShape {
     this.name = data.name;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Animal$Input, Animal>): RuneView<Animal, RuneFromMin<I>, RuneFromMax<I>, $Animal$Type> { return runeValue(input, () => $Animal$Type) as unknown as RuneView<Animal, RuneFromMin<I>, RuneFromMax<I>, $Animal$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Animal$Input, Animal>): RuneView<Animal, RuneFromMin<I>, RuneFromMax<I>, $Animal$Type> { return runeValue<I, $Animal$Type>(input, () => $Animal$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Animal.from(runeValueFromJSON(input, () => $Animal$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Animal$Type, options); }
 }
@@ -26,7 +26,7 @@ export function isAnimal(x: unknown): x is Animal {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Animal) return true;
   if ('@type' in x) return x['@type'] === "test.inheritance.Animal";
-  if (typeof (x as Record<string, unknown>).name !== 'string') return false;
+  if (!("name" in x) || typeof x.name !== 'string') return false;
   return true;
 }
 
@@ -48,7 +48,7 @@ export const $Animal$Type: $Animal$Type = {
     if (!isAnimal(json)) {
       throw new TypeError('not a Animal: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Animal(json as unknown as AnimalShape);
+    return new Animal(json);
   },
   fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Animal$Type$Reachable$Deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
@@ -67,7 +67,7 @@ export class Dog extends (Animal as RuneDataClass<typeof Animal>) implements Dog
     this.breed = data.breed;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Dog$Input, Dog>): RuneView<Dog, RuneFromMin<I>, RuneFromMax<I>, $Dog$Type> { return runeValue(input, () => $Dog$Type) as unknown as RuneView<Dog, RuneFromMin<I>, RuneFromMax<I>, $Dog$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Dog$Input, Dog>): RuneView<Dog, RuneFromMin<I>, RuneFromMax<I>, $Dog$Type> { return runeValue<I, $Dog$Type>(input, () => $Dog$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Dog.from(runeValueFromJSON(input, () => $Dog$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Dog$Type, options); }
 }
@@ -79,8 +79,8 @@ export function isDog(x: unknown): x is Dog {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Dog) return true;
   if ('@type' in x) return x['@type'] === "test.inheritance.Dog";
-  if (typeof (x as Record<string, unknown>).name !== 'string') return false;
-  if (typeof (x as Record<string, unknown>).breed !== 'string') return false;
+  if (!("name" in x) || typeof x.name !== 'string') return false;
+  if (!("breed" in x) || typeof x.breed !== 'string') return false;
   return true;
 }
 
@@ -103,7 +103,7 @@ export const $Dog$Type: $Dog$Type = {
     if (!isDog(json)) {
       throw new TypeError('not a Dog: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Dog(json as unknown as DogShape);
+    return new Dog(json);
   },
   fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, paths: [[{"key":"breed","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Dog$Type$Reachable$Deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
@@ -122,7 +122,7 @@ export class Sibling extends (Animal as RuneDataClass<typeof Animal>) implements
     this.age = data.age;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Sibling$Input, Sibling>): RuneView<Sibling, RuneFromMin<I>, RuneFromMax<I>, $Sibling$Type> { return runeValue(input, () => $Sibling$Type) as unknown as RuneView<Sibling, RuneFromMin<I>, RuneFromMax<I>, $Sibling$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Sibling$Input, Sibling>): RuneView<Sibling, RuneFromMin<I>, RuneFromMax<I>, $Sibling$Type> { return runeValue<I, $Sibling$Type>(input, () => $Sibling$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Sibling.from(runeValueFromJSON(input, () => $Sibling$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Sibling$Type, options); }
 }
@@ -134,8 +134,8 @@ export function isSibling(x: unknown): x is Sibling {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Sibling) return true;
   if ('@type' in x) return x['@type'] === "test.inheritance.Sibling";
-  if (typeof (x as Record<string, unknown>).name !== 'string') return false;
-  if (typeof (x as Record<string, unknown>).age !== 'number') return false;
+  if (!("name" in x) || typeof x.name !== 'string') return false;
+  if (!("age" in x) || typeof x.age !== 'number') return false;
   return true;
 }
 
@@ -158,7 +158,7 @@ export const $Sibling$Type: $Sibling$Type = {
     if (!isSibling(json)) {
       throw new TypeError('not a Sibling: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Sibling(json as unknown as SiblingShape);
+    return new Sibling(json);
   },
   fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.inheritance.Sibling#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
   deep: Object.assign(Object.create($Sibling$Type$Reachable$Deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.inheritance.Sibling#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
@@ -177,7 +177,7 @@ export class Poodle extends (Dog as RuneDataClass<typeof Dog>) implements Poodle
     this.size = data.size;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Poodle$Input, Poodle>): RuneView<Poodle, RuneFromMin<I>, RuneFromMax<I>, $Poodle$Type> { return runeValue(input, () => $Poodle$Type) as unknown as RuneView<Poodle, RuneFromMin<I>, RuneFromMax<I>, $Poodle$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Poodle$Input, Poodle>): RuneView<Poodle, RuneFromMin<I>, RuneFromMax<I>, $Poodle$Type> { return runeValue<I, $Poodle$Type>(input, () => $Poodle$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Poodle.from(runeValueFromJSON(input, () => $Poodle$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Poodle$Type, options); }
 }
@@ -189,8 +189,9 @@ export function isPoodle(x: unknown): x is Poodle {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Poodle) return true;
   if ('@type' in x) return x['@type'] === "test.inheritance.Poodle";
-  if (typeof (x as Record<string, unknown>).breed !== 'string') return false;
-  if (typeof (x as Record<string, unknown>).size !== 'string') return false;
+  if (!("name" in x) || typeof x.name !== 'string') return false;
+  if (!("breed" in x) || typeof x.breed !== 'string') return false;
+  if (!("size" in x) || typeof x.size !== 'string') return false;
   return true;
 }
 
@@ -214,7 +215,7 @@ export const $Poodle$Type: $Poodle$Type = {
     if (!isPoodle(json)) {
       throw new TypeError('not a Poodle: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Poodle(json as unknown as PoodleShape);
+    return new Poodle(json);
   },
   fields: { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, paths: [[{"key":"breed","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "size": { id: "test.inheritance.Poodle#size", key: "size", min: 1, max: 1, paths: [[{"key":"size","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Poodle$Type$Reachable$Deep), { "name": { id: "test.inheritance.Animal#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "breed": { id: "test.inheritance.Dog#breed", key: "breed", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "size": { id: "test.inheritance.Poodle#size", key: "size", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),

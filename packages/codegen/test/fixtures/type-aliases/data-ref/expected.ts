@@ -21,7 +21,7 @@ export class Address implements AddressShape {
     this.city = data.city;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Address$Input, Address>): RuneView<Address, RuneFromMin<I>, RuneFromMax<I>, $Address$Type> { return runeValue(input, () => $Address$Type) as unknown as RuneView<Address, RuneFromMin<I>, RuneFromMax<I>, $Address$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Address$Input, Address>): RuneView<Address, RuneFromMin<I>, RuneFromMax<I>, $Address$Type> { return runeValue<I, $Address$Type>(input, () => $Address$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Address.from(runeValueFromJSON(input, () => $Address$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Address$Type, options); }
 }
@@ -31,8 +31,8 @@ export function isAddress(x: unknown): x is Address {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Address) return true;
   if ('@type' in x) return x['@type'] === "test.aliases.Address";
-  if (typeof (x as Record<string, unknown>).street !== 'string') return false;
-  if (typeof (x as Record<string, unknown>).city !== 'string') return false;
+  if (!("street" in x) || typeof x.street !== 'string') return false;
+  if (!("city" in x) || typeof x.city !== 'string') return false;
   return true;
 }
 
@@ -55,7 +55,7 @@ export const $Address$Type: $Address$Type = {
     if (!isAddress(json)) {
       throw new TypeError('not a Address: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Address(json as unknown as AddressShape);
+    return new Address(json);
   },
   fields: { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, paths: [[{"key":"street","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, paths: [[{"key":"city","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
   deep: Object.assign(Object.create($Address$Type$Reachable$Deep), { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),

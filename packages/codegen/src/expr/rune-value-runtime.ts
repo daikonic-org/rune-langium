@@ -27,6 +27,7 @@ export const RUNE_VALUE_NAMES = [
   'Reflect',
   'Proxy',
   'RuneValue',
+  'RuneKeyArguments',
   'RuneTuple',
   'RuneProduct',
   'RuneValueStep',
@@ -121,7 +122,7 @@ const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new W
   let models = seen.get(value);
   if (models?.has(model)) return models.get(model);
   if (!models) { models = new Map(); seen.set(value, models); }
-  const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  const result: Record<string, unknown> = Object.create(null);
   models.set(model, result);
   for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
   for (const field of Object.values(model.fields)) {
@@ -153,12 +154,14 @@ const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new W
 };
 const runeValueOrder = (left: unknown, right: unknown): number => {
   if (typeof left === 'number' && typeof right === 'number' || typeof left === 'string' && typeof right === 'string' || typeof left === 'boolean' && typeof right === 'boolean') return left < right ? -1 : left > right ? 1 : 0;
-  switch (Object.prototype.toString.call(left)) {
-    case '[object Temporal.PlainDate]': return Temporal.PlainDate.compare(left as Temporal.PlainDate, right as Temporal.PlainDate);
-    case '[object Temporal.PlainTime]': return Temporal.PlainTime.compare(left as Temporal.PlainTime, right as Temporal.PlainTime);
-    case '[object Temporal.PlainDateTime]': return Temporal.PlainDateTime.compare(left as Temporal.PlainDateTime, right as Temporal.PlainDateTime);
-    case '[object Temporal.ZonedDateTime]': return Temporal.ZonedDateTime.compare(left as Temporal.ZonedDateTime, right as Temporal.ZonedDateTime);
-  }
+  if (left instanceof Temporal.PlainDate && right instanceof Temporal.PlainDate) return Temporal.PlainDate.compare(left, right);
+  if (left instanceof Temporal.PlainTime && right instanceof Temporal.PlainTime) return Temporal.PlainTime.compare(left, right);
+  if (left instanceof Temporal.PlainDateTime && right instanceof Temporal.PlainDateTime) return Temporal.PlainDateTime.compare(left, right);
+  if (left instanceof Temporal.ZonedDateTime && right instanceof Temporal.ZonedDateTime) return Temporal.ZonedDateTime.compare(left, right);
+  if (Object.prototype.toString.call(left) === '[object Temporal.PlainDate]' && Object.prototype.toString.call(right) === '[object Temporal.PlainDate]') return Temporal.PlainDate.compare(Temporal.PlainDate.from(String(left)), Temporal.PlainDate.from(String(right)));
+  if (Object.prototype.toString.call(left) === '[object Temporal.PlainTime]' && Object.prototype.toString.call(right) === '[object Temporal.PlainTime]') return Temporal.PlainTime.compare(Temporal.PlainTime.from(String(left)), Temporal.PlainTime.from(String(right)));
+  if (Object.prototype.toString.call(left) === '[object Temporal.PlainDateTime]' && Object.prototype.toString.call(right) === '[object Temporal.PlainDateTime]') return Temporal.PlainDateTime.compare(Temporal.PlainDateTime.from(String(left)), Temporal.PlainDateTime.from(String(right)));
+  if (Object.prototype.toString.call(left) === '[object Temporal.ZonedDateTime]' && Object.prototype.toString.call(right) === '[object Temporal.ZonedDateTime]') return Temporal.ZonedDateTime.compare(Temporal.ZonedDateTime.from(String(left)), Temporal.ZonedDateTime.from(String(right)));
   throw new TypeError('Rune ordering requires comparable values or a key selector');
 };
 ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null, Model extends RuneValueType = RuneEmptyType> implements Iterable<T> {
@@ -204,9 +207,9 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
   filter(predicate: (item: T, index: number) => boolean): RuneView<T, 0, Max, Model> { return new RuneValue(this.$list.filter(predicate).toArray(), this.$type, 0, this.$max) as RuneView<T, 0, Max, Model>; }
   reverse(): RuneView<T, Min, Max, Model> { return new RuneValue(this.$list.reverse().toArray(), this.$type, this.$min, this.$max) as RuneView<T, Min, Max, Model>; }
   distinct(): RuneView<T, 0, Max, Model> { return new RuneValue(this.$list.distinct().toArray(), this.$type, 0, this.$max) as RuneView<T, 0, Max, Model>; }
-  sort<K = T>(key: (item: T) => K = item => item as unknown as K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number): RuneView<T, Min, Max, Model> { return new RuneValue(this.$list.sort(key, compare ?? runeValueOrder).toArray(), this.$type, this.$min, this.$max) as RuneView<T, Min, Max, Model>; }
-  min<K = T>(key: (item: T) => K = item => item as unknown as K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number): RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model> { const value = this.$list.min(key, compare ?? runeValueOrder); return new RuneValue<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>(value == null ? [] : [value], this.$type, (value == null ? 0 : this.$min > 0 ? 1 : 0) as RuneFirstMin<RuneMapMin<Min, K>>, 1) as RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>; }
-  max<K = T>(key: (item: T) => K = item => item as unknown as K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number): RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model> { const value = this.$list.max(key, compare ?? runeValueOrder); return new RuneValue<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>(value == null ? [] : [value], this.$type, (value == null ? 0 : this.$min > 0 ? 1 : 0) as RuneFirstMin<RuneMapMin<Min, K>>, 1) as RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>; }
+  sort<K = T>(...args: RuneKeyArguments<T, K>): RuneView<T, Min, Max, Model> { return new RuneValue(this.$list.sort(...(args[0] === undefined ? [undefined, args[1] ?? runeValueOrder] : [args[0], args[1] ?? runeValueOrder])).toArray(), this.$type, this.$min, this.$max) as RuneView<T, Min, Max, Model>; }
+  min<K = T>(...args: RuneKeyArguments<T, K>): RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model> { const value = this.$list.min(...(args[0] === undefined ? [undefined, args[1] ?? runeValueOrder] : [args[0], args[1] ?? runeValueOrder])); return new RuneValue<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>(value == null ? [] : [value], this.$type, (value == null ? 0 : this.$min > 0 ? 1 : 0) as RuneFirstMin<RuneMapMin<Min, K>>, 1) as RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>; }
+  max<K = T>(...args: RuneKeyArguments<T, K>): RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model> { const value = this.$list.max(...(args[0] === undefined ? [undefined, args[1] ?? runeValueOrder] : [args[0], args[1] ?? runeValueOrder])); return new RuneValue<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>(value == null ? [] : [value], this.$type, (value == null ? 0 : this.$min > 0 ? 1 : 0) as RuneFirstMin<RuneMapMin<Min, K>>, 1) as RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>; }
   sum(this: RuneValue<number, Min, Max, Model>) { return this.$list.sum(); }
   every(predicate: (item: T, index: number) => boolean) { return this.exists() && this.$list.toArray().every(predicate); }
   some(predicate: (item: T, index: number) => boolean) { return this.$list.toArray().some(predicate); }
@@ -215,12 +218,28 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
   has(value: unknown) { const normalized = runeValueInput(value); return this.$list.has(normalized !== value && Array.isArray(normalized) && normalized.length === 1 ? normalized[0] : normalized); }
   isSupersetOf(values: unknown) { return this.$list.isSupersetOf(runeValueInput(values)); }
   isDisjointFrom(values: unknown) { return this.$list.isDisjointFrom(runeValueInput(values)); }
-  field<K extends keyof Model['fields']>(name: K): RuneSelected<Model['fields'][K], Min, Max> { return this.$read(this.$type?.().fields[String(name)], String(name)) as unknown as RuneSelected<Model['fields'][K], Min, Max>; }
-  select<K extends keyof Model['selections']>(identity: K): RuneSelected<Model['selections'][K], Min, Max> { return this.$read(this.$type?.().selections[String(identity)], String(identity)) as unknown as RuneSelected<Model['selections'][K], Min, Max>; }
+  field<K extends keyof Model['fields']>(name: K): RuneSelected<Model['fields'][K], Min, Max> {
+    const model = this.$type?.();
+    if (!model) throw new Error('Rune value has no model descriptor');
+    const selections: Model['fields'] = model.fields;
+    return this.$read(selections[name], String(name));
+  }
+  select<K extends keyof Model['selections']>(identity: K): RuneSelected<Model['selections'][K], Min, Max> {
+    const model = this.$type?.();
+    if (!model) throw new Error('Rune value has no model descriptor');
+    const selections: Model['selections'] = model.selections;
+    return this.$read(selections[identity], String(identity));
+  }
   get _(): RuneDeepView<Model, Min, Max> {
     return this.$deep ??= new Proxy(Object.create(null) as RuneDeepView<Model, Min, Max>, { get: (_target, name) => typeof name === 'string' ? this.$read(this.$type?.().deep[name], name) : undefined });
   }
-  private $read(selection: RuneValueSelection<unknown, number, number | null, unknown> | undefined, name: string): RuneValue<unknown, number, number | null, RuneValueType> {
+  private $matches<S extends RuneValueSelection<unknown, number, number | null, unknown>>(value: unknown, selection: S): value is RuneSelected<S, Min, Max> {
+    return value instanceof RuneValue
+      && value.$min === this.$min * selection.min
+      && value.$max === runeValueProduct(this.$max, selection.max)
+      && value.$type?.() === runeValueType(selection)?.();
+  }
+  private $read<S extends RuneValueSelection<unknown, number, number | null, unknown>>(selection: S | undefined, name: string): RuneSelected<S, Min, Max> {
     if (!selection || typeof selection !== 'object' || typeof selection.id !== 'string') throw new Error('Unknown or ambiguous Rune property: ' + name);
     const output: unknown[] = [];
     const paths = selection.paths ?? runeDeepPaths<RuneValueType, RuneValueSelection<unknown, number, number | null, unknown>>(
@@ -239,16 +258,22 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
         }
         values = next;
       }
-      for (const value of values) output.push(value);
+      for (const value of values) {
+      if (selection.check && !selection.check(value)) throw new TypeError('Invalid Rune value for ' + name);
+      output.push(value);
     }
-    return new RuneValue(output, runeValueType(selection), this.$min * selection.min, runeValueProduct(this.$max, selection.max));
+    }
+    const value = new RuneValue(output, runeValueType(selection), this.$min * selection.min, runeValueProduct(this.$max, selection.max));
+    if (!this.$matches(value, selection)) throw new TypeError('Rune selection does not match its descriptor: ' + name);
+    return value;
   }
 }
-${e}const runeValue = <Model extends RuneValueType>(input: unknown, type: () => Model): RuneView<NonNullable<Model['output']>, number, number | null, Model> => {
-  const raw = typeof input === 'string' ? JSON.parse(input) as unknown : runeValueInput(input);
+${e}function runeValue<I, Model extends RuneValueType>(input: I, type: () => Model): RuneView<NonNullable<Model['output']>, RuneFromMin<I>, RuneFromMax<I>, Model>;
+${e}function runeValue(input: unknown, type: () => RuneValueType): RuneValue<unknown, number, number | null, RuneValueType> {
+  const raw: unknown = typeof input === 'string' ? JSON.parse(input) : runeValueInput(input);
   const values = runeList(raw).map(value => runeValueMaterialize(value, type()));
-  return new RuneValue(values, type, values.length, values.length) as unknown as RuneView<NonNullable<Model['output']>, number, number | null, Model>;
-};
+  return new RuneValue(values, type, values.length, values.length);
+}
 ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   if (typeof options !== 'object' || options?.format !== 'RUNE_JSON') return runeToFuncData(input);
   const active = new WeakSet<object>();

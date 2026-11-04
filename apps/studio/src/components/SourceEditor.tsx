@@ -248,6 +248,7 @@ const renderSourceEditor = withInstrumentation(
     const [selectedPath, setSelectedPath] = useState<string>(activeFile ?? files[0]?.path ?? '');
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<EditorView | null>(null);
+    const documentationFoldsRef = useRef(new Set<string>());
     const editorViewPathRef = useRef<string | null>(null);
     const positionRequestRef = useRef(0);
     const editorId = useId();
@@ -589,7 +590,11 @@ const renderSourceEditor = withInstrumentation(
 
     useEffect(() => {
       const view = editorViewRef.current;
-      if (!view || region) return;
+      if (!view || region || !currentFile) return;
+      const path = currentFile.path;
+      if (!hideDocumentation && !documentationFoldsRef.current.has(path)) return;
+      if (hideDocumentation) documentationFoldsRef.current.add(path);
+      else documentationFoldsRef.current.delete(path);
       const effect = hideDocumentation ? foldEffect : unfoldEffect;
       view.dispatch({ effects: runeDocumentationRanges(view.state.doc.toString()).map((range) => effect.of(range)) });
     }, [hideDocumentation, currentFile?.path, region]);

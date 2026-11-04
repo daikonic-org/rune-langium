@@ -26,7 +26,7 @@ export class Trade implements TradeShape {
     this.tradeDate = data.tradeDate;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue(input, () => $Trade$Type) as unknown as RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue<I, $Trade$Type>(input, () => $Trade$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => $Trade$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Trade$Type, options); }
 }
@@ -36,7 +36,7 @@ export function isTrade(x: unknown): x is Trade {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Trade) return true;
   if ('@type' in x) return x['@type'] === "test.annotations.Trade";
-  if (!((x as Record<string, unknown>).tradeDate instanceof Temporal.PlainDate)) return false;
+  if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
   return true;
 }
 
@@ -58,7 +58,7 @@ export const $Trade$Type: $Trade$Type = {
     if (!isTrade(json)) {
       throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Trade(json as unknown as TradeShape);
+    return new Trade(json);
   },
   fields: { "tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
   deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),

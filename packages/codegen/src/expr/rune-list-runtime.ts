@@ -5,7 +5,7 @@
 export function runeListRuntimeSource(typescript: boolean, exported = false): string {
   const t = (source: string) => (typescript ? source : '');
   const prefix = exported ? 'export ' : '';
-  return `${prefix}class RuneList${t('<T>')} {
+  return `${t(`${prefix}type RuneKeyArguments<T, K> = [key?: undefined, compare?: (a: NonNullable<T>, b: NonNullable<T>) => number] | [key: (item: T) => K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number];\n`)}${prefix}class RuneList${t('<T>')} {
   ${t('private readonly ')}items${t(': T[]')};
   constructor(items${t(': readonly T[]')}) { this.items = items.filter(item => item != null); }
   static from${t('<T>')}(...items${t(': T[]')})${t(': RuneList<T>')} { return new RuneList(items); }
@@ -29,14 +29,19 @@ export function runeListRuntimeSource(typescript: boolean, exported = false): st
   flat${t('<U>')}(${t('this: RuneList<U | readonly U[]>')})${t(': RuneList<U>')} {
     return new RuneList(this.items.flatMap(value => [...runeList(value)])${t(' as U[]')});
   }
-  sort${t('<K = T>')}(key${t(': (item: T) => K')} = (item) => item${t(' as unknown as K')}, compare${t(': (a: NonNullable<K>, b: NonNullable<K>) => number')} = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
-    return new RuneList([...this.items].sort((a, b) => runeOrder(key(a), key(b), compare)));
+  sort${t('<K = T>')}(...args${t(': RuneKeyArguments<T, K>')}) {
+    const [key, compare] = args;
+    return new RuneList([...this.items].sort((a, b) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0)) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0))));
   }
-  min${t('<K = T>')}(key${t(': (item: T) => K')} = (item) => item${t(' as unknown as K')}, compare${t(': (a: NonNullable<K>, b: NonNullable<K>) => number')} = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
-    return this.items.reduce${t('<T | undefined>')}((best, item) => best === undefined || runeOrder(key(item), key(best), compare) < 0 ? item : best, undefined);
+  min${t('<K = T>')}(...args${t(': RuneKeyArguments<T, K>')}) {
+    const [key, compare] = args;
+    const order = (a${t(': T')}, b${t(': T')}) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0)) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0));
+    return this.items.reduce${t('<T | undefined>')}((best, item) => best === undefined || order(item, best) < 0 ? item : best, undefined);
   }
-  max${t('<K = T>')}(key${t(': (item: T) => K')} = (item) => item${t(' as unknown as K')}, compare${t(': (a: NonNullable<K>, b: NonNullable<K>) => number')} = (a, b) => a < b ? -1 : a > b ? 1 : 0) {
-    return this.items.reduce${t('<T | undefined>')}((best, item) => best === undefined || runeOrder(key(item), key(best), compare, false) > 0 ? item : best, undefined);
+  max${t('<K = T>')}(...args${t(': RuneKeyArguments<T, K>')}) {
+    const [key, compare] = args;
+    const order = (a${t(': T')}, b${t(': T')}) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false);
+    return this.items.reduce${t('<T | undefined>')}((best, item) => best === undefined || order(item, best) > 0 ? item : best, undefined);
   }
   reduce(reduce${t(': (previous: T, current: T) => T')}) { return this.items.length ? this.items.reduce(reduce) : undefined; }
   join(separator = '') { return this.items.join(separator); }

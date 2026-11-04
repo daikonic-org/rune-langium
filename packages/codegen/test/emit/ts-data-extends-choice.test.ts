@@ -208,12 +208,9 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     expect(output.content).toContain(
       'from<const I>(input: I & RuneFactoryInput<I, $BasketConstituent$Input, BasketConstituent>)'
     );
-    // Cast through `unknown` first: bare `BasketConstituentShape` (default
-    // `T=Asset`, a union) does not structurally overlap with `json`
-    // (typed `unknown`) closely enough for a direct `as` under real `tsc
-    // --strict` (TS2352) — see emitFromFactory's `castThroughUnknown` doc
-    // comment. Plain Data-extends-Data keeps the direct cast, unaffected.
-    expect(output.content).toContain('return new BasketConstituent(json as unknown as BasketConstituentShape);');
+    // The generated guard proves the class/Choice-shape intersection.
+    expect(output.content).toContain('return new BasketConstituent(json);');
+    expect(output.content).not.toContain('as unknown as');
   });
 
   it('emits an exactly-one-of validate method reading the REAL (camelCase) field keys, not the DSL-text option names', async () => {
@@ -221,16 +218,9 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
     expect(output.content).toContain('validateAsset(): { valid: boolean; errors: string[] } {');
-    // `cash`/`commodity` (camelCase) are the REAL populated fields
-    // (Object.assign(this, data) from a `{ cash: Cash }`-shaped union
-    // member) — NOT `Cash`/`Commodity` (the bare option type names, which
-    // is what the ERROR MESSAGE still uses for readability, but is never a
-    // real property on the instance). The read is cast via `(this as
-    // unknown as Record<string, unknown>)` because the class does not
-    // statically declare Choice option keys as members (real `tsc
-    // --strict` rejects a direct `this.cash` — TS2339).
+    // Choice-arm fields are narrowed through property presence guards.
     expect(output.content).toContain(
-      'rune.checkOneOf([(this as unknown as Record<string, unknown>).cash, (this as unknown as Record<string, unknown>).commodity])'
+      'rune.checkOneOf([("cash" in this ? this.cash : undefined), ("commodity" in this ? this.commodity : undefined)])'
     );
     expect(output.content).toContain("errors.push('Asset: exactly one of [Cash, Commodity] must be present");
   });

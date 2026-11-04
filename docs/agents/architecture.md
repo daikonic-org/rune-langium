@@ -1313,6 +1313,21 @@ that same function in exported runtimes; do not maintain another traversal.
 Reachable descriptor inventories share metadata across cyclic graphs. No full CDM
 object graph is materialized merely by importing generated modules.
 
+Generated factories consume values narrowed by the model guards; Choice-derived
+classes use the guarded class/Shape intersection. Property access uses `in`
+guards, and Temporal inputs are narrowed before conversion. Public selection
+returns retain their descriptor/cardinality relationship through checked guards;
+key-selector/comparator tuple arguments avoid casting a generic identity selector.
+Generated TypeScript has regression coverage against casts through `unknown` or
+to `any`; private proxy assertions remain for conditional cardinality types.
+
+Studio's source documentation styling and hide toggle share the Rune tokenizer.
+Hiding uses CodeMirror folds and never rewrites source bytes. Metadata semantics
+badges use the existing metadata owner for both declarations and child details.
+Required scalar object-grid cells reuse `PreviewFieldControl`, retaining its
+validation and schema-derived enum/calendar editors. Export settings and output
+are simultaneously mounted in a vertical resizable split.
+
 Runtime descriptor getter types are erased only at the shared execution boundary;
 selection generics retain the exact linked model. This prevents TypeScript from
 recursively comparing whole cyclic schema graphs merely to validate a descriptor.

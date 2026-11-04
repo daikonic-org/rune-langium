@@ -10,7 +10,7 @@ export interface EmptyShape {}
 export class Empty implements EmptyShape {
   constructor(data: EmptyShape) {}
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Empty$Input, Empty>): RuneView<Empty, RuneFromMin<I>, RuneFromMax<I>, $Empty$Type> { return runeValue(input, () => $Empty$Type) as unknown as RuneView<Empty, RuneFromMin<I>, RuneFromMax<I>, $Empty$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Empty$Input, Empty>): RuneView<Empty, RuneFromMin<I>, RuneFromMax<I>, $Empty$Type> { return runeValue<I, $Empty$Type>(input, () => $Empty$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Empty.from(runeValueFromJSON(input, () => $Empty$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Empty$Type, options); }
 }
@@ -40,7 +40,7 @@ export const $Empty$Type: $Empty$Type = {
     if (!isEmpty(json)) {
       throw new TypeError('not a Empty: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Empty(json as unknown as EmptyShape);
+    return new Empty(json);
   },
   fields: {  },
   deep: Object.assign(Object.create($Empty$Type$Reachable$Deep), {  }),
@@ -67,7 +67,7 @@ export class Person implements PersonShape {
     this.birthday = data.birthday;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Person$Input, Person>): RuneView<Person, RuneFromMin<I>, RuneFromMax<I>, $Person$Type> { return runeValue(input, () => $Person$Type) as unknown as RuneView<Person, RuneFromMin<I>, RuneFromMax<I>, $Person$Type>; }
+  static from<const I>(input: I & RuneFactoryInput<I, $Person$Input, Person>): RuneView<Person, RuneFromMin<I>, RuneFromMax<I>, $Person$Type> { return runeValue<I, $Person$Type>(input, () => $Person$Type); }
   static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Person.from(runeValueFromJSON(input, () => $Person$Type, options)); }
   toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Person$Type, options); }
 }
@@ -77,10 +77,10 @@ export function isPerson(x: unknown): x is Person {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Person) return true;
   if ('@type' in x) return x['@type'] === "test.basic.Person";
-  if (typeof (x as Record<string, unknown>).name !== 'string') return false;
-  if (typeof (x as Record<string, unknown>).age !== 'number') return false;
-  if (typeof (x as Record<string, unknown>).active !== 'boolean') return false;
-  if (!((x as Record<string, unknown>).birthday instanceof Temporal.PlainDate)) return false;
+  if (!("name" in x) || typeof x.name !== 'string') return false;
+  if (!("age" in x) || typeof x.age !== 'number') return false;
+  if (!("active" in x) || typeof x.active !== 'boolean') return false;
+  if (!("birthday" in x) || !(x.birthday instanceof Temporal.PlainDate)) return false;
   return true;
 }
 
@@ -105,7 +105,7 @@ export const $Person$Type: $Person$Type = {
     if (!isPerson(json)) {
       throw new TypeError('not a Person: ' + JSON.stringify(json).slice(0, 100));
     }
-    return new Person(json as unknown as PersonShape);
+    return new Person(json);
   },
   fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
   deep: Object.assign(Object.create($Person$Type$Reachable$Deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),

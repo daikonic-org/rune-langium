@@ -1061,7 +1061,7 @@ function PreviewArrayField({
     .slice(0, armFields.length ? 2 : 3);
   const columns: PreviewGridColumn[] = [
     ...(armFields.length ? [{ path: '$choice', label: 'Type' }] : []),
-    ...scalarColumns.map((column) => ({ path: column.path, label: column.label }))
+    ...scalarColumns.map((column) => ({ path: column.path, label: column.label, editable: column.required }))
   ];
   if (!columns.length) columns.push({ path: '$summary', label: 'Value' });
   const rows: PreviewGridRow[] = child

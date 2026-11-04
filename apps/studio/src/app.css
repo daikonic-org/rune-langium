@@ -1368,7 +1368,10 @@ html {
 .studio-source-meta__stat {
   color: color-mix(in srgb, var(--muted-foreground) 84%, transparent);
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .studio-source-editor__tabs {

@@ -121,6 +121,12 @@ Inline modules, shared runtime sidecars and executable previews use the same
 runtime source builder; namespace methods preserve generic types and type guards.
 Existing flat implementation exports remain available to runtime consumers.
 
+Generated model factories and property checks narrow unknown inputs before use.
+They do not cast through `unknown` or to `any`. Selector/comparator argument tuples
+and checked descriptor guards retain collection/cardinality relationships. The
+private proxy runtime still needs assertions for conditional cardinality types
+that TypeScript cannot derive from validated runtime counts.
+
 TypeScript modules import a shared `helpers.ts` companion by default, including
 per-namespace output. Set `typescript.inlineHelpers: true` with per-namespace
 layout for a self-contained module. Studio's TypeScript and Zod previews use

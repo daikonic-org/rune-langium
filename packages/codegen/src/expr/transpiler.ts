@@ -319,22 +319,17 @@ function transpilePresence(
  * `ts-method` mode ONLY (`ctx.selfName === 'this'`, the class-instance
  * case): a remapped access (i.e. `name` IS a Choice-derived pseudo-
  * attribute — `attrAccessorNames` is NEVER populated for ordinary Data
- * attributes, see its doc comment) is cast through
- * `(this as unknown as Record<string, unknown>)` — the emitted class does
- * not statically declare the Choice's option keys as members (per T105/
- * T106's generic-intersection-alias / generic-child-class design, they
- * only exist on `this` at runtime via `Object.assign` in the constructor),
- * so a direct `this.cash` fails real `tsc --strict` (TS2339). The Zod
- * modes' `selfName` (`data`, a function parameter typed by the actual
- * `runeExtendChoice`-derived union) already carries the option keys
- * structurally and need no cast.
+ * attributes, see its doc comment) uses an `in` guard. Choice option keys
+ * are supplied by the construction payload rather than declared on the
+ * generic child class; guarded access preserves unknown values without
+ * asserting an index signature. Zod parameters already carry the option keys.
  */
 export function attrAccessExpr(name: string, ctx: ExpressionTranspilerContext): string {
   const accessor = ctx.attrAccessorNames?.get(name);
   const raw =
     ctx.localBindings?.get(name) ??
     (accessor !== undefined && ctx.emitMode === 'ts-method' && !ctx.projection
-      ? `(${ctx.selfName} as unknown as Record<string, unknown>).${accessor}`
+      ? `(${JSON.stringify(accessor)} in ${ctx.selfName} ? ${ctx.selfName}.${accessor} : undefined)`
       : `${ctx.selfName}.${accessor ?? name}`);
   if (ctx.localMetadata?.has(name)) {
     const metadata = ctx.localMetadata.get(name);
