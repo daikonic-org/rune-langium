@@ -57,7 +57,7 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding }; })();
+return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice }; })();
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
 ${e}type RuneDataClass<C extends abstract new (...args: never[]) => unknown> = new (...args: ConstructorParameters<C>) => InstanceType<C>;
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
@@ -94,6 +94,7 @@ ${e}interface RuneValueSelection<T = unknown, Min extends number = number, Max e
 }
 ${e}interface RuneValueType<T = unknown, Output = T> {
   readonly identity?: string;
+  readonly kind?: 'choice';
   readonly metadata?: boolean;
   readonly input?: T;
   readonly output?: Output;
@@ -296,13 +297,8 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
         };
         if (Object.hasOwn(value, field.key)) result[field.key] = Array.isArray(raw) ? raw.map(item) : item(raw);
       }
-      if (model?.choice) {
-        const selected = model.choice.filter(key => result[key] != null);
-        if (selected.length !== 1) throw new TypeError('Rune JSON requires exactly one Choice option');
-        if (Object.keys(result).some(key => !key.startsWith('@') && !model.choice!.includes(key))) throw new TypeError('Unknown Choice fields cannot be discarded');
-        const body = result[selected[0]!];
-        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new TypeError('Rune JSON Choice option must serialize as an object');
-        return runeJson.context({ ...Object.fromEntries(Object.entries(result).filter(([key]) => key.startsWith('@') && key !== '@type')), ...body }, body);
+      if (model?.kind === 'choice' && model.choice) {
+        return runeJson.projectChoice(result, model.identity, model.choice, (_arm, value) => value);
       }
       if (!model) return result;
       result['@type'] = model.identity;
@@ -318,8 +314,11 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     if (Array.isArray(value)) return value.map(item => visit(item, model));
     if (!value || typeof value !== 'object' || !model) return value;
     const record = value as Record<string, unknown>;
-    if (model.choice && typeof record['@type'] === 'string') {
-      if (record['@type'] === model.identity && Object.hasOwn(record, '@data')) return visit(record['@data'], model);
+    if (model.kind === 'choice' && model.choice) {
+      const wrapped = runeJson.normalizeChoiceWrapper(value, model.identity, payload => visit(payload, model));
+      if (wrapped) return wrapped;
+    }
+    if (model.kind === 'choice' && model.choice && typeof record['@type'] === 'string') {
       const selected = model.choice.filter(key => runeValueType(model.fields[key]!)?.().identity === record['@type']);
       if (selected.length !== 1) throw new TypeError('Rune JSON type does not select exactly one Choice option');
       return { [selected[0]!]: visit(value, runeValueType(model.fields[selected[0]!]!)?.()) };

@@ -27,6 +27,11 @@ let lastEditorView: {
   contentDOM: { focus: typeof mockContentDomFocus };
 } | null = null;
 
+vi.mock('../../src/lang/documentation-folds.js', () => ({
+  runeDocumentationFolding: [],
+  setRuneDocumentationHidden: { of: (hidden: boolean) => ({ hidden }) }
+}));
+
 vi.mock('@codemirror/view', () => {
   class MockEditorView {
     dom = document.createElement('div');

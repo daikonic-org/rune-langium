@@ -19,7 +19,7 @@ export namespace Empty { export type Shape = EmptyShape; }
 export function isEmpty(x: unknown): x is Empty {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Empty) return true;
-  if ('@type' in x) return x['@type'] === "test.basic.Empty";
+  if ('@type' in x && x['@type'] !== "test.basic.Empty") return false;
   return true;
 }
 
@@ -76,7 +76,7 @@ export namespace Person { export type Shape = PersonShape; }
 export function isPerson(x: unknown): x is Person {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Person) return true;
-  if ('@type' in x) return x['@type'] === "test.basic.Person";
+  if ('@type' in x && x['@type'] !== "test.basic.Person") return false;
   if (!("name" in x) || typeof x.name !== 'string') return false;
   if (!("age" in x) || typeof x.age !== 'number') return false;
   if (!("active" in x) || typeof x.active !== 'boolean') return false;

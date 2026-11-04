@@ -25,7 +25,7 @@ export namespace Wrapper { export type Shape = WrapperShape; }
 export function isWrapper(x: unknown): x is Wrapper {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Wrapper) return true;
-  if ('@type' in x) return x['@type'] === "test.funcs.preconditionAlias.Wrapper";
+  if ('@type' in x && x['@type'] !== "test.funcs.preconditionAlias.Wrapper") return false;
   if ("payload" in x && x.payload !== undefined && typeof x.payload !== 'string') return false;
   return true;
 }

@@ -31,7 +31,7 @@ export namespace Position { export type Shape = PositionShape; }
 export function isPosition(x: unknown): x is Position {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Position) return true;
-  if ('@type' in x) return x['@type'] === "test.rules.Position";
+  if ('@type' in x && x['@type'] !== "test.rules.Position") return false;
   if (!("quantity" in x) || typeof x.quantity !== 'number') return false;
   if (!("price" in x) || typeof x.price !== 'number') return false;
   if (!("currency" in x) || typeof x.currency !== 'string') return false;

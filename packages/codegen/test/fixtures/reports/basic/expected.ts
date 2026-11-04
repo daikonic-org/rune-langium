@@ -28,7 +28,7 @@ export namespace Trade { export type Shape = TradeShape; }
 export function isTrade(x: unknown): x is Trade {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Trade) return true;
-  if ('@type' in x) return x['@type'] === "test.reports.Trade";
+  if ('@type' in x && x['@type'] !== "test.reports.Trade") return false;
   if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
   if (!("notional" in x) || typeof x.notional !== 'number') return false;
   return true;
@@ -83,7 +83,7 @@ export namespace TradeReport { export type Shape = TradeReportShape; }
 export function isTradeReport(x: unknown): x is TradeReport {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof TradeReport) return true;
-  if ('@type' in x) return x['@type'] === "test.reports.TradeReport";
+  if ('@type' in x && x['@type'] !== "test.reports.TradeReport") return false;
   if (!("date" in x) || !(x.date instanceof Temporal.PlainDate)) return false;
   if (!("amount" in x) || typeof x.amount !== 'number') return false;
   return true;

@@ -30,7 +30,7 @@ export namespace Address { export type Shape = AddressShape; }
 export function isAddress(x: unknown): x is Address {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Address) return true;
-  if ('@type' in x) return x['@type'] === "test.aliases.Address";
+  if ('@type' in x && x['@type'] !== "test.aliases.Address") return false;
   if (!("street" in x) || typeof x.street !== 'string') return false;
   if (!("city" in x) || typeof x.city !== 'string') return false;
   return true;

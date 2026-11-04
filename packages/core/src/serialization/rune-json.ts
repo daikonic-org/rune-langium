@@ -27,6 +27,46 @@ export function withRuneJsonEncoding<T extends object>(value: T, kind: RuneJsonE
   return value;
 }
 
+/** Unwrap a declared Choice while retaining the wrapper's headers and decoded metadata. */
+export function normalizeRuneJsonChoiceWrapper(
+  value: unknown,
+  identity: string | undefined,
+  normalize: (payload: unknown) => unknown
+): Record<string, unknown> | undefined {
+  if (!record(value) || !own(value, '@data') || (value['@type'] !== undefined && value['@type'] !== identity))
+    return undefined;
+  const selected = normalize(value['@data']);
+  if (!record(selected)) throw new Error('Rune JSON Choice payload must normalize as an object.');
+  return {
+    ...Object.fromEntries(Object.entries(value).filter(([key]) => key !== '@type' && key !== '@data')),
+    ...selected
+  };
+}
+
+/** Project actual Choice declarations; Data with inherited Choice arms keeps its own Data representation. */
+export function projectRuneJsonChoice(
+  value: Record<string, unknown>,
+  identity: string | undefined,
+  arms: readonly string[],
+  normalize: (arm: string, value: unknown) => unknown
+): object {
+  const selected = arms.filter((key) => own(value, key) && value[key] != null);
+  if (selected.length !== 1) throw new Error('Rune JSON serialization requires exactly one Choice option.');
+  const meta = !arms.includes('meta') && record(value.meta) ? value.meta : undefined;
+  if (Object.keys(value).some((key) => !key.startsWith('@') && !arms.includes(key) && !(key === 'meta' && meta)))
+    throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
+  const arm = selected[0]!;
+  const body = normalize(arm, value[arm]);
+  if (!record(body)) throw new Error('Rune JSON Choice option must serialize as an object.');
+  const headers = Object.fromEntries(Object.entries(value).filter(([key]) => key !== '@type' && key.startsWith('@')));
+  // A wrapper preserves distinct parent/arm headers and metadata instead of merging them into one record.
+  if (meta || Object.keys(headers).length) {
+    if (!identity) throw new Error('Rune JSON Choice wrapper requires its declaration identity.');
+    return withRuneJsonEncoding({ ...headers, '@type': identity, '@data': body, ...(meta ? { meta } : {}) }, 'choice');
+  }
+  return withRuneJsonEncoding(body, body);
+}
+
 /**
  * Keep model/type/version and unknown fields; never dereference or prune keys.
  * Structural and semantic validation remains with the selected model's runtime.

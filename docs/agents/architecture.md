@@ -1354,10 +1354,22 @@ Generated public view constructors use ordinary fields and assignments so the
 helper introduces no parameter-property transform requirement for Node type stripping.
 Generated Rune JSON support embeds the authoritative Core codec through
 `generate:rune-json-runtime`; descriptor adapters supply declaration context.
+Core also owns Choice wrapper normalization and wire projection for both generated
+values and the linked preview adapter. Wrapper and arm headers remain distinct,
+and decoded key metadata survives round trips. Descriptors mark actual Choice
+declarations separately from Data inheriting Choice arms, preserving derived Data
+identity and fields. Matching wire type headers still require structural guard
+checks for external objects.
 Plain JSON is the default; instance/view serialization opts into Rune JSON.
 TypeScript modules default to shared helpers, and per-namespace callers may
 explicitly request inline support. Studio also uses shared Zod preview helpers.
 Preview enum options use Core's effective inherited member inventory.
+
+Source documentation recognizes both Rune STRING delimiters and hidden whitespace
+or comments between documentation tokens, including after multiline expression
+headers. A CodeMirror transaction extension reconciles only the toggle's owned
+folds on edits; showing documentation preserves unrelated user folds. Visible
+source performs no documentation-range scan.
 
 ## Reference loading and derived caches
 

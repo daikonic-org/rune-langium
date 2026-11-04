@@ -538,7 +538,9 @@ existing runtime source check. Both generators share `scripts/runtime-source.mjs
 Codegen also regenerates `expr/generated/rune-json-runtime-source.ts` from Core's
 canonical `serialization/rune-json.ts` via `generate:rune-json-runtime`. Run
 `node packages/codegen/scripts/generate-rune-json-runtime.mjs --check` to verify it;
-the Python Projections workflow checks all three runtime sources.
+the Python Projections workflow checks all three committed runtime sources before
+the Codegen build can regenerate them, then checks generated target types after
+the build. A post-build source comparison alone cannot detect committed drift.
 
 Public value changes require the strict generated compilation/runtime tests in
 `test/emit/value-api.test.ts`, inheritance/namespace tests and the pinned codegen

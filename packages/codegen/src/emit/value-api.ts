@@ -276,6 +276,7 @@ export class ValueApiEmitter {
       '}',
       `export const ${modelName}: ${modelName} = {`,
       `  identity: ${JSON.stringify(`${getElementNamespace(node)}.${node.name}`)},`,
+      ...(isChoice(node) ? [`  kind: 'choice',`] : []),
       ...(isData(node) && hasTypeMetadata(node) ? ['  metadata: true,'] : []),
       ...(isRosettaRecordType(node) ? ['  native: true,'] : []),
       `  create: ${this.create(node)},`,

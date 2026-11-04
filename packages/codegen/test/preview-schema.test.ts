@@ -2506,6 +2506,25 @@ it('uses concrete identity when Data attributes collide with Choice slot names',
   }
 });
 
+it('retains distinct wrapper/arm headers and key metadata through the shared Choice adapter', async () => {
+  const { decodeRuneJson, encodeRuneJson } = await import('@rune-langium/core/serialization');
+  const doc = await parseModel(`namespace wrappedChoice
+ type Quote:
+  amount number (1..1)
+ choice Selection:
+  Quote`);
+  const wire = {
+    '@type': 'wrappedChoice.Selection',
+    '@model': 'outer-model',
+    '@version': '1',
+    '@key': 'choice-key',
+    '@data': { '@type': 'wrappedChoice.Quote', '@model': 'inner-model', '@version': '2', amount: 5 }
+  };
+  const normalized = adaptPreviewData([doc], 'wrappedChoice.Selection#Choice', decodeRuneJson(wire)).data;
+  expect(normalized).toMatchObject({ '@model': 'outer-model', '@version': '1', meta: { globalKey: 'choice-key' } });
+  expect(encodeRuneJson(projectRuneJsonData([doc], 'wrappedChoice.Selection#Choice', normalized))).toEqual(wire);
+});
+
 it('restores typed Choice @data layers and prefers an exact Data arm over its ancestor', async () => {
   const doc = await parseModel(`namespace wireChoice
  type Base:

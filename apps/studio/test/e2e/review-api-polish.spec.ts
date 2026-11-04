@@ -63,9 +63,19 @@ for (const theme of ['dark', 'light'] as const) {
     await page.getByRole('button', { name: 'Hide source documentation', exact: true }).click();
     await expect(editor.locator('.cm-foldPlaceholder').first()).toBeVisible();
     expect(await codeMirrorDocument(editor)).toBe(before);
+    const initialFolds = await editor.locator('.cm-foldPlaceholder').count();
+    const added =
+      "\nfunc AddedDocumentation:\n output: result number (1..1)\n set result:\n  <\n   'Added documentation while hidden.'\n  >\n  1\n";
+    const sourceInput = editor.getByRole('textbox', { name: 'Rune source editor' });
+    await sourceInput.click();
+    await sourceInput.press('ControlOrMeta+End');
+    await page.keyboard.insertText(added);
+    await expect(editor.locator('.cm-foldPlaceholder')).toHaveCount(initialFolds + 1);
+    const edited = await codeMirrorDocument(editor);
+    expect(edited).toBe(before.trimEnd() + added);
     await page.getByRole('button', { name: 'Show source documentation', exact: true }).click();
     await expect(editor.locator('.cm-foldPlaceholder')).toHaveCount(0);
-    expect(await codeMirrorDocument(editor)).toBe(before);
+    expect(await codeMirrorDocument(editor)).toBe(edited);
     const preview = page.getByTestId('panel-formPreview');
     await preview.getByRole('button', { name: 'Add Entries item', exact: true }).click();
     const grid = preview.getByRole('table', { name: 'Entries', exact: true });

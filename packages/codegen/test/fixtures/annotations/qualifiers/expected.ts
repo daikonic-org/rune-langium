@@ -35,7 +35,7 @@ export namespace Trade { export type Shape = TradeShape; }
 export function isTrade(x: unknown): x is Trade {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Trade) return true;
-  if ('@type' in x) return x['@type'] === "test.annotations.Trade";
+  if ('@type' in x && x['@type'] !== "test.annotations.Trade") return false;
   if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
   return true;
 }

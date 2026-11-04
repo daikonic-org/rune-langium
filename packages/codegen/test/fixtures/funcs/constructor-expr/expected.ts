@@ -28,7 +28,7 @@ export namespace Point { export type Shape = PointShape; }
 export function isPoint(x: unknown): x is Point {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Point) return true;
-  if ('@type' in x) return x['@type'] === "test.funcs.constructor.Point";
+  if ('@type' in x && x['@type'] !== "test.funcs.constructor.Point") return false;
   if (!("x" in x) || typeof x.x !== 'number') return false;
   if (!("y" in x) || typeof x.y !== 'number') return false;
   return true;
@@ -83,7 +83,7 @@ export namespace Box { export type Shape = BoxShape; }
 export function isBox(x: unknown): x is Box {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Box) return true;
-  if ('@type' in x) return x['@type'] === "test.funcs.constructor.Box";
+  if ('@type' in x && x['@type'] !== "test.funcs.constructor.Box") return false;
   if (!("origin" in x) || x.origin === undefined) return false;
   if (!("width" in x) || typeof x.width !== 'number') return false;
   return true;

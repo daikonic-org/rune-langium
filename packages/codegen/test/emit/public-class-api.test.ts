@@ -19,6 +19,8 @@ type ModelClass = {
 };
 type PublicApi = Record<'Quote' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass> & {
   isQuote(input: unknown): boolean;
+  isBase(input: unknown): boolean;
+  isChild(input: unknown): boolean;
 };
 
 const source = `namespace publicApi
@@ -92,6 +94,11 @@ Child.from({ value: 1 });
     expect(api.isQuote(quote)).toBe(true);
     expect(api.isQuote({ '@type': 'publicApi.Quote', ...input })).toBe(true);
     expect(api.isQuote({ '@type': 'other.Quote', ...input })).toBe(false);
+    expect(api.isQuote({ '@type': 'publicApi.Quote' })).toBe(false);
+    expect(api.isQuote({ '@type': 'publicApi.Quote', amount: '5', currency: 'USD' })).toBe(false);
+    expect(api.isBase({ '@type': 'publicApi.Base' })).toBe(false);
+    expect(api.isChild({ '@type': 'publicApi.Child', value: 1, extra: 2 })).toBe(false);
+    expect(api.isChild({ '@type': 'publicApi.Child', value: 1, extra: 'child' })).toBe(true);
     expect(api.Quote.from(input).unwrap()).toBeInstanceOf(api.Quote);
     expect(api.Child.from({ value: 1, extra: 'child' }).unwrap()).toBeInstanceOf(api.Base);
     expect(JSON.parse(JSON.stringify(quote))).toEqual(input);
@@ -104,9 +111,39 @@ Child.from({ value: 1 });
     expect(referenceWire).toMatchObject({ quote: { '@type': 'publicApi.Quote', '@ref:external': 'q1', amount: 5 } });
     expect(api.Reference.fromJSON(referenceWire, { format: 'RUNE_JSON' }).quote.amount.unwrap()).toBe(5);
     expect(api.Tagged.from({ quote: input }).unwrap()).toBeInstanceOf(api.Tagged);
+    for (const extra of [undefined, 'tag']) {
+      const tagged = api.Tagged.from({ quote: input, ...(extra ? { extra } : {}) });
+      const taggedWire = tagged.toJSON({ format: 'RUNE_JSON' });
+      expect(taggedWire).toEqual({
+        '@type': 'publicApi.Tagged',
+        quote: { '@type': 'publicApi.Quote', ...input },
+        ...(extra ? { extra } : {})
+      });
+      expect(api.Tagged.fromJSON(taggedWire, { format: 'RUNE_JSON' }).toJSON({ format: 'RUNE_JSON' })).toEqual(
+        taggedWire
+      );
+    }
     const selected = api.Selection.from({ selected: { quote: input } });
     const selectionWire = selected.toJSON({ format: 'RUNE_JSON' });
     expect(selectionWire).toMatchObject({ selected: { '@type': 'publicApi.Quote', amount: 5 } });
     expect(api.Selection.fromJSON(selectionWire, { format: 'RUNE_JSON' }).selected.quote.amount.unwrap()).toBe(5);
+    const wrappedWire = {
+      '@type': 'publicApi.Selection',
+      selected: {
+        '@type': 'publicApi.Selected',
+        '@model': 'outer-model',
+        '@version': '1',
+        '@key': 'choice-key',
+        '@data': { '@type': 'publicApi.Quote', '@model': 'inner-model', '@version': '2', ...input }
+      }
+    };
+    const restored = api.Selection.fromJSON(wrappedWire, { format: 'RUNE_JSON' });
+    expect(restored.selected.unwrap()).toMatchObject({
+      '@model': 'outer-model',
+      '@version': '1',
+      meta: { globalKey: 'choice-key' }
+    });
+    expect(restored.selected.quote.amount.unwrap()).toBe(5);
+    expect(restored.toJSON({ format: 'RUNE_JSON' })).toEqual(wrappedWire);
   }
 );

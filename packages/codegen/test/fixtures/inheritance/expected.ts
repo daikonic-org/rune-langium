@@ -25,7 +25,7 @@ export namespace Animal { export type Shape = AnimalShape; }
 export function isAnimal(x: unknown): x is Animal {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Animal) return true;
-  if ('@type' in x) return x['@type'] === "test.inheritance.Animal";
+  if ('@type' in x && x['@type'] !== "test.inheritance.Animal") return false;
   if (!("name" in x) || typeof x.name !== 'string') return false;
   return true;
 }
@@ -78,7 +78,7 @@ export function isDog(x: Animal): x is Dog;
 export function isDog(x: unknown): x is Dog {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Dog) return true;
-  if ('@type' in x) return x['@type'] === "test.inheritance.Dog";
+  if ('@type' in x && x['@type'] !== "test.inheritance.Dog") return false;
   if (!("name" in x) || typeof x.name !== 'string') return false;
   if (!("breed" in x) || typeof x.breed !== 'string') return false;
   return true;
@@ -133,7 +133,7 @@ export function isSibling(x: Animal): x is Sibling;
 export function isSibling(x: unknown): x is Sibling {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Sibling) return true;
-  if ('@type' in x) return x['@type'] === "test.inheritance.Sibling";
+  if ('@type' in x && x['@type'] !== "test.inheritance.Sibling") return false;
   if (!("name" in x) || typeof x.name !== 'string') return false;
   if (!("age" in x) || typeof x.age !== 'number') return false;
   return true;
@@ -188,7 +188,7 @@ export function isPoodle(x: Dog): x is Poodle;
 export function isPoodle(x: unknown): x is Poodle {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Poodle) return true;
-  if ('@type' in x) return x['@type'] === "test.inheritance.Poodle";
+  if ('@type' in x && x['@type'] !== "test.inheritance.Poodle") return false;
   if (!("name" in x) || typeof x.name !== 'string') return false;
   if (!("breed" in x) || typeof x.breed !== 'string') return false;
   if (!("size" in x) || typeof x.size !== 'string') return false;

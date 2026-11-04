@@ -27,8 +27,7 @@ import {
 } from 'react';
 import { EditorView } from '@codemirror/view';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
-import { foldEffect, unfoldEffect } from '@codemirror/language';
-import { runeDocumentationRanges } from '../lang/rune-dsl.js';
+import { runeDocumentationFolding, setRuneDocumentationHidden } from '../lang/documentation-folds.js';
 import type { SourceRegion } from '@rune-langium/core';
 import {
   documentExtensions,
@@ -248,7 +247,7 @@ const renderSourceEditor = withInstrumentation(
     const [selectedPath, setSelectedPath] = useState<string>(activeFile ?? files[0]?.path ?? '');
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<EditorView | null>(null);
-    const documentationFoldsRef = useRef(new Set<string>());
+    const documentationModeRef = useRef(false);
     const editorViewPathRef = useRef<string | null>(null);
     const positionRequestRef = useRef(0);
     const editorId = useId();
@@ -491,6 +490,7 @@ const renderSourceEditor = withInstrumentation(
         const exts: Extension[] = documentExtensions(regionRef.current);
         exts.push(
           sourceNavigationHighlight,
+          runeDocumentationFolding,
           EditorView.contentAttributes.of({ 'aria-label': 'Rune source editor' }),
           EditorView.updateListener.of((update) => {
             if (update.selectionSet || update.docChanged) {
@@ -551,6 +551,7 @@ const renderSourceEditor = withInstrumentation(
       }
 
       const content = contentMapRef.current.get(currentFile.path) ?? currentFile.content;
+      documentationModeRef.current = false;
       editingCompartmentRef.current = new Compartment();
       editingModeRef.current = currentFile.readOnly ?? false;
       const lspCompartment = new Compartment();
@@ -590,13 +591,11 @@ const renderSourceEditor = withInstrumentation(
 
     useEffect(() => {
       const view = editorViewRef.current;
-      if (!view || region || !currentFile) return;
-      const path = currentFile.path;
-      if (!hideDocumentation && !documentationFoldsRef.current.has(path)) return;
-      if (hideDocumentation) documentationFoldsRef.current.add(path);
-      else documentationFoldsRef.current.delete(path);
-      const effect = hideDocumentation ? foldEffect : unfoldEffect;
-      view.dispatch({ effects: runeDocumentationRanges(view.state.doc.toString()).map((range) => effect.of(range)) });
+      if (!view || !currentFile) return;
+      const hidden = hideDocumentation && !region;
+      if (documentationModeRef.current === hidden) return;
+      documentationModeRef.current = hidden;
+      view.dispatch({ effects: setRuneDocumentationHidden.of(hidden) });
     }, [hideDocumentation, currentFile?.path, region]);
 
     useEffect(() => {

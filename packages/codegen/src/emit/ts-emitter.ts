@@ -1256,26 +1256,18 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ? `${name} & ${this.typeName(data, `${data.name}Shape`)}`
       : name;
 
-    if (parentName) {
-      const lines: string[] = [
-        `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${guardedType};`,
-        `export function ${this.typeName(data, `is${data.name}`)}(x: ${parentName}): x is ${guardedType};`,
-        `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${guardedType} {`,
-        `  if (typeof x !== 'object' || x === null) return false;`,
-        `  if (x instanceof ${name}) return true;`,
-        `  if ('@type' in x) return x['@type'] === ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)};`,
-        ...checkLines,
-        `  return true;`,
-        `}`
-      ];
-      return lines.join('\n');
-    }
-
+    const guard = this.typeName(data, `is${data.name}`);
     const lines: string[] = [
-      `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${guardedType} {`,
+      ...(parentName
+        ? [
+            `export function ${guard}(x: unknown): x is ${guardedType};`,
+            `export function ${guard}(x: ${parentName}): x is ${guardedType};`
+          ]
+        : []),
+      `export function ${guard}(x: unknown): x is ${guardedType} {`,
       `  if (typeof x !== 'object' || x === null) return false;`,
       `  if (x instanceof ${name}) return true;`,
-      `  if ('@type' in x) return x['@type'] === ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)};`,
+      `  if ('@type' in x && x['@type'] !== ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)}) return false;`,
       ...checkLines,
       `  return true;`,
       `}`

@@ -1,7 +1,35 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, it } from 'vitest';
-import { decodeRuneJson, encodeRuneJson, withRuneJsonEncoding } from '../src/serialization/rune-json.js';
+import {
+  decodeRuneJson,
+  encodeRuneJson,
+  withRuneJsonEncoding,
+  normalizeRuneJsonChoiceWrapper,
+  projectRuneJsonChoice
+} from '../src/serialization/rune-json.js';
+
+it('shares Choice wrapper normalization without merging parent and arm headers or losing decoded keys', () => {
+  const wire = {
+    '@type': 'example.Choice',
+    '@model': 'outer-model',
+    '@version': '1',
+    '@key': 'choice-key',
+    '@data': { '@type': 'example.Quote', '@model': 'inner-model', '@version': '2', amount: 5 }
+  };
+  const normalized = normalizeRuneJsonChoiceWrapper(decodeRuneJson(wire), 'example.Choice', (payload) => ({
+    quote: payload
+  }));
+  expect(normalized).toMatchObject({ '@model': 'outer-model', '@version': '1', meta: { globalKey: 'choice-key' } });
+  expect(
+    encodeRuneJson(projectRuneJsonChoice(normalized!, 'example.Choice', ['quote'], (_arm, value) => value))
+  ).toEqual(wire);
+  expect(
+    normalizeRuneJsonChoiceWrapper(wire, 'example.Other', () => {
+      throw new Error('must not unwrap');
+    })
+  ).toBeUndefined();
+});
 
 it('preserves Rune model identity, primitives, metadata and reference namespaces through round trip', () => {
   const wire = {

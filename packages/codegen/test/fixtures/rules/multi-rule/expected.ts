@@ -31,7 +31,7 @@ export namespace Account { export type Shape = AccountShape; }
 export function isAccount(x: unknown): x is Account {
   if (typeof x !== 'object' || x === null) return false;
   if (x instanceof Account) return true;
-  if ('@type' in x) return x['@type'] === "test.rules.Account";
+  if ('@type' in x && x['@type'] !== "test.rules.Account") return false;
   if (!("balance" in x) || typeof x.balance !== 'number') return false;
   if (!("status" in x) || typeof x.status !== 'string') return false;
   if (!("tier" in x) || typeof x.tier !== 'string') return false;

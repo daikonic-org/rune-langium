@@ -165,7 +165,8 @@ interface RuneDslState {
   /** Whether we're inside a multi-line comment. */
   inBlockComment: boolean;
   inString: '"' | "'" | null;
-  documentation: 'text' | 'end' | null;
+  documentation: { phase: 'start' | 'text' | 'end'; quote: '"' | "'" | null; inBlockComment: boolean } | null;
+  definitionPending: 'header' | 'value' | null;
   /** Syntactic roles use the same Lezer tags as generated-language editors. */
   expectName: string | null;
   expectAnnotationName: boolean;
@@ -201,6 +202,7 @@ export const runeDslStreamParser = {
       inBlockComment: false,
       inString: null,
       documentation: null,
+      definitionPending: null,
       expectName: null,
       expectAnnotationName: false,
       annotationNames: new Set(STANDARD_ANNOTATIONS),
@@ -215,6 +217,7 @@ export const runeDslStreamParser = {
   copyState(state: RuneDslState): RuneDslState {
     return {
       ...state,
+      documentation: state.documentation && { ...state.documentation },
       annotationNames: new Set(state.annotationNames),
       enumNames: new Set(state.enumNames),
       memberNames: new Set(state.memberNames),
@@ -226,20 +229,48 @@ export const runeDslStreamParser = {
   languageData: { commentTokens: { line: '//', block: { open: '/*', close: '*/' } } },
 
   token(stream: StringStream, state: RuneDslState): string | null {
-    const documentationAllowed = !state.declaration?.expression || /:\s*$/.test(stream.string.slice(0, stream.pos));
+    const documentationAllowed = !state.declaration?.expression || state.definitionPending === 'value';
     if (
       state.documentation ||
-      (documentationAllowed && !state.inString && !state.inBlockComment && stream.match('<"'))
+      (documentationAllowed && !state.inString && !state.inBlockComment && stream.match(/^<(?=\s*(?:["']|\/[/*]|$))/))
     ) {
-      state.documentation ??= 'text';
+      state.documentation ??= { phase: 'start', quote: null, inBlockComment: false };
       while (!stream.eol()) {
+        const documentation = state.documentation;
+        if (documentation.phase !== 'text') {
+          if (documentation.inBlockComment) {
+            if (stream.match('*/')) documentation.inBlockComment = false;
+            else stream.next();
+            continue;
+          }
+          if (stream.match('/*')) {
+            documentation.inBlockComment = true;
+            continue;
+          }
+          if (stream.match('//')) {
+            stream.skipToEnd();
+            break;
+          }
+        }
         const character = stream.next();
-        if (state.documentation === 'text') {
+        if (documentation.phase === 'start') {
+          if (character === '"' || character === "'") {
+            documentation.quote = character;
+            documentation.phase = 'text';
+          } else if (!/\s/.test(character!)) {
+            state.documentation = null;
+            return null;
+          }
+        } else if (documentation.phase === 'text') {
           if (character === '\\') stream.next();
-          else if (character === '"') state.documentation = 'end';
+          else if (character === documentation.quote) documentation.phase = 'end';
         } else if (character === '>') {
           state.documentation = null;
+          state.definitionPending = null;
           break;
+        } else if (!/\s/.test(character!)) {
+          state.documentation = null;
+          return null;
         }
       }
       return 'docComment';
@@ -281,6 +312,8 @@ export const runeDslStreamParser = {
       stream.skipToEnd();
       return 'comment';
     }
+
+    if (state.definitionPending === 'value') state.definitionPending = null;
 
     if (stream.match('[')) {
       const prefix = stream.string.slice(0, stream.start).trimEnd();
@@ -372,6 +405,7 @@ export const runeDslStreamParser = {
         (word === 'condition' || word === 'post-condition') && /^\s*(?:[a-zA-Z_][a-zA-Z_0-9]*)?\s*:/.test(tail);
       if (!prefix && (conditionHeader || ['alias', 'set', 'add'].includes(word))) {
         if (state.declaration) state.declaration.expression = true;
+        state.definitionPending = 'header';
         if ((word === 'condition' || word === 'post-condition') && /^\s+[a-zA-Z_]/.test(tail))
           state.expectName = 'labelName';
         if (word === 'alias') state.expectName = 'variableName.definition';
@@ -425,6 +459,10 @@ export const runeDslStreamParser = {
     // Operators / punctuation
     if (stream.match(/^[<>!=]+/)) return 'operator';
     if (stream.match(/^[-+*/]/)) return 'operator';
+    if (stream.match(':')) {
+      if (state.definitionPending === 'header') state.definitionPending = 'value';
+      return null;
+    }
 
     // Skip unrecognised character
     stream.next();
@@ -454,7 +492,7 @@ export const runeDocumentationRanges = withInstrumentation(
             ranges.push({ from: start, to: offset + stream.pos });
             start = undefined;
           }
-        }
+        } else if (!state.documentation) start = undefined;
       }
       offset += line.length + 1;
     }
