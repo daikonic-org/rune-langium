@@ -37,7 +37,8 @@ export class CallableNames {
   constructor(
     registry: NamespaceRegistry,
     enumReservedNames?: ReadonlySet<string>,
-    runtimeReserved: readonly string[] = []
+    runtimeReserved: readonly string[] = [],
+    mergedModels = false
   ) {
     for (const [namespace, manifest] of registry.namespaces) {
       const typeNames = new Set([
@@ -77,7 +78,7 @@ export class CallableNames {
       for (const name of [...manifest.exportedEnumNames].sort())
         if (enumReservedNames?.has(name)) allocate(name, 'Enum', this.enumExports, ['Values', 'DisplayNames']);
       const names = new Set([
-        ...(runtimeReserved.length
+        ...(runtimeReserved.length && !mergedModels
           ? [...manifest.exportedDataNames].flatMap((name) =>
               ['', 'Input', 'Type', 'Data'].map(
                 (suffix) => `$${this.dataExported(namespace, name)}${suffix ? `$${suffix}` : ''}`
@@ -85,7 +86,7 @@ export class CallableNames {
             )
           : []),
         ...[...manifest.exportedDataNames].map((name) => this.dataExported(namespace, name)),
-        ...[...manifest.exportedDataNames].flatMap((name) => [`${name}Shape`, `is${name}`]),
+        ...(!mergedModels ? [...manifest.exportedDataNames].flatMap((name) => [`${name}Shape`, `is${name}`]) : []),
         ...[...manifest.exportedEnumNames].map((name) => this.enumExported(namespace, name)),
         ...[...manifest.exportedEnumNames].flatMap((name) => [
           `${this.enumExported(namespace, name)}Values`,

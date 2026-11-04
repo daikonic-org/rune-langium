@@ -55,8 +55,11 @@ interface Value {
 }
 type View = { unwrap(): Value; toJSON(options?: { format: 'RUNE_JSON' }): unknown };
 type Api = {
-  Settings: { fromJSON(value: unknown, options?: { format: 'RUNE_JSON' }): View; from(value: Value): View };
-  isSettings(value: unknown): boolean;
+  Settings: {
+    fromJSON(value: unknown, options?: { format: 'RUNE_JSON' }): View;
+    is(value: unknown): boolean;
+    from(value: Value): View;
+  };
   Copy(value: Value): Value;
   Fixed(): RegExp;
   Text(): string;
@@ -102,8 +105,8 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
     expect(value.expression.test('xxx')).toBe(true);
     expect(value.alternatives.map((value) => value.source)).toEqual(['a', 'b']);
     expect(api.Copy(value).expression).toBe(value.expression);
-    expect(api.isSettings(value)).toBe(true);
-    expect(api.isSettings({ ...value, expression: 'x' })).toBe(false);
+    expect(api.Settings.is(value)).toBe(true);
+    expect(api.Settings.is({ ...value, expression: 'x' })).toBe(false);
     expect(api.Fixed().test('a/b123')).toBe(true);
     expect(api.Text()).toBe('^a/b[0-9]+$');
     expect(api.Same(/x/, /x/)).toBe(true);

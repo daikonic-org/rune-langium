@@ -584,9 +584,9 @@ func Parse:
  output: result Kind (0..1)
  set result: text to-enum Kind
 `,
-      `const child: ChildShape = {};
+      `const child: Child.Shape = {};
 // @ts-expect-error zero cardinality excludes populated fields
-const invalid: ChildShape = {excluded: [1]};`
+const invalid: Child.Shape = {excluded: [1]};`
     );
     expect(funcs.Parse!({ text: 'Cash' })).toBe('Cash');
     expect(funcs.Parse!({ text: 'Credit' })).toBe('Credit');

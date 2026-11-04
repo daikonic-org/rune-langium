@@ -21,7 +21,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     const { RuneDsl } = createRuneDslServices();
     const sources = [
       BASICTYPES_ROSETTA,
-      'namespace animals\ntype Animal:\n name string (1..1)\nchoice Pet:\n Animal\ntype Shelter:\n pet Animal (1..1)\n pets Animal (0..*)\n chosen Pet (0..1)',
+      'namespace animals\ntype Animal:\n name string (1..1)\nchoice Pet:\n Animal\nchoice Nested:\n Pet\nchoice Ambiguous:\n Animal\n Pet\ntype Shelter:\n pet Animal (1..1)\n pets Animal (0..*)\n chosen Pet (0..1)\nnested Nested (0..1)\nambiguous Ambiguous (0..1)',
       'namespace dogs\nimport animals.*\ntype Dog extends Animal:\n breed string (1..1)\ntype Poodle extends Dog:\n clipped boolean (1..1)'
     ];
     const docs = sources.map((text, index) =>
@@ -54,14 +54,33 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     expect(restored.unwrap()).toBeInstanceOf(api.Dog);
     expect(restored.unwrap()).toMatchObject({ name: 'Fido', breed: 'Poodle' });
     expect(restored.toJSON(options)).toEqual(dogWire);
+    const constructedShelter = new api.Shelter({ pet: dog, pets: [dog] });
+    const constructedWire = constructedShelter.toJSON(options);
+    expect(constructedWire).toEqual({ '@type': 'animals.Shelter', pet: dogWire, pets: [dogWire] });
+    expect(api.Shelter.fromJSON(constructedWire, options).unwrap()).toMatchObject({ pet: expect.any(api.Dog) });
     const poodleWire = new api.Poodle({ name: 'Pip', breed: 'Poodle', clipped: true }).toJSON(options);
     expect(api.Animal.fromJSON(poodleWire, options).unwrap()).toBeInstanceOf(api.Poodle);
     expect(api.Dog.fromJSON(poodleWire, options).toJSON(options)).toEqual(poodleWire);
-    const shelterWire = { '@type': 'animals.Shelter', pet: dogWire, pets: [dogWire, poodleWire], chosen: dogWire };
+    const shelterWire = {
+      '@type': 'animals.Shelter',
+      pet: dogWire,
+      pets: [dogWire, poodleWire],
+      chosen: dogWire,
+      nested: dogWire
+    };
     const shelter = api.Shelter.fromJSON(shelterWire, options);
     expect(shelter.toJSON(options)).toEqual(shelterWire);
     const value = shelter.unwrap();
-    expect(value).toMatchObject({ pet: expect.any(api.Dog), pets: [expect.any(api.Dog), expect.any(api.Poodle)] });
+    expect(value).toMatchObject({
+      pet: expect.any(api.Dog),
+      pets: [expect.any(api.Dog), expect.any(api.Poodle)],
+      nested: { pet: { animal: expect.any(api.Dog) } }
+    });
+    const wrappedWire = { ...shelterWire, nested: { '@type': 'animals.Nested', '@model': 'outer', '@data': dogWire } };
+    expect(api.Shelter.fromJSON(wrappedWire, options).toJSON(options)).toEqual(wrappedWire);
+    expect(() =>
+      api.Shelter.fromJSON({ ...shelterWire, ambiguous: { '@type': 'animals.Animal', name: 'Fido' } }, options)
+    ).toThrow(/exactly one Choice option/);
     expect(() => api.Animal.fromJSON({ '@type': 'animals.Shelter', pet: dogWire }, options)).toThrow(/not assignable/);
     expect(() => api.Animal.fromJSON({ '@type': 'unknown.Dog', name: 'Fido' }, options)).toThrow(/not assignable/);
     expect(() => api.Animal.fromJSON({ '@type': 'dogs.Dog', name: 'Fido' }, options)).toThrow();

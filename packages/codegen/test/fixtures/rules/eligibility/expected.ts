@@ -5,61 +5,66 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export interface TradeShape {
-  notional: number;
-  active: boolean;
-}
-
-export class Trade implements TradeShape {
+export class Trade implements Trade.Shape {
   notional: number;
   active: boolean;
 
-  constructor(data: TradeShape) {
+  constructor(data: Trade.Shape) {
     this.notional = data.notional;
     this.active = data.active;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue<I, $Trade$Type>(input, () => $Trade$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => $Trade$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Trade$Type, options); }
-}
-export namespace Trade { export type Shape = TradeShape; }
+  static is(x: unknown): x is Trade {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Trade) return true;
+    if ('@type' in x && x['@type'] !== "test.rules.Trade") return false;
+    if (!("notional" in x) || typeof x.notional !== 'number') return false;
+    if (!("active" in x) || typeof x.active !== 'boolean') return false;
+    return true;
+  }
 
-export function isTrade(x: unknown): x is Trade {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Trade) return true;
-  if ('@type' in x && x['@type'] !== "test.rules.Trade") return false;
-  if (!("notional" in x) || typeof x.notional !== 'number') return false;
-  if (!("active" in x) || typeof x.active !== 'boolean') return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, Trade.Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, Trade.Type> { return runeValue<I, Trade.Type>(input, () => Trade.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => Trade.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Trade.Type, options); }
+
+  static readonly #selections: Trade.Selections = { "test.rules.Trade#notional": { id: "test.rules.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Trade#active": { id: "test.rules.Trade#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') } };
+  static readonly #deep: Trade.Deep = { "notional": Trade.#selections["test.rules.Trade#notional"], "active": Trade.#selections["test.rules.Trade#active"] };
+  static readonly Type: Trade.Type = runeRegisterValueType<Trade.Type>({
+    identity: "test.rules.Trade",
+    inventory: { selections: Trade.#selections, deep: Trade.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Trade.prototype,
+    create:   (json: unknown) => {
+      if (!Trade.is(json)) {
+        throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Trade(json);
+    },
+    fields: { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') } },
+    deep: Object.assign(Object.create(Trade.#deep), { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') } }),
+    selections: Trade.#selections
+  });
 }
 
-type $Trade$Type$Reachable$Selections = { "test.rules.Trade#notional": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Trade#active": RuneValueSelection<boolean, 0, null, RuneEmptyType> };
-const $Trade$Type$Reachable$Selections: $Trade$Type$Reachable$Selections = { "test.rules.Trade#notional": { id: "test.rules.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Trade#active": { id: "test.rules.Trade#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') } };
-type $Trade$Type$Reachable$Deep = { "notional": RuneValueSelection<number, 0, null, RuneEmptyType>; "active": RuneValueSelection<boolean, 0, null, RuneEmptyType> };
-const $Trade$Type$Reachable$Deep: $Trade$Type$Reachable$Deep = { "notional": $Trade$Type$Reachable$Selections["test.rules.Trade#notional"], "active": $Trade$Type$Reachable$Selections["test.rules.Trade#active"] };
-export interface $Trade$Input {
-  "notional": RuneInputPayload<number, 1, 1>;
-  "active": RuneInputPayload<boolean, 1, 1>;
+export namespace Trade {
+  export interface Shape {
+    notional: number;
+    active: boolean;
+  }
+  export type Selections = { "test.rules.Trade#notional": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Trade#active": RuneValueSelection<boolean, 0, null, RuneEmptyType> };
+  export type Deep = { "notional": RuneValueSelection<number, 0, null, RuneEmptyType>; "active": RuneValueSelection<boolean, 0, null, RuneEmptyType> };
+  export interface Input {
+    "notional": RuneInputPayload<number, 1, 1>;
+    "active": RuneInputPayload<boolean, 1, 1>;
+  }
+  export interface Type extends RuneValueType<Input, Trade> {
+    readonly shape?: Shape;
+    fields: { "notional": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType> };
+    deep: Omit<Deep, "notional" | "active"> & { "notional": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $Trade$Type extends RuneValueType<$Trade$Input, Trade> {
-  fields: { "notional": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType> };
-  deep: Omit<$Trade$Type$Reachable$Deep, "notional" | "active"> & { "notional": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType> };
-  selections: $Trade$Type$Reachable$Selections;
-}
-export const $Trade$Type: $Trade$Type = runeRegisterValueType<$Trade$Type>({
-  identity: "test.rules.Trade",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isTrade(json)) {
-      throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Trade(json);
-  },
-  fields: { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') } },
-  deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') } }),
-  selections: $Trade$Type$Reachable$Selections
-});
 
 
 export function validateIsLargeTrade(trade: Trade.Shape): boolean {

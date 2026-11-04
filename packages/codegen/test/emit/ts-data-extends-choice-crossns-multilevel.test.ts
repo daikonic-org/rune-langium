@@ -61,30 +61,30 @@ async function parseFixtureFiles() {
 }
 
 describe('TS emitter — multi-level cross-namespace Data-extends-Choice chain', () => {
-  it('B (ObservableItem, the intermediate) threads its generic Shape alias on the imported AssetShape', async () => {
+  it('B (ObservableItem, the intermediate) threads its generic Shape alias on the imported Asset.Shape', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const bOutput = outputs.find((o) => o.relativePath.includes('/b'));
     expect(bOutput).toBeDefined();
-    expect(bOutput!.content).toContain('export type ObservableItemShape<T extends AssetShape = AssetShape> = T & {');
+    expect(bOutput!.content).toContain('export type Shape<T extends Asset.Shape = Asset.Shape> = T & {');
     const imports = bOutput!.content
       .match(/import \{([^}]+)\} from '\.\/a.js';/)![1]!
       .split(',')
       .map((name) => name.trim());
-    expect(imports).toEqual(expect.arrayContaining(['Asset', 'AssetShape', 'Cash', '$Cash$Type', '$Cash$Input']));
+    expect(imports).toEqual(['Asset', 'Cash', 'Commodity']);
   });
 
-  it('C (BasketConstituent, the leaf) threads the SAME T through the intermediate B, importing AssetShape across the 2-hop chain', async () => {
+  it('C (BasketConstituent, the leaf) threads the SAME T through the intermediate B, importing Asset.Shape across the 2-hop chain', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const cOutput = outputs.find((o) => o.relativePath.includes('/c'));
     expect(cOutput).toBeDefined();
     expect(cOutput!.content).toContain(
-      'export type BasketConstituentShape<T extends AssetShape = AssetShape> = ObservableItemShape<T> & {'
+      'export type Shape<T extends Asset.Shape = Asset.Shape> = ObservableItem.Shape<T> & {'
     );
-    // AssetShape lives 2 links up (ns a), imported directly into c's file
+    // Asset.Shape lives 2 links up (ns a), imported directly into c's file
     // even though c's own document only imports ns b.
-    expect(cOutput!.content).toContain('AssetShape');
+    expect(cOutput!.content).toContain('Asset.Shape');
   });
 
   it('MULTI-FILE compile check: all three namespaces typecheck together under real tsc --strict', async () => {

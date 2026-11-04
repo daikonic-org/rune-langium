@@ -5,66 +5,71 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export interface AccountShape {
-  balance: number;
-  status: string;
-  tier: string;
-}
-
-export class Account implements AccountShape {
+export class Account implements Account.Shape {
   balance: number;
   status: string;
   tier: string;
 
-  constructor(data: AccountShape) {
+  constructor(data: Account.Shape) {
     this.balance = data.balance;
     this.status = data.status;
     this.tier = data.tier;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Account$Input, Account>): RuneView<Account, RuneFromMin<I>, RuneFromMax<I>, $Account$Type> { return runeValue<I, $Account$Type>(input, () => $Account$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Account.from(runeValueFromJSON(input, () => $Account$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Account$Type, options); }
-}
-export namespace Account { export type Shape = AccountShape; }
+  static is(x: unknown): x is Account {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Account) return true;
+    if ('@type' in x && x['@type'] !== "test.rules.Account") return false;
+    if (!("balance" in x) || typeof x.balance !== 'number') return false;
+    if (!("status" in x) || typeof x.status !== 'string') return false;
+    if (!("tier" in x) || typeof x.tier !== 'string') return false;
+    return true;
+  }
 
-export function isAccount(x: unknown): x is Account {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Account) return true;
-  if ('@type' in x && x['@type'] !== "test.rules.Account") return false;
-  if (!("balance" in x) || typeof x.balance !== 'number') return false;
-  if (!("status" in x) || typeof x.status !== 'string') return false;
-  if (!("tier" in x) || typeof x.tier !== 'string') return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, Account.Input, Account>): RuneView<Account, RuneFromMin<I>, RuneFromMax<I>, Account.Type> { return runeValue<I, Account.Type>(input, () => Account.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Account.from(runeValueFromJSON(input, () => Account.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Account.Type, options); }
+
+  static readonly #selections: Account.Selections = { "test.rules.Account#balance": { id: "test.rules.Account#balance", key: "balance", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Account#status": { id: "test.rules.Account#status", key: "status", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.rules.Account#tier": { id: "test.rules.Account#tier", key: "tier", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+  static readonly #deep: Account.Deep = { "balance": Account.#selections["test.rules.Account#balance"], "status": Account.#selections["test.rules.Account#status"], "tier": Account.#selections["test.rules.Account#tier"] };
+  static readonly Type: Account.Type = runeRegisterValueType<Account.Type>({
+    identity: "test.rules.Account",
+    inventory: { selections: Account.#selections, deep: Account.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Account.prototype,
+    create:   (json: unknown) => {
+      if (!Account.is(json)) {
+        throw new TypeError('not a Account: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Account(json);
+    },
+    fields: { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, paths: [[{"key":"balance","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, paths: [[{"key":"status","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, paths: [[{"key":"tier","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+    deep: Object.assign(Object.create(Account.#deep), { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+    selections: Account.#selections
+  });
 }
 
-type $Account$Type$Reachable$Selections = { "test.rules.Account#balance": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Account#status": RuneValueSelection<string, 0, null, RuneEmptyType>; "test.rules.Account#tier": RuneValueSelection<string, 0, null, RuneEmptyType> };
-const $Account$Type$Reachable$Selections: $Account$Type$Reachable$Selections = { "test.rules.Account#balance": { id: "test.rules.Account#balance", key: "balance", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Account#status": { id: "test.rules.Account#status", key: "status", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.rules.Account#tier": { id: "test.rules.Account#tier", key: "tier", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-type $Account$Type$Reachable$Deep = { "balance": RuneValueSelection<number, 0, null, RuneEmptyType>; "status": RuneValueSelection<string, 0, null, RuneEmptyType>; "tier": RuneValueSelection<string, 0, null, RuneEmptyType> };
-const $Account$Type$Reachable$Deep: $Account$Type$Reachable$Deep = { "balance": $Account$Type$Reachable$Selections["test.rules.Account#balance"], "status": $Account$Type$Reachable$Selections["test.rules.Account#status"], "tier": $Account$Type$Reachable$Selections["test.rules.Account#tier"] };
-export interface $Account$Input {
-  "balance": RuneInputPayload<number, 1, 1>;
-  "status": RuneInputPayload<string, 1, 1>;
-  "tier": RuneInputPayload<string, 1, 1>;
+export namespace Account {
+  export interface Shape {
+    balance: number;
+    status: string;
+    tier: string;
+  }
+  export type Selections = { "test.rules.Account#balance": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Account#status": RuneValueSelection<string, 0, null, RuneEmptyType>; "test.rules.Account#tier": RuneValueSelection<string, 0, null, RuneEmptyType> };
+  export type Deep = { "balance": RuneValueSelection<number, 0, null, RuneEmptyType>; "status": RuneValueSelection<string, 0, null, RuneEmptyType>; "tier": RuneValueSelection<string, 0, null, RuneEmptyType> };
+  export interface Input {
+    "balance": RuneInputPayload<number, 1, 1>;
+    "status": RuneInputPayload<string, 1, 1>;
+    "tier": RuneInputPayload<string, 1, 1>;
+  }
+  export interface Type extends RuneValueType<Input, Account> {
+    readonly shape?: Shape;
+    fields: { "balance": RuneValueSelection<number, 1, 1, RuneEmptyType>; "status": RuneValueSelection<string, 1, 1, RuneEmptyType>; "tier": RuneValueSelection<string, 1, 1, RuneEmptyType> };
+    deep: Omit<Deep, "balance" | "status" | "tier"> & { "balance": RuneValueSelection<number, 1, 1, RuneEmptyType>; "status": RuneValueSelection<string, 1, 1, RuneEmptyType>; "tier": RuneValueSelection<string, 1, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $Account$Type extends RuneValueType<$Account$Input, Account> {
-  fields: { "balance": RuneValueSelection<number, 1, 1, RuneEmptyType>; "status": RuneValueSelection<string, 1, 1, RuneEmptyType>; "tier": RuneValueSelection<string, 1, 1, RuneEmptyType> };
-  deep: Omit<$Account$Type$Reachable$Deep, "balance" | "status" | "tier"> & { "balance": RuneValueSelection<number, 1, 1, RuneEmptyType>; "status": RuneValueSelection<string, 1, 1, RuneEmptyType>; "tier": RuneValueSelection<string, 1, 1, RuneEmptyType> };
-  selections: $Account$Type$Reachable$Selections;
-}
-export const $Account$Type: $Account$Type = runeRegisterValueType<$Account$Type>({
-  identity: "test.rules.Account",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isAccount(json)) {
-      throw new TypeError('not a Account: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Account(json);
-  },
-  fields: { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, paths: [[{"key":"balance","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, paths: [[{"key":"status","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, paths: [[{"key":"tier","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-  deep: Object.assign(Object.create($Account$Type$Reachable$Deep), { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-  selections: $Account$Type$Reachable$Selections
-});
 
 
 export function validateIsActive(account: Account.Shape): boolean {

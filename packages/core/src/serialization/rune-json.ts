@@ -39,6 +39,22 @@ export function isRuneJsonAssignableType<T>(actual: T, expected: T, parent: (typ
   return false;
 }
 
+/** Linked ASTs and generated descriptors share recursive, cycle-safe Choice acceptance. */
+export function acceptsRuneJsonChoice<T>(
+  expected: T,
+  matches: (type: T) => boolean,
+  alternatives: (type: T) => readonly T[] | undefined
+): boolean {
+  const seen = new Set<T>();
+  const visit = (type: T): boolean => {
+    if (matches(type)) return true;
+    if (seen.has(type)) return false;
+    seen.add(type);
+    return alternatives(type)?.some(visit) ?? false;
+  };
+  return visit(expected);
+}
+
 /** Unwrap a declared Choice while retaining the wrapper's headers and decoded metadata. */
 export function normalizeRuneJsonChoiceWrapper(
   value: unknown,

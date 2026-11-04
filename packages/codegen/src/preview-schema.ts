@@ -5,7 +5,8 @@ import {
   withRuneJsonEncoding,
   normalizeRuneJsonChoiceWrapper,
   projectRuneJsonChoice,
-  isRuneJsonAssignableType
+  isRuneJsonAssignableType,
+  acceptsRuneJsonChoice
 } from '@rune-langium/core/serialization';
 import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
 import { resolveNativeImplementation } from './implementations/index.js';
@@ -1688,23 +1689,27 @@ function createPreviewValueAdapter(
       isData(type) ? type.superType?.ref : undefined
     );
   }
-  function choiceAcceptsNode(node: Data | Choice, expected: Choice, seen = new Set<Choice>()): boolean {
-    if (node === expected || (isData(node) && extendsNode(node, expected))) return true;
-    if (seen.has(expected)) return false;
-    const next = new Set(seen).add(expected);
-    return expected.attributes.some((option) =>
-      resolveTypeCallTarget(
-        option.typeCall,
-        typeIndex,
-        {
-          onPrimitive: () => false,
-          onEnum: () => false,
-          onData: (target) => isData(node) && extendsNode(node, target),
-          onChoice: (target) => choiceAcceptsNode(node, target, next),
-          onUnresolved: () => false
-        },
-        ''
-      )
+  function choiceAcceptsNode(node: Data | Choice, expected: Choice): boolean {
+    return acceptsRuneJsonChoice<Data | Choice>(
+      expected,
+      (target) => node === target || (isData(node) && extendsNode(node, target)),
+      (target) =>
+        isChoice(target)
+          ? target.attributes.flatMap((option) =>
+              resolveTypeCallTarget<(Data | Choice)[]>(
+                option.typeCall,
+                typeIndex,
+                {
+                  onPrimitive: () => [],
+                  onEnum: () => [],
+                  onData: (type) => [type],
+                  onChoice: (type) => [type],
+                  onUnresolved: () => []
+                },
+                ''
+              )
+            )
+          : undefined
     );
   }
   function normalizeNode(node: Data | Choice, value: unknown, path = ''): unknown {

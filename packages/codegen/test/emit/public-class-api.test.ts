@@ -16,12 +16,9 @@ type ModelClass = {
   new (input: unknown): { toJSON(options?: JsonOptions): unknown };
   from(input: unknown): ModelView;
   fromJSON(input: unknown, options?: JsonOptions): ModelView;
+  is(input: unknown): boolean;
 };
-type PublicApi = Record<'Quote' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass> & {
-  isQuote(input: unknown): boolean;
-  isBase(input: unknown): boolean;
-  isChild(input: unknown): boolean;
-};
+type PublicApi = Record<'Quote' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass>;
 
 const source = `namespace publicApi
 annotation metadata:
@@ -70,11 +67,15 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     const model = outputs.find((output) => output.content.includes('export class Quote '))!;
     expect(model.content).not.toContain('$Quote$Data');
     expect(model.content).not.toContain('export const Quote =');
+    expect(model.content).not.toMatch(/\$Quote\$|QuoteShape|export function isQuote/);
+    expect(model.content).toContain('static readonly Type: Quote.Type');
+    expect(model.content).toContain('export interface Shape');
     expect(model.content).toContain('Copy(quote: Quote.Shape): Quote.Shape');
     expect(model.content.includes('runtime helpers (inlined)')).toBe(layout === 'inline');
     if (layout !== 'inline') expect(outputs.some((output) => /helpers.*\.ts$/.test(output.relativePath))).toBe(true);
     const api = compileGeneratedTypeScript<PublicApi>(outputs, {
       entry: model.relativePath,
+      erasableSyntaxOnly: true,
       assertions: `
 const quote: Quote.Shape = { amount: 5, currency: 'USD' };
 const copied: Quote.Shape = Copy(quote);
@@ -91,14 +92,16 @@ Child.from({ value: 1 });
     const input = { amount: 5, currency: 'USD' };
     const quote = new api.Quote(input);
     expect(quote.constructor.name).toBe('Quote');
-    expect(api.isQuote(quote)).toBe(true);
-    expect(api.isQuote({ '@type': 'publicApi.Quote', ...input })).toBe(true);
-    expect(api.isQuote({ '@type': 'other.Quote', ...input })).toBe(false);
-    expect(api.isQuote({ '@type': 'publicApi.Quote' })).toBe(false);
-    expect(api.isQuote({ '@type': 'publicApi.Quote', amount: '5', currency: 'USD' })).toBe(false);
-    expect(api.isBase({ '@type': 'publicApi.Base' })).toBe(false);
-    expect(api.isChild({ '@type': 'publicApi.Child', value: 1, extra: 2 })).toBe(false);
-    expect(api.isChild({ '@type': 'publicApi.Child', value: 1, extra: 'child' })).toBe(true);
+    expect(Object.getOwnPropertyNames(api.Quote)).toEqual(expect.arrayContaining(['Type', 'is', 'from', 'fromJSON']));
+    expect(Object.keys(api).some((name) => name.startsWith('$Quote$') || name === 'isQuote')).toBe(false);
+    expect(api.Quote.is(quote)).toBe(true);
+    expect(api.Quote.is({ '@type': 'publicApi.Quote', ...input })).toBe(true);
+    expect(api.Quote.is({ '@type': 'other.Quote', ...input })).toBe(false);
+    expect(api.Quote.is({ '@type': 'publicApi.Quote' })).toBe(false);
+    expect(api.Quote.is({ '@type': 'publicApi.Quote', amount: '5', currency: 'USD' })).toBe(false);
+    expect(api.Base.is({ '@type': 'publicApi.Base' })).toBe(false);
+    expect(api.Child.is({ '@type': 'publicApi.Child', value: 1, extra: 2 })).toBe(false);
+    expect(api.Child.is({ '@type': 'publicApi.Child', value: 1, extra: 'child' })).toBe(true);
     expect(api.Quote.from(input).unwrap()).toBeInstanceOf(api.Quote);
     expect(api.Child.from({ value: 1, extra: 'child' }).unwrap()).toBeInstanceOf(api.Base);
     expect(JSON.parse(JSON.stringify(quote))).toEqual(input);

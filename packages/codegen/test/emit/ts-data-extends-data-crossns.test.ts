@@ -72,7 +72,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('export interface DogShape extends AnimalShape');
+    expect(productOutput!.content).toContain('export interface Shape extends Animal.Shape');
   });
 
   it('the class extends the cross-namespace parent (not silently dropped)', async () => {
@@ -81,7 +81,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
     expect(productOutput!.content).toContain(
-      'export class Dog extends (Animal as RuneDataClass<typeof Animal>) implements DogShape'
+      'export class Dog extends (Animal as RuneDataClass<typeof Animal>) implements Dog.Shape'
     );
   });
 
@@ -90,7 +90,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('export function isDog(x: Animal): x is Dog;');
+    expect(productOutput!.content).toContain('static is(x: Animal): x is Dog;');
   });
 
   it('the previously-unused cross-namespace import is now load-bearing', async () => {
@@ -102,7 +102,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
       .match(/import \{([^}]+)\} from '\.\/base.js';/)![1]!
       .split(',')
       .map((name) => name.trim());
-    expect(imports).toEqual(expect.arrayContaining(['Animal', 'AnimalShape']));
+    expect(imports).toEqual(['Animal']);
   });
 
   it('MULTI-FILE compile check: both emitted namespaces typecheck together under real tsc --strict', async () => {

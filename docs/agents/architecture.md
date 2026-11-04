@@ -1305,6 +1305,9 @@ and emitted descriptors use Core's `isRuneJsonAssignableType` ancestry rule.
 Tagged base-typed JSON selects an available concrete descendant before validating
 fields, creating the instance or serializing it; unknown/unloaded and unrelated
 types remain errors. Import the bundle barrel to register all generated modules.
+Descriptors retain their generated class prototype so nested untagged instances
+also preserve their concrete descendant identity. Core's `acceptsRuneJsonChoice`
+owns recursive, cycle-safe option acceptance for both descriptors and preview ASTs.
 
 Native built-in descriptors are selected from the TypeScript profile, including
 BasicType `time` and `pattern` as well as calendar RecordTypes. The same descriptor
@@ -1320,8 +1323,13 @@ Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
 around the existing RuneList runtime; `new Trade` retains one model construction.
 Each Data emits one public class with static factories and a merged `.Shape`
-type for structural function boundaries. Constructor-only parent types erase
-incompatible inherited static factory signatures while preserving JavaScript
+interface for structural function boundaries. `Type` and `is` are class statics;
+Input/Type/Selections/Deep types live in the merged namespace, with no parallel
+model-prefixed support exports. Runtime inventories use private class statics and
+are shared by descriptor inventory identity across cyclic models. The merged
+namespace contains only types, preserving erasable TypeScript syntax. Scope-safe
+type queries keep authored models named Shape/Input/Type distinct from members.
+Constructor-only parent types erase incompatible inherited static factory signatures while preserving JavaScript
 inheritance and `instanceof`. Nested Shapes contain structural data and Temporal
 values directly; public function signatures do not require `RuneFuncData`.
 The normalizer owns only the supplied value

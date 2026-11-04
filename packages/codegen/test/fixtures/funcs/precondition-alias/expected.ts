@@ -5,56 +5,61 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
 
-export interface WrapperShape {
-  payload?: string;
-}
-
-export class Wrapper implements WrapperShape {
+export class Wrapper implements Wrapper.Shape {
   payload?: string;
 
-  constructor(data: WrapperShape) {
+  constructor(data: Wrapper.Shape) {
     this.payload = data.payload;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Wrapper$Input, Wrapper>): RuneView<Wrapper, RuneFromMin<I>, RuneFromMax<I>, $Wrapper$Type> { return runeValue<I, $Wrapper$Type>(input, () => $Wrapper$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Wrapper.from(runeValueFromJSON(input, () => $Wrapper$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Wrapper$Type, options); }
-}
-export namespace Wrapper { export type Shape = WrapperShape; }
+  static is(x: unknown): x is Wrapper {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Wrapper) return true;
+    if ('@type' in x && x['@type'] !== "test.funcs.preconditionAlias.Wrapper") return false;
+    if ("payload" in x && x.payload !== undefined && typeof x.payload !== 'string') return false;
+    return true;
+  }
 
-export function isWrapper(x: unknown): x is Wrapper {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Wrapper) return true;
-  if ('@type' in x && x['@type'] !== "test.funcs.preconditionAlias.Wrapper") return false;
-  if ("payload" in x && x.payload !== undefined && typeof x.payload !== 'string') return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, Wrapper.Input, Wrapper>): RuneView<Wrapper, RuneFromMin<I>, RuneFromMax<I>, Wrapper.Type> { return runeValue<I, Wrapper.Type>(input, () => Wrapper.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Wrapper.from(runeValueFromJSON(input, () => Wrapper.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Wrapper.Type, options); }
+
+  static readonly #selections: Wrapper.Selections = { "test.funcs.preconditionAlias.Wrapper#payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+  static readonly #deep: Wrapper.Deep = { "payload": Wrapper.#selections["test.funcs.preconditionAlias.Wrapper#payload"] };
+  static readonly Type: Wrapper.Type = runeRegisterValueType<Wrapper.Type>({
+    identity: "test.funcs.preconditionAlias.Wrapper",
+    inventory: { selections: Wrapper.#selections, deep: Wrapper.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Wrapper.prototype,
+    create:   (json: unknown) => {
+      if (!Wrapper.is(json)) {
+        throw new TypeError('not a Wrapper: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Wrapper(json);
+    },
+    fields: { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, paths: [[{"key":"payload","min":0,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+    deep: Object.assign(Object.create(Wrapper.#deep), { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+    selections: Wrapper.#selections
+  });
 }
 
-type $Wrapper$Type$Reachable$Selections = { "test.funcs.preconditionAlias.Wrapper#payload": RuneValueSelection<string, 0, null, RuneEmptyType> };
-const $Wrapper$Type$Reachable$Selections: $Wrapper$Type$Reachable$Selections = { "test.funcs.preconditionAlias.Wrapper#payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-type $Wrapper$Type$Reachable$Deep = { "payload": RuneValueSelection<string, 0, null, RuneEmptyType> };
-const $Wrapper$Type$Reachable$Deep: $Wrapper$Type$Reachable$Deep = { "payload": $Wrapper$Type$Reachable$Selections["test.funcs.preconditionAlias.Wrapper#payload"] };
-export interface $Wrapper$Input {
-  "payload"?: RuneInputPayload<string, 0, 1>;
+export namespace Wrapper {
+  export interface Shape {
+    payload?: string;
+  }
+  export type Selections = { "test.funcs.preconditionAlias.Wrapper#payload": RuneValueSelection<string, 0, null, RuneEmptyType> };
+  export type Deep = { "payload": RuneValueSelection<string, 0, null, RuneEmptyType> };
+  export interface Input {
+    "payload"?: RuneInputPayload<string, 0, 1>;
+  }
+  export interface Type extends RuneValueType<Input, Wrapper> {
+    readonly shape?: Shape;
+    fields: { "payload": RuneValueSelection<string, 0, 1, RuneEmptyType> };
+    deep: Omit<Deep, "payload"> & { "payload": RuneValueSelection<string, 0, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $Wrapper$Type extends RuneValueType<$Wrapper$Input, Wrapper> {
-  fields: { "payload": RuneValueSelection<string, 0, 1, RuneEmptyType> };
-  deep: Omit<$Wrapper$Type$Reachable$Deep, "payload"> & { "payload": RuneValueSelection<string, 0, 1, RuneEmptyType> };
-  selections: $Wrapper$Type$Reachable$Selections;
-}
-export const $Wrapper$Type: $Wrapper$Type = runeRegisterValueType<$Wrapper$Type>({
-  identity: "test.funcs.preconditionAlias.Wrapper",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isWrapper(json)) {
-      throw new TypeError('not a Wrapper: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Wrapper(json);
-  },
-  fields: { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, paths: [[{"key":"payload","min":0,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-  deep: Object.assign(Object.create($Wrapper$Type$Reachable$Deep), { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-  selections: $Wrapper$Type$Reachable$Selections
-});
 
 
 export function UsePayload(wrapper: Wrapper.Shape): string {

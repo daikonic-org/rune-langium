@@ -74,7 +74,7 @@ describe('TS emitter — Choice-typed attribute cross-namespace import', () => {
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
     expect(holderOutput).toBeDefined();
     expect(holderOutput!.content).toMatch(/import \{[^}]*\bAsset\b[^}]*\} from '\.\/base.js';/);
-    expect(holderOutput!.content).toContain('asset?: AssetShape;');
+    expect(holderOutput!.content).toContain('asset?: Asset.Shape;');
   });
 
   it('MULTI-FILE compile check: both namespaces typecheck together under real tsc --strict', async () => {

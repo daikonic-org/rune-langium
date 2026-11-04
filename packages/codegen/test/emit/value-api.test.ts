@@ -89,7 +89,7 @@ const absent: undefined = Trade.from(undefined)._.asset.unwrap();
 const sum: number = Trade.from({ transfers: { asset: { amount: 3 } } })._.amount.sum();
 const literal: string | undefined = Trade.from({ _: 'literal' }).field('_').unwrap();
 const nested: string | undefined = Wrapped.from({ payload: { value: { value: 'authored', amount: 1 }, meta: {} } }).payload.value.unwrap();
-const unresolved: $Payload$Input | undefined = Referenced.from({ payload: { externalReference: 'p' } }).payload.unwrap();
+const unresolved: Payload.Input | undefined = Referenced.from({ payload: { externalReference: 'p' } }).payload.unwrap();
 const head: number = Asset.from([{ amount: 3 }]).first().amount.unwrap();
 const mapped: number = Asset.from({ amount: 3 }).map(item => item.amount + 1).unwrap();
 const flattened: number[] = Asset.from([{ amount: 3 }]).map(item => [item.amount]).flat().toArray();
@@ -106,7 +106,7 @@ Wrapped.from({});
 const incoming: unknown = { amount: 3 };
 const checked: Asset | [Asset, ...Asset[]] | undefined = Asset.from(incoming).unwrap();
 // @ts-expect-error a reference need not contain a local payload
-const required: $Payload$Input = Referenced.from({ payload: { externalReference: 'p' } }).payload.unwrap();
+const required: Payload.Input = Referenced.from({ payload: { externalReference: 'p' } }).payload.unwrap();
 const filtered: number | [number, ...number[]] | undefined = Asset.from([{ amount: 3 }]).filter(item => item.amount > 5).amount.unwrap();
 // @ts-expect-error required amount is missing
 Asset.from({});
@@ -292,8 +292,9 @@ it('compiles deep cyclic descriptor graphs without recursive runtime-shape compa
   assertValidDocuments(docs);
   const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'barrel' } });
   const entry = outputs.find((output) => output.content.includes('export class Layer0 '))!;
-  compileGeneratedTypeScript(outputs, {
+  const api = compileGeneratedTypeScript<Record<'Layer0' | 'Layer1', { Type: { inventory: unknown } }>>(outputs, {
     entry: entry.relativePath,
     assertions: 'const absent: undefined = Layer0.from(undefined)._.amount63.unwrap();'
   });
+  expect(api.Layer0.Type.inventory).toBe(api.Layer1.Type.inventory);
 });

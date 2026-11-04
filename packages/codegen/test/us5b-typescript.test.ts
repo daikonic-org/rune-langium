@@ -73,8 +73,8 @@ describe('T099: basic-types TypeScript target', () => {
 
   it('contains isTypeName( type guards', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('isPerson(');
-    expect(output).toContain('isEmpty(');
+    expect(output).toContain('Person.is(');
+    expect(output).toContain('Empty.is(');
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {
@@ -102,7 +102,7 @@ describe('T100: inheritance TypeScript target', () => {
 
   it('emits discriminator function isDog(x: Animal): x is Dog', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('isDog(x: Animal): x is Dog');
+    expect(output).toContain('static is(x: Animal): x is Dog');
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {

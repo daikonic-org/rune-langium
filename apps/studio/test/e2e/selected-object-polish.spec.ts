@@ -8,6 +8,7 @@ import { expressionReferenceFiles } from '../../../../packages/codegen/test/help
 import { expectWorkspaceHeaderBounds } from '../helpers/app-header.js';
 import { captureResizeObserverErrors, expectNoResizeObserverErrors } from '../helpers/graph.js';
 import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
+import { codeMirrorDocument } from '../helpers/source-editor.js';
 
 const source = `namespace polish
 annotation marking:
@@ -182,9 +183,15 @@ test('Code preview follows model and Choice types alongside their public factori
   const preview = page.getByTestId('code-preview-editor');
   await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
   await expect(preview).toContainText('export class Party ');
+  await expect.poll(() => codeMirrorDocument(preview)).toContain('export namespace Party {');
+  const generated = await codeMirrorDocument(preview);
+  expect(generated).toContain('static readonly Type: Party.Type');
+  expect(generated).toContain('export interface Shape');
+  expect(generated).not.toMatch(/\$Party\$|PartyShape|export function isParty/);
   await page.getByRole('button', { name: 'Regenerate TypeScript preview', exact: true }).click();
   await expect(page.getByTestId('codegen-status')).toContainText('Generated');
   await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
+  await expect.poll(() => codeMirrorDocument(preview)).toContain('static readonly Type: Party.Type');
   await page.getByTestId('namespace-search').fill('Party');
   await typeNavigationButton(page, 'aaa.Party', 'Data').click();
   await expect(page.getByTestId('codegen-relative-path')).toHaveText('aaa.ts');

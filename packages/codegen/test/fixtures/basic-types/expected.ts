@@ -5,111 +5,121 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export interface EmptyShape {}
+export class Empty implements Empty.Shape {
+  constructor(data: Empty.Shape) {}
 
-export class Empty implements EmptyShape {
-  constructor(data: EmptyShape) {}
+  static is(x: unknown): x is Empty {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Empty) return true;
+    if ('@type' in x && x['@type'] !== "test.basic.Empty") return false;
+    return true;
+  }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Empty$Input, Empty>): RuneView<Empty, RuneFromMin<I>, RuneFromMax<I>, $Empty$Type> { return runeValue<I, $Empty$Type>(input, () => $Empty$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Empty.from(runeValueFromJSON(input, () => $Empty$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Empty$Type, options); }
+  static from<const I>(input: I & RuneFactoryInput<I, Empty.Input, Empty>): RuneView<Empty, RuneFromMin<I>, RuneFromMax<I>, Empty.Type> { return runeValue<I, Empty.Type>(input, () => Empty.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Empty.from(runeValueFromJSON(input, () => Empty.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Empty.Type, options); }
+
+  static readonly #selections: Empty.Selections = {  };
+  static readonly #deep: Empty.Deep = {  };
+  static readonly Type: Empty.Type = runeRegisterValueType<Empty.Type>({
+    identity: "test.basic.Empty",
+    inventory: { selections: Empty.#selections, deep: Empty.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Empty.prototype,
+    create:   (json: unknown) => {
+      if (!Empty.is(json)) {
+        throw new TypeError('not a Empty: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Empty(json);
+    },
+    fields: {  },
+    deep: Object.assign(Object.create(Empty.#deep), {  }),
+    selections: Empty.#selections
+  });
 }
-export namespace Empty { export type Shape = EmptyShape; }
 
-export function isEmpty(x: unknown): x is Empty {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Empty) return true;
-  if ('@type' in x && x['@type'] !== "test.basic.Empty") return false;
-  return true;
+export namespace Empty {
+  export interface Shape {}
+  export type Selections = {  };
+  export type Deep = {  };
+  export interface Input {
+  }
+  export interface Type extends RuneValueType<Input, Empty> {
+    readonly shape?: Shape;
+    fields: {  };
+    deep: Omit<Deep, never> & {  };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
 
-type $Empty$Type$Reachable$Selections = {  };
-const $Empty$Type$Reachable$Selections: $Empty$Type$Reachable$Selections = {  };
-type $Empty$Type$Reachable$Deep = {  };
-const $Empty$Type$Reachable$Deep: $Empty$Type$Reachable$Deep = {  };
-export interface $Empty$Input {
-}
-export interface $Empty$Type extends RuneValueType<$Empty$Input, Empty> {
-  fields: {  };
-  deep: Omit<$Empty$Type$Reachable$Deep, never> & {  };
-  selections: $Empty$Type$Reachable$Selections;
-}
-export const $Empty$Type: $Empty$Type = runeRegisterValueType<$Empty$Type>({
-  identity: "test.basic.Empty",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isEmpty(json)) {
-      throw new TypeError('not a Empty: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Empty(json);
-  },
-  fields: {  },
-  deep: Object.assign(Object.create($Empty$Type$Reachable$Deep), {  }),
-  selections: $Empty$Type$Reachable$Selections
-});
-
-export interface PersonShape {
+export class Person implements Person.Shape {
   name: string;
   age: number;
   active: boolean;
   birthday: Temporal.PlainDate;
-}
 
-export class Person implements PersonShape {
-  name: string;
-  age: number;
-  active: boolean;
-  birthday: Temporal.PlainDate;
-
-  constructor(data: PersonShape) {
+  constructor(data: Person.Shape) {
     this.name = data.name;
     this.age = data.age;
     this.active = data.active;
     this.birthday = data.birthday;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Person$Input, Person>): RuneView<Person, RuneFromMin<I>, RuneFromMax<I>, $Person$Type> { return runeValue<I, $Person$Type>(input, () => $Person$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Person.from(runeValueFromJSON(input, () => $Person$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Person$Type, options); }
-}
-export namespace Person { export type Shape = PersonShape; }
+  static is(x: unknown): x is Person {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Person) return true;
+    if ('@type' in x && x['@type'] !== "test.basic.Person") return false;
+    if (!("name" in x) || typeof x.name !== 'string') return false;
+    if (!("age" in x) || typeof x.age !== 'number') return false;
+    if (!("active" in x) || typeof x.active !== 'boolean') return false;
+    if (!("birthday" in x) || !(x.birthday instanceof Temporal.PlainDate)) return false;
+    return true;
+  }
 
-export function isPerson(x: unknown): x is Person {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Person) return true;
-  if ('@type' in x && x['@type'] !== "test.basic.Person") return false;
-  if (!("name" in x) || typeof x.name !== 'string') return false;
-  if (!("age" in x) || typeof x.age !== 'number') return false;
-  if (!("active" in x) || typeof x.active !== 'boolean') return false;
-  if (!("birthday" in x) || !(x.birthday instanceof Temporal.PlainDate)) return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, Person.Input, Person>): RuneView<Person, RuneFromMin<I>, RuneFromMax<I>, Person.Type> { return runeValue<I, Person.Type>(input, () => Person.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Person.from(runeValueFromJSON(input, () => Person.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Person.Type, options); }
+
+  static readonly #selections: Person.Selections = { "test.basic.Person#name": { id: "test.basic.Person#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.basic.Person#age": { id: "test.basic.Person#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.basic.Person#active": { id: "test.basic.Person#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') }, "test.basic.Person#birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } };
+  static readonly #deep: Person.Deep = { "name": Person.#selections["test.basic.Person#name"], "age": Person.#selections["test.basic.Person#age"], "active": Person.#selections["test.basic.Person#active"], "birthday": Person.#selections["test.basic.Person#birthday"] };
+  static readonly Type: Person.Type = runeRegisterValueType<Person.Type>({
+    identity: "test.basic.Person",
+    inventory: { selections: Person.#selections, deep: Person.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Person.prototype,
+    create:   (json: unknown) => {
+      if (!Person.is(json)) {
+        throw new TypeError('not a Person: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Person(json);
+    },
+    fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
+    deep: Object.assign(Object.create(Person.#deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
+    selections: Person.#selections
+  });
 }
 
-type $Person$Type$Reachable$Selections = { "test.basic.Person#name": RuneValueSelection<string, 0, null, RuneEmptyType>; "test.basic.Person#age": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.basic.Person#active": RuneValueSelection<boolean, 0, null, RuneEmptyType>; "test.basic.Person#birthday": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType> };
-const $Person$Type$Reachable$Selections: $Person$Type$Reachable$Selections = { "test.basic.Person#name": { id: "test.basic.Person#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.basic.Person#age": { id: "test.basic.Person#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.basic.Person#active": { id: "test.basic.Person#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') }, "test.basic.Person#birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } };
-type $Person$Type$Reachable$Deep = { "name": RuneValueSelection<string, 0, null, RuneEmptyType>; "age": RuneValueSelection<number, 0, null, RuneEmptyType>; "active": RuneValueSelection<boolean, 0, null, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType> };
-const $Person$Type$Reachable$Deep: $Person$Type$Reachable$Deep = { "name": $Person$Type$Reachable$Selections["test.basic.Person#name"], "age": $Person$Type$Reachable$Selections["test.basic.Person#age"], "active": $Person$Type$Reachable$Selections["test.basic.Person#active"], "birthday": $Person$Type$Reachable$Selections["test.basic.Person#birthday"] };
-export interface $Person$Input {
-  "name": RuneInputPayload<string, 1, 1>;
-  "age": RuneInputPayload<number, 1, 1>;
-  "active": RuneInputPayload<boolean, 1, 1>;
-  "birthday": RuneInputPayload<Temporal.PlainDate, 1, 1>;
+export namespace Person {
+  export interface Shape {
+    name: string;
+    age: number;
+    active: boolean;
+    birthday: Temporal.PlainDate;
+  }
+  export type Selections = { "test.basic.Person#name": RuneValueSelection<string, 0, null, RuneEmptyType>; "test.basic.Person#age": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.basic.Person#active": RuneValueSelection<boolean, 0, null, RuneEmptyType>; "test.basic.Person#birthday": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType> };
+  export type Deep = { "name": RuneValueSelection<string, 0, null, RuneEmptyType>; "age": RuneValueSelection<number, 0, null, RuneEmptyType>; "active": RuneValueSelection<boolean, 0, null, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType> };
+  export interface Input {
+    "name": RuneInputPayload<string, 1, 1>;
+    "age": RuneInputPayload<number, 1, 1>;
+    "active": RuneInputPayload<boolean, 1, 1>;
+    "birthday": RuneInputPayload<Temporal.PlainDate, 1, 1>;
+  }
+  export interface Type extends RuneValueType<Input, Person> {
+    readonly shape?: Shape;
+    fields: { "name": RuneValueSelection<string, 1, 1, RuneEmptyType>; "age": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType> };
+    deep: Omit<Deep, "name" | "age" | "active" | "birthday"> & { "name": RuneValueSelection<string, 1, 1, RuneEmptyType>; "age": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $Person$Type extends RuneValueType<$Person$Input, Person> {
-  fields: { "name": RuneValueSelection<string, 1, 1, RuneEmptyType>; "age": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType> };
-  deep: Omit<$Person$Type$Reachable$Deep, "name" | "age" | "active" | "birthday"> & { "name": RuneValueSelection<string, 1, 1, RuneEmptyType>; "age": RuneValueSelection<number, 1, 1, RuneEmptyType>; "active": RuneValueSelection<boolean, 1, 1, RuneEmptyType>; "birthday": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType> };
-  selections: $Person$Type$Reachable$Selections;
-}
-export const $Person$Type: $Person$Type = runeRegisterValueType<$Person$Type>({
-  identity: "test.basic.Person",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isPerson(json)) {
-      throw new TypeError('not a Person: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Person(json);
-  },
-  fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
-  deep: Object.assign(Object.create($Person$Type$Reachable$Deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
-  selections: $Person$Type$Reachable$Selections
-});

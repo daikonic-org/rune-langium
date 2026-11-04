@@ -26,12 +26,18 @@ export function generatedTypeScriptCompilerOptions(overrides: ts.CompilerOptions
 /** Compile the emitted file set and let Node resolve its actual module imports. */
 export function compileGeneratedTypeScript<
   T extends Record<string, unknown> = Record<string, (...args: unknown[]) => unknown>
->(outputs: readonly GeneratorOutput[], options: { assertions?: string; entry?: string; checkTypes?: boolean } = {}): T {
+>(
+  outputs: readonly GeneratorOutput[],
+  options: { assertions?: string; entry?: string; checkTypes?: boolean; erasableSyntaxOnly?: boolean } = {}
+): T {
   const directory = generatedDirectory(join(tmpdir(), 'rune-generated-ts-'));
   const entry = options.entry ?? outputs[0]!.relativePath;
   const require = createRequire(join(directory, 'entry.js'));
   try {
-    const compilerOptions = generatedTypeScriptCompilerOptions({ module: ts.ModuleKind.CommonJS });
+    const compilerOptions = generatedTypeScriptCompilerOptions({
+      module: ts.ModuleKind.CommonJS,
+      erasableSyntaxOnly: options.erasableSyntaxOnly
+    });
     for (const output of outputs) {
       const path = join(directory, output.relativePath);
       mkdirSync(dirname(path), { recursive: true });

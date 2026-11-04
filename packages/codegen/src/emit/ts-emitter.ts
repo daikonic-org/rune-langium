@@ -68,15 +68,9 @@ import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } fr
  * FR-020 (full TS class shape, no Zod dependency), US5B acceptance scenarios 2–5, SC-005.
  * T104–T111 (Phase 8).
  *
- * Produces one *.ts module per namespace containing:
- *   - Inlined RUNTIME_HELPER_SOURCE (no `import { z }` — zero Zod dependency)
- *   - export interface <TypeName>Shape { ... }
- *   - export class <TypeName> implements <TypeName>Shape (or extends Parent)
- *   - static from(json: unknown): <TypeName> factory
- *   - export function is<TypeName>(x: unknown): x is <TypeName> type guard
- *   - export function is<Child>(x: <Parent>): x is <Child> discriminator predicates
- *   - validate<ConditionName>(): { valid: boolean; errors: string[] } instance methods
- *   - export function declarations for Rune functions
+ * Each Data emits one public class with guards, factories and its runtime
+ * descriptor, plus a type-only namespace containing Shape and view input types.
+ * Runtime helpers are shared by default; explicit inline output is supported.
  */
 
 import type {
@@ -102,7 +96,7 @@ import {
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { debug } from '../instrument.js';
 import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
-import { ValueApiEmitter } from './value-api.js';
+import { ValueApiEmitter, MODEL_NAMESPACE_MEMBERS } from './value-api.js';
 import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES } from '../expr/rune-value-runtime.js';
 import {
   attrAccessExpr,
@@ -248,11 +242,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     (node, suffix = '') => {
       if (isTypeScriptNativeType(node))
         return `$record$${this.model.namespace.replace(/[^\w]/g, '$')}$${getElementNamespace(node)?.replace(/[^\w]/g, '$')}$${node.name}$${suffix}`;
-      const namespace = getElementNamespace(node) ?? this.model.namespace;
-      const name = this.callableNames.declarationExported(namespace, node);
-      return this.typeName(node, `$${name}${suffix ? `$${suffix}` : ''}`);
+      return `${this.typeName(node)}${suffix ? `.${suffix}` : ''}`;
     },
-    (field) => this.resolveTypeExprAsTs(field, false),
+    (field) => this.resolveTypeExprAsTs(field, false, false, true),
     (record) => this.ctx.builtinTypeMap[record.name] ?? 'unknown',
     (node) => (isTypeScriptNativeType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
     (node) => {
@@ -274,7 +266,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           : `if (${dateKeys.map(present).join(' && ')}${type === 'Temporal.ZonedDateTime' ? " && ('timeZone' in value && typeof value.timeZone === 'string')" : ''}) return ${type}.from({ ...value, ${dateKeys.map((key) => `${key}: value.${key}`).join(', ')}${type === 'Temporal.ZonedDateTime' ? ', timeZone: value.timeZone' : ''} });`;
       return `(value: unknown) => { if (value instanceof ${type}) return value; if (typeof value === 'string') return ${parse}; if (Object.prototype.toString.call(value) === '[object ${type}]') return ${type}.from(String(value)); if (value !== null && typeof value === 'object') { ${bags} } throw new TypeError('Expected ${type}, temporal fields or an ISO string'); }`;
     },
-    (field) => this.valueGuard(field)
+    (field) => this.valueGuard(field),
+    (node) =>
+      isData(node)
+        ? `InstanceType<typeof ${this.typeName(node)}>`
+        : isChoice(node)
+          ? this.choiceUnion(node, true)
+          : (this.ctx.builtinTypeMap[node.name] ?? 'unknown')
   );
   private readonly ctx: EmissionContext;
   private readonly typeIndex: TypeIndexLookup;
@@ -297,7 +295,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.typeIndex = toTypeIndexLookup(this.ctx, this.ctx.namespace);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
-    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES, RUNE_VALUE_NAMES);
+    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES, RUNE_VALUE_NAMES, true);
     this.singleFile = options.typescript?.layout === 'single-file';
     this.inputChecks = options.typescript?.inputChecks === true;
     this.projectBindings = options.projectBindings;
@@ -321,11 +319,33 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private typeName = (declaration: AstNode & { name: string }, exportedName = declaration.name): string => {
     const namespace = getElementNamespace(declaration) ?? this.model.namespace;
+    if (isData(declaration) || isChoice(declaration)) {
+      const exported = this.callableNames.declarationExported(namespace, declaration);
+      const root =
+        this.singleFile || namespace !== this.model.namespace
+          ? this.callableNames.bundled(namespace, exported)
+          : exported;
+      if (exportedName === `${declaration.name}Shape`) return `${root}.Shape`;
+      if (exportedName === `is${declaration.name}`) return `${root}.is`;
+      return root;
+    }
     exportedName = this.callableNames.declarationExported(namespace, declaration, exportedName);
     return this.singleFile || namespace !== this.model.namespace
       ? this.callableNames.bundled(namespace, exportedName)
       : exportedName;
   };
+
+  private modelTypeReference(node: Data | Choice, shape = false, inNamespace = false): string {
+    const root = this.typeName(node);
+    if (!inNamespace || !MODEL_NAMESPACE_MEMBERS.has(root)) return shape ? `${root}.Shape` : root;
+    if (shape) return `NonNullable<(typeof ${root}.Type)['shape']>`;
+    return isData(node) ? `InstanceType<typeof ${root}>` : `NonNullable<(typeof ${root}.Type)['output']>`;
+  }
+
+  private enumTypeReference(node: RosettaEnumeration, inNamespace = false): string {
+    const root = this.typeName(node);
+    return inNamespace && MODEL_NAMESPACE_MEMBERS.has(root) ? `(typeof ${root})[keyof typeof ${root}]` : root;
+  }
 
   emitHeader(): void {
     this.sections.push(this.buildFileHeader());
@@ -373,14 +393,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.emittedData.add(data);
     const parent = data.superType?.ref;
     if (isData(parent) && this.ctx.dataByName.get(parent.name) === parent) this.emitData(parent);
-    this.sections.push(this.emitInterface(data));
-    this.sections.push('');
-    this.sections.push(this.emitClass(data));
-    this.sections.push('');
-    this.sections.push(this.emitTypeGuard(data));
-    this.sections.push('');
-    this.sections.push(this.valueApi.emit(data));
-    this.sections.push('');
+    const api = this.valueApi.emit(data);
+    if (api.prelude) this.sections.push(api.prelude, '');
+    this.sections.push(this.emitClass(data, api.members), '');
+    this.sections.push(this.emitModelNamespace(data, `${this.emitInterface(data)}\n${api.types}`), '');
   }
 
   /**
@@ -390,24 +406,32 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    *
    * Data-extends-Choice (user-directed correction, supersedes the spec
    * snippet where they differ): ALSO emit a SHAPE-level union
-   * (`<Name>Shape = { cash: CashShape } | ...`) alongside the class-armed
+   * (`<Name>.Shape = { cash: Cash.Shape } | ...`) alongside the class-armed
    * one — see emitChoiceShapeTypeDeclaration's doc comment. The original
    * `export type <Name> = { cash: Cash } | ...` union is unchanged (W2
    * surface, non-goal).
    */
   @debug()
   emitChoice(choice: Choice): void {
-    this.sections.push(this.emitChoiceTypeDeclaration(choice));
-    this.sections.push('');
-    this.sections.push(this.emitChoiceShapeTypeDeclaration(choice));
+    const api = this.valueApi.emit(choice);
+    if (api.prelude) this.sections.push(api.prelude, '');
+    const name = this.typeName(choice);
+    this.sections.push(this.emitChoiceTypeDeclaration(choice), '');
     this.sections.push(
-      `export namespace ${this.typeName(choice)} { export type Shape = ${this.typeName(choice, `${choice.name}Shape`)}; }`
+      `export const ${name} = (() => {\n${api.members}\nreturn { Type: __descriptor, ${this.emitChoiceTypeGuard(choice)}, ${this.valueApi.factory(choice)} };\n})();`,
+      ''
     );
-    this.sections.push('');
-    this.sections.push(this.emitChoiceTypeGuard(choice));
-    this.sections.push('');
-    this.sections.push(this.valueApi.emit(choice));
-    this.sections.push('');
+    this.sections.push(
+      this.emitModelNamespace(choice, `${this.emitChoiceShapeTypeDeclaration(choice)}\n${api.types}`),
+      ''
+    );
+  }
+
+  private emitModelNamespace(node: Data | Choice, content: string): string {
+    return `export namespace ${this.typeName(node)} {\n${content
+      .split('\n')
+      .map((line) => `  ${line}`)
+      .join('\n')}\n}`;
   }
 
   emitRule(rule: RosettaRule): void {
@@ -600,8 +624,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       localName?: string
     ): void => {
       if (!typeRef) return;
-      if ((isData(typeRef) || isChoice(typeRef)) && symbolName === `${typeRef.name}Shape`)
-        trackRef(typeRef, typeRef.name);
+      if (isData(typeRef) || isChoice(typeRef)) {
+        symbolName = typeRef.name;
+        localName = this.typeName(typeRef);
+      }
       const ns = getElementNamespace(typeRef);
       if (!ns || ns === this.ctx.namespace) return;
 
@@ -634,7 +660,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     //
     // ATTRIBUTE position: bare name only for all three kinds — matches
     // resolveTypeExprAsTs's onData/onEnum/onChoice, which all return the bare
-    // `node.name` at attribute position (never `<Name>Shape`).
+    // `node.name` at attribute position (never `<Name>.Shape`).
     const trackAttributePositionImport = (typeCall: TypeCall | undefined): void => {
       resolveTypeCallTarget(
         typeCall,
@@ -661,7 +687,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       const parentRef = data.superType?.ref;
       if (parentRef) {
         // Deliberately NOT gated on isData: a Choice supertype in another
-        // namespace needs BOTH symbols too — `<Choice>Shape` (the generic
+        // namespace needs BOTH symbols too — `<Choice>.Shape` (the generic
         // constraint/default on the child's Shape alias and class, per
         // emitChoiceShapeTypeDeclaration) and the bare `<Choice>` union.
         // Before Choices emitted a Shape-level union this ungated tracking
@@ -672,7 +698,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         trackRef(parentRef, parentRef.name);
       }
       // Multi-level Data-extends-Choice: the child's generic Shape alias
-      // constraint references the Choice ANCESTOR's `<Choice>Shape` even
+      // constraint references the Choice ANCESTOR's `<Choice>.Shape` even
       // when the immediate parent is a Data — the ancestor may live in a
       // third namespace the immediate-parent tracking above never sees.
       if (parentRef && isData(parentRef)) {
@@ -698,7 +724,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // emitTypeAliasDeclaration's value emission, instead of only tracking the
     // alias's immediate direct ref (which for a 2+ hop chain tracked the
     // wrong, intermediate alias's bare name rather than the terminal target).
-    // DECLARATION position: Data/Choice resolve to `<Name>Shape` (a type
+    // DECLARATION position: Data/Choice resolve to `<Name>.Shape` (a type
     // alias is a structural synonym); Enum resolves to the bare name — matches
     // emitTypeAliasDeclaration's onData/onChoice/onEnum exactly.
     for (const alias of this.ctx.typeAliasByName.values()) {
@@ -799,10 +825,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       for (const feature of this.valueApi.features(root)) trackAttributePositionImport(feature.typeCall);
       for (const dependency of this.valueApi.dependencies(root)) {
         if (isTypeScriptNativeType(dependency)) continue;
-        for (const suffix of ['Input', 'Type']) {
-          const exportedName = `$${this.callableNames.declarationExported(getElementNamespace(dependency) ?? this.ctx.namespace, dependency)}$${suffix}`;
-          trackRef(dependency, exportedName, this.valueApi.name(dependency, suffix));
-        }
         trackRef(dependency, dependency.name);
       }
     }
@@ -813,7 +835,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Resolve the TypeScript type expression for an attribute.
    * T105.
    */
-  private resolveTypeExprAsTs(attr: Feature, metadata = true, shape = false): string {
+  private resolveTypeExprAsTs(attr: Feature, metadata = true, shape = false, inNamespace = false): string {
     const type = resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
@@ -837,9 +859,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         // W2: a Choice-typed attribute resolves to the emitted Choice
         // union type name — was previously falling to 'unknown' (isChoice
         // was never consulted in the hand-rolled chain this replaces).
-        onEnum: (node) => this.typeName(node),
-        onData: (node) => this.typeName(node, shape ? `${node.name}Shape` : node.name),
-        onChoice: (node) => this.typeName(node, shape ? `${node.name}Shape` : node.name),
+        onEnum: (node) => this.enumTypeReference(node, inNamespace),
+        onData: (node) => this.modelTypeReference(node, shape, inNamespace),
+        onChoice: (node) => this.modelTypeReference(node, shape, inNamespace),
         onUnresolved: (refText) => {
           if (refText) return refText; // preserves this file's existing permissive refText shortcut
           this.reportUnresolvedReference(featureName(attr), undefined, 'unknown');
@@ -928,8 +950,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * type argument resolves to a union is exactly that shape. So once ANY
    * ancestor's Shape becomes the generic intersection alias (T105's
    * Data-extends-Choice case), every DESCENDANT's Shape must also become a
-   * generic alias threading the same `T`, chaining `<Parent>Shape<T>`
-   * rather than `extends <Parent>Shape` — unlike zod's runtime
+   * generic alias threading the same `T`, chaining `<Parent>.Shape<T>`
+   * rather than `extends <Parent>.Shape` — unlike zod's runtime
    * `runeExtendChoice` (which must flatten to ONE call because a `z.union`
    * has no `.extend()`), TS type aliases chain naturally
    * (`type CShape<T> = BShape<T> & {...}` typechecks and still narrows
@@ -949,11 +971,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   /**
-   * Emit the `<TypeName>Shape` TYPE-level artifact.
+   * Emit the `<TypeName>.Shape` TYPE-level artifact.
    *
    * Ordinary case (no supertype, and no Choice ancestor anywhere up the
-   * `extends` chain): `export interface <TypeName>Shape { ... }`, extending
-   * `<Parent>Shape` when the parent is a Data in this namespace — own
+   * `extends` chain): `export interface <TypeName>.Shape { ... }`, extending
+   * `<Parent>.Shape` when the parent is a Data in this namespace — own
    * attributes only, parent's are inherited via `extends`. UNCHANGED for
    * this feature.
    *
@@ -964,13 +986,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * is not expressible (interfaces cannot extend a union) — the spec's own
    * type surface is `T & { ...extras }`, generic over the Choice arm.
    * Since the CLASS is already named `<TypeName>` (T106), the type alias is
-   * emitted as `<TypeName>Shape` instead (collision-free naming, recorded
+   * emitted as `<TypeName>.Shape` instead (collision-free naming, recorded
    * in the spec doc). The constraint/default is the Choice's SHAPE-level
-   * union (`<Choice>Shape`, per emitChoiceShapeTypeDeclaration), NOT the
+   * union (`<Choice>.Shape`, per emitChoiceShapeTypeDeclaration), NOT the
    * bare Choice union — the bare union's arms are the CLASS types, which
    * would world-mix a plain-data construction payload with class-armed
-   * types: `export type <TypeName>Shape<T extends <Choice>Shape =
-   * <Choice>Shape> = T & { ...own attrs };`. Bare `<TypeName>Shape` (no
+   * types: `export type <TypeName>.Shape<T extends <Choice>.Shape =
+   * <Choice>.Shape> = T & { ...own attrs };`. Bare `<TypeName>.Shape` (no
    * type argument) still typechecks at every existing reference site
    * because the default type param is the full Shape-level union.
    *
@@ -978,15 +1000,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * parent is a Data whose own chain reaches a Choice ancestor further up
    * (`findChoiceAncestor`), this Data's Shape must ALSO become a generic
    * alias threading the same `T` through the parent's generic Shape:
-   * `export type <TypeName>Shape<T extends <ChoiceAncestor>Shape =
-   * <ChoiceAncestor>Shape> = <Parent>Shape<T> & { ...own attrs };` — plain
-   * `interface … extends <Parent>Shape` would fail to compile once
-   * `<Parent>Shape` is itself the generic alias (its default resolves to a
+   * `export type <TypeName>.Shape<T extends <ChoiceAncestor>.Shape =
+   * <ChoiceAncestor>.Shape> = <Parent>.Shape<T> & { ...own attrs };` — plain
+   * `interface … extends <Parent>.Shape` would fail to compile once
+   * `<Parent>.Shape` is itself the generic alias (its default resolves to a
    * union).
    * T105.
    */
   private emitInterface(data: Data): string {
-    const interfaceName = this.typeName(data, `${data.name}Shape`);
+    const interfaceName = 'Shape';
 
     const parentRef = data.superType?.ref;
     const choiceParent = parentRef && isChoice(parentRef) ? parentRef : undefined;
@@ -994,7 +1016,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // design.md): NOT gated on `this.ctx.dataByName.has(...)` — that map
     // only holds THIS namespace's own Data nodes, so a parent Data in
     // ANOTHER namespace failed the check and silently lost `extends
-    // <Parent>Shape` even though `collectCrossNamespaceImports` already
+    // <Parent>.Shape` even though `collectCrossNamespaceImports` already
     // tracks and emits the import for exactly this case. `isData(parentRef)`
     // alone suffices: Langium cross-ns refs are resolved AST nodes, `.name`
     // and `findChoiceAncestor` both work through them regardless of which
@@ -1007,23 +1029,31 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // Own attribute field declarations — identical across all branches.
     const fields: string[] = hasTypeMetadata(data) ? ['  meta?: RuneMetadata;'] : [];
     for (const attr of data.attributes) {
-      const baseType = this.resolveTypeExprAsTs(attr, true, true);
+      const baseType = this.resolveTypeExprAsTs(attr, true, true, true);
       const fieldDecl = TsNamespaceEmitter.applyCardinalityTs(attr.card, baseType, attr.name);
       fields.push(`  ${fieldDecl};`);
     }
     const body = fields.length === 0 ? '{}' : `{\n${fields.join('\n')}\n}`;
 
     if (choiceParent) {
-      const constraint = this.typeName(choiceParent, `${choiceParent.name}Shape`);
+      const constraint = this.modelTypeReference(choiceParent, true, true);
       return `export type ${interfaceName}<T extends ${constraint} = ${constraint}> = T & ${body};`;
     }
 
     if (parentData && inheritedChoiceAncestor) {
-      const constraint = this.typeName(inheritedChoiceAncestor, `${inheritedChoiceAncestor.name}Shape`);
-      return `export type ${interfaceName}<T extends ${constraint} = ${constraint}> = ${this.typeName(parentData, `${parentData.name}Shape`)}<T> & ${body};`;
+      const constraint = this.modelTypeReference(inheritedChoiceAncestor, true, true);
+      const parentShape = this.modelTypeReference(parentData, true, true);
+      const inherited = MODEL_NAMESPACE_MEMBERS.has(this.typeName(parentData))
+        ? `T & Omit<${parentShape}, ${
+            typeFeatures(inheritedChoiceAncestor)
+              .map((field) => JSON.stringify(featureName(field)))
+              .join(' | ') || 'never'
+          }>`
+        : `${parentShape}<T>`;
+      return `export type ${interfaceName}<T extends ${constraint} = ${constraint}> = ${inherited} & ${body};`;
     }
 
-    const parentInterfaceName = parentData ? this.typeName(parentData, `${parentData.name}Shape`) : undefined;
+    const parentInterfaceName = parentData ? this.modelTypeReference(parentData, true, true) : undefined;
 
     const header = parentInterfaceName
       ? `export interface ${interfaceName} extends ${parentInterfaceName}`
@@ -1037,8 +1067,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Emit `export class <TypeName> implements <TypeName>Shape` (no parent)
-   * or `export class <Child> extends <Parent> implements <Child>Shape` (with parent).
+   * Emit `export class <TypeName> implements <TypeName>.Shape` (no parent)
+   * or `export class <Child> extends <Parent> implements <Child>.Shape` (with parent).
    * Includes instance field declarations and constructor.
    *
    * Data-extends-Choice (AMENDED per docs/superpowers/specs/2026-07-02-
@@ -1047,20 +1077,20 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * CLASS to `extends` (a Choice is a type-only union, never emitted as a
    * class — see emitChoice's doc comment) — instead the child class itself
    * becomes generic over the Choice arm: `class <Name><T extends
-   * <Choice>Shape = <Choice>Shape>` (constrained on the SHAPE-level Choice
+   * <Choice>.Shape = <Choice>.Shape>` (constrained on the SHAPE-level Choice
    * union, per the user-directed correction — see
-   * emitChoiceShapeTypeDeclaration's world-mixing rationale). `<Name>Shape`
+   * emitChoiceShapeTypeDeclaration's world-mixing rationale). `<Name>.Shape`
    * is now the generic intersection type alias (T105, "TS type — generic
-   * intersection") — its DEFAULT instantiation (`<Name>Shape` with no type
-   * argument) is `<Choice>Shape & {...own attrs}`, a
+   * intersection") — its DEFAULT instantiation (`<Name>.Shape` with no type
+   * argument) is `<Choice>.Shape & {...own attrs}`, a
    * union-rooted intersection, which a class cannot `implements` (classes
    * may only implement object types, not unions). So the class omits
-   * `implements` for the Choice-parent case; `<Name>Shape<T>` remains the
+   * `implements` for the Choice-parent case; `<Name>.Shape<T>` remains the
    * single construction-time type used by the constructor parameter and
    * `static from`'s cast — the class/alias pairing is still verified by
    * the emitted-runtime behavior tests (real `tsc` + real execution), just
    * not via a structural `implements` clause. The constructor threads `T`
-   * through its parameter (`data: <Name>Shape<T>`) and
+   * through its parameter (`data: <Name>.Shape<T>`) and
    * `Object.assign(this, data)` copies the T-surface onto the instance,
    * while own attributes are still assigned explicitly afterward (unchanged
    * convention) so `typeof this.<attr>` narrowing keeps working. `static
@@ -1068,7 +1098,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * competing `of<T>()` factory).
    * T106.
    */
-  private emitClass(data: Data): string {
+  private emitClass(data: Data, valueMembers: string): string {
     const name = this.typeName(data);
     const publicName = this.typeName(data);
     const interfaceName = this.typeName(data, `${data.name}Shape`);
@@ -1083,7 +1113,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // Multi-level (Data extends Data extends Choice, per T105's
     // emitInterface): once the PARENT's own Shape is itself the generic
     // intersection alias, THIS Data's Shape (bare, default `T`) is also
-    // union-rooted — `implements <Name>Shape` fails the same way it does
+    // union-rooted — `implements <Name>.Shape` fails the same way it does
     // for a direct Choice parent (TS2422: a class can only implement an
     // object type, not a union). The class stays ordinary (`extends
     // <Parent>` only, no `<T>` on the class itself — the leaf Data doesn't
@@ -1138,7 +1168,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push('  }');
     }
 
-    lines.push('', this.valueApi.factory(data));
+    lines.push(
+      '',
+      ...this.emitTypeGuard(data)
+        .split('\n')
+        .map((line) => `  ${line}`),
+      '',
+      this.valueApi.factory(data)
+    );
     const model = this.valueApi.name(data, 'Type');
     lines.push(
       `  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return ${name}.from(runeValueFromJSON(input, () => ${model}, options)); }`
@@ -1162,13 +1199,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push(this.emitValidateMethods(data));
     }
 
-    lines.push('}');
-    const generic = choiceParent
-      ? `<T extends ${this.typeName(choiceParent, `${choiceParent.name}Shape`)} = ${this.typeName(choiceParent, `${choiceParent.name}Shape`)}>`
-      : '';
-    lines.push(
-      `export namespace ${publicName} { export type Shape${generic} = ${interfaceName}${choiceParent ? '<T>' : ''}; }`
-    );
+    lines.push('', ...valueMembers.split('\n').map((line) => `  ${line}`), '}');
     return lines.join('\n');
   }
 
@@ -1263,15 +1294,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ? `${name} & ${this.typeName(data, `${data.name}Shape`)}`
       : name;
 
-    const guard = this.typeName(data, `is${data.name}`);
+    const guard = 'is';
     const lines: string[] = [
       ...(parentName
         ? [
-            `export function ${guard}(x: unknown): x is ${guardedType};`,
-            `export function ${guard}(x: ${parentName}): x is ${guardedType};`
+            `static ${guard}(x: unknown): x is ${guardedType};`,
+            `static ${guard}(x: ${parentName}): x is ${guardedType};`
           ]
         : []),
-      `export function ${guard}(x: unknown): x is ${guardedType} {`,
+      `static ${guard}(x: unknown): x is ${guardedType} {`,
       `  if (typeof x !== 'object' || x === null) return false;`,
       `  if (x instanceof ${name}) return true;`,
       `  if ('@type' in x && x['@type'] !== ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)}) return false;`,
@@ -1292,7 +1323,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * for an attribute's type reference, adapted for a `ChoiceOption` (which
    * has a `typeCall` but no `.name`, unlike `Attribute`).
    */
-  private resolveChoiceOptionTypeExpr(typeCall: TypeCall | undefined, diagnosticLabel: string): string {
+  private resolveChoiceOptionTypeExpr(
+    typeCall: TypeCall | undefined,
+    diagnosticLabel: string,
+    inNamespace = false
+  ): string {
     return resolveProjectTypeCall(
       typeCall,
       this.typeIndex,
@@ -1307,9 +1342,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           });
           return 'unknown';
         },
-        onEnum: (node) => this.typeName(node),
-        onData: (node) => this.typeName(node),
-        onChoice: (node) => this.typeName(node),
+        onEnum: (node) => this.enumTypeReference(node, inNamespace),
+        onData: (node) => this.modelTypeReference(node, false, inNamespace),
+        onChoice: (node) => this.modelTypeReference(node, false, inNamespace),
         onUnresolved: (refText) => {
           if (refText) return refText;
           this.reportUnresolvedReference(diagnosticLabel, undefined, 'unknown');
@@ -1326,7 +1361,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Resolve a Choice option's SHAPE-level TS type reference for
    * `emitChoiceShapeTypeDeclaration` — identical dispatch to
    * `resolveChoiceOptionTypeExpr` except a Data target resolves to its
-   * `<Name>Shape` structural type. Preserves that function's pre-existing
+   * `<Name>.Shape` structural type. Preserves that function's pre-existing
    * Data-only special case (Enum/Choice targets stay bare, matching
    * `emitChoiceShapeTypeDeclaration`'s doc comment) — now driven through the
    * resolved terminal node instead of the immediate direct ref.
@@ -1346,9 +1381,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           });
           return 'unknown';
         },
-        onEnum: (node) => this.typeName(node),
-        onData: (node) => this.typeName(node, `${node.name}Shape`),
-        onChoice: (node) => this.typeName(node, `${node.name}Shape`),
+        onEnum: (node) => this.enumTypeReference(node, true),
+        onData: (node) => this.modelTypeReference(node, true, true),
+        onChoice: (node) => this.modelTypeReference(node, true, true),
         onUnresolved: (refText) => {
           if (refText) return refText;
           this.reportUnresolvedReference(diagnosticLabel, undefined, 'unknown');
@@ -1368,7 +1403,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * object with exactly ONE option key present, not a `$type` tag).
    */
   private emitChoiceTypeDeclaration(choice: Choice): string {
-    const name = this.typeName(choice);
+    return `export type ${this.typeName(choice)} = ${this.choiceUnion(choice)};`;
+  }
+
+  private choiceUnion(choice: Choice, inNamespace = false): string {
     const options = choice.attributes
       .map((option) => {
         // FIELD KEY: derived from the DIRECT/immediate reference's name,
@@ -1381,21 +1419,18 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         const fieldName = choiceOptionFieldName(optionTypeName);
         // VALUE TYPE: chases through any RosettaTypeAlias chain.
         const valueType = metadataType(
-          this.resolveChoiceOptionTypeExpr(option.typeCall, fieldName),
+          this.resolveChoiceOptionTypeExpr(option.typeCall, fieldName, inNamespace),
           fieldMetadataKind(option)
         );
         return `{ ${fieldName}: ${valueType} }`;
       })
       .join(' | ');
-    if (options === '') {
-      return `export type ${name} = never;`;
-    }
-    return `export type ${name} = ${options};`;
+    return options || 'never';
   }
 
   /**
    * Emit the SHAPE-level Choice union:
-   * `export type <ChoiceName>Shape = { cash: CashShape } | { commodity: CommodityShape } | ...;`
+   * `export type <ChoiceName>.Shape = { cash: Cash.Shape } | { commodity: CommodityShape } | ...;`
    *
    * Data-extends-Choice (user-directed correction): the generic
    * intersection Shape alias and the generic child class must constrain
@@ -1405,13 +1440,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * intersect the plain-data (Shape) world with a class-armed union
    * (world-mixing: a `{ cash: { amount: 5 } }` construction payload is
    * not a `Cash` class instance). Each arm's value type here is the
-   * option's `<Name>Shape` when the option resolves to a Data (the type
+   * option's `<Name>.Shape` when the option resolves to a Data (the type
    * a construction payload actually carries at that key), and the bare
    * name otherwise (enums/builtins have no Shape form — same convention
    * as every other Shape-suffix site in this emitter).
    */
   private emitChoiceShapeTypeDeclaration(choice: Choice): string {
-    const name = this.typeName(choice, `${choice.name}Shape`);
+    const name = 'Shape';
     const options = choice.attributes
       .map((option) => {
         // FIELD KEY: same direct/immediate-name convention as
@@ -1420,7 +1455,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         const optionTypeName = optionTypeRef?.ref?.name ?? optionTypeRef?.$refText ?? '?';
         const fieldName = choiceOptionFieldName(optionTypeName);
         // VALUE TYPE: chases through any RosettaTypeAlias chain; Data targets
-        // resolve to `<Name>Shape`.
+        // resolve to `<Name>.Shape`.
         const valueType = metadataType(
           this.resolveChoiceOptionShapeTypeExpr(option.typeCall, fieldName),
           fieldMetadataKind(option)
@@ -1451,7 +1486,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const accessors = fieldNames.map((f) => `(${JSON.stringify(f)} in x ? x.${f} : undefined)`).join(', ');
 
     const lines: string[] = [
-      `export function ${this.typeName(choice, `is${choice.name}`)}(x: unknown): x is ${name} {`,
+      `is(x: unknown): x is ${name} {`,
       `  if (typeof x !== 'object' || x === null) return false;`,
       `  return rune.checkOneOf([${accessors}]);`,
       `}`
@@ -1779,7 +1814,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * literal — consistent with every other builtin-typed declaration in this
    * emitter (no fixture previously exercised a temporal-typed alias).
    *
-   * Data/Choice targets resolve to their `<Name>Shape` plain-structural type
+   * Data/Choice targets resolve to their `<Name>.Shape` plain-structural type
    * (not the class/bare-union name `resolveTypeExprAsTs` uses for attribute
    * fields) — a type alias is a structural synonym, and this function's own
    * pre-existing Data handling already used the `Shape` suffix (verified by
@@ -1872,83 +1907,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     return false;
   }
 
-  /**
-   * Build a positive type-guard expression for a scalar/object builtin field.
-   */
-  private static posTypeofGuard(access: string, typeofStr: string, tsType?: string): string {
-    if (typeofStr === 'object') {
-      if (isTypeScriptNativeMapping(tsType)) return `${access} instanceof ${tsType}`;
-      return `(typeof ${access} === 'object' && ${access} !== null && !Array.isArray(${access}))`;
-    }
-    return `typeof ${access} === '${typeofStr}'`;
-  }
-
-  /** Negated form of posTypeofGuard (true when the field does NOT match). */
+  /** True when the scalar field does not match its builtin type. */
   private static negTypeofGuard(access: string, typeofStr: string, tsType?: string): string {
     if (typeofStr === 'object') {
       if (isTypeScriptNativeMapping(tsType)) return `!(${access} instanceof ${tsType})`;
       return `(typeof ${access} !== 'object' || ${access} === null || Array.isArray(${access}))`;
     }
     return `typeof ${access} !== '${typeofStr}'`;
-  }
-
-  // ---------------------------------------------------------------------------
-  // T109: emitDiscriminatorPredicate
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Emit `export function is<Child>(x: <Parent>): x is <Child>` discriminator predicate.
-   * T109.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private emitDiscriminatorPredicate(child: Data, parent: Data): string {
-    const childName = child.name;
-    const parentName = parent.name;
-
-    const childFields = child.attributes;
-
-    if (childFields.length === 0) {
-      return [
-        `export function is${childName}(x: ${parentName}): x is ${childName} {`,
-        `  return is${childName}(x as unknown);`,
-        `}`
-      ].join('\n');
-    }
-
-    const checks: string[] = [];
-    for (const attr of childFields) {
-      const card = attr.card;
-      const typeofStr = this.resolveTypeofStr(attr);
-      const isArray = TsNamespaceEmitter.isArrayCardinality(card);
-      const isOpt = TsNamespaceEmitter.isOptionalCardinality(card);
-      const obj = '(x as Record<string, unknown>)';
-
-      if (isArray) {
-        checks.push(`Array.isArray(${obj}.${attr.name})`);
-      } else if (isOpt) {
-        if (typeofStr) {
-          const tsType = this.resolveBuiltinTsType(attr);
-          checks.push(
-            `(${obj}.${attr.name} === undefined || ${TsNamespaceEmitter.posTypeofGuard(`${obj}.${attr.name}`, typeofStr, tsType)})`
-          );
-        }
-      } else {
-        if (typeofStr) {
-          const tsType = this.resolveBuiltinTsType(attr);
-          checks.push(TsNamespaceEmitter.posTypeofGuard(`${obj}.${attr.name}`, typeofStr, tsType));
-        } else {
-          checks.push(`${obj}.${attr.name} !== undefined`);
-        }
-      }
-    }
-
-    const condition = checks.length === 0 ? 'true' : checks.join(' && ');
-
-    return [
-      `export function is${childName}(x: ${parentName}): x is ${childName} {`,
-      `  return ${condition};`,
-      `}`
-    ].join('\n');
   }
 
   // ---------------------------------------------------------------------------

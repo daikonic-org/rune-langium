@@ -67,7 +67,7 @@ describe('ts-emitter — Choice emission (W2)', () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.choice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('export function isAsset(x: unknown): x is Asset {');
+    expect(output.content).toContain('is(x: unknown): x is Asset {');
   });
 
   it('the type guard checks exactly-one-of the option keys via rune.checkOneOf', async () => {
@@ -83,7 +83,7 @@ describe('ts-emitter — Choice emission (W2)', () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.choice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('asset?: AssetShape;');
+    expect(output.content).toContain('asset?: Asset.Shape;');
     expect(output.content).not.toMatch(/asset\??:\s*unknown/);
   });
 

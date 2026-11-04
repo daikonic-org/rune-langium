@@ -9,12 +9,12 @@
  * class" sections): a `Data` whose `superType` is a `Choice` (real corpus
  * case: `BasketConstituent extends Observable`) emits:
  *  - a SHAPE-level Choice union alongside the class-armed W2 one:
- *    `export type <Choice>Shape = { cash: CashShape } | ...` — each arm's
+ *    `export type <Choice>.Shape = { cash: Cash.Shape } | ...` — each arm's
  *    value type is the option's Shape when the option is a Data (the type
  *    a construction payload actually carries), bare name otherwise.
- *  - `<Name>Shape` as a GENERIC INTERSECTION TYPE ALIAS (not a plain
- *    interface): `export type <Name>Shape<T extends <Choice>Shape =
- *    <Choice>Shape> = T & { ...own attrs };`. A plain `interface …
+ *  - `<Name>.Shape` as a GENERIC INTERSECTION TYPE ALIAS (not a plain
+ *    interface): `export type <Name>.Shape<T extends <Choice>.Shape =
+ *    <Choice>.Shape> = T & { ...own attrs };`. A plain `interface …
  *    extends` is not expressible here (interfaces cannot extend a union);
  *    the spec's own "TS type — generic intersection" surface is this
  *    `T & {...extras}` shape. Constraint/default is the SHAPE-level
@@ -22,18 +22,18 @@
  *    world-mix the plain-data Shape world with the class-armed union.
  *    Naming: the spec's literal snippet names the alias after the
  *    Data itself (`BasketConstituent<T> = T & {...}`), but the CLASS
- *    already owns that bare name — so the alias is `<Name>Shape` (the
+ *    already owns that bare name — so the alias is `<Name>.Shape` (the
  *    collision-free resolution recorded in the spec doc). Bare
- *    `<Name>Shape` (no type argument) still typechecks at every existing
+ *    `<Name>.Shape` (no type argument) still typechecks at every existing
  *    reference site because the default type param is the full Shape-level
  *    union.
  *  - a generic CLASS threading the arm type parameter through the
- *    constructor: `constructor(data: <Name>Shape<T>)` +
+ *    constructor: `constructor(data: <Name>.Shape<T>)` +
  *    `Object.assign(this, data)` for the T-surface, own attributes still
  *    assigned explicitly afterward (existing convention, unchanged) — per
  *    the spec's amended encoding. The class does NOT `implements
- *    <Name>Shape` for this case — a class cannot implement a union-typed
- *    alias (bare `<Name>Shape` resolves to `<Choice> & {...}`, union-
+ *    <Name>.Shape` for this case — a class cannot implement a union-typed
+ *    alias (bare `<Name>.Shape` resolves to `<Choice> & {...}`, union-
  *    rooted). NOT a mixin, NOT a competing static `of<T>()` factory;
  *    `static from`/`new <Name>(...)` remain the only construction paths.
  *
@@ -41,9 +41,9 @@
  * `isData(parentRef)` for the extends/inheritance branch — a Choice
  * supertype silently fell through to the "no parent" branch, so the child
  * lost ALL inherited option fields and emitted as if it had no supertype
- * at all (own attributes only, `implements <Name>Shape` with no `extends`,
+ * at all (own attributes only, `implements <Name>.Shape` with no `extends`,
  * no generic parameter, no exactly-one-of validator for the inherited
- * options). A later fix added the generic CLASS but still left `<Name>Shape`
+ * options). A later fix added the generic CLASS but still left `<Name>.Shape`
  * as a plain own-attrs-only interface — this file's TYPE-surface tests
  * close that remaining gap.
  */
@@ -71,7 +71,7 @@ import { generate } from '../../src/export.js';
  * Real `tsc --strict` type-check of an emitted `.ts` file — no shortcuts
  * (not `transpileModule`, which only strips types and never reports
  * type errors). Used to prove the "TS type — generic intersection" surface
- * (`<Name>Shape<T>`) actually typechecks, including narrowed-arm usage
+ * (`<Name>.Shape<T>`) actually typechecks, including narrowed-arm usage
  * that only exists at the type level (never constructed), which the
  * emitted-runtime execution tests below cannot exercise.
  */
@@ -134,7 +134,7 @@ type BasketConstituent extends Asset:
 `;
 
 describe('ts-emitter — Data extends Choice: TYPE surface (generic intersection type alias)', () => {
-  it('emits a SHAPE-level Choice union alongside the class-armed one — arms reference <Option>Shape for Data options', async () => {
+  it('emits a SHAPE-level Choice union alongside the class-armed one — arms reference <Option>.Shape for Data options', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
@@ -143,22 +143,22 @@ describe('ts-emitter — Data extends Choice: TYPE surface (generic intersection
     // ...and the new Shape-level union sits alongside it: each arm's value
     // type is the option's Shape (the type a construction payload actually
     // carries at that key), not the class.
-    expect(output.content).toContain('export type AssetShape = { cash: CashShape } | { commodity: CommodityShape };');
+    expect(output.content).toContain('export type Shape = { cash: Cash.Shape } | { commodity: Commodity.Shape };');
   });
 
-  it('emits <Name>Shape as a generic intersection type alias — T constrained/defaulted on the SHAPE-level Choice union, own attrs in the extras block', async () => {
+  it('emits <Name>.Shape as a generic intersection type alias — T constrained/defaulted on the SHAPE-level Choice union, own attrs in the extras block', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    // `T extends AssetShape` (the Shape-level union), NOT `T extends Asset`
+    // `T extends Asset.Shape` (the Shape-level union), NOT `T extends Asset`
     // (whose arms are the CLASS types — world-mixing: a `{ cash: { amount:
     // 5 } }` construction payload is not a `Cash` class instance).
     expect(output.content).toContain(
-      'export type BasketConstituentShape<T extends AssetShape = AssetShape> = T & {\n  weight?: number;\n};'
+      'export type Shape<T extends Asset.Shape = Asset.Shape> = T & {\n    weight?: number;\n  };'
     );
     expect(output.content).not.toContain('T extends Asset =');
-    expect(output.content).not.toContain('export interface BasketConstituentShape');
-    expect(output.content).not.toContain('BasketConstituentShape extends');
+    expect(output.content).not.toMatch(/namespace BasketConstituent \{\s+export interface Shape/);
+    expect(output.content).not.toContain('BasketConstituent.Shape extends');
   });
 });
 
@@ -167,22 +167,22 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('export class BasketConstituent<T extends AssetShape = AssetShape>');
+    expect(output.content).toContain('export class BasketConstituent<T extends Asset.Shape = Asset.Shape>');
   });
 
-  it("the constructor threads the generic (data: <Name>Shape<T>) and Object.assign's the T-surface", async () => {
+  it("the constructor threads the generic (data: <Name>.Shape<T>) and Object.assign's the T-surface", async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('constructor(data: BasketConstituentShape<T>) {');
+    expect(output.content).toContain('constructor(data: BasketConstituent.Shape<T>) {');
     expect(output.content).toContain('Object.assign(this, data);');
   });
 
-  it('does NOT emit `implements <Name>Shape` for a Choice-extending Data — a class cannot implement a union-typed alias', async () => {
+  it('does NOT emit `implements <Name>.Shape` for a Choice-extending Data — a class cannot implement a union-typed alias', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).not.toContain('implements BasketConstituentShape');
+    expect(output.content).not.toContain('implements BasketConstituent.Shape');
   });
 
   it('own attributes are still assigned explicitly in the constructor (existing convention preserved)', async () => {
@@ -206,7 +206,7 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const output = emitNamespace(model, {});
     expect(output.content).toContain('export class BasketConstituent');
     expect(output.content).toContain(
-      'from<const I>(input: I & RuneFactoryInput<I, $BasketConstituent$Input, BasketConstituent>)'
+      'from<const I>(input: I & RuneFactoryInput<I, BasketConstituent.Input, BasketConstituent>)'
     );
     // The generated guard proves the class/Choice-shape intersection.
     expect(output.content).toContain('return new BasketConstituent(json);');
@@ -243,27 +243,27 @@ describe('ts-emitter — Data extends Choice: TYPE surface compiles under real t
     expect(diagnostics).toEqual([]);
   });
 
-  it('a type-only reference using <Name>Shape<T> keeps arm narrowing — the exact gap the class encoding cannot close', async () => {
+  it('a type-only reference using <Name>.Shape<T> keeps arm narrowing — the exact gap the class encoding cannot close', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
 
     // A consumer holding a known arm can type-annotate a function parameter
-    // as `BasketConstituentShape<{ cash: CashShape }>` and access that
+    // as `BasketConstituent.Shape<{ cash: Cash.Shape }>` and access that
     // arm's fields directly on the declared TYPE — no cast required. This
     // is exactly the capability the spec's type-alias surface exists to
     // provide and the generic CLASS (constructor-only generic) cannot: TS
     // classes can't declare members from a type parameter, so a narrowed
     // `new BasketConstituent<...>(...)` instance still needs a cast to
     // read arm-specific fields (see the class-surface tests above). The
-    // arm is written in the SHAPE world (`CashShape`, matching the
-    // `T extends AssetShape` constraint) — plain construction-payload
+    // arm is written in the SHAPE world (`Cash.Shape`, matching the
+    // `T extends Asset.Shape` constraint) — plain construction-payload
     // types, not class instances.
     const probe = `
-function readNarrowed(x: BasketConstituentShape<{ cash: CashShape }>): number {
+function readNarrowed(x: BasketConstituent.Shape<{ cash: Cash.Shape }>): number {
   return x.cash.amount ?? 0;
 }
-function readBare(x: BasketConstituentShape): number {
+function readBare(x: BasketConstituent.Shape): number {
   return x.weight ?? 0;
 }
 `;

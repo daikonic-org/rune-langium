@@ -5,117 +5,127 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export interface TradeShape {
-  tradeDate: Temporal.PlainDate;
-  notional: number;
-}
-
-export class Trade implements TradeShape {
+export class Trade implements Trade.Shape {
   tradeDate: Temporal.PlainDate;
   notional: number;
 
-  constructor(data: TradeShape) {
+  constructor(data: Trade.Shape) {
     this.tradeDate = data.tradeDate;
     this.notional = data.notional;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Trade$Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, $Trade$Type> { return runeValue<I, $Trade$Type>(input, () => $Trade$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => $Trade$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Trade$Type, options); }
-}
-export namespace Trade { export type Shape = TradeShape; }
+  static is(x: unknown): x is Trade {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Trade) return true;
+    if ('@type' in x && x['@type'] !== "test.reports.Trade") return false;
+    if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
+    if (!("notional" in x) || typeof x.notional !== 'number') return false;
+    return true;
+  }
 
-export function isTrade(x: unknown): x is Trade {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Trade) return true;
-  if ('@type' in x && x['@type'] !== "test.reports.Trade") return false;
-  if (!("tradeDate" in x) || !(x.tradeDate instanceof Temporal.PlainDate)) return false;
-  if (!("notional" in x) || typeof x.notional !== 'number') return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, Trade.Input, Trade>): RuneView<Trade, RuneFromMin<I>, RuneFromMax<I>, Trade.Type> { return runeValue<I, Trade.Type>(input, () => Trade.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Trade.from(runeValueFromJSON(input, () => Trade.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Trade.Type, options); }
+
+  static readonly #selections: Trade.Selections = { "test.reports.Trade#tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.reports.Trade#notional": { id: "test.reports.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
+  static readonly #deep: Trade.Deep = { "tradeDate": Trade.#selections["test.reports.Trade#tradeDate"], "notional": Trade.#selections["test.reports.Trade#notional"] };
+  static readonly Type: Trade.Type = runeRegisterValueType<Trade.Type>({
+    identity: "test.reports.Trade",
+    inventory: { selections: Trade.#selections, deep: Trade.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Trade.prototype,
+    create:   (json: unknown) => {
+      if (!Trade.is(json)) {
+        throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Trade(json);
+    },
+    fields: { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
+    deep: Object.assign(Object.create(Trade.#deep), { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
+    selections: Trade.#selections
+  });
 }
 
-type $Trade$Type$Reachable$Selections = { "test.reports.Trade#tradeDate": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "test.reports.Trade#notional": RuneValueSelection<number, 0, null, RuneEmptyType> };
-const $Trade$Type$Reachable$Selections: $Trade$Type$Reachable$Selections = { "test.reports.Trade#tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.reports.Trade#notional": { id: "test.reports.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-type $Trade$Type$Reachable$Deep = { "tradeDate": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "notional": RuneValueSelection<number, 0, null, RuneEmptyType> };
-const $Trade$Type$Reachable$Deep: $Trade$Type$Reachable$Deep = { "tradeDate": $Trade$Type$Reachable$Selections["test.reports.Trade#tradeDate"], "notional": $Trade$Type$Reachable$Selections["test.reports.Trade#notional"] };
-export interface $Trade$Input {
-  "tradeDate": RuneInputPayload<Temporal.PlainDate, 1, 1>;
-  "notional": RuneInputPayload<number, 1, 1>;
+export namespace Trade {
+  export interface Shape {
+    tradeDate: Temporal.PlainDate;
+    notional: number;
+  }
+  export type Selections = { "test.reports.Trade#tradeDate": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "test.reports.Trade#notional": RuneValueSelection<number, 0, null, RuneEmptyType> };
+  export type Deep = { "tradeDate": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "notional": RuneValueSelection<number, 0, null, RuneEmptyType> };
+  export interface Input {
+    "tradeDate": RuneInputPayload<Temporal.PlainDate, 1, 1>;
+    "notional": RuneInputPayload<number, 1, 1>;
+  }
+  export interface Type extends RuneValueType<Input, Trade> {
+    readonly shape?: Shape;
+    fields: { "tradeDate": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "notional": RuneValueSelection<number, 1, 1, RuneEmptyType> };
+    deep: Omit<Deep, "tradeDate" | "notional"> & { "tradeDate": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "notional": RuneValueSelection<number, 1, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $Trade$Type extends RuneValueType<$Trade$Input, Trade> {
-  fields: { "tradeDate": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "notional": RuneValueSelection<number, 1, 1, RuneEmptyType> };
-  deep: Omit<$Trade$Type$Reachable$Deep, "tradeDate" | "notional"> & { "tradeDate": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "notional": RuneValueSelection<number, 1, 1, RuneEmptyType> };
-  selections: $Trade$Type$Reachable$Selections;
-}
-export const $Trade$Type: $Trade$Type = runeRegisterValueType<$Trade$Type>({
-  identity: "test.reports.Trade",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isTrade(json)) {
-      throw new TypeError('not a Trade: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Trade(json);
-  },
-  fields: { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-  deep: Object.assign(Object.create($Trade$Type$Reachable$Deep), { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-  selections: $Trade$Type$Reachable$Selections
-});
 
-export interface TradeReportShape {
+export class TradeReport implements TradeReport.Shape {
   date: Temporal.PlainDate;
   amount: number;
-}
 
-export class TradeReport implements TradeReportShape {
-  date: Temporal.PlainDate;
-  amount: number;
-
-  constructor(data: TradeReportShape) {
+  constructor(data: TradeReport.Shape) {
     this.date = data.date;
     this.amount = data.amount;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $TradeReport$Input, TradeReport>): RuneView<TradeReport, RuneFromMin<I>, RuneFromMax<I>, $TradeReport$Type> { return runeValue<I, $TradeReport$Type>(input, () => $TradeReport$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return TradeReport.from(runeValueFromJSON(input, () => $TradeReport$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $TradeReport$Type, options); }
-}
-export namespace TradeReport { export type Shape = TradeReportShape; }
+  static is(x: unknown): x is TradeReport {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof TradeReport) return true;
+    if ('@type' in x && x['@type'] !== "test.reports.TradeReport") return false;
+    if (!("date" in x) || !(x.date instanceof Temporal.PlainDate)) return false;
+    if (!("amount" in x) || typeof x.amount !== 'number') return false;
+    return true;
+  }
 
-export function isTradeReport(x: unknown): x is TradeReport {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof TradeReport) return true;
-  if ('@type' in x && x['@type'] !== "test.reports.TradeReport") return false;
-  if (!("date" in x) || !(x.date instanceof Temporal.PlainDate)) return false;
-  if (!("amount" in x) || typeof x.amount !== 'number') return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, TradeReport.Input, TradeReport>): RuneView<TradeReport, RuneFromMin<I>, RuneFromMax<I>, TradeReport.Type> { return runeValue<I, TradeReport.Type>(input, () => TradeReport.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return TradeReport.from(runeValueFromJSON(input, () => TradeReport.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => TradeReport.Type, options); }
+
+  static readonly #selections: TradeReport.Selections = { "test.reports.TradeReport#date": { id: "test.reports.TradeReport#date", key: "date", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.reports.TradeReport#amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
+  static readonly #deep: TradeReport.Deep = { "date": TradeReport.#selections["test.reports.TradeReport#date"], "amount": TradeReport.#selections["test.reports.TradeReport#amount"] };
+  static readonly Type: TradeReport.Type = runeRegisterValueType<TradeReport.Type>({
+    identity: "test.reports.TradeReport",
+    inventory: { selections: TradeReport.#selections, deep: TradeReport.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: TradeReport.prototype,
+    create:   (json: unknown) => {
+      if (!TradeReport.is(json)) {
+        throw new TypeError('not a TradeReport: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new TradeReport(json);
+    },
+    fields: { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, paths: [[{"key":"date","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, paths: [[{"key":"amount","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
+    deep: Object.assign(Object.create(TradeReport.#deep), { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
+    selections: TradeReport.#selections
+  });
 }
 
-type $TradeReport$Type$Reachable$Selections = { "test.reports.TradeReport#date": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "test.reports.TradeReport#amount": RuneValueSelection<number, 0, null, RuneEmptyType> };
-const $TradeReport$Type$Reachable$Selections: $TradeReport$Type$Reachable$Selections = { "test.reports.TradeReport#date": { id: "test.reports.TradeReport#date", key: "date", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.reports.TradeReport#amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-type $TradeReport$Type$Reachable$Deep = { "date": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "amount": RuneValueSelection<number, 0, null, RuneEmptyType> };
-const $TradeReport$Type$Reachable$Deep: $TradeReport$Type$Reachable$Deep = { "date": $TradeReport$Type$Reachable$Selections["test.reports.TradeReport#date"], "amount": $TradeReport$Type$Reachable$Selections["test.reports.TradeReport#amount"] };
-export interface $TradeReport$Input {
-  "date": RuneInputPayload<Temporal.PlainDate, 1, 1>;
-  "amount": RuneInputPayload<number, 1, 1>;
+export namespace TradeReport {
+  export interface Shape {
+    date: Temporal.PlainDate;
+    amount: number;
+  }
+  export type Selections = { "test.reports.TradeReport#date": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "test.reports.TradeReport#amount": RuneValueSelection<number, 0, null, RuneEmptyType> };
+  export type Deep = { "date": RuneValueSelection<Temporal.PlainDate, 0, null, RuneEmptyType>; "amount": RuneValueSelection<number, 0, null, RuneEmptyType> };
+  export interface Input {
+    "date": RuneInputPayload<Temporal.PlainDate, 1, 1>;
+    "amount": RuneInputPayload<number, 1, 1>;
+  }
+  export interface Type extends RuneValueType<Input, TradeReport> {
+    readonly shape?: Shape;
+    fields: { "date": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "amount": RuneValueSelection<number, 1, 1, RuneEmptyType> };
+    deep: Omit<Deep, "date" | "amount"> & { "date": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "amount": RuneValueSelection<number, 1, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $TradeReport$Type extends RuneValueType<$TradeReport$Input, TradeReport> {
-  fields: { "date": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "amount": RuneValueSelection<number, 1, 1, RuneEmptyType> };
-  deep: Omit<$TradeReport$Type$Reachable$Deep, "date" | "amount"> & { "date": RuneValueSelection<Temporal.PlainDate, 1, 1, RuneEmptyType>; "amount": RuneValueSelection<number, 1, 1, RuneEmptyType> };
-  selections: $TradeReport$Type$Reachable$Selections;
-}
-export const $TradeReport$Type: $TradeReport$Type = runeRegisterValueType<$TradeReport$Type>({
-  identity: "test.reports.TradeReport",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isTradeReport(json)) {
-      throw new TypeError('not a TradeReport: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new TradeReport(json);
-  },
-  fields: { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, paths: [[{"key":"date","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, paths: [[{"key":"amount","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-  deep: Object.assign(Object.create($TradeReport$Type$Reachable$Deep), { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-  selections: $TradeReport$Type$Reachable$Selections
-});
 
 
 export function extractExtractDate(trade: Trade.Shape) {

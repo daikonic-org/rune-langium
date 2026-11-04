@@ -124,14 +124,14 @@ func RefRaw:
     RefTarget { value: text }
 `,
       `
-const input: RuneFuncData<ParentShape> = { child: { value: 4 } };
-const output: RuneFuncData<ParentShape> = Build(4);
-const echoed: RuneFuncData<ParentShape> = Echo(input);
-const referenceInput: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = { value: { value: 'A' } };
-const echoedReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefEcho(referenceInput);
-const rawReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefRaw('A');
+const input: RuneFuncData<Parent.Shape> = { child: { value: 4 } };
+const output: RuneFuncData<Parent.Shape> = Build(4);
+const echoed: RuneFuncData<Parent.Shape> = Echo(input);
+const referenceInput: RuneReferenceWithMeta<RuneFuncData<RefTarget.Shape>> = { value: { value: 'A' } };
+const echoedReference: RuneReferenceWithMeta<RuneFuncData<RefTarget.Shape>> = RefEcho(referenceInput);
+const rawReference: RuneReferenceWithMeta<RuneFuncData<RefTarget.Shape>> = RefRaw('A');
 // @ts-expect-error Child's required value must remain present in nested plain data.
-const missingChildValue: RuneFuncData<ParentShape> = { child: {} };
+const missingChildValue: RuneFuncData<Parent.Shape> = { child: {} };
 // @ts-expect-error Build's scalar input remains numeric.
 Build('wrong');
 `

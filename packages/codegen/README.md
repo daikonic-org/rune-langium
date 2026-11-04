@@ -146,17 +146,26 @@ shared companions, keeping support code out of the selected model by default.
 Data declarations expose one public class, such as `Quote`, with `Quote.from`
 and a merged `Quote.Shape` type for plain function inputs/outputs. `new Quote`
 constructs one instance; `Quote.from` retains cardinality-polymorphic views.
-`isQuote` recognizes instances and exact qualified Rune JSON type tags, retaining
-structural checks for untagged inputs. Shape validation and cardinality checks
+`Quote.is` recognizes instances and exact qualified Rune JSON type tags, validating
+both tagged and untagged input shapes. Shape validation and cardinality checks
 remain part of factory normalization. `Quote.fromJSON(input, { format: 'RUNE_JSON' })`
 decodes Rune wire metadata using Core's codec; instance/view
 `toJSON({ format: 'RUNE_JSON' })` encodes linked fields. Base-typed factories and
-fields retain known tagged descendants and validate the concrete fields before
-creating their instances. Descendants register as their modules load; importing
+fields retain known tagged descendants and generated subclass instances, validating
+the concrete fields before creating their instances. Nested Choices round-trip
+through the same cycle-safe acceptance rules as the preview adapter. Descendants register as their modules load; importing
 the bundle barrel registers the complete generated set. Unknown, unloaded or
 unrelated concrete types are rejected. Plain JSON remains the
 default, including `JSON.stringify(instance)`. Unknown fields are retained by
 factory normalization; unsupported ambiguous Choice representations fail explicitly.
+
+The class also owns `Quote.Type`, its typed runtime descriptor. `Quote.Shape` is
+the actual structural definition in the merged namespace, alongside `Quote.Input`
+and `Quote.Type` types. Traversal inventories are shared through descriptors and
+stored in private class statics. No parallel `QuoteShape`, `isQuote` or `$Quote$…`
+support symbols are exported. Choice unions retain their discriminated type and
+one grouped factory object with the same `Type`/`is`/`from` surface. Merged
+namespaces contain only types, requiring no runtime namespace transform.
 
 Preview fields expose optional `typeSymbol` presentation metadata, using a
 kind-qualified identity such as `data:example.Trade`, `typeAlias:example.Amount`

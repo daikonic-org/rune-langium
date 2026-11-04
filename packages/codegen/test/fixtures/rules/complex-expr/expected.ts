@@ -5,66 +5,71 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { rune, type RuneFuncData, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneDataClass, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export interface PositionShape {
-  quantity: number;
-  price: number;
-  currency: string;
-}
-
-export class Position implements PositionShape {
+export class Position implements Position.Shape {
   quantity: number;
   price: number;
   currency: string;
 
-  constructor(data: PositionShape) {
+  constructor(data: Position.Shape) {
     this.quantity = data.quantity;
     this.price = data.price;
     this.currency = data.currency;
   }
 
-  static from<const I>(input: I & RuneFactoryInput<I, $Position$Input, Position>): RuneView<Position, RuneFromMin<I>, RuneFromMax<I>, $Position$Type> { return runeValue<I, $Position$Type>(input, () => $Position$Type); }
-  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Position.from(runeValueFromJSON(input, () => $Position$Type, options)); }
-  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => $Position$Type, options); }
-}
-export namespace Position { export type Shape = PositionShape; }
+  static is(x: unknown): x is Position {
+    if (typeof x !== 'object' || x === null) return false;
+    if (x instanceof Position) return true;
+    if ('@type' in x && x['@type'] !== "test.rules.Position") return false;
+    if (!("quantity" in x) || typeof x.quantity !== 'number') return false;
+    if (!("price" in x) || typeof x.price !== 'number') return false;
+    if (!("currency" in x) || typeof x.currency !== 'string') return false;
+    return true;
+  }
 
-export function isPosition(x: unknown): x is Position {
-  if (typeof x !== 'object' || x === null) return false;
-  if (x instanceof Position) return true;
-  if ('@type' in x && x['@type'] !== "test.rules.Position") return false;
-  if (!("quantity" in x) || typeof x.quantity !== 'number') return false;
-  if (!("price" in x) || typeof x.price !== 'number') return false;
-  if (!("currency" in x) || typeof x.currency !== 'string') return false;
-  return true;
+  static from<const I>(input: I & RuneFactoryInput<I, Position.Input, Position>): RuneView<Position, RuneFromMin<I>, RuneFromMax<I>, Position.Type> { return runeValue<I, Position.Type>(input, () => Position.Type); }
+  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return Position.from(runeValueFromJSON(input, () => Position.Type, options)); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => Position.Type, options); }
+
+  static readonly #selections: Position.Selections = { "test.rules.Position#quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#price": { id: "test.rules.Position#price", key: "price", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#currency": { id: "test.rules.Position#currency", key: "currency", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
+  static readonly #deep: Position.Deep = { "quantity": Position.#selections["test.rules.Position#quantity"], "price": Position.#selections["test.rules.Position#price"], "currency": Position.#selections["test.rules.Position#currency"] };
+  static readonly Type: Position.Type = runeRegisterValueType<Position.Type>({
+    identity: "test.rules.Position",
+    inventory: { selections: Position.#selections, deep: Position.#deep },
+    derived: new globalThis.Map<string, RuneValueType>(),
+    prototype: Position.prototype,
+    create:   (json: unknown) => {
+      if (!Position.is(json)) {
+        throw new TypeError('not a Position: ' + JSON.stringify(json).slice(0, 100));
+      }
+      return new Position(json);
+    },
+    fields: { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, paths: [[{"key":"quantity","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, paths: [[{"key":"price","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, paths: [[{"key":"currency","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
+    deep: Object.assign(Object.create(Position.#deep), { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
+    selections: Position.#selections
+  });
 }
 
-type $Position$Type$Reachable$Selections = { "test.rules.Position#quantity": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Position#price": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Position#currency": RuneValueSelection<string, 0, null, RuneEmptyType> };
-const $Position$Type$Reachable$Selections: $Position$Type$Reachable$Selections = { "test.rules.Position#quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#price": { id: "test.rules.Position#price", key: "price", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#currency": { id: "test.rules.Position#currency", key: "currency", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-type $Position$Type$Reachable$Deep = { "quantity": RuneValueSelection<number, 0, null, RuneEmptyType>; "price": RuneValueSelection<number, 0, null, RuneEmptyType>; "currency": RuneValueSelection<string, 0, null, RuneEmptyType> };
-const $Position$Type$Reachable$Deep: $Position$Type$Reachable$Deep = { "quantity": $Position$Type$Reachable$Selections["test.rules.Position#quantity"], "price": $Position$Type$Reachable$Selections["test.rules.Position#price"], "currency": $Position$Type$Reachable$Selections["test.rules.Position#currency"] };
-export interface $Position$Input {
-  "quantity": RuneInputPayload<number, 1, 1>;
-  "price": RuneInputPayload<number, 1, 1>;
-  "currency": RuneInputPayload<string, 1, 1>;
+export namespace Position {
+  export interface Shape {
+    quantity: number;
+    price: number;
+    currency: string;
+  }
+  export type Selections = { "test.rules.Position#quantity": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Position#price": RuneValueSelection<number, 0, null, RuneEmptyType>; "test.rules.Position#currency": RuneValueSelection<string, 0, null, RuneEmptyType> };
+  export type Deep = { "quantity": RuneValueSelection<number, 0, null, RuneEmptyType>; "price": RuneValueSelection<number, 0, null, RuneEmptyType>; "currency": RuneValueSelection<string, 0, null, RuneEmptyType> };
+  export interface Input {
+    "quantity": RuneInputPayload<number, 1, 1>;
+    "price": RuneInputPayload<number, 1, 1>;
+    "currency": RuneInputPayload<string, 1, 1>;
+  }
+  export interface Type extends RuneValueType<Input, Position> {
+    readonly shape?: Shape;
+    fields: { "quantity": RuneValueSelection<number, 1, 1, RuneEmptyType>; "price": RuneValueSelection<number, 1, 1, RuneEmptyType>; "currency": RuneValueSelection<string, 1, 1, RuneEmptyType> };
+    deep: Omit<Deep, "quantity" | "price" | "currency"> & { "quantity": RuneValueSelection<number, 1, 1, RuneEmptyType>; "price": RuneValueSelection<number, 1, 1, RuneEmptyType>; "currency": RuneValueSelection<string, 1, 1, RuneEmptyType> };
+    selections: Selections;
+    readonly inventory: { readonly selections: Selections; readonly deep: Deep };
+  }
 }
-export interface $Position$Type extends RuneValueType<$Position$Input, Position> {
-  fields: { "quantity": RuneValueSelection<number, 1, 1, RuneEmptyType>; "price": RuneValueSelection<number, 1, 1, RuneEmptyType>; "currency": RuneValueSelection<string, 1, 1, RuneEmptyType> };
-  deep: Omit<$Position$Type$Reachable$Deep, "quantity" | "price" | "currency"> & { "quantity": RuneValueSelection<number, 1, 1, RuneEmptyType>; "price": RuneValueSelection<number, 1, 1, RuneEmptyType>; "currency": RuneValueSelection<string, 1, 1, RuneEmptyType> };
-  selections: $Position$Type$Reachable$Selections;
-}
-export const $Position$Type: $Position$Type = runeRegisterValueType<$Position$Type>({
-  identity: "test.rules.Position",
-  derived: new globalThis.Map<string, RuneValueType>(),
-  create:   (json: unknown) => {
-    if (!isPosition(json)) {
-      throw new TypeError('not a Position: ' + JSON.stringify(json).slice(0, 100));
-    }
-    return new Position(json);
-  },
-  fields: { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, paths: [[{"key":"quantity","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, paths: [[{"key":"price","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, paths: [[{"key":"currency","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-  deep: Object.assign(Object.create($Position$Type$Reachable$Deep), { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-  selections: $Position$Type$Reachable$Selections
-});
 
 
 export function validateIsSignificant(position: Position.Shape): boolean {

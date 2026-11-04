@@ -25,6 +25,9 @@ export const RUNE_VALUE_IMPORTS = [
   'type RuneFromMax'
 ] as const;
 export const RUNE_VALUE_NAMES = [
+  '__descriptor',
+  '__selections',
+  '__deep',
   'globalThis',
   'Reflect',
   'Proxy',
@@ -61,7 +64,7 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType }; })();
+return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice }; })();
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
 ${e}type RuneDataClass<C extends abstract new (...args: never[]) => unknown> = new (...args: ConstructorParameters<C>) => InstanceType<C>;
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
@@ -104,6 +107,7 @@ ${e}interface RuneValueType<T = unknown, Output = T> {
   readonly output?: Output;
   readonly create?: (value: unknown) => Output;
   readonly native?: boolean;
+  readonly prototype?: object;
   readonly parent?: () => RuneValueType;
   readonly derived?: Map<string, RuneValueType>;
   readonly choice?: readonly string[];
@@ -129,7 +133,12 @@ const runeValueMatchingType = (identity: unknown, model: RuneValueType): RuneVal
   return actual && runeJson.assignable(actual, model, type => type.parent?.()) ? actual : undefined;
 };
 const runeValueConcreteType = (value: unknown, model: RuneValueType): RuneValueType => {
-  if (model.native || model.kind === 'choice' || !value || typeof value !== 'object' || !('@type' in value) || value['@type'] === undefined) return model;
+  if (model.native || model.kind === 'choice' || !value || typeof value !== 'object') return model;
+  if (!('@type' in value) || value['@type'] === undefined) {
+    const prototype: unknown = Object.getPrototypeOf(value);
+    if (prototype === model.prototype) return model;
+    return [...(model.derived?.values() ?? [])].find(type => type.prototype === prototype) ?? model;
+  }
   const actual = runeValueMatchingType(value['@type'], model);
   if (!actual) throw new TypeError('Rune JSON type is not assignable to ' + model.identity);
   return actual;
@@ -353,10 +362,16 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     if (model.kind === 'choice' && model.choice && typeof record['@type'] === 'string') {
       const candidates = model.choice.filter(key => {
         const option = runeValueType(model.fields[key]!)?.();
-        return option && runeValueMatchingType(record['@type'], option);
+        return option && runeJson.acceptsChoice(option,
+          type => runeValueMatchingType(record['@type'], type) !== undefined,
+          type => type.kind === 'choice' ? (type.choice ?? []).flatMap(key => {
+            const target = type.fields[key] && runeValueType(type.fields[key])?.();
+            return target ? [target] : [];
+          }) : undefined);
       });
       const exact = candidates.filter(key => runeValueType(model.fields[key]!)?.().identity === record['@type']);
-      const selected = exact.length ? exact : candidates;
+      const dataAlternatives = model.choice.every(key => runeValueType(model.fields[key]!)?.().kind !== 'choice');
+      const selected = exact.length && dataAlternatives ? exact : candidates;
       if (selected.length !== 1) throw new TypeError('Rune JSON type does not select exactly one Choice option');
       return { [selected[0]!]: visit(value, runeValueType(model.fields[selected[0]!]!)?.()) };
     }

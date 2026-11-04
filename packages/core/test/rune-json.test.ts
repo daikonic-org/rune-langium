@@ -6,8 +6,31 @@ import {
   encodeRuneJson,
   withRuneJsonEncoding,
   normalizeRuneJsonChoiceWrapper,
-  projectRuneJsonChoice
+  projectRuneJsonChoice,
+  acceptsRuneJsonChoice
 } from '../src/serialization/rune-json.js';
+
+it('shares recursive Choice acceptance and terminates cyclic alternatives without hiding valid siblings', () => {
+  const choices = new Map([
+    ['Outer', ['Cycle', 'Inner']],
+    ['Cycle', ['Outer']],
+    ['Inner', ['Quote']]
+  ]);
+  expect(
+    acceptsRuneJsonChoice(
+      'Outer',
+      (type) => type === 'Quote',
+      (type) => choices.get(type)
+    )
+  ).toBe(true);
+  expect(
+    acceptsRuneJsonChoice(
+      'Outer',
+      (type) => type === 'Unknown',
+      (type) => choices.get(type)
+    )
+  ).toBe(false);
+});
 
 it('serializes native patterns as wire strings and refuses to discard flags', () => {
   expect(encodeRuneJson({ expression: /^x+$/ })).toEqual({ expression: '^x+$' });
