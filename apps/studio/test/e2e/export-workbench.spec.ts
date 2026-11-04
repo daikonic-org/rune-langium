@@ -83,9 +83,8 @@ test('selects, navigates and expands a captured export while diagnostics stay be
   await expect(diagnostics).toBeFocused();
   await page.getByRole('combobox', { name: 'Generated export file' }).selectOption('notes.txt');
   await expect(page.getByLabel('Generated export code')).toContainText('Additional output');
-  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await typeNavigationButton(page.getByTestId('export-perspective'), 'demo.Party').click();
-  await expect(page.getByRole('tab', { name: 'Generated output' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue('demo.ts');
   await expect(page.getByTestId('export-perspective')).toBeVisible();
   const before = await page.getByTestId('export-workspace').boundingBox();
@@ -154,15 +153,14 @@ test('reveals generation failures and their diagnostics from Settings without a 
   await page.getByTestId('rail-export').click();
   await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
   await page.getByRole('button', { name: 'Generate 1 selected' }).click();
-  await expect(page.getByRole('tab', { name: 'Generated output' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
   await expect(page.getByTestId('export-artifact-status')).toContainText('Selected expression cannot be generated.');
   await page.getByRole('button', { name: 'Show generation diagnostics (1)' }).click();
   await expect(page.getByRole('dialog', { name: 'Generation diagnostics' })).toContainText(
     'The selected expression is unsupported.'
   );
   await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('region', { name: 'Export settings', exact: true })).toBeVisible();
 });
 
 test('opens the real single-file model before helpers and downloads both', async ({ page }, testInfo) => {

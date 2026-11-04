@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
 
 import {
+  getEnumValueLiteral,
   getEnumValues,
   getOperationArgument,
   isData,
@@ -1531,10 +1531,7 @@ function typedDataGuard(ctx: ExpressionTranspilerContext, kind?: FieldMetadataKi
   return ctx.emitMode.startsWith('ts-')
     ? (value: string, type: RosettaType, guard: string, wrapped: boolean) => {
         const shape = ctx.typeNameResolver?.(type, `${type.name}Shape`) ?? `${type.name}Shape`;
-        const target = metadataType(
-          ctx.emitMode === 'ts-method' ? shape : `RuneFuncData<${shape}>`,
-          wrapped ? kind : undefined
-        );
+        const target = metadataType(shape, wrapped ? kind : undefined);
         return `((${value}: unknown): ${value} is ${target} => ${guard})(${value})`;
       }
     : undefined;

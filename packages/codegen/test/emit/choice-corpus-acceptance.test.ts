@@ -86,7 +86,7 @@ describe.skipIf(!RESOURCES_EXIST)('W2 acceptance — Choice-typed attributes nev
     const outputs = await generate(docs, { target: 'typescript' });
     const positionOutput = outputs.find((o) => o.relativePath.includes('position'));
     expect(positionOutput).toBeDefined();
-    expect(positionOutput!.content).toContain('asset?: Asset;');
+    expect(positionOutput!.content).toContain('asset?: AssetShape;');
     expect(positionOutput!.content).not.toMatch(/asset\??:\s*unknown/);
 
     const assetCommonOutput = outputs.find((o) => o.relativePath.includes('common'));

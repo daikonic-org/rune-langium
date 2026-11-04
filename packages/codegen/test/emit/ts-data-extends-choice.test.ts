@@ -167,7 +167,7 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('export class $BasketConstituent$Data<T extends AssetShape = AssetShape>');
+    expect(output.content).toContain('export class BasketConstituent<T extends AssetShape = AssetShape>');
   });
 
   it("the constructor threads the generic (data: <Name>Shape<T>) and Object.assign's the T-surface", async () => {
@@ -197,14 +197,14 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
     expect(output.content).not.toMatch(/Mixin\s*=\s*</);
-    expect(output.content).not.toContain('Constructor');
+    expect(output.content).not.toContain('type Constructor<');
   });
 
   it('static from(...) still delegates to `new <Name>(...)` — single construction path preserved', async () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('export const BasketConstituent = Object.assign($BasketConstituent$Data,');
+    expect(output.content).toContain('export class BasketConstituent');
     expect(output.content).toContain(
       'from<const I>(input: I & RuneFactoryInput<I, $BasketConstituent$Input, BasketConstituent>)'
     );

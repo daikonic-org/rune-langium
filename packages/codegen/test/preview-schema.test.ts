@@ -58,6 +58,35 @@ async function parseModels(sources: readonly string[]) {
 }
 
 describe('FormPreviewSchema generation', () => {
+  it('includes inherited enumeration values for fields, aliases and function inputs', async () => {
+    const doc = await parseModel(`namespace inheritedEnums
+enum Currency:
+ USD displayName "US dollar"
+ EUR
+enum ExtendedCurrency extends Currency:
+ GBP
+typeAlias CurrencyAlias: ExtendedCurrency
+type Payment:
+ currency ExtendedCurrency (1..1)
+func Echo:
+ inputs:
+  currency ExtendedCurrency (1..1)
+ output:
+  result ExtendedCurrency (1..1)
+ set result: currency
+`);
+    const schemas = generatePreviewSchemas(doc);
+    for (const name of ['Payment', 'CurrencyAlias', 'Echo']) {
+      const schema = schemas.find((schema) => schema.targetId === `inheritedEnums.${name}`)!;
+      const field = schema.fields[0]!;
+      expect(field.kind).toBe('enum');
+      expect(field.kind === 'enum' && field.enumValues).toEqual([
+        { value: 'GBP', label: 'GBP' },
+        { value: 'USD', label: 'US dollar' },
+        { value: 'EUR', label: 'EUR' }
+      ]);
+    }
+  });
   it('reports missing executable bodies without blocking implemented dispatch branches', async () => {
     const doc = await parseModel(`namespace test.capability
 enum Kind: One

@@ -161,7 +161,7 @@ it.each(['typescript', 'zod', 'json-schema'] as const)(
     if (target === 'typescript') {
       compileGeneratedTypeScript(outputs, {
         assertions:
-          'const allowed: Currency = "EUR";\n// @ts-expect-error unsupported code\nconst rejected: Currency = "USD";\nconst quote: Quote = {currency: "EUR"};\n// @ts-expect-error unsupported field code\nconst invalidQuote: Quote = {currency: "USD"};'
+          'const allowed: Currency = "EUR";\n// @ts-expect-error unsupported code\nconst rejected: Currency = "USD";\nconst quote: Quote.Shape = {currency: "EUR"};\n// @ts-expect-error unsupported field code\nconst invalidQuote: Quote.Shape = {currency: "USD"};'
       });
     } else if (target === 'zod') {
       const module = compileGeneratedTypeScript<{ QuoteSchema: { safeParse(value: unknown): { success: boolean } } }>(

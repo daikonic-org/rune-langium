@@ -60,19 +60,17 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     }
   }, 20_000);
 
-  it('per-namespace layout (library default) is unchanged: one file per namespace, inlined helpers', async () => {
+  it('per-namespace layout shares helpers by default and retains explicit inline output', async () => {
     const docs = await parseTwoNamespaces();
     const outputs = await generate(docs, { target: 'typescript' });
-
-    const paths = outputs.map((o) => o.relativePath).sort();
-    expect(paths).toEqual(['bar.ts', 'foo.ts']);
-
-    for (const out of outputs) {
-      expect(out.content).toContain('const runeCheckOneOf = (values:');
-      // TS emit doesn't carry `import { z }` — that's Zod-only.
-      expect(out.content).not.toContain(`import { z } from 'zod';`);
-      expect(out.content).not.toContain(`from './runtime.js'`);
+    expect(outputs.map((o) => o.relativePath).sort()).toEqual(['bar.ts', 'foo.ts', 'helpers.ts']);
+    for (const out of outputs.filter((out) => out.artifactRole !== 'support')) {
+      expect(out.content).toContain("from './helpers.js'");
+      expect(out.content).not.toContain('runtime helpers (inlined)');
     }
+    const inline = await generate(docs, { target: 'typescript', typescript: { inlineHelpers: true } });
+    expect(inline.map((o) => o.relativePath).sort()).toEqual(['bar.ts', 'foo.ts']);
+    for (const out of inline) expect(out.content).toContain('runtime helpers (inlined)');
   });
 
   it('barrel layout emits per-namespace files + index.ts + helpers.ts', async () => {

@@ -68,7 +68,7 @@ type Foo:
     const doc = await parseSource(source);
     const model = walkNamespace([doc], 'test.aliasField2');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('bar?: Bar;');
+    expect(output.content).toContain('bar?: BarShape;');
     expect(output.content).not.toContain('bar?: unknown;');
   });
 });

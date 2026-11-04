@@ -397,6 +397,50 @@ describe('FormPreviewPanel', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/preview generation failed/i);
   });
 
+  it('edits required scalar object-list values in the grid without an item-number column', () => {
+    const schema: FormPreviewSchema = {
+      schemaVersion: 1,
+      targetId: 'test.Schedule',
+      title: 'Schedule',
+      status: 'ready',
+      fields: [
+        {
+          path: 'dates',
+          label: 'Dates',
+          kind: 'array',
+          required: false,
+          children: [
+            {
+              path: 'dates[]',
+              label: 'Dated value',
+              kind: 'object',
+              required: true,
+              children: [
+                { path: 'dates[].date', label: 'Date', kind: 'string', format: 'date', required: true },
+                { path: 'dates[].amount', label: 'Amount', kind: 'number', required: true }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    const onValuesChange = vi.fn();
+    render(
+      <FormPreviewPanel
+        schema={schema}
+        status={{ state: 'ready', targetId: schema.targetId }}
+        values={{ dates: [{ date: '2026-01-01', amount: 100 }] }}
+        onValuesChange={onValuesChange}
+      />
+    );
+    const table = screen.getByRole('table', { name: 'Dates' });
+    expect(within(table).queryByRole('columnheader', { name: 'Item', exact: true })).not.toBeInTheDocument();
+    const amount = within(table).getByLabelText('Dates 1 Amount');
+    fireEvent.change(amount, { target: { value: '250' } });
+    expect(onValuesChange.mock.lastCall?.[0]).toMatchObject({ dates: [{ date: '2026-01-01', amount: 250 }] });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('renders scalar, enum, nested object, and array controls from the preview schema', () => {
     render(<FormPreviewPanel schema={tradeSchema} status={{ state: 'ready', targetId: tradeSchema.targetId }} />);
 
@@ -1047,7 +1091,8 @@ describe('FormPreviewPanel', () => {
       expect(screen.getAllByRole('textbox').map((input) => (input as HTMLInputElement).value)).toEqual([
         'Level 1',
         'Level 2',
-        'Level 3'
+        'Level 3',
+        'Sibling'
       ]);
       fireEvent.click(screen.getByRole('button', { name: 'Open Children 1 details' }));
       const dialog = await screen.findByRole('dialog');

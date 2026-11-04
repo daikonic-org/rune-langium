@@ -65,7 +65,7 @@ arms remain lazy without nested-ternary depth limits.
 Rune functions emit named exports with positional parameters in Rune declaration
 order and an explicit return type, such as `AddTwo(left, right)`. Ordinary parameter
 names match Rune inputs; target keywords and implementation binding collisions
-are escaped. Data values use `RuneFuncData<TypeShape>`, which preserves nested
+are escaped. Data values use `Type.Shape`, which preserves nested
 fields while excluding class validation methods. Required inputs are required parameters. Trailing optional inputs use `?`; optional
 inputs before required ones accept `undefined` without changing argument order;
 collection inputs and outputs use arrays. An optional scalar output returns
@@ -120,6 +120,22 @@ Native operators and standard-library calls remain compact where equivalent.
 Inline modules, shared runtime sidecars and executable previews use the same
 runtime source builder; namespace methods preserve generic types and type guards.
 Existing flat implementation exports remain available to runtime consumers.
+
+TypeScript modules import a shared `helpers.ts` companion by default, including
+per-namespace output. Set `typescript.inlineHelpers: true` with per-namespace
+layout for a self-contained module. Studio's TypeScript and Zod previews use
+shared companions, keeping support code out of the selected model by default.
+
+Data declarations expose one public class, such as `Quote`, with `Quote.from`
+and a merged `Quote.Shape` type for plain function inputs/outputs. `new Quote`
+constructs one instance; `Quote.from` retains cardinality-polymorphic views.
+`isQuote` recognizes instances and exact qualified Rune JSON type tags, retaining
+structural checks for untagged inputs. Shape validation and cardinality checks
+remain part of factory normalization. `Quote.fromJSON(input, { format: 'RUNE_JSON' })`
+decodes Rune wire metadata using Core's codec; instance/view
+`toJSON({ format: 'RUNE_JSON' })` encodes linked fields. Plain JSON remains the
+default, including `JSON.stringify(instance)`. Unknown fields are retained by
+factory normalization; unsupported ambiguous Choice representations fail explicitly.
 
 Preview fields expose optional `typeSymbol` presentation metadata, using a
 kind-qualified identity such as `data:example.Trade`, `typeAlias:example.Amount`

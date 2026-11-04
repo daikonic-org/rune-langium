@@ -42,14 +42,14 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
     options: GeneratorOptions
   ): Promise<GeneratorOutput[]> {
     const targetBlock = this.readTargetBlock(options);
-    const rawLayout = targetBlock?.layout ?? 'barrel';
+    const rawLayout = targetBlock?.layout ?? (this.profile.target === 'typescript' ? 'per-namespace' : 'barrel');
 
     // Copilot review on PR #166: validate the layout string instead of
     // an unchecked cast — an unexpected value (e.g. from a malformed
     // /api/codegen request body) used to be silently coerced to
     // 'barrel'. Now it surfaces a fatal `invalid-layout` diagnostic
     // that strict-mode callers turn into a GeneratorError.
-    if (rawLayout !== 'barrel' && rawLayout !== 'single-file') {
+    if (rawLayout !== 'barrel' && rawLayout !== 'single-file' && rawLayout !== 'per-namespace') {
       return [
         {
           relativePath: `${this.profile.target}-invalid-layout.error`,
@@ -66,7 +66,7 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
         }
       ];
     }
-    const layout: 'barrel' | 'single-file' = rawLayout;
+    const layout = rawLayout;
 
     // Step 1 — per-namespace emission with boilerplate suppressed.
     const perNs: GeneratorOutput[] = [];
@@ -92,7 +92,7 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
 
     // 'barrel' or any future per-namespace+aggregation layout.
     const outputs: GeneratorOutput[] = [...perNs];
-    const barrel = this.profile.makeBarrel(perNs, registry);
+    const barrel = layout === 'barrel' ? this.profile.makeBarrel(perNs, registry) : undefined;
     if (barrel) outputs.push(barrel);
     outputs.push(...this.sharedArtifacts(perNs, registry));
     return outputs;

@@ -21,7 +21,7 @@ import {
   type Feature,
   type ExpressionType
 } from '../expr/navigation.js';
-import { fieldMetadataKind, metadataType } from '../expr/metadata-runtime.js';
+import { fieldMetadataKind, metadataType, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
 type Model = Data | Choice | RosettaRecordType;
 type Bounds = { min: number; max: number | null };
@@ -275,6 +275,8 @@ export class ValueApiEmitter {
       `  selections: ${inventory}$Selections;`,
       '}',
       `export const ${modelName}: ${modelName} = {`,
+      `  identity: ${JSON.stringify(`${getElementNamespace(node)}.${node.name}`)},`,
+      ...(isData(node) && hasTypeMetadata(node) ? ['  metadata: true,'] : []),
       ...(isRosettaRecordType(node) ? ['  native: true,'] : []),
       `  create: ${this.create(node)},`,
       ...(own.some((field) => isChoiceOption(field.feature))
@@ -286,7 +288,7 @@ export class ValueApiEmitter {
       `  deep: Object.assign(Object.create(${inventory}$Deep), { ${deep.map(({ key, field, bounds }) => `${objectKey(key)}: ${descriptor(field, bounds)}`).join(', ')} }),`,
       `  selections: ${inventory}$Selections`,
       '};',
-      this.factory(node)
+      ...(isData(node) ? [] : [this.factory(node)])
     ].join('\n');
   }
 
@@ -295,9 +297,7 @@ export class ValueApiEmitter {
     const input = this.name(node, 'Input');
     const schema = this.name(node, 'Type');
     const output = this.output(node);
-    const body = `{ from<const I>(input: I & RuneFactoryInput<I, ${input}, ${output}>): RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}> { return runeValue(input, () => ${schema}) as unknown as RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}>; } }`;
-    return isData(node)
-      ? `export const ${output} = Object.assign(${this.name(node, 'Data')}, ${body});`
-      : `export const ${output} = ${body};`;
+    const method = `from<const I>(input: I & RuneFactoryInput<I, ${input}, ${output}>): RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}> { return runeValue(input, () => ${schema}) as unknown as RuneView<${output}, RuneFromMin<I>, RuneFromMax<I>, ${schema}>; }`;
+    return isData(node) ? `  static ${method}` : `export const ${output} = { ${method} };`;
   }
 }

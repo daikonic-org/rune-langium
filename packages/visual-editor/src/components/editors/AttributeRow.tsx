@@ -39,7 +39,7 @@ import {
   type InspectorRowProps
 } from './inspector/inspector-row.js';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -52,6 +52,9 @@ import { formatCardinality, parseCardinality } from '../../adapters/model-helper
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
 import type { TypeOption, NavigateToNodeCallback } from '../../types.js';
 import { rowReorderHandlers } from './row-reorder.js';
+import { useTypeRefDrop } from '../../hooks/useTypeRefDrop.js';
+import { TYPE_REF_PAYLOAD_MIME } from '../../types/structure-view.js';
+import { referenceDropKinds } from './type-reference-policy.js';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -211,6 +214,9 @@ function AttributeRow({
   );
 
   // ---- Drag reorder ---------------------------------------------------------
+  const acceptTypes = useMemo(() => referenceDropKinds(effectiveReadOnly), [effectiveReadOnly]);
+  const typeDrop = useTypeRefDrop({ accept: acceptTypes, onDrop: (payload) => handleTypeSelect(payload.typeId) });
+  const reorder = rowReorderHandlers(index, onReorder);
   //
   // Per R5 of `specs/013-z2f-editor-migration/research.md` (Pattern B): this
   // row owns the gesture surface (native HTML5 DnD via `dataTransfer`) and
@@ -233,7 +239,19 @@ function AttributeRow({
       data-index={index}
       className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} ${isOverride ? 'opacity-60' : ''}`}
       draggable={!effectiveReadOnly}
-      {...rowReorderHandlers(index, onReorder)}
+      data-drop-over={typeDrop.isOver ? 'true' : undefined}
+      {...typeDrop.dragOverHandlers}
+      onDragStart={reorder.onDragStart}
+      onDragOver={(event) =>
+        Array.from(event.dataTransfer.types).includes(TYPE_REF_PAYLOAD_MIME)
+          ? typeDrop.dragOverHandlers.onDragOver(event)
+          : reorder.onDragOver(event)
+      }
+      onDrop={(event) =>
+        Array.from(event.dataTransfer.types).includes(TYPE_REF_PAYLOAD_MIME)
+          ? typeDrop.dragOverHandlers.onDrop(event)
+          : reorder.onDrop(event)
+      }
     >
       {/* Drag handle */}
       <span

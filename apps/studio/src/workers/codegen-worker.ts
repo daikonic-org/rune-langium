@@ -491,6 +491,7 @@ async function runCodegen(
         selectionKey,
         results: await generate(documents, {
           target,
+          ...(target === 'zod' ? { zod: { layout: 'barrel' as const } } : {}),
           projectBindings: graph?.implementationBindings,
           projectResources: graph?.bindings
         })

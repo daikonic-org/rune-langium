@@ -530,6 +530,11 @@ Codegen builds regenerate `expr/generated/deep-runtime-source.ts` from the share
 formatter-stable output; the Python Projections workflow runs this with its
 existing runtime source check. Both generators share `scripts/runtime-source.mjs`.
 
+Codegen also regenerates `expr/generated/rune-json-runtime-source.ts` from Core's
+canonical `serialization/rune-json.ts` via `generate:rune-json-runtime`. Run
+`node packages/codegen/scripts/generate-rune-json-runtime.mjs --check` to verify it;
+the Python Projections workflow checks all three runtime sources.
+
 Public value changes require the strict generated compilation/runtime tests in
 `test/emit/value-api.test.ts`, inheritance/namespace tests and the pinned codegen
 corpus check. Rebuild Codegen before Studio consumes it. The desktop

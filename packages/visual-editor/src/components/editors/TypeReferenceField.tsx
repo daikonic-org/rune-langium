@@ -25,10 +25,10 @@ import { resolveNodeId, TypeReferenceImports } from './TypeLink.js';
 import { NamespaceTreePicker } from './NamespaceTreePicker.js';
 import { TypeChip, typeChipKind } from './structure/TypeChip.js';
 import { useTypeRefDrop } from '../../hooks/useTypeRefDrop.js';
-import { TYPE_REF_KINDS, type TypeRefPayload } from '../../types/structure-view.js';
+import { type TypeRefPayload } from '../../types/structure-view.js';
 import type { NavigateToNodeCallback, TypeKind, TypeOption } from '../../types.js';
-import { AST_TYPE_TO_NODE_TYPE } from '../../adapters/model-helpers.js';
-import { isTypeNodeId, TYPE_DECLARATION_KINDS } from '../../store/node-projection.js';
+import { isTypeNodeId } from '../../store/node-projection.js';
+import { DEFAULT_REFERENCE_KINDS, referenceDropKinds } from './type-reference-policy.js';
 
 export interface TypeReferenceFieldProps {
   value: string | null;
@@ -48,10 +48,6 @@ export interface TypeReferenceFieldProps {
 
 // One semantic policy for option resolution, picking and drag/drop. Function
 // parent fields supply an explicit filterKinds instead of the type default.
-const DEFAULT_REFERENCE_KINDS = new Set([
-  ...TYPE_DECLARATION_KINDS.map((kind) => AST_TYPE_TO_NODE_TYPE[kind]),
-  'builtin'
-]);
 
 export function TypeReferenceField({
   value,
@@ -128,14 +124,10 @@ export function TypeReferenceField({
   // it (parity with the structure view). The dropped payload's `typeId` is the
   // canonical `namespace.Name` id the store expects for cross-namespace
   // resolution; forward it directly, matching a click in the picker.
-  const acceptKinds = useMemo<ReadonlyArray<TypeRefPayload['kind']>>(() => {
-    if (disabled || readOnly) return [];
-    const kinds = filterKinds?.length ? new Set(filterKinds) : DEFAULT_REFERENCE_KINDS;
-    const toTypeKind = (k: TypeRefPayload['kind']): TypeKind =>
-      k === 'BasicType' ? 'basicType' : k === 'TypeAlias' ? 'typeAlias' : (k.toLowerCase() as TypeKind);
-    // Explicit filters also authorize function-parent drops.
-    return TYPE_REF_KINDS.filter((k) => kinds.has(toTypeKind(k)));
-  }, [disabled, readOnly, filterKinds]);
+  const acceptKinds = useMemo(
+    () => referenceDropKinds(disabled || readOnly, filterKinds),
+    [disabled, readOnly, filterKinds]
+  );
 
   const handleDrop = useCallback((payload: TypeRefPayload) => onSelect(payload.typeId), [onSelect]);
   const { dragOverHandlers, isOver } = useTypeRefDrop({ accept: acceptKinds, onDrop: handleDrop });

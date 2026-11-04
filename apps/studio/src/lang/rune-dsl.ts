@@ -9,7 +9,7 @@
  * StreamLanguage parser. Keywords are sourced from the Langium grammar.
  */
 
-import { StreamLanguage, type StringStream } from '@codemirror/language';
+import { StreamLanguage, StringStream } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
 import { ANNOTATIONS_ROSETTA, type RuneDslKeywordNames } from '@rune-langium/core';
 import { withInstrumentation } from '../services/instrumentation/core.js';
@@ -165,6 +165,7 @@ interface RuneDslState {
   /** Whether we're inside a multi-line comment. */
   inBlockComment: boolean;
   inString: '"' | "'" | null;
+  documentation: 'text' | 'end' | null;
   /** Syntactic roles use the same Lezer tags as generated-language editors. */
   expectName: string | null;
   expectAnnotationName: boolean;
@@ -199,6 +200,7 @@ export const runeDslStreamParser = {
     return {
       inBlockComment: false,
       inString: null,
+      documentation: null,
       expectName: null,
       expectAnnotationName: false,
       annotationNames: new Set(STANDARD_ANNOTATIONS),
@@ -224,6 +226,24 @@ export const runeDslStreamParser = {
   languageData: { commentTokens: { line: '//', block: { open: '/*', close: '*/' } } },
 
   token(stream: StringStream, state: RuneDslState): string | null {
+    const documentationAllowed = !state.declaration?.expression || /:\s*$/.test(stream.string.slice(0, stream.pos));
+    if (
+      state.documentation ||
+      (documentationAllowed && !state.inString && !state.inBlockComment && stream.match('<"'))
+    ) {
+      state.documentation ??= 'text';
+      while (!stream.eol()) {
+        const character = stream.next();
+        if (state.documentation === 'text') {
+          if (character === '\\') stream.next();
+          else if (character === '"') state.documentation = 'end';
+        } else if (character === '>') {
+          state.documentation = null;
+          break;
+        }
+      }
+      return 'docComment';
+    }
     if (state.inString) return consumeString(stream, state);
 
     // Continue block comment
@@ -415,6 +435,33 @@ export const runeDslStreamParser = {
 // ────────────────────────────────────────────────────────────────────────────
 // Public API
 // ────────────────────────────────────────────────────────────────────────────
+
+/** Reuse the source tokenizer so quoted literals and comments cannot become documentation folds. */
+export const runeDocumentationRanges = withInstrumentation(
+  function runeDocumentationRanges(source: string): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+    const state = runeDslStreamParser.startState();
+    let offset = 0;
+    let start: number | undefined;
+    for (const line of source.split('\n')) {
+      const stream = new StringStream(line, 4, 4);
+      while (!stream.eol()) {
+        stream.start = stream.pos;
+        const tag = runeDslStreamParser.token(stream, state);
+        if (tag === 'docComment') {
+          start ??= offset + stream.start;
+          if (!state.documentation) {
+            ranges.push({ from: start, to: offset + stream.pos });
+            start = undefined;
+          }
+        }
+      }
+      offset += line.length + 1;
+    }
+    return ranges;
+  },
+  { op: 'runeDocumentationRanges', sanitize: () => undefined }
+);
 
 export const runeDslLanguage = withInstrumentation(
   function runeDslLanguage(): Extension {

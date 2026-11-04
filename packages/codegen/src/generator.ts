@@ -8,6 +8,7 @@ import { GeneratorError } from './types.js';
 import { createDiagnostic, hasFatalDiagnostics } from './diagnostics.js';
 import {
   emitNamespaceWithContract,
+  isWholeModelEmitter,
   type NamespaceEmitterConstructor,
   type WholeModelEmitterConstructor
 } from './emit/namespace-emitter.js';
@@ -141,7 +142,7 @@ function resolveEmitter(
   const profile = PROFILES[target];
 
   // Per-namespace request — go through the namespace emitter if we have one.
-  if (layout === 'per-namespace' && nsCtor) {
+  if (layout === 'per-namespace' && nsCtor && (target !== 'typescript' || options.typescript?.inlineHelpers)) {
     return nsCtor;
   }
 
@@ -294,9 +295,7 @@ export async function runGenerate(
       // don't need a runtime discriminator here. The synthesized
       // GenericModelEmitter wrapper for (NamespaceEmitter + Profile) is
       // also a WholeModelEmitter so it lands in the same branch.
-      const isWholeModelCtor =
-        target in WHOLE_MODEL_EMITTERS ||
-        (target in NAMESPACE_EMITTERS && target in PROFILES && resolveLayout(target, options) !== 'per-namespace');
+      const isWholeModelCtor = isWholeModelEmitter(emitterClass);
 
       if (isWholeModelCtor) {
         outputs = await new (emitterClass as WholeModelEmitterConstructor)().emit(walks, registry, options);

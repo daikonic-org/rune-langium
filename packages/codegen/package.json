@@ -45,7 +45,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "pnpm run generate:python-runtime && pnpm run generate:deep-runtime && tsc -b && node scripts/lower-decorators.mjs",
+    "build": "pnpm run generate:python-runtime && pnpm run generate:deep-runtime && pnpm run generate:rune-json-runtime && tsc -b && node scripts/lower-decorators.mjs",
+    "generate:rune-json-runtime": "node scripts/generate-rune-json-runtime.mjs",
     "generate:deep-runtime": "node scripts/generate-deep-runtime.mjs",
     "generate:python-runtime": "node scripts/generate-python-runtime.mjs",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",

@@ -68,7 +68,7 @@ func Read:
     const body = model.projections!.find((projection) => projection.kind === 'function')!.body!.code;
     expect(body).toContain('value?.toPlainDate()');
     expect(body).not.toMatch(/\bas RuneFuncData|\bsatisfies RuneFuncData|\(\(value:/);
-    expect(model.funcs[0]!.fileContents).toContain('as RuneFuncData<ResultShape>');
+    expect(model.funcs[0]!.fileContents).toContain('as Result.Shape');
   });
 
   it('lifts known collection fields without generic array or structural type wrappers', async () => {

@@ -80,7 +80,7 @@ it.each(['single-file', 'barrel'] as const)(
     await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
     assertValidDocuments(docs);
     const outputs = await generate(docs, { target: 'typescript', typescript: { layout } });
-    const entry = outputs.find((output) => output.content.includes('export const Trade ='))!;
+    const entry = outputs.find((output) => output.content.includes('export class Trade '))!;
     const assertions = `
 const one: number = Asset.from({ amount: 3 }).amount.unwrap();
 const pair: [number, number, ...number[]] = Asset.from([{ amount: 3 }, { amount: 7 }]).amount.unwrap();
@@ -237,7 +237,7 @@ it.each(['single-file', 'barrel'] as const)(
     await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
     assertValidDocuments(docs);
     const outputs = await generate(docs, { target: 'typescript', typescript: { layout } });
-    const entry = outputs.find((output) => output.content.includes('export const Box ='))!;
+    const entry = outputs.find((output) => output.content.includes('export class Box '))!;
     const api = compileGeneratedTypeScript<TestFactories>(outputs, {
       entry: entry.relativePath,
       assertions: `const text: string = Box.from({ left: { kind: 'A', value: 'a' }, right: { value: 1 } }).left.value.unwrap();`
@@ -266,7 +266,7 @@ it.each(['single-file', 'barrel'] as const)(
     await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
     assertValidDocuments(docs);
     const outputs = await generate(docs, { target: 'typescript', typescript: { layout } });
-    const entry = outputs.find((output) => output.content.includes('export const ProxyData ='))!;
+    const entry = outputs.find((output) => output.content.includes('export class ProxyData '))!;
     const api = compileGeneratedTypeScript<Record<string, { from(input: unknown): { count(): number } }>>(outputs, {
       entry: entry.relativePath
     });
@@ -291,7 +291,7 @@ it('compiles deep cyclic descriptor graphs without recursive runtime-shape compa
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
   assertValidDocuments(docs);
   const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'barrel' } });
-  const entry = outputs.find((output) => output.content.includes('export const Layer0 ='))!;
+  const entry = outputs.find((output) => output.content.includes('export class Layer0 '))!;
   compileGeneratedTypeScript(outputs, {
     entry: entry.relativePath,
     assertions: 'const absent: undefined = Layer0.from(undefined)._.amount63.unwrap();'

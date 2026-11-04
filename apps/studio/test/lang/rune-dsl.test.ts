@@ -11,9 +11,17 @@ import { EditorState, type Extension } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { highlightTree, tags } from '@lezer/highlight';
 import { studioEditorHighlightStyle } from '../../src/lang/editor-theme.js';
-import { runeDslLanguage, runeDslStreamParser } from '../../src/lang/rune-dsl.js';
+import { runeDslLanguage, runeDslStreamParser, runeDocumentationRanges } from '../../src/lang/rune-dsl.js';
 
 describe('runeDslStreamParser', () => {
+  it('dims documentation and finds only complete authored documentation ranges', () => {
+    const documentation = '<"Documentation with a \\"quoted\\" phrase\nand another line." >';
+    const source = `type Quote: ${documentation}\n amount number (1..1)\n// <"Not documentation">\nfunc Text:\n set result: '<"A string">'\n set result: value <"z" and 1 > 0\ntype Draft: <"Unfinished`;
+    const ranges = runeDocumentationRanges(source);
+    expect(ranges.map(({ from, to }) => source.slice(from, to))).toEqual([documentation]);
+    const state = runeDslStreamParser.startState();
+    expect(runeDslStreamParser.token(new StringStream('<"A description">', 4, 4), state)).toBe('docComment');
+  });
   function tokens(source: string) {
     const result: { text: string; tag: string | null }[] = [];
     const state = runeDslStreamParser.startState();

@@ -72,7 +72,7 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
     const outputs = await generate(docs, { target: 'typescript' });
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
     expect(holderOutput).toBeDefined();
-    expect(holderOutput!.content).toContain('direct?: Target;');
+    expect(holderOutput!.content).toContain('direct?: TargetShape;');
   });
 
   it('item 1: an attribute typed via a 1-hop type alias to a cross-ns Data type produces the correct value ref AND the matching import', async () => {
@@ -82,7 +82,7 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
     expect(holderOutput).toBeDefined();
     // Value ref: resolveTypeExprAsTs already chases the alias to the
     // terminal Data type's bare name.
-    expect(holderOutput!.content).toContain('viaAlias?: Target;');
+    expect(holderOutput!.content).toContain('viaAlias?: TargetShape;');
     // Import: this is the actual regression — Target must be imported once
     // for the whole file (attribute loop's fix).
     expect(holderOutput!.content).toMatch(/import \{[^}]*\bTarget\b[^}]*\} from '\.\/base\.js';/);
@@ -93,7 +93,7 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
     const outputs = await generate(docs, { target: 'typescript' });
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
     expect(holderOutput).toBeDefined();
-    expect(holderOutput!.content).toContain('viaChain?: Target;');
+    expect(holderOutput!.content).toContain('viaChain?: TargetShape;');
     expect(holderOutput!.content).toMatch(/import \{[^}]*\bTarget\b[^}]*\} from '\.\/base\.js';/);
   });
 

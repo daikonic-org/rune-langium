@@ -1296,9 +1296,12 @@ explicit workflow activation, while import alone never changes the active workfl
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
 around the existing RuneList runtime; `new Trade` retains one model construction.
-Internal data classes and public constructor/factory values are separate so child
-factories do not violate TypeScript static-side inheritance. Plain Shapes and
-function boundaries remain unchanged. The normalizer owns only the supplied value
+Each Data emits one public class with static factories and a merged `.Shape`
+type for structural function boundaries. Constructor-only parent types erase
+incompatible inherited static factory signatures while preserving JavaScript
+inheritance and `instanceof`. Nested Shapes contain structural data and Temporal
+values directly; public function signatures do not require `RuneFuncData`.
+The normalizer owns only the supplied value
 graph, preserves cycles and reuses generated construction guards. Conditions are
 separate from shape checks. Field/deep selectors retain descriptors and compose
 bounds; ambiguous names require linked declaration identity. The `._.` syntax lens
@@ -1330,6 +1333,12 @@ require a fresh draft, and substituted scalar scopes refuse nonliteral edits
 whose binding cannot be recovered safely.
 Generated public view constructors use ordinary fields and assignments so the
 helper introduces no parameter-property transform requirement for Node type stripping.
+Generated Rune JSON support embeds the authoritative Core codec through
+`generate:rune-json-runtime`; descriptor adapters supply declaration context.
+Plain JSON is the default; instance/view serialization opts into Rune JSON.
+TypeScript modules default to shared helpers, and per-namespace callers may
+explicitly request inline support. Studio also uses shared Zod preview helpers.
+Preview enum options use Core's effective inherited member inventory.
 
 ## Reference loading and derived caches
 

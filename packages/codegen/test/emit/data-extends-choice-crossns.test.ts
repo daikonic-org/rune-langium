@@ -93,9 +93,7 @@ describe('Data-extends-Choice — cross-namespace Choice supertype', () => {
     expect(productOutput!.content).toContain(
       'export type TransferableProductShape<T extends AssetShape = AssetShape> = T & {\n  weight?: number;\n};'
     );
-    expect(productOutput!.content).toContain(
-      'export class $TransferableProduct$Data<T extends AssetShape = AssetShape>'
-    );
+    expect(productOutput!.content).toContain('export class TransferableProduct<T extends AssetShape = AssetShape>');
   });
 
   it('MULTI-FILE compile check: both emitted namespaces typecheck together under real tsc --strict (imports actually resolved)', async () => {

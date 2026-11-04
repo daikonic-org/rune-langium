@@ -510,6 +510,7 @@ export const ExplorePerspective = withInstrumentation(
     const graphRef = useRef<RuneTypeGraphRef>(null);
     const graphContainerRef = useRef<HTMLDivElement>(null);
     const sourceEditorRef = useRef<SourceEditorRef>(null);
+    const [hideSourceDocumentation, setHideSourceDocumentation] = useState(false);
     const [pendingFileArrival, setPendingFileArrival] = useState<{
       filePath: string;
       workspaceId: string | undefined;
@@ -2389,6 +2390,17 @@ export const ExplorePerspective = withInstrumentation(
             <span className="studio-source-meta__path">{activeFile?.path ?? '—'}</span>
             <span className="studio-source-meta__spacer" />
             {activeFile && !sourcePending && (
+              <Button
+                variant="ghost"
+                size="xs"
+                aria-pressed={hideSourceDocumentation}
+                aria-label={hideSourceDocumentation ? 'Show source documentation' : 'Hide source documentation'}
+                onClick={() => setHideSourceDocumentation((hidden) => !hidden)}
+              >
+                {hideSourceDocumentation ? 'Show docs' : 'Hide docs'}
+              </Button>
+            )}
+            {activeFile && !sourcePending && (
               <span className="studio-source-meta__stat">
                 UTF-8 · {lineEnding} · {lineCount} lines
               </span>
@@ -2412,12 +2424,14 @@ export const ExplorePerspective = withInstrumentation(
               onNavigateToNode={handleSourceNavigateToNode}
               onEditorViewCreated={handleEditorViewCreated}
               hideTabs
+              hideDocumentation={hideSourceDocumentation}
             />
           )}
         </div>
       );
     }, [
       sourceEditorFiles,
+      hideSourceDocumentation,
       sourceLoadError,
       activeEditorFile,
       lspClient,

@@ -83,7 +83,7 @@ describe('ts-emitter — Choice emission (W2)', () => {
     const doc = await parseSource(FIXTURE);
     const model = walkNamespace([doc], 'test.choice');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('asset?: Asset;');
+    expect(output.content).toContain('asset?: AssetShape;');
     expect(output.content).not.toMatch(/asset\??:\s*unknown/);
   });
 

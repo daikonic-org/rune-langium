@@ -2,9 +2,14 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { DEEP_RUNTIME_SOURCE } from './generated/deep-runtime-source.js';
+import { RUNE_JSON_RUNTIME_SOURCE } from './generated/rune-json-runtime-source.js';
 
 export const RUNE_VALUE_IMPORTS = [
   'runeValue',
+  'runeValueJSON',
+  'runeValueFromJSON',
+  'type RuneDataClass',
+  'type RuneJsonOptions',
   'type RuneValueSelection',
   'type RuneValueType',
   'type RuneEmptyType',
@@ -42,6 +47,7 @@ export const RUNE_VALUE_NAMES = [
   'runeValueInput',
   'runeValueMaterialize',
   'runeValueType',
+  'runeJson',
   ...RUNE_VALUE_IMPORTS.map((name) => name.replace(/^type /, ''))
 ];
 
@@ -49,6 +55,10 @@ export const RUNE_VALUE_NAMES = [
 export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
+const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
+return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding }; })();
+${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
+${e}type RuneDataClass<C extends abstract new (...args: never[]) => unknown> = new (...args: ConstructorParameters<C>) => InstanceType<C>;
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
 ${e}type RuneBounded<T, Min extends number, Max extends number, A extends T[] = RuneTuple<T, Min>, Result = never> = number extends A['length'] ? T | T[] | undefined : A['length'] extends Max ? Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : A) : A['length'] extends 32 ? T | T[] | undefined : RuneBounded<T, Min, Max, [...A, T], Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : A)>;
@@ -82,6 +92,8 @@ ${e}interface RuneValueSelection<T = unknown, Min extends number = number, Max e
   readonly type?: () => Model;
 }
 ${e}interface RuneValueType<T = unknown, Output = T> {
+  readonly identity?: string;
+  readonly metadata?: boolean;
   readonly input?: T;
   readonly output?: Output;
   readonly create?: (value: unknown) => Output;
@@ -182,7 +194,7 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
   exists() { return this.count() > 0; }
   unwrap(): RunePayload<T, Min, Max> { const values = this.$list.toArray(); return (values.length === 0 ? undefined : values.length === 1 ? values[0] : values) as RunePayload<T, Min, Max>; }
   toArray(): 0 extends Min ? T[] : [T, ...T[]] { return this.$list.toArray() as 0 extends Min ? T[] : [T, ...T[]]; }
-  toJSON() { return runeToFuncData(this.unwrap()); }
+  toJSON(options?: RuneJsonOptions | string): unknown { return this.$type ? runeValueJSON(this.unwrap(), this.$type, options) : runeToFuncData(this.unwrap()); }
   first(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.first(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   last(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.last(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   onlyElement(): RuneView<T, 0, 1, Model> { const value = this.$list.onlyElement(); return new RuneValue(value == null ? [] : [value], this.$type, 0, 1) as RuneView<T, 0, 1, Model>; }
@@ -236,5 +248,67 @@ ${e}const runeValue = <Model extends RuneValueType>(input: unknown, type: () => 
   const raw = typeof input === 'string' ? JSON.parse(input) as unknown : runeValueInput(input);
   const values = runeList(raw).map(value => runeValueMaterialize(value, type()));
   return new RuneValue(values, type, values.length, values.length) as unknown as RuneView<NonNullable<Model['output']>, number, number | null, Model>;
+};
+${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
+  if (typeof options !== 'object' || options?.format !== 'RUNE_JSON') return runeToFuncData(input);
+  const active = new WeakSet<object>();
+  const visit = (value: unknown, model?: RuneValueType): unknown => {
+    if (value == null || typeof value !== 'object') return value;
+    if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return String(value);
+    if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
+    active.add(value);
+    try {
+      if (Array.isArray(value)) return value.map(item => visit(item, model));
+      const result = Object.fromEntries(Object.entries(value).filter(([key]) => !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
+      for (const field of Object.values(model?.fields ?? {})) {
+        const raw = (value as Record<string, unknown>)[field.key];
+        const item = (child: unknown): unknown => {
+          if (!field.metadata || child == null) return visit(child, runeValueType(field)?.());
+          if (typeof child !== 'object' || Array.isArray(child)) throw new TypeError('Expected a Rune metadata envelope');
+          const envelope = Object.fromEntries(Object.entries(child));
+          if (Object.hasOwn(envelope, 'value')) envelope.value = visit(envelope.value, runeValueType(field)?.());
+          return runeJson.context(envelope, 'envelope');
+        };
+        if (Object.hasOwn(value, field.key)) result[field.key] = Array.isArray(raw) ? raw.map(item) : item(raw);
+      }
+      if (model?.choice) {
+        const selected = model.choice.filter(key => result[key] != null);
+        if (selected.length !== 1) throw new TypeError('Rune JSON requires exactly one Choice option');
+        if (Object.keys(result).some(key => !key.startsWith('@') && !model.choice!.includes(key))) throw new TypeError('Unknown Choice fields cannot be discarded');
+        const body = result[selected[0]!];
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new TypeError('Rune JSON Choice option must serialize as an object');
+        return runeJson.context({ ...Object.fromEntries(Object.entries(result).filter(([key]) => key.startsWith('@') && key !== '@type')), ...body }, body);
+      }
+      if (!model) return result;
+      result['@type'] = model.identity;
+      return runeJson.context(result, model.metadata ? 'data-metadata' : 'data');
+    } finally { active.delete(value); }
+  };
+  return runeJson.encode(visit(input, type()));
+};
+${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, options: RuneJsonOptions = {}): unknown => {
+  const parsed: unknown = typeof input === 'string' ? JSON.parse(input) : input;
+  if (options.format !== 'RUNE_JSON') return parsed;
+  const visit = (value: unknown, model?: RuneValueType): unknown => {
+    if (Array.isArray(value)) return value.map(item => visit(item, model));
+    if (!value || typeof value !== 'object' || !model) return value;
+    const record = value as Record<string, unknown>;
+    if (model.choice && typeof record['@type'] === 'string') {
+      if (record['@type'] === model.identity && Object.hasOwn(record, '@data')) return visit(record['@data'], model);
+      const selected = model.choice.filter(key => runeValueType(model.fields[key]!)?.().identity === record['@type']);
+      if (selected.length !== 1) throw new TypeError('Rune JSON type does not select exactly one Choice option');
+      return { [selected[0]!]: visit(value, runeValueType(model.fields[selected[0]!]!)?.()) };
+    }
+    if (record['@type'] !== undefined && record['@type'] !== model.identity) throw new TypeError('Rune JSON type differs from ' + model.identity);
+    const result = Object.fromEntries(Object.entries(record));
+    for (const field of Object.values(model.fields)) {
+      const item = (child: unknown): unknown => field.metadata && child && typeof child === 'object' && !Array.isArray(child)
+        ? { ...child, value: visit((child as Record<string, unknown>).value, runeValueType(field)?.()) }
+        : visit(child, runeValueType(field)?.());
+      if (Object.hasOwn(result, field.key)) result[field.key] = Array.isArray(result[field.key]) ? (result[field.key] as unknown[]).map(item) : item(result[field.key]);
+    }
+    return result;
+  };
+  return visit(runeJson.decode(parsed), type());
 };`;
 }

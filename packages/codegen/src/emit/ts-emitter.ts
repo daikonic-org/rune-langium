@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
 import { escapeSingleQuotedString } from './string-literal.js';
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
@@ -11,6 +10,7 @@ import {
 } from '../projection/source-typescript-function.js';
 import { renderSourceTypeScriptExpression } from '../projection/source-typescript-expression.js';
 import {
+  getEnumValueLiteral,
   getEnumValues,
   isAsOperation,
   isSwitchCaseGuard,
@@ -29,7 +29,6 @@ import {
   type Condition,
   type Data,
   type Attribute,
-  type ChoiceOption,
   type RosettaEnumeration,
   type RosettaExpression,
   type RosettaCardinality,
@@ -386,6 +385,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.sections.push(this.emitChoiceTypeDeclaration(choice));
     this.sections.push('');
     this.sections.push(this.emitChoiceShapeTypeDeclaration(choice));
+    this.sections.push(
+      `export namespace ${this.typeName(choice)} { export type Shape = ${this.typeName(choice, `${choice.name}Shape`)}; }`
+    );
     this.sections.push('');
     this.sections.push(this.emitChoiceTypeGuard(choice));
     this.sections.push('');
@@ -583,6 +585,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       localName?: string
     ): void => {
       if (!typeRef) return;
+      if ((isData(typeRef) || isChoice(typeRef)) && symbolName === `${typeRef.name}Shape`)
+        trackRef(typeRef, typeRef.name);
       const ns = getElementNamespace(typeRef);
       if (!ns || ns === this.ctx.namespace) return;
 
@@ -623,8 +627,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         {
           onPrimitive: () => undefined,
           onEnum: (node) => trackRef(node, node.name),
-          onData: (node) => trackRef(node, node.name),
-          onChoice: (node) => trackRef(node, node.name),
+          onData: (node) => {
+            trackRef(node, node.name);
+            trackRef(node, `${node.name}Shape`);
+          },
+          onChoice: (node) => {
+            trackRef(node, node.name);
+            trackRef(node, `${node.name}Shape`);
+          },
           onUnresolved: () => undefined
         },
         this.ctx.namespace
@@ -645,10 +655,6 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         // now the symbol exists and the same tracking is simply correct.
         trackRef(parentRef, `${parentRef.name}Shape`);
         trackRef(parentRef, parentRef.name);
-        if (isData(parentRef)) {
-          const rawName = `$${this.callableNames.declarationExported(getElementNamespace(parentRef) ?? this.ctx.namespace, parentRef)}$Data`;
-          trackRef(parentRef, rawName, this.valueApi.name(parentRef, 'Data'));
-        }
       }
       // Multi-level Data-extends-Choice: the child's generic Shape alias
       // constraint references the Choice ANCESTOR's `<Choice>Shape` even
@@ -795,7 +801,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Resolve the TypeScript type expression for an attribute.
    * T105.
    */
-  private resolveTypeExprAsTs(attr: Feature, metadata = true): string {
+  private resolveTypeExprAsTs(attr: Feature, metadata = true, shape = false): string {
     const type = resolveProjectTypeCall(
       attr.typeCall,
       this.typeIndex,
@@ -820,8 +826,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         // union type name — was previously falling to 'unknown' (isChoice
         // was never consulted in the hand-rolled chain this replaces).
         onEnum: (node) => this.typeName(node),
-        onData: (node) => this.typeName(node),
-        onChoice: (node) => this.typeName(node),
+        onData: (node) => this.typeName(node, shape ? `${node.name}Shape` : node.name),
+        onChoice: (node) => this.typeName(node, shape ? `${node.name}Shape` : node.name),
         onUnresolved: (refText) => {
           if (refText) return refText; // preserves this file's existing permissive refText shortcut
           this.reportUnresolvedReference(featureName(attr), undefined, 'unknown');
@@ -990,7 +996,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // Own attribute field declarations — identical across all branches.
     const fields: string[] = hasTypeMetadata(data) ? ['  meta?: RuneMetadata;'] : [];
     for (const attr of data.attributes) {
-      const baseType = this.resolveTypeExprAsTs(attr);
+      const baseType = this.resolveTypeExprAsTs(attr, true, true);
       const fieldDecl = TsNamespaceEmitter.applyCardinalityTs(attr.card, baseType, attr.name);
       fields.push(`  ${fieldDecl};`);
     }
@@ -1052,14 +1058,16 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * T106.
    */
   private emitClass(data: Data): string {
-    const name = this.valueApi.name(data, 'Data');
+    const name = this.typeName(data);
     const publicName = this.typeName(data);
     const interfaceName = this.typeName(data, `${data.name}Shape`);
     const parentRef = data.superType?.ref;
     // Item 2: NOT gated on `dataByName.has` — see emitInterface's doc
     // comment for the full cross-namespace rationale.
     const parentData = parentRef && isData(parentRef) ? parentRef : undefined;
-    const parentName = parentData ? this.valueApi.name(parentData, 'Data') : undefined;
+    const parentName = parentData ? this.typeName(parentData) : undefined;
+    // Runtime inheritance stays nominal; constructors do not inherit a parent's narrower static factory signature.
+    const parentBase = parentName ? `(${parentName} as RuneDataClass<typeof ${parentName}>)` : undefined;
     const choiceParent = parentRef && isChoice(parentRef) ? parentRef : undefined;
     // Multi-level (Data extends Data extends Choice, per T105's
     // emitInterface): once the PARENT's own Shape is itself the generic
@@ -1077,8 +1085,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ? `export class ${name}<T extends ${this.typeName(choiceParent, `${choiceParent.name}Shape`)} = ${this.typeName(choiceParent, `${choiceParent.name}Shape`)}>`
       : parentName
         ? shapeIsGeneric
-          ? `export class ${name} extends ${parentName}`
-          : `export class ${name} extends ${parentName} implements ${interfaceName}`
+          ? `export class ${name} extends ${parentBase}`
+          : `export class ${name} extends ${parentBase} implements ${interfaceName}`
         : `export class ${name} implements ${interfaceName}`;
 
     const lines: string[] = [`${classHeader} {`];
@@ -1087,7 +1095,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     // Own instance fields
     for (const attr of data.attributes) {
-      const baseType = this.resolveTypeExprAsTs(attr);
+      const baseType = this.resolveTypeExprAsTs(attr, true, true);
       const fieldDecl = TsNamespaceEmitter.applyCardinalityTs(attr.card, baseType, attr.name);
       lines.push(`  ${fieldDecl};`);
     }
@@ -1119,6 +1127,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push('  }');
     }
 
+    lines.push('', this.valueApi.factory(data));
+    const model = this.valueApi.name(data, 'Type');
+    lines.push(
+      `  static fromJSON(input: unknown, options: RuneJsonOptions = {}) { return ${name}.from(runeValueFromJSON(input, () => ${model}, options)); }`
+    );
+    lines.push(
+      `  toJSON(options?: RuneJsonOptions | string): unknown { return runeValueJSON(this, () => ${model}, options); }`
+    );
+
     // Data-extends-Choice: exactly-one-of validator over the inherited
     // Choice's option names, mirroring emitOneOf's ts-method emission
     // convention (rune.checkOneOf + errors.push), read off `this` since the
@@ -1138,7 +1155,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const generic = choiceParent
       ? `<T extends ${this.typeName(choiceParent, `${choiceParent.name}Shape`)} = ${this.typeName(choiceParent, `${choiceParent.name}Shape`)}>`
       : '';
-    lines.push(`export type ${publicName}${generic} = ${name}${choiceParent ? '<T>' : ''};`);
+    lines.push(
+      `export namespace ${publicName} { export type Shape${generic} = ${interfaceName}${choiceParent ? '<T>' : ''}; }`
+    );
     return lines.join('\n');
   }
 
@@ -1271,6 +1290,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         `export function ${this.typeName(data, `is${data.name}`)}(x: ${parentName}): x is ${name};`,
         `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${name} {`,
         `  if (typeof x !== 'object' || x === null) return false;`,
+        `  if (x instanceof ${name}) return true;`,
+        `  if ('@type' in x) return x['@type'] === ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)};`,
         ...checkLines,
         `  return true;`,
         `}`
@@ -1281,6 +1302,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const lines: string[] = [
       `export function ${this.typeName(data, `is${data.name}`)}(x: unknown): x is ${name} {`,
       `  if (typeof x !== 'object' || x === null) return false;`,
+      `  if (x instanceof ${name}) return true;`,
+      `  if ('@type' in x) return x['@type'] === ${JSON.stringify(`${getElementNamespace(data)}.${data.name}`)};`,
       ...checkLines,
       `  return true;`,
       `}`
@@ -2000,7 +2023,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * T120, FR-028.
    */
   private static funcParamType(param: RuneFunc['output']): string {
-    const type = param.shapeTypeName ? `RuneFuncData<${param.shapeTypeName}>` : resolveFuncTypeTs(param.typeName);
+    const type = param.shapeTypeName ?? resolveFuncTypeTs(param.typeName);
     return param.metadataKind
       ? `${param.metadataKind === 'reference' ? 'RuneReferenceWithMeta' : 'RuneFieldWithMeta'}<${type}>`
       : type;

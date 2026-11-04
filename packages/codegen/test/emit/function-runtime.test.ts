@@ -161,8 +161,8 @@ func MakeEmptyBox:
       }
     );
     expect(funcs.MakeEmptyBox!({})).toEqual({ origin: { x: 1, y: 2 }, kind: 'A' });
-    expect(source).toContain('{} as RuneFuncData<PointShape>');
-    expect(source).toContain('satisfies RuneFuncData<BoxShape>');
+    expect(source).toContain('{} as Point.Shape');
+    expect(source).toContain('satisfies Box.Shape');
     expect(source).not.toMatch(/"A" as/);
   });
   it('uses Temporal values and equality in both functions and Data classes', async () => {
@@ -2674,8 +2674,8 @@ func Reference:
  set result: source as-key
 `,
       `
-const item: Item = {name: 'A', meta: {externalKey: 'item-1'}};
-const reference: RuneReferenceWithMeta<Item> = Reference(item);
+const item: Item.Shape = {name: 'A', meta: {externalKey: 'item-1'}};
+const reference: RuneReferenceWithMeta<Item.Shape> = Reference(item);
 // @ts-expect-error Reference outputs are wrappers, not direct data values.
 const value: Item = Reference(item);
 `

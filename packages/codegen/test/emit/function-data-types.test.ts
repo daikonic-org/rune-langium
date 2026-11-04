@@ -23,7 +23,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
   await RuneDsl.shared.workspace.DocumentBuilder.build([doc]);
   expect(doc.parseResult.parserErrors).toHaveLength(0);
 
-  const outputs = await generate(doc, { target: 'typescript' });
+  const outputs = await generate(doc, { target: 'typescript', typescript: { inlineHelpers: true } });
   expect(
     outputs.flatMap((output) => output.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'))
   ).toEqual([]);

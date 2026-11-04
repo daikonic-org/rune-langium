@@ -27,6 +27,8 @@ import {
 } from 'react';
 import { EditorView } from '@codemirror/view';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
+import { foldEffect, unfoldEffect } from '@codemirror/language';
+import { runeDocumentationRanges } from '../lang/rune-dsl.js';
 import type { SourceRegion } from '@rune-langium/core';
 import {
   documentExtensions,
@@ -94,6 +96,8 @@ export interface SourceEditorProps {
   /** When true, suppress the internal tab strip. Use when the parent (e.g. topbar
    * FileTabStrip) already provides file-tab navigation. */
   hideTabs?: boolean;
+  /** Fold documentation for reading; the source buffer and undo history are unchanged. */
+  hideDocumentation?: boolean;
   /** Display/edit a protected region, retaining the full document internally. */
   region?: SourceRegion;
   /** Source snapshot from which region coordinates were calculated. */
@@ -234,6 +238,7 @@ const renderSourceEditor = withInstrumentation(
       onNavigateToNode,
       onEditorViewCreated,
       hideTabs,
+      hideDocumentation = false,
       region,
       regionSource,
       onSelectionChange
@@ -581,6 +586,13 @@ const renderSourceEditor = withInstrumentation(
       // Content updates are handled by the updateListener extension, NOT by recreating.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentFile?.path, buildExtensions]);
+
+    useEffect(() => {
+      const view = editorViewRef.current;
+      if (!view || region) return;
+      const effect = hideDocumentation ? foldEffect : unfoldEffect;
+      view.dispatch({ effects: runeDocumentationRanges(view.state.doc.toString()).map((range) => effect.of(range)) });
+    }, [hideDocumentation, currentFile?.path, region]);
 
     useEffect(() => {
       const view = editorViewRef.current;

@@ -115,7 +115,7 @@ export function MetadataScalar({
                     : event.target.value
                 );
               }}
-              className="studio-scroll min-h-16 max-h-96 w-full resize-y overflow-auto rounded border border-input bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring"
+              className="studio-scroll min-h-0 max-h-96 w-full resize-y overflow-auto rounded border border-input bg-background px-2 py-1 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring"
             />
           )}
           {fieldState.error && (
@@ -217,7 +217,7 @@ function ReadonlyMetadataSection({
       {caps.definition && (
         <Field>
           <FieldLabel>Documentation</FieldLabel>
-          <p className="studio-scroll min-h-16 max-h-96 resize-y overflow-auto whitespace-pre-wrap text-sm">
+          <p className="studio-scroll max-h-96 overflow-auto whitespace-pre-wrap text-sm">
             {'definition' in node && typeof node.definition === 'string' ? node.definition : 'No documentation'}
           </p>
         </Field>

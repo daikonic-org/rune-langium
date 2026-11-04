@@ -14,7 +14,10 @@ export const TARGET_LAYOUT_SCHEMAS = {
   markdown: z.enum(['per-namespace', 'barrel'])
 };
 export const ZodOptionsSchema = z.object({ layout: moduleLayout.optional() });
-export const TypescriptOptionsSchema = ZodOptionsSchema.extend({ inputChecks: z.boolean().optional() });
+export const TypescriptOptionsSchema = ZodOptionsSchema.extend({
+  inputChecks: z.boolean().optional(),
+  inlineHelpers: z.boolean().optional()
+});
 export const JsonSchemaOptionsSchema = z.object({ layout: flatLayout.optional() });
 export const SqlOptionsSchema = z.object({
   dialect: z.enum(['postgres', 'sqlserver']).optional(),

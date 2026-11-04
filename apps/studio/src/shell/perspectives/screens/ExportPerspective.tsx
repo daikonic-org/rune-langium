@@ -99,21 +99,10 @@ export const ExportPerspective = withInstrumentation(
     const sourceRevisionRef = useRef(sourceRevision);
     const activationRef = useRef<{ workspaceId: string; promise: Promise<void> } | undefined>(undefined);
     const [workbenchApi, setWorkbenchApi] = useState<DockviewApi>();
-    const [view, setView] = useState<'settings' | 'output'>('settings');
     const [expanded, setExpanded] = useState(false);
     const [navigationNotice, setNavigationNotice] = useState<string>();
-    const lastResult = useRef<unknown>(undefined);
     useEffect(() => {
-      const result = run.status === 'ready' ? run.artifact : run.status === 'failed' ? run : undefined;
-      if (activationReady && result && lastResult.current !== result) {
-        lastResult.current = result;
-        setView('output');
-      }
-    }, [run, activationReady]);
-    useEffect(() => {
-      setView('settings');
       setNavigationNotice(undefined);
-      lastResult.current = undefined;
     }, [workspaceId]);
     const navigateOutput = useCallback(
       (namespace: string, name: string) => {
@@ -128,7 +117,6 @@ export const ExportPerspective = withInstrumentation(
         );
         if (file) {
           setActiveFile(file.path);
-          setView('output');
           setNavigationNotice(undefined);
         } else setNavigationNotice(`Generate output for ${namespace}.${name} to view its source.`);
         workbenchApi?.getPanel('export.settings')?.api.setActive();
@@ -315,8 +303,6 @@ export const ExportPerspective = withInstrumentation(
           ),
           'export.settings': () => (
             <ExportWorkspacePanel
-              view={view}
-              onViewChange={setView}
               expanded={expanded}
               notice={navigationNotice}
               onToggleExpanded={() => {
@@ -401,7 +387,6 @@ export const ExportPerspective = withInstrumentation(
         configure,
         handleGenerate,
         handleSelectionChange,
-        view,
         expanded,
         navigationNotice,
         navigateOutput,

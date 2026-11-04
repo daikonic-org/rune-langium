@@ -16,14 +16,13 @@
  * FR-031: Zod and JSON Schema targets silently skip funcs.
  */
 
-import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
-import ts from 'typescript-classic';
 import { generate } from '../src/export.js';
+import { compileGeneratedTypeScript } from './helpers/compiled-typescript.js';
 import { buildFuncCallGraph, findCyclicFuncs, topoSortFuncs } from '../src/types/func.js';
 import type { RuneFunc } from '../src/types/func.js';
 
@@ -32,7 +31,7 @@ const FIXTURES_DIR = resolve(new URL('.', import.meta.url).pathname, 'fixtures/f
 /**
  * Parse a Rune file and generate TypeScript output.
  */
-async function generateFuncFixture(fixtureName: string): Promise<string> {
+async function generateFuncOutputs(fixtureName: string) {
   const inputPath = join(FIXTURES_DIR, fixtureName, 'input.rune');
   const content = await readFile(inputPath, 'utf-8');
 
@@ -53,7 +52,11 @@ async function generateFuncFixture(fixtureName: string): Promise<string> {
     throw new Error(`Generator produced no output for ${fixtureName}`);
   }
 
-  return outputs[0]!.content;
+  return outputs;
+}
+
+async function generateFuncFixture(fixtureName: string): Promise<string> {
+  return (await generateFuncOutputs(fixtureName))[0]!.content;
 }
 
 // ---------------------------------------------------------------------------
@@ -252,12 +255,7 @@ describe('US6 funcs: constructor-expr (T128)', () => {
     ['MakePoint', { x: 3, y: 4 }, { x: 3, y: 4 }],
     ['MakeEmptyBox', { w: 5 }, { origin: {}, width: 5 }]
   ] as const)('executes %s constructor values', async (name, input, expected) => {
-    const source = await generateFuncFixture('constructor-expr');
-    const javascript = ts.transpileModule(source, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    const exports: Record<string, (input: Record<string, unknown>) => unknown> = {};
-    new Function('exports', 'require', javascript)(exports, createRequire(import.meta.url));
+    const exports = compileGeneratedTypeScript(await generateFuncOutputs('constructor-expr'));
     const args = 'x' in input ? [input.x, input.y] : [input.w];
     expect((exports[name] as (...args: unknown[]) => unknown)(...args)).toEqual(expected);
   });
