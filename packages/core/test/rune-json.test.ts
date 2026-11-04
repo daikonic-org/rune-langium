@@ -9,6 +9,11 @@ import {
   projectRuneJsonChoice
 } from '../src/serialization/rune-json.js';
 
+it('serializes native patterns as wire strings and refuses to discard flags', () => {
+  expect(encodeRuneJson({ expression: /^x+$/ })).toEqual({ expression: '^x+$' });
+  expect(() => encodeRuneJson(/x/i)).toThrow(/flags/);
+});
+
 it('shares Choice wrapper normalization without merging parent and arm headers or losing decoded keys', () => {
   const wire = {
     '@type': 'example.Choice',

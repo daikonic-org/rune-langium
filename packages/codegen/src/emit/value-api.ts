@@ -9,7 +9,6 @@ import {
   isData,
   isRosettaRecordType,
   isRosettaRecordFeature,
-  type RosettaRecordType,
   type Choice,
   type Data
 } from '@rune-langium/core';
@@ -22,8 +21,9 @@ import {
   type ExpressionType
 } from '../expr/navigation.js';
 import { fieldMetadataKind, metadataType, hasTypeMetadata } from '../expr/metadata-runtime.js';
+import { isTypeScriptNativeType, type TypeScriptNativeType } from './native-types.js';
 
-type Model = Data | Choice | RosettaRecordType;
+type Model = Data | Choice | TypeScriptNativeType;
 type Bounds = { min: number; max: number | null };
 type Field = {
   feature: Feature;
@@ -42,11 +42,11 @@ export class ValueApiEmitter {
   private readonly cyclic = new WeakSet<Model>();
   private readonly boundsCache = new WeakMap<Model, Map<string, Bounds | undefined>>();
   private readonly inventories = new Map<string, string>();
-  private readonly emittedRecords = new Set<RosettaRecordType>();
+  private readonly emittedRecords = new Set<TypeScriptNativeType>();
   constructor(
     private readonly names: (node: Model, name?: string) => string,
     private readonly primitive: (field: Feature) => string,
-    private readonly record: (type: RosettaRecordType) => string,
+    private readonly record: (type: TypeScriptNativeType) => string,
     private readonly output: (node: Model) => string,
     private readonly create: (node: Model) => string,
     private readonly check: (field: Feature) => string | undefined
@@ -72,7 +72,7 @@ export class ValueApiEmitter {
       bounds,
       wireBounds,
       metadata: metadata || undefined,
-      ...(isData(target) || isChoice(target) || isRosettaRecordType(target) ? { model: target } : {})
+      ...(isData(target) || isChoice(target) || isTypeScriptNativeType(target) ? { model: target } : {})
     };
   }
 
@@ -169,7 +169,7 @@ export class ValueApiEmitter {
 
   emit(node: Model): string {
     const records: string[] = [];
-    for (const record of this.dependencies(node).filter(isRosettaRecordType)) {
+    for (const record of this.dependencies(node).filter(isTypeScriptNativeType)) {
       if (!this.emittedRecords.has(record)) {
         this.emittedRecords.add(record);
         records.push(this.emit(record));
@@ -248,7 +248,7 @@ export class ValueApiEmitter {
             `const ${inventory}$Deep: ${inventory}$Deep = { ${baseDeep.map(({ key, field }) => `${objectKey(key)}: ${inventory}$Selections[${JSON.stringify(field.id)}]`).join(', ')} };`
           ]
         : []),
-      ...(isRosettaRecordType(node)
+      ...(isTypeScriptNativeType(node)
         ? [`export type ${inputName} = ${this.record(node)};`]
         : own.some((field) => isChoiceOption(field.feature))
           ? [
@@ -278,7 +278,7 @@ export class ValueApiEmitter {
       `  identity: ${JSON.stringify(`${getElementNamespace(node)}.${node.name}`)},`,
       ...(isChoice(node) ? [`  kind: 'choice',`] : []),
       ...(isData(node) && hasTypeMetadata(node) ? ['  metadata: true,'] : []),
-      ...(isRosettaRecordType(node) ? ['  native: true,'] : []),
+      ...(isTypeScriptNativeType(node) ? ['  native: true,'] : []),
       `  create: ${this.create(node)},`,
       ...(own.some((field) => isChoiceOption(field.feature))
         ? [
@@ -294,7 +294,7 @@ export class ValueApiEmitter {
   }
 
   factory(node: Model): string {
-    if (isRosettaRecordType(node)) return '';
+    if (isTypeScriptNativeType(node)) return '';
     const input = this.name(node, 'Input');
     const schema = this.name(node, 'Type');
     const output = this.output(node);

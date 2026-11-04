@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { patternLiteral, renderPatternLiteral } from './pattern.js';
+
 import {
   getEnumValueLiteral,
   getEnumValues,
@@ -869,7 +871,7 @@ function wrapBoolExprForMode(boolExpr: string, ctx: ExpressionTranspilerContext)
  * RosettaNumberLiteral  → <number>
  * RosettaStringLiteral  → '<escaped-string>'
  */
-export function transpileLiteral(expr: RosettaExpression, _ctx: ExpressionTranspilerContext): string {
+export function transpileLiteral(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
   if (isRosettaBooleanLiteral(expr)) {
     return expr.value ? 'true' : 'false';
   }
@@ -881,6 +883,7 @@ export function transpileLiteral(expr: RosettaExpression, _ctx: ExpressionTransp
     return String(expr.value);
   }
   if (isRosettaStringLiteral(expr)) {
+    if (ctx.emitMode.startsWith('ts-') && patternLiteral(expr) !== undefined) return renderPatternLiteral(expr.value);
     // JSON-escape and use single quotes
     const escaped = expr.value
       .replace(/\\/g, '\\\\')

@@ -146,8 +146,8 @@ describe('builtin type parity — specific mapping values match spec §4a', () =
     it('maps time → Temporal.PlainTime', () => {
       expect(typescriptProfile.basicTypeMap['time']).toBe('Temporal.PlainTime');
     });
-    it('maps pattern → string', () => {
-      expect(typescriptProfile.basicTypeMap['pattern']).toBe('string');
+    it('maps pattern → RegExp', () => {
+      expect(typescriptProfile.basicTypeMap['pattern']).toBe('RegExp');
     });
     it('maps int → number', () => {
       expect(typescriptProfile.typeAliasMap['int']).toBe('number');

@@ -242,6 +242,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     this.conditionFunctionName = options.conditionFunctionName;
     if (this.functionInputs) {
       const builtinTypeMap = { ...this.ctx.builtinTypeMap };
+      builtinTypeMap.pattern =
+        "z.string().transform((value, ctx) => { try { return new RegExp(value); } catch { ctx.addIssue({ code: 'custom', message: 'Invalid pattern' }); return z.NEVER; } })";
       for (const [kind, temporalType] of Object.entries(typescriptProfile.recordTypeMap).concat([
         ['time', typescriptProfile.basicTypeMap.time!]
       ])) {

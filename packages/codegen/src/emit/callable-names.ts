@@ -44,6 +44,7 @@ export class CallableNames {
         ...manifest.exportedDataNames,
         ...manifest.exportedEnumNames,
         ...manifest.exportedTypeAliasNames,
+        ...(manifest.exportedBuiltinNames ?? []),
         ...manifest.exportedAnnotationNames
       ]);
       const helpers = new Set<string>([...RUNE_HELPER_NAMES, ...runtimeReserved]);
@@ -92,6 +93,7 @@ export class CallableNames {
         ]),
         ...[...manifest.exportedFuncNames].map((name) => this.exported(namespace, name)),
         ...manifest.exportedTypeAliasNames,
+        ...(manifest.exportedBuiltinNames ?? []),
         ...[...manifest.exportedAnnotationNames].map((name) => this.annotationExported(namespace, name)),
         ...[...manifest.exportedAnnotationNames].map((name) => `${this.annotationExported(namespace, name)}Args`),
         ...[...manifest.exportedLibraryFuncNames].map((name) => this.exported(namespace, name)),

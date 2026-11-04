@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type {
-  Annotation,
-  Choice,
-  Data,
-  RosettaEnumeration,
-  RosettaExternalFunction,
-  RosettaRule,
-  RosettaTypeAlias
+import {
+  isRosettaBasicType,
+  isRosettaRecordType,
+  isRosettaModel,
+  type Annotation,
+  type Choice,
+  type Data,
+  type RosettaEnumeration,
+  type RosettaExternalFunction,
+  type RosettaRule,
+  type RosettaTypeAlias,
+  type RosettaBasicType,
+  type RosettaRecordType
 } from '@rune-langium/core';
 import type { GeneratorOptions, GeneratorOutput } from '../types.js';
 import type { NamespaceRegistry } from './namespace-registry.js';
@@ -43,6 +48,7 @@ export interface NamespaceEmitterOptions extends GeneratorOptions {
 export interface NamespaceEmitter {
   emitHeader?(): void;
   emitCrossNamespaceImports?(): void;
+  emitBuiltin?(node: RosettaBasicType | RosettaRecordType): void;
   emitAnnotation?(annotation: Annotation): void;
   emitAfterAnnotations?(): void;
   emitEnumeration(enumeration: RosettaEnumeration): void;
@@ -127,6 +133,14 @@ export function emitNamespaceWithContract(
 
   emitter.emitHeader?.();
   emitter.emitCrossNamespaceImports?.();
+
+  for (const doc of model.docs) {
+    const root = doc.parseResult.value;
+    if (!isRosettaModel(root)) continue;
+    for (const node of root.elements) {
+      if (isRosettaBasicType(node) || isRosettaRecordType(node)) emitter.emitBuiltin?.(node);
+    }
+  }
 
   for (const name of sortedNames(model.annotationsByName)) {
     emitter.emitAnnotation?.(model.annotationsByName.get(name)!);

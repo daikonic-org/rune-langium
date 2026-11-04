@@ -238,7 +238,7 @@ export function runeFuncDataSource(exported = false): string {
   return [
     `${exported ? 'export ' : ''}type RuneFuncData<T> = T extends readonly (infer I)[]`,
     `  ? RuneFuncData<I>[]`,
-    '  : T extends { readonly [Symbol.toStringTag]: `Temporal.${string}` }',
+    '  : T extends RegExp | { readonly [Symbol.toStringTag]: `Temporal.${string}` }',
     `    ? T`,
     `    : T extends (...args: never[]) => unknown`,
     `      ? never`,

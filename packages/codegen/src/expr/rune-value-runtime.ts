@@ -57,7 +57,7 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice }; })();
+return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern }; })();
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
 ${e}type RuneDataClass<C extends abstract new (...args: never[]) => unknown> = new (...args: ConstructorParameters<C>) => InstanceType<C>;
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
@@ -276,16 +276,17 @@ ${e}function runeValue(input: unknown, type: () => RuneValueType): RuneValue<unk
   return new RuneValue(values, type, values.length, values.length);
 }
 ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
-  if (typeof options !== 'object' || options?.format !== 'RUNE_JSON') return runeToFuncData(input);
+  const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
   const active = new WeakSet<object>();
   const visit = (value: unknown, model?: RuneValueType): unknown => {
     if (value == null || typeof value !== 'object') return value;
-    if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return String(value);
+    if (value instanceof RegExp) return runeJson.pattern(value);
+    if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return runeFormat ? String(value) : value;
     if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
     active.add(value);
     try {
       if (Array.isArray(value)) return value.map(item => visit(item, model));
-      const result = Object.fromEntries(Object.entries(value).filter(([key]) => !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
+      const result = Object.fromEntries(Object.entries(value).filter(([key, item]) => typeof item !== 'function' && !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
       for (const field of Object.values(model?.fields ?? {})) {
         const raw = (value as Record<string, unknown>)[field.key];
         const item = (child: unknown): unknown => {
@@ -305,7 +306,7 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
       return runeJson.context(result, model.metadata ? 'data-metadata' : 'data');
     } finally { active.delete(value); }
   };
-  return runeJson.encode(visit(input, type()));
+  return runeFormat ? runeJson.encode(visit(input, type())) : visit(input);
 };
 ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, options: RuneJsonOptions = {}): unknown => {
   const parsed: unknown = typeof input === 'string' ? JSON.parse(input) : input;

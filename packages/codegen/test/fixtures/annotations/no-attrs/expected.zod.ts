@@ -43,7 +43,7 @@ const runeDateConstruct = (kind: 'date' | 'dateTime' | 'zonedDateTime', fields: 
 
 type RuneFuncData<T> = T extends readonly (infer I)[]
   ? RuneFuncData<I>[]
-  : T extends { readonly [Symbol.toStringTag]: `Temporal.${string}` }
+  : T extends RegExp | { readonly [Symbol.toStringTag]: `Temporal.${string}` }
     ? T
     : T extends (...args: never[]) => unknown
       ? never
@@ -54,7 +54,7 @@ const runeToFuncData = <T>(input: T): RuneFuncData<T> => {
   const seen = new WeakMap<object, unknown>();
   const convert = (value: unknown): unknown => {
     if (value == null || typeof value !== 'object') return value;
-    if (/^\[object Temporal\./.test(Object.prototype.toString.call(value))) return value;
+    if (value instanceof RegExp || /^\[object Temporal\./.test(Object.prototype.toString.call(value))) return value;
     if (seen.has(value)) return seen.get(value);
     if (Array.isArray(value)) {
       const result: unknown[] = [];
@@ -188,6 +188,7 @@ const runeValueKey = (value: unknown): string => {
   if (value == null) return 'null';
   if (typeof value !== 'object') return typeof value + ':' + String(value);
   if (Array.isArray(value)) return 'array:' + JSON.stringify(value.map(runeValueKey));
+  if (value instanceof RegExp) return 'pattern:' + JSON.stringify([value.source, value.flags]);
   const tag = Object.prototype.toString.call(value);
   if (/^\[object Temporal\.(PlainDate|PlainTime|PlainDateTime|ZonedDateTime|Instant|PlainYearMonth|PlainMonthDay|Duration)\]$/.test(tag)) return tag + ':' + String(value);
   const fields = value as Record<string, unknown>;

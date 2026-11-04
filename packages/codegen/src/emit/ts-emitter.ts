@@ -3,6 +3,7 @@
 import { escapeSingleQuotedString } from './string-literal.js';
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
+import { isTypeScriptNativeType, isTypeScriptNativeMapping, type TypeScriptNativeType } from './native-types.js';
 import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
 import {
   renderSourceTypeScriptFunction,
@@ -24,7 +25,6 @@ import {
   isRosettaExpression,
   isRosettaConstructorExpression,
   isData,
-  isRosettaRecordType,
   type Choice,
   type Condition,
   type Data,
@@ -184,7 +184,7 @@ function buildTsTypeofMap(): Record<string, string> {
   for (const [key, tsType] of Object.entries(TS_BUILTIN_TYPE_MAP)) {
     if (tsType === 'boolean') result[key] = 'boolean';
     else if (tsType === 'number') result[key] = 'number';
-    else if (typeof tsType === 'string' && tsType.startsWith('Temporal.')) result[key] = 'object';
+    else if (isTypeScriptNativeMapping(tsType)) result[key] = 'object';
     else result[key] = 'string';
   }
   return result;
@@ -246,7 +246,7 @@ export function emitNamespace(
 export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly valueApi = new ValueApiEmitter(
     (node, suffix = '') => {
-      if (isRosettaRecordType(node))
+      if (isTypeScriptNativeType(node))
         return `$record$${this.model.namespace.replace(/[^\w]/g, '$')}$${getElementNamespace(node)?.replace(/[^\w]/g, '$')}$${node.name}$${suffix}`;
       const namespace = getElementNamespace(node) ?? this.model.namespace;
       const name = this.callableNames.declarationExported(namespace, node);
@@ -254,12 +254,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     },
     (field) => this.resolveTypeExprAsTs(field, false),
     (record) => this.ctx.builtinTypeMap[record.name] ?? 'unknown',
-    (node) => (isRosettaRecordType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
+    (node) => (isTypeScriptNativeType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
     (node) => {
       if (isData(node)) return this.emitFromFactory(node);
       if (isChoice(node))
         return `(value: unknown) => { if (!${this.typeName(node, `is${node.name}`)}(value)) throw new TypeError('not a ${node.name}'); return value; }`;
       const type = this.ctx.builtinTypeMap[node.name] ?? 'unknown';
+      if (type === 'RegExp')
+        return `(value: unknown) => { if (value instanceof RegExp) return value; if (typeof value === 'string') return new RegExp(value); throw new TypeError('Expected RegExp or a pattern string'); }`;
       if (!type.startsWith('Temporal.')) return '(value: unknown) => value';
       const parse = type === 'Temporal.ZonedDateTime' ? 'rune.parseZonedDateTime(value)' : `${type}.from(value)`;
       const dateKeys = ['year', 'month', 'day'];
@@ -327,6 +329,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   emitHeader(): void {
     this.sections.push(this.buildFileHeader());
+  }
+
+  emitBuiltin(node: TypeScriptNativeType): void {
+    if (!isTypeScriptNativeType(node)) return;
+    this.sections.push(`export type ${this.typeName(node)} = ${this.ctx.builtinTypeMap[node.name]};`, '');
   }
 
   emitCrossNamespaceImports(): void {
@@ -791,7 +798,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     for (const root of [...this.ctx.dataByName.values(), ...this.ctx.choiceByName.values()]) {
       for (const feature of this.valueApi.features(root)) trackAttributePositionImport(feature.typeCall);
       for (const dependency of this.valueApi.dependencies(root)) {
-        if (isRosettaRecordType(dependency)) continue;
+        if (isTypeScriptNativeType(dependency)) continue;
         for (const suffix of ['Input', 'Type']) {
           const exportedName = `$${this.callableNames.declarationExported(getElementNamespace(dependency) ?? this.ctx.namespace, dependency)}$${suffix}`;
           trackRef(dependency, exportedName, this.valueApi.name(dependency, suffix));
@@ -1870,7 +1877,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    */
   private static posTypeofGuard(access: string, typeofStr: string, tsType?: string): string {
     if (typeofStr === 'object') {
-      if (tsType && tsType.startsWith('Temporal.')) return `${access} instanceof ${tsType}`;
+      if (isTypeScriptNativeMapping(tsType)) return `${access} instanceof ${tsType}`;
       return `(typeof ${access} === 'object' && ${access} !== null && !Array.isArray(${access}))`;
     }
     return `typeof ${access} === '${typeofStr}'`;
@@ -1879,7 +1886,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   /** Negated form of posTypeofGuard (true when the field does NOT match). */
   private static negTypeofGuard(access: string, typeofStr: string, tsType?: string): string {
     if (typeofStr === 'object') {
-      if (tsType && tsType.startsWith('Temporal.')) return `!(${access} instanceof ${tsType})`;
+      if (isTypeScriptNativeMapping(tsType)) return `!(${access} instanceof ${tsType})`;
       return `(typeof ${access} !== 'object' || ${access} === null || Array.isArray(${access}))`;
     }
     return `typeof ${access} !== '${typeofStr}'`;

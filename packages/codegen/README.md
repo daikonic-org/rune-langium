@@ -101,6 +101,17 @@ ISO strings to Temporal once, including nested values and aliases. Class-to-func
 calls preserve those instances. Studio serializes results back to ISO strings for
 forms and JSON transport and supplies the same polyfill to executable previews.
 
+The built-in namespace also exports `time = Temporal.PlainTime`,
+`date = Temporal.PlainDate`, `dateTime = Temporal.PlainDateTime`,
+`zonedDateTime = Temporal.ZonedDateTime` and `pattern = RegExp` type aliases, so
+the generated preview exposes these implementation mappings. Pattern-typed fields
+and functions use native regular expressions. Fixed string literals in authored
+pattern destinations become regex literals; ordinary string fields retain strings.
+Factories, function-input schemas and Studio preserve native pattern values, while
+JSON uses their regex source strings. RegExp flags have no Rune wire field and
+serialization rejects them instead of discarding them. Pattern syntax follows the
+JavaScript RegExp implementation; unsupported expressions fail explicitly.
+
 Scalar/list adaptation is shared across functions, validators, and previews.
 Assignments and calls use direct values when linked bounds and shapes already fit;
 optional fields use `?.` and optional collections use `?? []`. Actual shape changes

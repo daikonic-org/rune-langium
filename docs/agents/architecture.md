@@ -1297,6 +1297,16 @@ explicit workflow activation, while import alone never changes the active workfl
 
 ## Generated public value views
 
+Native built-in descriptors are selected from the TypeScript profile, including
+BasicType `time` and `pattern` as well as calendar RecordTypes. The same descriptor
+creation path hydrates strings at JSON boundaries; native field/function values
+remain Temporal or RegExp instances. The namespace contract exposes an optional
+built-in emission hook and the shared naming registry includes those exports for
+bundle collision handling. Fixed regex literals depend on linked pattern
+destinations, shared by executable and source-facing renderers; ordinary strings
+are never guessed to be patterns. Core's `serializeRunePattern` is shared by wire
+encoding, generated helpers and Studio worker output; flags fail explicitly.
+
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
 around the existing RuneList runtime; `new Trade` retains one model construction.

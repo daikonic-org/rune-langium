@@ -32,6 +32,7 @@ import { expressionIsPresent } from '../expr/scalar-operators.js';
 import type { ProjectionOrigin } from './types.js';
 import { renderExpression } from '../emit/rosetta/render-expression.js';
 import { onlyExistsSelection } from '../expr/only-exists.js';
+import { patternLiteral, renderPatternLiteral } from '../expr/pattern.js';
 
 export interface SourceTypeScriptOptions {
   owner?: RosettaFunction;
@@ -341,7 +342,11 @@ export class SourceExpressionRenderer {
       case 'RosettaNumberLiteral':
         return atom(String(expression.value));
       case 'RosettaStringLiteral':
-        return atom(JSON.stringify(expression.value));
+        return atom(
+          patternLiteral(expression) === undefined
+            ? JSON.stringify(expression.value)
+            : renderPatternLiteral(expression.value)
+        );
       case 'RosettaImplicitVariable':
         return scope.self ?? atom('item');
       case 'RosettaSymbolReference': {

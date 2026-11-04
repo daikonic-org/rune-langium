@@ -122,8 +122,15 @@ export function decodeRuneJson(value: unknown): unknown {
   );
 }
 
+/** Rune's pattern wire value has a source string and no separate flags field. */
+export function serializeRunePattern(value: RegExp): string {
+  if (value.flags) throw new TypeError('Rune JSON patterns cannot represent RegExp flags');
+  return value.source;
+}
+
 /** Convert only explicit canonical metadata envelopes; ordinary `value` fields stay ordinary. */
 export function encodeRuneJson(value: unknown): unknown {
+  if (value instanceof RegExp) return serializeRunePattern(value);
   if (Array.isArray(value)) return value.map(encodeRuneJson);
   if (!record(value)) return value;
   const kind = encodingKinds.get(value);

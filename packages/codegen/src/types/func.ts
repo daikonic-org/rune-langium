@@ -18,6 +18,8 @@ import {
   isChoice,
   isChoiceOption,
   isRosettaTypeAlias,
+  isRosettaBasicType,
+  isRosettaRecordType,
   isRosettaType,
   isTypeCall,
   type RosettaFunction,
@@ -413,7 +415,10 @@ function funcTypeInfo(
         ? typeName
         : undefined;
   return {
-    typeName: ref && typeNameResolver ? typeNameResolver(ref, typeName) : typeName,
+    typeName:
+      ref && typeNameResolver && !isRosettaBasicType(ref) && !isRosettaRecordType(ref)
+        ? typeNameResolver(ref, typeName)
+        : typeName,
     shapeTypeName:
       isData(ref) || isChoice(ref)
         ? `${typeNameResolver ? typeNameResolver(ref, ref.name) : ref.name}.Shape`

@@ -226,6 +226,17 @@ class SourceReader {
         return node.text;
       case 'string':
         return JSON.stringify(stringValue(node));
+      case 'regex': {
+        const flags = node.childForFieldName('flags');
+        if (flags?.text) return this.fail(node, 'Rune patterns do not have a RegExp flags field.');
+        const source = node.childForFieldName('pattern')?.text ?? node.text.slice(1, -1);
+        try {
+          new RegExp(source);
+        } catch {
+          return this.fail(node, 'Invalid regular expression.');
+        }
+        return JSON.stringify(source);
+      }
       case 'unary_expression': {
         const operator = field(node, 'operator').text;
         const argument = field(node, 'argument');

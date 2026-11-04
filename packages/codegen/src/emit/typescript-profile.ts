@@ -136,7 +136,7 @@ export const typescriptProfile: LanguageProfile<'typescript'> = {
     number: 'number',
     string: 'string',
     time: 'Temporal.PlainTime',
-    pattern: 'string'
+    pattern: 'RegExp'
   },
   recordTypeMap: {
     date: 'Temporal.PlainDate',

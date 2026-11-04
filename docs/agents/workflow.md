@@ -548,6 +548,12 @@ corpus check. Rebuild Codegen before Studio consumes it. The desktop
 `test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
 real expression-edit pipeline; it is separate from production acceptance.
 
+Native built-in mapping changes also require `test/emit/native-builtin-api.test.ts`,
+the builtin profile parity suite, Core Rune JSON checks and Studio's real-worker
+`test/workers/native-pattern-preview.test.ts`. These cover native instance guards,
+fixed-pattern versus ordinary-string emission, JSON hydration and serialization,
+collection equality keys, all TypeScript layouts and form-input conversion.
+
 `test/e2e/workbench-reading-space.spec.ts` checks desktop/narrow-desktop automatic
 Preview yielding, explicit visibility overrides, retained form/code nodes,
 Source focus at full measured width, native preview maximize/restore, wide reload
