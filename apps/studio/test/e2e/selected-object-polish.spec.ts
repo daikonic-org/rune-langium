@@ -181,7 +181,7 @@ test('Code preview follows model and Choice types alongside their public factori
   await page.getByTestId('codegen-targets-table__view-typescript').click();
   const preview = page.getByTestId('code-preview-editor');
   await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
-  await expect(preview).toContainText('export type Party =');
+  await expect(preview).toContainText('export class Party ');
   await page.getByRole('button', { name: 'Regenerate TypeScript preview', exact: true }).click();
   await expect(page.getByTestId('codegen-status')).toContainText('Generated');
   await expect(page.getByTestId('codegen-relative-path')).toHaveText('model.ts');
