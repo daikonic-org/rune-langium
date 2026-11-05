@@ -45,7 +45,7 @@ export const ExportWorkspacePanel = withInstrumentation(
           </p>
         )}
         <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-          <ResizablePanel id="export-settings-pane" defaultSize="40%" minSize="20%">
+          <ResizablePanel id="export-settings-pane" defaultSize="300px" minSize="160px">
             <section aria-label="Export settings" className="h-full min-h-0">
               {settings}
             </section>
@@ -54,9 +54,12 @@ export const ExportWorkspacePanel = withInstrumentation(
             aria-label="Resize export settings and output"
             className="h-2 w-full bg-transparent hover:bg-border focus-visible:bg-border"
           />
-          <ResizablePanel id="export-output-pane" defaultSize="60%" minSize="25%">
-            <section aria-label="Generated output" className="h-full min-h-0">
-              {output}
+          <ResizablePanel id="export-output-pane" minSize="25%">
+            <section aria-label="Generated output" className="flex h-full min-h-0 flex-col border-t border-border">
+              <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                Generated output
+              </h2>
+              <div className="min-h-0 flex-1">{output}</div>
             </section>
           </ResizablePanel>
         </ResizablePanelGroup>

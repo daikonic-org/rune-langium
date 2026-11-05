@@ -1438,7 +1438,12 @@ Hiding uses CodeMirror folds and never rewrites source bytes. Metadata semantics
 badges use the existing metadata owner for both declarations and child details.
 Required scalar object-grid cells reuse `PreviewFieldControl`, retaining its
 validation and schema-derived enum/calendar editors. Export settings and output
-are simultaneously mounted in a vertical resizable split.
+are simultaneously mounted in a vertical resizable split with a visible output
+heading and panel border. Generation actions stay above the scrolling settings;
+settings start at a compact 300px height and output receives the remaining space.
+Generate target and Generate all targets preserve active/saved scope semantics.
+File, target and layout selectors share ExportSelect's native keyboard behavior
+and reserved chevron space.
 
 Runtime descriptor getter types are erased only at the shared execution boundary;
 selection generics retain the exact linked model. This prevents TypeScript from

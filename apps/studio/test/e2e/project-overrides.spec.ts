@@ -145,7 +145,7 @@ test('managed Modify persists one map and drives curated caller execution and re
     'example.functions.Caller',
     'RosettaFunction'
   ).click();
-  await page.getByRole('button', { name: 'Generate 1 selected', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate target', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible({ timeout: 30000 });
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download export', exact: true }).click();

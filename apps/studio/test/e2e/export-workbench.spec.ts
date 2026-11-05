@@ -16,6 +16,7 @@ type Address:
   city string (1..1)
 type Party:
   address Address (1..1)`;
+const longPath = 'generated/example/with-a-long-namespace-and-file-name/party-model-with-dependencies.ts';
 
 async function artifact(): Promise<Buffer> {
   const zip = new JSZip();
@@ -23,6 +24,7 @@ async function artifact(): Promise<Buffer> {
   zip.file('demo.ts', content);
   zip.file('notes.txt', 'Additional output');
   zip.file('dependency.ts', 'export {};');
+  zip.file(longPath, 'Long file output');
   zip.file(
     '.rune/export.json',
     JSON.stringify({
@@ -39,7 +41,8 @@ async function artifact(): Promise<Buffer> {
       files: [
         { path: 'dependency.ts', kind: 'text', namespaces: ['base'], bytes: 10 },
         { path: 'demo.ts', kind: 'text', namespaces: ['demo'], bytes: new TextEncoder().encode(content).byteLength },
-        { path: 'notes.txt', kind: 'text', namespaces: [], bytes: 17 }
+        { path: 'notes.txt', kind: 'text', namespaces: [], bytes: 17 },
+        { path: longPath, kind: 'text', namespaces: ['demo'], bytes: 16 }
       ],
       diagnostics: Array.from({ length: 25 }, (_, index) => ({
         severity: 'warning',
@@ -51,85 +54,94 @@ async function artifact(): Promise<Buffer> {
   return zip.generateAsync({ type: 'nodebuffer' });
 }
 
-test('selects, navigates and expands a captured export while diagnostics stay behind a disclosure', async ({
-  page
-}, testInfo) => {
-  await page.route('**/api/codegen', async (route) => {
-    expect(route.request().postDataJSON()).toMatchObject({
-      artifactEnvelope: 1,
-      selection: { declarations: [{ namespace: 'demo', name: 'Party', kind: 'Data' }] }
+for (const theme of ['daikonic', 'light'])
+  test(`selects, navigates and expands a captured export while diagnostics stay behind a disclosure (${theme})`, async ({
+    page
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1969, height: 1270 });
+    await page.addInitScript((theme) => localStorage.setItem('rune-studio:theme', theme), theme);
+    await page.route('**/api/codegen', async (route) => {
+      expect(route.request().postDataJSON()).toMatchObject({
+        artifactEnvelope: 1,
+        selection: { declarations: [{ namespace: 'demo', name: 'Party', kind: 'Data' }] }
+      });
+      await route.fulfill({ status: 200, contentType: 'application/zip', body: await artifact() });
     });
-    await route.fulfill({ status: 200, contentType: 'application/zip', body: await artifact() });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'demo.rosetta',
+      buffer: Buffer.from(source),
+      mimeType: 'text/plain'
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('rail-export').click();
+    await expect(page.getByTestId('export-perspective')).toBeVisible();
+    await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
+    await page.getByRole('button', { name: 'Generate target' }).click();
+    await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
+    await expect(page.getByLabel('Generated export code')).toContainText('export interface Party');
+    await expect(page.getByTestId('export-selection-summary')).toContainText('2 declarations included');
+    const diagnostics = page.getByRole('button', { name: 'Show generation diagnostics (25)' });
+    await expect(page.getByText('Example warning 0', { exact: true })).not.toBeVisible();
+    await diagnostics.click();
+    await expect(page.getByRole('dialog', { name: 'Generation diagnostics' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(diagnostics).toBeFocused();
+    await page.getByRole('combobox', { name: 'Generated export file' }).selectOption('notes.txt');
+    await expect(page.getByLabel('Generated export code')).toContainText('Additional output');
+    await page.getByRole('combobox', { name: 'Generated export file' }).selectOption(longPath);
+    await expect(page.getByLabel('Generated export code')).toContainText('Long file output');
+    await testInfo.attach('long-export-file-picker', { body: await page.screenshot(), contentType: 'image/png' });
+    await typeNavigationButton(page.getByTestId('export-perspective'), 'demo.Party').click();
+    await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue('demo.ts');
+    await expect(page.getByTestId('export-perspective')).toBeVisible();
+    const before = await page.getByTestId('export-workspace').boundingBox();
+    await page.getByRole('button', { name: 'Expand export panel' }).click();
+    await expect(page.getByRole('button', { name: 'Restore export panel' })).toBeVisible();
+    const after = await page.getByTestId('export-workspace').boundingBox();
+    expect(after!.width).toBeGreaterThan(before!.width);
+    await expect(page.getByLabel('Generated export code')).toBeVisible();
+    await testInfo.attach('expanded-export-output', {
+      body: await page.screenshot({ path: '/tmp/rune-export-expanded.png' }),
+      contentType: 'image/png'
+    });
+    expect((await new AxeBuilder({ page }).include('[data-testid="export-perspective"]').analyze()).violations).toEqual(
+      []
+    );
+    await page.getByRole('button', { name: 'Restore export panel' }).click();
   });
-  await page.goto('./');
-  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
-    name: 'demo.rosetta',
-    buffer: Buffer.from(source),
-    mimeType: 'text/plain'
-  });
-  await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('rail-export').click();
-  await expect(page.getByTestId('export-perspective')).toBeVisible();
-  await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
-  await page.getByRole('button', { name: 'Generate 1 selected' }).click();
-  await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
-  await expect(page.getByLabel('Generated export code')).toContainText('export interface Party');
-  await expect(page.getByTestId('export-selection-summary')).toContainText('2 declarations included');
-  const diagnostics = page.getByRole('button', { name: 'Show generation diagnostics (25)' });
-  await expect(page.getByText('Example warning 0', { exact: true })).not.toBeVisible();
-  await diagnostics.click();
-  await expect(page.getByRole('dialog', { name: 'Generation diagnostics' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(diagnostics).toBeFocused();
-  await page.getByRole('combobox', { name: 'Generated export file' }).selectOption('notes.txt');
-  await expect(page.getByLabel('Generated export code')).toContainText('Additional output');
-  await typeNavigationButton(page.getByTestId('export-perspective'), 'demo.Party').click();
-  await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue('demo.ts');
-  await expect(page.getByTestId('export-perspective')).toBeVisible();
-  const before = await page.getByTestId('export-workspace').boundingBox();
-  await page.getByRole('button', { name: 'Expand export panel' }).click();
-  await expect(page.getByRole('button', { name: 'Restore export panel' })).toBeVisible();
-  const after = await page.getByTestId('export-workspace').boundingBox();
-  expect(after!.width).toBeGreaterThan(before!.width);
-  await expect(page.getByLabel('Generated export code')).toBeVisible();
-  await testInfo.attach('expanded-export-output', {
-    body: await page.screenshot({ path: '/tmp/rune-export-expanded.png' }),
-    contentType: 'image/png'
-  });
-  expect((await new AxeBuilder({ page }).include('[data-testid="export-perspective"]').analyze()).violations).toEqual(
-    []
-  );
-  await page.getByRole('button', { name: 'Restore export panel' }).click();
-});
 
-test('keeps export selection and settings reachable at a constrained width', async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 900 });
-  await page.goto('./');
-  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
-    name: 'demo.rosetta',
-    buffer: Buffer.from(source),
-    mimeType: 'text/plain'
+for (const width of [700, 390])
+  test(`keeps export selection and settings reachable at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'demo.rosetta',
+      buffer: Buffer.from(source),
+      mimeType: 'text/plain'
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('rail-export').click();
+
+    const perspective = page.getByTestId('export-perspective');
+    const panes = perspective
+      .getByRole('tablist')
+      .filter({ has: page.getByRole('tab', { name: 'Selection', exact: true }) });
+    const selection = perspective.getByTestId('export-selection').first();
+    const settings = perspective.getByTestId('export-settings').first();
+    await expect(panes).toBeVisible();
+    await expect(selection).toBeVisible();
+    await expect(settings).not.toBeVisible();
+
+    await panes.getByRole('tab', { name: 'Export', exact: true }).click();
+    await expect(settings).toBeVisible();
+    await expect(settings.getByRole('button', { name: 'Generate target', exact: true })).toBeVisible();
+    await expect(selection).not.toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('compact-settings.png') });
+    await panes.getByRole('tab', { name: 'Selection' }).click();
+    await expect(selection).toBeVisible();
   });
-  await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('rail-export').click();
-
-  const perspective = page.getByTestId('export-perspective');
-  const panes = perspective
-    .getByRole('tablist')
-    .filter({ has: page.getByRole('tab', { name: 'Selection', exact: true }) });
-  const selection = perspective.getByTestId('export-selection').first();
-  const settings = perspective.getByTestId('export-settings').first();
-  await expect(panes).toBeVisible();
-  await expect(selection).toBeVisible();
-  await expect(settings).not.toBeVisible();
-
-  await panes.getByRole('tab', { name: 'Export', exact: true }).click();
-  await expect(settings).toBeVisible();
-  await expect(selection).not.toBeVisible();
-  await panes.getByRole('tab', { name: 'Selection' }).click();
-  await expect(selection).toBeVisible();
-});
 
 test('reveals generation failures and their diagnostics from Settings without a prior export', async ({ page }) => {
   await page.route('**/api/codegen', async (route) =>
@@ -152,7 +164,7 @@ test('reveals generation failures and their diagnostics from Settings without a 
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('rail-export').click();
   await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
-  await page.getByRole('button', { name: 'Generate 1 selected' }).click();
+  await page.getByRole('button', { name: 'Generate target' }).click();
   await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
   await expect(page.getByTestId('export-artifact-status')).toContainText('Selected expression cannot be generated.');
   await page.getByRole('button', { name: 'Show generation diagnostics (1)' }).click();
@@ -209,7 +221,7 @@ test('opens the real single-file model before helpers and downloads both', async
   await settings.getByLabel('Export target', { exact: true }).selectOption('typescript');
   await settings.getByLabel('Export layout', { exact: true }).selectOption('single-file');
   await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
-  await page.getByRole('button', { name: 'Generate 1 selected' }).click();
+  await page.getByRole('button', { name: 'Generate target' }).click();
   const picker = page.getByRole('combobox', { name: 'Generated export file' });
   await expect(picker).toHaveValue('model.ts');
   const preview = page.getByLabel('Generated export code');

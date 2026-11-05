@@ -36,7 +36,7 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await settings.getByRole('button', { name: 'Generate target', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
   await assertSettingsVisible();
-  await settings.getByRole('button', { name: 'Generate all', exact: true }).click();
+  await settings.getByRole('button', { name: 'Generate all targets', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
   await expect
     .poll(async () =>
@@ -78,7 +78,7 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await settings.getByRole('tab', { name: 'pg', exact: true }).click();
   await settings.getByLabel('Dialect', { exact: true }).selectOption('postgres');
   await settings.getByRole('tab', { name: 'ss', exact: true }).click();
-  await expect(settings.getByRole('button', { name: 'Generate all', exact: true })).toBeDisabled();
+  await expect(settings.getByRole('button', { name: 'Generate all targets', exact: true })).toBeDisabled();
   const { parseBuildConfig, updateBuildConfig } = await import('@rune-langium/project-config');
   const filesBeforeRemoval = await projectBackingFiles(page);
   const document = { path: 'build-config.yml', text: filesBeforeRemoval['build-config.yml']! };
@@ -87,8 +87,8 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await projectBackingFiles(page, { 'build-config.yml': updateBuildConfig(document, build) });
   await settings.getByRole('button', { name: 'Reload project files', exact: true }).click();
   await expect(settings.getByRole('tab', { name: /^pg/ })).toHaveCount(0);
-  await expect(settings.getByRole('button', { name: 'Generate all', exact: true })).toBeEnabled();
-  await settings.getByRole('button', { name: 'Generate all', exact: true }).click();
+  await expect(settings.getByRole('button', { name: 'Generate all targets', exact: true })).toBeEnabled();
+  await settings.getByRole('button', { name: 'Generate all targets', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeEnabled();
   await assertSettingsVisible();
   await settings.getByRole('button', { name: 'Remove ss target', exact: true }).click();

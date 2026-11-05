@@ -70,6 +70,7 @@ export const ExportSettingsPanel = withInstrumentation(
     const globalErrors = projectDiagnostics.filter((issue) => !issue.target && issue.severity === 'error');
     const blocked = status === 'generating' || saving || globalErrors.length > 0;
     const activeTab = adding ? 'draft:new' : selectedTargetName ? `target:${selectedTargetName}` : 'draft:oneoff';
+    const savedTarget = adding ? undefined : selectedTargetName;
     const target = config.target;
     const panel = TARGET_PANELS[target];
     const OptionsForm = TARGET_OPTION_FORMS[target];
@@ -85,18 +86,56 @@ export const ExportSettingsPanel = withInstrumentation(
             onSelectTarget?.(typeof value === 'string' && value.startsWith('target:') ? value.slice(7) : undefined);
           setMessage('');
         }}
-        className="flex h-full flex-col gap-3 overflow-y-auto p-2"
+        className="flex h-full min-h-0 flex-col gap-0 overflow-hidden"
       >
-        <div>
-          <h2 className="text-sm font-semibold">Export settings</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {projectEnabled
-              ? 'Generate selected declarations or build saved project targets.'
-              : 'Choose a target and generate the selected declarations.'}
-          </p>
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border px-3 py-2">
+          <div className="min-w-0 flex-1 basis-52">
+            <h2 className="text-sm font-semibold">Export settings</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Generate the selected scope and its required dependencies.
+            </p>
+          </div>
+          <div
+            role="group"
+            aria-label="Generation actions"
+            className="flex min-w-0 max-w-full shrink-0 flex-wrap gap-2"
+          >
+            {status === 'generating' ? (
+              <Button type="button" variant="secondary" onClick={onCancel}>
+                Cancel generation
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={
+                    blocked ||
+                    adding ||
+                    (savedTarget ? targetDirty || unavailableTargets.has(savedTarget) : selectionCount === 0)
+                  }
+                  onClick={() => (savedTarget ? onBuildTargets?.([savedTarget]) : onGenerate())}
+                >
+                  {status === 'failed' ? 'Retry target' : 'Generate target'}
+                </Button>
+                {(savedTarget || projectEnabled) && Object.keys(targets).length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    title="Generate every saved target using its configured namespace scope"
+                    disabled={blocked || hasDirtyTargets || unavailableTargets.size > 0 || adding}
+                    onClick={() => onBuildTargets?.('all')}
+                  >
+                    Generate all targets
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
         {projectEnabled && (
-          <div className="flex items-center gap-1 border-b border-border">
+          <div className="flex shrink-0 items-center gap-1 border-b border-border px-3">
             <TabsList size="sm" aria-label="Export targets" className="min-w-0 flex-1 overflow-x-auto">
               <TabsTrigger value="draft:oneoff" disabled={blocked}>
                 One-off
@@ -127,9 +166,14 @@ export const ExportSettingsPanel = withInstrumentation(
             </Button>
           </div>
         )}
-        <TabsContent value={activeTab} className="mt-0 flex min-h-0 flex-1 flex-col gap-3">
+        <TabsContent value={activeTab} className="mt-0 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-2">
           {projectEnabled && (
             <div className="flex flex-col gap-2 border-b border-border pb-3">
+              {selectedTargetName && (
+                <p className="text-xs text-muted-foreground">
+                  Uses saved namespace scope and writes output to the workspace.
+                </p>
+              )}
               {initialization && <ProjectInitializationEvidence status={initialization} />}
               <div className="flex min-w-0 gap-1.5">
                 <Input
@@ -268,50 +312,6 @@ export const ExportSettingsPanel = withInstrumentation(
                 value={targetOptions}
                 onChange={(options) => onChange({ ...config, options: { ...config.options, [target]: options } })}
               />
-            </div>
-          )}
-          {status === 'generating' ? (
-            <Button type="button" className="mt-auto" variant="secondary" onClick={onCancel}>
-              Cancel generation
-            </Button>
-          ) : selectedTargetName && !adding ? (
-            <div className="mt-auto space-y-2">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  disabled={blocked || targetDirty || unavailableTargets.has(selectedTargetName)}
-                  onClick={() => onBuildTargets?.([selectedTargetName])}
-                >
-                  Generate target
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={blocked || hasDirtyTargets || unavailableTargets.size > 0}
-                  onClick={() => onBuildTargets?.('all')}
-                >
-                  Generate all
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Uses saved namespace scope and writes output to the workspace.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-auto flex flex-wrap gap-2">
-              <Button type="button" disabled={selectionCount === 0 || blocked || adding} onClick={onGenerate}>
-                {status === 'failed' ? `Retry ${selectionCount} selected` : `Generate ${selectionCount} selected`}
-              </Button>
-              {projectEnabled && Object.keys(targets).length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={blocked || hasDirtyTargets || unavailableTargets.size > 0 || adding}
-                  onClick={() => onBuildTargets?.('all')}
-                >
-                  Generate all
-                </Button>
-              )}
             </div>
           )}
         </TabsContent>

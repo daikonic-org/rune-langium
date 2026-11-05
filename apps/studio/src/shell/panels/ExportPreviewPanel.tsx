@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type ReactElement } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { ExportSelect } from '../../components/ExportSelect.js';
 import type { GeneratorDiagnostic } from '@rune-langium/codegen/export';
 import type { ExportRunState } from '../../store/export-workbench-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -191,21 +192,24 @@ export const ExportPreviewPanel = withInstrumentation(
             </span>
           )}
           {textFiles.length > 1 && (
-            <select
-              aria-label="Generated export file"
-              className="h-7 max-w-52 rounded border border-input bg-background px-2 text-xs"
-              value={textFile.path}
-              onChange={(event) => {
-                setUncontrolledPath(event.target.value);
-                onActiveFileChange?.(event.target.value);
-              }}
-            >
-              {textFiles.map((file) => (
-                <option key={file.path} value={file.path}>
-                  {file.path}
-                </option>
-              ))}
-            </select>
+            <div className="w-52 min-w-0 max-w-full">
+              <ExportSelect
+                aria-label="Generated export file"
+                className="h-7 truncate"
+                title={textFile.path}
+                value={textFile.path}
+                onChange={(event) => {
+                  setUncontrolledPath(event.target.value);
+                  onActiveFileChange?.(event.target.value);
+                }}
+              >
+                {textFiles.map((file) => (
+                  <option key={file.path} value={file.path}>
+                    {file.path}
+                  </option>
+                ))}
+              </ExportSelect>
+            </div>
           )}
           <span className="ml-auto text-xs text-muted-foreground">{run.status === 'ready' ? 'Ready' : 'Outdated'}</span>
           <ArtifactDiagnostics diagnostics={artifact.manifest.diagnostics} />
