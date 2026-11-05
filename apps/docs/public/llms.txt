@@ -530,6 +530,7 @@ serialize models back to source text.
 - `setEntrieAt`
 - `moveEntrieAt`
 - `isAnnotation`
+- `isAnnotationArgument`
 - `isAnnotationDeepPath`
 - `isAnnotationPath`
 - `isAnnotationPathAttributeReference`
@@ -661,6 +662,7 @@ serialize models back to source text.
 - `isRosettaTypedFeature`
 - `isRuleReferenceAnnotation`
 - `isSchema`
+- `isSchemaOrFormat`
 - `isSegment`
 - `isShortcutDeclaration`
 - `isSortOperation`
@@ -785,6 +787,7 @@ symbols without requiring a full document build.
 - `RuneDslParser`: Custom Langium parser for the Rune DSL that normalizes lexer input to insert
 implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RuneDslTerminals`
+- `AnnotationArgument`
 - `AnnotationPathExpression`
 - `ArithmeticOperation`
 - `AsKeyOperation`
@@ -841,6 +844,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RosettaSynonymValueBase`
 - `RosettaType`
 - `RosettaTypedFeature`
+- `SchemaOrFormat`
 - `ShortcutDeclaration`
 - `SumOperation`
 - `SwitchCaseTarget`
@@ -961,6 +965,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RuneDslTerminalNames`
 - `RuneDslKeywordNames`
 - `RuneDslTokenNames`
+- `AnnotationArgument`
 - `AnnotationPathExpression`
 - `ArithmeticOperation`
 - `AsKeyOperation`
@@ -1027,6 +1032,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RosettaSynonymValueBase`
 - `RosettaType`
 - `RosettaTypedFeature`
+- `SchemaOrFormat`
 - `ShortcutDeclaration`
 - `SumOperation`
 - `SwitchCaseTarget`

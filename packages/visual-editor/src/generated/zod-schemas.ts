@@ -974,6 +974,12 @@ export const WithMetaOperationSchema = z.looseObject({
   entries: z.array(WithMetaEntrySchema)
 });
 
+export const AnnotationArgumentSchema = z.discriminatedUnion('$type', [
+  AttributeSchema,
+  SchemaSchema,
+  RosettaEnumValueSchema
+]);
+
 export const AnnotationPathExpressionSchema = z.discriminatedUnion('$type', [
   RosettaImplicitVariableSchema,
   AnnotationPathSchema,
@@ -1144,6 +1150,8 @@ export const RosettaTypedFeatureSchema = z.discriminatedUnion('$type', [
   RosettaRecordFeatureSchema,
   RosettaMetaTypeSchema
 ]);
+
+export const SchemaOrFormatSchema = z.discriminatedUnion('$type', [SchemaSchema, RosettaEnumValueSchema]);
 
 export const SwitchCaseTargetSchema = z.discriminatedUnion('$type', [
   DataSchema,
@@ -1341,13 +1349,13 @@ export function createRosettaAttributeReferenceSchema(refs: RosettaAttributeRefe
 
 export interface AnnotationRefSchemaRefs {
   Annotation?: string[];
-  Attribute?: string[];
+  AnnotationArgument?: string[];
 }
 
 export function createAnnotationRefSchema(refs: AnnotationRefSchemaRefs = {}) {
   return AnnotationRefSchema.safeExtend({
     annotation: ReferenceSchema.extend({ $refText: zRef(() => refs.Annotation ?? []) }),
-    attribute: ReferenceSchema.extend({ $refText: zRef(() => refs.Attribute ?? []) }).optional()
+    attribute: ReferenceSchema.extend({ $refText: zRef(() => refs.AnnotationArgument ?? []) }).optional()
   });
 }
 

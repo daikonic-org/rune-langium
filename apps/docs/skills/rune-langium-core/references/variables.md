@@ -7,6 +7,11 @@
 const RuneDslTerminals: { ID: RegExp; INT: RegExp; STRING: RegExp; ML_COMMENT: RegExp; SL_COMMENT: RegExp; WS: RegExp }
 ```
 
+### `AnnotationArgument`
+```ts
+let AnnotationArgument: { $type: "AnnotationArgument" }
+```
+
 ### `AnnotationPathExpression`
 ```ts
 let AnnotationPathExpression: { $type: "AnnotationPathExpression" }
@@ -285,6 +290,11 @@ let RosettaType: { $type: "RosettaType" }
 ### `RosettaTypedFeature`
 ```ts
 let RosettaTypedFeature: { $type: "RosettaTypedFeature" }
+```
+
+### `SchemaOrFormat`
+```ts
+let SchemaOrFormat: { $type: "SchemaOrFormat" }
 ```
 
 ### `ShortcutDeclaration`

@@ -711,7 +711,7 @@ export const RuneDslGrammar = (): Grammar =>
               "terminal": {
                 "$type": "RuleCall",
                 "rule": {
-                  "$ref": "#/rules@136"
+                  "$ref": "#/rules@133"
                 },
                 "arguments": []
               },
@@ -729,12 +729,12 @@ export const RuneDslGrammar = (): Grammar =>
                 "terminal": {
                   "$type": "CrossReference",
                   "type": {
-                    "$ref": "#/rules@22"
+                    "$ref": "#/types@10"
                   },
                   "terminal": {
                     "$type": "RuleCall",
                     "rule": {
-                      "$ref": "#/rules@136"
+                      "$ref": "#/rules@133"
                     },
                     "arguments": []
                   },
@@ -11315,6 +11315,48 @@ export const RuneDslGrammar = (): Grammar =>
             "$type": "SimpleType",
             "typeRef": {
               "$ref": "#/rules@21"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "$type": "Type",
+      "name": "SchemaOrFormat",
+      "type": {
+        "$type": "UnionType",
+        "types": [
+          {
+            "$type": "SimpleType",
+            "typeRef": {
+              "$ref": "#/rules@8"
+            }
+          },
+          {
+            "$type": "SimpleType",
+            "typeRef": {
+              "$ref": "#/rules@49"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "$type": "Type",
+      "name": "AnnotationArgument",
+      "type": {
+        "$type": "UnionType",
+        "types": [
+          {
+            "$type": "SimpleType",
+            "typeRef": {
+              "$ref": "#/rules@22"
+            }
+          },
+          {
+            "$type": "SimpleType",
+            "typeRef": {
+              "$ref": "#/types@9"
             }
           }
         ]

@@ -199,6 +199,16 @@ export function isAnnotation(item: unknown): item is Annotation {
   return reflection.isInstance(item, Annotation.$type);
 }
 
+export type AnnotationArgument = Attribute | SchemaOrFormat;
+
+export const AnnotationArgument = {
+  $type: 'AnnotationArgument'
+} as const;
+
+export function isAnnotationArgument(item: unknown): item is AnnotationArgument {
+  return reflection.isInstance(item, AnnotationArgument.$type);
+}
+
 export interface AnnotationDeepPath extends langium.AstNode {
   readonly $container:
     | AnnotationDeepPath
@@ -313,7 +323,7 @@ export interface AnnotationRef extends langium.AstNode {
     | Schema;
   readonly $type: 'AnnotationRef';
   annotation: langium.Reference<Annotation>;
-  attribute?: langium.Reference<Attribute>;
+  attribute?: langium.Reference<AnnotationArgument>;
   qualifiers: Array<AnnotationQualifier>;
 }
 
@@ -4784,6 +4794,16 @@ export function isSchema(item: unknown): item is Schema {
   return reflection.isInstance(item, Schema.$type);
 }
 
+export type SchemaOrFormat = RosettaEnumValue | Schema;
+
+export const SchemaOrFormat = {
+  $type: 'SchemaOrFormat'
+} as const;
+
+export function isSchemaOrFormat(item: unknown): item is SchemaOrFormat {
+  return reflection.isInstance(item, SchemaOrFormat.$type);
+}
+
 export interface Segment extends langium.AstNode {
   readonly $container: Operation | Segment;
   readonly $type: 'Segment';
@@ -5923,6 +5943,7 @@ export function isWithMetaOperation(item: unknown): item is WithMetaOperation {
 
 export type RuneDslAstType = {
   Annotation: Annotation;
+  AnnotationArgument: AnnotationArgument;
   AnnotationDeepPath: AnnotationDeepPath;
   AnnotationPath: AnnotationPath;
   AnnotationPathAttributeReference: AnnotationPathAttributeReference;
@@ -6044,6 +6065,7 @@ export type RuneDslAstType = {
   RosettaTypedFeature: RosettaTypedFeature;
   RuleReferenceAnnotation: RuleReferenceAnnotation;
   Schema: Schema;
+  SchemaOrFormat: SchemaOrFormat;
   Segment: Segment;
   ShortcutDeclaration: ShortcutDeclaration;
   SortOperation: SortOperation;
@@ -6091,6 +6113,11 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
         }
       },
       superTypes: [RosettaRootElement.$type]
+    },
+    AnnotationArgument: {
+      name: AnnotationArgument.$type,
+      properties: {},
+      superTypes: []
     },
     AnnotationDeepPath: {
       name: AnnotationDeepPath.$type,
@@ -6165,7 +6192,7 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
         },
         attribute: {
           name: AnnotationRef.attribute,
-          referenceType: Attribute.$type,
+          referenceType: AnnotationArgument.$type,
           optional: true
         },
         qualifiers: {
@@ -6278,6 +6305,7 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
         }
       },
       superTypes: [
+        AnnotationArgument.$type,
         AssignPathRoot.$type,
         AttributeOrChoiceOption.$type,
         RosettaFeature.$type,
@@ -7198,7 +7226,7 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
           optional: true
         }
       },
-      superTypes: [RosettaFeature.$type, RosettaSymbol.$type, SwitchCaseTarget.$type]
+      superTypes: [RosettaFeature.$type, RosettaSymbol.$type, SchemaOrFormat.$type, SwitchCaseTarget.$type]
     },
     RosettaEnumValueReference: {
       name: RosettaEnumValueReference.$type,
@@ -8167,7 +8195,12 @@ export class RuneDslAstReflection extends langium.AbstractAstReflection {
           name: Schema.name
         }
       },
-      superTypes: [RosettaRootElement.$type]
+      superTypes: [RosettaRootElement.$type, SchemaOrFormat.$type]
+    },
+    SchemaOrFormat: {
+      name: SchemaOrFormat.$type,
+      properties: {},
+      superTypes: [AnnotationArgument.$type]
     },
     Segment: {
       name: Segment.$type,

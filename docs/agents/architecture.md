@@ -362,6 +362,13 @@ file's imports. Labels keep authored reference text while navigation uses the
 canonical target ID. An inherited override resolves its parent's alias to a
 qualified type name before copying into the child's source scope.
 
+Annotation names accept the same qualified/import-aliased spelling. Annotation
+arguments retain the existing `AnnotationRef.attribute` field and legacy attribute
+identity. Core's built-in ingest/enrich/projection declarations also accept a
+`SchemaOrFormat` target through the shared global scope; unrelated/custom annotation
+arguments remain limited to that annotation's attributes. `AnnotationArgument` is
+the generated Attribute/Schema/enum-value union, preserved during workspace hydration.
+
 Studio restores the complete user-document snapshot in Core's batch deserializer,
 registering all roots before reviving cross-file references. Inspector annotation
 scope facts therefore retain the server's selected target even when another
