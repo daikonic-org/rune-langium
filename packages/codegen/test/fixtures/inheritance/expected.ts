@@ -24,7 +24,7 @@ export class Animal extends RuneObject implements Animal.Shape {
   name: string;
 
   constructor(data: Animal.Shape) {
-    super();
+    super(data);
     this.name = data.name;
   }
 }

@@ -14,7 +14,7 @@ import { typescriptProfile } from './typescript-profile.js';
 export type TypeScriptNativeType = RosettaBasicType | RosettaRecordType;
 
 export function isTypeScriptNativeMapping(mapped: unknown): mapped is string {
-  return typeof mapped === 'string' && (mapped.startsWith('Temporal.') || mapped === 'RegExp');
+  return typeof mapped === 'string' && (mapped.startsWith('Temporal.') || mapped === 'globalThis.RegExp');
 }
 
 /** Native value descriptors follow the same profile as field and function signatures. */

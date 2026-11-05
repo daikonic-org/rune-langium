@@ -247,20 +247,20 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     if (this.functionInputs) {
       const builtinTypeMap = { ...this.ctx.builtinTypeMap };
       builtinTypeMap.pattern =
-        "z.string().transform((value, ctx) => { try { return new RegExp(value); } catch { ctx.addIssue({ code: 'custom', message: 'Invalid pattern' }); return z.NEVER; } })";
+        "z.string().transform((value, ctx) => { try { return new globalThis.RegExp(value); } catch { ctx.addIssue({ code: 'custom', message: 'Invalid pattern' }); return z.NEVER; } })";
       for (const [kind, temporalType] of Object.entries(typescriptProfile.recordTypeMap).concat([
         ['time', typescriptProfile.basicTypeMap.time!]
       ])) {
         const parse = kind === 'zonedDateTime' ? 'rune.parseZonedDateTime' : `${temporalType}.from`;
         builtinTypeMap[kind] =
-          `z.string().regex(new RegExp(${JSON.stringify(TEMPORAL_CONVERSION_PATTERNS[kind as keyof typeof TEMPORAL_CONVERSION_PATTERNS])}))` +
+          `z.string().regex(new globalThis.RegExp(${JSON.stringify(TEMPORAL_CONVERSION_PATTERNS[kind as keyof typeof TEMPORAL_CONVERSION_PATTERNS])}))` +
           `.transform((value, ctx) => { try { return ${parse}(value); } catch { ctx.addIssue({ code: 'custom', message: 'Invalid ${kind}' }); return z.NEVER; } })`;
       }
       this.ctx = { ...this.ctx, builtinTypeMap };
     }
     if (this.codecs) {
       const builtinTypeMap = { ...this.ctx.builtinTypeMap };
-      builtinTypeMap.pattern = `z.codec(z.string(), z.instanceof(RegExp), { decode: (value, ctx) => { try { return new RegExp(value); } catch { ctx.issues.push({ code: 'custom', input: value, message: 'Invalid pattern' }); return z.NEVER; } }, encode: value => runeSerializePattern(value) })`;
+      builtinTypeMap.pattern = `z.codec(z.string(), z.instanceof(globalThis.RegExp), { decode: (value, ctx) => { try { return new globalThis.RegExp(value); } catch { ctx.issues.push({ code: 'custom', input: value, message: 'Invalid pattern' }); return z.NEVER; } }, encode: value => runeSerializePattern(value) })`;
       for (const [kind, temporalType] of Object.entries(typescriptProfile.recordTypeMap).concat([
         ['time', typescriptProfile.basicTypeMap.time!]
       ])) {
@@ -459,6 +459,10 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
             for (const attr of link.attributes) {
               trackTypeCallImport(attr.typeCall);
             }
+          }
+        } else if (this.isLazyData(parentRef)) {
+          for (const link of ZodNamespaceEmitter.collectDataAncestryChain(parentRef)) {
+            for (const attr of link.attributes) trackTypeCallImport(attr.typeCall);
           }
         }
       }
@@ -733,6 +737,13 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     return chain;
   }
 
+  private isLazyData(data: Data): boolean {
+    const namespace = getElementNamespace(data);
+    return namespace && namespace !== this.ctx.namespace
+      ? (this.ctx.registry.namespaces.get(namespace)?.cyclicTypes?.has(data.name) ?? false)
+      : this.ctx.lazyTypes.has(data.name);
+  }
+
   /**
    * Build the base (pre-condition, pre-lazy) schema expression for a Data
    * type's superType chain, at a given attribute-line indentation.
@@ -761,6 +772,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * for the non-conditions path via emitAttribute's own 2-space prefix,
    * 4-space reindented for the chained conditions path).
    */
+
   private buildSuperTypeSchemaExpr(data: Data, attrIndent: '' | '  '): string {
     const superRef = data.superType?.ref;
 
@@ -814,13 +826,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       // then each further ancestor) — matching `buildRuneExtendChoiceExpr`'s
       // own documented "nearest-declared wins" convention.
       const parentSchema = this.nodeLocal ? `${superRef.name}Codec.node` : `${superRef.name}Schema`;
-      if (this.ctx.lazyTypes.has(superRef.name)) {
+      if (this.isLazyData(superRef)) {
         const seen = new Set<string>();
         const attrLines: string[] = [];
-        for (const attr of [
-          ...data.attributes,
-          ...ZodNamespaceEmitter.collectDataAncestryChain(superRef).flatMap((ancestor) => ancestor.attributes)
-        ]) {
+        const ancestors = ZodNamespaceEmitter.collectDataAncestryChain(superRef);
+        for (const attr of [...data.attributes, ...ancestors.flatMap((ancestor) => ancestor.attributes)]) {
           if (seen.has(attr.name)) continue;
           seen.add(attr.name);
           attrLines.push(this.emitAttribute(attr, data.name));
@@ -830,7 +840,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         }
         const reindented =
           attrIndent === '' ? attrLines.join(',\n') : attrLines.map((a) => `${attrIndent}${a}`).join(',\n');
-        return `z.${this.codecs ? 'looseObject' : 'object'}({\n${reindented}\n})`;
+        const conditions = ancestors
+          .map((ancestor) => this.emitConditionBlock(ancestor))
+          .filter(Boolean)
+          .join('\n');
+        return `z.${this.codecs ? 'looseObject' : 'object'}({\n${reindented}\n})${conditions ? `\n${conditions}` : ''}`;
       }
       if (data.attributes.length === 0) {
         return `${parentSchema}.safeExtend({})`;

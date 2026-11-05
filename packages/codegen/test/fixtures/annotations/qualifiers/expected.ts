@@ -31,7 +31,7 @@ export class Trade extends RuneObject implements Trade.Shape {
   tradeDate: Temporal.PlainDate;
 
   constructor(data: Trade.Shape) {
-    super();
+    super(data);
     this.tradeDate = data.tradeDate;
   }
 }

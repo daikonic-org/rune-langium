@@ -28,6 +28,8 @@ export interface NamespaceManifest {
   exportedBuiltinNames?: Set<string>;
   exportedAnnotationNames: Set<string>;
   exportedLibraryFuncNames: Set<string>;
+  /** Canonical namespace walk results, used when deriving from a foreign lazy schema. */
+  cyclicTypes?: ReadonlySet<string>;
   relativePath: string;
 }
 

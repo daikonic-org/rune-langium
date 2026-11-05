@@ -248,11 +248,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     (record) => this.ctx.builtinTypeMap[record.name] ?? 'unknown',
     (node) => (isTypeScriptNativeType(node) ? (this.ctx.builtinTypeMap[node.name] ?? 'unknown') : this.typeName(node)),
     (node) => {
-      if (isData(node)) return `RuneObject.create(${this.typeName(node)})`;
+      if (isData(node)) return `${this.typeName(node)}.create(${this.typeName(node)})`;
       if (isChoice(node)) return '';
       const type = this.ctx.builtinTypeMap[node.name] ?? 'unknown';
-      if (type === 'RegExp')
-        return `(value: unknown) => { if (value instanceof RegExp) return value; if (typeof value === 'string') return new RegExp(value); throw new TypeError('Expected RegExp or a pattern string'); }`;
+      if (type === 'globalThis.RegExp')
+        return `(value: unknown) => { if (value instanceof ${type}) return value; if (typeof value === 'string') return new ${type}(value); throw new TypeError('Expected RegExp or a pattern string'); }`;
       if (!type.startsWith('Temporal.')) return '(value: unknown) => value';
       const parse = type === 'Temporal.ZonedDateTime' ? 'rune.parseZonedDateTime(value)' : `${type}.from(value)`;
       const dateKeys = ['year', 'month', 'day'];
@@ -1157,11 +1157,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     // Constructor body lines
     const ctorBodyLines: string[] = [];
     if (choiceParent) {
-      ctorBodyLines.push('    super();', `    Object.assign(this, data);`);
+      ctorBodyLines.push('    super(data);', `    Object.assign(this, data);`);
     } else if (parentName) {
       ctorBodyLines.push(`    super(data);`);
     } else {
-      ctorBodyLines.push('    super();');
+      ctorBodyLines.push('    super(data);');
     }
     if (hasTypeMetadata(data)) ctorBodyLines.push('    this.meta = data.meta;');
     for (const attr of data.attributes) {

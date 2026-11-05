@@ -76,6 +76,6 @@ export function renderPatternLiteral(source: string): string {
     return new RegExp(source).toString();
   } catch {
     // Invalid patterns must fail when evaluated, rather than corrupt the module's syntax.
-    return `new RegExp(${JSON.stringify(source)})`;
+    return `new globalThis.RegExp(${JSON.stringify(source)})`;
   }
 }

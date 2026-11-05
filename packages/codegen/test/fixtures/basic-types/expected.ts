@@ -19,7 +19,7 @@ export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
 export class Empty extends RuneObject implements Empty.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Empty.Type>;
   constructor(data: Empty.Shape) {
-    super();
+    super(data);
   }
 }
 
@@ -55,7 +55,7 @@ export class Person extends RuneObject implements Person.Shape {
   birthday: Temporal.PlainDate;
 
   constructor(data: Person.Shape) {
-    super();
+    super(data);
     this.name = data.name;
     this.age = data.age;
     this.active = data.active;

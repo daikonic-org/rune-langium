@@ -25,7 +25,7 @@ export class Address extends RuneObject implements Address.Shape {
   city: string;
 
   constructor(data: Address.Shape) {
-    super();
+    super(data);
     this.street = data.street;
     this.city = data.city;
   }

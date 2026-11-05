@@ -25,7 +25,7 @@ export class Account extends RuneObject implements Account.Shape {
   tier: string;
 
   constructor(data: Account.Shape) {
-    super();
+    super(data);
     this.balance = data.balance;
     this.status = data.status;
     this.tier = data.tier;

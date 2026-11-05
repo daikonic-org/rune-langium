@@ -23,7 +23,7 @@ export class Trade extends RuneObject implements Trade.Shape {
   active: boolean;
 
   constructor(data: Trade.Shape) {
-    super();
+    super(data);
     this.notional = data.notional;
     this.active = data.active;
   }

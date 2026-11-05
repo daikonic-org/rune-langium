@@ -11,11 +11,12 @@ ${e}const runeObjectType = Symbol.for('rune-langium.object.definition');
 ${e}interface RuneModelOwner { readonly [key: symbol]: () => RuneValueType; }
 ${e}type RuneModel<C extends RuneModelOwner> = ReturnType<C[typeof runeObjectType]>;
 ${e}type RuneModelTag<P extends RuneModelOwner, M extends RuneValueType> = P[typeof runeObjectType] & (() => M);
-type RuneObjectConstructor = RuneModelOwner & (new (...args: never[]) => RuneObject);
+type RuneObjectConstructor = RuneModelOwner & (new (...args: never[]) => RuneObject) & Pick<typeof RuneObject, 'create'>;
 ${e}type RuneGuarded<I, C extends RuneObjectConstructor> = I & (I extends RuneObject ? InstanceType<C> : ConstructorParameters<C>[0]);
 ${e}type RuneTypeGuard<C extends RuneObjectConstructor> = <I>(value: I) => value is RuneGuarded<I, C>;
+type RuneShapeChecks = WeakMap<object, Set<RuneValueType>>;
 interface RuneSerializationSchema<S> { parse(value: unknown): S; encode(value: S): unknown; }
-${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(value: unknown, checked?: WeakMap<object, Set<RuneValueType>>): unknown; wire?(value: unknown): unknown; validate?(value: unknown, checked?: WeakMap<object, Set<RuneValueType>>): unknown; }
+${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(value: unknown, checked?: RuneShapeChecks): unknown; wire?(value: unknown): unknown; validate?(value: unknown, checked?: RuneShapeChecks): unknown; }
 ${e}class RuneChoice<M extends RuneValueType> {
   readonly [key: symbol]: () => M;
   constructor(model: M) { Object.defineProperty(this, runeObjectType, { value: () => runeRegisterValueType(model) }); }
@@ -79,9 +80,10 @@ const runeObjectMatches = (value: unknown, constructor: RuneObjectConstructor): 
   is(value) ? value instanceof constructor : runeObjectShape(value, runeModel(constructor));
 const runeObjectStorage = Symbol.for('rune-langium.object.storage');
 const runeObjectProxies = new WeakMap<object, object>();
+const runeObjectConstruction = new WeakMap<object, RuneShapeChecks>();
 function runeObjectRaw<T>(value: T): T;
 function runeObjectRaw(value: unknown): unknown { return value != null && typeof value === 'object' && !Array.isArray(value) ? Reflect.get(value, runeObjectStorage) ?? value : value; }
-function runeObjectProxy<T extends object>(target: T, definition: () => RuneValueType): T {
+function runeObjectProxy<T extends object>(target: T, definition: () => RuneValueType, construction?: object): T {
   const known = runeObjectProxies.get(target);
   const owns = (value: unknown): value is T => runeObjectRaw(value) === target;
   if (owns(known)) return known;
@@ -123,7 +125,7 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
     set: (storage, key, value, receiver) => {
       const fields = definition().fields;
       const field = typeof key === 'string' && Object.hasOwn(fields, key) ? fields[key] : undefined;
-      const normalized = field ? runeValueNormalizeField(value, field, undefined, false) : value;
+      const normalized = field ? runeValueNormalizeField(value, field, undefined, false, construction ? runeObjectConstruction.get(construction) : undefined) : value;
       const written = Reflect.set(storage, key, normalized, receiver);
       if (written) slots.delete(key);
       return written;
@@ -135,7 +137,7 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
 ${runeModelRuntimeSource(exported)}
 ${e}class RuneObject {
   declare readonly $runeObject: true;
-  constructor() { return runeObjectProxy(this, () => { const model = runeObjectInstanceModel(this); if (!model) throw new TypeError('Rune object definition is unavailable'); return model; }); }
+  constructor(data?: unknown) { return runeObjectProxy(this, () => { const model = runeObjectInstanceModel(this); if (!model) throw new TypeError('Rune object definition is unavailable'); return model; }, data != null && typeof data === 'object' && runeObjectConstruction.has(data) ? data : undefined); }
   static readonly [key: symbol]: () => RuneValueType;
   static field(cardinality: Cardinality, check?: RuneFieldDefinition['check'], type?: RuneFieldDefinition['type'], wireCardinality?: Cardinality, read?: RuneFieldDefinition['read']) {
     const definition: RuneFieldDefinition = { cardinality, check, type, read, ...(wireCardinality ? { metadata: true, wireCardinality } : {}) };
@@ -173,18 +175,25 @@ ${e}class RuneObject {
     return <I>(value: I): value is RuneGuarded<I, C> => runeObjectMatches(value, constructor);
   }
   static choice<M extends RuneValueType>(definition: M): RuneChoice<M> { return new RuneChoice(definition); }
-  static create<C extends RuneObjectConstructor>(constructor: C): (value: unknown) => InstanceType<C>;
-  static create(constructor: RuneObjectConstructor): (value: unknown) => RuneObject {
-    return value => {
-      if (!runeObjectShape(value, runeModel(constructor))) throw new TypeError('Invalid ' + runeModel(constructor).identity);
-      const instance: unknown = Reflect.construct(constructor, [value]);
-      if (!is(instance)) throw new TypeError('Rune constructor did not produce a model instance');
-      return instance;
+  static create<C extends RuneObjectConstructor>(constructor: C): (value: unknown, checked?: RuneShapeChecks) => InstanceType<C>;
+  static create(constructor: RuneObjectConstructor): (value: unknown, checked?: RuneShapeChecks) => RuneObject {
+    return (value, checked = new WeakMap()) => {
+      if (value == null || typeof value !== 'object' || !runeObjectShape(value, runeModel(constructor), checked)) throw new TypeError('Invalid ' + runeModel(constructor).identity);
+      const previous = runeObjectConstruction.get(value);
+      runeObjectConstruction.set(value, checked);
+      try {
+        const instance: unknown = Reflect.construct(constructor, [value]);
+        if (!is(instance)) throw new TypeError('Rune constructor did not produce a model instance');
+        return instance;
+      } finally {
+        if (previous) runeObjectConstruction.set(value, previous);
+        else runeObjectConstruction.delete(value);
+      }
     };
   }
   static codec<S>(owner: RuneModelOwner, schema: RuneSerializationSchema<S> & { readonly node?: RuneSerializationSchema<S> }): RuneSerializationCodec {
     const local = schema.node ?? schema;
-    const shape = (value: unknown, checked?: WeakMap<object, Set<RuneValueType>>): value is S => runeObjectShape(value, runeModel(owner), checked);
+    const shape = (value: unknown, checked?: RuneShapeChecks): value is S => runeObjectShape(value, runeModel(owner), checked);
     return {
       decode: value => schema.parse(value),
       wire: value => { const native = local.parse(value); return schema.node ? native : value; },

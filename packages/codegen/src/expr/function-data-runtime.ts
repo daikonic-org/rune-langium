@@ -12,7 +12,7 @@ ${prefix}const runeToFuncData = ${type('<T>')}(input${type(': T')})${type(': Run
   const seen = new WeakMap${type('<object, unknown>')}();
   const convert = (value${type(': unknown')})${type(': unknown')} => {
     if (value == null || typeof value !== 'object') return value;
-    if (value instanceof RegExp || /^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return value;
+    if (value instanceof globalThis.RegExp || /^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return value;
     if (seen.has(value)) return seen.get(value);
     if (Array.isArray(value)) {
       const result${type(': unknown[]')} = [];

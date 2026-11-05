@@ -1400,6 +1400,15 @@ native fields before validating parent conditions, while public codec operations
 remain fully recursive. Shape guards share a cache only within one visitor pass;
 later serialization rechecks mutations. No descendant subtree is revalidated at
 each ancestor merely to dispatch its concrete codec.
+Factory materialization and constructor field setters share the same per-pass
+shape checks. An input-keyed construction context is removed in `finally`, so
+future assignments never inherit trusted construction state. Decorators select
+the class's inherited creator, preserving base-runtime ownership across separately
+inlined namespaces. Constructor results still receive a shape check before return.
+The namespace registry carries cycle sets from the canonical walks; Zod folds
+foreign lazy parents' attributes and conditions using the same builders as local
+parents. Native pattern types and constructors use `globalThis.RegExp` to avoid
+collisions with authored model names.
 Nested Shapes contain structural data and Temporal
 values directly; public function signatures do not require `RuneFuncData`.
 The normalizer owns only the supplied value

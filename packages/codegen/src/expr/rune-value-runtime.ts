@@ -54,6 +54,8 @@ export const RUNE_VALUE_NAMES = [
   'RuneTypeGuard',
   'RuneSerializationCodec',
   'RuneSerializationSchema',
+  'RuneShapeChecks',
+  'runeObjectConstruction',
   'RuneChoice',
   'runeObjectDefinition',
   'runeObjectInstanceModel',
@@ -161,7 +163,7 @@ ${e}interface RuneValueType<T = unknown, Output = T> {
   readonly output?: Output;
   readonly shape?: unknown;
   readonly codec?: () => RuneSerializationCodec;
-  readonly create?: (value: unknown) => Output;
+  readonly create?: (value: unknown, checked?: RuneShapeChecks) => Output;
   readonly native?: boolean;
   readonly prototype?: object;
   readonly parent?: () => RuneValueType;
@@ -227,14 +229,14 @@ const runeValueBounds = (count: number, min: number, max: number | null, label: 
 const runeValueProduct = (a: number | null, b: number | null): number | null => a === 0 || b === 0 ? 0 : a === null || b === null ? null : a * b;
 const runeValueProtocol = Symbol.for('rune-langium.value.items');
 const runeValueInput = (value: unknown): unknown => value != null && typeof value === 'object' && typeof Reflect.get(value, runeValueProtocol) === 'function' ? Reflect.apply(Reflect.get(value, runeValueProtocol), value, []) : value;
-const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unknown, number, number | null, unknown>, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), materialize = true): unknown => {
+const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unknown, number, number | null, unknown>, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), materialize = true, checked: RuneShapeChecks = new WeakMap()): unknown => {
   const child = (value: unknown): unknown => {
     const model = runeValueType(field)!();
     if (!materialize && !model.native) {
-      if (!runeObjectShape(value, model)) throw new TypeError('Invalid Rune value for ' + field.key);
+      if (!runeObjectShape(value, model, checked)) throw new TypeError('Invalid Rune value for ' + field.key);
       return value;
     }
-    return runeValueMaterialize(value, model, seen);
+    return runeValueMaterialize(value, model, seen, checked);
   };
     const raw = runeValueInput(input);
     const values = runeList(raw).filter(item => item != null);
@@ -255,11 +257,11 @@ const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unkno
     });
     return max !== null && max <= 1 ? normalized[0] : raw == null ? undefined : normalized;
 };
-const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new WeakMap<object, Map<RuneValueType, unknown>>()): unknown => {
+const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), checked: RuneShapeChecks = new WeakMap()): unknown => {
   value = runeObjectRaw(value);
   model = runeValueConcreteType(value, model);
   if (value != null && typeof value === 'object' && runeObjectInstanceModel(value) === model && runeObjectProxies.has(value)) {
-    if (model.choice && !runeObjectShape(value, model)) throw new TypeError('Rune Choice requires exactly one selected option with a valid value');
+    if (!runeObjectShape(value, model, checked)) throw new TypeError(model.choice ? 'Rune Choice requires exactly one selected option with a valid value' : 'Invalid Rune value for ' + model.identity);
     return runeObjectProxies.get(value);
   }
   if (model.native) return model.create ? model.create(value) : value;
@@ -270,12 +272,15 @@ const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new W
   const result: Record<string, unknown> = Object.create(null);
   models.set(model, result);
   for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
-  for (const field of Object.values(model.fields)) result[field.key] = runeValueNormalizeField(result[field.key], field, seen);
-  if (model.choice && !runeObjectShape(result, model)) throw new TypeError('Rune Choice requires exactly one selected option with a valid value');
-  const output = model.create ? model.create(result) : result;
+  for (const field of Object.values(model.fields)) result[field.key] = runeValueNormalizeField(result[field.key], field, seen, true, checked);
+  if (model.choice && !runeObjectShape(result, model, checked)) throw new TypeError('Rune Choice requires exactly one selected option with a valid value');
+  checked.set(result, new Set([model]));
+  const output = model.create ? model.create(result, checked) : result;
   if (output !== result && output != null && typeof output === 'object') {
     Object.setPrototypeOf(result, Object.getPrototypeOf(output));
     for (const [key, item] of Object.entries(runeObjectRaw(output))) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
+    checked.delete(result);
+    if (!runeObjectShape(result, model, checked)) throw new TypeError('Rune constructor produced an invalid ' + model.identity);
   }
   return runeObjectProxy(result, () => model);
 };
@@ -476,7 +481,7 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
     value = runeObjectRaw(value);
     if (value == null || typeof value !== 'object') return value;
-    if (value instanceof RegExp) return codecProjection ? value : runeJson.pattern(value);
+    if (value instanceof globalThis.RegExp) return codecProjection ? value : runeJson.pattern(value);
     if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return runeFormat && !codecProjection ? String(value) : value;
     if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
     const model = declaredModel && runeValueConcreteType(value, declaredModel);

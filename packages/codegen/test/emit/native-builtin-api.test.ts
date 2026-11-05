@@ -143,10 +143,10 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       target: 'typescript',
       typescript: layout === 'inline' ? { inlineHelpers: true } : { layout }
     });
-    const builtin = outputs.find((output) => output.content.includes('export type pattern = RegExp;'))!;
+    const builtin = outputs.find((output) => output.content.includes('export type pattern = globalThis.RegExp;'))!;
     expect(builtin.content).toContain('export type time = Temporal.PlainTime;');
     const model = outputs.find((output) => output.content.includes('export class Settings '))!;
-    expect(model.content).toContain('expression: RegExp;');
+    expect(model.content).toContain('expression: globalThis.RegExp;');
     expect(model.content).toContain('/^a\\/b[0-9]+$/');
     expect(model.content).toMatch(/return ['"]\^a\/b\[0-9\]\+\$['"]/);
     const api = compileGeneratedTypeScript<Api>(outputs, {

@@ -23,7 +23,7 @@ export class Trade extends RuneObject implements Trade.Shape {
   counterparty: string;
 
   constructor(data: Trade.Shape) {
-    super();
+    super(data);
     this.tradeDate = data.tradeDate;
     this.counterparty = data.counterparty;
   }

@@ -25,7 +25,7 @@ export class Position extends RuneObject implements Position.Shape {
   currency: string;
 
   constructor(data: Position.Shape) {
-    super();
+    super(data);
     this.quantity = data.quantity;
     this.price = data.price;
     this.currency = data.currency;

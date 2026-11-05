@@ -44,7 +44,7 @@ const runeModelInventory = (model: RuneValueType): RuneModelInventory => {
   return inventory;
 };
 const runeDecorateModel = (constructor: RuneObjectConstructor, options: RuneModelDefinition, fields?: ReadonlyMap<string, RuneFieldDefinition>): void => {
-  const definition = runeDefineModel({ ...options, prototype: constructor.prototype, create: RuneObject.create(constructor) }, fields);
+  const definition = runeDefineModel({ ...options, prototype: constructor.prototype, create: constructor.create(constructor) }, fields);
   Object.defineProperty(constructor, runeObjectType, { value: () => definition });
 };
 function runeDefineModel<Model extends RuneValueType>(options: RuneModelDefinition<Model>, decorated?: ReadonlyMap<string, RuneFieldDefinition>): Model;

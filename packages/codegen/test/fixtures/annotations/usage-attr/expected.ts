@@ -32,7 +32,7 @@ export class Trade extends RuneObject implements Trade.Shape {
   notional: number;
 
   constructor(data: Trade.Shape) {
-    super();
+    super(data);
     this.tradeDate = data.tradeDate;
     this.notional = data.notional;
   }

@@ -24,7 +24,7 @@ export class Point extends RuneObject implements Point.Shape {
   y: number;
 
   constructor(data: Point.Shape) {
-    super();
+    super(data);
     this.x = data.x;
     this.y = data.y;
   }
@@ -64,7 +64,7 @@ export class Box extends RuneObject implements Box.Shape {
   width: number;
 
   constructor(data: Box.Shape) {
-    super();
+    super(data);
     this.origin = data.origin;
     this.width = data.width;
   }

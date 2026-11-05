@@ -21,7 +21,7 @@ export class Wrapper extends RuneObject implements Wrapper.Shape {
   payload?: string;
 
   constructor(data: Wrapper.Shape) {
-    super();
+    super(data);
     this.payload = data.payload;
   }
 }

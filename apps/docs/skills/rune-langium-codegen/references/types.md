@@ -406,9 +406,5 @@ canonical shape and bytes are reasonable for typical models.
 - `exportedBuiltinNames: Set<string>` (optional)
 - `exportedAnnotationNames: Set<string>`
 - `exportedLibraryFuncNames: Set<string>`
-- `relativePath: string`
-
-### `NamespaceRegistry`
-**Properties:**
 
 <!-- truncated -->

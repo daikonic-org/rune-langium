@@ -288,7 +288,9 @@ export async function runGenerate(
       // loops over individual entries.
       const walks = new Map<string, NamespaceWalkResult>();
       for (const [namespace, namespaceDocs] of byNamespace) {
-        walks.set(namespace, walkNamespace(namespaceDocs, namespace));
+        const walked = walkNamespace(namespaceDocs, namespace);
+        walks.set(namespace, walked);
+        registry.namespaces.get(namespace)!.cyclicTypes = walked.cyclicTypes;
       }
 
       // 019 §3.2 — registry membership disambiguates the contract; we

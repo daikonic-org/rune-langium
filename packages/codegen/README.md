@@ -103,7 +103,7 @@ forms and JSON transport and supplies the same polyfill to executable previews.
 
 The built-in namespace also exports `time = Temporal.PlainTime`,
 `date = Temporal.PlainDate`, `dateTime = Temporal.PlainDateTime`,
-`zonedDateTime = Temporal.ZonedDateTime` and `pattern = RegExp` type aliases, so
+`zonedDateTime = Temporal.ZonedDateTime` and `pattern = globalThis.RegExp` type aliases, so
 the generated preview exposes these implementation mappings. Pattern-typed fields
 and functions use native regular expressions. Fixed string literals in authored
 pattern destinations become regex literals; ordinary string fields retain strings.
@@ -167,6 +167,11 @@ including cyclic graphs; importing a model does not traverse its linked types.
 There is no runtime `Quote.Type` property. `Quote.Shape`, `Quote.Input`
 and traversal types remain in the type-only merged namespace. Natural class
 inheritance preserves `instanceof` and factory cardinality inference.
+Construction shares successful shape checks for one materialization pass, including
+inherited constructors in separate inline modules. The constructor context is
+removed on success or failure; later assignments and serialization recheck values.
+Native pattern references use `globalThis.RegExp`, so a model can itself be named
+`RegExp` without shadowing the JavaScript implementation.
 
 Field decorators take positional arguments: `@RuneObject.field(Cardinality.One, check)`.
 The common count bounds are `One` (`1..1`), `Optional` (`0..1`), `ZeroOrMore`
