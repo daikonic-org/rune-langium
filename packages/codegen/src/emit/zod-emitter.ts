@@ -227,6 +227,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly sections: string[] = [];
   private readonly functionInputs: boolean;
   private readonly codecs: boolean;
+  private nodeLocal = false;
   private readonly metadataInputs: boolean;
   private readonly emissionPositions: ReadonlyMap<string, number>;
   private readonly conditionFunctionName: NamespaceEmitterOptions['conditionFunctionName'];
@@ -313,7 +314,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     this.sections.push(this.emitTypeSchema(data));
     const alias = this.emitInferAlias(data);
     if (alias) this.sections.push(alias);
-    if (this.codecs) this.sections.push(`export const ${data.name}Codec = ${data.name}Schema;`);
+    if (this.codecs) this.sections.push(this.emitNodeCodec(data));
     this.sections.push('');
   }
 
@@ -327,8 +328,19 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   emitChoice(choice: Choice): void {
     this.sections.push(this.emitChoiceSchema(choice));
     this.sections.push(`export type ${choice.name} = z.infer<typeof ${choice.name}Schema>;`);
-    if (this.codecs) this.sections.push(`export const ${choice.name}Codec = ${choice.name}Schema;`);
+    if (this.codecs) this.sections.push(this.emitNodeCodec(choice));
     this.sections.push('');
+  }
+
+  /** The shared visitor owns linked children; local schemas retain the canonical field/condition builders. */
+  private emitNodeCodec(node: Data | Choice): string {
+    this.nodeLocal = true;
+    try {
+      const expression = isData(node) ? this.emitTypeSchema(node, false) : this.emitChoiceSchema(node, false);
+      return `export const ${node.name}Codec = Object.assign(${node.name}Schema, { node: ${expression} });`;
+    } finally {
+      this.nodeLocal = false;
+    }
   }
 
   emitRule(rule: RosettaRule): void {
@@ -417,6 +429,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       const parentRef = data.superType?.ref;
       if (parentRef) {
         trackRef(parentRef, `${parentRef.name}Schema`);
+        if (this.codecs) trackRef(parentRef, `${parentRef.name}Codec`);
       }
       // Multi-level Data-extends-Choice (buildSuperTypeSchemaExpr's
       // choice-ancestor branch): the emitted schema is ONE
@@ -437,6 +450,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         const choiceAncestor = ZodNamespaceEmitter.findChoiceAncestor(parentRef);
         if (choiceAncestor) {
           trackRef(choiceAncestor.choice, `${choiceAncestor.choice.name}Schema`);
+          if (this.codecs) trackRef(choiceAncestor.choice, `${choiceAncestor.choice.name}Codec`);
           // Routed through trackTypeCallImport (not a direct `.typeCall?.type?.ref`
           // check) so an inlined ancestor's alias-typed attribute is tracked
           // against its TERMINAL resolved target too — matches the ordinary
@@ -487,6 +501,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * passes an empty owner because its body has no such outer lazy boundary.
    */
   private schemaRefExpr(name: string, ownerName: string): string {
+    if (this.nodeLocal)
+      return `z.custom<z.output<typeof ${name}Schema>>(value => value != null && typeof value === 'object' && !Array.isArray(value))`;
     const targetPosition = this.emissionPositions.get(name);
     const ownerPosition = this.emissionPositions.get(ownerName);
     const forward = targetPosition !== undefined && ownerPosition !== undefined && targetPosition >= ownerPosition;
@@ -547,9 +563,10 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * — key-presence discrimination via z.union of single-key object shapes,
    * mirroring emitObjectBody's per-attribute z.object conventions.
    */
-  private emitChoiceSchema(choice: Choice): string {
+  private emitChoiceSchema(choice: Choice, declaration = true): string {
     const name = choice.name;
     const schemaName = `${name}Schema`;
+    const emit = (expression: string) => (declaration ? `export const ${schemaName} = ${expression};` : expression);
 
     const optionSchemas = choice.attributes.map((option) => {
       // FIELD KEY: derived from the DIRECT/immediate reference's name, never
@@ -605,11 +622,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     });
 
     if (optionSchemas.length === 0) {
-      return `export const ${schemaName} = z.never();`;
+      return emit('z.never()');
     }
 
     const check = this.codecs ? this.choiceCodecCheck(choice) : '';
-    return `export const ${schemaName} = z.union([${optionSchemas.join(', ')}])${check};`;
+    return emit(`z.union([${optionSchemas.join(', ')}])${check}`);
   }
 
   /**
@@ -796,7 +813,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       // are folded in, nearest-declared-first (`data`, then `superRef`,
       // then each further ancestor) — matching `buildRuneExtendChoiceExpr`'s
       // own documented "nearest-declared wins" convention.
-      const parentSchema = `${superRef.name}Schema`;
+      const parentSchema = this.nodeLocal ? `${superRef.name}Codec.node` : `${superRef.name}Schema`;
       if (this.ctx.lazyTypes.has(superRef.name)) {
         const seen = new Set<string>();
         const attrLines: string[] = [];
@@ -832,7 +849,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * name collision) into the shape object.
    */
   private buildRuneExtendChoiceExpr(choice: Choice, dataChain: Data[], attrIndent: '' | '  '): string {
-    const choiceSchema = `${choice.name}Schema`;
+    const choiceSchema = this.nodeLocal ? `${choice.name}Codec.node` : `${choice.name}Schema`;
     // Same reasoning as buildSuperTypeSchemaExpr's `wrap`: `runeExtendChoice`
     // is a plain function CALL (not a chained method), so when `choice` is
     // cyclic the whole call — not just `choiceSchema` — is wrapped in
@@ -874,10 +891,12 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * FR-002 (exports), FR-005 (extends), FR-006 (lazy), FR-008 (empty).
    * FR-010, FR-011 (conditions via emitConditionBlock). T056.
    */
-  private emitTypeSchema(data: Data): string {
+  private emitTypeSchema(data: Data, declaration = true): string {
     const name = data.name;
     const schemaName = `${name}Schema`;
     const isLazy = this.ctx.lazyTypes.has(name);
+    const emit = (expression: string) =>
+      declaration ? `export const ${schemaName}${isLazy ? `: z.ZodType<${name}>` : ''} = ${expression};` : expression;
     const hasConditions = activeConditions(data).length > 0;
 
     const schemaExpr = this.buildSuperTypeSchemaExpr(data, '');
@@ -892,13 +911,13 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           .split('\n')
           .map((line) => `  ${line}`)
           .join('\n');
-        return `export const ${schemaName}: z.ZodType<${name}> = z.lazy(() =>\n${indented}\n);`;
+        return emit(`z.lazy(() =>\n${indented}\n)`);
       }
       const indented = schemaExpr
         .split('\n')
         .map((line) => `  ${line}`)
         .join('\n');
-      return `export const ${schemaName}: z.ZodType<${name}> = z.lazy(() =>\n${indented}\n);`;
+      return emit(`z.lazy(() =>\n${indented}\n)`);
     }
 
     if (hasConditions) {
@@ -921,7 +940,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           .split('\n')
           .map((line) => `  ${line}`)
           .join('\n');
-        return `export const ${schemaName} = ${chainedObjectExpr}\n${condIndented};`;
+        return emit(`${chainedObjectExpr}\n${condIndented}`);
       } else {
         // z.object chain: build chain as `z\n  .object({...})\n  .refine(...)`
         const attrLines =
@@ -937,7 +956,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           .split('\n')
           .map((line) => `  ${line}`)
           .join('\n');
-        return `export const ${schemaName} = z\n  ${objectBody}\n${condIndented};`;
+        return emit(`z\n  ${objectBody}\n${condIndented}`);
       }
     }
 
@@ -945,10 +964,10 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     // Only supported for non-lazy, non-condition schemas (the common case).
     const metaSuffix = ZodNamespaceEmitter.buildMetaSuffix(data);
     if (metaSuffix) {
-      return `export const ${schemaName} = ${schemaExpr}${metaSuffix};`;
+      return emit(`${schemaExpr}${metaSuffix}`);
     }
 
-    return `export const ${schemaName} = ${schemaExpr};`;
+    return emit(schemaExpr);
   }
 
   /**

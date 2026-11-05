@@ -14,7 +14,8 @@ ${e}type RuneModelTag<P extends RuneModelOwner, M extends RuneValueType> = P[typ
 type RuneObjectConstructor = RuneModelOwner & (new (...args: never[]) => RuneObject);
 ${e}type RuneGuarded<I, C extends RuneObjectConstructor> = I & (I extends RuneObject ? InstanceType<C> : ConstructorParameters<C>[0]);
 ${e}type RuneTypeGuard<C extends RuneObjectConstructor> = <I>(value: I) => value is RuneGuarded<I, C>;
-${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(value: unknown): unknown; wire?(value: unknown): unknown; validate?(value: unknown): unknown; }
+interface RuneSerializationSchema<S> { parse(value: unknown): S; encode(value: S): unknown; }
+${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(value: unknown, checked?: WeakMap<object, Set<RuneValueType>>): unknown; wire?(value: unknown): unknown; validate?(value: unknown, checked?: WeakMap<object, Set<RuneValueType>>): unknown; }
 ${e}class RuneChoice<M extends RuneValueType> {
   readonly [key: symbol]: () => M;
   constructor(model: M) { Object.defineProperty(this, runeObjectType, { value: () => runeRegisterValueType(model) }); }
@@ -181,13 +182,14 @@ ${e}class RuneObject {
       return instance;
     };
   }
-  static codec<S>(owner: RuneModelOwner, schema: { parse(value: unknown): S; encode(value: S): unknown }): RuneSerializationCodec {
-    const shape = (value: unknown): value is S => runeObjectShape(value, runeModel(owner));
+  static codec<S>(owner: RuneModelOwner, schema: RuneSerializationSchema<S> & { readonly node?: RuneSerializationSchema<S> }): RuneSerializationCodec {
+    const local = schema.node ?? schema;
+    const shape = (value: unknown, checked?: WeakMap<object, Set<RuneValueType>>): value is S => runeObjectShape(value, runeModel(owner), checked);
     return {
       decode: value => schema.parse(value),
-      wire: value => { schema.parse(value); return value; },
-      validate: value => { if (!shape(value)) throw new TypeError('Invalid Rune serialization shape'); schema.encode(value); },
-      encode: value => { if (!shape(value)) throw new TypeError('Invalid Rune serialization shape'); return schema.encode(value); }
+      wire: value => { const native = local.parse(value); return schema.node ? native : value; },
+      validate: (value, checked) => { if (!shape(value, checked)) throw new TypeError('Invalid Rune serialization shape'); local.encode(value); },
+      encode: (value, checked) => { if (!shape(value, checked)) throw new TypeError('Invalid Rune serialization shape'); return local.encode(value); }
     };
   }
 }`;

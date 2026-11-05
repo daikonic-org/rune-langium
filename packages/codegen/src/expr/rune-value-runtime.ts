@@ -53,6 +53,7 @@ export const RUNE_VALUE_NAMES = [
   'RuneObjectConstructor',
   'RuneTypeGuard',
   'RuneSerializationCodec',
+  'RuneSerializationSchema',
   'RuneChoice',
   'runeObjectDefinition',
   'runeObjectInstanceModel',

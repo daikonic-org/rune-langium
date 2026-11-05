@@ -201,6 +201,10 @@ Every nested concrete model uses its own codec, including subclasses inside
 base-typed scalar/list fields, Choice arms and metadata references. Wire and native
 checks use the companion schema's public parse/encode operations; runtime hydration
 retains concrete fields and codecs do not replace them with base-schema clones.
+Each companion's `node` schema uses the same field and condition builders but
+delegates linked children to the concrete-model walker. This keeps recursive
+serialization traversal linear for fixed-cost conditions. The public codec's
+`parse`/`encode` operations still validate complete subtrees.
 The default `'runtime'` mode has no Zod dependency. For standalone schemas,
 `zod.codecs: true` adds the same bidirectional codecs and native output types;
 ordinary Zod emission retains its wire-value schemas.

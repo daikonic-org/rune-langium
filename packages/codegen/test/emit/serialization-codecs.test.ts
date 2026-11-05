@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
 import { assertValidDocuments, BASICTYPES_ROSETTA, createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
@@ -37,11 +37,23 @@ type Portfolio:
 type Node:
  quote Quote (1..1)
  next Node (0..1)
+type NestedChecks:
+ quote Quote (1..1)
+ cutoff date (1..1)
+ expected pattern (1..1)
+ condition NestedDate: quote -> date <= cutoff
+ condition NestedPattern: quote -> pattern = expected
 `;
 
 async function documents() {
   const { RuneDsl } = createRuneDslServices();
-  const docs = [BASICTYPES_ROSETTA, source].map((text, index) =>
+  const foreign = `namespace codecExtras
+import codecs.*
+type Foreign extends Quote:
+ note string (1..1)
+ condition ForeignAmount: amount > 2
+`;
+  const docs = [BASICTYPES_ROSETTA, source, foreign].map((text, index) =>
     RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(text, URI.parse(`inmemory:///codecs-${index}.rosetta`))
   );
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
@@ -51,6 +63,7 @@ async function documents() {
 
 type View = { [key: string]: unknown; toJSON(options?: { format: 'RUNE_JSON' }): unknown };
 type Model = { from(input: unknown): View; fromJSON(input: unknown, options?: { format: 'RUNE_JSON' }): View };
+type SchemaCounter = { _zod: { run(...args: unknown[]): unknown } };
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
   'imports generated Zod codecs for optional serialization (%s)',
@@ -60,11 +73,24 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       typescript: { serialization: 'zod', ...(layout === 'inline' ? { inlineHelpers: true } : { layout }) }
     });
     const model = outputs.find((output) => output.content.includes('export class Quote '))!;
+    const foreign = outputs.find((output) => output.content.includes('export class Foreign '))!;
     expect(model.content).toContain('.QuoteCodec');
     expect(outputs.some((output) => output.relativePath === 'codecs.zod.ts')).toBe(true);
     const api = compileGeneratedTypeScript<
-      Record<'Quote' | 'Special' | 'Portfolio' | 'Tagged' | 'Node' | 'Selected', Model>
-    >(outputs, { entry: model.relativePath });
+      Record<'Quote' | 'Special' | 'Portfolio' | 'Tagged' | 'Node' | 'Selected' | 'NestedChecks' | 'Foreign', Model> & {
+        NodeCodec: SchemaCounter & { parse(value: unknown): unknown; node?: SchemaCounter };
+      }
+    >(
+      outputs.map((output) =>
+        output === model
+          ? {
+              ...output,
+              content: `${output.content}\nexport { NodeCodec } from './codecs.zod.js';${foreign === model ? '' : "\nexport { Foreign } from './codecExtras.js';"}`
+            }
+          : output
+      ),
+      { entry: model.relativePath }
+    );
     const plain = { amount: 2, date: '2026-11-04', time: '12:30:00', pattern: '^a+$' };
     const quote = api.Quote.fromJSON(plain);
     const value = quote;
@@ -127,6 +153,50 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     expect(api.Tagged.fromJSON(tagged, options).toJSON(options)).toEqual(tagged);
     const recursive = { quote: plain, next: { quote: plain } };
     expect(api.Node.fromJSON(recursive).toJSON()).toEqual(recursive);
+    const checks = { quote: plain, cutoff: plain.date, expected: plain.pattern };
+    expect(api.NestedChecks.fromJSON(checks).toJSON()).toEqual(checks);
+    expect(() => api.NestedChecks.fromJSON({ ...checks, cutoff: '2026-11-03' })).toThrow();
+    expect(() => api.NestedChecks.fromJSON({ ...checks, expected: '^different$' })).toThrow();
+    const foreignWire = { ...plain, '@type': 'codecExtras.Foreign', amount: 3, note: 'foreign' };
+    expect(api.Portfolio.fromJSON({ quote: foreignWire }, options).toJSON(options)).toEqual({
+      '@type': 'codecs.Portfolio',
+      quote: foreignWire
+    });
+    expect(() => api.Portfolio.fromJSON({ quote: { ...foreignWire, amount: 2 } }, options)).toThrow();
+    expect(() => api.Node.fromJSON({ quote: plain, next: { quote: { ...plain, amount: -1 } } })).toThrow();
+    expect(() => api.NodeCodec.parse({ quote: plain, next: { quote: { ...plain, amount: -1 } } })).toThrow();
+    expect(() => api.Node.fromJSON({ quote: plain, next: null })).toThrow();
+    const cyclic: { quote: typeof plain; next?: unknown } = { quote: plain };
+    cyclic.next = cyclic;
+    expect(() => api.Node.fromJSON(cyclic)).toThrow(/cyclic/);
+    const schemaRuns = [api.NodeCodec, ...(api.NodeCodec.node ? [api.NodeCodec.node] : [])].map((schema) =>
+      vi.spyOn(schema._zod, 'run')
+    );
+    const count = () => schemaRuns.reduce((total, run) => total + run.mock.calls.length, 0);
+    const clear = () => schemaRuns.forEach((run) => run.mockClear());
+    try {
+      for (const format of [undefined, options])
+        for (const depth of [8, 16, 32]) {
+          let input: { quote: typeof plain & { '@type'?: string }; next?: unknown; '@type'?: string } | undefined;
+          for (let index = 0; index < depth; index++)
+            input = {
+              quote: format ? { ...plain, '@type': 'codecs.Quote' } : plain,
+              ...(format ? { '@type': 'codecs.Node' } : {}),
+              ...(input ? { next: input } : {})
+            };
+          clear();
+          api.NodeCodec.parse(input);
+          expect(count()).toBe(depth);
+          clear();
+          const decoded = api.Node.fromJSON(input, format);
+          expect(count()).toBeLessThanOrEqual(4 * depth);
+          clear();
+          expect(decoded.toJSON(format)).toEqual(input);
+          expect(count()).toBeLessThanOrEqual(4 * depth);
+        }
+    } finally {
+      schemaRuns.forEach((run) => run.mockRestore());
+    }
   }
 );
 

@@ -1393,6 +1393,13 @@ The shared codec walker checks each concrete linked node using its own companion
 so a base-typed field cannot hide a descendant's constraints. It validates wire
 inputs with parse and native values with encode without substituting schema clones
 for the runtime's concrete hydration; encoding retains derived-only native fields.
+The emitter derives each codec's `node` schema from the same field, cardinality,
+metadata and condition builders, replacing only linked child schemas with object
+guards. The concrete-model visitor owns recursion. Wire traversal returns parsed
+native fields before validating parent conditions, while public codec operations
+remain fully recursive. Shape guards share a cache only within one visitor pass;
+later serialization rechecks mutations. No descendant subtree is revalidated at
+each ancestor merely to dispatch its concrete codec.
 Nested Shapes contain structural data and Temporal
 values directly; public function signatures do not require `RuneFuncData`.
 The normalizer owns only the supplied value
