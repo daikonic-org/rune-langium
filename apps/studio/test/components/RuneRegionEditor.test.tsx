@@ -33,6 +33,29 @@ function document() {
 }
 
 describe('full-file protected Rune editing', () => {
+  it.each(['\n', '\r\n'])('hides common body indentation without changing source bytes (%j)', (newline) => {
+    const body = ['  set result: Quote {', '    amount: value * 2,', '    currency: "USD"', '  }'].join(newline);
+    const fullSource = header + body + suffix;
+    const state = EditorState.create({
+      doc: fullSource,
+      extensions: documentExtensions({ from: header.length, to: header.length + body.length })
+    });
+    const view = new EditorView({ state, parent: globalThis.document.createElement('div') });
+    try {
+      expect(Array.from(view.contentDOM.querySelectorAll('.cm-line'), (line) => line.textContent)).toEqual(
+        ['set result: Quote {', '  amount: value * 2,', '  currency: "USD"', '}'].map(
+          (line, index) => line + (newline === '\r\n' && index < 3 ? '\u240d' : '')
+        )
+      );
+      expect(view.state.doc.toString()).toBe(fullSource);
+      const from = fullSource.indexOf('value * 2');
+      view.dispatch({ changes: { from, to: from + 'value * 2'.length, insert: 'value * 3' } });
+      expect(view.state.doc.toString()).toBe(fullSource.replace('value * 2', 'value * 3'));
+    } finally {
+      view.destroy();
+    }
+  });
+
   it('retains the whole document while protecting the signature and neighbor', () => {
     const state = document();
     expect(state.doc.toString()).toBe(source);

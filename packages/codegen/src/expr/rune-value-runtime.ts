@@ -435,7 +435,13 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (key === 'items') return array;
     if (key === 'constructor') return RuneList;
     if (key === 'reduce') return (...args: unknown[]) => Reflect.apply(Array.prototype.reduce, receiver, args);
-    if (['push', 'pop', 'shift', 'unshift', 'splice', 'fill', 'copyWithin', 'sort'].includes(String(key))) return (...args: unknown[]) => {
+    if (['push', 'pop', 'shift', 'unshift', 'splice', 'fill', 'copyWithin', 'sort', 'reverse'].includes(String(key))) return (...args: unknown[]) => {
+      if (key === 'sort') {
+        const callback = args[0];
+        if (typeof callback === 'function' && (callback.length < 2 || typeof args[1] === 'function'))
+          return runeProjectValue(Reflect.apply(input.sort, input, args), true);
+        if (callback === undefined && args.length > 1) args = [args[1]];
+      }
       const draft = input.toArray();
       const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), draft, args);
       input.$replace(draft);
@@ -451,7 +457,7 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (typeof method === 'function' && key !== 'constructor') return (...args: unknown[]) => {
       const callback = args[0];
       if (typeof callback === 'function' && ['map', 'flatMap', 'filter', 'every', 'some'].includes(String(key)))
-        args[0] = (item: unknown, index: number) => Reflect.apply(callback, undefined, [item, index, receiver]);
+        args[0] = (item: unknown, index: number) => Reflect.apply(callback, args[1], [item, index, receiver]);
       return runeProjectValue(Reflect.apply(method, input, args), ['map', 'flatMap', 'flat', 'filter', 'reverse', 'distinct', 'sort'].includes(String(key)));
     };
     if (typeof key === 'string' && method instanceof RuneValue) return runeProjectValue(method);

@@ -30,6 +30,7 @@ test.describe('J19 — Expression workspace production acceptance', () => {
       const implementation = page.getByRole('region', { name: 'Function implementation' });
       const rune = implementation.getByTestId('implementation-editor');
       await expect(rune).toContainText('-1 * arg');
+      await expect(rune.locator('.cm-line').first()).not.toHaveText(/^\s/);
       let dialog = await openBuilder(page);
       await dialog.getByRole('button', { name: 'Text', exact: true }).click();
       await dialog.getByRole('textbox').fill('if arg < 0 then -2 * arg else arg');

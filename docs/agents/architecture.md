@@ -661,6 +661,11 @@ Authored contracts remain named `assert(...)` calls in their original phases.
 Switch lifting preserves lazy scopes and evaluation order; terminal returns never
 skip postconditions. Native/project/bodyless functions carry implementation status
 outside the editor, with actual bundled source when available.
+Inspector Rune regions hide their common leading indentation through CodeMirror
+replacement decorations and atomic cursor ranges. Full-file source bytes and
+coordinates remain unchanged; nested relative indentation stays visible.
+Shared Inspector member-name geometry matches the compact add-name inputs across
+attribute, function, enum and inherited/static rows; each payload form reuses it.
 See [source projection syntax](../source-projection.md) for the spelling and inverse contracts.
 
 Public projection selectors still default to executable declarations. Readable
@@ -1357,9 +1362,16 @@ to an array-backed RuneList. Public cardinality aliases and bounded tuples descr
 these shapes without RuneView or unwrap. RuneObject proxies cache private RuneValue
 field slots; setters and list mutations reuse the shared field normalizer and
 validate before committing. Actual projected array results keep array shape during
-JSON serialization, including zero/one items. Public array sort uses native
-comparators and mutates atomically through the normalizer; explicit RuneList/helper and source-projection
-key-selector sorting retains Rune semantics. No callback-arity guessing is used.
+JSON serialization, including zero/one items. Public array sort dispatches by
+callback `Function.length`: zero/one parameter selects the shared Rune key-sort
+helper, while two or more use native comparison and mutation through the normalizer.
+An explicit key comparator retains helper semantics; `sort(undefined, compare)`
+forces native comparison for default/rest/bound callbacks with ambiguous lengths.
+No-argument sorting stays native. Explicit RuneList/helpers and source projections
+retain Rune key-selector semantics.
+Public array reverse also uses the checked native mutation path. Callback wrapping
+for map/flatMap/filter/every/some forwards the supplied `thisArg` and public receiver;
+explicit RuneList helpers retain their Rune collection behavior.
 Canonical storage retains declared collection arrays and metadata envelopes for
 serialization and equality. Replacing a field detaches old list handles so they
 cannot overwrite the replacement. Explicit RuneList

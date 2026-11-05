@@ -73,6 +73,9 @@ const quotes: [Quote, Quote] = Quote.from([{ amount: 1, currency: 'USD' }, { amo
 const total: number = quotes.reduce((sum, item) => sum + item.amount, 0);
 const labels: string = quotes.reduce((text, item) => text + item.currency, '');
 const sorted: Quote[] = quotes.sort((left, right) => left.amount - right.amount);
+const selected: Quote[] = publicMany.sort(item => item.amount);
+const explicitComparator: Quote[] = publicMany.sort(undefined, (left: Quote, right = left) => left.amount - right.amount);
+const selectedStrings: Quote[] = publicMany.sort(item => item.currency);
 const helperTotal: number = RuneList.from(1, 2).reduce((sum, item) => sum + item, 0);
 const absent: undefined = Quote.from([]);
 const oneFromArray: Quote = Quote.from([{ amount: 1, currency: 'USD' }]);
@@ -128,6 +131,37 @@ Quote.from({ amount: 1 });
     expect(portfolio.toJSON()).toEqual({ quotes: [] });
     expect(Array.isArray(list) && list.length).toBe(2);
     if (!Array.isArray(list)) throw new Error('Expected list');
+    const context = { factor: 2 };
+    expect(
+      list.map(function (this: typeof context, item, index, array) {
+        expect(this).toBe(context);
+        expect(array).toBe(list);
+        expect(index).toBeGreaterThanOrEqual(0);
+        return this.factor * item.amount;
+      }, context)
+    ).toEqual([2, 4]);
+    expect(
+      list.flatMap(function (this: typeof context, item) {
+        return [this.factor * item.amount];
+      }, context)
+    ).toEqual([2, 4]);
+    expect(
+      list
+        .filter(function (this: typeof context, item) {
+          return item.amount >= this.factor;
+        }, context)
+        .map((item) => item.amount)
+    ).toEqual([2]);
+    expect(
+      list.every(function (this: typeof context, item) {
+        return item.amount <= this.factor;
+      }, context)
+    ).toBe(true);
+    expect(
+      list.some(function (this: typeof context, item) {
+        return item.amount === this.factor;
+      }, context)
+    ).toBe(true);
     expect(list.reduce((sum, item) => sum + item.amount, 0)).toBe(3);
     expect(list.reduce((sum, item) => sum + item.amount, 10)).toBe(13);
     expect(list.reduce((text, item) => text + item.currency, '')).toBe('USDEUR');
@@ -175,11 +209,29 @@ Quote.from({ amount: 1 });
     const nativeOrder = list.map((item) => (item.amount === 2 ? 2 : 10));
     expect(nativeOrder.sort()).toBe(nativeOrder);
     expect(nativeOrder).toEqual([10, 2]);
+    const byAmount = list.sort((item) => -item.amount);
+    expect(byAmount).not.toBe(list);
+    expect(byAmount.map((item) => item.amount)).toEqual([2, 1]);
+    expect(list.map((item) => item.amount)).toEqual([1, 2]);
+    const constantKey = list.sort(() => 1);
+    expect(constantKey).not.toBe(list);
+    expect(constantKey.map((item) => item.amount)).toEqual([1, 2]);
+    const sort = Reflect.get(list, 'sort');
+    const byCurrency = Reflect.apply(sort, list, [
+      (item: Shape) => item.currency,
+      (left: string, right: string) => right.localeCompare(left)
+    ]);
+    expect(byCurrency).not.toBe(list);
+    expect(byCurrency.map((item: Shape) => item.currency)).toEqual(['USD', 'EUR']);
     expect(list.sort((left, right) => right.amount - left.amount)).toBe(list);
     expect(list.map((item) => item.amount)).toEqual([2, 1]);
-    expect(list.sort((left, right = left) => left.amount - right.amount)).toBe(list);
+    expect(Reflect.apply(sort, list, [undefined, (left: Shape, right = left) => left.amount - right.amount])).toBe(
+      list
+    );
     expect(list.map((item) => item.amount)).toEqual([1, 2]);
-    expect(list.sort((...items) => items[1]!.amount - items[0]!.amount)).toBe(list);
+    expect(Reflect.apply(sort, list, [undefined, (...items: Shape[]) => items[1]!.amount - items[0]!.amount])).toBe(
+      list
+    );
     expect(list.map((item) => item.amount)).toEqual([2, 1]);
     const amounts = list.map((item) => item.amount);
     expect(amounts.sort()).toBe(amounts);
@@ -189,6 +241,10 @@ Quote.from({ amount: 1 });
         throw new Error('Comparator failed');
       })
     ).toThrow('Comparator failed');
+    expect(list.map((item) => item.amount)).toEqual([2, 1]);
+    expect(list.reverse()).toBe(list);
+    expect(list.map((item) => item.amount)).toEqual([1, 2]);
+    expect(list.reverse()).toBe(list);
     expect(list.map((item) => item.amount)).toEqual([2, 1]);
     const direct = new api.Quote({ amount: 1, currency: 'USD' });
     direct.amount = 2;

@@ -99,6 +99,32 @@ for (const theme of ['dark', 'light'] as const) {
   });
 }
 
+test('keeps member-name inputs aligned with compact Inspector controls', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await load(page);
+  await select(page, 'CurrencyTest', 'RosettaFunction');
+  await showPane(page, 'Inspector');
+  const reference = page.getByRole('textbox', { name: 'New input parameter name', exact: true });
+  const geometry = (element: Element) => ({
+    height: element.getBoundingClientRect().height,
+    font: getComputedStyle(element).fontSize,
+    padding: getComputedStyle(element).padding
+  });
+  const expected = await reference.evaluate(geometry);
+  expect(expected.height).toBeGreaterThan(0);
+  for (const [name, kind, label] of [
+    ['CurrencyTest', 'RosettaFunction', 'Attribute name: currency'],
+    ['Entry', 'Data', 'Attribute name: amount'],
+    ['Currency', 'RosettaEnumeration', 'Value name for EUR']
+  ] as const) {
+    await select(page, name, kind);
+    const input = page.getByRole('textbox', { name: label, exact: true });
+    await expect(input).toBeVisible();
+    expect(await input.evaluate(geometry)).toEqual(expected);
+    await page.screenshot({ path: info.outputPath(`compact-${name}.png`) });
+  }
+});
+
 test('drops a type onto the input name and shows inherited enum values', async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await load(page);

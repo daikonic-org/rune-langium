@@ -345,10 +345,17 @@ linked fields and deep selections such as `trade._.asset`. `One<T>`, `Optional<T
 `OneOrMore<T>` and `ZeroOrMore<T>` expose those shapes; bounded outputs retain tuple
 bounds. Public values pass directly to ordinary functions without unwrapping.
 Projected arrays preserve native `Array.reduce` overloads and callback arguments.
-Their `sort(compare)` uses the native comparator contract, sorts in place and
-returns the same array, including with default or rest callback parameters.
-Rune key-selector sorting remains in the explicit RuneList helper and source
-projection. Array transformations serialize as arrays even with zero or one item,
+Native `reverse()` mutates and returns the same array; explicit RuneList helpers
+retain copy-producing reversal. Map/filter/predicate callbacks receive the supplied
+`thisArg`, element index and public array receiver.
+Their `sort(callback)` supports both contracts by callback parameter count:
+zero/one parameter selects a Rune ordering key and returns a new list; two or more
+parameters use native in-place comparison and return the same array.
+`sort()` keeps native default ordering. `sort(key, compareKeys)` explicitly sorts
+by a key; `sort(undefined, compare)` explicitly selects a native comparator.
+Use the latter for default/rest/bound callbacks whose `Function.length` reports
+fewer than two parameters. Explicit RuneList helpers and source projections retain
+Rune key-selector semantics. Array transformations serialize as arrays even with zero or one item,
 retaining the selected JSON format.
 Shared `RuneList` helper reductions also support a typed initial accumulator;
 an unseeded helper reduction of an empty collection retains Rune's empty result.

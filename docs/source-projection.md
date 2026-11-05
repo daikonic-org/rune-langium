@@ -204,10 +204,16 @@ even when its current getter projects to a scalar. Metadata envelopes are retain
 
 Explicit list transformations share RuneList's implementation and stay collection
 containers for chaining: `map` retains array-valued groups, while `flatMap` and
-`flat` flatten explicitly. Public arrays use native `sort((a, b) => ...)`, mutate
-in place and return the same array. Rune key-selector sorting and Rune
-value/Temporal ordering remain nonmutating in explicit RuneList helpers and the
-source projection. Actual array results serialize as arrays, including empty and
+`flat` flatten explicitly. Public array sorting distinguishes callbacks by
+`Function.length`: zero/one parameter selects a Rune key and returns a new list;
+two or more parameters use native in-place comparison and return the same array.
+`sort()` uses native default ordering. `sort(key, compareKeys)` supplies explicit
+key comparison; `sort(undefined, compare)` forces native comparison for callbacks
+whose default/rest/bound parameters obscure their arity. Explicit RuneList helpers
+and source projections retain Rune value/Temporal ordering and nonmutating sorting.
+Public array `reverse()` mutates in place; explicit RuneList helpers retain Rune's
+copy-producing reversal. Array callback methods honor the optional `thisArg`.
+Actual array results serialize as arrays, including empty and
 singleton results, in both plain JSON and the selected Rune JSON format.
 Element selectors return the selected scalar/model directly.
 `list.project()` applies the count-based projection, and `toArray()` returns an
