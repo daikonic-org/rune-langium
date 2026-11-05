@@ -33,9 +33,11 @@ import type { ProjectionOrigin } from './types.js';
 import { renderExpression } from '../emit/rosetta/render-expression.js';
 import { onlyExistsSelection } from '../expr/only-exists.js';
 import { patternLiteral, renderPatternLiteral } from '../expr/pattern.js';
+import { projectionNodePath } from './rebase-origin.js';
 
 export interface SourceTypeScriptOptions {
   owner?: RosettaFunction;
+  /** Skip CST coordinate collection; linked paths remain available for source rebasing. */
   trackOrigins?: boolean;
   nameScope?: ProjectionOrigin['nameScope'];
 }
@@ -119,8 +121,14 @@ export class SourceExpressionRenderer {
       /* Older serialized bundles have no source coordinates. */
     }
     const rune = expression.$cstNode?.text ?? renderExpression(expression);
+    const fragmentPaths = this.fragments.map(({ node, code, aliases }) => ({
+      code,
+      kind: node.$type,
+      aliases,
+      path: projectionNodePath(expression, node)
+    }));
     const fragments = this.fragments.flatMap(({ node, code, aliases }) => {
-      if (!root || !expression.$cstNode) return [];
+      if (this.options.trackOrigins === false || !root || !expression.$cstNode) return [];
       try {
         const region = getNodeSourceRegion(node);
         const from = region.from - root.from,
@@ -133,7 +141,7 @@ export class SourceExpressionRenderer {
     return {
       code: frame.value.code,
       statements: frame.statements,
-      origin: { code: [...frame.statements, frame.value.code].join('\n'), rune, fragments, nameScope }
+      origin: { code: [...frame.statements, frame.value.code].join('\n'), rune, fragments, fragmentPaths, nameScope }
     };
   }
 
@@ -325,7 +333,7 @@ export class SourceExpressionRenderer {
     this.scope = scope;
     try {
       const value = this.valueImpl(expression, scope, preferred);
-      if (expression && this.options.trackOrigins !== false)
+      if (expression)
         this.fragments.push({
           node: expression,
           code: value.code,

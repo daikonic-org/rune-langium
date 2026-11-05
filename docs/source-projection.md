@@ -88,6 +88,12 @@ comparison tolerates formatting and quote changes. Supported edits replace uniqu
 original subexpressions while retaining navigation/extraction and scalar-binding
 identity. Repeated or overlapping origins refuse rather than guess.
 
+Linked origins include fragment spellings at expression-relative Langium paths,
+even when the worker AST has no CST. `rebaseProjectionOrigin` checks Rune tree
+equivalence and restores fragments against captured source coordinates without
+re-rendering linked syntax. Studio uses it before preparing inline edits, retaining
+native regex literals and callback aliases across serialization and trivia changes.
+
 Deep navigation uses `receiver._.field`; `.field("_")` selects an actual field
 named `_` without entering the deep view. Older `.prop(item => item.field)`
 drafts remain readable. A dangling deep view is not a Rune expression.

@@ -83,7 +83,7 @@ func Filter:
       await projection.press('ControlOrMeta+a');
       await page.keyboard.insertText(baseline.replace('> 0', '> item1'));
       await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
-      await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+      await expect(implementation.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
       await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
       const rune = implementation.getByTestId('implementation-editor').locator('.cm-content');
       await expect(rune).toContainText('filter [item > item]');
@@ -91,6 +91,42 @@ func Filter:
       await evidence.checkpoint('callback-alias-restored');
       await rune.press('ControlOrMeta+z');
       await expect(rune).toContainText('filter [item > 0]');
+    }
+  );
+
+  test(
+    'J19 inline TypeScript regex edits retain linked pattern origins',
+    { annotation: { type: 'journey-subid', description: 'pattern-origins' } },
+    async ({ page, evidence }) => {
+      await page.goto('./');
+      await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+        name: 'patterns.rosetta',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`namespace patterns
+func Pattern:
+ output: result pattern (1..1)
+ set result: "^x+$"
+`)
+      });
+      await page.getByTestId('namespace-search').fill('Pattern');
+      await typeNavigationButton(page, 'patterns.Pattern', 'RosettaFunction').click();
+      const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
+      if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
+      const implementation = page.getByRole('region', { name: 'Function implementation' });
+      const projection = await expectBodyProjection(implementation, 'TypeScript', '/^x+$/', 'return result');
+      const baseline = await projection.innerText();
+      await projection.press('ControlOrMeta+a');
+      await page.keyboard.insertText(baseline.replace('/^x+$/', '/^y+$/'));
+      await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+      await expect(implementation.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
+      await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+      const rune = implementation.getByTestId('implementation-editor').locator('.cm-content');
+      await expect(rune).toContainText('"^y+$"');
+      await expect(implementation.getByRole('alert')).toHaveCount(0);
+      await evidence.checkpoint('pattern-literal-applied');
+      await rune.press('ControlOrMeta+z');
+      await expect(rune).toContainText('"^x+$"');
+      await evidence.checkpoint('pattern-literal-undo');
     }
   );
 

@@ -24,5 +24,6 @@ export type { WasmSource } from './lens/typescript/ts-grammar-loader.js';
 export { renderSourceTs, parseSourceTs, parseSourceTsBody } from './lens/typescript/source-lens.js';
 export type { SourceBodyResult } from './lens/typescript/source-lens.js';
 export { renderSourceTypeScriptExpression } from './projection/source-typescript-expression.js';
+export { rebaseProjectionOrigin } from './projection/rebase-origin.js';
 export type { ProjectionOrigin } from './projection/types.js';
 export type { SourceTypeScriptOptions, SourceTypeScriptExpression } from './projection/source-typescript-expression.js';

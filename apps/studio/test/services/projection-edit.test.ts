@@ -4,8 +4,9 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { expect, it } from 'vitest';
-import { parse, getExpressionRegions, isRosettaFunction } from '@rune-langium/core';
+import { parse, parseWorkspace, BASICTYPES_ROSETTA, getExpressionRegions, isRosettaFunction } from '@rune-langium/core';
 import { renderSourceTypeScriptExpression } from '@rune-langium/codegen/lens';
+import { AstUtils } from 'langium';
 import { prepareProjectionEdit } from '../../src/services/projection-edit.js';
 
 const wasm = new Uint8Array(
@@ -14,6 +15,58 @@ const wasm = new Uint8Array(
       .resolve('@vscode/tree-sitter-wasm/package.json')
       .replace(/package\.json$/, 'wasm/tree-sitter-typescript.wasm')
   )
+);
+
+it.each([
+  { hydrated: false, nested: false },
+  { hydrated: true, nested: false },
+  { hydrated: false, nested: true },
+  { hydrated: true, nested: true }
+])(
+  'edits linked pattern literals with hydrated=$hydrated nested=$nested through captured source',
+  async ({ hydrated, nested }) => {
+    const source = `namespace test
+${nested ? 'type Settings:\n expression pattern (1..1)\n' : ''}
+func Pattern:
+ output: result ${nested ? 'Settings' : 'pattern'} (1..1)
+ set result: ${nested ? "Settings {\n  expression: '^x+$'\n }" : '"^x+$"'}
+`;
+    const [parsed] = await parseWorkspace([
+      { uri: 'file:///pattern.rosetta', content: source },
+      { uri: 'file:///basics.rosetta', content: BASICTYPES_ROSETTA }
+    ]);
+    if (!parsed) throw new Error('Missing pattern fixture');
+    expect(parsed.hasErrors).toBe(false);
+    const owner = parsed.value.elements.find(isRosettaFunction)!;
+    const expression = owner.operations[0]!.expression;
+    const region = getExpressionRegions(owner)[0]!.region;
+    if (hydrated) for (const node of AstUtils.streamAst(expression)) Reflect.deleteProperty(node, '$cstNode');
+    const projected = renderSourceTypeScriptExpression(expression, { owner, trackOrigins: false }).origin;
+    expect(projected.code).toContain('/^x+$/');
+    expect(projected.fragments).toEqual([]);
+    expect(projected.fragmentPaths?.length).toBeGreaterThan(0);
+    const edit = await prepareProjectionEdit(
+      {
+        workspaceGeneration: 1,
+        uri: 'file:///pattern.rosetta',
+        nodeId: 'test.Pattern#RosettaFunction',
+        revision: 1,
+        source,
+        region,
+        readOnly: false
+      },
+      [region],
+      projected.code,
+      projected.code.replace('/^x+$/', '/^y+$/'),
+      'expression',
+      wasm,
+      [structuredClone(projected)]
+    );
+    expect(edit.replacement).toContain('"^y+$"');
+    if (nested) expect(edit.replacement).toContain('expression:');
+    const updated = source.slice(0, region.from) + edit.replacement + source.slice(region.to);
+    expect((await parse(updated)).hasErrors).toBe(false);
+  }
 );
 
 it.each([

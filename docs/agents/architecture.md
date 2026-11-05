@@ -55,6 +55,8 @@ succeeds. Example payload/descriptor writes and removals retain their normal tra
 The Source bar reports the actual source autosave state and its Save action drains
 that same shared barrier. A file's Git modification flag is independent of local
 persistence; saving never marks uncommitted work as committed.
+Successful autosave clears retained manual-save errors in the Source bar; pending
+or failed persistence never clears them by itself.
 
 Named-target settings are repository state; the selected target and ad hoc root
 selection remain personal run preferences. Explicit Save preserves YAML comments
@@ -665,6 +667,11 @@ statement-lifted expressions and real external implementations remain read-only.
 Function provenance includes trailing implementation comments through core's
 source-region helper. The worker resolves the canonical owner, validates the
 current binding and retains the original editor identity in replies.
+
+Linked fragment spellings also retain expression-relative Langium paths, including
+on CST-free worker ASTs. The shared Codegen rebase helper verifies Rune equivalence
+and restores coordinates from captured source without re-rendering type-dependent
+syntax or callback aliases. Legacy coordinate fragments require unique AST matches.
 
 Projection lookup compares canonical Langium URIs while replies retain the original
 editor binding. Both languages use codegen's `resolveExportSelection` to generate

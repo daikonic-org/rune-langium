@@ -18,6 +18,9 @@ export const SourceSaveControl = withInstrumentation(
       },
       []
     );
+    useEffect(() => {
+      if (state === 'saved') setError(undefined);
+    }, [state]);
     const saving = pending || state === 'saving';
     const label =
       error || state === 'error'

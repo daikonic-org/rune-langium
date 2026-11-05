@@ -31,6 +31,8 @@ export interface ProjectionOrigin {
      */
     aliases?: [string, string | null][] | null;
   }[];
+  /** Linked spellings at expression-relative Langium paths, including CST-free worker ASTs. */
+  fragmentPaths?: (Omit<ProjectionOrigin['fragments'][number], 'from' | 'to'> & { path: string })[];
 }
 export interface GeneratedProjection {
   language: 'typescript' | 'python';

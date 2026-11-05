@@ -4,7 +4,12 @@
 import { parseExpression, type RosettaExpression, type SourceRegion } from '@rune-langium/core';
 import { RosettaExpressionSchema } from '@rune-langium/core/zod-schemas';
 import { renderExpression, treesEquivalent } from '@rune-langium/codegen/rosetta';
-import { parseSourceTsBody, renderSourceTypeScriptExpression, type ProjectionOrigin } from '@rune-langium/codegen/lens';
+import {
+  parseSourceTsBody,
+  rebaseProjectionOrigin,
+  renderSourceTypeScriptExpression,
+  type ProjectionOrigin
+} from '@rune-langium/codegen/lens';
 import type { DocumentBinding, DocumentEdit } from './expression-document.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
@@ -42,15 +47,9 @@ export const prepareProjectionEdit = withInstrumentation(
       const parsed = parseExpression(text);
       if (parsed.hasErrors) throw new Error('The captured Rune expression is invalid.');
       const projected = origins?.[index];
-      const origin = renderSourceTypeScriptExpression(parsed.value, { nameScope: projected?.nameScope }).origin;
-      if (projected) {
-        const original = parseExpression(projected.rune);
-        if (original.hasErrors || !treesEquivalent(original.value, parsed.value))
-          throw new Error('The projection origin no longer matches the captured Rune expression.');
-        // Linked display facts and outer binding names come from the worker.
-        // Reparsed source contributes only safe CST fragments, never replacement type facts.
-        origin.code = projected.code;
-      }
+      const origin = projected
+        ? rebaseProjectionOrigin(parsed.value, projected)
+        : renderSourceTypeScriptExpression(parsed.value).origin;
       return { region, text, origin };
     });
     const body = (code: string) => (syntax === 'expression' ? `const result = ${code};\nreturn result;` : code);
