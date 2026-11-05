@@ -53,7 +53,7 @@ interface Value {
   expression: RegExp;
   alternatives: RegExp[];
 }
-type View = { unwrap(): Value; toJSON(options?: { format: 'RUNE_JSON' }): unknown };
+type View = Value & { toJSON(options?: { format: 'RUNE_JSON' }): unknown };
 type Api = {
   Settings: {
     fromJSON(value: unknown, options?: { format: 'RUNE_JSON' }): View;
@@ -92,14 +92,14 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       assertions: `
 const value: Settings.Shape = { at: Temporal.PlainTime.from('12:34:56'), expression: /x/, alternatives: [/y/] };
 const copy: Settings.Shape = Copy(value);
-const expr: RegExp = Settings.from(value).expression.unwrap();
+const expr: RegExp = Settings.from(value).expression;
 // @ts-expect-error plain strings are not native pattern values
 const invalid: Settings.Shape = { ...value, expression: 'x' };
 `
     });
     const json = { at: '12:34:56', expression: '^x+$', alternatives: ['a', 'b'] };
     const view = api.Settings.fromJSON(json);
-    const value = view.unwrap();
+    const value = view;
     expect(value.at.toString()).toBe('12:34:56');
     expect(value.expression).toBeInstanceOf(RegExp);
     expect(value.expression.test('xxx')).toBe(true);

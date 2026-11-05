@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
-
 import {
+  getEnumValueLiteral,
   getOperationArgument,
   resolveTypeAliases,
   isChoice,
@@ -35,6 +34,8 @@ export interface SwitchExpressionRenderOptions {
   /** Fuse a projection's narrowing and presence test without extracting the selected value. */
   presence?: 'present' | 'absent';
   returnStatement?: boolean;
+  /** Materialize polymorphic runtime collections without changing display syntax. */
+  collection?: (value: string) => string;
   /** Shape statement returns using the surrounding assignment's cardinality. */
   returnValue?: (value: string, expression?: RosettaExpression) => string;
   selectorName?: string;
@@ -160,7 +161,7 @@ export function renderAsExpression(
   const selectedValue = selected.projected || !options.selector ? selected.selected : '__source';
   const single = `((__as) => ${guard} ? ${selectedValue} : undefined)(${value})`;
   return expressionIsMany(expression)
-    ? `((__values) => (__values ?? []).flatMap((__source) => { const __result = ${single}; return __result == null ? [] : [__result]; }))(${argument})`
+    ? `((__values) => ${options.collection?.('__values') ?? '(__values ?? [])'}.flatMap((__source) => { const __result = ${single}; return __result == null ? [] : [__result]; }))(${argument})`
     : `((__source) => ${single})(${argument})`;
 }
 

@@ -9,7 +9,7 @@ import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 type JsonOptions = { format: 'RUNE_JSON' };
 interface ModelView extends Record<'quote' | 'selected' | 'amount', ModelView> {
-  unwrap(): unknown;
+  field(name: string): ModelView;
   toJSON(options?: JsonOptions): unknown;
 }
 type ModelClass = {
@@ -18,7 +18,10 @@ type ModelClass = {
   fromJSON(input: unknown, options?: JsonOptions): ModelView;
   is(input: unknown): boolean;
 };
-type PublicApi = Record<'Quote' | 'Lookalike' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection', ModelClass> & {
+type PublicApi = Record<
+  'Quote' | 'Lookalike' | 'Base' | 'Child' | 'Tagged' | 'Reference' | 'Selection' | 'Selected',
+  ModelClass
+> & {
   is: Record<'Quote' | 'Base', (value: unknown) => boolean>;
 };
 
@@ -43,6 +46,7 @@ type Reference:
   [metadata reference]
 choice Selected:
  Quote
+ Base
 type Selection:
  selected Selected (1..1)
 type Tagged extends Selected:
@@ -92,8 +96,8 @@ const instance: Quote = structural; }
 const known: RuneObject = new Child({ value: 1, extra: 'child' });
 if (is.Quote(known)) { const instance: Quote = known; }
 const inherited: Base = new Child({ value: 1, extra: 'child' });
-const one: number = Quote.from(quote).amount.unwrap();
-const many: [number, number, ...number[]] = Quote.from([quote, quote]).amount.unwrap();
+const one: number = Quote.from(quote).amount;
+const many: [number, number, ...number[]] = Quote.from([quote, quote])._.amount;
 // @ts-expect-error required currency remains enforced
 Quote.from({ amount: 1 });
 // @ts-expect-error child factory cannot accept a parent without its fields
@@ -120,8 +124,8 @@ Child.from({ value: 1 });
     expect(api.Base.is({ '@type': 'publicApi.Base' })).toBe(false);
     expect(api.Child.is({ '@type': 'publicApi.Child', value: 1, extra: 2 })).toBe(false);
     expect(api.Child.is({ '@type': 'publicApi.Child', value: 1, extra: 'child' })).toBe(true);
-    expect(api.Quote.from(input).unwrap()).toBeInstanceOf(api.Quote);
-    expect(api.Child.from({ value: 1, extra: 'child' }).unwrap()).toBeInstanceOf(api.Base);
+    expect(api.Quote.from(input)).toBeInstanceOf(api.Quote);
+    expect(api.Child.from({ value: 1, extra: 'child' })).toBeInstanceOf(api.Base);
     expect(JSON.parse(JSON.stringify(quote))).toEqual(input);
     const wire = quote.toJSON({ format: 'RUNE_JSON' });
     expect(wire).toEqual({ '@type': 'publicApi.Quote', ...input });
@@ -132,8 +136,8 @@ Child.from({ value: 1 });
     const reference = api.Reference.from({ quote: { value: input, meta: {}, externalReference: 'q1' } });
     const referenceWire = reference.toJSON({ format: 'RUNE_JSON' });
     expect(referenceWire).toMatchObject({ quote: { '@type': 'publicApi.Quote', '@ref:external': 'q1', amount: 5 } });
-    expect(api.Reference.fromJSON(referenceWire, { format: 'RUNE_JSON' }).quote.amount.unwrap()).toBe(5);
-    expect(api.Tagged.from({ quote: input }).unwrap()).toBeInstanceOf(api.Tagged);
+    expect(api.Reference.fromJSON(referenceWire, { format: 'RUNE_JSON' }).field('quote').amount).toBe(5);
+    expect(api.Tagged.from({ quote: input })).toBeInstanceOf(api.Tagged);
     for (const extra of [undefined, 'tag']) {
       const tagged = api.Tagged.from({ quote: input, ...(extra ? { extra } : {}) });
       const taggedWire = tagged.toJSON({ format: 'RUNE_JSON' });
@@ -146,10 +150,22 @@ Child.from({ value: 1 });
         taggedWire
       );
     }
+    for (const invalid of [{}, { quote: input, base: { value: 1 } }]) {
+      expect(api.Selected.is(invalid)).toBe(false);
+      expect(() => api.Selected.from(invalid)).toThrow(/exactly one/);
+      expect(() => api.Selected.fromJSON(invalid)).toThrow(/exactly one/);
+      expect(() => api.Selection.fromJSON({ selected: invalid })).toThrow(/exactly one/);
+    }
+    const mutated = api.Selected.from({ quote: input });
+    Reflect.set(mutated, 'base', { value: 1 });
+    expect(() => api.Selected.from(mutated)).toThrow(/exactly one/);
+    const mutatedData = api.Tagged.from({ quote: input });
+    Reflect.set(mutatedData, 'base', { value: 1 });
+    expect(() => api.Tagged.from(mutatedData)).toThrow(/exactly one/);
     const selected = api.Selection.from({ selected: { quote: input } });
     const selectionWire = selected.toJSON({ format: 'RUNE_JSON' });
     expect(selectionWire).toMatchObject({ selected: { '@type': 'publicApi.Quote', amount: 5 } });
-    expect(api.Selection.fromJSON(selectionWire, { format: 'RUNE_JSON' }).selected.quote.amount.unwrap()).toBe(5);
+    expect(api.Selection.fromJSON(selectionWire, { format: 'RUNE_JSON' }).selected.field('quote').amount).toBe(5);
     const wrappedWire = {
       '@type': 'publicApi.Selection',
       selected: {
@@ -161,12 +177,12 @@ Child.from({ value: 1 });
       }
     };
     const restored = api.Selection.fromJSON(wrappedWire, { format: 'RUNE_JSON' });
-    expect(restored.selected.unwrap()).toMatchObject({
+    expect(restored.selected).toMatchObject({
       '@model': 'outer-model',
       '@version': '1',
       meta: { globalKey: 'choice-key' }
     });
-    expect(restored.selected.quote.amount.unwrap()).toBe(5);
+    expect(restored.selected.field('quote').amount).toBe(5);
     expect(restored.toJSON({ format: 'RUNE_JSON' })).toEqual(wrappedWire);
   }
 );

@@ -46,7 +46,7 @@ async function documents() {
   return docs;
 }
 
-type View = { unwrap(): unknown; toJSON(options?: { format: 'RUNE_JSON' }): unknown };
+type View = { [key: string]: unknown; toJSON(options?: { format: 'RUNE_JSON' }): unknown };
 type Model = { from(input: unknown): View; fromJSON(input: unknown, options?: { format: 'RUNE_JSON' }): View };
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
@@ -64,7 +64,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     >(outputs, { entry: model.relativePath });
     const plain = { amount: 2, date: '2026-11-04', time: '12:30:00', pattern: '^a+$' };
     const quote = api.Quote.fromJSON(plain);
-    const value = quote.unwrap() as { date: unknown; time: unknown; pattern: unknown };
+    const value = quote;
     expect(Object.prototype.toString.call(value.date)).toBe('[object Temporal.PlainDate]');
     expect(Object.prototype.toString.call(value.time)).toBe('[object Temporal.PlainTime]');
     expect(value.pattern).toBeInstanceOf(RegExp);

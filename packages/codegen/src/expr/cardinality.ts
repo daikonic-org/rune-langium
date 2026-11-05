@@ -79,7 +79,7 @@ export function adaptCardinalityValue(
 /** Collection-producing operations already return arrays; optional fields can be absent. */
 export function collectionValue(value: string, expression: RosettaExpression | undefined, typescript = false): string {
   const array =
-    collectionShape(expression) !== 'array'
+    typescript || collectionShape(expression) !== 'array'
       ? nativeCollection(value, expression, undefined, typescript)
       : collectionIsPresent(expression)
         ? value

@@ -56,7 +56,7 @@ export function compileGeneratedTypeScript<
         ts.getPreEmitDiagnostics(program).map((error) => {
           const position =
             error.file && error.start !== undefined ? error.file.getLineAndCharacterOfPosition(error.start) : undefined;
-          return `${position ? `${error.file!.fileName}:${position.line + 1}: ` : ''}${ts.flattenDiagnosticMessageText(error.messageText, '\n')}`;
+          return `${position ? `${error.file!.fileName}:${position.line + 1}: ` : ''}${ts.flattenDiagnosticMessageText(error.messageText, '\n')}${position ? ` [${error.file!.text.split('\n')[position.line]?.trim()}]` : ''}`;
         })
       ).toEqual([]);
     }

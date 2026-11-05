@@ -145,11 +145,11 @@ shared companions, keeping support code out of the selected model by default.
 
 Data declarations expose one public class, such as `Quote`, with `Quote.from`
 and a merged `Quote.Shape` type for plain function inputs/outputs. `new Quote`
-constructs one instance; `Quote.from` retains cardinality-polymorphic views.
+constructs one proxied instance; `Quote.from` projects its result by cardinality.
 `Quote.is` recognizes instances and qualified Rune JSON type tags, validating
 both tagged and untagged input shapes. Shape validation and cardinality checks
 remain part of factory normalization. `Quote.fromJSON(input, { format: 'RUNE_JSON' })`
-decodes Rune wire metadata using Core's codec; instance/view
+decodes Rune wire metadata using Core's codec; instance/list
 `toJSON({ format: 'RUNE_JSON' })` encodes linked fields. Base-typed factories and
 fields retain known tagged descendants and generated subclass instances, validating
 the concrete fields before creating their instances. Nested Choices round-trip
@@ -304,13 +304,18 @@ worker; authored Rune source and executable exports are unchanged by formatting.
 payload remains semantic data, independent of display formatting.
 
 
-## Cardinality-aware TypeScript views
+## Cardinality-aware TypeScript values
 
-Generated `Trade.from(input)` returns a fluent value view for scalar, optional and
-collection inputs, with linked field types/cardinality and deep access such as
-`trade._.asset`. Use `.unwrap()` for a plain scalar/optional/collection payload or
-`.toArray()` for an owned array before calling ordinary exported functions.
-`new Trade(shape)` still constructs one model instance. Factory normalization
-checks shape/cardinality, preserves metadata and does not replace authored
-business-condition validation. See [source projections and the public value API](../../docs/source-projection.md#generated-public-value-api)
+Generated `Trade.from(input)` returns `undefined` for no values, a `Trade` for one,
+and an array-backed `RuneList` for multiple values. The same projection applies to
+linked fields and deep selections such as `trade._.asset`. `One<T>`, `Optional<T>`,
+`OneOrMore<T>` and `ZeroOrMore<T>` expose those shapes; bounded outputs retain tuple
+bounds. Public values pass directly to ordinary functions without unwrapping.
+
+`RuneObject` proxies cache private `RuneValue` field slots. Setters and list edits
+reuse the factory normalizer, and serialization reads canonical storage rather
+than projected getters. Plain `Trade.Shape` collection fields accept a scalar or
+array; factory inputs and projected outputs retain stricter linked bounds.
+`new Trade(shape)` still constructs one model instance. Authored business-condition
+validation remains explicit. See [source projections and the public value API](../../docs/source-projection.md#generated-public-value-api)
 for bounds, collision escapes and serialization behavior.

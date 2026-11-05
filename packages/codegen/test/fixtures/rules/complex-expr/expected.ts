@@ -3,14 +3,15 @@
 // Source namespace: test.rules
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
 declare module '../helpers.js' {
   namespace is {
     function Position<I>(value: I): value is I & (I extends RuneObject ? Position : Position.Shape);
   }
 }
-export { RuneObject, is };
+export { RuneObject, RuneList, is };
+export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
 export class Position extends RuneObject implements Position.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Position.Type>;
   quantity: number;
@@ -66,7 +67,7 @@ is.Position = RuneObject.guard(Position);
 
 
 export function validateIsSignificant(position: Position.Shape): boolean {
-  return ((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))((<const T>(value: T) => value == null ? [] : [value])(((left, right) => left == null || right == null ? undefined : left * right)(position.Position?.quantity, position.Position?.price)).filter((value) => value != null), [10000].filter((value) => value != null));
+  return ((l, r) => l.length > 0 && r.length > 0 && (true ? l.every((a) => r.every((b) => a > b)) : l.some((a) => r.some((b) => a > b))))(rune.list(((left, right) => left == null || right == null ? undefined : left * right)(position.Position?.quantity, position.Position?.price)).filter((value) => value != null), rune.list(10000).filter((value) => value != null));
 }
 
 export const runeReportRules = {

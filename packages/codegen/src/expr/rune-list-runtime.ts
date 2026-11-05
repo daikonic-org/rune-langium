@@ -1,37 +1,56 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-/** Array composition keeps Rune collection behavior off native prototypes and API values. */
+/** Array-backed proxies retain Rune collection operations without modifying native prototypes. */
 export function runeListRuntimeSource(typescript: boolean, exported = false): string {
   const t = (source: string) => (typescript ? source : '');
   const prefix = exported ? 'export ' : '';
-  return `${t(`${prefix}type RuneKeyArguments<T, K> = [key?: undefined, compare?: (a: NonNullable<T>, b: NonNullable<T>) => number] | [key: (item: T) => K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number];\n`)}${prefix}class RuneList${t('<T>')} {
-  ${t('private readonly ')}items${t(': T[]')};
-  constructor(items${t(': readonly T[]')}) { this.items = items.filter(item => item != null); }
-  static from${t('<T>')}(...items${t(': T[]')})${t(': RuneList<T>')} { return new RuneList(items); }
+  return `${prefix}const runeListStorage = Symbol.for('rune-langium.list.items');\n${t(`${prefix}type RuneKeyArguments<T, K> = [key?: undefined, compare?: (a: NonNullable<T>, b: NonNullable<T>) => number] | [key: (item: T) => K, compare?: (a: NonNullable<K>, b: NonNullable<K>) => number];\n${prefix}type RuneFlatElement<T> = T extends readonly (infer U)[] ? U : T;\n${prefix}type RuneArray<T> = RuneList<T> & T[];\n${prefix}type One<T> = T;\n${prefix}type Optional<T> = T | undefined;\n${prefix}type Many<T> = RuneList<T, number, number | null> & [T, T, ...T[]];\n${prefix}type OneOrMore<T> = T | Many<T>;\n${prefix}type ZeroOrMore<T> = OneOrMore<T> | undefined;\n`)}${prefix}class RuneList${t('<T, Min extends number = 0, Max extends number | null = null>')} {
+${t('  declare readonly $rune$cardinality?: readonly [T, Min, Max];\n')}  ${t('private readonly ')}items${t(': T[]')};
+  constructor(items${t(': readonly T[]')}) {
+    this.items = Array.from(items).filter(item => item != null);
+    const proxy${t(': unknown')} = new Proxy(this.items, {
+      get: (target, key) => {
+        if (Object.hasOwn(target, key)) return Reflect.get(target, key, target);
+        const owner = key in this ? this : target;
+        const value${t(': unknown')} = Reflect.get(owner, key, owner);
+        return typeof value === 'function' ? value.bind(owner) : value;
+      }
+    });
+    if (!this.owns(proxy)) throw new TypeError('Invalid RuneList proxy');
+    return proxy;
+  }
+  ${t('private ')}owns(value${t(': unknown')})${t(': value is this')} { return Array.isArray(value) && typeof Reflect.get(value, runeListStorage) === 'function' && Reflect.apply(Reflect.get(value, runeListStorage), value, []) === this.items; }
+  static [Symbol.hasInstance](value${t(': unknown')}) { return Array.isArray(value) && typeof Reflect.get(value, runeListStorage) === 'function'; }
+  get length() { return this.items.length; }
+${t('  project(): ZeroOrMore<T>;\n')}  project()${t(': unknown')} { return this.items.length === 0 ? undefined : this.items.length === 1 ? this.items[0] : this; }
+  static from${t('<T>')}(...items${t(': T[]')})${t(': RuneArray<T>')} { return runeArray(items); }
+  [runeListStorage]() { return this.items; }
   [Symbol.iterator]() { return this.items[Symbol.iterator](); }
   toArray()${t(': T[]')} { return [...this.items]; }
   toJSON()${t(': T[]')} { return this.toArray(); }
-  map${t('<U>')}(project${t(': (item: T, index: number) => U')})${t(': RuneList<NonNullable<U>>')} {
-    return new RuneList(this.items.map(project).filter((value)${t(': value is NonNullable<U>')} => value != null));
+  map${t('<U>')}(project${t(': (item: T, index: number, array: T[]) => U')})${t(': RuneArray<NonNullable<U>>')} {
+    return runeArray(this.items.map(project).filter((value)${t(': value is NonNullable<U>')} => value != null));
   }
-  flatMap${t('<U>')}(project${t(': (item: T, index: number) => U | readonly U[] | null | undefined')})${t(': RuneList<U>')} {
-    return new RuneList(this.items.flatMap((item, index) => [...runeList(project(item, index))])${t(' as U[]')});
+  flatMap${t('<U>')}(project${t(': (item: T, index: number, array: T[]) => U | readonly U[] | null | undefined')})${t(': RuneArray<U>')} {
+    return runeArray(this.items.flatMap((item, index) => [...runeList(project(item, index, this.items))])${t(' as U[]')});
   }
-  filter(predicate${t(': (item: T, index: number) => boolean')}) { return new RuneList(this.items.filter(predicate)); }
-  first() { return this.items[0]; }
-  last() { return this.items[this.items.length - 1]; }
+${t('  filter<S extends T>(predicate: (item: T, index: number, array: T[]) => item is S): RuneArray<S>;\n  filter(predicate: (item: T, index: number, array: T[]) => unknown): RuneArray<T>;\n')}  filter(predicate${t(': (item: T, index: number, array: T[]) => unknown')}) { return runeArray(this.items.filter(predicate)); }
+  every(predicate${t(': (item: T, index: number, array: T[]) => unknown')}) { return this.items.length > 0 && this.items.every(predicate); }
+  some(predicate${t(': (item: T, index: number, array: T[]) => unknown')}) { return this.items.some(predicate); }
+${t('  first(): 0 extends Min ? T | undefined : T;\n')}  first()${t(': T | undefined')} { return this.items[0]; }
+${t('  last(): 0 extends Min ? T | undefined : T;\n')}  last()${t(': T | undefined')} { return this.items[this.items.length - 1]; }
   count() { return this.items.length; }
-  sum(${t('this: RuneList<number>')}) { return this.items.reduce((total, item) => total + item, 0); }
+  sum(${t('this: RuneList<number, Min, Max>')}) { return this.items.reduce((total, item) => total + item, 0); }
   onlyElement() { return this.items.length === 1 ? this.items[0] : undefined; }
-  distinct() { return new RuneList(runeDistinct(this.items)); }
-  reverse() { return new RuneList([...this.items].reverse()); }
-  flat${t('<U>')}(${t('this: RuneList<U | readonly U[]>')})${t(': RuneList<U>')} {
-    return new RuneList(this.items.flatMap(value => [...runeList(value)])${t(' as U[]')});
+  distinct() { return runeArray(runeDistinct(this.items)); }
+  reverse() { return runeArray([...this.items].reverse()); }
+${t('  flat(): RuneArray<RuneFlatElement<T>>;\n')}  flat()${t(': RuneList<unknown>')} {
+    return runeArray(this.items.flatMap(value => [...runeList(value)]));
   }
   sort${t('<K = T>')}(...args${t(': RuneKeyArguments<T, K>')}) {
     const [key, compare] = args;
-    return new RuneList([...this.items].sort((a, b) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0)) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0))));
+    return runeArray([...this.items].sort((a, b) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0)) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0))));
   }
   min${t('<K = T>')}(...args${t(': RuneKeyArguments<T, K>')}) {
     const [key, compare] = args;
@@ -49,6 +68,7 @@ export function runeListRuntimeSource(typescript: boolean, exported = false): st
   isSupersetOf(values${t(': unknown')}) { return runeContains(this.items, values instanceof RuneList ? values.items : values); }
   isDisjointFrom(values${t(': unknown')}) { return runeDisjoint(this.items, values instanceof RuneList ? values.items : values); }
 }
+${t(`${prefix}function runeArray<T>(items: readonly T[]): RuneArray<T>;\n`)}${prefix}function runeArray(items${t(': readonly unknown[]')}) { return new RuneList(items); }
 ${prefix}const runeExtract = ${t('<T, U>')}(value${t(': T')}, project${t(': (value: NonNullable<T>) => U')})${t(': U | undefined')} => value == null ? undefined : project(value);
 ${prefix}const runeFilter = ${t('<T>')}(value${t(': T')}, predicate${t(': (value: NonNullable<T>) => boolean')})${t(': T | undefined')} => value != null && predicate(value) ? value : undefined;`;
 }

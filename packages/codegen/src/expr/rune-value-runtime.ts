@@ -5,14 +5,18 @@ import { DEEP_RUNTIME_SOURCE } from './generated/deep-runtime-source.js';
 import { RUNE_JSON_RUNTIME_SOURCE } from './generated/rune-json-runtime-source.js';
 import { runeObjectRuntimeSource } from './rune-object-runtime.js';
 
+export const RUNE_VALUE_TYPE_NAMES = ['One', 'Optional', 'Many', 'OneOrMore', 'ZeroOrMore'] as const;
 export const RUNE_VALUE_IMPORTS = [
   'RuneObject',
+  'RuneList',
   'is',
   'runeModel',
   'type RuneModel',
   'type RuneModelTag',
   'type RuneGuarded',
   'runeValue',
+  'runeProjected',
+  'runeProjectedJSON',
   'runeValueJSON',
   'runeValueFromJSON',
   'runeRegisterValueType',
@@ -23,7 +27,8 @@ export const RUNE_VALUE_IMPORTS = [
   'type RunePayload',
   'type RuneInputPayload',
   'type RuneInput',
-  'type RuneView',
+  'type RuneProjected',
+  'type RuneShapePayload',
   'type RuneInputMin',
   'type RuneInputMax',
   'type RuneFactoryInput',
@@ -48,6 +53,11 @@ export const RUNE_VALUE_NAMES = [
   'Reflect',
   'Proxy',
   'RuneValue',
+  'RuneView',
+  'RuneArray',
+  'RuneFlatElement',
+  'runeArray',
+  'runeListStorage',
   'RuneKeyArguments',
   'RuneTuple',
   'RuneProduct',
@@ -64,10 +74,23 @@ export const RUNE_VALUE_NAMES = [
   'RuneFirstMin',
   'RuneBounded',
   'RuneReadonly',
+  'RuneTupleMin',
   'RuneValueLike',
   'runeValueProtocol',
   'runeValueInput',
   'runeValueMaterialize',
+  'runeValueNormalizeField',
+  'runeProjectedDeep',
+  'runeProjectValue',
+  'runeProjectedLists',
+  'runeObjectStorage',
+  'runeObjectRaw',
+  'runeObjectProxy',
+  'runeObjectProxies',
+  'RuneAccess',
+  'RuneProjectedSelection',
+  'RuneElementModel',
+  'runeElementModel',
   'runeValueType',
   'runeValueConcreteType',
   'runeValueMatchingType',
@@ -84,12 +107,14 @@ return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEn
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
-${e}type RuneBounded<T, Min extends number, Max extends number, A extends T[] = RuneTuple<T, Min>, Result = never> = number extends A['length'] ? T | T[] | undefined : A['length'] extends Max ? Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : A) : A['length'] extends 32 ? T | T[] | undefined : RuneBounded<T, Min, Max, [...A, T], Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : A)>;
-${e}type RunePayload<T, Min extends number, Max extends number | null> = Max extends 0 ? undefined : Max extends 1 ? 0 extends Min ? T | undefined : T : Max extends number ? number extends Max ? T | T[] | undefined : RuneBounded<T, Min, Max> : 0 extends Min ? T | [T, ...T[]] | undefined : Min extends 1 ? T | [T, ...T[]] : [...RuneTuple<T, Min>, ...T[]];
-${e}type RuneInputPayload<T, Min extends number, Max extends number | null> = Max extends number ? RuneReadonly<RunePayload<T, Min, Max>> : Min extends 0 ? T | readonly T[] | undefined : Min extends 1 ? T | readonly [T, ...T[]] : readonly [...RuneTuple<T, Min>, ...T[]];
+${e}type RuneBounded<T, Min extends number, Max extends number, A extends T[] = RuneTuple<T, Min>, Result = never, Bare extends boolean = false> = number extends A['length'] ? T | T[] | undefined : A['length'] extends Max ? Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : Bare extends true ? A : RuneList<T, A['length'], A['length']> & A) : A['length'] extends 32 ? T | T[] | undefined : RuneBounded<T, Min, Max, [...A, T], Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : Bare extends true ? A : RuneList<T, A['length'], A['length']> & A), Bare>;
+${e}type RunePayload<T, Min extends number, Max extends number | null> = Max extends 0 ? undefined : Max extends 1 ? 0 extends Min ? Optional<T> : One<T> : Max extends number ? number extends Max ? ZeroOrMore<T> : RuneBounded<T, Min, Max> : 0 extends Min ? ZeroOrMore<T> : Min extends 1 ? OneOrMore<T> : RuneList<T, Min, null> & [...RuneTuple<T, Min>, ...T[]];
+${e}type RuneInputPayload<T, Min extends number, Max extends number | null> = Max extends 0 ? undefined : Max extends 1 ? 0 extends Min ? T | undefined : T : Max extends number ? RuneReadonly<RuneBounded<T, Min, Max, RuneTuple<T, Min>, never, true>> : Min extends 0 ? T | readonly T[] | undefined : Min extends 1 ? T | readonly [T, ...T[]] : readonly [...RuneTuple<T, Min>, ...T[]];
+${e}type RuneShapePayload<T, Min extends number, Max extends number | null> = Max extends 0 ? undefined : Max extends 1 ? 0 extends Min ? T | undefined : T : 0 extends Min ? T | T[] | undefined : T | T[];
 ${e}type RuneInput<T> = T | readonly T[] | null | undefined;
-${e}type RuneInputMin<I> = undefined extends I ? 0 : null extends I ? 0 : I extends readonly unknown[] ? number extends I['length'] ? 0 : I['length'] : 1;
-${e}type RuneInputMax<I> = I extends readonly unknown[] ? number extends I['length'] ? null : I['length'] : I extends null | undefined ? 0 : 1;
+type RuneTupleMin<I extends readonly unknown[], Count extends unknown[] = []> = Count['length'] extends 32 ? 32 : I extends readonly [unknown, ...infer Rest] ? RuneTupleMin<Rest, [...Count, unknown]> : Count['length'];
+${e}type RuneInputMin<I> = undefined extends I ? 0 : null extends I ? 0 : '$rune$cardinality' extends keyof I ? I extends { readonly $rune$cardinality?: readonly [unknown, infer L extends number, number | null] } ? L : 0 : I extends readonly unknown[] ? RuneTupleMin<I> : 1;
+${e}type RuneInputMax<I> = '$rune$cardinality' extends keyof I ? I extends { readonly $rune$cardinality?: readonly [unknown, number, infer U extends number | null] } ? U : null : I extends readonly unknown[] ? number extends I['length'] ? null : I['length'] : I extends null | undefined ? 0 : 1;
 interface RuneValueLike<T, Min extends number, Max extends number | null> { readonly $rune$cardinality?: readonly [T, Min, Max]; toArray(): readonly T[]; unwrap(): RunePayload<T, Min, Max>; }
 ${e}type RuneFactoryInput<I, T, Output = T> = unknown extends I ? unknown : I extends string ? string : I extends RuneValueLike<infer U, number, number | null> ? U extends Output ? I : never : RuneInput<T>;
 ${e}type RuneFromMin<I> = unknown extends I ? 0 : I extends string ? 0 : I extends RuneValueLike<unknown, infer L, number | null> ? L : RuneInputMin<I>;
@@ -162,7 +187,24 @@ const runeValueConcreteType = (value: unknown, model: RuneValueType): RuneValueT
 };
 type RuneSelected<S, Min extends number, Max extends number | null> = S extends RuneValueSelection<infer T, infer L, infer U, infer Model> ? RuneView<T, RuneMinProduct<Min, L>, RuneMaxProduct<Max, U>, Model extends RuneValueType ? Model : RuneEmptyType> : never;
 ${e}type RuneDeepView<Model extends RuneValueType, Min extends number, Max extends number | null> = { readonly [K in keyof Model['deep']]: RuneSelected<Model['deep'][K], Min, Max> };
-${e}type RuneView<T, Min extends number, Max extends number | null, Model extends RuneValueType = RuneEmptyType> = RuneValue<T, Min, Max, Model> & { readonly [K in Exclude<keyof Model['fields'], keyof RuneValue<T, Min, Max, Model>>]: RuneSelected<Model['fields'][K], Min, Max> };
+type RuneView<T, Min extends number, Max extends number | null, Model extends RuneValueType = RuneEmptyType> = RuneValue<T, Min, Max, Model> & { readonly [K in Exclude<keyof Model['fields'], keyof RuneValue<T, Min, Max, Model>>]: RuneSelected<Model['fields'][K], Min, Max> };
+type RuneProjectedSelection<S, Min extends number = 1, Max extends number | null = 1> = S extends RuneValueSelection<infer T, infer L, infer U, infer Model> ? RunePayload<RuneProjected<T, Model extends RuneValueType ? Model : RuneEmptyType>, RuneMinProduct<Min, L>, RuneMaxProduct<Max, U>> : never;
+interface RuneAccess<Model extends RuneValueType> {
+  deep(): RuneAccess<Model>['_'];
+  toJSON(options?: RuneJsonOptions | string): unknown;
+  readonly _: { readonly [K in keyof Model['deep']]: RuneProjectedSelection<Model['deep'][K]> };
+  field<K extends keyof Model['fields']>(name: K): RuneProjectedSelection<Model['fields'][K]>;
+  select<K extends keyof Model['selections']>(identity: K): RuneProjectedSelection<Model['selections'][K]>;
+}
+${e}type RuneProjected<T, Model extends RuneValueType> = Model extends { readonly native: true } ? T : keyof Model['fields'] extends never ? T : T extends object ? T & { readonly [runeElementModel]?: () => Model } & { [K in keyof Model['fields'] as K extends keyof T ? K : never]: Model['fields'][K] extends { readonly metadata: true } ? K extends keyof T ? T[K] : never : RuneProjectedSelection<Model['fields'][K]> } & Omit<RuneAccess<Model>, keyof T> : T;
+const runeElementModel = Symbol.for('rune-langium.element.model');
+type RuneElementModel<T> = T extends { readonly [runeElementModel]?: () => infer Model } ? Model extends RuneValueType ? Model : RuneEmptyType : RuneEmptyType;
+${e}interface RuneList<T, Min extends number = 0, Max extends number | null = null> {
+  deep(): RuneList<T, Min, Max>['_'];
+  readonly _: { readonly [K in keyof RuneElementModel<T>['deep']]: RuneProjectedSelection<RuneElementModel<T>['deep'][K], Min, Max> };
+  field<K extends keyof RuneElementModel<T>['fields']>(name: K): RuneProjectedSelection<RuneElementModel<T>['fields'][K], Min, Max>;
+  select<K extends keyof RuneElementModel<T>['selections']>(identity: K): RuneProjectedSelection<RuneElementModel<T>['selections'][K], Min, Max>;
+}
 // Erase only the descriptor getter at the runtime boundary; field types remain exact in RuneSelected.
 const runeValueType = (field: RuneValueSelection<unknown, number, number | null, unknown>): (() => RuneValueType) | undefined => field.type as (() => RuneValueType) | undefined;
 const runeValueBounds = (count: number, min: number, max: number | null, label: string) => {
@@ -171,18 +213,16 @@ const runeValueBounds = (count: number, min: number, max: number | null, label: 
 const runeValueProduct = (a: number | null, b: number | null): number | null => a === 0 || b === 0 ? 0 : a === null || b === null ? null : a * b;
 const runeValueProtocol = Symbol.for('rune-langium.value.items');
 const runeValueInput = (value: unknown): unknown => value != null && typeof value === 'object' && typeof Reflect.get(value, runeValueProtocol) === 'function' ? Reflect.apply(Reflect.get(value, runeValueProtocol), value, []) : value;
-const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new WeakMap<object, Map<RuneValueType, unknown>>()): unknown => {
-  model = runeValueConcreteType(value, model);
-  if (model.native) return model.create ? model.create(value) : value;
-  if (value == null || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Expected a Rune model object');
-  let models = seen.get(value);
-  if (models?.has(model)) return models.get(model);
-  if (!models) { models = new Map(); seen.set(value, models); }
-  const result: Record<string, unknown> = Object.create(null);
-  models.set(model, result);
-  for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
-  for (const field of Object.values(model.fields)) {
-    const raw = runeValueInput(result[field.key]);
+const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unknown, number, number | null, unknown>, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), materialize = true): unknown => {
+  const child = (value: unknown): unknown => {
+    const model = runeValueType(field)!();
+    if (!materialize && !model.native) {
+      if (!runeObjectShape(value, model)) throw new TypeError('Invalid Rune value for ' + field.key);
+      return value;
+    }
+    return runeValueMaterialize(value, model, seen);
+  };
+    const raw = runeValueInput(input);
     const values = runeList(raw).filter(item => item != null);
     const min = field.metadata ? field.wireMin ?? 0 : field.min;
     const max = field.metadata ? field.wireMax ?? field.max : field.max;
@@ -191,22 +231,39 @@ const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new W
       if (field.metadata) {
         if (typeof item !== 'object' || item === null) throw new TypeError('Expected a Rune metadata envelope for ' + field.key);
         const envelope = Object.fromEntries(Object.entries(item));
-        if (envelope.value != null && field.type) envelope.value = runeValueMaterialize(envelope.value, runeValueType(field)!(), seen);
+        if (envelope.value != null && field.type) envelope.value = child(envelope.value);
         if (envelope.value != null && field.check && !field.check(envelope.value)) throw new TypeError('Invalid Rune value for ' + field.key);
         return envelope;
       }
-      const output = field.type ? runeValueMaterialize(item, runeValueType(field)!(), seen) : item;
+      const output = field.type ? child(item) : item;
       if (field.check && !field.check(output)) throw new TypeError('Invalid Rune value for ' + field.key);
       return output;
     });
-    result[field.key] = max !== null && max <= 1 ? normalized[0] : raw == null ? undefined : normalized;
+    return max !== null && max <= 1 ? normalized[0] : raw == null ? undefined : normalized;
+};
+const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new WeakMap<object, Map<RuneValueType, unknown>>()): unknown => {
+  value = runeObjectRaw(value);
+  model = runeValueConcreteType(value, model);
+  if (value != null && typeof value === 'object' && runeObjectInstanceModel(value) === model && runeObjectProxies.has(value)) {
+    if (model.choice && !runeObjectShape(value, model)) throw new TypeError('Rune Choice requires exactly one selected option with a valid value');
+    return runeObjectProxies.get(value);
   }
+  if (model.native) return model.create ? model.create(value) : value;
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Expected a Rune model object');
+  let models = seen.get(value);
+  if (models?.has(model)) return models.get(model);
+  if (!models) { models = new Map(); seen.set(value, models); }
+  const result: Record<string, unknown> = Object.create(null);
+  models.set(model, result);
+  for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
+  for (const field of Object.values(model.fields)) result[field.key] = runeValueNormalizeField(result[field.key], field, seen);
+  if (model.choice && !runeObjectShape(result, model)) throw new TypeError('Rune Choice requires exactly one selected option with a valid value');
   const output = model.create ? model.create(result) : result;
   if (output !== result && output != null && typeof output === 'object') {
     Object.setPrototypeOf(result, Object.getPrototypeOf(output));
-    for (const [key, item] of Object.entries(output)) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
+    for (const [key, item] of Object.entries(runeObjectRaw(output))) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
   }
-  return result;
+  return runeObjectProxy(result, () => model);
 };
 const runeValueOrder = (left: unknown, right: unknown): number => {
   if (typeof left === 'number' && typeof right === 'number' || typeof left === 'string' && typeof right === 'string' || typeof left === 'boolean' && typeof right === 'boolean') return left < right ? -1 : left > right ? 1 : 0;
@@ -220,17 +277,21 @@ const runeValueOrder = (left: unknown, right: unknown): number => {
   if (Object.prototype.toString.call(left) === '[object Temporal.ZonedDateTime]' && Object.prototype.toString.call(right) === '[object Temporal.ZonedDateTime]') return Temporal.ZonedDateTime.compare(Temporal.ZonedDateTime.from(String(left)), Temporal.ZonedDateTime.from(String(right)));
   throw new TypeError('Rune ordering requires comparable values or a key selector');
 };
-${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null, Model extends RuneValueType = RuneEmptyType> implements Iterable<T> {
+class RuneValue<T, Min extends number = 0, Max extends number | null = null, Model extends RuneValueType = RuneEmptyType> implements Iterable<T> {
   declare readonly $rune$cardinality?: readonly [T, Min, Max];
   private readonly $list: RuneList<T>;
   private readonly $type: (() => Model) | undefined;
   private readonly $min: Min;
   private readonly $max: Max;
+  private readonly $check?: (value: unknown) => boolean;
+  private readonly $write?: (items: T[]) => void;
   private $deep?: RuneDeepView<Model, Min, Max>;
-  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max) {
+  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max, $check?: (value: unknown) => boolean, $write?: (items: T[]) => void) {
     this.$type = $type;
     this.$min = $min;
     this.$max = $max;
+    this.$check = $check;
+    this.$write = $write;
     this.$list = new RuneList(items);
     runeValueBounds(this.$list.count(), $min, $max, 'Rune value');
     const choice = $type?.().choice;
@@ -249,6 +310,15 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
   }
   [Symbol.iterator]() { return this.$list[Symbol.iterator](); }
   [runeValueProtocol]() { return this.$list.toArray(); }
+  $array(): T[] { return this.$list[runeListStorage](); }
+  $replace(items: readonly T[]): void {
+    runeValueBounds(items.length, this.$min, this.$max, 'Rune value');
+    const values = Array.from(items, value => this.$type ? runeValueMaterialize(value, this.$type()) : value);
+    if (this.$check && values.some(value => !this.$check!(value))) throw new TypeError('Invalid Rune collection item');
+    const array = this.$array();
+    Reflect.apply(Array.prototype.splice, array, [0, array.length, ...values]);
+    this.$write?.(array);
+  }
   count() { return this.$list.count(); }
   exists() { return this.count() > 0; }
   unwrap(): RunePayload<T, Min, Max> { const values = this.$list.toArray(); return (values.length === 0 ? undefined : values.length === 1 ? values[0] : values) as RunePayload<T, Min, Max>; }
@@ -259,7 +329,7 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
   onlyElement(): RuneView<T, 0, 1, Model> { const value = this.$list.onlyElement(); return new RuneValue(value == null ? [] : [value], this.$type, 0, 1) as RuneView<T, 0, 1, Model>; }
   map<U>(project: (item: T, index: number) => U): RuneView<NonNullable<U>, RuneMapMin<Min, U>, Max> { const values = this.$list.map(project).toArray(); return new RuneValue(values, undefined, values.length === this.count() ? this.$min : 0, this.$max) as RuneView<NonNullable<U>, RuneMapMin<Min, U>, Max>; }
   flatMap<U>(project: (item: T, index: number) => U | readonly U[] | null | undefined): RuneView<U, 0, null> { return new RuneValue(this.$list.flatMap(project).toArray(), undefined, 0, null) as RuneView<U, 0, null>; }
-  flat<U>(this: RuneValue<U | readonly U[], Min, Max, Model>): RuneView<U, 0, null> { return new RuneValue(this.$list.flat<U>().toArray(), undefined, 0, null) as RuneView<U, 0, null>; }
+  flat<U>(this: RuneValue<U | readonly U[], Min, Max, Model>): RuneView<U, 0, null> { return new RuneValue(this.$list.flat().toArray(), undefined, 0, null) as RuneView<U, 0, null>; }
   filter(predicate: (item: T, index: number) => boolean): RuneView<T, 0, Max, Model> { return new RuneValue(this.$list.filter(predicate).toArray(), this.$type, 0, this.$max) as RuneView<T, 0, Max, Model>; }
   reverse(): RuneView<T, Min, Max, Model> { return new RuneValue(this.$list.reverse().toArray(), this.$type, this.$min, this.$max) as RuneView<T, Min, Max, Model>; }
   distinct(): RuneView<T, 0, Max, Model> { return new RuneValue(this.$list.distinct().toArray(), this.$type, 0, this.$max) as RuneView<T, 0, Max, Model>; }
@@ -267,8 +337,8 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
   min<K = T>(...args: RuneKeyArguments<T, K>): RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model> { const value = this.$list.min(...(args[0] === undefined ? [undefined, args[1] ?? runeValueOrder] : [args[0], args[1] ?? runeValueOrder])); return new RuneValue<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>(value == null ? [] : [value], this.$type, (value == null ? 0 : this.$min > 0 ? 1 : 0) as RuneFirstMin<RuneMapMin<Min, K>>, 1) as RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>; }
   max<K = T>(...args: RuneKeyArguments<T, K>): RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model> { const value = this.$list.max(...(args[0] === undefined ? [undefined, args[1] ?? runeValueOrder] : [args[0], args[1] ?? runeValueOrder])); return new RuneValue<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>(value == null ? [] : [value], this.$type, (value == null ? 0 : this.$min > 0 ? 1 : 0) as RuneFirstMin<RuneMapMin<Min, K>>, 1) as RuneView<T, RuneFirstMin<RuneMapMin<Min, K>>, 1, Model>; }
   sum(this: RuneValue<number, Min, Max, Model>) { return this.$list.sum(); }
-  every(predicate: (item: T, index: number) => boolean) { return this.exists() && this.$list.toArray().every(predicate); }
-  some(predicate: (item: T, index: number) => boolean) { return this.$list.toArray().some(predicate); }
+  every(predicate: (item: T, index: number) => boolean) { return this.$list.every(predicate); }
+  some(predicate: (item: T, index: number) => boolean) { return this.$list.some(predicate); }
   reduce(reduce: (previous: T, current: T) => T) { return this.$list.reduce(reduce); }
   join(separator = '') { return this.$list.join(separator); }
   has(value: unknown) { const normalized = runeValueInput(value); return this.$list.has(normalized !== value && Array.isArray(normalized) && normalized.length === 1 ? normalized[0] : normalized); }
@@ -305,7 +375,8 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
       let values: unknown[] = this.$list.toArray();
       for (const step of path) {
         const next: unknown[] = [];
-        for (const parent of values) {
+        for (let parent of values) {
+          parent = runeObjectRaw(parent);
           const raw = step.read ? step.read(parent) : parent != null && typeof parent === 'object' && step.key in parent ? (parent as Record<string, unknown>)[step.key] : undefined;
           if (step.metadata) runeValueBounds(runeList(raw).filter(value => value != null).length, step.wireMin ?? 0, step.wireMax ?? step.max, step.key);
           const children = runeList(raw).flatMap(value => step.metadata ? runeList(value != null && typeof value === 'object' ? (value as Record<string, unknown>).value : undefined) : [value]).filter(value => value != null);
@@ -319,7 +390,7 @@ ${e}class RuneValue<T, Min extends number = 0, Max extends number | null = null,
       output.push(value);
     }
     }
-    const value = new RuneValue(output, runeValueType(selection), this.$min * selection.min, runeValueProduct(this.$max, selection.max));
+    const value = new RuneValue(output, runeValueType(selection), this.$min * selection.min, runeValueProduct(this.$max, selection.max), selection.check);
     if (!this.$matches(value, selection)) throw new TypeError('Rune selection does not match its descriptor: ' + name);
     return value;
   }
@@ -330,11 +401,65 @@ ${e}function runeValue(input: unknown, type: () => RuneValueType): RuneValue<unk
   const values = runeList(raw).map(value => runeValueMaterialize(value, type()));
   return new RuneValue(values, type, values.length, values.length);
 }
+const runeProjectedDeep = (view: { readonly _: object }): object => new Proxy(Object.create(null), { get: (_target, key) => typeof key === 'string' ? runeProjectValue(Reflect.get(view._, key)) : undefined });
+const runeProjectedLists = new WeakMap<object, object>();
+const runeProjectValue = (input: unknown, keepList = false): unknown => {
+  if (!(input instanceof RuneValue)) return input;
+  const value = input.unwrap();
+  if (!keepList && !Array.isArray(value)) return value;
+  const existing = runeProjectedLists.get(input);
+  if (existing) return existing;
+  const array = input.$array();
+  let deep: object | undefined;
+  const proxy = new Proxy(array, { get: (target, key, receiver) => {
+    if (key === runeListStorage) return () => array;
+    if (key === 'items') return array;
+    if (key === 'constructor') return RuneList;
+    if (['push', 'pop', 'shift', 'unshift', 'splice', 'fill', 'copyWithin'].includes(String(key))) return (...args: unknown[]) => {
+      const draft = input.toArray();
+      const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), draft, args);
+      input.$replace(draft);
+      return result === draft ? receiver : result;
+    };
+    if (key === 'deep') return () => deep ??= runeProjectedDeep(input);
+    if (key === '_') return deep ??= runeProjectedDeep(input);
+    if (key === 'unwrap') return undefined;
+    if (key === 'project') return () => runeProjectValue(input);
+    if (key === 'toArray') return () => input.toArray();
+    if (key === 'toJSON') return (options?: RuneJsonOptions | string) => input.toJSON(options);
+    const method: unknown = Reflect.get(input, key, input);
+    if (typeof method === 'function' && key !== 'constructor') return (...args: unknown[]) => {
+      const callback = args[0];
+      if (typeof callback === 'function' && ['map', 'flatMap', 'filter', 'every', 'some'].includes(String(key)))
+        args[0] = (item: unknown, index: number) => Reflect.apply(callback, undefined, [item, index, receiver]);
+      return runeProjectValue(Reflect.apply(method, input, args), ['map', 'flatMap', 'flat', 'filter', 'reverse', 'distinct', 'sort'].includes(String(key)));
+    };
+    if (typeof key === 'string' && method instanceof RuneValue) return runeProjectValue(method);
+    return Reflect.get(target, key, receiver);
+  },
+  set: (_target, key, value) => {
+    if (key === 'length' || typeof key === 'string' && /^(0|[1-9][0-9]*)$/.test(key)) {
+      const draft = input.toArray();
+      if (!Reflect.set(draft, key, value)) return false;
+      input.$replace(draft);
+      return true;
+    }
+    return Reflect.set(array, key, value);
+  }
+  });
+  runeProjectedLists.set(input, proxy);
+  return proxy;
+};
+${e}function runeProjected<I, Model extends RuneValueType>(input: I, type: () => Model): RunePayload<RuneProjected<NonNullable<Model['output']>, Model>, RuneFromMin<I>, RuneFromMax<I>>;
+${e}function runeProjected(input: unknown, type: () => RuneValueType): unknown { return runeProjectValue(runeValue(input, type)); }
+${e}function runeProjectedJSON<I, Model extends RuneValueType>(input: I, type: () => Model, options: RuneJsonOptions): RunePayload<RuneProjected<NonNullable<Model['output']>, Model>, RuneFromMin<I>, RuneFromMax<I>>;
+${e}function runeProjectedJSON(input: unknown, type: () => RuneValueType, options: RuneJsonOptions): unknown { return runeProjectValue(runeValue(runeValueFromJSON(input, type, options), type)); }
 ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
   const active = new WeakSet<object>();
   let codecProjection = false;
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
+    value = runeObjectRaw(value);
     if (value == null || typeof value !== 'object') return value;
     if (value instanceof RegExp) return codecProjection ? value : runeJson.pattern(value);
     if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return runeFormat && !codecProjection ? String(value) : value;
@@ -360,7 +485,7 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
         return runeJson.projectChoice(result, model.identity, model.choice, (_arm, value) => value);
       }
       if (!model) return result;
-      result['@type'] = model.identity;
+      if (runeFormat) result['@type'] = model.identity;
       return runeJson.context(result, model.metadata ? 'data-metadata' : 'data');
     } finally { active.delete(value); }
   };
@@ -371,7 +496,7 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
     const codec = model.codec?.();
     if (!codec) return value;
     codecProjection = true;
-    try { return codec.encode(runeFormat ? visit(value, model) : value); }
+    try { return codec.encode(visit(value, model)); }
     finally { codecProjection = false; }
   };
   const encoded = encode(input);

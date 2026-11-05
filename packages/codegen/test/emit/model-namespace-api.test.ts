@@ -47,7 +47,7 @@ type Leaf extends Input:
   const outputs = await generate(docs, { target: 'typescript' });
   outputs.find((output) => output.content.includes('export class Leaf '))!.content += `
 const leaf: Leaf.Shape<{ cash: Cash.Shape }> = { cash: { amount: 1 }, id: 'leaf', kind: Type.Yes };
-const kind: Type = Leaf.from(leaf).kind.unwrap();
+const kind: Type = Leaf.from(leaf).kind;
 `;
   const model = outputs.find((output) => output.content.includes('export class Quote '))!;
   const api = compileGeneratedTypeScript<{
@@ -55,13 +55,13 @@ const kind: Type = Leaf.from(leaf).kind.unwrap();
   }>(outputs, {
     entry: model.relativePath,
     erasableSyntaxOnly: true,
-    assertions: `const quote: Quote.Shape = { selected: { type: { input: { value: 1 } } }, input: { value: 2 }, selections: { input: { value: 3 } } }; const value: number = Quote.from(quote).input.value.unwrap();`
+    assertions: `const quote: Quote.Shape = { selected: { type: { input: { value: 1 } } }, input: { value: 2 }, selections: { input: { value: 3 } } }; const value: number = Quote.from(quote).input.value;`
   });
   expect(
     api.Quote.from({
       selected: { type: { input: { value: 1 } } },
       input: { value: 2 },
       selections: { input: { value: 3 } }
-    }).input.value.unwrap()
+    }).input.value
   ).toBe(2);
 });

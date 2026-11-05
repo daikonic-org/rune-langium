@@ -16,6 +16,10 @@ export function valueEqualitySource(
   const valueType = typescript ? ': unknown' : '';
   const fields = typescript ? ' as Record<string, unknown>' : '';
   return `${prefix}const runeValueKey = (value${valueType})${typescript ? ': string' : ''} => {
+  if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+    const stored${valueType} = Reflect.get(value, Symbol.for('rune-langium.object.storage'));
+    if (stored != null && typeof stored === 'object') value = stored;
+  }
   if (value == null) return 'null';
   if (typeof value !== 'object') return typeof value + ':' + String(value);
   if (Array.isArray(value)) return 'array:' + JSON.stringify(value.map(runeValueKey));

@@ -16,8 +16,8 @@ ${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(v
 ${e}class RuneChoice<M extends RuneValueType> {
   readonly [key: symbol]: () => M;
   constructor(model: M) { Object.defineProperty(this, runeObjectType, { value: () => runeRegisterValueType(model) }); }
-  from<const I>(input: I & RuneFactoryInput<I, M['input'], NonNullable<M['output']>>): RuneView<NonNullable<M['output']>, RuneFromMin<I>, RuneFromMax<I>, M> { return runeValue<I, M>(input, () => runeModel(this)); }
-  fromJSON(input: unknown, options: RuneJsonOptions = {}): RuneView<NonNullable<M['output']>, 0, null, M> { return runeValue<unknown, M>(runeValueFromJSON(input, () => runeModel(this), options), () => runeModel(this)); }
+  from<const I>(input: I & RuneFactoryInput<I, M['input'], NonNullable<M['output']>>): RunePayload<RuneProjected<NonNullable<M['output']>, M>, RuneFromMin<I>, RuneFromMax<I>> { return runeProjected<I, M>(input, () => runeModel(this)); }
+  fromJSON<const I>(input: I, options: RuneJsonOptions = {}): RunePayload<RuneProjected<NonNullable<M['output']>, M>, RuneFromMin<I>, RuneFromMax<I>> { return runeProjectedJSON<I, M>(input, () => runeModel(this), options); }
   readonly is = <I>(value: I): value is I & NonNullable<M['shape']> => runeObjectShape(value, runeModel(this));
 }
 ${e}function runeModel<C extends RuneModelOwner>(owner: C): RuneModel<C>;
@@ -40,6 +40,7 @@ const runeObjectInstanceModel = (value: unknown): RuneValueType | undefined => {
 };
 ${e}function is(value: unknown): value is RuneObject { return runeObjectInstanceModel(value) !== undefined; }
 const runeObjectShape = (value: unknown, declared: RuneValueType, seen = new WeakMap<object, Set<RuneValueType>>()): boolean => {
+  value = runeObjectRaw(value);
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return false;
   let model: RuneValueType;
   try { model = runeValueConcreteType(value, declared); } catch { return false; }
@@ -52,7 +53,7 @@ const runeObjectShape = (value: unknown, declared: RuneValueType, seen = new Wea
     const min = field.metadata ? field.wireMin ?? field.min : field.min;
     const max = field.metadata ? field.wireMax ?? field.max : field.max;
     if (raw === undefined) { if (min > 0) return false; continue; }
-    if (raw === null || (max !== null && max <= 1 ? Array.isArray(raw) : !Array.isArray(raw))) return false;
+    if (raw === null || (max !== null && max <= 1 && Array.isArray(raw))) return false;
     const items: unknown[] = Array.isArray(raw) ? raw : [raw];
     if (items.length < min || (max !== null && items.length > max)) return false;
     for (const item of items) {
@@ -71,18 +72,74 @@ const runeObjectShape = (value: unknown, declared: RuneValueType, seen = new Wea
 };
 const runeObjectMatches = (value: unknown, constructor: RuneObjectConstructor): boolean =>
   is(value) ? value instanceof constructor : runeObjectShape(value, runeModel(constructor));
+const runeObjectStorage = Symbol.for('rune-langium.object.storage');
+const runeObjectProxies = new WeakMap<object, object>();
+function runeObjectRaw<T>(value: T): T;
+function runeObjectRaw(value: unknown): unknown { return value != null && typeof value === 'object' && !Array.isArray(value) ? Reflect.get(value, runeObjectStorage) ?? value : value; }
+function runeObjectProxy<T extends object>(target: T, definition: () => RuneValueType): T {
+  const known = runeObjectProxies.get(target);
+  const owns = (value: unknown): value is T => runeObjectRaw(value) === target;
+  if (owns(known)) return known;
+  let deep: object | undefined;
+  const slots = new Map<PropertyKey, { raw: unknown; read: () => unknown }>();
+  const view = () => new RuneValue([target], definition, 1, 1);
+  const proxy = new Proxy(target, {
+    get: (storage, key, receiver) => {
+      if (key === runeObjectStorage) return storage;
+      const model = definition();
+      const field = typeof key === 'string' && Object.hasOwn(model.fields, key) ? model.fields[key] : undefined;
+      if (field) {
+        const raw: unknown = Reflect.get(storage, key, receiver);
+        const cached = slots.get(key);
+        if (cached && cached.raw === raw) return cached.read();
+        const normalized = runeValueNormalizeField(raw, field);
+        Reflect.set(storage, key, normalized, storage);
+        if (field.metadata) { slots.set(key, { raw: normalized, read: () => normalized }); return normalized; }
+        const slot = new RuneValue(runeList(normalized), runeValueType(field), field.min, field.max, field.check, items => {
+          const raw = field.max !== null && field.max <= 1 ? items[0] : items;
+          const cached = slots.get(key);
+          if (!cached || cached.read !== read) return;
+          Reflect.set(storage, key, raw, storage);
+          cached.raw = raw;
+        });
+        const canonical = field.max !== null && field.max <= 1 ? slot.$array()[0] : normalized == null ? undefined : slot.$array();
+        Reflect.set(storage, key, canonical, storage);
+        const read = () => runeProjectValue(slot);
+        slots.set(key, { raw: canonical, read });
+        return read();
+      }
+      if (key in storage) return Reflect.get(storage, key, receiver);
+      if (key === 'toJSON') return (options?: RuneJsonOptions | string) => runeValueJSON(storage, definition, options);
+      if (key === 'deep') return () => deep ??= runeProjectedDeep(view());
+      if (key === '_') return deep ??= runeProjectedDeep(view());
+      if (key === 'field' || key === 'select') return (name: string) => runeProjectValue(Reflect.apply(Reflect.get(view(), key), view(), [name]));
+      return Reflect.get(storage, key, receiver);
+    },
+    set: (storage, key, value, receiver) => {
+      const fields = definition().fields;
+      const field = typeof key === 'string' && Object.hasOwn(fields, key) ? fields[key] : undefined;
+      const normalized = field ? runeValueNormalizeField(value, field, undefined, false) : value;
+      const written = Reflect.set(storage, key, normalized, receiver);
+      if (written) slots.delete(key);
+      return written;
+    }
+  });
+  runeObjectProxies.set(target, proxy);
+  return proxy;
+}
 ${e}class RuneObject {
   declare readonly $runeObject: true;
+  constructor() { return runeObjectProxy(this, () => { const model = runeObjectInstanceModel(this); if (!model) throw new TypeError('Rune object definition is unavailable'); return model; }); }
   static readonly [key: symbol]: () => RuneValueType;
   protected static define<M extends RuneValueType>(definition: M): void {
     const model = runeRegisterValueType(definition);
     Object.defineProperty(this, runeObjectType, { value: () => model });
   }
-  static from<C extends RuneModelOwner, const I>(this: C, input: I & RuneFactoryInput<I, RuneModel<C>['input'], NonNullable<RuneModel<C>['output']>>): RuneView<NonNullable<RuneModel<C>['output']>, RuneFromMin<I>, RuneFromMax<I>, RuneModel<C>> {
-    return runeValue<I, RuneModel<C>>(input, () => runeModel(this));
+  static from<C extends RuneModelOwner, const I>(this: C, input: I & RuneFactoryInput<I, RuneModel<C>['input'], NonNullable<RuneModel<C>['output']>>): RunePayload<RuneProjected<NonNullable<RuneModel<C>['output']>, RuneModel<C>>, RuneFromMin<I>, RuneFromMax<I>> {
+    return runeProjected<I, RuneModel<C>>(input, () => runeModel(this));
   }
-  static fromJSON<C extends RuneModelOwner>(this: C, input: unknown, options: RuneJsonOptions = {}): RuneView<NonNullable<RuneModel<C>['output']>, 0, null, RuneModel<C>> {
-    return runeValue<unknown, RuneModel<C>>(runeValueFromJSON(input, () => runeModel(this), options), () => runeModel(this));
+  static fromJSON<C extends RuneModelOwner, const I>(this: C, input: I, options: RuneJsonOptions = {}): RunePayload<RuneProjected<NonNullable<RuneModel<C>['output']>, RuneModel<C>>, RuneFromMin<I>, RuneFromMax<I>> {
+    return runeProjectedJSON<I, RuneModel<C>>(input, () => runeModel(this), options);
   }
   toJSON(options?: RuneJsonOptions | string): unknown {
     const model = runeObjectInstanceModel(this);

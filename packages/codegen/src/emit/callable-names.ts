@@ -3,6 +3,7 @@
 
 import {
   isRosettaRule,
+  isRosettaTypeAlias,
   isData,
   isChoice,
   isAnnotation,
@@ -27,6 +28,7 @@ export function callableExportName(declaration: CallableDeclaration): string {
 export class CallableNames {
   private readonly functionExports = new Map<string, string>();
   private readonly annotationExports = new Map<string, string>();
+  private readonly typeAliasExports = new Map<string, string>();
   private readonly dataExports = new Map<string, string>();
   private readonly enumExports = new Map<string, string>();
   private readonly owners = new Map<string, Set<string>>();
@@ -38,22 +40,26 @@ export class CallableNames {
     registry: NamespaceRegistry,
     enumReservedNames?: ReadonlySet<string>,
     runtimeReserved: readonly string[] = [],
-    mergedModels = false
+    mergedModels = false,
+    runtimeTypeReserved: readonly string[] = []
   ) {
     for (const [namespace, manifest] of registry.namespaces) {
       const typeNames = new Set([
         ...manifest.exportedDataNames,
         ...manifest.exportedEnumNames,
-        ...manifest.exportedTypeAliasNames,
+        ...[...manifest.exportedTypeAliasNames].map(
+          (name) => this.typeAliasExports.get(`${namespace}.${name}`) ?? name
+        ),
         ...(manifest.exportedBuiltinNames ?? []),
         ...manifest.exportedAnnotationNames
       ]);
       const helpers = new Set<string>([...RUNE_HELPER_NAMES, ...runtimeReserved]);
+      const typeHelpers = new Set([...helpers, ...runtimeTypeReserved]);
       const reserved = new Set([
         ...typeNames,
         ...manifest.exportedFuncNames,
         ...manifest.exportedLibraryFuncNames,
-        ...helpers,
+        ...typeHelpers,
         ...[...manifest.exportedAnnotationNames].map((name) => `${name}Args`)
       ]);
       const allocate = (name: string, suffix: string, exports: Map<string, string>, companions: string[] = []) => {
@@ -72,11 +78,14 @@ export class CallableNames {
       for (const name of [...manifest.exportedFuncNames, ...manifest.exportedLibraryFuncNames].sort())
         if (typeNames.has(name) || helpers.has(name)) allocate(name, 'Function', this.functionExports);
       for (const name of [...manifest.exportedDataNames].sort())
-        if (helpers.has(name)) allocate(name, 'Data', this.dataExports);
+        if (typeHelpers.has(name)) allocate(name, 'Data', this.dataExports);
+      for (const name of [...manifest.exportedTypeAliasNames].sort())
+        if (typeHelpers.has(name)) allocate(name, 'Alias', this.typeAliasExports);
       for (const name of [...manifest.exportedAnnotationNames].sort())
         if (helpers.has(name)) allocate(name, 'Annotation', this.annotationExports, ['Args']);
       for (const name of [...manifest.exportedEnumNames].sort())
-        if (enumReservedNames?.has(name)) allocate(name, 'Enum', this.enumExports, ['Values', 'DisplayNames']);
+        if (enumReservedNames?.has(name) || runtimeTypeReserved.includes(name))
+          allocate(name, 'Enum', this.enumExports, ['Values', 'DisplayNames']);
       const names = new Set([
         ...(runtimeReserved.length && !mergedModels
           ? [...manifest.exportedDataNames].flatMap((name) =>
@@ -93,7 +102,9 @@ export class CallableNames {
           `${this.enumExported(namespace, name)}DisplayNames`
         ]),
         ...[...manifest.exportedFuncNames].map((name) => this.exported(namespace, name)),
-        ...manifest.exportedTypeAliasNames,
+        ...[...manifest.exportedTypeAliasNames].map(
+          (name) => this.typeAliasExports.get(`${namespace}.${name}`) ?? name
+        ),
         ...(manifest.exportedBuiltinNames ?? []),
         ...[...manifest.exportedAnnotationNames].map((name) => this.annotationExported(namespace, name)),
         ...[...manifest.exportedAnnotationNames].map((name) => `${this.annotationExported(namespace, name)}Args`),
@@ -137,6 +148,7 @@ export class CallableNames {
   }
 
   declarationExported(namespace: string, declaration: AstNode & { name: string }, name = declaration.name): string {
+    if (isRosettaTypeAlias(declaration)) return this.typeAliasExports.get(`${namespace}.${name}`) ?? name;
     if (isData(declaration) || isChoice(declaration)) return this.dataExported(namespace, name);
     if (isRosettaEnumeration(declaration)) {
       const exported = this.enumExported(namespace, declaration.name);

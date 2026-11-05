@@ -258,8 +258,8 @@ func ShadowAgain:
         expect(funcs.KeepSide({ value: 'Alpha' })).toBe('Alpha');
         const alphaDerived = layout === 'per-namespace' ? require('./alpha.js').Derived : funcs.__rune$alpha$Derived;
         const betaDerived = layout === 'per-namespace' ? require('./beta.js').Derived : funcs.__rune$beta$Derived;
-        expect(alphaDerived.from({ alphaValue: 7, extra: 1 }).unwrap()).toMatchObject({ alphaValue: 7, extra: 1 });
-        expect(betaDerived.from({ betaValue: 'beta', extra: 2 }).unwrap()).toMatchObject({
+        expect(alphaDerived.from({ alphaValue: 7, extra: 1 })).toMatchObject({ alphaValue: 7, extra: 1 });
+        expect(betaDerived.from({ betaValue: 'beta', extra: 2 })).toMatchObject({
           betaValue: 'beta',
           extra: 2
         });

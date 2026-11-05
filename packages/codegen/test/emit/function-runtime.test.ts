@@ -2493,8 +2493,9 @@ Required('1');
 const wrongOutput: string = Required(1);
 // @ts-expect-error Optional output may be absent.
 const missingOptionality: number = Optional();
-// @ts-expect-error Collection input requires an array.
-Many(1);
+const singletonCollection: number[] = Many(1);
+// @ts-expect-error Collection elements retain their declared type.
+Many('1');
 `
     );
   });

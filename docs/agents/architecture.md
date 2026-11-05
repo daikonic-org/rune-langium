@@ -1320,8 +1320,19 @@ are never guessed to be patterns. Core's `serializeRunePattern` is shared by wir
 encoding, generated helpers and Studio worker output; flags fail explicitly.
 
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
-shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
-around the existing RuneList runtime; `new Trade` retains one model construction.
+shared linked navigation/metadata facts. `Trade.from`, object fields and deep
+selections project zero values to undefined, one to the model/scalar, and multiple
+to an array-backed RuneList. Public cardinality aliases and bounded tuples describe
+these shapes without RuneView or unwrap. RuneObject proxies cache private RuneValue
+field slots; setters and list mutations reuse the shared field normalizer and
+validate before committing. Canonical storage retains declared collection arrays
+and metadata envelopes for serialization and equality. Replacing a field detaches
+old list handles so they cannot overwrite the replacement. Explicit RuneList
+transformations remain collection containers, with project() for count-shaped
+results. Plain Shape collection fields accept scalar/array inputs; factory Input
+and projected field types retain linked bounds. Executable collection reads and
+assignment paths normalize through rune.list rather than assuming native arrays.
+`new Trade` retains one proxied model construction.
 Each Data emits one public class extending `RuneObject`, which owns factories,
 JSON methods and inferred guards. Only linked definitions and model-specific
 fields/conditions are emitted per class. Metadata is registered on a private

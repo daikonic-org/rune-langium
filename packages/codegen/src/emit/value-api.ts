@@ -211,7 +211,7 @@ export class ValueApiEmitter {
     const inputName = this.name(node, 'Input');
     const objectKey = (key: string) => (key === '__proto__' ? `[${JSON.stringify(key)}]` : JSON.stringify(key));
     const selection = (field: Field, bounds: Bounds) =>
-      `RuneValueSelection<${this.logical(field)}, ${bounds.min}, ${bounds.max}, ${field.model ? this.scopedType(field.model, 'Type') : 'RuneEmptyType'}>`;
+      `RuneValueSelection<${this.logical(field)}, ${bounds.min}, ${bounds.max}, ${field.model ? this.scopedType(field.model, 'Type') : 'RuneEmptyType'}>${field.metadata ? ' & { readonly metadata: true }' : ''}`;
     const descriptor = (field: Field, bounds: Bounds, direct = false) => {
       const step = {
         key: field.key,
@@ -327,7 +327,7 @@ export class ValueApiEmitter {
             ]
           : [`export interface Input {`, ...fields, '}']),
       `${native ? '' : 'export '}interface ${native ? modelName : 'Type'} extends RuneValueType<${native ? inputName : 'Input'}, ${MODEL_NAMESPACE_MEMBERS.has(this.output(node)) ? this.namespaceOutput(node) : this.output(node)}> {`,
-      ...(!native ? ['  readonly shape?: Shape;'] : []),
+      ...(!native ? ['  readonly shape?: Shape;'] : ['  readonly native: true;']),
       `  fields: { ${own.map((field) => `${JSON.stringify(field.key)}: ${selection(field, field.bounds)}`).join('; ')} };`,
       `  deep: Omit<${deepType}, ${omit}> & { ${deep.map(({ key, field, bounds }) => `${JSON.stringify(key)}: ${selection(field, bounds)}`).join('; ')} };`,
       `  selections: ${selectionsType};`,

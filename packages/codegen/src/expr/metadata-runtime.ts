@@ -61,7 +61,7 @@ export function metadataObjectType(
 }
 
 export function unwrapMetadata(value: string, many: boolean): string {
-  if (many) return `(${value} ?? []).map((field) => field.value).filter((value) => value != null)`;
+  if (many) return `rune.list(${value}).map((field) => field.value).filter((value) => value != null)`;
   return `${parenthesizeReceiver(value)}?.value`;
 }
 

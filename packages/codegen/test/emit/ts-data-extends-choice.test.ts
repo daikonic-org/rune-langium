@@ -372,9 +372,9 @@ describe('ts-emitter — Data extends Choice (emitted-runtime behavior, real exe
   it('static from(json) delegates to `new BasketConstituent(...)` and round-trips', async () => {
     const mod = await loadEmittedModule();
     const BasketConstituent = mod['BasketConstituent'] as {
-      from(json: unknown): { unwrap(): { weight?: number } };
+      from(json: unknown): { weight?: number };
     };
     const bc = BasketConstituent.from({ cash: { amount: 1 }, weight: 7 });
-    expect(bc.unwrap().weight).toBe(7);
+    expect(bc.weight).toBe(7);
   });
 });

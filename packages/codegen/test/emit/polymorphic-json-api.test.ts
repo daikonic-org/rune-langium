@@ -54,15 +54,15 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     const exactWire = { '@type': 'dogs.ExactShelter', selected: dogWire };
     expect(api.ExactShelter.fromJSON(exactWire, options).toJSON(options)).toEqual(exactWire);
     const restored = api.Animal.fromJSON(dogWire, options);
-    expect(restored.unwrap()).toBeInstanceOf(api.Dog);
-    expect(restored.unwrap()).toMatchObject({ name: 'Fido', breed: 'Poodle' });
+    expect(restored).toBeInstanceOf(api.Dog);
+    expect(restored).toMatchObject({ name: 'Fido', breed: 'Poodle' });
     expect(restored.toJSON(options)).toEqual(dogWire);
     const constructedShelter = new api.Shelter({ pet: dog, pets: [dog] });
     const constructedWire = constructedShelter.toJSON(options);
     expect(constructedWire).toEqual({ '@type': 'animals.Shelter', pet: dogWire, pets: [dogWire] });
-    expect(api.Shelter.fromJSON(constructedWire, options).unwrap()).toMatchObject({ pet: expect.any(api.Dog) });
+    expect(api.Shelter.fromJSON(constructedWire, options)).toMatchObject({ pet: expect.any(api.Dog) });
     const poodleWire = new api.Poodle({ name: 'Pip', breed: 'Poodle', clipped: true }).toJSON(options);
-    expect(api.Animal.fromJSON(poodleWire, options).unwrap()).toBeInstanceOf(api.Poodle);
+    expect(api.Animal.fromJSON(poodleWire, options)).toBeInstanceOf(api.Poodle);
     expect(api.Dog.fromJSON(poodleWire, options).toJSON(options)).toEqual(poodleWire);
     const shelterWire = {
       '@type': 'animals.Shelter',
@@ -73,7 +73,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     };
     const shelter = api.Shelter.fromJSON(shelterWire, options);
     expect(shelter.toJSON(options)).toEqual(shelterWire);
-    const value = shelter.unwrap();
+    const value = shelter;
     expect(value).toMatchObject({
       pet: expect.any(api.Dog),
       pets: [expect.any(api.Dog), expect.any(api.Poodle)],

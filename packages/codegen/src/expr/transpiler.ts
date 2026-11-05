@@ -944,7 +944,7 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
       };
       if (expr.receiver ? expressionIsMany(expr.receiver) : ctx.implicitMetadata?.many) {
         const item = freshLocal(ctx, '__metadataItem');
-        return `(${receiver} ?? []).map((${item}) => ${read(item)}).filter((value) => value != null)`;
+        return `${nativeCollection(receiver, expr.receiver, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.map((${item}) => ${read(item)}).filter((value) => value != null)`;
       }
       return read(receiver);
     }
@@ -1143,7 +1143,7 @@ export function transpileAggregation(expr: RosettaExpression, ctx: ExpressionTra
   const getArg = (arg: RosettaExpression | undefined): string => (arg ? transpileExpression(arg, ctx) : ctx.selfName);
 
   if (isRosettaCountOperation(expr)) {
-    return nativeCount(getArg(expr.argument), expr.argument, ctx.implicitMetadata?.many);
+    return nativeCount(getArg(expr.argument), expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx));
   }
   if (isSumOperation(expr)) {
     const arr = getArg(expr.argument);
@@ -1321,7 +1321,9 @@ export function transpilePassthrough(expr: RosettaExpression, ctx: ExpressionTra
     return transpileExpression(expr.argument, ctx);
   const value = renderMetadataOperation(expr, ctx, (node) => {
     const rendered = transpileExpression(node, { ...ctx, preserveMetadata: node === expr.argument });
-    return node === expr.argument && expressionIsMany(node) ? `(${rendered} ?? [])` : rendered;
+    return node === expr.argument && expressionIsMany(node)
+      ? nativeCollection(rendered, node, undefined, usesNativeValues(ctx), ctx.projection)
+      : rendered;
   });
   if (value === undefined) return diagnosticFallback('Expected a metadata expression');
   const fieldMetadata =
@@ -1357,7 +1359,10 @@ export function transpileJoin(expr: RosettaExpression, ctx: ExpressionTranspiler
   }
   const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
   const right = expr.right ? transpileExpression(expr.right, ctx) : "''";
-  return `(${left} ?? []).join(${right})`;
+  const values = usesNativeValues(ctx)
+    ? nativeCollection(left, expr.left, ctx.implicitMetadata?.many, true, ctx.projection)
+    : `(${left} ?? [])`;
+  return `${values}.join(${right})`;
 }
 
 export function transpileOnlyElement(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1376,7 +1381,7 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
   const argumentCtx = fn && usesNativeValues(ctx) ? { ...ctx, preserveMetadata: true } : ctx;
   const arr = expr.argument ? transpileExpression(expr.argument, argumentCtx) : ctx.selfName;
   if (!fn) {
-    return `(${arr} ?? [])`;
+    return nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection);
   }
   const inputKind = argumentCtx.preserveMetadata ? expressionMetadataKind(expr.argument) : undefined;
   const resultKind = argumentCtx.preserveMetadata ? expressionMetadataKind(fn.body) : undefined;
@@ -1405,7 +1410,7 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
   }
   const input =
     inputKind === 'reference' && !resultKind
-      ? `(${arr} ?? []).filter((value)${ctx.projection ? '' : ': value is typeof value & { value: NonNullable<typeof value.value> }'} => value.value != null)`
+      ? `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.filter((value)${ctx.projection ? '' : ': value is typeof value & { value: NonNullable<typeof value.value> }'} => value.value != null)`
       : nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection);
   const initialName = freshLocal(ctx, '__initial');
   const accumulatorType = usesNativeValues(ctx) && !ctx.projection ? `<typeof ${initialName} | undefined>` : '';
@@ -1689,6 +1694,9 @@ export function transpileExpression(
     const kind = expressionMetadataKind(expr);
     const inputKind = expressionMetadataKind(getOperationArgument(expr));
     const result = renderAsExpression(expr, {
+      ...(!ctx.projection && usesNativeValues(ctx)
+        ? { collection: (value: string) => nativeCollection(value, getOperationArgument(expr), undefined, true) }
+        : {}),
       ...(ctx.projection && !inputKind && !kind
         ? {
             objectGuard: (target: RosettaType) =>

@@ -3,14 +3,15 @@
 // Source namespace: test.funcs.accumulator
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, RuneObject, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneView, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
+import { rune, type RuneFuncData, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
 
-export { RuneObject, is };
+export { RuneObject, RuneList, is };
+export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../../helpers.js';
 
 export function CollectItems(value: number): number[] {
   let result: number[] = [];
   {
-    const __assignmentValue = [value];
+    const __assignmentValue = rune.list(value);
     if (Array.isArray(__assignmentValue)) result.push(...__assignmentValue);
     else if (__assignmentValue != null) result.push(__assignmentValue);
   }

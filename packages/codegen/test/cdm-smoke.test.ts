@@ -30,7 +30,7 @@ import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { beforeAll, describe, it, expect } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
-import { URI } from 'langium';
+import { URI, type LangiumDocument } from 'langium';
 import { z } from 'zod';
 import { generate, generatePreviewSchemas } from '../src/export.js';
 import { jsonCodec } from '../src/instances/json-codec.js';
@@ -108,7 +108,7 @@ void (null as unknown as GeneratorOutputArray); // suppress unused type warning
 async function parseFixture(
   fixtureName: string,
   services: ReturnType<typeof createRuneDslServices>
-): Promise<import('langium').LangiumDocument> {
+): Promise<LangiumDocument> {
   const inputPath = join(FIXTURES_DIR, fixtureName, 'input.rune');
   const content = await readFile(inputPath, 'utf-8');
   const doc = services.RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
@@ -157,7 +157,7 @@ describe('cdm-smoke: Zod target', () => {
         strict: true,
         module: 'NodeNext',
         moduleResolution: 'NodeNext',
-        target: 'ES2020',
+        target: 'ESNext',
         skipLibCheck: true,
         paths: {
           zod: [join(PKG_DIR, 'node_modules/zod/index.d.ts')]
@@ -316,8 +316,8 @@ describe('cdm-smoke: typescript target', () => {
         strict: true,
         module: 'NodeNext',
         moduleResolution: 'NodeNext',
-        target: 'ES2020',
-        lib: ['ES2020', 'esnext'],
+        target: 'ESNext',
+        lib: ['ESNext'],
         skipLibCheck: true
       },
       include: outputs.map((o) => join(tmpDir, o.relativePath))

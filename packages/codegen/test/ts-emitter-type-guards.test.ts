@@ -22,7 +22,7 @@ async function runTs(content: string, name: string) {
   const outputs = await generate(doc, { target: 'typescript' });
   if (outputs.length === 0) throw new Error(`No output for ${name}`);
   return compileGeneratedTypeScript<{
-    Foo: { is(value: unknown): boolean; fromJSON(value: unknown): { unwrap(): unknown } };
+    Foo: { is(value: unknown): boolean; fromJSON(value: unknown): unknown };
   }>(outputs);
 }
 
@@ -59,7 +59,7 @@ describe('ts-emitter type-guard helpers resolve type-alias/record-type reference
       'record-instanceof'
     );
 
-    expect(api.Foo.is(api.Foo.fromJSON({ createdAt: '2026-11-04' }).unwrap())).toBe(true);
+    expect(api.Foo.is(api.Foo.fromJSON({ createdAt: '2026-11-04' }))).toBe(true);
     expect(api.Foo.is({ createdAt: '2026-11-04' })).toBe(false);
   });
 

@@ -96,7 +96,7 @@ import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-wal
 import { debug } from '../instrument.js';
 import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
 import { ValueApiEmitter, MODEL_NAMESPACE_MEMBERS } from './value-api.js';
-import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES } from '../expr/rune-value-runtime.js';
+import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES, RUNE_VALUE_TYPE_NAMES } from '../expr/rune-value-runtime.js';
 import {
   attrAccessExpr,
   transpileCondition,
@@ -107,7 +107,8 @@ import {
   typescriptProfile,
   TS_LIBRARY_RUNTIME_SOURCE,
   TS_RUNTIME_SIDECAR_PATH,
-  typescriptHelperModuleName
+  typescriptHelperModuleName,
+  typescriptCardinalityExports
 } from './typescript-profile.js';
 
 import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
@@ -298,7 +299,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.typeIndex = toTypeIndexLookup(this.ctx, this.ctx.namespace);
     this.relativePath = getTargetRelativePath(model.namespace, 'typescript');
-    this.callableNames = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES, RUNE_VALUE_NAMES, true);
+    this.callableNames = new CallableNames(
+      registry,
+      TYPESCRIPT_RESERVED_NAMES,
+      RUNE_VALUE_NAMES,
+      true,
+      RUNE_VALUE_TYPE_NAMES
+    );
     this.singleFile = options.typescript?.layout === 'single-file';
     this.inputChecks = options.typescript?.inputChecks === true;
     this.zodSerialization = options.typescript?.serialization === 'zod';
@@ -448,7 +455,11 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private guardDeclarations(): string {
     const models = [...this.ctx.dataByName.values(), ...this.ctx.choiceByName.values()];
-    if (!models.length) return this.singleFile ? '' : 'export { RuneObject, is };';
+    const helperPath = `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`;
+    const exports = this.singleFile
+      ? ''
+      : `export { RuneObject, RuneList, is };\nexport type { ${typescriptCardinalityExports(this.registry).join(', ')} }${this.suppressBoilerplate ? ` from '${helperPath}'` : ''};`;
+    if (!models.length) return exports;
     const declarations = models.map((node) => {
       const name = this.typeName(node);
       return `    function ${this.guardName(node)}<I>(value: I): value is I & ${isData(node) ? `(I extends RuneObject ? ${name} : ${name}.Shape)` : `${name}.Shape`};`;
@@ -457,7 +468,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const augmentation = this.suppressBoilerplate
       ? `declare module '${this.singleFile ? `./${typescriptHelperModuleName(this.registry)}.js` : `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`}' {\n${body}\n}`
       : `declare namespace is {\n${declarations.map((line) => line.slice(2)).join('\n')}\n}`;
-    return `${augmentation}${this.singleFile ? '' : '\nexport { RuneObject, is };'}`;
+    return `${augmentation}${exports ? `\n${exports}` : ''}`;
   }
 
   private emitModelNamespace(node: Data | Choice, content: string): string {
@@ -1775,17 +1786,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    */
   private static applyCardinalityTs(card: RosettaCardinality, baseType: string, fieldName: string): string {
     const { lower, upper } = decodeCardinality(card);
-
-    if (upper === null) {
-      if (lower === 0) return `${fieldName}?: ${baseType}[]`;
-      return `${fieldName}${lower === 0 ? '?' : ''}: ${baseType}[]`;
-    }
-
-    if (upper === 1 && lower === 1) return `${fieldName}: ${baseType}`;
+    if (upper === 1) return `${fieldName}${lower === 0 ? '?' : ''}: ${baseType}`;
     if (upper === 0) return `${fieldName}?: never`;
-    if (upper === 1 && lower === 0) return `${fieldName}?: ${baseType}`;
-
-    return `${fieldName}${lower === 0 ? '?' : ''}: ${baseType}[]`;
+    return `${fieldName}${lower === 0 ? '?' : ''}: RuneShapePayload<${baseType}, ${lower}, ${upper}>`;
   }
 
   /**
@@ -1824,6 +1827,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       : type;
   }
 
+  /** Native providers receive normalized arrays at many-valued boundaries. */
+  private static runtimeArguments(func: RuneFunc, ctx: FuncBodyContext): string[] {
+    return func.inputs.map((input) => {
+      const value = ctx.localBindings!.get(input.name) ?? input.name;
+      return input.cardinality.upper === null || input.cardinality.upper > 1 ? `rune.list(${value})` : value;
+    });
+  }
+
   private static parameterBindings(func: RuneFunc): Map<string, string> {
     const reserved = TYPESCRIPT_RESERVED_NAMES;
     const used = new Set([...reserved, ...func.inputs.map((input) => input.name)]);
@@ -1844,7 +1855,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     return func.inputs
       .map((input, index) => {
         const many = input.cardinality.upper === null || input.cardinality.upper > 1;
-        const type = TsNamespaceEmitter.funcParamType(input) + (many ? '[]' : '');
+        const base = TsNamespaceEmitter.funcParamType(input);
+        const type = many ? `RuneShapePayload<${base}, ${input.cardinality.lower}, ${input.cardinality.upper}>` : base;
         const optional = input.cardinality.lower === 0;
         return `${names.get(input.name)}${optional && index > lastRequired ? '?' : ''}: ${type}${optional && index <= lastRequired ? ' | undefined' : ''}`;
       })
@@ -1946,13 +1958,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   /**
    * T121: Emit a single alias (shortcut) binding.
    */
-  private static emitFuncAlias(alias: RuneFuncAlias, ctx: FuncBodyContext): string {
+  private static emitFuncAlias(alias: RuneFuncAlias, ctx: FuncBodyContext, mutable = false): string {
     const localName = ctx.aliasBindings.get(alias.name) ?? alias.name;
     const exprStr = transpileExpression(alias.exprNode as RosettaExpression, {
       ...ctx,
       preserveMetadata: !!ctx.localMetadata?.get(alias.name)
     });
-    return `  const ${localName} = ${exprStr};`;
+    return `  ${mutable ? 'let' : 'const'} ${localName} = ${exprStr};`;
   }
 
   private static emitFuncConditions(conditions: readonly unknown[], func: RuneFunc, ctx: FuncBodyContext): string[] {
@@ -2007,7 +2019,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private static emitFuncPrelude(func: RuneFunc, ctx: FuncBodyContext): string[] {
     return [
-      ...func.aliases.map((alias) => TsNamespaceEmitter.emitFuncAlias(alias, ctx)),
+      ...func.aliases.map((alias) =>
+        TsNamespaceEmitter.emitFuncAlias(
+          alias,
+          ctx,
+          func.assignments.some(
+            (assignment) => assignment.target === alias.name && (!assignment.path?.length || assignment.rootMany)
+          )
+        )
+      ),
       ...TsNamespaceEmitter.emitFuncConditions(func.preConditions, func, ctx)
     ];
   }
@@ -2070,17 +2090,14 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     if (ctx.projectImplementation) {
       const { key, invoke } = ctx.projectImplementation;
-      const args = func.inputs.map((input) => ctx.localBindings!.get(input.name) ?? input.name).join(', ');
+      const args = TsNamespaceEmitter.runtimeArguments(func, ctx).join(', ');
       bodyLines.push(
         `  if (!${invoke}) throw new Error('Project implementation is unavailable. Bind the installed runtime before execution.');`
       );
       const call = `${invoke}(${JSON.stringify(key)}, [${args}]) as ${TsNamespaceEmitter.buildFuncOutputType(func)}`;
       bodyLines.push(ctx.outputAccumulator === 'array' ? `  ${result}.push(...(${call}));` : `  ${result} = ${call};`);
     } else if (native?.status === 'available') {
-      const expression = nativeImplementationExpression(
-        native.body,
-        func.inputs.map((input) => ctx.localBindings!.get(input.name) ?? input.name)
-      );
+      const expression = nativeImplementationExpression(native.body, TsNamespaceEmitter.runtimeArguments(func, ctx));
       bodyLines.push(
         ctx.outputAccumulator === 'array' ? `  ${result}.push(...(${expression}));` : `  ${result} = ${expression};`
       );
