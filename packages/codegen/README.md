@@ -211,8 +211,11 @@ delegates linked children to the concrete-model walker. This keeps recursive
 serialization traversal linear for fixed-cost conditions. The public codec's
 `parse`/`encode` operations still validate complete subtrees.
 The default `'runtime'` mode has no Zod dependency. For standalone schemas,
-`zod.codecs: true` adds the same bidirectional codecs and native output types;
-ordinary Zod emission retains its wire-value schemas.
+`zod.codecs: true` adds the same bidirectional codecs and native output types.
+Default Zod schemas and their recursive interfaces use wire types: pattern fields
+remain source strings. Native pattern codecs validate `RegExp` with
+`z.instanceof(globalThis.RegExp)` and convert at the JSON boundary; their recursive
+interfaces retain the native `RegExp` output type.
 
 Preview fields expose optional `typeSymbol` presentation metadata, using a
 kind-qualified identity such as `data:example.Trade`, `typeAlias:example.Amount`

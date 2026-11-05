@@ -1407,6 +1407,11 @@ codecs convert Temporal/RegExp fields; condition lowering shares native-value
 operators while retaining Zod diagnostics. The Rune JSON visitor still owns
 metadata, Choice envelopes and concrete-type selection. Default exports do not
 import Zod. Standalone `zod.codecs` exposes the same bidirectional native schemas.
+Default Zod interfaces describe wire values, including pattern source strings;
+recursive interfaces must match the schema output instead of inheriting native
+TypeScript mappings. Pattern codecs already bridge strings to
+`z.instanceof(globalThis.RegExp)`, with native recursive interface outputs and
+canonical flag-rejecting serialization.
 The shared codec walker checks each concrete linked node using its own companion,
 so a base-typed field cannot hide a descendant's constraints. It validates wire
 inputs with parse and native values with encode without substituting schema clones
