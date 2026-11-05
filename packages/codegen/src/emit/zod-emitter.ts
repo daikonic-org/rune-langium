@@ -738,6 +738,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   private isLazyData(data: Data): boolean {
+    if (this.ctx.dataByName.get(data.name) === data) return this.ctx.lazyTypes.has(data.name);
     const namespace = getElementNamespace(data);
     return namespace && namespace !== this.ctx.namespace
       ? (this.ctx.registry.namespaces.get(namespace)?.cyclicTypes?.has(data.name) ?? false)

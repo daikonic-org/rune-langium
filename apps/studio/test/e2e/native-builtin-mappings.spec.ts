@@ -26,7 +26,7 @@ func Fixed:
   await expect(preview).toContainText('export type time = Temporal.PlainTime;');
   await page.getByTestId('namespace-search').fill('pattern');
   await typeNavigationButton(page, 'com.rosetta.model.pattern', 'RosettaBasicType').click();
-  await expect(preview).toContainText('export type pattern = RegExp;');
+  await expect(preview).toContainText('export type pattern = globalThis.RegExp;');
   await dismissLocalTransportNotices(page);
   await page.screenshot({ path: info.outputPath('native-builtin-mappings.png') });
 

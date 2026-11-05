@@ -209,7 +209,9 @@ class RuneList<T, Min extends number = 0, Max extends number | null = null> {
     const order = (a: T, b: T) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false);
     return this.items.reduce<T | undefined>((best, item) => best === undefined || order(item, best) > 0 ? item : best, undefined);
   }
-  reduce(reduce: (previous: T, current: T) => T) { return this.items.length ? this.items.reduce(reduce) : undefined; }
+  reduce(reduce: (previous: T, current: T, index: number, array: T[]) => T): T | undefined;
+  reduce<U>(reduce: (previous: U, current: T, index: number, array: T[]) => U, initialValue: U): U;
+  reduce(...args: unknown[]): unknown { return this.items.length || args.length > 1 ? Reflect.apply(Array.prototype.reduce, this.items, args) : undefined; }
   join(separator = '') { return this.items.join(separator); }
   has(value: unknown) { return runeContains(this.items, [value]); }
   isSupersetOf(values: unknown) { return runeContains(this.items, values instanceof RuneList ? values.items : values); }

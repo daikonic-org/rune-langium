@@ -53,7 +53,8 @@ export default defineConfig({
         'e2e/review-api-polish.spec.ts',
         'e2e/inspector-details.spec.ts',
         'e2e/inspector-local-declaration.spec.ts',
-        'e2e/project-overrides.spec.ts'
+        'e2e/project-overrides.spec.ts',
+        'e2e/native-builtin-mappings.spec.ts'
       ]
     }
   ]

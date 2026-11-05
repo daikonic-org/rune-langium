@@ -106,7 +106,8 @@ for (const [version, theme] of [
         expect(row.noHorizontalOverflow).toBe(true);
         if (index > 0) expect(row.top).toBeGreaterThanOrEqual(geometry[index - 1]!.bottom);
       }
-      await expect(issues.locator(':scope > ul > li')).toHaveCount(6);
+      await expect(issues.locator(':scope > ul > li')).toHaveCount(8);
+      await expect(issues.getByRole('button', { name: /^tradeIdentifier\[[01]\]: IssuerChoice:/ })).toHaveCount(2);
       const alternatives = issues.locator(':scope > ul > li > details').filter({ hasText: 'Accepted forms' });
       expect(await alternatives.count()).toBeGreaterThan(0);
       await alternatives.first().locator(':scope > summary').click();

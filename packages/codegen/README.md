@@ -344,6 +344,9 @@ and an array-backed `RuneList` for multiple values. The same projection applies 
 linked fields and deep selections such as `trade._.asset`. `One<T>`, `Optional<T>`,
 `OneOrMore<T>` and `ZeroOrMore<T>` expose those shapes; bounded outputs retain tuple
 bounds. Public values pass directly to ordinary functions without unwrapping.
+Projected arrays preserve native `Array.reduce` overloads and callback arguments.
+Shared `RuneList` helper reductions also support a typed initial accumulator;
+an unseeded helper reduction of an empty collection retains Rune's empty result.
 
 `RuneObject` proxies cache private `RuneValue` field slots. Setters and list edits
 reuse the factory normalizer, and serialization reads canonical storage rather

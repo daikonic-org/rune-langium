@@ -225,6 +225,46 @@ async function toEvaluableJs(tsCode: string): Promise<string> {
 }
 
 describe('emitStandaloneZodSchema', () => {
+  skipIfNodeLt22.each([false, true])(
+    'preserves lazy inheritance in synthetic namespace closures (function inputs: %s)',
+    async (functionInputs) => {
+      const docs = await parseModels([
+        BASICTYPES_ROSETTA,
+        `namespace standalone.base
+type Node:
+ value number (1..1)
+ next Node (0..1)
+ condition Positive: value > 0`,
+        `namespace standalone.child
+import standalone.base.*
+type Branch extends Node:
+ note string (0..1)
+type Root:
+ child Branch (1..1)
+func Inspect:
+ inputs: payload Root (1..1)
+ output: result Root (1..1)
+ set result: payload`
+      ]);
+      const result = emitStandaloneZodSchema(
+        docs,
+        functionInputs ? 'standalone.child.Inspect' : 'standalone.child.Root',
+        { functionInputs }
+      );
+      expect(result.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);
+      const { RUNTIME_HELPER_JS_SOURCE } = await import('../../src/export.js');
+      const { z } = await import('zod');
+      const schema = new Function(
+        'z',
+        `${RUNTIME_HELPER_JS_SOURCE}\n${await toEvaluableJs(result.code)}\nreturn ${result.schemaName ?? 'RootSchema'};`
+      )(z);
+      const wrap = (child: unknown) => (functionInputs ? { payload: { child } } : { child });
+      expect(schema.safeParse(wrap({ value: 1, next: { value: 2 }, note: 'branch' })).success).toBe(true);
+      expect(schema.safeParse(wrap({ value: 1, next: { value: 'bad' } })).success).toBe(false);
+      if (!functionInputs) expect(schema.safeParse(wrap({ value: -1 })).success).toBe(false);
+    }
+  );
+
   skipIfNodeLt22('reports invalid dates before evaluating Temporal condition comparisons', async () => {
     const docs = await parseModels([
       BASICTYPES_ROSETTA,

@@ -62,7 +62,7 @@ ${t('  flat(): RuneArray<RuneFlatElement<T>>;\n')}  flat()${t(': RuneList<unknow
     const order = (a${t(': T')}, b${t(': T')}) => key === undefined ? runeOrder(a, b, compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false) : runeOrder(key(a), key(b), compare ?? ((a, b) => a < b ? -1 : a > b ? 1 : 0), false);
     return this.items.reduce${t('<T | undefined>')}((best, item) => best === undefined || order(item, best) > 0 ? item : best, undefined);
   }
-  reduce(reduce${t(': (previous: T, current: T) => T')}) { return this.items.length ? this.items.reduce(reduce) : undefined; }
+${t('  reduce(reduce: (previous: T, current: T, index: number, array: T[]) => T): T | undefined;\n  reduce<U>(reduce: (previous: U, current: T, index: number, array: T[]) => U, initialValue: U): U;\n')}  reduce(...args${t(': unknown[]')})${t(': unknown')} { return this.items.length || args.length > 1 ? Reflect.apply(Array.prototype.reduce, this.items, args) : undefined; }
   join(separator = '') { return this.items.join(separator); }
   has(value${t(': unknown')}) { return runeContains(this.items, [value]); }
   isSupersetOf(values${t(': unknown')}) { return runeContains(this.items, values instanceof RuneList ? values.items : values); }

@@ -434,6 +434,7 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (key === runeListStorage) return () => array;
     if (key === 'items') return array;
     if (key === 'constructor') return RuneList;
+    if (key === 'reduce') return (...args: unknown[]) => Reflect.apply(Array.prototype.reduce, receiver, args);
     if (['push', 'pop', 'shift', 'unshift', 'splice', 'fill', 'copyWithin'].includes(String(key))) return (...args: unknown[]) => {
       const draft = input.toArray();
       const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), draft, args);

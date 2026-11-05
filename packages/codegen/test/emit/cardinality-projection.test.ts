@@ -52,7 +52,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     const api = compileGeneratedTypeScript<{
       Quote: { new (value: object): Quote; from(value: unknown): Quote | Quote[] | undefined };
       Portfolio: { from(value: unknown): Portfolio };
-      RuneList: new (value: unknown[]) => object;
+      RuneList: { new (value: unknown[]): object; from(...values: number[]): number[] };
       Copy(value: Quote): Quote;
     }>(outputs, {
       entry: model.relativePath,
@@ -66,6 +66,9 @@ const copied: Quote.Shape = Copy(Quote.from({ amount: 100, currency: 'USD' }));
 const count: number = Count(Quote.from([{ amount: 100, currency: 'USD' }]));
 const amount: number = Quote.from({ amount: 100, currency: 'USD' }).amount;
 const quotes: [Quote, Quote] = Quote.from([{ amount: 1, currency: 'USD' }, { amount: 2, currency: 'EUR' }]);
+const total: number = quotes.reduce((sum, item) => sum + item.amount, 0);
+const labels: string = quotes.reduce((text, item) => text + item.currency, '');
+const helperTotal: number = RuneList.from(1, 2).reduce((sum, item) => sum + item, 0);
 const absent: undefined = Quote.from([]);
 const oneFromArray: Quote = Quote.from([{ amount: 1, currency: 'USD' }]);
 const values: RunePayload<number, 0, null> = Portfolio.from({ quotes: [{ amount: 1, currency: 'USD' }] })._.amount;
@@ -120,6 +123,24 @@ Quote.from({ amount: 1 });
     expect(portfolio.toJSON()).toEqual({ quotes: [] });
     expect(Array.isArray(list) && list.length).toBe(2);
     if (!Array.isArray(list)) throw new Error('Expected list');
+    expect(list.reduce((sum, item) => sum + item.amount, 0)).toBe(3);
+    expect(list.reduce((sum, item) => sum + item.amount, 10)).toBe(13);
+    expect(list.reduce((text, item) => text + item.currency, '')).toBe('USDEUR');
+    expect(list.reduce<number | undefined>((sum, item) => (sum ?? 0) + item.amount, undefined)).toBe(3);
+    const visited: number[] = [];
+    list.reduce((sum, item, index, array) => {
+      expect(array).toBe(list);
+      visited.push(index);
+      return sum + item.amount;
+    }, 0);
+    expect(visited).toEqual([0, 1]);
+    expect(list.reduce((previous, current) => ({ ...previous, amount: previous.amount + current.amount })).amount).toBe(
+      3
+    );
+    const empty = list.filter(() => false);
+    expect(empty.reduce((sum, item) => sum + item.amount, 7)).toBe(7);
+    expect(() => empty.reduce((previous) => previous)).toThrow(TypeError);
+    expect(api.RuneList.from(1, 2).reduce((sum, item) => sum + item, 10)).toBe(13);
     expect(() => list.pop()).toThrow(/expected 2/);
     expect(list.length).toBe(2);
     expect(() => list.map((_item, _index, array) => array.pop())).toThrow(/expected 2/);

@@ -22,7 +22,10 @@ return [list.count(), list.distinct().count(), list.sort(item => item.amount).fi
  dates.sort(item => item, Temporal.PlainDate.compare).first()?.toString(),
  JSON.parse(JSON.stringify(grouped)), list.toArray() !== source,
  runeExtract(undefined, () => { throw new Error('absent callback'); }),
- grouped.map(item => item).count()];`;
+ grouped.map(item => item).count(),
+ list.reduce((sum, item) => sum + item.amount, 0),
+ list.reduce((text, item) => text + item.amount, ''),
+ RuneList.from().reduce((sum) => sum, 7)];`;
     const expected = [
       3,
       2,
@@ -42,7 +45,10 @@ return [list.count(), list.distinct().count(), list.sort(item => item.amount).fi
       [[1, 2], [3]],
       true,
       undefined,
-      2
+      2,
+      5,
+      '212',
+      7
     ];
     if (mode === 'javascript')
       expect(new Function('Temporal', RUNTIME_HELPER_JS_SOURCE + '\n' + assertions)(Temporal)).toEqual(expected);

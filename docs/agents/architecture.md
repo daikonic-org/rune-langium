@@ -1407,7 +1407,9 @@ the class's inherited creator, preserving base-runtime ownership across separate
 inlined namespaces. Constructor results still receive a shape check before return.
 The namespace registry carries cycle sets from the canonical walks; Zod folds
 foreign lazy parents' attributes and conditions using the same builders as local
-parents. Native pattern types and constructors use `globalThis.RegExp` to avoid
+parents. Cycle lookup first checks membership in the actual emitted model, so
+standalone closures retain their synthetic graph's cycle information even when
+their AST nodes keep the original Rune namespace. Native pattern types and constructors use `globalThis.RegExp` to avoid
 collisions with authored model names.
 Nested Shapes contain structural data and Temporal
 values directly; public function signatures do not require `RuneFuncData`.
