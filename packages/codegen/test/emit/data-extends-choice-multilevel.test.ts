@@ -42,6 +42,7 @@ import { walkNamespace } from '../../src/emit/namespace-walker.js';
 import { emitNamespace as emitTs } from '../../src/emit/ts-emitter.js';
 import { emitNamespace as emitZod } from '../../src/emit/zod-emitter.js';
 import { generate } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 const FIXTURE_DIR = resolve(new URL('.', import.meta.url).pathname, '../fixtures/data-extends-choice-multilevel');
 
@@ -206,16 +207,8 @@ describe('Data-extends-Choice — multi-level chain (emitted-runtime behavior, r
   async function loadEmittedTsModule(): Promise<Record<string, unknown>> {
     const doc = await parseFixture();
     const outputs = await generate(doc, { target: 'typescript' });
-    const tmpDir = await mkdtempWithNodeModules('rune-codegen-multilevel-ts-');
-    let modulePath = '';
-    for (const output of outputs) {
-      const outPath = join(tmpDir, output.relativePath);
-      await mkdir(dirname(outPath), { recursive: true });
-      await writeFile(outPath, output.content, 'utf-8');
-      if (output.relativePath.includes('dataExtendsChoiceMultilevel')) modulePath = outPath;
-    }
-    expect(modulePath).not.toBe('');
-    return (await import(/* @vite-ignore */ pathToFileURL(modulePath).toString())) as Record<string, unknown>;
+    const entry = outputs.find((output) => output.relativePath.includes('dataExtendsChoiceMultilevel'))!.relativePath;
+    return compileGeneratedTypeScript(outputs, { entry, checkTypes: false });
   }
 
   it('zod: BasketConstituentSchema accepts a valid payload distributed through both links', async () => {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { runeModelRuntimeSource } from './rune-model-runtime.js';
+
 /** Shared model behavior; generated classes supply only their linked definition. */
 export function runeObjectRuntimeSource(exported: boolean): string {
   const e = exported ? 'export ' : '';
@@ -12,7 +14,7 @@ ${e}type RuneModelTag<P extends RuneModelOwner, M extends RuneValueType> = P[typ
 type RuneObjectConstructor = RuneModelOwner & (new (...args: never[]) => RuneObject);
 ${e}type RuneGuarded<I, C extends RuneObjectConstructor> = I & (I extends RuneObject ? InstanceType<C> : ConstructorParameters<C>[0]);
 ${e}type RuneTypeGuard<C extends RuneObjectConstructor> = <I>(value: I) => value is RuneGuarded<I, C>;
-${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(value: unknown): unknown; }
+${e}interface RuneSerializationCodec { decode(value: unknown): unknown; encode(value: unknown): unknown; wire?(value: unknown): unknown; validate?(value: unknown): unknown; }
 ${e}class RuneChoice<M extends RuneValueType> {
   readonly [key: symbol]: () => M;
   constructor(model: M) { Object.defineProperty(this, runeObjectType, { value: () => runeRegisterValueType(model) }); }
@@ -24,8 +26,10 @@ ${e}function runeModel<C extends RuneModelOwner>(owner: C): RuneModel<C>;
 ${e}function runeModel(owner: RuneModelOwner): RuneValueType { return owner[runeObjectType]!(); }
 const runeObjectDefinition = (value: unknown): value is RuneValueType => value != null && typeof value === 'object'
   && 'fields' in value && value.fields != null && typeof value.fields === 'object'
-  && 'deep' in value && value.deep != null && typeof value.deep === 'object'
-  && 'selections' in value && value.selections != null && typeof value.selections === 'object';
+  && ['deep', 'selections'].every(key => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return typeof descriptor?.get === 'function' || descriptor?.value != null && typeof descriptor.value === 'object';
+  });
 const runeObjectInstanceModel = (value: unknown): RuneValueType | undefined => {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   for (let prototype: object | null = Object.getPrototypeOf(value); prototype; prototype = Object.getPrototypeOf(prototype)) {
@@ -127,10 +131,26 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
   runeObjectProxies.set(target, proxy);
   return proxy;
 }
+${runeModelRuntimeSource(exported)}
 ${e}class RuneObject {
   declare readonly $runeObject: true;
   constructor() { return runeObjectProxy(this, () => { const model = runeObjectInstanceModel(this); if (!model) throw new TypeError('Rune object definition is unavailable'); return model; }); }
   static readonly [key: symbol]: () => RuneValueType;
+  static field(definition: RuneFieldDefinition) {
+    return (_value: undefined, context: ClassFieldDecoratorContext): void => {
+      if (context.static || context.private || typeof context.name !== 'string' || !context.metadata) throw new TypeError('Rune fields must be public instance properties');
+      let fields = runeDecoratedFields.get(context.metadata);
+      if (!fields) { fields = new Map(); runeDecoratedFields.set(context.metadata, fields); }
+      fields.set(context.name, definition);
+    };
+  }
+  static model(options: RuneModelDefinition) {
+    return <C extends RuneObjectConstructor>(constructor: C, context: ClassDecoratorContext<C>): void => {
+      runeDecorateModel(constructor, options, context.metadata ? runeDecoratedFields.get(context.metadata) : undefined);
+    };
+  }
+  static decorate<C extends RuneObjectConstructor>(constructor: C, options: RuneModelDefinition, fields: Readonly<Record<string, RuneFieldDefinition>>): void { runeDecorateModel(constructor, options, new Map(Object.entries(fields))); }
+  static definition<M extends RuneValueType>(definition: RuneModelDefinition<M>): M { return runeDefineModel<M>(definition); }
   protected static define<M extends RuneValueType>(definition: M): void {
     const model = runeRegisterValueType(definition);
     Object.defineProperty(this, runeObjectType, { value: () => model });
@@ -164,6 +184,8 @@ ${e}class RuneObject {
     const shape = (value: unknown): value is S => runeObjectShape(value, runeModel(owner));
     return {
       decode: value => schema.parse(value),
+      wire: value => { schema.parse(value); return value; },
+      validate: value => { if (!shape(value)) throw new TypeError('Invalid Rune serialization shape'); schema.encode(value); },
       encode: value => { if (!shape(value)) throw new TypeError('Invalid Rune serialization shape'); return schema.encode(value); }
     };
   }

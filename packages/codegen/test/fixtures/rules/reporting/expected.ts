@@ -12,30 +12,20 @@ declare module '../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
+@RuneObject.model({
+  identity: "test.rules.Trade",
+})
 export class Trade extends RuneObject implements Trade.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Trade.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) })
   tradeDate: Temporal.PlainDate;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   counterparty: string;
 
   constructor(data: Trade.Shape) {
     super();
     this.tradeDate = data.tradeDate;
     this.counterparty = data.counterparty;
-  }
-
-  static {
-    const __selections: Trade.Selections = { "test.rules.Trade#tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.rules.Trade#counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-    const __deep: Trade.Deep = { "tradeDate": __selections["test.rules.Trade#tradeDate"], "counterparty": __selections["test.rules.Trade#counterparty"] };
-    this.define<Trade.Type>({
-      identity: "test.rules.Trade",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Trade.prototype,
-      create: RuneObject.create(Trade),
-      fields: { "tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 1, max: 1, paths: [[{"key":"counterparty","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-      deep: Object.assign(Object.create(__deep), { "tradeDate": { id: "test.rules.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "counterparty": { id: "test.rules.Trade#counterparty", key: "counterparty", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-      selections: __selections
-    });
   }
 }
 

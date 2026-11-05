@@ -12,10 +12,16 @@ declare module '../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
+@RuneObject.model({
+  identity: "test.rules.Position",
+})
 export class Position extends RuneObject implements Position.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Position.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   quantity: number;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   price: number;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   currency: string;
 
   constructor(data: Position.Shape) {
@@ -23,21 +29,6 @@ export class Position extends RuneObject implements Position.Shape {
     this.quantity = data.quantity;
     this.price = data.price;
     this.currency = data.currency;
-  }
-
-  static {
-    const __selections: Position.Selections = { "test.rules.Position#quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#price": { id: "test.rules.Position#price", key: "price", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Position#currency": { id: "test.rules.Position#currency", key: "currency", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-    const __deep: Position.Deep = { "quantity": __selections["test.rules.Position#quantity"], "price": __selections["test.rules.Position#price"], "currency": __selections["test.rules.Position#currency"] };
-    this.define<Position.Type>({
-      identity: "test.rules.Position",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Position.prototype,
-      create: RuneObject.create(Position),
-      fields: { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, paths: [[{"key":"quantity","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, paths: [[{"key":"price","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, paths: [[{"key":"currency","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-      deep: Object.assign(Object.create(__deep), { "quantity": { id: "test.rules.Position#quantity", key: "quantity", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "price": { id: "test.rules.Position#price", key: "price", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "currency": { id: "test.rules.Position#currency", key: "currency", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-      selections: __selections
-    });
   }
 }
 

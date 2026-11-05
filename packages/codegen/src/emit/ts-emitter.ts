@@ -95,7 +95,7 @@ import {
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { debug } from '../instrument.js';
 import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
-import { ValueApiEmitter, MODEL_NAMESPACE_MEMBERS } from './value-api.js';
+import { ValueApiEmitter, MODEL_NAMESPACE_MEMBERS, type ValueApiEmission } from './value-api.js';
 import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES, RUNE_VALUE_TYPE_NAMES } from '../expr/rune-value-runtime.js';
 import {
   attrAccessExpr,
@@ -286,6 +286,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly callableNames: CallableNames;
   private readonly singleFile: boolean;
   private readonly inputChecks: boolean;
+  private readonly decorators: boolean;
   private readonly zodSerialization: boolean;
   private readonly projectBindings: NamespaceEmitterOptions['projectBindings'];
   private readonly localCallableAliases = new Map<string, string>();
@@ -308,6 +309,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     );
     this.singleFile = options.typescript?.layout === 'single-file';
     this.inputChecks = options.typescript?.inputChecks === true;
+    this.decorators = options.typescript?.decorators !== false;
     this.zodSerialization = options.typescript?.serialization === 'zod';
     this.projectBindings = options.projectBindings;
   }
@@ -406,7 +408,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     if (isData(parent) && this.ctx.dataByName.get(parent.name) === parent) this.emitData(parent);
     const api = this.valueApi.emit(data);
     if (api.prelude) this.sections.push(api.prelude, '');
-    this.sections.push(this.emitClass(data, api.members), '');
+    this.sections.push(this.emitClass(data, api), '');
     this.sections.push(
       this.emitModelNamespace(data, `${this.emitInterface(data)}\n${api.types}`),
       '',
@@ -1102,7 +1104,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * competing `of<T>()` factory).
    * T106.
    */
-  private emitClass(data: Data, valueMembers: string): string {
+  private emitClass(data: Data, api: ValueApiEmission): string {
     const name = this.typeName(data);
     const publicName = this.typeName(data);
     const interfaceName = this.typeName(data, `${data.name}Shape`);
@@ -1134,7 +1136,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
           : `export class ${name} extends ${parentBase} implements ${interfaceName}`
         : `export class ${name} extends RuneObject implements ${interfaceName}`;
 
+    const decorators = this.decorators;
     const lines: string[] = [
+      ...(decorators ? [api.members] : []),
       `${classHeader} {`,
       `  static readonly [key: symbol]: RuneModelTag<typeof ${parentBase}, ${name}.Type>;`
     ];
@@ -1145,6 +1149,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     for (const attr of data.attributes) {
       const baseType = this.resolveTypeExprAsTs(attr, true, true);
       const fieldDecl = TsNamespaceEmitter.applyCardinalityTs(attr.card, baseType, attr.name);
+      const definition = api.fieldDefinitions.get(attr);
+      if (decorators && definition) lines.push(`  @RuneObject.field(${definition})`);
       lines.push(`  ${fieldDecl};`);
     }
 
@@ -1192,7 +1198,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       lines.push(this.emitValidateMethods(data));
     }
 
-    lines.push('', '  static {', ...valueMembers.split('\n').map((line) => `    ${line}`), '  }', '}');
+    lines.push('}');
+    if (!decorators) {
+      const fields = data.attributes.flatMap((attr) => {
+        const definition = api.fieldDefinitions.get(attr);
+        const key = attr.name === '__proto__' ? `[${JSON.stringify(attr.name)}]` : JSON.stringify(attr.name);
+        return definition ? [`${key}: ${definition}`] : [];
+      });
+      lines.push(`RuneObject.decorate(${name}, ${api.definition}, { ${fields.join(', ')} });`);
+    }
     return lines.join('\n');
   }
 

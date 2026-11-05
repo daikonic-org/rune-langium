@@ -12,30 +12,20 @@ declare module '../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
+@RuneObject.model({
+  identity: "test.rules.Trade",
+})
 export class Trade extends RuneObject implements Trade.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Trade.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   notional: number;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') })
   active: boolean;
 
   constructor(data: Trade.Shape) {
     super();
     this.notional = data.notional;
     this.active = data.active;
-  }
-
-  static {
-    const __selections: Trade.Selections = { "test.rules.Trade#notional": { id: "test.rules.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Trade#active": { id: "test.rules.Trade#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') } };
-    const __deep: Trade.Deep = { "notional": __selections["test.rules.Trade#notional"], "active": __selections["test.rules.Trade#active"] };
-    this.define<Trade.Type>({
-      identity: "test.rules.Trade",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Trade.prototype,
-      create: RuneObject.create(Trade),
-      fields: { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') } },
-      deep: Object.assign(Object.create(__deep), { "notional": { id: "test.rules.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.rules.Trade#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') } }),
-      selections: __selections
-    });
   }
 }
 

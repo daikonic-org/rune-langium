@@ -1335,7 +1335,13 @@ assignment paths normalize through rune.list rather than assuming native arrays.
 `new Trade` retains one proxied model construction.
 Each Data emits one public class extending `RuneObject`, which owns factories,
 JSON methods and inferred guards. Only linked definitions and model-specific
-fields/conditions are emitted per class. Metadata is registered on a private
+fields/conditions are emitted per class. Standard `RuneObject.model`/`field`
+decorators register each model/field fact once. The shared definition builder lazily
+merges inherited fields and caches reachable inventories; no generated runtime
+selection/check tables duplicate those facts. Linked cardinality analysis still
+supplies nonconservative deep bounds. `typescript.decorators: false` emits equivalent
+registration calls through that same builder for type-erasing execution hosts.
+Metadata is registered on a private
 symbol; there is no public runtime `.Type` field. Input/Type/Selections/Deep/Shape
 remain type-only merged namespace members. Natural subclassing and type-only model
 tags preserve inherited factory/cardinality inference without parent casts.
@@ -1349,6 +1355,10 @@ codecs convert Temporal/RegExp fields; condition lowering shares native-value
 operators while retaining Zod diagnostics. The Rune JSON visitor still owns
 metadata, Choice envelopes and concrete-type selection. Default exports do not
 import Zod. Standalone `zod.codecs` exposes the same bidirectional native schemas.
+The shared codec walker checks each concrete linked node using its own companion,
+so a base-typed field cannot hide a descendant's constraints. It validates wire
+inputs with parse and native values with encode without substituting schema clones
+for the runtime's concrete hydration; encoding retains derived-only native fields.
 Nested Shapes contain structural data and Temporal
 values directly; public function signatures do not require `RuneFuncData`.
 The normalizer owns only the supplied value

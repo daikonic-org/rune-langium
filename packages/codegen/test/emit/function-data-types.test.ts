@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { generatedDirectory } from '../helpers/generated-directory.js';
-import { generatedTypeScriptCompilerOptions } from '../helpers/compiled-typescript.js';
+import { generatedTypeScriptCompilerOptions, transpileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,9 +38,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
     ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
   ).toEqual([]);
 
-  const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS }
-  }).outputText;
+  const js = transpileGeneratedTypeScript(code);
   const exports: Record<string, (input: unknown) => unknown> = {};
   new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
   return recordFunctionExports(exports, outputs);

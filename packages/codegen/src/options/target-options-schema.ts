@@ -17,6 +17,7 @@ export const ZodOptionsSchema = z.object({ layout: moduleLayout.optional(), code
 export const TypescriptOptionsSchema = ZodOptionsSchema.extend({
   inputChecks: z.boolean().optional(),
   inlineHelpers: z.boolean().optional(),
+  decorators: z.boolean().optional(),
   serialization: z.enum(['runtime', 'zod']).optional()
 }).omit({ codecs: true });
 export const JsonSchemaOptionsSchema = z.object({ layout: flatLayout.optional() });

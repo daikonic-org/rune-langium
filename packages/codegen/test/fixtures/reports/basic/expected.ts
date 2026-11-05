@@ -13,30 +13,20 @@ declare module '../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
+@RuneObject.model({
+  identity: "test.reports.Trade",
+})
 export class Trade extends RuneObject implements Trade.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Trade.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) })
   tradeDate: Temporal.PlainDate;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   notional: number;
 
   constructor(data: Trade.Shape) {
     super();
     this.tradeDate = data.tradeDate;
     this.notional = data.notional;
-  }
-
-  static {
-    const __selections: Trade.Selections = { "test.reports.Trade#tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.reports.Trade#notional": { id: "test.reports.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-    const __deep: Trade.Deep = { "tradeDate": __selections["test.reports.Trade#tradeDate"], "notional": __selections["test.reports.Trade#notional"] };
-    this.define<Trade.Type>({
-      identity: "test.reports.Trade",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Trade.prototype,
-      create: RuneObject.create(Trade),
-      fields: { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-      deep: Object.assign(Object.create(__deep), { "tradeDate": { id: "test.reports.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.reports.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-      selections: __selections
-    });
   }
 }
 
@@ -62,30 +52,20 @@ export namespace Trade {
 
 is.Trade = RuneObject.guard(Trade);
 
+@RuneObject.model({
+  identity: "test.reports.TradeReport",
+})
 export class TradeReport extends RuneObject implements TradeReport.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, TradeReport.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) })
   date: Temporal.PlainDate;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   amount: number;
 
   constructor(data: TradeReport.Shape) {
     super();
     this.date = data.date;
     this.amount = data.amount;
-  }
-
-  static {
-    const __selections: TradeReport.Selections = { "test.reports.TradeReport#date": { id: "test.reports.TradeReport#date", key: "date", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.reports.TradeReport#amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-    const __deep: TradeReport.Deep = { "date": __selections["test.reports.TradeReport#date"], "amount": __selections["test.reports.TradeReport#amount"] };
-    this.define<TradeReport.Type>({
-      identity: "test.reports.TradeReport",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: TradeReport.prototype,
-      create: RuneObject.create(TradeReport),
-      fields: { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, paths: [[{"key":"date","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, paths: [[{"key":"amount","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-      deep: Object.assign(Object.create(__deep), { "date": { id: "test.reports.TradeReport#date", key: "date", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "amount": { id: "test.reports.TradeReport#amount", key: "amount", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-      selections: __selections
-    });
   }
 }
 

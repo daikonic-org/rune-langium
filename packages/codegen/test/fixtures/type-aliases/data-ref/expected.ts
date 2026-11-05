@@ -14,30 +14,20 @@ export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
 
 export type HomeAddress = Address.Shape;
+@RuneObject.model({
+  identity: "test.aliases.Address",
+})
 export class Address extends RuneObject implements Address.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Address.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   street: string;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   city: string;
 
   constructor(data: Address.Shape) {
     super();
     this.street = data.street;
     this.city = data.city;
-  }
-
-  static {
-    const __selections: Address.Selections = { "test.aliases.Address#street": { id: "test.aliases.Address#street", key: "street", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.aliases.Address#city": { id: "test.aliases.Address#city", key: "city", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-    const __deep: Address.Deep = { "street": __selections["test.aliases.Address#street"], "city": __selections["test.aliases.Address#city"] };
-    this.define<Address.Type>({
-      identity: "test.aliases.Address",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Address.prototype,
-      create: RuneObject.create(Address),
-      fields: { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, paths: [[{"key":"street","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, paths: [[{"key":"city","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-      deep: Object.assign(Object.create(__deep), { "street": { id: "test.aliases.Address#street", key: "street", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "city": { id: "test.aliases.Address#city", key: "city", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-      selections: __selections
-    });
   }
 }
 

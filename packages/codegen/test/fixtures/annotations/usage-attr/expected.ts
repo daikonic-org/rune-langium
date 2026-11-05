@@ -21,30 +21,20 @@ export function source(args: sourceArgs): ClassDecorator & PropertyDecorator {
   return (target: any, propertyKey?: any) => {};
 }
 
+@RuneObject.model({
+  identity: "test.annotations.Trade",
+})
 export class Trade extends RuneObject implements Trade.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Trade.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) })
   tradeDate: Temporal.PlainDate;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   notional: number;
 
   constructor(data: Trade.Shape) {
     super();
     this.tradeDate = data.tradeDate;
     this.notional = data.notional;
-  }
-
-  static {
-    const __selections: Trade.Selections = { "test.annotations.Trade#tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "test.annotations.Trade#notional": { id: "test.annotations.Trade#notional", key: "notional", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') } };
-    const __deep: Trade.Deep = { "tradeDate": __selections["test.annotations.Trade#tradeDate"], "notional": __selections["test.annotations.Trade#notional"] };
-    this.define<Trade.Type>({
-      identity: "test.annotations.Trade",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Trade.prototype,
-      create: RuneObject.create(Trade),
-      fields: { "tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, paths: [[{"key":"tradeDate","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.annotations.Trade#notional", key: "notional", min: 1, max: 1, paths: [[{"key":"notional","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') } },
-      deep: Object.assign(Object.create(__deep), { "tradeDate": { id: "test.annotations.Trade#tradeDate", key: "tradeDate", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) }, "notional": { id: "test.annotations.Trade#notional", key: "notional", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') } }),
-      selections: __selections
-    });
   }
 }
 

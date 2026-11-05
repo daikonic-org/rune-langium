@@ -12,28 +12,17 @@ declare module '../../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../../helpers.js';
+@RuneObject.model({
+  identity: "test.funcs.preconditionAlias.Wrapper",
+})
 export class Wrapper extends RuneObject implements Wrapper.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Wrapper.Type>;
+  @RuneObject.field({ min: 0, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   payload?: string;
 
   constructor(data: Wrapper.Shape) {
     super();
     this.payload = data.payload;
-  }
-
-  static {
-    const __selections: Wrapper.Selections = { "test.funcs.preconditionAlias.Wrapper#payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-    const __deep: Wrapper.Deep = { "payload": __selections["test.funcs.preconditionAlias.Wrapper#payload"] };
-    this.define<Wrapper.Type>({
-      identity: "test.funcs.preconditionAlias.Wrapper",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Wrapper.prototype,
-      create: RuneObject.create(Wrapper),
-      fields: { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, paths: [[{"key":"payload","min":0,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-      deep: Object.assign(Object.create(__deep), { "payload": { id: "test.funcs.preconditionAlias.Wrapper#payload", key: "payload", min: 0, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-      selections: __selections
-    });
   }
 }
 

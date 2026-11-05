@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
+import { compileGeneratedTypeScript, transpileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { spawnSync } from 'node:child_process';
 import ts from 'typescript-classic';
 import { AstUtils } from 'langium';
@@ -61,9 +61,7 @@ func MissingSentinel:
 
 function assertModuleSyntax(code: string) {
   const result = spawnSync(process.execPath, ['--input-type=module', '--check'], {
-    input: ts.transpileModule(code, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext }
-    }).outputText,
+    input: transpileGeneratedTypeScript(code, ts.ModuleKind.ESNext),
     encoding: 'utf8'
   });
   expect(result.stderr).toBe('');

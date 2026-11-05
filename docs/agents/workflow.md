@@ -26,6 +26,14 @@ compiler target (ES2025). The post-build pass regenerates those JavaScript files
 and source maps from their TypeScript source; declarations and projections retain
 ESNext. Do not widen its decorator matcher or inject new instrumentation sites.
 
+Generated model decorators are a separate public emitter feature, enabled by
+default. Generated-module execution tests use `transpileGeneratedTypeScript` to
+lower decorated modules to ES2025; source and strict diagnostics stay ESNext.
+Studio's Sucrase execution/validation paths request `typescript.decorators: false`
+and receive equivalent registration calls from the same definition builder.
+Downloads and Code previews keep decorators enabled. Do not broaden the authored
+instrumentation lowering pass to accommodate generated model decorators.
+
 - The pre-commit hook runs `lint-staged`, applying Oxlint fixes before formatting staged JS/TS files with oxfmt; JSON-family files are formatted directly. Formatting runs last so import rewrites cannot leave CI style drift. The pre-push hook runs type checking. Prefer the existing `simple-git-hooks` / `lint-staged` setup for hook changes.
 - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses hooks; report skipped verification when relevant.
 - After codegen render changes, run `pnpm --filter @rune-langium/codegen run build` so consumers receive updated dist output.

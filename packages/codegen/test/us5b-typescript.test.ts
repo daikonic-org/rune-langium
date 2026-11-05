@@ -66,9 +66,10 @@ describe('T099: basic-types TypeScript target', () => {
     expect(output).toContain('class ');
   });
 
-  it('contains static from(', async () => {
+  it('registers model metadata for the inherited factory', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('RuneObject.create(Person)');
+    expect(output).toContain('@RuneObject.model(');
+    expect(output).toContain('export class Person extends RuneObject');
   });
 
   it('contains isTypeName( type guards', async () => {

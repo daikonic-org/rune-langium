@@ -12,10 +12,16 @@ declare module '../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
+@RuneObject.model({
+  identity: "test.rules.Account",
+})
 export class Account extends RuneObject implements Account.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Account.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   balance: number;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   status: string;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   tier: string;
 
   constructor(data: Account.Shape) {
@@ -23,21 +29,6 @@ export class Account extends RuneObject implements Account.Shape {
     this.balance = data.balance;
     this.status = data.status;
     this.tier = data.tier;
-  }
-
-  static {
-    const __selections: Account.Selections = { "test.rules.Account#balance": { id: "test.rules.Account#balance", key: "balance", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.rules.Account#status": { id: "test.rules.Account#status", key: "status", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.rules.Account#tier": { id: "test.rules.Account#tier", key: "tier", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') } };
-    const __deep: Account.Deep = { "balance": __selections["test.rules.Account#balance"], "status": __selections["test.rules.Account#status"], "tier": __selections["test.rules.Account#tier"] };
-    this.define<Account.Type>({
-      identity: "test.rules.Account",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Account.prototype,
-      create: RuneObject.create(Account),
-      fields: { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, paths: [[{"key":"balance","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, paths: [[{"key":"status","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, paths: [[{"key":"tier","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') } },
-      deep: Object.assign(Object.create(__deep), { "balance": { id: "test.rules.Account#balance", key: "balance", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "status": { id: "test.rules.Account#status", key: "status", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "tier": { id: "test.rules.Account#tier", key: "tier", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') } }),
-      selections: __selections
-    });
   }
 }
 

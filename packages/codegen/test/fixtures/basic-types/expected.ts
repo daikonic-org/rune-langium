@@ -13,25 +13,13 @@ declare module '../helpers.js' {
 }
 export { RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
+@RuneObject.model({
+  identity: "test.basic.Empty",
+})
 export class Empty extends RuneObject implements Empty.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Empty.Type>;
   constructor(data: Empty.Shape) {
     super();
-  }
-
-  static {
-    const __selections: Empty.Selections = {  };
-    const __deep: Empty.Deep = {  };
-    this.define<Empty.Type>({
-      identity: "test.basic.Empty",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Empty.prototype,
-      create: RuneObject.create(Empty),
-      fields: {  },
-      deep: Object.assign(Object.create(__deep), {  }),
-      selections: __selections
-    });
   }
 }
 
@@ -52,11 +40,18 @@ export namespace Empty {
 
 is.Empty = RuneObject.guard(Empty);
 
+@RuneObject.model({
+  identity: "test.basic.Person",
+})
 export class Person extends RuneObject implements Person.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Person.Type>;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
   name: string;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
   age: number;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') })
   active: boolean;
+  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) })
   birthday: Temporal.PlainDate;
 
   constructor(data: Person.Shape) {
@@ -65,21 +60,6 @@ export class Person extends RuneObject implements Person.Shape {
     this.age = data.age;
     this.active = data.active;
     this.birthday = data.birthday;
-  }
-
-  static {
-    const __selections: Person.Selections = { "test.basic.Person#name": { id: "test.basic.Person#name", key: "name", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'string') }, "test.basic.Person#age": { id: "test.basic.Person#age", key: "age", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'number') }, "test.basic.Person#active": { id: "test.basic.Person#active", key: "active", min: 0, max: null, check: (value: unknown) => !(typeof value !== 'boolean') }, "test.basic.Person#birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 0, max: null, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } };
-    const __deep: Person.Deep = { "name": __selections["test.basic.Person#name"], "age": __selections["test.basic.Person#age"], "active": __selections["test.basic.Person#active"], "birthday": __selections["test.basic.Person#birthday"] };
-    this.define<Person.Type>({
-      identity: "test.basic.Person",
-      inventory: { selections: __selections, deep: __deep },
-      derived: new globalThis.Map<string, RuneValueType>(),
-      prototype: Person.prototype,
-      create: RuneObject.create(Person),
-      fields: { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, paths: [[{"key":"name","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, paths: [[{"key":"age","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, paths: [[{"key":"active","min":1,"max":1}]], check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, paths: [[{"key":"birthday","min":1,"max":1}]], check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } },
-      deep: Object.assign(Object.create(__deep), { "name": { id: "test.basic.Person#name", key: "name", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') }, "age": { id: "test.basic.Person#age", key: "age", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') }, "active": { id: "test.basic.Person#active", key: "active", min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'boolean') }, "birthday": { id: "test.basic.Person#birthday", key: "birthday", min: 1, max: 1, check: (value: unknown) => !(!(value instanceof Temporal.PlainDate)) } }),
-      selections: __selections
-    });
   }
 }
 

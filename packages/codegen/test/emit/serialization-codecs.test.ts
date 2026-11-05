@@ -21,6 +21,9 @@ type Quote:
  condition Ordered: if end exists then date <= end
 type Special extends Quote:
  note string (1..1)
+ extraDate date (1..1)
+ condition SpecialAmount: amount > 1
+ condition ExtraAfter: extraDate > date
 choice Selected:
  Quote
 type Tagged extends Selected:
@@ -82,7 +85,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       }).toJSON()
     ).toThrow(/flags/);
     const options = { format: 'RUNE_JSON' as const };
-    const wire = { '@type': 'codecs.Special', ...plain, note: 'special' };
+    const wire = { '@type': 'codecs.Special', ...plain, note: 'special', extraDate: '2026-11-05' };
     const portfolio = {
       '@type': 'codecs.Portfolio',
       quote: wire,
@@ -91,6 +94,32 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
       reference: { ...wire, '@ref:external': 'q1' }
     };
     expect(api.Portfolio.fromJSON(portfolio, options).toJSON(options)).toEqual(portfolio);
+    for (const invalid of [
+      { ...wire, amount: 1 },
+      { ...wire, extraDate: '2026-11-03' }
+    ]) {
+      expect(() => api.Special.fromJSON(invalid, options)).toThrow();
+      for (const field of ['quote', 'quotes', 'selected', 'reference']) {
+        const value =
+          field === 'quotes' ? [invalid] : field === 'reference' ? { ...invalid, '@ref:external': 'q1' } : invalid;
+        expect(() => api.Portfolio.fromJSON({ ...portfolio, [field]: value }, options)).toThrow();
+      }
+      expect(() => api.Portfolio.fromJSON({ quote: invalid })).toThrow();
+    }
+    const nested = api.Portfolio.fromJSON({ quote: wire }, options);
+    expect(nested.toJSON()).toMatchObject({ quote: { extraDate: '2026-11-05' } });
+    const nativeSpecial = api.Special.from({
+      ...plain,
+      date: Temporal.PlainDate.from(plain.date),
+      time: Temporal.PlainTime.from(plain.time),
+      pattern: /^a+$/,
+      note: 'special',
+      extraDate: Temporal.PlainDate.from('2026-11-05')
+    });
+    const nativePortfolio = api.Portfolio.from({ quote: nativeSpecial });
+    expect(nativePortfolio.toJSON()).toMatchObject({ quote: { extraDate: '2026-11-05' } });
+    Reflect.set(nativeSpecial, 'amount', 1);
+    expect(() => nativePortfolio.toJSON()).toThrow();
     expect(api.Quote.fromJSON([wire, wire], options).toJSON(options)).toEqual([wire, wire]);
     expect(api.Selected.fromJSON(wire, options).toJSON(options)).toEqual(wire);
     expect(() => api.Selected.fromJSON({ ...wire, amount: -1 }, options)).toThrow();

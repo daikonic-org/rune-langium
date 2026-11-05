@@ -4,6 +4,7 @@
 import { DEEP_RUNTIME_SOURCE } from './generated/deep-runtime-source.js';
 import { RUNE_JSON_RUNTIME_SOURCE } from './generated/rune-json-runtime-source.js';
 import { runeObjectRuntimeSource } from './rune-object-runtime.js';
+import { runeCodecRuntimeSource } from './rune-codec-runtime.js';
 
 export const RUNE_VALUE_TYPE_NAMES = ['One', 'Optional', 'Many', 'OneOrMore', 'ZeroOrMore'] as const;
 export const RUNE_VALUE_IMPORTS = [
@@ -37,6 +38,15 @@ export const RUNE_VALUE_IMPORTS = [
 ] as const;
 export const RUNE_VALUE_NAMES = [
   'runeObjectType',
+  'Symbol',
+  'RuneFieldDefinition',
+  'RuneModelDefinition',
+  'RuneModelInventory',
+  'runeDecoratedFields',
+  'runeDecorateModel',
+  'runeModelInventories',
+  'runeModelInventory',
+  'runeDefineModel',
   'RuneModelOwner',
   'RuneObjectConstructor',
   'RuneTypeGuard',
@@ -95,6 +105,7 @@ export const RUNE_VALUE_NAMES = [
   'runeValueConcreteType',
   'runeValueMatchingType',
   'runeJson',
+  'runeCodecValue',
   ...RUNE_VALUE_IMPORTS.map((name) => name.replace(/^type /, ''))
 ];
 
@@ -454,6 +465,7 @@ ${e}function runeProjected<I, Model extends RuneValueType>(input: I, type: () =>
 ${e}function runeProjected(input: unknown, type: () => RuneValueType): unknown { return runeProjectValue(runeValue(input, type)); }
 ${e}function runeProjectedJSON<I, Model extends RuneValueType>(input: I, type: () => Model, options: RuneJsonOptions): RunePayload<RuneProjected<NonNullable<Model['output']>, Model>, RuneFromMin<I>, RuneFromMax<I>>;
 ${e}function runeProjectedJSON(input: unknown, type: () => RuneValueType, options: RuneJsonOptions): unknown { return runeProjectValue(runeValue(runeValueFromJSON(input, type, options), type)); }
+${runeCodecRuntimeSource()}
 ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
   const active = new WeakSet<object>();
@@ -495,6 +507,11 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
     const model = runeValueConcreteType(value, type());
     const codec = model.codec?.();
     if (!codec) return value;
+    if (codec.validate) {
+      const concrete = new WeakMap<object, RuneValueType>();
+      const native = runeCodecValue(value, model, 'validate', concrete);
+      return runeCodecValue(native, model, 'encode', concrete, runeFormat);
+    }
     codecProjection = true;
     try { return codec.encode(visit(value, model)); }
     finally { codecProjection = false; }
@@ -507,7 +524,13 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
   const decode = (value: unknown): unknown => {
     if (value == null) return value;
     if (Array.isArray(value)) return value.map(decode);
-    return runeValueConcreteType(value, type()).codec?.().decode(value) ?? value;
+    const codec = runeValueConcreteType(value, type()).codec?.();
+    if (codec?.wire && codec.validate) {
+      const wire = runeCodecValue(value, type(), 'wire');
+      const native = runeValue(wire, type).unwrap();
+      return runeCodecValue(native, type(), 'validate');
+    }
+    return codec?.decode(value) ?? value;
   };
   if (options.format !== 'RUNE_JSON') return decode(parsed);
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {

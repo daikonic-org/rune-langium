@@ -150,6 +150,12 @@ cardinality helpers. Standalone authored type selection retains `value as Cash`.
 Generated TypeScript exposes `Trade.from(input)` alongside `new Trade(shape)`.
 The public constructor is the `Trade` class itself, with a merged `Trade.Shape`
 type for function inputs and outputs. Shared helpers are separate by default.
+Generated model classes use `@RuneObject.model` and `@RuneObject.field` to declare
+runtime facts once; the shared base derives inherited and deep metadata lazily.
+The type-only namespace retains static traversal/cardinality information.
+`typescript.decorators: false` produces equivalent registration calls for hosts
+that erase types without lowering decorators, including Studio execution. Code
+previews and downloads use standard decorators by default.
 `Trade.fromJSON(input, { format: 'RUNE_JSON' })` and
 `trade.toJSON({ format: 'RUNE_JSON' })` opt into Rune wire metadata; ordinary
 `toJSON()` and `JSON.stringify()` retain plain JSON output.

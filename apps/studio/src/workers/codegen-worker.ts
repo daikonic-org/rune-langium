@@ -980,7 +980,7 @@ async function executeFunction(
               async () => {
                 const options = {
                   target: 'typescript',
-                  typescript: { inputChecks: true },
+                  typescript: { inputChecks: true, decorators: false },
                   projectBindings: project?.implementationBindings,
                   projectResources: project?.bindings
                 } as const;

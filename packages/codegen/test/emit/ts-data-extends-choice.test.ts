@@ -48,11 +48,7 @@
  * close that remaining gap.
  */
 
-import { generatedDirectory } from '../helpers/generated-directory.js';
-import { writeFile, mkdir } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
-import { pathToFileURL } from 'node:url';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { createRuneDslServices, isRosettaModel } from '@rune-langium/core';
 import { URI } from 'langium';
 import { describe, it, expect } from 'vitest';
@@ -205,7 +201,7 @@ describe('ts-emitter — Data extends Choice: CLASS surface (generic child class
     const model = walkNamespace([doc], 'test.tsDataExtendsChoice');
     const output = emitNamespace(model, {});
     expect(output.content).toContain('export class BasketConstituent');
-    expect(output.content).toContain('RuneObject.create(BasketConstituent)');
+    expect(output.content).toContain('@RuneObject.model(');
     expect(output.content).toContain('extends RuneObject');
     expect(output.content).toContain('is.BasketConstituent = RuneObject.guard(BasketConstituent);');
     expect(output.content).not.toContain('as unknown as');
@@ -276,7 +272,7 @@ function readBare(x: BasketConstituent.Shape): number {
 describe('ts-emitter — Data extends Choice (emitted-runtime behavior, real execution)', () => {
   /**
    * Generates the FULL namespace via the public `generate()` entry point,
-   * writes the ACTUAL emitted output to a temp dir, and dynamic-imports it
+   * lowers standard decorators and executes the ACTUAL emitted output
    * — exercising the literal generator output (not a hand-written
    * analogue) at runtime. Mirrors zod-data-extends-choice.test.ts's
    * loadEmittedModule pattern for the Zod surface.
@@ -286,19 +282,8 @@ describe('ts-emitter — Data extends Choice (emitted-runtime behavior, real exe
     const outputs = await generate(doc, { target: 'typescript' });
     expect(outputs.length).toBeGreaterThan(0);
 
-    const tmpDir = await generatedDirectory(join(tmpdir(), 'rune-codegen-ts-data-extends-choice-'));
-    let modulePath = '';
-    for (const output of outputs) {
-      const outPath = join(tmpDir, output.relativePath);
-      await mkdir(dirname(outPath), { recursive: true });
-      await writeFile(outPath, output.content, 'utf-8');
-      if (output.relativePath.includes('tsDataExtendsChoice')) {
-        modulePath = outPath;
-      }
-    }
-    expect(modulePath).not.toBe('');
-    const mod = (await import(/* @vite-ignore */ pathToFileURL(modulePath).toString())) as Record<string, unknown>;
-    return mod;
+    const entry = outputs.find((output) => output.relativePath.includes('tsDataExtendsChoice'))!.relativePath;
+    return compileGeneratedTypeScript(outputs, { entry, checkTypes: false });
   }
 
   // Payloads use camelCase keys (`cash`/`commodity`) — matching the REAL
