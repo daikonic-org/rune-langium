@@ -23,6 +23,13 @@ choice Selected:
  Child
 type Tagged extends Selected:
  note string (0..1)
+type Counts:
+ one number (1..1)
+ ^optional number (0..1)
+ zeroOrMore number (0..*)
+ oneOrMore number (1..*)
+ bounded number (2..5)
+ atLeast number (2..*)
 `;
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
@@ -44,12 +51,22 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     const model = decorated.find((output) => output.content.includes('export class Base '))!;
     expect(model.content).toContain('@RuneObject.model(');
     expect(model.content).toContain('@RuneObject.field(');
+    expect(model.content).toContain('@RuneObject.field(Cardinality.One,');
+    expect(model.content).toContain('@RuneObject.field(Cardinality.Optional,');
+    expect(model.content).toContain(
+      '@RuneObject.field(Cardinality.Optional, undefined, () => runeModel(Child), Cardinality.Optional)'
+    );
+    expect(model.content).toContain('@RuneObject.field(Cardinality.ZeroOrMore,');
+    expect(model.content).toContain('@RuneObject.field(Cardinality.OneOrMore,');
+    expect(model.content).toContain('@RuneObject.field(Cardinality.range(2, 5),');
+    expect(model.content).toContain('@RuneObject.field(Cardinality.atLeast(2),');
+    expect(model.content).not.toMatch(/@RuneObject\.field\(\{ min:/);
     expect(model.content).not.toMatch(/const __selections|const __deep|this\.define\(/);
     const outputs = await generate(document, { target: 'typescript', typescript: { ...options, decorators: false } });
     const calls = outputs.find((output) => output.relativePath === model.relativePath)!;
     expect(calls.content).not.toContain('@RuneObject.');
     expect(calls.content).toContain('RuneObject.decorate(Child,');
-    const api = compileGeneratedTypeScript<{ run: () => unknown }>(
+    const api = compileGeneratedTypeScript<{ run: () => unknown; Counts: { from(input: unknown): unknown } }>(
       outputs.map((output) =>
         output === calls
           ? {
@@ -61,12 +78,20 @@ export function run() {
  const child = Child.from({ label: 'first', next: { label: 'second' } });
  const holder = Holder.from({ child: { value: child, externalReference: 'child-1' } });
  const tagged = Tagged.from({ child, note: 'tag' });
- return [child instanceof Base, child._.label, holder.toJSON({ format: 'RUNE_JSON' }), tagged.toJSON()];
+ const counts = Counts.from({ one: -100, oneOrMore: -200, bounded: [-3, -2], atLeast: [-4, -5] });
+ return [child instanceof Base, child._.label, holder.toJSON({ format: 'RUNE_JSON' }), tagged.toJSON(), counts.one, counts.oneOrMore, counts.bounded.toArray(), counts.atLeast.toArray()];
 }`
             }
           : output
       ),
-      { entry: calls.relativePath }
+      {
+        entry: calls.relativePath,
+        erasableSyntaxOnly: true,
+        assertions: `
+// @ts-expect-error a bounded collection needs at least two entries
+Counts.from({ one: 1, oneOrMore: 1, bounded: [1], atLeast: [1, 2] });
+`
+      }
     );
     expect(api.run()).toEqual([
       true,
@@ -80,8 +105,15 @@ export function run() {
           next: { '@type': 'decorated.Child', label: 'second', next: undefined }
         }
       },
-      { child: { label: 'first', next: { label: 'second', next: undefined } }, note: 'tag' }
+      { child: { label: 'first', next: { label: 'second', next: undefined } }, note: 'tag' },
+      -100,
+      -200,
+      [-3, -2],
+      [-4, -5]
     ]);
+    for (const bounded of [[1], [1, 2, 3, 4, 5, 6]]) {
+      expect(() => api.Counts.from({ one: -100, oneOrMore: -200, bounded, atLeast: [1, 2] })).toThrow();
+    }
   }
 );
 
@@ -91,7 +123,7 @@ let reads = 0;
 @RuneObject.model({ identity: 'decorator.Lazy' })
 class Lazy extends RuneObject {
  static readonly [key: symbol]: () => RuneValueType;
- @RuneObject.field({ min: 0, max: 1, type: () => { reads++; return runeModel(Lazy); }, check: (value: unknown) => value instanceof Lazy })
+ @RuneObject.field(Cardinality.Optional, (value: unknown) => value instanceof Lazy, () => { reads++; return runeModel(Lazy); })
  child?: Lazy;
 }
 export function run() {

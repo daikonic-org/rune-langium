@@ -20,10 +20,13 @@ type Deep:
  input Input (1..1)
 type Selections:
  input Input (1..1)
+type Cardinality:
+ amount int (1..1)
 choice Shape:
  Type
  Deep
 type Quote:
+ cardinality Cardinality (0..1)
  selected Shape (1..1)
  input Input (1..1)
  selections Selections (1..1)`,

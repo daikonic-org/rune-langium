@@ -3,7 +3,7 @@
 // Source namespace: test.funcs.constructor
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
+import { rune, type RuneFuncData, Cardinality, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../../helpers.js';
 
 declare module '../../helpers.js' {
   namespace is {
@@ -11,16 +11,16 @@ declare module '../../helpers.js' {
     function Box<I>(value: I): value is I & (I extends RuneObject ? Box : Box.Shape);
   }
 }
-export { RuneObject, RuneList, is };
+export { Cardinality, RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../../helpers.js';
 @RuneObject.model({
   identity: "test.funcs.constructor.Point",
 })
 export class Point extends RuneObject implements Point.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Point.Type>;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'number'))
   x: number;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'number'))
   y: number;
 
   constructor(data: Point.Shape) {
@@ -58,9 +58,9 @@ is.Point = RuneObject.guard(Point);
 })
 export class Box extends RuneObject implements Box.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Box.Type>;
-  @RuneObject.field({ min: 1, max: 1, type: () => runeModel(Point) })
+  @RuneObject.field(Cardinality.One, undefined, () => runeModel(Point))
   origin: Point.Shape;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'number'))
   width: number;
 
   constructor(data: Box.Shape) {

@@ -1337,6 +1337,11 @@ Each Data emits one public class extending `RuneObject`, which owns factories,
 JSON methods and inferred guards. Only linked definitions and model-specific
 fields/conditions are emitted per class. Standard `RuneObject.model`/`field`
 decorators register each model/field fact once. The shared definition builder lazily
+normalizes named `Cardinality` constants or typed range factories to internal
+count bounds; `wireCardinality` preserves metadata-envelope presence separately.
+Field decorators take cardinality, check, lazy linked type, envelope cardinality
+and native reader positionally, omitting unused trailing arguments.
+One mapping supplies common constant values and emitted names. It then
 merges inherited fields and caches reachable inventories; no generated runtime
 selection/check tables duplicate those facts. Linked cardinality analysis still
 supplies nonconservative deep bounds. `typescript.decorators: false` emits equivalent

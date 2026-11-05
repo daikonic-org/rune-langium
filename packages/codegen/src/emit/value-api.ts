@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { renderCardinality } from '../expr/cardinality-definition.js';
 import {
   getElementNamespace,
   isAttribute,
@@ -31,6 +32,7 @@ export interface ValueApiEmission {
   members: string;
   definition: string;
   fieldDefinitions: ReadonlyMap<Feature, string>;
+  fieldArguments: ReadonlyMap<Feature, string>;
 }
 type Bounds = { min: number; max: number | null };
 type Field = {
@@ -214,6 +216,7 @@ export class ValueApiEmitter {
     const objectKey = (key: string) => (key === '__proto__' ? `[${JSON.stringify(key)}]` : JSON.stringify(key));
     const selection = (field: Field, bounds: Bounds) =>
       `RuneValueSelection<${this.logical(field)}, ${bounds.min}, ${bounds.max}, ${field.model ? this.scopedType(field.model, 'Type') : 'RuneEmptyType'}>${field.metadata ? ' & { readonly metadata: true }' : ''}`;
+    const fieldArguments = new Map<Feature, string>();
     const descriptor = (field: Field, bounds: Bounds, decorated = false) => {
       const record =
         isRosettaRecordFeature(field.feature) && isRosettaRecordType(field.feature.$container)
@@ -231,8 +234,26 @@ export class ValueApiEmitter {
           )
         : undefined;
       const check = this.check(field.feature);
-      const read = calendar ? `, read: (value: unknown) => ${calendar}` : '';
-      return `{ ${decorated ? '' : `id: ${JSON.stringify(field.id)}, key: ${JSON.stringify(field.key)}, `}min: ${bounds.min}, max: ${bounds.max}${field.metadata ? `, metadata: true, wireMin: ${field.wireBounds.min}, wireMax: ${field.wireBounds.max}` : ''}${read}${check ? `, check: ${check}` : ''}${field.model ? `, type: () => ${this.runtime(field.model)}` : ''} }`;
+      const reader = calendar ? `(value: unknown) => ${calendar}` : undefined;
+      const read = reader ? `, read: ${reader}` : '';
+      if (decorated) {
+        const args = [
+          renderCardinality(bounds.min, bounds.max),
+          check ?? 'undefined',
+          field.model ? `() => ${this.runtime(field.model)}` : 'undefined',
+          field.metadata ? renderCardinality(field.wireBounds.min, field.wireBounds.max) : 'undefined',
+          reader ?? 'undefined'
+        ];
+        while (args.at(-1) === 'undefined') args.pop();
+        fieldArguments.set(field.feature, args.join(', '));
+      }
+      const cardinality = decorated
+        ? `cardinality: ${renderCardinality(bounds.min, bounds.max)}`
+        : `min: ${bounds.min}, max: ${bounds.max}`;
+      const wireCardinality = decorated
+        ? `wireCardinality: ${renderCardinality(field.wireBounds.min, field.wireBounds.max)}`
+        : `wireMin: ${field.wireBounds.min}, wireMax: ${field.wireBounds.max}`;
+      return `{ ${decorated ? '' : `id: ${JSON.stringify(field.id)}, key: ${JSON.stringify(field.key)}, `}${cardinality}${field.metadata ? `, metadata: true, ${wireCardinality}` : ''}${read}${check ? `, check: ${check}` : ''}${field.model ? `, type: () => ${this.runtime(field.model)}` : ''} }`;
     };
     const fields = own.map((field) => {
       const type = metadataType(
@@ -363,7 +384,8 @@ export class ValueApiEmitter {
       types: native ? '' : types,
       members: native ? '' : members,
       definition,
-      fieldDefinitions
+      fieldDefinitions,
+      fieldArguments
     };
     this.emissions.set(node, result);
     return result;

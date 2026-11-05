@@ -375,7 +375,7 @@ it('builds pure types without a native provider but gates affected function targ
     {
       targets: {
         types: { generator: 'json-schema', output: 'generated/types' },
-        app: { generator: 'typescript', output: 'generated/app' }
+        app: { generator: 'typescript', output: 'generated/app', options: { decorators: false } }
       },
       overrides: [{ kind: 'implementation', source: symbol, provider: 'fixture.numeric' }]
     },
@@ -406,6 +406,10 @@ func Caller:
       "'@js-temporal/polyfill'",
       JSON.stringify(temporal)
     );
+    if (path.endsWith('/example.ts')) {
+      expect(text).toContain('RuneObject.decorate(Trade,');
+      expect(text).not.toContain('@RuneObject.');
+    }
     await writeFile(join(root, path.replace(/\.ts$/, '.js')), stripTypeScriptTypes(text, { mode: 'strip' }));
   }
   const entry = ready.outputs.find((path) => path.endsWith('/example.ts'))!;

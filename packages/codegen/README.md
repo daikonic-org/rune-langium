@@ -168,6 +168,16 @@ There is no runtime `Quote.Type` property. `Quote.Shape`, `Quote.Input`
 and traversal types remain in the type-only merged namespace. Natural class
 inheritance preserves `instanceof` and factory cardinality inference.
 
+Field decorators take positional arguments: `@RuneObject.field(Cardinality.One, check)`.
+The common count bounds are `One` (`1..1`), `Optional` (`0..1`), `ZeroOrMore`
+(`0..*`) and `OneOrMore` (`1..*`). Other ranges use
+`Cardinality.range(2, 5)` or `Cardinality.atLeast(2)`. These immutable values retain
+literal bounds in their types and normalize once to the existing runtime count
+checks; they do not constrain numeric field values. Optional arguments after the
+check are a lazy linked-type getter, metadata-envelope cardinality and a native
+field reader, in that order. Trailing unused arguments are omitted. `Cardinality` is exported by
+generated modules and their helper companion in every layout.
+
 Standard decorators are enabled by default (`typescript.decorators: true`).
 Consumers must lower decorators when their JavaScript engine cannot execute them.
 Set `typescript.decorators: false` for equivalent `RuneObject.decorate(...)`

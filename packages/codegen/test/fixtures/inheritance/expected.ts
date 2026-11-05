@@ -3,7 +3,7 @@
 // Source namespace: test.inheritance
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, Cardinality, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
 declare module '../helpers.js' {
   namespace is {
@@ -13,14 +13,14 @@ declare module '../helpers.js' {
     function Sibling<I>(value: I): value is I & (I extends RuneObject ? Sibling : Sibling.Shape);
   }
 }
-export { RuneObject, RuneList, is };
+export { Cardinality, RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
 @RuneObject.model({
   identity: "test.inheritance.Animal",
 })
 export class Animal extends RuneObject implements Animal.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof RuneObject, Animal.Type>;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'string'))
   name: string;
 
   constructor(data: Animal.Shape) {
@@ -55,7 +55,7 @@ is.Animal = RuneObject.guard(Animal);
 })
 export class Dog extends Animal implements Dog.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof Animal, Dog.Type>;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'string'))
   breed: string;
 
   constructor(data: Dog.Shape) {
@@ -91,7 +91,7 @@ is.Dog = RuneObject.guard(Dog);
 })
 export class Sibling extends Animal implements Sibling.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof Animal, Sibling.Type>;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'number') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'number'))
   age: number;
 
   constructor(data: Sibling.Shape) {
@@ -127,7 +127,7 @@ is.Sibling = RuneObject.guard(Sibling);
 })
 export class Poodle extends Dog implements Poodle.Shape {
   static readonly [key: symbol]: RuneModelTag<typeof Dog, Poodle.Type>;
-  @RuneObject.field({ min: 1, max: 1, check: (value: unknown) => !(typeof value !== 'string') })
+  @RuneObject.field(Cardinality.One, (value: unknown) => !(typeof value !== 'string'))
   size: string;
 
   constructor(data: Poodle.Shape) {

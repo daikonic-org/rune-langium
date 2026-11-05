@@ -8,6 +8,7 @@ import { runeCodecRuntimeSource } from './rune-codec-runtime.js';
 
 export const RUNE_VALUE_TYPE_NAMES = ['One', 'Optional', 'Many', 'OneOrMore', 'ZeroOrMore'] as const;
 export const RUNE_VALUE_IMPORTS = [
+  'Cardinality',
   'RuneObject',
   'RuneList',
   'is',
@@ -37,6 +38,7 @@ export const RUNE_VALUE_IMPORTS = [
   'type RuneFromMax'
 ] as const;
 export const RUNE_VALUE_NAMES = [
+  'runeCardinalityRange',
   'runeObjectType',
   'Symbol',
   'RuneFieldDefinition',

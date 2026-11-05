@@ -189,6 +189,7 @@ test('Code preview follows model and Choice types alongside their public factori
   expect(generated).toContain('extends RuneObject');
   expect(generated).toContain('@RuneObject.model(');
   expect(generated).toContain('@RuneObject.field(');
+  expect(generated).toContain('@RuneObject.field(Cardinality.One,');
   expect(generated).not.toContain('this.define(');
   expect(generated).toContain('export interface Shape');
   expect(generated).not.toMatch(/\$Party\$|PartyShape|export function isParty/);

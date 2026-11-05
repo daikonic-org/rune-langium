@@ -460,7 +460,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const helperPath = `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`;
     const exports = this.singleFile
       ? ''
-      : `export { RuneObject, RuneList, is };\nexport type { ${typescriptCardinalityExports(this.registry).join(', ')} }${this.suppressBoilerplate ? ` from '${helperPath}'` : ''};`;
+      : `export { Cardinality, RuneObject, RuneList, is };\nexport type { ${typescriptCardinalityExports(this.registry).join(', ')} }${this.suppressBoilerplate ? ` from '${helperPath}'` : ''};`;
     if (!models.length) return exports;
     const declarations = models.map((node) => {
       const name = this.typeName(node);
@@ -1149,8 +1149,8 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     for (const attr of data.attributes) {
       const baseType = this.resolveTypeExprAsTs(attr, true, true);
       const fieldDecl = TsNamespaceEmitter.applyCardinalityTs(attr.card, baseType, attr.name);
-      const definition = api.fieldDefinitions.get(attr);
-      if (decorators && definition) lines.push(`  @RuneObject.field(${definition})`);
+      const args = api.fieldArguments.get(attr);
+      if (decorators && args) lines.push(`  @RuneObject.field(${args})`);
       lines.push(`  ${fieldDecl};`);
     }
 

@@ -136,7 +136,8 @@ ${e}class RuneObject {
   declare readonly $runeObject: true;
   constructor() { return runeObjectProxy(this, () => { const model = runeObjectInstanceModel(this); if (!model) throw new TypeError('Rune object definition is unavailable'); return model; }); }
   static readonly [key: symbol]: () => RuneValueType;
-  static field(definition: RuneFieldDefinition) {
+  static field(cardinality: Cardinality, check?: RuneFieldDefinition['check'], type?: RuneFieldDefinition['type'], wireCardinality?: Cardinality, read?: RuneFieldDefinition['read']) {
+    const definition: RuneFieldDefinition = { cardinality, check, type, read, ...(wireCardinality ? { metadata: true, wireCardinality } : {}) };
     return (_value: undefined, context: ClassFieldDecoratorContext): void => {
       if (context.static || context.private || typeof context.name !== 'string' || !context.metadata) throw new TypeError('Rune fields must be public instance properties');
       let fields = runeDecoratedFields.get(context.metadata);

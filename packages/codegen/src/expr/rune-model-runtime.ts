@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { cardinalityRuntimeSource } from './cardinality-definition.js';
+
 /** Standard decorators collect local fields; shared lazy definitions own traversal metadata. */
 export function runeModelRuntimeSource(exported: boolean): string {
   const e = exported ? 'export ' : '';
   return `
 if (!Symbol.metadata) Object.defineProperty(Symbol, 'metadata', { value: Symbol.for('Symbol.metadata') });
-${e}type RuneFieldDefinition = Omit<RuneValueSelection<unknown, number, number | null, unknown>, 'id' | 'key' | 'paths'>;
+${cardinalityRuntimeSource(exported)}
+${e}type RuneFieldDefinition = Omit<RuneValueSelection<unknown, number, number | null, unknown>, 'id' | 'key' | 'paths' | 'min' | 'max' | 'wireMin' | 'wireMax'> & {
+  readonly cardinality: Cardinality;
+  readonly wireCardinality?: Cardinality;
+};
 ${e}type RuneModelDefinition<Model extends RuneValueType = RuneValueType> = Pick<RuneValueType, 'identity' | 'kind' | 'native' | 'metadata' | 'codec' | 'create' | 'prototype' | 'parent' | 'choice'> & {
   readonly fields?: Model['fields'];
   readonly base?: () => RuneValueType;
@@ -52,7 +58,7 @@ function runeDefineModel(options: RuneModelDefinition, decorated: ReadonlyMap<st
     get fields(): RuneValueType['fields'] {
       if (!fields) {
         const inherited = (options.base ?? options.parent)?.().fields;
-        const own = Object.fromEntries([...decorated].map(([key, field]) => [key, { ...field, id: options.identity + '#' + key, key }]));
+        const own = Object.fromEntries([...decorated].map(([key, { cardinality, wireCardinality, ...field }]) => [key, { ...field, id: options.identity + '#' + key, key, min: cardinality[0], max: cardinality[1], ...(wireCardinality ? { wireMin: wireCardinality[0], wireMax: wireCardinality[1] } : {}) }]));
         const merged: RuneValueType['fields'] = { ...inherited, ...options.fields, ...own };
         fields = Object.fromEntries(Object.entries(merged).map(([key, field]) => [key, { ...field, paths: field.paths ?? [[{ key: field.key, min: field.min, max: field.max, metadata: field.metadata, wireMin: field.wireMin, wireMax: field.wireMax, read: field.read }]] }]));
       }

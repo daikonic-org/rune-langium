@@ -152,6 +152,11 @@ The public constructor is the `Trade` class itself, with a merged `Trade.Shape`
 type for function inputs and outputs. Shared helpers are separate by default.
 Generated model classes use `@RuneObject.model` and `@RuneObject.field` to declare
 runtime facts once; the shared base derives inherited and deep metadata lazily.
+Field decorators use positional `field(Cardinality.One, check)` arguments, with
+`Optional`, `ZeroOrMore`, `OneOrMore`, `range(lower, upper)` and `atLeast(lower)`
+for other count bounds. Linked-type getters and envelope cardinality follow the check.
+The shared runtime converts these immutable declarations to its existing count
+checks; numeric value constraints remain independent.
 The type-only namespace retains static traversal/cardinality information.
 `typescript.decorators: false` produces equivalent registration calls for hosts
 that erase types without lowering decorators, including Studio execution. Code

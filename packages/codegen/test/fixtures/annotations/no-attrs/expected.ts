@@ -3,9 +3,9 @@
 // Source namespace: test.annotations
 
 import { Temporal } from '@js-temporal/polyfill';
-import { rune, type RuneFuncData, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
+import { rune, type RuneFuncData, Cardinality, RuneObject, RuneList, is, runeModel, type RuneModel, type RuneModelTag, type RuneGuarded, runeValue, runeProjected, runeProjectedJSON, runeValueJSON, runeValueFromJSON, runeRegisterValueType, type RuneJsonOptions, type RuneValueSelection, type RuneValueType, type RuneEmptyType, type RunePayload, type RuneInputPayload, type RuneInput, type RuneProjected, type RuneShapePayload, type RuneInputMin, type RuneInputMax, type RuneFactoryInput, type RuneFromMin, type RuneFromMax } from '../helpers.js';
 
-export { RuneObject, RuneList, is };
+export { Cardinality, RuneObject, RuneList, is };
 export type { One, Optional, Many, OneOrMore, ZeroOrMore } from '../helpers.js';
 
 export function deprecated(): ClassDecorator & PropertyDecorator {

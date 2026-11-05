@@ -113,7 +113,7 @@ function makeSingleFileContent(perNs: ReadonlyArray<GeneratorOutput>, registry: 
     `// Single-file bundle for namespaces: ${namespaces}`,
     ``,
     "import { Temporal } from '@js-temporal/polyfill';",
-    `export { RuneObject, RuneList, is } from './${typescriptHelperModuleName(registry)}.js';`,
+    `export { Cardinality, RuneObject, RuneList, is } from './${typescriptHelperModuleName(registry)}.js';`,
     `export type { ${typescriptCardinalityExports(registry).join(', ')} } from './${typescriptHelperModuleName(registry)}.js';`,
     buildRuntimeHelperImportLine(`./${typescriptHelperModuleName(registry)}.js`, [
       ...RUNE_VALUE_IMPORTS,
