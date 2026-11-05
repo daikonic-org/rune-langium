@@ -37,7 +37,22 @@ func SelectPattern:
 func SelectSame:
  inputs: kind int (1..1) expected pattern (1..1)
  output: result boolean (1..1)
- set result: Same(SelectPattern(kind), expected)`
+ set result: Same(SelectPattern(kind), expected)
+func ExtractPatterns:
+ inputs: values int (0..*)
+ output: result pattern (0..*)
+ set result: values extract ["^extract$"]
+func ExtractSame:
+ inputs: values int (1..*) expected pattern (1..1)
+ output: result boolean (1..1)
+ set result: Same(ExtractPatterns(values) first, expected)
+func ThenPattern:
+ output: result pattern (1..1)
+ set result: 1 then "^then$"
+func ThenSame:
+ inputs: expected pattern (1..1)
+ output: result boolean (1..1)
+ set result: Same(ThenPattern(), expected)`
       }
     ]
   });
@@ -53,7 +68,13 @@ func SelectSame:
     { funcName: 'patterns.SelectPattern', inputs: { kind: 2 }, output: '^b$' },
     { funcName: 'patterns.SelectSame', inputs: { kind: 1, expected: '^a$' }, output: true },
     { funcName: 'patterns.SelectSame', inputs: { kind: 2, expected: '^b$' }, output: true },
-    { funcName: 'patterns.SelectSame', inputs: { kind: 1, expected: '^b$' }, output: false }
+    { funcName: 'patterns.SelectSame', inputs: { kind: 1, expected: '^b$' }, output: false },
+    { funcName: 'patterns.ExtractPatterns', inputs: { values: [1, 2] }, output: ['^extract$', '^extract$'] },
+    { funcName: 'patterns.ExtractSame', inputs: { values: [1], expected: '^extract$' }, output: true },
+    { funcName: 'patterns.ExtractSame', inputs: { values: [1], expected: '^other$' }, output: false },
+    { funcName: 'patterns.ThenPattern', inputs: {}, output: '^then$' },
+    { funcName: 'patterns.ThenSame', inputs: { expected: '^then$' }, output: true },
+    { funcName: 'patterns.ThenSame', inputs: { expected: '^other$' }, output: false }
   ];
   for (const [index, value] of cases.entries()) {
     const requestId = `pattern-${index}`;

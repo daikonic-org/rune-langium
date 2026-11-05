@@ -7,14 +7,18 @@ import {
   isChoiceOption,
   isConstructorKeyValuePair,
   isDefaultOperation,
+  isInlineFunction,
   isListLiteral,
+  isMapOperation,
   isOperation,
   isRosettaConditionalExpression,
   isRosettaFunction,
   isRosettaStringLiteral,
   isRosettaSymbolReference,
   isRosettaBasicType,
+  isReduceOperation,
   isSwitchCaseOrDefault,
+  isThenOperation,
   type RosettaExpression
 } from '@rune-langium/core';
 import type { AstNode } from 'langium';
@@ -32,6 +36,14 @@ export function patternLiteral(expression: RosettaExpression): string | undefine
   let current: AstNode = expression;
   while (current.$container) {
     const parent = current.$container;
+    if (
+      isInlineFunction(parent) &&
+      parent.body === current &&
+      (isMapOperation(parent.$container) || isThenOperation(parent.$container) || isReduceOperation(parent.$container))
+    ) {
+      current = parent.$container;
+      continue;
+    }
     if (isSwitchCaseOrDefault(parent) && parent.expression === current) {
       current = parent.$container;
       continue;

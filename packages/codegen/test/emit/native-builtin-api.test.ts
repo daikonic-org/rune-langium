@@ -73,6 +73,29 @@ func SwitchArgument:
  inputs: kind int (1..1)
  output: result pattern (1..1)
  set result: PatternEcho(kind switch 1 then "^argument$", default "^other$")
+func ExtractPatterns:
+ inputs: values int (0..*)
+ output: result pattern (0..*)
+ set result: values extract ["^extract$"]
+func ThenPattern:
+ output: result pattern (1..1)
+ set result: "source" then "^then$"
+func NestedCallback:
+ inputs: values int (0..*)
+ output: result pattern (0..*)
+ set result: values extract [item then "^nested$"]
+func ReducePatterns:
+ inputs: values pattern (1..*)
+ output: result pattern (1..1)
+ set result: values reduce left, right ["^reduce$"]
+func FilterPatterns:
+ inputs: values pattern (0..*)
+ output: result pattern (0..*)
+ set result: values filter ["predicate" = "predicate"]
+func SortPatterns:
+ inputs: values pattern (0..*)
+ output: result pattern (0..*)
+ set result: values sort ["key"]
 `;
 
 interface Value {
@@ -99,6 +122,12 @@ type Api = {
   StringResult(kind: number): string;
   SwitchField(kind: number, at: unknown): Value;
   SwitchArgument(kind: number): RegExp;
+  ExtractPatterns(values: number[]): RegExp[];
+  ThenPattern(): RegExp;
+  NestedCallback(values: number[]): RegExp[];
+  ReducePatterns(values: RegExp[]): RegExp;
+  FilterPatterns(values: RegExp[]): RegExp[];
+  SortPatterns(values: RegExp[]): RegExp[];
 };
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
@@ -153,13 +182,19 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
       [api.NestedPattern(2), '^outer$'],
       [api.StringSelector(), '^selected$'],
       [api.SwitchField(1, value.at).expression, '^field$'],
-      [api.SwitchArgument(1), '^argument$']
+      [api.SwitchArgument(1), '^argument$'],
+      [api.ThenPattern(), '^then$'],
+      [api.ReducePatterns([/a/, /b/]), '^reduce$']
     ] as const) {
       expect(result).toBeInstanceOf(RegExp);
       expect(result.source).toBe(expected);
     }
     expect(api.StringResult(1)).toBe('^text$');
     expect(api.StringResult(2)).toBe('^other$');
+    expect(api.ExtractPatterns([1, 2]).map((value) => value.source)).toEqual(['^extract$', '^extract$']);
+    expect(api.NestedCallback([1, 2]).map((value) => value.source)).toEqual(['^nested$', '^nested$']);
+    expect(api.FilterPatterns([/b/, /a/]).map((value) => value.source)).toEqual(['b', 'a']);
+    expect(api.SortPatterns([/b/, /a/]).map((value) => value.source)).toEqual(['b', 'a']);
     expect(JSON.parse(JSON.stringify(view.toJSON()))).toEqual(json);
     const wire = view.toJSON({ format: 'RUNE_JSON' });
     expect(wire).toEqual({ '@type': 'nativeBuiltins.Settings', ...json });
@@ -185,6 +220,10 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
       'StringSelector',
       'SwitchField',
       'SwitchArgument',
+      'ExtractPatterns',
+      'ThenPattern',
+      'NestedCallback',
+      'ReducePatterns',
       'StringResult'
     ]) {
       const fn = root.elements.find((node) => isRosettaFunction(node) && node.name === name);
@@ -198,6 +237,17 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
         expect(projected.origin.code).toContain('"alpha"');
         expect(projected.origin.code).not.toContain('/alpha/');
       }
+    }
+    for (const [name, text] of [
+      ['FilterPatterns', 'predicate'],
+      ['SortPatterns', 'key'],
+      ['ThenPattern', 'source']
+    ] as const) {
+      const fn = root.elements.find((node) => isRosettaFunction(node) && node.name === name);
+      if (!isRosettaFunction(fn)) throw Error(`Missing ${name}`);
+      const projected = renderSourceTypeScriptExpression(fn.operations[0]!.expression, { owner: fn });
+      expect(projected.origin.code).toContain(JSON.stringify(text));
+      expect(projected.origin.code).not.toContain(`/${text}/`);
     }
   }
 );

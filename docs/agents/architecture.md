@@ -1345,6 +1345,8 @@ encoding, generated helpers and Studio worker output; flags fail explicitly.
 Switch result arms inherit their enclosing destination, including nested switches,
 constructor fields and function arguments. Selector and guard literals retain their
 own string types rather than inheriting the switch result's pattern destination.
+Value-producing `extract`, `then` and `reduce` bodies inherit that destination too;
+predicate bodies, sort keys and callback input expressions do not.
 
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from`, object fields and deep
