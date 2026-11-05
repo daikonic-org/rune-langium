@@ -99,7 +99,7 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
         const raw: unknown = Reflect.get(storage, key, receiver);
         const cached = slots.get(key);
         if (cached && cached.raw === raw) return cached.read();
-        const normalized = runeValueNormalizeField(raw, field);
+        const normalized = runeValueNormalizeField(raw, field, undefined, 'read');
         Reflect.set(storage, key, normalized, storage);
         if (field.metadata) { slots.set(key, { raw: normalized, read: () => normalized }); return normalized; }
         const slot = new RuneValue(runeList(normalized), runeValueType(field), field.min, field.max, field.check, items => {
@@ -125,7 +125,7 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
     set: (storage, key, value, receiver) => {
       const fields = definition().fields;
       const field = typeof key === 'string' && Object.hasOwn(fields, key) ? fields[key] : undefined;
-      const normalized = field ? runeValueNormalizeField(value, field, undefined, false, construction ? runeObjectConstruction.get(construction) : undefined) : value;
+      const normalized = field ? runeValueNormalizeField(value, field, undefined, 'validate', construction ? runeObjectConstruction.get(construction) : undefined) : value;
       const written = Reflect.set(storage, key, normalized, receiver);
       if (written) slots.delete(key);
       return written;

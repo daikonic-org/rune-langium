@@ -29,9 +29,13 @@ func Many:
  set result: value
 `;
 
-it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
-  'projects private RuneValue storage to cardinality-shaped public values (%s)',
-  async (layout) => {
+it.each(
+  (['runtime', 'zod'] as const).flatMap((serialization) =>
+    (['per-namespace', 'barrel', 'single-file', 'inline'] as const).map((layout) => ({ serialization, layout }))
+  )
+)(
+  'projects private RuneValue storage to cardinality-shaped public values ($serialization, $layout)',
+  async ({ serialization, layout }) => {
     const { RuneDsl } = createRuneDslServices();
     const docs = [BASICTYPES_ROSETTA, source].map((text, index) =>
       RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
@@ -43,7 +47,7 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     assertValidDocuments(docs);
     const outputs = await generate(docs, {
       target: 'typescript',
-      typescript: layout === 'inline' ? { inlineHelpers: true } : { layout }
+      typescript: { serialization, ...(layout === 'inline' ? { inlineHelpers: true } : { layout }) }
     });
     const model = outputs.find((output) => output.content.includes('export class Quote '))!;
     type Shape = { amount: number; currency: string };
@@ -68,6 +72,7 @@ const amount: number = Quote.from({ amount: 100, currency: 'USD' }).amount;
 const quotes: [Quote, Quote] = Quote.from([{ amount: 1, currency: 'USD' }, { amount: 2, currency: 'EUR' }]);
 const total: number = quotes.reduce((sum, item) => sum + item.amount, 0);
 const labels: string = quotes.reduce((text, item) => text + item.currency, '');
+const sorted: Quote[] = quotes.sort((left, right) => left.amount - right.amount);
 const helperTotal: number = RuneList.from(1, 2).reduce((sum, item) => sum + item, 0);
 const absent: undefined = Quote.from([]);
 const oneFromArray: Quote = Quote.from([{ amount: 1, currency: 'USD' }]);
@@ -138,6 +143,19 @@ Quote.from({ amount: 1 });
       3
     );
     const empty = list.filter(() => false);
+    expect(JSON.parse(JSON.stringify({ quotes: empty }))).toEqual({ quotes: [] });
+    const single = list.filter((item) => item.amount === 1);
+    expect(JSON.parse(JSON.stringify({ quotes: single }))).toEqual({ quotes: [{ amount: 1, currency: 'USD' }] });
+    expect(JSON.parse(JSON.stringify(list.map((item) => item)))).toEqual([
+      { amount: 1, currency: 'USD' },
+      { amount: 2, currency: 'EUR' }
+    ]);
+    const singleJson = Reflect.get(single, 'toJSON');
+    expect(Reflect.apply(singleJson, single, [{ format: 'RUNE_JSON' }])).toEqual([
+      { '@type': 'projection.Quote', amount: 1, currency: 'USD' }
+    ]);
+    const emptyJson = Reflect.get(empty, 'toJSON');
+    expect(Reflect.apply(emptyJson, empty, [{ format: 'RUNE_JSON' }])).toEqual([]);
     expect(empty.reduce((sum, item) => sum + item.amount, 7)).toBe(7);
     expect(() => empty.reduce((previous) => previous)).toThrow(TypeError);
     expect(api.RuneList.from(1, 2).reduce((sum, item) => sum + item, 10)).toBe(13);
@@ -148,6 +166,30 @@ Quote.from({ amount: 1 });
     expect(() => Reflect.set(list, 0, { amount: 'bad', currency: 'USD' })).toThrow();
     expect(list[0]).toMatchObject({ amount: 1 });
     expect(Reflect.get(list, 'unwrap')).toBeUndefined();
+    expect(() =>
+      list.sort((left) => {
+        Reflect.set(left, 'amount', 'bad');
+        return 0;
+      })
+    ).toThrow();
+    const nativeOrder = list.map((item) => (item.amount === 2 ? 2 : 10));
+    expect(nativeOrder.sort()).toBe(nativeOrder);
+    expect(nativeOrder).toEqual([10, 2]);
+    expect(list.sort((left, right) => right.amount - left.amount)).toBe(list);
+    expect(list.map((item) => item.amount)).toEqual([2, 1]);
+    expect(list.sort((left, right = left) => left.amount - right.amount)).toBe(list);
+    expect(list.map((item) => item.amount)).toEqual([1, 2]);
+    expect(list.sort((...items) => items[1]!.amount - items[0]!.amount)).toBe(list);
+    expect(list.map((item) => item.amount)).toEqual([2, 1]);
+    const amounts = list.map((item) => item.amount);
+    expect(amounts.sort()).toBe(amounts);
+    expect(amounts).toEqual([1, 2]);
+    expect(() =>
+      list.sort(() => {
+        throw new Error('Comparator failed');
+      })
+    ).toThrow('Comparator failed');
+    expect(list.map((item) => item.amount)).toEqual([2, 1]);
     const direct = new api.Quote({ amount: 1, currency: 'USD' });
     direct.amount = 2;
     expect(direct.amount).toBe(2);

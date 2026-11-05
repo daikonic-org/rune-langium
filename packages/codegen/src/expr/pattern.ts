@@ -19,6 +19,7 @@ import {
   isReduceOperation,
   isSwitchCaseOrDefault,
   isThenOperation,
+  isWithMetaOperation,
   type RosettaExpression
 } from '@rune-langium/core';
 import type { AstNode } from 'langium';
@@ -36,6 +37,10 @@ export function patternLiteral(expression: RosettaExpression): string | undefine
   let current: AstNode = expression;
   while (current.$container) {
     const parent = current.$container;
+    if (isWithMetaOperation(parent) && parent.argument === current) {
+      current = parent;
+      continue;
+    }
     if (
       isInlineFunction(parent) &&
       parent.body === current &&

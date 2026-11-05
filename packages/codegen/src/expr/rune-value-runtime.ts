@@ -229,14 +229,14 @@ const runeValueBounds = (count: number, min: number, max: number | null, label: 
 const runeValueProduct = (a: number | null, b: number | null): number | null => a === 0 || b === 0 ? 0 : a === null || b === null ? null : a * b;
 const runeValueProtocol = Symbol.for('rune-langium.value.items');
 const runeValueInput = (value: unknown): unknown => value != null && typeof value === 'object' && typeof Reflect.get(value, runeValueProtocol) === 'function' ? Reflect.apply(Reflect.get(value, runeValueProtocol), value, []) : value;
-const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unknown, number, number | null, unknown>, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), materialize = true, checked: RuneShapeChecks = new WeakMap()): unknown => {
+const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unknown, number, number | null, unknown>, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), mode: 'materialize' | 'validate' | 'read' = 'materialize', checked: RuneShapeChecks = new WeakMap()): unknown => {
   const child = (value: unknown): unknown => {
     const model = runeValueType(field)!();
-    if (!materialize && !model.native) {
+    if (mode === 'validate' && !model.native) {
       if (!runeObjectShape(value, model, checked)) throw new TypeError('Invalid Rune value for ' + field.key);
       return value;
     }
-    return runeValueMaterialize(value, model, seen, checked);
+    return runeValueMaterialize(value, model, seen, checked, mode === 'read');
   };
     const raw = runeValueInput(input);
     const values = runeList(raw).filter(item => item != null);
@@ -257,11 +257,11 @@ const runeValueNormalizeField = (input: unknown, field: RuneValueSelection<unkno
     });
     return max !== null && max <= 1 ? normalized[0] : raw == null ? undefined : normalized;
 };
-const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), checked: RuneShapeChecks = new WeakMap()): unknown => {
+const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new WeakMap<object, Map<RuneValueType, unknown>>(), checked: RuneShapeChecks = new WeakMap(), read = false): unknown => {
   value = runeObjectRaw(value);
   model = runeValueConcreteType(value, model);
   if (value != null && typeof value === 'object' && runeObjectInstanceModel(value) === model && runeObjectProxies.has(value)) {
-    if (!runeObjectShape(value, model, checked)) throw new TypeError(model.choice ? 'Rune Choice requires exactly one selected option with a valid value' : 'Invalid Rune value for ' + model.identity);
+    if (!read && !runeObjectShape(value, model, checked)) throw new TypeError(model.choice ? 'Rune Choice requires exactly one selected option with a valid value' : 'Invalid Rune value for ' + model.identity);
     return runeObjectProxies.get(value);
   }
   if (model.native) return model.create ? model.create(value) : value;
@@ -272,7 +272,7 @@ const runeValueMaterialize = (value: unknown, model: RuneValueType, seen = new W
   const result: Record<string, unknown> = Object.create(null);
   models.set(model, result);
   for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: item, enumerable: true, writable: true, configurable: true });
-  for (const field of Object.values(model.fields)) result[field.key] = runeValueNormalizeField(result[field.key], field, seen, true, checked);
+  for (const field of Object.values(model.fields)) result[field.key] = runeValueNormalizeField(result[field.key], field, seen, read ? 'read' : 'materialize', checked);
   if (model.choice && !runeObjectShape(result, model, checked)) throw new TypeError('Rune Choice requires exactly one selected option with a valid value');
   checked.set(result, new Set([model]));
   const output = model.create ? model.create(result, checked) : result;
@@ -342,7 +342,7 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   exists() { return this.count() > 0; }
   unwrap(): RunePayload<T, Min, Max> { const values = this.$list.toArray(); return (values.length === 0 ? undefined : values.length === 1 ? values[0] : values) as RunePayload<T, Min, Max>; }
   toArray(): 0 extends Min ? T[] : [T, ...T[]] { return this.$list.toArray() as 0 extends Min ? T[] : [T, ...T[]]; }
-  toJSON(options?: RuneJsonOptions | string): unknown { return this.$type ? runeValueJSON(this.unwrap(), this.$type, options) : runeToFuncData(this.unwrap()); }
+  toJSON(options?: RuneJsonOptions | string, array = false): unknown { const value = array ? this.toArray() : this.unwrap(); return this.$type ? runeValueJSON(value, this.$type, options) : runeToFuncData(value); }
   first(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.first(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   last(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.last(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   onlyElement(): RuneView<T, 0, 1, Model> { const value = this.$list.onlyElement(); return new RuneValue(value == null ? [] : [value], this.$type, 0, 1) as RuneView<T, 0, 1, Model>; }
@@ -435,7 +435,7 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (key === 'items') return array;
     if (key === 'constructor') return RuneList;
     if (key === 'reduce') return (...args: unknown[]) => Reflect.apply(Array.prototype.reduce, receiver, args);
-    if (['push', 'pop', 'shift', 'unshift', 'splice', 'fill', 'copyWithin'].includes(String(key))) return (...args: unknown[]) => {
+    if (['push', 'pop', 'shift', 'unshift', 'splice', 'fill', 'copyWithin', 'sort'].includes(String(key))) return (...args: unknown[]) => {
       const draft = input.toArray();
       const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), draft, args);
       input.$replace(draft);
@@ -446,7 +446,7 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (key === 'unwrap') return undefined;
     if (key === 'project') return () => runeProjectValue(input);
     if (key === 'toArray') return () => input.toArray();
-    if (key === 'toJSON') return (options?: RuneJsonOptions | string) => input.toJSON(options);
+    if (key === 'toJSON') return (options?: RuneJsonOptions | string) => input.toJSON(options, true);
     const method: unknown = Reflect.get(input, key, input);
     if (typeof method === 'function' && key !== 'constructor') return (...args: unknown[]) => {
       const callback = args[0];

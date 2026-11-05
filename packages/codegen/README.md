@@ -345,13 +345,21 @@ linked fields and deep selections such as `trade._.asset`. `One<T>`, `Optional<T
 `OneOrMore<T>` and `ZeroOrMore<T>` expose those shapes; bounded outputs retain tuple
 bounds. Public values pass directly to ordinary functions without unwrapping.
 Projected arrays preserve native `Array.reduce` overloads and callback arguments.
+Their `sort(compare)` uses the native comparator contract, sorts in place and
+returns the same array, including with default or rest callback parameters.
+Rune key-selector sorting remains in the explicit RuneList helper and source
+projection. Array transformations serialize as arrays even with zero or one item,
+retaining the selected JSON format.
 Shared `RuneList` helper reductions also support a typed initial accumulator;
 an unseeded helper reduction of an empty collection retains Rune's empty result.
 
 `RuneObject` proxies cache private `RuneValue` field slots. Setters and list edits
 reuse the factory normalizer, and serialization reads canonical storage rather
-than projected getters. Plain `Trade.Shape` collection fields accept a scalar or
-array; factory inputs and projected outputs retain stricter linked bounds.
+than projected getters. Reading an already-materialized child reuses its proxy
+without validating the descendant subtree again. Raw structural children still
+materialize on first read; assignments and explicit factories validate afresh.
+Plain `Trade.Shape` collection fields accept a scalar or array; factory inputs and
+projected outputs retain stricter linked bounds.
 `new Trade(shape)` still constructs one model instance. Authored business-condition
 validation remains explicit. See [source projections and the public value API](../../docs/source-projection.md#generated-public-value-api)
 for bounds, collision escapes and serialization behavior.

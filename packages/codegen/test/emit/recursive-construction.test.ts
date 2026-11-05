@@ -102,6 +102,14 @@ type Leaf extends Node:
           checks = 0;
           const decoded = factory.fromJSON(input);
           expect(checks).toBeLessThanOrEqual(8 * depth);
+          for (const root of [created, decoded, new factory(input)]) {
+            checks = 0;
+            let visited = 0;
+            for (let node: Tree | undefined = root; node; node = node.next) visited++;
+            expect(visited).toBe(depth);
+            expect(checks).toBeLessThanOrEqual(4 * depth);
+            if (root === created || root === decoded) expect(checks).toBe(0);
+          }
           expect(created.toJSON()).toEqual(input);
           expect(decoded.toJSON()).toEqual(input);
         }
@@ -116,11 +124,16 @@ type Leaf extends Node:
       const created = api.Node.from(chain(4));
       const child = created.next;
       permitted = false;
+      expect(() => api.Node.from(created)).toThrow();
       expect(() => {
         created.next = child;
       }).toThrow();
       permitted = true;
       expect(() => Reflect.set(created, 'value', 'bad')).toThrow();
+      const raw = { value: 2 };
+      const direct = new api.Node({ value: 1, next: raw });
+      Reflect.set(raw, 'value', 'bad');
+      expect(() => direct.next).toThrow();
       const input = { value: 1, next: { value: 2 } };
       checks = 0;
       failAt = 3;

@@ -17,6 +17,8 @@ import { renderExpression } from '../../src/emit/rosetta/render-expression.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 const source = `namespace nativeBuiltins
+annotation metadata:
+ scheme string (0..1)
 typeAlias Expression: pattern
 type Settings:
  at time (1..1)
@@ -96,6 +98,10 @@ func SortPatterns:
  inputs: values pattern (0..*)
  output: result pattern (0..*)
  set result: values sort ["key"]
+func MetadataPattern:
+ output: result pattern (1..1)
+  [metadata scheme]
+ set result: "^meta$" with-meta { scheme: "urn:pattern" }
 `;
 
 interface Value {
@@ -128,6 +134,7 @@ type Api = {
   ReducePatterns(values: RegExp[]): RegExp;
   FilterPatterns(values: RegExp[]): RegExp[];
   SortPatterns(values: RegExp[]): RegExp[];
+  MetadataPattern(): { value: RegExp; meta: { scheme: string } };
 };
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
@@ -170,6 +177,8 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
     expect(api.Settings.is(value)).toBe(true);
     expect(api.Settings.is({ ...value, expression: 'x' })).toBe(false);
     expect(api.Fixed().test('a/b123')).toBe(true);
+    expect(api.MetadataPattern().value).toBeInstanceOf(RegExp);
+    expect(api.MetadataPattern().meta.scheme).toBe('urn:pattern');
     expect(api.Text()).toBe('^a/b[0-9]+$');
     expect(api.Same(/x/, /x/)).toBe(true);
     expect(api.Same(/x/, /y/)).toBe(false);
@@ -224,7 +233,8 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
       'ThenPattern',
       'NestedCallback',
       'ReducePatterns',
-      'StringResult'
+      'StringResult',
+      'MetadataPattern'
     ]) {
       const fn = root.elements.find((node) => isRosettaFunction(node) && node.name === name);
       if (!isRosettaFunction(fn)) throw Error(`Missing ${name}`);
@@ -236,6 +246,13 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
       if (name === 'StringSelector') {
         expect(projected.origin.code).toContain('"alpha"');
         expect(projected.origin.code).not.toContain('/alpha/');
+      }
+      if (name === 'MetadataPattern') {
+        expect(projected.origin.code).toContain('"urn:pattern"');
+        expect(projected.origin.code).not.toContain('/urn:pattern/');
+        const edited = await parseSourceTs('withMeta(/^edited$/, { scheme: "urn:pattern" })');
+        expect(edited.ok).toBe(true);
+        if (edited.ok) expect(renderExpression(edited.node)).toBe('"^edited$" with-meta { scheme: "urn:pattern" }');
       }
     }
     for (const [name, text] of [

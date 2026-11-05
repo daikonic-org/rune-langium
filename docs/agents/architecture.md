@@ -1347,6 +1347,8 @@ constructor fields and function arguments. Selector and guard literals retain th
 own string types rather than inheriting the switch result's pattern destination.
 Value-producing `extract`, `then` and `reduce` bodies inherit that destination too;
 predicate bodies, sort keys and callback input expressions do not.
+Metadata-wrapped pattern payloads inherit their authored destination as well;
+metadata entry strings keep their own type.
 
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from`, object fields and deep
@@ -1354,9 +1356,13 @@ selections project zero values to undefined, one to the model/scalar, and multip
 to an array-backed RuneList. Public cardinality aliases and bounded tuples describe
 these shapes without RuneView or unwrap. RuneObject proxies cache private RuneValue
 field slots; setters and list mutations reuse the shared field normalizer and
-validate before committing. Canonical storage retains declared collection arrays
-and metadata envelopes for serialization and equality. Replacing a field detaches
-old list handles so they cannot overwrite the replacement. Explicit RuneList
+validate before committing. Actual projected array results keep array shape during
+JSON serialization, including zero/one items. Public array sort uses native
+comparators and mutates atomically through the normalizer; explicit RuneList/helper and source-projection
+key-selector sorting retains Rune semantics. No callback-arity guessing is used.
+Canonical storage retains declared collection arrays and metadata envelopes for
+serialization and equality. Replacing a field detaches old list handles so they
+cannot overwrite the replacement. Explicit RuneList
 transformations remain collection containers, with project() for count-shaped
 results. Plain Shape collection fields accept scalar/array inputs; factory Input
 and projected field types retain linked bounds. Executable collection reads and
@@ -1405,6 +1411,10 @@ shape checks. An input-keyed construction context is removed in `finally`, so
 future assignments never inherit trusted construction state. Decorators select
 the class's inherited creator, preserving base-runtime ownership across separately
 inlined namespaces. Constructor results still receive a shape check before return.
+Read normalization reuses already-materialized model proxies without recursively
+checking their descendants again. Raw structural children still hydrate and
+validate on first read. Setter, list mutation and explicit factory paths retain
+fresh validation state; no read cache becomes cross-mutation trust.
 The namespace registry carries cycle sets from the canonical walks; Zod folds
 foreign lazy parents' attributes and conditions using the same builders as local
 parents. Cycle lookup first checks membership in the actual emitted model, so
