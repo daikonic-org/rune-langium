@@ -15,9 +15,10 @@ Generated-module oracle tests reuse `generatedTypeScriptCompilerOptions` from
 codegen's `test/helpers/compiled-typescript.ts`; NodeNext checks retain their module
 resolution settings. This keeps strict diagnostics while avoiding default DOM
 libraries and unrelated ambient test types, including under root V8 coverage.
-Codegen's Vitest budget is 30 seconds per test because generated-module integration
-cases include strict TypeScript compilation and runtime checks; it is not a
-performance acceptance threshold.
+Root coverage and Codegen's package runner share the 30-second generated-module
+test budget from `test/helpers/vitest-budget.ts`. These integration cases include
+strict TypeScript compilation and runtime checks; the budget is not a performance
+acceptance threshold.
 Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility

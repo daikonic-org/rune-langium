@@ -63,9 +63,11 @@ export function MetadataScalar({
     if (result?.status !== 'committed')
       setError(name, { type: 'commit', message: 'This item changed before the edit could be saved.' });
   });
+  // The host may defer a valid edit while source reparses without disabling this
+  // control. A fresh canonical target must retry the retained pending value.
   useEffect(() => {
     if (!readOnly) save.flush();
-  }, [readOnly, save]);
+  }, [readOnly, save, binding?.node]);
   return (
     <EditorController
       control={control}

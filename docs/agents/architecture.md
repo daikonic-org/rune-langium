@@ -346,6 +346,11 @@ loaded successfully; failed restores retry the read before accepting edits.
 Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.
+Scalar metadata autosaves retain valid edits when the host defers them during a
+source reparse. A fresh canonical target retries that same guarded pending edit,
+including enum display names; changing workspace or member identity never bypasses
+the existing target checks. Synonym fieldsets can shrink within their Inspector
+pane so enlarged text wraps controls inside the shared gutter.
 
 Namespace alias expansion is shared with Core's scopes. One alias may name
 several imported namespaces in source order. Graph metadata retains imports per
