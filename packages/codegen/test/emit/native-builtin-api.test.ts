@@ -46,6 +46,33 @@ func Construct:
  inputs: at time (1..1)
  output: result Settings (1..1)
  set result: Settings { at: at, expression: "^x+$", alternatives: ["a", "b"] }
+func SwitchPattern:
+ inputs: kind int (1..1)
+ output: result pattern (1..1)
+ set result: kind switch 1 then "^a/b$", default "^b$"
+func NestedPattern:
+ inputs: kind int (1..1)
+ output: result pattern (1..1)
+ set result: kind switch 1 then (kind switch 1 then "^nested$", default "^inner$"), default "^outer$"
+func StringSelector:
+ output: result pattern (1..1)
+ set result: "alpha" switch "alpha" then "^selected$", default "^other$"
+func StringResult:
+ inputs: kind int (1..1)
+ output: result string (1..1)
+ set result: kind switch 1 then "^text$", default "^other$"
+func SwitchField:
+ inputs: kind int (1..1) at time (1..1)
+ output: result Settings (1..1)
+ set result: Settings { at: at, expression: (kind switch 1 then "^field$", default "^other$"), alternatives: [] }
+func PatternEcho:
+ inputs: value pattern (1..1)
+ output: result pattern (1..1)
+ set result: value
+func SwitchArgument:
+ inputs: kind int (1..1)
+ output: result pattern (1..1)
+ set result: PatternEcho(kind switch 1 then "^argument$", default "^other$")
 `;
 
 interface Value {
@@ -66,6 +93,12 @@ type Api = {
   Same(left: RegExp, right: RegExp): boolean;
   Unique(values: RegExp[]): RegExp[];
   Construct(at: unknown): Value;
+  SwitchPattern(kind: number): RegExp;
+  NestedPattern(kind: number): RegExp;
+  StringSelector(): RegExp;
+  StringResult(kind: number): string;
+  SwitchField(kind: number, at: unknown): Value;
+  SwitchArgument(kind: number): RegExp;
 };
 
 it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
@@ -113,6 +146,20 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
     expect(api.Same(/x/, /y/)).toBe(false);
     expect(api.Unique([/x/, /y/, /x/]).map((value) => value.source)).toEqual(['x', 'y']);
     expect(api.Construct(value.at).expression.source).toBe('^x+$');
+    for (const [result, expected] of [
+      [api.SwitchPattern(1), '^a\\/b$'],
+      [api.SwitchPattern(2), '^b$'],
+      [api.NestedPattern(1), '^nested$'],
+      [api.NestedPattern(2), '^outer$'],
+      [api.StringSelector(), '^selected$'],
+      [api.SwitchField(1, value.at).expression, '^field$'],
+      [api.SwitchArgument(1), '^argument$']
+    ] as const) {
+      expect(result).toBeInstanceOf(RegExp);
+      expect(result.source).toBe(expected);
+    }
+    expect(api.StringResult(1)).toBe('^text$');
+    expect(api.StringResult(2)).toBe('^other$');
     expect(JSON.parse(JSON.stringify(view.toJSON()))).toEqual(json);
     const wire = view.toJSON({ format: 'RUNE_JSON' });
     expect(wire).toEqual({ '@type': 'nativeBuiltins.Settings', ...json });
@@ -132,5 +179,25 @@ const invalid: Settings.Shape = { ...value, expression: 'x' };
     expect(edited.ok).toBe(true);
     if (edited.ok) expect(renderExpression(edited.node)).toBe('"^b+$"');
     expect((await parseSourceTs('/x/i')).ok).toBe(false);
+    for (const name of [
+      'SwitchPattern',
+      'NestedPattern',
+      'StringSelector',
+      'SwitchField',
+      'SwitchArgument',
+      'StringResult'
+    ]) {
+      const fn = root.elements.find((node) => isRosettaFunction(node) && node.name === name);
+      if (!isRosettaFunction(fn)) throw Error(`Missing ${name}`);
+      const projected = renderSourceTypeScriptExpression(fn.operations[0]!.expression, { owner: fn });
+      if (name === 'StringResult') {
+        expect(projected.origin.code).toContain('"^text$"');
+        expect(projected.origin.code).not.toContain('/^text$/');
+      } else expect(projected.origin.code).toMatch(/\/\^\w/);
+      if (name === 'StringSelector') {
+        expect(projected.origin.code).toContain('"alpha"');
+        expect(projected.origin.code).not.toContain('/alpha/');
+      }
+    }
   }
 );

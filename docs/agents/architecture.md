@@ -1342,6 +1342,9 @@ bundle collision handling. Fixed regex literals depend on linked pattern
 destinations, shared by executable and source-facing renderers; ordinary strings
 are never guessed to be patterns. Core's `serializeRunePattern` is shared by wire
 encoding, generated helpers and Studio worker output; flags fail explicitly.
+Switch result arms inherit their enclosing destination, including nested switches,
+constructor fields and function arguments. Selector and guard literals retain their
+own string types rather than inheriting the switch result's pattern destination.
 
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
 shared linked navigation/metadata facts. `Trade.from`, object fields and deep

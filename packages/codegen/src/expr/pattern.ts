@@ -14,6 +14,7 @@ import {
   isRosettaStringLiteral,
   isRosettaSymbolReference,
   isRosettaBasicType,
+  isSwitchCaseOrDefault,
   type RosettaExpression
 } from '@rune-langium/core';
 import type { AstNode } from 'langium';
@@ -31,6 +32,10 @@ export function patternLiteral(expression: RosettaExpression): string | undefine
   let current: AstNode = expression;
   while (current.$container) {
     const parent = current.$container;
+    if (isSwitchCaseOrDefault(parent) && parent.expression === current) {
+      current = parent.$container;
+      continue;
+    }
     if (isConstructorKeyValuePair(parent)) return patternField(parent.key.ref) ? expression.value : undefined;
     if (isOperation(parent)) {
       let field: unknown = parent.assignRoot.ref;
