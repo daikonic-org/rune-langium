@@ -14,13 +14,14 @@ import {
   parseWorkspace,
   createRuneDslServices,
   serializeRuneModel,
+  getModelSourceUri,
   type RosettaModel
 } from '@rune-langium/core';
 import type { ExportSelection } from '@rune-langium/codegen/export';
 import { requestCodegenDownload } from './codegen-download-client.js';
 import { sanitizeDownloadFilename } from './export.js';
 import { OperationTimeoutError, withAbortTimeout } from './with-abort-timeout.js';
-import { EmptyFileSystem } from 'langium';
+import { EmptyFileSystem, URI } from 'langium';
 import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import { CURATED_MODEL_IDS, type CuratedSerializedDocument } from '@rune-langium/curated-schema';
 import type { CachedFile, LoadedModel } from '../types/model-types.js';
@@ -1002,7 +1003,20 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       // deserialization on every debounced edit parse.
       const userFileNames = new Set(sourceByPath.keys());
       const services = createRuneDslServices(EmptyFileSystem).RuneDsl;
-      const models: RosettaModel[] = [];
+      const userDocuments = hydrationDocuments.filter((doc) => userFileNames.has(doc.uri.replace(/^file:\/\/\//, '')));
+      // Register the complete user graph before restoring linked pointers. Independent
+      // deserialization loses cross-file targets (including imported annotations).
+      const models = services.serializer.JsonSerializer.deserializeModels<RosettaModel>(
+        userDocuments.map((doc) => doc.serializedModel),
+        (roots) => {
+          for (const [index, model] of roots.entries()) {
+            const uri = URI.parse(getModelSourceUri(model) ?? userDocuments[index]!.uri);
+            const document = services.shared.workspace.LangiumDocumentFactory.fromModel(model, uri);
+            services.shared.workspace.LangiumDocuments.addDocument(document);
+          }
+        }
+      );
+      const userModelsByUri = new Map(userDocuments.map((doc, index) => [doc.uri, models[index]!]));
       const parsedModels: ParsedWorkspaceModel[] = [];
       // Build a quick lookup: filePath → namespace from the response's
       // deferredExports so curated entries get a real namespace rather than
@@ -1025,18 +1039,12 @@ export const parseWorkspaceViaRouter = withInstrumentation(
         // backwards compatibility with any in-flight payloads.
         const filePath = doc.uri.replace(/^file:\/\/\//, '');
         if (userFileNames.has(filePath)) {
-          try {
-            const model = services.serializer.JsonSerializer.deserialize<RosettaModel>(doc.serializedModel);
-            models.push(model);
-            parsedModels.push({
-              filePath,
-              model,
-              source: sourceByPath.get(filePath),
-              serializedModelJson: doc.serializedModel
-            });
-          } catch (err) {
-            console.warn('[workspace] failed to deserialize hydration model for', doc.uri, err);
-          }
+          parsedModels.push({
+            filePath,
+            model: userModelsByUri.get(doc.uri)!,
+            source: sourceByPath.get(filePath),
+            serializedModelJson: doc.serializedModel
+          });
           continue;
         }
         // Not a user file. Use the explicit bundleId stamped by the server;

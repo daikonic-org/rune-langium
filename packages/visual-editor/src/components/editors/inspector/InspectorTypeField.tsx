@@ -16,7 +16,7 @@ export function InspectorTypeField({
 }) {
   const labelId = useId();
   return (
-    <FieldSet {...fieldsetProps} aria-labelledby={labelId} className="shrink-0 gap-0">
+    <FieldSet {...fieldsetProps} aria-labelledby={labelId} className="min-w-0 shrink-0 gap-0">
       <div className="flex min-h-9 min-w-0 items-center gap-3 py-1">
         <span id={labelId} className="max-w-1/2 shrink-0 text-xs text-muted-foreground">
           {label}

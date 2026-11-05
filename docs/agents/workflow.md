@@ -15,6 +15,9 @@ Generated-module oracle tests reuse `generatedTypeScriptCompilerOptions` from
 codegen's `test/helpers/compiled-typescript.ts`; NodeNext checks retain their module
 resolution settings. This keeps strict diagnostics while avoiding default DOM
 libraries and unrelated ambient test types, including under root V8 coverage.
+Codegen's Vitest budget is 30 seconds per test because generated-module integration
+cases include strict TypeScript compilation and runtime checks; it is not a
+performance acceptance threshold.
 Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility
@@ -137,7 +140,7 @@ Before any UX evidence upload, `apps/studio/scripts/redact-test-artifacts.mjs`
 scrubs signed LSP socket paths, session JSON and bearer headers from manifests,
 trace ZIP resources/events and embedded HTML report archives. Upload is gated on
 successful sanitization, including on failed test runs; unreadable archives fail
-closed. The collector also redacts its text sinks before persistence. Keep the
+closed with their file/nested-entry location and byte count. The collector also redacts its text sinks before persistence. Keep the
 real Playwright response/warning canary and embedded-report tests in the candidate
 gate. Tracing remains enabled for failure diagnosis; this does not change browser
 or Worker instrumentation. Production builds omit untagged instrumentation unless

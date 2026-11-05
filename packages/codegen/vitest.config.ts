@@ -11,6 +11,8 @@ export default defineConfig({
     fsModuleCachePath: workspaceTestCache(import.meta.url),
     globals: true,
     environment: 'node',
+    // Generated-module integration tests include a strict TypeScript compilation.
+    testTimeout: 30_000,
     include: ['test/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/build/**']
   }

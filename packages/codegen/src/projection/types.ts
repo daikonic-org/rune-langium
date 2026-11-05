@@ -19,6 +19,8 @@ export interface ProjectionImplementation {
 export interface ProjectionOrigin {
   code: string;
   rune: string;
+  /** Outer bindings used to allocate callback aliases and qualify shadowed intrinsics. */
+  nameScope?: { reserved: readonly string[]; authored: readonly string[] };
   fragments: {
     code: string;
     from: number;

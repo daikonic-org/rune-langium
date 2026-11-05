@@ -214,7 +214,8 @@ test('opens the real single-file model before helpers and downloads both', async
   await expect(picker).toHaveValue('model.ts');
   const preview = page.getByLabel('Generated export code');
   await expect(preview).toContainText("from './helpers.js'");
-  await expect(preview).toContainText('export interface PartyShape');
+  await expect(preview).toContainText('export namespace Party');
+  await expect(preview).toContainText('export interface Shape');
   await expect(preview).toContainText('export class Party ');
   await expect(preview).not.toContainText('const rune =');
   await testInfo.attach('single-file-model', { body: await page.screenshot(), contentType: 'image/png' });

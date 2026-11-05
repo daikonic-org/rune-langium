@@ -41,13 +41,13 @@ export const prepareProjectionEdit = withInstrumentation(
       const text = binding.source.slice(region.from, region.to);
       const parsed = parseExpression(text);
       if (parsed.hasErrors) throw new Error('The captured Rune expression is invalid.');
-      const origin = renderSourceTypeScriptExpression(parsed.value).origin;
       const projected = origins?.[index];
+      const origin = renderSourceTypeScriptExpression(parsed.value, { nameScope: projected?.nameScope }).origin;
       if (projected) {
         const original = parseExpression(projected.rune);
         if (original.hasErrors || !treesEquivalent(original.value, parsed.value))
           throw new Error('The projection origin no longer matches the captured Rune expression.');
-        // Linked display facts (such as optional chaining) come from the worker.
+        // Linked display facts and outer binding names come from the worker.
         // Reparsed source contributes only safe CST fragments, never replacement type facts.
         origin.code = projected.code;
       }

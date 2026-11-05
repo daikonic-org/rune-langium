@@ -88,11 +88,11 @@ Optional top-level declaration roots for a dependency-closed export.
 
 #### zod
 
-**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file" }`
+**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; codecs?: boolean }`
 
 #### typescript
 
-**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean; inlineHelpers?: boolean }`
+**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean; inlineHelpers?: boolean; decorators?: boolean; serialization?: "zod" | "runtime" }`
 
 #### json-schema
 
@@ -209,11 +209,11 @@ Optional top-level declaration roots for a dependency-closed export.
 
 #### zod
 
-**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file" }`
+**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; codecs?: boolean }`
 
 #### typescript
 
-**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean; inlineHelpers?: boolean }`
+**Type:** `{ layout?: "per-namespace" | "barrel" | "single-file"; inputChecks?: boolean; inlineHelpers?: boolean; decorators?: boolean; serialization?: "zod" | "runtime" }`
 
 #### json-schema
 

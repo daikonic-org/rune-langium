@@ -449,6 +449,62 @@ describe('parseWorkspace routing', () => {
     expect(result.parsedModels).toHaveLength(1);
     expect(result.parsedModels[0]!.filePath).toBe('x.rosetta');
   });
+
+  it.each([false, true])(
+    'preserves linked annotation identity across user snapshots (reversed: %s)',
+    async (reverse) => {
+      const { createRuneDslServices, serializeRuneModel, getAnnotationDefinitions } =
+        await import('@rune-langium/core');
+      const { EmptyFileSystem, URI } = await import('langium');
+      const { RuneDsl, shared } = createRuneDslServices(EmptyFileSystem);
+      const files = [
+        {
+          name: 'owner.rosetta',
+          content:
+            'namespace demo.owner\nimport scope.selected.*\ntype Owner:\n  name string (1..1) [marking scheme "scheme"="ISIN"]\n'
+        },
+        {
+          name: 'selected.rosetta',
+          content: 'namespace scope.selected\nannotation marking:\n  scheme string (1..1)\n'
+        },
+        {
+          name: 'foreign.rosetta',
+          content: 'namespace scope.foreign\nannotation marking:\n  foreignScheme string (1..1)\n'
+        }
+      ];
+      if (reverse) files.reverse();
+      const documents = files.map((file) =>
+        shared.workspace.LangiumDocumentFactory.fromString(file.content, URI.file('/' + file.name))
+      );
+      await shared.workspace.DocumentBuilder.build(documents, { validation: false });
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            models: [],
+            deferredExports: [],
+            errors: {},
+            hydrationState: {
+              documents: documents.map((document, index) => ({
+                uri: files[index]!.name,
+                content: files[index]!.content,
+                serializedModel: serializeRuneModel(RuneDsl.serializer.JsonSerializer, document.parseResult.value),
+                exports: []
+              }))
+            }
+          }),
+          { status: 200 }
+        )
+      );
+
+      const result = await parseWorkspaceViaRouter(files);
+      const owner = result.models
+        .find((model) => model.name === 'demo.owner')
+        ?.elements.find((node) => node.$type === 'Data');
+      expect(owner).toBeDefined();
+      expect(getAnnotationDefinitions(owner!)).toEqual({ marking: { name: 'marking', namespace: 'scope.selected' } });
+    }
+  );
 });
 
 describe('parseWorkspaceFiles — curated bundle collection', () => {

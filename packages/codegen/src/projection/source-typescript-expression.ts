@@ -37,6 +37,7 @@ import { patternLiteral, renderPatternLiteral } from '../expr/pattern.js';
 export interface SourceTypeScriptOptions {
   owner?: RosettaFunction;
   trackOrigins?: boolean;
+  nameScope?: ProjectionOrigin['nameScope'];
 }
 
 export interface SourceTypeScriptExpression {
@@ -95,11 +96,13 @@ export class SourceExpressionRenderer {
       for (const alias of options.owner.shortcuts) this.names.add(alias.name);
     }
     for (const name of this.names) this.authoredNames.add(name);
+    for (const name of options.nameScope?.reserved ?? []) this.names.add(name);
+    for (const name of options.nameScope?.authored ?? []) this.authoredNames.add(name);
   }
 
   render(expression: RosettaExpression): SourceTypeScriptExpression {
     this.fragments = [];
-    if (!this.options.owner)
+    if (!this.options.owner && !this.options.nameScope)
       for (const node of AstUtils.streamAst(expression)) {
         if (isRosettaSymbolReference(node)) {
           const name = referenceName(node.symbol);
@@ -107,6 +110,7 @@ export class SourceExpressionRenderer {
           this.authoredNames.add(name);
         }
       }
+    const nameScope = { reserved: [...this.names], authored: [...this.authoredNames] };
     const frame = this.capture(() => this.value(expression, { bindings: new Map() }));
     let root: ReturnType<typeof getNodeSourceRegion> | undefined;
     try {
@@ -129,7 +133,7 @@ export class SourceExpressionRenderer {
     return {
       code: frame.value.code,
       statements: frame.statements,
-      origin: { code: [...frame.statements, frame.value.code].join('\n'), rune, fragments }
+      origin: { code: [...frame.statements, frame.value.code].join('\n'), rune, fragments, nameScope }
     };
   }
 

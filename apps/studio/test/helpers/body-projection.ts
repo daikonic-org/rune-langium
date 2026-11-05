@@ -8,14 +8,15 @@ export async function expectBodyProjection(
   region: Locator,
   language: 'TypeScript' | 'Python',
   first: string | RegExp,
-  last?: string | RegExp
+  last?: string | RegExp,
+  options: { readOnly?: boolean } = {}
 ) {
   await region.getByRole('button', { name: language, exact: true }).click();
   const generated = region.getByRole('textbox', { name: `Generated ${language.toLowerCase()}` });
   await generated.press('ControlOrMeta+Home');
   await expect(generated).toContainText(first);
   await expect(generated).not.toContainText(/export function|^def \w+\(|^import /m);
-  await expect(generated).toHaveAttribute('contenteditable', 'false');
+  await expect(generated).toHaveAttribute('contenteditable', String(language === 'TypeScript' && !options.readOnly));
   await expect(region.locator('.cm-gutters, .cm-activeLine')).toHaveCount(0);
   if (last) {
     await generated.press('ControlOrMeta+End');

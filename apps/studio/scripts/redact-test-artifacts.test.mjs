@@ -53,3 +53,15 @@ test('scrubs trace ZIP resources and embedded reports without altering binary ev
     await rm(dir, { recursive: true });
   }
 });
+
+test('identifies an empty nested ZIP while refusing unchecked evidence', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rune-redaction-'));
+  try {
+    const zip = new JSZip();
+    zip.file('attachments/empty.zip', Buffer.alloc(0));
+    await writeFile(join(dir, 'report.zip'), await zip.generateAsync({ type: 'nodebuffer' }));
+    await assert.rejects(redactTestArtifacts(dir), /report\.zip!attachments\/empty\.zip \(0 bytes\)/);
+  } finally {
+    await rm(dir, { recursive: true });
+  }
+});

@@ -355,6 +355,11 @@ file's imports. Labels keep authored reference text while navigation uses the
 canonical target ID. An inherited override resolves its parent's alias to a
 qualified type name before copying into the child's source scope.
 
+Studio restores the complete user-document snapshot in Core's batch deserializer,
+registering all roots before reviving cross-file references. Inspector annotation
+scope facts therefore retain the server's selected target even when another
+namespace declares the same annotation name. Curated documents remain deferred.
+
 Enum summary disclosure sends a node-scoped Inspector section request with a
 fresh revision. Returning from Details to Values preserves the mounted editor
 and its paging state. Preview hydration completion marks a selected unsupported
@@ -1407,8 +1412,10 @@ SourceReader retains lexical bindings across callbacks and masks shadowed names.
 An outer implicit pipeline/item binding becomes unavailable in a nested Rune
 callback; references to it refuse the edit instead of binding to the inner item.
 Constructor shorthand shares identifier resolution while preserving its field key.
-Serialized origin fragments retain the renderer's callback aliases; partial edits
-restore hygienic implicit names in that original scope. Legacy callback origins
+Serialized origins retain the renderer's outer reserved/authored name sets as
+well as each fragment's callback aliases. Rebuilding CST fragments from captured
+source reuses that name scope, including unused owner inputs and earlier generated
+locals, so edits restore hygienic implicit names in the displayed scope. Legacy callback origins
 require a fresh draft, and substituted scalar scopes refuse nonliteral edits
 whose binding cannot be recovered safely.
 Generated public view constructors use ordinary fields and assignments so the
