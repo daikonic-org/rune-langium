@@ -149,7 +149,16 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
   }
 
   override getScope(context: ReferenceInfo): Scope {
-    return redirectProjectScope(this.projectServices, this.getSourceScope(context));
+    const expression = isRosettaExpression(context.container) ? context.container : undefined;
+    const resolving = expression && this.resolvingExpressionTypes.has(expression);
+    // Inferring an alias's result while linking its callback can lead back to
+    // this reference. Keep scope construction inside the same inference guard.
+    if (expression) this.resolvingExpressionTypes.add(expression);
+    try {
+      return redirectProjectScope(this.projectServices, this.getSourceScope(context));
+    } finally {
+      if (expression && !resolving) this.resolvingExpressionTypes.delete(expression);
+    }
   }
 
   private getSourceScope(context: ReferenceInfo): Scope {

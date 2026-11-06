@@ -7,10 +7,18 @@ on:
 
 jobs:
   lint-and-test:
+    name: ${{ matrix.check }}
     runs-on: ubuntu-latest
-    # The full package suite plus the root coverage run exceed 20 minutes on
-    # hosted runners; retain both checks with room for setup and audit steps.
+    # Keep both complete suites under independent job budgets, sharing setup.
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: lint-and-test
+            script: test
+          - check: coverage
+            script: test:coverage
 
     steps:
       - uses: actions/checkout@v7
@@ -70,18 +78,21 @@ jobs:
         timeout-minutes: 15
 
       - name: Verify versioned native implementation inventory
+        if: matrix.check == 'lint-and-test'
         run: pnpm run verify:native-implementations
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Verify curated release reconciliation and publication
+        if: matrix.check == 'lint-and-test'
         run: node --test scripts/lib/curated-sources.test.mjs scripts/lib/curated-releases.test.mjs scripts/reconcile-curated-releases.test.mjs scripts/upload-serialized-artifacts.test.mjs
 
       - name: Verify complete reference example corpus
+        if: matrix.check == 'lint-and-test'
         run: pnpm run verify:reference-examples
 
       - name: Upload reference example inventory
-        if: always()
+        if: always() && matrix.check == 'lint-and-test'
         uses: actions/upload-artifact@v7
         with:
           name: reference-example-import-inventory
@@ -89,47 +100,54 @@ jobs:
           if-no-files-found: error
 
       - name: Type check
+        if: matrix.check == 'lint-and-test'
         run: pnpm run type-check
 
       - name: Validate design-sync previews and generated contracts
+        if: matrix.check == 'lint-and-test'
         run: |
           pnpm exec tsc --project .design-sync/tsconfig.json
           node --test .design-sync/prepare-config.test.mjs
           pnpm --filter @rune-langium/visual-editor exec vitest run --config ../../.design-sync/vitest.config.ts
 
       - name: Lint
+        if: matrix.check == 'lint-and-test'
         run: pnpm run lint
 
       - name: Format check
+        if: matrix.check == 'lint-and-test'
         run: pnpm run format:check
         continue-on-error: true
 
       - name: Test curated publication policy and ordering
+        if: matrix.check == 'lint-and-test'
         run: node --test scripts/lib/curated-sources.test.mjs scripts/lib/curated-releases.test.mjs scripts/upload-serialized-artifacts.test.mjs scripts/lib/dependency-automerge.test.mjs
 
       - name: Verify dependency security patches
+        if: matrix.check == 'lint-and-test'
         run: node --test scripts/braces-patch.test.mjs
 
       - name: Verify CLI and LSP publication dependencies
+        if: matrix.check == 'lint-and-test'
         run: node --test scripts/package-publication.test.mjs
 
       - name: Test
-        run: pnpm run test
-
-      - name: Test Coverage
-        run: pnpm run test:coverage
+        run: pnpm run ${{ matrix.script }}
 
       - name: Upload coverage to Codecov
+        if: matrix.check == 'coverage'
         uses: codecov/codecov-action@v7
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
 
       - name: Security Audit
+        if: matrix.check == 'lint-and-test'
         run: pnpm audit --audit-level moderate
         continue-on-error: true
 
       - name: Check Studio Bundle Size (019 Phase 2)
+        if: matrix.check == 'lint-and-test'
         run: pnpm --filter @rune-langium/studio run bundle-size
         # Soft-disabled 2026-05-14: ExcelJS + JSZip (PRs #167-#169) pushed
         # the bundle over the configured limit; the check still runs and

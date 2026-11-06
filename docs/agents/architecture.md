@@ -570,6 +570,12 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 ## Shared Semantics
 
+- Scope construction and expression type inference share one active-expression
+  guard. A missing dependency must leave ordinary unresolved references rather
+  than re-enter a feature link through a same-named extraction alias. The guard
+  is scoped to the synchronous request and cleared in `finally`; it is not a
+  cached inference result that could survive later dependency loading.
+
 - Core normalizes bare functional expressions only at the parser lexer boundary. The bracket scanner is shared with `insertImplicitBrackets`; token offsets and columns map back to original UTF-16 source positions before CST construction. Synthetic brackets have empty images and zero-width CST ranges. CST text, diagnostics, reference locations and serialized text regions all address the original document.
 
 - Core `BASE_TYPE_FILES` owns the standard Rune types and annotations. Studio re-exports it; the shared `RuneWorkspaceManager` loads it during LSP initialization, including reconnects. Core and LSP factories install `RuneDslSharedModule`.

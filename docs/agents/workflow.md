@@ -48,6 +48,13 @@ instrumentation lowering pass to accommodate generated model decorators.
 
 ## Browser CI Dependencies
 
+The main CI matrix runs the complete package suite (`lint-and-test`) and root V8
+coverage (`coverage`) in parallel, each with the existing 30-minute job limit.
+They share fixture installation and build steps; lint, corpus verification and
+inventory uploads run once in `lint-and-test`, while Codecov consumes only the
+coverage job's report. Both jobs must pass before merge. Test selection, coverage
+thresholds and per-test budgets are unchanged.
+
 The `studio-a11y` job removes the runner image's priority-1 Azure HTTP entry from
 `/etc/apt/apt-mirrors.txt` before Playwright installs Ubuntu dependencies. The
 image's official HTTPS archive/security fallbacks and priorities remain intact;
