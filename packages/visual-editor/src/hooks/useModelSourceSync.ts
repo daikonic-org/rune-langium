@@ -15,8 +15,8 @@
  * fixes the dead-pane regression (2026-05-21, fix/inspector-source-sync).
  *
  * Semantics (preserved verbatim from RuneTypeGraph):
- *   - Skips the very first emission after mount (initial-skip) — source pane
- *     already has authoritative parsed text at load time.
+ *   - Skips the initial parsed emission — source already has authoritative text.
+ *     Pending user edits still publish if they arrive before that first effect.
  *   - Short-circuits on position-only changes via a cheap content fingerprint
  *     that excludes `position`, `errors`, and `hasExternalRefs`.
  *   - Skips when serialized output is byte-for-byte equal to the previous
@@ -26,6 +26,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { Patches } from 'mutative';
+import type { StoreApi } from 'zustand';
+import type { EditorState } from '../store/editor-store.js';
 import type { DehydratedNode } from '@rune-langium/codegen/rosetta';
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
 import { astRelevantProjection, nameFromNodeId } from '../store/node-projection.js';
@@ -331,14 +333,10 @@ export function useModelSourceSync(
   edges: TypeGraphEdge[],
   onModelChanged?: (serialized: Map<string, string>) => void | Promise<void>,
   /**
-   * The editor store's `parseEpoch` — bumped ONLY when the graph is (re)built
-   * from a parse result. Used to gate serialization: a `nodes`/`edges` change
-   * that arrives together with a `parseEpoch` bump came FROM the source (a
-   * parse), so serializing it back is pointless and — for a degraded reparse
-   * (worker unavailable) — actively corrupts the file. We serialize ONLY when
-   * the change is USER-EDIT-origin (parseEpoch unchanged since the last run).
-   * Optional/defaulted so non-studio callers (tests, standalone) keep the old
-   * "serialize every content change" behavior.
+   * The editor store's `parseEpoch` advances when the graph is rebuilt from source.
+   * A pure parse adopts its source baseline without writing it back. Pending user
+   * patches made after that parse still publish, even before React adopts the new
+   * epoch. Optional/defaulted for controlled callers without an editor store.
    */
   parseEpoch = 0,
   /**
@@ -361,7 +359,9 @@ export function useModelSourceSync(
    * legacy/test callers without deletion support keep the old behavior.
    */
   inversePatches: Patches = [],
-  sourceFiles?: ReadonlyMap<string, SourceSyncFile>
+  sourceFiles?: ReadonlyMap<string, SourceSyncFile>,
+  /** Capture user edits synchronously before an in-flight parse can consume their patches. */
+  editStore?: Pick<StoreApi<EditorState>, 'subscribe'>
 ): SourceSyncHandle {
   // Keep a stable ref so the effect doesn't need to re-register when the
   // callback identity changes (e.g. inline arrow in EditorPage).
@@ -400,6 +400,7 @@ export function useModelSourceSync(
     const { nodes, edges, parseEpoch, patches, inversePatches } = snapshot;
     const handler = onModelChangedRef.current;
     if (!handler) return pending.current;
+    const hasPendingEdits = patches.length > 0 || inversePatches.length > 0;
     const hasRemoval = inversePatches.some((p) => {
       const value = p.value as { meta?: { namespace?: string }; data?: { $cstRange?: unknown } } | undefined;
       return p.path[0] === 'nodes' && p.path.length === 2 && Boolean(value?.meta?.namespace && value?.data?.$cstRange);
@@ -407,7 +408,7 @@ export function useModelSourceSync(
     if (nodes.length === 0 && !hasRemoval) return pending.current;
     // A new parse without edits needs no write-back. Only the observer may adopt its source baseline.
     if (explicit && parseEpoch !== lastParseEpochRef.current) {
-      return patches.length > 0 || inversePatches.length > 0
+      return hasPendingEdits
         ? Promise.reject(new Error('Source has changed; wait for the current parse before switching workspaces.'))
         : pending.current;
     }
@@ -433,7 +434,8 @@ export function useModelSourceSync(
       );
     const ownedIds = snapshotFiles && new Set([...snapshotFiles.values()].flatMap((file) => [...file.nodeIds]));
     const fingerprint = computeContentFingerprint(nodes, edges, parseBaselineSourceRef.current, ownedIds);
-    if (lastContentFingerprintRef.current === fingerprint) return pending.current;
+    if (lastContentFingerprintRef.current === fingerprint && (!parseAdvanced || !hasPendingEdits))
+      return pending.current;
     lastContentFingerprintRef.current = fingerprint;
     const next = buildSourceForNamespaces({
       nodes,
@@ -443,7 +445,7 @@ export function useModelSourceSync(
       inversePatches,
       sourceFiles: snapshotFiles
     });
-    if (parseAdvanced || (!hasFiredInitialSerializeRef.current && (!explicit || patches.length === 0))) {
+    if ((parseAdvanced || !hasFiredInitialSerializeRef.current) && !hasPendingEdits) {
       hasFiredInitialSerializeRef.current = true;
       lastSerializedRef.current = next;
       return pending.current;
@@ -482,6 +484,24 @@ export function useModelSourceSync(
     pending.current = receipt;
     return receipt;
   }, []);
+  useEffect(
+    () =>
+      editStore?.subscribe((state, previous) => {
+        if (state.parseEpoch !== previous.parseEpoch || state.pendingEditPatches === previous.pendingEditPatches)
+          return;
+        void publish(
+          {
+            nodes: state.nodes,
+            edges: state.edges,
+            parseEpoch: state.parseEpoch,
+            patches: state.pendingEditPatches,
+            inversePatches: state.pendingInversePatches
+          },
+          true
+        ).catch(() => {});
+      }),
+    [editStore, publish]
+  );
   const renderPublicationVersion = explicitPublicationVersion.current;
   useEffect(() => {
     // A save barrier may capture newer edits after this render but before its effect.

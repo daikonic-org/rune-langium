@@ -6,7 +6,8 @@ import { renderHook, act } from '@testing-library/react';
 import { it, expect, vi } from 'vitest';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
 import { useModelSourceSync, type SourceSyncSnapshot } from '../../src/hooks/useModelSourceSync.js';
-import { parseWorkspace } from '@rune-langium/core';
+import { useStore } from 'zustand';
+import { parse, parseWorkspace } from '@rune-langium/core';
 import { createSynonymDraft } from '../../src/store/metadata-ops.js';
 import { createEditorStore } from '../../src/store/editor-store.js';
 
@@ -244,4 +245,44 @@ func Identity:
   await act(async () => rerender({ snapshot: olderRender, flushLatest: true }));
   expect(published.mock.calls.at(-1)![0].get('demo')).toContain('[synonym FpML value "Wire value"]');
   expect(published).toHaveBeenCalledTimes(1);
+});
+
+it('publishes an edit made after a parse arrives but before its baseline is adopted', async () => {
+  const source = `namespace demo
+synonym source FpML
+func Identity:
+  inputs: value string (1..1)
+  output: result string (1..1)
+  set result: value
+`;
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Identity').id;
+  const published = vi.fn();
+  let baseline = source;
+  renderHook(() => {
+    const state = useStore(store);
+    return useModelSourceSync(
+      state.nodes,
+      state.edges,
+      published,
+      state.parseEpoch,
+      state.pendingEditPatches,
+      new Map([['demo', baseline]]),
+      state.pendingInversePatches,
+      undefined,
+      store
+    );
+  });
+  baseline = source.replace('value string (1..1)', 'value string (1..1) <"Source definition">');
+  const parsed = await parse(baseline);
+  expect(parsed.hasErrors).toBe(false);
+  await act(async () => {
+    store.getState().loadModels(parsed.value);
+    const target = store.getState().captureMetadataTarget(id, ['inputs', 0])!;
+    const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
+    expect(store.getState().applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value }).status).toBe(
+      'committed'
+    );
+  });
+  expect(published.mock.calls.at(-1)![0].get('demo')).toContain('[synonym FpML value "Wire value"]');
 });

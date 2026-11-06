@@ -19,6 +19,7 @@ export interface InspectorSelection {
   selectedRow?: InspectorRowBinding;
   select(key: string): void;
   clear(): void;
+  acknowledgeRename(row: InspectorRowBinding): void;
   resolve(key: string, scopeKey: string): InspectorRowBinding | undefined;
 }
 
@@ -61,13 +62,30 @@ export function useInspectorSelection(scopeKey: string, rows: readonly Inspector
   const selectedKey =
     selection.scope === scopeKey && selection.key && resolve(selection.key, scopeKey) ? selection.key : undefined;
   useEffect(() => {
-    if (selection.key && !selectedKey) setSelection({ scope: scopeKey });
-  }, [scopeKey, selectedKey, selection.key]);
+    if (selection.key && !resolve(selection.key, scopeKey)) setSelection({ scope: scopeKey });
+  }, [scopeKey, selectedKey, selection.key, resolve]);
   return {
     selectedKey,
     selectedRow: selectedKey ? resolve(selectedKey, scopeKey) : undefined,
     select: useCallback((key: string) => setSelection({ scope: scopeKey, key }), [scopeKey]),
     clear: useCallback(() => setSelection({ scope: scopeKey }), [scopeKey]),
+    acknowledgeRename: useCallback(
+      (row: InspectorRowBinding) => {
+        if (cache.current.scope !== scopeKey) return;
+        for (const [key, previous] of cache.current.aliases) {
+          if (previous.key === row.key) cache.current.aliases.set(key, row);
+        }
+        cache.current.aliases.set(row.key, row);
+        if (selectedKey) {
+          const selected = resolve(selectedKey, scopeKey);
+          if (selected?.key === row.key) {
+            cache.current.aliases.set(selectedKey, row);
+            setSelection({ scope: scopeKey, key: selectedKey });
+          }
+        }
+      },
+      [scopeKey, selectedKey, resolve]
+    ),
     resolve
   };
 }

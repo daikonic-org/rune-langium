@@ -1806,27 +1806,24 @@ export const ExplorePerspective = withInstrumentation(
       storePendingEditPatches,
       originalSourceByNamespace,
       storePendingInversePatches,
-      sourceSyncFiles
+      sourceSyncFiles,
+      useEditorStore
     );
-
-    const flushSourceEdits = useCallback(() => {
-      const latest = useEditorStore.getState();
-      return sourceSync.flush({
-        nodes: latest.nodes,
-        edges: latest.edges,
-        parseEpoch: latest.parseEpoch,
-        patches: latest.pendingEditPatches,
-        inversePatches: latest.pendingInversePatches
-      });
-    }, [sourceSync.flush]);
 
     useEffect(
       () =>
         registerEditorSaveBarrier?.(async () => {
           formCommitRegistry.flush();
-          await flushSourceEdits();
+          const latest = useEditorStore.getState();
+          await sourceSync.flush({
+            nodes: latest.nodes,
+            edges: latest.edges,
+            parseEpoch: latest.parseEpoch,
+            patches: latest.pendingEditPatches,
+            inversePatches: latest.pendingInversePatches
+          });
         }),
-      [registerEditorSaveBarrier, formCommitRegistry, flushSourceEdits]
+      [registerEditorSaveBarrier, formCommitRegistry, sourceSync.flush]
     );
 
     useLspDiagnosticsBridge(lspClient);
@@ -2497,23 +2494,8 @@ export const ExplorePerspective = withInstrumentation(
       }
     });
     const metadataActions = useMemo(
-      () =>
-        createScopedMetadataActions(
-          inspectorScope,
-          () => metadataContext.current,
-          useEditorStore.getState(),
-          () => {
-            // Capture accepted edits before a preceding parse consumes their one-shot patches.
-            void flushSourceEdits().catch((error) => {
-              recordOperation(
-                'sourceSync',
-                `Could not publish Inspector changes: ${error instanceof Error ? error.message : String(error)}`,
-                'error'
-              );
-            });
-          }
-        ),
-      [inspectorScope, metadataContext, flushSourceEdits]
+      () => createScopedMetadataActions(inspectorScope, () => metadataContext.current, useEditorStore.getState()),
+      [inspectorScope, metadataContext]
     );
 
     const renderFunctionBodyEditor = useCallback(

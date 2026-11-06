@@ -9,6 +9,7 @@ import {
   useModelSourceSync,
   createEditorStore,
   createEditorCommitRegistry,
+  DataTypeForm,
   EnumForm,
   FunctionForm
 } from '@rune-langium/visual-editor';
@@ -176,66 +177,97 @@ func Identity:
   });
 });
 
-it('publishes an accepted metadata edit before a preceding reparse consumes its patches', async () => {
-  const source = `namespace demo
+it.each(['synonym', 'rename'] as const)(
+  'publishes an accepted %s edit before a preceding reparse consumes its patches',
+  async (kind) => {
+    const source = `namespace demo
 synonym source FpML
 func Identity:
   inputs: value string (1..1)
   output: result string (1..1)
   set result: value
 `;
-  const parsed = (await parse(source)).value;
+    const parsed = (await parse(source)).value;
+    const store = createEditorStore();
+    store.getState().loadModels(parsed);
+    const id = store.getState().nodes.find((node) => node.data.name === 'Identity')!.id;
+    const published = vi.fn();
+    const { unmount } = renderHook(() => {
+      const state = useStore(store);
+      return useModelSourceSync(
+        state.nodes,
+        state.edges,
+        published,
+        state.parseEpoch,
+        state.pendingEditPatches,
+        new Map([['demo', source]]),
+        state.pendingInversePatches,
+        undefined,
+        store
+      );
+    });
+    const metadata = createScopedMetadataActions(
+      'A:1',
+      () => ({ scope: 'A:1', canEdit: () => true }),
+      store.getState()
+    );
+    try {
+      await act(async () => {
+        const target = metadata.captureMetadataTarget(id, ['inputs', 0])!;
+        expect(metadata.applyMetadataCommand(target, { kind: 'definition', value: 'Function input' }).status).toBe(
+          'committed'
+        );
+      });
+      const definitionSource = published.mock.calls.at(-1)![0].get('demo')!;
+      const precedingParse = await parse(definitionSource);
+      expect(precedingParse.hasErrors).toBe(false);
+      await act(async () => {
+        if (kind === 'rename') store.getState().updateInputParam(id, 'value', 'fullName', 'string', '(1..1)');
+        else {
+          const target = metadata.captureMetadataTarget(id, ['inputs', 0])!;
+          const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
+          expect(metadata.applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value }).status).toBe(
+            'committed'
+          );
+        }
+        store.getState().loadModels(precedingParse.value);
+      });
+      expect(published.mock.calls.at(-1)![0].get('demo')).toContain(
+        kind === 'rename' ? 'fullName string' : '[synonym FpML value "Wire value"]'
+      );
+    } finally {
+      unmount();
+    }
+  }
+);
+
+it('does not flush an old member-name draft into a replacement workspace with identical IDs', async () => {
+  const parsed = (await parse('namespace test\ntype Person:\n name string (1..1)\n')).value;
   const store = createEditorStore();
   store.getState().loadModels(parsed);
-  const id = store.getState().nodes.find((node) => node.data.name === 'Identity')!.id;
-  const published = vi.fn();
-  const { result, unmount } = renderHook(() => {
-    const state = useStore(store);
-    return useModelSourceSync(
-      state.nodes,
-      state.edges,
-      published,
-      state.parseEpoch,
-      state.pendingEditPatches,
-      new Map([['demo', source]]),
-      state.pendingInversePatches
-    );
-  });
-  const metadata = createScopedMetadataActions(
-    'A:1',
-    () => ({ scope: 'A:1', canEdit: () => true }),
-    store.getState(),
-    () => {
-      const state = store.getState();
-      void result.current.flush({
-        nodes: state.nodes,
-        edges: state.edges,
-        parseEpoch: state.parseEpoch,
-        patches: state.pendingEditPatches,
-        inversePatches: state.pendingInversePatches
-      });
-    }
-  );
+  const node = store.getState().nodes.find((candidate) => candidate.data.name === 'Person')!;
+  let scope = 'A:1';
+  const metadata = createScopedMetadataActions(scope, () => ({ scope, canEdit: () => true }), store.getState());
+  vi.useFakeTimers();
   try {
-    await act(async () => {
-      const target = metadata.captureMetadataTarget(id, ['inputs', 0])!;
-      expect(metadata.applyMetadataCommand(target, { kind: 'definition', value: 'Function input' }).status).toBe(
-        'committed'
-      );
-    });
-    const definitionSource = published.mock.calls.at(-1)![0].get('demo')!;
-    const precedingParse = await parse(definitionSource);
-    expect(precedingParse.hasErrors).toBe(false);
-    await act(async () => {
-      const target = metadata.captureMetadataTarget(id, ['inputs', 0])!;
-      const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
-      expect(metadata.applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value }).status).toBe(
-        'committed'
-      );
-      store.getState().loadModels(precedingParse.value);
-    });
-    expect(published.mock.calls.at(-1)![0].get('demo')).toContain('[synonym FpML value "Wire value"]');
+    render(
+      <DataTypeForm
+        nodeId={node.id}
+        data={node.data}
+        meta={node.meta}
+        actions={{ ...store.getState(), ...metadata }}
+        availableTypes={[]}
+        allNodes={store.getState().nodes}
+        scopeKey="A:1"
+      />
+    );
+    fireEvent.change(screen.getByLabelText('Attribute name: name'), { target: { value: 'wrongWorkspace' } });
+    scope = 'B:2';
+    act(() => store.getState().loadModels(parsed));
+    cleanup();
+    expect(store.getState().captureMetadataTarget(node.id, ['attributes', 0])?.expected).toHaveProperty('name', 'name');
   } finally {
-    unmount();
+    cleanup();
+    vi.useRealTimers();
   }
 });

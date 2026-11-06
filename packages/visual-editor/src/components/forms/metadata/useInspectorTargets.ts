@@ -61,6 +61,8 @@ export function useInspectorTargets({
   output?: boolean;
 }) {
   const fieldEpochs = useRef(new Map<string, number | undefined>());
+  // Bridge only canonically accepted renames across RHF's pre-reset frame.
+  const acknowledgedNames = useRef(new Map<string, string>());
   const members =
     (root as { attributes?: MetadataNode[]; inputs?: MetadataNode[]; enumValues?: MetadataNode[] })[collection] ?? [];
   const byRange = new Map<string, Array<{ node: MetadataNode; index: number }>>();
@@ -77,11 +79,15 @@ export function useInspectorTargets({
   });
   const activeKeys = new Set(fields.map((field) => field.id));
   for (const key of fieldEpochs.current.keys()) if (!activeKeys.has(key)) fieldEpochs.current.delete(key);
+  for (const key of acknowledgedNames.current.keys()) if (!activeKeys.has(key)) acknowledgedNames.current.delete(key);
   const rows: InspectorRowBinding[] = fields.flatMap((field) => {
     if (!fieldEpochs.current.has(field.id)) fieldEpochs.current.set(field.id, parseEpoch);
     const range = field.$cstRange;
     const sameEpoch = fieldEpochs.current.get(field.id) === parseEpoch;
-    const identityName = getMetadataMemberName(field);
+    const acknowledgedName = acknowledgedNames.current.get(field.id);
+    const fieldName = getMetadataMemberName(field);
+    const identityName = acknowledgedName && byName.has(acknowledgedName) ? acknowledgedName : fieldName;
+    if (fieldName === acknowledgedName) acknowledgedNames.current.delete(field.id);
     const candidates =
       (sameEpoch && range
         ? byRange.get(`${range.offset}:${range.end}`)
@@ -126,6 +132,7 @@ export function useInspectorTargets({
     const row = selection.resolve(key, scopeKey);
     if (readOnly || row?.inherited || !row?.node || !row.path) return;
     const captured = guarded?.captureMetadataTarget(nodeId, row.path);
+    if (guarded && !captured) return;
     const member = captured?.expected ?? row.node;
     if (captured && row.parseEpoch !== undefined && captured.parseEpoch !== row.parseEpoch) return;
     const range = row.node.$cstRange;
@@ -145,6 +152,11 @@ export function useInspectorTargets({
         else actions.updateInputParam?.(nodeId, member.name, name, type, card);
       } else actions.updateAttribute?.(nodeId, member.name, name, type, card);
     } else if (isRosettaEnumValue(member)) actions.updateEnumValue?.(nodeId, member.name, name, member.display);
+    const accepted = guarded?.captureMetadataTarget(nodeId, row.path);
+    if (accepted && getMetadataMemberName(accepted.expected) === name) {
+      acknowledgedNames.current.set(key, name);
+      selection.acknowledgeRename({ ...row, name, node: accepted.expected, parseEpoch: accepted.parseEpoch });
+    }
   };
   return { rows, selection, rootBinding, childBinding, renameRow };
 }

@@ -362,14 +362,20 @@ as other references while `TypeLink` retains import-aware navigation.
 Scalar metadata autosaves retain valid edits when the host defers them during a
 source reparse. Metadata draft controls stay editable during this structural lock;
 explicit synonym Add commands use the same retained-save lifecycle as scalar edits.
-Accepted metadata commands immediately capture the shared ordered source flush,
-before a preceding parse can consume their one-shot edit patches. The explicit
-Save barrier uses that same snapshot and publication path. Explicit publication
-invalidates older rendered observer snapshots so they cannot overwrite that edit.
+Studio supplies its live edit store to the shared source-sync hook. Semantic user
+edits synchronously capture the ordered publication before a preceding parse can
+consume their one-shot patches; pure parse changes only adopt the source baseline.
+User patches arriving after a parse but before React adopts its epoch still publish.
+Save uses the same publication path. Explicit publication invalidates older rendered
+observer snapshots so they cannot overwrite a newer edit.
 Permanent source permissions and inherited rows remain read-only. A fresh canonical
 target retries that same guarded pending edit, including enum display names; changing workspace or member identity never bypasses
 the existing target checks. Synonym fieldsets can shrink within their Inspector
 pane so enlarged text wraps controls inside the shared gutter.
+A remounted row resumes a valid dirty name after a temporary parse lock. Accepted
+member names bridge the form-reset frame and update selection aliases only after
+canonical target readback, preserving the selected member through acknowledgement.
+An unavailable scoped target never authorizes an old rename callback.
 
 Namespace alias expansion is shared with Core's scopes. One alias may name
 several imported namespaces in source order. Graph metadata retains imports per

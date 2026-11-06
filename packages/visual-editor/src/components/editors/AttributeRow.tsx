@@ -113,6 +113,11 @@ const ATTRIBUTE_ROW_LAYOUT =
 // Component
 // ---------------------------------------------------------------------------
 
+const normaliseCard = (
+  raw: { inf: number; sup?: number; unbounded?: boolean } | undefined
+): { inf: number; sup?: number; unbounded: boolean } | undefined =>
+  raw ? { ...raw, unbounded: raw.unbounded ?? false } : undefined;
+
 function AttributeRow({
   index,
   fieldArrayName = 'attributes',
@@ -132,7 +137,7 @@ function AttributeRow({
   selected,
   onSelect
 }: AttributeRowProps) {
-  const { control, getValues, setValue, watch } = useFormContext();
+  const { control, getValues, getFieldState, setValue, watch } = useFormContext();
   const editorCtx = useEditorActionsContext();
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
   const prefix = fieldPath ?? `${fieldArrayName}.${index}`;
@@ -146,10 +151,6 @@ function AttributeRow({
   //
   // `RosettaCardinality` from the AST schema has `unbounded` as optional,
   // but `formatCardinality` expects `unbounded: boolean`. Normalise on read.
-  const normaliseCard = (
-    raw: { inf: number; sup?: number; unbounded?: boolean } | undefined
-  ): { inf: number; sup?: number; unbounded: boolean } | undefined =>
-    raw ? { ...raw, unbounded: raw.unbounded ?? false } : undefined;
 
   const isOverrideForm: boolean = watch(`${prefix}.override`);
   const isOverride = isOverrideProp ?? isOverrideForm;
@@ -172,16 +173,26 @@ function AttributeRow({
     [validateName, effectiveReadOnly, onUpdate, onRename]
   );
   const debouncedName = useAutoSave(commitName, 500);
+  const nameDraft = useCallback(
+    (name: string): NameDraft => ({
+      name,
+      committedName,
+      index,
+      type: getValues(`${prefix}.typeCall.type.$refText`) ?? 'string',
+      card: formatCardinality(normaliseCard(getValues(`${prefix}.card`))) || '(1..1)'
+    }),
+    [committedName, index, getValues, prefix]
+  );
   useEffect(() => {
-    if (!effectiveReadOnly) debouncedName.flush();
-  }, [effectiveReadOnly, debouncedName]);
-  const nameDraft = (name: string): NameDraft => ({
-    name,
-    committedName,
-    index,
-    type: getValues(`${prefix}.typeCall.type.$refText`) ?? 'string',
-    card: formatCardinality(normaliseCard(getValues(`${prefix}.card`))) || '(1..1)'
-  });
+    if (effectiveReadOnly) return;
+    const path = `${prefix}.name`;
+    const name = getValues(path);
+    // A reparse may replace this row while its debounced rename is blocked.
+    if (getFieldState(path).isDirty && typeof name === 'string' && name !== committedName) {
+      debouncedName(nameDraft(name));
+    }
+    debouncedName.flush();
+  }, [effectiveReadOnly, committedName, prefix, getValues, getFieldState, nameDraft, debouncedName]);
   const validCombinedName = useCallback(() => {
     const name: string = getValues(`${prefix}.name`);
     return validateName && validateName(name) !== true ? committedName : name;
