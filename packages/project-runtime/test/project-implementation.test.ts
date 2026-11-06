@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { beforeAll, it, expect } from 'vitest';
+import { beforeAll, it, expect, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -9,8 +9,13 @@ import { createProjectSnapshot, readExamples, readWorkflows, readPresentations }
 import { compileGeneratedTypeScript } from '../../codegen/test/helpers/compiled-typescript.js';
 import { recordFunctionExports } from '../../codegen/test/helpers/record-function-exports.js';
 import { runeImplementationProject } from '../../../test/helpers/rune-implementation-project.js';
+import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../test/helpers/vitest-budget.js';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { openLocalProject } from '../src/local-project.js';
+
+// Match the root runner's budget for strict generated compilation and execution.
+vi.setConfig({ testTimeout: GENERATED_MODULE_TEST_TIMEOUT });
+
 let fixture: Awaited<ReturnType<typeof runeImplementationProject>>;
 beforeAll(async () => {
   // Capture the shared locked inputs once; each scenario still builds its own graph and strict TS program.
