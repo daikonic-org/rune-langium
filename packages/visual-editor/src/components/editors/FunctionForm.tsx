@@ -480,6 +480,7 @@ function FunctionForm({
     scopeKey,
     parseEpoch,
     readOnly: isReadOnly,
+    metadataReadOnly: sourceReadOnly,
     output: true
   });
 

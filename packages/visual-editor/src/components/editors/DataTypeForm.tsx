@@ -329,7 +329,8 @@ function DataTypeForm({
     actions,
     scopeKey,
     parseEpoch,
-    readOnly: isReadOnly
+    readOnly: isReadOnly,
+    metadataReadOnly: sourceReadOnly
   });
 
   const ghostRowsBefore = useMemo<GhostRow[]>(() => {

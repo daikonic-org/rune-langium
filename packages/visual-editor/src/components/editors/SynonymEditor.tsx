@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { MetadataItemPreview } from '../forms/metadata/MetadataItemPreview.js';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useMetadataItemCommit } from '../forms/metadata/useMetadataItemLease.js';
 import { EditorController } from '../forms/EditorFormProvider.js';
@@ -10,7 +11,7 @@ import { Input } from '@rune-langium/design-system/ui/input';
 import { SourceRefField } from './SourceRefField.js';
 import { resolveSynonymRefText } from './synonym-ref.js';
 import { createSynonymDraft, getMetadataItems, updateSynonymDraft } from '../../store/metadata-ops.js';
-import { useMetadataTarget } from '../forms/metadata/MetadataTargetContext.js';
+import { useMetadataTarget, type PendingMetadata } from '../forms/metadata/MetadataTargetContext.js';
 import type { MetadataItem, MetadataNode } from '../../store/metadata-target.js';
 import type { SourceRefOption } from '../../types.js';
 
@@ -178,26 +179,42 @@ function EditableSynonyms(props: SynonymEditorProps) {
   const [source, setSource] = useState<string | null>(null);
   const [value, setValue] = useState('');
   const [error, setError] = useState<string>();
+  const [adding, setAdding] = useState(false);
   const [showControls, setShowControls] = useState(!props.readOnly);
   if (!props.readOnly && !showControls) setShowControls(true);
+  const completeAdd = (entry: MetadataItem) => {
+    setFormValue(name, [...(getValues(name) ?? []), entry], { shouldDirty: true });
+    setSource(null);
+    setValue('');
+    setError(undefined);
+    setAdding(false);
+  };
+  const saveAdd = useAutoSave<{ pending: PendingMetadata; entry: MetadataItem }>(({ pending, entry }) => {
+    const result = binding?.commitPending(pending);
+    if (result?.status === 'readOnly') return false;
+    if (result?.status === 'committed') completeAdd(entry);
+    else {
+      setError('This synonym could not be saved.');
+      setAdding(false);
+    }
+  });
+  useEffect(() => {
+    if (!props.readOnly) saveAdd.flush();
+  }, [props.readOnly, saveAdd, binding?.node, binding?.commitBlocked]);
   const add = () => {
-    if (props.readOnly || !source) return;
+    if (props.readOnly || adding || !source) return;
     const option = props.sourceOptions.find((option) => option.value === source);
     const ref = resolveSynonymRefText(option, props.nodeId, source);
     const entry = createSynonymDraft(props.kind, ref, props.kind === 'class' ? undefined : value);
     if (!entry) return;
     if (props.onAdd) props.onAdd(ref, props.kind === 'class' ? undefined : value);
     else if (binding?.guarded) {
-      const result = binding.commit({ kind: 'append', field: props.field, value: entry });
-      if (result.status !== 'committed') {
-        setError('This synonym could not be saved.');
-        return;
-      }
+      setAdding(true);
+      saveAdd({ pending: binding.envelope({ kind: 'append', field: props.field, value: entry }), entry });
+      saveAdd.flush();
+      return;
     }
-    setFormValue(name, [...(getValues(name) ?? []), entry], { shouldDirty: true });
-    setSource(null);
-    setValue('');
-    setError(undefined);
+    completeAdd(entry);
   };
   const deleteItem = (index: number) => {
     if (props.onRemove) props.onRemove(index);
@@ -242,7 +259,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
         />
       )}
       {showControls && (
-        <fieldset disabled={props.readOnly} className="min-w-0 flex flex-wrap items-center gap-1">
+        <fieldset disabled={props.readOnly || adding} className="min-w-0 flex flex-wrap items-center gap-1">
           <SourceRefField
             value={source}
             options={props.sourceOptions}
@@ -266,7 +283,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
             disabled={!source || (props.kind !== 'class' && !value.trim())}
             className="rounded bg-card px-2 py-1 text-xs disabled:opacity-50"
           >
-            Add
+            {adding ? 'Adding…' : 'Add'}
           </button>
         </fieldset>
       )}

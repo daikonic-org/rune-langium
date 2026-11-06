@@ -34,6 +34,7 @@ export function useInspectorTargets({
   scopeKey = nodeId,
   parseEpoch,
   readOnly,
+  metadataReadOnly = readOnly,
   output = false
 }: {
   nodeId: string;
@@ -55,6 +56,8 @@ export function useInspectorTargets({
   scopeKey?: string;
   parseEpoch?: number;
   readOnly?: boolean;
+  /** Metadata drafts remain editable while structural changes await parsing. */
+  metadataReadOnly?: boolean;
   output?: boolean;
 }) {
   const fieldEpochs = useRef(new Map<string, number | undefined>());
@@ -100,7 +103,15 @@ export function useInspectorTargets({
     rows.push({ key: '$output', name: 'Output', path: ['output'], inherited: false, node: outputNode, parseEpoch });
   const selection = useInspectorSelection(scopeKey, rows);
   const guarded = getInspectorMetadataActions(actions);
-  const rootBinding = useMetadataBinding({ scopeKey, nodeId, root, selection, actions: guarded, readOnly });
+  const rootBinding = useMetadataBinding({
+    scopeKey,
+    nodeId,
+    root,
+    selection,
+    actions: guarded,
+    readOnly: metadataReadOnly,
+    commitBlocked: readOnly
+  });
   const childBinding = useMetadataBinding({
     scopeKey,
     nodeId,
@@ -108,7 +119,8 @@ export function useInspectorTargets({
     selection,
     row: selection.selectedRow,
     actions: guarded,
-    readOnly: readOnly || !guarded
+    readOnly: metadataReadOnly || !guarded,
+    commitBlocked: readOnly
   });
   const renameRow = (key: string, name: string) => {
     const row = selection.resolve(key, scopeKey);

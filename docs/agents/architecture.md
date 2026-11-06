@@ -360,8 +360,10 @@ Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.
 Scalar metadata autosaves retain valid edits when the host defers them during a
-source reparse. A fresh canonical target retries that same guarded pending edit,
-including enum display names; changing workspace or member identity never bypasses
+source reparse. Metadata draft controls stay editable during this structural lock;
+explicit synonym Add commands use the same retained-save lifecycle as scalar edits.
+Permanent source permissions and inherited rows remain read-only. A fresh canonical
+target retries that same guarded pending edit, including enum display names; changing workspace or member identity never bypasses
 the existing target checks. Synonym fieldsets can shrink within their Inspector
 pane so enlarged text wraps controls inside the shared gutter.
 
@@ -701,6 +703,11 @@ Linked fragment spellings also retain expression-relative Langium paths, includi
 on CST-free worker ASTs. The shared Codegen rebase helper verifies Rune equivalence
 and restores coordinates from captured source without re-rendering type-dependent
 syntax or callback aliases. Legacy coordinate fragments require unique AST matches.
+
+Detached source-projection expressions are validated through Core's canonical
+`parsedAdapter.dehydrate` representation before applying edits. Validation must not
+read lazy Langium reference getters on document-free source-lens ASTs; rendering
+and provenance checks continue using the original expression.
 
 Projection lookup compares canonical Langium URIs while replies retain the original
 editor binding. Both languages use codegen's `resolveExportSelection` to generate

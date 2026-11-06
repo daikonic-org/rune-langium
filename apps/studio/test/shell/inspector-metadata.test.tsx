@@ -2,13 +2,87 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useStore } from 'zustand';
 import { parse } from '@rune-langium/core';
-import { createEditorStore, EnumForm } from '@rune-langium/visual-editor';
+import { createEditorStore, createEditorCommitRegistry, EnumForm, FunctionForm } from '@rune-langium/visual-editor';
 import { createScopedMetadataActions } from '../../src/shell/inspector-metadata-actions.js';
 
 describe('Inspector host metadata scope', () => {
+  it('retains one synonym Add while a function source reparse blocks structural edits', async () => {
+    const source = `namespace test
+synonym source FpML
+func Identity:
+ inputs: value string (1..1)
+ output: result string (1..1)
+ set result: value
+`;
+    const parsed = (await parse(source)).value;
+    const store = createEditorStore();
+    store.getState().loadModels(parsed);
+    const id = store.getState().nodes.find((node) => node.data.name === 'Identity')!.id;
+    let blocked = false;
+    const registry = createEditorCommitRegistry();
+    const metadata = createScopedMetadataActions(
+      'A:1',
+      () => ({ scope: 'A:1', canEdit: () => !blocked }),
+      store.getState()
+    );
+    function Fixture() {
+      const state = useStore(store);
+      const node = state.nodesById.get(id)!;
+      if (node.data.$type !== 'RosettaFunction') throw new Error('Missing function');
+      return (
+        <FunctionForm
+          nodeId={id}
+          data={node.data}
+          meta={node.meta}
+          actions={{ ...state, ...metadata }}
+          availableTypes={[]}
+          synonymSourceOptions={[{ label: 'FpML', value: 'test.FpML' }]}
+          allNodes={state.nodes}
+          parseEpoch={state.parseEpoch}
+          structuralEditsDisabled={blocked}
+          registerCommitFlush={registry.register}
+        />
+      );
+    }
+    const view = render(<Fixture />);
+    try {
+      fireEvent.focus(screen.getByRole('textbox', { name: 'Attribute name: value' }));
+      const details = within(screen.getByRole('region', { name: 'Details: value' }));
+      fireEvent.click(details.getByRole('button', { name: 'Select source…' }));
+      fireEvent.click(screen.getByRole('option', { name: /FpML/ }));
+      fireEvent.change(details.getByLabelText('Synonym value'), { target: { value: 'Wire value' } });
+      blocked = true;
+      view.rerender(<Fixture />);
+      const add = details.getByRole('button', { name: 'Add', exact: true });
+      expect(add).toBeEnabled();
+      fireEvent.click(add);
+      expect(store.getState().captureMetadataTarget(id, ['inputs', 0])?.expected).toHaveProperty('synonyms', []);
+      expect(details.getByLabelText('Synonym value')).toHaveValue('Wire value');
+      expect(() => registry.flush()).toThrow(/waiting/);
+      blocked = false;
+      view.rerender(<Fixture />);
+      await waitFor(() =>
+        expect(store.getState().captureMetadataTarget(id, ['inputs', 0])?.expected).toMatchObject({
+          synonyms: [{ body: { values: [{ name: 'Wire value' }] } }]
+        })
+      );
+      act(() => registry.flush());
+      const committed = store.getState().captureMetadataTarget(id, ['inputs', 0])!;
+      view.rerender(<Fixture />);
+      fireEvent.blur(details.getByLabelText('Synonym value'));
+      expect(store.getState().captureMetadataTarget(id, ['inputs', 0])?.expected).toEqual(committed.expected);
+      expect(details.getByLabelText('Synonym value')).toHaveValue('');
+      expect(details.getByRole('button', { name: 'Edit synonym 1', exact: true })).toBeVisible();
+      expect(details.queryByRole('button', { name: 'Edit synonym 2', exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('retries an enum display edit after the renamed source becomes current', async () => {
     const source = 'namespace test\nenum Role:\n  First\n  Last\n';
     const original = (await parse(source)).value;

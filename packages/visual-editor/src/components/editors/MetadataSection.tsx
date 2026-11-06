@@ -67,7 +67,7 @@ export function MetadataScalar({
   // control. A fresh canonical target must retry the retained pending value.
   useEffect(() => {
     if (!readOnly) save.flush();
-  }, [readOnly, save, binding?.node]);
+  }, [readOnly, save, binding?.node, binding?.commitBlocked]);
   return (
     <EditorController
       control={control}
@@ -136,7 +136,7 @@ function FormMetadataSection(props: MetadataSectionProps): React.ReactNode {
   const { getValues } = useFormContext();
   const ctx = useEditorActionsContext();
   const binding = useMetadataTarget();
-  const readOnly = Boolean(props.readOnly || ctx?.readOnly || binding?.readOnly);
+  const readOnly = Boolean(props.readOnly || (binding ? binding.readOnly : ctx?.readOnly));
   const prefix = binding?.formPrefix;
   const path = (field: string) => [prefix, field].filter(Boolean).join('.');
   const caps = binding?.capabilities;

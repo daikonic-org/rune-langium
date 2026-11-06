@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { parseExpression, type RosettaExpression, type SourceRegion } from '@rune-langium/core';
+import { parseExpression, parsedAdapter, type RosettaExpression, type SourceRegion } from '@rune-langium/core';
 import { RosettaExpressionSchema } from '@rune-langium/core/zod-schemas';
 import { renderExpression, treesEquivalent } from '@rune-langium/codegen/rosetta';
 import {
@@ -16,7 +16,7 @@ import { withInstrumentation } from './instrumentation/core.js';
 /** Shared by inline projection edits and the legacy single-expression lens. */
 export const expressionReplacement = withInstrumentation(
   function expressionReplacement(node: RosettaExpression, expectedText: string): string {
-    if (!RosettaExpressionSchema.safeParse(node).success)
+    if (!RosettaExpressionSchema.safeParse(parsedAdapter.dehydrate(node)).success)
       throw new Error('The parsed expression is not a valid Rune AST.');
     const original = parseExpression(expectedText);
     const replacement =

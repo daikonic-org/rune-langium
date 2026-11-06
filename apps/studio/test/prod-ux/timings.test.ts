@@ -181,6 +181,15 @@ describe('buildTimingsRollup', () => {
 });
 
 describe('exceedsBudget', () => {
+  it('budgets cached source opening as well as the subsequent preview', () => {
+    expect(exceedsBudget([{ op: 'curatedSourceOpen', durationMs: 10001 }])).toBe(true);
+    expect(
+      exceedsBudget([
+        { op: 'curatedSourceOpen', durationMs: 10000 },
+        { op: 'formRender', durationMs: 5000 }
+      ])
+    ).toBe(false);
+  });
   it('returns false when every op is within budget', () => {
     expect(exceedsBudget([{ op: 'modelLoad', durationMs: 12000 }])).toBe(false);
   });

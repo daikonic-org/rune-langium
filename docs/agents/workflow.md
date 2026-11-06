@@ -196,8 +196,12 @@ CodeMirror's rendered DOM is virtualized and is not the full document. Review th
 manifest, screenshots, traces, endpoint checks and canonical deployment separately;
 a passing selector does not establish that the visible state is useful. Keep real
 production failures visible instead of weakening assertions or adding ledger entries.
-Production journey teardown also fails on premature `ComputedScopes` reference
-resolution warnings, retaining the console evidence and a failing manifest verdict.
+Production journey teardown also fails on premature `ComputedScopes`, detached
+`AST node has no document`, and cyclic reference resolution errors, retaining the
+console evidence and a failing manifest verdict. J20 checks both original source
+bytes and a ready function preview before its cold/warm checkpoints and cache
+request comparison. Source opening has a 10-second budget; subsequent preview
+readiness uses the existing 5-second form budget.
 Blank-reference ready checkpoints require selected Inspector content, not only
 the declaration inventory or preview form.
 To validate candidate assets against live endpoints without deploying, serve an

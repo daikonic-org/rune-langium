@@ -38,6 +38,11 @@ export function computeJourneyId(title: string, subId?: string): string {
   return subId ? `${group}:${subId}` : group;
 }
 
+/** Linker failures are never expected outcomes, including negative API journeys. */
+export function isUnexpectedReferenceError(message: string): boolean {
+  return /ComputedScopes state|AST node has no document|Cyclic reference resolution/.test(message);
+}
+
 export const checkout = base.extend<CheckoutFixtures>({
   evidence: async ({ page }, use, testInfo) => {
     const subId = testInfo.annotations.find((a) => a.type === 'journey-subid')?.description;
@@ -65,7 +70,7 @@ export const checkout = base.extend<CheckoutFixtures>({
     const degraded = collector.hasSoftFindings || exceedsBudget(collector.opLog);
     const verdict = baseVerdict === 'PASS' && degraded ? 'DEGRADED' : baseVerdict;
     const record: JourneyRecord = await collector.finish(verdict);
-    const prematureReferences = record.consoleErrors.filter((message) => message.includes('ComputedScopes state'));
+    const prematureReferences = record.consoleErrors.filter(isUnexpectedReferenceError);
     if (prematureReferences.length) record.verdict = 'FAIL';
     await appendJourneyRecord(record);
     expect(

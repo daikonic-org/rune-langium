@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { parse, parseWorkspace, BASICTYPES_ROSETTA, getExpressionRegions, isRosettaFunction } from '@rune-langium/core';
 import { renderSourceTypeScriptExpression } from '@rune-langium/codegen/lens';
 import { AstUtils } from 'langium';
@@ -16,6 +16,8 @@ const wasm = new Uint8Array(
       .replace(/package\.json$/, 'wasm/tree-sitter-typescript.wasm')
   )
 );
+
+afterEach(() => vi.restoreAllMocks());
 
 it.each([
   { hydrated: false, nested: false },
@@ -73,6 +75,7 @@ it.each([
   { inputs: ['item'], callback: 'item1' },
   { inputs: ['item', 'item1'], callback: 'item2' }
 ])('restores callback aliases from the displayed owner context ($callback)', async ({ inputs, callback }) => {
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
   const source = `namespace test
 func Filter:
  inputs:
@@ -110,4 +113,5 @@ ${inputs.map((name) => `  ^${name} number (1..1)`).join('\n')}
   expect(edit.replacement).not.toContain(callback);
   const updated = source.slice(0, region.from) + edit.replacement + source.slice(region.to);
   expect((await parse(updated)).hasErrors).toBe(false);
+  expect(errors).not.toHaveBeenCalled();
 });
