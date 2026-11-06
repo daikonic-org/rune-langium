@@ -37,6 +37,7 @@ import {
 } from '../lang/document-extensions.js';
 import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import { sourceDeclarationAt } from '../lang/source-declaration.js';
+import { showChangeFeedback, textChangeFeedback } from '../lang/change-feedback.js';
 import type { LspClientService } from '../services/lsp-client.js';
 import { pathToUri } from '../utils/uri.js';
 import { cn } from '@rune-langium/design-system/utils';
@@ -386,7 +387,11 @@ const renderSourceEditor = withInstrumentation(
         contentMapRef.current.set(file.path, file.content);
         view.dispatch({
           changes: minimalDocumentChange(editorContent, file.content),
-          annotations: [externalDocumentChange.of(true), Transaction.addToHistory.of(false)]
+          annotations: [
+            externalDocumentChange.of(true),
+            Transaction.addToHistory.of(false),
+            showChangeFeedback.of(!file.readOnly && !view.hasFocus)
+          ]
         });
       }
       // A cursor/dialog rerender may provide a new files array containing the
@@ -490,6 +495,7 @@ const renderSourceEditor = withInstrumentation(
         const exts: Extension[] = documentExtensions(regionRef.current);
         exts.push(
           sourceNavigationHighlight,
+          textChangeFeedback,
           runeDocumentationFolding,
           EditorView.contentAttributes.of({ 'aria-label': 'Rune source editor' }),
           EditorView.updateListener.of((update) => {

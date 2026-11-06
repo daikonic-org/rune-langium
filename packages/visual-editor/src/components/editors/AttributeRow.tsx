@@ -253,6 +253,7 @@ function AttributeRow({
     <div
       role="listitem"
       {...inspectorRowAttributes({ selected, onSelect }, committedName)}
+      data-feedback-key={`${fieldPath ?? fieldArrayName}:${committedName}`}
       data-slot="attribute-row"
       data-index={index}
       className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} ${isOverride ? 'opacity-60' : ''}`}

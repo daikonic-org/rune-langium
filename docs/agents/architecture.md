@@ -27,6 +27,27 @@ and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codeg
 
 ## Portable project state
 
+Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
+canonical rendered item snapshots after accepted authored input/model revisions;
+source positions and background reference hydration do not create edit events.
+Inspector rows expose stable presentation keys through the shared row helper.
+Structure instances share their canonical navigation key, so an edit cues every
+visible expansion of the same type. Graph cues compare authored node data, excluding
+position and selection; panning, moving blocks and layout changes stay quiet.
+Position-only Graph layout results preserve React Flow's current measurements,
+including dimensions accepted by a ResizeObserver update in the same frame.
+Source and generated code use the same effect vocabulary through CodeMirror
+decorations on explicitly annotated external document updates. Initial display,
+navigation and active editing controls stay quiet, including commits after blur.
+Removed controls leave only a bounded inert, aria-hidden visual snapshot; feedback
+never delays a model mutation or adds another persistence/validation path. Sample
+JSON retains its exact text while a CSS-only deletion ghost shows removed text.
+Its cues require a ready preview and an accepted authored or sample-value revision,
+so schema hydration and validation-only updates stay quiet.
+Timing is shared by animation and cleanup, and reduced motion removes spatial
+transitions while retaining the color cue. Feedback is canceled on focus, scope
+changes and unmount; it never moves the caret or scrolls another pane.
+
 `project-config` owns file capture, revision identity, normalization and snapshot
 validation. Both Studio and the headless runtime consume these host-neutral
 contracts. Positive source glob selection and semantic input revision are shared:

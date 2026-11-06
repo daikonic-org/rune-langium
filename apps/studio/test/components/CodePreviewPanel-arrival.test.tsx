@@ -49,6 +49,34 @@ it('highlights generated code arrivals, including repeated already-loaded target
   expect(lines()).toEqual([]);
 });
 
+it('cues regeneration after source edits, keeping initial files and background/file switches quiet', () => {
+  const files = [
+    { name: 'model.rosetta', path: 'model.rosetta', content: 'type Party: value string (1..1)', dirty: false }
+  ];
+  const { container, rerender } = render(<CodePreviewPanel sourceEditorRef={null} files={files} />);
+  expect(container.querySelector('[data-change-feedback]')).toBeNull();
+  const edited = [{ ...files[0]!, content: 'type Party: value number (1..1)', dirty: true }];
+  rerender(<CodePreviewPanel sourceEditorRef={null} files={edited} />);
+  act(() =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'zod',
+      files: [
+        { relativePath: 'model.ts', content: 'export type Party = number;\nexport type Trade = Party;', sourceMap: [] }
+      ]
+    })
+  );
+  expect(container.querySelector('[data-change-feedback="change"]')).toHaveTextContent('number');
+  act(() => vi.advanceTimersByTime(900));
+  expect(container.querySelector('[data-change-feedback]')).toBeNull();
+  act(() =>
+    useCodegenStore.getState().receiveCodePreviewResult({
+      target: 'zod',
+      files: [{ relativePath: 'other.ts', content: 'export type Other = boolean;', sourceMap: [] }]
+    })
+  );
+  expect(container.querySelector('[data-change-feedback]')).toBeNull();
+});
+
 it('follows public model types across files, regeneration and repeated type/factory arrivals', () => {
   useCodegenStore.setState({ codePreviewTarget: 'typescript', activeTarget: 'typescript' });
   const deliver = (prefix = '') =>

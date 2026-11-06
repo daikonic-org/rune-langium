@@ -26,6 +26,8 @@
  */
 
 import { DraftConditionEditor } from '../components/editing/DraftConditionEditor.js';
+import { useChangeFeedback } from '../hooks/useChangeFeedback.js';
+import { diagramFeedbackItems, inspectorFeedbackItems } from '../services/feedback-items.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
 import { projectDeclarationDestination } from '../services/local-declaration.js';
@@ -2257,6 +2259,22 @@ export const ExplorePerspective = withInstrumentation(
 
     const FormPreviewPanelMounted = useCallback(() => <FormPreviewPanelShell />, []);
 
+    const graphFeedback = useChangeFeedback(
+      `${workspaceId}:graph`,
+      useMemo(() => diagramFeedbackItems(storeNodes, 'graph'), [storeNodes, currentNavigationTarget])
+    );
+    const graphFeedbackContainer = useCallback(
+      (element: HTMLDivElement | null) => {
+        graphFeedback(element);
+        const cleanup = setGraphContainerRef(element);
+        return () => {
+          graphFeedback(null);
+          cleanup?.();
+        };
+      },
+      [graphFeedback, setGraphContainerRef]
+    );
+
     const renderGraphPane = useCallback(
       (showInspector: () => void) => (
         <section
@@ -2312,7 +2330,7 @@ export const ExplorePerspective = withInstrumentation(
               Grouped
             </Button>
           </div>
-          <div ref={setGraphContainerRef} className="min-h-0 flex-1 relative studio-graph-canvas">
+          <div ref={graphFeedbackContainer} className="min-h-0 flex-1 relative studio-graph-canvas">
             <RuneTypeGraph
               ref={graphRef}
               navigationTarget={currentNavigationTarget}
@@ -2377,7 +2395,7 @@ export const ExplorePerspective = withInstrumentation(
         storeLayoutEngine,
         storeSetLayoutEngine,
         requestInspectorMembers,
-        setGraphContainerRef
+        graphFeedbackContainer
       ]
     );
 
@@ -2482,6 +2500,11 @@ export const ExplorePerspective = withInstrumentation(
       [parsedModels, parseErrors]
     );
     const selectedParseCurrent = isParsedFileCurrent(selectedExpressionFile);
+    const inspectorFeedback = useChangeFeedback(
+      `${workspaceId}:${selectedNodeId ?? ''}`,
+      useMemo(() => inspectorFeedbackItems(selectedNodeData), [selectedNodeData]),
+      !selectedNodeIsHydrating && Boolean(selectedNodeData) && (selectedNodeIsRefOnly || selectedParseCurrent)
+    );
     const metadataContext = useLatestRef({
       scope: inspectorScope,
       canEdit: (nodeId: string) => {
@@ -2752,6 +2775,7 @@ export const ExplorePerspective = withInstrumentation(
     const renderInspectorPane = useCallback(
       () => (
         <div
+          ref={inspectorFeedback}
           className={`studio-scroll flex flex-col min-h-0 h-full overflow-hidden${inspectorArrivalNodeId && inspectorArrivalNodeId === selectedNodeId ? ' navigation-arrival' : ''}`}
           onContextMenu={(event) => {
             if (event.target instanceof Element && event.target.closest('[data-slot="type-header"]'))
@@ -3015,9 +3039,13 @@ export const ExplorePerspective = withInstrumentation(
       return result.length > 0 ? result : EMPTY_RANGE_DIAGNOSTICS;
     }, [structureLspDiagnostics, structureLineOffsets]);
 
+    const structureFeedback = useChangeFeedback(
+      `${workspaceId}:structure`,
+      useMemo(() => diagramFeedbackItems(storeNodes, 'structure'), [storeNodes, structureFocusedTypeId, expansionMap])
+    );
     const renderStructurePane = useCallback(
       (showInspector: () => void) => (
-        <div className="h-full min-h-0 studio-graph-canvas">
+        <div ref={structureFeedback} className="h-full min-h-0 studio-graph-canvas">
           <StructureView
             focusedTypeId={structureFocusedTypeId}
             navigationRevision={navigationRevision}
@@ -3041,6 +3069,7 @@ export const ExplorePerspective = withInstrumentation(
       ),
       [
         navigationRevision,
+        structureFeedback,
         structureFocusedTypeId,
         adapterDocument,
         expansionMap,

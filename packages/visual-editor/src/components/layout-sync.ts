@@ -1,6 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+/** Keep React Flow's measured dimensions when a layout result only replaces positions. */
+export function preserveNodeMeasurements<
+  N extends {
+    id: string;
+    type?: string;
+    measured?: { width?: number; height?: number };
+  }
+>(current: readonly N[], next: readonly N[]): N[] {
+  const previous = new Map(current.map((node) => [node.id, node]));
+  return next.map((node) => {
+    const old = previous.get(node.id);
+    if (!old?.measured || old.type !== node.type) return node;
+    return { ...node, measured: { ...old.measured, ...node.measured } };
+  });
+}
+
 /**
  * Compare two React Flow layout snapshots and decide whether the next
  * computed layout should replace the current local node positions.

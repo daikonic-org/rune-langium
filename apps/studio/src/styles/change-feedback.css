@@ -1,0 +1,113 @@
+/* SPDX-License-Identifier: FSL-1.1-ALv2 */
+/* Copyright (c) 2026 Pradeep Mouli */
+
+[data-change-feedback-boundary] {
+  /* Installed from the shared JS timing authority; zero is the quiet fallback. */
+  --change-highlight-duration: 0ms;
+  --change-arrival-duration: 0ms;
+  --change-departure-duration: 0ms;
+  --change-hold-duration: 0ms;
+  --change-removal-duration: 0ms;
+  position: relative;
+}
+
+[data-change-feedback] {
+  --change-ink: var(--color-status-info);
+  /* Keep spacing gutters clear and leave native control/focus borders intact. */
+  background-clip: content-box;
+  animation: rune-change-highlight var(--change-highlight-duration) ease-out both;
+}
+
+:where([data-change-feedback]) {
+  /* Native card/control radii win; unstyled field groups get a soft edge. */
+  border-radius: var(--radius-sm);
+}
+
+[data-change-feedback]:where(span) {
+  border-radius: var(--radius-xs);
+  box-decoration-break: clone;
+}
+
+[data-change-feedback='add'] {
+  --change-ink: var(--color-status-success);
+  animation: rune-change-highlight var(--change-highlight-duration) ease-out both, rune-change-arrive var(--change-arrival-duration) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[data-change-feedback='remove'] {
+  --change-ink: var(--color-status-error);
+  animation: rune-change-highlight var(--change-removal-duration) ease-out both, rune-change-depart var(--change-departure-duration) ease-out var(--change-hold-duration) both;
+}
+
+[data-change-feedback-ghost] {
+  --change-removed-height: 0px;
+  overflow: hidden;
+  height: var(--change-removed-height);
+  max-width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.rune-text-ghost,
+.cm-change-removed {
+  display: inline-block;
+  animation-name: rune-change-highlight, rune-text-depart;
+}
+
+.rune-text-ghost::before {
+  content: attr(data-removed-text);
+  white-space: pre-wrap;
+  user-select: none;
+}
+
+@keyframes rune-text-depart {
+  to {
+    opacity: 0;
+    transform: scaleY(0.7);
+  }
+}
+
+@keyframes rune-change-highlight {
+  0%, 22% {
+    background-color: color-mix(in oklch, var(--change-ink) 14%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes rune-change-arrive {
+  from {
+    opacity: 0.35;
+    transform: scaleY(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes rune-change-depart {
+  from {
+    opacity: 1;
+    height: var(--change-removed-height);
+  }
+
+  to {
+    opacity: 0;
+    height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-change-feedback='add'],
+  [data-change-feedback='remove'] {
+    animation-name: rune-change-highlight;
+  }
+
+  .rune-text-ghost[data-change-feedback='remove'],
+  .cm-change-removed[data-change-feedback='remove'] {
+    animation-name: rune-change-highlight;
+  }
+}

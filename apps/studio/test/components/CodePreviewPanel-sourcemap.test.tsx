@@ -12,6 +12,10 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, act, cleanup } from '@testing-library/react';
+vi.mock('../../src/lang/change-feedback.js', () => ({
+  textChangeFeedback: [],
+  showChangeFeedback: { of: (enabled: boolean) => ({ enabled }) }
+}));
 
 // Capture the domEventHandlers argument so tests can invoke the click handler
 // directly — the CodeMirror-based panel no longer has per-line DOM elements.

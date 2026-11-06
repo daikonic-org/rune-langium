@@ -405,6 +405,7 @@ function StructureCard({
       }
       data-kind={node.kind}
       data-canonical-id={node.id}
+      data-feedback-node={navigationId}
       data-instance-id={instanceId}
       aria-labelledby={titleId}
     >

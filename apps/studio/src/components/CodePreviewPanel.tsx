@@ -14,6 +14,9 @@
 import { recordOperation } from '../services/operation-feedback.js';
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { EditorView } from '@codemirror/view';
+import { showChangeFeedback, textChangeFeedback } from '../lang/change-feedback.js';
+import { useFeedbackRevision } from '../hooks/useChangeFeedback.js';
+import { feedbackRevisionChanged, type FeedbackRevision } from '../services/change-feedback.js';
 import { EditorState } from '@codemirror/state';
 import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import { javascript } from '@codemirror/lang-javascript';
@@ -139,6 +142,11 @@ export const CodePreviewPanel = withInstrumentation(
 
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<EditorView | null>(null);
+    const installedFeedbackFile = useRef<
+      { view: EditorView; identity: string; revision: FeedbackRevision } | undefined
+    >(undefined);
+    const feedbackRevision = useFeedbackRevision(files);
+    const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
     const sourceEditorRefRef = useLatestRef(sourceEditorRef);
     const activeFileRef = useLatestRef<CodePreviewFile | undefined>(activeFile);
 
@@ -327,6 +335,7 @@ export const CodePreviewPanel = withInstrumentation(
         extensions: [
           ...editorExtensions(langExtension, true),
           sourceNavigationHighlight,
+          textChangeFeedback,
           EditorView.domEventHandlers({
             click: (event, view) => {
               const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -353,14 +362,28 @@ export const CodePreviewPanel = withInstrumentation(
       if (!activeFile && snapshot.status === 'waiting' && snapshot.previous) return;
       const nextContent = activeFile?.content ?? '';
       const current = view.state.doc.toString();
-      if (current === nextContent) return;
+      const identity = `${workspace?.workspaceId ?? ''}:${target}:${selectedTargetId ?? ''}:${activeFile?.relativePath ?? ''}`;
+      const previous = installedFeedbackFile.current;
+      const sameFile = previous?.view === view && previous.identity === identity;
+      if (current === nextContent) {
+        if (!sameFile) installedFeedbackFile.current = { view, identity, revision: feedbackRevision };
+        return;
+      }
+      installedFeedbackFile.current = { view, identity, revision: feedbackRevision };
       view.dispatch({
         changes: minimalDocumentChange(current, nextContent),
-        annotations: externalDocumentChange.of(true)
+        annotations: [
+          externalDocumentChange.of(true),
+          showChangeFeedback.of(
+            sameFile &&
+              feedbackRevisionChanged(previous?.revision, feedbackRevision) &&
+              snapshot.status === 'ready' &&
+              !view.hasFocus
+          )
+        ]
       });
-    }, [activeFile, activeTarget, target, snapshot]);
+    }, [activeFile, activeTarget, target, snapshot, workspace?.workspaceId, selectedTargetId, feedbackRevision]);
 
-    const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
     const selectedTarget = usePreviewStore((s) => s.selectedTarget);
     const navigationRequest = usePreviewStore((s) => s.navigationRequest);
     const destination = useMemo(() => {

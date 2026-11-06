@@ -22,6 +22,10 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup, waitFor } from '@testing-library/react';
+vi.mock('../../src/lang/change-feedback.js', () => ({
+  textChangeFeedback: [],
+  showChangeFeedback: { of: (enabled: boolean) => ({ enabled }) }
+}));
 
 // These tests exercise panel routing/status; real editor cues are covered in CodePreviewPanel-arrival.
 vi.mock('../../src/lang/source-navigation-highlight.js', () => ({

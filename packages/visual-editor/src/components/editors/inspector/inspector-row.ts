@@ -15,6 +15,7 @@ export interface InspectorRowProps {
 /** Select on focus/click without intercepting keys owned by row inputs or pickers. */
 export function inspectorRowAttributes({ selected, onSelect }: InspectorRowProps, name: string) {
   return {
+    'data-feedback-key': name,
     'data-selected': selected || undefined,
     tabIndex: onSelect ? 0 : undefined,
     'aria-label': onSelect ? `Inspect ${name}` : undefined,
