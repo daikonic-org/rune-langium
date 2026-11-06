@@ -45,8 +45,8 @@ ${t('  last(): 0 extends Min ? T | undefined : T;\n')}  last()${t(': T | undefin
   onlyElement() { return this.items.length === 1 ? this.items[0] : undefined; }
   distinct() { return runeArray(runeDistinct(this.items)); }
   reverse() { return runeArray([...this.items].reverse()); }
-${t('  flat(): RuneArray<RuneFlatElement<T>>;\n')}  flat()${t(': RuneList<unknown>')} {
-    return runeArray(this.items.flatMap(value => [...runeList(value)]));
+  flat${t('<Depth extends number = 1>')}(depth${t('?: Depth')}) {
+    return runeArray(this.items.flat(depth));
   }
   sort${t('<K = T>')}(...args${t(': RuneKeyArguments<T, K>')}) {
     const [key, compare] = args;

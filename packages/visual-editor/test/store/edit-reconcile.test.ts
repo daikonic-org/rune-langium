@@ -12,7 +12,12 @@
 import { describe, it, expect } from 'vitest';
 import { create, type Patch } from 'mutative';
 import type { GraphEditRecipe } from '../../src/store/edit-reconcile.js';
-import { reconcileParse, projectGraph, patchAlreadySatisfied } from '../../src/store/edit-reconcile.js';
+import {
+  reconcileParse,
+  projectGraph,
+  patchAlreadySatisfied,
+  authoredValuesEqual
+} from '../../src/store/edit-reconcile.js';
 import { nodesFromMap } from '../../src/store/node-projection.js';
 import type { TypeGraphNode, TypeGraphEdge } from '../../src/types.js';
 
@@ -227,3 +232,19 @@ function commitGraphEdit(nodes: TypeGraphNode[], edges: TypeGraphEdge[], recipe:
   const [next, patches] = create(projectGraph(nodes, edges), recipe, { enablePatches: true });
   return { nodes: [...next.nodes.values()], edges: [...next.edges.values()], patches };
 }
+
+describe('authored integer equality', () => {
+  it('compares arbitrary integer values exactly while ignoring derived namespace metadata', () => {
+    expect(authoredValuesEqual([1], { 0: 1 })).toBe(false);
+    expect(authoredValuesEqual(Array(1), [])).toBe(false);
+    const integer = 9007199254740993n;
+    expect(
+      authoredValuesEqual(
+        { $type: 'RosettaIntLiteral', value: integer, $namespace: 'parsed' },
+        { $type: 'RosettaIntLiteral', value: integer }
+      )
+    ).toBe(true);
+    expect(authoredValuesEqual({ value: integer }, { value: integer - 1n })).toBe(false);
+    expect(authoredValuesEqual({ value: integer }, { value: Number(integer) })).toBe(false);
+  });
+});

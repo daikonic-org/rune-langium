@@ -41,14 +41,17 @@ export function projectGraph(nodes: readonly TypeGraphNode[], edges: readonly Ty
   return { nodes: toNodesById(nodes), edges: toEdgesById(edges) };
 }
 
-/** Cheap structural equality for patch values (small, JSON-safe graph data). */
+/** Exact structural equality for authored graph data, including bigint literals. */
 function valueEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  try {
-    return JSON.stringify(a) === JSON.stringify(b);
-  } catch {
+  if (Object.is(a, b)) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b) || (Array.isArray(a) && Array.isArray(b) && a.length !== b.length))
     return false;
-  }
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && valueEqual(Reflect.get(a, key), Reflect.get(b, key)))
+  );
 }
 
 const PARSE_METADATA_KEYS = new Set([
@@ -59,13 +62,14 @@ const PARSE_METADATA_KEYS = new Set([
   '$container',
   '$containerProperty',
   '$containerIndex',
-  '$document'
+  '$document',
+  '$namespace'
 ]);
 
 const expressionDrafts = new WeakMap<object, unknown>();
 
 /** Compare an edited expression with its parsed shape through the real grammar. */
-export function normalizedExpressionDraft(value: unknown): unknown {
+function normalizedExpressionDraft(value: unknown): unknown {
   if (
     !value ||
     typeof value !== 'object' ||

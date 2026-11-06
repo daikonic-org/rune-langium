@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, expect, it } from 'vitest';
-import { parse } from '@rune-langium/core';
+import { parse, isRosettaFunction, isMapOperation, isRosettaSymbolReference } from '@rune-langium/core';
 import { renderModel } from '@rune-langium/codegen/rosetta';
 import { createEditorStore } from '../../src/store/editor-store.js';
 import { modelsToAst } from '../../src/adapters/model-to-ast.js';
@@ -34,6 +34,17 @@ async function fixture(source = SOURCE) {
 }
 
 describe('function output signature', () => {
+  it('can display a partial source parse without requiring every symbol reference to exist', async () => {
+    const parsed = await parse(`namespace signature.edit
+      func Example:
+        output: result number (1..1)
+        set result:
+    `);
+    expect(parsed.hasErrors).toBe(true);
+    const store = createEditorStore();
+    expect(() => store.getState().loadModels(parsed.value)).not.toThrow();
+  });
+
   it('renames assignment roots and output references, preserves lambda shadowing and supports one-step Undo', async () => {
     const { store, id, text } = await fixture();
     const before = text();
@@ -51,9 +62,62 @@ describe('function output signature', () => {
     expect(text()).toBe(edited);
   });
 
-  it('renames output references in a pending valid expression through the shared parser', async () => {
+  it('preserves implicitly scoped inherited fields while renaming the output', async () => {
+    const { store, id, text } = await fixture(`namespace signature.edit
+      type Parent:
+        result number (1..1)
+      type Entry extends Parent:
+        extra number (0..1)
+      func Example:
+        inputs: values Entry (0..*)
+        output: result number (0..*)
+        set result: values extract [result]
+        post-condition Valid: result count >= 0
+    `);
+    store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(0..*)');
+    expect(text()).toContain('values extract [result]');
+    expect(text()).toContain('adjusted count >= 0');
+    const reparsed = await parse(text());
+    const fn = reparsed.value.elements.find(isRosettaFunction)!;
+    const map = fn.operations[0]!.expression;
+    if (!isMapOperation(map) || !map.function || !isRosettaSymbolReference(map.function.body))
+      throw new Error('Expected the implicit extraction');
+    expect(map.function.body.symbol.ref?.$container).toBe(
+      reparsed.value.elements.find((node) => node.name === 'Parent')
+    );
+    expect(fn.operations[0]!.assignRoot.ref).toBe(fn.output);
+  });
+
+  it('leaves a same-named callable bound to its function declaration', async () => {
+    const { store, id, text } = await fixture(`namespace signature.edit
+      func result:
+        inputs: value number (1..1)
+        output: answer number (1..1)
+        set answer: value + 1
+      func Example:
+        output: result number (1..1)
+        set result: result(1)
+    `);
+    store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(1..1)');
+    expect(text()).toContain('adjusted number (1..1)');
+    expect(text()).toMatch(/set adjusted:\s+result\(1\)/);
+  });
+
+  it('rejects an unproven destination in an implicit output capture atomically', async () => {
+    const { store, id, text } = await fixture(SOURCE.replace('extract result [result + 1]', 'extract [result count]'));
+    const before = text();
+    store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(0..*)');
+    expect(text()).toBe(before);
+  });
+
+  it('waits for fresh linked bindings after a pending expression edit', async () => {
     const { store, id, text } = await fixture();
     store.getState().updateExpression(id, 'result count', 0);
+    const pending = text();
+    store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(0..*)');
+    expect(text()).toBe(pending);
+    const parsed = await parse(pending);
+    store.getState().loadModels(parsed.value);
     store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(0..*)');
     expect(text()).toMatch(/set adjusted:\s+adjusted count/);
   });

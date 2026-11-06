@@ -29,6 +29,7 @@ import {
   selectNamespaceOverrideModels,
   getModelSourceUri
 } from '@rune-langium/core';
+import { rememberFunctionOutputBindings } from '../store/function-output.js';
 import type { RosettaModel, RosettaRootElement } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge, GraphNodeMeta, GraphFilters, TypeKind } from '../types.js';
 import { getTypeRefText, getRefText, formatCardinality, resolveNodeKind } from './model-helpers.js';
@@ -108,6 +109,8 @@ function buildGraphNode<T extends { $type: string; name: string }>(
   };
 
   if (isLiveAstElement(element)) {
+    if (!isReadOnly && isRosettaFunction(element) && data.$type === 'RosettaFunction')
+      rememberFunctionOutputBindings(data, element);
     const definitions = getAnnotationDefinitions(element);
     if (Object.keys(definitions).length) meta.annotationDefinitions = definitions;
   }

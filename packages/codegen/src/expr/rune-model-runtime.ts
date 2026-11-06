@@ -13,7 +13,7 @@ ${e}type RuneFieldDefinition = Omit<RuneValueSelection<unknown, number, number |
   readonly cardinality: Cardinality;
   readonly wireCardinality?: Cardinality;
 };
-${e}type RuneModelDefinition<Model extends RuneValueType = RuneValueType> = Pick<RuneValueType, 'identity' | 'kind' | 'native' | 'metadata' | 'codec' | 'create' | 'prototype' | 'parent' | 'choice'> & {
+${e}type RuneModelDefinition<Model extends RuneValueType = RuneValueType> = globalThis.Pick<RuneValueType, 'identity' | 'kind' | 'native' | 'metadata' | 'codec' | 'create' | 'prototype' | 'parent' | 'choice'> & {
   readonly fields?: Model['fields'];
   readonly base?: () => RuneValueType;
   readonly deepBounds?: Readonly<Record<string, { readonly min: number; readonly max: number | null }>>;

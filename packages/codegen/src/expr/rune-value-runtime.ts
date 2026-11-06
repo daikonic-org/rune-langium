@@ -348,7 +348,7 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   onlyElement(): RuneView<T, 0, 1, Model> { const value = this.$list.onlyElement(); return new RuneValue(value == null ? [] : [value], this.$type, 0, 1) as RuneView<T, 0, 1, Model>; }
   map<U>(project: (item: T, index: number) => U): RuneView<NonNullable<U>, RuneMapMin<Min, U>, Max> { const values = this.$list.map(project).toArray(); return new RuneValue(values, undefined, values.length === this.count() ? this.$min : 0, this.$max) as RuneView<NonNullable<U>, RuneMapMin<Min, U>, Max>; }
   flatMap<U>(project: (item: T, index: number) => U | readonly U[] | null | undefined): RuneView<U, 0, null> { return new RuneValue(this.$list.flatMap(project).toArray(), undefined, 0, null) as RuneView<U, 0, null>; }
-  flat<U>(this: RuneValue<U | readonly U[], Min, Max, Model>): RuneView<U, 0, null> { return new RuneValue(this.$list.flat().toArray(), undefined, 0, null) as RuneView<U, 0, null>; }
+  flat<Depth extends number = 1>(depth?: Depth): RuneView<globalThis.FlatArray<T[], Depth>, 0, null> { return new RuneValue<globalThis.FlatArray<T[], Depth>, 0, null>(this.$list.flat(depth).toArray(), undefined, 0, null); }
   filter(predicate: (item: T, index: number) => boolean): RuneView<T, 0, Max, Model> { return new RuneValue(this.$list.filter(predicate).toArray(), this.$type, 0, this.$max) as RuneView<T, 0, Max, Model>; }
   reverse(): RuneView<T, Min, Max, Model> { return new RuneValue(this.$list.reverse().toArray(), this.$type, this.$min, this.$max) as RuneView<T, Min, Max, Model>; }
   distinct(): RuneView<T, 0, Max, Model> { return new RuneValue(this.$list.distinct().toArray(), this.$type, 0, this.$max) as RuneView<T, 0, Max, Model>; }
@@ -509,7 +509,7 @@ ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?:
         if (Object.hasOwn(value, field.key)) result[field.key] = Array.isArray(raw) ? raw.map(item) : item(raw);
       }
       if (model?.kind === 'choice' && model.choice) {
-        if (codecProjection) return result;
+        if (codecProjection || !runeFormat) return result;
         return runeJson.projectChoice(result, model.identity, model.choice, (_arm, value) => value);
       }
       if (!model) return result;

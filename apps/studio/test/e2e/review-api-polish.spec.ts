@@ -20,6 +20,12 @@ type Entry: <"A required dated amount.">
  amount number (1..1) <"The amount for this date.">
 type Schedule: <"A collection of dated amounts.">
  entries Entry (0..*)
+type OutputFields:
+ result boolean (1..1)
+func ImplicitResult:
+ inputs: values OutputFields (0..*)
+ output: result boolean (0..*)
+ set result: values extract [result]
 func CurrencyTest:
  inputs: currency string (1..1)
  output: result boolean (1..1)
@@ -145,6 +151,28 @@ test('edits a named output alongside inputs and synchronizes source', async ({ p
   await page.screenshot({ path: info.outputPath('named-output.png') });
   await page.getByRole('button', { name: 'Add input', exact: true }).click();
   await expect(page.getByRole('textbox', { name: /^Attribute name:\s*$/ })).toBeVisible();
+});
+
+test('renames output without changing implicit element field bindings', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await load(page);
+  await select(page, 'ImplicitResult', 'RosettaFunction');
+  await showPane(page, 'Inspector');
+  await showPane(page, 'Source');
+  const output = page.getByRole('group', { name: 'Output', exact: true });
+  const name = output.locator('[data-slot="attribute-name"]');
+  await name.fill('accepted');
+  await name.blur();
+  await expect(output.getByRole('textbox', { name: 'Output name: accepted', exact: true })).toBeEnabled();
+  const editor = fullSourceEditor(page);
+  await expect.poll(() => codeMirrorDocument(editor)).toContain('accepted boolean (0..*)');
+  await expect.poll(() => codeMirrorDocument(editor)).toContain('values extract [result]');
+  await expect(page.getByTestId('implementation-editor')).toContainText('values extract [result]');
+  await expect(output.getByRole('textbox', { name: 'Output name: accepted', exact: true })).toBeEnabled();
+  await expect(
+    page.getByText('Signature editing waits for the current Rune draft to parse.', { exact: true })
+  ).toBeHidden();
+  await page.screenshot({ path: info.outputPath('implicit-field-preserved.png') });
 });
 
 test('drops a type onto the input name and shows inherited enum values', async ({ page }, info) => {

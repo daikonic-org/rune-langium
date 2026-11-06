@@ -191,9 +191,8 @@ class RuneList<T, Min extends number = 0, Max extends number | null = null> {
   onlyElement() { return this.items.length === 1 ? this.items[0] : undefined; }
   distinct() { return runeArray(runeDistinct(this.items)); }
   reverse() { return runeArray([...this.items].reverse()); }
-  flat(): RuneArray<RuneFlatElement<T>>;
-  flat(): RuneList<unknown> {
-    return runeArray(this.items.flatMap(value => [...runeList(value)]));
+  flat<Depth extends number = 1>(depth?: Depth) {
+    return runeArray(this.items.flat(depth));
   }
   sort<K = T>(...args: RuneKeyArguments<T, K>) {
     const [key, compare] = args;

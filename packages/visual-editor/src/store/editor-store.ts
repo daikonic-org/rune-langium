@@ -1931,6 +1931,7 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             const state = get();
             const source = state.nodesById.get(nodeId)?.data;
             if (source?.$type !== 'RosettaFunction' || (source.output?.name ?? '') !== oldName) return;
+            if (oldName !== newName && state.pendingEditPatches.length > 0) return;
             const renamed = oldName && oldName !== newName ? renamedFunctionOutput(source, oldName, newName) : source;
             if (!renamed) return;
             const card = parseCardinality(cardinality);

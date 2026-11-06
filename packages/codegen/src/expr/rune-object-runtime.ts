@@ -11,7 +11,7 @@ ${e}const runeObjectType = Symbol.for('rune-langium.object.definition');
 ${e}interface RuneModelOwner { readonly [key: symbol]: () => RuneValueType; }
 ${e}type RuneModel<C extends RuneModelOwner> = ReturnType<C[typeof runeObjectType]>;
 ${e}type RuneModelTag<P extends RuneModelOwner, M extends RuneValueType> = P[typeof runeObjectType] & (() => M);
-type RuneObjectConstructor = RuneModelOwner & (new (...args: never[]) => RuneObject) & Pick<typeof RuneObject, 'create'>;
+type RuneObjectConstructor = RuneModelOwner & (new (...args: never[]) => RuneObject) & globalThis.Pick<typeof RuneObject, 'create'>;
 ${e}type RuneGuarded<I, C extends RuneObjectConstructor> = I & (I extends RuneObject ? InstanceType<C> : ConstructorParameters<C>[0]);
 ${e}type RuneTypeGuard<C extends RuneObjectConstructor> = <I>(value: I) => value is RuneGuarded<I, C>;
 type RuneShapeChecks = WeakMap<object, Set<RuneValueType>>;

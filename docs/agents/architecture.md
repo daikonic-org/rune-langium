@@ -321,9 +321,13 @@ Function inputs and the named output share `AttributeRow`, including type-drop,
 cardinality and metadata targeting. Inputs are added from the section legend;
 there is no permanent empty creation row. Output signature edits keep the reserved
 `output` dependency-edge label and update lexical output references and assignment
-roots in the same Undo transaction. The shared parser normalizes pending expression
-text before renaming; local shadowing is preserved, and collisions/capture leave
-the committed graph unchanged. The legacy type-only action delegates to this edit.
+roots in the same Undo transaction. The adapter captures exact linked output-reference
+identities in a weak side table before dehydration; no live parser nodes or extra
+reference fields enter the domain payload. Implicit fields and same-named calls
+retain their original bindings. Pending edits wait for a linked parse; unresolved
+or unproven implicit captures fail closed. Reconciliation ignores derived namespace
+metadata and compares arbitrary integer literals exactly, so acknowledged expressions
+do not replay as unlinked text. The legacy type-only action delegates to this edit.
 `--field-label-gap` (4 px) is shared by design-system Field and Preview controls.
 Preview and Prototype share validated field state: invalid controls use a semantic
 red-tinted background and border, `aria-invalid`, and an associated inline error.
@@ -1373,7 +1377,10 @@ JSON serialization, including zero/one items. Descriptor-free map/flatMap result
 use the same native-value serializer; generated instances recover their own model
 and optional codec, while plain callback results recurse without a schema.
 Native patterns remain source strings in JSON, unsupported flags and cycles fail
-explicitly, and model tags survive Rune JSON serialization. Public array sort dispatches by
+explicitly, and model tags survive Rune JSON serialization. Ordinary JSON retains
+structural Choice arm names; only Rune JSON projects those arms to tagged payloads.
+The shared list/array flatten operation honors native depth semantics and preserves
+chainable, depth-aware result types. Public array sort dispatches by
 callback `Function.length`: zero/one parameter selects the shared Rune key-sort
 helper, while two or more use native comparison and mutation through the normalizer.
 An explicit key comparator retains helper semantics; `sort(undefined, compare)`
