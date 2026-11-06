@@ -107,3 +107,41 @@ test('reuses the verified release builder and isolated receipt-gated uploader; f
   assert.ok(partial[1].args.includes('7.8.1'));
   assert.equal(partial[2].command, 'bash');
 });
+
+for (const failure of ['exit', 'throw']) {
+  test(`continues to build and publish the next release after an upload ${failure}`, async () => {
+    const calls = [];
+    await assert.rejects(
+      reconcileCuratedReleases({
+        fetchImpl: fetcher(),
+        run(command, args, options) {
+          const tag =
+            command === 'bash'
+              ? options.env.CURATED_ARTIFACT_DIR.split('/').at(-1)
+              : args[args.indexOf('--release') + 1];
+          calls.push({ command, tag });
+          if (command === 'bash' && tag === '7.9.0') {
+            if (failure === 'throw') throw new Error('Uploader unavailable');
+            return { status: 1 };
+          }
+          return { status: 0 };
+        }
+      }),
+      (error) => {
+        assert.ok(error instanceof AggregateError);
+        assert.equal(error.errors.length, 1);
+        assert.match(error.message, /7\.9\.0|Uploader unavailable/);
+        return true;
+      }
+    );
+    assert.deepEqual(
+      calls.map(({ command, tag }) => [command === 'bash' ? 'upload' : 'build', tag]),
+      [
+        ['build', '7.9.0'],
+        ['upload', '7.9.0'],
+        ['build', '7.8.1'],
+        ['upload', '7.8.1']
+      ]
+    );
+  });
+}

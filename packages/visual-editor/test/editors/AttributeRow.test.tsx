@@ -24,6 +24,7 @@ import { AttributeRow, InheritedAttributeRow } from '../../src/components/editor
 import { InheritedMembersSection } from '../../src/components/editors/InheritedMembersSection.js';
 import type { TypeOption } from '../../src/types.js';
 import { makeNodeId } from '../../src/store/node-projection.js';
+import { TYPE_REF_PAYLOAD_MIME, typeRefMimeForKind } from '../../src/types/structure-view.js';
 
 const AVAILABLE_TYPES: TypeOption[] = [
   { value: 'builtin::string', label: 'string', kind: 'builtin' },
@@ -140,6 +141,47 @@ function FormWrapper({ attributes, children }: { attributes: TestAttribute[]; ch
 }
 
 describe('AttributeRow', () => {
+  it.each([false, true])('accepts a type drop over the whole input row while readonly=%s', (readOnly) => {
+    const onUpdate = vi.fn(),
+      onReorder = vi.fn();
+    const option: TypeOption = {
+      value: makeNodeId('test', 'Currency', 'RosettaEnumeration'),
+      label: 'Currency',
+      kind: 'enum'
+    };
+    const attribute = baseAttribute();
+    const { container } = render(
+      <FormWrapper attributes={[attribute]}>
+        <AttributeRow
+          index={0}
+          committedName={attribute.name}
+          availableTypes={[...AVAILABLE_TYPES, option]}
+          onUpdate={onUpdate}
+          onRemove={vi.fn()}
+          onReorder={onReorder}
+          disabled={readOnly}
+        />
+      </FormWrapper>
+    );
+    const data = JSON.stringify({
+      rune: 'type-ref',
+      namespaceUri: 'test',
+      typeId: option.value,
+      typeName: 'Currency',
+      kind: 'Enum'
+    });
+    const dataTransfer = {
+      types: [TYPE_REF_PAYLOAD_MIME, typeRefMimeForKind('Enum')],
+      getData: (mime: string) => (mime === TYPE_REF_PAYLOAD_MIME ? data : ''),
+      dropEffect: 'none'
+    };
+    fireEvent.dragOver(container.querySelector('[data-slot="attribute-name"]')!, { dataTransfer });
+    fireEvent.drop(container.querySelector('[data-slot="attribute-name"]')!, { dataTransfer });
+    expect(onUpdate).toHaveBeenCalledTimes(readOnly ? 0 : 1);
+    if (!readOnly)
+      expect(onUpdate).toHaveBeenCalledWith(0, 'tradeDate', 'tradeDate', 'Currency', '(1..1)', option.value);
+    expect(onReorder).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.useFakeTimers();
   });

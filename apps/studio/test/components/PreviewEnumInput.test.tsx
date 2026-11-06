@@ -18,15 +18,17 @@ it('searches large code lists by value/description and keeps unknown current val
     />
   );
   const user = userEvent.setup();
-  expect(screen.getByRole('button', { name: 'Business center' })).toHaveTextContent('unlisted (not in list)');
-  await user.click(screen.getByRole('button', { name: 'Business center' }));
+  expect(screen.getByRole('button', { name: 'Business center: unlisted (not in list)' })).toHaveTextContent(
+    'unlisted (not in list)'
+  );
+  await user.click(screen.getByRole('button', { name: /^Business center:/ }));
   await user.type(screen.getByRole('combobox', { name: 'Search Business center' }), 'CODE119');
   await user.click(await screen.findByRole('option', { name: 'Description 119' }));
   expect(onChange).toHaveBeenCalledWith('CODE119');
   rerender(
     <PreviewEnumInput label="Business center" value="CODE119" options={options} required={false} onChange={onChange} />
   );
-  await user.click(screen.getByRole('button', { name: 'Business center' }));
+  await user.click(screen.getByRole('button', { name: 'Business center: Description 119' }));
   await user.click(await screen.findByRole('option', { name: 'Select…' }));
   expect(onChange).toHaveBeenLastCalledWith(undefined);
 });

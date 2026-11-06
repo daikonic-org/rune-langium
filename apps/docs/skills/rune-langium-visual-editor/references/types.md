@@ -242,6 +242,8 @@ DomainNodeData
 ### `GraphNodeMeta`
 **Properties:**
 - `namespace: string`
+- `namespaceOverride: boolean` (optional) — Owning Rune source uses the native namespace override marker.
+- `sourceUri: string` (optional) — Authoritative owning document; retained across edits and renames.
 - `imports: readonly NamespaceImport[]` (optional) — File-local import bindings for authored reference labels and navigation.
 - `errors: ValidationError[]`
 - `isReadOnly: boolean` (optional)
@@ -328,10 +330,5 @@ Option for the synonym-source reference picker.
 Actions shared by all type kinds.
 **Properties:**
 - `captureMetadataTarget: (nodeId: string, path: MetadataPath) => MetadataTarget | undefined` (optional)
-- `applyMetadataCommand: (target: MetadataTarget, command: MetadataCommand) => MetadataEditResult` (optional)
-
-### `DataFormActions`
-Data type–specific editor actions.
-**Properties:**
 
 <!-- truncated -->

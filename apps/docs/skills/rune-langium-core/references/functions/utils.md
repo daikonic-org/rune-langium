@@ -11,6 +11,15 @@ getNodeSourceRegion(node: LocatedNode): SourceRegion
 - `node: LocatedNode`
 **Returns:** `SourceRegion`
 
+### `getModelSourceUri`
+Owning document identity shared by parsed and serialized model consumers.
+```ts
+getModelSourceUri(model: unknown): string | undefined
+```
+**Parameters:**
+- `model: unknown`
+**Returns:** `string | undefined`
+
 ### `getFunctionImplementationRegion`
 Implementation range excludes the signature and retains preceding body comments.
 ```ts

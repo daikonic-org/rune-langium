@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { generatedDirectory } from '../helpers/generated-directory.js';
-import { generatedTypeScriptCompilerOptions } from '../helpers/compiled-typescript.js';
+import { generatedTypeScriptCompilerOptions, transpileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,7 +23,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
   await RuneDsl.shared.workspace.DocumentBuilder.build([doc]);
   expect(doc.parseResult.parserErrors).toHaveLength(0);
 
-  const outputs = await generate(doc, { target: 'typescript' });
+  const outputs = await generate(doc, { target: 'typescript', typescript: { inlineHelpers: true } });
   expect(
     outputs.flatMap((output) => output.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'))
   ).toEqual([]);
@@ -38,9 +38,7 @@ async function compile(source: string, assertions: string): Promise<Record<strin
     ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
   ).toEqual([]);
 
-  const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS }
-  }).outputText;
+  const js = transpileGeneratedTypeScript(code);
   const exports: Record<string, (input: unknown) => unknown> = {};
   new Function('exports', 'require', js)(exports, createRequire(import.meta.url));
   return recordFunctionExports(exports, outputs);
@@ -124,14 +122,14 @@ func RefRaw:
     RefTarget { value: text }
 `,
       `
-const input: RuneFuncData<ParentShape> = { child: { value: 4 } };
-const output: RuneFuncData<ParentShape> = Build(4);
-const echoed: RuneFuncData<ParentShape> = Echo(input);
-const referenceInput: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = { value: { value: 'A' } };
-const echoedReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefEcho(referenceInput);
-const rawReference: RuneReferenceWithMeta<RuneFuncData<RefTargetShape>> = RefRaw('A');
+const input: RuneFuncData<Parent.Shape> = { child: { value: 4 } };
+const output: RuneFuncData<Parent.Shape> = Build(4);
+const echoed: RuneFuncData<Parent.Shape> = Echo(input);
+const referenceInput: RuneReferenceWithMeta<RuneFuncData<RefTarget.Shape>> = { value: { value: 'A' } };
+const echoedReference: RuneReferenceWithMeta<RuneFuncData<RefTarget.Shape>> = RefEcho(referenceInput);
+const rawReference: RuneReferenceWithMeta<RuneFuncData<RefTarget.Shape>> = RefRaw('A');
 // @ts-expect-error Child's required value must remain present in nested plain data.
-const missingChildValue: RuneFuncData<ParentShape> = { child: {} };
+const missingChildValue: RuneFuncData<Parent.Shape> = { child: {} };
 // @ts-expect-error Build's scalar input remains numeric.
 Build('wrong');
 `
@@ -282,4 +280,32 @@ func MakeTwo:
       outputs.find((output) => output.relativePath === 'helpers.ts')!.content.match(/type RuneFuncData<T>/g)
     ).toHaveLength(1);
   });
+});
+
+it('keeps nested metadata Choice fields structural in function shapes', async () => {
+  const funcs = await compile(
+    `namespace test.nestedChoiceShape
+annotation metadata:
+ scheme string (0..1)
+type Amount:
+ value int (1..1)
+choice Inner:
+ Amount
+choice Outer:
+ Inner
+type Container:
+ selected Outer (1..1)
+  [metadata scheme]
+func Echo:
+ inputs: source Container (1..1)
+ output: result Container (1..1)
+ set result: source
+`,
+    `
+const input: Container.Shape = { selected: { value: { inner: { amount: { value: 5 } } }, meta: {} } };
+const output: Container.Shape = Echo(input);
+`
+  );
+  const input = { selected: { value: { inner: { amount: { value: 5 } } }, meta: {} } };
+  expect(funcs.Echo!({ source: input })).toEqual(input);
 });

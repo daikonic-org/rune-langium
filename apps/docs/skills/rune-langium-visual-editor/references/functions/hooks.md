@@ -77,7 +77,7 @@ useDiagnosticsForRange(astRange: { start: number; end: number } | undefined, dia
 
 ### `useModelSourceSync`
 ```ts
-useModelSourceSync(nodes: TypeGraphNode[], edges: TypeGraphEdge[], onModelChanged?: (serialized: Map<string, string>) => void | Promise<void>, parseEpoch: number, patches: Patches, originalSourceByNamespace: Map<string, string>, inversePatches: Patches): SourceSyncHandle
+useModelSourceSync(nodes: TypeGraphNode[], edges: TypeGraphEdge[], onModelChanged?: (serialized: Map<string, string>) => void | Promise<void>, parseEpoch: number, patches: Patches, originalSourceByNamespace: Map<string, string>, inversePatches: Patches, sourceFiles?: ReadonlyMap<string, SourceSyncFile>): SourceSyncHandle
 ```
 **Parameters:**
 - `nodes: TypeGraphNode[]`
@@ -102,6 +102,7 @@ empty output (no write-back).
 Used to derive the source byte ranges of genuinely-deleted elements so
 those ranges are omitted from the assembled output. Defaults to [] so
 legacy/test callers without deletion support keep the old behavior.
+- `sourceFiles: ReadonlyMap<string, SourceSyncFile>` (optional)
 **Returns:** `SourceSyncHandle`
 
 ### `createEditorCommitRegistry`

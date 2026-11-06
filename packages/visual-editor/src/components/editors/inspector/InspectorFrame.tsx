@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
+import { InspectorMetadataSummary } from './InspectorMetadataSummary.js';
 
 export interface InspectorSectionRequest {
   nodeId: string;
@@ -58,6 +59,7 @@ export function InspectorFrame({
   return (
     <div data-slot="inspector-frame" className="flex h-full min-h-0 flex-col overflow-auto">
       <div className="shrink-0">{header}</div>
+      <InspectorMetadataSummary />
       {inheritance && <div className="shrink-0 pb-panel-y">{inheritance}</div>}
       {sections.length > 1 ? (
         <Tabs

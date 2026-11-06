@@ -530,6 +530,7 @@ serialize models back to source text.
 - `setEntrieAt`
 - `moveEntrieAt`
 - `isAnnotation`
+- `isAnnotationArgument`
 - `isAnnotationDeepPath`
 - `isAnnotationPath`
 - `isAnnotationPathAttributeReference`
@@ -661,6 +662,7 @@ serialize models back to source text.
 - `isRosettaTypedFeature`
 - `isRuleReferenceAnnotation`
 - `isSchema`
+- `isSchemaOrFormat`
 - `isSegment`
 - `isShortcutDeclaration`
 - `isSortOperation`
@@ -691,11 +693,19 @@ serialize models back to source text.
 - `invalidateProjectResolution`: A host must invalidate identity indexes whenever it replaces document roots.
 - `clearProjectResolution`
 - `hasProjectRedirects`
+- `resolveNamespaceOverrides`: Shared source-facing overlay for linked graphs and structurally serialized editor models.
+- `selectNamespaceOverrideModels`: Shallow view: keeps effective declarations while preserving their original source ownership.
+- `initializeProjectResolution`: Build and validation share the same effective declaration inventory.
+- `namespaceOverrideDiagnostics`
+- `getNamespaceOverrideTargets`: The same native replacement pairs selected by linking, available after indexing.
 - `getEffectiveProjectDeclaration`: All consumers select through the same generation-local declaration targets as core linking.
 - `projectDeclarationIdentity`
 - `redirectProjectNode`: A missing replacement stays unresolved; it must never fall back to the immutable original.
 - `redirectProjectScope`: Keep authored lookup names while navigation and linking descriptions point at the effective declaration.
+- `canonicalProjectJson`: Stable project/export identity without object insertion-order differences.
 - `declarationKey`: Portable identity key; config and parser hosts share this exact representation.
+- `callableOverrideSignaturesMatch`
+- `namespaceOverrideSignatureDiagnostics`: Validate after scopes exist; indexing must never resolve signature references.
 - `parse`: Parse a Rosetta DSL source string into a typed AST.
 - `parseWorkspace`: Parse multiple Rosetta DSL source strings as a workspace.
 Cross-references between documents will be resolved after all documents are built.
@@ -716,6 +726,7 @@ that follow `extract`, `filter`, or `reduce` operators.
 registering it.
 - `hydrateModelDocuments`: Hydrate and link one shared object graph, regardless of reference depth or input order.
 - `getNodeSourceRegion`: Original UTF-16 range, shared by parsed and serialized model consumers.
+- `getModelSourceUri`: Owning document identity shared by parsed and serialized model consumers.
 - `getFunctionImplementationRegion`: Implementation range excludes the signature and retains preceding body comments.
 - `getExpressionRegions`: Root expressions in grammar order; indexes address their original owner arrays.
 - `findExpressionOwner`: Resolve declaration identity, using the unique base for a function dispatch group.
@@ -776,6 +787,7 @@ symbols without requiring a full document build.
 - `RuneDslParser`: Custom Langium parser for the Rune DSL that normalizes lexer input to insert
 implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RuneDslTerminals`
+- `AnnotationArgument`
 - `AnnotationPathExpression`
 - `ArithmeticOperation`
 - `AsKeyOperation`
@@ -832,6 +844,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RosettaSynonymValueBase`
 - `RosettaType`
 - `RosettaTypedFeature`
+- `SchemaOrFormat`
 - `ShortcutDeclaration`
 - `SumOperation`
 - `SwitchCaseTarget`
@@ -952,6 +965,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RuneDslTerminalNames`
 - `RuneDslKeywordNames`
 - `RuneDslTokenNames`
+- `AnnotationArgument`
 - `AnnotationPathExpression`
 - `ArithmeticOperation`
 - `AsKeyOperation`
@@ -1018,6 +1032,7 @@ implicit `[` and `]` brackets around bare expressions after `extract`,...
 - `RosettaSynonymValueBase`
 - `RosettaType`
 - `RosettaTypedFeature`
+- `SchemaOrFormat`
 - `ShortcutDeclaration`
 - `SumOperation`
 - `SwitchCaseTarget`
@@ -1423,5 +1438,6 @@ coordinates to character offsets in the source document.
 - `SourceSyncHandle`
 - `SourceSyncSnapshot`: Fires `onModelChanged` (serialized source keyed by namespace name) whenever
 `nodes` or `edges` change in content — independent of which visual pane...
+- `SourceSyncFile`
 - `InspectorFrameProps`
 - `InspectorSection`

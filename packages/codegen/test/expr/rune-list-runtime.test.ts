@@ -14,15 +14,18 @@ const source = Object.freeze([{ amount: 2 }, { amount: 1 }, { amount: 2 }]);
 const list = RuneList.from(...source);
 const grouped = RuneList.from([1, 2], [3]);
 const dates = RuneList.from(Temporal.PlainDate.from('2026-02-01'), Temporal.PlainDate.from('2026-01-01'));
-return [list.count(), list.distinct().count(), list.sort(item => item.amount).first().amount,
- list.reverse().first().amount, source[0].amount, grouped.count(), grouped.flat().toArray(),
+return [list.count(), list.distinct().count(), list.sort(item => item.amount).first()?.amount,
+ list.reverse().first()?.amount, source[0].amount, grouped.count(), grouped.flat().toArray(),
  list.isSupersetOf([]), list.isDisjointFrom([{amount: 3}]), list.has({amount: 1}),
  RuneList.from(1).onlyElement(), RuneList.from(1, 2).onlyElement(),
  RuneList.from(1, 2).sum(), RuneList.from().reduce((a, b) => a + b),
- dates.sort(item => item, Temporal.PlainDate.compare).first().toString(),
+ dates.sort(item => item, Temporal.PlainDate.compare).first()?.toString(),
  JSON.parse(JSON.stringify(grouped)), list.toArray() !== source,
  runeExtract(undefined, () => { throw new Error('absent callback'); }),
- grouped.map(item => item).count()];`;
+ grouped.map(item => item).count(),
+ list.reduce((sum, item) => sum + item.amount, 0),
+ list.reduce((text, item) => text + item.amount, ''),
+ RuneList.from().reduce((sum) => sum, 7)];`;
     const expected = [
       3,
       2,
@@ -42,7 +45,10 @@ return [list.count(), list.distinct().count(), list.sort(item => item.amount).fi
       [[1, 2], [3]],
       true,
       undefined,
-      2
+      2,
+      5,
+      '212',
+      7
     ];
     if (mode === 'javascript')
       expect(new Function('Temporal', RUNTIME_HELPER_JS_SOURCE + '\n' + assertions)(Temporal)).toEqual(expected);

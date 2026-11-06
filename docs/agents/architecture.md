@@ -52,6 +52,12 @@ until their saved state stabilizes, including edits queued during the wait. Sett
 blocking until explicitly retried; Git stages only after the complete barrier
 succeeds. Example payload/descriptor writes and removals retain their normal transaction/readback and workspace ownership checks.
 
+The Source bar reports the actual source autosave state and its Save action drains
+that same shared barrier. A file's Git modification flag is independent of local
+persistence; saving never marks uncommitted work as committed.
+Successful autosave clears retained manual-save errors in the Source bar; pending
+or failed persistence never clears them by itself.
+
 Named-target settings are repository state; the selected target and ad hoc root
 selection remain personal run preferences. Explicit Save preserves YAML comments
 and checks the captured file revision. Before a named build, Export flushes editor
@@ -311,6 +317,17 @@ sections use these semantic insets; change the two tokens rather than patching
 individual section padding. Nested sections inherit the owning horizontal gutter
 and use only the block inset, avoiding doubled indentation. Compact Inspector
 forms use `--inspector-padding-inline` (8 px); their header owns no second gutter.
+Function inputs and the named output share `AttributeRow`, including type-drop,
+cardinality and metadata targeting. Inputs are added from the section legend;
+there is no permanent empty creation row. Output signature edits keep the reserved
+`output` dependency-edge label and update lexical output references and assignment
+roots in the same Undo transaction. The adapter captures exact linked output-reference
+identities in a weak side table before dehydration; no live parser nodes or extra
+reference fields enter the domain payload. Implicit fields and same-named calls
+retain their original bindings. Pending edits wait for a linked parse; unresolved
+or unproven implicit captures fail closed. Reconciliation ignores derived namespace
+metadata and compares arbitrary integer literals exactly, so acknowledged expressions
+do not replay as unlinked text. The legacy type-only action delegates to this edit.
 `--field-label-gap` (4 px) is shared by design-system Field and Preview controls.
 Preview and Prototype share validated field state: invalid controls use a semantic
 red-tinted background and border, `aria-invalid`, and an associated inline error.
@@ -342,6 +359,11 @@ loaded successfully; failed restores retry the read before accepting edits.
 Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.
+Scalar metadata autosaves retain valid edits when the host defers them during a
+source reparse. A fresh canonical target retries that same guarded pending edit,
+including enum display names; changing workspace or member identity never bypasses
+the existing target checks. Synonym fieldsets can shrink within their Inspector
+pane so enlarged text wraps controls inside the shared gutter.
 
 Namespace alias expansion is shared with Core's scopes. One alias may name
 several imported namespaces in source order. Graph metadata retains imports per
@@ -350,6 +372,18 @@ graph navigation and inherited member rows resolve against the originating
 file's imports. Labels keep authored reference text while navigation uses the
 canonical target ID. An inherited override resolves its parent's alias to a
 qualified type name before copying into the child's source scope.
+
+Annotation names accept the same qualified/import-aliased spelling. Annotation
+arguments retain the existing `AnnotationRef.attribute` field and legacy attribute
+identity. Core's built-in ingest/enrich/projection declarations also accept a
+`SchemaOrFormat` target through the shared global scope; unrelated/custom annotation
+arguments remain limited to that annotation's attributes. `AnnotationArgument` is
+the generated Attribute/Schema/enum-value union, preserved during workspace hydration.
+
+Studio restores the complete user-document snapshot in Core's batch deserializer,
+registering all roots before reviving cross-file references. Inspector annotation
+scope facts therefore retain the server's selected target even when another
+namespace declares the same annotation name. Curated documents remain deferred.
 
 Enum summary disclosure sends a node-scoped Inspector section request with a
 fresh revision. Returning from Details to Values preserves the mounted editor
@@ -536,6 +570,12 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 ## Shared Semantics
 
+- Scope construction and expression type inference share one active-expression
+  guard. A missing dependency must leave ordinary unresolved references rather
+  than re-enter a feature link through a same-named extraction alias. The guard
+  is scoped to the synchronous request and cleared in `finally`; it is not a
+  cached inference result that could survive later dependency loading.
+
 - Core normalizes bare functional expressions only at the parser lexer boundary. The bracket scanner is shared with `insertImplicitBrackets`; token offsets and columns map back to original UTF-16 source positions before CST construction. Synthetic brackets have empty images and zero-width CST ranges. CST text, diagnostics, reference locations and serialized text regions all address the original document.
 
 - Core `BASE_TYPE_FILES` owns the standard Rune types and annotations. Studio re-exports it; the shared `RuneWorkspaceManager` loads it during LSP initialization, including reconnects. Core and LSP factories install `RuneDslSharedModule`.
@@ -588,7 +628,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 - Inspector section placement is owned by `visual-editor/src/components/forms/sections/config.ts`. Generated form config derives its field assignments from that layout; custom Inspector tabs resolve the same sections with the upstream `SectionRenderer`. Placement includes inherited AST metadata and UI-only comments, which are not all enumerated by the generated schema walker. Standalone section callback props remain a public API.
 - Inspector forms own one 6px outer inset through `INSPECTOR_FORM_CLASS`; the center pane adds none, and headers/sections use 6px vertical spacing without repeating horizontal padding. Fields and embedded editors retain their own text inset; metadata textarea focus rings draw inside their borders so scroll edges cannot clip the side highlight. Inspector member rows share name-field geometry through `INSPECTOR_ROW_NAME_CLASS`, keeping attributes/function inputs and enum members at the same text size and padding. Inherited rows use the same typography with muted names, and consume the same type options as local rows so reference chips retain canonical kind colors. Member-details headings derive from the canonical root kind (Attribute, Member, Option, or Input), and icon-only controls retain accessible names. Inspector navigation uses the same one-second outline fade as graph/structure, inset to avoid clipping; reduced motion retains a static cue until cleanup. Dockview leaf views own symmetric gaps; shell/grid wrappers add no padding or one-sided margins. Center panes have no outer padding. Graph's drawing wrapper retains its 6px inset around React Flow; Structure owns a normal scrollable document inset and does not mount React Flow. `DockShell` measures the center stack for location-path alignment and updates it on native layout changes and resize.
-- Inspector type-label rows use `InspectorTypeField` for Wrapped type, Output Type, and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
+- Inspector type-label rows use `InspectorTypeField` for Wrapped type and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
 - Structure sizes cards through native DOM layout, capped by the owning canvas. Shared type and cardinality wrappers align controls without fixed row measurements.
 - Structure requests the existing namespace hydration action for visible deferred roots, expanded children and inherited bases. Hydrated namespaces publish their documents into the shared graph independently of selection. Successfully linked documents are recorded after their models are merged, once per workspace; in-flight documents are tracked separately. Selected-document linking shares both sets, so navigation after later parser hydration resets cannot republish cached models. Both paths replace corpus snapshots by their canonical serialized document URI, including dependencies returned transitively; files sharing a namespace remain distinct. Regionless legacy snapshots use exact content identity. Later rounds skip successful documents, while Structure’s Load details action can retry failed publication without repeating namespace downloads or successful peer documents. In-flight link results belong to the workspace generation; selection changes must not discard their once-delivered models. Deferred cards show loading/retry content, while a hydrated derived type without own fields says _No additional attributes_.
 - Structure header names are drag surfaces. Explicit navigation arrows move from the property row to the child header while expanded; context menus retain canonical declaration targets. Type-reference lookup excludes functions even when their Rune names match a type. Inspector reference fields own option resolution so member rows do not preselect by label.
@@ -638,6 +678,11 @@ Authored contracts remain named `assert(...)` calls in their original phases.
 Switch lifting preserves lazy scopes and evaluation order; terminal returns never
 skip postconditions. Native/project/bodyless functions carry implementation status
 outside the editor, with actual bundled source when available.
+Inspector Rune regions hide their common leading indentation through CodeMirror
+replacement decorations and atomic cursor ranges. Full-file source bytes and
+coordinates remain unchanged; nested relative indentation stays visible.
+Shared Inspector member-name geometry matches the compact add-name inputs across
+attribute, function, enum and inherited/static rows; each payload form reuses it.
 See [source projection syntax](../source-projection.md) for the spelling and inverse contracts.
 
 Public projection selectors still default to executable declarations. Readable
@@ -651,6 +696,11 @@ statement-lifted expressions and real external implementations remain read-only.
 Function provenance includes trailing implementation comments through core's
 source-region helper. The worker resolves the canonical owner, validates the
 current binding and retains the original editor identity in replies.
+
+Linked fragment spellings also retain expression-relative Langium paths, including
+on CST-free worker ASTs. The shared Codegen rebase helper verifies Rune equivalence
+and restores coordinates from captured source without re-rendering type-dependent
+syntax or callback aliases. Legacy coordinate fragments require unique AST matches.
 
 Projection lookup compares canonical Langium URIs while replies retain the original
 editor binding. Both languages use codegen's `resolveExportSelection` to generate
@@ -1293,12 +1343,128 @@ explicit workflow activation, while import alone never changes the active workfl
 
 ## Generated public value views
 
+Generated Data descriptors register with their ancestors as their modules load.
+Registration mutates the ancestor descriptor's descendant map rather than a
+process-global registry, so independently inlined helpers share only the imported
+model objects and unrelated generated bundles remain isolated. Both preview ASTs
+and emitted descriptors use Core's `isRuneJsonAssignableType` ancestry rule.
+Tagged base-typed JSON selects an available concrete descendant before validating
+fields, creating the instance or serializing it; unknown/unloaded and unrelated
+types remain errors. Import the bundle barrel to register all generated modules.
+Descriptors retain their generated class prototype so nested untagged instances
+also preserve their concrete descendant identity. Core's `acceptsRuneJsonChoice`
+owns recursive, cycle-safe option acceptance for both descriptors and preview ASTs.
+
+Native built-in descriptors are selected from the TypeScript profile, including
+BasicType `time` and `pattern` as well as calendar RecordTypes. The same descriptor
+creation path hydrates strings at JSON boundaries; native field/function values
+remain Temporal or RegExp instances. The namespace contract exposes an optional
+built-in emission hook and the shared naming registry includes those exports for
+bundle collision handling. Fixed regex literals depend on linked pattern
+destinations, shared by executable and source-facing renderers; ordinary strings
+are never guessed to be patterns. Core's `serializeRunePattern` is shared by wire
+encoding, generated helpers and Studio worker output; flags fail explicitly.
+Switch result arms inherit their enclosing destination, including nested switches,
+constructor fields and function arguments. Selector and guard literals retain their
+own string types rather than inheriting the switch result's pattern destination.
+Value-producing `extract`, `then` and `reduce` bodies inherit that destination too;
+predicate bodies, sort keys and callback input expressions do not.
+Metadata-wrapped pattern payloads inherit their authored destination as well;
+metadata entry strings keep their own type.
+
 Codegen's `ValueApiEmitter` derives input types and lazy field descriptors from
-shared linked navigation/metadata facts. `Trade.from` composes a `RuneValue` view
-around the existing RuneList runtime; `new Trade` retains one model construction.
-Internal data classes and public constructor/factory values are separate so child
-factories do not violate TypeScript static-side inheritance. Plain Shapes and
-function boundaries remain unchanged. The normalizer owns only the supplied value
+shared linked navigation/metadata facts. `Trade.from`, object fields and deep
+selections project zero values to undefined, one to the model/scalar, and multiple
+to an array-backed RuneList. Public cardinality aliases and bounded tuples describe
+these shapes without RuneView or unwrap. RuneObject proxies cache private RuneValue
+field slots; setters and list mutations reuse the shared field normalizer and
+validate before committing. Actual projected array results keep array shape during
+JSON serialization, including zero/one items. Descriptor-free map/flatMap results
+use the same native-value serializer; generated instances recover their own model
+and optional codec, while plain callback results recurse without a schema.
+Native patterns remain source strings in JSON, unsupported flags and cycles fail
+explicitly, and model tags survive Rune JSON serialization. Ordinary JSON retains
+structural Choice arm names; only Rune JSON projects those arms to tagged payloads.
+The shared list/array flatten operation honors native depth semantics and preserves
+chainable, depth-aware result types. Public array sort dispatches by
+callback `Function.length`: zero/one parameter selects the shared Rune key-sort
+helper, while two or more use native comparison and mutation through the normalizer.
+An explicit key comparator retains helper semantics; `sort(undefined, compare)`
+forces native comparison for default/rest/bound callbacks with ambiguous lengths.
+No-argument sorting stays native. Explicit RuneList/helpers and source projections
+retain Rune key-selector semantics.
+Public array reverse also uses the checked native mutation path. Callback wrapping
+for map/flatMap/filter/every/some forwards the supplied `thisArg` and public receiver;
+explicit RuneList helpers retain their Rune collection behavior.
+Canonical storage retains declared collection arrays and metadata envelopes for
+serialization and equality. Replacing a field detaches old list handles so they
+cannot overwrite the replacement. Explicit RuneList
+transformations remain collection containers, with project() for count-shaped
+results. Plain Shape collection fields accept scalar/array inputs; factory Input
+and projected field types retain linked bounds. Executable collection reads and
+assignment paths normalize through rune.list rather than assuming native arrays.
+`new Trade` retains one proxied model construction.
+Each Data emits one public class extending `RuneObject`, which owns factories,
+JSON methods and inferred guards. Only linked definitions and model-specific
+fields/conditions are emitted per class. Standard `RuneObject.model`/`field`
+decorators register each model/field fact once. The shared definition builder lazily
+normalizes named `Cardinality` constants or typed range factories to internal
+count bounds; `wireCardinality` preserves metadata-envelope presence separately.
+Field decorators take cardinality, check, lazy linked type, envelope cardinality
+and native reader positionally, omitting unused trailing arguments.
+One mapping supplies common constant values and emitted names. It then
+merges inherited fields and caches reachable inventories; no generated runtime
+selection/check tables duplicate those facts. Linked cardinality analysis still
+supplies nonconservative deep bounds. `typescript.decorators: false` emits equivalent
+registration calls through that same builder for type-erasing execution hosts.
+Metadata is registered on a private
+symbol; there is no public runtime `.Type` field. Input/Type/Selections/Deep/Shape
+remain type-only merged namespace members. Natural subclassing and type-only model
+tags preserve inherited factory/cardinality inference without parent casts.
+Runtime inventories remain shared across cyclic models. Shared `is.Model` guards
+are module-augmented: RuneObject inputs narrow to instances, unknown/plain data to
+structural Shapes. Generated instances use class identity, plain data uses linked
+shape checks. Scope-safe queries preserve models named Shape/Input/Type.
+Optional TypeScript `serialization: zod` composes the canonical Zod namespace
+emitter with the same walks and imports its generated codec companions. Scalar
+codecs convert Temporal/RegExp fields; condition lowering shares native-value
+operators while retaining Zod diagnostics. The Rune JSON visitor still owns
+metadata, Choice envelopes and concrete-type selection. Default exports do not
+import Zod. Standalone `zod.codecs` exposes the same bidirectional native schemas.
+Default Zod interfaces describe wire values, including pattern source strings;
+recursive interfaces must match the schema output instead of inheriting native
+TypeScript mappings. Pattern codecs already bridge strings to
+`z.instanceof(globalThis.RegExp)`, with native recursive interface outputs and
+canonical flag-rejecting serialization.
+The shared codec walker checks each concrete linked node using its own companion,
+so a base-typed field cannot hide a descendant's constraints. It validates wire
+inputs with parse and native values with encode without substituting schema clones
+for the runtime's concrete hydration; encoding retains derived-only native fields.
+The emitter derives each codec's `node` schema from the same field, cardinality,
+metadata and condition builders, replacing only linked child schemas with object
+guards. The concrete-model visitor owns recursion. Wire traversal returns parsed
+native fields before validating parent conditions, while public codec operations
+remain fully recursive. Shape guards share a cache only within one visitor pass;
+later serialization rechecks mutations. No descendant subtree is revalidated at
+each ancestor merely to dispatch its concrete codec.
+Factory materialization and constructor field setters share the same per-pass
+shape checks. An input-keyed construction context is removed in `finally`, so
+future assignments never inherit trusted construction state. Decorators select
+the class's inherited creator, preserving base-runtime ownership across separately
+inlined namespaces. Constructor results still receive a shape check before return.
+Read normalization reuses already-materialized model proxies without recursively
+checking their descendants again. Raw structural children still hydrate and
+validate on first read. Setter, list mutation and explicit factory paths retain
+fresh validation state; no read cache becomes cross-mutation trust.
+The namespace registry carries cycle sets from the canonical walks; Zod folds
+foreign lazy parents' attributes and conditions using the same builders as local
+parents. Cycle lookup first checks membership in the actual emitted model, so
+standalone closures retain their synthetic graph's cycle information even when
+their AST nodes keep the original Rune namespace. Native pattern types and constructors use `globalThis.RegExp` to avoid
+collisions with authored model names.
+Nested Shapes contain structural data and Temporal
+values directly; public function signatures do not require `RuneFuncData`.
+The normalizer owns only the supplied value
 graph, preserves cycles and reuses generated construction guards. Conditions are
 separate from shape checks. Field/deep selectors retain descriptors and compose
 bounds; ambiguous names require linked declaration identity. The `._.` syntax lens
@@ -1309,6 +1475,26 @@ used by executable lowering and public views. A generated source string embeds
 that same function in exported runtimes; do not maintain another traversal.
 Reachable descriptor inventories share metadata across cyclic graphs. No full CDM
 object graph is materialized merely by importing generated modules.
+
+Generated factories consume values narrowed by the model guards; Choice-derived
+classes use the guarded class/Shape intersection. Property access uses `in`
+guards, and Temporal inputs are narrowed before conversion. Public selection
+returns retain their descriptor/cardinality relationship through checked guards;
+key-selector/comparator tuple arguments avoid casting a generic identity selector.
+Generated TypeScript has regression coverage against casts through `unknown` or
+to `any`; private proxy assertions remain for conditional cardinality types.
+
+Studio's source documentation styling and hide toggle share the Rune tokenizer.
+Hiding uses CodeMirror folds and never rewrites source bytes. Metadata semantics
+badges use the existing metadata owner for both declarations and child details.
+Required scalar object-grid cells reuse `PreviewFieldControl`, retaining its
+validation and schema-derived enum/calendar editors. Export settings and output
+are simultaneously mounted in a vertical resizable split with a visible output
+heading and panel border. Generation actions stay above the scrolling settings;
+settings start at a compact 300px height and output receives the remaining space.
+Generate target and Generate all targets preserve active/saved scope semantics.
+File, target and layout selectors share ExportSelect's native keyboard behavior
+and reserved chevron space.
 
 Runtime descriptor getter types are erased only at the shared execution boundary;
 selection generics retain the exact linked model. This prevents TypeScript from
@@ -1324,12 +1510,32 @@ SourceReader retains lexical bindings across callbacks and masks shadowed names.
 An outer implicit pipeline/item binding becomes unavailable in a nested Rune
 callback; references to it refuse the edit instead of binding to the inner item.
 Constructor shorthand shares identifier resolution while preserving its field key.
-Serialized origin fragments retain the renderer's callback aliases; partial edits
-restore hygienic implicit names in that original scope. Legacy callback origins
+Serialized origins retain the renderer's outer reserved/authored name sets as
+well as each fragment's callback aliases. Rebuilding CST fragments from captured
+source reuses that name scope, including unused owner inputs and earlier generated
+locals, so edits restore hygienic implicit names in the displayed scope. Legacy callback origins
 require a fresh draft, and substituted scalar scopes refuse nonliteral edits
 whose binding cannot be recovered safely.
 Generated public view constructors use ordinary fields and assignments so the
 helper introduces no parameter-property transform requirement for Node type stripping.
+Generated Rune JSON support embeds the authoritative Core codec through
+`generate:rune-json-runtime`; descriptor adapters supply declaration context.
+Core also owns Choice wrapper normalization and wire projection for both generated
+values and the linked preview adapter. Wrapper and arm headers remain distinct,
+and decoded key metadata survives round trips. Descriptors mark actual Choice
+declarations separately from Data inheriting Choice arms, preserving derived Data
+identity and fields. Matching wire type headers still require structural guard
+checks for external objects.
+Plain JSON is the default; instance/view serialization opts into Rune JSON.
+TypeScript modules default to shared helpers, and per-namespace callers may
+explicitly request inline support. Studio also uses shared Zod preview helpers.
+Preview enum options use Core's effective inherited member inventory.
+
+Source documentation recognizes both Rune STRING delimiters and hidden whitespace
+or comments between documentation tokens, including after multiline expression
+headers. A CodeMirror transaction extension reconciles only the toggle's owned
+folds on edits; showing documentation preserves unrelated user folds. Visible
+source performs no documentation-range scan.
 
 ## Reference loading and derived caches
 

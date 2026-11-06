@@ -14,6 +14,7 @@ import { stripBundledImports, stripPerNamespaceHeader } from './bundle-imports.j
 import type { GeneratorOutput } from '../types.js';
 import type { LanguageProfile } from './language-profile.js';
 import { RUNTIME_HELPER_SOURCE, RUNTIME_SIDECAR_HELPER_LINES } from '../helpers.js';
+import { RUNE_PATTERN_RUNTIME_SOURCE } from '../expr/generated/rune-json-runtime-source.js';
 import { RUNE_EXTEND_CHOICE_HELPER_SIDECAR_SOURCE } from './zod-runtime-helpers.js';
 
 /**
@@ -90,12 +91,14 @@ function makeSingleFileContent(perNs: ReadonlyArray<GeneratorOutput>): string {
     ``,
     RUNTIME_HELPER_SOURCE,
     ``,
-    RUNE_EXTEND_CHOICE_HELPER_SIDECAR_SOURCE.replace(/^export const/, 'const'),
+    RUNE_EXTEND_CHOICE_HELPER_SIDECAR_SOURCE.replaceAll('export function', 'function'),
     ``
   ];
+  if (perNs.some((output) => output.content.includes('function runeSerializePattern(')))
+    sections.push(RUNE_PATTERN_RUNTIME_SOURCE);
   for (const out of perNs) {
     const body = stripBundledImports(
-      stripPerNamespaceHeader(out.content),
+      stripPerNamespaceHeader(out.content).replace(RUNE_PATTERN_RUNTIME_SOURCE, ''),
       out.relativePath,
       perNs.map((output) => output.relativePath),
       '.zod.ts'

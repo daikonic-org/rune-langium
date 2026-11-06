@@ -8,7 +8,7 @@ import {
   type SourceTypeScriptOptions
 } from '../../projection/source-typescript-expression.js';
 import type { ProjectionOrigin } from '../../projection/types.js';
-import type { LensResult } from '../language-lens.js';
+import type { LensResult, RefusalReason } from '../language-lens.js';
 import { OutOfSubset, field, refusal } from '../parse-helpers.js';
 import { createTsParser, type WasmSource } from './ts-grammar-loader.js';
 import { isRuneValidId } from '../valid-id.js';
@@ -226,6 +226,17 @@ class SourceReader {
         return node.text;
       case 'string':
         return JSON.stringify(stringValue(node));
+      case 'regex': {
+        const flags = node.childForFieldName('flags');
+        if (flags?.text) return this.fail(node, 'Rune patterns do not have a RegExp flags field.');
+        const source = node.childForFieldName('pattern')?.text ?? node.text.slice(1, -1);
+        try {
+          new RegExp(source);
+        } catch {
+          return this.fail(node, 'Invalid regular expression.');
+        }
+        return JSON.stringify(source);
+      }
       case 'unary_expression': {
         const operator = field(node, 'operator').text;
         const argument = field(node, 'argument');
@@ -512,6 +523,103 @@ export async function parseSourceTs(
     throw error;
   } finally {
     for (const tree of trees) tree.delete();
+    parser.delete();
+  }
+}
+
+export type SourceBodyResult = { ok: true; nodes: RosettaExpression[] } | { ok: false; reason: RefusalReason };
+
+/** Invert authored expression slots without changing their surrounding function structure. */
+export async function parseSourceTsBody(
+  text: string,
+  baseline: string,
+  origins: readonly ProjectionOrigin[],
+  wasmSource?: WasmSource
+): Promise<SourceBodyResult> {
+  const parser = await createTsParser(wasmSource);
+  const before = parser.parse(baseline);
+  const after = parser.parse(text);
+  const fail = (message: string): SourceBodyResult => refusal('out-of-subset', message, 0, text.length);
+  try {
+    if (!before || !after || after.rootNode.hasError || before.rootNode.hasError)
+      return refusal('syntax-error', 'Invalid source-facing TypeScript syntax.', 0, text.length);
+    // Only known authored positions can be replaced. Never infer an origin from an
+    // arbitrary repeated identifier, return value or generated temporary.
+    const slots = (root: Node): Node[] =>
+      root.namedChildren.flatMap((statement) => {
+        if (statement.type === 'lexical_declaration')
+          return statement.namedChildren.flatMap((declaration) => declaration.childForFieldName('value') ?? []);
+        if (statement.type !== 'expression_statement') return [];
+        const expression = statement.namedChildren[0];
+        if (expression?.type === 'assignment_expression') return [field(expression, 'right')];
+        if (expression?.type !== 'call_expression') return [];
+        const callee = field(expression, 'function');
+        if (
+          !['assert', 'rune.assert', '$rune.assert'].includes(callee.text) &&
+          !(callee.type === 'member_expression' && field(callee, 'property').text === 'push')
+        )
+          return [];
+        return field(expression, 'arguments')
+          .namedChildren.slice(0, 1)
+          .map((argument) => (argument.type === 'spread_element' ? argument.namedChildren[0]! : argument));
+      });
+    const originalSlots = slots(before.rootNode);
+    if (!origins.length || originalSlots.length !== origins.length)
+      return fail('This implementation contains statement-shaped expressions. Edit those in Rune source.');
+    const paths: number[][] = [];
+    const children = (node: Node) => node.children.filter((child) => child.type !== 'comment');
+    const locate = (node: Node, slot: Node, path: number[]): number[] | undefined => {
+      if (node.startIndex === slot.startIndex && node.endIndex === slot.endIndex) return path;
+      for (const [index, child] of children(node).entries()) {
+        if (child.startIndex <= slot.startIndex && child.endIndex >= slot.endIndex) {
+          const found = locate(child, slot, [...path, index]);
+          if (found) return found;
+        }
+      }
+    };
+    for (const [index, slot] of originalSlots.entries()) {
+      const originTree = parser.parse(origins[index]!.code);
+      try {
+        if (
+          !originTree ||
+          originTree.rootNode.hasError ||
+          fingerprint(expressionNode(originTree.rootNode)) !== fingerprint(slot)
+        )
+          return fail('The displayed expression has no matching reversible Rune origin. Edit its Rune source.');
+      } catch (error) {
+        if (error instanceof OutOfSubset) return fail(error.message);
+        throw error;
+      } finally {
+        originTree?.delete();
+      }
+      paths.push(locate(before.rootNode, slot, [])!);
+    }
+    const masked = (node: Node, path: number[] = []): string => {
+      const slot = paths.findIndex(
+        (candidate) => candidate.length === path.length && candidate.every((n, i) => n === path[i])
+      );
+      if (slot >= 0) return `expression-slot:${slot}`;
+      const parts = children(node);
+      return parts.length
+        ? `${node.type}(${parts.map((child, index) => masked(child, [...path, index])).join(',')})`
+        : `${node.type}:${node.text}`;
+    };
+    if (masked(before.rootNode) !== masked(after.rootNode))
+      return fail(
+        'Change declarations, assignment targets and control flow in Rune source. Expression values can be edited here.'
+      );
+    const nodes: RosettaExpression[] = [];
+    for (const [index, path] of paths.entries()) {
+      let slot = after.rootNode;
+      for (const child of path) slot = children(slot)[child]!;
+      const result = await parseSourceTs(slot.text, wasmSource, origins[index]);
+      if (!result.ok) return result;
+      nodes.push(result.node);
+    }
+    return { ok: true, nodes };
+  } finally {
+    before?.delete();
+    after?.delete();
     parser.delete();
   }
 }

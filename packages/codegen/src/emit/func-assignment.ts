@@ -85,10 +85,12 @@ export function renderFuncAssignment(
     for (const [index, segment] of path.entries()) {
       const initial = metadataKind === 'field' ? '{ meta: {} }' : '{}';
       if (many) {
-        lines.push(`  ${target} ??= [];`);
+        const items = freshLocal(ctx, `__assignmentItems${index}`);
+        lines.push(`  const ${items} = rune.list(${target});`);
+        lines.push(`  ${target} = ${items};`);
         const item = freshLocal(ctx, `__assignmentItem${index}`);
         lines.push(
-          `  const ${item} = ${target}[0] ??= ${initial}${ctx.projection ? '' : ` as NonNullable<(typeof ${target})[number]>`};`
+          `  const ${item} = ${items}[0] ??= ${initial}${ctx.projection ? '' : ` as NonNullable<(typeof ${items})[number]>`};`
         );
         target = item;
       } else {
@@ -123,14 +125,16 @@ export function renderFuncAssignment(
 
   if (assignment.kind === 'add') {
     const value = freshLocal(ctx, '__assignmentValue');
-    if (path.length > 0) lines.push(`  ${target} ??= [];`);
+    const destination = path.length > 0 ? freshLocal(ctx, '__assignmentTarget') : target;
     lines.push('  {');
+    if (path.length > 0) lines.push(`    const ${destination} = rune.list(${target}).slice();`);
     lines.push(`    const ${value} = ${expr};`);
     if (bounds && targetMany) {
-      lines.push(...checksFor(value, `${target}.length + ${value}.length`).map((check) => `    ${check}`));
+      lines.push(...checksFor(value, `${destination}.length + ${value}.length`).map((check) => `    ${check}`));
     }
-    lines.push(`    if (Array.isArray(${value})) ${target}.push(...${value});`);
-    lines.push(`    else if (${value} != null) ${target}.push(${value});`);
+    lines.push(`    if (Array.isArray(${value})) ${destination}.push(...${value});`);
+    lines.push(`    else if (${value} != null) ${destination}.push(${value});`);
+    if (path.length > 0) lines.push(`    ${target} = ${destination};`);
     lines.push('  }');
   } else {
     lines.push(`  ${target} = ${expr};`);

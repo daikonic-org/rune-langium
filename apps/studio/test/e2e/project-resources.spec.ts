@@ -17,6 +17,69 @@ async function reloadProject(page: Page) {
   await page.getByRole('button', { name: 'Reload project files', exact: true }).click();
   await page.getByTestId('rail-prototype').click();
 }
+test('pulled currency resource supplies the Quote enum, searchable choices and wire values', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('./');
+  const source = `namespace quote
+typeAlias CurrencyCode: string
+type Quote:
+ amount number (1..1)
+ currency CurrencyCode (1..1)
+func DoubleQuote:
+ inputs: quote Quote (1..1)
+ output: result Quote (1..1)
+ set result: Quote { amount: quote -> amount * 2, currency: quote -> currency }`;
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'quote.rosetta',
+    buffer: Buffer.from(source),
+    mimeType: 'text/plain'
+  });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  const codes = readFileSync(
+    new URL('../../../../test/fixtures/third-party/currency-list/currency.json', import.meta.url),
+    'utf8'
+  );
+  await projectBackingFiles(page, {
+    'rune-config.yml': 'model: {name: Quote}',
+    'build-config.yml': JSON.stringify({
+      schemaVersion: 1,
+      sources: ['**/*.rosetta'],
+      overrides: [
+        {
+          kind: 'resource',
+          source: { model: 'local', id: 'quote.CurrencyCode#RosettaTypeAlias' },
+          path: 'resources/currency.json'
+        }
+      ]
+    }),
+    'resources/currency.json': codes
+  });
+  await page.reload();
+  await page.getByTestId('rail-prototype').click();
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: /DoubleQuote.*quote/ }).click();
+  await page.getByRole('button', { name: 'DoubleQuote node actions' }).click();
+  await page.getByRole('button', { name: 'Import input…' }).click();
+  await page.getByRole('textbox', { name: 'Import JSON data' }).fill('{"quote":{"amount":10,"currency":"USD"}}');
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  const currency = page.getByRole('button', { name: /^Currency:/ });
+  await expect(currency).toContainText('US Dollar');
+  await currency.click();
+  await page.getByRole('combobox', { name: 'Search Currency' }).fill('EUR');
+  await page.getByRole('option', { name: 'Euro', exact: true }).click();
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  const output = page.getByRole('region', { name: 'result output' });
+  await expect(output).toContainText('EUR');
+  await expect(output).toContainText('20');
+  await dismissLocalTransportNotices(page);
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+  ).toEqual([]);
+  await info.attach('currency-resource-enum', {
+    body: await page.screenshot({ path: info.outputPath('currency-resource-enum.png') }),
+    contentType: 'image/png'
+  });
+});
 test('uses saved project code lists for real form choices, execution and unavailable recovery', async ({
   page
 }, info) => {

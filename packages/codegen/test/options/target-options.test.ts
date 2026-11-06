@@ -21,6 +21,9 @@ describe('project generator options', () => {
     ['sql', { layout: 'barrel' }],
     ['json-schema', { layout: 'barrel' }],
     ['typescript', { inputChecks: 'yes' }],
+    ['typescript', { serialization: 'custom' }],
+    ['typescript', { codecs: true }],
+    ['zod', { codecs: 'yes' }],
     ['typescript', null],
     ['typescript', []],
     ['typescript', { unknownKnob: true }]
@@ -32,6 +35,16 @@ describe('project generator options', () => {
   it('uses the existing Excel schema to resolve defaults', () => {
     const options = { sheets: { types: false } };
     expect(validateTargetOptions('excel', options)).toEqual({ value: ExcelOptionsSchema.parse(options), errors: [] });
+  });
+  it('accepts generated codec serialization through the shared target contract', () => {
+    expect(validateTargetOptions('typescript', { serialization: 'zod' })).toEqual({
+      value: { serialization: 'zod' },
+      errors: []
+    });
+    expect(validateTargetOptions('zod', { codecs: true })).toEqual({
+      value: { codecs: true },
+      errors: []
+    });
   });
   it('uses the existing OpenAPI schema for valid and invalid formats', () => {
     const options = { format: 'yaml', crud: { types: ['Trade'] } };

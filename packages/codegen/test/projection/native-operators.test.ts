@@ -5,7 +5,7 @@ import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { describe, it, expect } from 'vitest';
 import { parseExpression, isData, isRosettaModel } from '@rune-langium/core';
 import { transpileExpression, type ExpressionTranspilerContext } from '../../src/expr/transpiler.js';
-import { RUNTIME_HELPER_JS_SOURCE } from '../../src/helpers.js';
+import { RUNTIME_HELPER_JS_SOURCE, runtimeHelperSource } from '../../src/helpers.js';
 import ts from 'typescript-classic';
 import { writeFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -216,12 +216,14 @@ func BareEnum:
     for (const predicate of predicates) expect(predicate).not.toMatch(/\bas\b|rune\.(valueKey|exists|compare)/);
     expect(predicates[0]).toContain('data.agreementType !== "Other"');
     expect(predicates[1]).toContain('data.masterAgreementType?.value != null');
-    expect(predicates[2]).toBe('!data.contractualDefinitionsType?.length');
+    expect(predicates[2]).toBe('!rune.list(data.contractualDefinitionsType)?.length');
     expect(predicates[3]).toContain('.some(');
-    const execute = (index: number, value: unknown) => new Function('data', `return ${predicates[index]};`)(value);
+    const execute = (index: number, value: unknown) =>
+      new Function('data', RUNTIME_HELPER_JS_SOURCE + `\nreturn ${predicates[index]};`)(value);
     expect(execute(2, {})).toBe(true);
     expect(execute(2, { contractualDefinitionsType: [] })).toBe(true);
     expect(execute(2, { contractualDefinitionsType: [{ value: 'Other', meta: {} }] })).toBe(false);
+    expect(execute(2, { contractualDefinitionsType: { value: 'Other', meta: {} } })).toBe(false);
     expect(execute(3, { references: [{ externalReference: 'unresolved' }] })).toBe(false);
     expect(execute(3, { references: [{ value: 'Other' }] })).toBe(true);
     expect(execute(4, { agreementType: 'Other' })).toBe(true);
@@ -236,11 +238,12 @@ func BareEnum:
       const filename = join(directory, 'case.ts');
       writeFileSync(
         filename,
-        `type AgreementType = "Other" | "MasterAgreement" | "MasterConfirmation" | "Confirmation";
+        `${runtimeHelperSource(true)}
+type AgreementType = "Other" | "MasterAgreement" | "MasterConfirmation" | "Confirmation";
 type Input = {agreementType: AgreementType; otherAgreement?: string;
  masterAgreementType?: {value: AgreementType; meta: object};
- contractualDefinitionsType?: {value: AgreementType; meta: object}[];
- references?: {value?: AgreementType; externalReference?: string}[]};
+ contractualDefinitionsType?: {value: AgreementType; meta: object} | {value: AgreementType; meta: object}[];
+ references?: {value?: AgreementType; externalReference?: string} | {value?: AgreementType; externalReference?: string}[]};
 ${predicates.map((predicate, index) => `function case${index}(data: Input) { return ${predicate}; }`).join('\n')}`
       );
       const compile = spawnSync(

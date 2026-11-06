@@ -88,6 +88,12 @@ comparison tolerates formatting and quote changes. Supported edits replace uniqu
 original subexpressions while retaining navigation/extraction and scalar-binding
 identity. Repeated or overlapping origins refuse rather than guess.
 
+Linked origins include fragment spellings at expression-relative Langium paths,
+even when the worker AST has no CST. `rebaseProjectionOrigin` checks Rune tree
+equivalence and restores fragments against captured source coordinates without
+re-rendering linked syntax. Studio uses it before preparing inline edits, retaining
+native regex literals and callback aliases across serialization and trivia changes.
+
 Deep navigation uses `receiver._.field`; `.field("_")` selects an actual field
 named `_` without entering the deep view. Older `.prop(item => item.field)`
 drafts remain readable. A dangling deep view is not a Rune expression.
@@ -97,8 +103,14 @@ by flatten, and property access means Rune navigation. Collection membership and
 quantifiers lower back to their Rune operations. The core parser remains the
 syntax authority; no JavaScript is evaluated. Invalid or unsupported edits retain
 the draft and do not write. Existing revision/workspace/dependency/read-only gates
-remain in force. Full function bodies and lifted statement expressions are display
-only; this change does not enable arbitrary JavaScript or whole-function editing.
+remain in force. Studio edits TypeScript expression values directly in the body
+view, with Apply/Discard for a private draft. `parseSourceTsBody` locates authored
+initializer, assignment, assertion and add-value slots, checks the surrounding
+statement structure, and delegates each value to the same origin-aware inverse.
+All changed Rune regions commit in one document transaction and one undo step.
+Changing declaration names, targets, returns or control flow requires Rune source.
+Lifted statement expressions without a matching origin are refused; no JavaScript
+is evaluated and unsupported drafts remain available for correction or discard.
 The legacy subset lens exports remain for compatibility; Studio uses the source lens.
 
 Callback parameters follow lexical shadowing, including constructor shorthand:
@@ -142,42 +154,75 @@ cardinality helpers. Standalone authored type selection retains `value as Cash`.
 ## Generated public value API
 
 Generated TypeScript exposes `Trade.from(input)` alongside `new Trade(shape)`.
-The factory returns a uniform fluent view for one value, an optional value or a
-collection. It accepts typed model inputs, JSON text, unknown external payloads
-and existing views; it normalizes scalar/list fields, checks declared bounds and
-field types, and materializes nested models without mutating the input. Authored
-business conditions remain explicit validation methods. `new Trade(shape)` keeps
-single-instance construction; it does not perform the factory's normalization.
+The public constructor is the `Trade` class itself, with a merged `Trade.Shape`
+type for function inputs and outputs. Shared helpers are separate by default.
+Generated model classes use `@RuneObject.model` and `@RuneObject.field` to declare
+runtime facts once; the shared base derives inherited and deep metadata lazily.
+Field decorators use positional `field(Cardinality.One, check)` arguments, with
+`Optional`, `ZeroOrMore`, `OneOrMore`, `range(lower, upper)` and `atLeast(lower)`
+for other count bounds. Linked-type getters and envelope cardinality follow the check.
+The shared runtime converts these immutable declarations to its existing count
+checks; numeric value constraints remain independent.
+The type-only namespace retains static traversal/cardinality information.
+`typescript.decorators: false` produces equivalent registration calls for hosts
+that erase types without lowering decorators, including Studio execution. Code
+previews and downloads use standard decorators by default.
+`Trade.fromJSON(input, { format: 'RUNE_JSON' })` and
+`trade.toJSON({ format: 'RUNE_JSON' })` opt into Rune wire metadata; ordinary
+`toJSON()` and `JSON.stringify()` retain plain JSON output.
+The factory accepts typed model inputs, JSON text and unknown external payloads.
+It normalizes scalar/list fields, checks declared bounds and field types, and
+materializes nested models without mutating the input. The public result follows
+its count: no values become `undefined`, one becomes a model instance, and two or
+more become an array-backed `RuneList`. Object fields and deep selections use the
+same rule. There is no public `unwrap()` step. Authored business conditions remain
+explicit validation methods. `new Trade(shape)` constructs one proxied instance.
 
 ```typescript
 const trade = Trade.from({ transfers: [{ asset: { amount: 3 } }] });
-const total = trade._.asset.amount.sum();
+const asset = trade._.asset;
 const first = Trade.from([inputA, inputB]).first();
-const payload = first.unwrap();
-const items = trade.toArray();
+const result = CalculateTrade(trade); // accepts Trade.Shape directly
 ```
 
-Linked field descriptors supply both runtime traversal and TypeScript field types.
-Direct and deep selection compose lower/upper cardinality bounds. Required single
-values unwrap to `T`; optional singles to `T | undefined`; many-valued views to
-scalar/nonempty-tuple/absence unions as their bounds permit. Literal tuples retain
-their root size. Bounded field inputs and payloads use tuple unions up to 32;
-larger bounds widen statically while retaining full runtime checks. Unknown/JSON
-inputs are conservatively `0..*`. Cyclic deep paths also widen to `0..*`; runtime
-path selection still uses the canonical linked traversal, with cycle protection.
-Legacy plain Shapes and exported function array signatures stay interoperable and
-do not encode every bound; call `.unwrap()` or `.toArray()` at those boundaries.
+Linked descriptors supply runtime traversal and TypeScript field types. Direct
+and deep selections compose lower/upper cardinality bounds. `One<T>` is `T`;
+`Optional<T>` is `T | undefined`; `OneOrMore<T>` is `T` or a RuneList containing at
+least two items; `ZeroOrMore<T>` also permits `undefined`. Literal tuples retain
+their root size. Bounded factory inputs and projected fields use tuple unions up
+to 32; larger bounds widen statically while retaining full runtime checks.
+Unknown/JSON-text inputs are conservatively `0..*`. Cyclic deep paths also widen
+to `0..*`; runtime traversal remains cycle protected. Plain Shapes accept scalar
+or array collection fields for structural interoperability. Factory Input types
+and projected result fields retain precise cardinality constraints.
 
-Operations share the existing RuneList implementation. Selection, filtering,
-sorting and element selectors keep model descriptors, so chaining works after
-`first()` or `min()`. `map` retains array-valued groups; `flatMap` and `flat` make
-flattening explicit. Sorting uses Rune value/Temporal ordering and does not mutate
-inputs. `unwrap()` returns the current plain model payload, `toArray()` returns an
-owned array, and `toJSON()` serializes through the shared Rune data adapter.
+`RuneObject` proxies cache a private RuneValue for each field. Getters expose
+projected values; setters and mutable list operations normalize and check bounds
+before committing. Replacing a field detaches its old list handle. JSON encoding
+reads canonical storage, so a declared collection still serializes as an array
+even when its current getter projects to a scalar. Metadata envelopes are retained.
 
-An authored field that collides with a view operation is available through
-`view.field('map')` or `view.field('_')`. Deep names that identify several distinct
-linked fields are deliberately unavailable; use
-`view.select('namespace.Owner#field')` to disambiguate. Traversal follows declared
+Explicit list transformations share RuneList's implementation and stay collection
+containers for chaining: `map` retains array-valued groups, while `flatMap` and
+`flat` flatten explicitly. Public array sorting distinguishes callbacks by
+`Function.length`: zero/one parameter selects a Rune key and returns a new list;
+two or more parameters use native in-place comparison and return the same array.
+`sort()` uses native default ordering. `sort(key, compareKeys)` supplies explicit
+key comparison; `sort(undefined, compare)` forces native comparison for callbacks
+whose default/rest/bound parameters obscure their arity. Explicit RuneList helpers
+and source projections retain Rune value/Temporal ordering and nonmutating sorting.
+Public array `reverse()` mutates in place; explicit RuneList helpers retain Rune's
+copy-producing reversal. Array callback methods honor the optional `thisArg`.
+Actual array results serialize as arrays, including empty and
+singleton results, in both plain JSON and the selected Rune JSON format.
+Element selectors return the selected scalar/model directly.
+`list.project()` applies the count-based projection, and `toArray()` returns an
+owned native array. Lists satisfy `Array.isArray` without changing Array.prototype.
+
+Authored fields retain their ordinary property names, including `_` and `map`.
+Use `value.deep()` to traverse when an authored `_` field shadows deep access, or
+`value.field('map')` for an explicit linked selection. Deep names identifying
+several distinct linked fields are deliberately unavailable; use
+`value.select('namespace.Owner#field')` to disambiguate. Traversal follows declared
 model fields, not arbitrary JavaScript object keys. Metadata payload navigation
 hides representation wrappers while retaining actual authored `value` fields.

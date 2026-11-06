@@ -191,6 +191,7 @@ export function useTypeRefDrop(opts: UseTypeRefDropOptions): UseTypeRefDropResul
       // Calling it unconditionally would suppress plain-text/file drops on any
       // shared surface (e.g., CodeMirror editor in Phase 9).
       e.preventDefault();
+      e.stopPropagation();
       onDrop(payload);
     },
     [accept, onDrop]

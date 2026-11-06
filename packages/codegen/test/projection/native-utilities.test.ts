@@ -121,7 +121,7 @@ func Case${index}:
     const early = Temporal.PlainDate.from('2026-01-01'),
       late = Temporal.PlainDate.from('2026-12-31');
     const code = funcs.map((func) => transpileExpression(func.operations[0]!.expression, context));
-    for (const expression of code) expect(expression).not.toContain('rune.');
+    for (const expression of code) expect(expression).not.toMatch(/rune\.(?!list\()/);
     expect(code.map((expression) => execute(expression, { values: [late, early] }))).toEqual([
       [early, late],
       early,
@@ -139,7 +139,7 @@ func Years:
     const expression = funcs[0]!.operations[0]!.expression;
     for (const emitMode of ['ts-expression', 'zod-refine'] as const) {
       const code = transpileExpression(expression, { ...context, emitMode });
-      if (emitMode === 'ts-expression') expect(code).not.toContain('rune.');
+      if (emitMode === 'ts-expression') expect(code).not.toMatch(/rune\.(?!list\()/);
       const date = emitMode === 'ts-expression' ? Temporal.PlainDate.from('2026-10-13') : '2026-10-13';
       expect(execute(code, { flag: true, dates: [date] })).toEqual([2026]);
       expect(execute(code, { flag: false, date })).toEqual([2026]);
@@ -217,7 +217,7 @@ func Case${index}:
           .join('\n')
     );
     const code = funcs.map((func) => transpileExpression(func.operations[0]!.expression, context));
-    for (const expression of code) expect(expression).not.toMatch(/rune\.(?!List)/);
+    for (const expression of code) expect(expression).not.toMatch(/rune\.(?!List|list|count)/);
     expect(code.map((expression) => execute(expression, { values: [3, 1, 2, 1] }))).toEqual([
       4,
       3,
@@ -289,7 +289,7 @@ func Distinct:
  set result: values distinct
 `);
     const code = transpileExpression(func!.operations[0]!.expression, { ...context, preserveMetadata: true });
-    expect(code).not.toContain('rune.');
+    expect(code).not.toMatch(/rune\.(?!list\()/);
     const first = { value: 'A', meta: { scheme: 'first' } };
     const second = { value: 'A', meta: { scheme: 'second' } };
     const third = { value: 'B', meta: {} };

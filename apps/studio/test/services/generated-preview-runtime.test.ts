@@ -67,7 +67,7 @@ type Child extends Parent:
   );
   await shared.workspace.DocumentBuilder.build(documents);
   for (const document of documents) expect(document.parseResult.parserErrors).toEqual([]);
-  const outputs = await generate(documents, { target: 'typescript' });
+  const outputs = await generate(documents, { target: 'typescript', typescript: { decorators: false } });
   const modules = createGeneratedModuleLoader(outputs);
   const Parent = modules.load('types/a.ts').Parent as new () => object;
   const Child = modules.load('types/b.ts').Child as new (data: { amount: number }) => object;

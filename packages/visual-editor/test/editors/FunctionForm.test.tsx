@@ -46,6 +46,7 @@ function makeActions(overrides: Partial<EditorFormActions<'func'>> = {}): Editor
     removeInputParam: vi.fn(),
     updateInputParam: vi.fn(),
     reorderInputParam: vi.fn(),
+    updateOutputParam: vi.fn(),
     updateOutputType: vi.fn(),
     setFunctionParent: vi.fn(),
     updateExpression: vi.fn(),
@@ -102,7 +103,13 @@ function makeFuncData(overrides: Partial<AnyGraphNode> = {}): AnyGraphNode {
         override: false
       }
     ],
-    output: { typeCall: { $type: 'TypeCall', type: { $refText: 'number' } } },
+    output: {
+      $type: 'Attribute',
+      name: 'result',
+      override: false,
+      typeCall: { $type: 'TypeCall', type: { $refText: 'number' }, arguments: [] },
+      card: { $type: 'RosettaCardinality', inf: 1, sup: 1, unbounded: false }
+    },
     expressionText: 'trade -> price -> amount',
     conditions: [],
     postConditions: [],
@@ -178,7 +185,7 @@ describe('FunctionForm', () => {
     vi.useRealTimers();
   });
 
-  it('calls addInputParam when add-input button is clicked with name filled', () => {
+  it('adds an editable input from the legend without a permanent blank creation field', () => {
     const actions = makeActions();
     render(
       <FunctionForm
@@ -190,15 +197,36 @@ describe('FunctionForm', () => {
       />
     );
 
-    const nameInput = screen.getByLabelText('New input parameter name');
-    fireEvent.change(nameInput, { target: { value: 'quantity' } });
+    expect(screen.queryByLabelText('New input parameter name')).toBeNull();
 
     // Post-icon-button migration: "+ Add Input" is now an icon-only
     // <Button> with aria-label="Add input".
     const addBtn = screen.getByLabelText('Add input');
     fireEvent.click(addBtn);
 
-    expect(actions.addInputParam).toHaveBeenCalledWith('fn1', 'quantity', 'string');
+    expect(actions.addInputParam).toHaveBeenCalledWith('fn1', '', 'string');
+  });
+
+  it('edits the named output in the shared row without input reorder or removal controls', async () => {
+    const actions = makeActions();
+    const { container } = render(
+      <FunctionForm
+        meta={testMeta('test.model')}
+        nodeId="fn1"
+        data={makeFuncData()}
+        availableTypes={AVAILABLE_TYPES}
+        actions={actions}
+      />
+    );
+    const name = screen.getByLabelText('Output name: result');
+    const row = name.closest('[data-slot="attribute-row"]')!;
+    expect(row.getAttribute('draggable')).toBe('false');
+    expect(row.querySelector('[data-slot="attribute-remove"]')).toBeNull();
+    fireEvent.change(name, { target: { value: 'notional' } });
+    await act(async () => vi.advanceTimersByTime(500));
+    expect(actions.updateOutputParam).toHaveBeenCalledWith('fn1', 'result', 'notional', 'number', '(1..1)', undefined);
+    expect(actions.updateInputParam).not.toHaveBeenCalled();
+    expect(container.querySelectorAll('[data-slot="attribute-row"]')).toHaveLength(3);
   });
 
   it('calls removeInputParam when remove button is clicked', () => {
@@ -335,7 +363,7 @@ describe('FunctionForm', () => {
 
     // Each input renders as an AttributeRow (data-slot="attribute-row").
     const rows = container.querySelectorAll('[data-slot="attribute-row"]');
-    expect(rows.length).toBe(2);
+    expect(rows.length).toBe(3);
 
     // The first row has an enabled name input (not disabled).
     const firstRow = rows[0]!;
@@ -684,14 +712,12 @@ describe('FunctionForm – US3 (Phase 5c) z2f migration contract (FT1–FT4)', (
     );
 
     // ---- Edit an input row: add a parameter ------------------------------
-    const newParamName = screen.getByLabelText(/new input parameter name/i);
-    fireEvent.change(newParamName, { target: { value: 'quantity' } });
     fireEvent.click(screen.getByLabelText('Add input'));
 
     expect(actions.addInputParam).toHaveBeenCalledTimes(1);
-    expect(actions.addInputParam).toHaveBeenCalledWith('fn1', 'quantity', 'string');
+    expect(actions.addInputParam).toHaveBeenCalledWith('fn1', '', 'string');
     // The output-side actions did NOT fire as a side effect of the input edit.
-    expect(actions.updateOutputType).not.toHaveBeenCalled();
+    expect(actions.updateOutputParam).not.toHaveBeenCalled();
     expect(actions.updateExpression).not.toHaveBeenCalled();
 
     // ---- Edit an input row: remove a parameter --------------------------
@@ -702,7 +728,7 @@ describe('FunctionForm – US3 (Phase 5c) z2f migration contract (FT1–FT4)', (
 
     expect(actions.removeInputParam).toHaveBeenCalledTimes(1);
     // Removing an input also did not crosstalk into the output handlers.
-    expect(actions.updateOutputType).not.toHaveBeenCalled();
+    expect(actions.updateOutputParam).not.toHaveBeenCalled();
     expect(actions.updateExpression).not.toHaveBeenCalled();
 
     // ---- Swap the output side via an external-sync data change ----------

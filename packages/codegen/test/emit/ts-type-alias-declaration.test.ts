@@ -68,7 +68,7 @@ typeAlias MyAlias: Bar
     const doc = await parseSource(source);
     const model = walkNamespace([doc], 'test.aliasDeclDataRef');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('export type MyAlias = BarShape;');
+    expect(output.content).toContain('export type MyAlias = Bar.Shape;');
     expect(output.content).not.toContain('export type MyAlias = unknown;');
   });
 });

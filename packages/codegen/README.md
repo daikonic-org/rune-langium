@@ -65,7 +65,7 @@ arms remain lazy without nested-ternary depth limits.
 Rune functions emit named exports with positional parameters in Rune declaration
 order and an explicit return type, such as `AddTwo(left, right)`. Ordinary parameter
 names match Rune inputs; target keywords and implementation binding collisions
-are escaped. Data values use `RuneFuncData<TypeShape>`, which preserves nested
+are escaped. Data values use `Type.Shape`, which preserves nested
 fields while excluding class validation methods. Required inputs are required parameters. Trailing optional inputs use `?`; optional
 inputs before required ones accept `undefined` without changing argument order;
 collection inputs and outputs use arrays. An optional scalar output returns
@@ -101,6 +101,17 @@ ISO strings to Temporal once, including nested values and aliases. Class-to-func
 calls preserve those instances. Studio serializes results back to ISO strings for
 forms and JSON transport and supplies the same polyfill to executable previews.
 
+The built-in namespace also exports `time = Temporal.PlainTime`,
+`date = Temporal.PlainDate`, `dateTime = Temporal.PlainDateTime`,
+`zonedDateTime = Temporal.ZonedDateTime` and `pattern = globalThis.RegExp` type aliases, so
+the generated preview exposes these implementation mappings. Pattern-typed fields
+and functions use native regular expressions. Fixed string literals in authored
+pattern destinations become regex literals; ordinary string fields retain strings.
+Factories, function-input schemas and Studio preserve native pattern values, while
+JSON uses their regex source strings. RegExp flags have no Rune wire field and
+serialization rejects them instead of discarding them. Pattern syntax follows the
+JavaScript RegExp implementation; unsupported expressions fail explicitly.
+
 Scalar/list adaptation is shared across functions, validators, and previews.
 Assignments and calls use direct values when linked bounds and shapes already fit;
 optional fields use `?.` and optional collections use `?? []`. Actual shape changes
@@ -120,6 +131,91 @@ Native operators and standard-library calls remain compact where equivalent.
 Inline modules, shared runtime sidecars and executable previews use the same
 runtime source builder; namespace methods preserve generic types and type guards.
 Existing flat implementation exports remain available to runtime consumers.
+
+Generated model factories and property checks narrow unknown inputs before use.
+They do not cast through `unknown` or to `any`. Selector/comparator argument tuples
+and checked descriptor guards retain collection/cardinality relationships. The
+private proxy runtime still needs assertions for conditional cardinality types
+that TypeScript cannot derive from validated runtime counts.
+
+TypeScript modules import a shared `helpers.ts` companion by default, including
+per-namespace output. Set `typescript.inlineHelpers: true` with per-namespace
+layout for a self-contained module. Studio's TypeScript and Zod previews use
+shared companions, keeping support code out of the selected model by default.
+
+Data declarations expose one public class, such as `Quote`, with `Quote.from`
+and a merged `Quote.Shape` type for plain function inputs/outputs. `new Quote`
+constructs one proxied instance; `Quote.from` projects its result by cardinality.
+`Quote.is` recognizes instances and qualified Rune JSON type tags, validating
+both tagged and untagged input shapes. Shape validation and cardinality checks
+remain part of factory normalization. `Quote.fromJSON(input, { format: 'RUNE_JSON' })`
+decodes Rune wire metadata using Core's codec; instance/list
+`toJSON({ format: 'RUNE_JSON' })` encodes linked fields. Base-typed factories and
+fields retain known tagged descendants and generated subclass instances, validating
+the concrete fields before creating their instances. Nested Choices round-trip
+through the same cycle-safe acceptance rules as the preview adapter. Descendants register as their modules load; importing
+the bundle barrel registers the complete generated set. Unknown, unloaded or
+unrelated concrete types are rejected. Plain JSON remains the
+default, including `JSON.stringify(instance)`. Unknown fields are retained by
+factory normalization; unsupported ambiguous Choice representations fail explicitly.
+
+The shared `RuneObject` base owns factory, guard and JSON behavior. Classes keep
+their fields, constructor, authored condition methods and `@RuneObject.model`
+identity. Each `@RuneObject.field` supplies its cardinality, type check and optional
+linked type/metadata once. The base derives and caches runtime selections lazily,
+including cyclic graphs; importing a model does not traverse its linked types.
+There is no runtime `Quote.Type` property. `Quote.Shape`, `Quote.Input`
+and traversal types remain in the type-only merged namespace. Natural class
+inheritance preserves `instanceof` and factory cardinality inference.
+Construction shares successful shape checks for one materialization pass, including
+inherited constructors in separate inline modules. The constructor context is
+removed on success or failure; later assignments and serialization recheck values.
+Native pattern references use `globalThis.RegExp`, so a model can itself be named
+`RegExp` without shadowing the JavaScript implementation.
+
+Field decorators take positional arguments: `@RuneObject.field(Cardinality.One, check)`.
+The common count bounds are `One` (`1..1`), `Optional` (`0..1`), `ZeroOrMore`
+(`0..*`) and `OneOrMore` (`1..*`). Other ranges use
+`Cardinality.range(2, 5)` or `Cardinality.atLeast(2)`. These immutable values retain
+literal bounds in their types and normalize once to the existing runtime count
+checks; they do not constrain numeric field values. Optional arguments after the
+check are a lazy linked-type getter, metadata-envelope cardinality and a native
+field reader, in that order. Trailing unused arguments are omitted. `Cardinality` is exported by
+generated modules and their helper companion in every layout.
+
+Standard decorators are enabled by default (`typescript.decorators: true`).
+Consumers must lower decorators when their JavaScript engine cannot execute them.
+Set `typescript.decorators: false` for equivalent `RuneObject.decorate(...)`
+registration calls, as used by Studio's type-erasing execution compiler. This
+changes registration syntax only; both modes use the same definitions and runtime.
+Generated source and strict type checks retain the ESNext target.
+
+The shared `is` namespace exposes `is.Quote(value)`. A statically known `RuneObject`
+input narrows to the concrete class; unknown/plain data narrows to `Quote.Shape`.
+Generated instances use class identity, while plain shapes use the same linked
+field/cardinality validation as factory construction. `Quote.is` is inherited as
+an equivalent convenience. Duplicate model names receive qualified guard names.
+Choice unions use the shared Choice factory with `is`/`from`/`fromJSON` methods.
+
+Set `typescript.serialization: 'zod'` to import `${Model}Codec` from companion
+modules generated by the Zod emitter. The download includes those companions;
+consumers need Zod 4. Codec serialization validates authored constraints and
+converts native Temporal/RegExp fields in both directions. Rune JSON envelopes,
+references and concrete type selection continue through the shared Core codec.
+Every nested concrete model uses its own codec, including subclasses inside
+base-typed scalar/list fields, Choice arms and metadata references. Wire and native
+checks use the companion schema's public parse/encode operations; runtime hydration
+retains concrete fields and codecs do not replace them with base-schema clones.
+Each companion's `node` schema uses the same field and condition builders but
+delegates linked children to the concrete-model walker. This keeps recursive
+serialization traversal linear for fixed-cost conditions. The public codec's
+`parse`/`encode` operations still validate complete subtrees.
+The default `'runtime'` mode has no Zod dependency. For standalone schemas,
+`zod.codecs: true` adds the same bidirectional codecs and native output types.
+Default Zod schemas and their recursive interfaces use wire types: pattern fields
+remain source strings. Native pattern codecs validate `RegExp` with
+`z.instanceof(globalThis.RegExp)` and convert at the JSON boundary; their recursive
+interfaces retain the native `RegExp` output type.
 
 Preview fields expose optional `typeSymbol` presentation metadata, using a
 kind-qualified identity such as `data:example.Trade`, `typeAlias:example.Amount`
@@ -244,13 +340,36 @@ worker; authored Rune source and executable exports are unchanged by formatting.
 payload remains semantic data, independent of display formatting.
 
 
-## Cardinality-aware TypeScript views
+## Cardinality-aware TypeScript values
 
-Generated `Trade.from(input)` returns a fluent value view for scalar, optional and
-collection inputs, with linked field types/cardinality and deep access such as
-`trade._.asset`. Use `.unwrap()` for a plain scalar/optional/collection payload or
-`.toArray()` for an owned array before calling ordinary exported functions.
-`new Trade(shape)` still constructs one model instance. Factory normalization
-checks shape/cardinality, preserves metadata and does not replace authored
-business-condition validation. See [source projections and the public value API](../../docs/source-projection.md#generated-public-value-api)
+Generated `Trade.from(input)` returns `undefined` for no values, a `Trade` for one,
+and an array-backed `RuneList` for multiple values. The same projection applies to
+linked fields and deep selections such as `trade._.asset`. `One<T>`, `Optional<T>`,
+`OneOrMore<T>` and `ZeroOrMore<T>` expose those shapes; bounded outputs retain tuple
+bounds. Public values pass directly to ordinary functions without unwrapping.
+Projected arrays preserve native `Array.reduce` overloads and callback arguments.
+Native `reverse()` mutates and returns the same array; explicit RuneList helpers
+retain copy-producing reversal. Map/filter/predicate callbacks receive the supplied
+`thisArg`, element index and public array receiver.
+Their `sort(callback)` supports both contracts by callback parameter count:
+zero/one parameter selects a Rune ordering key and returns a new list; two or more
+parameters use native in-place comparison and return the same array.
+`sort()` keeps native default ordering. `sort(key, compareKeys)` explicitly sorts
+by a key; `sort(undefined, compare)` explicitly selects a native comparator.
+Use the latter for default/rest/bound callbacks whose `Function.length` reports
+fewer than two parameters. Explicit RuneList helpers and source projections retain
+Rune key-selector semantics. Array transformations serialize as arrays even with zero or one item,
+retaining the selected JSON format.
+Shared `RuneList` helper reductions also support a typed initial accumulator;
+an unseeded helper reduction of an empty collection retains Rune's empty result.
+
+`RuneObject` proxies cache private `RuneValue` field slots. Setters and list edits
+reuse the factory normalizer, and serialization reads canonical storage rather
+than projected getters. Reading an already-materialized child reuses its proxy
+without validating the descendant subtree again. Raw structural children still
+materialize on first read; assignments and explicit factories validate afresh.
+Plain `Trade.Shape` collection fields accept a scalar or array; factory inputs and
+projected outputs retain stricter linked bounds.
+`new Trade(shape)` still constructs one model instance. Authored business-condition
+validation remains explicit. See [source projections and the public value API](../../docs/source-projection.md#generated-public-value-api)
 for bounds, collision escapes and serialization behavior.

@@ -1,0 +1,16 @@
+---
+'@rune-langium/codegen': minor
+'@rune-langium/visual-editor': patch
+---
+
+Emit public model classes with static cardinality-aware factories, structural
+function signatures, optional Rune JSON serialization and separate default
+helpers. Include inherited enum choices in previews. Broaden Inspector type-drop
+targets, surface metadata semantics and tighten documentation controls.
+
+Keep native pattern/Temporal serialization after collection mapping, and retain
+shared barrel APIs when namespace declarations collide. Use matching named input
+and output Inspector rows with a legend Add action and undoable output renames.
+
+Preserve Choice arm names in ordinary JSON, honor array flattening depth, and use
+linked output-reference identities for safe renaming across implicit lambdas.

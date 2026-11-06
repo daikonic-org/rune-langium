@@ -13,10 +13,10 @@
  * Closes a reviewer Important finding: `collectCrossNamespaceImports`
  * (ts-emitter.ts) tracks `${parentRef.name}Shape` for the supertype
  * UNGATED on isData — so for a cross-namespace Choice supertype it emits
- * `import { Asset, AssetShape }`. Before Choices emitted a Shape-level
- * union, `AssetShape` did not exist → TS2305 broken import (pre-existing
+ * `import { Asset, Asset.Shape }`. Before Choices emitted a Shape-level
+ * union, `Asset.Shape` did not exist → TS2305 broken import (pre-existing
  * at the branch base, latent for the two real corpus decls above). Now
- * that emitChoiceShapeTypeDeclaration emits `<Choice>Shape`, the same
+ * that emitChoiceShapeTypeDeclaration emits `<Choice>.Shape`, the same
  * ungated tracking resolves to a real symbol — this suite pins that with
  * a MULTI-FILE compile check (the single-file compile checks in
  * ts-data-extends-choice.test.ts structurally cannot catch a cross-ns
@@ -70,32 +70,24 @@ describe('Data-extends-Choice — cross-namespace Choice supertype', () => {
     await parseFixtureFiles();
   });
 
-  it('imports BOTH the bare Choice union and its Shape-level union from the supertype namespace', async () => {
+  it('imports one Choice binding for its union and merged namespace', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    // `AssetShape` must be a REAL exported symbol of the base namespace
-    // (emitChoiceShapeTypeDeclaration) — this import line was a TS2305
-    // broken import before Choices emitted a Shape-level union. The path
-    // is `./base.js` (sibling FILES in the same directory per
-    // getTargetRelativePath's layout) — previously emitted as the
-    // unresolvable `../base.js` (resolveImportPath's off-by-one, fixed
-    // alongside this suite).
-    expect(productOutput!.content).toMatch(/import \{[^}]*\bAsset, AssetShape\b[^}]*\} from '\.\/base.js';/);
+    // The single root import carries the Choice union and its merged namespace.
+    expect(productOutput!.content).toMatch(/import \{ Asset, Cash, Commodity \} from '\.\/base.js';/);
   });
 
-  it('the child constrains its generic Shape alias and class on the imported <Choice>Shape', async () => {
+  it('the child constrains its generic Shape alias and class on the imported Choice.Shape', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
     expect(productOutput!.content).toContain(
-      'export type TransferableProductShape<T extends AssetShape = AssetShape> = T & {\n  weight?: number;\n};'
+      'export type Shape<T extends Asset.Shape = Asset.Shape> = T & {\n    weight?: number;\n  };'
     );
-    expect(productOutput!.content).toContain(
-      'export class $TransferableProduct$Data<T extends AssetShape = AssetShape>'
-    );
+    expect(productOutput!.content).toContain('export class TransferableProduct<T extends Asset.Shape = Asset.Shape>');
   });
 
   it('MULTI-FILE compile check: both emitted namespaces typecheck together under real tsc --strict (imports actually resolved)', async () => {

@@ -24,18 +24,20 @@
  * runtime check needed here.
  */
 export const RUNE_EXTEND_CHOICE_HELPER_SOURCE: string =
-  `const runeExtendChoice = <T extends z.ZodUnion<readonly z.ZodObject[]>>(choice: T, shape: z.ZodRawShape) =>\n` +
-  `  z.union(choice.options.map((arm) => arm.extend(shape)));`;
+  `function runeExtendChoice<T extends z.ZodUnion<readonly z.ZodObject[]>, S extends z.ZodRawShape>(choice: T, shape: S): z.ZodType<z.output<T> & z.output<z.ZodObject<S>>, z.input<T> & z.input<z.ZodObject<S>>>;\n` +
+  `function runeExtendChoice(choice: z.ZodUnion<readonly z.ZodObject[]>, shape: z.ZodRawShape) {\n` +
+  `  return z.union(choice.options.map((arm) => arm.extend(shape)));\n}`;
 
 /**
- * `export const` variant for the shared `runtime.zod.ts` sidecar (mirrors
+ * Exported variant for the shared `runtime.zod.ts` sidecar (mirrors
  * how `zod-profile.ts`'s `RUNTIME_SIDECAR_SOURCE` re-declares `../helpers.ts`'s
- * helpers with `export const` so per-namespace files can import them when
+ * helpers with exports so per-namespace files can import them when
  * `suppressBoilerplate: true`).
  */
-export const RUNE_EXTEND_CHOICE_HELPER_SIDECAR_SOURCE: string =
-  `export const runeExtendChoice = <T extends z.ZodUnion<readonly z.ZodObject[]>>(choice: T, shape: z.ZodRawShape) =>\n` +
-  `  z.union(choice.options.map((arm) => arm.extend(shape)));`;
+export const RUNE_EXTEND_CHOICE_HELPER_SIDECAR_SOURCE: string = RUNE_EXTEND_CHOICE_HELPER_SOURCE.replaceAll(
+  'function runeExtendChoice',
+  'export function runeExtendChoice'
+);
 
 /**
  * Plain JavaScript equivalent of `RUNE_EXTEND_CHOICE_HELPER_SOURCE` — no

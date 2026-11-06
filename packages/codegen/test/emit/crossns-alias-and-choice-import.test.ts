@@ -72,7 +72,7 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
     const outputs = await generate(docs, { target: 'typescript' });
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
     expect(holderOutput).toBeDefined();
-    expect(holderOutput!.content).toContain('direct?: Target;');
+    expect(holderOutput!.content).toContain('direct?: Target.Shape;');
   });
 
   it('item 1: an attribute typed via a 1-hop type alias to a cross-ns Data type produces the correct value ref AND the matching import', async () => {
@@ -82,7 +82,7 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
     expect(holderOutput).toBeDefined();
     // Value ref: resolveTypeExprAsTs already chases the alias to the
     // terminal Data type's bare name.
-    expect(holderOutput!.content).toContain('viaAlias?: Target;');
+    expect(holderOutput!.content).toContain('viaAlias?: Target.Shape;');
     // Import: this is the actual regression — Target must be imported once
     // for the whole file (attribute loop's fix).
     expect(holderOutput!.content).toMatch(/import \{[^}]*\bTarget\b[^}]*\} from '\.\/base\.js';/);
@@ -93,11 +93,11 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
     const outputs = await generate(docs, { target: 'typescript' });
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
     expect(holderOutput).toBeDefined();
-    expect(holderOutput!.content).toContain('viaChain?: Target;');
+    expect(holderOutput!.content).toContain('viaChain?: Target.Shape;');
     expect(holderOutput!.content).toMatch(/import \{[^}]*\bTarget\b[^}]*\} from '\.\/base\.js';/);
   });
 
-  it('item 3: a Choice option typed directly as a cross-ns Data type — used ONLY in the Choice (no attribute references it, so nothing else could accidentally cause the import) — imports both the bare name and the Shape name', async () => {
+  it('item 3: a Choice option typed directly as a cross-ns Data type — used ONLY in the Choice (no attribute references it, so nothing else could accidentally cause the import) — imports one binding per model for its value and namespace', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const holderOutput = outputs.find((o) => o.relativePath.includes('holder'));
@@ -106,11 +106,11 @@ describe('ts-emitter — cross-namespace alias-chased & Choice-option import tra
       'export type AssetChoice = { target: Target } | { aliasToTarget: Target } | { onlyInChoice: OnlyInChoice };'
     );
     expect(holderOutput!.content).toContain(
-      'export type AssetChoiceShape = { target: TargetShape } | { aliasToTarget: TargetShape } | { onlyInChoice: OnlyInChoiceShape };'
+      'export type Shape = { target: Target.Shape } | { aliasToTarget: Target.Shape } | { onlyInChoice: OnlyInChoice.Shape };'
     );
-    expect(holderOutput!.content).toMatch(/import \{[^}]*\bTargetShape\b[^}]*\} from '\.\/base\.js';/);
+    expect(holderOutput!.content).toMatch(/import \{[^}]*\bTarget\b[^}]*\} from '\.\/base\.js';/);
     expect(holderOutput!.content).toMatch(/import \{[^}]*\bOnlyInChoice\b[^}]*\} from '\.\/base\.js';/);
-    expect(holderOutput!.content).toMatch(/import \{[^}]*\bOnlyInChoiceShape\b[^}]*\} from '\.\/base\.js';/);
+    expect(holderOutput!.content).not.toMatch(/import \{[^}]*Shape[^}]*\} from '\.\/base\.js';/);
   });
 
   it('item 4+5: a Choice option typed via an alias to a cross-ns Data type chases the value ref through the alias but keeps the alias-derived field key', async () => {

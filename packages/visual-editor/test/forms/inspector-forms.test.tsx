@@ -203,7 +203,7 @@ it('Function input/output details share the parent form without remounting the b
   expect(store.getState().captureMetadataTarget(id, ['inputs', 0])?.expected).toMatchObject({
     definition: 'Identifier docs'
   });
-  fireEvent.focus(screen.getByText('Output Type').closest('fieldset')!);
+  fireEvent.focus(screen.getByLabelText('Output name: result'));
   fireEvent.change(within(screen.getByRole('region', { name: 'Details: Output' })).getByLabelText('Definition'), {
     target: { value: 'Output docs' }
   });

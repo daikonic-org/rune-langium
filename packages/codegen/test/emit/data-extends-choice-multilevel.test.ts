@@ -42,13 +42,14 @@ import { walkNamespace } from '../../src/emit/namespace-walker.js';
 import { emitNamespace as emitTs } from '../../src/emit/ts-emitter.js';
 import { emitNamespace as emitZod } from '../../src/emit/zod-emitter.js';
 import { generate } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 const FIXTURE_DIR = resolve(new URL('.', import.meta.url).pathname, '../fixtures/data-extends-choice-multilevel');
 
 /**
  * Real `tsc --strict` type-check — mirrors ts-data-extends-choice.test.ts's
  * `typeCheckFile` helper. Used here to prove the MULTI-LEVEL alias chain
- * (`BasketConstituentShape<T> = ObservableItemShape<T> & {...}`) actually
+ * (`BasketConstituent.Shape<T> = ObservableItem.Shape<T> & {...}`) actually
  * typechecks, not just that it string-matches the expected template.
  */
 function typeCheckFile(filePath: string, source: string): readonly string[] {
@@ -130,40 +131,42 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     expect(output.content).not.toContain('DIAGNOSTIC');
   });
 
-  it('ts: ObservableItemShape is the generic intersection alias (direct Choice link); BasketConstituentShape threads the SAME T through it (transitive Choice ancestor)', async () => {
+  it('ts: ObservableItem.Shape is the generic intersection alias (direct Choice link); BasketConstituent.Shape threads the SAME T through it (transitive Choice ancestor)', async () => {
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
     // The Choice's SHAPE-level union exists alongside the class-armed one
     // (user-directed correction: generic constraints bind on the Shape
     // world, not the class-armed W2 union).
-    expect(output.content).toContain('export type AssetShape = { cash: CashShape } | { commodity: CommodityShape };');
+    expect(output.content).toContain('export type Shape = { cash: Cash.Shape } | { commodity: Commodity.Shape };');
     // ObservableItem extends the Choice (Asset) directly — its Shape is the
     // generic intersection type alias, not a plain interface, constrained
     // on the SHAPE-level Choice union.
     expect(output.content).toContain(
-      'export type ObservableItemShape<T extends AssetShape = AssetShape> = T & {\n  identifier?: string;\n};'
+      'export type Shape<T extends Asset.Shape = Asset.Shape> = T & {\n    identifier?: string;\n  };'
     );
-    expect(output.content).not.toContain('export interface ObservableItemShape');
+    expect(output.content).not.toMatch(/namespace (?:ObservableItem|BasketConstituent) \{\s+export interface Shape/);
     // BasketConstituent extends a Data (ObservableItem) at the leaf, and
     // ObservableItem's OWN chain reaches the Choice — so a plain `interface
-    // … extends ObservableItemShape` would fail to compile (bare
-    // ObservableItemShape defaults T=AssetShape, a union; TS2312). Instead
-    // BasketConstituentShape is ALSO a generic alias, threading the same T
+    // … extends ObservableItem.Shape` would fail to compile (bare
+    // ObservableItem.Shape defaults T=Asset.Shape, a union; TS2312). Instead
+    // BasketConstituent.Shape is ALSO a generic alias, threading the same T
     // through the parent's generic Shape rather than `extends`.
     expect(output.content).toContain(
-      'export type BasketConstituentShape<T extends AssetShape = AssetShape> = ObservableItemShape<T> & {\n  weight?: number;\n};'
+      'export type Shape<T extends Asset.Shape = Asset.Shape> = ObservableItem.Shape<T> & {\n    weight?: number;\n  };'
     );
-    expect(output.content).not.toContain('export interface BasketConstituentShape');
+    expect(output.content).not.toMatch(/namespace (?:ObservableItem|BasketConstituent) \{\s+export interface Shape/);
   });
 
-  it('ts: ObservableItem (the Data-extends-Choice link) is a generic class over AssetShape — no `implements` (union-typed Shape)', async () => {
+  it('ts: ObservableItem (the Data-extends-Choice link) is a generic class over Asset.Shape — no `implements` (union-typed Shape)', async () => {
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
-    expect(output.content).toContain('export class $ObservableItem$Data<T extends AssetShape = AssetShape> {');
-    expect(output.content).not.toContain('implements ObservableItemShape');
-    expect(output.content).toContain('constructor(data: ObservableItemShape<T>) {');
+    expect(output.content).toContain(
+      'export class ObservableItem<T extends Asset.Shape = Asset.Shape> extends RuneObject {'
+    );
+    expect(output.content).not.toContain('implements ObservableItem.Shape');
+    expect(output.content).toContain('constructor(data: ObservableItem.Shape<T>) {');
     expect(output.content).toContain('validateAsset(): { valid: boolean; errors: string[] } {');
   });
 
@@ -171,8 +174,8 @@ describe('Data-extends-Choice — multi-level chain (synthetic fixture, parse-va
     const doc = await parseFixture();
     const model = walkNamespace([doc], 'test.dataExtendsChoiceMultilevel');
     const output = emitTs(model, {});
-    expect(output.content).toContain('export class $BasketConstituent$Data extends $ObservableItem$Data {');
-    expect(output.content).not.toContain('implements BasketConstituentShape');
+    expect(output.content).toContain('export class BasketConstituent extends ObservableItem {');
+    expect(output.content).not.toContain('implements BasketConstituent.Shape');
     expect(output.content).not.toContain('class BasketConstituent<T');
   });
 
@@ -204,16 +207,8 @@ describe('Data-extends-Choice — multi-level chain (emitted-runtime behavior, r
   async function loadEmittedTsModule(): Promise<Record<string, unknown>> {
     const doc = await parseFixture();
     const outputs = await generate(doc, { target: 'typescript' });
-    const tmpDir = await mkdtempWithNodeModules('rune-codegen-multilevel-ts-');
-    let modulePath = '';
-    for (const output of outputs) {
-      const outPath = join(tmpDir, output.relativePath);
-      await mkdir(dirname(outPath), { recursive: true });
-      await writeFile(outPath, output.content, 'utf-8');
-      if (output.relativePath.includes('dataExtendsChoiceMultilevel')) modulePath = outPath;
-    }
-    expect(modulePath).not.toBe('');
-    return (await import(/* @vite-ignore */ pathToFileURL(modulePath).toString())) as Record<string, unknown>;
+    const entry = outputs.find((output) => output.relativePath.includes('dataExtendsChoiceMultilevel'))!.relativePath;
+    return compileGeneratedTypeScript(outputs, { entry, checkTypes: false });
   }
 
   it('zod: BasketConstituentSchema accepts a valid payload distributed through both links', async () => {
@@ -261,10 +256,10 @@ describe('Data-extends-Choice — multi-level chain (emitted-runtime behavior, r
 
     // BasketConstituent extends ObservableItem (Data-extends-Data at the
     // leaf) via `super(data)` per the ordinary (unchanged) convention —
-    // the ctor param type is plain BasketConstituentShape (no generic),
+    // the ctor param type is plain BasketConstituent.Shape (no generic),
     // so the Choice-carrying fields flow through structurally (data is a
     // superset object), not via a generic parameter at this level.
-    const bc = new BasketConstituent({ commodity: { quantity: 3 }, identifier: 'x1', weight: 2 } as any);
+    const bc = new BasketConstituent({ commodity: { quantity: 3 }, identifier: 'x1', weight: 2 });
     expect(bc['weight']).toBe(2);
   });
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
 import { checkNamedTargets } from '../helpers/project-targets.js';
 import { projectBackingFiles } from '../helpers/project-backing.js';
 import { fullSourceEditor } from '../helpers/source-editor.js';
@@ -24,14 +25,14 @@ test('keeps named-target controls reachable in a fresh compact workspace', async
   });
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
   await page.getByTestId('rail-export').click();
-  await page.getByTestId('export-perspective').getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByTestId('export-perspective').getByRole('tab', { name: 'Export', exact: true }).click();
   const settings = page.getByTestId('export-settings-panel');
   await expect(settings.getByRole('tab', { name: 'One-off', exact: true })).toBeVisible();
   await expect(settings.getByRole('button', { name: 'Save target settings', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-for (const action of ['Generate target', 'Generate all'])
+for (const action of ['Generate target', 'Generate all targets'])
   test(`builds freshly autosaved source with ${action}`, async ({ page }) => {
     const source = 'namespace demo\ntype Party:\n name string (1..1)\n';
     await page.goto('./');

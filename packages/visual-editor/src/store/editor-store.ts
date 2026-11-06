@@ -27,6 +27,7 @@
 
 import { create } from 'zustand';
 import { createAttributeDraft } from './attribute-drafts.js';
+import { renamedFunctionOutput } from './function-output.js';
 import { temporal } from 'zundo';
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import type { NodeChange, EdgeChange } from '@xyflow/react';
@@ -47,7 +48,7 @@ import type {
 // Merged type + ops namespaces: `Data` is both the interface type and the
 // generated ops namespace (Data.addAttribute / Data.removeAttribute …),
 // from the single core barrel. Imported as values so the namespace ops resolve.
-import { Data, Choice, RosettaEnumeration, RosettaFunction, Annotation } from '@rune-langium/core';
+import { Data, Choice, RosettaEnumeration, RosettaFunction, Annotation, isAttribute } from '@rune-langium/core';
 import { indexById } from '@rune-langium/core';
 import { RAW_DSL_TYPE } from '@rune-langium/codegen/rosetta';
 import { astToModel } from '../adapters/ast-to-model.js';
@@ -382,6 +383,15 @@ export interface EditorActions extends InspectorMetadataActions {
     targetTypeId?: string
   ): void;
   reorderInputParam(nodeId: string, fromIndex: number, toIndex: number): void;
+  /** Update the output signature and its references as one undoable edit. */
+  updateOutputParam(
+    nodeId: string,
+    oldName: string,
+    newName: string,
+    typeName: string,
+    cardinality: string,
+    targetTypeId?: string
+  ): void;
   updateOutputType(nodeId: string, typeName: string): void;
   /** Set (or clear, with `null`) a Function's `superFunction` parent reference. */
   setFunctionParent(nodeId: string, parentId: string | null): void;
@@ -1917,34 +1927,62 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
             });
           },
 
-          updateOutputType(nodeId: string, typeName: string) {
+          updateOutputParam(nodeId, oldName, newName, typeName, cardinality, targetTypeId) {
+            const state = get();
+            const source = state.nodesById.get(nodeId)?.data;
+            if (source?.$type !== 'RosettaFunction' || (source.output?.name ?? '') !== oldName) return;
+            if (oldName !== newName && state.pendingEditPatches.length > 0) return;
+            const renamed = oldName && oldName !== newName ? renamedFunctionOutput(source, oldName, newName) : source;
+            if (!renamed) return;
+            const card = parseCardinality(cardinality);
+            const target = targetTypeId ? state.nodesById.get(targetTypeId) : undefined;
+            const refText = target
+              ? disambiguateTypeRef(target.id, typeName, target.meta.namespace, state.nodes)
+              : typeName;
+            const targetId = target?.id ?? resolveTargetId(state.nodesById, state.nodes, nodeId, refText);
             mutateGraph(set, get, (draft) => {
-              const n = draft.nodes.get(nodeId);
-              const d = n?.data;
-              if (d?.$type !== 'RosettaFunction') return;
-              const fd = d as {
-                output?: {
-                  $type?: string;
-                  name?: string;
-                  override?: boolean;
-                  card?: unknown;
-                  typeCall?: { $type: string; type: { $refText: string }; arguments: unknown[] };
-                };
-              };
-              if (!fd.output) {
-                fd.output = {
-                  $type: 'Attribute',
-                  name: 'output',
-                  override: false,
-                  card: { $type: 'RosettaCardinality', inf: 1, sup: 1, unbounded: false }
-                };
+              const node = draft.nodes.get(nodeId);
+              if (node?.data.$type !== 'RosettaFunction') return;
+              const data = node.data;
+              if (renamed !== source) {
+                data.operations = renamed.operations;
+                data.shortcuts = renamed.shortcuts;
+                data.conditions = renamed.conditions;
+                data.postConditions = renamed.postConditions;
               }
-              fd.output.typeCall = {
-                $type: 'TypeCall',
-                type: { $refText: typeName },
-                arguments: []
-              };
+              data.output ??= createAttributeDraft(newName, refText, card);
+              data.output.name = newName;
+              if ('type' in data.output.typeCall) data.output.typeCall.type = { $refText: refText };
+              Object.assign(data.output.card, card, { sup: card.sup });
+              // Output edges use the reserved output label, independent of the authored name.
+              for (const [id, edge] of draft.edges) {
+                if (edge.source === nodeId && edge.data?.kind === 'attribute-ref' && edge.data.label === 'output')
+                  draft.edges.delete(id);
+              }
+              if (targetId && targetId !== nodeId) {
+                const id = makeEdgeId('attribute-ref', { source: nodeId, target: targetId, label: 'output' });
+                draft.edges.set(id, {
+                  id,
+                  source: nodeId,
+                  target: targetId,
+                  type: 'attribute-ref',
+                  data: { kind: 'attribute-ref', label: 'output', cardinality: formatCardinalityString(cardinality) }
+                });
+              }
             });
+          },
+
+          updateOutputType(nodeId: string, typeName: string) {
+            const data = get().nodesById.get(nodeId)?.data;
+            if (data?.$type !== 'RosettaFunction') return;
+            const output = isAttribute(data.output) ? data.output : undefined;
+            get().updateOutputParam(
+              nodeId,
+              output?.name ?? '',
+              output?.name ?? 'output',
+              typeName,
+              output?.card ? formatCardinality({ ...output.card, unbounded: output.card.unbounded ?? false }) : '(1..1)'
+            );
           },
 
           setFunctionParent(nodeId: string, parentId: string | null) {

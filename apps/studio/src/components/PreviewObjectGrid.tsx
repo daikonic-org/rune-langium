@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import type { ReactNode } from 'react';
 import { ArrowUpRight, Ellipsis, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
@@ -14,11 +15,12 @@ import {
 export interface PreviewGridColumn {
   path: string;
   label: string;
+  editable?: boolean;
 }
 export interface PreviewGridRow {
   path: string;
   label: string;
-  cells: Array<{ path: string; text: string; empty: boolean; error?: string }>;
+  cells: Array<{ path: string; text: string; empty: boolean; error?: string; editor?: ReactNode }>;
   issues: number;
 }
 
@@ -46,11 +48,13 @@ export const PreviewObjectGrid = withInstrumentation(
         <table aria-label={label}>
           <thead>
             <tr>
-              <th scope="col" className="preview-object-grid__index">
-                Item
-              </th>
               {columns.map((column, columnIndex) => (
-                <th scope="col" key={column.path} data-summary-column={columnIndex}>
+                <th
+                  scope="col"
+                  key={column.path}
+                  data-summary-column={columnIndex}
+                  data-editable={column.editable ? 'true' : undefined}
+                >
                   {column.label}
                 </th>
               ))}
@@ -63,40 +67,35 @@ export const PreviewObjectGrid = withInstrumentation(
             {rows.map((row, index) => (
               <tr
                 key={row.path}
+                aria-label={row.label}
                 data-field-path={row.path}
                 tabIndex={-1}
                 data-selected={selectedIndex === index ? 'true' : undefined}
                 onClick={() => onSelect(index)}
                 onFocusCapture={() => onSelect(index)}
               >
-                <th scope="row" className="preview-object-grid__index">
-                  <span className="inline-flex items-center gap-1.5 tabular-nums">
-                    {index + 1}
-                    {row.issues > 0 && (
-                      <span title={`${row.issues} issue${row.issues === 1 ? '' : 's'}`}>
-                        <AlertCircle
-                          className="size-3.5 text-destructive"
-                          aria-label={`${row.issues} validation issues`}
-                        />
-                      </span>
-                    )}
-                  </span>
-                </th>
                 {row.cells.map((cell, columnIndex) => (
                   <td
                     key={cell.path}
                     data-summary-column={columnIndex}
+                    data-editable={cell.editor ? 'true' : undefined}
                     data-field-path={cell.path}
                     tabIndex={-1}
                     title={cell.error ?? cell.text}
                     data-empty={cell.empty ? 'true' : undefined}
                     data-invalid={cell.error ? 'true' : undefined}
                   >
-                    <span className="block truncate">{cell.text}</span>
+                    {cell.editor ?? <span className="block truncate">{cell.text}</span>}
                   </td>
                 ))}
                 <td className="preview-object-grid__actions">
                   <div className="flex items-center justify-end gap-1">
+                    {row.issues > 0 && (
+                      <AlertCircle
+                        className="size-3.5 shrink-0 text-destructive"
+                        aria-label={`${row.label}: ${row.issues} validation issues`}
+                      />
+                    )}
                     <Button
                       type="button"
                       variant="ghost"

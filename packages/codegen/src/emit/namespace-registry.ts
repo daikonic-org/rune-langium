@@ -10,6 +10,8 @@ import {
   isRosettaExternalFunction,
   isRosettaFunction,
   isRosettaModel,
+  isRosettaBasicType,
+  isRosettaRecordType,
   isRosettaReport,
   isRosettaRule,
   isRosettaTypeAlias
@@ -23,8 +25,11 @@ export interface NamespaceManifest {
   exportedFuncNames: Set<string>;
   exportedRuleNames: Set<string>;
   exportedTypeAliasNames: Set<string>;
+  exportedBuiltinNames?: Set<string>;
   exportedAnnotationNames: Set<string>;
   exportedLibraryFuncNames: Set<string>;
+  /** Canonical namespace walk results, used when deriving from a foreign lazy schema. */
+  cyclicTypes?: ReadonlySet<string>;
   relativePath: string;
 }
 
@@ -36,6 +41,7 @@ export function buildNamespaceRegistry(groupedDocs: Map<string, LangiumDocument[
   const namespaces = new Map<string, NamespaceManifest>();
 
   for (const [namespace, docs] of groupedDocs) {
+    const builtinNames = new Set<string>();
     const manifest: NamespaceManifest = {
       namespace,
       exportedDataNames: new Set(),
@@ -43,6 +49,7 @@ export function buildNamespaceRegistry(groupedDocs: Map<string, LangiumDocument[
       exportedFuncNames: new Set(),
       exportedRuleNames: new Set(),
       exportedTypeAliasNames: new Set(),
+      exportedBuiltinNames: builtinNames,
       exportedAnnotationNames: new Set(),
       exportedLibraryFuncNames: new Set(),
       relativePath: namespace.replace(/\./g, '/')
@@ -63,6 +70,8 @@ export function buildNamespaceRegistry(groupedDocs: Map<string, LangiumDocument[
           manifest.exportedRuleNames.add(element.name);
         } else if (isRosettaTypeAlias(element)) {
           manifest.exportedTypeAliasNames.add(element.name);
+        } else if (isRosettaBasicType(element) || isRosettaRecordType(element)) {
+          builtinNames.add(element.name);
         } else if (isAnnotation(element)) {
           manifest.exportedAnnotationNames.add(element.name);
         } else if (isRosettaExternalFunction(element)) {

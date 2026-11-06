@@ -54,7 +54,8 @@ export const compileStandaloneValidator = withInstrumentation(
         options.beforeGenerate?.(selection);
         const { outputs } = await generateSelected(documents, selection, {
           ...options.generatorOptions,
-          target: 'typescript'
+          target: 'typescript',
+          typescript: { decorators: false }
         });
         const modules = createGeneratedModuleLoader(outputs, options.bindings);
         for (const dependency of emitted.functions) {

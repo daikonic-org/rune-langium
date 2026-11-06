@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
 
-import { withRuneJsonEncoding } from '@rune-langium/core/serialization';
+import {
+  withRuneJsonEncoding,
+  normalizeRuneJsonChoiceWrapper,
+  projectRuneJsonChoice,
+  isRuneJsonAssignableType,
+  acceptsRuneJsonChoice,
+  selectRuneJsonChoiceCandidates
+} from '@rune-langium/core/serialization';
 import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
 import { resolveNativeImplementation } from './implementations/index.js';
 import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
 import { temporalWireFormat } from './expr/temporal-conversions.js';
 import { AstUtils, type LangiumDocument } from 'langium';
 import {
+  getEnumValueLiteral,
+  getEnumValues,
   isChoice,
   isData,
   isRosettaEnumeration,
@@ -692,7 +700,7 @@ function buildTypeAliasSchema(
             typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId),
             kind: 'enum',
             required: true,
-            enumValues: node.enumValues.map((v) => ({
+            enumValues: getEnumValues(node).map((v) => ({
               value: getEnumValueLiteral(v),
               label: v.display ?? humanizeLabel(v.name)
             }))
@@ -944,7 +952,7 @@ function buildChoiceOptionField(
         label,
         kind: 'enum',
         required: false,
-        enumValues: node.enumValues.map((v) => ({
+        enumValues: getEnumValues(node).map((v) => ({
           value: getEnumValueLiteral(v),
           label: v.display ?? humanizeLabel(v.name)
         }))
@@ -1294,7 +1302,7 @@ function enumField(ctx: FieldContext, enumNode: RosettaEnumeration): PreviewFiel
     label: ctx.label,
     kind: 'enum',
     required: true,
-    enumValues: enumNode.enumValues.map((value) => ({
+    enumValues: getEnumValues(enumNode).map((value) => ({
       value: getEnumValueLiteral(value),
       label: value.display ?? humanizeLabel(value.name)
     }))
@@ -1678,32 +1686,31 @@ function createPreviewValueAdapter(
     return matches[0];
   }
   function extendsNode(node: Data, expected: Data | Choice): boolean {
-    const seen = new Set<Data | Choice>();
-    let current: Data | Choice | undefined = node;
-    while (current && !seen.has(current)) {
-      if (current === expected) return true;
-      seen.add(current);
-      current = isData(current) ? current.superType?.ref : undefined;
-    }
-    return false;
+    return isRuneJsonAssignableType<Data | Choice>(node, expected, (type) =>
+      isData(type) ? type.superType?.ref : undefined
+    );
   }
-  function choiceAcceptsNode(node: Data | Choice, expected: Choice, seen = new Set<Choice>()): boolean {
-    if (node === expected || (isData(node) && extendsNode(node, expected))) return true;
-    if (seen.has(expected)) return false;
-    const next = new Set(seen).add(expected);
-    return expected.attributes.some((option) =>
-      resolveTypeCallTarget(
-        option.typeCall,
-        typeIndex,
-        {
-          onPrimitive: () => false,
-          onEnum: () => false,
-          onData: (target) => isData(node) && extendsNode(node, target),
-          onChoice: (target) => choiceAcceptsNode(node, target, next),
-          onUnresolved: () => false
-        },
-        ''
-      )
+  function choiceAcceptsNode(node: Data | Choice, expected: Choice): boolean {
+    return acceptsRuneJsonChoice<Data | Choice>(
+      expected,
+      (target) => node === target || (isData(node) && extendsNode(node, target)),
+      (target) =>
+        isChoice(target)
+          ? target.attributes.flatMap((option) =>
+              resolveTypeCallTarget<(Data | Choice)[]>(
+                option.typeCall,
+                typeIndex,
+                {
+                  onPrimitive: () => [],
+                  onEnum: () => [],
+                  onData: (type) => [type],
+                  onChoice: (type) => [type],
+                  onUnresolved: () => []
+                },
+                ''
+              )
+            )
+          : undefined
     );
   }
   function normalizeNode(node: Data | Choice, value: unknown, path = ''): unknown {
@@ -1712,21 +1719,11 @@ function createPreviewValueAdapter(
       value && typeof value === 'object' && !Array.isArray(value)
         ? (value as Record<string, unknown>)['@type']
         : undefined;
-    if (
-      mode === 'canonical' &&
-      isChoice(node) &&
-      value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      Object.prototype.hasOwnProperty.call(value, '@data') &&
-      (declared === undefined || declared === qualifiedTypeId(node))
-    ) {
-      const wire = value as Record<string, unknown>;
-      const selected = normalizeNode(node, wire['@data'], path);
-      return {
-        ...Object.fromEntries(Object.entries(wire).filter(([key]) => key !== '@type' && key !== '@data')),
-        ...(selected as object)
-      };
+    if (mode === 'canonical' && isChoice(node)) {
+      const wrapped = normalizeRuneJsonChoiceWrapper(value, qualifiedTypeId(node), (payload) =>
+        normalizeNode(node, payload, path)
+      );
+      if (wrapped) return wrapped;
     }
     const candidate =
       isChoice(node) &&
@@ -1743,23 +1740,15 @@ function createPreviewValueAdapter(
           option,
           name: choiceOptionFieldName(option.typeCall.type?.ref?.name ?? option.typeCall.type?.$refText ?? '')
         }));
-        const present = arms.filter(
-          ({ name }) =>
-            Object.prototype.hasOwnProperty.call(existing, name) &&
-            existing[name] !== undefined &&
-            existing[name] !== null
+        return projectRuneJsonChoice(
+          existing,
+          qualifiedTypeId(node),
+          arms.map((arm) => arm.name),
+          (name, value) => {
+            const arm = arms.find((arm) => arm.name === name)!;
+            return normalizeFeatureItem(arm.option, value, path ? path + '.' + name : name);
+          }
         );
-        if (present.length !== 1) throw new Error('Rune JSON serialization requires exactly one Choice option.');
-        const arm = present[0]!;
-        const body = normalizeFeatureItem(arm.option, existing[arm.name], path ? path + '.' + arm.name : arm.name);
-        if (!body || typeof body !== 'object' || Array.isArray(body))
-          throw new Error('Rune JSON Choice option must serialize as an object.');
-        const headers = Object.fromEntries(
-          Object.entries(existing).filter(([key]) => key !== '@type' && key.startsWith('@'))
-        );
-        if (Object.keys(existing).some((key) => !key.startsWith('@') && !arms.some((arm) => arm.name === key)))
-          throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
-        return withRuneJsonEncoding({ ...headers, ...body }, body);
       }
       if (actual && existing) {
         const options = node.attributes.filter((option) =>
@@ -1776,35 +1765,35 @@ function createPreviewValueAdapter(
             ''
           )
         );
-        const exact = options.filter((option) =>
-          resolveTypeCallTarget(
-            option.typeCall,
-            typeIndex,
-            {
-              onPrimitive: () => false,
-              onEnum: () => false,
-              onUnresolved: () => false,
-              onData: (target) => target === actual,
-              onChoice: (target) => target === actual
-            },
-            ''
-          )
+        const selected = selectRuneJsonChoiceCandidates(
+          options,
+          (option) =>
+            resolveTypeCallTarget(
+              option.typeCall,
+              typeIndex,
+              {
+                onPrimitive: () => false,
+                onEnum: () => false,
+                onUnresolved: () => false,
+                onData: (target) => target === actual,
+                onChoice: (target) => target === actual
+              },
+              ''
+            ),
+          (option) =>
+            resolveTypeCallTarget(
+              option.typeCall,
+              typeIndex,
+              {
+                onPrimitive: () => false,
+                onEnum: () => false,
+                onUnresolved: () => false,
+                onData: () => true,
+                onChoice: () => false
+              },
+              ''
+            )
         );
-        const dataAlternatives = options.every((option) =>
-          resolveTypeCallTarget(
-            option.typeCall,
-            typeIndex,
-            {
-              onPrimitive: () => false,
-              onEnum: () => false,
-              onUnresolved: () => false,
-              onData: () => true,
-              onChoice: () => false
-            },
-            ''
-          )
-        );
-        const selected = exact.length && dataAlternatives ? exact : options;
         if (selected.length !== 1)
           throw new Error(
             'Rune JSON type ' +

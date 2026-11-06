@@ -32,10 +32,14 @@ import { expressionIsPresent } from '../expr/scalar-operators.js';
 import type { ProjectionOrigin } from './types.js';
 import { renderExpression } from '../emit/rosetta/render-expression.js';
 import { onlyExistsSelection } from '../expr/only-exists.js';
+import { patternLiteral, renderPatternLiteral } from '../expr/pattern.js';
+import { projectionNodePath } from './rebase-origin.js';
 
 export interface SourceTypeScriptOptions {
   owner?: RosettaFunction;
+  /** Skip CST coordinate collection; linked paths remain available for source rebasing. */
   trackOrigins?: boolean;
+  nameScope?: ProjectionOrigin['nameScope'];
 }
 
 export interface SourceTypeScriptExpression {
@@ -94,11 +98,13 @@ export class SourceExpressionRenderer {
       for (const alias of options.owner.shortcuts) this.names.add(alias.name);
     }
     for (const name of this.names) this.authoredNames.add(name);
+    for (const name of options.nameScope?.reserved ?? []) this.names.add(name);
+    for (const name of options.nameScope?.authored ?? []) this.authoredNames.add(name);
   }
 
   render(expression: RosettaExpression): SourceTypeScriptExpression {
     this.fragments = [];
-    if (!this.options.owner)
+    if (!this.options.owner && !this.options.nameScope)
       for (const node of AstUtils.streamAst(expression)) {
         if (isRosettaSymbolReference(node)) {
           const name = referenceName(node.symbol);
@@ -106,6 +112,7 @@ export class SourceExpressionRenderer {
           this.authoredNames.add(name);
         }
       }
+    const nameScope = { reserved: [...this.names], authored: [...this.authoredNames] };
     const frame = this.capture(() => this.value(expression, { bindings: new Map() }));
     let root: ReturnType<typeof getNodeSourceRegion> | undefined;
     try {
@@ -114,8 +121,14 @@ export class SourceExpressionRenderer {
       /* Older serialized bundles have no source coordinates. */
     }
     const rune = expression.$cstNode?.text ?? renderExpression(expression);
+    const fragmentPaths = this.fragments.map(({ node, code, aliases }) => ({
+      code,
+      kind: node.$type,
+      aliases,
+      path: projectionNodePath(expression, node)
+    }));
     const fragments = this.fragments.flatMap(({ node, code, aliases }) => {
-      if (!root || !expression.$cstNode) return [];
+      if (this.options.trackOrigins === false || !root || !expression.$cstNode) return [];
       try {
         const region = getNodeSourceRegion(node);
         const from = region.from - root.from,
@@ -128,7 +141,7 @@ export class SourceExpressionRenderer {
     return {
       code: frame.value.code,
       statements: frame.statements,
-      origin: { code: [...frame.statements, frame.value.code].join('\n'), rune, fragments }
+      origin: { code: [...frame.statements, frame.value.code].join('\n'), rune, fragments, fragmentPaths, nameScope }
     };
   }
 
@@ -320,7 +333,7 @@ export class SourceExpressionRenderer {
     this.scope = scope;
     try {
       const value = this.valueImpl(expression, scope, preferred);
-      if (expression && this.options.trackOrigins !== false)
+      if (expression)
         this.fragments.push({
           node: expression,
           code: value.code,
@@ -341,7 +354,11 @@ export class SourceExpressionRenderer {
       case 'RosettaNumberLiteral':
         return atom(String(expression.value));
       case 'RosettaStringLiteral':
-        return atom(JSON.stringify(expression.value));
+        return atom(
+          patternLiteral(expression) === undefined
+            ? JSON.stringify(expression.value)
+            : renderPatternLiteral(expression.value)
+        );
       case 'RosettaImplicitVariable':
         return scope.self ?? atom('item');
       case 'RosettaSymbolReference': {

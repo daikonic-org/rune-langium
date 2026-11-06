@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { generatedDirectory } from '../helpers/generated-directory.js';
+import { transpileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -226,7 +227,11 @@ func ShadowAgain:
                   : '')
             )
         ).toEqual([]);
-        program.emit();
+        for (const output of outputs)
+          writeFileSync(
+            join(directory, output.relativePath.replace(/\.ts$/, '.js')),
+            transpileGeneratedTypeScript(output.content)
+          );
         const require = createRequire(join(directory, 'entry.js'));
         const entry = layout === 'single-file' ? 'model' : layout === 'barrel' ? 'index' : 'caller';
         const funcs = recordFunctionExports(require(`./${entry}.js`), outputs);
@@ -258,8 +263,8 @@ func ShadowAgain:
         expect(funcs.KeepSide({ value: 'Alpha' })).toBe('Alpha');
         const alphaDerived = layout === 'per-namespace' ? require('./alpha.js').Derived : funcs.__rune$alpha$Derived;
         const betaDerived = layout === 'per-namespace' ? require('./beta.js').Derived : funcs.__rune$beta$Derived;
-        expect(alphaDerived.from({ alphaValue: 7, extra: 1 }).unwrap()).toMatchObject({ alphaValue: 7, extra: 1 });
-        expect(betaDerived.from({ betaValue: 'beta', extra: 2 }).unwrap()).toMatchObject({
+        expect(alphaDerived.from({ alphaValue: 7, extra: 1 })).toMatchObject({ alphaValue: 7, extra: 1 });
+        expect(betaDerived.from({ betaValue: 'beta', extra: 2 })).toMatchObject({
           betaValue: 'beta',
           extra: 2
         });

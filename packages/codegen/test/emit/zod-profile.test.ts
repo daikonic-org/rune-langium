@@ -95,7 +95,7 @@ describe('Zod LanguageProfile (019 Phase 0.5.2)', () => {
     // (PR-review finding: the header had no `import { z } from 'zod';`,
     // so every barrel/single-file bundle's runtime.zod.ts failed
     // typecheck and threw ReferenceError at module-init.)
-    expect(runtimeOutput?.content).toContain(`export const runeExtendChoice`);
+    expect(runtimeOutput?.content).toContain(`export function runeExtendChoice`);
     expect(runtimeOutput?.content).toContain(`import { z } from 'zod';`);
   });
 
@@ -119,7 +119,7 @@ describe('Zod LanguageProfile (019 Phase 0.5.2)', () => {
     expect(runtimeOutput).toBeDefined();
 
     // Write the REAL sidecar to disk and dynamic-import it — module-init
-    // evaluates `export const runeExtendChoice = ...`, and CALLING it
+    // evaluates `export function runeExtendChoice = ...`, and CALLING it
     // executes `z.union(...)`: both steps threw `ReferenceError: z is not
     // defined` before the header imported z. Mirrors the emitted-runtime
     // pattern of zod-data-extends-choice.test.ts.
@@ -156,7 +156,7 @@ describe('Zod LanguageProfile (019 Phase 0.5.2)', () => {
     // One canonical header, one Zod import, one inlined helpers block.
     expect((model?.content.match(/import \{ z \} from 'zod';/g) ?? []).length).toBe(1);
     expect((model?.content.match(/const runeCheckOneOf = \(values:/g) ?? []).length).toBe(1);
-    expect((model?.content.match(/const runeExtendChoice = /g) ?? []).length).toBe(1);
+    expect((model?.content.match(/function runeExtendChoice\(/g) ?? []).length).toBe(1);
     // Both namespace bodies present, with stripped per-namespace headers.
     expect(model?.content).toContain('TradeSchema');
     expect(model?.content).toContain('PartySchema');

@@ -86,7 +86,7 @@ export const PreviewEnumInput = withInstrumentation(
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={<Button variant="outline" size="sm" />}
-          aria-label={label}
+          aria-label={`${label}: ${current}`}
           aria-invalid={invalid}
           aria-describedby={describedBy}
           className="w-full min-w-0 justify-between font-normal"

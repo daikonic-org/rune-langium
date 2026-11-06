@@ -8,6 +8,7 @@ import { GeneratorError } from './types.js';
 import { createDiagnostic, hasFatalDiagnostics } from './diagnostics.js';
 import {
   emitNamespaceWithContract,
+  isWholeModelEmitter,
   type NamespaceEmitterConstructor,
   type WholeModelEmitterConstructor
 } from './emit/namespace-emitter.js';
@@ -141,7 +142,7 @@ function resolveEmitter(
   const profile = PROFILES[target];
 
   // Per-namespace request — go through the namespace emitter if we have one.
-  if (layout === 'per-namespace' && nsCtor) {
+  if (layout === 'per-namespace' && nsCtor && (target !== 'typescript' || options.typescript?.inlineHelpers)) {
     return nsCtor;
   }
 
@@ -287,16 +288,16 @@ export async function runGenerate(
       // loops over individual entries.
       const walks = new Map<string, NamespaceWalkResult>();
       for (const [namespace, namespaceDocs] of byNamespace) {
-        walks.set(namespace, walkNamespace(namespaceDocs, namespace));
+        const walked = walkNamespace(namespaceDocs, namespace);
+        walks.set(namespace, walked);
+        registry.namespaces.get(namespace)!.cyclicTypes = walked.cyclicTypes;
       }
 
       // 019 §3.2 — registry membership disambiguates the contract; we
       // don't need a runtime discriminator here. The synthesized
       // GenericModelEmitter wrapper for (NamespaceEmitter + Profile) is
       // also a WholeModelEmitter so it lands in the same branch.
-      const isWholeModelCtor =
-        target in WHOLE_MODEL_EMITTERS ||
-        (target in NAMESPACE_EMITTERS && target in PROFILES && resolveLayout(target, options) !== 'per-namespace');
+      const isWholeModelCtor = isWholeModelEmitter(emitterClass);
 
       if (isWholeModelCtor) {
         outputs = await new (emitterClass as WholeModelEmitterConstructor)().emit(walks, registry, options);
@@ -309,6 +310,17 @@ export async function runGenerate(
         }
       }
 
+      if (target === 'typescript' && options.typescript?.serialization === 'zod') {
+        const codecOptions = {
+          ...options,
+          target: 'zod' as const,
+          zod: { layout: 'per-namespace' as const, codecs: true }
+        };
+        for (const walked of walks.values()) {
+          const companion = emitNamespaceWithContract(walked, codecOptions, registry, ZodNamespaceEmitter);
+          outputs.push({ ...companion, artifactRole: 'support' });
+        }
+      }
       outputs.sort(
         (a, b) =>
           Number(a.artifactRole === 'support') - Number(b.artifactRole === 'support') ||

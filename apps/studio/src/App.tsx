@@ -46,7 +46,7 @@ import {
   saveWorkspaceFiles,
   setWorkspaceFilesDeps
 } from './workspace/workspace-files.js';
-import { createWorkspaceAutosave } from './services/workspace-autosave.js';
+import { createWorkspaceAutosave, type WorkspaceSaveState } from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from './store/output-store.js';
@@ -237,10 +237,13 @@ function AppContent() {
     []
   );
 
+  const [workspaceSaveStates, setWorkspaceSaveStates] = useState<Record<string, WorkspaceSaveState>>({});
   const workspaceAutosave = useMemo(
     () =>
-      createWorkspaceAutosave(saveWorkspaceFiles, (error) =>
-        reportWorkspaceError('Failed to save workspace changes; edits remain in memory', error)
+      createWorkspaceAutosave(
+        saveWorkspaceFiles,
+        (error) => reportWorkspaceError('Failed to save workspace changes; edits remain in memory', error),
+        (id, state) => setWorkspaceSaveStates((states) => (states[id] === state ? states : { ...states, [id]: state }))
       ),
     [reportWorkspaceError]
   );
@@ -1380,6 +1383,7 @@ function AppContent() {
       files,
       registerEditorSaveBarrier,
       flushWorkspaceSave,
+      workspaceSaveState: projectWorkspaceId ? workspaceSaveStates[projectWorkspaceId] : undefined,
       getProjectFileAdapter,
       getProjectInitializationFileAdapter,
       getLegacyExampleStorage,
@@ -1404,6 +1408,8 @@ function AppContent() {
       files,
       registerEditorSaveBarrier,
       flushWorkspaceSave,
+      projectWorkspaceId,
+      workspaceSaveStates,
       getProjectFileAdapter,
       getProjectInitializationFileAdapter,
       getLegacyExampleStorage,

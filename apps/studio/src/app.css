@@ -1327,8 +1327,9 @@ html {
 /* ---------- Source pane address bar (rs-source-meta equivalent) ---------- */
 .studio-source-meta {
   flex-shrink: 0;
-  height: 30px;
+  min-height: 30px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3);
@@ -1354,6 +1355,7 @@ html {
 }
 
 .studio-source-meta__path {
+  flex: 1 1 0;
   color: color-mix(in srgb, var(--foreground) 74%, transparent);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1368,7 +1370,10 @@ html {
 .studio-source-meta__stat {
   color: color-mix(in srgb, var(--muted-foreground) 84%, transparent);
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .studio-source-editor__tabs {

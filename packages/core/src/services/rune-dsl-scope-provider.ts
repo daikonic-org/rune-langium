@@ -15,6 +15,7 @@ import {
 } from '../utils/expression-utils.js';
 import { getEnumValues } from '../utils/enum-utils.js';
 import { qualifiedExportPath } from '../naming/qualified-export-path.js';
+import { LEGACY_ANNOTATIONS } from '../stdlib/legacy-annotations.js';
 import { getChoiceOptionPaths, choiceOptionFieldName } from '../utils/choice-utils.js';
 import {
   isAsOperation,
@@ -148,7 +149,16 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
   }
 
   override getScope(context: ReferenceInfo): Scope {
-    return redirectProjectScope(this.projectServices, this.getSourceScope(context));
+    const expression = isRosettaExpression(context.container) ? context.container : undefined;
+    const resolving = expression && this.resolvingExpressionTypes.has(expression);
+    // Inferring an alias's result while linking its callback can lead back to
+    // this reference. Keep scope construction inside the same inference guard.
+    if (expression) this.resolvingExpressionTypes.add(expression);
+    try {
+      return redirectProjectScope(this.projectServices, this.getSourceScope(context));
+    } finally {
+      if (expression && !resolving) this.resolvingExpressionTypes.delete(expression);
+    }
   }
 
   private getSourceScope(context: ReferenceInfo): Scope {
@@ -251,7 +261,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
 
     // Case 9b: AnnotationRef.attribute — resolved to attributes of the specified annotation
     if (isAnnotationRef(container) && property === 'attribute') {
-      return this.getAnnotationAttributeScope(container);
+      return this.getAnnotationAttributeScope(context);
     }
 
     // Case 10: ExternalRegularAttribute.attributeRef — resolve to features of the external class's data type
@@ -1208,15 +1218,18 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
   }
 
   /**
-   * Case 9b: Annotation attribute scope — attributes of the specified annotation.
+   * Case 9b: Annotation argument scope — local attributes, plus transform schemas/formats.
    * e.g. in `[metadata scheme]`, `scheme` is an attribute of the `metadata` annotation.
    */
-  private getAnnotationAttributeScope(node: AstNode): Scope {
+  private getAnnotationAttributeScope(context: ReferenceInfo): Scope {
+    const node = context.container;
     if (!isAnnotationRef(node)) return EMPTY_SCOPE;
     const annotation = node.annotation?.ref;
     if (!annotation || !isAnnotation(annotation)) return EMPTY_SCOPE;
     const descriptions = annotation.attributes.map((a) => this.createDescription(a, a.name));
-    return descriptions.length > 0 ? new MapScope(descriptions) : EMPTY_SCOPE;
+    const transform =
+      annotation.$container.name === 'com.rosetta.model' && Object.hasOwn(LEGACY_ANNOTATIONS, annotation.name);
+    return new MapScope(descriptions, transform ? this.getGlobalScope('SchemaOrFormat', context) : EMPTY_SCOPE);
   }
 
   /**

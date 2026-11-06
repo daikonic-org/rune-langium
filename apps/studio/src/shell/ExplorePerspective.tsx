@@ -87,6 +87,7 @@ import {
 } from '@rune-langium/core';
 import { createScopedMetadataActions } from './inspector-metadata-actions.js';
 import { SourceEditor } from '../components/SourceEditor.js';
+import { SourceSaveControl } from '../components/editing/SourceSaveControl.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
 import { buildExpressionOwnerFiles } from './expression-owner-files.js';
@@ -503,13 +504,15 @@ export const ExplorePerspective = withInstrumentation(
     // Workspace actions — formerly props, now from the actions context.
     // onClose/onSwitchWorkspace/onCreateWorkspace moved to AppHeader's
     // WorkspaceSwitcherTrigger (shared-perspective-chrome plan, Task 3).
-    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier, flushWorkspaceSave } = useWorkspaceActions();
+    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier, flushWorkspaceSave, workspaceSaveState } =
+      useWorkspaceActions();
     const inspectorScope = `${workspaceId}:${workspace.workspaceEpoch ?? 0}`;
     const formCommitRegistry = useMemo(createEditorCommitRegistry, []);
 
     const graphRef = useRef<RuneTypeGraphRef>(null);
     const graphContainerRef = useRef<HTMLDivElement>(null);
     const sourceEditorRef = useRef<SourceEditorRef>(null);
+    const [hideSourceDocumentation, setHideSourceDocumentation] = useState(false);
     const [pendingFileArrival, setPendingFileArrival] = useState<{
       filePath: string;
       workspaceId: string | undefined;
@@ -2099,8 +2102,9 @@ export const ExplorePerspective = withInstrumentation(
         removeChoiceOption: (nodeId, type) => s().removeChoiceOption(nodeId, type),
         addInputParam: (nodeId, name, type) => s().addInputParam(nodeId, name, type),
         removeInputParam: (nodeId, name) => s().removeInputParam(nodeId, name),
-        updateInputParam: (nodeId, oldN, newN, type, card) => s().updateInputParam(nodeId, oldN, newN, type, card),
+        updateInputParam: (...args) => s().updateInputParam(...args),
         reorderInputParam: (nodeId, from, to) => s().reorderInputParam(nodeId, from, to),
+        updateOutputParam: (...args) => s().updateOutputParam(...args),
         updateOutputType: (nodeId, type) => s().updateOutputType(nodeId, type),
         setFunctionParent: (nodeId, parentId) => s().setFunctionParent(nodeId, parentId),
         updateTypeAliasType: (nodeId, type) => s().updateTypeAliasType(nodeId, type),
@@ -2388,6 +2392,20 @@ export const ExplorePerspective = withInstrumentation(
             {fileExt && <span className="studio-source-meta__pill">{fileExt}</span>}
             <span className="studio-source-meta__path">{activeFile?.path ?? '—'}</span>
             <span className="studio-source-meta__spacer" />
+            {activeFile && !sourcePending && !activeFile.readOnly && !activeFile.refOnly && flushWorkspaceSave && (
+              <SourceSaveControl key={workspaceId} state={workspaceSaveState} save={flushWorkspaceSave} />
+            )}
+            {activeFile && !sourcePending && (
+              <Button
+                variant="ghost"
+                size="xs"
+                aria-pressed={hideSourceDocumentation}
+                aria-label={hideSourceDocumentation ? 'Show source documentation' : 'Hide source documentation'}
+                onClick={() => setHideSourceDocumentation((hidden) => !hidden)}
+              >
+                {hideSourceDocumentation ? 'Show docs' : 'Hide docs'}
+              </Button>
+            )}
             {activeFile && !sourcePending && (
               <span className="studio-source-meta__stat">
                 UTF-8 · {lineEnding} · {lineCount} lines
@@ -2412,12 +2430,17 @@ export const ExplorePerspective = withInstrumentation(
               onNavigateToNode={handleSourceNavigateToNode}
               onEditorViewCreated={handleEditorViewCreated}
               hideTabs
+              hideDocumentation={hideSourceDocumentation}
             />
           )}
         </div>
       );
     }, [
       sourceEditorFiles,
+      hideSourceDocumentation,
+      workspaceId,
+      workspaceSaveState,
+      flushWorkspaceSave,
       sourceLoadError,
       activeEditorFile,
       lspClient,

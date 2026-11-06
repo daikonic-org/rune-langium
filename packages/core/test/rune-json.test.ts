@@ -1,7 +1,73 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, it } from 'vitest';
-import { decodeRuneJson, encodeRuneJson, withRuneJsonEncoding } from '../src/serialization/rune-json.js';
+import {
+  decodeRuneJson,
+  encodeRuneJson,
+  withRuneJsonEncoding,
+  normalizeRuneJsonChoiceWrapper,
+  projectRuneJsonChoice,
+  acceptsRuneJsonChoice,
+  selectRuneJsonChoiceCandidates
+} from '../src/serialization/rune-json.js';
+
+it('shares recursive Choice acceptance and terminates cyclic alternatives without hiding valid siblings', () => {
+  const choices = new Map([
+    ['Outer', ['Cycle', 'Inner']],
+    ['Cycle', ['Outer']],
+    ['Inner', ['Quote']]
+  ]);
+  expect(
+    acceptsRuneJsonChoice(
+      'Outer',
+      (type) => type === 'Quote',
+      (type) => choices.get(type)
+    )
+  ).toBe(true);
+  expect(
+    acceptsRuneJsonChoice(
+      'Outer',
+      (type) => type === 'Unknown',
+      (type) => choices.get(type)
+    )
+  ).toBe(false);
+});
+
+it('prefers exact Data arms among matching candidates while retaining nested ambiguity', () => {
+  const kind = (candidate: string) => candidate !== 'Nested';
+  expect(selectRuneJsonChoiceCandidates(['Animal', 'Dog'], (candidate) => candidate === 'Dog', kind)).toEqual(['Dog']);
+  expect(selectRuneJsonChoiceCandidates(['Animal', 'Dog', 'Nested'], (candidate) => candidate === 'Dog', kind)).toEqual(
+    ['Animal', 'Dog', 'Nested']
+  );
+  expect(selectRuneJsonChoiceCandidates([], () => true, kind)).toEqual([]);
+});
+
+it('serializes native patterns as wire strings and refuses to discard flags', () => {
+  expect(encodeRuneJson({ expression: /^x+$/ })).toEqual({ expression: '^x+$' });
+  expect(() => encodeRuneJson(/x/i)).toThrow(/flags/);
+});
+
+it('shares Choice wrapper normalization without merging parent and arm headers or losing decoded keys', () => {
+  const wire = {
+    '@type': 'example.Choice',
+    '@model': 'outer-model',
+    '@version': '1',
+    '@key': 'choice-key',
+    '@data': { '@type': 'example.Quote', '@model': 'inner-model', '@version': '2', amount: 5 }
+  };
+  const normalized = normalizeRuneJsonChoiceWrapper(decodeRuneJson(wire), 'example.Choice', (payload) => ({
+    quote: payload
+  }));
+  expect(normalized).toMatchObject({ '@model': 'outer-model', '@version': '1', meta: { globalKey: 'choice-key' } });
+  expect(
+    encodeRuneJson(projectRuneJsonChoice(normalized!, 'example.Choice', ['quote'], (_arm, value) => value))
+  ).toEqual(wire);
+  expect(
+    normalizeRuneJsonChoiceWrapper(wire, 'example.Other', () => {
+      throw new Error('must not unwrap');
+    })
+  ).toBeUndefined();
+});
 
 it('preserves Rune model identity, primitives, metadata and reference namespaces through round trip', () => {
   const wire = {

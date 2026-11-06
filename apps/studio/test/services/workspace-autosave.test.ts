@@ -9,6 +9,19 @@ const files = (content: string): WorkspaceFile[] => [{ name: 'a.rosetta', path: 
 afterEach(() => vi.useRealTimers());
 
 describe('workspace autosave', () => {
+  it('reports pending, saving, failure and successful retry from actual persistence', async () => {
+    const failed = new Error('quota');
+    const state = vi.fn();
+    const autosave = createWorkspaceAutosave(
+      vi.fn().mockRejectedValueOnce(failed).mockResolvedValue(undefined),
+      vi.fn(),
+      state
+    );
+    autosave.schedule('workspace', files('draft'));
+    await expect(autosave.flush()).rejects.toBe(failed);
+    await autosave.flush();
+    expect(state.mock.calls.map(([, value]) => value)).toEqual(['pending', 'saving', 'error', 'saving', 'saved']);
+  });
   it('rejects a failed transition flush and retries the retained snapshot without another edit', async () => {
     const error = new Error('quota');
     const save = vi.fn().mockRejectedValueOnce(error).mockResolvedValue(undefined);

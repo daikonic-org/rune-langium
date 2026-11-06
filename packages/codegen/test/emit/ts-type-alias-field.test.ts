@@ -68,7 +68,7 @@ type Foo:
     const doc = await parseSource(source);
     const model = walkNamespace([doc], 'test.aliasField2');
     const output = emitNamespace(model, {});
-    expect(output.content).toContain('bar?: Bar;');
+    expect(output.content).toContain('bar?: Bar.Shape;');
     expect(output.content).not.toContain('bar?: unknown;');
   });
 });
@@ -102,6 +102,6 @@ type Foo:
     expect(output.content).toContain('b?: string;');
     expect(output.content).toContain('c?: string;');
     expect(output.content).toContain('d?: string;');
-    expect(output.content.match(/export interface FooShape \{([^}]+)\}/)![1]).not.toContain('unknown');
+    expect(output.content.match(/export interface Shape \{([^}]+)\}/)![1]).not.toContain('unknown');
   });
 });

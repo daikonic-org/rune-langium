@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
+import { usesNativeValues } from './value-representation.js';
 import { unwrapMetadata } from './metadata-runtime.js';
 import { expressionMetadataKind } from './metadata-type.js';
 import { inlineContext, freshLocal, arrowBody } from './inline-function.js';
@@ -34,14 +35,14 @@ export function renderCollectionOperation(
     isMaxOperation(expr);
   if (!owned) return undefined;
   const argumentCtx =
-    isMapOperation(expr) && expr.function && ctx.emitMode.startsWith('ts-') ? { ...ctx, preserveMetadata: true } : ctx;
+    isMapOperation(expr) && expr.function && usesNativeValues(ctx) ? { ...ctx, preserveMetadata: true } : ctx;
   const argumentExpression = getOperationArgument(expr);
   const argument = expr.argument ? render(expr.argument, argumentCtx) : ctx.selfName;
   const values = nativeCollection(
     argument,
     argumentExpression,
     ctx.implicitMetadata?.many,
-    ctx.emitMode.startsWith('ts-'),
+    usesNativeValues(ctx),
     ctx.projection
   );
   const kind = argumentCtx.preserveMetadata
@@ -55,7 +56,7 @@ export function renderCollectionOperation(
   const valueCtx = { ...ctx, preserveMetadata: false };
   const keyKind = primitiveElementKind(fn?.body ?? argumentExpression);
   const temporal =
-    ctx.emitMode.startsWith('ts-') && keyKind && keyKind in temporalScalarTypes
+    usesNativeValues(ctx) && keyKind && keyKind in temporalScalarTypes
       ? temporalScalarTypes[keyKind as keyof typeof temporalScalarTypes]
       : undefined;
   const key = (name: string) =>
@@ -69,10 +70,10 @@ export function renderCollectionOperation(
     const mapped =
       isMapOperation(expr) && fn
         ? expressionIsMany(fn.body)
-          ? nativeCollection(body, fn.body, false, ctx.emitMode.startsWith('ts-'), ctx.projection)
+          ? nativeCollection(body, fn.body, false, usesNativeValues(ctx), ctx.projection)
           : collectionShape(fn.body) === 'unknown'
             ? body
-            : nativeSingle(body, fn.body, ctx.emitMode.startsWith('ts-'), ctx.projection)
+            : nativeSingle(body, fn.body, usesNativeValues(ctx), ctx.projection)
         : body;
     if (argumentExpression && collectionShape(argumentExpression) === 'scalar')
       return `rune.${isFilterOperation(expr) ? 'filter' : 'extract'}(${argument}, (${param}) => ${arrowBody(mapped)})`;
@@ -107,7 +108,7 @@ export function renderCollectionOperation(
       argument,
       argumentExpression,
       ctx.implicitMetadata?.many,
-      ctx.emitMode.startsWith('ts-'),
+      usesNativeValues(ctx),
       ctx.projection
     );
     return `(() => { const ${values} = ${input}; if (${values}.length === 0) return undefined; return ${values}.slice(1).reduce((${best}, ${item}) => { const ${itemKeyName} = (${itemKey}); const ${bestKeyName} = (${bestKey}); return ${nativeOrder(itemKeyName, bestKeyName, isMinOperation(expr), temporal)} ${sign} 0 ? ${item} : ${best}; }, ${values}[0]); })()`;

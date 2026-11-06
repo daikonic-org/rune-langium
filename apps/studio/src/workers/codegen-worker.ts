@@ -4,6 +4,7 @@
 /// <reference lib="webworker" />
 
 import { Temporal } from '@js-temporal/polyfill';
+import { serializeRunePattern } from '@rune-langium/core/serialization';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 /**
@@ -74,7 +75,6 @@ import { findDataNode, getActiveConditionPredicates } from '@rune-langium/codege
 import { formatIssuePath, translateValidationIssues, type ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { qualifiedNameFromNodeId, makeNodeId } from '@rune-langium/visual-editor/identifiers';
 import type { PreviewWorkerRequest, ProjectionRequest, PreviewFileEntry } from '../services/codegen-service.js';
-import { z } from 'zod';
 import {
   applyEffectiveProject,
   assertProjectGenerationCapabilities,
@@ -491,6 +491,7 @@ async function runCodegen(
         selectionKey,
         results: await generate(documents, {
           target,
+          ...(target === 'zod' ? { zod: { layout: 'barrel' as const } } : {}),
           projectBindings: graph?.implementationBindings,
           projectResources: graph?.bindings
         })
@@ -894,6 +895,7 @@ async function runProjection(request: ProjectionRequest): Promise<void> {
 }
 
 function serializePreviewOutput(value: unknown, seen = new WeakMap<object, unknown>()): unknown {
+  if (value instanceof RegExp) return serializeRunePattern(value);
   if (
     value instanceof Temporal.PlainDate ||
     value instanceof Temporal.PlainTime ||
@@ -978,7 +980,7 @@ async function executeFunction(
               async () => {
                 const options = {
                   target: 'typescript',
-                  typescript: { inputChecks: true },
+                  typescript: { inputChecks: true, decorators: false },
                   projectBindings: project?.implementationBindings,
                   projectResources: project?.bindings
                 } as const;

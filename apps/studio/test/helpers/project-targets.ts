@@ -18,8 +18,7 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
   await page.getByTestId('rail-export').click();
   const settings = page.getByTestId('export-settings-panel');
-  const openSettings = () =>
-    page.getByTestId('export-perspective').getByRole('tab', { name: 'Settings', exact: true }).click();
+  const assertSettingsVisible = () => expect(settings).toBeVisible();
   await expect(settings.getByRole('tab', { name: 'One-off', exact: true })).toHaveAttribute('aria-selected', 'true');
   await settings.getByLabel('Export target', { exact: true }).selectOption('sql');
   await settings.getByLabel('Dialect', { exact: true }).selectOption('postgres');
@@ -36,8 +35,8 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await expect(settings.getByRole('button', { name: 'Generate target', exact: true })).toBeEnabled();
   await settings.getByRole('button', { name: 'Generate target', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
-  await openSettings();
-  await settings.getByRole('button', { name: 'Generate all', exact: true }).click();
+  await assertSettingsVisible();
+  await settings.getByRole('button', { name: 'Generate all targets', exact: true }).click();
   await expect(page.getByTestId('export-artifact-preview')).toBeVisible();
   await expect
     .poll(async () =>
@@ -54,7 +53,7 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue(pgPath);
   for (const close of await page.getByRole('button', { name: 'Dismiss notification', exact: true }).all())
     await close.click();
-  await openSettings();
+  await assertSettingsVisible();
   await settings.getByRole('heading', { name: 'Export settings', exact: true }).scrollIntoViewIfNeeded();
   const a11y = await new AxeBuilder({ page }).include('[data-testid="export-settings-panel"]').analyze();
   expect(a11y.violations).toEqual([]);
@@ -68,9 +67,9 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   expect(edited[pgPath]).toBe(generated[pgPath]);
   await settings.getByRole('button', { name: 'Reload project files', exact: true }).click();
   await expect(settings.getByLabel('Dialect', { exact: true })).toHaveValue('sqlserver');
-  await page.getByTestId('export-perspective').getByRole('tab', { name: 'Generated output', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeDisabled();
-  await openSettings();
+  await assertSettingsVisible();
   await reloadJourney(page, observer);
   await page.getByTestId('rail-export').click();
   await expect(settings.getByRole('tab', { name: 'pg', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -79,7 +78,7 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await settings.getByRole('tab', { name: 'pg', exact: true }).click();
   await settings.getByLabel('Dialect', { exact: true }).selectOption('postgres');
   await settings.getByRole('tab', { name: 'ss', exact: true }).click();
-  await expect(settings.getByRole('button', { name: 'Generate all', exact: true })).toBeDisabled();
+  await expect(settings.getByRole('button', { name: 'Generate all targets', exact: true })).toBeDisabled();
   const { parseBuildConfig, updateBuildConfig } = await import('@rune-langium/project-config');
   const filesBeforeRemoval = await projectBackingFiles(page);
   const document = { path: 'build-config.yml', text: filesBeforeRemoval['build-config.yml']! };
@@ -88,10 +87,10 @@ export async function checkNamedTargets(page: Page, observer: JourneyObserver = 
   await projectBackingFiles(page, { 'build-config.yml': updateBuildConfig(document, build) });
   await settings.getByRole('button', { name: 'Reload project files', exact: true }).click();
   await expect(settings.getByRole('tab', { name: /^pg/ })).toHaveCount(0);
-  await expect(settings.getByRole('button', { name: 'Generate all', exact: true })).toBeEnabled();
-  await settings.getByRole('button', { name: 'Generate all', exact: true }).click();
+  await expect(settings.getByRole('button', { name: 'Generate all targets', exact: true })).toBeEnabled();
+  await settings.getByRole('button', { name: 'Generate all targets', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Download export', exact: true })).toBeEnabled();
-  await openSettings();
+  await assertSettingsVisible();
   await settings.getByRole('button', { name: 'Remove ss target', exact: true }).click();
   await expect(settings.getByRole('tab', { name: 'ss', exact: true })).toHaveCount(0);
   const afterRemove = await projectBackingFiles(page);

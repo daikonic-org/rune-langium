@@ -72,7 +72,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('export interface DogShape extends AnimalShape');
+    expect(productOutput!.content).toContain('export interface Shape extends Animal.Shape');
   });
 
   it('the class extends the cross-namespace parent (not silently dropped)', async () => {
@@ -80,15 +80,15 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('export class $Dog$Data extends $Animal$Data implements DogShape');
+    expect(productOutput!.content).toContain('export class Dog extends Animal implements Dog.Shape');
   });
 
-  it('the type guard overload set includes the cross-namespace parent chain (not silently dropped)', async () => {
+  it('the shared guard retains the cross-namespace concrete class', async () => {
     const docs = await parseFixtureFiles();
     const outputs = await generate(docs, { target: 'typescript' });
     const productOutput = outputs.find((o) => o.relativePath.includes('product'));
     expect(productOutput).toBeDefined();
-    expect(productOutput!.content).toContain('export function isDog(x: Animal): x is Dog;');
+    expect(productOutput!.content).toContain('is.Dog = RuneObject.guard(Dog);');
   });
 
   it('the previously-unused cross-namespace import is now load-bearing', async () => {
@@ -100,7 +100,7 @@ describe('TS emitter — cross-namespace Data extends Data', () => {
       .match(/import \{([^}]+)\} from '\.\/base.js';/)![1]!
       .split(',')
       .map((name) => name.trim());
-    expect(imports).toEqual(expect.arrayContaining(['$Animal$Data', 'Animal', 'AnimalShape']));
+    expect(imports).toEqual(['Animal']);
   });
 
   it('MULTI-FILE compile check: both emitted namespaces typecheck together under real tsc --strict', async () => {

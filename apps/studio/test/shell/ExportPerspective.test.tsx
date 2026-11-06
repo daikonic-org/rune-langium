@@ -177,26 +177,26 @@ it('places settings and output in one full-height task panel beside a compact se
 it('reveals output when a fresh artifact arrives without resizing restored groups', async () => {
   const { rerender } = render(<ExportPerspective workspaceId="workspace-a" />);
   await screen.findByTestId('mock-export-workbench');
-  expect(screen.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('region', { name: 'Export settings', exact: true })).toBeVisible();
   const layout = layoutApi();
   act(() => capturedReady?.(layout.api));
   state.run = readyArtifact();
   rerender(<ExportPerspective workspaceId="workspace-a" />);
-  expect(screen.getByRole('tab', { name: 'Generated output', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
   expect(layout.preview.group.api.setSize).not.toHaveBeenCalled();
 });
 
 it('reveals output when generation fails without a previous artifact', async () => {
   const { rerender } = render(<ExportPerspective workspaceId="workspace-a" />);
   await screen.findByTestId('mock-export-workbench');
-  expect(screen.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('region', { name: 'Export settings', exact: true })).toBeVisible();
   state.run = {
     status: 'failed',
     message: 'Selected declaration cannot be generated.',
     diagnostics: [{ severity: 'error', code: 'unsupported-expression', message: 'Unsupported expression.' }]
   };
   rerender(<ExportPerspective workspaceId="workspace-a" />);
-  expect(screen.getByRole('tab', { name: 'Generated output', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
 });
 
 it('composes stable selection, settings, and preview workbench panels', async () => {

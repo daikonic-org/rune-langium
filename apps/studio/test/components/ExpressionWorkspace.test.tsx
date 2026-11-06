@@ -20,6 +20,20 @@ import * as workspaceServices from '../../src/services/workspace.js';
 import { PreviewSessionContext } from '../../src/shell/providers/preview-session-context.js';
 import { pathToUri } from '../../src/utils/uri.js';
 
+vi.mock('../../src/lens/ts-wasm-asset.js', () => ({
+  getTsWasmBytes: async () => {
+    const { readFileSync } = await import('node:fs');
+    const { createRequire } = await import('node:module');
+    return new Uint8Array(
+      readFileSync(
+        createRequire(import.meta.url)
+          .resolve('@vscode/tree-sitter-wasm/package.json')
+          .replace(/package\.json$/, 'wasm/tree-sitter-typescript.wasm')
+      )
+    );
+  }
+}));
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -57,6 +71,73 @@ async function context() {
 }
 
 describe('source-bound expression workspace', () => {
+  it('edits a TypeScript implementation in place, applies once and undoes through the Rune editor', async () => {
+    const { props, writes, getFile } = await context();
+    const factory = () => ({
+      schema: vi.fn(),
+      execute: vi.fn(),
+      dispose: vi.fn(),
+      project: vi.fn(async (language, subject) => ({
+        language,
+        subject,
+        code: 'const result = 1;\nreturn result;',
+        syntax: 'statements',
+        sourceMap: [],
+        requiredHelpers: []
+      }))
+    });
+    const host = render(
+      <PreviewSessionContext.Provider value={factory}>
+        <ExpressionWorkspace {...props} />
+      </PreviewSessionContext.Provider>
+    );
+    const rune = EditorView.findFromDOM(
+      (await host.findByTestId('implementation-editor')).querySelector('.cm-editor')!
+    )!;
+    fireEvent.click(host.getByRole('button', { name: 'TypeScript' }));
+    const editor = await host.findByRole('textbox', { name: 'Generated typescript' });
+    const view = EditorView.findFromDOM(editor.closest('.cm-editor')!)!;
+    expect(host.queryByRole('button', { name: 'Edit expression…' })).toBeNull();
+    act(() => view.dispatch({ changes: { from: 15, to: 16, insert: '2' } }));
+    expect(writes).not.toHaveBeenCalled();
+    fireEvent.click(host.getByRole('button', { name: 'Apply', exact: true }));
+    await waitFor(() => expect(writes).toHaveBeenCalledOnce());
+    expect(getFile().content).toBe(source.replace('set result: 1', 'set result: 2'));
+    act(() => undo(rune));
+    expect(getFile().content).toBe(source);
+  });
+  it('retains an inline draft and rejects Apply after its source changes', async () => {
+    const { props, writes, getFile, setFile } = await context();
+    const factory = () => ({
+      schema: vi.fn(),
+      execute: vi.fn(),
+      dispose: vi.fn(),
+      project: vi.fn(async (language, subject) => ({
+        language,
+        subject,
+        code: 'const result = 1;\nreturn result;',
+        syntax: 'statements',
+        sourceMap: [],
+        requiredHelpers: []
+      }))
+    });
+    const host = render(
+      <PreviewSessionContext.Provider value={factory}>
+        <ExpressionWorkspace {...props} />
+      </PreviewSessionContext.Provider>
+    );
+    await host.findByTestId('implementation-editor');
+    fireEvent.click(host.getByRole('button', { name: 'TypeScript' }));
+    const editor = await host.findByRole('textbox', { name: 'Generated typescript' });
+    const view = EditorView.findFromDOM(editor.closest('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: 15, to: 16, insert: '2' } }));
+    setFile({ ...getFile(), content: source.replace('set result: 1', 'set result: 3') });
+    fireEvent.click(host.getByRole('button', { name: 'Apply', exact: true }));
+    await waitFor(() => expect(host.getByRole('alert')).toHaveTextContent('source or its dependencies changed'));
+    expect(writes).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toContain('= 2');
+    expect(getFile().content).toContain('set result: 3');
+  });
   it('retries a failed projection without changing or remounting the source editor', async () => {
     const { props, writes } = await context();
     const project = vi

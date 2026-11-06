@@ -9,7 +9,7 @@
  * StreamLanguage parser. Keywords are sourced from the Langium grammar.
  */
 
-import { StreamLanguage, type StringStream } from '@codemirror/language';
+import { StreamLanguage, StringStream } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
 import { ANNOTATIONS_ROSETTA, type RuneDslKeywordNames } from '@rune-langium/core';
 import { withInstrumentation } from '../services/instrumentation/core.js';
@@ -165,6 +165,8 @@ interface RuneDslState {
   /** Whether we're inside a multi-line comment. */
   inBlockComment: boolean;
   inString: '"' | "'" | null;
+  documentation: { phase: 'start' | 'text' | 'end'; quote: '"' | "'" | null; inBlockComment: boolean } | null;
+  definitionPending: 'header' | 'value' | null;
   /** Syntactic roles use the same Lezer tags as generated-language editors. */
   expectName: string | null;
   expectAnnotationName: boolean;
@@ -199,6 +201,8 @@ export const runeDslStreamParser = {
     return {
       inBlockComment: false,
       inString: null,
+      documentation: null,
+      definitionPending: null,
       expectName: null,
       expectAnnotationName: false,
       annotationNames: new Set(STANDARD_ANNOTATIONS),
@@ -213,6 +217,7 @@ export const runeDslStreamParser = {
   copyState(state: RuneDslState): RuneDslState {
     return {
       ...state,
+      documentation: state.documentation && { ...state.documentation },
       annotationNames: new Set(state.annotationNames),
       enumNames: new Set(state.enumNames),
       memberNames: new Set(state.memberNames),
@@ -224,6 +229,52 @@ export const runeDslStreamParser = {
   languageData: { commentTokens: { line: '//', block: { open: '/*', close: '*/' } } },
 
   token(stream: StringStream, state: RuneDslState): string | null {
+    const documentationAllowed = !state.declaration?.expression || state.definitionPending === 'value';
+    if (
+      state.documentation ||
+      (documentationAllowed && !state.inString && !state.inBlockComment && stream.match(/^<(?=\s*(?:["']|\/[/*]|$))/))
+    ) {
+      state.documentation ??= { phase: 'start', quote: null, inBlockComment: false };
+      while (!stream.eol()) {
+        const documentation = state.documentation;
+        if (documentation.phase !== 'text') {
+          if (documentation.inBlockComment) {
+            if (stream.match('*/')) documentation.inBlockComment = false;
+            else stream.next();
+            continue;
+          }
+          if (stream.match('/*')) {
+            documentation.inBlockComment = true;
+            continue;
+          }
+          if (stream.match('//')) {
+            stream.skipToEnd();
+            break;
+          }
+        }
+        const character = stream.next();
+        if (documentation.phase === 'start') {
+          if (character === '"' || character === "'") {
+            documentation.quote = character;
+            documentation.phase = 'text';
+          } else if (!/\s/.test(character!)) {
+            state.documentation = null;
+            return null;
+          }
+        } else if (documentation.phase === 'text') {
+          if (character === '\\') stream.next();
+          else if (character === documentation.quote) documentation.phase = 'end';
+        } else if (character === '>') {
+          state.documentation = null;
+          state.definitionPending = null;
+          break;
+        } else if (!/\s/.test(character!)) {
+          state.documentation = null;
+          return null;
+        }
+      }
+      return 'docComment';
+    }
     if (state.inString) return consumeString(stream, state);
 
     // Continue block comment
@@ -261,6 +312,8 @@ export const runeDslStreamParser = {
       stream.skipToEnd();
       return 'comment';
     }
+
+    if (state.definitionPending === 'value') state.definitionPending = null;
 
     if (stream.match('[')) {
       const prefix = stream.string.slice(0, stream.start).trimEnd();
@@ -352,6 +405,7 @@ export const runeDslStreamParser = {
         (word === 'condition' || word === 'post-condition') && /^\s*(?:[a-zA-Z_][a-zA-Z_0-9]*)?\s*:/.test(tail);
       if (!prefix && (conditionHeader || ['alias', 'set', 'add'].includes(word))) {
         if (state.declaration) state.declaration.expression = true;
+        state.definitionPending = 'header';
         if ((word === 'condition' || word === 'post-condition') && /^\s+[a-zA-Z_]/.test(tail))
           state.expectName = 'labelName';
         if (word === 'alias') state.expectName = 'variableName.definition';
@@ -405,6 +459,10 @@ export const runeDslStreamParser = {
     // Operators / punctuation
     if (stream.match(/^[<>!=]+/)) return 'operator';
     if (stream.match(/^[-+*/]/)) return 'operator';
+    if (stream.match(':')) {
+      if (state.definitionPending === 'header') state.definitionPending = 'value';
+      return null;
+    }
 
     // Skip unrecognised character
     stream.next();
@@ -415,6 +473,33 @@ export const runeDslStreamParser = {
 // ────────────────────────────────────────────────────────────────────────────
 // Public API
 // ────────────────────────────────────────────────────────────────────────────
+
+/** Reuse the source tokenizer so quoted literals and comments cannot become documentation folds. */
+export const runeDocumentationRanges = withInstrumentation(
+  function runeDocumentationRanges(source: string): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+    const state = runeDslStreamParser.startState();
+    let offset = 0;
+    let start: number | undefined;
+    for (const line of source.split('\n')) {
+      const stream = new StringStream(line, 4, 4);
+      while (!stream.eol()) {
+        stream.start = stream.pos;
+        const tag = runeDslStreamParser.token(stream, state);
+        if (tag === 'docComment') {
+          start ??= offset + stream.start;
+          if (!state.documentation) {
+            ranges.push({ from: start, to: offset + stream.pos });
+            start = undefined;
+          }
+        } else if (!state.documentation) start = undefined;
+      }
+      offset += line.length + 1;
+    }
+    return ranges;
+  },
+  { op: 'runeDocumentationRanges', sanitize: () => undefined }
+);
 
 export const runeDslLanguage = withInstrumentation(
   function runeDslLanguage(): Extension {

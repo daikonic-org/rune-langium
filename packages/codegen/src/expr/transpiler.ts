@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
+
+import { usesNativeValues } from './value-representation.js';
+import { patternLiteral, renderPatternLiteral } from './pattern.js';
 
 import {
+  getEnumValueLiteral,
   getEnumValues,
   getOperationArgument,
   isData,
@@ -149,6 +152,8 @@ const PRECEDENCE: Record<string, number> = {
  * Not exposed in the public API. Per data-model §7.
  */
 export interface ExpressionTranspilerContext {
+  /** Native values may also be validated by Zod codecs. */
+  nativeValues?: boolean;
   /** Display bodies assume validated, purpose-built Rune objects. Executable APIs retain boundary checks. */
   projection?: boolean;
   /** Display-only contract: purpose-built Rune objects implement canonical recursive equality. */
@@ -256,8 +261,7 @@ function conditionalContext(
 ): ExpressionTranspilerContext {
   if (!isEqualityOperation(test) || (test.operator === '=') !== truth) return ctx;
   const literal = scalarLiteral(test.right);
-  if (literal === undefined || !nativeEqualityOperands(test.left, test.right, !ctx.emitMode.startsWith('ts-')))
-    return ctx;
+  if (literal === undefined || !nativeEqualityOperands(test.left, test.right, !usesNativeValues(ctx))) return ctx;
   const value = transpileExpression(test.left, { ...ctx, preserveMetadata: false });
   if (!/^[\w$]+(?:\??\.[\w$]+)*$/.test(value)) return ctx;
   return { ...ctx, scalarValues: new Map(ctx.scalarValues).set(value, literal) };
@@ -302,7 +306,7 @@ function transpilePresence(
         : argument
           ? declared?.includes('[]') || expressionIsMany(argument)
           : (ctx.implicitMetadata?.many ?? false);
-  return renderPresence(value, many, metadata, absent, ctx.emitMode.startsWith('ts-'));
+  return renderPresence(value, many, metadata, absent, usesNativeValues(ctx));
 }
 
 /**
@@ -319,22 +323,17 @@ function transpilePresence(
  * `ts-method` mode ONLY (`ctx.selfName === 'this'`, the class-instance
  * case): a remapped access (i.e. `name` IS a Choice-derived pseudo-
  * attribute — `attrAccessorNames` is NEVER populated for ordinary Data
- * attributes, see its doc comment) is cast through
- * `(this as unknown as Record<string, unknown>)` — the emitted class does
- * not statically declare the Choice's option keys as members (per T105/
- * T106's generic-intersection-alias / generic-child-class design, they
- * only exist on `this` at runtime via `Object.assign` in the constructor),
- * so a direct `this.cash` fails real `tsc --strict` (TS2339). The Zod
- * modes' `selfName` (`data`, a function parameter typed by the actual
- * `runeExtendChoice`-derived union) already carries the option keys
- * structurally and need no cast.
+ * attributes, see its doc comment) uses an `in` guard. Choice option keys
+ * are supplied by the construction payload rather than declared on the
+ * generic child class; guarded access preserves unknown values without
+ * asserting an index signature. Zod parameters already carry the option keys.
  */
 export function attrAccessExpr(name: string, ctx: ExpressionTranspilerContext): string {
   const accessor = ctx.attrAccessorNames?.get(name);
   const raw =
     ctx.localBindings?.get(name) ??
     (accessor !== undefined && ctx.emitMode === 'ts-method' && !ctx.projection
-      ? `(${ctx.selfName} as unknown as Record<string, unknown>).${accessor}`
+      ? `(${JSON.stringify(accessor)} in ${ctx.selfName} ? ${ctx.selfName}.${accessor} : undefined)`
       : `${ctx.selfName}.${accessor ?? name}`);
   if (ctx.localMetadata?.has(name)) {
     const metadata = ctx.localMetadata.get(name);
@@ -396,7 +395,7 @@ function validateAttr(attrName: string, ctx: ExpressionTranspilerContext): boole
  */
 export function emitOneOf(attrNames: string[], ctx: ExpressionTranspilerContext): string {
   const values = attrNames.map((name) => attrAccessExpr(name, ctx)).join(', ');
-  const predicate = `${renderPresenceCount(`[${values}]`, ctx.emitMode.startsWith('ts-'))} === 1`;
+  const predicate = `${renderPresenceCount(`[${values}]`, usesNativeValues(ctx))} === 1`;
   const message = `${ctx.conditionName}: exactly one of [${attrNames.join(', ')}] must be present in ${ctx.typeName}`;
 
   if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
@@ -874,7 +873,7 @@ function wrapBoolExprForMode(boolExpr: string, ctx: ExpressionTranspilerContext)
  * RosettaNumberLiteral  → <number>
  * RosettaStringLiteral  → '<escaped-string>'
  */
-export function transpileLiteral(expr: RosettaExpression, _ctx: ExpressionTranspilerContext): string {
+export function transpileLiteral(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
   if (isRosettaBooleanLiteral(expr)) {
     return expr.value ? 'true' : 'false';
   }
@@ -886,6 +885,7 @@ export function transpileLiteral(expr: RosettaExpression, _ctx: ExpressionTransp
     return String(expr.value);
   }
   if (isRosettaStringLiteral(expr)) {
+    if (usesNativeValues(ctx) && patternLiteral(expr) !== undefined) return renderPatternLiteral(expr.value);
     // JSON-escape and use single quotes
     const escaped = expr.value
       .replace(/\\/g, '\\\\')
@@ -914,19 +914,19 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
       feature,
       () => transpileExpression(expr.receiver, { ...ctx, preserveMetadata: false }),
       expressionIsMany(expr.receiver),
-      ctx.emitMode.startsWith('ts-'),
+      usesNativeValues(ctx),
       requiredScalarKind(expr.receiver) !== undefined,
       expr.receiver,
       ctx.projection
     );
     if (calendarField !== undefined) return calendarField;
-    if (ctx.emitMode.startsWith('ts-') && isRosettaEnumValue(feature)) {
+    if (usesNativeValues(ctx) && isRosettaEnumValue(feature)) {
       return ctx.projection
         ? enumMemberReference(feature, ctx.typeNameResolver)
         : JSON.stringify(getEnumValueLiteral(feature));
     }
     if (
-      ctx.emitMode.startsWith('ts-') &&
+      usesNativeValues(ctx) &&
       (isAttribute(feature) || feature?.$type === 'RosettaMetaType') &&
       isMetadataFeature(feature)
     ) {
@@ -944,7 +944,7 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
       };
       if (expr.receiver ? expressionIsMany(expr.receiver) : ctx.implicitMetadata?.many) {
         const item = freshLocal(ctx, '__metadataItem');
-        return `(${receiver} ?? []).map((${item}) => ${read(item)}).filter((value) => value != null)`;
+        return `${nativeCollection(receiver, expr.receiver, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.map((${item}) => ${read(item)}).filter((value) => value != null)`;
       }
       return read(receiver);
     }
@@ -952,12 +952,12 @@ export function transpileNavigation(expr: RosettaExpression, ctx: ExpressionTran
   const rendered = renderNavigation(
     expr,
     (child) => transpileExpression(child, { ...ctx, preserveMetadata: false }),
-    ctx.emitMode.startsWith('ts-'),
+    usesNativeValues(ctx),
     ctx.projection
   );
   if (rendered !== undefined) {
     const feature = isRosettaFeatureCall(expr) || isRosettaDeepFeatureCall(expr) ? expr.feature?.ref : undefined;
-    return isAttribute(feature) && hasFieldMetadata(feature) && !ctx.preserveMetadata && ctx.emitMode.startsWith('ts-')
+    return isAttribute(feature) && hasFieldMetadata(feature) && !ctx.preserveMetadata && usesNativeValues(ctx)
       ? unwrapMetadata(rendered, expressionIsMany(expr))
       : rendered;
   }
@@ -984,11 +984,11 @@ export function transpileArithmetic(expr: RosettaExpression, ctx: ExpressionTran
   if (requiredScalarKind(expr.left) === 'date') {
     const rightKind = requiredScalarKind(expr.right);
     if (rightKind === 'date' && expr.operator === '-')
-      return ctx.emitMode.startsWith('ts-')
+      return usesNativeValues(ctx)
         ? `${right}.until(${left}).days`
         : `Temporal.PlainDate.from(${right}).until(${left}).days`;
     if (rightKind === 'time' && expr.operator === '+')
-      return ctx.emitMode.startsWith('ts-')
+      return usesNativeValues(ctx)
         ? `${left}.toPlainDateTime(${right})`
         : `Temporal.PlainDate.from(${left}).toPlainDateTime(Temporal.PlainTime.from(${right})).toString()`;
   }
@@ -996,18 +996,18 @@ export function transpileArithmetic(expr: RosettaExpression, ctx: ExpressionTran
   const rightType = expressionType(expr.right)?.name;
   const operation =
     leftType === 'date' && rightType === 'date' && expr.operator === '-'
-      ? ctx.emitMode.startsWith('ts-')
+      ? usesNativeValues(ctx)
         ? 'b.until(a).days'
         : 'Temporal.PlainDate.from(String(b)).until(Temporal.PlainDate.from(String(a))).days'
       : leftType === 'date' && rightType === 'time' && expr.operator === '+'
-        ? ctx.emitMode.startsWith('ts-')
+        ? usesNativeValues(ctx)
           ? 'a.toPlainDateTime(b)'
           : 'Temporal.PlainDate.from(String(a)).toPlainDateTime(Temporal.PlainTime.from(String(b))).toString()'
         : `a ${expr.operator} b`;
   const optional = scalarEqualityOperands(expr.left, expr.right, false);
   if (optional === 'number' || (optional === 'string' && expr.operator === '+'))
     return `((left, right) => left == null || right == null ? undefined : left ${expr.operator} right)(${left}, ${right})`;
-  const typescript = ctx.emitMode.startsWith('ts-');
+  const typescript = usesNativeValues(ctx);
   const l = nativeCollection(left, expr.left, undefined, typescript, ctx.projection);
   const r = nativeCollection(right, expr.right, undefined, typescript, ctx.projection);
   const scalarOperation = operation.replace(/\ba\b/g, '(l[0])').replace(/\bb\b/g, '(r[0])');
@@ -1027,11 +1027,11 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
     const empty = (node: RosettaExpression | undefined) => isListLiteral(node) && node.elements.length === 0;
     const absent = empty(expr.right) ? expr.left : empty(expr.left) ? expr.right : undefined;
     if (absent) return transpilePresence(absent, ctx, expr.operator !== '<>');
-    if (ctx.emitMode.startsWith('ts-') && nativeTemporalOperands(expr.left, expr.right))
+    if (usesNativeValues(ctx) && nativeTemporalOperands(expr.left, expr.right))
       return `${expr.operator === '<>' ? '!' : ''}${left}.equals(${right})`;
     const calendar = primitiveElementKind(expr.left);
     if (
-      ctx.emitMode.startsWith('ts-') &&
+      usesNativeValues(ctx) &&
       !expressionIsMany(expr.left) &&
       !expressionIsMany(expr.right) &&
       calendar &&
@@ -1041,7 +1041,7 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
       const same = methodEqualityPredicate();
       return `((left, right) => ${expr.operator === '<>' ? `!(${same})` : same})(${left}, ${right})`;
     }
-    const isoDates = !ctx.emitMode.startsWith('ts-');
+    const isoDates = !usesNativeValues(ctx);
     if (nativeEqualityOperands(expr.left, expr.right, isoDates)) {
       const literal = scalarLiteral(expr.right);
       const known = scalarLiteral(expr.left) ?? ctx.scalarValues?.get(left);
@@ -1078,17 +1078,17 @@ export function transpileComparison(expr: RosettaExpression, ctx: ExpressionTran
     }
     const nativeTemporal = nativeTemporalOperands(expr.left, expr.right);
     if (nativeTemporal)
-      return `(Temporal.${nativeTemporal === 'zonedDateTime' && !ctx.emitMode.startsWith('ts-') ? 'Instant' : temporalScalarTypes[nativeTemporal]}.compare(${left}, ${right}) ${expr.operator} 0)`;
+      return `(Temporal.${nativeTemporal === 'zonedDateTime' && !usesNativeValues(ctx) ? 'Instant' : temporalScalarTypes[nativeTemporal]}.compare(${left}, ${right}) ${expr.operator} 0)`;
     const name = expressionType(expr.left ?? getOperationArgument(expr))?.name;
     const kind =
       name && name in temporalScalarTypes ? temporalScalarTypes[name as keyof typeof temporalScalarTypes] : undefined;
     const parser = kind === 'ZonedDateTime' ? 'rune.parseZonedDateTime' : `Temporal.${kind}.from`;
     const comparison = kind
-      ? ctx.emitMode.startsWith('ts-')
+      ? usesNativeValues(ctx)
         ? `Temporal.${kind}.compare(a, b) ${expr.operator} 0`
         : `Temporal.${kind}.compare(${parser}(String(a)), ${parser}(String(b))) ${expr.operator} 0`
       : `a ${expr.operator} b`;
-    const typescript = ctx.emitMode.startsWith('ts-');
+    const typescript = usesNativeValues(ctx);
     const l = nativeCollection(left, expr.left, undefined, typescript, ctx.projection);
     const r = nativeCollection(right, expr.right, undefined, typescript, ctx.projection);
     return `((l, r) => l.length > 0 && r.length > 0 && (${cartesianComparison(comparison, String((expr.cardMod ?? 'all') === 'all'))}))(${l}.filter((value) => value != null), ${r}.filter((value) => value != null))`;
@@ -1123,7 +1123,7 @@ export function transpileSetOps(expr: RosettaExpression, ctx: ExpressionTranspil
   const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
   const kind = primitiveElementKind(expr.left);
   if (kind && kind === primitiveElementKind(expr.right) && ['number', 'string', 'boolean'].includes(kind)) {
-    const typescript = ctx.emitMode.startsWith('ts-');
+    const typescript = usesNativeValues(ctx);
     const l = nativeCollection(left, expr.left, ctx.implicitMetadata?.many, typescript, ctx.projection);
     const r = nativeCollection(right, expr.right, undefined, typescript, ctx.projection);
     const set = `new Set${typescript && !ctx.projection ? `<${kind}>` : ''}(left)`;
@@ -1143,11 +1143,11 @@ export function transpileAggregation(expr: RosettaExpression, ctx: ExpressionTra
   const getArg = (arg: RosettaExpression | undefined): string => (arg ? transpileExpression(arg, ctx) : ctx.selfName);
 
   if (isRosettaCountOperation(expr)) {
-    return nativeCount(getArg(expr.argument), expr.argument, ctx.implicitMetadata?.many);
+    return nativeCount(getArg(expr.argument), expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx));
   }
   if (isSumOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'), ctx.projection)}.reduce((a, b) => a + b, 0)`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.reduce((a, b) => a + b, 0)`;
   }
   if (isDistinctOperation(expr)) {
     const arr = getArg(expr.argument);
@@ -1159,31 +1159,30 @@ export function transpileAggregation(expr: RosettaExpression, ctx: ExpressionTra
         arr,
         expr.argument,
         ctx.implicitMetadata?.many,
-        ctx.emitMode.startsWith('ts-'),
+        usesNativeValues(ctx),
         ctx.projection
       );
       if (!kind) return `[...new Set(${values})]`;
-      const seen =
-        ctx.emitMode.startsWith('ts-') && !ctx.projection ? `new Set<${element} | undefined>()` : 'new Set()';
+      const seen = usesNativeValues(ctx) && !ctx.projection ? `new Set<${element} | undefined>()` : 'new Set()';
       return `(() => { const seen = ${seen}; return ${values}.filter((value) => { const key = ${value}; if (seen.has(key)) return false; seen.add(key); return true; }); })()`;
     }
     return `rune.distinct(${arr}${kind ? `, (value) => rune.valueKey(${value})` : ''})`;
   }
   if (isFirstOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'), ctx.projection)}[0]`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}[0]`;
   }
   if (isLastOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'), ctx.projection)}.at(-1)`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.at(-1)`;
   }
   if (isFlattenOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'), ctx.projection)}.flat()`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.flat()`;
   }
   if (isReverseOperation(expr)) {
     const arr = getArg(expr.argument);
-    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'), ctx.projection)}.slice().reverse()`;
+    return `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.slice().reverse()`;
   }
   return diagnosticFallback('Invalid expression: unknown aggregation');
 }
@@ -1211,7 +1210,7 @@ export function transpileHigherOrder(expr: RosettaExpression, ctx: ExpressionTra
  *   With function → `((param) => body)(arg)`
  */
 export function transpileThenOperation(expr: ThenOperation, ctx: ExpressionTranspilerContext): string {
-  const argumentCtx = expr.function && ctx.emitMode.startsWith('ts-') ? { ...ctx, preserveMetadata: true } : ctx;
+  const argumentCtx = expr.function && usesNativeValues(ctx) ? { ...ctx, preserveMetadata: true } : ctx;
   const argument = expr.argument ? transpileExpression(expr.argument, argumentCtx) : ctx.selfName;
   if (!expr.function) return argument;
   const kind = argumentCtx.preserveMetadata ? expressionMetadataKind(expr.argument) : undefined;
@@ -1279,7 +1278,7 @@ export function transpileConstructor(expr: RosettaExpression, ctx: ExpressionTra
           ? prepareFunctionArgument(
               transpileExpression(kv.value, {
                 ...ctx,
-                preserveMetadata: ctx.emitMode.startsWith('ts-') && hasFieldMetadata(field)
+                preserveMetadata: usesNativeValues(ctx) && hasFieldMetadata(field)
               }),
               isChoiceOption(field)
                 ? { name: key, annotations: field.annotations, cardinality: { lower: 1, upper: 1 } }
@@ -1292,7 +1291,7 @@ export function transpileConstructor(expr: RosettaExpression, ctx: ExpressionTra
     })
     .join(', ');
   if (isRosettaRecordType(type) && ['date', 'dateTime', 'zonedDateTime'].includes(type.name))
-    return `rune.${ctx.emitMode.startsWith('ts-') ? 'dateConstructTemporal' : 'dateConstruct'}(${JSON.stringify(type.name)}, { ${pairs} })`;
+    return `rune.${usesNativeValues(ctx) ? 'dateConstructTemporal' : 'dateConstruct'}(${JSON.stringify(type.name)}, { ${pairs} })`;
   const value = `{ ${pairs} }`;
   if (!ctx.projection && ctx.emitMode === 'ts-expression' && (isData(type) || isChoice(type)))
     return `(${value} ${expr.implicitEmpty ? 'as' : 'satisfies'} ${resolveFuncValueTypeTs(type, undefined, ctx.typeNameResolver)})`;
@@ -1310,7 +1309,7 @@ export function transpileListLiteral(expr: RosettaExpression, ctx: ExpressionTra
   }
   const kind = ctx.preserveMetadata ? expressionMetadataKind(expr) : undefined;
   const elements = expr.elements.map((element) => transpileMetadataBranch(element, kind, ctx));
-  const list = `[${elements.map((element, index) => (expressionIsPresent(expr.elements[index]) ? element : `...${nativeCollection(element, expr.elements[index], undefined, ctx.emitMode.startsWith('ts-'), ctx.projection)}`)).join(', ')}]`;
+  const list = `[${elements.map((element, index) => (expressionIsPresent(expr.elements[index]) ? element : `...${nativeCollection(element, expr.elements[index], undefined, usesNativeValues(ctx), ctx.projection)}`)).join(', ')}]`;
   return kind ? `${list}.filter((value) => value != null)` : list;
 }
 
@@ -1318,11 +1317,13 @@ export function transpileListLiteral(expr: RosettaExpression, ctx: ExpressionTra
 export function transpilePassthrough(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
   if (!isAsKeyOperation(expr) && !isWithMetaOperation(expr))
     return diagnosticFallback('Expected a metadata expression');
-  if (!ctx.emitMode.startsWith('ts-') || (isAsKeyOperation(expr) && !ctx.preserveMetadata))
+  if (!usesNativeValues(ctx) || (isAsKeyOperation(expr) && !ctx.preserveMetadata))
     return transpileExpression(expr.argument, ctx);
   const value = renderMetadataOperation(expr, ctx, (node) => {
     const rendered = transpileExpression(node, { ...ctx, preserveMetadata: node === expr.argument });
-    return node === expr.argument && expressionIsMany(node) ? `(${rendered} ?? [])` : rendered;
+    return node === expr.argument && expressionIsMany(node)
+      ? nativeCollection(rendered, node, undefined, usesNativeValues(ctx), ctx.projection)
+      : rendered;
   });
   if (value === undefined) return diagnosticFallback('Expected a metadata expression');
   const fieldMetadata =
@@ -1358,7 +1359,10 @@ export function transpileJoin(expr: RosettaExpression, ctx: ExpressionTranspiler
   }
   const left = expr.left ? transpileExpression(expr.left, ctx) : ctx.selfName;
   const right = expr.right ? transpileExpression(expr.right, ctx) : "''";
-  return `(${left} ?? []).join(${right})`;
+  const values = usesNativeValues(ctx)
+    ? nativeCollection(left, expr.left, ctx.implicitMetadata?.many, true, ctx.projection)
+    : `(${left} ?? [])`;
+  return `${values}.join(${right})`;
 }
 
 export function transpileOnlyElement(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1366,7 +1370,7 @@ export function transpileOnlyElement(expr: RosettaExpression, ctx: ExpressionTra
     return diagnosticFallback('Invalid expression: not RosettaOnlyElement');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return `((__oe) => (__oe.length === 1 ? __oe[0] : undefined))(${nativeCollection(arg, expr.argument, ctx.implicitMetadata?.many, ctx.emitMode.startsWith('ts-'), ctx.projection)})`;
+  return `((__oe) => (__oe.length === 1 ? __oe[0] : undefined))(${nativeCollection(arg, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)})`;
 }
 
 export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1374,10 +1378,10 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
     return diagnosticFallback('Invalid expression: not ReduceOperation');
   }
   const fn = expr.function;
-  const argumentCtx = fn && ctx.emitMode.startsWith('ts-') ? { ...ctx, preserveMetadata: true } : ctx;
+  const argumentCtx = fn && usesNativeValues(ctx) ? { ...ctx, preserveMetadata: true } : ctx;
   const arr = expr.argument ? transpileExpression(expr.argument, argumentCtx) : ctx.selfName;
   if (!fn) {
-    return `(${arr} ?? [])`;
+    return nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection);
   }
   const inputKind = argumentCtx.preserveMetadata ? expressionMetadataKind(expr.argument) : undefined;
   const resultKind = argumentCtx.preserveMetadata ? expressionMetadataKind(fn.body) : undefined;
@@ -1406,17 +1410,10 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
   }
   const input =
     inputKind === 'reference' && !resultKind
-      ? `(${arr} ?? []).filter((value)${ctx.projection ? '' : ': value is typeof value & { value: NonNullable<typeof value.value> }'} => value.value != null)`
-      : nativeCollection(
-          arr,
-          expr.argument,
-          ctx.implicitMetadata?.many,
-          ctx.emitMode.startsWith('ts-'),
-          ctx.projection
-        );
+      ? `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.filter((value)${ctx.projection ? '' : ': value is typeof value & { value: NonNullable<typeof value.value> }'} => value.value != null)`
+      : nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection);
   const initialName = freshLocal(ctx, '__initial');
-  const accumulatorType =
-    ctx.emitMode.startsWith('ts-') && !ctx.projection ? `<typeof ${initialName} | undefined>` : '';
+  const accumulatorType = usesNativeValues(ctx) && !ctx.projection ? `<typeof ${initialName} | undefined>` : '';
   const reduced = `((${values}) => { if (${values}.length === 0) return undefined; const ${initialName} = ${initial}; return ${values}.slice(1).reduce${accumulatorType}((${accName}, ${itemName}) => ${arrowBody(body)}, ${initialName}); })(${input})`;
   return resultKind && !ctx.preserveMetadata ? unwrapMetadata(reduced, false) : reduced;
 }
@@ -1484,7 +1481,7 @@ export function transpileToEnum(expr: RosettaExpression, ctx: ExpressionTranspil
   const memberList = getEnumValues(enumRef)
     .map((v) => (getEnumValueLiteral(v) === v.name ? `'${v.name}'` : JSON.stringify(getEnumValueLiteral(v))))
     .join(', ');
-  return `((__e) => ([${memberList}]${ctx.emitMode.startsWith('ts-') && !ctx.projection ? ' as const' : ''}).find((value) => value === __e))(${arg})`;
+  return `((__e) => ([${memberList}]${usesNativeValues(ctx) && !ctx.projection ? ' as const' : ''}).find((value) => value === __e))(${arg})`;
 }
 
 export function transpileToDate(expr: RosettaExpression, ctx: ExpressionTranspilerContext): string {
@@ -1492,7 +1489,7 @@ export function transpileToDate(expr: RosettaExpression, ctx: ExpressionTranspil
     return diagnosticFallback('Invalid expression: not ToDateOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return ctx.emitMode.startsWith('ts-')
+  return usesNativeValues(ctx)
     ? `((value) => value === undefined ? undefined : Temporal.PlainDate.from(value))(rune.toDate(${arg}))`
     : `rune.toDate(${arg})`;
 }
@@ -1502,7 +1499,7 @@ export function transpileToTime(expr: RosettaExpression, ctx: ExpressionTranspil
     return diagnosticFallback('Invalid expression: not ToTimeOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return ctx.emitMode.startsWith('ts-')
+  return usesNativeValues(ctx)
     ? `((value) => value === undefined ? undefined : Temporal.PlainTime.from(value))(rune.toTime(${arg}))`
     : `rune.toTime(${arg})`;
 }
@@ -1512,7 +1509,7 @@ export function transpileToDateTime(expr: RosettaExpression, ctx: ExpressionTran
     return diagnosticFallback('Invalid expression: not ToDateTimeOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return ctx.emitMode.startsWith('ts-')
+  return usesNativeValues(ctx)
     ? `((value) => value === undefined ? undefined : Temporal.PlainDateTime.from(value))(rune.toDateTime(${arg}))`
     : `rune.toDateTime(${arg})`;
 }
@@ -1522,19 +1519,16 @@ export function transpileToZonedDateTime(expr: RosettaExpression, ctx: Expressio
     return diagnosticFallback('Invalid expression: not ToZonedDateTimeOperation');
   }
   const arg = expr.argument ? transpileExpression(expr.argument, ctx) : ctx.selfName;
-  return ctx.emitMode.startsWith('ts-')
+  return usesNativeValues(ctx)
     ? `((value) => value === undefined ? undefined : rune.parseZonedDateTime(value))(rune.toZonedDateTime(${arg}))`
     : `rune.toZonedDateTime(${arg})`;
 }
 
 function typedDataGuard(ctx: ExpressionTranspilerContext, kind?: FieldMetadataKind) {
-  return ctx.emitMode.startsWith('ts-')
+  return usesNativeValues(ctx)
     ? (value: string, type: RosettaType, guard: string, wrapped: boolean) => {
         const shape = ctx.typeNameResolver?.(type, `${type.name}Shape`) ?? `${type.name}Shape`;
-        const target = metadataType(
-          ctx.emitMode === 'ts-method' ? shape : `RuneFuncData<${shape}>`,
-          wrapped ? kind : undefined
-        );
+        const target = metadataType(shape, wrapped ? kind : undefined);
         return `((${value}: unknown): ${value} is ${target} => ${guard})(${value})`;
       }
     : undefined;
@@ -1549,7 +1543,7 @@ export function renderTranspiledSwitch(
   const kind = ctx.preserveMetadata ? expressionMetadataKind(expr) : undefined;
   const argument = isSwitchOperation(expr) ? getOperationArgument(expr) : undefined;
   const inputType = expressionType(argument);
-  const selectorKind = ctx.emitMode.startsWith('ts-') ? expressionMetadataKind(argument) : undefined;
+  const selectorKind = usesNativeValues(ctx) ? expressionMetadataKind(argument) : undefined;
   const selectorMany = expressionIsMany(argument);
   return renderSwitchExpression(expr, {
     ...options,
@@ -1606,7 +1600,7 @@ function prepareFunctionArgument(
   argument?: RosettaExpression
 ): string {
   if (ctx.projection) return value;
-  const kind = ctx.emitMode.startsWith('ts-') ? fieldMetadataKind(parameter) : undefined;
+  const kind = usesNativeValues(ctx) ? fieldMetadataKind(parameter) : undefined;
   const cardinality = parameter.cardinality ?? (parameter.card ? decodeCardinality(parameter.card) : undefined);
   const many = cardinality?.upper === null || (cardinality?.upper ?? 1) > 1;
   const sourceKind = argument
@@ -1617,7 +1611,7 @@ function prepareFunctionArgument(
         : expressionMetadataKind(argument)
     : ctx.implicitMetadata?.kind;
   if (!argument && sourceKind && !kind) value = unwrapMetadata(value, ctx.implicitMetadata?.many ?? false);
-  if (ctx.emitMode.startsWith('ts-') && (cardinality || (sourceKind === 'reference' && !kind))) {
+  if (usesNativeValues(ctx) && (cardinality || (sourceKind === 'reference' && !kind))) {
     value = adaptCardinalityValue(
       value,
       cardinality ?? { lower: 1, upper: 1 },
@@ -1664,7 +1658,7 @@ export function transpileSuperCall(expr: RosettaExpression, ctx: ExpressionTrans
       return diagnosticFallback(message);
     }
     const args = parent.inputs.map((input, index) => {
-      const argumentCtx = { ...ctx, preserveMetadata: ctx.emitMode.startsWith('ts-') && hasFieldMetadata(input) };
+      const argumentCtx = { ...ctx, preserveMetadata: usesNativeValues(ctx) && hasFieldMetadata(input) };
       const arg = expr.rawArgs[index];
       return expr.explicitArguments && arg
         ? prepareFunctionArgument(transpileExpression(arg, argumentCtx), input, ctx, arg)
@@ -1673,7 +1667,7 @@ export function transpileSuperCall(expr: RosettaExpression, ctx: ExpressionTrans
     const name = parent.source ? callableReference(parent.source, ctx) : parent.name;
     const call = `${name}(${args.join(', ')})`;
     const output = parent.output;
-    return output && hasFieldMetadata(output) && !ctx.preserveMetadata && ctx.emitMode.startsWith('ts-')
+    return output && hasFieldMetadata(output) && !ctx.preserveMetadata && usesNativeValues(ctx)
       ? unwrapMetadata(call, output.card.unbounded || (output.card.sup ?? 1) > 1)
       : call;
   }
@@ -1700,6 +1694,9 @@ export function transpileExpression(
     const kind = expressionMetadataKind(expr);
     const inputKind = expressionMetadataKind(getOperationArgument(expr));
     const result = renderAsExpression(expr, {
+      ...(!ctx.projection && usesNativeValues(ctx)
+        ? { collection: (value: string) => nativeCollection(value, getOperationArgument(expr), undefined, true) }
+        : {}),
       ...(ctx.projection && !inputKind && !kind
         ? {
             objectGuard: (target: RosettaType) =>
@@ -1738,7 +1735,7 @@ export function transpileExpression(
       target,
       () => ctx.selfName,
       expressionIsMany(expr),
-      ctx.emitMode.startsWith('ts-')
+      usesNativeValues(ctx)
     );
     if (calendarField !== undefined) return calendarField;
     // Aliases and parameters shadow model symbols.
@@ -1752,7 +1749,7 @@ export function transpileExpression(
         (arg, parameter) =>
           transpileExpression(arg, {
             ...ctx,
-            preserveMetadata: ctx.emitMode.startsWith('ts-') && hasFieldMetadata(parameter)
+            preserveMetadata: usesNativeValues(ctx) && hasFieldMetadata(parameter)
           }),
         (message) => {
           failure = message;
@@ -1763,7 +1760,7 @@ export function transpileExpression(
       );
       if (call !== undefined) {
         const output = functionOutput(target);
-        return output && hasFieldMetadata(output) && !ctx.preserveMetadata && ctx.emitMode.startsWith('ts-')
+        return output && hasFieldMetadata(output) && !ctx.preserveMetadata && usesNativeValues(ctx)
           ? unwrapMetadata(call, output.card.unbounded || (output.card.sup ?? 1) > 1)
           : call;
       }
@@ -1844,8 +1841,8 @@ export function transpileExpression(
       .join(', ');
     const predicate =
       expr.necessity === 'optional'
-        ? `${renderPresenceCount(`[${values}]`, ctx.emitMode.startsWith('ts-'))} <= 1`
-        : `${renderPresenceCount(`[${values}]`, ctx.emitMode.startsWith('ts-'))} === 1`;
+        ? `${renderPresenceCount(`[${values}]`, usesNativeValues(ctx))} <= 1`
+        : `${renderPresenceCount(`[${values}]`, usesNativeValues(ctx))} === 1`;
     return value ? `((__choice) => __choice != null && (${predicate}))(${value})` : predicate;
   }
 

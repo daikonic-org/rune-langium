@@ -13,8 +13,13 @@ export const TARGET_LAYOUT_SCHEMAS = {
   sql: flatLayout,
   markdown: z.enum(['per-namespace', 'barrel'])
 };
-export const ZodOptionsSchema = z.object({ layout: moduleLayout.optional() });
-export const TypescriptOptionsSchema = ZodOptionsSchema.extend({ inputChecks: z.boolean().optional() });
+export const ZodOptionsSchema = z.object({ layout: moduleLayout.optional(), codecs: z.boolean().optional() });
+export const TypescriptOptionsSchema = ZodOptionsSchema.extend({
+  inputChecks: z.boolean().optional(),
+  inlineHelpers: z.boolean().optional(),
+  decorators: z.boolean().optional(),
+  serialization: z.enum(['runtime', 'zod']).optional()
+}).omit({ codecs: true });
 export const JsonSchemaOptionsSchema = z.object({ layout: flatLayout.optional() });
 export const SqlOptionsSchema = z.object({
   dialect: z.enum(['postgres', 'sqlserver']).optional(),

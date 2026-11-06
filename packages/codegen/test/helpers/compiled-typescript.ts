@@ -23,23 +23,39 @@ export function generatedTypeScriptCompilerOptions(overrides: ts.CompilerOptions
   };
 }
 
+/** Node cannot execute standard decorators yet; lower only modules that contain them. */
+export function transpileGeneratedTypeScript(source: string, module = ts.ModuleKind.CommonJS): string {
+  const file = ts.createSourceFile('generated.ts', source, ts.ScriptTarget.ESNext, true);
+  const decorated = (node: ts.Node): boolean =>
+    (ts.canHaveDecorators(node) && !!ts.getDecorators(node)?.length) || !!ts.forEachChild(node, decorated);
+  return ts.transpileModule(source, {
+    compilerOptions: {
+      target: decorated(file) ? ts.ScriptTarget.ES2025 : ts.ScriptTarget.ESNext,
+      module
+    }
+  }).outputText;
+}
+
 /** Compile the emitted file set and let Node resolve its actual module imports. */
 export function compileGeneratedTypeScript<
   T extends Record<string, unknown> = Record<string, (...args: unknown[]) => unknown>
->(outputs: readonly GeneratorOutput[], options: { assertions?: string; entry?: string; checkTypes?: boolean } = {}): T {
+>(
+  outputs: readonly GeneratorOutput[],
+  options: { assertions?: string; entry?: string; checkTypes?: boolean; erasableSyntaxOnly?: boolean } = {}
+): T {
   const directory = generatedDirectory(join(tmpdir(), 'rune-generated-ts-'));
   const entry = options.entry ?? outputs[0]!.relativePath;
   const require = createRequire(join(directory, 'entry.js'));
   try {
-    const compilerOptions = generatedTypeScriptCompilerOptions({ module: ts.ModuleKind.CommonJS });
+    const compilerOptions = generatedTypeScriptCompilerOptions({
+      module: ts.ModuleKind.CommonJS,
+      erasableSyntaxOnly: options.erasableSyntaxOnly
+    });
     for (const output of outputs) {
       const path = join(directory, output.relativePath);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, output.content + (output.relativePath === entry ? '\n' + (options.assertions ?? '') : ''));
-      writeFileSync(
-        path.replace(/\.ts$/, '.js'),
-        ts.transpileModule(output.content, { compilerOptions: { ...compilerOptions, noEmit: false } }).outputText
-      );
+      writeFileSync(path.replace(/\.ts$/, '.js'), transpileGeneratedTypeScript(output.content));
     }
     if (options.checkTypes !== false) {
       const program = ts.createProgram(
@@ -47,7 +63,11 @@ export function compileGeneratedTypeScript<
         compilerOptions
       );
       expect(
-        ts.getPreEmitDiagnostics(program).map((error) => ts.flattenDiagnosticMessageText(error.messageText, '\n'))
+        ts.getPreEmitDiagnostics(program).map((error) => {
+          const position =
+            error.file && error.start !== undefined ? error.file.getLineAndCharacterOfPosition(error.start) : undefined;
+          return `${position ? `${error.file!.fileName}:${position.line + 1}: ` : ''}${ts.flattenDiagnosticMessageText(error.messageText, '\n')}${position ? ` [${error.file!.text.split('\n')[position.line]?.trim()}]` : ''}`;
+        })
       ).toEqual([]);
     }
     return require(join(directory, entry.replace(/\.ts$/, '.js')));

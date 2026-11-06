@@ -3,22 +3,18 @@
 // Copyright (c) 2026 Pradeep Mouli
 import type { ReactNode } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@rune-langium/design-system/ui/tabs';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@rune-langium/design-system/ui/resizable';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 export const ExportWorkspacePanel = withInstrumentation(
   function ExportWorkspacePanel({
-    view,
-    onViewChange,
     settings,
     output,
     expanded,
     onToggleExpanded,
     notice
   }: {
-    view: 'settings' | 'output';
-    onViewChange(view: 'settings' | 'output'): void;
     settings: ReactNode;
     output: ReactNode;
     expanded: boolean;
@@ -26,17 +22,9 @@ export const ExportWorkspacePanel = withInstrumentation(
     notice?: string;
   }) {
     return (
-      <Tabs
-        value={view}
-        onValueChange={(value) => onViewChange(value as 'settings' | 'output')}
-        className="flex h-full min-h-0 flex-col gap-0"
-        data-testid="export-workspace"
-      >
-        <div className="flex shrink-0 items-center border-b border-border px-2">
-          <TabsList size="sm" aria-label="Export workspace" className="flex-1">
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="output">Generated output</TabsTrigger>
-          </TabsList>
+      <div className="flex h-full min-h-0 flex-col" data-testid="export-workspace">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-2 py-1">
+          <span className="text-xs font-medium">Export</span>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -56,23 +44,26 @@ export const ExportWorkspacePanel = withInstrumentation(
             {notice}
           </p>
         )}
-        <TabsContent
-          value="settings"
-          keepMounted
-          className="mt-0 min-h-0 flex-1"
-          style={{ display: view === 'settings' ? 'block' : 'none' }}
-        >
-          {settings}
-        </TabsContent>
-        <TabsContent
-          value="output"
-          keepMounted
-          className="mt-0 min-h-0 flex-1"
-          style={{ display: view === 'output' ? 'block' : 'none' }}
-        >
-          {output}
-        </TabsContent>
-      </Tabs>
+        <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+          <ResizablePanel id="export-settings-pane" defaultSize="300px" minSize="160px">
+            <section aria-label="Export settings" className="h-full min-h-0">
+              {settings}
+            </section>
+          </ResizablePanel>
+          <ResizableHandle
+            aria-label="Resize export settings and output"
+            className="h-2 w-full bg-transparent hover:bg-border focus-visible:bg-border"
+          />
+          <ResizablePanel id="export-output-pane" minSize="25%">
+            <section aria-label="Generated output" className="flex h-full min-h-0 flex-col border-t border-border">
+              <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                Generated output
+              </h2>
+              <div className="min-h-0 flex-1">{output}</div>
+            </section>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     );
   },
   {

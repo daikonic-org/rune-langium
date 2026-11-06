@@ -185,9 +185,14 @@ test('help and importer guidance are accessible without changing the active draf
   await expect(error).toContainText('Could not preview model');
   await expect(error).not.toContainText('rune-codegen');
   await expect(page.getByRole('textbox', { name: 'Import source', exact: true })).toHaveValue('{broken');
-  const errorBounds = (await error.boundingBox())!;
-  const footerBounds = (await page.getByTestId('import-dialog__confirm').boundingBox())!;
-  expect(errorBounds.y + errorBounds.height).toBeLessThanOrEqual(footerBounds.y);
+  // ImportDialog reveals the error on its next animation frame, after committing the new content.
+  await expect
+    .poll(async () => {
+      const errorBounds = (await error.boundingBox())!;
+      const footerBounds = (await page.getByTestId('import-dialog__confirm').boundingBox())!;
+      return errorBounds.y + errorBounds.height - footerBounds.y;
+    })
+    .toBeLessThanOrEqual(0);
   await expect(
     error.getByText('Correct the source and select Preview again. Your workspace has not changed.', { exact: true })
   ).toBeVisible();

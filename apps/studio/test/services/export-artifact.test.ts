@@ -56,7 +56,8 @@ it('decodes the exact generated artifact envelope for a selected declaration', a
   expect(response.status).toBe(200);
   expect(response.headers.get('Content-Disposition')).toContain('filename="typescript-output.zip"');
   const artifact = await decodeExportArtifact(response);
-  expect(artifact.manifest.files).toHaveLength(1);
+  expect(artifact.manifest.files.map((file) => file.path)).toEqual(['test.ts', 'helpers.ts']);
+  expect(artifact.manifest.files.find((file) => file.path === 'helpers.ts')?.namespaces).toEqual([]);
   expect(artifact.manifest.files[0]?.namespaces).toEqual(['test']);
   expect(artifact.manifest.resolvedSelection?.explicit).toEqual([{ namespace: 'test', name: 'Party', kind: 'Data' }]);
   expect(artifact.manifest.resolvedSelection?.included).toEqual(

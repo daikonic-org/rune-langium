@@ -5,7 +5,8 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
-import { codeMirrorDocument } from '../helpers/source-editor.js';
+import { codeMirrorDocument, fullSourceEditor } from '../helpers/source-editor.js';
+import { projectBackingFiles } from '../helpers/project-backing.js';
 
 const source = `namespace projection
 type Asset:
@@ -35,6 +36,33 @@ func External:
  output: result int (1..1)
 `;
 
+test('Source Save drains the working-copy save barrier and reports local persistence across reload', async ({
+  page
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'projection.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(source)
+  });
+  const showSource = page.getByRole('button', { name: 'Source', exact: true });
+  if ((await showSource.getAttribute('aria-pressed')) !== 'true') await showSource.click();
+  const editor = fullSourceEditor(page).getByRole('textbox', { name: 'Rune source editor' });
+  await editor.click();
+  await editor.press('ControlOrMeta+End');
+  await page.keyboard.insertText('\n// saved with the Source action\n');
+  await page.getByRole('button', { name: 'Save source', exact: true }).click();
+  await expect(page.locator('[aria-label="Source file path"]').getByRole('status')).toHaveText('Saved locally');
+  expect(
+    Object.values(await projectBackingFiles(page)).some((text) => text.includes('// saved with the Source action'))
+  ).toBe(true);
+  await page.screenshot({ path: info.outputPath('source-save-state.png') });
+  await page.reload();
+  if ((await showSource.getAttribute('aria-pressed')) !== 'true') await showSource.click();
+  await expect.poll(() => codeMirrorDocument(editor)).toContain('// saved with the Source action');
+});
+
 test('concise projections preserve contracts, private edits, undo and unavailable implementation status', async ({
   page
 }, testInfo) => {
@@ -52,21 +80,24 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await rune.locator('.cm-line').filter({ hasText: 'set adjusted:' }).click();
   await page.keyboard.press('End');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   const generated = implementation.getByRole('textbox', { name: 'Generated typescript' });
   await expect(generated).toContainText('values.filter(item => item > cutoff).sort()');
   await expect(generated).toContainText("assert(cutoff > 0, 'Positive')");
   await expect(generated).toContainText("assert(adjusted.count() <= values.count(), 'Bounded')");
   await expect(generated).toContainText('return adjusted;');
   await expect(generated).not.toContainText(/\bas\b/);
-  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit expression as TypeScript' });
-  const draft = dialog.getByRole('textbox', { name: 'TypeScript expression draft' });
-  const draftScroller = dialog.locator('.cm-scroller');
+  await expect(implementation.getByRole('button', { name: 'Edit expression…' })).toHaveCount(0);
+  const draft = generated;
+  const originalBody = await codeMirrorDocument(draft);
+  const draftScroller = implementation.getByTestId('generated-expression').locator('.cm-scroller');
   const minimumDraftHeight = await draft.evaluate((element) => {
     const style = getComputedStyle(element);
     return 4 * parseFloat(style.lineHeight) + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   });
-  await expect.poll(async () => (await draftScroller.boundingBox())!.height).toBeCloseTo(minimumDraftHeight, 0);
+  await expect.poll(async () => (await draftScroller.boundingBox())!.height).toBeGreaterThanOrEqual(minimumDraftHeight);
   const shortDraftHeight = (await draftScroller.boundingBox())!.height;
   await draft.press('ControlOrMeta+a');
   await page.keyboard.insertText(Array.from({ length: 500 }, () => 'cutoff').join(' + '));
@@ -77,9 +108,9 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await page.screenshot({ path: wrappedScreenshot });
   await testInfo.attach('bounded-wrapped-expression-draft', { path: wrappedScreenshot, contentType: 'image/png' });
   await draft.press('ControlOrMeta+a');
-  await page.keyboard.insertText('filter(values, item => item > cutoff + 1).sort()');
+  await page.keyboard.insertText(originalBody.replace('item > cutoff', 'item > cutoff + 1'));
   await expect.poll(async () => (await draftScroller.boundingBox())!.height).toBeCloseTo(shortDraftHeight, 0);
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await implementation.getByRole('button', { name: 'Discard', exact: true }).click();
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('item > cutoff');
   await expect(rune).not.toContainText('cutoff + 1');
@@ -89,29 +120,33 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await rune.locator('.cm-line').filter({ hasText: 'set result:' }).click();
   await page.keyboard.press('End');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await expect(generated).toContainText('extract(amount, item => 1)');
-  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
   await draft.press('ControlOrMeta+a');
-  await page.keyboard.insertText('extract(amount, item => 2)');
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(dialog).not.toBeVisible();
+  await page.keyboard.insertText('const result = extract(amount, item => 2);\nreturn result;');
+  await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('amount extract [2]');
   await rune.press('ControlOrMeta+z');
   await expect(rune).toContainText('amount extract [1]');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
-  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await draft.press('ControlOrMeta+a');
   const captured = 'then(amount, outer => [1, 2].map(x => outer + x))';
-  await page.keyboard.insertText(captured);
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText(/cannot retain the captured callback binding/);
-  await expect(dialog).toBeVisible();
+  await page.keyboard.insertText(`const result = ${captured};\nreturn result;`);
+  await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(implementation.getByRole('alert')).toContainText(/cannot retain the captured callback binding/);
+  await expect(implementation.getByRole('button', { name: 'Discard', exact: true })).toBeVisible();
   await expect(draft).toContainText(captured);
   const refusalScreenshot = testInfo.outputPath('source-projection-scope-refusal.png');
   await page.screenshot({ path: refusalScreenshot });
   await testInfo.attach('source-projection-scope-refusal', { path: refusalScreenshot, contentType: 'image/png' });
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await implementation.getByRole('button', { name: 'Discard', exact: true }).click();
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('amount extract [1]');
   await page.getByTestId('namespace-search').fill('Nested');
@@ -119,18 +154,23 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await rune.locator('.cm-line').filter({ hasText: 'set result:' }).click();
   await page.keyboard.press('End');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await expect(generated).toContainText('item1 + 1');
-  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
   const nestedDraft = await codeMirrorDocument(draft);
   expect(nestedDraft).toContain('item1 + 1');
   await draft.press('ControlOrMeta+a');
   await page.keyboard.insertText(nestedDraft.replace('item1 + 1', 'item1 * 2'));
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(dialog).not.toBeVisible();
+  await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('other extract [item * 2]');
   await expect(rune).not.toContainText('item1');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await expect(generated).toContainText('item1 * 2');
   await expect(implementation.getByText(/Showing the last valid source/)).not.toBeVisible();
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
@@ -140,6 +180,9 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await rune.press('ControlOrMeta+z');
   await expect(rune).toContainText('other extract [item + 1]');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await expect(generated).toContainText('item1 + 1');
   await expect(implementation.getByText(/Showing the last valid source/)).not.toBeVisible();
   await page.getByTestId('namespace-search').fill('Deep');
@@ -147,18 +190,23 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await rune.locator('.cm-line').filter({ hasText: 'set result:' }).click();
   await page.keyboard.press('End');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await expect(generated).toContainText('trade._.amount');
-  await implementation.getByRole('button', { name: 'Edit expression…', exact: true }).click();
   await draft.press('ControlOrMeta+a');
-  await page.keyboard.insertText('trade._.amount + 1');
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(dialog).not.toBeVisible();
+  await page.keyboard.insertText('const result = trade._.amount + 1;\nreturn result;');
+  await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('trade ->> amount + 1');
   await rune.press('ControlOrMeta+z');
   await expect(rune).toContainText('trade ->> amount');
   await expect(rune).not.toContainText('amount + 1');
   await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(
+    implementation.getByText('Edit expressions in place · Apply to update Rune', { exact: true })
+  ).toBeVisible();
   await expect(generated).toContainText('trade._.amount');
   await expect(implementation.getByText(/Showing the last valid source/)).not.toBeVisible();
   const deepScreenshot = testInfo.outputPath('source-projection-deep.png');

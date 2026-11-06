@@ -403,14 +403,8 @@ canonical shape and bytes are reasonable for typical models.
 - `exportedFuncNames: Set<string>`
 - `exportedRuleNames: Set<string>`
 - `exportedTypeAliasNames: Set<string>`
+- `exportedBuiltinNames: Set<string>` (optional)
 - `exportedAnnotationNames: Set<string>`
 - `exportedLibraryFuncNames: Set<string>`
-- `relativePath: string`
-
-### `NamespaceRegistry`
-**Properties:**
-- `namespaces: Map<string, NamespaceManifest>`
-
-## options
 
 <!-- truncated -->

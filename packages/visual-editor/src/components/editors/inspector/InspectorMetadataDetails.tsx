@@ -5,6 +5,7 @@ import { InspectorDetailsPane } from './InspectorDetailsPane.js';
 import { MetadataTargetProvider } from '../../forms/metadata/MetadataTargetContext.js';
 import { EditorSections } from '../../forms/sections/EditorSections.js';
 import type { useInspectorTargets } from '../../forms/metadata/useInspectorTargets.js';
+import { InspectorMetadataSummary } from './InspectorMetadataSummary.js';
 
 export function InspectorMetadataDetails({ targets }: { targets: ReturnType<typeof useInspectorTargets> }) {
   const row = targets.selection.selectedRow;
@@ -27,6 +28,7 @@ export function InspectorMetadataDetails({ targets }: { targets: ReturnType<type
         <MetadataTargetProvider value={targets.childBinding}>
           <div key={targets.selection.selectedKey}>
             {row.inherited && <p className="text-xs text-muted-foreground">Inherited member · read only</p>}
+            <InspectorMetadataSummary />
             <EditorSections names={['MetadataSection', 'AnnotationSection']} />
           </div>
         </MetadataTargetProvider>

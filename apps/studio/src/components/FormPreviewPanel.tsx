@@ -948,6 +948,7 @@ interface PreviewFieldControlProps {
   onArmSelect: (arms: PreviewField[], selected: PreviewField, arrayIndices?: number[]) => void;
   arrayIndices?: number[];
   isChoiceArm?: boolean;
+  inline?: boolean;
 }
 
 function PreviewObjectField({
@@ -1060,7 +1061,7 @@ function PreviewArrayField({
     .slice(0, armFields.length ? 2 : 3);
   const columns: PreviewGridColumn[] = [
     ...(armFields.length ? [{ path: '$choice', label: 'Type' }] : []),
-    ...scalarColumns.map((column) => ({ path: column.path, label: column.label }))
+    ...scalarColumns.map((column) => ({ path: column.path, label: column.label, editable: column.required }))
   ];
   if (!columns.length) columns.push({ path: '$summary', label: 'Value' });
   const rows: PreviewGridRow[] = child
@@ -1071,6 +1072,7 @@ function PreviewArrayField({
           (arm) => getValueAtPath(controls.sample?.values ?? {}, pathToSegments(arm.path, indices)) !== undefined
         );
         const cells = columns.map((column) => {
+          const scalar = scalarColumns.find((field) => field.path === column.path);
           const cellPath =
             column.path === '$choice'
               ? formatFieldPath(activeArm?.path ?? child.path, indices)
@@ -1088,7 +1090,15 @@ function PreviewArrayField({
             path: cellPath,
             text: previewValueText(cellValue),
             empty: cellValue === undefined || cellValue === null || cellValue === '',
-            error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined
+            error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined,
+            editor: scalar?.required ? (
+              <PreviewFieldControl
+                field={{ ...scalar, label: `${field.label} ${index + 1} ${scalar.label}` }}
+                {...controls}
+                arrayIndices={indices}
+                inline
+              />
+            ) : undefined
           };
         });
         return {
@@ -1248,7 +1258,8 @@ function PreviewFieldControl({
   onObjectToggle,
   onArmSelect,
   arrayIndices,
-  isChoiceArm = false
+  isChoiceArm = false,
+  inline = false
 }: PreviewFieldControlProps): ReactElement {
   const definitions = useContext(PreviewDefinitions);
   const inputId = useId();
@@ -1309,7 +1320,7 @@ function PreviewFieldControl({
     const fieldLabel = resolvedFieldLabel(field, arrayIndices);
     return (
       <div className="preview-field" data-field-path={fieldPath}>
-        <span className="preview-field__label">{fieldLabel}</span>
+        <span className={inline ? 'sr-only' : 'preview-field__label'}>{fieldLabel}</span>
         <PreviewEnumInput
           label={fieldLabel}
           value={stringValue}
@@ -1359,7 +1370,7 @@ function PreviewFieldControl({
             // (stale) and would validate the old state (Codex/Copilot PR #225).
             onCheckedChange={(checked) => onFieldChange(field.path, checked === true, arrayIndices)}
           />
-          <label htmlFor={inputId} className="preview-field__label">
+          <label htmlFor={inputId} className={inline ? 'sr-only' : 'preview-field__label'}>
             {resolvedFieldLabel(field, arrayIndices)}
           </label>
         </div>
@@ -1370,7 +1381,7 @@ function PreviewFieldControl({
 
   return (
     <div data-field-path={fieldPath} className="preview-field">
-      <label htmlFor={inputId} className="preview-field__label">
+      <label htmlFor={inputId} className={inline ? 'sr-only' : 'preview-field__label'}>
         {resolvedFieldLabel(field, arrayIndices)}
       </label>
       {field.format ? (

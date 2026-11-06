@@ -242,7 +242,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
         />
       )}
       {showControls && (
-        <fieldset disabled={props.readOnly} className="flex flex-wrap items-center gap-1">
+        <fieldset disabled={props.readOnly} className="min-w-0 flex flex-wrap items-center gap-1">
           <SourceRefField
             value={source}
             options={props.sourceOptions}

@@ -38,7 +38,7 @@ test.describe('J13 — Export perspective', () => {
       await settings.getByLabel('Export target', { exact: true }).selectOption('zod');
       await settings.getByLabel('Export layout').selectOption('per-namespace');
       await expect(settings.getByLabel('Export layout')).toHaveValue('per-namespace');
-      await expect(settings.getByRole('button', { name: 'Generate 1 selected' })).toBeEnabled();
+      await expect(settings.getByRole('button', { name: 'Generate target' })).toBeEnabled();
       await evidence.checkpoint('export-selection-settings');
     }
   );
@@ -50,7 +50,7 @@ test.describe('J13 — Export perspective', () => {
       await loadCdm(page, evidence);
       await selectExportRoot(page);
       await page.getByTestId('export-settings-panel').getByLabel('Export target', { exact: true }).selectOption('zod');
-      await page.getByRole('button', { name: 'Generate 1 selected' }).click();
+      await page.getByRole('button', { name: 'Generate target' }).click();
       const preview = page.getByTestId('export-artifact-preview');
       const failure = page.getByTestId('export-artifact-status');
       await expect(

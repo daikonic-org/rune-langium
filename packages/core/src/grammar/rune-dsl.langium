@@ -40,6 +40,11 @@ type DataOrChoice = Data | Choice;
 
 type AttributeOrChoiceOption = Attribute | ChoiceOption;
 
+type SchemaOrFormat = Schema | RosettaEnumValue;
+
+// Preserve legacy annotation attributes alongside schema-based transform targets.
+type AnnotationArgument = Attribute | SchemaOrFormat;
+
 // ═══════════════════════════════════════════════════════════════════
 // ENTRY RULE
 // ═══════════════════════════════════════════════════════════════════
@@ -105,8 +110,8 @@ fragment RuleReference:
 ;
 
 AnnotationRef:
-    '[' annotation=[Annotation:ValidID]
-    (attribute=[Attribute:ValidID] (qualifiers+=AnnotationQualifier)*)?
+    '[' annotation=[Annotation:QualifiedName]
+    (attribute=[AnnotationArgument:QualifiedName] (qualifiers+=AnnotationQualifier)*)?
     ']'
 ;
 

@@ -7,10 +7,55 @@ import { generate } from '../../../src/export.js';
 import { compileGeneratedTypeScript } from '../../helpers/compiled-typescript.js';
 import { linkedFunctions } from '../../projection/python-test-utils.js';
 import { AstUtils } from 'langium';
-import { parseSourceTs } from '../../../src/lens/typescript/source-lens.js';
+import { parseSourceTs, parseSourceTsBody } from '../../../src/lens/typescript/source-lens.js';
 import { renderSourceTypeScriptExpression } from '../../../src/projection/source-typescript-expression.js';
 import { renderExpression } from '../../../src/emit/rosetta/render-expression.js';
 import { treesEquivalent } from '../../emit/rosetta/expression-tree-equivalence.js';
+
+describe('source-facing body inverse', () => {
+  const origin = (rune: string) => renderSourceTypeScriptExpression(parseExpression(rune).value).origin;
+  it('edits multiple authored values while retaining declaration and contract structure', async () => {
+    const origins = [
+      origin('amount + 1'),
+      origin('total > 0'),
+      origin('Quote { amount: total, currency: quote -> currency }')
+    ];
+    const baseline = `const total = ${origins[0]!.code};\nassert(${origins[1]!.code}, "Positive");\nconst result = ${origins[2]!.code};\nreturn result;`;
+    const result = await parseSourceTsBody(
+      baseline.replace('amount + 1', 'amount + 2').replace('total > 0', 'total >= 0'),
+      baseline,
+      origins
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.nodes.map(renderExpression)).toEqual(['amount + 2', 'total >= 0', origins[2]!.rune]);
+    }
+  });
+  it.each([
+    'const other = amount + 1; return result;',
+    'const result = amount + 1; return other;',
+    'const result = amount + 1; alert(result); return result;',
+    'const result = amount + 1; result.amount = 7; return result;'
+  ])('refuses structural edits: %s', async (text) => {
+    expect(
+      await parseSourceTsBody(text, 'const result = amount + 1; return result;', [origin('amount + 1')])
+    ).toMatchObject({ ok: false, reason: { kind: 'out-of-subset' } });
+  });
+  it('keeps repeated expression origins positional and accepts harmless formatting/comments', async () => {
+    const result = await parseSourceTsBody(
+      'const result = 2; /* keep */ result = 3; return result;',
+      'const result = 1; result = 1; return result;',
+      [origin('1'), origin('1')]
+    );
+    expect(result.ok && result.nodes.map(renderExpression)).toEqual(['2', '3']);
+  });
+  it('preserves scalar extraction when changing an inline callback literal', async () => {
+    const original = origin('amount extract [1]');
+    const baseline = `const result = ${original.code}; return result;`;
+    const result = await parseSourceTsBody(baseline.replace('=> 1', '=> 2'), baseline, [original]);
+    expect(result.ok && renderExpression(result.nodes[0]!)).toBe('amount extract [2]');
+  });
+});
 
 const cases = [
   ['values.map(item => item.amount * 2)', 'values extract [item -> amount * 2]'],

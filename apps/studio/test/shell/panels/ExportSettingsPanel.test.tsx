@@ -28,7 +28,7 @@ it('keeps target-specific layout settings and generates only with selected roots
     ...config,
     options: { typescript: { layout: 'single-file' } }
   });
-  await userEvent.click(screen.getByRole('button', { name: 'Generate 1 selected' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Generate target' }));
   expect(onGenerate).toHaveBeenCalledOnce();
 });
 
@@ -42,7 +42,7 @@ it('disables generation until the explorer supplies an export root', () => {
       status="idle"
     />
   );
-  expect(screen.getByRole('button', { name: 'Generate 0 selected' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Generate target' })).toBeDisabled();
 });
 
 it('offers cancellation while generating and retry after an error', async () => {
@@ -62,7 +62,7 @@ it('offers cancellation while generating and retry after an error', async () => 
   rerender(
     <ExportSettingsPanel config={config} onChange={vi.fn()} onGenerate={vi.fn()} onCancel={vi.fn()} status="failed" />
   );
-  expect(screen.getByRole('button', { name: 'Retry 1 selected' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Retry target' })).toBeEnabled();
 });
 
 it('reuses the target options form registry for Excel exports', () => {
@@ -150,7 +150,7 @@ it('keeps unavailable imported targets separate from usable native targets and s
   );
   expect(screen.getByRole('tab', { name: 'java', exact: true })).toBeEnabled();
   expect(screen.getByRole('tab', { name: 'types', exact: true })).toHaveAttribute('aria-selected', 'true');
-  expect(screen.getByRole('button', { name: 'Generate all' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Generate all targets' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Generate target' })).toBeEnabled();
   await userEvent.click(screen.getByRole('button', { name: 'Generate target' }));
   expect(build).toHaveBeenCalledWith(['types']);
@@ -161,7 +161,7 @@ it('keeps unavailable imported targets separate from usable native targets and s
 });
 
 for (const selectedTargetName of [undefined, 'b'])
-  it(`unblocks Generate all after a dirty target is removed (${selectedTargetName ?? 'one-off'})`, async () => {
+  it(`unblocks Generate all targets after a dirty target is removed (${selectedTargetName ?? 'one-off'})`, async () => {
     const { createProjectSnapshot } = await import('@rune-langium/project-config');
     const { validateProjectTarget } = await import('@rune-langium/project-runtime/browser');
     const snapshot = (targets: Record<string, unknown>) =>
@@ -191,10 +191,10 @@ for (const selectedTargetName of [undefined, 'b'])
       />
     );
     const view = render(ui(await snapshot({ a, b })));
-    expect(screen.getByRole('button', { name: 'Generate all' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Generate all targets' })).toBeDisabled();
     view.rerender(ui(await snapshot({ b })));
     expect(screen.queryByRole('tab', { name: /a \*/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Generate all' })).toBeEnabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Generate all' }));
+    expect(screen.getByRole('button', { name: 'Generate all targets' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate all targets' }));
     expect(build).toHaveBeenCalledWith('all');
   });

@@ -15,6 +15,14 @@ Generated-module oracle tests reuse `generatedTypeScriptCompilerOptions` from
 codegen's `test/helpers/compiled-typescript.ts`; NodeNext checks retain their module
 resolution settings. This keeps strict diagnostics while avoiding default DOM
 libraries and unrelated ambient test types, including under root V8 coverage.
+Root coverage and Codegen's package runner share the 30-second generated-module
+test budget from `test/helpers/vitest-budget.ts`. These integration cases include
+strict TypeScript compilation and runtime checks; the budget is not a performance
+acceptance threshold.
+Project-runtime's `project-implementation.test.ts` uses that same budget within
+the file, so its strict generated program and runtime validators receive the same
+limit in the package and root coverage runners. Other runtime tests keep their
+default budgets.
 Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility
@@ -26,6 +34,14 @@ compiler target (ES2025). The post-build pass regenerates those JavaScript files
 and source maps from their TypeScript source; declarations and projections retain
 ESNext. Do not widen its decorator matcher or inject new instrumentation sites.
 
+Generated model decorators are a separate public emitter feature, enabled by
+default. Generated-module execution tests use `transpileGeneratedTypeScript` to
+lower decorated modules to ES2025; source and strict diagnostics stay ESNext.
+Studio's Sucrase execution/validation paths request `typescript.decorators: false`
+and receive equivalent registration calls from the same definition builder.
+Downloads and Code previews keep decorators enabled. Do not broaden the authored
+instrumentation lowering pass to accommodate generated model decorators.
+
 - The pre-commit hook runs `lint-staged`, applying Oxlint fixes before formatting staged JS/TS files with oxfmt; JSON-family files are formatted directly. Formatting runs last so import rewrites cannot leave CI style drift. The pre-push hook runs type checking. Prefer the existing `simple-git-hooks` / `lint-staged` setup for hook changes.
 - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses hooks; report skipped verification when relevant.
 - After codegen render changes, run `pnpm --filter @rune-langium/codegen run build` so consumers receive updated dist output.
@@ -35,6 +51,13 @@ ESNext. Do not widen its decorator matcher or inject new instrumentation sites.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
 ## Browser CI Dependencies
+
+The main CI matrix runs the complete package suite (`lint-and-test`) and root V8
+coverage (`coverage`) in parallel, each with the existing 30-minute job limit.
+They share fixture installation and build steps; lint, corpus verification and
+inventory uploads run once in `lint-and-test`, while Codecov consumes only the
+coverage job's report. Both jobs must pass before merge. Test selection, coverage
+thresholds and per-test budgets are unchanged.
 
 The `studio-a11y` job removes the runner image's priority-1 Azure HTTP entry from
 `/etc/apt/apt-mirrors.txt` before Playwright installs Ubuntu dependencies. The
@@ -106,6 +129,11 @@ Pages Functions. Function changes still require their unit/integration checks.
 The post-deployment freshness gate is excluded because a candidate is intentionally
 not deployed. All other production UX journeys plus focused Export, reading-space,
 recents and nested-validation cases run with zero retries and unchanged time budgets.
+The candidate polish cases also cover inherited enum options after native row
+drops, required scalar grid editing in both themes, byte-preserving source-doc
+folding, metadata semantics, native built-in mappings/pattern execution, and Export's vertical split. These cases and child
+annotation persistence use the shared `studio-test` fixture so candidate reviews
+exercise built assets rather than the deployed frontend.
 Focused tests (`test.only`) are forbidden, so an accidentally committed focus
 cannot silently reduce the pre-merge gate's coverage.
 The candidate suite includes native namespace override/Extend journeys: read-only
@@ -124,7 +152,7 @@ Before any UX evidence upload, `apps/studio/scripts/redact-test-artifacts.mjs`
 scrubs signed LSP socket paths, session JSON and bearer headers from manifests,
 trace ZIP resources/events and embedded HTML report archives. Upload is gated on
 successful sanitization, including on failed test runs; unreadable archives fail
-closed. The collector also redacts its text sinks before persistence. Keep the
+closed with their file/nested-entry location and byte count. The collector also redacts its text sinks before persistence. Keep the
 real Playwright response/warning canary and embedded-report tests in the candidate
 gate. Tracing remains enabled for failure diagnosis; this does not change browser
 or Worker instrumentation. Production builds omit untagged instrumentation unless
@@ -530,11 +558,25 @@ Codegen builds regenerate `expr/generated/deep-runtime-source.ts` from the share
 formatter-stable output; the Python Projections workflow runs this with its
 existing runtime source check. Both generators share `scripts/runtime-source.mjs`.
 
+Codegen also regenerates `expr/generated/rune-json-runtime-source.ts` from Core's
+canonical `serialization/rune-json.ts` via `generate:rune-json-runtime`. Run
+`node packages/codegen/scripts/generate-rune-json-runtime.mjs --check` to verify it;
+the Python Projections workflow checks all three committed runtime sources before
+the Codegen build can regenerate them, then checks generated target types after
+the build. A post-build source comparison alone cannot detect committed drift.
+
 Public value changes require the strict generated compilation/runtime tests in
-`test/emit/value-api.test.ts`, inheritance/namespace tests and the pinned codegen
+`test/emit/value-api.test.ts`, `test/emit/polymorphic-json-api.test.ts`,
+inheritance/namespace tests and the pinned codegen
 corpus check. Rebuild Codegen before Studio consumes it. The desktop
 `test/e2e/source-projection.spec.ts` checks `._.` display, apply and undo through the
 real expression-edit pipeline; it is separate from production acceptance.
+
+Native built-in mapping changes also require `test/emit/native-builtin-api.test.ts`,
+the builtin profile parity suite, Core Rune JSON checks and Studio's real-worker
+`test/workers/native-pattern-preview.test.ts`. These cover native instance guards,
+fixed-pattern versus ordinary-string emission, JSON hydration and serialization,
+collection equality keys, all TypeScript layouts and form-input conversion.
 
 `test/e2e/workbench-reading-space.spec.ts` checks desktop/narrow-desktop automatic
 Preview yielding, explicit visibility overrides, retained form/code nodes,

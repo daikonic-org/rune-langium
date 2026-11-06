@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import { createRuneDslServices } from '@rune-langium/core';
 import { URI } from 'langium';
 import { generate } from '../src/export.js';
+import { compileGeneratedTypeScript } from './helpers/compiled-typescript.js';
 
 const FIXTURES_DIR = resolve(new URL('.', import.meta.url).pathname, 'fixtures');
 const CONDITIONS_SIMPLE_DIR = join(FIXTURES_DIR, 'conditions-simple');
@@ -28,7 +29,7 @@ const CONDITIONS_SIMPLE_DIR = join(FIXTURES_DIR, 'conditions-simple');
 /**
  * Parse a fixture and generate TypeScript output.
  */
-async function runTsFixture(fixtureDir: string, fixtureName: string): Promise<string> {
+async function runTsFixtureOutputs(fixtureDir: string, fixtureName: string) {
   const inputPath = join(fixtureDir, 'input.rune');
   const content = await readFile(inputPath, 'utf-8');
 
@@ -48,7 +49,11 @@ async function runTsFixture(fixtureDir: string, fixtureName: string): Promise<st
   if (outputs.length === 0) {
     throw new Error(`Generator produced no output for ${fixtureName}`);
   }
-  return outputs[0]!.content;
+  return outputs;
+}
+
+async function runTsFixture(fixtureDir: string, fixtureName: string): Promise<string> {
+  return (await runTsFixtureOutputs(fixtureDir, fixtureName))[0]!.content;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,15 +66,16 @@ describe('T099: basic-types TypeScript target', () => {
     expect(output).toContain('class ');
   });
 
-  it('contains static from(', async () => {
+  it('registers model metadata for the inherited factory', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('from<const I>(');
+    expect(output).toContain('@RuneObject.model(');
+    expect(output).toContain('export class Person extends RuneObject');
   });
 
   it('contains isTypeName( type guards', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'basic-types'), 'basic-types');
-    expect(output).toContain('isPerson(');
-    expect(output).toContain('isEmpty(');
+    expect(output).toContain('is.Person = RuneObject.guard(Person)');
+    expect(output).toContain('is.Empty = RuneObject.guard(Empty)');
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {
@@ -86,18 +92,18 @@ describe('T099: basic-types TypeScript target', () => {
 describe('T100: inheritance TypeScript target', () => {
   it('emits class Child extends Parent (not implements)', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('class $Dog$Data extends $Animal$Data');
+    expect(output).toContain('class Dog extends Animal');
     expect(output).not.toContain('class Dog implements');
   });
 
   it('emits three-level inheritance chain', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('class $Poodle$Data extends $Dog$Data');
+    expect(output).toContain('class Poodle extends Dog');
   });
 
   it('emits discriminator function isDog(x: Animal): x is Dog', async () => {
     const output = await runTsFixture(join(FIXTURES_DIR, 'inheritance'), 'inheritance');
-    expect(output).toContain('isDog(x: Animal): x is Dog');
+    expect(output).toContain('is.Dog = RuneObject.guard(Dog)');
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {
@@ -118,57 +124,18 @@ describe('T101: conditions-simple/one-of TypeScript target', () => {
     expect(output).toContain('errors: string[]');
   });
 
-  it('validateOneOf method rejects zero-present payload (errors non-empty)', async () => {
-    const output = await runTsFixture(join(CONDITIONS_SIMPLE_DIR, 'one-of'), 'one-of');
-
-    // Inline evaluate the validate logic from the emitted code
-    // The condition is: [a, b, c] one-of → exactly one of a, b, c must be present
-    // We replicate the runeCheckOneOf logic here for direct testing
-    const runeCheckOneOf = (values: (unknown | undefined | null)[]): boolean =>
-      values.filter((v) => v !== undefined && v !== null).length === 1;
-
-    // Confirm the output uses runeCheckOneOf
-    expect(output).toContain('runeCheckOneOf');
-
-    // zero-present — should fail
-    const errors0: string[] = [];
-    const a0 = undefined;
-    const b0 = undefined;
-    const c0 = undefined;
-    if (!runeCheckOneOf([a0, b0, c0])) {
-      errors0.push('OneOf: exactly one of [a, b, c] must be present in UnitType');
-    }
-    expect(errors0.length).toBeGreaterThan(0);
-  });
-
-  it('validateOneOf method accepts single-present payload (errors empty)', async () => {
-    const runeCheckOneOf = (values: (unknown | undefined | null)[]): boolean =>
-      values.filter((v) => v !== undefined && v !== null).length === 1;
-
-    // one-present — should pass
-    const errors1: string[] = [];
-    const a1 = 'x';
-    const b1 = undefined;
-    const c1 = undefined;
-    if (!runeCheckOneOf([a1, b1, c1])) {
-      errors1.push('OneOf: exactly one of [a, b, c] must be present in UnitType');
-    }
-    expect(errors1.length).toBe(0);
-  });
-
-  it('validateOneOf method rejects two-present payload (errors non-empty)', async () => {
-    const runeCheckOneOf = (values: (unknown | undefined | null)[]): boolean =>
-      values.filter((v) => v !== undefined && v !== null).length === 1;
-
-    // two-present — should fail
-    const errors2: string[] = [];
-    const a2 = 'x';
-    const b2 = 'y';
-    const c2 = undefined;
-    if (!runeCheckOneOf([a2, b2, c2])) {
-      errors2.push('OneOf: exactly one of [a, b, c] must be present in UnitType');
-    }
-    expect(errors2.length).toBeGreaterThan(0);
+  it.each([
+    [{}, false],
+    [{ a: 'x' }, true],
+    [{ a: 'x', b: 'y' }, false]
+  ] as const)('executes the emitted one-of validator for %j', async (input, valid) => {
+    const outputs = await runTsFixtureOutputs(join(CONDITIONS_SIMPLE_DIR, 'one-of'), 'one-of');
+    const api = compileGeneratedTypeScript<{
+      UnitType: new (input: object) => { validateOneOf(): { valid: boolean; errors: string[] } };
+    }>(outputs);
+    const result = new api.UnitType(input).validateOneOf();
+    expect(result.valid).toBe(valid);
+    expect(result.errors.length).toBe(valid ? 0 : 1);
   });
 
   it('has ZERO occurrences of "from \'zod\'"', async () => {

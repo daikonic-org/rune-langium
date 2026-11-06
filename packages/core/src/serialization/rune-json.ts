@@ -27,6 +27,84 @@ export function withRuneJsonEncoding<T extends object>(value: T, kind: RuneJsonE
   return value;
 }
 
+/** Linked ASTs and generated descriptors use the same cycle-safe ancestry rule. */
+export function isRuneJsonAssignableType<T>(actual: T, expected: T, parent: (type: T) => T | undefined): boolean {
+  const seen = new Set<T>();
+  let current: T | undefined = actual;
+  while (current !== undefined && !seen.has(current)) {
+    if (current === expected) return true;
+    seen.add(current);
+    current = parent(current);
+  }
+  return false;
+}
+
+/** Linked ASTs and generated descriptors share recursive, cycle-safe Choice acceptance. */
+export function acceptsRuneJsonChoice<T>(
+  expected: T,
+  matches: (type: T) => boolean,
+  alternatives: (type: T) => readonly T[] | undefined
+): boolean {
+  const seen = new Set<T>();
+  const visit = (type: T): boolean => {
+    if (matches(type)) return true;
+    if (seen.has(type)) return false;
+    seen.add(type);
+    return alternatives(type)?.some(visit) ?? false;
+  };
+  return visit(expected);
+}
+
+/** Prefer an exact Data arm only among matching alternatives; nested matches remain ambiguous. */
+export function selectRuneJsonChoiceCandidates<T>(
+  matches: readonly T[],
+  isExact: (candidate: T) => boolean,
+  isData: (candidate: T) => boolean
+): readonly T[] {
+  const exact = matches.filter(isExact);
+  return exact.length && matches.every(isData) ? exact : matches;
+}
+
+/** Unwrap a declared Choice while retaining the wrapper's headers and decoded metadata. */
+export function normalizeRuneJsonChoiceWrapper(
+  value: unknown,
+  identity: string | undefined,
+  normalize: (payload: unknown) => unknown
+): Record<string, unknown> | undefined {
+  if (!record(value) || !own(value, '@data') || (value['@type'] !== undefined && value['@type'] !== identity))
+    return undefined;
+  const selected = normalize(value['@data']);
+  if (!record(selected)) throw new Error('Rune JSON Choice payload must normalize as an object.');
+  return {
+    ...Object.fromEntries(Object.entries(value).filter(([key]) => key !== '@type' && key !== '@data')),
+    ...selected
+  };
+}
+
+/** Project actual Choice declarations; Data with inherited Choice arms keeps its own Data representation. */
+export function projectRuneJsonChoice(
+  value: Record<string, unknown>,
+  identity: string | undefined,
+  arms: readonly string[],
+  normalize: (arm: string, value: unknown) => unknown
+): object {
+  const selected = arms.filter((key) => own(value, key) && value[key] != null);
+  if (selected.length !== 1) throw new Error('Rune JSON serialization requires exactly one Choice option.');
+  const meta = !arms.includes('meta') && record(value.meta) ? value.meta : undefined;
+  if (Object.keys(value).some((key) => !key.startsWith('@') && !arms.includes(key) && !(key === 'meta' && meta)))
+    throw new Error('Unknown Choice fields cannot be discarded during Rune JSON serialization.');
+  const arm = selected[0]!;
+  const body = normalize(arm, value[arm]);
+  if (!record(body)) throw new Error('Rune JSON Choice option must serialize as an object.');
+  const headers = Object.fromEntries(Object.entries(value).filter(([key]) => key !== '@type' && key.startsWith('@')));
+  // A wrapper preserves distinct parent/arm headers and metadata instead of merging them into one record.
+  if (meta || Object.keys(headers).length) {
+    if (!identity) throw new Error('Rune JSON Choice wrapper requires its declaration identity.');
+    return withRuneJsonEncoding({ ...headers, '@type': identity, '@data': body, ...(meta ? { meta } : {}) }, 'choice');
+  }
+  return withRuneJsonEncoding(body, body);
+}
+
 /**
  * Keep model/type/version and unknown fields; never dereference or prune keys.
  * Structural and semantic validation remains with the selected model's runtime.
@@ -82,8 +160,15 @@ export function decodeRuneJson(value: unknown): unknown {
   );
 }
 
+/** Rune's pattern wire value has a source string and no separate flags field. */
+export function serializeRunePattern(value: globalThis.RegExp): string {
+  if (value.flags) throw new TypeError('Rune JSON patterns cannot represent RegExp flags');
+  return value.source;
+}
+
 /** Convert only explicit canonical metadata envelopes; ordinary `value` fields stay ordinary. */
 export function encodeRuneJson(value: unknown): unknown {
+  if (value instanceof globalThis.RegExp) return serializeRunePattern(value);
   if (Array.isArray(value)) return value.map(encodeRuneJson);
   if (!record(value)) return value;
   const kind = encodingKinds.get(value);

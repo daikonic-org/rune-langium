@@ -30,6 +30,7 @@ test.describe('J19 — Expression workspace production acceptance', () => {
       const implementation = page.getByRole('region', { name: 'Function implementation' });
       const rune = implementation.getByTestId('implementation-editor');
       await expect(rune).toContainText('-1 * arg');
+      await expect(rune.locator('.cm-line').first()).not.toHaveText(/^\s/);
       let dialog = await openBuilder(page);
       await dialog.getByRole('button', { name: 'Text', exact: true }).click();
       await dialog.getByRole('textbox').fill('if arg < 0 then -2 * arg else arg');
@@ -48,6 +49,85 @@ test.describe('J19 — Expression workspace production acceptance', () => {
       await rune.locator('.cm-content').press('ControlOrMeta+z');
       await expect(rune).toContainText('-1 * arg');
       await evidence.checkpoint('one-undo-restored');
+    }
+  );
+
+  test(
+    'J19 inline TypeScript edits preserve renamed implicit callback bindings',
+    { annotation: { type: 'journey-subid', description: 'callback-bindings' } },
+    async ({ page, evidence }) => {
+      await page.goto('./');
+      await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+        name: 'callbacks.rosetta',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`namespace callbacks
+func Filter:
+ inputs:
+  values number (0..*)
+  ^item number (1..1)
+ output: result number (0..*)
+ set result: values filter [item > 0]
+`)
+      });
+      await page.getByTestId('namespace-search').fill('Filter');
+      await typeNavigationButton(page, 'callbacks.Filter', 'RosettaFunction').click();
+      const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
+      if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
+      const implementation = page.getByRole('region', { name: 'Function implementation' });
+      const projection = await expectBodyProjection(
+        implementation,
+        'TypeScript',
+        'item1 => item1 > 0',
+        'return result'
+      );
+      const baseline = await projection.innerText();
+      await projection.press('ControlOrMeta+a');
+      await page.keyboard.insertText(baseline.replace('> 0', '> item1'));
+      await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+      await expect(implementation.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
+      await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+      const rune = implementation.getByTestId('implementation-editor').locator('.cm-content');
+      await expect(rune).toContainText('filter [item > item]');
+      await expect(rune).not.toContainText('item1');
+      await evidence.checkpoint('callback-alias-restored');
+      await rune.press('ControlOrMeta+z');
+      await expect(rune).toContainText('filter [item > 0]');
+    }
+  );
+
+  test(
+    'J19 inline TypeScript regex edits retain linked pattern origins',
+    { annotation: { type: 'journey-subid', description: 'pattern-origins' } },
+    async ({ page, evidence }) => {
+      await page.goto('./');
+      await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+        name: 'patterns.rosetta',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`namespace patterns
+func Pattern:
+ output: result pattern (1..1)
+ set result: "^x+$"
+`)
+      });
+      await page.getByTestId('namespace-search').fill('Pattern');
+      await typeNavigationButton(page, 'patterns.Pattern', 'RosettaFunction').click();
+      const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
+      if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
+      const implementation = page.getByRole('region', { name: 'Function implementation' });
+      const projection = await expectBodyProjection(implementation, 'TypeScript', '/^x+$/', 'return result');
+      const baseline = await projection.innerText();
+      await projection.press('ControlOrMeta+a');
+      await page.keyboard.insertText(baseline.replace('/^x+$/', '/^y+$/'));
+      await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
+      await expect(implementation.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
+      await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
+      const rune = implementation.getByTestId('implementation-editor').locator('.cm-content');
+      await expect(rune).toContainText('"^y+$"');
+      await expect(implementation.getByRole('alert')).toHaveCount(0);
+      await evidence.checkpoint('pattern-literal-applied');
+      await rune.press('ControlOrMeta+z');
+      await expect(rune).toContainText('"^x+$"');
+      await evidence.checkpoint('pattern-literal-undo');
     }
   );
 
@@ -208,7 +288,7 @@ func Compute(kind: Kind -> Cash):
       await expect(rune).toHaveText(original);
       await expect(implementation.getByRole('button', { name: 'Builder', exact: true })).toBeDisabled();
       for (const language of ['TypeScript', 'Python'] as const) {
-        await expectBodyProjection(implementation, language, 'arg', 'return');
+        await expectBodyProjection(implementation, language, 'arg', 'return', { readOnly: true });
         await evidence.checkpoint(`curated-${language.toLowerCase()}`);
       }
       await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();

@@ -145,6 +145,7 @@ export function nativeCollection(
       : implicitMany
         ? 'array'
         : 'scalar';
+  if (typescript && !collectionIsPresent(expression)) return `rune.list(${value})`;
   if (shape === 'array') return collectionIsPresent(expression) ? `(${value})` : `(${value} ?? [])`;
   if (shape === 'scalar' && expressionIsPresent(expression)) return `[${value}]`;
   if (projection) return `rune.list(${value})`;
@@ -153,7 +154,12 @@ export function nativeCollection(
   return `(${parameter} => value == null ? [] : [value].flat())(${value})`;
 }
 
-export function nativeCount(value: string, expression?: RosettaExpression, implicitMany?: boolean): string {
+export function nativeCount(
+  value: string,
+  expression?: RosettaExpression,
+  implicitMany?: boolean,
+  polymorphic = false
+): string {
   const shape = expression
     ? collectionShape(expression)
     : implicitMany === undefined
@@ -161,6 +167,7 @@ export function nativeCount(value: string, expression?: RosettaExpression, impli
       : implicitMany
         ? 'array'
         : 'scalar';
+  if (polymorphic) return `rune.count(${value})`;
   if (shape === 'array') return `(${parenthesizeReceiver(value)}?.length ?? 0)`;
   if (shape === 'scalar') return `(${value} == null ? 0 : 1)`;
   return `((value) => Array.isArray(value) ? value.length : value == null ? 0 : 1)(${value})`;

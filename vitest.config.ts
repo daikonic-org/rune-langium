@@ -1,4 +1,5 @@
 import { workspaceTestCache } from './test/helpers/vitest-cache.js';
+import { GENERATED_MODULE_TEST_TIMEOUT } from './test/helpers/vitest-budget.js';
 import { defineConfig } from 'vitest/config';
 import { decoratorLoweringPlugin } from './packages/codegen/vitest-decorator-plugin.js';
 
@@ -20,6 +21,7 @@ export default defineConfig({
     fsModuleCachePath: workspaceTestCache(import.meta.url),
     globals: true,
     environment: 'node',
+    testTimeout: GENERATED_MODULE_TEST_TIMEOUT,
     include: ['packages/**/test/**/*.test.ts', 'packages/**/src/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/build/**', 'packages/visual-editor/**', 'apps/**'],
     coverage: {

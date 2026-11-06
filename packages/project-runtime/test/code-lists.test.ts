@@ -10,6 +10,7 @@ import {
   previewTypeSymbol
 } from '@rune-langium/codegen/export';
 import { createProjectSnapshot } from '@rune-langium/project-config';
+import { isRosettaModel, isRosettaEnumeration } from '@rune-langium/core';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { decodeProjectCodeList, readReferenceCodeList } from '../src/code-lists.js';
 import { resolveProjectResource } from '../src/resources.js';
@@ -20,6 +21,67 @@ const expected = {
   canonicalUri: 'http://www.fpml.org/coding-scheme/option-type',
   version: '1-0'
 };
+it('decodes pinned code-to-label JSON resources without replacing wire codes with labels', () => {
+  expect(decodeProjectCodeList('{"USD":"US Dollar","EUR":"Euro"}').values).toEqual([
+    { value: 'USD', label: 'US Dollar' },
+    { value: 'EUR', label: 'Euro' }
+  ]);
+  for (const value of ['{"USD":5}', '{"USD":""}', '{"":"Dollar"}'])
+    expect(() => decodeProjectCodeList(value)).toThrow();
+});
+it('materializes the pulled currency list into a real Rune enum linked to Quote.currency', async () => {
+  const base = new URL('../../../test/fixtures/third-party/currency-list/', import.meta.url);
+  const provenance = JSON.parse(readFileSync(new URL('sources.json', base), 'utf8'));
+  for (const [path, checksum] of Object.entries(provenance.sha256))
+    expect(
+      createHash('sha256')
+        .update(readFileSync(new URL(path, base)))
+        .digest('hex')
+    ).toBe(checksum);
+  const content = readFileSync(new URL('currency.json', base), 'utf8');
+  const snapshot = await createProjectSnapshot(
+    'currency',
+    new Map([
+      ['rune-config.yml', 'model: {name: Currency}'],
+      [
+        'build-config.yml',
+        JSON.stringify({
+          schemaVersion: 1,
+          overrides: [
+            {
+              kind: 'resource',
+              source: { model: 'local', id: 'quote.CurrencyCode#RosettaTypeAlias' },
+              path: 'resources/currency.json'
+            }
+          ]
+        })
+      ],
+      [
+        'model/quote.rosetta',
+        'namespace quote\ntypeAlias CurrencyCode: string\ntype Quote:\n currency CurrencyCode (1..1)'
+      ],
+      ['resources/currency.json', content]
+    ]),
+    () => []
+  );
+  const graph = await buildEffectiveProject(snapshot, []);
+  expect(graph.diagnostics).toEqual([]);
+  const enumDocuments = graph.documents.filter((document) =>
+    document.uri.toString().startsWith('file:///project-resources/')
+  );
+  const members = enumDocuments
+    .flatMap((document) => (isRosettaModel(document.parseResult.value) ? document.parseResult.value.elements : []))
+    .filter(isRosettaEnumeration)
+    .flatMap((node) => node.enumValues);
+  expect(members).toHaveLength(decodeProjectCodeList(content).values.length);
+  expect(members.map((member) => member.name)).toContain('USD');
+  const field = generatePreviewSchemas([...graph.documents], { targetId: 'quote.Quote' })[0]!.fields[0];
+  expect(field).toMatchObject({
+    kind: 'enum',
+    enumValues: expect.arrayContaining([{ value: 'USD', label: 'US Dollar' }])
+  });
+  expect(snapshot.files.get('resources/currency.json')).toBe(content);
+});
 it('decodes real CDM lists and retains descriptions, dates and distinct version identity', () => {
   const manifest = JSON.parse(readFileSync(new URL('sources.json', base), 'utf8'));
   for (const [path, checksum] of Object.entries(manifest.sha256))

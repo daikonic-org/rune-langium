@@ -288,6 +288,15 @@ export interface FuncFormActions extends CommonFormActions {
     targetTypeId?: string
   ): void;
   reorderInputParam(nodeId: string, fromIndex: number, toIndex: number): void;
+  /** Update the output signature and its references as one undoable edit. */
+  updateOutputParam(
+    nodeId: string,
+    oldName: string,
+    newName: string,
+    typeName: string,
+    cardinality: string,
+    targetTypeId?: string
+  ): void;
   updateOutputType(nodeId: string, typeName: string): void;
   updateExpression(nodeId: string, expressionText: string, operationIndex?: number): void;
   /** Set (or clear, with `null`) a Function's `superFunction` parent reference. */

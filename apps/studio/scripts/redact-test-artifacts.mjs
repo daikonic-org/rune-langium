@@ -52,14 +52,21 @@ function redactStructuredText(text) {
   }
 }
 
-async function redactBytes(bytes, archive = false) {
+async function redactBytes(bytes, archive = false, location = 'artifact') {
   if (archive) {
-    const zip = await JSZip.loadAsync(bytes);
+    let zip;
+    try {
+      zip = await JSZip.loadAsync(bytes);
+    } catch (cause) {
+      throw new Error(`Cannot inspect ZIP evidence: ${redactEvidenceText(location)} (${bytes.length} bytes)`, {
+        cause
+      });
+    }
     let changed = false;
     for (const entry of Object.values(zip.files)) {
       if (entry.dir) continue;
       const original = await entry.async('nodebuffer');
-      const redacted = await redactBytes(original, entry.name.endsWith('.zip'));
+      const redacted = await redactBytes(original, entry.name.endsWith('.zip'), `${location}!${entry.name}`);
       if (!original.equals(redacted)) {
         zip.file(entry.name, redacted);
         changed = true;
@@ -77,7 +84,7 @@ async function redactBytes(bytes, archive = false) {
   const replacements = [];
   for (const match of text.matchAll(/data:application\/zip;base64,([a-zA-Z0-9+/=]+)/g)) {
     const original = Buffer.from(match[1], 'base64');
-    const redacted = await redactBytes(original, true);
+    const redacted = await redactBytes(original, true, `${location}!embedded-report@${match.index}`);
     if (!original.equals(redacted))
       replacements.push([match[0], `data:application/zip;base64,${redacted.toString('base64')}`]);
   }
@@ -101,7 +108,7 @@ export async function redactTestArtifacts(directory) {
     if (entry.isDirectory()) changed += await redactTestArtifacts(file);
     else if (entry.isFile()) {
       const original = await readFile(file);
-      const redacted = await redactBytes(original, entry.name.endsWith('.zip'));
+      const redacted = await redactBytes(original, entry.name.endsWith('.zip'), file);
       if (!original.equals(redacted)) {
         await writeFile(file, redacted);
         changed++;

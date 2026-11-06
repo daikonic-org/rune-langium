@@ -25,9 +25,9 @@ for (const [name, width] of [
       await page.reload();
       await page.getByTestId('rail-export').click();
       const settings = page.getByTestId('export-settings-panel');
-      // Compact Export opens on Preview; use its existing Settings tab.
+      // Compact Export opens on Selection; reveal the Export workspace.
       if (width < 900)
-        await page.getByTestId('export-perspective').getByRole('tab', { name: 'Settings', exact: true }).click();
+        await page.getByTestId('export-perspective').getByRole('tab', { name: 'Export', exact: true }).click();
       await expect(settings.getByRole('checkbox', { name: 'types', exact: true })).toBeEnabled();
       for (const id of Object.keys(fixture.preview.build.targets).filter((id) => !['types', 'schedule'].includes(id)))
         await expect(settings.getByRole('checkbox', { name: id, exact: true })).toBeDisabled();

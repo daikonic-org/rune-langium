@@ -21,7 +21,7 @@ export function renderPresence(
     return absent ? `!${present}` : present;
   }
   if (!many) return `${metadata ? unwrapMetadata(value, false) : value} ${absent ? '==' : '!='} null`;
-  const receiver = parenthesizeReceiver(value);
+  const receiver = typescript ? `rune.list(${value})` : parenthesizeReceiver(value);
   const present =
     metadata === 'reference' ? `${receiver}?.some((field) => field.value != null)` : `${receiver}?.length`;
   return `${absent ? '!' : '!!'}${present}`;

@@ -411,6 +411,11 @@ keyof typeof RuneDslTerminals
 RuneDslTerminalNames | RuneDslKeywordNames
 ```
 
+### `AnnotationArgument`
+```ts
+Attribute | SchemaOrFormat
+```
+
 ### `AnnotationPathExpression`
 ```ts
 AnnotationDeepPath | AnnotationPath | AnnotationPathAttributeReference | RosettaImplicitVariable

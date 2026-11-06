@@ -3,8 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { parseExpression, type SourceRegion } from '@rune-langium/core';
-import { RosettaExpressionSchema } from '@rune-langium/core/zod-schemas';
-import { renderExpression, treesEquivalent } from '@rune-langium/codegen/rosetta';
+import { expressionReplacement } from '../../services/projection-edit.js';
 import {
   Dialog,
   DialogContent,
@@ -59,17 +58,7 @@ export const ForeignExpressionDialog = withInstrumentation(
           setError(parsed.reason.message);
           return;
         }
-        const validated = RosettaExpressionSchema.safeParse(parsed.node);
-        if (!validated.success) {
-          setError('The parsed expression is not a valid Rune AST.');
-          return;
-        }
-        const unchanged = !original.hasErrors && treesEquivalent(original.value, parsed.node);
-        const replacement = unchanged ? expectedText : renderExpression(parsed.node);
-        if (parseExpression(replacement).hasErrors) {
-          setError('The draft does not produce valid Rune source.');
-          return;
-        }
+        const replacement = expressionReplacement(parsed.node, expectedText);
         const committed = onApply({ binding, region, expectedText, replacement });
         if (committed.ok) close();
         else

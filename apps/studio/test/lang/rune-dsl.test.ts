@@ -11,9 +11,47 @@ import { EditorState, type Extension } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { highlightTree, tags } from '@lezer/highlight';
 import { studioEditorHighlightStyle } from '../../src/lang/editor-theme.js';
-import { runeDslLanguage, runeDslStreamParser } from '../../src/lang/rune-dsl.js';
+import { runeDslLanguage, runeDslStreamParser, runeDocumentationRanges } from '../../src/lang/rune-dsl.js';
+import { parse } from '@rune-langium/core';
 
 describe('runeDslStreamParser', () => {
+  it.each([
+    "<'Single quotes'>",
+    '< "With gaps" >',
+    "<\n 'Across lines'\n>",
+    "<'It\\'s escaped'>",
+    "< /* gap */ 'Comment gaps' /* gap */ >",
+    '< // gap\n "Comment line" // gap\n >'
+  ])('recognizes grammar-valid documentation %s', async (documentation) => {
+    const source = `namespace docs\ntype Example:\n ${documentation}\n value string (1..1)`;
+    expect((await parse(source)).hasErrors).toBe(false);
+    expect(runeDocumentationRanges(source).map((range) => source.slice(range.from, range.to))).toEqual([documentation]);
+  });
+  it.each([
+    ['alias selected:', '1\n set result: selected'],
+    ['condition Positive:', '1 > 0\n set result: 1'],
+    ['set result:', '1'],
+    ['add result:', '1'],
+    ['set result: 1\n post-condition Positive:', 'result count > 0']
+  ])(
+    'recognizes multiline documentation after %s and keeps expression strings/operators separate',
+    async (header, body) => {
+      const documentation = "<\n 'Body documentation'\n >";
+      const source = `namespace docs\nfunc Example:\n output: result number (0..*)\n ${header}\n // intervening comment\n ${documentation}\n ${body}`;
+      expect((await parse(source)).hasErrors).toBe(false);
+      expect(runeDocumentationRanges(source).map((range) => source.slice(range.from, range.to))).toEqual([
+        documentation
+      ]);
+    }
+  );
+  it('dims documentation and finds only complete authored documentation ranges', () => {
+    const documentation = '<"Documentation with a \\"quoted\\" phrase\nand another line." >';
+    const source = `type Quote: ${documentation}\n amount number (1..1)\n// <"Not documentation">\nfunc Text:\n set result: '<"A string">'\n set result: value <"z" and 1 > 0\ntype Draft: <"Unfinished`;
+    const ranges = runeDocumentationRanges(source);
+    expect(ranges.map(({ from, to }) => source.slice(from, to))).toEqual([documentation]);
+    const state = runeDslStreamParser.startState();
+    expect(runeDslStreamParser.token(new StringStream('<"A description">', 4, 4), state)).toBe('docComment');
+  });
   function tokens(source: string) {
     const result: { text: string; tag: string | null }[] = [];
     const state = runeDslStreamParser.startState();

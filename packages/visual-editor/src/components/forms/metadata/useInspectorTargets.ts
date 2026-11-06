@@ -49,7 +49,7 @@ export function useInspectorTargets({
   actions: CommonFormActions &
     Partial<
       Pick<DataFormActions, 'updateAttribute'> &
-        Pick<FuncFormActions, 'updateInputParam'> &
+        Pick<FuncFormActions, 'updateInputParam' | 'updateOutputParam'> &
         Pick<EnumFormActions, 'updateEnumValue'>
     >;
   scopeKey?: string;
@@ -128,8 +128,10 @@ export function useInspectorTargets({
       const card =
         formatCardinality(member.card ? { ...member.card, unbounded: member.card.unbounded ?? false } : undefined) ||
         '(1..1)';
-      if (root.$type === 'RosettaFunction') actions.updateInputParam?.(nodeId, member.name, name, type, card);
-      else actions.updateAttribute?.(nodeId, member.name, name, type, card);
+      if (root.$type === 'RosettaFunction') {
+        if (row.path[0] === 'output') actions.updateOutputParam?.(nodeId, member.name, name, type, card);
+        else actions.updateInputParam?.(nodeId, member.name, name, type, card);
+      } else actions.updateAttribute?.(nodeId, member.name, name, type, card);
     } else if (isRosettaEnumValue(member)) actions.updateEnumValue?.(nodeId, member.name, name, member.display);
   };
   return { rows, selection, rootBinding, childBinding, renameRow };

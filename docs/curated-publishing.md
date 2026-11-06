@@ -74,10 +74,20 @@ Other releases are still attempted; any failure keeps the workflow red.
 The independent Nightly build still runs and retains its moving identity. Release
 catalog writes never advance Nightly pointers or label a tagged release Nightly.
 
+Build failures, uploader exits and uploader exceptions are isolated per release:
+later tags still build and publish before the aggregate failure is reported. The
+workflow's Nightly build and upload depend on their own prerequisite outcomes,
+so a red reconciliation step does not suppress a valid Nightly publication.
+
 FpML 3.13.0's documented `schema` declarations require Rune's optional definition
 after the format. Core parses and serializes that documentation; source rendering
 preserves it. CDM 7.9.0 resolves to FpML 3.13.0 and Rune DSL 10.15.3. Local builds
 and publication dry runs do not establish a published release.
+
+Qualified transform annotations such as `[ingest fpml.fpml514ConfirmationXML]`
+resolve the schema through Core's normal namespace/import-alias scope. Legacy
+`[ingest XML]` attributes retain their existing targets. Annotation parsing or
+linking errors still block serialization; source text is never rewritten to hide them.
 
 The upload script prepares the entire set first. Publication uploads all
 versioned bundles and namespace artifacts, then every immutable cohort manifest.

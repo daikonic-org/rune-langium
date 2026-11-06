@@ -18,6 +18,8 @@ import {
   isChoice,
   isChoiceOption,
   isRosettaTypeAlias,
+  isRosettaBasicType,
+  isRosettaRecordType,
   isRosettaType,
   isTypeCall,
   type RosettaFunction,
@@ -413,8 +415,16 @@ function funcTypeInfo(
         ? typeName
         : undefined;
   return {
-    typeName: ref && typeNameResolver ? typeNameResolver(ref, typeName) : typeName,
-    shapeTypeName: ref && shapeTypeName && typeNameResolver ? typeNameResolver(ref, shapeTypeName) : shapeTypeName
+    typeName:
+      ref && typeNameResolver && !isRosettaBasicType(ref) && !isRosettaRecordType(ref)
+        ? typeNameResolver(ref, typeName)
+        : typeName,
+    shapeTypeName:
+      isData(ref) || isChoice(ref)
+        ? `${typeNameResolver ? typeNameResolver(ref, ref.name) : ref.name}.Shape`
+        : ref && shapeTypeName && typeNameResolver
+          ? typeNameResolver(ref, shapeTypeName)
+          : shapeTypeName
   };
 }
 
@@ -443,7 +453,7 @@ export function resolveFuncValueTypeTs(
   typeNameResolver?: FuncTypeNameResolver
 ): string {
   const param = funcTypeInfo(isRosettaType(attr) ? attr : attr.typeCall, plainDataTypeNames, typeNameResolver);
-  return param.shapeTypeName ? `RuneFuncData<${param.shapeTypeName}>` : resolveFuncTypeTs(param.typeName);
+  return param.shapeTypeName ?? resolveFuncTypeTs(param.typeName);
 }
 
 /**

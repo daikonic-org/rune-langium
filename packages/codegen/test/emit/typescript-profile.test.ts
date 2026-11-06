@@ -60,19 +60,43 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     }
   }, 20_000);
 
-  it('per-namespace layout (library default) is unchanged: one file per namespace, inlined helpers', async () => {
+  it('retains shared public APIs when every namespace needs explicit collision exports', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const docs = ['foo', 'bar'].map((namespace) =>
+      RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+        `namespace ${namespace}\ntype Trade:\n amount number (1..1)`,
+        URI.parse(`inmemory:///${namespace}.rosetta`)
+      )
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { validation: false });
+    const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'barrel' } });
+    const runtime = compileGeneratedTypeScript<Record<string, unknown>>(outputs, {
+      entry: 'index.ts',
+      assertions: `
+import { Cardinality, RuneObject, RuneList, is, type One, type Optional, type Many, type OneOrMore, type ZeroOrMore } from './index.js';
+const required: One<number> = 1;
+const optional: Optional<number> = undefined;
+const length = (value: Many<number>) => value.length;
+const nonempty: OneOrMore<number> = 1;
+const empty: ZeroOrMore<number> = undefined;
+`
+    });
+    for (const name of ['Cardinality', 'RuneObject', 'RuneList', 'is']) expect(runtime[name]).toBeDefined();
+    expect(runtime.__rune$foo$Trade).toBeTypeOf('function');
+    expect(runtime.__rune$bar$Trade).toBeTypeOf('function');
+  });
+
+  it('per-namespace layout shares helpers by default and retains explicit inline output', async () => {
     const docs = await parseTwoNamespaces();
     const outputs = await generate(docs, { target: 'typescript' });
-
-    const paths = outputs.map((o) => o.relativePath).sort();
-    expect(paths).toEqual(['bar.ts', 'foo.ts']);
-
-    for (const out of outputs) {
-      expect(out.content).toContain('const runeCheckOneOf = (values:');
-      // TS emit doesn't carry `import { z }` — that's Zod-only.
-      expect(out.content).not.toContain(`import { z } from 'zod';`);
-      expect(out.content).not.toContain(`from './runtime.js'`);
+    expect(outputs.map((o) => o.relativePath).sort()).toEqual(['bar.ts', 'foo.ts', 'helpers.ts']);
+    for (const out of outputs.filter((out) => out.artifactRole !== 'support')) {
+      expect(out.content).toContain("from './helpers.js'");
+      expect(out.content).not.toContain('runtime helpers (inlined)');
     }
+    const inline = await generate(docs, { target: 'typescript', typescript: { inlineHelpers: true } });
+    expect(inline.map((o) => o.relativePath).sort()).toEqual(['bar.ts', 'foo.ts']);
+    for (const out of inline) expect(out.content).toContain('runtime helpers (inlined)');
   });
 
   it('barrel layout emits per-namespace files + index.ts + helpers.ts', async () => {
@@ -87,7 +111,7 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
 
     const fooOutput = outputs.find((o) => o.relativePath === 'foo.ts');
     expect(fooOutput?.content).toMatch(
-      /import \{ rune, type RuneFuncData, runeValue,.*type RuneView,.*\} from '\.\/helpers.js';/
+      /import \{ rune, type RuneFuncData,.*runeValue,.*type RuneProjected,.*\} from '\.\/helpers.js';/
     );
     expect(fooOutput?.content).not.toContain('// --- rune-codegen runtime helpers (inlined) ---');
 

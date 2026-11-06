@@ -161,8 +161,8 @@ func MakeEmptyBox:
       }
     );
     expect(funcs.MakeEmptyBox!({})).toEqual({ origin: { x: 1, y: 2 }, kind: 'A' });
-    expect(source).toContain('{} as RuneFuncData<PointShape>');
-    expect(source).toContain('satisfies RuneFuncData<BoxShape>');
+    expect(source).toContain('{} as Point.Shape');
+    expect(source).toContain('satisfies Box.Shape');
     expect(source).not.toMatch(/"A" as/);
   });
   it('uses Temporal values and equality in both functions and Data classes', async () => {
@@ -584,9 +584,9 @@ func Parse:
  output: result Kind (0..1)
  set result: text to-enum Kind
 `,
-      `const child: ChildShape = {};
+      `const child: Child.Shape = {};
 // @ts-expect-error zero cardinality excludes populated fields
-const invalid: ChildShape = {excluded: [1]};`
+const invalid: Child.Shape = {excluded: [1]};`
     );
     expect(funcs.Parse!({ text: 'Cash' })).toBe('Cash');
     expect(funcs.Parse!({ text: 'Credit' })).toBe('Credit');
@@ -2493,8 +2493,9 @@ Required('1');
 const wrongOutput: string = Required(1);
 // @ts-expect-error Optional output may be absent.
 const missingOptionality: number = Optional();
-// @ts-expect-error Collection input requires an array.
-Many(1);
+const singletonCollection: number[] = Many(1);
+// @ts-expect-error Collection elements retain their declared type.
+Many('1');
 `
     );
   });
@@ -2672,14 +2673,21 @@ func Reference:
  output: result Item (1..1)
   [metadata reference]
  set result: source as-key
+func OptionalReference:
+ inputs: source Item (0..1)
+ output: result Item (1..1)
+  [metadata reference]
+ set result: source as-key
 `,
       `
-const item: Item = {name: 'A', meta: {externalKey: 'item-1'}};
-const reference: RuneReferenceWithMeta<Item> = Reference(item);
+const emptyReference: RuneReferenceWithMeta<Item.Shape> = OptionalReference(undefined);
+const item: Item.Shape = {name: 'A', meta: {externalKey: 'item-1'}};
+const reference: RuneReferenceWithMeta<Item.Shape> = Reference(item);
 // @ts-expect-error Reference outputs are wrappers, not direct data values.
 const value: Item = Reference(item);
 `
     );
+    expect(funcs.OptionalReference!({})).toEqual({});
     expect(funcs.Reference!({ source: { name: 'A', meta: { externalKey: 'item-1' } } })).toEqual({
       externalReference: 'item-1'
     });
