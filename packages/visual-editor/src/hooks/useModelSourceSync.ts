@@ -395,6 +395,7 @@ export function useModelSourceSync(
   const pending = useRef<Promise<void>>(Promise.resolve());
   const busy = useRef(false);
   const queued = useRef<Map<string, string> | null>(null);
+  const explicitPublicationVersion = useRef(0);
   const publish = useCallback((snapshot: SourceSyncSnapshot, explicit: boolean): Promise<void> => {
     const { nodes, edges, parseEpoch, patches, inversePatches } = snapshot;
     const handler = onModelChangedRef.current;
@@ -451,6 +452,7 @@ export function useModelSourceSync(
     const previous = queued.current ?? lastSerializedRef.current;
     if (previous && previous.size === next.size && [...next].every(([key, value]) => previous.get(key) === value))
       return pending.current;
+    if (explicit) explicitPublicationVersion.current += 1;
     queued.current = next;
     // Keep publication receipts in order; a rejected receipt remains observable to flush.
     const start = () => {
@@ -480,8 +482,21 @@ export function useModelSourceSync(
     pending.current = receipt;
     return receipt;
   }, []);
+  const renderPublicationVersion = explicitPublicationVersion.current;
   useEffect(() => {
+    // A save barrier may capture newer edits after this render but before its effect.
+    if (renderPublicationVersion !== explicitPublicationVersion.current) return;
     void publish({ nodes, edges, parseEpoch, patches, inversePatches }, false).catch(() => {});
-  }, [nodes, edges, parseEpoch, patches, originalSourceByNamespace, inversePatches, sourceFiles, publish]);
+  }, [
+    nodes,
+    edges,
+    parseEpoch,
+    patches,
+    originalSourceByNamespace,
+    inversePatches,
+    sourceFiles,
+    publish,
+    renderPublicationVersion
+  ]);
   return { flush: useCallback((snapshot: SourceSyncSnapshot) => publish(snapshot, true), [publish]) };
 }

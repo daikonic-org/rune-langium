@@ -50,20 +50,22 @@ async function savedSource(page: Page, expected: string) {
   await expect
     .poll(
       () =>
-        page.evaluate(async (expected) => {
+        page.evaluate(async () => {
+          const entries: string[] = [];
           async function scan(directory: FileSystemDirectoryHandle): Promise<string | undefined> {
             for await (const [name, handle] of directory.entries()) {
-              if (handle.kind === 'file' && name === 'details.rosetta') {
-                const text = await (await (handle as FileSystemFileHandle).getFile()).text();
-                if (text.includes(expected)) return text;
-              } else if (handle.kind === 'directory') {
-                const found = await scan(handle as FileSystemDirectoryHandle);
+              entries.push(`${handle.kind}: ${name}`);
+              if (handle.kind === 'file' && name === 'details.rosetta') return (await handle.getFile()).text();
+              if (handle.kind === 'directory') {
+                const found = await scan(handle);
                 if (found) return found;
               }
             }
           }
-          return scan(await navigator.storage.getDirectory());
-        }, expected),
+          return (
+            (await scan(await navigator.storage.getDirectory())) ?? `No saved details.rosetta: ${entries.join(', ')}`
+          );
+        }),
       { timeout: 15000 }
     )
     .toContain(expected);

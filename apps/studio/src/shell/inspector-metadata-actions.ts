@@ -9,7 +9,8 @@ export const createScopedMetadataActions = withInstrumentation(
   function createScopedMetadataActions(
     capturedScope: string,
     current: () => { scope: string; canEdit: (nodeId: string) => boolean },
-    actions: InspectorMetadataActions
+    actions: InspectorMetadataActions,
+    onCommitted?: () => void
   ): InspectorMetadataActions {
     return {
       captureMetadataTarget(nodeId, path) {
@@ -20,7 +21,9 @@ export const createScopedMetadataActions = withInstrumentation(
         const live = current();
         if (live.scope !== capturedScope) return { status: 'stale' };
         if (!live.canEdit(target.nodeId)) return { status: 'readOnly' };
-        return actions.applyMetadataCommand(target, command);
+        const result = actions.applyMetadataCommand(target, command);
+        if (result.status === 'committed') onCommitted?.();
+        return result;
       }
     };
   },

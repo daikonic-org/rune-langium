@@ -362,6 +362,10 @@ as other references while `TypeLink` retains import-aware navigation.
 Scalar metadata autosaves retain valid edits when the host defers them during a
 source reparse. Metadata draft controls stay editable during this structural lock;
 explicit synonym Add commands use the same retained-save lifecycle as scalar edits.
+Accepted metadata commands immediately capture the shared ordered source flush,
+before a preceding parse can consume their one-shot edit patches. The explicit
+Save barrier uses that same snapshot and publication path. Explicit publication
+invalidates older rendered observer snapshots so they cannot overwrite that edit.
 Permanent source permissions and inherited rows remain read-only. A fresh canonical
 target retries that same guarded pending edit, including enum display names; changing workspace or member identity never bypasses
 the existing target checks. Synonym fieldsets can shrink within their Inspector

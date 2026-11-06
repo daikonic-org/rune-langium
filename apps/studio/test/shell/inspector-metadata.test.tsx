@@ -2,10 +2,17 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { useStore } from 'zustand';
 import { parse } from '@rune-langium/core';
-import { createEditorStore, createEditorCommitRegistry, EnumForm, FunctionForm } from '@rune-langium/visual-editor';
+import {
+  useModelSourceSync,
+  createEditorStore,
+  createEditorCommitRegistry,
+  EnumForm,
+  FunctionForm
+} from '@rune-langium/visual-editor';
+import { createSynonymDraft } from '@rune-langium/visual-editor/model';
 import { createScopedMetadataActions } from '../../src/shell/inspector-metadata-actions.js';
 
 describe('Inspector host metadata scope', () => {
@@ -167,4 +174,68 @@ func Identity:
       status: 'readOnly'
     });
   });
+});
+
+it('publishes an accepted metadata edit before a preceding reparse consumes its patches', async () => {
+  const source = `namespace demo
+synonym source FpML
+func Identity:
+  inputs: value string (1..1)
+  output: result string (1..1)
+  set result: value
+`;
+  const parsed = (await parse(source)).value;
+  const store = createEditorStore();
+  store.getState().loadModels(parsed);
+  const id = store.getState().nodes.find((node) => node.data.name === 'Identity')!.id;
+  const published = vi.fn();
+  const { result, unmount } = renderHook(() => {
+    const state = useStore(store);
+    return useModelSourceSync(
+      state.nodes,
+      state.edges,
+      published,
+      state.parseEpoch,
+      state.pendingEditPatches,
+      new Map([['demo', source]]),
+      state.pendingInversePatches
+    );
+  });
+  const metadata = createScopedMetadataActions(
+    'A:1',
+    () => ({ scope: 'A:1', canEdit: () => true }),
+    store.getState(),
+    () => {
+      const state = store.getState();
+      void result.current.flush({
+        nodes: state.nodes,
+        edges: state.edges,
+        parseEpoch: state.parseEpoch,
+        patches: state.pendingEditPatches,
+        inversePatches: state.pendingInversePatches
+      });
+    }
+  );
+  try {
+    await act(async () => {
+      const target = metadata.captureMetadataTarget(id, ['inputs', 0])!;
+      expect(metadata.applyMetadataCommand(target, { kind: 'definition', value: 'Function input' }).status).toBe(
+        'committed'
+      );
+    });
+    const definitionSource = published.mock.calls.at(-1)![0].get('demo')!;
+    const precedingParse = await parse(definitionSource);
+    expect(precedingParse.hasErrors).toBe(false);
+    await act(async () => {
+      const target = metadata.captureMetadataTarget(id, ['inputs', 0])!;
+      const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
+      expect(metadata.applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value }).status).toBe(
+        'committed'
+      );
+      store.getState().loadModels(precedingParse.value);
+    });
+    expect(published.mock.calls.at(-1)![0].get('demo')).toContain('[synonym FpML value "Wire value"]');
+  } finally {
+    unmount();
+  }
 });
