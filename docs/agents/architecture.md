@@ -317,6 +317,13 @@ sections use these semantic insets; change the two tokens rather than patching
 individual section padding. Nested sections inherit the owning horizontal gutter
 and use only the block inset, avoiding doubled indentation. Compact Inspector
 forms use `--inspector-padding-inline` (8 px); their header owns no second gutter.
+Function inputs and the named output share `AttributeRow`, including type-drop,
+cardinality and metadata targeting. Inputs are added from the section legend;
+there is no permanent empty creation row. Output signature edits keep the reserved
+`output` dependency-edge label and update lexical output references and assignment
+roots in the same Undo transaction. The shared parser normalizes pending expression
+text before renaming; local shadowing is preserved, and collisions/capture leave
+the committed graph unchanged. The legacy type-only action delegates to this edit.
 `--field-label-gap` (4 px) is shared by design-system Field and Preview controls.
 Preview and Prototype share validated field state: invalid controls use a semantic
 red-tinted background and border, `aria-invalid`, and an associated inline error.
@@ -611,7 +618,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 
 - Inspector section placement is owned by `visual-editor/src/components/forms/sections/config.ts`. Generated form config derives its field assignments from that layout; custom Inspector tabs resolve the same sections with the upstream `SectionRenderer`. Placement includes inherited AST metadata and UI-only comments, which are not all enumerated by the generated schema walker. Standalone section callback props remain a public API.
 - Inspector forms own one 6px outer inset through `INSPECTOR_FORM_CLASS`; the center pane adds none, and headers/sections use 6px vertical spacing without repeating horizontal padding. Fields and embedded editors retain their own text inset; metadata textarea focus rings draw inside their borders so scroll edges cannot clip the side highlight. Inspector member rows share name-field geometry through `INSPECTOR_ROW_NAME_CLASS`, keeping attributes/function inputs and enum members at the same text size and padding. Inherited rows use the same typography with muted names, and consume the same type options as local rows so reference chips retain canonical kind colors. Member-details headings derive from the canonical root kind (Attribute, Member, Option, or Input), and icon-only controls retain accessible names. Inspector navigation uses the same one-second outline fade as graph/structure, inset to avoid clipping; reduced motion retains a static cue until cleanup. Dockview leaf views own symmetric gaps; shell/grid wrappers add no padding or one-sided margins. Center panes have no outer padding. Graph's drawing wrapper retains its 6px inset around React Flow; Structure owns a normal scrollable document inset and does not mount React Flow. `DockShell` measures the center stack for location-path alignment and updates it on native layout changes and resize.
-- Inspector type-label rows use `InspectorTypeField` for Wrapped type, Output Type, and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
+- Inspector type-label rows use `InspectorTypeField` for Wrapped type and Extends, preserving a shared vertical alignment and accessible group name. Dock headers and the center pane selector share `--studio-panel-header-height`; the center selector can grow when its controls wrap.
 - Structure sizes cards through native DOM layout, capped by the owning canvas. Shared type and cardinality wrappers align controls without fixed row measurements.
 - Structure requests the existing namespace hydration action for visible deferred roots, expanded children and inherited bases. Hydrated namespaces publish their documents into the shared graph independently of selection. Successfully linked documents are recorded after their models are merged, once per workspace; in-flight documents are tracked separately. Selected-document linking shares both sets, so navigation after later parser hydration resets cannot republish cached models. Both paths replace corpus snapshots by their canonical serialized document URI, including dependencies returned transitively; files sharing a namespace remain distinct. Regionless legacy snapshots use exact content identity. Later rounds skip successful documents, while Structure’s Load details action can retry failed publication without repeating namespace downloads or successful peer documents. In-flight link results belong to the workspace generation; selection changes must not discard their once-delivered models. Deferred cards show loading/retry content, while a hydrated derived type without own fields says _No additional attributes_.
 - Structure header names are drag surfaces. Explicit navigation arrows move from the property row to the child header while expanded; context menus retain canonical declaration targets. Type-reference lookup excludes functions even when their Rune names match a type. Inspector reference fields own option resolution so member rows do not preselect by label.
@@ -1362,7 +1369,11 @@ to an array-backed RuneList. Public cardinality aliases and bounded tuples descr
 these shapes without RuneView or unwrap. RuneObject proxies cache private RuneValue
 field slots; setters and list mutations reuse the shared field normalizer and
 validate before committing. Actual projected array results keep array shape during
-JSON serialization, including zero/one items. Public array sort dispatches by
+JSON serialization, including zero/one items. Descriptor-free map/flatMap results
+use the same native-value serializer; generated instances recover their own model
+and optional codec, while plain callback results recurse without a schema.
+Native patterns remain source strings in JSON, unsupported flags and cycles fail
+explicitly, and model tags survive Rune JSON serialization. Public array sort dispatches by
 callback `Function.length`: zero/one parameter selects the shared Rune key-sort
 helper, while two or more use native comparison and mutation through the normalizer.
 An explicit key comparator retains helper semantics; `sort(undefined, compare)`

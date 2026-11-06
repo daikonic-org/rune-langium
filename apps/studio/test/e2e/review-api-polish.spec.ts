@@ -104,7 +104,7 @@ test('keeps member-name inputs aligned with compact Inspector controls', async (
   await load(page);
   await select(page, 'CurrencyTest', 'RosettaFunction');
   await showPane(page, 'Inspector');
-  const reference = page.getByRole('textbox', { name: 'New input parameter name', exact: true });
+  const reference = page.getByRole('textbox', { name: 'Output name: result', exact: true });
   const geometry = (element: Element) => ({
     height: element.getBoundingClientRect().height,
     font: getComputedStyle(element).fontSize,
@@ -123,6 +123,28 @@ test('keeps member-name inputs aligned with compact Inspector controls', async (
     expect(await input.evaluate(geometry)).toEqual(expected);
     await page.screenshot({ path: info.outputPath(`compact-${name}.png`) });
   }
+});
+
+test('edits a named output alongside inputs and synchronizes source', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await load(page);
+  await select(page, 'CurrencyTest', 'RosettaFunction');
+  await showPane(page, 'Inspector');
+  await showPane(page, 'Source');
+  await expect(page.getByRole('textbox', { name: 'New input parameter name', exact: true })).toHaveCount(0);
+  const output = page.getByRole('group', { name: 'Output', exact: true });
+  await expect(output.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
+  await expect(output.locator('[data-slot="attribute-cardinality"]')).toContainText('1..1');
+  const editor = fullSourceEditor(page);
+  const name = output.locator('[data-slot="attribute-name"]');
+  await name.fill('accepted');
+  await name.blur();
+  await expect.poll(() => codeMirrorDocument(editor)).toContain('accepted boolean (1..1)');
+  await expect.poll(() => codeMirrorDocument(editor)).toContain('set accepted:');
+  await expect(output.getByRole('textbox', { name: 'Output name: accepted', exact: true })).toBeEnabled();
+  await page.screenshot({ path: info.outputPath('named-output.png') });
+  await page.getByRole('button', { name: 'Add input', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: /^Attribute name:\s*$/ })).toBeVisible();
 });
 
 test('drops a type onto the input name and shows inherited enum values', async ({ page }, info) => {

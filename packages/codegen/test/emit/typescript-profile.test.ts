@@ -60,6 +60,32 @@ describe('TypeScript LanguageProfile (019 Phase 0.5.3)', () => {
     }
   }, 20_000);
 
+  it('retains shared public APIs when every namespace needs explicit collision exports', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const docs = ['foo', 'bar'].map((namespace) =>
+      RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+        `namespace ${namespace}\ntype Trade:\n amount number (1..1)`,
+        URI.parse(`inmemory:///${namespace}.rosetta`)
+      )
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { validation: false });
+    const outputs = await generate(docs, { target: 'typescript', typescript: { layout: 'barrel' } });
+    const runtime = compileGeneratedTypeScript<Record<string, unknown>>(outputs, {
+      entry: 'index.ts',
+      assertions: `
+import { Cardinality, RuneObject, RuneList, is, type One, type Optional, type Many, type OneOrMore, type ZeroOrMore } from './index.js';
+const required: One<number> = 1;
+const optional: Optional<number> = undefined;
+const length = (value: Many<number>) => value.length;
+const nonempty: OneOrMore<number> = 1;
+const empty: ZeroOrMore<number> = undefined;
+`
+    });
+    for (const name of ['Cardinality', 'RuneObject', 'RuneList', 'is']) expect(runtime[name]).toBeDefined();
+    expect(runtime.__rune$foo$Trade).toBeTypeOf('function');
+    expect(runtime.__rune$bar$Trade).toBeTypeOf('function');
+  });
+
   it('per-namespace layout shares helpers by default and retains explicit inline output', async () => {
     const docs = await parseTwoNamespaces();
     const outputs = await generate(docs, { target: 'typescript' });

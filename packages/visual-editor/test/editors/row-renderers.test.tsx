@@ -117,6 +117,7 @@ function makeFunctionActions(): EditorFormActions<'func'> {
     removeSynonym: vi.fn(),
     addInputParam: vi.fn(),
     removeInputParam: vi.fn(),
+    updateOutputParam: vi.fn(),
     updateOutputType: vi.fn(),
     updateExpression: vi.fn(),
     validate: vi.fn(() => [])
@@ -351,7 +352,7 @@ describe('row renderer registry (Phase 8 / US6)', () => {
       // (data-slot="attribute-row"). The old read-only FunctionInputRow
       // (data-slot="input-param-row") is no longer used by FunctionForm.
       const rows = Array.from(document.querySelectorAll('[data-slot="attribute-row"]'));
-      expect(rows.length).toBe(1);
+      expect(rows.length).toBe(2);
     });
   });
 });

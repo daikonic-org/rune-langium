@@ -63,7 +63,7 @@ for (const width of [1280, 800]) {
     await page.screenshot({ path: info.outputPath(`wrapped-type-${width}.png`) });
     await search.fill('Run');
     await page.getByRole('button', { name: 'Navigate to Run', exact: true }).click();
-    const output = page.getByRole('group', { name: 'Output Type', exact: true });
+    const output = page.getByRole('group', { name: 'Output', exact: true });
     await expectTypeFieldAligned(output);
     await expectTypeFieldAligned(page.getByRole('group', { name: 'Extends', exact: true }));
     await page.screenshot({ path: info.outputPath(`function-fields-${width}.png`) });

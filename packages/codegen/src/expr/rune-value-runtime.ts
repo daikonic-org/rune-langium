@@ -342,7 +342,7 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   exists() { return this.count() > 0; }
   unwrap(): RunePayload<T, Min, Max> { const values = this.$list.toArray(); return (values.length === 0 ? undefined : values.length === 1 ? values[0] : values) as RunePayload<T, Min, Max>; }
   toArray(): 0 extends Min ? T[] : [T, ...T[]] { return this.$list.toArray() as 0 extends Min ? T[] : [T, ...T[]]; }
-  toJSON(options?: RuneJsonOptions | string, array = false): unknown { const value = array ? this.toArray() : this.unwrap(); return this.$type ? runeValueJSON(value, this.$type, options) : runeToFuncData(value); }
+  toJSON(options?: RuneJsonOptions | string, array = false): unknown { const value = array ? this.toArray() : this.unwrap(); return runeValueJSON(value, this.$type, options); }
   first(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.first(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   last(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.last(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   onlyElement(): RuneView<T, 0, 1, Model> { const value = this.$list.onlyElement(); return new RuneValue(value == null ? [] : [value], this.$type, 0, 1) as RuneView<T, 0, 1, Model>; }
@@ -481,9 +481,10 @@ ${e}function runeProjected(input: unknown, type: () => RuneValueType): unknown {
 ${e}function runeProjectedJSON<I, Model extends RuneValueType>(input: I, type: () => Model, options: RuneJsonOptions): RunePayload<RuneProjected<NonNullable<Model['output']>, Model>, RuneFromMin<I>, RuneFromMax<I>>;
 ${e}function runeProjectedJSON(input: unknown, type: () => RuneValueType, options: RuneJsonOptions): unknown { return runeProjectValue(runeValue(runeValueFromJSON(input, type, options), type)); }
 ${runeCodecRuntimeSource()}
-${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
+${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
   const active = new WeakSet<object>();
+  const encodedModels = new WeakMap<object, RuneValueType>();
   let codecProjection = false;
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
     value = runeObjectRaw(value);
@@ -491,7 +492,7 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
     if (value instanceof globalThis.RegExp) return codecProjection ? value : runeJson.pattern(value);
     if (/^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return runeFormat && !codecProjection ? String(value) : value;
     if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
-    const model = declaredModel && runeValueConcreteType(value, declaredModel);
+    const model = declaredModel ? runeValueConcreteType(value, declaredModel) : encodedModels.get(value) ?? runeObjectInstanceModel(value);
     active.add(value);
     try {
       if (Array.isArray(value)) return value.map(item => visit(item, model));
@@ -516,23 +517,37 @@ ${e}const runeValueJSON = (input: unknown, type: () => RuneValueType, options?: 
       return runeJson.context(result, model.metadata ? 'data-metadata' : 'data');
     } finally { active.delete(value); }
   };
-  const encode = (value: unknown): unknown => {
-    if (value == null) return value;
-    if (Array.isArray(value)) return value.map(encode);
-    const model = runeValueConcreteType(value, type());
-    const codec = model.codec?.();
-    if (!codec) return value;
-    if (codec.validate) {
-      const concrete = new WeakMap<object, RuneValueType>();
-      const native = runeCodecValue(value, model, 'validate', concrete);
-      return runeCodecValue(native, model, 'encode', concrete, runeFormat);
-    }
-    codecProjection = true;
-    try { return codec.encode(visit(value, model)); }
-    finally { codecProjection = false; }
+  const encode = (value: unknown, declaredModel?: RuneValueType): unknown => {
+    value = runeObjectRaw(value);
+    if (value == null || typeof value !== 'object') return value;
+    if (value instanceof globalThis.RegExp || /^\\[object Temporal\\./.test(Object.prototype.toString.call(value))) return value;
+    if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
+    active.add(value);
+    try {
+      if (Array.isArray(value)) return value.map(item => encode(item, declaredModel));
+      const model = declaredModel ? runeValueConcreteType(value, declaredModel) : runeObjectInstanceModel(value);
+      if (!model) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encode(item)]));
+      const codec = model.codec?.();
+      if (!codec) return value;
+      let encoded: unknown;
+      if (codec.validate) {
+        const concrete = new WeakMap<object, RuneValueType>();
+        const native = runeCodecValue(value, model, 'validate', concrete);
+        encoded = runeCodecValue(native, model, 'encode', concrete, runeFormat);
+      } else {
+        // The projection visitor owns its own cycle check for this same root.
+        active.delete(value);
+        codecProjection = true;
+        try { encoded = codec.encode(visit(value, model)); }
+        finally { codecProjection = false; }
+      }
+      if (encoded != null && typeof encoded === 'object') encodedModels.set(encoded, model);
+      return encoded;
+    } finally { active.delete(value); }
   };
-  const encoded = encode(input);
-  return runeFormat ? runeJson.encode(visit(encoded, type())) : visit(encoded);
+  const declaredModel = type?.();
+  const encoded = encode(input, declaredModel);
+  return runeFormat ? runeJson.encode(visit(encoded, declaredModel)) : visit(encoded);
 };
 ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, options: RuneJsonOptions = {}): unknown => {
   const parsed: unknown = typeof input === 'string' ? JSON.parse(input) : input;

@@ -21,8 +21,8 @@
  * 1. Header: editable name + "Function" purple badge
  * 2. Input parameters: editable `<AttributeRow>` list via useFieldArray
  *    (mirrors DataTypeForm's attribute section — DRY / Task R-func-input),
- *    plus an inline "add input" row that uses `<TypeReferenceField>`.
- * 3. Output type: TypeReferenceField for the return type
+ *    with the same Add affordance as data attributes.
+ * 3. Output: the shared AttributeRow at the canonical output path
  * 4. Function Body: aliases + operations rendered through the
  *    `renderExpressionEditor` slot, falling back to a plain `<Textarea>`
  *    when the slot is not provided. This is the bespoke editor UX that
@@ -43,20 +43,17 @@ import { renderNode, type DehydratedNode } from '@rune-langium/codegen/rosetta';
 import type { ReactNode } from 'react';
 import { useFieldArray, type Control } from 'react-hook-form';
 import { Field, FieldError, FieldGroup, FieldLegend, FieldSet } from '@rune-langium/design-system/ui/field';
-import { Input } from '@rune-langium/design-system/ui/input';
 import { Textarea } from '@rune-langium/design-system/ui/textarea';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Badge } from '@rune-langium/design-system/ui/badge';
 import { TypeHeader, INSPECTOR_FORM_HEADER_CLASS, INSPECTOR_FORM_CLASS } from '../TypeHeader.js';
 import { InspectorFrame } from './inspector/InspectorFrame.js';
 import { InspectorFooter } from './inspector/InspectorFooter.js';
-import { InspectorTypeField } from './inspector/InspectorTypeField.js';
 import { InspectorInheritanceField } from './inspector/InspectorInheritanceField.js';
 import { InspectorMetadataDetails } from './inspector/InspectorMetadataDetails.js';
 import { useInspectorTargets, type InspectorHostProps } from '../forms/metadata/useInspectorTargets.js';
 import { MetadataTargetProvider } from '../forms/metadata/MetadataTargetContext.js';
 import { Plus } from 'lucide-react';
-import { TypeReferenceField } from './TypeReferenceField.js';
 import { AttributeRow } from './AttributeRow.js';
 import { InheritedMembersSection } from './InheritedMembersSection.js';
 import { EditorSections } from '../forms/sections/EditorSections.js';
@@ -340,20 +337,12 @@ function FunctionForm({
     }
   }, [nodeId, actions, form, readOnlyProp, nodeMeta.isReadOnly]);
 
-  // ---- Output type ---------------------------------------------------------
-
-  const handleOutputTypeSelect = useCallback(
-    (value: string | null) => {
-      if (value) {
-        const opt = availableTypes.find((o) => o.value === value);
-        actions.updateOutputType(nodeId, opt?.label ?? value);
-      }
-    },
-    [nodeId, actions, availableTypes]
+  // Output is the same canonical Attribute as an input, at a singleton path.
+  const handleUpdateOutput = useCallback(
+    (_index: number, oldName: string, newName: string, typeName: string, cardinality: string, targetTypeId?: string) =>
+      actions.updateOutputParam(nodeId, oldName, newName, typeName, cardinality, targetTypeId),
+    [nodeId, actions]
   );
-
-  const outputType = getTypeRefText(d.output?.typeCall) ?? d.outputType ?? '';
-  const outputValue = outputType ? (availableTypes.find((o) => o.label === outputType)?.value ?? '') : '';
 
   // ---- Parent function (superFunction) --------------------------------------
   // `InheritedMembersSection` alone is not an equivalent fallback for
@@ -450,25 +439,15 @@ function FunctionForm({
     [nodeId, actions, move]
   );
 
-  // ---- Inline add-input state + handler ------------------------------------
-
-  const [addParamName, setAddParamName] = useState('');
-  const [addParamType, setAddParamType] = useState('');
-
   const handleAddInput = useCallback(() => {
-    const name = addParamName.trim();
-    if (!name) return;
-    const typeName = addParamType
-      ? (availableTypes.find((o) => o.value === addParamType)?.label ?? addParamType)
-      : 'string';
-    // Update both form state (field array) and the graph store — mirrors
-    // DataTypeForm.handleAddAttribute which calls both append() and
-    // actions.addAttribute().
-    append(makeInputAstItem(name, typeName));
-    actions.addInputParam(nodeId, name, typeName);
-    setAddParamName('');
-    setAddParamType('');
-  }, [nodeId, actions, availableTypes, addParamName, addParamType, append, makeInputAstItem]);
+    append(makeInputAstItem('', 'string'));
+    actions.addInputParam(nodeId, '', 'string');
+  }, [nodeId, actions, append, makeInputAstItem]);
+
+  const handleAddOutput = useCallback(() => {
+    form.setValue('output' as never, makeInputAstItem('result', 'string') as never, { shouldDirty: true });
+    actions.updateOutputParam(nodeId, '', 'result', 'string', '(1..1)');
+  }, [nodeId, actions, form, makeInputAstItem]);
 
   // ---- Render --------------------------------------------------------------
   // Section components (Annotation, Condition, Metadata) are invoked
@@ -581,8 +560,21 @@ function FunctionForm({
                         {/* Input Parameters — editable AttributeRow list via useFieldArray,
               mirrors the Members section in DataTypeForm (DRY / R-func-input). */}
                         <FieldSet className="shrink-0 gap-1">
-                          <FieldLegend variant="label" className="mb-0 text-muted-foreground">
+                          <FieldLegend variant="label" className="mb-0 flex items-center gap-1 text-muted-foreground">
                             Inputs ({fields.length})
+                            {!isReadOnly && (
+                              <Button
+                                data-slot="add-input-btn"
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={handleAddInput}
+                                aria-label="Add input"
+                                title="Add input"
+                              >
+                                <Plus className="size-3" />
+                              </Button>
+                            )}
                           </FieldLegend>
 
                           <FieldGroup role="list" className="gap-0.5">
@@ -616,64 +608,48 @@ function FunctionForm({
                               </p>
                             )}
                           </FieldGroup>
-
-                          {/* Inline add input — hidden in read-only mode */}
-                          {!isReadOnly && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Input
-                                data-slot="add-param-name"
-                                type="text"
-                                value={addParamName}
-                                onChange={(e) => setAddParamName(e.target.value)}
-                                placeholder="Name"
-                                className="text-xs h-6 px-1.5 flex-1 min-w-0"
-                                aria-label="New input parameter name"
-                              />
-                              <div className="min-w-0 shrink-0">
-                                <TypeReferenceField
-                                  value={addParamType || null}
-                                  options={availableTypes}
-                                  onSelect={(v) => setAddParamType(v ?? '')}
-                                  placeholder="Type..."
-                                  emptyLabel="Type"
-                                  onNavigateToNode={onNavigateToNode}
-                                  allNodeIds={allNodeIds}
-                                />
-                              </div>
-                              {/* Icon-only add button matches FormPreviewPanel; see
-                  DataTypeForm for the rationale. */}
+                        </FieldSet>
+                        <FieldSet className="shrink-0 gap-1">
+                          <FieldLegend variant="label" className="mb-0 flex items-center gap-1 text-muted-foreground">
+                            Output
+                            {!d.output && !isReadOnly && (
                               <Button
-                                data-slot="add-input-btn"
                                 type="button"
                                 variant="ghost"
                                 size="icon-xs"
-                                onClick={handleAddInput}
-                                aria-label="Add input"
-                                title="Add input"
-                                className="shrink-0"
+                                onClick={handleAddOutput}
+                                aria-label="Add output"
+                                title="Add output"
                               >
                                 <Plus className="size-3" />
                               </Button>
-                            </div>
-                          )}
+                            )}
+                          </FieldLegend>
+                          <FieldGroup role="list" className="gap-0.5">
+                            {d.output ? (
+                              <AttributeRow
+                                index={0}
+                                fieldPath="output"
+                                nameLabel="Output"
+                                selected={targets.selection.selectedRow?.key === '$output'}
+                                onSelect={() => targets.selection.select('$output')}
+                                committedName={d.output.name ?? ''}
+                                availableTypes={availableTypes}
+                                onUpdate={handleUpdateOutput}
+                                onRename={
+                                  targets.rootBinding.guarded ? (name) => targets.renameRow('$output', name) : undefined
+                                }
+                                onNavigateToNode={onNavigateToNode}
+                                allNodeIds={allNodeIds}
+                                disabled={isReadOnly}
+                              />
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic py-2 text-center">
+                                No output defined.
+                              </p>
+                            )}
+                          </FieldGroup>
                         </FieldSet>
-                        {/* Output Type */}
-                        <InspectorTypeField
-                          label="Output Type"
-                          fieldsetProps={{
-                            onFocusCapture: () => targets.selection.select('$output'),
-                            onClick: () => targets.selection.select('$output')
-                          }}
-                          value={outputValue}
-                          displayName={outputType}
-                          options={availableTypes}
-                          onSelect={handleOutputTypeSelect}
-                          placeholder="Select output type..."
-                          emptyLabel="No output type"
-                          onNavigateToNode={onNavigateToNode}
-                          allNodeIds={allNodeIds}
-                          disabled={isReadOnly}
-                        />
                         {/* Function Body — aliases + operations, each with its own
               expression editor (R10 / FR-010 — bespoke UX preserved). */}
                         <InheritedMembersSection

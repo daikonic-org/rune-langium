@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 /**
- * AttributeRow — inline editable row for a single Data type attribute.
+ * AttributeRow — inline editable row for a Data attribute or function input/output.
  *
  * Reads/writes form state via `useFormContext` (provided by the parent
  * FormProvider) at the **canonical AST paths** for an `Attribute`:
@@ -15,7 +15,8 @@
  * `fieldArrayName` defaults to `'attributes'` so all existing DataTypeForm
  * and AnnotationForm usages continue to work unchanged. FunctionForm passes
  * `fieldArrayName="inputs"` so the same row can power function inputs without
- * any logic duplication (DRY / Task R-func-input).
+ * any logic duplication. A singleton output uses `fieldPath="output"`; only
+ * collection members expose reorder and remove controls.
  *
  * Per R11 of `specs/013-z2f-editor-migration/research.md`, the editor
  * consumes the AST graph node directly — no projection layer. The bespoke
@@ -68,6 +69,10 @@ export interface AttributeRowProps extends InspectorRowProps {
    * Defaults to `'attributes'`; pass `'inputs'` for function input rows.
    */
   fieldArrayName?: string;
+  /** Canonical path for a singleton Attribute, such as function output. */
+  fieldPath?: string;
+  /** Accessible name label; defaults to Attribute. */
+  nameLabel?: string;
   /** Last-committed attribute name (for graph action diffing). */
   committedName: string;
   /** Available type options for the TypeSelector. */
@@ -84,9 +89,9 @@ export interface AttributeRowProps extends InspectorRowProps {
   /** Optional name-only commit using the host's current canonical member identity. */
   onRename?: (name: string) => void;
   /** Remove this attribute by index. */
-  onRemove: (index: number) => void;
+  onRemove?: (index: number) => void;
   /** Reorder (drag) callback; fromIndex → toIndex. */
-  onReorder: (fromIndex: number, toIndex: number) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   /** Whether the form is read-only. */
   disabled?: boolean;
   /** Callback to navigate to a type's graph node. */
@@ -111,6 +116,8 @@ const ATTRIBUTE_ROW_LAYOUT =
 function AttributeRow({
   index,
   fieldArrayName = 'attributes',
+  fieldPath,
+  nameLabel = 'Attribute',
   committedName,
   availableTypes,
   onUpdate,
@@ -128,7 +135,7 @@ function AttributeRow({
   const { control, getValues, setValue, watch } = useFormContext();
   const editorCtx = useEditorActionsContext();
   const effectiveReadOnly = Boolean(disabled || editorCtx?.readOnly);
-  const prefix = `${fieldArrayName}.${index}`;
+  const prefix = fieldPath ?? `${fieldArrayName}.${index}`;
 
   const validateName = useEditorFieldValidator(`${prefix}.name`);
 
@@ -216,7 +223,7 @@ function AttributeRow({
   // ---- Drag reorder ---------------------------------------------------------
   const acceptTypes = useMemo(() => referenceDropKinds(effectiveReadOnly), [effectiveReadOnly]);
   const typeDrop = useTypeRefDrop({ accept: acceptTypes, onDrop: (payload) => handleTypeSelect(payload.typeId) });
-  const reorder = rowReorderHandlers(index, onReorder);
+  const reorder = onReorder ? rowReorderHandlers(index, onReorder) : undefined;
   //
   // Per R5 of `specs/013-z2f-editor-migration/research.md` (Pattern B): this
   // row owns the gesture surface (native HTML5 DnD via `dataTransfer`) and
@@ -238,28 +245,28 @@ function AttributeRow({
       data-slot="attribute-row"
       data-index={index}
       className={`${ATTRIBUTE_ROW_LAYOUT} ${INSPECTOR_ROW_CLASS} ${isOverride ? 'opacity-60' : ''}`}
-      draggable={!effectiveReadOnly}
+      draggable={!effectiveReadOnly && Boolean(onReorder)}
       data-drop-over={typeDrop.isOver ? 'true' : undefined}
       {...typeDrop.dragOverHandlers}
-      onDragStart={reorder.onDragStart}
+      onDragStart={reorder?.onDragStart}
       onDragOver={(event) =>
         Array.from(event.dataTransfer?.types ?? []).includes(TYPE_REF_PAYLOAD_MIME)
           ? typeDrop.dragOverHandlers.onDragOver(event)
-          : reorder.onDragOver(event)
+          : reorder?.onDragOver(event)
       }
       onDrop={(event) =>
         Array.from(event.dataTransfer?.types ?? []).includes(TYPE_REF_PAYLOAD_MIME)
           ? typeDrop.dragOverHandlers.onDrop(event)
-          : reorder.onDrop(event)
+          : reorder?.onDrop(event)
       }
     >
       {/* Drag handle */}
       <span
         data-slot="drag-handle"
-        className="cursor-grab justify-self-center text-muted-foreground select-none text-xs shrink-0"
+        className={`${onReorder ? 'cursor-grab' : ''} justify-self-center text-muted-foreground select-none text-xs shrink-0`}
         aria-hidden="true"
       >
-        ⠿
+        {onReorder ? '⠿' : '→'}
       </span>
 
       {/* Name input */}
@@ -282,7 +289,7 @@ function AttributeRow({
             disabled={effectiveReadOnly}
             className={`w-full ${INSPECTOR_ROW_NAME_CLASS}`}
             placeholder="name"
-            aria-label={`Attribute name: ${field.value}`}
+            aria-label={`${nameLabel} name: ${field.value}`}
           />
         )}
       />
@@ -334,7 +341,7 @@ function AttributeRow({
           >
             Revert
           </button>
-        ) : (
+        ) : onRemove ? (
           // Icon-button replaces the literal "✕" Unicode glyph (font-
           // dependent baseline jitter) with a lucide <X /> in a ghost
           // icon-button — matches FormPreviewPanel's remove affordance.
@@ -355,7 +362,7 @@ function AttributeRow({
           >
             <X className="size-3" />
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );

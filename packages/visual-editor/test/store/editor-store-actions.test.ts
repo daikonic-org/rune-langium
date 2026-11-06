@@ -2037,9 +2037,11 @@ describe('EditorStore — function actions — id-rooted patches (Wave D)', () =
       const patches = store.getState().pendingEditPatches;
       const newPatches = patches.slice(patchesBefore);
       expect(newPatches.length).toBeGreaterThan(0);
-      expect(newPatches[0]!.path[0]).toBe('nodes');
-      expect(newPatches[0]!.path[1]).toBe(nodeId);
-      expect(newPatches[0]!.path).toContain('output');
+      expect(
+        newPatches.some(
+          (patch) => patch.path[0] === 'nodes' && patch.path[1] === nodeId && patch.path.includes('output')
+        )
+      ).toBe(true);
     });
 
     it('preserves existing output cardinality when only updating typeCall', () => {

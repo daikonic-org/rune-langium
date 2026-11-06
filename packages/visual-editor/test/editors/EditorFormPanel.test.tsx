@@ -57,6 +57,7 @@ function makeActions(): EditorFormActions {
     removeChoiceOption: vi.fn(),
     addInputParam: vi.fn(),
     removeInputParam: vi.fn(),
+    updateOutputParam: vi.fn(),
     updateOutputType: vi.fn(),
     updateExpression: vi.fn(),
     validate: vi.fn().mockReturnValue([])

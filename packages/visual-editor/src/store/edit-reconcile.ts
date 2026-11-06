@@ -65,7 +65,7 @@ const PARSE_METADATA_KEYS = new Set([
 const expressionDrafts = new WeakMap<object, unknown>();
 
 /** Compare an edited expression with its parsed shape through the real grammar. */
-function normalizedExpressionDraft(value: unknown): unknown {
+export function normalizedExpressionDraft(value: unknown): unknown {
   if (
     !value ||
     typeof value !== 'object' ||

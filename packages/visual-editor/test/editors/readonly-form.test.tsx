@@ -512,6 +512,7 @@ function makeFuncActions(): EditorFormActions<'func'> {
     removeInputParam: vi.fn(),
     updateInputParam: vi.fn(),
     reorderInputParam: vi.fn(),
+    updateOutputParam: vi.fn(),
     updateOutputType: vi.fn(),
     updateExpression: vi.fn(),
     addAnnotation: vi.fn(),
@@ -615,7 +616,7 @@ describe('FunctionForm – read-only mode contract', () => {
     // Function inputs now render as <AttributeRow> (data-slot="attribute-row")
     // rather than the old read-only FunctionInputRow (data-slot="input-param-row").
     const rows = container.querySelectorAll('[data-slot="attribute-row"]');
-    expect(rows.length).toBe(1);
+    expect(rows.length).toBe(2);
     for (const row of rows) {
       // All buttons inside the attribute row must be disabled in read-only mode.
       const enabledButtons = row.querySelectorAll('button:not([disabled])');
