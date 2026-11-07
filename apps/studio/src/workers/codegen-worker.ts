@@ -37,7 +37,7 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 
 import type { InstanceDecodeMessage, InstanceSerializeMessage } from '../services/codegen-service.js';
 import type { LangiumDocument } from 'langium';
-import { URI, AstUtils } from 'langium';
+import { URI, AstUtils, DocumentState } from 'langium';
 import {
   compileStandaloneValidator,
   createGeneratedModuleLoader,
@@ -47,11 +47,17 @@ import {
 import {
   createRuneDslServices,
   hydrateModelDocuments,
+  initializeProjectResolution,
+  invalidateProjectResolution,
+  getNamespaceOverrideTargets,
+  namespaceOverrideDiagnostics,
+  namespaceOverrideSignatureDiagnostics,
   getExpressionOwners,
   getExpressionRegions,
   getFunctionImplementationRegion,
   getNodeSourceRegion,
   isRosettaFunction,
+  isRosettaModel,
   namespaceFromModelName,
   type RosettaModel,
   type RuneDslIndexManager
@@ -200,7 +206,10 @@ let lastPreviewRequestId: string | undefined;
 let previewFilesVersion = 0;
 let previewFilesRevision = 0;
 let previewVersionStartRevision = 0;
-const documentsCache = new Map<string, VersionedEntry<{ all: LangiumDocument[]; valid: LangiumDocument[] }>>();
+type PreviewDocuments = { all: LangiumDocument[]; valid: LangiumDocument[] };
+const documentsCache = new Map<string, VersionedEntry<PreviewDocuments>>();
+const documentBuilds = new Map<number, Promise<VersionedEntry<PreviewDocuments>>>();
+let previewWorkspaceTail = Promise.resolve();
 const previewSchemaCache = new Map<string, VersionedEntry<FormPreviewSchema[]>>();
 const previewGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
 const previewPythonCache = new Map<string, VersionedEntry<PythonModule>>();
@@ -214,6 +223,7 @@ const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValida
 // for `buildDocuments()` to read on every `runPreview`/`runInstanceSchema`/
 // `executeFunction`/`validateInstance` call. See `hydrateCuratedDocuments`.
 let cachedCuratedDocuments: LangiumDocument[] = [];
+let registeredPreviewDocuments: LangiumDocument[] = [];
 let indexedCuratedDocuments: LangiumDocument[] | undefined;
 let lastCuratedEntries: FileEntry[] = [];
 
@@ -287,7 +297,13 @@ function hydrateCuratedDocuments(entries: FileEntry[]): void {
   if (!curatedEntriesChanged(curatedEntries)) return; // identical set — skip the relink entirely
   lastCuratedEntries = curatedEntries;
   // Remove exports for replaced/unloaded artifacts as well as registering new ones below.
-  for (const document of cachedCuratedDocuments) RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
+  const retained = new Set(curatedEntries.map((entry) => URI.parse(entry.uri).toString()));
+  const store = RuneDsl.shared.workspace.LangiumDocuments;
+  for (const document of cachedCuratedDocuments) {
+    RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
+    if (!retained.has(document.uri.toString()) && store.getDocument(document.uri) === document)
+      store.deleteDocument(document.uri);
+  }
   try {
     cachedCuratedDocuments = hydrateModelDocuments(
       { RuneDsl, shared: RuneDsl.shared },
@@ -308,6 +324,16 @@ function hydrateCuratedDocuments(entries: FileEntry[]): void {
 // ---------------------------------------------------------------------------
 // Versioned cache primitive
 // ---------------------------------------------------------------------------
+
+/** Hydration and source replacement mutate one Langium workspace, including across revisions. */
+function queuePreviewWorkspace<T>(operation: () => T | Promise<T>): Promise<T> {
+  const pending = previewWorkspaceTail.then(operation);
+  previewWorkspaceTail = pending.then(
+    () => undefined,
+    () => undefined
+  );
+  return pending;
+}
 
 /**
  * Every cache in this file is invalidated by comparing a stored version
@@ -358,8 +384,7 @@ function getOrCompute<T>(
  * The write guard compares against the CACHE's own current state, not
  * `getVersion()` re-invoked — mirrors `getOrCompute`'s guard above. Re-reading
  * `getVersion()` here would work for a caller passing a live counter
- * (`buildDocuments()`'s `() => previewFilesVersion`) but is a no-op for a
- * caller passing a closure over an already-fixed version (`executeFunction`/
+ * but is a no-op for a caller passing a closure over an already-fixed version (`executeFunction`/
  * `runCodegen`'s `() => documentsVersion`, threaded forward from an earlier
  * `getOrComputeAsync` call per this cache's own doc comment) — that closure
  * returns the same value both before and after `await compute()`, so the
@@ -546,81 +571,127 @@ async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<La
     const graph = await generation.ready;
     return { version, value: [...graph.documents] };
   }
-  const entry = await getOrComputeAsync(
-    documentsCache,
-    'documents',
-    () => previewFilesVersion,
-    async () => {
-      if (!projectGeneration && currentPreviewFiles.length === 0) {
-        return { all: [], valid: [] };
-      }
+  const version = previewFilesVersion;
+  const files = currentPreviewFiles;
+  let pending = documentBuilds.get(version);
+  if (!pending) {
+    pending = getOrComputeAsync(
+      documentsCache,
+      'documents',
+      () => version,
+      () =>
+        queuePreviewWorkspace(async () => {
+          const store = RuneDsl.shared.workspace.LangiumDocuments;
+          for (const document of registeredPreviewDocuments) {
+            // A newer curated batch may already own this URI; release only our old source roots.
+            if (store.getDocument(document.uri) !== document) continue;
+            store.deleteDocument(document.uri);
+            RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
+          }
+          registeredPreviewDocuments = [];
+          invalidateProjectResolution(RuneDsl);
+          if (files.length === 0) {
+            return { all: [], valid: [] };
+          }
 
-      // 019 Task #88 follow-up: split into user files (parse path) and
-      // curated files (deserialize path). Curated entries arrive with
-      // `serializedModelJson` set (the pre-parsed Langium AST) and
-      // `content === ''` — parsing an empty string would produce a parse
-      // error and the doc would be filtered out, leaving form preview
-      // unable to find curated types. Hydrate them via the serializer
-      // instead.
-      const curatedDocuments = cachedCuratedDocuments;
-      if (indexedCuratedDocuments !== curatedDocuments) {
-        // Hydration restores references inside curated snapshots. Raw user source
-        // additionally needs their exports in Langium's index, without rebuilding
-        // the already-linked corpus. Cache this work by hydrated batch identity.
-        const exportedSymbols = await Promise.all(
-          curatedDocuments.map((document) => RuneDsl.references.ScopeComputation.collectExportedSymbols(document))
-        );
-        // A workspace/artifact switch can arrive while symbol collection yields.
-        // Publish only the current batch, never exports from a cancelled snapshot.
-        if (cachedCuratedDocuments !== curatedDocuments) return { all: [], valid: [] };
-        curatedDocuments.forEach((document, index) => {
-          (RuneDsl.shared.workspace.IndexManager as RuneDslIndexManager).registerExports(
-            document.uri,
-            exportedSymbols[index]!
+          // 019 Task #88 follow-up: split into user files (parse path) and
+          // curated files (deserialize path). Curated entries arrive with
+          // `serializedModelJson` set (the pre-parsed Langium AST) and
+          // `content === ''` — parsing an empty string would produce a parse
+          // error and the doc would be filtered out, leaving form preview
+          // unable to find curated types. Hydrate them via the serializer
+          // instead.
+          const curatedDocuments = cachedCuratedDocuments;
+          if (indexedCuratedDocuments !== curatedDocuments) {
+            // Hydration restores references inside curated snapshots. Raw user source
+            // additionally needs their exports in Langium's index, without rebuilding
+            // the already-linked corpus. Cache this work by hydrated batch identity.
+            const exportedSymbols = await Promise.all(
+              curatedDocuments.map((document) => RuneDsl.references.ScopeComputation.collectExportedSymbols(document))
+            );
+            // A workspace/artifact switch can arrive while symbol collection yields.
+            // Publish only the current batch, never exports from a cancelled snapshot.
+            if (cachedCuratedDocuments !== curatedDocuments) return { all: [], valid: [] };
+            curatedDocuments.forEach((document, index) => {
+              (RuneDsl.shared.workspace.IndexManager as RuneDslIndexManager).registerExports(
+                document.uri,
+                exportedSymbols[index]!
+              );
+            });
+            indexedCuratedDocuments = curatedDocuments;
+          }
+          const userEntries = files.filter((e) => !e.serializedModelJson && isPreviewUserEntryParseable(e));
+
+          const userDocuments: LangiumDocument[] = userEntries.map(({ uri, content }) =>
+            factory.fromString(content, URI.parse(uri))
           );
-        });
-        indexedCuratedDocuments = curatedDocuments;
-      }
-      const userEntries = currentPreviewFiles.filter((e) => !e.serializedModelJson && isPreviewUserEntryParseable(e));
+          for (const document of userDocuments) store.addDocument(document);
+          registeredPreviewDocuments = userDocuments;
+          if (userDocuments.length > 0) {
+            await builder.build(userDocuments, { validation: false, eagerLinking: false });
+          }
+          initializeProjectResolution(RuneDsl);
+          await validatePreviewNamespaceOverrides([...userDocuments, ...curatedDocuments]);
 
-      const userDocuments: LangiumDocument[] = userEntries.map(({ uri, content }) =>
-        factory.fromString(content, URI.parse(uri))
-      );
-      if (userDocuments.length > 0) {
-        await builder.build(userDocuments, { validation: false, eagerLinking: false });
-      }
-
-      // Curated docs come pre-linked from the curated-mirror build (CI runs
-      // Langium with a higher heap budget than the browser can spare).
-      // Build here would try to re-link and fail because the live Langium
-      // service hasn't indexed cross-references.
-      //
-      // Codex review on PR #169: use `factory.fromModel` + add to the
-      // service's document store. The earlier synthetic doc literal
-      // (`{ uri, parseResult: { value, [], [] } }`) skipped Langium's
-      // LangiumDocument ownership, which `RuneDslLinker.loadAstNode`
-      // relies on to resolve cross-references through `.ref`. For curated
-      // models with typed fields, refs would silently fail to resolve and
-      // the preview / codegen output would be missing typed children.
-      //
-      // The batch relink itself already ran once in `hydrateCuratedDocuments`
-      // (called from the `preview:setFiles` handler) — this just reads the
-      // cached result rather than re-registering/re-linking on every build.
-      // Keep invalid documents in the shared cache so selected exports can
-      // resolve their complete dependency closure before rejecting errors.
-      // Other preview consumers receive the filtered view below.
-      const validUserDocuments = userDocuments.filter((d) => !hasDocumentErrors(d));
-      if (validUserDocuments.length < userDocuments.length) {
-        console.warn(
-          `[codegen-worker] ${
-            userDocuments.length - validUserDocuments.length
-          } user file(s) had parse errors and were excluded from preview.`
-        );
-      }
-      return { all: [...userDocuments, ...curatedDocuments], valid: [...validUserDocuments, ...curatedDocuments] };
-    }
-  );
+          // Curated documents retain their restored reference graph. Only
+          // override participants need dependency scopes for the checks above;
+          // do not rebuild or revalidate the entire corpus for every preview.
+          //
+          // Codex review on PR #169: use `factory.fromModel` + add to the
+          // service's document store. The earlier synthetic doc literal
+          // (`{ uri, parseResult: { value, [], [] } }`) skipped Langium's
+          // LangiumDocument ownership, which `RuneDslLinker.loadAstNode`
+          // relies on to resolve cross-references through `.ref`. For curated
+          // models with typed fields, refs would silently fail to resolve and
+          // the preview / codegen output would be missing typed children.
+          //
+          // The batch relink itself already ran once in `hydrateCuratedDocuments`
+          // (called from the `preview:setFiles` handler) — this just reads the
+          // cached result rather than re-registering/re-linking on every build.
+          // Keep invalid documents in the shared cache so selected exports can
+          // resolve their complete dependency closure before rejecting errors.
+          // Other preview consumers receive the filtered view below.
+          const validUserDocuments = userDocuments.filter((d) => !hasDocumentErrors(d));
+          if (validUserDocuments.length < userDocuments.length) {
+            console.warn(
+              `[codegen-worker] ${
+                userDocuments.length - validUserDocuments.length
+              } user file(s) had parse errors and were excluded from preview.`
+            );
+          }
+          return { all: [...userDocuments, ...curatedDocuments], valid: [...validUserDocuments, ...curatedDocuments] };
+        })
+    );
+    documentBuilds.set(version, pending);
+  }
+  let entry: VersionedEntry<PreviewDocuments>;
+  try {
+    entry = await pending;
+  } finally {
+    if (documentBuilds.get(version) === pending) documentBuilds.delete(version);
+  }
   return { version: entry.version, value: includeInvalid ? entry.value.all : entry.value.valid };
+}
+
+/** Use Core's replacement checks after both callable declarations have dependency scopes. */
+async function validatePreviewNamespaceOverrides(documents: LangiumDocument[]): Promise<void> {
+  const dependencies = new Set<LangiumDocument>();
+  for (const [source, replacement] of getNamespaceOverrideTargets(RuneDsl)) {
+    if (!replacement || source === replacement) continue;
+    for (const node of [source, replacement]) {
+      const document = AstUtils.getDocument(node);
+      if (document.state < DocumentState.ComputedScopes) dependencies.add(document);
+    }
+  }
+  if (dependencies.size) await builder.build([...dependencies], { validation: false, eagerLinking: false });
+  const diagnostics = [
+    ...documents.flatMap((document) => {
+      const model = document.parseResult.value;
+      return isRosettaModel(model) ? namespaceOverrideDiagnostics(RuneDsl, model) : [];
+    }),
+    ...namespaceOverrideSignatureDiagnostics(RuneDsl)
+  ];
+  if (diagnostics.length) throw new Error(diagnostics.map((issue) => `${issue.code}: ${issue.message}`).join('\n'));
 }
 
 function generatedPreviewSchemaForTarget(
@@ -1328,7 +1399,9 @@ if (isWorkerGlobalScope()) {
             ? { ready, ...(msg.project ? { receipt: { ...msg.project.receipt } } : {}) }
             : undefined;
         projectGeneration = generation;
-        if (!generation) previewStages.hydrateDocuments(msg.files);
+        const workspaceReady = generation
+          ? generation.ready
+          : queuePreviewWorkspace(() => previewStages.hydrateDocuments(msg.files));
         currentPreviewFiles = msg.files;
         if (changed || generation !== previousProject) {
           previewFilesVersion++;
@@ -1361,12 +1434,10 @@ if (isWorkerGlobalScope()) {
           if (!projectError && lastPreviewTargetId && requestId)
             previewStages.generateSchema(lastPreviewTargetId, requestId).catch(console.error);
         };
-        if (generation)
-          void generation.ready.then(
-            () => acknowledge(),
-            (error) => acknowledge(error instanceof Error ? error.message : String(error))
-          );
-        else acknowledge();
+        void workspaceReady.then(
+          () => acknowledge(),
+          (error) => acknowledge(error instanceof Error ? error.message : String(error))
+        );
       } else if (msg.type === 'preview:generate') {
         lastPreviewTargetId = msg.targetId;
         lastPreviewRequestId = msg.requestId;

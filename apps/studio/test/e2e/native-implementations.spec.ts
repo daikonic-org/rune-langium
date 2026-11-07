@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
+import {
+  cdmRuneImplementationSources,
+  cdmRuneReferenceDocuments
+} from '../../../../test/helpers/cdm-rune-implementations.js';
 import AxeBuilder from '@axe-core/playwright';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 const content = `namespace cdm.base.datetime
@@ -51,3 +56,35 @@ for (const width of [1440, 390])
       contentType: 'image/png'
     });
   });
+
+test('executes CDM clearing functions through imported Rune overrides in Prototype', async ({ page }, info) => {
+  await page.goto('./');
+  const files = [
+    ...cdmRuneReferenceDocuments
+      .filter((document) => document.uri.startsWith('cdm/'))
+      .map((document) => ({ name: `reference-${document.uri.split('/').at(-1)!}`, content: document.content })),
+    ...[...cdmRuneImplementationSources].map(([path, content]) => ({ name: path.split('/').at(-1)!, content }))
+  ];
+  await page
+    .locator('input[type="file"][accept=".rosetta"]')
+    .setInputFiles(
+      files.map((file) => ({ name: file.name, mimeType: 'text/plain', buffer: Buffer.from(file.content) }))
+    );
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await page.getByTestId('rail-prototype').click();
+  for (const [name, expected] of [
+    ['ClearExecution', 'true'],
+    ['ClearHistory', '0']
+  ] as const) {
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: new RegExp(`^${name}.*cdm.event.common`) }).click();
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText(expected);
+    await info.attach(`prototype-${name}`, {
+      body: await page.getByTestId('prototype-perspective').ariaSnapshot(),
+      contentType: 'text/plain'
+    });
+  }
+});

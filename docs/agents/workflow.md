@@ -19,10 +19,10 @@ Root coverage and Codegen's package runner share the 30-second generated-module
 test budget from `test/helpers/vitest-budget.ts`. These integration cases include
 strict TypeScript compilation and runtime checks; the budget is not a performance
 acceptance threshold.
-Project-runtime's `project-implementation.test.ts` uses that same budget within
-the file, so its strict generated program and runtime validators receive the same
-limit in the package and root coverage runners. Other runtime tests keep their
-default budgets.
+Project-runtime's `project-implementation.test.ts` and the two strict generated
+execution cases in `cdm-rune-implementations.test.ts` use that same budget in the
+package and root coverage runners. The CDM removal/signature checks and other
+runtime tests retain their default budgets.
 Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility
@@ -441,6 +441,18 @@ Verified on the supported Node **22.22.2** floor:
 Full workspace type checks and explicit bundler-resolution TypeScript checks of both config files also pass. Rebuild Studio's dependencies before type checking when their compiled exports are stale.
 
 Compilation remains disabled. All five hand-authored EditorForms enable L1 through a shared policy and schema-derived Controller validation bridge. Regression checks cover canonical identifier unions, optional values, independent field validation, and array reorder/remove/add. Safe L2 adoption is tracked in [issue #574](https://github.com/pradeepmouli/rune-langium/issues/574).
+
+## CDM implementation checks
+
+CDM implementation changes: run `pnpm run verify:native-implementations` after
+building dependencies. It checks the inventory helper tests, exact upstream cohort,
+signature-bound Rune feasibility, provided override sources and target fallbacks.
+Run Codegen's `test/implementations`, project-runtime's
+`test/cdm-rune-implementations.test.ts` and Studio's identically named real-worker
+suite. The source pack is explicit project input, not an automatic native fallback.
+`--issue-markdown` on the audit writes #646's generated table for review/publication.
+The worker suites also cover overlapping schema/input-validation requests, queued
+source/curated replacement, signature drift and recovery after corrected imports.
 
 ## Python projection checks
 

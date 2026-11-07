@@ -5,16 +5,22 @@ This is a versioned coverage baseline, not completion of #646.
 function in the linked cohort, its complete model/namespace/kind/name identity,
 source Git blob, linked signature and coverage for both executable targets.
 
-The audited cohort is CDM `1704b23907b3dc4b87ba7a0133cb75aad9b43c77`, FpML 3.8.0
-(`ab92e75df45e882e6775a5ce94dc6f520fe446f6`) and Rune 10.15.3
+The audited cohort is CDM **7.9.0** (`0f1f99aef829c23910476981bb91256544cb8569`),
+FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 (`c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6`). The dependency versions come from
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **9
-bundled implementations per target**. The audit parses and links 192 original
+bundled implementations per target**. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
+
+[`rune-feasibility.json`](rune-feasibility.json) separately records each function's
+Rune route and prerequisites, tied to the exact cohort and linked signature hash.
+The generated inventory includes that assessment, upstream dispatch selectors and
+whether each selector has a Rune body. A body is not proof that all its dependencies
+execute. Missing/obsolete assessments and changed signatures fail verification.
 
 | Function | Contract covered by TypeScript / Python |
 | --- | --- |
@@ -44,8 +50,26 @@ LocalDate/BigDecimal value or external JVM behavior.
 
 ## Remaining integrations
 
-The **40 unavailable functions remain open**. Their exact names and reasons are
-in the JSON inventory. They must not become empty/default successful values.
+The **40 functions without bundled native fallbacks remain tracked**. Two now
+have explicit Rune source implementations: `EmptyExecutionDetails` and
+`EmptyTransferHistory`. Their empty results implement their actual clearing
+contracts; they are not generic fallbacks for missing business logic.
+The [Rune source pack](../../examples/implementations/cdm/README.md) also includes
+a duplicate-preserving `PopOffDateList` replacement. Installing those sources
+uses normal namespace-override linking, across both executable targets; it does
+not change the bundled-native count. The inventory checks their source hashes,
+full upstream signatures and effective declaration selection.
+
+External data requirements do not make a function inexpressible in Rune. Rune
+can select/transform supplied calendars, observations or reference data, or call
+explicitly bound data-access helpers. Acquisition and small runtime primitives
+remain separate requirements. Clock access, exact decimal arithmetic and current
+string/collection primitive limits are recorded separately from business logic.
+
+Existing Rune dispatch families such as `DayCountBasis`, `YearFraction`,
+`ComputeCalculationPeriod` and `ProcessFloatingRateReset` must retain their upstream
+bodies. Missing selectors and transitive dependencies still need execution evidence;
+the latter family includes an empty `CompoundIndex` branch.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
@@ -77,10 +101,15 @@ The [reviewed source pins](../../scripts/fixtures/native-implementation-sources.
 ```bash
 pnpm run verify:native-implementations
 node scripts/audit-native-implementations.mjs --sources path/to/reviewed-cohort.json
+node scripts/audit-native-implementations.mjs --issue-markdown /tmp/native-inventory.md
 ```
 
-The default check compares source paths/blobs, ownership, signatures and target
-availability to the committed inventory. New declarations and changed/missing
+Use `--feasibility path/to/reviewed-assessments.json` with a different cohort;
+assessments are never silently applied across model versions. `--issue-markdown`
+writes the table for #646 from the same verified inventory; it does not publish it.
+
+The default check compares source paths/blobs, ownership, signatures, Rune source
+hashes/assessment and target availability to the committed inventory. New declarations and changed/missing
 implementations fail the check. Review changes before regenerating with
 `node scripts/audit-native-implementations.mjs --write`. Existing unavailable
 entries are an explicit baseline, not a zero-gap success report. CI runs the check

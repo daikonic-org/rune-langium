@@ -61,13 +61,13 @@ const fromModelMock = vi.fn((model: unknown, uri: string) => ({
   parseResult: { value: model, lexerErrors: [], parserErrors: [] }
 }));
 const registered = new Map<string, unknown>();
-const getDocumentMock = vi.fn((uri: string) => registered.get(uri));
-const addDocumentMock = vi.fn((doc: { uri: string }) => {
-  registered.set(doc.uri, doc);
+const getDocumentMock = vi.fn((uri: { toString(): string }) => registered.get(uri.toString()));
+const addDocumentMock = vi.fn((doc: { uri: { toString(): string } }) => {
+  registered.set(doc.uri.toString(), doc);
 });
-const deleteDocumentMock = vi.fn((uri: string) => {
-  const existing = registered.get(uri);
-  registered.delete(uri);
+const deleteDocumentMock = vi.fn((uri: { toString(): string }) => {
+  const existing = registered.get(uri.toString());
+  registered.delete(uri.toString());
   return existing;
 });
 
@@ -142,10 +142,16 @@ vi.mock('@rune-langium/core', () => {
       return { model, document };
     },
     hydrateModelDocuments: realHydrateModelDocuments,
+    initializeProjectResolution: vi.fn(),
+    invalidateProjectResolution: vi.fn(),
+    getNamespaceOverrideTargets: () => new Map(),
+    namespaceOverrideDiagnostics: () => [],
+    namespaceOverrideSignatureDiagnostics: () => [],
     getExpressionOwners: () => [projectionOwner],
     getFunctionImplementationRegion: () => ({ from: 0, to: 20 }),
     getNodeSourceRegion: () => ({ from: 0, to: 20 }),
     isRosettaFunction: (node: { $type: string }) => node.$type === 'RosettaFunction',
+    isRosettaModel: (node: { $type: string }) => node.$type === 'RosettaModel',
     namespaceFromModelName: (name: string) => name,
     qualifiedExportPath: (namespace: string, name: string) => `${namespace}.${name}`
   };
@@ -621,10 +627,8 @@ describe('codegen-worker preview messages', () => {
     dispatch({ type: 'preview:generate', targetId: 'beta.Trade', requestId: 'race:2' });
     await flushWorker();
 
-    // The file set changes to B WHILE call #1 is still suspended. This bumps
-    // previewFilesVersion and — because lastPreviewTargetId is already set —
-    // triggers a second, independent buildDocuments() call (#2) against B,
-    // which also suspends inside its own builder.build.
+    // The file set changes to B while A owns the shared workspace. Its
+    // hydration and replacement must wait until A releases that workspace.
     dispatch({
       type: 'preview:setFiles',
       filesRevision: 1,
@@ -633,15 +637,13 @@ describe('codegen-worker preview messages', () => {
     });
     await flushWorker();
 
-    expect(buildResolvers).toHaveLength(2);
-
-    // Resolve the SECOND (current, correct) call first, then the FIRST
-    // (now-stale) call last — the exact ordering that would let a stale
-    // resume silently overwrite an already-cached correct result if the
-    // version weren't re-checked before writing to documentsCache.
-    buildResolvers[1]!();
-    await flushWorker();
+    expect(buildResolvers).toHaveLength(1);
+    expect(deleteDocumentMock).not.toHaveBeenCalled();
     buildResolvers[0]!();
+    await flushWorker();
+    expect(buildResolvers).toHaveLength(2);
+    expect(deleteDocumentMock).toHaveBeenCalledOnce();
+    buildResolvers[1]!();
     await flushWorker();
 
     // Query a DIFFERENT targetId — previewSchemaCache has no entry for it
@@ -660,6 +662,43 @@ describe('codegen-worker preview messages', () => {
     const fourthCallDocuments = generatePreviewSchemasMock.mock.calls.at(-1)![0] as Array<{ content?: string }>;
     expect(fourthCallDocuments.some((d) => d.content === 'namespace "B"')).toBe(true);
     expect(fourthCallDocuments.some((d) => d.content === 'namespace "A"')).toBe(false);
+  });
+
+  it('queues curated replacement behind an active source build and preserves its newer owner', async () => {
+    generatePreviewSchemasMock.mockImplementation((_documents: unknown, options: { targetId: string }) => [
+      { schemaVersion: 1, targetId: options.targetId, title: options.targetId, status: 'ready', fields: [] }
+    ]);
+    const build = Promise.withResolvers<void>();
+    buildMock.mockImplementationOnce(() => build.promise);
+    const { scope, dispatch } = await loadWorkerModule();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [{ uri: 'file:///trade.rosetta', content: 'namespace "A"' }]
+    });
+    dispatch({ type: 'instance:generateSchema', typeFqn: 'beta.Trade', requestId: 'owner:source' });
+    await flushWorker();
+    expect(buildMock).toHaveBeenCalledOnce();
+    const source = registered.get('file:///trade.rosetta');
+    expect(source).toBeDefined();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 2,
+      files: [{ uri: 'file:///trade.rosetta', content: '', serializedModelJson: '{}' }]
+    });
+    await flushWorker();
+    expect(fromModelMock).not.toHaveBeenCalled();
+    expect(registered.get('file:///trade.rosetta')).toBe(source);
+    build.resolve();
+    await flushWorker();
+    const curated = fromModelMock.mock.results[0]!.value;
+    expect(registered.get('file:///trade.rosetta')).toBe(curated);
+    dispatch({ type: 'instance:generateSchema', typeFqn: 'beta.Trade', requestId: 'owner:curated' });
+    await flushWorker();
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'instance:generateSchemaResult', requestId: 'owner:curated' })
+    );
+    expect(registered.get('file:///trade.rosetta')).toBe(curated);
   });
 
   it('posts preview:stale with unsupported-target when no preview schema is available', async () => {
@@ -1836,7 +1875,8 @@ describe('codegen-worker preview:setFiles curated document relinking', () => {
       files: [{ uri: 'curated:///fpml/consolidated/shared/Scheme.rosetta', content: '', serializedModelJson: '{}' }]
     });
     await flushWorker();
-    const firstRegistration = registered.get('curated:///fpml/consolidated/shared/Scheme.rosetta');
+    const registeredUri = fromModelMock.mock.calls[0]![1];
+    const firstRegistration = registered.get(registeredUri.toString());
     expect(firstRegistration).toBeDefined();
 
     // A second preview:setFiles carrying the same curated entry (as happens
@@ -1857,9 +1897,9 @@ describe('codegen-worker preview:setFiles curated document relinking', () => {
       ]
     });
     await flushWorker();
-    const secondRegistration = registered.get('curated:///fpml/consolidated/shared/Scheme.rosetta');
+    const secondRegistration = registered.get(registeredUri.toString());
 
-    expect(deleteDocumentMock).toHaveBeenCalledWith('curated:///fpml/consolidated/shared/Scheme.rosetta');
+    expect(deleteDocumentMock).toHaveBeenCalledWith(registeredUri);
     expect(secondRegistration).not.toBe(firstRegistration);
   });
 
