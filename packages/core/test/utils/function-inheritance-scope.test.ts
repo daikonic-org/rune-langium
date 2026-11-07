@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, expect, it } from 'vitest';
-import { URI } from 'langium';
+import { URI, AstUtils } from 'langium';
 import {
   BASICTYPES_ROSETTA,
   createRuneDslServices,
@@ -17,6 +17,44 @@ import {
 } from '../../src/index.js';
 
 describe('inherited function expression scope', () => {
+  it('keeps identically named aliases local to each dispatch variant', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
+    const basics = factory.fromString(BASICTYPES_ROSETTA, URI.parse('inmemory:///basics.rosetta'));
+    const document = factory.fromString(
+      `namespace scope.dispatch_aliases
+enum Kind:
+ First
+ Second
+func Compute:
+ inputs:
+  kind Kind (1..1)
+  value number (1..1)
+ output: result number (1..1)
+func Compute(kind: Kind -> First):
+ alias shared: value * 2
+ alias firstOnly: shared + 1
+ set result: firstOnly
+func Compute(kind: Kind -> Second):
+ alias shared: value * 3
+ set result: shared
+`,
+      URI.parse('inmemory:///dispatch-aliases.rosetta')
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build([basics, document], { eagerLinking: true });
+    expect(document.parseResult.parserErrors).toEqual([]);
+    expect(document.references.flatMap((ref) => (ref.error ? [ref.error.message] : []))).toEqual([]);
+    if (!isRosettaModel(document.parseResult.value)) throw new Error('Expected model');
+    const variants = document.parseResult.value.elements.filter(isRosettaFunction).filter((fn) => fn.dispatchAttribute);
+    for (const variant of variants)
+      for (const reference of AstUtils.streamAllContents(variant).filter(isRosettaSymbolReference))
+        if (reference.symbol.$refText === 'shared')
+          expect(reference.symbol.ref).toBe(variant.shortcuts.find((alias) => alias.name === 'shared'));
+    const second = variants[1]!;
+    expect(
+      getExpressionScope(second.operations[0]!.expression, RuneDsl).some((entry) => entry.name === 'firstOnly')
+    ).toBe(false);
+  });
   it('links and exposes effective output enum members for inherited and dispatch functions', async () => {
     const { RuneDsl } = createRuneDslServices();
     const colors = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(

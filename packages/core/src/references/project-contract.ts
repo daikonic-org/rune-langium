@@ -64,3 +64,69 @@ export const RepositoryExampleSourceSchema = RepositoryFileSourceSchema.extend({
     .optional()
 });
 export type RepositoryExampleSource = z.infer<typeof RepositoryExampleSourceSchema>;
+
+const implementationPath = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      !value.startsWith('/') &&
+      !value.includes('\\') &&
+      value.split('/').every((part) => part !== '' && part !== '.' && part !== '..'),
+    'Implementation paths must be relative and contained.'
+  );
+const implementationParameter = z.strictObject({
+  name: text,
+  type: text,
+  kind: text,
+  card: z.tuple([z.number().int().nonnegative(), z.union([z.number().int().nonnegative(), z.literal('*')])]).readonly(),
+  plain: z.boolean(),
+  enumValues: z.array(z.string()).readonly().optional()
+});
+export const FunctionImplementationSignatureSchema = z.strictObject({
+  inputs: z.array(implementationParameter).readonly(),
+  output: implementationParameter.optional()
+});
+export type FunctionImplementationSignature = z.infer<typeof FunctionImplementationSignatureSchema>;
+export const FunctionImplementationTargetSchema = z.strictObject({
+  path: implementationPath,
+  entrypoint: text,
+  expression: text,
+  call: z.boolean().optional(),
+  dependencies: z.array(text).readonly()
+});
+export type FunctionImplementationTarget = z.infer<typeof FunctionImplementationTargetSchema>;
+/** Publication selects one implementation kind. Rune entries cannot carry native targets. */
+export const FunctionImplementationSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('rune'),
+    namespace: text,
+    name: text,
+    signature: FunctionImplementationSignatureSchema,
+    path: implementationPath
+  }),
+  z.strictObject({
+    kind: z.literal('language-specific'),
+    namespace: text,
+    name: text,
+    id: text,
+    signature: FunctionImplementationSignatureSchema,
+    targets: z
+      .strictObject({
+        typescript: FunctionImplementationTargetSchema.optional(),
+        python: FunctionImplementationTargetSchema.optional()
+      })
+      .refine(
+        (value) => value.typescript !== undefined || value.python !== undefined,
+        'At least one target is required.'
+      )
+  })
+]);
+export type FunctionImplementation = z.infer<typeof FunctionImplementationSchema>;
+export const ImplementationSourcePackSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  model: text,
+  commit: z.string().regex(/^[a-f0-9]{40}$/),
+  files: z.array(z.strictObject({ path: implementationPath, content: text, sha256: digest })).max(128)
+});
+export type ImplementationSourcePack = z.infer<typeof ImplementationSourcePackSchema>;

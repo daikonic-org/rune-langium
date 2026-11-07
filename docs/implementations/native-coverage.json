@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "sources": [
     {
       "model": "cdm",
@@ -969,16 +969,884 @@
   ],
   "implementationFiles": [
     {
-      "path": "examples/implementations/cdm/date-list-state.rosetta",
+      "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
+      "sha256": "e3046047825ac85a946dd139c05b9b43e0a0ca26c415c2e00b59cd0d4878e0ff"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
+      "sha256": "059fc25179ccc16fb7a2d73d102db9e1b4889fd5e482a1374a14e49daccb1238"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+      "sha256": "453bfadc5351ad63a2bbefb021ff24cf2bcc910d788a907c6fbdf0e36bf66083"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/LICENSE",
+      "sha256": "9a641e3fa68c7411926dc0fe6530d9e95988992f722fd91b71a811c52972e87a"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
       "sha256": "b815b28e75bd9a10fd626d1636c0bdf6f511c3ead3d1f538150f9236f5a8a7bc"
     },
     {
-      "path": "examples/implementations/cdm/date-list.rosetta",
+      "path": "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
       "sha256": "c3345f5cd93b411897e4116ddc33c42690b1375922ce92f5cf17aaabf47b64f2"
     },
     {
-      "path": "examples/implementations/cdm/event-common.rosetta",
+      "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
       "sha256": "b52497b3e64ca23c2d3cb41275f4720206a15d8bff2033d31349a350b449c541"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
+      "sha256": "6307cfdc13afd840466174b06d354d0ddc88f2e7dbd9d5341deeaed4d0d85860"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+      "sha256": "a9353f374571a418b7147a3254b64b7304754e8720950d631dbabfc093a854ef"
+    }
+  ],
+  "referenceFiles": [
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/AddDaysImpl.java",
+      "blob": "4b2cdec8eee254786315e322c1223c67bf31175d",
+      "sha256": "55d2432fcb59fa32a9558a1783187acd8583bf42870cfc7bc5e0d52936baeb39"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/BusinessCenterHolidaysEmptyDataProvider.java",
+      "blob": "91f8679948913e2c1a5ba87be520b4df75883d8f",
+      "sha256": "e49d9841a94ec1f00ea19a36280cb079a84a43bf06525971548a3286676d4393"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DateDifferenceImpl.java",
+      "blob": "9e713ec24538d914867f5c890129901df6b90701",
+      "sha256": "cbe41dfd13f6728c999e5d94d91fae01a4973bfb2dd232855fb57cb643b7f937"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DayOfWeekImpl.java",
+      "blob": "3215e0fc4af8ef7119b1ff3c06faf206f5f1b2ac",
+      "sha256": "7cbdd5f496fe2893f7c7fe1caefdd92830db8d0be83f05d0e7f4597aa2cc7ed6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpl.java",
+      "blob": "2459423c46d5fb14754825786aa03956f9095b91",
+      "sha256": "6f2872bb0102a43046dfcff23b41f59c5539c81a5a32fac4a7a0f739aa69c82d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/NowImpl.java",
+      "blob": "95ef6f92a95001c6151113f1a978e4dcae37f81d",
+      "sha256": "bca28b201301d1dc1ecb18bf394c0323f2bb039e64cf69106d0b3e0bdbaed3ba"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/PopOffDateListImpl.java",
+      "blob": "dbb8bd8360c010e9e33af448476a4638d03a879c",
+      "sha256": "740a49617f440edc4778e13a1c541bc8c7a080d6424382e042f1b13731dabfcc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ResolveAdjustableDateImpl.java",
+      "blob": "ac0028c8326de431e80562e965ea910f4ba67fd5",
+      "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ResolveAdjustableDatesImpl.java",
+      "blob": "154279af42d4c955a5e5d06d2dfb829c231e65af",
+      "sha256": "1349ba7738cb404ace087e747c4d6f67ecb140a76622b3b4792802479f905f5f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ToTimeImpl.java",
+      "blob": "c89969d2389cd1d7c2808da2adcdc4f3d247c87b",
+      "sha256": "64e21a0f90f9ef6508cf4b11259288c2d4d82c85d337f8a311b14d4f6db7ee7d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/TodayImpl.java",
+      "blob": "f6c9e76ef799af5b389c347fdd0c464d3b9e4dcc",
+      "sha256": "44aeff2c02f104e14670f500312010c9159e13ed97007cc55e3c9da355cf6273"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/math/functions/ArithmeticOpImpl.java",
+      "blob": "446f811a8e96aaea78e4a5f5391a7eb4370af35a",
+      "sha256": "78a6bb7f53adbc91bd440b209075c770bc28b5a4b5337ce557300d18c7923cd8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToNearestImpl.java",
+      "blob": "2cd1425b0ef9b487243dda46177852d60456c7f7",
+      "sha256": "692624b1f9fe0c791e3462c26bd8dc741db20ab109073698f59f2faf3c5f4c85"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToPrecisionImpl.java",
+      "blob": "3ad60e476972a29d2b1ff0368a17e180bc43e244",
+      "sha256": "c50ed6beeea436c952e0f0c607fea770fd4a98409e78b461b86b6c82e693b5e7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToSignificantFiguresImpl.java",
+      "blob": "cc1272effba40897524da85a30b9d1811e99457b",
+      "sha256": "51e0eb93ca7cae5fd732895929a4588d589faf92f3152ea29ef4a2e5aa580666"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/math/functions/VectorGrowthOperationImpl.java",
+      "blob": "5ae64297e3a2d4d8578df3fb9f68dc3ee20f242a",
+      "sha256": "6b9b2e89fae54c4716dc39b6f44ad5e7ad96be15bf87ea8f484d352258a2a51a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/math/functions/VectorOperationImpl.java",
+      "blob": "db46a5b17b5ca04f9252098c4ae4986264b17765",
+      "sha256": "839f9eddcdb4d269a9d8c98bcf2120463d13e0cb67a6c6f38cbce346f9d0049d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/base/staticdata/codelist/LoadCodeListImpl.java",
+      "blob": "3f2cacabe8c69ef83eb70e4bc012bec0c70c9517",
+      "sha256": "b72f378ba96991ee22aa52fd9d2781d35d528333313a813bb0d01fe32eb21cad"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/common/functions/StringContainsImpl.java",
+      "blob": "b3de5a487a52af7579ed786818ed4a9cabc6fc3e",
+      "sha256": "7a6cef21063f4066ff207c08453d7fd8689c6038ca1dd4e8e70d54fde82f2fa6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CalculateCommodityCalculationPeriodsImpl.java",
+      "blob": "bf8f2175ddc1a4456279663dbdad08325296b87c",
+      "sha256": "0919916948686956810cfba888869c61517d7408b3c2f09960081ce1da40aad6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateAssetKeyImpl.java",
+      "blob": "e4cdb5a434c852118b6813ad9357c04c7286172b",
+      "sha256": "30492e32294873389cdaa49aa77075bef8e429378ab2d4aa066583e33c365c4b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateKeyForQuotedCurrencyPairImpl.java",
+      "blob": "1d447bc53cf0d595eb4264bc3c83c5f3f6d483e7",
+      "sha256": "3dcad50ca3fb455c52464f782db39b329da959f3a0a3b4994adb8cbd8e929b41"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateKeyImpl.java",
+      "blob": "66290bb4848c1b1fd0549e8eddf6da7b75c7cbc9",
+      "sha256": "822933345862b2ad1dd27fb5b17b993eac02b036f8dc7398061fb39189093cad"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/MapCommodityOptionStrikePriceScheduleImpl.java",
+      "blob": "d14306fc58d22222672b8cece64f9b89e70973d6",
+      "sha256": "155b0a4070de2ed682b4a8607d208da784c0a42a26a18ee76dd60693f6033141"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/observable/asset/fro/functions/IndexValueObservationEmptyDataProvider.java",
+      "blob": "1e5210cb4a19b4331eb8a9685ee8ef2632407e83",
+      "sha256": "92772165beef411fce1446a9800e2c9f6374aef14826db3e47dac8f3b48dd7f0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/AdjustableDateUtils.java",
+      "blob": "702fa80e1e083d0154bd4e48fb527097da9e85c5",
+      "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CalculationPeriodImpl.java",
+      "blob": "1822e26fc3008e30040dc646ef4a562dd9399c63",
+      "sha256": "c663e79c29d4fdc29eb667824d1ce1f2f884fe45f25a65cd99ba4b72bb99c25d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CalculationPeriodRangeImpl.java",
+      "blob": "edd90015aa60b7993b3221fb958ff381b985d0c0",
+      "sha256": "7f225c9468688771a990622984fad5640e7fc25a9d570e2f7e80351543863a85"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CalculationPeriodsImpl.java",
+      "blob": "da4c786b70ffca2332fbbc63c0dc6e40bd4cc37f",
+      "sha256": "e224cc115b57e644745ddf77e5d58b1e4a9d2bfa17482f273cd393d95cc39b85"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CdmToStrataMapper.java",
+      "blob": "2122f908f3378f8ba151245f9616c144aeddef97",
+      "sha256": "434201e9809ac8c1c9affd61b9fcd15b0503f8a8a900b29fa85a00430c74f876"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/security/lending/functions/RunNewSettlementWorkflow.java",
+      "blob": "491000078a9aaa4543effd6473679aeb66defdec",
+      "sha256": "80439c04f634782c4fc6b95d2371b6b61a33c0b9f92fe0c044bb6f13e731a43a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/security/lending/functions/RunReturnSettlementWorkflow.java",
+      "blob": "b984ddfc2e6838cb2f70af8cbf98c1168b9ac643",
+      "sha256": "44f35cef1a977a984d624d6cf465bc2645659363c2f2b88a5007c8001c80b831"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/security/lending/functions/RunReturnSettlementWorkflowInput.java",
+      "blob": "301904a50bc062423a18e0fb98ae7089745e1655",
+      "sha256": "ddf489ce18144430887abff3420614955e36007e8f1b1ce9d65d7ce3951bfde4"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/security/lending/functions/SettlementFunctionHelper.java",
+      "blob": "6d0f4b9db321cc7b5b26f08532c4ba6b7848c73e",
+      "sha256": "ebd0ced8c475ee36ce0b9ae6c65725e0c4b3b52f35c0d712b394c733115670ab"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/cdm/security/lending/functions/WorkflowFunctionHelper.java",
+      "blob": "d3554ed536a863a3e75763debdd67b1e34fff675",
+      "sha256": "82371a530c00cc54d591662992f4265f48669dd06678426e7e5a80c47c72b112"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/CdmRuntimeModule.java",
+      "blob": "7cdb98ea4b1758c6ae5ad682ebcbd59295593b8e",
+      "sha256": "96b999fee20ca4a541a67817147e150c9201b9dce48a524e28d1c5a05fd42d33"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/codelist/CodeListTransformer.java",
+      "blob": "98de0cf9d9a09193dc50138faf9c58e40072bc1a",
+      "sha256": "81cde0f3830930475b3278aff344cf9f4913cbef73806786e8ca3a1f37a721b0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/qualify/BusinessEventQualificationHandler.java",
+      "blob": "c86f667bf8002f77aeedc23e43b64854b23560e4",
+      "sha256": "08179bdbbe24c9bb6ce90f7498e59e9c43e991793fb561144d261d58b8612006"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/qualify/CdmQualificationHandlerProvider.java",
+      "blob": "cbe27590c9dd0fc566f576717c2a88b38b40f580",
+      "sha256": "cd66cca874066c92cf8e2e501548bd1f12acade52dd2e9f336a4f504a60af6a0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/qualify/EconomicTermsQualificationHandler.java",
+      "blob": "debb10152583d686e39b2306ec0f56de00750d60",
+      "sha256": "c67e6b5ac231f3e89343f20afe928a388c9156327929bd07af57db16aaff3dcc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/reference/CdmReferenceConfig.java",
+      "blob": "5eca2e6b05ea711c2bfcb213d68409411e8b2909",
+      "sha256": "0e2572fd25b6d613c64257089ec156be9c9a5ae130350d7f666165eb435ea444"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/java/org/finos/cdm/util/ResourcesUtils.java",
+      "blob": "95414534f117bd3fc8df13e0c110e8d54adab9a1",
+      "sha256": "82ce2331e5d6f85485f95b8d4c465aa23c1f40d4fd77e862a9591457a623b562"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AddBusinessDaysImplTest.java",
+      "blob": "64e1ed8450b7f81775fb61e4c7b268e28c8b701c",
+      "sha256": "fb7c424c59072fe039f2e9345b1f45ee107f0cf61e2b9e41dc22d9815f8bc04a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AddDaysImplTest.java",
+      "blob": "12cf25a68cc8f190b56be39eccd99291c8e1e541",
+      "sha256": "49239559a5e2ef7a5cbb5e0af02a6299e5cb8691066f4451dc9966766b1180ec"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AdjustDateToBusinessDayConventionTest.java",
+      "blob": "26ee6cb60abcc16e146d24ae0280a32152d81140",
+      "sha256": "923fa57013f4b5c16d0ba6bee8c77e2971f9c83b8d357b732e0f464d04177878"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AdjustDateToFollowingBusinessDayTest.java",
+      "blob": "370912b0579944f0d788cf5e440dacdd3e535f6b",
+      "sha256": "dbabd32ab1704a763d85d112b561e4e6e42e312bae01549d243f761ff8f73291"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AdjustDateToModfollowingBusinessDayTest.java",
+      "blob": "0dd148285583045eb8c2c58091403f7994bb8604",
+      "sha256": "c8c3292b82358926e154ca3c614ef03b34c175c6945bc16b3d1026c48186bb5f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AdjustDateToPrecedingBusinessDayTest.java",
+      "blob": "8ec3344d93383d6852959c7200839c7fa6f1db34",
+      "sha256": "e4919a4997b8c8f88ac82367cacd83709904afc73f7cf7600c5100621dba27dd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AppendDateToListTest.java",
+      "blob": "6c77609946bc5df50e12292b996342650ab31bf9",
+      "sha256": "0aea18577af78d3ee6ccb77b9d6c2e14ddd83d7db7103319d48b6d1bb88716bf"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/BuildRepeatedDateListTest.java",
+      "blob": "daf96105a291b2b1b6ba8cfa88cfb005a889d21b",
+      "sha256": "bfe86e6416be9c68968923557d10fe343fedd0f71e68e6656a2074f086e1cacd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/BusinessCenterHolidaysMultipleTest.java",
+      "blob": "96e36ee4702fc82f9eb825b6cf1c9e0252de4dab",
+      "sha256": "fb7be65097345b9cd83466429139bff85cd853173eb5838efb9df555d2de52d8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/BusinessCenterHolidaysTestData.java",
+      "blob": "2bd9bf849948d093a6145d49df5f437e927a76fc",
+      "sha256": "632017a87ea6e9049caf1757d9da8132e946f324e3b1c2ae88b087f00e1c18de"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/BusinessCenterHolidaysTestDataProvider.java",
+      "blob": "be355b37223f8dff7a416de407a003f099e07694",
+      "sha256": "3d972d1c8b582613437371528766dedad2c1f326c85b0b5720985d8fa0ec0dc3"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DateDifferenceImplTest.java",
+      "blob": "db2ed9ac47f38f3641664ab9ea7254203d0c858c",
+      "sha256": "ff926b265c1815426d077bac445a1efab6a928d7de0d0d0caddb35c986dd577f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DayOfWeekImplTest.java",
+      "blob": "f13fbf7ad03dd9f1347b6f7b2b8058de48accb21",
+      "sha256": "82796cafa8b1fce635c77ff969bec76635a3fc69541a80156b59f69b355360ee"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/ExpandMissingObservationDatesTest.java",
+      "blob": "9385e7e79dc3b8da61950d3b6eb1308d316fbdeb",
+      "sha256": "ac103a71a8e569dfc5524e9311c43f1a9ae0b88b299706cfdcf28212f48a2312"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/GenerateCalendarDateListTest.java",
+      "blob": "d751c067cecc2c1125ab8d3834aafbb7bb17a91c",
+      "sha256": "c2ea8ddcf7d760ed1aba72295590e226da98c2ee9bc9d20981ea07a3e6538643"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/GenerateDateListTest.java",
+      "blob": "c5244f625fae43b1b5103fb7756b653694383dc3",
+      "sha256": "0519940a55dff9c1f1eb44ddcb27e50b4ae9868733eaa03fa69a87f38a3e71c6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/IsBusinessDayTest.java",
+      "blob": "2ba0a35c5a118f7fda39e29af9fcafd8769cd3ab",
+      "sha256": "45c8e67a3f4a87049113e51574939fecb3ba14b088cb794b196f5b395d435483"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/IsHolidayTest.java",
+      "blob": "48288b6a5e592f04dc4a113945eacaaa44097f5e",
+      "sha256": "771412fab0600f6d48d9ab63dceed738c054f3cdfe7ae87139bad5581e1a1d2d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpTest.java",
+      "blob": "b3948ef35dc17768579b13215460e4f5073d70ee",
+      "sha256": "72d0a4b369b4266189c875cc1e86f253a5935839495cb0ec1b25504bd4979db8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/PopOffDateListImplTest.java",
+      "blob": "338954366baf4a713c5b4f0fa06d11766e18a334",
+      "sha256": "abba2f971039f3dfeaa17b5de5c1fcb990ff7869539c81721c380feafb240b52"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/ShiftBusinessDaysTest.java",
+      "blob": "0dc0f02ba15dede5dd7f2707cd311bfb6d9ba8f1",
+      "sha256": "b70b8668269fe5617044d1e6db80b08cd48ee5b48b19e87e652014c871dad46e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/ToDateTimeTest.java",
+      "blob": "c54177a4ba377e46440bf662240ece45875924c3",
+      "sha256": "74fe4f11ec8612b2b5606bc9833c2b4eafc8fc676abcddd02489f75f129121df"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/ToTimeImplTest.java",
+      "blob": "1c04d8b0397b8a1659afe726918d61c9777f6132",
+      "sha256": "7636c80ea9d0af0ffa990a97ef0d67a510b8e5884af90f7986d7541c7a4e7c8f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/AppendToVectorTest.java",
+      "blob": "6f6558f755b0001e97bf2bfb4476b8c6176e224a",
+      "sha256": "2adcce39b48b0cd81741c76a6e35c6091e2fdeee083155d5c23a7c7a5f2fb428"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/ExpTest.java",
+      "blob": "bedfa3fd0d3821db5b2a80ea0c7a6a05902ebf04",
+      "sha256": "0f63964a2778cd3db5d34231f90ae8841d3f9f4051a028c08e3c2cd6dc2bfe92"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/LogTest.java",
+      "blob": "86634b7c6fad0bb153f2dee1426da54270717870",
+      "sha256": "0d523eb8158ef21b549d84095465e1995ced0ad2ff713d05048736a2fde1df84"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/RepeatNumberTest.java",
+      "blob": "d264c42042d99228c02346168bd5c454eaea1c00",
+      "sha256": "640d960e61c18474d846e2f30905e3d454cf6fe8844e0c355d688eece98b4677"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToNearestImplTest.java",
+      "blob": "82e1fb90f4817b9cd35192bb71b9d600ccad5c13",
+      "sha256": "712804d19879cc634c58e87516cbd2f0d097190cab7dad77a7fcc31bbf39e2df"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToPrecisionImplTest.java",
+      "blob": "1ad9525d319ee433e7872523ab29a495b1b06aea",
+      "sha256": "0bcc7e7ae957e1a7ed63100151aa3776d6590a56992749a36a9f067371242233"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToSignificantFiguresImplTest.java",
+      "blob": "139945be5f68224fce644285d1c31e0a281ac753",
+      "sha256": "f498b1c013916035a6f995fcf689159d40d6f4a3f1432c1ecb58a225654534b9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/SqrtTest.java",
+      "blob": "b2e50c339f6acdfdcd9befc0684990c8abe1e95c",
+      "sha256": "19045cc44b6098c17d0fc43674aeba0c6d18bcead9d94236ae006066d8494e68"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorGrowthOperationImplTest.java",
+      "blob": "16bf5326aa9efde9a15fc6f8556cf9f59bfebfe6",
+      "sha256": "0a4e96867e31d6ad80325a469a6f02b582f9b0f165a02c9a86a3d0e20896a85f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorOperationImplTest.java",
+      "blob": "81a77c2f1eddf9f6e036fc6c199908bc4249bbdc",
+      "sha256": "762886b57bb0784cd4bdc1b8dfaf2affb0da14763d96b6ec82b7fab80c2b27ba"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorScalarOperationTest.java",
+      "blob": "2b2f2aa50f2e9a6bce5ef31823634db4526a3b0f",
+      "sha256": "99b8908386e0e2e154ec73b8417eb315d5f28071b38576d690472f71fd4d41a4"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/base/staticdata/codelist/FpMLCodingSchemeTests.java",
+      "blob": "31a83d2ae14ee112d9093eec51970493b5267e50",
+      "sha256": "3cfd0f1d38b07b1a4659f5b3c1f7ba5e54c843718a72133ceaad0973aad9f2ac"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/functions/AddStepToCompositionStateTest.java",
+      "blob": "07a516405d2dee9e4d11fd7d9d647c556cece015",
+      "sha256": "b6058110f3b5fab538ef93e5104a0d75edf60a2980574e90f5c145f6b418c8a2"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/functions/Create_InstructionCompositionTest.java",
+      "blob": "bdc4611b17f2b243dc0045670017f98187bfbc27",
+      "sha256": "1352b3133c4f999dd3f9e212d006db183609cea00c6caf4942eab1d7d2c29107"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/functions/NextCompositionStepToExecuteTest.java",
+      "blob": "998edfb358c4f523dea60860cb793940dcfd2103",
+      "sha256": "dd3ca2889e41b97213f58e88a31168f56fe1c5def9d1b4b5537ac99a265b5f9e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_AdjustDateInstructionTest.java",
+      "blob": "0a7717258082d02b024a75e36c74885ad0e7ca06",
+      "sha256": "f32c8cb480da6e7d61bf5e0516cc745d39b5254a731901640bc147c5a0cb32e7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_AdjustObservationDatesInstructionTest.java",
+      "blob": "aae1c979d046a468df7ed53de8e6be9bddc1c9a5",
+      "sha256": "f872db3382a842bf12685f5a2383f5f991335c75a622caee068f4e78d33c30b9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_AdjustPeriodInstructionTest.java",
+      "blob": "f1506935a8814c037253f1d10e9c75db69ee779f",
+      "sha256": "fb963ba3b04f60bc23d62a73501fbd5e41f915d52c6eb6cc404bb2597d3425c0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_CalculateResetValueInstructionTest.java",
+      "blob": "ef81177d2d21d8f3607ec7f8901eb7e73aff010f",
+      "sha256": "faadedc953692d28907d773892d2203b0952304ed2974ab9457d32d5b97b02ba"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_CollectFloatingRateOptionInstructionTest.java",
+      "blob": "d0503bcebdf42e866a1da536c6d4344ec00ce186",
+      "sha256": "7b6feb923704610555964ce435f03fb922692af419b3edb66b4a2fe67cde60ec"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_DetermineUnadjustedCalculationPeriodInstructionTest.java",
+      "blob": "b7de492266008a77593ccd8b7572042c32ef3036",
+      "sha256": "070bcb914eb857f932bf1b27a510fb0d4be8dab6f220d8412c899e8a20330027"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_DetermineUnadjustedObservationDatesInstructionTest.java",
+      "blob": "dd5dd66af7a95f413a4dbcbb724a14268def858a",
+      "sha256": "cf740f5f0ef3d19c85b623142415ac1ef46d6a0d68f1f899b9f8f79f52c362dd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_ResetInstructionTest.java",
+      "blob": "e1e5a7d43e69e18e3bb2ef3a1d2274e5837def7b",
+      "sha256": "3303219cbd076f94f280b8e21ed82a834b839ff4b6b1be52ca42b07c0abe8568"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/ResetInstructionNextStepTest.java",
+      "blob": "20f00099bf3e23a3d18edc206a3bfb92601b8fb0",
+      "sha256": "7a7e896a85c24ffb0b5e61e0b1509e67cd2f1fbfd71ca9bd2783cbe5c283e6e8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/UpdateResetCompositionStateTest.java",
+      "blob": "b8ff688c8a1a69a2605c8547f0b6660a2455b14a",
+      "sha256": "36b6352d6844458eb9f9ceb310e01268c1822af28664cd82b4f4088f410fca1f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/position/functions/FxMarkToMarketTest.java",
+      "blob": "d9c0d950f0634e4907972b5eaddfc5746ffc4ff3",
+      "sha256": "947abd1429ca8baac89f2bff4a6179492d72b2854d58271f52c84e8200e5a2d7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/event/position/functions/ResolvePerformanceObservationIdentifiersTest.java",
+      "blob": "95ffad22bf4b25ad978875ac386967ff414e3a48",
+      "sha256": "731e47d51bfee0ec715f534b47e59be6205b4e05009d9370f73d24b76ce70d81"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/namepace/ValidateNamespaceTest.java",
+      "blob": "f3de072ea51c7e403d6d8e3fc58b960b4add56ee",
+      "sha256": "e4b8e698995a6b0ad4eb62a6002fe4cae208959e567777010d1bf9b0d6522617"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/ApplyAveragingFormulaTest.java",
+      "blob": "09d0943d3d0abfca4cfdd4293b6adc7009cda9c3",
+      "sha256": "0b9cd6a1aa3091585bdd2de9f4fe3dc3b974f82901370a28b1a91c620fbeeb27"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/ApplyCompoundedIndexFormulaTest.java",
+      "blob": "dd3e90e55c4cee9bf0910f8687c57ae2bf29eaad",
+      "sha256": "00d7d93bff9715bec53683c69fc453c7c05fc7f6533e779ab3b9803d148649f2"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/ApplyCompoundingFormulaTest.java",
+      "blob": "9542b031633707576b7335eff010136796c28418",
+      "sha256": "4cf652a62b3b2b7594b370e0a0571411d60f049c66a156a4ae944cf1d485bf9d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/CalculatedRateTestHelper.java",
+      "blob": "19a7c4131c38da6784a1b0e515877d8c43088bd5",
+      "sha256": "e72301624117af28122f0fe9ecbbaa7f23bc445f47de563a7e52885adc92b90d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/ComputeCalculationPeriodTest.java",
+      "blob": "a8a81ed9c2fde5aa2204ece012f3dbd8d5256977",
+      "sha256": "9ae41761d6b2133bfd76ab835beeb81357d64423a69d49484bac353444fe5933"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/EvaluateCalculatedRateTest.java",
+      "blob": "633d789aa91854878bd69c4e0adefe65fbbb0e47",
+      "sha256": "4e52fef3bd911b2bbbf2298f1793c01a634d8e2554790d7e137245e3d7f19e4c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/GenerateObservationDatesAndWeightsTest.java",
+      "blob": "2905fff3f87806a5aa284adfe11876045e9b4b5a",
+      "sha256": "acaf1dbb7b462df306293d7a4ce2c1f2228ab8695a1992b0f22a94bda78012fb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/GenerateObservationDatesTest.java",
+      "blob": "9aca61b36967028c3f3e254b34dba35597a3d304",
+      "sha256": "8225abddaa2b8199b2f1b5181faa2b4182716a73b937790356523ed5c3b0d798"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/GenerateObservationPeriodTest.java",
+      "blob": "2179df8cf0890f86639302bd2edd0fa3d1c29f25",
+      "sha256": "cfff20dd558bc968e6a3a65a6aaba0cfad5645040ac4df71093bed933aa3574e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/GenerateWeightsTest.java",
+      "blob": "4e39bf97cd9b4cef4e7bf5299f4e0933ac56bf49",
+      "sha256": "2c32636a2195d99141290a61d852ca74c847056941e5c091863cb667a0b58935"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/ProcessObservationsTest.java",
+      "blob": "581076860f11cbbe5eca34e20a83e02ca38fd9b8",
+      "sha256": "8bdba3e70078f95b9f17aaa9d77bc6a0e7ea5c3808657785a86b21b8e1551595"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/DetermineObservationTypeTest.java",
+      "blob": "3f7900741ffded1ecab8f796a59b0c437b1f9790",
+      "sha256": "d45de76c3b97c5615e2547783e7c17487b652cf098bcec25844bab55bb0fbc51"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationMultipleTest.java",
+      "blob": "3c6ed4d6a2d48aca29b2e05d3a2918fba9538df5",
+      "sha256": "1bc78faaaaf7b0a28418126b2a0bd1080421239e890f89587369a5ed4124aad2"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationTest.java",
+      "blob": "9de5e4ae966de2e3f6d5cf89d5be3595e054ca43",
+      "sha256": "a153fc302f59972dec26a430735005e138e7d07f9aae25225e32d252a1f30f23"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationTestDataProvider.java",
+      "blob": "49bae234d288e3c0191635d9ca3582db9cfb6836",
+      "sha256": "98d7cfeb2023167c50ebf970802239f81a84e8b8a816eb61d006568f7ba08b2b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/common/functions/PriceQuantityTriangulationTest.java",
+      "blob": "8f3540a393f7320009b0b0762eeeafedae203ea4",
+      "sha256": "fbfa92968da56ba655f356bf3be9cd8565033c5388a534c869827c8553c318b4"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/observable/event/functions/ResolveObservationAverageTest.java",
+      "blob": "d20996b29b406ef553c3311a2f8201306e19d973",
+      "sha256": "c68ca5db5ee180b7c12807d0a20ed11fa0b8df50f6d66d0c8719086b34593e66"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/calculation/functions/FloatingAmountCalculationTest.java",
+      "blob": "0f9e956b674d045c1c5e897a8cad3977d6550624",
+      "sha256": "27d653018743209e9ba31637f0f62db35bb4e8671b5631607ed76f0ce7bbee12"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/calculation/functions/GetNotionalAmountTest.java",
+      "blob": "467a48f710d7dd61f198acd9ef4c5b86586466d9",
+      "sha256": "bcaadf35b1075d48868b4785bfd4cd966187ef2a8b171863c56c827071464d3e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/ApplyFloatingRateProcessingTest.java",
+      "blob": "41931ccf2e47e0975ba85dd282f08866341c636e",
+      "sha256": "dc5f876457f3f97b90c4a2dc9a208020c8e58f6c6ff34dd1b95df0c918ac8212"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/DetermineFloatingRateResetTest.java",
+      "blob": "c6c6dbc4f8c352815a7b1e65c5e2b39f1bbd1524",
+      "sha256": "2825a8fa7e03e56aafbe7114a85bc796a7aec66e90f662c30a2cf2c191811465"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/EvaluateScreenRateTest.java",
+      "blob": "7ac40c0782c85887eca559501d043040e9383b0c",
+      "sha256": "7b067352f67311c88fe2ed52146da86d15f134f54846e195c0d41924b0ffcbd5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/FloatingRateTestHelper.java",
+      "blob": "f716c8346a0a9015bdce5d4a1cc6adfb0c445a41",
+      "sha256": "2326ddc05e83075fc854b335446bc43e7333f6ab3c120fe0f74ae4b20e95a339"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/GetFloatingRateConditionParametersTest.java",
+      "blob": "8a67c7651722f757c6b938394e0c8b71bfe4c49f",
+      "sha256": "4e271a8956d7915de0e2f32e5b6deec67616ee301a8db9e71fb0f6e954cf74f3"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/GetRateScheduleAmountTest.java",
+      "blob": "60451d6318af868a4ed09310395e73d8d9c1f0fb",
+      "sha256": "a00831758d3b25b7eb0dd674f79ed3c3376fe0feeb05799e4158de8a3fb49b77"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/MapFloatingRateIndexCalculationMethodEnumToCalculationMethodEnumTest.java",
+      "blob": "10c5d2e1cf3ec24bee09fd5ed1a0fd8086539ae1",
+      "sha256": "1cb6132873ade574672acecb93dace7ef2813bfc8d7f2a9d9f1875e3e5d89d23"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/functions/FixedAmountTest.java",
+      "blob": "4df7c22c6c2c4ff55aef3d886d93fd061116d9c5",
+      "sha256": "3ec418fba62d3f7340255bf43ecfced4372feb70acadc78d95b1a7f9d791d26b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/asset/functions/FloatingAmountTest.java",
+      "blob": "edaf6d356a0f48ff0e133dbcbba22bb893e4f438",
+      "sha256": "1f1bfa468cae3372f4642118ef4475a1ed35d0e6ff19d4576dd83c1bc7f94790"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/CalculationPeriodImplTest.java",
+      "blob": "5a649953aa4d936e7790b16a6ffd1e994986c6bf",
+      "sha256": "9330348421b4f76b1592be6bcdfca29a05e8f49362c7a84c2415e1de4ca313d8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/CalculationPeriodsImplTest.java",
+      "blob": "d74c6815e692a03d37c20ae91681e688c9b97da2",
+      "sha256": "70422944e6ebc7db205e0540d95adcea713a1d5aa0d0041ddc1b39702096e5dc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/DaysInPeriodImplTest.java",
+      "blob": "c3f2e89b8f618751df1e1bf92b7a255044a06e42",
+      "sha256": "4a4481fd93c9362e59f5df2c3c952d737ed40ef60fbb7b2d4f57d02213e47835"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/ResolveRateIndexImpl.java",
+      "blob": "76ff7b0ca3fd4d6f04ebdc008548c184bdaac6e6",
+      "sha256": "5c6db14bce3aaed1cd2fce4fbb12d9c43be529c12ae4c068cc6d14eb32adcfaa"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/TestableCalculationPeriod.java",
+      "blob": "9995fdc0a730f6df4152eba8fa2caf795ba827f6",
+      "sha256": "2bc6cf4a4121bc8add14454e05ca3924cde6c6fbfecc8460652ce2a7136101f6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/qualification/functions/Qualify_AssetClass_CreditTest.java",
+      "blob": "06609a3578f2658d83f9e2317f0c815b32f9cb3f",
+      "sha256": "60dcef1aa06672a682cfd401419b2ef218f12bbefb10bd20d65a269f4cd01edd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/cdm/product/qualification/functions/Qualify_AssetClass_ForeignExchangeTest.java",
+      "blob": "426323302d94d9fe5449f79e700f23a491efe51a",
+      "sha256": "c2319bc3f84810bf1da03f30bb9991c09bb497a8ea2a41d42c4deb5f808727a0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/org/finos/cdm/CdmTestsModule.java",
+      "blob": "81500a3106fdcd119be6cc19cd287c1dfcd9f7e6",
+      "sha256": "66f38f911ba860dd627f5c5403a4cb3702883ea12064df78b11c17791c246d0f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/org/finos/cdm/documentation/DocumentationCodeValidator.java",
+      "blob": "609e5dab5cdb3e505f311e078b0eaeb68f422a09",
+      "sha256": "6338f1a360f03c8de7808dd616d5d950309f2f8ce06ff215c1ee67f5847e1ab0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/org/finos/cdm/documentation/PatternStreamer.java",
+      "blob": "f5fd49c305bf9c8c34692e968fe83136202a55dc",
+      "sha256": "2229afb808ceba7115d03975f77240022984e681e7698893bd93935acabc4c1a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/org/finos/cdm/functions/AbstractFunctionTest.java",
+      "blob": "65992b51dae077505f5cb3266e0d92f3c4cb37d4",
+      "sha256": "27e37f2119c4c5a671793d53ac83bc7b442c12f85a31f7e8848a4f41495e3d5c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/org/finos/cdm/functions/ModelClassValidationTest.java",
+      "blob": "d68fc2335d8e68c488d50f9836c3656357c4bfb3",
+      "sha256": "45705dd28770079e86e7ee4e07d6bc514c7301898478a228255f6b4ab722f2ed"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/test/java/org/finos/cdm/hashing/GlobalKeyProcessStepTest.java",
+      "blob": "d62f32fc24d35fa6f3675992557b7ccb96cbf824",
+      "sha256": "1ab49eb13698f8c3b4ebe54dd83e4edcf7aedf1a6e756da98492997df34e764d"
+    },
+    {
+      "model": "fpml",
+      "path": "rosetta-source/src/main/java/com/regnosys/runefpml/RuneFpmlModelConfig.java",
+      "blob": "fff7d542984b72549c9eb88b34c12908529d47bb",
+      "sha256": "b0f10249ef3bde50f0de21d2a05d155f95911930b4453c40fd4dc46cf2e85fd9"
+    },
+    {
+      "model": "fpml",
+      "path": "rosetta-source/src/main/java/com/regnosys/runefpml/RuneFpmlRuntimeModule.java",
+      "blob": "01b7dac2e3c0ed138d77b84465d2734cddaa6be1",
+      "sha256": "a28e33bc2685932c2d593d4e62ed2ca4383e69d3bb0b981dfdccf7e06d60b97e"
+    }
+  ],
+  "notices": [
+    {
+      "model": "cdm",
+      "path": "LICENSE.md",
+      "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "model": "cdm",
+      "path": "NOTICE.md",
+      "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "model": "rune-dsl",
+      "path": "LICENSE",
+      "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "model": "rune-dsl",
+      "path": "NOTICE",
+      "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
     }
   ],
   "functions": [
@@ -1028,26 +1896,47 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.AddDays",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.AddDays",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.AddDays",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.AddDays",
+            "dependencies": [
+              "rune_calendar_add_days"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/AddDaysImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.AddDaysImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AddDaysImplTest.java",
+            "entrypoint": "cdm.base.datetime.functions.AddDaysImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Date arithmetic; retain the verified Gregorian/Temporal contract or prove a Rune algorithm.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.AddDays",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.AddDays",
-          "dependencies": [
-            "rune_calendar_add_days"
-          ]
-        }
       }
     },
     {
@@ -1086,20 +1975,25 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/BusinessCenterHolidaysEmptyDataProvider.java",
+            "entrypoint": "cdm.base.datetime.functions.BusinessCenterHolidaysEmptyDataProvider"
+          }
+        ],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Select holidays from a supplied, versioned business-center calendar; acquisition is a separate port.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.datetime.BusinessCenterHolidays."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.datetime.BusinessCenterHolidays."
-        }
       }
     },
     {
@@ -1148,26 +2042,47 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.DateDifference",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.DateDifference",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.DateDifference",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.DateDifference",
+            "dependencies": [
+              "rune_date_days"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DateDifferenceImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.DateDifferenceImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DateDifferenceImplTest.java",
+            "entrypoint": "cdm.base.datetime.functions.DateDifferenceImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Signed Gregorian calendar-day arithmetic; existing native primitive can support Rune callers.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.DateDifference",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.DateDifference",
-          "dependencies": [
-            "rune_date_days"
-          ]
-        }
       }
     },
     {
@@ -1215,26 +2130,47 @@
           ]
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.DayOfWeek",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.DayOfWeek",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.DayOfWeek",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.DayOfWeek",
+            "dependencies": [
+              "rune_date_days"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DayOfWeekImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.DayOfWeekImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DayOfWeekImplTest.java",
+            "entrypoint": "cdm.base.datetime.functions.DayOfWeekImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Gregorian weekday calculation or a shared date primitive; no external data required.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.DayOfWeek",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.DayOfWeek",
-          "dependencies": [
-            "rune_date_days"
-          ]
-        }
       }
     },
     {
@@ -1283,26 +2219,47 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.LeapYearDateDifference",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.LeapYearDateDifference",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.LeapYearDateDifference",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.LeapYearDateDifference",
+            "dependencies": [
+              "rune_leap_year_days"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.LeapYearDateDifferenceImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpTest.java",
+            "entrypoint": "cdm.base.datetime.functions.LeapYearDateDifferenceImpTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Count days falling in leap years, including signed ranges; prove a Rune algorithm or reuse the primitive.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.LeapYearDateDifference",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.LeapYearDateDifference",
-          "dependencies": [
-            "rune_leap_year_days"
-          ]
-        }
       }
     },
     {
@@ -1330,26 +2287,42 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.Now",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.Now",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.Now",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.Now",
+            "dependencies": [
+              "datetime"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/NowImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.NowImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "clock-backed",
         "requirements": "A supplied clock/native leaf is required; Rune may compose it, but cannot independently observe system time.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.Now",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.Now",
-          "dependencies": [
-            "datetime"
-          ]
-        }
       }
     },
     {
@@ -1388,25 +2361,32 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
+        "entrypoint": "cdm.base.datetime.PopOffDateList",
+        "origin": "workspace"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/PopOffDateListImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.PopOffDateListImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/PopOffDateListImplTest.java",
+            "entrypoint": "cdm.base.datetime.functions.PopOffDateListImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "rune-source",
-        "requirements": "Explicit Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; retain the native fallback for very large lists.",
-        "implementation": "examples/implementations/cdm/date-list.rosetta",
+        "requirements": "Single Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; large-list optimization remains open.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.PopOffDateList",
-          "dependencies": []
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.PopOffDateList",
-          "dependencies": [
-            "rune_list"
-          ]
-        }
       }
     },
     {
@@ -1445,20 +2425,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ResolveAdjustableDateImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.ResolveAdjustableDateImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Adjustment/relative-date rules in Rune; supplied calendars and date primitives underneath.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.datetime.ResolveAdjustableDate."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.datetime.ResolveAdjustableDate."
-        }
       }
     },
     {
@@ -1497,20 +2481,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ResolveAdjustableDatesImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.ResolveAdjustableDatesImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Resolve collections/periodic dates in Rune using the same calendar and date contracts.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.datetime.ResolveAdjustableDates."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.datetime.ResolveAdjustableDates."
-        }
       }
     },
     {
@@ -1549,20 +2537,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Business-center/time-zone mapping can be supplied data; named-zone/DST behavior needs a proven boundary.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.datetime.TimeZoneFromBusinessCenterTime."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.datetime.TimeZoneFromBusinessCenterTime."
-        }
       }
     },
     {
@@ -1621,26 +2609,47 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.ToTime",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.ToTime",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.ToTime",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.ToTime",
+            "dependencies": [
+              "rune_native_time"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ToTimeImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.ToTimeImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/ToTimeImplTest.java",
+            "entrypoint": "cdm.base.datetime.functions.ToTimeImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Clock-value construction and range rejection; assess direct Rune construction before retaining a native leaf.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.ToTime",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.ToTime",
-          "dependencies": [
-            "rune_native_time"
-          ]
-        }
       }
     },
     {
@@ -1668,26 +2677,42 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.utc-today",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
+            "entrypoint": "today",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.utc-today",
+            "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
+            "entrypoint": "today",
+            "dependencies": [
+              "datetime"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/TodayImpl.java",
+            "entrypoint": "cdm.base.datetime.functions.TodayImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "clock-backed",
         "requirements": "A supplied clock/native leaf is required; UTC date selection can be composed in Rune.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.utc-today",
-          "dependencies": [
-            "@js-temporal/polyfill"
-          ]
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.utc-today",
-          "dependencies": [
-            "datetime"
-          ]
-        }
       }
     },
     {
@@ -1742,9 +2767,22 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-func.rosetta",
+        "entrypoint": "cdm.base.datetime.daycount.DayCountBasis",
+        "origin": "upstream"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "upstream-variants",
-        "requirements": "Nine upstream dispatch bodies. Audit missing enum cases/defaults and execute existing bodies before adding replacements.",
+        "requirements": "Nine preserved upstream selectors execute in strict TypeScript layouts and Python. Five enum values still require an unavailable default.",
+        "upstreamDefaultHasBody": false,
         "variants": [
           {
             "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_360\"]",
@@ -1784,15 +2822,22 @@
           }
         ]
       },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.datetime.daycount.DayCountBasis."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.datetime.daycount.DayCountBasis."
-        }
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/cdm-dispatch.test.ts",
+        "cases": "test/fixtures/third-party/cdm-dispatch/cases.json",
+        "casesSha256": "8638f40bbc7382f6b7aa046d84f74dcd6a0e1b7ef887636c09a5b3e87a1ce470",
+        "selectors": [
+          "ACT_360",
+          "ACT_365L",
+          "ACT_365_FIXED",
+          "ACT_ACT_AFB",
+          "ACT_ACT_ICMA",
+          "ACT_ACT_ISDA",
+          "CAL_252",
+          "_30E_360",
+          "_30_360"
+        ],
+        "caseCount": 14
       }
     },
     {
@@ -1887,9 +2932,22 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-func.rosetta",
+        "entrypoint": "cdm.base.datetime.daycount.YearFraction",
+        "origin": "upstream"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "upstream-variants",
-        "requirements": "Eleven upstream dispatch bodies. Check selectors and transitive date/calendar dependencies; preserve upstream formulas.",
+        "requirements": "Eleven preserved upstream selectors and date-helper closure execute in TypeScript and Python. Three enum values lack defaults; documented formula quirks remain unchanged.",
+        "upstreamDefaultHasBody": false,
         "variants": [
           {
             "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"_1_1\"]",
@@ -1937,15 +2995,24 @@
           }
         ]
       },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.datetime.daycount.YearFraction."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.datetime.daycount.YearFraction."
-        }
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/cdm-dispatch.test.ts",
+        "cases": "test/fixtures/third-party/cdm-dispatch/cases.json",
+        "casesSha256": "8638f40bbc7382f6b7aa046d84f74dcd6a0e1b7ef887636c09a5b3e87a1ce470",
+        "selectors": [
+          "ACT_360",
+          "ACT_364",
+          "ACT_365L",
+          "ACT_365_FIXED",
+          "ACT_ACT_ICMA",
+          "ACT_ACT_ISDA",
+          "CAL_252",
+          "_1_1",
+          "_30E_360",
+          "_30E_360_ISDA",
+          "_30_360"
+        ],
+        "caseCount": 26
       }
     },
     {
@@ -2008,20 +3075,29 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToNearestImpl.java",
+            "entrypoint": "cdm.base.math.functions.RoundToNearestImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToNearestImplTest.java",
+            "entrypoint": "cdm.base.math.functions.RoundToNearestImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Exact decimal division/rounding rules, negative values and division errors; no binary-float approximation.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.math.RoundToNearest."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.math.RoundToNearest."
-        }
       }
     },
     {
@@ -2095,20 +3171,29 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToPrecisionImpl.java",
+            "entrypoint": "cdm.base.math.functions.RoundToPrecisionImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToPrecisionImplTest.java",
+            "entrypoint": "cdm.base.math.functions.RoundToPrecisionImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Decimal scale and UP/DOWN/HALF_UP behavior; decide numeric versus trailing-zero representation explicitly.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.math.RoundToPrecision."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.math.RoundToPrecision."
-        }
       }
     },
     {
@@ -2172,20 +3257,29 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToSignificantFiguresImpl.java",
+            "entrypoint": "cdm.base.math.functions.RoundToSignificantFiguresImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToSignificantFiguresImplTest.java",
+            "entrypoint": "cdm.base.math.functions.RoundToSignificantFiguresImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Exact decimal precision/rounding; a shared decimal primitive may leave policy/composition in Rune.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.math.RoundToSignificantFigures."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.math.RoundToSignificantFigures."
-        }
       }
     },
     {
@@ -2234,20 +3328,29 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/math/functions/VectorGrowthOperationImpl.java",
+            "entrypoint": "cdm.base.math.functions.VectorGrowthOperationImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorGrowthOperationImplTest.java",
+            "entrypoint": "cdm.base.math.functions.VectorGrowthOperationImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "candidate",
         "requirements": "Cumulative products including the initial base; prove collection accumulation and decimal parity before choosing Rune or TS.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.math.VectorGrowthOperation."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.math.VectorGrowthOperation."
-        }
       }
     },
     {
@@ -2314,20 +3417,29 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/math/functions/VectorOperationImpl.java",
+            "entrypoint": "cdm.base.math.functions.VectorOperationImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorOperationImplTest.java",
+            "entrypoint": "cdm.base.math.functions.VectorOperationImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "candidate",
         "requirements": "Pairwise operations and zero-padding; prove positional pairing, decimal division and arithmetic-error policy.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.math.VectorOperation."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.math.VectorOperation."
-        }
       }
     },
     {
@@ -2366,20 +3478,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/base/staticdata/codelist/LoadCodeListImpl.java",
+            "entrypoint": "cdm.base.staticdata.codelist.LoadCodeListImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Filter/construct CodeList from prepared resources; reuse #645 resolution instead of fetching a scheme URI.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.base.staticdata.codelist.LoadCodeList."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.base.staticdata.codelist.LoadCodeList."
-        }
       }
     },
     {
@@ -2418,20 +3534,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "candidate",
         "requirements": "Aggregation/construction over supplied billing records; establish authoritative grouping and amount rules.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.common.Create_BillingSummary."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.common.Create_BillingSummary."
-        }
       }
     },
     {
@@ -2459,21 +3575,23 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
+        "entrypoint": "cdm.event.common.EmptyExecutionDetails",
+        "origin": "workspace"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "rune-source",
         "requirements": "Explicit Rune source returns the absent optional value; verified against the pinned signature, generated TypeScript/Python and Prototype.",
-        "implementation": "examples/implementations/cdm/event-common.rosetta",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.common.EmptyExecutionDetails."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.common.EmptyExecutionDetails."
-        }
       }
     },
     {
@@ -2501,21 +3619,23 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
+        "entrypoint": "cdm.event.common.EmptyTransferHistory",
+        "origin": "workspace"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "rune-source",
         "requirements": "Explicit Rune source returns an empty collection; verified against the pinned signature, generated TypeScript/Python and Prototype.",
-        "implementation": "examples/implementations/cdm/event-common.rosetta",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.common.EmptyTransferHistory."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.common.EmptyTransferHistory."
-        }
       }
     },
     {
@@ -2554,20 +3674,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "candidate",
         "requirements": "Construct from supplied confirmation terms; verify template/default rules and the 7.9.0 qualified input type.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.common.NewFloatingPayout."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.common.NewFloatingPayout."
-        }
       }
     },
     {
@@ -2606,20 +3726,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Product-specific settlement selection in Rune, with calendar/date services where required; establish authoritative rules.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.common.ResolveCashSettlementDate."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.common.ResolveCashSettlementDate."
-        }
       }
     },
     {
@@ -2668,20 +3788,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Adopter-defined lookup from supplied reset state/data; retain the CDM public signature via a bound helper.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.common.ResolveReset."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.common.ResolveReset."
-        }
       }
     },
     {
@@ -3392,20 +4512,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Select FRO metadata by trade date and index from a supplied versioned matrix.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.instructioncomposition.reset.ExtractFloatingRateOptionData."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.instructioncomposition.reset.ExtractFloatingRateOptionData."
-        }
       }
     },
     {
@@ -3454,20 +4574,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Select supplied observations by index/date; network/storage acquisition remains a separate adapter.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.instructioncomposition.reset.GetMarketRates."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.instructioncomposition.reset.GetMarketRates."
-        }
       }
     },
     {
@@ -3526,20 +4646,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Filter/derive dates using supplied calendars; preserve the period-or-dates input condition and output cardinality.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.instructioncomposition.reset.GetNonBusinessDates."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.instructioncomposition.reset.GetNonBusinessDates."
-        }
       }
     },
     {
@@ -3578,20 +4698,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "assess",
         "requirements": "Aggregation is expressible, but confirm required portfolio/state data and the aggregation policy before promising a self-contained body.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.position.EvaluatePortfolioState."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.position.EvaluatePortfolioState."
-        }
       }
     },
     {
@@ -3630,20 +4750,25 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/event/position/functions/FxMarkToMarketTest.java",
+            "entrypoint": "cdm.event.position.functions.FxMarkToMarketTest"
+          }
+        ],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Supply the required curve/quotes and establish interpolation/extrapolation rules; numeric primitives may be needed.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.event.position.InterpolateForwardRate."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.event.position.InterpolateForwardRate."
-        }
       }
     },
     {
@@ -3692,24 +4817,40 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.StringContains",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
+            "entrypoint": "utilities.StringContains",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.StringContains",
+            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
+            "entrypoint": "utilities.StringContains",
+            "dependencies": [
+              "rune_string_contains"
+            ]
+          }
+        }
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/common/functions/StringContainsImpl.java",
+            "entrypoint": "cdm.ingest.fpml.confirmation.common.functions.StringContainsImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Current Rune contains means list membership; substring/UTF-16 semantics need a proper string primitive, not that operator.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "available",
-          "implementation": "cdm.StringContains",
-          "dependencies": []
-        },
-        "python": {
-          "status": "available",
-          "implementation": "cdm.StringContains",
-          "dependencies": [
-            "rune_string_contains"
-          ]
-        }
       }
     },
     {
@@ -3758,20 +4899,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateAssetKeyImpl.java",
+            "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.functions.CreateAssetKeyImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Rune can compose key fields; verify canonicalization/hash/collision rules before choosing a string/hash primitive.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.ingest.fpml.confirmation.pricequantity.CreateAssetKey."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.ingest.fpml.confirmation.pricequantity.CreateAssetKey."
-        }
       }
     },
     {
@@ -3830,20 +4975,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateKeyImpl.java",
+            "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.functions.CreateKeyImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Verify optional ID/leg handling and exact key policy; avoid inventing a replacement identifier scheme.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.ingest.fpml.confirmation.pricequantity.CreateKey."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.ingest.fpml.confirmation.pricequantity.CreateKey."
-        }
       }
     },
     {
@@ -3892,20 +5041,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateKeyForQuotedCurrencyPairImpl.java",
+            "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.functions.CreateKeyForQuotedCurrencyPairImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "primitive-backed",
         "requirements": "Verify quote-pair canonicalization and key policy; reuse any shared key primitive.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.ingest.fpml.confirmation.pricequantity.CreateKeyForQuotedCurrencyPair."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.ingest.fpml.confirmation.pricequantity.CreateKeyForQuotedCurrencyPair."
-        }
       }
     },
     {
@@ -3954,20 +5107,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/MapCommodityOptionStrikePriceScheduleImpl.java",
+            "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.functions.MapCommodityOptionStrikePriceScheduleImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "candidate",
         "requirements": "Construct dated values from positional pairs; prove list pairing and upstream missing-date/extra-date behavior.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.ingest.fpml.confirmation.pricequantity.MapCommodityOptionStrikePriceSchedule."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.ingest.fpml.confirmation.pricequantity.MapCommodityOptionStrikePriceSchedule."
-        }
       }
     },
     {
@@ -4026,20 +5183,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CalculateCommodityCalculationPeriodsImpl.java",
+            "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.functions.CalculateCommodityCalculationPeriodsImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Schedule rules can be Rune; date/calendar primitives, schedule conventions and stub behavior need parity evidence.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.ingest.fpml.confirmation.product.commodityoption.CalculateCommodityCalculationPeriods."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.ingest.fpml.confirmation.product.commodityoption.CalculateCommodityCalculationPeriods."
-        }
       }
     },
     {
@@ -4113,9 +5274,27 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-calculatedrate-func.rosetta",
+        "entrypoint": "cdm.observable.asset.calculatedrate.ComputeCalculationPeriod",
+        "origin": "upstream"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/ComputeCalculationPeriodTest.java",
+            "entrypoint": "cdm.observable.asset.calculatedrate.functions.ComputeCalculationPeriodTest"
+          }
+        ],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "upstream-variants",
         "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies.",
+        "upstreamDefaultHasBody": false,
         "variants": [
           {
             "selector": "[\"calculateRelativeTo\",\"ObservationPeriodDatesEnum\",\"SetInAdvance\"]",
@@ -4130,16 +5309,6 @@
             "hasRuneBody": true
           }
         ]
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.observable.asset.calculatedrate.ComputeCalculationPeriod."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.observable.asset.calculatedrate.ComputeCalculationPeriod."
-        }
       }
     },
     {
@@ -4188,20 +5357,50 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/observable/asset/fro/functions/IndexValueObservationEmptyDataProvider.java",
+            "entrypoint": "cdm.observable.asset.fro.functions.IndexValueObservationEmptyDataProvider"
+          }
+        ],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/EvaluateCalculatedRateTest.java",
+            "entrypoint": "cdm.observable.asset.calculatedrate.functions.EvaluateCalculatedRateTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationMultipleTest.java",
+            "entrypoint": "cdm.observable.asset.fro.functions.IndexValueObservationMultipleTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationTest.java",
+            "entrypoint": "cdm.observable.asset.fro.functions.IndexValueObservationTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/asset/calculation/functions/FloatingAmountCalculationTest.java",
+            "entrypoint": "cdm.product.asset.calculation.functions.FloatingAmountCalculationTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/DetermineFloatingRateResetTest.java",
+            "entrypoint": "cdm.product.asset.floatingrate.functions.DetermineFloatingRateResetTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/EvaluateScreenRateTest.java",
+            "entrypoint": "cdm.product.asset.floatingrate.functions.EvaluateScreenRateTest"
+          }
+        ],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Read supplied index observations for the requested date; define absent/multiple-observation behavior.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.observable.asset.calculatedrate.IndexValueObservation."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.observable.asset.calculatedrate.IndexValueObservation."
-        }
       }
     },
     {
@@ -4902,20 +6101,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Select from supplied, versioned FRO metadata; missing data remains explicit.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.observable.asset.fro.FloatingRateIndexMetadata."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.observable.asset.fro.FloatingRateIndexMetadata."
-        }
       }
     },
     {
@@ -5005,20 +6204,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Select supplied asset/time-type mappings; zone/DST resolution stays behind a proven primitive if needed.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.observable.common.ResolveTimeZoneFromTimeType."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.observable.common.ResolveTimeZoneFromTimeType."
-        }
       }
     },
     {
@@ -5067,20 +6266,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Resolve supplied observations and apply averaging in Rune; establish identity, missing-value and numeric contracts.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.observable.event.ResolveObservation."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.observable.event.ResolveObservation."
-        }
       }
     },
     {
@@ -5781,20 +6980,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Lookup a supplied index value; a constant/no-op implementation is not a general rate resolver.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.asset.ResolveRateIndex."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.asset.ResolveRateIndex."
-        }
       }
     },
     {
@@ -5861,9 +7060,22 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "rune",
+        "path": "rosetta-source/src/main/rosetta/product-asset-floatingrate-func.rosetta",
+        "entrypoint": "cdm.product.asset.floatingrate.ProcessFloatingRateReset",
+        "origin": "upstream"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "upstream-variants",
         "requirements": "Five selectors, four with bodies; CompoundIndex has no body. Follow rate/metadata/calendar/vector dependencies.",
+        "upstreamDefaultHasBody": false,
         "variants": [
           {
             "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"Screen\"]",
@@ -5886,16 +7098,6 @@
             "hasRuneBody": false
           }
         ]
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.asset.floatingrate.ProcessFloatingRateReset."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.asset.floatingrate.ProcessFloatingRateReset."
-        }
       }
     },
     {
@@ -5944,20 +7146,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Eligibility rules can be Rune over supplied asset/issuer facts; confirm required data and authoritative policy.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.collateral.CheckEligibilityForProduct."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.collateral.CheckEligibilityForProduct."
-        }
       }
     },
     {
@@ -6006,20 +7208,45 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CalculationPeriodImpl.java",
+            "entrypoint": "cdm.product.common.schedule.functions.CalculationPeriodImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_DetermineUnadjustedCalculationPeriodInstructionTest.java",
+            "entrypoint": "cdm.event.instructioncomposition.reset.functions.Create_DetermineUnadjustedCalculationPeriodInstructionTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/asset/calculation/functions/FloatingAmountCalculationTest.java",
+            "entrypoint": "cdm.product.asset.calculation.functions.FloatingAmountCalculationTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/asset/calculation/functions/GetNotionalAmountTest.java",
+            "entrypoint": "cdm.product.asset.calculation.functions.GetNotionalAmountTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/CalculationPeriodImplTest.java",
+            "entrypoint": "cdm.product.common.schedule.functions.CalculationPeriodImplTest"
+          },
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/DaysInPeriodImplTest.java",
+            "entrypoint": "cdm.product.common.schedule.functions.DaysInPeriodImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Select a period from a proven schedule; supplied calendars/date primitives and conventions may be required.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.common.schedule.CalculationPeriod."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.common.schedule.CalculationPeriod."
-        }
       }
     },
     {
@@ -6078,20 +7305,24 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CalculationPeriodRangeImpl.java",
+            "entrypoint": "cdm.product.common.schedule.functions.CalculationPeriodRangeImpl"
+          }
+        ],
+        "providers": [],
+        "tests": []
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Construct/adjust period boundaries in Rune; establish missing-date and calendar/convention behavior.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.common.schedule.CalculationPeriodRange."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.common.schedule.CalculationPeriodRange."
-        }
       }
     },
     {
@@ -6130,20 +7361,29 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [
+          {
+            "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/CalculationPeriodsImpl.java",
+            "entrypoint": "cdm.product.common.schedule.functions.CalculationPeriodsImpl"
+          }
+        ],
+        "providers": [],
+        "tests": [
+          {
+            "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/CalculationPeriodsImplTest.java",
+            "entrypoint": "cdm.product.common.schedule.functions.CalculationPeriodsImplTest"
+          }
+        ]
+      },
       "rune": {
         "route": "data-backed",
         "requirements": "Generate schedules in Rune using supplied calendars and proven roll/stub/date primitives.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.common.schedule.CalculationPeriods."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.common.schedule.CalculationPeriods."
-        }
       }
     },
     {
@@ -6182,20 +7422,20 @@
           "plain": true
         }
       },
+      "implementation": {
+        "kind": "unimplemented"
+      },
+      "referenceJava": {
+        "implementations": [],
+        "providers": [],
+        "tests": [],
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+      },
       "rune": {
         "route": "candidate",
         "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics.",
+        "upstreamDefaultHasBody": false,
         "variants": []
-      },
-      "targets": {
-        "typescript": {
-          "status": "unavailable",
-          "reason": "No bundled typescript implementation for cdm.product.common.schedule.PeriodsInYear."
-        },
-        "python": {
-          "status": "unavailable",
-          "reason": "No bundled python implementation for cdm.product.common.schedule.PeriodsInYear."
-        }
       }
     }
   ]

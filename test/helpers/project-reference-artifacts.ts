@@ -4,6 +4,7 @@ import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { createProjectSnapshot } from '../../packages/project-config/src/index.js';
 import type { ReferenceRelease } from '../../packages/curated-schema/src/index.js';
+import type { RosettaModel } from '../../packages/core/src/index.js';
 import { PROJECT_TOOLCHAIN } from '../../packages/project-runtime/src/project-build.js';
 const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 export const repository = (id: string) => `https://github.com/org/${id}`;
@@ -21,12 +22,14 @@ export async function createReferenceArtifacts(
   },
   definitions: readonly ReleaseDefinition[] = defaultReleases,
   modelSources: Readonly<Record<string, string>> = {},
-  baseUrl = 'https://mirror.example'
+  baseUrl = 'https://mirror.example',
+  publishImplementations = false
 ) {
   const mirrorOrigin = new URL(baseUrl).origin;
   const artifacts = new Map<string, Uint8Array>();
   const releases = new Map<string, ReferenceRelease[]>();
   const serializedModels = new Map<string, string>();
+  const parsedModels = new Map<string, RosettaModel>();
   if (Object.keys(modelSources).length) {
     const { serializeRuneModel } = await import('../../packages/core/src/index.js');
     const { buildEffectiveProject } = await import('../../packages/project-runtime/src/effective-project.js');
@@ -49,6 +52,9 @@ export async function createReferenceArtifacts(
         (document) => document.uri.toString(true) === projectReferenceUri(`${id}/model.rosetta`)
       );
       if (!document) throw new Error('Missing linked fixture model: ' + id);
+      const { isRosettaModel } = await import('../../packages/core/src/index.js');
+      if (!isRosettaModel(document.parseResult.value)) throw new Error('Expected fixture model.');
+      parsedModels.set(id, document.parseResult.value);
       serializedModels.set(
         id,
         serializeRuneModel(graph.services.serializer.JsonSerializer, document.parseResult.value)
@@ -60,7 +66,12 @@ export async function createReferenceArtifacts(
       .update(id + tag)
       .digest('hex');
     const content = modelSources[id] ?? `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)`;
-    const modelJson = serializedModels.get(id) ?? JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
+    let modelJson = serializedModels.get(id) ?? JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
+    if (publishImplementations && parsedModels.has(id)) {
+      const { publishCuratedImplementations } =
+        await import('../../packages/project-runtime/src/curated-implementations/publication.js');
+      modelJson = await publishCuratedImplementations(parsedModels.get(id)!, modelJson, { model: id, commit });
+    }
     const bytes = gzipSync(
       JSON.stringify({
         schemaVersion: 1,

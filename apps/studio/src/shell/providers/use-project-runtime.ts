@@ -17,6 +17,10 @@ import {
 } from '../../services/project-runtime-input.js';
 import type { WorkspaceFile } from '../../services/workspace.js';
 import type { ProjectState, ProjectRuntimeState } from './project-context.js';
+import {
+  prepareCuratedImplementationSources,
+  curatedImplementationWrites
+} from '@rune-langium/project-runtime/implementation-sources';
 
 /** Capture availability is separate from each host's applied-receipt acknowledgement. */
 export const useProjectRuntime = withInstrumentation(
@@ -61,7 +65,25 @@ export const useProjectRuntime = withInstrumentation(
       let cancelled = false;
       setReferences({ key: referenceKey });
       void loadProjectReferences(snapshot, createProjectReferenceTransport(), projectReferenceCache, abort.signal)
-        .then((result) => {
+        .then(async (result) => {
+          const controller = project.controller;
+          if (controller && !result.diagnostics.some((issue) => issue.severity === 'error')) {
+            const base = controller.current();
+            if (!base || projectReferenceKey(base) !== referenceKey) return;
+            let prepared = await prepareCuratedImplementationSources(base, result.documents);
+            if (prepared.changes.size) {
+              const live = (await captureProjectRuntimeInput(base, filesRef.current, result.documents)).snapshot;
+              prepared = await prepareCuratedImplementationSources(live, result.documents);
+            }
+            result = { ...result, diagnostics: [...result.diagnostics, ...prepared.diagnostics] };
+            if (prepared.changes.size) {
+              const transaction = await curatedImplementationWrites(base, prepared.changes);
+              abort.signal.throwIfAborted();
+              if (controller.current()?.revision !== base.revision)
+                throw new Error('Project changed while installing curated sources. Retry from the current project.');
+              await controller.save(transaction.writes, transaction.preconditions);
+            }
+          }
           if (!cancelled)
             setReferences({ key: referenceKey, documents: result.documents, diagnostics: result.diagnostics });
         })
@@ -77,7 +99,14 @@ export const useProjectRuntime = withInstrumentation(
     const documents = references.key === referenceKey ? references.documents : undefined;
     useEffect(() => {
       const snapshot = savedRef.current;
-      if (!snapshot || !revision || !referenceKey || !sourceKey || !documents || references.diagnostics?.length) {
+      if (
+        !snapshot ||
+        !revision ||
+        !referenceKey ||
+        !sourceKey ||
+        !documents ||
+        references.diagnostics?.some((issue) => issue.severity === 'error')
+      ) {
         setCaptured(undefined);
         return;
       }
@@ -98,7 +127,7 @@ export const useProjectRuntime = withInstrumentation(
     if (project.status === 'loading') return { managed, status: 'loading', diagnostics: [] };
     if (project.status === 'invalid') return { managed, status: 'unavailable', diagnostics: project.diagnostics };
     if (!managed) return { managed: false, status: 'legacy', diagnostics: [] };
-    if (references.key === referenceKey && references.diagnostics?.length)
+    if (references.key === referenceKey && references.diagnostics?.some((issue) => issue.severity === 'error'))
       return { managed: true, status: 'unavailable', diagnostics: references.diagnostics, retry, refresh: retry };
     if (
       !documents ||
@@ -112,7 +141,13 @@ export const useProjectRuntime = withInstrumentation(
     if (captured.diagnostics?.length)
       return { managed: true, status: 'unavailable', diagnostics: captured.diagnostics, retry, refresh: retry };
     return captured.input
-      ? { managed: true, status: 'captured', input: captured.input, diagnostics: [], refresh: retry }
+      ? {
+          managed: true,
+          status: 'captured',
+          input: captured.input,
+          diagnostics: references.diagnostics ?? [],
+          refresh: retry
+        }
       : { managed: true, status: 'loading', diagnostics: [], refresh: retry };
   },
   { op: 'useProjectRuntime', capture: 0 }

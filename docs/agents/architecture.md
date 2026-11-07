@@ -845,11 +845,11 @@ input order and names, escaping target keywords or internal binding collisions.
 Trailing optional arguments have defaults; preceding optional arguments retain
 explicit absence types. TypeScript exposes ordered `parameterNames` metadata even
 in single-file output; Studio uses it to adapt schema-validated named form fields.
-Python protects builtins and global callables from input-name shadowing. Codegen's
-`implementations/` catalog validates native declaration identity, annotation,
-signature and target before TypeScript/Python embed a handwritten body. Preview
-availability uses that same resolver. Authored Rune replacements and explicit
-host bindings take precedence. Native declarations without a bundled body require
+Python protects builtins and global callables from input-name shadowing. Curated
+publication selects model-specific implementations; Codegen reads the supplied
+declaration payload and checks its identity, annotation, signature and target
+before emission. Preview availability uses the same payload reader. Authored Rune
+replacements and explicit host bindings take precedence. Native declarations without a supplied body require
 an explicit callable binding; missing bindings fail visibly. Dispatch normalizes inputs before selecting a
 variant, retaining wrappers for its body. Function condition fragments are
 captured from that same body traversal. Python records the authored body statements
@@ -1344,7 +1344,12 @@ use the shared searchable command primitives; historical/deprecated values remai
 visible. [The audited artifact matrix](../reference-examples/build-resources.md)
 records remaining parameterized-domain, XML and publication integrations.
 
-Generator-owned native bodies use `nativeFunctionShape` for linked signature
+Curated publication owns model-specific implementation selection. Its catalog and
+owned Rune sources live in project-runtime, not Codegen. Serialized declarations
+carry an exclusive `$implementation` payload (one Rune source or concrete target
+bodies); `$implementationSources` carries exact source bytes, hashes, origin and
+license. Normal immutable artifact/cohort checks cover these payloads. Codegen's
+`resolveNativeImplementation` reads only the supplied binding and uses `nativeFunctionShape` for linked signature
 checks and `nativeImplementationExpression` for allocated parameter bindings.
 The TypeScript output accumulator and Python native-provider arguments remain
 part of the ordinary function contract. CI audits pinned upstream sources with
@@ -1352,11 +1357,22 @@ the shared Git reader, registers model ownership before linking and compares the
 [native coverage inventory](../implementations/README.md); known unavailable
 entries remain explicit and must never be described as complete coverage.
 
+Reference prepare/accept copies bundled Rune files into ordinary workspace sources
+in the same Save transaction as configuration and lock changes. Native builds use
+the shared installation/readback transaction before graph construction, with the
+resulting snapshot/receipt. Provenance tracks ownership; refresh preserves local
+edits and only updates/removes unchanged owned copies. No emitter inserts hidden
+Rune overrides. [Curated implementation delivery](../implementations/curated-bundles.md)
+documents this boundary.
+
 The native inventory also binds Rune-feasibility assessments to the exact cohort
 and linked signatures. Explicit Rune implementation sources use ordinary
 `override namespace` linking; the audit verifies their source hashes and full
-reference signatures without installing runtime callbacks. Native fallback status,
-provided Rune source, upstream dispatch bodies and prepared data are distinct facts.
+reference signatures. Effective entries have exactly one implementation kind;
+Rune entries never contain language-specific target alternatives. Pinned handwritten
+Java algorithms, tests and empty providers are separate reference evidence.
+Upstream dispatch bodies and execution coverage are distinct facts. Core dispatch
+scopes inherit base declarations, never aliases from sibling variants.
 The #646 issue table is rendered from that inventory rather than another target-status list.
 Source-only preview workers register the current user roots before building and
 initialize Core's shared resolution index. A later capture removes the preceding

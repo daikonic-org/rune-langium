@@ -25,7 +25,7 @@ used as a substitute. The Worker route configuration includes `/releases/*`.
 Build the required packages, then provide the actual CDM release tag:
 
 ```sh
-pnpm --filter '@rune-langium/core...' --filter '@rune-langium/curated-schema' run build
+pnpm --filter '@rune-langium/project-runtime...' run build
 node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs --release '<cdm-release-tag>'
 bash scripts/upload-serialized-artifacts.sh --dry-run
 ```

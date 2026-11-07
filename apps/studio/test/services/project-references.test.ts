@@ -66,6 +66,39 @@ async function setup() {
   await controller.load();
   return { ...reference, adapter, controller };
 }
+it('copies Rune overrides from the verified bundle in the same Save as its reference lock', async () => {
+  const { cdmEventReference } = await import('../../../../test/helpers/cdm-rune-implementations.js');
+  const reference = await referenceFixture(
+    undefined,
+    undefined,
+    { cdm: cdmEventReference },
+    'https://mirror.example',
+    true
+  );
+  const adapter = createProjectFileAdapter({
+    workspaceId: 'p',
+    root: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    privateRoot: createOpfsRoot() as unknown as FileSystemDirectoryHandle,
+    isWritable: () => true
+  });
+  for (const [path, text] of reference.snapshot.files) await adapter.write(path, text, null);
+  const controller = createProjectController({ workspaceId: 'p', adapter, validateTarget: () => [] });
+  await controller.load();
+  const change = await prepareProjectReferenceChange(
+    controller,
+    reference.transport,
+    createMemoryReferenceCache(),
+    new AbortController().signal
+  );
+  expect(change.diagnostics.filter((issue) => issue.severity === 'error')).toEqual([]);
+  expect(await adapter.read('model/implementations/cdm/event-common.rosetta')).toBeUndefined();
+  const saved = await change.accept(new AbortController().signal);
+  expect(saved.lock?.references.cdm).toBeDefined();
+  expect((await adapter.read('model/implementations/cdm/event-common.rosetta'))?.text).toContain(
+    'override namespace cdm.event.common'
+  );
+  expect(saved.files.get('model/implementations/.curated-sources.json')).toBeDefined();
+});
 it('saves verified reference locks and reopens offline without a catalog lookup', async () => {
   const { controller, adapter, transport } = await setup();
   const cache = createMemoryReferenceCache();

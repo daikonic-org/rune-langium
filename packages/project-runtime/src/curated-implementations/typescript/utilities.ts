@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-/** Native bodies are trusted generator sources. Calls use the emitter's actual parameter bindings. */
+/** Publication sources; selected bodies travel with the curated release. */
 export const utilities = {
   AddDays: {
     call: true,
@@ -30,11 +30,6 @@ export const utilities = {
   Now: {
     dependencies: ['@js-temporal/polyfill'],
     expression: `Temporal.Now.zonedDateTimeISO('UTC').with({ millisecond: 0, microsecond: 0, nanosecond: 0 })`
-  },
-  PopOffDateList: {
-    call: true,
-    dependencies: [],
-    expression: `(values: readonly Temporal.PlainDate[] | undefined) => (values ?? []).slice(0, -1)`
   },
   StringContains: {
     call: true,

@@ -446,10 +446,16 @@ Compilation remains disabled. All five hand-authored EditorForms enable L1 throu
 
 CDM implementation changes: run `pnpm run verify:native-implementations` after
 building dependencies. It checks the inventory helper tests, exact upstream cohort,
-signature-bound Rune feasibility, provided override sources and target fallbacks.
+signature-bound Rune feasibility, exclusive implementation locations, pinned
+handwritten Java references, source-pack generation and dispatch fixture integrity.
 Run Codegen's `test/implementations`, project-runtime's
 `test/cdm-rune-implementations.test.ts` and Studio's identically named real-worker
-suite. The source pack is explicit project input, not an automatic native fallback.
+suite. Curated publication carries selected implementation payloads; reference
+installation copies Rune overrides into normal project sources. Codegen never
+searches the CDM catalog. Include project-runtime's `curated-implementations` suite
+and Studio's `project-references` Save/readback suite when changing this boundary.
+The pinned `cdm-dispatch` suite verifies all existing day-count selector bodies in
+strict TypeScript layouts and Python; retain documented upstream differences.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.
@@ -525,7 +531,7 @@ Codegen's `runtime/project-bindings` suite and Studio's `PreviewEnumInput`/
 CDM list in desktop/390px Prototype, execution/unknown-code validation and resource
 availability recovery. Preserve pinned third-party bytes and integrity manifests.
 
-Native catalog changes: run Codegen's `test/implementations` plus Python runtime
+Curated implementation catalog changes: run Codegen's `test/implementations` plus Python runtime
 checks and the Studio real-worker suite. Run `pnpm run verify:native-implementations`
 after building Core/Codegen/project-runtime; it verifies Git hashes and the pinned
 cohort's declarations/signatures/target coverage. Source pins and inventory updates

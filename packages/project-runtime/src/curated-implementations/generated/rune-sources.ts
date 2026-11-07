@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+// Generated from rune/ sources and license; do not edit.
+export const RUNE_IMPLEMENTATION_SOURCES: Readonly<Record<string, string>> = {
+  LICENSE:
+    'MIT License\n\nCopyright (c) 2026 Pradeep Mouli\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n',
+  'date-list-state.rosetta':
+    '// SPDX-License-Identifier: MIT\n// Copyright (c) 2026 Pradeep Mouli\nnamespace rune.cdm.implementations\nversion "1.0.0"\n\ntype DateListState:\n    current date (1..1)\n    previous date (0..*)\n\nfunc DateListEntry:\n    inputs:\n        value date (1..1)\n    output:\n        result DateListState (1..1)\n    set result -> current: value\n',
+  'date-list.rosetta':
+    '// SPDX-License-Identifier: MIT\n// Copyright (c) 2026 Pradeep Mouli\noverride namespace cdm.base.datetime\nversion "1.0.0"\n\nimport rune.cdm.implementations.*\n\nfunc PopOffDateList:\n    inputs:\n        dates date (0..*)\n    output:\n        newList date (0..*)\n    alias states:\n        dates extract [DateListEntry(item)]\n    alias accumulated:\n        states reduce previous, next [\n            DateListState {\n                current: next -> current,\n                previous: [previous -> previous, previous -> current]\n            }\n        ]\n    set newList: accumulated -> previous\n',
+  'event-common.rosetta':
+    '// SPDX-License-Identifier: MIT\n// Copyright (c) 2026 Pradeep Mouli\noverride namespace cdm.event.common\nversion "1.0.0"\n\nfunc EmptyExecutionDetails:\n    output:\n        executionDetails ExecutionDetails (0..1)\n    set executionDetails: empty\n\nfunc EmptyTransferHistory:\n    output:\n        emptyTransferHistory TransferState (0..*)\n    set emptyTransferHistory: []\n'
+};

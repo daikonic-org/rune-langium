@@ -53,9 +53,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build core (required for Langium services)
+      - name: Build curated publication dependencies
         id: build-core
-        run: pnpm --filter '@rune-langium/core...' --filter '@rune-langium/curated-schema' run build
+        run: pnpm --filter '@rune-langium/project-runtime...' run build
 
       - name: Reconcile newly published CDM releases
         if: ${{ !inputs.cdm_release }}

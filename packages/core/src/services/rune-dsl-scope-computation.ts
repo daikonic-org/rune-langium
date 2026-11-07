@@ -83,10 +83,10 @@ export class RuneDslScopeComputation extends DefaultScopeComputation {
       for (const element of model.elements) {
         if (!isRosettaFunction(element)) continue;
         if (element.name !== node.name) continue;
-        if (element === node) continue;
+        if (element === node || element.dispatchAttribute) continue;
 
-        // Copy inputs, output and shortcuts of sibling functions into this
-        // overload's local symbol scope.
+        // Inherit only from the base declaration. Sibling variants have independent
+        // alias scopes, even when their shortcut names are identical.
         for (const input of element.inputs) {
           const name = this.nameProvider.getName(input);
           if (name) {

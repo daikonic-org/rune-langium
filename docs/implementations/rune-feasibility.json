@@ -21,9 +21,9 @@
     }
   ],
   "files": [
-    "examples/implementations/cdm/date-list-state.rosetta",
-    "examples/implementations/cdm/date-list.rosetta",
-    "examples/implementations/cdm/event-common.rosetta"
+    "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta"
   ],
   "functions": [
     {
@@ -101,8 +101,8 @@
       },
       "signatureSha256": "93f546e8f2a40d30da1965815cc7f9eb5eb36f561d685465619a4f30d5b972d2",
       "route": "rune-source",
-      "requirements": "Explicit Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; retain the native fallback for very large lists.",
-      "implementation": "examples/implementations/cdm/date-list.rosetta"
+      "requirements": "Single Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; large-list optimization remains open.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta"
     },
     {
       "symbol": {
@@ -168,7 +168,7 @@
       },
       "signatureSha256": "d4825945990395f3462abb5aa36ecb0d0542f3b6a859e3566b30a6380781fd5a",
       "route": "upstream-variants",
-      "requirements": "Nine upstream dispatch bodies. Audit missing enum cases/defaults and execute existing bodies before adding replacements."
+      "requirements": "Nine preserved upstream selectors execute in strict TypeScript layouts and Python. Five enum values still require an unavailable default."
     },
     {
       "symbol": {
@@ -179,7 +179,7 @@
       },
       "signatureSha256": "4faee30755cd3528b774f662507c18a1a18ff3daa7271ac8bb4e69fd2ef625a9",
       "route": "upstream-variants",
-      "requirements": "Eleven upstream dispatch bodies. Check selectors and transitive date/calendar dependencies; preserve upstream formulas."
+      "requirements": "Eleven preserved upstream selectors and date-helper closure execute in TypeScript and Python. Three enum values lack defaults; documented formula quirks remain unchanged."
     },
     {
       "symbol": {
@@ -268,7 +268,7 @@
       "signatureSha256": "184aa248e5de0b42f389c5f32cd5ace49aa893846f17c621f7fd551ccb7cebdc",
       "route": "rune-source",
       "requirements": "Explicit Rune source returns the absent optional value; verified against the pinned signature, generated TypeScript/Python and Prototype.",
-      "implementation": "examples/implementations/cdm/event-common.rosetta"
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta"
     },
     {
       "symbol": {
@@ -280,7 +280,7 @@
       "signatureSha256": "d6c7b549c6f548e6fcfc558ba53e643b8ddd427bce2968f028102855efe0ddd0",
       "route": "rune-source",
       "requirements": "Explicit Rune source returns an empty collection; verified against the pinned signature, generated TypeScript/Python and Prototype.",
-      "implementation": "examples/implementations/cdm/event-common.rosetta"
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta"
     },
     {
       "symbol": {
