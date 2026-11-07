@@ -408,15 +408,16 @@ function funcTypeInfo(
 ): { typeName: string; shapeTypeName?: string } {
   const ref = isTypeCall(typeCall) ? typeCall.type?.ref : typeCall;
   const typeName = ref?.name ?? (isTypeCall(typeCall) ? typeCall.type?.$refText : undefined) ?? 'unknown';
+  const nativeAlias = isRosettaTypeAlias(ref) && resolveFuncTypeTs(typeName) !== typeName;
   const shapeTypeName =
     isData(ref) || isChoice(ref) || plainDataTypeNames?.has(typeName)
       ? `${typeName}Shape`
-      : isRosettaTypeAlias(ref)
+      : isRosettaTypeAlias(ref) && !nativeAlias
         ? typeName
         : undefined;
   return {
     typeName:
-      ref && typeNameResolver && !isRosettaBasicType(ref) && !isRosettaRecordType(ref)
+      ref && typeNameResolver && !isRosettaBasicType(ref) && !isRosettaRecordType(ref) && !nativeAlias
         ? typeNameResolver(ref, typeName)
         : typeName,
     shapeTypeName:

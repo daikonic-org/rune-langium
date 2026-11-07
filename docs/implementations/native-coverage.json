@@ -5293,7 +5293,7 @@
       },
       "rune": {
         "route": "upstream-variants",
-        "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies.",
+        "requirements": "Preserve all three upstream dispatch bodies. Pinned TS/Python and Prototype closure tests use explicit finite calendar data; production FixingDate still requires a real BusinessCenterHolidays provider. Missing default/prior/reset data must fail honestly.",
         "upstreamDefaultHasBody": false,
         "variants": [
           {
@@ -5309,6 +5309,17 @@
             "hasRuneBody": true
           }
         ]
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calculation-period.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calculation-period/cases.json",
+        "casesSha256": "455d0d419636989a135ed2780dc07a3a2e6b41c75d2425bbb1723a4b4dfd51db",
+        "selectors": [
+          "FixingDate",
+          "SetInAdvance",
+          "Standard"
+        ],
+        "caseCount": 18
       }
     },
     {
@@ -7433,7 +7444,7 @@
       },
       "rune": {
         "route": "candidate",
-        "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics.",
+        "requirements": "Branching/arithmetic is expressible in Rune, but the pinned release supplies no handwritten Java algorithm/test or numeric expectations. Establish integer-output rules for H/D/W, non-dividing M/Y multipliers, and T/C (the signature supplies no dates); do not guess annual day/week counts, round, or use a term default.",
         "upstreamDefaultHasBody": false,
         "variants": []
       }

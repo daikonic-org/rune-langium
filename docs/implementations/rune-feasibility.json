@@ -445,7 +445,7 @@
       },
       "signatureSha256": "8bcd355794fd81252ddf563d19bed6e92851e51103e42e923edcce9213f0e9c6",
       "route": "upstream-variants",
-      "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies."
+      "requirements": "Preserve all three upstream dispatch bodies. Pinned TS/Python and Prototype closure tests use explicit finite calendar data; production FixingDate still requires a real BusinessCenterHolidays provider. Missing default/prior/reset data must fail honestly."
     },
     {
       "symbol": {
@@ -566,7 +566,7 @@
       },
       "signatureSha256": "de2c6615813e4a3ff5eaf85333aa9ef8836c5ee354e9a1a3cd5763158d954678",
       "route": "candidate",
-      "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics."
+      "requirements": "Branching/arithmetic is expressible in Rune, but the pinned release supplies no handwritten Java algorithm/test or numeric expectations. Establish integer-output rules for H/D/W, non-dividing M/Y multipliers, and T/C (the signature supplies no dates); do not guess annual day/week counts, round, or use a term default."
     }
   ]
 }

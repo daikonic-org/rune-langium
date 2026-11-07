@@ -2,7 +2,12 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { AstUtils, type AstNode, type LangiumDocument } from 'langium';
-import { getEffectiveProjectDeclaration, isRosettaModel } from '@rune-langium/core';
+import {
+  getEffectiveProjectDeclaration,
+  isRosettaModel,
+  isRosettaFunction,
+  type RosettaFunction
+} from '@rune-langium/core';
 import type { ExportSelection } from '../types.js';
 
 type TopLevel = AstNode & { name?: string; $container?: AstNode };
@@ -108,6 +113,16 @@ export function resolveExportSelection(docs: LangiumDocument[], selection: Expor
       }
     }
   }
+  const dispatchFamilies = new Map<string, RosettaFunction[]>();
+  for (const [root, namespace] of allRoots) {
+    if (!isRosettaFunction(root) || getEffectiveProjectDeclaration(root) !== root) continue;
+    const key = declarationKey(declaration(namespace, root));
+    const family = dispatchFamilies.get(key) ?? [];
+    family.push(root);
+    dispatchFamilies.set(key, family);
+  }
+  for (const [key, family] of dispatchFamilies)
+    if (!family.some((func) => func.dispatchAttribute)) dispatchFamilies.delete(key);
   const dependencies = new Map<TopLevel, readonly AstNode[]>();
   const queue = [...roots];
   while (queue.length) {
@@ -115,7 +130,18 @@ export function resolveExportSelection(docs: LangiumDocument[], selection: Expor
     const rootsRequiringCurrent = requiredByRoot.get(root) ?? new Set<TopLevel>();
     let targets = dependencies.get(root);
     if (!targets) {
-      targets = collectDeclarationDependencies(root);
+      targets = [
+        ...new Set(
+          collectDeclarationDependencies(root).flatMap((target) => {
+            const namespace = allRoots.get(target);
+            // A call refers to its default declaration; all effective selectors are
+            // part of the same callable, including their own transitive dependencies.
+            return namespace && isRosettaFunction(target)
+              ? (dispatchFamilies.get(declarationKey(declaration(namespace, target))) ?? [target])
+              : [target];
+          })
+        )
+      ];
       dependencies.set(root, targets);
     }
     for (const target of targets) {
@@ -150,13 +176,7 @@ export function resolveExportSelection(docs: LangiumDocument[], selection: Expor
     const dependency = key(root);
     const requiringRoots = requiredByRoot.get(root);
     if (!dependency || !requiringRoots?.size) continue;
-    requiredBy.set(
-      declarationKey(dependency),
-      [...requiringRoots].flatMap((requiringRoot) => {
-        const requiring = key(requiringRoot);
-        return requiring ? [declarationKey(requiring)] : [];
-      })
-    );
+    requiredBy.set(declarationKey(dependency), uniqueDeclarations(requiringRoots, key).map(declarationKey));
   }
   return {
     documents,

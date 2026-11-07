@@ -11,6 +11,9 @@ source versions and integrity manifests alongside each cohort.
   with metadata/reference and repository-import provenance checks.
 - [CDM day-count dispatch closure](cdm-dispatch/README.md): unmodified Rune bodies,
   pinned handwritten Java date-helper references and selector execution cases.
+- [CDM calculation-period closure](cdm-calculation-period/README.md): all three
+  original dispatch bodies, handwritten Java test/setup references and explicit
+  calendar-provider boundary regressions.
 
 - [CDM code lists](cdm-codelists/README.md): versioned option-type resource with upstream license, notice and integrity metadata.
 - [Currency list](currency-list/README.md): pinned code-to-label currency JSON, upstream license and integrity metadata, exercised through in-memory Rune enum materialization.

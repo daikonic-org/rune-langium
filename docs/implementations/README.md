@@ -86,6 +86,14 @@ under all three layouts and standalone Python. Missing defaults/selectors stay
 unavailable. These source regressions preserve documented upstream quirks and do
 not establish financial-standard or complete handwritten-Java parity.
 
+The [calculation-period closure](calculation-periods.md) also exercises all three
+`ComputeCalculationPeriod` bodies with explicit finite test calendars in strict
+TypeScript, standalone Python and the real Studio worker. The pinned handwritten
+Java test supplies its three baseline expectations. Production `FixingDate` still
+needs an actual holiday provider; `PeriodsInYear` remains unimplemented until its
+integer-frequency and term rules are established. These tests do not change the
+catalog's eight native/seven Rune implementation-kind counts.
+
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |

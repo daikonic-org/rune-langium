@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.base.datetime
+import cdm.base.staticdata.codelist.*
+
+// Finite synthetic test data. GBLO covers only the dates in the pinned Java test.
+// TEST_A and TEST_B deliberately are not real financial-center calendars.
+func BusinessCenterHolidays:
+    inputs:
+        businessCenter BusinessCenter (1..1)
+    output:
+        holidayDates date (0..*)
+    condition KnownTestCalendar:
+        businessCenter = "GBLO" or businessCenter = "TEST_A" or businessCenter = "TEST_B"
+    set holidayDates:
+        if businessCenter = "TEST_A"
+        then [date {year: 2024, month: 3, day: 4}]
+        else if businessCenter = "TEST_B"
+        then [date {year: 2024, month: 3, day: 5}]
+        else []

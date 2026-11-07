@@ -1373,6 +1373,16 @@ Rune entries never contain language-specific target alternatives. Pinned handwri
 Java algorithms, tests and empty providers are separate reference evidence.
 Upstream dispatch bodies and execution coverage are distinct facts. Core dispatch
 scopes inherit base declarations, never aliases from sibling variants.
+The calculation-period regression closure preserves all upstream selectors and
+supplies finite calendar data through an ordinary test-only Rune override. Missing
+calendar leaves remain unavailable; independent selectors do not acquire an
+invented calendar dependency. Declaration selection expands a transitive dispatch
+call to the complete effective family and traverses every selector's dependencies,
+using Core's override targets rather than retaining replaced bodies.
+Function-boundary built-in aliases reuse the target
+profile's native type mapping, including import tracking. Temporal constructors
+remain potentially absent in the shared expression-presence analysis, so list
+shaping narrows their values without assertions.
 The #646 issue table is rendered from that inventory rather than another target-status list.
 Source-only preview workers register the current user roots before building and
 initialize Core's shared resolution index. A later capture removes the preceding

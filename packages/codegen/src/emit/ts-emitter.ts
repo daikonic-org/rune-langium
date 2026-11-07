@@ -24,6 +24,7 @@ import {
   isRosettaSymbolReference,
   isRosettaExpression,
   isRosettaConstructorExpression,
+  isRosettaTypeAlias,
   isData,
   type Choice,
   type Condition,
@@ -669,7 +670,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       symbolName: string,
       localName?: string
     ): void => {
-      if (!typeRef) return;
+      if (!typeRef || (isRosettaTypeAlias(typeRef) && resolveFuncTypeTs(typeRef.name) !== typeRef.name)) return;
       if (isData(typeRef) || isChoice(typeRef)) {
         symbolName = typeRef.name;
         localName = this.typeName(typeRef);

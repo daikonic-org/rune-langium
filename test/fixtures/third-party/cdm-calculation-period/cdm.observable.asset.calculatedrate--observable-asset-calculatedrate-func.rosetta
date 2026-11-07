@@ -1,0 +1,53 @@
+namespace cdm.observable.asset.calculatedrate : <"Support for calculated floating rates such as lookback compound or observation shift compound rate.">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.datetime.daycount.*
+import cdm.base.math.*
+import cdm.base.staticdata.codelist.*
+import cdm.observable.asset.*
+import cdm.product.asset.floatingrate.*
+import cdm.product.common.schedule.*
+
+// =====================================================================
+//
+// Calculated rate functions
+//
+// these functions perform the necessary calculations on calculated rates,
+// such as OIS Compound, lookback compound, etc.
+// These calculations are described in Section 7 of the 2021 ISDA Definitions.
+//
+// ======================================================================
+func ComputeCalculationPeriod: <"Determine the calculation period to use for computing the calculated rate (it may not be the same as the normal calculation period, for instance if the rate is set in advance.">
+    [codeImplementation]
+    inputs:
+        calculationPeriod CalculationPeriodBase (1..1) <"The current calculation period for which the rate is neede.">
+        priorCalculationPeriod CalculationPeriodBase (0..1) <"The prior actual or deemed calculation period, if neede.">
+        calculateRelativeTo ObservationPeriodDatesEnum (0..1) <"How the calculation is done with respect to the base calculation perio.">
+        resetDates ResetDates (0..1) <"The resetDates structure, if needed, e.g. for fallback rate.">
+    output:
+        result CalculationPeriodBase (1..1) <"The calculation period over which the calculated rate should be calculate.">
+
+func ComputeCalculationPeriod(calculateRelativeTo: ObservationPeriodDatesEnum -> SetInAdvance):
+    set result: priorCalculationPeriod
+
+func ComputeCalculationPeriod(calculateRelativeTo: ObservationPeriodDatesEnum -> Standard):
+    set result: calculationPeriod
+
+func ComputeCalculationPeriod(calculateRelativeTo: ObservationPeriodDatesEnum -> FixingDate):
+    // TODO : this should use the code in Evaluate Term Rate to do the offset calculation (needs refactoring)
+    alias resetRelativeTo: resetDates -> resetRelativeTo
+    alias isStart: resetRelativeTo = ResetRelativeToEnum -> CalculationPeriodStartDate
+    alias calcPd:
+        if (isStart)
+        then priorCalculationPeriod
+        else calculationPeriod
+    alias fixingOffsetDays: resetDates -> fixingDates -> periodMultiplier
+    alias businessCenters:
+        GetAllBusinessCenters(resetDates -> resetDatesAdjustments -> businessCenters)
+    alias endDate:
+        AddBusinessDays(calcPd -> adjustedEndDate, fixingOffsetDays, businessCenters)
+    alias startDate:
+        AddBusinessDays(calcPd -> adjustedStartDate, fixingOffsetDays, businessCenters)
+    set result -> adjustedEndDate: endDate
+    set result -> adjustedStartDate: startDate

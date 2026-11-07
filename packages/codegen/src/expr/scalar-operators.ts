@@ -24,6 +24,7 @@ import {
   isRosettaEnumValue,
   isRosettaEnumeration,
   isRosettaConstructorExpression,
+  isRosettaRecordType,
   isRosettaConditionalExpression,
   isRosettaStringLiteral,
   isRosettaSymbolReference,
@@ -184,8 +185,12 @@ export function expressionIsPresent(
         expressionIsPresent(expression.receiver, visiting)
       );
     }
-    if (isRosettaConstructorExpression(expression))
-      return expression.values.length > 0 || !isChoice(expressionType(expression.typeRef));
+    if (isRosettaConstructorExpression(expression)) {
+      const type = expressionType(expression.typeRef);
+      // Temporal construction can be absent even when its component expressions exist.
+      if (isRosettaRecordType(type) && Object.hasOwn(temporalScalarTypes, type.name)) return false;
+      return expression.values.length > 0 || !isChoice(type);
+    }
     return (
       isRosettaBooleanLiteral(expression) ||
       isRosettaStringLiteral(expression) ||

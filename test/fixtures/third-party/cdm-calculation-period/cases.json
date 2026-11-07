@@ -1,0 +1,530 @@
+[
+  {
+    "id": "java-standard",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "Standard"
+    },
+    "expected": {
+      "adjustedStartDate": "2020-12-10",
+      "adjustedEndDate": "2021-03-10"
+    }
+  },
+  {
+    "id": "java-set-in-advance",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "SetInAdvance"
+    },
+    "expected": {
+      "adjustedStartDate": "2020-09-10",
+      "adjustedEndDate": "2020-12-10"
+    }
+  },
+  {
+    "id": "java-fixing-date",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodStartDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": -2,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "GBLO",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2020-09-08",
+      "adjustedEndDate": "2020-12-08"
+    }
+  },
+  {
+    "id": "standard-without-optional-inputs",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "calculateRelativeTo": "Standard"
+    },
+    "expected": {
+      "adjustedStartDate": "2020-12-10",
+      "adjustedEndDate": "2021-03-10"
+    }
+  },
+  {
+    "id": "standard-preserves-empty-period",
+    "inputs": {
+      "calculationPeriod": {},
+      "calculateRelativeTo": "Standard"
+    },
+    "expected": {}
+  },
+  {
+    "id": "set-in-advance-requires-prior-period",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "calculateRelativeTo": "SetInAdvance"
+    },
+    "expectedError": "requires|result|implement|binding"
+  },
+  {
+    "id": "absent-selector-has-no-invented-default",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      }
+    },
+    "expectedError": "requires|result|implement|binding"
+  },
+  {
+    "id": "fixing-requires-reset-dates",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate"
+    },
+    "expectedError": "requires|result|implement|binding"
+  },
+  {
+    "id": "fixing-relative-to-end",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": -2,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "GBLO",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2020-12-08",
+      "adjustedEndDate": "2021-03-08"
+    }
+  },
+  {
+    "id": "fixing-negative-crosses-weekend",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2024-03-04",
+        "adjustedEndDate": "2024-03-11"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodStartDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": -1,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "GBLO",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-03-01",
+      "adjustedEndDate": "2024-03-08"
+    }
+  },
+  {
+    "id": "fixing-positive-skips-supplied-holiday",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2024-03-01",
+        "adjustedEndDate": "2024-03-08"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "TEST_A",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-03-05",
+      "adjustedEndDate": "2024-03-11"
+    }
+  },
+  {
+    "id": "fixing-zero-rolls-weekend-and-holiday",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2024-03-02",
+        "adjustedEndDate": "2024-03-03"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": 0,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "TEST_A",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-03-05",
+      "adjustedEndDate": "2024-03-05"
+    }
+  },
+  {
+    "id": "fixing-merges-calendars-and-duplicates",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2024-03-01",
+        "adjustedEndDate": "2024-03-08"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "TEST_A",
+                "meta": {}
+              },
+              {
+                "value": "TEST_B",
+                "meta": {}
+              },
+              {
+                "value": "TEST_A",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-03-06",
+      "adjustedEndDate": "2024-03-11"
+    }
+  },
+  {
+    "id": "fixing-crosses-leap-day",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2024-02-28",
+        "adjustedEndDate": "2024-03-01"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "GBLO",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-02-29",
+      "adjustedEndDate": "2024-03-04"
+    }
+  },
+  {
+    "id": "unknown-calendar-is-not-an-empty-calendar",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodStartDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": -2,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "UNKNOWN",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expectedError": "KnownTestCalendar"
+  },
+  {
+    "id": "fixing-negative-skips-combined-holidays",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2024-03-07",
+        "adjustedEndDate": "2024-03-14"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": -2,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "TEST_A",
+                "meta": {}
+              },
+              {
+                "value": "TEST_B",
+                "meta": {}
+              },
+              {
+                "value": "TEST_A",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-03-01",
+      "adjustedEndDate": "2024-03-12"
+    }
+  },
+  {
+    "id": "fixing-absent-relative-to-preserves-upstream-else",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2020-12-10",
+        "adjustedEndDate": "2021-03-10"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": -2,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCenter": [
+              {
+                "value": "GBLO",
+                "meta": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2020-12-08",
+      "adjustedEndDate": "2021-03-08"
+    }
+  },
+  {
+    "id": "fixing-follows-supplied-center-reference-value",
+    "inputs": {
+      "calculationPeriod": {
+        "adjustedStartDate": "2024-03-01",
+        "adjustedEndDate": "2024-03-08"
+      },
+      "priorCalculationPeriod": {
+        "adjustedStartDate": "2020-09-10",
+        "adjustedEndDate": "2020-12-10"
+      },
+      "calculateRelativeTo": "FixingDate",
+      "resetDates": {
+        "resetRelativeTo": "CalculationPeriodEndDate",
+        "fixingDates": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "dayType": "Business",
+          "businessDayConvention": "NONE"
+        },
+        "resetDatesAdjustments": {
+          "businessDayConvention": "NONE",
+          "businessCenters": {
+            "businessCentersReference": {
+              "value": {
+                "businessCenter": [
+                  {
+                    "value": "TEST_A",
+                    "meta": {}
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "adjustedStartDate": "2024-03-05",
+      "adjustedEndDate": "2024-03-11"
+    }
+  }
+]

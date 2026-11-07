@@ -462,6 +462,12 @@ searches the CDM catalog. Include project-runtime's `curated-implementations` su
 and Studio's `project-references` Save/readback suite when changing this boundary.
 The pinned `cdm-dispatch` suite verifies all existing day-count selector bodies in
 strict TypeScript layouts and Python; retain documented upstream differences.
+The same fixture builder checks `cdm-calculation-period` and its handwritten Java
+test/helpers. Codegen's `calculation-period.test.ts` checks every original selector
+with an explicit finite Rune calendar provider; Studio's real-worker counterpart
+also removes that provider. The native-implementation browser suite executes the
+closure from a publication-produced multi-document bundle. Synthetic calendars
+are test data and must never enter the curated implementation catalog.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.

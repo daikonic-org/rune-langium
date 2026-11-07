@@ -12,6 +12,11 @@ import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js
 import { seedProjectBackingFiles, projectBackingFiles } from '../helpers/project-backing.js';
 import { createReferenceArtifacts } from '../../../../test/helpers/project-reference-artifacts.js';
 import { resolveProjectReferences, createMemoryReferenceCache } from '@rune-langium/project-runtime/references';
+import {
+  calculationPeriodModelSources,
+  calculationPeriodCaller,
+  calculationPeriodCalendars
+} from '../../../../test/helpers/cdm-calculation-period.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -169,4 +174,65 @@ test('opening a locked bundle copies Rune overrides into editable project source
   await expect(execute).toBeEnabled();
   await execute.click();
   await expect(page.getByRole('region', { name: 'result output' })).toContainText('true');
+});
+
+test('executes pinned FixingDate dispatch through published helpers and explicit calendar data in Prototype', async ({
+  page
+}, info) => {
+  const fixture = await createReferenceArtifacts(
+    undefined,
+    undefined,
+    calculationPeriodModelSources(),
+    'https://www.daikonic.dev/curated',
+    true
+  );
+  const resolved = await resolveProjectReferences(
+    fixture.snapshot,
+    fixture.transport,
+    new AbortController().signal,
+    createMemoryReferenceCache()
+  );
+  expect(resolved.diagnostics).toEqual([]);
+  await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+    const bytes = fixture.artifacts.get(route.request().url());
+    await route.fulfill({
+      status: bytes ? 200 : 404,
+      body: bytes ? Buffer.from(bytes) : '',
+      headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+  });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'calculation.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace example.calculation\n')
+  });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await seedProjectBackingFiles(page, {
+    ...Object.fromEntries(fixture.snapshot.files),
+    'build-config.lock.json': JSON.stringify(resolved.lock),
+    'model/calculation.rosetta': calculationPeriodCaller,
+    'model/test-calendars.rosetta': calculationPeriodCalendars.content
+  });
+  await page.getByTestId('rail-prototype').click();
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: /^FixingPeriod.*example.calculation/ }).click();
+  await page.getByLabel('Start', { exact: true }).fill('2024-03-01');
+  await page.getByLabel('End', { exact: true }).fill('2024-03-08');
+  await page.getByRole('spinbutton', { name: 'Offset', exact: true }).fill('1');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  const output = page.getByRole('region', { name: 'result output' });
+  await expect(output).toContainText('2024-03-06');
+  await expect(output).toContainText('2024-03-11');
+  await dismissLocalTransportNotices(page);
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+  ).toEqual([]);
+  await info.attach('calculation-period', {
+    body: await page.screenshot({ path: info.outputPath('calculation-period.png') }),
+    contentType: 'image/png'
+  });
 });
