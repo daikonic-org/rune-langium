@@ -19,6 +19,7 @@ import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { bindGeneratedProjectModule, createProjectBindingRegistry } from '../../src/runtime/project-bindings.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
+import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
 
 const nativeSource = `namespace cdm.base.datetime
 func Today:
@@ -41,6 +42,7 @@ async function documents(source = nativeSource): Promise<LangiumDocument[]> {
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
   expect(docs.flatMap((doc) => doc.parseResult.parserErrors)).toEqual([]);
   assertValidDocuments(docs);
+  installPublishedNativeImplementations(docs);
   return docs;
 }
 
@@ -80,6 +82,22 @@ it('matches the full identity, annotation and signature, with explicit target su
       'typescript'
     )
   ).toMatchObject({ status: 'unsupported' });
+});
+
+it('does not discover CDM implementations during generation', async () => {
+  const bare = await documents();
+  const model = bare[2]!.parseResult.value;
+  if (!isRosettaModel(model)) throw new Error('Expected model');
+  const fn = model.elements.find(isRosettaFunction)!;
+  Reflect.deleteProperty(fn, '$implementation');
+  expect(resolveNativeImplementation(fn, 'typescript')).toMatchObject({
+    status: 'unsupported',
+    reason: expect.stringContaining('No installed')
+  });
+  const outputs = await generate(bare, { target: 'typescript', typescript: { layout: 'single-file' } });
+  expect(outputs.flatMap((output) => output.diagnostics)).toContainEqual(
+    expect.objectContaining({ code: 'native-implementation-unavailable' })
+  );
 });
 
 it.each(['single-file', 'per-namespace'] as const)(

@@ -49,8 +49,17 @@ describe('semantic LSP model transport', () => {
       sourceUri: 'file:///a.rosetta',
       imports: ['other.*'],
       references: ['file:///b.rosetta', 'file:///c.rosetta'],
+      hasImplementationSources: false,
       declarations: []
     });
+  });
+
+  it('records implementation source presence separately from source validation', () => {
+    const pack = { schemaVersion: 1, model: 'cdm', commit: 'a'.repeat(40), files: [] };
+    expect(
+      readLspModelMetadata(JSON.stringify({ name: 'example', $implementationSources: pack })).hasImplementationSources
+    ).toBe(true);
+    expect(readLspModelMetadata('{"name":"example"}').hasImplementationSources).toBe(false);
   });
 });
 

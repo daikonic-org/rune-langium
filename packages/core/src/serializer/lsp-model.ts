@@ -34,6 +34,8 @@ export function readLspModelMetadata(json: string): {
   references: string[];
   /** Authored root declarations, excluding qualified scope aliases. */
   declarations?: Array<{ type: string; name: string }>;
+  /** Older metadata omits this flag, requiring source inspection. */
+  hasImplementationSources?: boolean;
 } {
   const references = new Set<string>();
   const model = JSON.parse(json);
@@ -60,6 +62,7 @@ export function readLspModelMetadata(json: string): {
     sourceUri: model.$textRegion?.documentURI,
     imports: (model.imports ?? []).map((entry: { importedNamespace: string }) => entry.importedNamespace),
     references: [...references],
+    hasImplementationSources: Object.hasOwn(model, '$implementationSources'),
     declarations: (model.elements ?? []).flatMap((node: { $type?: unknown; name?: unknown }) =>
       typeof node.$type === 'string' && typeof node.name === 'string' ? [{ type: node.$type, name: node.name }] : []
     )

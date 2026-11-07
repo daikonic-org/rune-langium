@@ -21,6 +21,7 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 import { computeNamespaceGraph, nsArtifactSlug } from './lib/namespace-graph.mjs';
 import { resolveCuratedSources } from './lib/curated-sources.mjs';
 import { isCuratedSourceFile } from '../packages/curated-schema/dist/index.js';
+import { publishCuratedImplementations } from '../packages/project-runtime/dist/curated-implementations/publication.js';
 
 const corePkgDir = new URL('../packages/core/', import.meta.url);
 const langiumIndex = new URL('node_modules/langium/lib/index.js', corePkgDir);
@@ -156,41 +157,46 @@ async function buildArtifact(source, archiveBytes, RuneDsl, documentMap) {
     modelId: source.id,
     version,
     langiumVersion: LANGIUM_VERSION,
-    documents: documents.map((doc, i) => {
-      const model = doc.parseResult.value;
-      const exports = [];
-      for (let j = 0; j < (model.elements?.length ?? 0); j++) {
-        const elem = model.elements[j];
-        if (elem?.name && elem?.$type) {
-          exports.push({
-            type: elem.$type,
-            name: elem.name,
-            path: `/elements@${j}`
-          });
-          // Include enum values for cross-file resolution
-          if (elem.enumValues) {
-            for (let k = 0; k < elem.enumValues.length; k++) {
-              const val = elem.enumValues[k];
-              if (val?.name) {
-                exports.push({
-                  type: val.$type ?? 'RosettaEnumValue',
-                  name: val.name,
-                  path: `/elements@${j}/enumValues@${k}`
-                });
+    documents: await Promise.all(
+      documents.map(async (doc, i) => {
+        const model = doc.parseResult.value;
+        const exports = [];
+        for (let j = 0; j < (model.elements?.length ?? 0); j++) {
+          const elem = model.elements[j];
+          if (elem?.name && elem?.$type) {
+            exports.push({
+              type: elem.$type,
+              name: elem.name,
+              path: `/elements@${j}`
+            });
+            // Include enum values for cross-file resolution
+            if (elem.enumValues) {
+              for (let k = 0; k < elem.enumValues.length; k++) {
+                const val = elem.enumValues[k];
+                if (val?.name) {
+                  exports.push({
+                    type: val.$type ?? 'RosettaEnumValue',
+                    name: val.name,
+                    path: `/elements@${j}/enumValues@${k}`
+                  });
+                }
               }
             }
           }
         }
-      }
-      const ns = namespaceFromModelName(model.name);
-      const rawModelJson = serializeRuneModel(serializer, model);
-      return {
-        path: rosettaFiles[i].path,
-        content: rosettaFiles[i].content,
-        modelJson: ns ? stampNamespacesIntoModelJson(rawModelJson, ns, runeBigIntReplacer) : rawModelJson,
-        exports
-      };
-    })
+        const ns = namespaceFromModelName(model.name);
+        const rawModelJson = await publishCuratedImplementations(model, serializeRuneModel(serializer, model), {
+          model: source.id,
+          commit: source.commit
+        });
+        return {
+          path: rosettaFiles[i].path,
+          content: rosettaFiles[i].content,
+          modelJson: ns ? stampNamespacesIntoModelJson(rawModelJson, ns, runeBigIntReplacer) : rawModelJson,
+          exports
+        };
+      })
+    )
   };
 
   const json = JSON.stringify(artifact, runeBigIntReplacer);

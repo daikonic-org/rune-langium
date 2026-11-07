@@ -548,8 +548,20 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
         code = renderPythonExpression(node.expression, pythonDataContext(context, resolveType(node.input)));
       sections.push(`def ${name}(data=None):\n    return ${code}\n`);
     }
-    if (node.$type === 'RosettaExternalFunction')
-      sections.push(`def ${context.name(node)}(*args):\n    return rune.native(${pyString(qualified(node))}, *args)\n`);
+    if (node.$type === 'RosettaExternalFunction') {
+      // Standard-library primitive, matching the TypeScript library-function profile.
+      // CDM implementations arrive preselected in their curated declarations.
+      const leapYear =
+        qualified(node) === 'com.rosetta.model.IsLeapYear' &&
+        node.parameters.length === 1 &&
+        node.parameters[0]!.name === 'year' &&
+        !node.parameters[0]!.isArray &&
+        node.parameters[0]!.typeCall.type.ref?.name === 'number' &&
+        node.typeCall.type.ref?.name === 'boolean';
+      sections.push(
+        `def ${context.name(node)}(*args):\n    return rune.native(${pyString(qualified(node))}, *args${leapYear ? ', _rune_fallback=calendar.isleap' : ''})\n`
+      );
+    }
   }
   const diagnostics: GeneratorDiagnostic[] = funcs.flatMap((func) => {
     const native = resolveNativeImplementation(func, 'python');

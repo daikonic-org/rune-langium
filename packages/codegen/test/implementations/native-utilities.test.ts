@@ -16,6 +16,7 @@ import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
 import { nativeFunctionShape, matchesNativeFunction } from '../../src/implementations/signature.js';
+import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
 const source = `namespace cdm.base.datetime
 enum DayOfWeekEnum:
  MON
@@ -57,10 +58,6 @@ func ToTime:
 func Now:
  [codeImplementation]
  output: now zonedDateTime (1..1)
-func PopOffDateList:
- [codeImplementation]
- inputs: dates date (0..*)
- output: newList date (0..*)
 `;
 const strings = `namespace cdm.ingest.fpml.confirmation.common
 func StringContains:
@@ -83,6 +80,7 @@ beforeAll(async () => {
   );
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
   assertValidDocuments(docs);
+  installPublishedNativeImplementations(docs);
   const generated = await generateSelected(
     docs,
     { namespaces: ['cdm.base.datetime', 'cdm.ingest.fpml.confirmation.common'], declarations: [] },
@@ -117,6 +115,12 @@ it('adds calendar days and computes signed Gregorian differences across leap/cen
     )
   ).toEqual(cases.map((row) => ({ value: row[2] })));
   const pairs = [
+    // Numeric expectations from the pinned handwritten DateDifferenceImplTest.java.
+    ['2021-05-12', '2021-06-12', 31],
+    ['2021-06-12', '2021-05-12', -31],
+    ['2022-07-01', '2023-07-01', 365],
+    ['2023-07-01', '2024-07-01', 366],
+    ['2023-07-01', '2025-07-01', 731],
     ['2020-02-28', '2020-03-01', 2],
     ['1900-02-28', '1900-03-01', 1],
     ['2000-03-01', '2000-02-28', -2]
@@ -135,6 +139,10 @@ it('adds calendar days and computes signed Gregorian differences across leap/cen
 });
 it('counts whole days in leap years rather than only February 29 and keeps sign reversal', () => {
   const pairs = [
+    // Included and excluded leap-year ranges from LeapYearDateDifferenceImpTest.java.
+    ['2019-01-01', '2020-01-01', 0],
+    ['2021-01-01', '2020-01-01', -366],
+    ['2021-01-01', '2022-01-01', 0],
     ['2020-01-01', '2021-01-01', 366],
     ['2019-12-31', '2020-01-02', 1],
     ['2020-03-01', '2020-02-28', -2],
@@ -153,7 +161,7 @@ it('counts whole days in leap years rather than only February 29 and keeps sign 
     )
   ).toEqual(pairs.map((row) => ({ value: row[2] })));
 });
-it('uses weekday names, strict time components, UTC whole-second Now and non-mutating list trimming', () => {
+it('uses weekday names, strict time components and UTC whole-second Now', () => {
   expect(ts.DayOfWeek!(date('2026-10-26'))).toBe('MON');
   expect(String(ts.ToTime!(23, 59, 59))).toBe('23:59:59');
   expect(() => ts.ToTime!(24, 0, 0)).toThrow();
@@ -161,22 +169,16 @@ it('uses weekday names, strict time components, UTC whole-second Now and non-mut
   const now = ts.Now!() as Temporal.ZonedDateTime;
   expect(now.timeZoneId).toBe('UTC');
   expect(now.nanosecond + now.microsecond + now.millisecond).toBe(0);
-  const values = [date('2020-01-01'), date('2020-01-01'), date('2020-01-02')];
-  expect(ts.PopOffDateList!(values)).toEqual(values.slice(0, -1));
-  expect(values).toHaveLength(3);
-  expect(ts.PopOffDateList!(undefined)).toEqual([]);
   const results = runPython(
     [
       { expression: call('DayOfWeek', '"2026-10-26"') },
       { expression: call('ToTime', '23,59,59') },
-      { expression: call('PopOffDateList', '["2020-01-01","2020-01-01","2020-01-02"]') },
-      { expression: call('PopOffDateList', '[]') },
       { expression: `rune_clock_parts(${call('Now', '')})[3]` }
     ],
     python.code,
     { includeRuntime: false }
   );
-  expect(results).toEqual(['MON', '23:59:59', ['2020-01-01', '2020-01-01'], [], 0].map((value) => ({ value })));
+  expect(results).toEqual(['MON', '23:59:59', 0].map((value) => ({ value })));
 });
 it('matches Java UTF-16 substring behavior, empty needles and missing optional strings across targets', () => {
   const cases: [string | undefined, string, boolean][] = [

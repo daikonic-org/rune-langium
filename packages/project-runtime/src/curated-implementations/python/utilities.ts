@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-/** Gregorian/date/string helpers belong to the shared standalone Python runtime. */
+/** Publication sources using the shared standalone Python runtime. */
 export const utilities = {
   AddDays: {
     call: true,
@@ -32,7 +32,6 @@ export const utilities = {
     dependencies: ['datetime'],
     expression: 'datetime.now(timezone.utc).replace(microsecond=0).isoformat() + "[UTC]"'
   },
-  PopOffDateList: { call: true, dependencies: ['rune_list'], expression: 'lambda values: rune_list(values)[:-1]' },
   StringContains: {
     call: true,
     dependencies: ['rune_string_contains'],

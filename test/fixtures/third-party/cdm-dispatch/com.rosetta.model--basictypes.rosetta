@@ -1,0 +1,23 @@
+namespace com.rosetta.model
+version "${project.version}"
+
+basicType boolean <"A boolean can either be True or False.">
+
+basicType number(
+    digits int           <"The maximum number of digits that the number may have. If absent, this number may have an arbitrary number of digits.">
+  , fractionalDigits int <"The maximum number of digits after the decimal point that the number may have. If absent, this number may have any number of its digits after the decimal point.">
+  , min number           <"The minimum bound on this number. If absent, this number is unbounded from below.">
+  , max number           <"The maximum bound on this number. If absent, this number is unbounded from above.">
+) <"A signed decimal number.">
+
+typeAlias int(digits int, min int, max int): <"A signed decimal integer.">
+	number(digits: digits, fractionalDigits: 0, min: min, max: max)
+
+library function IsLeapYear(year number) boolean
+
+recordType date
+{
+	day   int
+	month int
+	year  int
+}

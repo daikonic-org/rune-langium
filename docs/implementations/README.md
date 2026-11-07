@@ -3,7 +3,9 @@
 This is a versioned coverage baseline, not completion of #646.
 [`native-coverage.json`](native-coverage.json) records every `[codeImplementation]`
 function in the linked cohort, its complete model/namespace/kind/name identity,
-source Git blob, linked signature and coverage for both executable targets.
+source Git blob, linked signature, exclusive effective implementation location and
+pinned handwritten Java references. Schema version 3 selects one Rune path, a map
+of language-specific targets, or an explicit unimplemented entry.
 
 The audited cohort is CDM **7.9.0** (`0f1f99aef829c23910476981bb91256544cb8569`),
 FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
@@ -11,8 +13,10 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **9
-bundled implementations per target**. The audit parses and links 189 original
+There are **49 CDM native declarations**, no FpML native declarations, and **8
+language-specific implementations per target**. Seven catalog entries use Rune,
+including three owned overrides and four partially implemented upstream dispatch
+families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
 
@@ -31,10 +35,13 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | LeapYearDateDifference | Count all included days in leap years, with sign reversal; this is not a count of February 29 occurrences |
 | DayOfWeek | MON–SUN using the Gregorian weekday |
 | ToTime | Integer components, invalid clock values rejected |
-| PopOffDateList | Remove the last position without mutating input or dropping earlier duplicates; empty/absent lists return empty lists |
 | StringContains | Optional input returns false when absent; Java-compatible UTF-16 substring behavior, including empty needles and isolated surrogates |
 
-Implementations live under `packages/codegen/src/implementations/<target>`.
+Implementation publication sources live under
+`packages/project-runtime/src/curated-implementations/`. They are selected during
+curation and delivered with the serialized bundle. Codegen reads that supplied
+payload, rather than finding a CDM fallback at generation time. See
+[curated delivery and workspace installation](curated-bundles.md).
 Signature guards include type kind/qualified identity, parameter order/names,
 cardinality, metadata/argument presence and enum wire values. A changed signature does
 not quietly select an old implementation. Both emitters pass their allocated
@@ -42,22 +49,25 @@ parameter names to one native-expression call helper. Array returns populate the
 existing output accumulator. Explicit installed bindings and authored Rune bodies
 retain precedence; Python bindings receive the actual positional arguments.
 
-The utility semantics were checked against the same CDM commit's `*Impl.java`
-references under `rosetta-source/src/main/java/cdm/`. Source provenance in the
-inventory links the declarations. Implementations use the toolchain's existing
+The utility semantics were checked against the same CDM commit's handwritten
+`*Impl.java` references under `rosetta-source/src/main/java/cdm/`. The inventory
+records paths, class entrypoints, original Git blobs, SHA-256 hashes and tests;
+empty data-provider stubs are separate from algorithms. Generated Java and test-only
+implementations are excluded as production references. Implementations use the toolchain's existing
 Temporal date and numeric contracts; this is not a claim to support every Java
 LocalDate/BigDecimal value or external JVM behavior.
 
 ## Remaining integrations
 
-The **40 functions without bundled native fallbacks remain tracked**. Two now
+The **41 functions without language-specific implementations remain tracked**. Two now
 have explicit Rune source implementations: `EmptyExecutionDetails` and
 `EmptyTransferHistory`. Their empty results implement their actual clearing
 contracts; they are not generic fallbacks for missing business logic.
 The [Rune source pack](../../examples/implementations/cdm/README.md) also includes
-a duplicate-preserving `PopOffDateList` replacement. Installing those sources
-uses normal namespace-override linking, across both executable targets; it does
-not change the bundled-native count. The inventory checks their source hashes,
+the single duplicate-preserving `PopOffDateList` implementation. Installing a
+curated bundle copies those ordinary namespace overrides into the workspace,
+across both executable targets. Native alternatives are not selected or shipped
+for those functions. The inventory checks their source hashes,
 full upstream signatures and effective declaration selection.
 
 External data requirements do not make a function inexpressible in Rune. Rune
@@ -69,7 +79,12 @@ string/collection primitive limits are recorded separately from business logic.
 Existing Rune dispatch families such as `DayCountBasis`, `YearFraction`,
 `ComputeCalculationPeriod` and `ProcessFloatingRateReset` must retain their upstream
 bodies. Missing selectors and transitive dependencies still need execution evidence;
-the latter family includes an empty `CompoundIndex` branch.
+the latter family includes an empty `CompoundIndex` branch. The pinned
+[day-count closure](../../test/fixtures/third-party/cdm-dispatch/README.md) now
+executes all 9 and 11 existing selector bodies respectively, in strict TypeScript
+under all three layouts and standalone Python. Missing defaults/selectors stay
+unavailable. These source regressions preserve documented upstream quirks and do
+not establish financial-standard or complete handwritten-Java parity.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
@@ -109,7 +124,9 @@ assessments are never silently applied across model versions. `--issue-markdown`
 writes the table for #646 from the same verified inventory; it does not publish it.
 
 The default check compares source paths/blobs, ownership, signatures, Rune source
-hashes/assessment and target availability to the committed inventory. New declarations and changed/missing
+hashes/assessment, exclusive implementation locations and handwritten Java
+references to the committed inventory. It also checks generated owned-source text
+and pinned dispatch slices/legal notices. New declarations and changed/missing
 implementations fail the check. Review changes before regenerating with
 `node scripts/audit-native-implementations.mjs --write`. Existing unavailable
 entries are an explicit baseline, not a zero-gap success report. CI runs the check
@@ -118,11 +135,12 @@ read; a corrupt cache fails, and no partial inventory is accepted.
 
 Run Codegen's `test/implementations` and Python runtime suites, and Studio's real
 worker suite. `test/e2e/native-implementations.spec.ts` executes AddDays and signed
-DateDifference through the real preview worker at desktop/390px with viewport and
-axe checks. The browser fixture is a minimal declaration cohort; standalone tests
+DateDifference from a publication-produced curated artifact through the real
+preview worker at desktop/390px with viewport and axe checks. The browser fixture
+is a minimal declaration cohort; standalone tests
 cover the other bundled utilities and exact signatures.
 
-CDM/Rune source references retain their upstream Apache-2.0 terms. The inventory
+CDM/Rune source references retain their upstream license and notice files. The inventory
 commits factual signatures/hashes, not copied source trees. Generated TypeScript
 continues to use the existing ISC-licensed `@js-temporal/polyfill`; Python uses
 its standard runtime library. No OpenGamma or other new financial engine has been

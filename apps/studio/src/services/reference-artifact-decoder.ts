@@ -17,32 +17,38 @@ import { curatedArtifactCache } from './curated-artifact-cache.js';
 export const prepareReferenceArtifact = withInstrumentation(
   async function prepareReferenceArtifact(bytes: Uint8Array): Promise<DecodedReferenceArtifact> {
     const bundle: DecodedReferenceArtifact = decodeReferenceArtifact(bytes);
-    for (const doc of bundle.documents) {
-      const sourceHash = await projectFileRevision(doc.modelJson);
-      let derived = await curatedArtifactCache.referenceDerived(sourceHash);
-      if (!derived) {
-        // Publication indexes contain declaration names, not Core's complete
-        // qualified/enum scope. Derive that authoritative index even when present.
-        const services = createRuneDslServices(EmptyFileSystem);
-        const { document } = hydrateModelDocument(
-          services,
-          projectReferenceUri(bundle.modelId + '/' + doc.path),
-          doc.modelJson,
-          { register: 'always' }
-        );
-        const exports = (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(document)).map(
-          ({ type, name, path }) => ({ type, name, path })
-        );
-        derived = {
-          metadata: readLspModelMetadata(doc.modelJson),
-          compact: compactLspModelJson(doc.modelJson),
-          exports
-        };
-        await curatedArtifactCache.putReferenceDerived(sourceHash, derived);
-      }
-      doc.lsp = { metadata: derived.metadata, compact: derived.compact };
-      doc.exports = derived.exports;
-    }
+    // Hashing and IndexedDB waits are independent; bound the live Core graphs while overlapping those waits.
+    const documents = bundle.documents.values();
+    await Promise.all(
+      Array.from({ length: Math.min(4, bundle.documents.length) }, async () => {
+        for (const doc of documents) {
+          const sourceHash = await projectFileRevision(doc.modelJson);
+          let derived = await curatedArtifactCache.referenceDerived(sourceHash);
+          if (!derived) {
+            // Publication indexes contain declaration names, not Core's complete
+            // qualified/enum scope. Derive that authoritative index even when present.
+            const services = createRuneDslServices(EmptyFileSystem);
+            const { document } = hydrateModelDocument(
+              services,
+              projectReferenceUri(bundle.modelId + '/' + doc.path),
+              doc.modelJson,
+              { register: 'always' }
+            );
+            const exports = (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(document)).map(
+              ({ type, name, path }) => ({ type, name, path })
+            );
+            derived = {
+              metadata: readLspModelMetadata(doc.modelJson),
+              compact: compactLspModelJson(doc.modelJson),
+              exports
+            };
+            await curatedArtifactCache.putReferenceDerived(sourceHash, derived);
+          }
+          doc.lsp = { metadata: derived.metadata, compact: derived.compact };
+          doc.exports = derived.exports;
+        }
+      })
+    );
     return bundle;
   },
   { op: 'prepareReferenceArtifact', capture: 0 }

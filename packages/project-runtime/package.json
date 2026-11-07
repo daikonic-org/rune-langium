@@ -53,6 +53,14 @@
     "./examples": {
       "types": "./dist/reference-examples.d.ts",
       "import": "./dist/reference-examples.js"
+    },
+    "./implementation-publication": {
+      "types": "./dist/curated-implementations/publication.d.ts",
+      "import": "./dist/curated-implementations/publication.js"
+    },
+    "./implementation-sources": {
+      "types": "./dist/curated-implementations/install.d.ts",
+      "import": "./dist/curated-implementations/install.js"
     }
   },
   "files": [
@@ -60,7 +68,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "node scripts/generate-implementation-sources.mjs && tsc -b",
+    "generate:implementation-sources": "node scripts/generate-implementation-sources.mjs",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"

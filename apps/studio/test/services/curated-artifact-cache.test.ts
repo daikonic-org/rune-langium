@@ -221,7 +221,12 @@ it('persists versioned derived metadata by source digest and treats stale format
   const { value, databaseName } = cache();
   const hash = 'a'.repeat(64);
   const info = {
-    metadata: { namespace: 'test', imports: [], references: ['file:///other.rosetta'] },
+    metadata: {
+      namespace: 'test',
+      imports: [],
+      references: ['file:///other.rosetta'],
+      hasImplementationSources: false
+    },
     compact: '{"name":"test"}',
     exports: [{ name: 'test.T', type: 'Data', path: '/elements@0' }]
   };
@@ -231,7 +236,7 @@ it('persists versioned derived metadata by source digest and treats stale format
   expect(await reopened.referenceDerived(hash)).toEqual(info);
   expect(await reopened.referenceDerived('b'.repeat(64))).toBeUndefined();
   const db = await openDB(databaseName, 1);
-  await db.put('payloads', JSON.stringify({ version: 2, ...info }), JSON.stringify(['reference-derived', hash]));
+  await db.put('payloads', JSON.stringify({ version: 3, ...info }), JSON.stringify(['reference-derived', hash]));
   db.close();
   expect(await reopened.referenceDerived(hash)).toBeUndefined();
   await reopened.close();

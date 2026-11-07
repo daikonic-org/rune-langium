@@ -12,7 +12,7 @@ const directory = dirname(fileURLToPath(import.meta.url));
 export const cdmRuneImplementationSources = new Map(
   ['event-common.rosetta', 'date-list-state.rosetta', 'date-list.rosetta'].map((file) => [
     `model/implementations/${file}`,
-    readFileSync(resolve(directory, '../../examples/implementations/cdm', file), 'utf8')
+    readFileSync(resolve(directory, '../../packages/project-runtime/src/curated-implementations/rune', file), 'utf8')
   ])
 );
 

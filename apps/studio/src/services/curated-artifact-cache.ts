@@ -10,11 +10,13 @@ import {
   CuratedSerializedDocumentExportSchema
 } from '@rune-langium/curated-schema';
 import type { HydrateRequest } from '../workers/parser-worker.js';
+import type { ReferenceModelInfo } from '@rune-langium/project-runtime/references';
 import { withInstrumentation } from './instrumentation/core.js';
 import { curatedArtifactIdentity } from './curated-artifact-identity.js';
 
 type HydrationDocument = HydrateRequest['documents'][number];
 type SourceDocument = Pick<HydrationDocument, 'uri' | 'content'>;
+type DerivedReferenceInfo = ReferenceModelInfo & { exports: HydrationDocument['exports'] };
 type CacheKind = 'documents' | 'source' | 'reference-bytes' | 'reference-derived';
 
 // Bump when the serialized hydration contract changes. This disposable database
@@ -255,11 +257,11 @@ export const createCuratedArtifactCache = withInstrumentation(
 
     return {
       documentKeys,
-      async referenceDerived(sourceHash: string) {
+      async referenceDerived(sourceHash: string): Promise<DerivedReferenceInfo | undefined> {
         const value = await read('reference-derived', sourceHash);
         const parsed = z
           .object({
-            version: z.literal(3),
+            version: z.literal(4),
             compact: z.string(),
             exports: z.array(CuratedSerializedDocumentExportSchema),
             metadata: z.object({
@@ -267,7 +269,8 @@ export const createCuratedArtifactCache = withInstrumentation(
               sourceUri: z.string().optional(),
               imports: z.array(z.string()),
               references: z.array(z.string()),
-              declarations: z.array(z.object({ type: z.string(), name: z.string() })).optional()
+              declarations: z.array(z.object({ type: z.string(), name: z.string() })).optional(),
+              hasImplementationSources: z.boolean()
             })
           })
           .safeParse(value);
@@ -275,13 +278,8 @@ export const createCuratedArtifactCache = withInstrumentation(
           ? { metadata: parsed.data.metadata, compact: parsed.data.compact, exports: parsed.data.exports }
           : undefined;
       },
-      async putReferenceDerived(
-        sourceHash: string,
-        value: import('@rune-langium/project-runtime/references').ReferenceModelInfo & {
-          exports: HydrationDocument['exports'];
-        }
-      ) {
-        await write('reference-derived', sourceHash, { version: 3, ...value });
+      async putReferenceDerived(sourceHash: string, value: DerivedReferenceInfo) {
+        await write('reference-derived', sourceHash, { version: 4, ...value });
       },
       async referenceBytes(checksum: string): Promise<Uint8Array | undefined> {
         const value = await read('reference-bytes', checksum);
