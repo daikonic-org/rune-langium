@@ -40,7 +40,7 @@ export interface TimingRecord {
  * ops are silently omitted, matching spec §6's "the harness degrades
  * gracefully to test-side stopwatches without it."
  */
-export function buildTimingsRollup(journeys: readonly JourneyRecord[]): TimingRecord[] {
+export function buildTimingsRollup(journeys: readonly Pick<JourneyRecord, 'opLog'>[]): TimingRecord[] {
   const timings: TimingRecord[] = [];
   for (const journey of journeys) {
     const seenOperations = new Set<string>();

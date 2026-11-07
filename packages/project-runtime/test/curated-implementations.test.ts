@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it, vi } from 'vitest';
 import { URI } from 'langium';
-import { serializeRuneModel, isRosettaModel, isRosettaFunction } from '@rune-langium/core';
+import { serializeRuneModel, isRosettaModel, isRosettaFunction, readLspModelMetadata } from '@rune-langium/core';
 import { FunctionImplementationSchema, ImplementationSourcePackSchema } from '@rune-langium/core/project-contract';
 import { createProjectSnapshot, createProjectDraftSnapshot, projectFileRevision } from '@rune-langium/project-config';
 import { generate, resolveNativeImplementation } from '@rune-langium/codegen/export';
@@ -116,6 +116,40 @@ it('preserves edited Rune files and never takes ownership of pre-existing user f
   const adopted = await apply(user, (await prepareCuratedImplementationSources(user, references)).changes);
   const removed = await prepareCuratedImplementationSources(adopted, []);
   expect(removed.changes.has(path)).toBe(false);
+});
+
+it('skips absent packs using canonical metadata and reads present packs from verified model JSON', async () => {
+  const snapshot = await createProjectSnapshot('derived', files, () => []);
+  const expected = await prepareCuratedImplementationSources(snapshot, references);
+  const cached = references.map((reference) => ({
+    ...reference,
+    lsp: { metadata: readLspModelMetadata(reference.serialized!), compact: '' }
+  }));
+  const absent = new Set(
+    cached
+      .filter((reference) => !reference.lsp.metadata.hasImplementationSources)
+      .map((reference) => reference.serialized)
+  );
+  const parse = JSON.parse;
+  const spy = vi.spyOn(JSON, 'parse').mockImplementation((text, reviver) => {
+    if (absent.has(text)) throw new Error('An absent pack caused its entire reference model to be parsed again.');
+    return parse(text, reviver);
+  });
+  try {
+    expect(await prepareCuratedImplementationSources(snapshot, cached)).toEqual(expected);
+    await expect(
+      prepareCuratedImplementationSources(
+        snapshot,
+        cached.map((reference) =>
+          reference.lsp.metadata.hasImplementationSources
+            ? { ...reference, source: { ...reference.source!, commit: 'a'.repeat(40) } }
+            : reference
+        )
+      )
+    ).rejects.toThrow(/provenance/);
+  } finally {
+    spy.mockRestore();
+  }
 });
 
 it('removes only unchanged installed sources when their bundle is removed', async () => {

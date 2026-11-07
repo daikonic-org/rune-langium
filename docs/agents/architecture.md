@@ -1615,7 +1615,14 @@ source performs no documentation-range scan.
 
 Managed browser opens retain full checksum, manifest, toolchain and closure
 verification. The optional `ReferenceTransport.decodeArtifact` port runs the
-shared project-runtime decoder in Studio's existing parser worker. Compatibility
+shared project-runtime decoder in Studio's existing parser worker. Canonical metadata
+extraction also records bundled source-pack presence. This flag lets installation
+skip documents without a pack, so workspace installation does
+not parse every serialized dependency AST again on the UI thread. Derived-cache
+version 4 retains this fact under the verified model source hash; older entries
+are misses. Native/older transports retain the canonical JSON fallback and the
+installer still reads present packs from verified serialized documents and validates
+source hashes and publication provenance. Compatibility
 review uses the same worker and canonical runtime implementation without adopting
 the proposed graph. Native hosts retain the synchronous decoder fallback.
 
@@ -1627,6 +1634,8 @@ versioned canonical dependency metadata, compact LSP payloads and ScopeComputati
 exports by source digest. Publication declaration indexes are not complete scope
 indexes; the worker derives the qualified and enum aliases with Core and caches
 them separately from the authored declaration inventory.
+Document hashing and derived-cache reads overlap through four worker-side slots;
+each slot owns at most one Core graph, and publication document order is retained.
 Bump the derived format version when those Core contracts change. Derived cache
 storage failure is a miss; no cache can waive compressed-byte verification.
 

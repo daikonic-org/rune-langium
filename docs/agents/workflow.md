@@ -216,6 +216,8 @@ console evidence and a failing manifest verdict. J20 checks both original source
 bytes and a ready function preview before its cold/warm checkpoints and cache
 request comparison. Source opening has a 10-second budget; subsequent preview
 readiness uses the existing 5-second form budget.
+Gate errors name recorded operations that exceeded these budgets. Network
+cancellations remain separate evidence and do not establish the degradation cause.
 Blank-reference ready checkpoints require selected Inspector content, not only
 the declaration inventory or preview form.
 To validate candidate assets against live endpoints without deploying, serve an

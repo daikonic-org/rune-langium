@@ -155,3 +155,44 @@ it('reuses the decoder through resolver capture, review loading and cached activ
   }
   expect(decode).toHaveBeenCalledTimes(2); // One decode for each of the two immutable cohorts.
 });
+
+it('overlaps bounded derived-cache reads and retains document order despite out-of-order completion', async () => {
+  const documents = Array.from({ length: 9 }, (_, index) => ({
+    path: `model-${index}.rosetta`,
+    modelJson: JSON.stringify({ $type: 'RosettaModel', name: `model${index}`, imports: [], elements: [] })
+  }));
+  const byHash = new Map(
+    await Promise.all(
+      documents.map(async (doc, index) => [await projectFileRevision(doc.modelJson), { doc, index }] as const)
+    )
+  );
+  let active = 0,
+    peak = 0;
+  vi.spyOn(curatedArtifactCache, 'referenceDerived').mockImplementation(async (hash) => {
+    const { doc, index } = byHash.get(hash)!;
+    peak = Math.max(peak, ++active);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 5 + (3 - (index % 4)) * 5));
+      return { metadata: readLspModelMetadata(doc.modelJson), compact: doc.modelJson, exports: [] };
+    } finally {
+      active--;
+    }
+  });
+  const value = await prepareReferenceArtifact(
+    gzipSync(
+      JSON.stringify({
+        schemaVersion: 1,
+        kind: 'langium-json-serializer',
+        modelId: 'cdm',
+        version: '2026-10-31',
+        langiumVersion: '4.4.0',
+        documents
+      })
+    )
+  );
+  expect(peak).toBeGreaterThan(1);
+  expect(peak).toBeLessThanOrEqual(4);
+  expect(active).toBe(0);
+  expect(value.documents.map((doc) => doc.path)).toEqual(documents.map((doc) => doc.path));
+  expect(value.documents.every((doc) => doc.lsp?.metadata.hasImplementationSources === false)).toBe(true);
+});

@@ -42,7 +42,8 @@ export async function prepareCuratedImplementationSources(
   const changes = new Map<string, string | null>();
   const diagnostics: ProjectDiagnostic[] = [];
   for (const reference of references) {
-    if (!reference.serialized) continue;
+    if (reference.lsp?.metadata.hasImplementationSources === false || !reference.serialized) continue;
+    // Metadata only skips known misses. Source bytes always come from the verified serialized document.
     const root: unknown = JSON.parse(reference.serialized);
     if (!root || typeof root !== 'object' || !Reflect.has(root, '$implementationSources')) continue;
     const pack = ImplementationSourcePackSchema.parse(Reflect.get(root, '$implementationSources'));
