@@ -23,6 +23,10 @@ Project-runtime's `project-implementation.test.ts` and the two strict generated
 execution cases in `cdm-rune-implementations.test.ts` use that same budget in the
 package and root coverage runners. The CDM removal/signature checks and other
 runtime tests retain their default budgets.
+Codegen's isolated Python workflow builds only its dependency graph. Shared
+implementation fixtures therefore import pure publication selection from the CDM
+catalog module, without loading source publication/storage or project-config.
+The full curated publisher separately builds the project-runtime dependency graph.
 Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility

@@ -6,20 +6,10 @@ import {
   type FunctionImplementation,
   type ImplementationSourcePack
 } from '@rune-langium/core/project-contract';
-import { selectCdmImplementation, RUNE_IMPLEMENTATIONS } from './cdm.js';
+import { curatedModelImplementations, RUNE_IMPLEMENTATIONS } from './cdm.js';
 import { RUNE_IMPLEMENTATION_SOURCES } from './generated/rune-sources.js';
 import { projectFileRevision } from '@rune-langium/project-config';
 
-/** Publication owns selection; consumers receive concrete payloads, never this catalog. */
-export function curatedModelImplementations(model: RosettaModel): ReadonlyMap<number, FunctionImplementation> {
-  const result = new Map<number, FunctionImplementation>();
-  for (const [index, node] of model.elements.entries()) {
-    if (!isRosettaFunction(node)) continue;
-    const selected = selectCdmImplementation(node);
-    if (selected) result.set(index, selected);
-  }
-  return result;
-}
 export function curatedRuneSourceFiles(entries: Iterable<FunctionImplementation>): string[] {
   const files = new Set<string>();
   for (const entry of entries)

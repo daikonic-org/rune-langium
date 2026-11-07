@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { getElementNamespace, type RosettaFunction } from '@rune-langium/core';
+import { getElementNamespace, isRosettaFunction, type RosettaFunction, type RosettaModel } from '@rune-langium/core';
 import {
   nativeFunctionShape,
   matchesNativeFunction,
@@ -322,6 +322,16 @@ if (new Set(CDM_IMPLEMENTATIONS.map((entry) => `${entry.namespace}.${entry.name}
   throw new Error('Each curated function must have exactly one implementation kind.');
 export const NATIVE_IMPLEMENTATIONS = CDM_IMPLEMENTATIONS.filter((entry) => entry.kind === 'language-specific');
 export const RUNE_IMPLEMENTATIONS = CDM_IMPLEMENTATIONS.filter((entry) => entry.kind === 'rune');
+/** Pure publication selection, shared with the audit and generator fixtures without storage dependencies. */
+export function curatedModelImplementations(model: RosettaModel): ReadonlyMap<number, FunctionImplementation> {
+  const result = new Map<number, FunctionImplementation>();
+  for (const [index, node] of model.elements.entries()) {
+    if (!isRosettaFunction(node)) continue;
+    const selected = selectCdmImplementation(node);
+    if (selected) result.set(index, selected);
+  }
+  return result;
+}
 /** Called by curated publication and its audit, never by a generator. */
 export function selectCdmImplementation(func: RosettaFunction): FunctionImplementation | undefined {
   if (
