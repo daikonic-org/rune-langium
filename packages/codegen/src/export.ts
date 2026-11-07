@@ -40,17 +40,17 @@ import { resolveExportSelection, type ResolvedExportSelection } from './selectio
 
 export { IMPLEMENTED_TARGETS };
 export {
-  NATIVE_IMPLEMENTATIONS,
   resolveNativeImplementation,
   nativeFunctionShape,
+  matchesNativeFunction,
   describeNativeFunction
 } from './implementations/index.js';
 export type {
   NativeFunctionShape,
   NativeParameterShape,
-  NativeImplementation,
   NativeImplementationResolution,
   ImplementationLanguage,
+  ImplementationLocation,
   NativeImplementationBody
 } from './implementations/index.js';
 export { normalizePreviewInputs, adaptPreviewData, projectRuneJsonData } from './preview-schema.js';

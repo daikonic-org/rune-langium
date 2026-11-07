@@ -5,7 +5,13 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
-import { runeFeasibilityIndex, renderNativeImplementationInventory } from './lib/native-implementation-inventory.mjs';
+import {
+  runeFeasibilityIndex,
+  renderNativeImplementationInventory,
+  nativeSourceBlobHash,
+  handwrittenJavaReferences,
+  validateCatalogImplementation
+} from './lib/native-implementation-inventory.mjs';
 import { isCuratedSourceFile, CuratedModelIdSchema } from '../packages/curated-schema/dist/index.js';
 import { AstUtils, URI } from '../packages/core/node_modules/langium/lib/index.js';
 import {
@@ -20,7 +26,11 @@ import {
   setProjectDocumentModel,
   projectDeclarationIdentity
 } from '../packages/core/dist/index.js';
-import { nativeFunctionShape, resolveNativeImplementation } from '../packages/codegen/dist/src/export.js';
+import { nativeFunctionShape } from '../packages/codegen/dist/src/export.js';
+import {
+  selectCdmImplementation,
+  NATIVE_IMPLEMENTATIONS
+} from '../packages/project-runtime/dist/curated-implementations/cdm.js';
 import { openGitHubRepository } from '../packages/project-runtime/dist/repository-source.js';
 const { values } = parseArgs({
   options: {
@@ -33,6 +43,9 @@ const { values } = parseArgs({
   }
 });
 const root = resolve(import.meta.dirname, '..');
+const dispatchCasesPath = 'test/fixtures/third-party/cdm-dispatch/cases.json';
+const dispatchCasesText = await readFile(resolve(root, dispatchCasesPath), 'utf8');
+const dispatchCases = JSON.parse(dispatchCasesText);
 const sources = JSON.parse(
   await readFile(resolve(root, values.sources ?? 'scripts/fixtures/native-implementation-sources.json'), 'utf8')
 );
@@ -45,12 +58,10 @@ const feasibility = runeFeasibilityIndex(
 const { RuneDsl } = createRuneDslServices();
 const documents = [],
   origins = new Map(),
-  files = [];
-const hash = (text) =>
-  createHash('sha1')
-    .update(`blob ${Buffer.byteLength(text)}\0`)
-    .update(text)
-    .digest('hex');
+  files = [],
+  javaFiles = [],
+  referenceFiles = [],
+  notices = [];
 if (
   !Array.isArray(sources) ||
   !sources.length ||
@@ -91,6 +102,13 @@ for (const source of sources) {
   const entries = repository.files.filter(
     (file) => file.type === 'blob' && isCuratedSourceFile(source.model, file.path)
   );
+  const references = repository.files.filter(
+    (file) =>
+      file.type === 'blob' &&
+      (/^rosetta-source\/src\/(main|test)\/java\/.*\.java$/.test(file.path) ||
+        /^(LICENSE|NOTICE)(\.md|\.txt)?$/.test(file.path))
+  );
+  const inputs = [...entries, ...references].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   sourceBytes += entries.reduce((sum, file) => sum + (file.size ?? 0), 0);
   if (
     entries.length + files.length > 512 ||
@@ -98,14 +116,14 @@ for (const source of sources) {
     entries.some((file) => file.size === undefined || file.size > 2 * 1024 * 1024)
   )
     throw new Error('Inventory source cohort exceeds its audited source budget.');
-  for (const file of entries) byBlob.set(file.sha, file.path);
+  for (const file of inputs) byBlob.set(file.sha, file.path);
   let next = 0;
-  const texts = Array.from({ length: entries.length });
+  const texts = Array.from({ length: inputs.length });
   await Promise.all(
-    Array.from({ length: Math.min(8, entries.length) }, async () => {
+    Array.from({ length: Math.min(8, inputs.length) }, async () => {
       for (;;) {
         const index = next++,
-          file = entries[index];
+          file = inputs[index];
         if (!file) return;
         const path = resolve(cache, source.model, source.commit, file.path);
         let text;
@@ -114,11 +132,12 @@ for (const source of sources) {
         } catch (error) {
           if (error.code !== 'ENOENT') throw error;
         }
-        if (text !== undefined && hash(text) !== file.sha)
+        if (text !== undefined && nativeSourceBlobHash(text) !== file.sha)
           throw new Error(`Cached inventory source checksum mismatch: ${file.path}`);
         if (text === undefined) {
           text = await repository.read(file, 2 * 1024 * 1024);
-          if (hash(text) !== file.sha) throw new Error('Decoded inventory text did not retain original bytes.');
+          if (nativeSourceBlobHash(text) !== file.sha)
+            throw new Error('Decoded inventory text did not retain original bytes.');
           await mkdir(dirname(path), { recursive: true });
           await writeFile(path, text);
         }
@@ -126,8 +145,16 @@ for (const source of sources) {
       }
     })
   );
-  for (const [index, file] of entries.entries()) {
+  for (const [index, file] of inputs.entries()) {
     const origin = { model: source.model, path: file.path, blob: file.sha };
+    if (references.includes(file)) {
+      const reference = { ...origin, sha256: createHash('sha256').update(texts[index]).digest('hex') };
+      if (file.path.endsWith('.java')) {
+        referenceFiles.push(reference);
+        javaFiles.push({ ...reference, content: texts[index] });
+      } else notices.push(reference);
+      continue;
+    }
     let document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
       texts[index],
       URI.parse(`file:///${source.model}/${file.path}`)
@@ -217,29 +244,73 @@ for (const document of documents) {
         selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
         hasRuneBody: candidate.operations.length > 0
       }));
+    const selected = selectCdmImplementation(node);
+    const hasRuneBody = node.operations.length > 0 || variants.some((variant) => variant.hasRuneBody);
+    const implementation = assessment.implementation
+      ? {
+          kind: 'rune',
+          path: assessment.implementation,
+          entrypoint: `${symbol.namespace}.${symbol.name}`,
+          origin: 'workspace'
+        }
+      : hasRuneBody
+        ? { kind: 'rune', path: source.path, entrypoint: `${symbol.namespace}.${symbol.name}`, origin: 'upstream' }
+        : selected?.kind === 'language-specific'
+          ? {
+              kind: 'language-specific',
+              targets: Object.fromEntries(
+                Object.entries(selected.targets).map(([language, target]) => [
+                  language,
+                  {
+                    id: selected.id,
+                    path: target.path,
+                    entrypoint: target.entrypoint,
+                    dependencies: target.dependencies
+                  }
+                ])
+              )
+            }
+          : { kind: 'unimplemented' };
+    if (
+      assessment.implementation &&
+      (selected?.kind !== 'rune' || !assessment.implementation.endsWith('/' + selected.path))
+    )
+      throw new Error('Published Rune selection differs from the reviewed effective implementation.');
+    validateCatalogImplementation(implementation);
     rows.push({
       symbol,
       source,
       signature,
+      implementation,
+      referenceJava: handwrittenJavaReferences(
+        javaFiles.filter((file) => file.model === symbol.model),
+        symbol.namespace,
+        symbol.name
+      ),
       rune: {
         route: assessment.route,
         requirements: assessment.requirements,
-        ...(assessment.implementation ? { implementation: assessment.implementation } : {}),
+        upstreamDefaultHasBody: node.operations.length > 0,
         variants
       },
-      targets: Object.fromEntries(
-        ['typescript', 'python'].map((target) => {
-          const result = resolveNativeImplementation(node, target);
-          return [
-            target,
-            result?.status === 'available'
-              ? { status: 'available', implementation: result.id, dependencies: result.body.dependencies }
-              : node.operations.length
-                ? { status: 'rune-body' }
-                : { status: 'unavailable', reason: result?.reason ?? 'No bundled implementation.' }
-          ];
-        })
-      )
+      ...(symbol.namespace === 'cdm.base.datetime.daycount' &&
+      dispatchCases.some((entry) => entry.function === symbol.name)
+        ? {
+            regressionSuite: {
+              path: 'packages/codegen/test/implementations/cdm-dispatch.test.ts',
+              cases: dispatchCasesPath,
+              casesSha256: createHash('sha256').update(dispatchCasesText).digest('hex'),
+              selectors: [
+                ...new Set(
+                  dispatchCases
+                    .filter((entry) => entry.function === symbol.name && !entry.expectedError)
+                    .map((entry) => entry.selector)
+                )
+              ].sort(),
+              caseCount: dispatchCases.filter((entry) => entry.function === symbol.name).length
+            }
+          }
+        : {})
     });
   }
 }
@@ -247,8 +318,24 @@ const key = (row) => JSON.stringify(row.symbol ?? row);
 const compare = (a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
 rows.sort(compare);
 files.sort(compare);
+const ownedPaths = new Set([
+  ...implementationFiles.map((file) => file.path),
+  'packages/project-runtime/src/curated-implementations/cdm.ts',
+  'packages/project-runtime/src/curated-implementations/rune/LICENSE',
+  ...rows.flatMap((row) =>
+    row.implementation.kind === 'language-specific'
+      ? Object.values(row.implementation.targets).map((target) => target.path)
+      : []
+  )
+]);
+for (const path of ownedPaths)
+  if (!implementationFiles.some((file) => file.path === path)) {
+    const content = await readFile(resolve(root, path), 'utf8');
+    implementationFiles.push({ path, sha256: createHash('sha256').update(content).digest('hex') });
+  }
+implementationFiles.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 feasibility.verifyCoverage(rows);
-const inventory = { schemaVersion: 2, sources, files, implementationFiles, functions: rows };
+const inventory = { schemaVersion: 3, sources, files, implementationFiles, referenceFiles, notices, functions: rows };
 const text = JSON.stringify(inventory, null, 2) + '\n';
 if (values.write) await writeFile(destination, text);
 else if ((await readFile(destination, 'utf8')) !== text)
@@ -258,5 +345,5 @@ else if ((await readFile(destination, 'utf8')) !== text)
 if (values['issue-markdown'])
   await writeFile(resolve(values['issue-markdown']), renderNativeImplementationInventory(inventory));
 console.log(
-  `${values.write ? 'Updated' : 'Verified'} ${rows.length} native declarations across ${documents.length} verified source files. ${rows.filter((row) => Object.values(row.targets).every((entry) => entry.status === 'available')).length} bundled for both executable targets.`
+  `${values.write ? 'Updated' : 'Verified'} ${rows.length} declarations across ${documents.length} verified source files; ${NATIVE_IMPLEMENTATIONS.length} language-specific and ${rows.filter((row) => row.implementation.kind === 'rune').length} effective Rune entries (dispatch completeness is separate).`
 );

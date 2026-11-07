@@ -1,0 +1,311 @@
+[
+  {
+    "id": "basis-ACT_360",
+    "function": "DayCountBasis",
+    "selector": "ACT_360",
+    "expected": 360
+  },
+  {
+    "id": "basis-_30_360",
+    "function": "DayCountBasis",
+    "selector": "_30_360",
+    "expected": 360
+  },
+  {
+    "id": "basis-_30E_360",
+    "function": "DayCountBasis",
+    "selector": "_30E_360",
+    "expected": 360
+  },
+  {
+    "id": "basis-ACT_365L",
+    "function": "DayCountBasis",
+    "selector": "ACT_365L",
+    "expected": 365
+  },
+  {
+    "id": "basis-ACT_365_FIXED",
+    "function": "DayCountBasis",
+    "selector": "ACT_365_FIXED",
+    "expected": 365
+  },
+  {
+    "id": "basis-ACT_ACT_AFB",
+    "function": "DayCountBasis",
+    "selector": "ACT_ACT_AFB",
+    "expected": 365
+  },
+  {
+    "id": "basis-ACT_ACT_ISDA",
+    "function": "DayCountBasis",
+    "selector": "ACT_ACT_ISDA",
+    "expected": 365
+  },
+  {
+    "id": "basis-ACT_ACT_ICMA",
+    "function": "DayCountBasis",
+    "selector": "ACT_ACT_ICMA",
+    "expected": 365
+  },
+  {
+    "id": "basis-CAL_252",
+    "function": "DayCountBasis",
+    "selector": "CAL_252",
+    "expected": 252
+  },
+  {
+    "id": "one-one",
+    "function": "YearFraction",
+    "selector": "_1_1",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expected": 1
+  },
+  {
+    "id": "isda-cross-leap",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ISDA",
+    "startDate": "2019-07-01",
+    "endDate": "2020-07-01",
+    "expected": 1.0013773486039375
+  },
+  {
+    "id": "isda-signed",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ISDA",
+    "startDate": "2020-07-01",
+    "endDate": "2019-07-01",
+    "expected": -1.0013773486039375
+  },
+  {
+    "id": "isda-century",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ISDA",
+    "startDate": "1900-02-28",
+    "endDate": "1900-03-01",
+    "expected": 0.0027397260273972603
+  },
+  {
+    "id": "isda-leap-century",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ISDA",
+    "startDate": "2000-02-28",
+    "endDate": "2000-03-01",
+    "expected": 0.00546448087431694
+  },
+  {
+    "id": "icma-semiannual",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ICMA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "periodsInYear": 2,
+    "expected": 0.5
+  },
+  {
+    "id": "icma-quarterly",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ICMA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-04-01",
+    "periodsInYear": 4,
+    "expected": 0.25
+  },
+  {
+    "id": "icma-absent-periods",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ICMA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "icma-zero-range",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ICMA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-01-01",
+    "nonFinite": true,
+    "periodsInYear": 2
+  },
+  {
+    "id": "actual-fixed",
+    "function": "YearFraction",
+    "selector": "ACT_365_FIXED",
+    "startDate": "2024-01-01",
+    "endDate": "2025-01-01",
+    "expected": 1.0027397260273974
+  },
+  {
+    "id": "actual-360",
+    "function": "YearFraction",
+    "selector": "ACT_360",
+    "startDate": "2024-01-01",
+    "endDate": "2025-01-01",
+    "expected": 1.0166666666666666
+  },
+  {
+    "id": "actual-zero",
+    "function": "YearFraction",
+    "selector": "ACT_360",
+    "startDate": "2024-03-01",
+    "endDate": "2024-03-01",
+    "expected": 0
+  },
+  {
+    "id": "actual-reversed",
+    "function": "YearFraction",
+    "selector": "ACT_360",
+    "startDate": "2024-03-01",
+    "endDate": "2024-02-28",
+    "expected": -0.005555555555555556
+  },
+  {
+    "id": "thirty-month-end",
+    "function": "YearFraction",
+    "selector": "_30_360",
+    "startDate": "2024-01-31",
+    "endDate": "2024-03-31",
+    "expected": 0.16666666666666666
+  },
+  {
+    "id": "thirty-start-midmonth",
+    "function": "YearFraction",
+    "selector": "_30_360",
+    "startDate": "2024-01-15",
+    "endDate": "2024-03-31",
+    "expected": 0.2111111111111111
+  },
+  {
+    "id": "euro-month-end",
+    "function": "YearFraction",
+    "selector": "_30E_360",
+    "startDate": "2024-01-15",
+    "endDate": "2024-03-31",
+    "expected": 0.20833333333333334
+  },
+  {
+    "id": "isda-euro-leap-end",
+    "function": "YearFraction",
+    "selector": "_30E_360_ISDA",
+    "startDate": "2024-02-29",
+    "endDate": "2024-03-31",
+    "expected": 0.08333333333333333
+  },
+  {
+    "id": "isda-euro-upstream-start-day",
+    "function": "YearFraction",
+    "selector": "_30E_360_ISDA",
+    "startDate": "2024-01-15",
+    "endDate": "2024-02-16",
+    "note": "Pinned Rune uses endDate.day in the startDay else branch; preserve upstream behavior, not a standards parity assertion.",
+    "expected": 0.08333333333333333
+  },
+  {
+    "id": "isda-euro-termination",
+    "function": "YearFraction",
+    "selector": "_30E_360_ISDA",
+    "startDate": "2024-01-15",
+    "endDate": "2024-02-16",
+    "terminationDate": "2024-02-16",
+    "note": "Pinned Rune endDay condition includes equality with terminationDate; source is preserved.",
+    "expected": 0.12222222222222222
+  },
+  {
+    "id": "actual-364",
+    "function": "YearFraction",
+    "selector": "ACT_364",
+    "startDate": "2024-02-28",
+    "endDate": "2024-03-01",
+    "expected": 0.005494505494505495
+  },
+  {
+    "id": "actual-365l-leap",
+    "function": "YearFraction",
+    "selector": "ACT_365L",
+    "startDate": "2023-12-31",
+    "endDate": "2024-01-01",
+    "expected": 0.00273224043715847
+  },
+  {
+    "id": "actual-365l-ordinary",
+    "function": "YearFraction",
+    "selector": "ACT_365L",
+    "startDate": "2024-12-31",
+    "endDate": "2025-01-01",
+    "expected": 0.0027397260273972603
+  },
+  {
+    "id": "cal-252-weekend",
+    "function": "YearFraction",
+    "selector": "CAL_252",
+    "startDate": "2024-03-01",
+    "endDate": "2024-03-04",
+    "note": "The pinned Rune body counts calendar days; no business-calendar parity is claimed.",
+    "expected": 0.011904761904761904
+  },
+  {
+    "id": "missing-DayCountBasis-ACT_364",
+    "function": "DayCountBasis",
+    "selector": "ACT_364",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-DayCountBasis-_1_1",
+    "function": "DayCountBasis",
+    "selector": "_1_1",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-DayCountBasis-_30E_360_ISDA",
+    "function": "DayCountBasis",
+    "selector": "_30E_360_ISDA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-DayCountBasis-ACT_ACT_ISMA",
+    "function": "DayCountBasis",
+    "selector": "ACT_ACT_ISMA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-DayCountBasis-RBA_BOND_BASIS",
+    "function": "DayCountBasis",
+    "selector": "RBA_BOND_BASIS",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-YearFraction-ACT_ACT_AFB",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_AFB",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-YearFraction-ACT_ACT_ISMA",
+    "function": "YearFraction",
+    "selector": "ACT_ACT_ISMA",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  },
+  {
+    "id": "missing-YearFraction-RBA_BOND_BASIS",
+    "function": "YearFraction",
+    "selector": "RBA_BOND_BASIS",
+    "startDate": "2024-01-01",
+    "endDate": "2024-07-01",
+    "expectedError": true
+  }
+]

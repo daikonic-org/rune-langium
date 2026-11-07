@@ -1,0 +1,12 @@
+namespace cdm.base.math : <"Basic maths concepts: quantity and unit, rounding, curve / schedule, non-negativity constraint etc.">
+version "${project.version}"
+
+import cdm.base.math.util.*
+
+func Min: <"Returns the lesser number of two supplied numbers.">
+    inputs:
+        a number (1..1)
+        b number (1..1)
+    output:
+        result number (1..1)
+    set result: if a > b then b else a

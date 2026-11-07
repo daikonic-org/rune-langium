@@ -10,18 +10,9 @@ import {
   type Attribute,
   type RosettaFunction
 } from '@rune-langium/core';
-export interface NativeParameterShape {
-  name: string;
-  type: string;
-  kind: string;
-  card: readonly [number, number | '*'];
-  plain: boolean;
-  enumValues?: readonly string[];
-}
-export interface NativeFunctionShape {
-  inputs: readonly NativeParameterShape[];
-  output?: NativeParameterShape;
-}
+import type { FunctionImplementationSignature } from '@rune-langium/core/project-contract';
+export type NativeFunctionShape = FunctionImplementationSignature;
+export type NativeParameterShape = NativeFunctionShape['inputs'][number];
 /** Exact linked signature, shared by catalog guards and the upstream coverage inventory. */
 export function nativeFunctionShape(func: RosettaFunction): NativeFunctionShape {
   const param = (attribute: Attribute): NativeParameterShape => {

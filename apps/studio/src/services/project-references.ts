@@ -24,6 +24,7 @@ import {
 } from '@rune-langium/project-config';
 import { validateProjectTarget } from '@rune-langium/project-runtime/browser';
 import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
+import { prepareCuratedImplementationSources } from '@rune-langium/project-runtime/implementation-sources';
 import type { ProjectRuntimeInput } from './project-runtime-input.js';
 import type { ProjectController } from '../workspace/project-controller.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
@@ -143,7 +144,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
     assertCurrent();
     const hasPinned = Object.keys(result.lock.references).length > 0;
     const lockText = hasPinned ? JSON.stringify(result.lock, null, 2) + '\n' : null;
-    const reviewedSnapshot = await createProjectDraftSnapshot(
+    let reviewedSnapshot = await createProjectDraftSnapshot(
       proposed,
       new Map([['build-config.lock.json', lockText]]),
       validateProjectTarget
@@ -151,6 +152,22 @@ export const prepareProjectReferenceChange = withInstrumentation(
     const loaded = await loadSharedProjectReferences(reviewedSnapshot, transport, cache, signal);
     if (loaded.diagnostics.some((issue) => issue.severity === 'error'))
       throw new ProjectSnapshotError(loaded.diagnostics);
+    const implementationSources = await prepareCuratedImplementationSources(reviewedSnapshot, loaded.documents);
+    if (implementationSources.changes.size) {
+      reviewedSnapshot = await createProjectDraftSnapshot(
+        reviewedSnapshot,
+        implementationSources.changes,
+        validateProjectTarget
+      );
+      for (const [path, text] of implementationSources.changes) {
+        const previous = original.files.get(path);
+        const expectedRevision = previous === undefined ? null : await projectFileRevision(previous);
+        const index = writes.findIndex((write) => write.path === path);
+        if (index >= 0) writes.splice(index, 1);
+        if (text !== null) writes.push({ path, text, expectedRevision });
+        else if (expectedRevision !== null) writes.push({ path, remove: true, expectedRevision });
+      }
+    }
     const hasPrevious = Object.keys(original.project.build.references).length > 0;
     const previousNightly = Object.values(original.project.build.references).some(
       (entry) => entry.release === 'nightly'
@@ -166,6 +183,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
         : undefined;
     const diagnostics = [
       ...result.diagnostics,
+      ...implementationSources.diagnostics,
       ...(await (transport.decodeArtifact ? reviewProjectReferencesInWorker : reviewProjectCompatibility)(
         reviewedSnapshot,
         loaded.documents,
@@ -222,7 +240,7 @@ export const prepareProjectReferenceChange = withInstrumentation(
     };
     return {
       projectRevision: original.revision,
-      config: structuredClone(proposed.project.build),
+      config: structuredClone(reviewedSnapshot.project.build),
       lock: structuredClone(result.lock),
       nightlyModels: [
         ...new Set(

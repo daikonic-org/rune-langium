@@ -22,6 +22,7 @@ import { createExampleRepository } from '../../workspace/example-repository.js';
 import { resolveExampleType } from '../../workspace/example-identity.js';
 import { useInstanceStore } from '../../store/instance-store.js';
 import { projectDiagnosticsForTargets, readProjectFiles } from '@rune-langium/project-config';
+import { adoptSavedProjectSources } from '../../services/project-source-adoption.js';
 
 interface Props {
   state: WorkspaceState;
@@ -34,6 +35,10 @@ export const WorkspaceProvider = withInstrumentation(
     const [project, setProject] = useState<ProjectState>({ status: 'unavailable', diagnostics: [] });
     const stateRef = useRef(state);
     stateRef.current = state;
+    const rawFilesRef = useRef(state.files);
+    rawFilesRef.current = state.files;
+    const actionsRef = useRef(actions);
+    actionsRef.current = actions;
     const workspaceId = state.workspaceId;
     const getLegacy = actions.getLegacyExampleStorage;
     const getAdapter = actions.getProjectFileAdapter;
@@ -89,6 +94,7 @@ export const WorkspaceProvider = withInstrumentation(
       let controller: ProjectController | undefined;
       let unsubscribe: (() => void) | undefined;
       let repositoriesAttached = false;
+      let previousSnapshot: ProjectState['snapshot'];
       setProject({ workspaceId, status: 'loading', diagnostics: [] });
       void getAdapter(workspaceId)
         .then(async (adapter) => {
@@ -103,10 +109,17 @@ export const WorkspaceProvider = withInstrumentation(
             if (cancelled || !controller) return;
             const diagnostics = controller.diagnostics();
             const ready = !projectDiagnosticsForTargets(diagnostics).some((issue) => issue.severity === 'error');
+            const next = controller.current();
+            if (ready && previousSnapshot && next) {
+              const current = rawFilesRef.current;
+              const adopted = adoptSavedProjectSources(previousSnapshot, next, current);
+              if (adopted !== current) actionsRef.current.onFilesChange?.([...adopted]);
+            }
+            previousSnapshot = next;
             setProject({
               workspaceId,
               controller,
-              snapshot: controller.current(),
+              snapshot: next,
               diagnostics,
               status: ready ? 'ready' : 'invalid'
             });

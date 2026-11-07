@@ -9,6 +9,8 @@ source versions and integrity manifests alongside each cohort.
   function and linked declarations used by Studio's browser and scope tests.
 - [CDM reference examples](cdm-examples/README.md): an unmodified Rune JSON payload
   with metadata/reference and repository-import provenance checks.
+- [CDM day-count dispatch closure](cdm-dispatch/README.md): unmodified Rune bodies,
+  pinned handwritten Java date-helper references and selector execution cases.
 
 - [CDM code lists](cdm-codelists/README.md): versioned option-type resource with upstream license, notice and integrity metadata.
 - [Currency list](currency-list/README.md): pinned code-to-label currency JSON, upstream license and integrity metadata, exercised through in-memory Rune enum materialization.

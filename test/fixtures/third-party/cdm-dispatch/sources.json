@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.base.datetime.daycount",
+      "name": "DayCountBasis",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.datetime.daycount",
+      "name": "YearFraction",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.base.datetime.daycount--base-datetime-daycount-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-enum.rosetta",
+        "blob": "f5bdf149ea51813e23d37ec9addd4460f8436963",
+        "sha256": "b24bc70424ac9b8607e9e04d916f57297f236141f4b9e4e43d8b847b2c16ac80"
+      },
+      "sha256": "b24bc70424ac9b8607e9e04d916f57297f236141f4b9e4e43d8b847b2c16ac80"
+    },
+    {
+      "name": "cdm.base.datetime.daycount--base-datetime-daycount-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-func.rosetta",
+        "blob": "4c5c1f28799bd6a213749e5dde3e7d359fbb71c0",
+        "sha256": "2a09ee8357a9f0f1f1589d64d46330ec68f5bd906e6cbc4140d56374cd729745"
+      },
+      "sha256": "a5d5e7d5d823d25ee79b918e076fb39677c21f91ac9f5a45998c7d8d7eade15b"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-func.rosetta",
+        "blob": "91d652e9d15380e929d9ee6c1e3e2e99665355a9",
+        "sha256": "a8f16482be97fa0efe71ec470aef4d321198c71ec84cc1b174e4bd1edcd7ecc7"
+      },
+      "sha256": "b87f460f8270a52f024dd6bde6888704d75282fef88c41b6f1479ed1c5feb247"
+    },
+    {
+      "name": "cdm.base.math--base-math-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-func.rosetta",
+        "blob": "dfdc46acd7563ccb3595fdd4458fca0f62594592",
+        "sha256": "fa216e47e854b0ba4a09e34c2014966b30a3fe6a2d9a56c9046f3d2bafa1f348"
+      },
+      "sha256": "0267ad391a8fa23c678584e984a12bbaecf67049b5a8997b8bf4f1c99cf90dc8"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "27c42df6141529e9912ab95c05cd3eb200a32f2aa25243a17fcd68d2854db5f8"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "0bdfe3888516a633ea973ebb25769132ef3d7b53bb613f36b18e95b9f357fd35"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    },
+    {
+      "name": "java/DateDifferenceImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DateDifferenceImpl.java",
+        "blob": "9e713ec24538d914867f5c890129901df6b90701",
+        "sha256": "cbe41dfd13f6728c999e5d94d91fae01a4973bfb2dd232855fb57cb643b7f937"
+      },
+      "sha256": "cbe41dfd13f6728c999e5d94d91fae01a4973bfb2dd232855fb57cb643b7f937"
+    },
+    {
+      "name": "java/LeapYearDateDifferenceImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpl.java",
+        "blob": "2459423c46d5fb14754825786aa03956f9095b91",
+        "sha256": "6f2872bb0102a43046dfcff23b41f59c5539c81a5a32fac4a7a0f739aa69c82d"
+      },
+      "sha256": "6f2872bb0102a43046dfcff23b41f59c5539c81a5a32fac4a7a0f739aa69c82d"
+    },
+    {
+      "name": "java/DateDifferenceImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DateDifferenceImplTest.java",
+        "blob": "db2ed9ac47f38f3641664ab9ea7254203d0c858c",
+        "sha256": "ff926b265c1815426d077bac445a1efab6a928d7de0d0d0caddb35c986dd577f"
+      },
+      "sha256": "ff926b265c1815426d077bac445a1efab6a928d7de0d0d0caddb35c986dd577f"
+    },
+    {
+      "name": "java/LeapYearDateDifferenceImpTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpTest.java",
+        "blob": "b3948ef35dc17768579b13215460e4f5073d70ee",
+        "sha256": "72d0a4b369b4266189c875cc1e86f253a5935839495cb0ec1b25504bd4979db8"
+      },
+      "sha256": "72d0a4b369b4266189c875cc1e86f253a5935839495cb0ec1b25504bd4979db8"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}

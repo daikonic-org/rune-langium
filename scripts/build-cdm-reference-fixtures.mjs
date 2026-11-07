@@ -5,13 +5,9 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
-import {
-  addLegacyAnnotations,
-  assertValidDocuments,
-  createRuneDslServices,
-  isRosettaModel
-} from '../packages/core/dist/index.js';
+import { addLegacyAnnotations, assertValidDocuments, createRuneDslServices } from '../packages/core/dist/index.js';
 import { resolveExportSelection } from '../packages/codegen/dist/src/export.js';
+import { referenceFixtureSlices } from './lib/reference-fixture-slices.mjs';
 
 const { URI } = await import(new URL('../packages/core/node_modules/langium/lib/index.js', import.meta.url));
 const pins = JSON.parse(await readFile(new URL('./fixtures/cdm-reference/sources.json', import.meta.url)));
@@ -47,26 +43,13 @@ if (selection.unknown.length) throw new Error(JSON.stringify(selection.unknown))
 const out = new URL('../packages/codegen/test/fixtures/cdm-reference/', import.meta.url);
 await mkdir(out, { recursive: true });
 const files = [];
-for (const doc of selection.documents) {
-  const model = doc.parseResult.value;
-  if (!isRosettaModel(model)) throw new Error('Expected Rune model');
-  // Parser source ranges and root text both address the original input,
-  // including bare functional expressions; no bracket normalization is emitted.
-  const original = model.$cstNode.root.fullText;
-  const first = documents.find((document) => document.uri.toString() === doc.uri.toString()).parseResult.value
-    .elements[0].$cstNode.offset;
-  const content =
-    original.slice(0, first) +
-    model.elements
-      .map((element) => {
-        const { offset, end } = element.$cstNode;
-        return original.slice(offset, end);
-      })
-      .join('\n\n') +
-    '\n';
-  const name = `${model.name.replace(/^"|"$/g, '')}--${doc.uri.path.split('/').at(-1)}`;
+for (const { name, uri, content } of referenceFixtureSlices(documents, selection.documents)) {
   await writeFile(new URL(name, out), content);
-  files.push({ name, upstreamPath: doc.uri.path.slice(1), sha256: createHash('sha256').update(content).digest('hex') });
+  files.push({
+    name,
+    upstreamPath: URI.parse(uri).path.slice(1),
+    sha256: createHash('sha256').update(content).digest('hex')
+  });
 }
 await writeFile(
   new URL('sources.json', out),
