@@ -144,10 +144,14 @@ vi.mock('@rune-langium/core', () => {
     hydrateModelDocuments: realHydrateModelDocuments,
     initializeProjectResolution: vi.fn(),
     invalidateProjectResolution: vi.fn(),
+    getNamespaceOverrideTargets: () => new Map(),
+    namespaceOverrideDiagnostics: () => [],
+    namespaceOverrideSignatureDiagnostics: () => [],
     getExpressionOwners: () => [projectionOwner],
     getFunctionImplementationRegion: () => ({ from: 0, to: 20 }),
     getNodeSourceRegion: () => ({ from: 0, to: 20 }),
     isRosettaFunction: (node: { $type: string }) => node.$type === 'RosettaFunction',
+    isRosettaModel: (node: { $type: string }) => node.$type === 'RosettaModel',
     namespaceFromModelName: (name: string) => name,
     qualifiedExportPath: (namespace: string, name: string) => `${namespace}.${name}`
   };
@@ -623,10 +627,8 @@ describe('codegen-worker preview messages', () => {
     dispatch({ type: 'preview:generate', targetId: 'beta.Trade', requestId: 'race:2' });
     await flushWorker();
 
-    // The file set changes to B WHILE call #1 is still suspended. This bumps
-    // previewFilesVersion and — because lastPreviewTargetId is already set —
-    // triggers a second, independent buildDocuments() call (#2) against B,
-    // which also suspends inside its own builder.build.
+    // The file set changes to B while A owns the shared workspace. Its
+    // hydration and replacement must wait until A releases that workspace.
     dispatch({
       type: 'preview:setFiles',
       filesRevision: 1,
@@ -635,15 +637,13 @@ describe('codegen-worker preview messages', () => {
     });
     await flushWorker();
 
-    expect(buildResolvers).toHaveLength(2);
-
-    // Resolve the SECOND (current, correct) call first, then the FIRST
-    // (now-stale) call last — the exact ordering that would let a stale
-    // resume silently overwrite an already-cached correct result if the
-    // version weren't re-checked before writing to documentsCache.
-    buildResolvers[1]!();
-    await flushWorker();
+    expect(buildResolvers).toHaveLength(1);
+    expect(deleteDocumentMock).not.toHaveBeenCalled();
     buildResolvers[0]!();
+    await flushWorker();
+    expect(buildResolvers).toHaveLength(2);
+    expect(deleteDocumentMock).toHaveBeenCalledOnce();
+    buildResolvers[1]!();
     await flushWorker();
 
     // Query a DIFFERENT targetId — previewSchemaCache has no entry for it
@@ -662,6 +662,43 @@ describe('codegen-worker preview messages', () => {
     const fourthCallDocuments = generatePreviewSchemasMock.mock.calls.at(-1)![0] as Array<{ content?: string }>;
     expect(fourthCallDocuments.some((d) => d.content === 'namespace "B"')).toBe(true);
     expect(fourthCallDocuments.some((d) => d.content === 'namespace "A"')).toBe(false);
+  });
+
+  it('queues curated replacement behind an active source build and preserves its newer owner', async () => {
+    generatePreviewSchemasMock.mockImplementation((_documents: unknown, options: { targetId: string }) => [
+      { schemaVersion: 1, targetId: options.targetId, title: options.targetId, status: 'ready', fields: [] }
+    ]);
+    const build = Promise.withResolvers<void>();
+    buildMock.mockImplementationOnce(() => build.promise);
+    const { scope, dispatch } = await loadWorkerModule();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [{ uri: 'file:///trade.rosetta', content: 'namespace "A"' }]
+    });
+    dispatch({ type: 'instance:generateSchema', typeFqn: 'beta.Trade', requestId: 'owner:source' });
+    await flushWorker();
+    expect(buildMock).toHaveBeenCalledOnce();
+    const source = registered.get('file:///trade.rosetta');
+    expect(source).toBeDefined();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 2,
+      files: [{ uri: 'file:///trade.rosetta', content: '', serializedModelJson: '{}' }]
+    });
+    await flushWorker();
+    expect(fromModelMock).not.toHaveBeenCalled();
+    expect(registered.get('file:///trade.rosetta')).toBe(source);
+    build.resolve();
+    await flushWorker();
+    const curated = fromModelMock.mock.results[0]!.value;
+    expect(registered.get('file:///trade.rosetta')).toBe(curated);
+    dispatch({ type: 'instance:generateSchema', typeFqn: 'beta.Trade', requestId: 'owner:curated' });
+    await flushWorker();
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'instance:generateSchemaResult', requestId: 'owner:curated' })
+    );
+    expect(registered.get('file:///trade.rosetta')).toBe(curated);
   });
 
   it('posts preview:stale with unsupported-target when no preview schema is available', async () => {

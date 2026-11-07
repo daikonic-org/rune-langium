@@ -451,6 +451,8 @@ Run Codegen's `test/implementations`, project-runtime's
 `test/cdm-rune-implementations.test.ts` and Studio's identically named real-worker
 suite. The source pack is explicit project input, not an automatic native fallback.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
+The worker suites also cover overlapping schema/input-validation requests, queued
+source/curated replacement, signature drift and recovery after corrected imports.
 
 ## Python projection checks
 

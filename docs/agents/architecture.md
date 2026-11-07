@@ -1362,8 +1362,15 @@ Source-only preview workers register the current user roots before building and
 initialize Core's shared resolution index. A later capture removes the preceding
 source roots/exports, preserving a newer curated owner of the same URI. This keeps
 namespace overrides effective for input validation and execution and releases
-removed overrides. Worker tests externalize Core alongside Codegen/project-runtime
-so these consumers share Core's generation-local declaration identity registry.
+removed overrides. Same-revision requests share an in-flight document build;
+hydration and source replacement share one queue across revisions. Builds capture
+their source files and version before waiting, and failures release the queue.
+Before returning documents, the worker runs Core's namespace and callable-signature
+diagnostics. Only override participants lacking dependency scopes are built for
+those checks; the complete curated corpus is not rebuilt. Invalid overrides block
+preview-based generation and execution until corrected. Worker tests externalize
+Core alongside Codegen/project-runtime so these consumers share Core's
+generation-local declaration identity registry.
 
 ### Materialized code-list enums
 
