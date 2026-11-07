@@ -23,7 +23,9 @@
   "files": [
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
-    "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta"
+    "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta"
   ],
   "functions": [
     {
@@ -565,8 +567,17 @@
         "name": "PeriodsInYear"
       },
       "signatureSha256": "de2c6615813e4a3ff5eaf85333aa9ef8836c5ee354e9a1a3cd5763158d954678",
-      "route": "candidate",
-      "requirements": "Branching/arithmetic is expressible in Rune, but the pinned release supplies no handwritten Java algorithm/test or numeric expectations. Establish integer-output rules for H/D/W, non-dividing M/Y multipliers, and T/C (the signature supplies no dates); do not guess annual day/week counts, round, or use a term default."
+      "route": "rune-source",
+      "requirements": "CDM adapter delegates to com.opengamma.strata.basics.schedule.EventsPerYear with its OfPeriod/Term constructors; one shared Rune algorithm follows Strata 1.7.0 exact 12/months or 364/days. CDM additionally requires positive multipliers and Term=1; H/C, non-divisors, mixed periods and overflow fail. JVM oracle, strict TS layouts, Python and Prototype cover the port. No direct upstream CDM binding was found.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-frequency/java/Frequency.java",
+          "sha256": "d5be987339efe25b2917b21d1de695a52766398eae322a27da4add9139ee5122",
+          "entrypoint": "com.opengamma.strata.basics.schedule.Frequency.eventsPerYear",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0-sources.jar"
+        }
+      ]
     }
   ]
 }

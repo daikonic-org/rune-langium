@@ -468,6 +468,14 @@ with an explicit finite Rune calendar provider; Studio's real-worker counterpart
 also removes that provider. The native-implementation browser suite executes the
 closure from a publication-produced multi-document bundle. Synthetic calendars
 are test data and must never enter the curated implementation catalog.
+`frequency.test.ts` covers the reusable Strata Rune port and CDM adapter in
+strict TypeScript layouts, Python, curated source installation and the managed
+Studio worker. The native-implementation browser suite checks fresh installation
+and valid/unsupported frequency execution at desktop/390px. The ordinary tests
+use pinned offline expectations. For the independent JVM oracle, run
+`python3 scripts/verify-strata-frequency.py --cache-dir /tmp/rune-strata-frequency`:
+it checksum-verifies the published Strata 1.7.0 artifacts and executes 70 cases
+using Java 11+ source-file launching. No JVM is required in emitted artifacts.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.

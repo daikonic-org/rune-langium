@@ -1371,6 +1371,14 @@ and linked signatures. Explicit Rune implementation sources use ordinary
 reference signatures. Effective entries have exactly one implementation kind;
 Rune entries never contain language-specific target alternatives. Pinned handwritten
 Java algorithms, tests and empty providers are separate reference evidence.
+Handwritten dependency algorithms retain their own artifact identity and source
+hash in `referenceJava.dependencies`, separately from direct CDM implementations.
+The bounded Strata frequency port is a reusable Rune library under
+`com.opengamma.strata.basics.schedule`. Its `OfPeriod`, `Term` and `EventsPerYear`
+functions own Strata semantics; the CDM `PeriodsInYear` override owns conversion
+and CDM-specific constraints. Publication installs both source files and the
+named upstream license/notice files together. Target emitters share this Rune
+algorithm and never discover a Strata library during generation.
 Upstream dispatch bodies and execution coverage are distinct facts. Core dispatch
 scopes inherit base declarations, never aliases from sibling variants.
 The calculation-period regression closure preserves all upstream selectors and

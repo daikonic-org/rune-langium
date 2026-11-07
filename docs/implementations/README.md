@@ -14,8 +14,8 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **8
-language-specific implementations per target**. Seven catalog entries use Rune,
-including three owned overrides and four partially implemented upstream dispatch
+language-specific implementations per target**. Eight catalog entries use Rune,
+including four owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -90,14 +90,24 @@ The [calculation-period closure](calculation-periods.md) also exercises all thre
 `ComputeCalculationPeriod` bodies with explicit finite test calendars in strict
 TypeScript, standalone Python and the real Studio worker. The pinned handwritten
 Java test supplies its three baseline expectations. Production `FixingDate` still
-needs an actual holiday provider; `PeriodsInYear` remains unimplemented until its
-integer-frequency and term rules are established. These tests do not change the
-catalog's eight native/seven Rune implementation-kind counts.
+needs an actual holiday provider.
+
+[`PeriodsInYear`](../../packages/project-runtime/src/curated-implementations/rune/frequency.rosetta)
+is a thin CDM adapter over the owned Rune port of OpenGamma Strata 1.7.0's
+`Frequency` construction and `EventsPerYear`, in the original
+`com.opengamma.strata.basics.schedule` namespace. The library owns exact annual
+count rules; the adapter owns CDM multiplier/period constraints and conversion.
+The [frequency evidence](../../test/fixtures/third-party/cdm-frequency/README.md)
+checks 57 adapter and 13 library cases against the published JVM implementation,
+strict TypeScript layouts and Python, plus curated installation and Prototype.
+This is a bounded library port; no direct upstream CDM `PeriodsInYear` Java binding
+was found. The catalog selects one Rune path with its library support file, with
+no parallel target-specific implementation.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
-| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`, `PeriodsInYear`; explicit holiday data, roll/stub rules, model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`; explicit holiday data, roll/stub rules, model-version semantics |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`, `RoundToNearest/Precision/SignificantFigures`, `VectorOperation`, `VectorGrowthOperation`; financial rounding/precision and day-count parity, not approximate floating-point replacements |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

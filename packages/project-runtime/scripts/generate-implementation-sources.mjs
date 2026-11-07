@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { writeRuntimeSource } from '../../codegen/scripts/runtime-source.mjs';
 const root = new URL('../src/curated-implementations/', import.meta.url);
 const files = (await readdir(new URL('rune/', root)))
-  .filter((file) => file.endsWith('.rosetta') || file === 'LICENSE')
+  .filter((file) => file.endsWith('.rosetta') || file === 'LICENSE' || /-(LICENSE|NOTICE)\.txt$/.test(file))
   .sort();
 const sources = Object.fromEntries(
   await Promise.all(files.map(async (file) => [file, await readFile(new URL('rune/' + file, root), 'utf8')]))

@@ -1,0 +1,631 @@
+[
+  {
+    "id": "D-1",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 364
+  },
+  {
+    "id": "D-2",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 2,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 182
+  },
+  {
+    "id": "D-4",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 4,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 91
+  },
+  {
+    "id": "D-7",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 7,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 52
+  },
+  {
+    "id": "D-13",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 13,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 28
+  },
+  {
+    "id": "D-14",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 14,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 26
+  },
+  {
+    "id": "D-26",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 26,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 14
+  },
+  {
+    "id": "D-28",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 28,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 13
+  },
+  {
+    "id": "D-52",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 52,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 7
+  },
+  {
+    "id": "D-91",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 91,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 4
+  },
+  {
+    "id": "D-182",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 182,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 2
+  },
+  {
+    "id": "D-364",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 364,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 1
+  },
+  {
+    "id": "W-1",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 52
+  },
+  {
+    "id": "W-2",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 2,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 26
+  },
+  {
+    "id": "W-4",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 4,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 13
+  },
+  {
+    "id": "W-13",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 13,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 4
+  },
+  {
+    "id": "W-26",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 26,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 2
+  },
+  {
+    "id": "W-52",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 52,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 1
+  },
+  {
+    "id": "M-1",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 1,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 12
+  },
+  {
+    "id": "M-2",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 2,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 6
+  },
+  {
+    "id": "M-3",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 3,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 4
+  },
+  {
+    "id": "M-4",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 4,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 3
+  },
+  {
+    "id": "M-6",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 6,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 2
+  },
+  {
+    "id": "M-12",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 12,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 1
+  },
+  {
+    "id": "Y-1",
+    "inputs": {
+      "frequency": {
+        "period": "Y",
+        "periodMultiplier": 1,
+        "rollConvention": "EOM"
+      }
+    },
+    "expected": 1
+  },
+  {
+    "id": "T-1",
+    "inputs": {
+      "frequency": {
+        "period": "T",
+        "periodMultiplier": 1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expected": 0
+  },
+  {
+    "id": "D--1",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": -1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "D-0",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 0,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "D-3",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 3,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "D-5",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 5,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "D-365",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 365,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "D-366",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 366,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "D-2147483647",
+    "inputs": {
+      "frequency": {
+        "period": "D",
+        "periodMultiplier": 2147483647,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "W--1",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": -1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "W-0",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 0,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "W-3",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 3,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "W-5",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 5,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "W-53",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 53,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "W-2147483647",
+    "inputs": {
+      "frequency": {
+        "period": "W",
+        "periodMultiplier": 2147483647,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "ValidPeriod",
+    "referenceError": "ArithmeticException"
+  },
+  {
+    "id": "M--1",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": -1,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "M-0",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 0,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "M-5",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 5,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "M-7",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 7,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "M-13",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 13,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "M-12000",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 12000,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "M-12001",
+    "inputs": {
+      "frequency": {
+        "period": "M",
+        "periodMultiplier": 12001,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "Y--1",
+    "inputs": {
+      "frequency": {
+        "period": "Y",
+        "periodMultiplier": -1,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "Y-0",
+    "inputs": {
+      "frequency": {
+        "period": "Y",
+        "periodMultiplier": 0,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "Y-2",
+    "inputs": {
+      "frequency": {
+        "period": "Y",
+        "periodMultiplier": 2,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "Y-1000",
+    "inputs": {
+      "frequency": {
+        "period": "Y",
+        "periodMultiplier": 1000,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "Y-1001",
+    "inputs": {
+      "frequency": {
+        "period": "Y",
+        "periodMultiplier": 1001,
+        "rollConvention": "EOM"
+      }
+    },
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "T--1",
+    "inputs": {
+      "frequency": {
+        "period": "T",
+        "periodMultiplier": -1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "PositiveMultiplier"
+  },
+  {
+    "id": "T-0",
+    "inputs": {
+      "frequency": {
+        "period": "T",
+        "periodMultiplier": 0,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "PositiveMultiplier",
+    "referenceExpected": 0
+  },
+  {
+    "id": "T-2",
+    "inputs": {
+      "frequency": {
+        "period": "T",
+        "periodMultiplier": 2,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "TermMultiplier"
+  },
+  {
+    "id": "H-1",
+    "inputs": {
+      "frequency": {
+        "period": "H",
+        "periodMultiplier": 1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedPeriod"
+  },
+  {
+    "id": "H-24",
+    "inputs": {
+      "frequency": {
+        "period": "H",
+        "periodMultiplier": 24,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedPeriod"
+  },
+  {
+    "id": "C-1",
+    "inputs": {
+      "frequency": {
+        "period": "C",
+        "periodMultiplier": 1,
+        "rollConvention": "NONE"
+      }
+    },
+    "expectedError": "SupportedPeriod"
+  }
+]

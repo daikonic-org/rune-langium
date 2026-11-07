@@ -19,7 +19,7 @@ is supplied explicitly as a normal Rune override. It is outside the upstream
 fixture and outside the publication catalog. See the
 [execution assessment](../../../../docs/implementations/calculation-periods.md)
 for tested boundaries, preserved selector behavior, missing-data behavior and the
-separate `PeriodsInYear` gap.
+separate [CDM/Strata frequency implementation](../cdm-frequency/README.md).
 
 After the native audit has populated its verified cache, regenerate or check both
 dispatch cohorts with `scripts/build-cdm-dispatch-fixtures.mjs` (`--write` for an

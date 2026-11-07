@@ -1,6 +1,6 @@
 # CDM functions in Rune
 
-These owned Rune sources implement three CDM 7.9.0 functions using the standard
+These owned Rune sources implement four CDM 7.9.0 functions using the standard
 `override namespace` syntax. They require the linked CDM model and its matching
 Rune standard library. They use no installed JavaScript callbacks.
 
@@ -9,6 +9,7 @@ Rune standard library. They use no installed JavaScript callbacks.
 | [event-common.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/event-common.rosetta) | `EmptyExecutionDetails` | Returns an absent optional value. |
 | [event-common.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/event-common.rosetta) | `EmptyTransferHistory` | Returns an empty list. |
 | [date-list.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/date-list.rosetta) | `PopOffDateList` | Removes the last position, retaining earlier duplicate dates. |
+| [frequency.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/frequency.rosetta) | `PeriodsInYear` | Converts CDM frequency to the shared Rune Strata library and calls its exact `EventsPerYear` function. |
 
 Curated publication includes the canonical files from project-runtime. Reference
 installation copies them from that verified bundle into
@@ -23,6 +24,11 @@ sources:
   - model/**/*.rosetta
   - implementations/**/*.rosetta
 ```
+
+For `PeriodsInYear`, also copy
+[`strata-frequency.rosetta`](../../../packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta)
+and its accompanying `strata-LICENSE.txt` / `strata-NOTICE.txt`. The library is in
+`com.opengamma.strata.basics.schedule`; CDM-specific constraints stay in its adapter.
 
 Open or build the project normally. Core links CDM callers to these declarations;
 TypeScript export, Python projection and Prototype then consume the same Rune

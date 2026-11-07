@@ -17,6 +17,7 @@ import {
   calculationPeriodCaller,
   calculationPeriodCalendars
 } from '../../../../test/helpers/cdm-calculation-period.js';
+import { createCuratedFrequencyProject } from '../../../../test/helpers/curated-frequency.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -236,3 +237,70 @@ test('executes pinned FixingDate dispatch through published helpers and explicit
     contentType: 'image/png'
   });
 });
+
+for (const width of [1440, 390])
+  test(`installs the Strata Rune port and executes its CDM frequency adapter at ${width}px`, async ({ page }, info) => {
+    const project = await createCuratedFrequencyProject();
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'frequency.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.frequency\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/strata-frequency.rosetta'])
+      .toContain('namespace com.opengamma.strata.basics.schedule');
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/frequency.rosetta'])
+      .toContain('EventsPerYear(');
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^AnnualPeriods.*example.frequency/ }).click();
+    const form = page.getByTestId('prototype-perspective').getByTestId('panel-formPreview');
+    const period = form.getByRole('combobox', { name: 'Period', exact: true });
+    const roll = form.getByRole('button', { name: /^Roll Convention:/ });
+    await period.click();
+    await page.getByRole('option', { name: 'M', exact: true }).click();
+    await roll.click();
+    await page.getByRole('combobox', { name: 'Search Roll Convention', exact: true }).fill('EOM');
+    await page.getByRole('option', { name: 'EOM', exact: true }).click();
+    const multiplier = form.getByRole('spinbutton', { name: 'Period Multiplier', exact: true });
+    await multiplier.fill('3');
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText('4');
+    await multiplier.fill('5');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText('SupportedFrequency');
+    await period.click();
+    await page.getByRole('option', { name: 'T', exact: true }).click();
+    await roll.click();
+    await page.getByRole('combobox', { name: 'Search Roll Convention', exact: true }).fill('NONE');
+    await page.getByRole('option', { name: 'NONE', exact: true }).click();
+    await multiplier.fill('1');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText('0');
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await info.attach('strata-frequency', {
+      body: await page.screenshot({ path: info.outputPath('strata-frequency.png') }),
+      contentType: 'image/png'
+    });
+  });

@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { referenceFiles } from '../../packages/codegen/test/helpers/cdm-reference.js';
+import { referenceFiles, referenceModelSources } from '../../packages/codegen/test/helpers/cdm-reference.js';
 
 export const calculationPeriodDirectory = resolve(
   import.meta.dirname,
@@ -39,22 +39,5 @@ export function calculationPeriodFiles(withCalendars = true) {
 
 /** Preserve the fixture's recorded model ownership when publishing browser artifacts. */
 export function calculationPeriodModelSources() {
-  const manifest: { files: { name: string; upstream: { model: string } }[] } = JSON.parse(
-    readFileSync(resolve(calculationPeriodDirectory, 'sources.json'), 'utf8')
-  );
-  const sources = new Map(
-    referenceFiles(calculationPeriodDirectory).map((file) => [file.uri.split('/').at(-1)!, file.content])
-  );
-  return Object.fromEntries(
-    [...new Set(manifest.files.map((file) => file.upstream.model))].map((model) => [
-      model,
-      manifest.files
-        .filter((file) => file.upstream.model === model)
-        .map((file) => {
-          const content = sources.get(file.name);
-          if (content === undefined) throw new Error('Missing verified calculation-period source: ' + file.name);
-          return { path: file.name, content };
-        })
-    ])
-  );
+  return referenceModelSources(calculationPeriodDirectory);
 }

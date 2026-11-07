@@ -20,6 +20,11 @@ retain their source; selector/default completeness and regression evidence remai
 separate from implementation kind. Handwritten Java implementations, tests and
 empty data providers are reference evidence, never target implementations.
 
+Reusable library ports retain their library namespace. The owned Strata frequency
+port lives in `com.opengamma.strata.basics.schedule`; CDM's `PeriodsInYear` is a
+thin adapter over it. Its one Rune catalog path includes the library source and
+Apache license/notice as support files, not alternative target implementations.
+
 ## Publication and loading
 
 The publication catalog and canonical owned Rune files live in
@@ -30,7 +35,8 @@ formatter-stable runtime-source writer.
 The CI publisher stamps `$implementation` onto the serialized function copy,
 carrying its exact signature and selected target expression/dependencies or Rune
 path. It stamps `$implementationSources` onto the serialized model copy with
-source bytes, SHA-256 hashes, model and upstream commit, plus the owned MIT license.
+source bytes, SHA-256 hashes, model and upstream commit, plus the owned MIT license
+and any named third-party license/notice files.
 Original upstream archives, source text and Rune bodies remain unchanged. The
 normal immutable serialized-artifact checksum covers these payloads in both the
 complete and per-namespace artifacts; normal cohort publication stays atomic.

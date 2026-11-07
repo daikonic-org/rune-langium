@@ -41,6 +41,12 @@ const suites = [
       'rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/CalculatedRateTestHelper.java',
       'rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/FloatingRateTestHelper.java'
     ]
+  },
+  {
+    directory: 'cdm-frequency',
+    declarations: [{ namespace: 'cdm.product.common.schedule', name: 'PeriodsInYear', kind: 'RosettaFunction' }],
+    references: [],
+    supportReferences: ['rosetta-source/src/main/java/cdm/product/common/schedule/functions/CdmToStrataMapper.java']
   }
 ];
 const { RuneDsl } = createRuneDslServices();

@@ -49,17 +49,32 @@ imports for omitted built-ins; Temporal constructors can yield absence and must
 use ordinary presence/cardinality shaping when placed in a list. Both fixes reuse
 the existing profile and expression-presence machinery without casts.
 
-## `PeriodsInYear` remains an assessed gap
+## `PeriodsInYear` delegates to a Rune Strata port
 
-Its frequency branching and arithmetic are expressible in Rune. The pinned
-release supplies only an abstract signature and a caller in
-`CalculateYearFraction`, with no handwritten Java algorithm/test or numeric
-expectations for this function. The signature takes a `CalculationPeriodFrequency`
-and returns an integer; it has no start/end dates or trade term.
+The pinned release has no direct handwritten Java `PeriodsInYear` implementation.
+Its scheduler's handwritten `CdmToStrataMapper`, however, converts frequencies
+using `Frequency.parse`, and the CDM POM pins OpenGamma Strata 1.7.0. That library
+provides a concrete exact-count algorithm in `Frequency.eventsPerYear`.
 
-Before selecting an implementation, establish the contracts for hourly/daily/weekly
-frequencies, month multipliers that do not divide twelve, multi-year frequencies,
-and `T`/`C`. A constant day/week count, rounded quotient, zero multi-year result or
-term default would introduce business rules absent from this evidence. The
-versioned Rune-feasibility assessment records this prerequisite, and the catalog
-continues to report the function unimplemented.
+The reusable Rune implementation lives in
+`com.opengamma.strata.basics.schedule`: `Period` retains year/month/day components,
+`OfPeriod` implements positive bounded construction, `Term` creates the special
+singleton's period, and `EventsPerYear` implements exact annual counts and failure
+conditions. The CDM override only maps its frequency and retains CDM's positive
+multiplier, supported period and Term-multiplier constraints.
+
+Month/year periods use exact division of 12 by total months; day/week periods use
+364 days/52 weeks. Term returns zero. Non-dividing, mixed and unsupported periods
+fail; no fractional estimate is rounded to an integer. All positive divisors are
+covered, including day counts accepted by Java beyond those listed in its Javadoc.
+Strata's parser accepts `0T`, but CDM's multiplier condition rejects it. Large
+week counts that overflow Java's period conversion are rejected by the port's
+bounded day-component constructor.
+
+The [pinned cohort](../../test/fixtures/third-party/cdm-frequency/README.md) includes
+the unmodified handwritten Strata source, license/notice and CDM mapper. Seventy
+cases run against published checksum-pinned Strata binaries on the JVM and the
+generated TypeScript/Python port. This is an explicit adapter choice based on the
+available reference; it does not assert a missing direct CDM binding existed or
+port the full Strata scheduling API. It needs no production calendars or JVM
+dependency at runtime.

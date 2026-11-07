@@ -44,7 +44,7 @@ const { values } = parseArgs({
 });
 const root = resolve(import.meta.dirname, '..');
 const dispatchSuites = await Promise.all(
-  ['cdm-dispatch', 'cdm-calculation-period'].map(async (directory) => {
+  ['cdm-dispatch', 'cdm-calculation-period', 'cdm-frequency'].map(async (directory) => {
     const base = `test/fixtures/third-party/${directory}`;
     const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
     const casesPath = `${base}/cases.json`;
@@ -52,9 +52,13 @@ const dispatchSuites = await Promise.all(
     return {
       declarations: manifest.declarations,
       path:
-        directory === 'cdm-dispatch'
-          ? 'packages/codegen/test/implementations/cdm-dispatch.test.ts'
-          : 'packages/codegen/test/implementations/calculation-period.test.ts',
+        'packages/codegen/test/implementations/' +
+        {
+          'cdm-dispatch': 'cdm-dispatch',
+          'cdm-calculation-period': 'calculation-period',
+          'cdm-frequency': 'frequency'
+        }[directory] +
+        '.test.ts',
       casesPath,
       casesText,
       cases: JSON.parse(casesText)
@@ -242,6 +246,11 @@ for (const document of documents) {
     if (!symbol || symbol.model !== source.model)
       throw new Error('Inventory model ownership is missing or inconsistent.');
     const assessment = feasibility.get(symbol, signature);
+    for (const reference of assessment.javaDependencies ?? []) {
+      const bytes = await readFile(resolve(root, reference.path));
+      if (createHash('sha256').update(bytes).digest('hex') !== reference.sha256)
+        throw new Error('Handwritten Java dependency checksum mismatch: ' + reference.path);
+    }
     if (assessment.implementation) {
       const effective = getEffectiveProjectDeclaration(node);
       const path = effective && runeSources.get(AstUtils.getDocument(effective).uri.toString());
@@ -315,11 +324,14 @@ for (const document of documents) {
       source,
       signature,
       implementation,
-      referenceJava: handwrittenJavaReferences(
-        javaFiles.filter((file) => file.model === symbol.model),
-        symbol.namespace,
-        symbol.name
-      ),
+      referenceJava: {
+        ...handwrittenJavaReferences(
+          javaFiles.filter((file) => file.model === symbol.model),
+          symbol.namespace,
+          symbol.name
+        ),
+        ...(assessment.javaDependencies ? { dependencies: assessment.javaDependencies } : {})
+      },
       rune: {
         route: assessment.route,
         requirements: assessment.requirements,
@@ -336,7 +348,10 @@ for (const document of documents) {
                 ...new Set(
                   cases
                     .filter((entry) => !entry.expectedError)
-                    .map((entry) => entry.selector ?? entry.inputs?.[dispatchAttribute])
+                    .flatMap((entry) => {
+                      const selector = entry.selector ?? entry.inputs?.[dispatchAttribute];
+                      return selector === undefined ? [] : [selector];
+                    })
                 )
               ].sort(),
               caseCount: cases.length

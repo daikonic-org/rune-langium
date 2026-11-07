@@ -34,3 +34,19 @@ export function referenceFiles(fixtureDirectory = directory) {
 export function expressionReferenceFiles() {
   return referenceFiles(resolve(import.meta.dirname, '../../../../test/fixtures/third-party/cdm-expression'));
 }
+
+/** Retain pinned model ownership when publishing a multi-document test bundle. */
+export function referenceModelSources(fixtureDirectory: string) {
+  const manifest: { files: { name: string; upstream: { model: string } }[] } = JSON.parse(
+    readFileSync(resolve(fixtureDirectory, 'sources.json'), 'utf8')
+  );
+  const files = referenceFiles(fixtureDirectory);
+  return Object.fromEntries(
+    [...new Set(manifest.files.map((file) => file.upstream.model))].map((model) => [
+      model,
+      manifest.files.flatMap((file, index) =>
+        file.upstream.model === model ? [{ path: file.name, content: files[index]!.content }] : []
+      )
+    ])
+  );
+}
