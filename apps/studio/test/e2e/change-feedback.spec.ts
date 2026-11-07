@@ -37,12 +37,15 @@ test('Inspector edits cue Source and leave the active name quiet', async ({ page
   await load(page);
   const row = page.locator('[data-feedback-key="attributes:currency"]');
   const name = row.getByRole('textbox', { name: /Attribute name/ });
-  await name.fill('settlementCurrency');
   const changed = page.locator('[data-feedback-key="attributes:settlementCurrency"]');
-  await expect(changed).toBeVisible();
+  // Peer views settle independently; observe each short-lived cue from the edit onward.
+  await Promise.all([
+    expect(fullSourceEditor(page).locator('[data-change-feedback="change"]')).toBeVisible(),
+    expect(page.getByTestId('structure-view-flow').locator('li[data-change-feedback="change"]')).toBeVisible(),
+    expect(changed).toBeVisible(),
+    name.fill('settlementCurrency')
+  ]);
   await expect(changed).not.toHaveAttribute('data-change-feedback');
-  await expect(fullSourceEditor(page).locator('[data-change-feedback="change"]')).toBeVisible();
-  await expect(page.getByTestId('structure-view-flow').locator('li[data-change-feedback="change"]')).toBeVisible();
   await info.attach('inspector-origin', {
     body: await page.screenshot({ path: info.outputPath('inspector-origin.png') }),
     contentType: 'image/png'
@@ -55,12 +58,14 @@ test('Structure edits cue peer views; Graph cues semantic updates but not canvas
   await structure.getByRole('button', { name: 'currency', exact: true }).click();
   const field = structure.getByRole('textbox', { name: 'Edit currency', exact: true });
   await field.fill('settlementCurrency');
-  await field.press('Enter');
-  await expect(
-    page.locator('[data-feedback-key="attributes:settlementCurrency"][data-change-feedback="change"]')
-  ).toBeVisible();
+  await Promise.all([
+    expect(fullSourceEditor(page).locator('[data-change-feedback="change"]')).toBeVisible(),
+    expect(
+      page.locator('[data-feedback-key="attributes:settlementCurrency"][data-change-feedback="change"]')
+    ).toBeVisible(),
+    field.press('Enter')
+  ]);
   await expect(structure.locator('[data-change-feedback]')).toHaveCount(0);
-  await expect(fullSourceEditor(page).locator('[data-change-feedback="change"]')).toBeVisible();
   await page
     .getByRole('toolbar', { name: 'Center pane selector' })
     .getByRole('button', { name: 'Graph', exact: true })
