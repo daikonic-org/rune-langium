@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "vitest": "^5.0.5",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   },
   "author": "Pradeep Mouli <pmouli@mac.com> (https://github.com/pradeepmouli)",
