@@ -19,10 +19,10 @@ Root coverage and Codegen's package runner share the 30-second generated-module
 test budget from `test/helpers/vitest-budget.ts`. These integration cases include
 strict TypeScript compilation and runtime checks; the budget is not a performance
 acceptance threshold.
-Project-runtime's `project-implementation.test.ts` uses that same budget within
-the file, so its strict generated program and runtime validators receive the same
-limit in the package and root coverage runners. Other runtime tests keep their
-default budgets.
+Project-runtime's `project-implementation.test.ts` and the two strict generated
+execution cases in `cdm-rune-implementations.test.ts` use that same budget in the
+package and root coverage runners. The CDM removal/signature checks and other
+runtime tests retain their default budgets.
 Runtime engine requirements remain those declared in each package manifest. Development
 and CI use Node 26.13.0 LTS from the root `.node-version`; setup-node steps share
 that file. This tooling baseline does not change published package compatibility

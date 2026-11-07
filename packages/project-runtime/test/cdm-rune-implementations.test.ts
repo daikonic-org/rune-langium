@@ -11,6 +11,7 @@ import {
   cdmRuneReferenceDocuments
 } from '../../../test/helpers/cdm-rune-implementations.js';
 import { compileGeneratedTypeScript } from '../../codegen/test/helpers/compiled-typescript.js';
+import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../test/helpers/vitest-budget.js';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { projectReferenceUri } from '../src/project-uri.js';
 
@@ -67,7 +68,8 @@ it.each([false, true])(
         (schema) => schema.targetId === 'cdm.event.common.ClearExecution'
       )?.executionUnavailable
     ).toBeUndefined();
-  }
+  },
+  GENERATED_MODULE_TEST_TIMEOUT
 );
 
 it('restores honest unavailability when the clearing overrides are removed', async () => {
