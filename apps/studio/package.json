@@ -54,7 +54,7 @@
     "@rune-langium/project-config": "workspace:*",
     "@rune-langium/project-runtime": "workspace:*",
     "@rune-langium/visual-editor": "workspace:*",
-    "@tanstack/react-virtual": "^3.14.22",
+    "@tanstack/react-virtual": "^3.14.24",
     "@vscode/tree-sitter-wasm": "0.3.1",
     "@wasm-fmt/ruff_fmt": "^0.15.20",
     "@xyflow/react": "^12.12.0",
