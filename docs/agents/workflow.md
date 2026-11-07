@@ -442,6 +442,16 @@ Full workspace type checks and explicit bundler-resolution TypeScript checks of 
 
 Compilation remains disabled. All five hand-authored EditorForms enable L1 through a shared policy and schema-derived Controller validation bridge. Regression checks cover canonical identifier unions, optional values, independent field validation, and array reorder/remove/add. Safe L2 adoption is tracked in [issue #574](https://github.com/pradeepmouli/rune-langium/issues/574).
 
+## CDM implementation checks
+
+CDM implementation changes: run `pnpm run verify:native-implementations` after
+building dependencies. It checks the inventory helper tests, exact upstream cohort,
+signature-bound Rune feasibility, provided override sources and target fallbacks.
+Run Codegen's `test/implementations`, project-runtime's
+`test/cdm-rune-implementations.test.ts` and Studio's identically named real-worker
+suite. The source pack is explicit project input, not an automatic native fallback.
+`--issue-markdown` on the audit writes #646's generated table for review/publication.
+
 ## Python projection checks
 
 Codegen builds regenerate the browser-safe runtime string from

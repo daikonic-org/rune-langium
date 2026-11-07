@@ -1,17 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sources": [
     {
       "model": "cdm",
       "repository": "finos/common-domain-model",
-      "commit": "1704b23907b3dc4b87ba7a0133cb75aad9b43c77",
-      "release": "nightly"
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
     },
     {
       "model": "fpml",
       "repository": "rosetta-models/rune-fpml",
-      "commit": "ab92e75df45e882e6775a5ce94dc6f520fe446f6",
-      "release": "3.8.0"
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
     },
     {
       "model": "rune-dsl",
@@ -159,12 +159,12 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-      "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+      "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
     },
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/event-common-type.rosetta",
-      "blob": "07588828cfb594ecd2f3d24abc9bfd14eacfe60b"
+      "blob": "d20020eac8943325decec3f62cccd5def63af765"
     },
     {
       "model": "cdm",
@@ -184,7 +184,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/event-instructioncomposition-reset-func.rosetta",
-      "blob": "d65a89cbad098b6002422904c67bcf7b4e2c5436"
+      "blob": "49b6fa803c2dcd5e83f8d6a98481574a9f3f50f4"
     },
     {
       "model": "cdm",
@@ -209,12 +209,12 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/event-position-type.rosetta",
-      "blob": "3c4f41781c2b6589e8357647a570716945d87470"
+      "blob": "c9baee332539fc456cb0b866089c023ff531c007"
     },
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/event-qualification-func.rosetta",
-      "blob": "5fc0340b948a0476625012e4099a93ccf5fd85f7"
+      "blob": "e5757117d644c799f97bcf72da5af0a980016593"
     },
     {
       "model": "cdm",
@@ -254,7 +254,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/ingest-fpml-confirmation-message-func.rosetta",
-      "blob": "98435e2005d1119ca5c2902684bdddcc62ddc6b4"
+      "blob": "c9f22e6bae2cab4605c3700721184642dd6eae53"
     },
     {
       "model": "cdm",
@@ -269,7 +269,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/ingest-fpml-confirmation-payment-func.rosetta",
-      "blob": "e93cfae240ef5f3a026f81617f61e7126b310eee"
+      "blob": "297402dc52fa067f2096e3f3a0166897c59c35a4"
     },
     {
       "model": "cdm",
@@ -404,7 +404,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/ingest-fpml-confirmation-product-swap-func.rosetta",
-      "blob": "260a7c622859cf6e4ec836c5a8f39efc4fe2ace8"
+      "blob": "fb1da6e365cf448c4f19d4ce7df40be2d15f56ab"
     },
     {
       "model": "cdm",
@@ -449,12 +449,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/ingest-fpml-confirmation-workflowstep-func.rosetta",
-      "blob": "64df56712d626ea820d7e317c510e0d00de52a14"
-    },
-    {
-      "model": "cdm",
-      "path": "rosetta-source/src/main/rosetta/legaldocumentation-clauselibrary-type.rosetta",
-      "blob": "3fc9290357af068602d619148f1550c70d268567"
+      "blob": "4506eaf5ae7d0cf04c9847baa61970bc5f5ed73a"
     },
     {
       "model": "cdm",
@@ -464,17 +459,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-common-type.rosetta",
-      "blob": "237341aa3437fe21974fe7cb3846f0fa2951b069"
-    },
-    {
-      "model": "cdm",
-      "path": "rosetta-source/src/main/rosetta/legaldocumentation-confirmation-enum.rosetta",
-      "blob": "da1f77ba2eb4aba9f506e9be1fa95dc3b54e6cf1"
-    },
-    {
-      "model": "cdm",
-      "path": "rosetta-source/src/main/rosetta/legaldocumentation-confirmation-type.rosetta",
-      "blob": "f3005edd25f4adda683ea7c754a7e2ed1afe7ffe"
+      "blob": "88921b3c3158d908ceeee3c6c381b85c67c6edb3"
     },
     {
       "model": "cdm",
@@ -489,17 +474,17 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-csa-type.rosetta",
-      "blob": "3ef750641adbb2cf07ff9fc2245f9b68f1248560"
+      "blob": "79cb044556269567f28e0c0f0f9ebb11bc732b7a"
     },
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-desc.rosetta",
-      "blob": "df2659c6a7094ac014f2752affe835c8b212a3ad"
+      "blob": "41b5948eee63afb2d005722ea479e869b4415523"
     },
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-enum.rosetta",
-      "blob": "93ef8bc0dc759255c8173fec66dbfbaaa8a205e0"
+      "blob": "4312b014c0e350db0f8a0c61e406d8f8acb819f0"
     },
     {
       "model": "cdm",
@@ -514,7 +499,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-isda-type.rosetta",
-      "blob": "fbc68bd3e8d67c663efd95db33d6974e128751d2"
+      "blob": "dfa1ca1a48b73d92e9f3b57f85d8db20db3547d3"
     },
     {
       "model": "cdm",
@@ -529,7 +514,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-type.rosetta",
-      "blob": "92f1c9e95397c55aac24aa2e9a9f38fca0ba5c27"
+      "blob": "116d8ff70321749e8879e03211d6b1228eb18d42"
     },
     {
       "model": "cdm",
@@ -539,17 +524,17 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-additionalterms-type.rosetta",
-      "blob": "50856d67fb036c2c3eb793bfba58e706e583e415"
+      "blob": "c4565ed8838564faefbd6da8937255c4aaf8862d"
     },
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-enum.rosetta",
-      "blob": "24d65dc042b0f19e96a2a715fa44741ed07bdd17"
+      "blob": "977afc498c386f2522cd888e1b67744f3ecc9b73"
     },
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-type.rosetta",
-      "blob": "9c03df26277c1980db3b46986053825711358dab"
+      "blob": "0279b2d6508dd70a8e5796a13e9e57ad18808c58"
     },
     {
       "model": "cdm",
@@ -729,7 +714,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/product-common-settlement-type.rosetta",
-      "blob": "530814ac23caf097916b822e5ddac13986bfab55"
+      "blob": "e369146a7f75dbd573619999e1ba0f446c607b2f"
     },
     {
       "model": "cdm",
@@ -754,7 +739,7 @@
     {
       "model": "cdm",
       "path": "rosetta-source/src/main/rosetta/product-template-func.rosetta",
-      "blob": "3ee90743eb26b2bbd5f851f9fb22d74a4e3f017e"
+      "blob": "3a88cf1af108d3167c94afaf94083beb2913f396"
     },
     {
       "model": "cdm",
@@ -764,87 +749,87 @@
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-accumulator-type.rosetta",
-      "blob": "beae63db5d941a10a936e1de0d62b7cf0b2e4c10"
+      "blob": "d0e6a12d68fd12f1985b1d261144ec091578374c"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-asset-type.rosetta",
-      "blob": "77955eb01898c34198c8d2c35cb11bfc96239ee6"
+      "blob": "e725a641bfb75126a9b5bbae600b1ce2a13052f3"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-bond-option-type.rosetta",
-      "blob": "2de1cfe314021b2fce66f747a57338e1d71e78d9"
+      "blob": "6475f1f4164fe951ffe5f8ed126ec6d0bda6d9f0"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-business-events-enum.rosetta",
-      "blob": "3865d64a71ac3c3f9e761282e345e4c9da13f36f"
+      "blob": "da3be1d0dd4061e9b3f6ae522af94dddde7e3b37"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-business-events-type.rosetta",
-      "blob": "8dc8f14730394ccd9fc0ee5cea37cf90de0176d4"
+      "blob": "5212bf7e6354030feff4ea8d8d485126210106a4"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-cd-type.rosetta",
-      "blob": "81b6d1bae508177b850ca54be4772a32b747a2bc"
+      "blob": "ec5a2e7b3a37d6061160adf66c7e0391c2f86eff"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-clearing-processes-type.rosetta",
-      "blob": "884279361dec94956a734a14a06468db71f48444"
+      "blob": "d01ac6a6ac83493e973398d720883b822143af68"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-com-type.rosetta",
-      "blob": "b6b136cd6aead7371cbbab97c0f069cfa4f129f2"
+      "blob": "86d51ab1216f7b259cfc211f0630b600c3bfb1b0"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-confirmation-processes-type.rosetta",
-      "blob": "f253b560a10c8c3949e3f3023fb4f2c9e7458450"
+      "blob": "da81aa5e6d69909b32fcf89e1c368923bc94124a"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-correlation-swaps-type.rosetta",
-      "blob": "7bb7ff011dda055366b0ab57569ae1ef14e47281"
+      "blob": "93d4af70cda2984eae5a5730fd6e1d37c241d199"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-credit-event-notification-type.rosetta",
-      "blob": "a6cd4a638f3408fa6fca39ea156085c27c883380"
+      "blob": "79e52dc4593f20ab311c44576dd48a9c31b52d08"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-desc.rosetta",
-      "blob": "e190c6d1d643105eb417d2c98274e81a483c1681"
+      "blob": "85483ab5f533c308ae1209a60429c1b7493d7713"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-dividend-swaps-type.rosetta",
-      "blob": "1628a2edcf41a7f3239b408c4f872f4dd0f5093f"
+      "blob": "1525f86cb20c48896fa3b1f192f15d1be45d418d"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-doc-type.rosetta",
-      "blob": "db29e6bab287036cc19fbbab1990db372c44d9aa"
+      "blob": "e8d63a6d3b8a6bdd2f96723ee7098cebb104b310"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-eq-shared-type.rosetta",
-      "blob": "548c19894ef9f47814bec0859ba16a97d9443f44"
+      "blob": "b31bf5f3b8e163b6b33036ca221cd83f3ce0a0c7"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-eqd-type.rosetta",
-      "blob": "73e83b98c8be2a6955c7c304ce12ded24268aba7"
+      "blob": "75f16352caa34b687f05e1e01b93c9a7127a5b25"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-fpmlenum-enum.rosetta",
-      "blob": "910ce2ef0a3809a63d4e25ea5920b17f1e105282"
+      "blob": "b23866ebea0c608d682cb535cf59766bb94056d4"
     },
     {
       "model": "fpml",
@@ -854,122 +839,122 @@
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-fpmlreturn-swaps-type.rosetta",
-      "blob": "5c8567089b38aa01abb72ace8d36f2c65387bc29"
+      "blob": "7de804444a89d8fce904d62883dc90cfefccea6c"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-fx-accruals-type.rosetta",
-      "blob": "a879d3c5bac01b6c5711324be8d225c3f697ff5d"
+      "blob": "4069b322b1115fb00d30235d47421509abc54ef8"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-fx-targets-type.rosetta",
-      "blob": "1f540fac302dee02fe45c83e518641725ebdf744"
+      "blob": "4cfeee29b7f6ceadb74190a311167aed76ddc965"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-fx-type.rosetta",
-      "blob": "f344a47726a4ffc0fb799fb1bda218b27b8678a5"
+      "blob": "3c2708b7ae18a85f1b2fbac9db4edae3e8460f82"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-generic-type.rosetta",
-      "blob": "dcfdfecb975fec34896463396ca796b08b12a459"
+      "blob": "efa1f5ad57a8d267432ca5b47c7ffe762edd1556"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-ird-type.rosetta",
-      "blob": "2c5c3f23a81a47eaf0424fc3106db5acb29fb74a"
+      "blob": "54177f202ac227f1431b2e916afd1f537025a577"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-loan-type.rosetta",
-      "blob": "21df2ee37f21d50112e146264a0f52be29ea0997"
+      "blob": "96f0e5ee6b721ab770e289379ae5142340e05ec6"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-main-type.rosetta",
-      "blob": "c6abe4bbd16d204c3b23dcf7249de042eeba7435"
+      "blob": "7b1bba496b495938ca4b38736079a47aa050fd17"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-mktenv-type.rosetta",
-      "blob": "d42f14fc26f93d532d6ca21b9cbb4139d78d527b"
+      "blob": "29e44044865a7a3040074a7b8f3162828dcb6fc7"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-msg-type.rosetta",
-      "blob": "495cd4619b2ed3d605619ec207c4370c9accdd6b"
+      "blob": "07137fe2901a4452e2db517beb5bd4d0c1fd3078"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-option-shared-type.rosetta",
-      "blob": "f4b99a0af3112499f7be4a4cc8815a3f250aa940"
+      "blob": "8eefd61f3561cce58bb3a76b384e83f908439e83"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-recordkeeping-processes-type.rosetta",
-      "blob": "2f89470530a792f0ab79d53c8b6990216be982ff"
+      "blob": "9bdef8622af1b11d2c58889cc00419950615cc51"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-reg-fpmlreporting-product-type.rosetta",
-      "blob": "3c78a1f45db8fbcf95c2efff5a3a98589cd1589c"
+      "blob": "a9e0fa50ab8a159b06d39bda8cafa6512be3f3cd"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-reg-fpmlreporting-shared-type.rosetta",
-      "blob": "bff6b0ee5b24a95bda505c19d42297c96c54afee"
+      "blob": "056a2057d45901763ae73b2175651282e424ba2b"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-repo-type.rosetta",
-      "blob": "c3565b50f1b8a32809e182233aa01fb4d24eec98"
+      "blob": "f2c589eb42d8918280476998512ef9f4482ef1fe"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-riskdef-type.rosetta",
-      "blob": "872c4326d7e5f46cc737c0f5df6ee90208e8c576"
+      "blob": "0c5b2d0ba42343f98c2001f78eb3e90a486b607d"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-sec-lending-type.rosetta",
-      "blob": "81a0504a896f4f5353abc41be707a8678f8e0951"
+      "blob": "5b91c1d86b86ded7530d075ef26f258c87b42062"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-shared-type.rosetta",
-      "blob": "cf41795a4554ad0f419ab57ab64d3ad87aeb0f6d"
+      "blob": "db0f50d37ae938c77f7677421bc579bd68c31ff7"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-standard-type.rosetta",
-      "blob": "e079482925260c7075e8736ad7d413b82829c058"
+      "blob": "3763c6dbbb6dfcd062c2cb2229460e211128b0b1"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-type.rosetta",
-      "blob": "dd11f604a663ba99b63782dcc87bd6d841810a71"
+      "blob": "426958a35f7aaa6ca5469650fec03c7a335f837e"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-valuation-fpmlreporting-type.rosetta",
-      "blob": "b0e21a3139812ca122380b3148453d9a939b864a"
+      "blob": "a440007f3074b403654dcd24ec16f0e730ca5fd7"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-valuation-type.rosetta",
-      "blob": "20b3c69bc823f855dabc8bb05c15b172ad35ce33"
+      "blob": "8650dbe9fab78de1d9cbbef31978007e28c0625c"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-variance-swaps-type.rosetta",
-      "blob": "06b19dcccf31a8f86e6b6eecb9dd818ba2cefc4a"
+      "blob": "73df7fe1d2e72ceb58d6b2846f15a54738ab3ec8"
     },
     {
       "model": "fpml",
       "path": "rosetta-source/src/main/rosetta/consolidated-volatility-swaps-type.rosetta",
-      "blob": "4b4bf9425cb06e9882c5a8d50dceffe804e57249"
+      "blob": "bc110a88fa251b6264c0f1fc9920a53c82a69867"
     },
     {
       "model": "rune-dsl",
@@ -980,6 +965,20 @@
       "model": "rune-dsl",
       "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
       "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac"
+    }
+  ],
+  "implementationFiles": [
+    {
+      "path": "examples/implementations/cdm/date-list-state.rosetta",
+      "sha256": "b815b28e75bd9a10fd626d1636c0bdf6f511c3ead3d1f538150f9236f5a8a7bc"
+    },
+    {
+      "path": "examples/implementations/cdm/date-list.rosetta",
+      "sha256": "c3345f5cd93b411897e4116ddc33c42690b1375922ce92f5cf17aaabf47b64f2"
+    },
+    {
+      "path": "examples/implementations/cdm/event-common.rosetta",
+      "sha256": "b52497b3e64ca23c2d3cb41275f4720206a15d8bff2033d31349a350b449c541"
     }
   ],
   "functions": [
@@ -1028,6 +1027,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Date arithmetic; retain the verified Gregorian/Temporal contract or prove a Rune algorithm.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1081,6 +1085,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Select holidays from a supplied, versioned business-center calendar; acquisition is a separate port.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1138,6 +1147,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Signed Gregorian calendar-day arithmetic; existing native primitive can support Rune callers.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1200,6 +1214,11 @@
             "SUN"
           ]
         }
+      },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Gregorian weekday calculation or a shared date primitive; no external data required.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1264,6 +1283,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Count days falling in leap years, including signed ranges; prove a Rune algorithm or reuse the primitive.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "available",
@@ -1305,6 +1329,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "clock-backed",
+        "requirements": "A supplied clock/native leaf is required; Rune may compose it, but cannot independently observe system time.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1359,6 +1388,12 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "rune-source",
+        "requirements": "Explicit Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; retain the native fallback for very large lists.",
+        "implementation": "examples/implementations/cdm/date-list.rosetta",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "available",
@@ -1410,6 +1445,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Adjustment/relative-date rules in Rune; supplied calendars and date primitives underneath.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -1457,6 +1497,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Resolve collections/periodic dates in Rune using the same calendar and date contracts.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -1503,6 +1548,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Business-center/time-zone mapping can be supplied data; named-zone/DST behavior needs a proven boundary.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1571,6 +1621,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Clock-value construction and range rejection; assess direct Rune construction before retaining a native leaf.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "available",
@@ -1612,6 +1667,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "clock-backed",
+        "requirements": "A supplied clock/native leaf is required; UTC date selection can be composed in Rune.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1681,6 +1741,48 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "upstream-variants",
+        "requirements": "Nine upstream dispatch bodies. Audit missing enum cases/defaults and execute existing bodies before adding replacements.",
+        "variants": [
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_360\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"_30_360\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"_30E_360\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_365L\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_365_FIXED\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_ACT_AFB\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_ACT_ISDA\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_ACT_ICMA\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dcf\",\"DayCountFractionEnum\",\"CAL_252\"]",
+            "hasRuneBody": true
+          }
+        ]
       },
       "targets": {
         "typescript": {
@@ -1785,6 +1887,56 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "upstream-variants",
+        "requirements": "Eleven upstream dispatch bodies. Check selectors and transitive date/calendar dependencies; preserve upstream formulas.",
+        "variants": [
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"_1_1\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"ACT_ACT_ISDA\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"ACT_ACT_ICMA\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"ACT_365_FIXED\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"ACT_360\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"_30_360\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"_30E_360\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"_30E_360_ISDA\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"ACT_364\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"ACT_365L\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"CAL_252\"]",
+            "hasRuneBody": true
+          }
+        ]
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -1855,6 +2007,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Exact decimal division/rounding rules, negative values and division errors; no binary-float approximation.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -1938,6 +2095,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Decimal scale and UP/DOWN/HALF_UP behavior; decide numeric versus trailing-zero representation explicitly.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2010,6 +2172,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Exact decimal precision/rounding; a shared decimal primitive may leave policy/composition in Rune.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2066,6 +2233,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "candidate",
+        "requirements": "Cumulative products including the initial base; prove collection accumulation and decimal parity before choosing Rune or TS.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -2142,6 +2314,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "candidate",
+        "requirements": "Pairwise operations and zero-padding; prove positional pairing, decimal division and arithmetic-error policy.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2189,6 +2366,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Filter/construct CodeList from prepared resources; reuse #645 resolution instead of fetching a scheme URI.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2210,7 +2392,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-        "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
       },
       "signature": {
         "inputs": [
@@ -2236,6 +2418,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "candidate",
+        "requirements": "Aggregation/construction over supplied billing records; establish authoritative grouping and amount rules.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2257,7 +2444,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-        "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
       },
       "signature": {
         "inputs": [],
@@ -2271,6 +2458,12 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "rune-source",
+        "requirements": "Explicit Rune source returns the absent optional value; verified against the pinned signature, generated TypeScript/Python and Prototype.",
+        "implementation": "examples/implementations/cdm/event-common.rosetta",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -2293,7 +2486,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-        "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
       },
       "signature": {
         "inputs": [],
@@ -2307,6 +2500,12 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "rune-source",
+        "requirements": "Explicit Rune source returns an empty collection; verified against the pinned signature, generated TypeScript/Python and Prototype.",
+        "implementation": "examples/implementations/cdm/event-common.rosetta",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -2329,13 +2528,13 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-        "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
       },
       "signature": {
         "inputs": [
           {
             "name": "masterConfirmation",
-            "type": "cdm.legaldocumentation.confirmation.EquitySwapMasterConfirmation2018",
+            "type": "cdm.legaldocumentation.transaction.EquitySwapMasterConfirmation2018",
             "kind": "Data",
             "card": [
               0,
@@ -2354,6 +2553,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "candidate",
+        "requirements": "Construct from supplied confirmation terms; verify template/default rules and the 7.9.0 qualified input type.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -2376,7 +2580,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-        "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
       },
       "signature": {
         "inputs": [
@@ -2402,6 +2606,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Product-specific settlement selection in Rune, with calendar/date services where required; establish authoritative rules.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2423,7 +2632,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
-        "blob": "e731323c57f699d316b1914fe7ac27914b57b229"
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694"
       },
       "signature": {
         "inputs": [
@@ -2459,6 +2668,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Adopter-defined lookup from supplied reset state/data; retain the CDM public signature via a bound helper.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -2480,7 +2694,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-instructioncomposition-reset-func.rosetta",
-        "blob": "d65a89cbad098b6002422904c67bcf7b4e2c5436"
+        "blob": "49b6fa803c2dcd5e83f8d6a98481574a9f3f50f4"
       },
       "signature": {
         "inputs": [
@@ -3178,6 +3392,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Select FRO metadata by trade date and index from a supplied versioned matrix.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -3199,7 +3418,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-instructioncomposition-reset-func.rosetta",
-        "blob": "d65a89cbad098b6002422904c67bcf7b4e2c5436"
+        "blob": "49b6fa803c2dcd5e83f8d6a98481574a9f3f50f4"
       },
       "signature": {
         "inputs": [
@@ -3235,6 +3454,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Select supplied observations by index/date; network/storage acquisition remains a separate adapter.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -3256,7 +3480,7 @@
       "source": {
         "model": "cdm",
         "path": "rosetta-source/src/main/rosetta/event-instructioncomposition-reset-func.rosetta",
-        "blob": "d65a89cbad098b6002422904c67bcf7b4e2c5436"
+        "blob": "49b6fa803c2dcd5e83f8d6a98481574a9f3f50f4"
       },
       "signature": {
         "inputs": [
@@ -3301,6 +3525,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Filter/derive dates using supplied calendars; preserve the period-or-dates input condition and output cardinality.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -3349,6 +3578,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "assess",
+        "requirements": "Aggregation is expressible, but confirm required portfolio/state data and the aggregation policy before promising a self-contained body.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -3395,6 +3629,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Supply the required curve/quotes and establish interpolation/extrapolation rules; numeric primitives may be needed.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -3452,6 +3691,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Current Rune contains means list membership; substring/UTF-16 semantics need a proper string primitive, not that operator.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -3513,6 +3757,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Rune can compose key fields; verify canonicalization/hash/collision rules before choosing a string/hash primitive.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -3581,6 +3830,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Verify optional ID/leg handling and exact key policy; avoid inventing a replacement identifier scheme.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -3638,6 +3892,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "primitive-backed",
+        "requirements": "Verify quote-pair canonicalization and key policy; reuse any shared key primitive.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -3694,6 +3953,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "candidate",
+        "requirements": "Construct dated values from positional pairs; prove list pairing and upstream missing-date/extra-date behavior.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -3761,6 +4025,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Schedule rules can be Rune; date/calendar primitives, schedule conventions and stub behavior need parity evidence.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -3844,6 +4113,24 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "upstream-variants",
+        "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies.",
+        "variants": [
+          {
+            "selector": "[\"calculateRelativeTo\",\"ObservationPeriodDatesEnum\",\"SetInAdvance\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"calculateRelativeTo\",\"ObservationPeriodDatesEnum\",\"Standard\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"calculateRelativeTo\",\"ObservationPeriodDatesEnum\",\"FixingDate\"]",
+            "hasRuneBody": true
+          }
+        ]
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -3900,6 +4187,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Read supplied index observations for the requested date; define absent/multiple-observation behavior.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -4610,6 +4902,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Select from supplied, versioned FRO metadata; missing data remains explicit.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -4708,6 +5005,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Select supplied asset/time-type mappings; zone/DST resolution stays behind a proven primitive if needed.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -4764,6 +5066,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Resolve supplied observations and apply averaging in Rune; establish identity, missing-value and numeric contracts.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -5474,6 +5781,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Lookup a supplied index value; a constant/no-op implementation is not a general rate resolver.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -5549,6 +5861,32 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "upstream-variants",
+        "requirements": "Five selectors, four with bodies; CompoundIndex has no body. Follow rate/metadata/calendar/vector dependencies.",
+        "variants": [
+          {
+            "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"Screen\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"Modular\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"OIS\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"OvernightAvg\"]",
+            "hasRuneBody": true
+          },
+          {
+            "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"CompoundIndex\"]",
+            "hasRuneBody": false
+          }
+        ]
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -5606,6 +5944,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Eligibility rules can be Rune over supplied asset/issuer facts; confirm required data and authoritative policy.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -5662,6 +6005,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Select a period from a proven schedule; supplied calendars/date primitives and conventions may be required.",
+        "variants": []
       },
       "targets": {
         "typescript": {
@@ -5730,6 +6078,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Construct/adjust period boundaries in Rune; establish missing-date and calendar/convention behavior.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -5777,6 +6130,11 @@
           "plain": true
         }
       },
+      "rune": {
+        "route": "data-backed",
+        "requirements": "Generate schedules in Rune using supplied calendars and proven roll/stub/date primitives.",
+        "variants": []
+      },
       "targets": {
         "typescript": {
           "status": "unavailable",
@@ -5823,6 +6181,11 @@
           ],
           "plain": true
         }
+      },
+      "rune": {
+        "route": "candidate",
+        "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics.",
+        "variants": []
       },
       "targets": {
         "typescript": {

@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace rune.cdm.implementations
+version "1.0.0"
+
+type DateListState:
+    current date (1..1)
+    previous date (0..*)
+
+func DateListEntry:
+    inputs:
+        value date (1..1)
+    output:
+        result DateListState (1..1)
+    set result -> current: value

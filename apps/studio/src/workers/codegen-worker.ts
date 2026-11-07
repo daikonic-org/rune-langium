@@ -47,6 +47,8 @@ import {
 import {
   createRuneDslServices,
   hydrateModelDocuments,
+  initializeProjectResolution,
+  invalidateProjectResolution,
   getExpressionOwners,
   getExpressionRegions,
   getFunctionImplementationRegion,
@@ -214,6 +216,7 @@ const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValida
 // for `buildDocuments()` to read on every `runPreview`/`runInstanceSchema`/
 // `executeFunction`/`validateInstance` call. See `hydrateCuratedDocuments`.
 let cachedCuratedDocuments: LangiumDocument[] = [];
+let registeredPreviewDocuments: LangiumDocument[] = [];
 let indexedCuratedDocuments: LangiumDocument[] | undefined;
 let lastCuratedEntries: FileEntry[] = [];
 
@@ -287,7 +290,13 @@ function hydrateCuratedDocuments(entries: FileEntry[]): void {
   if (!curatedEntriesChanged(curatedEntries)) return; // identical set — skip the relink entirely
   lastCuratedEntries = curatedEntries;
   // Remove exports for replaced/unloaded artifacts as well as registering new ones below.
-  for (const document of cachedCuratedDocuments) RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
+  const retained = new Set(curatedEntries.map((entry) => URI.parse(entry.uri).toString()));
+  const store = RuneDsl.shared.workspace.LangiumDocuments;
+  for (const document of cachedCuratedDocuments) {
+    RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
+    if (!retained.has(document.uri.toString()) && store.getDocument(document.uri) === document)
+      store.deleteDocument(document.uri);
+  }
   try {
     cachedCuratedDocuments = hydrateModelDocuments(
       { RuneDsl, shared: RuneDsl.shared },
@@ -551,6 +560,15 @@ async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<La
     'documents',
     () => previewFilesVersion,
     async () => {
+      const store = RuneDsl.shared.workspace.LangiumDocuments;
+      for (const document of registeredPreviewDocuments) {
+        // A newer curated batch may already own this URI; release only our old source roots.
+        if (store.getDocument(document.uri) !== document) continue;
+        store.deleteDocument(document.uri);
+        RuneDsl.shared.workspace.IndexManager.removeContent(document.uri);
+      }
+      registeredPreviewDocuments = [];
+      invalidateProjectResolution(RuneDsl);
       if (!projectGeneration && currentPreviewFiles.length === 0) {
         return { all: [], valid: [] };
       }
@@ -586,9 +604,12 @@ async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<La
       const userDocuments: LangiumDocument[] = userEntries.map(({ uri, content }) =>
         factory.fromString(content, URI.parse(uri))
       );
+      for (const document of userDocuments) store.addDocument(document);
+      registeredPreviewDocuments = userDocuments;
       if (userDocuments.length > 0) {
         await builder.build(userDocuments, { validation: false, eagerLinking: false });
       }
+      initializeProjectResolution(RuneDsl);
 
       // Curated docs come pre-linked from the curated-mirror build (CI runs
       // Langium with a higher heap budget than the browser can spare).

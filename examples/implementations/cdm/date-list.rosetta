@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.base.datetime
+version "1.0.0"
+
+import rune.cdm.implementations.*
+
+func PopOffDateList:
+    inputs:
+        dates date (0..*)
+    output:
+        newList date (0..*)
+    alias states:
+        dates extract [DateListEntry(item)]
+    alias accumulated:
+        states reduce previous, next [
+            DateListState {
+                current: next -> current,
+                previous: [previous -> previous, previous -> current]
+            }
+        ]
+    set newList: accumulated -> previous

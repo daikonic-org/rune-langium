@@ -2,14 +2,14 @@
   {
     "model": "cdm",
     "repository": "finos/common-domain-model",
-    "commit": "1704b23907b3dc4b87ba7a0133cb75aad9b43c77",
-    "release": "nightly"
+    "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+    "release": "7.9.0"
   },
   {
     "model": "fpml",
     "repository": "rosetta-models/rune-fpml",
-    "commit": "ab92e75df45e882e6775a5ce94dc6f520fe446f6",
-    "release": "3.8.0"
+    "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+    "release": "3.13.0"
   },
   {
     "model": "rune-dsl",

@@ -61,13 +61,13 @@ const fromModelMock = vi.fn((model: unknown, uri: string) => ({
   parseResult: { value: model, lexerErrors: [], parserErrors: [] }
 }));
 const registered = new Map<string, unknown>();
-const getDocumentMock = vi.fn((uri: string) => registered.get(uri));
-const addDocumentMock = vi.fn((doc: { uri: string }) => {
-  registered.set(doc.uri, doc);
+const getDocumentMock = vi.fn((uri: { toString(): string }) => registered.get(uri.toString()));
+const addDocumentMock = vi.fn((doc: { uri: { toString(): string } }) => {
+  registered.set(doc.uri.toString(), doc);
 });
-const deleteDocumentMock = vi.fn((uri: string) => {
-  const existing = registered.get(uri);
-  registered.delete(uri);
+const deleteDocumentMock = vi.fn((uri: { toString(): string }) => {
+  const existing = registered.get(uri.toString());
+  registered.delete(uri.toString());
   return existing;
 });
 
@@ -142,6 +142,8 @@ vi.mock('@rune-langium/core', () => {
       return { model, document };
     },
     hydrateModelDocuments: realHydrateModelDocuments,
+    initializeProjectResolution: vi.fn(),
+    invalidateProjectResolution: vi.fn(),
     getExpressionOwners: () => [projectionOwner],
     getFunctionImplementationRegion: () => ({ from: 0, to: 20 }),
     getNodeSourceRegion: () => ({ from: 0, to: 20 }),
@@ -1836,7 +1838,8 @@ describe('codegen-worker preview:setFiles curated document relinking', () => {
       files: [{ uri: 'curated:///fpml/consolidated/shared/Scheme.rosetta', content: '', serializedModelJson: '{}' }]
     });
     await flushWorker();
-    const firstRegistration = registered.get('curated:///fpml/consolidated/shared/Scheme.rosetta');
+    const registeredUri = fromModelMock.mock.calls[0]![1];
+    const firstRegistration = registered.get(registeredUri.toString());
     expect(firstRegistration).toBeDefined();
 
     // A second preview:setFiles carrying the same curated entry (as happens
@@ -1857,9 +1860,9 @@ describe('codegen-worker preview:setFiles curated document relinking', () => {
       ]
     });
     await flushWorker();
-    const secondRegistration = registered.get('curated:///fpml/consolidated/shared/Scheme.rosetta');
+    const secondRegistration = registered.get(registeredUri.toString());
 
-    expect(deleteDocumentMock).toHaveBeenCalledWith('curated:///fpml/consolidated/shared/Scheme.rosetta');
+    expect(deleteDocumentMock).toHaveBeenCalledWith(registeredUri);
     expect(secondRegistration).not.toBe(firstRegistration);
   });
 

@@ -5,14 +5,18 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
+import { runeFeasibilityIndex, renderNativeImplementationInventory } from './lib/native-implementation-inventory.mjs';
 import { isCuratedSourceFile, CuratedModelIdSchema } from '../packages/curated-schema/dist/index.js';
-import { URI } from '../packages/core/node_modules/langium/lib/index.js';
+import { AstUtils, URI } from '../packages/core/node_modules/langium/lib/index.js';
 import {
   createRuneDslServices,
   addLegacyAnnotations,
   isRosettaFunction,
   isRosettaModel,
   getElementNamespace,
+  getEffectiveProjectDeclaration,
+  namespaceOverrideDiagnostics,
+  namespaceOverrideSignatureDiagnostics,
   setProjectDocumentModel,
   projectDeclarationIdentity
 } from '../packages/core/dist/index.js';
@@ -23,7 +27,9 @@ const { values } = parseArgs({
     write: { type: 'boolean' },
     sources: { type: 'string' },
     baseline: { type: 'string' },
-    'cache-dir': { type: 'string' }
+    'cache-dir': { type: 'string' },
+    feasibility: { type: 'string' },
+    'issue-markdown': { type: 'string' }
   }
 });
 const root = resolve(import.meta.dirname, '..');
@@ -32,6 +38,10 @@ const sources = JSON.parse(
 );
 const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-audit');
 const destination = resolve(root, values.baseline ?? 'docs/implementations/native-coverage.json');
+const feasibility = runeFeasibilityIndex(
+  JSON.parse(await readFile(resolve(root, values.feasibility ?? 'docs/implementations/rune-feasibility.json'), 'utf8')),
+  sources
+);
 const { RuneDsl } = createRuneDslServices();
 const documents = [],
   origins = new Map(),
@@ -131,9 +141,40 @@ for (const source of sources) {
     files.push(origin);
   }
 }
-await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { eagerLinking: true });
-const errors = documents.flatMap((doc) => [...doc.parseResult.parserErrors, ...doc.parseResult.lexerErrors]);
+const runeDocuments = [],
+  runeSources = new Map(),
+  implementationFiles = [];
+for (const path of feasibility.files) {
+  const content = await readFile(resolve(root, path), 'utf8');
+  const uri = URI.parse(`file:///local/${path}`);
+  const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(content, uri);
+  RuneDsl.shared.workspace.LangiumDocuments.addDocument(document);
+  setProjectDocumentModel(RuneDsl, uri, 'local');
+  runeDocuments.push(document);
+  runeSources.set(uri.toString(), path);
+  implementationFiles.push({ path, sha256: createHash('sha256').update(content).digest('hex') });
+}
+await RuneDsl.shared.workspace.DocumentBuilder.build([...documents, ...runeDocuments], { eagerLinking: true });
+const errors = [...documents, ...runeDocuments].flatMap((doc) => [
+  ...doc.parseResult.parserErrors,
+  ...doc.parseResult.lexerErrors
+]);
 if (errors.length) throw new Error(`Inventory parsing failed: ${errors[0].message}`);
+for (const document of runeDocuments) {
+  const model = document.parseResult.value;
+  if (!isRosettaModel(model)) throw new Error('Rune implementation source must be a model.');
+  const diagnostics = [
+    ...namespaceOverrideDiagnostics(RuneDsl, model),
+    ...namespaceOverrideSignatureDiagnostics(RuneDsl, model)
+  ];
+  if (diagnostics.length) throw new Error(diagnostics[0].message);
+  if ([...document.references].some((reference) => reference.error))
+    throw new Error(`Unresolved Rune implementation reference: ${document.uri}`);
+}
+const functions = documents.flatMap((document) => {
+  const model = document.parseResult.value;
+  return isRosettaModel(model) ? model.elements.filter(isRosettaFunction) : [];
+});
 const rows = [];
 for (const document of documents) {
   const model = document.parseResult.value;
@@ -158,10 +199,34 @@ for (const document of documents) {
     const symbol = projectDeclarationIdentity(RuneDsl, node);
     if (!symbol || symbol.model !== source.model)
       throw new Error('Inventory model ownership is missing or inconsistent.');
+    const assessment = feasibility.get(symbol, signature);
+    if (assessment.implementation) {
+      const effective = getEffectiveProjectDeclaration(node);
+      const path = effective && runeSources.get(AstUtils.getDocument(effective).uri.toString());
+      if (!isRosettaFunction(effective) || !effective.operations.length || path !== assessment.implementation)
+        throw new Error(`Rune implementation is not the linked override: ${symbol.namespace}.${symbol.name}`);
+    }
+    const variants = functions
+      .filter(
+        (candidate) =>
+          candidate.name === node.name &&
+          candidate.dispatchAttribute &&
+          getElementNamespace(candidate) === symbol.namespace
+      )
+      .map((candidate) => ({
+        selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
+        hasRuneBody: candidate.operations.length > 0
+      }));
     rows.push({
       symbol,
       source,
       signature,
+      rune: {
+        route: assessment.route,
+        requirements: assessment.requirements,
+        ...(assessment.implementation ? { implementation: assessment.implementation } : {}),
+        variants
+      },
       targets: Object.fromEntries(
         ['typescript', 'python'].map((target) => {
           const result = resolveNativeImplementation(node, target);
@@ -182,12 +247,16 @@ const key = (row) => JSON.stringify(row.symbol ?? row);
 const compare = (a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
 rows.sort(compare);
 files.sort(compare);
-const text = JSON.stringify({ schemaVersion: 1, sources, files, functions: rows }, null, 2) + '\n';
+feasibility.verifyCoverage(rows);
+const inventory = { schemaVersion: 2, sources, files, implementationFiles, functions: rows };
+const text = JSON.stringify(inventory, null, 2) + '\n';
 if (values.write) await writeFile(destination, text);
 else if ((await readFile(destination, 'utf8')) !== text)
   throw new Error(
     'Native implementation inventory changed. Review source/signature/target changes, then regenerate explicitly with --write.'
   );
+if (values['issue-markdown'])
+  await writeFile(resolve(values['issue-markdown']), renderNativeImplementationInventory(inventory));
 console.log(
   `${values.write ? 'Updated' : 'Verified'} ${rows.length} native declarations across ${documents.length} verified source files. ${rows.filter((row) => Object.values(row.targets).every((entry) => entry.status === 'available')).length} bundled for both executable targets.`
 );

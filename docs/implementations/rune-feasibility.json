@@ -1,0 +1,572 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "files": [
+    "examples/implementations/cdm/date-list-state.rosetta",
+    "examples/implementations/cdm/date-list.rosetta",
+    "examples/implementations/cdm/event-common.rosetta"
+  ],
+  "functions": [
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "AddDays"
+      },
+      "signatureSha256": "5dc932980cd45a3d9f5f4b6464ad0a411836fec97a6addd77ed781293085c986",
+      "route": "primitive-backed",
+      "requirements": "Date arithmetic; retain the verified Gregorian/Temporal contract or prove a Rune algorithm."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "BusinessCenterHolidays"
+      },
+      "signatureSha256": "a7259580d10fe77d23b5e4cf2526472b7389fc65dfa00924789daf469996c3e0",
+      "route": "data-backed",
+      "requirements": "Select holidays from a supplied, versioned business-center calendar; acquisition is a separate port."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "DateDifference"
+      },
+      "signatureSha256": "8ec569aaaf84f0f1038aed9065f705a17f509566afe2be72bb80117878328184",
+      "route": "primitive-backed",
+      "requirements": "Signed Gregorian calendar-day arithmetic; existing native primitive can support Rune callers."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "DayOfWeek"
+      },
+      "signatureSha256": "16efe6a69807095cdc25f759e82a28cb65ffa21fc5d8091f67f476a6a2513b93",
+      "route": "primitive-backed",
+      "requirements": "Gregorian weekday calculation or a shared date primitive; no external data required."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "LeapYearDateDifference"
+      },
+      "signatureSha256": "8ec569aaaf84f0f1038aed9065f705a17f509566afe2be72bb80117878328184",
+      "route": "primitive-backed",
+      "requirements": "Count days falling in leap years, including signed ranges; prove a Rune algorithm or reuse the primitive."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "Now"
+      },
+      "signatureSha256": "7c9c8d6626575348c097c21e36f1fae1407595293201e3af5841a34b4317e649",
+      "route": "clock-backed",
+      "requirements": "A supplied clock/native leaf is required; Rune may compose it, but cannot independently observe system time."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "PopOffDateList"
+      },
+      "signatureSha256": "93f546e8f2a40d30da1965815cc7f9eb5eb36f561d685465619a4f30d5b972d2",
+      "route": "rune-source",
+      "requirements": "Explicit Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; retain the native fallback for very large lists.",
+      "implementation": "examples/implementations/cdm/date-list.rosetta"
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "ResolveAdjustableDate"
+      },
+      "signatureSha256": "c6c99ec21405f999089a7da2ed903271c1b174498bd3c3e0a86b7f2643561ab9",
+      "route": "data-backed",
+      "requirements": "Adjustment/relative-date rules in Rune; supplied calendars and date primitives underneath."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "ResolveAdjustableDates"
+      },
+      "signatureSha256": "fbad00f8c027526be3fd2a5cdcf6ccc2fee5048160ddd318c4e7adaed177201b",
+      "route": "data-backed",
+      "requirements": "Resolve collections/periodic dates in Rune using the same calendar and date contracts."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "TimeZoneFromBusinessCenterTime"
+      },
+      "signatureSha256": "74babede3a9e41e324cb7d6c892a20f114a950e41204e144f1d220be80fe37e8",
+      "route": "data-backed",
+      "requirements": "Business-center/time-zone mapping can be supplied data; named-zone/DST behavior needs a proven boundary."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "ToTime"
+      },
+      "signatureSha256": "65589f3d0214f445482f07b790fdad320d89896adc032d6620b7dc6f4e354d5e",
+      "route": "primitive-backed",
+      "requirements": "Clock-value construction and range rejection; assess direct Rune construction before retaining a native leaf."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime",
+        "kind": "RosettaFunction",
+        "name": "Today"
+      },
+      "signatureSha256": "e4c0fd2119d49cdc97db0d2410ef36947db0d93af24e6eb49d0bdc2aebfe10ed",
+      "route": "clock-backed",
+      "requirements": "A supplied clock/native leaf is required; UTC date selection can be composed in Rune."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime.daycount",
+        "kind": "RosettaFunction",
+        "name": "DayCountBasis"
+      },
+      "signatureSha256": "d4825945990395f3462abb5aa36ecb0d0542f3b6a859e3566b30a6380781fd5a",
+      "route": "upstream-variants",
+      "requirements": "Nine upstream dispatch bodies. Audit missing enum cases/defaults and execute existing bodies before adding replacements."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.datetime.daycount",
+        "kind": "RosettaFunction",
+        "name": "YearFraction"
+      },
+      "signatureSha256": "4faee30755cd3528b774f662507c18a1a18ff3daa7271ac8bb4e69fd2ef625a9",
+      "route": "upstream-variants",
+      "requirements": "Eleven upstream dispatch bodies. Check selectors and transitive date/calendar dependencies; preserve upstream formulas."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.math",
+        "kind": "RosettaFunction",
+        "name": "RoundToNearest"
+      },
+      "signatureSha256": "d00a1f99fe0b016b9da8352113b54076d06b90fc7fc9ef8deac6deb0a6c5288d",
+      "route": "primitive-backed",
+      "requirements": "Exact decimal division/rounding rules, negative values and division errors; no binary-float approximation."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.math",
+        "kind": "RosettaFunction",
+        "name": "RoundToPrecision"
+      },
+      "signatureSha256": "8f16e0a5ebde531901e7f01d51fe6088faa588c523209b0a5a4b9f501ebce4bf",
+      "route": "primitive-backed",
+      "requirements": "Decimal scale and UP/DOWN/HALF_UP behavior; decide numeric versus trailing-zero representation explicitly."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.math",
+        "kind": "RosettaFunction",
+        "name": "RoundToSignificantFigures"
+      },
+      "signatureSha256": "96572a19a535f4a3cda29a802c408fd15b3161712319105df2af941de4325d9b",
+      "route": "primitive-backed",
+      "requirements": "Exact decimal precision/rounding; a shared decimal primitive may leave policy/composition in Rune."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.math",
+        "kind": "RosettaFunction",
+        "name": "VectorGrowthOperation"
+      },
+      "signatureSha256": "6632a82facb99c780c4f61ae3fd8a22a1a7a53b2eb1724147ae444596a813662",
+      "route": "candidate",
+      "requirements": "Cumulative products including the initial base; prove collection accumulation and decimal parity before choosing Rune or TS."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.math",
+        "kind": "RosettaFunction",
+        "name": "VectorOperation"
+      },
+      "signatureSha256": "09049d3b917a3718651b3de30117242627a916c55f8623249b3238ea5939734c",
+      "route": "candidate",
+      "requirements": "Pairwise operations and zero-padding; prove positional pairing, decimal division and arithmetic-error policy."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.base.staticdata.codelist",
+        "kind": "RosettaFunction",
+        "name": "LoadCodeList"
+      },
+      "signatureSha256": "b740a22b34402bd75006f6e55622427cd9629667ed9dcfc5787fb668fc4ab28d",
+      "route": "data-backed",
+      "requirements": "Filter/construct CodeList from prepared resources; reuse #645 resolution instead of fetching a scheme URI."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.common",
+        "kind": "RosettaFunction",
+        "name": "Create_BillingSummary"
+      },
+      "signatureSha256": "8fad3f542138fa9a24c6f73c6d9d40377f623765ed8f69e59d70958944495a6e",
+      "route": "candidate",
+      "requirements": "Aggregation/construction over supplied billing records; establish authoritative grouping and amount rules."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.common",
+        "kind": "RosettaFunction",
+        "name": "EmptyExecutionDetails"
+      },
+      "signatureSha256": "184aa248e5de0b42f389c5f32cd5ace49aa893846f17c621f7fd551ccb7cebdc",
+      "route": "rune-source",
+      "requirements": "Explicit Rune source returns the absent optional value; verified against the pinned signature, generated TypeScript/Python and Prototype.",
+      "implementation": "examples/implementations/cdm/event-common.rosetta"
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.common",
+        "kind": "RosettaFunction",
+        "name": "EmptyTransferHistory"
+      },
+      "signatureSha256": "d6c7b549c6f548e6fcfc558ba53e643b8ddd427bce2968f028102855efe0ddd0",
+      "route": "rune-source",
+      "requirements": "Explicit Rune source returns an empty collection; verified against the pinned signature, generated TypeScript/Python and Prototype.",
+      "implementation": "examples/implementations/cdm/event-common.rosetta"
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.common",
+        "kind": "RosettaFunction",
+        "name": "NewFloatingPayout"
+      },
+      "signatureSha256": "675ee47cd3be6affb7e9595944f43f1af2a33e08d4a9015fb3ee27f59ca2ce3f",
+      "route": "candidate",
+      "requirements": "Construct from supplied confirmation terms; verify template/default rules and the 7.9.0 qualified input type."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.common",
+        "kind": "RosettaFunction",
+        "name": "ResolveCashSettlementDate"
+      },
+      "signatureSha256": "17f6cd99af6d189b7d63d10c30e4813cb62530614dc21cc239171bb92ae39541",
+      "route": "data-backed",
+      "requirements": "Product-specific settlement selection in Rune, with calendar/date services where required; establish authoritative rules."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.common",
+        "kind": "RosettaFunction",
+        "name": "ResolveReset"
+      },
+      "signatureSha256": "d7b5c147c5f32f024e1324d5d30398c26f5291c64e3e6a6f3add1cda2498aaec",
+      "route": "data-backed",
+      "requirements": "Adopter-defined lookup from supplied reset state/data; retain the CDM public signature via a bound helper."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.instructioncomposition.reset",
+        "kind": "RosettaFunction",
+        "name": "ExtractFloatingRateOptionData"
+      },
+      "signatureSha256": "84e680570f4e3446a280979cb3756c88557f1930e33f2eea4bc0fdc23fa0d241",
+      "route": "data-backed",
+      "requirements": "Select FRO metadata by trade date and index from a supplied versioned matrix."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.instructioncomposition.reset",
+        "kind": "RosettaFunction",
+        "name": "GetMarketRates"
+      },
+      "signatureSha256": "047f971b21fc120be6037e9383e9942da857db2626298933cfd3fbd69223a2bb",
+      "route": "data-backed",
+      "requirements": "Select supplied observations by index/date; network/storage acquisition remains a separate adapter."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.instructioncomposition.reset",
+        "kind": "RosettaFunction",
+        "name": "GetNonBusinessDates"
+      },
+      "signatureSha256": "ef8a8aafcc27f5e307bae98f2677ecc63e483458e6cb363f267511b929c2ef53",
+      "route": "data-backed",
+      "requirements": "Filter/derive dates using supplied calendars; preserve the period-or-dates input condition and output cardinality."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.position",
+        "kind": "RosettaFunction",
+        "name": "EvaluatePortfolioState"
+      },
+      "signatureSha256": "54fa32fb55fd7737c7f2d2840ce94edd63baea072e78a2ef6bb22c446d8b7e34",
+      "route": "assess",
+      "requirements": "Aggregation is expressible, but confirm required portfolio/state data and the aggregation policy before promising a self-contained body."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.event.position",
+        "kind": "RosettaFunction",
+        "name": "InterpolateForwardRate"
+      },
+      "signatureSha256": "bc888c626bc77f5080605834f1dbefd64a382ce31d629c20f12675a257af939a",
+      "route": "data-backed",
+      "requirements": "Supply the required curve/quotes and establish interpolation/extrapolation rules; numeric primitives may be needed."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.ingest.fpml.confirmation.common",
+        "kind": "RosettaFunction",
+        "name": "StringContains"
+      },
+      "signatureSha256": "9c2bdd804f5594df3a12be440bb77943b9c8c18c6dac09776969aeb1d58c69e8",
+      "route": "primitive-backed",
+      "requirements": "Current Rune contains means list membership; substring/UTF-16 semantics need a proper string primitive, not that operator."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+        "kind": "RosettaFunction",
+        "name": "CreateAssetKey"
+      },
+      "signatureSha256": "a770523846f59e001b8a1c2705f3c68d544121d66baad418e55f276c62f2f8d4",
+      "route": "primitive-backed",
+      "requirements": "Rune can compose key fields; verify canonicalization/hash/collision rules before choosing a string/hash primitive."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+        "kind": "RosettaFunction",
+        "name": "CreateKey"
+      },
+      "signatureSha256": "f465cd4761a9ee7956ab41ff18960aa4ddf8b23372f7fdb0bc633593130065b3",
+      "route": "primitive-backed",
+      "requirements": "Verify optional ID/leg handling and exact key policy; avoid inventing a replacement identifier scheme."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+        "kind": "RosettaFunction",
+        "name": "CreateKeyForQuotedCurrencyPair"
+      },
+      "signatureSha256": "db5344ab6504f86e847e4d0d1e81ca8bf8d668c034c6bf886159ad7387a79958",
+      "route": "primitive-backed",
+      "requirements": "Verify quote-pair canonicalization and key policy; reuse any shared key primitive."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+        "kind": "RosettaFunction",
+        "name": "MapCommodityOptionStrikePriceSchedule"
+      },
+      "signatureSha256": "2a1df416bec8c36a3a15d32377b8d055630c467dab205586c8fdb5ef305f5afd",
+      "route": "candidate",
+      "requirements": "Construct dated values from positional pairs; prove list pairing and upstream missing-date/extra-date behavior."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.ingest.fpml.confirmation.product.commodityoption",
+        "kind": "RosettaFunction",
+        "name": "CalculateCommodityCalculationPeriods"
+      },
+      "signatureSha256": "4527dbb259ec8516a40bfa45a6284dd30f037a742a90191c8a748df740656646",
+      "route": "data-backed",
+      "requirements": "Schedule rules can be Rune; date/calendar primitives, schedule conventions and stub behavior need parity evidence."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.observable.asset.calculatedrate",
+        "kind": "RosettaFunction",
+        "name": "ComputeCalculationPeriod"
+      },
+      "signatureSha256": "8bcd355794fd81252ddf563d19bed6e92851e51103e42e923edcce9213f0e9c6",
+      "route": "upstream-variants",
+      "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.observable.asset.calculatedrate",
+        "kind": "RosettaFunction",
+        "name": "IndexValueObservation"
+      },
+      "signatureSha256": "6f41556f4cc8435894662a1abd70528fe9bfb4d48577a45e8a1bd4eb796bc5d3",
+      "route": "data-backed",
+      "requirements": "Read supplied index observations for the requested date; define absent/multiple-observation behavior."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.observable.asset.fro",
+        "kind": "RosettaFunction",
+        "name": "FloatingRateIndexMetadata"
+      },
+      "signatureSha256": "baea62c72400b09997b3c981b048e24b3a13149468d5b970514e38f8a46b533c",
+      "route": "data-backed",
+      "requirements": "Select from supplied, versioned FRO metadata; missing data remains explicit."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.observable.common",
+        "kind": "RosettaFunction",
+        "name": "ResolveTimeZoneFromTimeType"
+      },
+      "signatureSha256": "71f6425a223c3660f631d5bd9abb62c2ca9b352a193542b92800dbbd4638f76b",
+      "route": "data-backed",
+      "requirements": "Select supplied asset/time-type mappings; zone/DST resolution stays behind a proven primitive if needed."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.observable.event",
+        "kind": "RosettaFunction",
+        "name": "ResolveObservation"
+      },
+      "signatureSha256": "9740cc677ca53ee575d9c416e4a958e19a6c0f55cda5e7398a4d5cbaeb31dce3",
+      "route": "data-backed",
+      "requirements": "Resolve supplied observations and apply averaging in Rune; establish identity, missing-value and numeric contracts."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.asset",
+        "kind": "RosettaFunction",
+        "name": "ResolveRateIndex"
+      },
+      "signatureSha256": "80e17f86edb11c1b502c91de7f336540d9e4dc3fe2af868de02208c72b7545cf",
+      "route": "data-backed",
+      "requirements": "Lookup a supplied index value; a constant/no-op implementation is not a general rate resolver."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.asset.floatingrate",
+        "kind": "RosettaFunction",
+        "name": "ProcessFloatingRateReset"
+      },
+      "signatureSha256": "71b60e3b112027ce69e1a59d2b354c86f6cbc6e17430918164f3384eb8788798",
+      "route": "upstream-variants",
+      "requirements": "Five selectors, four with bodies; CompoundIndex has no body. Follow rate/metadata/calendar/vector dependencies."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.collateral",
+        "kind": "RosettaFunction",
+        "name": "CheckEligibilityForProduct"
+      },
+      "signatureSha256": "39929306160b4581e210df12206ba5cb3c42a1117937d63251a4253945917451",
+      "route": "data-backed",
+      "requirements": "Eligibility rules can be Rune over supplied asset/issuer facts; confirm required data and authoritative policy."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.common.schedule",
+        "kind": "RosettaFunction",
+        "name": "CalculationPeriod"
+      },
+      "signatureSha256": "fd7a4d383f11b06e72005ea161072f07f3856ebe710cb672ba4984ec042ff95f",
+      "route": "data-backed",
+      "requirements": "Select a period from a proven schedule; supplied calendars/date primitives and conventions may be required."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.common.schedule",
+        "kind": "RosettaFunction",
+        "name": "CalculationPeriodRange"
+      },
+      "signatureSha256": "5e0c258e25e6d5365596ba13c5fc0011025bdfdbfa7cb42664e5d00e296042bb",
+      "route": "data-backed",
+      "requirements": "Construct/adjust period boundaries in Rune; establish missing-date and calendar/convention behavior."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.common.schedule",
+        "kind": "RosettaFunction",
+        "name": "CalculationPeriods"
+      },
+      "signatureSha256": "a40f580b93d908280134155543ecb6e9456a9f987a85da619f2db1a6975d6da4",
+      "route": "data-backed",
+      "requirements": "Generate schedules in Rune using supplied calendars and proven roll/stub/date primitives."
+    },
+    {
+      "symbol": {
+        "model": "cdm",
+        "namespace": "cdm.product.common.schedule",
+        "kind": "RosettaFunction",
+        "name": "PeriodsInYear"
+      },
+      "signatureSha256": "de2c6615813e4a3ff5eaf85333aa9ef8836c5ee354e9a1a3cd5763158d954678",
+      "route": "candidate",
+      "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics."
+    }
+  ]
+}

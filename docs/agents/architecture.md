@@ -1352,6 +1352,19 @@ the shared Git reader, registers model ownership before linking and compares the
 [native coverage inventory](../implementations/README.md); known unavailable
 entries remain explicit and must never be described as complete coverage.
 
+The native inventory also binds Rune-feasibility assessments to the exact cohort
+and linked signatures. Explicit Rune implementation sources use ordinary
+`override namespace` linking; the audit verifies their source hashes and full
+reference signatures without installing runtime callbacks. Native fallback status,
+provided Rune source, upstream dispatch bodies and prepared data are distinct facts.
+The #646 issue table is rendered from that inventory rather than another target-status list.
+Source-only preview workers register the current user roots before building and
+initialize Core's shared resolution index. A later capture removes the preceding
+source roots/exports, preserving a newer curated owner of the same URI. This keeps
+namespace overrides effective for input validation and execution and releases
+removed overrides. Worker tests externalize Core alongside Codegen/project-runtime
+so these consumers share Core's generation-local declaration identity registry.
+
 ### Materialized code-list enums
 
 After linking and validating explicit resource bindings, project-runtime prepares

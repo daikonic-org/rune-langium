@@ -40,6 +40,8 @@ export default defineConfig({
         // generation-local identity registry, rather than loading core once
         // through Vite and a second time through Node's codegen dependency.
         external: [
+          /@rune-langium\/core(\/|$)/,
+          /packages\/core\/dist/,
           /@rune-langium\/codegen(\/|$)/,
           /packages\/codegen\/dist/,
           /@rune-langium\/project-runtime(\/|$)/,

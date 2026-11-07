@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.common
+version "1.0.0"
+
+func EmptyExecutionDetails:
+    output:
+        executionDetails ExecutionDetails (0..1)
+    set executionDetails: empty
+
+func EmptyTransferHistory:
+    output:
+        emptyTransferHistory TransferState (0..*)
+    set emptyTransferHistory: []
