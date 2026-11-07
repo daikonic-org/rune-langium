@@ -90,6 +90,17 @@ available; no system preference silently replaces an explicit choice.
 
 ## Review
 
+Change feedback follows the effect in affected views: additions use the existing
+success color and a short expansion, modifications use info color with a brief
+highlight, and removals use danger color on an inert fading/collapsing snapshot.
+Highlight tint stays inside content boxes, leaving padding gutters and native
+control/focus borders clear. Text-range cues use the shared small corner radius.
+The active editing surface stays quiet; a commit after blur still suppresses its
+origin. Source/projection cues are local to changed ranges. Initial display,
+navigation and background hydration do not animate. Reduced motion retains the
+color feedback without spatial movement. These cues do not replace validation or
+Save state, do not move focus/scroll, and do not add per-keystroke announcements.
+
 Check desktop and 390px launcher/workbench, actual keyboard focus, dialogs and
 menus, code/validation colors, persisted preference and both dark transitions.
 Use the light-theme browser journey for repeatable captures and contrast evidence.

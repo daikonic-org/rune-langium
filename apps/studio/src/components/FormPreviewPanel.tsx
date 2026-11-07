@@ -66,6 +66,9 @@ import {
   splitChoiceArmFields
 } from '../services/preview-validator.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { useChangeFeedback, useFeedbackRevision } from '../hooks/useChangeFeedback.js';
+import { previewFeedbackItems } from '../services/feedback-items.js';
+import { ChangeFeedbackText } from './ChangeFeedbackText.js';
 
 const PreviewDefinitions = createContext<FormPreviewSchema['definitions']>(undefined);
 interface PreviewDetailEntry {
@@ -147,6 +150,8 @@ export const FormPreviewPanel = withInstrumentation(
     layoutParentPath
   }: FormPreviewPanelProps): ReactElement {
     const isControlled = values !== undefined;
+    const authoredRevision = useFeedbackRevision();
+    const acceptedSampleValues = useRef<object | undefined>(undefined);
     const [detailState, setDetailState] = useState<{ targetId: string; stack: PreviewDetailEntry[] }>({
       targetId: '',
       stack: []
@@ -180,6 +185,11 @@ export const FormPreviewPanel = withInstrumentation(
       schema ? s.hydrationRetriesRemaining[schema.targetId] : undefined
     );
     const isResolvingReferences = hydrationRetriesRemaining !== undefined && hydrationRetriesRemaining > 0;
+    const formFeedback = useChangeFeedback(
+      schema?.targetId ?? '',
+      useMemo(() => previewFeedbackItems(schema?.fields ?? []), [schema?.fields]),
+      Boolean(schema) && !isResolvingReferences
+    );
     const loggedUnsupportedSchemaRef = useRef<FormPreviewSchema | undefined>(undefined);
 
     // Seed from any execution result already cached in the store at mount
@@ -300,6 +310,7 @@ export const FormPreviewPanel = withInstrumentation(
     const applyValidation = useCallback(
       (nextValues: Record<string, unknown>, validated: boolean) => {
         if (!schema) return;
+        if (nextValues !== activeSample?.values) acceptedSampleValues.current = nextValues;
         if (isControlled) {
           // Structural + condition validation already round-trips through
           // the worker via the caller's own onValuesChange handler (e.g.
@@ -322,7 +333,7 @@ export const FormPreviewPanel = withInstrumentation(
           dispatchValidate(schema.targetId, nextValues);
         }
       },
-      [dispatchValidate, isControlled, onValuesChange, schema, updateSampleValues]
+      [activeSample?.values, dispatchValidate, isControlled, onValuesChange, schema, updateSampleValues]
     );
 
     const handleFieldBlur = useCallback(
@@ -451,6 +462,7 @@ export const FormPreviewPanel = withInstrumentation(
 
     const handleReset = useCallback(() => {
       if (!schema) return;
+      acceptedSampleValues.current = defaultValues;
       if (isControlled) {
         // errors/valid/validated are owned by the caller (props, sourced
         // from instance-store.ts's real validationErrors) — no local state
@@ -533,6 +545,7 @@ export const FormPreviewPanel = withInstrumentation(
 
     return (
       <section
+        ref={formFeedback}
         role="region"
         aria-label={ariaLabel}
         data-testid="panel-formPreview"
@@ -720,7 +733,12 @@ export const FormPreviewPanel = withInstrumentation(
                         className="preview-panel__sample-output studio-scroll max-h-56 overflow-auto p-2 text-2xs leading-5 text-foreground"
                         data-testid="sample-data-output"
                       >
-                        {activeSample?.serialized ?? '{}'}
+                        <ChangeFeedbackText
+                          text={activeSample?.serialized ?? '{}'}
+                          scope={schema.targetId}
+                          revision={{ ...authoredRevision, values: acceptedSampleValues.current }}
+                          ready={!isResolvingReferences && status.state !== 'waiting'}
+                        />
                       </pre>
                       <p role="status" aria-live="polite" className="text-2xs text-muted-foreground">
                         {copyFeedback ?? 'Sample data stays in-memory until you explicitly copy it.'}

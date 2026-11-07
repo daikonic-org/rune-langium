@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { useLayoutEffect } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { it, expect, vi } from 'vitest';
 import { loadInspectorFixture } from '../helpers/inspector-fixture.js';
 import { useModelSourceSync, type SourceSyncSnapshot } from '../../src/hooks/useModelSourceSync.js';
-import { parseWorkspace } from '@rune-langium/core';
+import { useStore } from 'zustand';
+import { parse, parseWorkspace } from '@rune-langium/core';
+import { createSynonymDraft } from '../../src/store/metadata-ops.js';
 import { createEditorStore } from '../../src/store/editor-store.js';
 
 it('flushes a rename into its owning file before React rerenders, preserving a same-namespace sibling file', async () => {
@@ -135,4 +138,151 @@ it('refuses a snapshot whose parse epoch has no adopted source baseline', async 
     })
   ).rejects.toThrow('Source has changed');
   expect(handler).not.toHaveBeenCalled();
+});
+
+it('serializes a new input synonym after its definition has been reparsed', async () => {
+  const source = `namespace demo
+synonym source FpML
+func Identity:
+  inputs:
+    value string (1..1)
+      <"Function input">
+  output:
+    result string (1..1)
+  set result: value
+`;
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Identity').id;
+  const state = store.getState();
+  const published = vi.fn();
+  const { result } = renderHook(() =>
+    useModelSourceSync(
+      state.nodes,
+      state.edges,
+      published,
+      state.parseEpoch,
+      [],
+      new Map([['demo', source]]),
+      [],
+      new Map([
+        [
+          'details.rosetta',
+          {
+            namespace: 'demo',
+            text: source,
+            nodeIds: new Set([id]),
+            sourceUris: new Set([getNode('Identity').meta.sourceUri!])
+          }
+        ]
+      ])
+    )
+  );
+  const target = store.getState().captureMetadataTarget(id, ['inputs', 0])!;
+  const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
+  expect(store.getState().applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value }).status).toBe(
+    'committed'
+  );
+  const latest = store.getState();
+  await act(async () =>
+    result.current.flush({
+      nodes: latest.nodes,
+      edges: latest.edges,
+      parseEpoch: latest.parseEpoch,
+      patches: latest.pendingEditPatches,
+      inversePatches: latest.pendingInversePatches
+    })
+  );
+  expect(published.mock.calls.at(-1)![0].get('details.rosetta')).toContain('[synonym FpML value "Wire value"]');
+});
+
+it('does not publish an older render snapshot after an explicit flush captures a newer edit', async () => {
+  const source = `namespace demo
+synonym source FpML
+func Identity:
+  inputs: value string (1..1)
+  output: result string (1..1)
+  set result: value
+`;
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Identity').id;
+  const initial = store.getState();
+  const published = vi.fn();
+  const { rerender } = renderHook(
+    ({ snapshot, flushLatest }) => {
+      const handle = useModelSourceSync(
+        snapshot.nodes,
+        snapshot.edges,
+        published,
+        snapshot.parseEpoch,
+        snapshot.pendingEditPatches,
+        new Map([['demo', source]]),
+        snapshot.pendingInversePatches
+      );
+      useLayoutEffect(() => {
+        if (!flushLatest) return;
+        const latest = store.getState();
+        void handle.flush({
+          nodes: latest.nodes,
+          edges: latest.edges,
+          parseEpoch: latest.parseEpoch,
+          patches: latest.pendingEditPatches,
+          inversePatches: latest.pendingInversePatches
+        });
+      }, [flushLatest, handle.flush]);
+    },
+    { initialProps: { snapshot: initial, flushLatest: false } }
+  );
+  const target = store.getState().captureMetadataTarget(id, ['inputs', 0])!;
+  expect(store.getState().applyMetadataCommand(target, { kind: 'definition', value: 'Function input' }).status).toBe(
+    'committed'
+  );
+  const olderRender = store.getState();
+  const current = store.getState().captureMetadataTarget(id, ['inputs', 0])!;
+  const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
+  expect(store.getState().applyMetadataCommand(current, { kind: 'append', field: 'synonyms', value }).status).toBe(
+    'committed'
+  );
+  await act(async () => rerender({ snapshot: olderRender, flushLatest: true }));
+  expect(published.mock.calls.at(-1)![0].get('demo')).toContain('[synonym FpML value "Wire value"]');
+  expect(published).toHaveBeenCalledTimes(1);
+});
+
+it('publishes an edit made after a parse arrives but before its baseline is adopted', async () => {
+  const source = `namespace demo
+synonym source FpML
+func Identity:
+  inputs: value string (1..1)
+  output: result string (1..1)
+  set result: value
+`;
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Identity').id;
+  const published = vi.fn();
+  let baseline = source;
+  renderHook(() => {
+    const state = useStore(store);
+    return useModelSourceSync(
+      state.nodes,
+      state.edges,
+      published,
+      state.parseEpoch,
+      state.pendingEditPatches,
+      new Map([['demo', baseline]]),
+      state.pendingInversePatches,
+      undefined,
+      store
+    );
+  });
+  baseline = source.replace('value string (1..1)', 'value string (1..1) <"Source definition">');
+  const parsed = await parse(baseline);
+  expect(parsed.hasErrors).toBe(false);
+  await act(async () => {
+    store.getState().loadModels(parsed.value);
+    const target = store.getState().captureMetadataTarget(id, ['inputs', 0])!;
+    const value = createSynonymDraft('body', 'FpML', 'Wire value')!;
+    expect(store.getState().applyMetadataCommand(target, { kind: 'append', field: 'synonyms', value }).status).toBe(
+      'committed'
+    );
+  });
+  expect(published.mock.calls.at(-1)![0].get('demo')).toContain('[synonym FpML value "Wire value"]');
 });

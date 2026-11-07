@@ -22,7 +22,15 @@ test('J20 pinned reference artifacts and original source are reused after reload
     await expect(editor).toContainText('func Abs:');
     return codeMirrorDocument(editor);
   }
+  async function preview() {
+    const panel = page.getByTestId('panel-formPreview');
+    await expect(panel.getByRole('heading', { name: 'Abs', exact: true })).toBeVisible();
+    await expect(panel.getByText('Generating preview', { exact: false })).toHaveCount(0);
+    await expect(panel.getByText('Ready to run function', { exact: true })).toBeVisible();
+    await expect(panel.getByLabel('Arg', { exact: true })).toBeVisible();
+  }
   const original = await evidence.measure('curatedSourceOpen', 'cold pinned Abs', source);
+  await evidence.measure('formRender', 'cold pinned Abs', preview);
   expect(artifactRequests.length).toBeGreaterThan(0);
   const cold = [...artifactRequests];
   await evidence.checkpoint('cold-pinned-original-source');
@@ -30,6 +38,7 @@ test('J20 pinned reference artifacts and original source are reused after reload
   await page.reload();
   evidence.markNavigation();
   expect(await evidence.measure('curatedSourceOpen', 'warm pinned Abs', source)).toBe(original);
+  await evidence.measure('formRender', 'warm pinned Abs', preview);
   expect(artifactRequests).toEqual(cold);
   await evidence.checkpoint('warm-pinned-source-no-artifact-refetch');
 });

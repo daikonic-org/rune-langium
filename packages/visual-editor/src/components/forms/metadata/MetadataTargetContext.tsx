@@ -23,6 +23,7 @@ export interface MetadataTargetBinding {
   node: MetadataNode;
   formPrefix?: string;
   readOnly: boolean;
+  commitBlocked: boolean;
   capabilities: MetadataCapabilities;
   guarded: boolean;
   envelope(command: MetadataCommand): PendingMetadata;
@@ -60,6 +61,7 @@ export function useMetadataBinding(props: {
   selection: InspectorSelection;
   actions?: InspectorMetadataActions;
   readOnly?: boolean;
+  commitBlocked?: boolean;
 }): MetadataTargetBinding {
   const current = useLatestRef(props);
   const commitPending = useCallback(
@@ -69,7 +71,7 @@ export function useMetadataBinding(props: {
       const row = pending.rowKey === '$root' ? undefined : live.selection.resolve(pending.rowKey, pending.scopeKey);
       if (pending.rowKey !== '$root' && !row) return { status: 'stale' };
       if (row && !row.inherited && !row.path) return { status: 'unsupported' };
-      if (live.readOnly || row?.inherited) return { status: 'readOnly' };
+      if (live.readOnly || live.commitBlocked || row?.inherited) return { status: 'readOnly' };
       if (!live.actions) return { status: 'unsupported' };
       const target = live.actions.captureMetadataTarget(live.nodeId, row?.path ?? []);
       return target ? live.actions.applyMetadataCommand(target, pending.command) : { status: 'stale' };
@@ -92,6 +94,7 @@ export function useMetadataBinding(props: {
     node,
     guarded: Boolean(props.actions),
     readOnly: Boolean(props.readOnly || props.row?.inherited),
+    commitBlocked: Boolean(props.commitBlocked),
     formPrefix: props.row?.inherited ? undefined : (props.row?.path ?? []).join('.'),
     capabilities: getMetadataCapabilities(node),
     envelope,

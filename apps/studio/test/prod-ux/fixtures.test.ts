@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
-import { computeJourneyId } from './fixtures.js';
+import { computeJourneyId, isUnexpectedReferenceError } from './fixtures.js';
 import { appendJourneyRecord, REPORT_DIR, EvidenceCollector, type JourneyRecord } from './evidence.js';
 
 const MANIFEST_PATH = path.join(REPORT_DIR, 'run-manifest.json');
@@ -161,5 +161,18 @@ describe('operation evidence across navigation', () => {
       { ...entry, navigationGeneration: 0 },
       { ...entry, navigationGeneration: 1 }
     ]);
+  });
+});
+
+describe('unexpected reference errors', () => {
+  it.each(['ComputedScopes state', 'AST node has no document', 'Cyclic reference resolution detected'])(
+    'rejects linker failures: %s',
+    (message) => {
+      expect(isUnexpectedReferenceError(`Reference error: ${message}`)).toBe(true);
+    }
+  );
+  it('allows intentional API and validation failures to retain their journey assertions', () => {
+    expect(isUnexpectedReferenceError('Failed to load resource: 500')).toBe(false);
+    expect(isUnexpectedReferenceError('Invalid datetime input')).toBe(false);
   });
 });

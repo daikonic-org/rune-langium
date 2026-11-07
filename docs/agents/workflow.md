@@ -52,6 +52,16 @@ instrumentation lowering pass to accommodate generated model decorators.
 
 ## Browser CI Dependencies
 
+Change feedback: run Studio's `change-feedback`, `ChangeFeedbackText`, SourceEditor,
+CodePreviewPanel and FormPreviewPanel unit suites. The real-browser
+`test/e2e/change-feedback.spec.ts` checks both edit directions, quiet origins,
+inert/temporary removals, exact sample JSON and reduced motion. It also checks
+Structure-origin edits, Graph targets and quiet canvas movement. Run against an
+owned local Vite server and preserve existing development servers. The same suite
+is included in the optimized pre-merge `candidate-polish` project. Visual cues
+are not proof that a model edit or persistence operation succeeded; the existing
+canonical edit, source-publication and Save checks remain authoritative.
+
 The main CI matrix runs the complete package suite (`lint-and-test`) and root V8
 coverage (`coverage`) in parallel, each with the existing 30-minute job limit.
 They share fixture installation and build steps; lint, corpus verification and
@@ -196,8 +206,12 @@ CodeMirror's rendered DOM is virtualized and is not the full document. Review th
 manifest, screenshots, traces, endpoint checks and canonical deployment separately;
 a passing selector does not establish that the visible state is useful. Keep real
 production failures visible instead of weakening assertions or adding ledger entries.
-Production journey teardown also fails on premature `ComputedScopes` reference
-resolution warnings, retaining the console evidence and a failing manifest verdict.
+Production journey teardown also fails on premature `ComputedScopes`, detached
+`AST node has no document`, and cyclic reference resolution errors, retaining the
+console evidence and a failing manifest verdict. J20 checks both original source
+bytes and a ready function preview before its cold/warm checkpoints and cache
+request comparison. Source opening has a 10-second budget; subsequent preview
+readiness uses the existing 5-second form budget.
 Blank-reference ready checkpoints require selected Inspector content, not only
 the declaration inventory or preview form.
 To validate candidate assets against live endpoints without deploying, serve an

@@ -73,7 +73,7 @@ import { computeLayoutAsync, cancelAsyncLayout } from '../layout/layout-worker.j
 import { findInheritanceGroups } from '../layout/grouped-layout.js';
 import { getNodeHeight, getNodeWidth } from '../layout/node-dimensions.js';
 import { GRAPH_NODE_CSS_VARS } from '../layout/graph-node-geometry.js';
-import { shouldReplaceLayoutPositions } from './layout-sync.js';
+import { preserveNodeMeasurements, shouldReplaceLayoutPositions } from './layout-sync.js';
 import { modelsToAst } from '../adapters/model-to-ast.js';
 import { indexById } from '@rune-langium/core';
 import { renderModel } from '@rune-langium/codegen/rosetta';
@@ -348,6 +348,14 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<DisplayGraphNode>([]);
+  const installLayoutNodes = useCallback(
+    (next: TypeGraphNode[]) => {
+      // ResizeObserver and layout can publish in the same frame. A position-only
+      // result must not erase dimensions already accepted in that frame.
+      setNodes((current) => preserveNodeMeasurements<DisplayGraphNode>(current, next));
+    },
+    [setNodes]
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState<TypeGraphEdge>([]);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
@@ -370,7 +378,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
 
     if (prev.length === 0 || layoutChanged) {
       // Initial load — set nodes; viewport restore fires in the nodesInitialized effect below
-      setNodes(layoutedNodes);
+      installLayoutNodes(layoutedNodes);
       setEdges(visibleEdges);
       return;
     }
@@ -395,7 +403,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
       return merged;
     });
     setEdges(visibleEdges);
-  }, [layoutedNodes, visibleEdges, setNodes, setEdges]);
+  }, [layoutedNodes, visibleEdges, setNodes, setEdges, installLayoutNodes]);
 
   const graphNodes = useMemo(() => nodes.filter(isTypeGraphNode), [nodes]);
   const nodesInitialized = useNodesInitialized();
@@ -499,7 +507,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
       if (relayout && layoutEngine === 'elk') {
         computeLayoutAsync(relayoutSourceNodes, relayoutSourceEdges, effectiveLayout).then((relayoutedNodes) => {
           if (!relayoutedNodes) return;
-          setNodes(relayoutedNodes);
+          installLayoutNodes(relayoutedNodes);
           const focusedRelayoutedNode = focusNodeId
             ? relayoutedNodes.find((node) => node.id === focusNodeId)
             : undefined;
@@ -532,7 +540,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         return;
       }
       if (relayout) {
-        setNodes(nextNodes);
+        installLayoutNodes(nextNodes);
       }
       const focusedNode = focusNodeId ? nextNodes.find((node) => node.id === focusNodeId) : undefined;
       if (mode === 'center-and-fit-node' && focusedNode) {
@@ -559,7 +567,7 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         fitOptions ?? (focusMode ? { duration: 220, padding: 0.22, maxZoom: 1.08 } : { duration: 200, padding: 0.16 })
       );
     },
-    [activeLayout, edges, focusMode, graphNodes, scheduleFitView, setCenter, setNodes]
+    [activeLayout, edges, focusMode, graphNodes, scheduleFitView, setCenter, installLayoutNodes]
   );
 
   // Remeasuring can move a selected node even when its identity is unchanged.
@@ -601,16 +609,25 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
       computeLayoutAsync(graphNodes, edges, activeLayout).then((relayoutedNodes) => {
         if (!relayoutedNodes) return;
         if (shouldReplaceLayoutPositions(graphNodes, relayoutedNodes)) {
-          setNodes(relayoutedNodes);
+          installLayoutNodes(relayoutedNodes);
         }
       });
       return;
     }
     const relayoutedNodes = computeLayout(graphNodes, edges, activeLayout);
     if (shouldReplaceLayoutPositions(graphNodes, relayoutedNodes)) {
-      setNodes(relayoutedNodes);
+      installLayoutNodes(relayoutedNodes);
     }
-  }, [activeLayout, edges, graphNodes, measuredLayoutKey, runViewportAction, selectedNodeId, setNodes, visibleNodes]);
+  }, [
+    activeLayout,
+    edges,
+    graphNodes,
+    measuredLayoutKey,
+    runViewportAction,
+    selectedNodeId,
+    installLayoutNodes,
+    visibleNodes
+  ]);
 
   // Re-layout and fit view whenever the focus subgraph changes.
   // Guard with `nodesInitialized` (canonical React Flow pattern) so layout runs

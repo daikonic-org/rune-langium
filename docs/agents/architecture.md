@@ -27,6 +27,27 @@ and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codeg
 
 ## Portable project state
 
+Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
+canonical rendered item snapshots after accepted authored input/model revisions;
+source positions and background reference hydration do not create edit events.
+Inspector rows expose stable presentation keys through the shared row helper.
+Structure instances share their canonical navigation key, so an edit cues every
+visible expansion of the same type. Graph cues compare authored node data, excluding
+position and selection; panning, moving blocks and layout changes stay quiet.
+Position-only Graph layout results preserve React Flow's current measurements,
+including dimensions accepted by a ResizeObserver update in the same frame.
+Source and generated code use the same effect vocabulary through CodeMirror
+decorations on explicitly annotated external document updates. Initial display,
+navigation and active editing controls stay quiet, including commits after blur.
+Removed controls leave only a bounded inert, aria-hidden visual snapshot; feedback
+never delays a model mutation or adds another persistence/validation path. Sample
+JSON retains its exact text while a CSS-only deletion ghost shows removed text.
+Its cues require a ready preview and an accepted authored or sample-value revision,
+so schema hydration and validation-only updates stay quiet.
+Timing is shared by animation and cleanup, and reduced motion removes spatial
+transitions while retaining the color cue. Feedback is canceled on focus, scope
+changes and unmount; it never moves the caret or scrolls another pane.
+
 `project-config` owns file capture, revision identity, normalization and snapshot
 validation. Both Studio and the headless runtime consume these host-neutral
 contracts. Positive source glob selection and semantic input revision are shared:
@@ -360,10 +381,22 @@ Documentation and synonyms appear alongside annotations without a generic
 Metadata disclosure. Choice options compose the same `TypeChip` and kind mapping
 as other references while `TypeLink` retains import-aware navigation.
 Scalar metadata autosaves retain valid edits when the host defers them during a
-source reparse. A fresh canonical target retries that same guarded pending edit,
-including enum display names; changing workspace or member identity never bypasses
+source reparse. Metadata draft controls stay editable during this structural lock;
+explicit synonym Add commands use the same retained-save lifecycle as scalar edits.
+Studio supplies its live edit store to the shared source-sync hook. Semantic user
+edits synchronously capture the ordered publication before a preceding parse can
+consume their one-shot patches; pure parse changes only adopt the source baseline.
+User patches arriving after a parse but before React adopts its epoch still publish.
+Save uses the same publication path. Explicit publication invalidates older rendered
+observer snapshots so they cannot overwrite a newer edit.
+Permanent source permissions and inherited rows remain read-only. A fresh canonical
+target retries that same guarded pending edit, including enum display names; changing workspace or member identity never bypasses
 the existing target checks. Synonym fieldsets can shrink within their Inspector
 pane so enlarged text wraps controls inside the shared gutter.
+A remounted row resumes a valid dirty name after a temporary parse lock. Accepted
+member names bridge the form-reset frame and update selection aliases only after
+canonical target readback, preserving the selected member through acknowledgement.
+An unavailable scoped target never authorizes an old rename callback.
 
 Namespace alias expansion is shared with Core's scopes. One alias may name
 several imported namespaces in source order. Graph metadata retains imports per
@@ -701,6 +734,11 @@ Linked fragment spellings also retain expression-relative Langium paths, includi
 on CST-free worker ASTs. The shared Codegen rebase helper verifies Rune equivalence
 and restores coordinates from captured source without re-rendering type-dependent
 syntax or callback aliases. Legacy coordinate fragments require unique AST matches.
+
+Detached source-projection expressions are validated through Core's canonical
+`parsedAdapter.dehydrate` representation before applying edits. Validation must not
+read lazy Langium reference getters on document-free source-lens ASTs; rendering
+and provenance checks continue using the original expression.
 
 Projection lookup compares canonical Langium URIs while replies retain the original
 editor binding. Both languages use codegen's `resolveExportSelection` to generate

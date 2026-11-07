@@ -15,6 +15,10 @@ import { SourceEditor, handleTypeRefDragOver, handleTypeRefDrop } from '../../sr
 import type { SourceEditorProps, DropTargetView } from '../../src/components/SourceEditor.js';
 import type { LspClientService } from '../../src/services/lsp-client.js';
 import { TYPE_REF_PAYLOAD_MIME } from '@rune-langium/visual-editor';
+vi.mock('../../src/lang/change-feedback.js', () => ({
+  textChangeFeedback: [],
+  showChangeFeedback: { of: (enabled: boolean) => ({ enabled }) }
+}));
 
 // Mock CodeMirror since it needs a real DOM
 const mockEditorViewDestroy = vi.fn();

@@ -475,3 +475,72 @@ it('retains an incomplete Choice option qualifier draft through a harmless repar
   expect(details.getByRole('button', { name: 'Choose receiver type…' })).toBeVisible();
   expect(screen.queryByText(/A draft was cleared/)).toBeNull();
 });
+
+it('resumes a dirty member rename after its row remounts during parse blocking', async () => {
+  const source = 'namespace demo\ntype Owner:\n alpha string (1..1)\n';
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Owner').id;
+  function Fixture({ blocked }: { blocked: boolean }) {
+    const state = useStore(store);
+    const node = state.nodesById.get(id)!;
+    return (
+      <DataTypeForm
+        nodeId={id}
+        data={node.data}
+        meta={node.meta}
+        actions={state}
+        allNodes={state.nodes}
+        availableTypes={[]}
+        parseEpoch={state.parseEpoch}
+        structuralEditsDisabled={blocked}
+      />
+    );
+  }
+  vi.useFakeTimers();
+  const view = render(<Fixture blocked={false} />);
+  fireEvent.change(screen.getByLabelText('Attribute name: alpha'), { target: { value: 'renamed' } });
+  view.rerender(<Fixture blocked />);
+  const parsed = await parse(source.replace('alpha string (1..1)', 'alpha string (1..1) <"New definition">'));
+  expect(parsed.hasErrors).toBe(false);
+  act(() => store.getState().loadModels(parsed.value));
+  view.rerender(<Fixture blocked={false} />);
+  await act(async () => vi.advanceTimersByTime(600));
+  expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).toMatchObject({
+    name: 'renamed',
+    definition: 'New definition'
+  });
+});
+
+it('keeps member selection when a rename acknowledgement arrives before the form reset', async () => {
+  const source = 'namespace demo\ntype Owner:\n alpha string (1..1)\n';
+  const { store, getNode } = await loadInspectorFixture(source);
+  const id = getNode('Owner').id;
+  function Fixture() {
+    const state = useStore(store);
+    const node = state.nodesById.get(id)!;
+    return (
+      <DataTypeForm
+        nodeId={id}
+        data={node.data}
+        meta={node.meta}
+        actions={state}
+        allNodes={state.nodes}
+        availableTypes={[]}
+        parseEpoch={state.parseEpoch}
+      />
+    );
+  }
+  vi.useFakeTimers();
+  render(<Fixture />);
+  const input = screen.getByLabelText('Attribute name: alpha');
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: 'renamed' } });
+  const parsed = await parse(source.replace('alpha string', 'renamed string'));
+  expect(parsed.hasErrors).toBe(false);
+  await act(async () => {
+    vi.advanceTimersByTime(500);
+    store.getState().loadModels(parsed.value);
+  });
+  expect(store.getState().captureMetadataTarget(id, ['attributes', 0])?.expected).toHaveProperty('name', 'renamed');
+  expect(screen.getByRole('region', { name: 'Details: renamed', exact: true })).toBeVisible();
+});
