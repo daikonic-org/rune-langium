@@ -9,6 +9,7 @@ import { test as base } from '../helpers/studio-test.js';
 import { EvidenceCollector, appendJourneyRecord, type JourneyRecord } from './evidence.js';
 import { exceedsBudget } from './timings.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
+import { computeCandidateJourneyId } from './candidate-journey-id.mjs';
 
 interface CheckoutFixtures {
   evidence: EvidenceCollector;
@@ -34,8 +35,7 @@ interface CheckoutFixtures {
  * the merge-into-previousAttempts behavior for genuine retries is preserved.
  */
 export function computeJourneyId(title: string, subId?: string): string {
-  const group = title.match(/^(J\d+[a-z]?)/)?.[1] ?? title;
-  return subId ? `${group}:${subId}` : group;
+  return computeCandidateJourneyId(title, subId ? [{ type: 'journey-subid', description: subId }] : []);
 }
 
 /** Linker failures are never expected outcomes, including negative API journeys. */

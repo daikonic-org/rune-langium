@@ -72,6 +72,22 @@ They share fixture installation and build steps; lint, corpus verification and
 inventory uploads run once in `lint-and-test`, while Codecov consumes only the
 coverage job's report. Both jobs must pass before merge. Test selection, coverage
 thresholds and per-test budgets are unchanged.
+The package suite runs one package at a time, leaving Vitest to manage the
+runner's CPU parallelism. The unchanged rename-cascade 100 ms guard runs first
+in a single-worker step. Only the subsequent recursive run sets
+`RUNE_CI_RENAME_GUARD_SEPARATE=1` to exclude that file in visual-editor; other
+package test commands, local defaults and root coverage remain unchanged.
+
+The pre-merge candidate UX suite runs on four `ubuntu-latest` jobs with one
+Playwright worker per runner. Each shard lists the full candidate plan, writes
+its own manifest/reports/traces, and sanitizes its evidence before upload. The
+aggregate gate requires every planned test exactly once, every required journey
+record (64 on the current suite) with a clean first-attempt verdict and budgets, matching run/head identity,
+and successful redaction for every shard. The stable `studio-ux-candidate`
+artifact keeps the original shard evidence and adds a combined Playwright JSON
+report, browsable HTML report, and a root `report/run-manifest.json`. The ordinary
+local `test:ux-candidate` command remains unsharded and retains its full-suite
+teardown.
 
 The `studio-a11y` job removes the runner image's priority-1 Azure HTTP entry from
 `/etc/apt/apt-mirrors.txt` before Playwright installs Ubuntu dependencies. The

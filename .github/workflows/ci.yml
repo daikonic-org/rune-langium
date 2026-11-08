@@ -5,6 +5,13 @@ on:
     branches: [master]
   pull_request:
 
+# New PR commits supersede older validation on the same pull request. Keep
+# master push runs intact so a PR cancellation cannot cancel the protected
+# branch's post-merge validation.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint-and-test:
     name: ${{ matrix.check }}
@@ -16,9 +23,7 @@ jobs:
       matrix:
         include:
           - check: lint-and-test
-            script: test
           - check: coverage
-            script: test:coverage
 
     steps:
       - uses: actions/checkout@v7
@@ -131,8 +136,19 @@ jobs:
         if: matrix.check == 'lint-and-test'
         run: node --test scripts/package-publication.test.mjs
 
-      - name: Test
-        run: pnpm run ${{ matrix.script }}
+      - name: Isolate rename-cascade performance guard
+        if: matrix.check == 'lint-and-test'
+        run: pnpm --filter @rune-langium/visual-editor exec vitest run test/store/rename-cascade.test.ts --maxWorkers=1 --no-file-parallelism
+
+      - name: Test package suite with bounded worker concurrency
+        if: matrix.check == 'lint-and-test'
+        run: pnpm -r --workspace-concurrency=1 run test
+        env:
+          RUNE_CI_RENAME_GUARD_SEPARATE: '1'
+
+      - name: Test root coverage suite
+        if: matrix.check == 'coverage'
+        run: pnpm run test:coverage
 
       - name: Upload coverage to Codecov
         if: matrix.check == 'coverage'
@@ -220,28 +236,6 @@ jobs:
         # playwright interpret "--grep" as a test-file path).
         run: pnpm --filter @rune-langium/studio exec playwright test --grep "Studio a11y"
 
-      - name: Review candidate Studio UX before deployment
-        # The shared harness substitutes only this build's static assets. Public
-        # hosted APIs remain real; canonical freshness is checked after deploy.
-        run: pnpm --filter @rune-langium/studio run test:ux-candidate
-        env:
-          # Public source reads share the runner IP's tiny anonymous GitHub quota.
-          # The Node-only transport scopes this credential to public CDM GETs.
-          STUDIO_TEST_GITHUB_TOKEN: ${{ github.token }}
-
-      - name: Redact candidate UX credentials
-        id: redact-ux
-        if: always()
-        run: node apps/studio/scripts/redact-test-artifacts.mjs dist/ux-candidate
-
-      - name: Upload candidate UX evidence
-        if: always() && steps.redact-ux.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: studio-ux-candidate
-          path: dist/ux-candidate
-          if-no-files-found: error
-
       - name: Verify Inspector schema hot reload
         run: pnpm --filter @rune-langium/studio run test:z2f-hmr
 
@@ -253,6 +247,172 @@ jobs:
         run: pnpm --filter @rune-langium/studio exec playwright test --grep "Studio browser memory regression"
         env:
           STUDIO_MEMORY_BASELINE_BYTES: ${{ vars.STUDIO_MEMORY_BASELINE_BYTES }}
+
+  # The full candidate suite takes about 25 minutes serially. Each free
+  # ubuntu-latest runner executes one quarter of the same discovered suite;
+  # browser workers stay at one per VM. The aggregate below checks every
+  # planned test and journey record, joins sanitized reports, and fails closed
+  # on missing shards or evidence.
+  studio-ux-candidate:
+    name: Studio candidate shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            port: 5186
+          - shard: 2
+            port: 5187
+          - shard: 3
+            port: 5188
+          - shard: 4
+            port: 5189
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.5.0
+
+      - name: Use project Node.js LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Use Ubuntu HTTPS package mirrors
+        # The runner's priority-1 Azure HTTP mirror can hang inside apt update.
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i '\|^http://azure\.archive\.ubuntu\.com/ubuntu/|d' /etc/apt/apt-mirrors.txt
+          fi
+
+      - name: Install Playwright browsers (chromium only)
+        run: pnpm --filter @rune-langium/studio exec playwright install --with-deps chromium
+
+      - name: Build studio + workspace dependencies
+        run: pnpm --filter '@rune-langium/studio...' run build
+
+      - name: Prepare candidate shard report directory
+        run: mkdir -p "dist/ux-candidate/shard-${{ matrix.shard }}"
+
+      - name: List the complete candidate test plan
+        run: pnpm --filter @rune-langium/studio exec playwright test --config playwright.candidate-sharded.config.ts --list --reporter=json > "dist/ux-candidate/shard-${{ matrix.shard }}/candidate-plan.json"
+
+      - name: Run candidate Studio UX shard
+        id: candidate-test
+        run: pnpm --filter @rune-langium/studio exec playwright test --config playwright.candidate-sharded.config.ts --shard=${{ matrix.shard }}/4
+        env:
+          PROD_UX_REPORT_DIR: ../../dist/ux-candidate/shard-${{ matrix.shard }}/report
+          STUDIO_CANDIDATE_JSON_REPORT: ../../dist/ux-candidate/shard-${{ matrix.shard }}/playwright.json
+          STUDIO_CANDIDATE_HTML_REPORT: ../../dist/ux-candidate/shard-${{ matrix.shard }}/html
+          STUDIO_CANDIDATE_BLOB_REPORT_DIR: ../../dist/ux-candidate/shard-${{ matrix.shard }}/blob
+          STUDIO_CANDIDATE_OUTPUT_DIR: ../../dist/ux-candidate/shard-${{ matrix.shard }}/results
+          STUDIO_CANDIDATE_PORT: ${{ matrix.port }}
+          STUDIO_TEST_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Test candidate shard and evidence contracts
+        if: always()
+        run: node --test apps/studio/scripts/candidate-shard-validation.test.mjs apps/studio/scripts/redact-test-artifacts.test.mjs
+
+      - name: Redact candidate shard evidence
+        id: redact-ux
+        if: always()
+        run: node apps/studio/scripts/redact-test-artifacts.mjs "dist/ux-candidate/shard-${{ matrix.shard }}"
+
+      - name: Record candidate shard identity and outcomes
+        if: always()
+        run: |
+          node --input-type=module - <<'NODE'
+          import { mkdir, writeFile } from 'node:fs/promises';
+          const dir = 'dist/ux-candidate/shard-${{ matrix.shard }}';
+          await mkdir(dir, { recursive: true });
+          await writeFile(`${dir}/shard-meta.json`, JSON.stringify({
+            shard: Number('${{ matrix.shard }}'),
+            total: 4,
+            headSha: '${{ github.sha }}',
+            runId: '${{ github.run_id }}',
+            runAttempt: '${{ github.run_attempt }}',
+            testOutcome: '${{ steps.candidate-test.outcome }}',
+            redactionOutcome: '${{ steps.redact-ux.outcome }}'
+          }, null, 2));
+          NODE
+
+      - name: Upload candidate shard evidence
+        if: always() && steps.redact-ux.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: studio-ux-candidate-shard-${{ matrix.shard }}
+          path: dist/ux-candidate/shard-${{ matrix.shard }}
+          if-no-files-found: error
+
+  studio-ux-candidate-aggregate:
+    name: Studio candidate complete evidence
+    if: always()
+    needs: [studio-ux-candidate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.5.0
+
+      - name: Use project Node.js LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download sanitized candidate shard evidence
+        uses: actions/download-artifact@v7
+        with:
+          pattern: studio-ux-candidate-shard-*
+          path: dist/ux-candidate/shards
+          merge-multiple: false
+
+      - name: Verify complete candidate suite and journey evidence
+        id: candidate-validation
+        env:
+          CANDIDATE_JOB_RESULT: ${{ needs.studio-ux-candidate.result }}
+          CANDIDATE_SHARD_COUNT: 4
+        run: node apps/studio/scripts/candidate-shard-validation.mjs dist/ux-candidate/shards
+
+      - name: Merge Playwright shard reports
+        env:
+          STUDIO_CANDIDATE_MERGED_JSON: ${{ github.workspace }}/dist/ux-candidate/playwright.json
+          STUDIO_CANDIDATE_MERGED_HTML: ${{ github.workspace }}/dist/ux-candidate/html
+        run: pnpm --filter @rune-langium/studio exec playwright merge-reports --config playwright.candidate-merge.config.ts ../../dist/ux-candidate/merge-input
+
+      - name: Remove temporary report merge copies
+        run: rm -rf dist/ux-candidate/merge-input
+
+      - name: Redact complete candidate UX evidence
+        run: node apps/studio/scripts/redact-test-artifacts.mjs dist/ux-candidate
+
+      - name: Upload complete candidate UX evidence
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: studio-ux-candidate
+          path: dist/ux-candidate
+          if-no-files-found: error
 
   # ---------------------------------------------------------------------------
   # check-generated: Verify generated schema files don't drift from source (T039, FR-018, SC-008)
