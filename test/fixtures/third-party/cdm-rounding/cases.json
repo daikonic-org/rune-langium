@@ -1,0 +1,1850 @@
+[
+  {
+    "id": "upstream-five-digits-up-retain",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 5,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.12346,
+    "referenceScale": 5
+  },
+  {
+    "id": "upstream-five-digits-up-strip",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 5,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.12346,
+    "referenceScale": 5
+  },
+  {
+    "id": "upstream-five-digits-down-retain",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 5,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.12345,
+    "referenceScale": 5
+  },
+  {
+    "id": "upstream-five-digits-down-strip",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 5,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.12345,
+    "referenceScale": 5
+  },
+  {
+    "id": "upstream-five-digits-nearest-retain",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 5,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.12346,
+    "referenceScale": 5
+  },
+  {
+    "id": "upstream-five-digits-nearest-strip",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 5,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.12346,
+    "referenceScale": 5
+  },
+  {
+    "id": "upstream-whole-up-retain",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1024.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "upstream-whole-up-strip",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1024.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "upstream-whole-down-retain",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "upstream-whole-down-strip",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "upstream-whole-nearest-retain",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "upstream-whole-nearest-strip",
+    "inputs": {
+      "value": 1023.123456789,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "retained-scale-up-retain",
+    "inputs": {
+      "value": 1023.1,
+      "precision": 7,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.1,
+    "referenceScale": 7
+  },
+  {
+    "id": "retained-scale-up-strip",
+    "inputs": {
+      "value": 1023.1,
+      "precision": 7,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.1,
+    "referenceScale": 1
+  },
+  {
+    "id": "retained-scale-down-retain",
+    "inputs": {
+      "value": 1023.1,
+      "precision": 7,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.1,
+    "referenceScale": 7
+  },
+  {
+    "id": "retained-scale-down-strip",
+    "inputs": {
+      "value": 1023.1,
+      "precision": 7,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.1,
+    "referenceScale": 1
+  },
+  {
+    "id": "retained-scale-nearest-retain",
+    "inputs": {
+      "value": 1023.1,
+      "precision": 7,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.1,
+    "referenceScale": 7
+  },
+  {
+    "id": "retained-scale-nearest-strip",
+    "inputs": {
+      "value": 1023.1,
+      "precision": 7,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.1,
+    "referenceScale": 1
+  },
+  {
+    "id": "integer-scale-up-retain",
+    "inputs": {
+      "value": 1023,
+      "precision": 5,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.0,
+    "referenceScale": 5
+  },
+  {
+    "id": "integer-scale-up-strip",
+    "inputs": {
+      "value": 1023,
+      "precision": 5,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "integer-scale-down-retain",
+    "inputs": {
+      "value": 1023,
+      "precision": 5,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.0,
+    "referenceScale": 5
+  },
+  {
+    "id": "integer-scale-down-strip",
+    "inputs": {
+      "value": 1023,
+      "precision": 5,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "integer-scale-nearest-retain",
+    "inputs": {
+      "value": 1023,
+      "precision": 5,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1023.0,
+    "referenceScale": 5
+  },
+  {
+    "id": "integer-scale-nearest-strip",
+    "inputs": {
+      "value": 1023,
+      "precision": 5,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1023.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "large-integer-scale-up-retain",
+    "inputs": {
+      "value": 999999999,
+      "precision": 4,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 999999999.0,
+    "referenceScale": 4
+  },
+  {
+    "id": "large-integer-scale-up-strip",
+    "inputs": {
+      "value": 999999999,
+      "precision": 4,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 999999999.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "large-integer-scale-down-retain",
+    "inputs": {
+      "value": 999999999,
+      "precision": 4,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 999999999.0,
+    "referenceScale": 4
+  },
+  {
+    "id": "large-integer-scale-down-strip",
+    "inputs": {
+      "value": 999999999,
+      "precision": 4,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 999999999.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "large-integer-scale-nearest-retain",
+    "inputs": {
+      "value": 999999999,
+      "precision": 4,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 999999999.0,
+    "referenceScale": 4
+  },
+  {
+    "id": "large-integer-scale-nearest-strip",
+    "inputs": {
+      "value": 999999999,
+      "precision": 4,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 999999999.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-tie-up-retain",
+    "inputs": {
+      "value": 1.005,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "positive-tie-up-strip",
+    "inputs": {
+      "value": 1.005,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "positive-tie-down-retain",
+    "inputs": {
+      "value": 1.005,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "positive-tie-down-strip",
+    "inputs": {
+      "value": 1.005,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-tie-nearest-retain",
+    "inputs": {
+      "value": 1.005,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "positive-tie-nearest-strip",
+    "inputs": {
+      "value": 1.005,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-tie-up-retain",
+    "inputs": {
+      "value": -1.005,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-tie-up-strip",
+    "inputs": {
+      "value": -1.005,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-tie-down-retain",
+    "inputs": {
+      "value": -1.005,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": -1.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-tie-down-strip",
+    "inputs": {
+      "value": -1.005,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": -1.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-tie-nearest-retain",
+    "inputs": {
+      "value": -1.005,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": -1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-tie-nearest-strip",
+    "inputs": {
+      "value": -1.005,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": -1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "binary-tie-up-retain",
+    "inputs": {
+      "value": 2.675,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "binary-tie-up-strip",
+    "inputs": {
+      "value": 2.675,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "binary-tie-down-retain",
+    "inputs": {
+      "value": 2.675,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 2.67,
+    "referenceScale": 2
+  },
+  {
+    "id": "binary-tie-down-strip",
+    "inputs": {
+      "value": 2.675,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 2.67,
+    "referenceScale": 2
+  },
+  {
+    "id": "binary-tie-nearest-retain",
+    "inputs": {
+      "value": 2.675,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "binary-tie-nearest-strip",
+    "inputs": {
+      "value": 2.675,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-binary-tie-up-retain",
+    "inputs": {
+      "value": -2.675,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-binary-tie-up-strip",
+    "inputs": {
+      "value": -2.675,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-binary-tie-down-retain",
+    "inputs": {
+      "value": -2.675,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": -2.67,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-binary-tie-down-strip",
+    "inputs": {
+      "value": -2.675,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": -2.67,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-binary-tie-nearest-retain",
+    "inputs": {
+      "value": -2.675,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": -2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-binary-tie-nearest-strip",
+    "inputs": {
+      "value": -2.675,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": -2.68,
+    "referenceScale": 2
+  },
+  {
+    "id": "below-tie-up-retain",
+    "inputs": {
+      "value": 1.004,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "below-tie-up-strip",
+    "inputs": {
+      "value": 1.004,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "below-tie-down-retain",
+    "inputs": {
+      "value": 1.004,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "below-tie-down-strip",
+    "inputs": {
+      "value": 1.004,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "below-tie-nearest-retain",
+    "inputs": {
+      "value": 1.004,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "below-tie-nearest-strip",
+    "inputs": {
+      "value": 1.004,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "above-tie-up-retain",
+    "inputs": {
+      "value": 1.006,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "above-tie-up-strip",
+    "inputs": {
+      "value": 1.006,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "above-tie-down-retain",
+    "inputs": {
+      "value": 1.006,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "above-tie-down-strip",
+    "inputs": {
+      "value": 1.006,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "above-tie-nearest-retain",
+    "inputs": {
+      "value": 1.006,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "above-tie-nearest-strip",
+    "inputs": {
+      "value": 1.006,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "carry-up-retain",
+    "inputs": {
+      "value": 9.995,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 10.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "carry-up-strip",
+    "inputs": {
+      "value": 9.995,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 10.0,
+    "referenceScale": -1
+  },
+  {
+    "id": "carry-down-retain",
+    "inputs": {
+      "value": 9.995,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 9.99,
+    "referenceScale": 2
+  },
+  {
+    "id": "carry-down-strip",
+    "inputs": {
+      "value": 9.995,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 9.99,
+    "referenceScale": 2
+  },
+  {
+    "id": "carry-nearest-retain",
+    "inputs": {
+      "value": 9.995,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 10.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "carry-nearest-strip",
+    "inputs": {
+      "value": 9.995,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 10.0,
+    "referenceScale": -1
+  },
+  {
+    "id": "negative-carry-up-retain",
+    "inputs": {
+      "value": -9.995,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -10.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-carry-up-strip",
+    "inputs": {
+      "value": -9.995,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -10.0,
+    "referenceScale": -1
+  },
+  {
+    "id": "negative-carry-down-retain",
+    "inputs": {
+      "value": -9.995,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": -9.99,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-carry-down-strip",
+    "inputs": {
+      "value": -9.995,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": -9.99,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-carry-nearest-retain",
+    "inputs": {
+      "value": -9.995,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": -10.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-carry-nearest-strip",
+    "inputs": {
+      "value": -9.995,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": -10.0,
+    "referenceScale": -1
+  },
+  {
+    "id": "positive-half-up-retain",
+    "inputs": {
+      "value": 2.5,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-half-up-strip",
+    "inputs": {
+      "value": 2.5,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-half-down-retain",
+    "inputs": {
+      "value": 2.5,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 2.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-half-down-strip",
+    "inputs": {
+      "value": 2.5,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 2.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-half-nearest-retain",
+    "inputs": {
+      "value": 2.5,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "positive-half-nearest-strip",
+    "inputs": {
+      "value": 2.5,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-half-up-retain",
+    "inputs": {
+      "value": -2.5,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-half-up-strip",
+    "inputs": {
+      "value": -2.5,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-half-down-retain",
+    "inputs": {
+      "value": -2.5,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": -2.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-half-down-strip",
+    "inputs": {
+      "value": -2.5,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": -2.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-half-nearest-retain",
+    "inputs": {
+      "value": -2.5,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": -3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-half-nearest-strip",
+    "inputs": {
+      "value": -2.5,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": -3.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "toward-zero-up-retain",
+    "inputs": {
+      "value": -0.004,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -0.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "toward-zero-up-strip",
+    "inputs": {
+      "value": -0.004,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -0.01,
+    "referenceScale": 2
+  },
+  {
+    "id": "toward-zero-down-retain",
+    "inputs": {
+      "value": -0.004,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "toward-zero-down-strip",
+    "inputs": {
+      "value": -0.004,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "toward-zero-nearest-retain",
+    "inputs": {
+      "value": -0.004,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "toward-zero-nearest-strip",
+    "inputs": {
+      "value": -0.004,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "zero-up-retain",
+    "inputs": {
+      "value": 0,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "zero-up-strip",
+    "inputs": {
+      "value": 0,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "zero-down-retain",
+    "inputs": {
+      "value": 0,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "zero-down-strip",
+    "inputs": {
+      "value": 0,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "zero-nearest-retain",
+    "inputs": {
+      "value": 0,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "zero-nearest-strip",
+    "inputs": {
+      "value": 0,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-zero-up-retain",
+    "inputs": {
+      "value": -0.0,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-zero-up-strip",
+    "inputs": {
+      "value": -0.0,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-zero-down-retain",
+    "inputs": {
+      "value": -0.0,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-zero-down-strip",
+    "inputs": {
+      "value": -0.0,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-zero-nearest-retain",
+    "inputs": {
+      "value": -0.0,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 2
+  },
+  {
+    "id": "negative-zero-nearest-strip",
+    "inputs": {
+      "value": -0.0,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "exact-up-retain",
+    "inputs": {
+      "value": 1.25,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.25,
+    "referenceScale": 2
+  },
+  {
+    "id": "exact-up-strip",
+    "inputs": {
+      "value": 1.25,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.25,
+    "referenceScale": 2
+  },
+  {
+    "id": "exact-down-retain",
+    "inputs": {
+      "value": 1.25,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.25,
+    "referenceScale": 2
+  },
+  {
+    "id": "exact-down-strip",
+    "inputs": {
+      "value": 1.25,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.25,
+    "referenceScale": 2
+  },
+  {
+    "id": "exact-nearest-retain",
+    "inputs": {
+      "value": 1.25,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.25,
+    "referenceScale": 2
+  },
+  {
+    "id": "exact-nearest-strip",
+    "inputs": {
+      "value": 1.25,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.25,
+    "referenceScale": 2
+  },
+  {
+    "id": "small-exponent-up-retain",
+    "inputs": {
+      "value": 1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.24e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "small-exponent-up-strip",
+    "inputs": {
+      "value": 1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.24e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "small-exponent-down-retain",
+    "inputs": {
+      "value": 1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "small-exponent-down-strip",
+    "inputs": {
+      "value": 1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "small-exponent-nearest-retain",
+    "inputs": {
+      "value": 1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "small-exponent-nearest-strip",
+    "inputs": {
+      "value": 1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "negative-small-exponent-up-retain",
+    "inputs": {
+      "value": -1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -1.24e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "negative-small-exponent-up-strip",
+    "inputs": {
+      "value": -1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -1.24e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "negative-small-exponent-down-retain",
+    "inputs": {
+      "value": -1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": -1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "negative-small-exponent-down-strip",
+    "inputs": {
+      "value": -1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": -1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "negative-small-exponent-nearest-retain",
+    "inputs": {
+      "value": -1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": -1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "negative-small-exponent-nearest-strip",
+    "inputs": {
+      "value": -1.2345e-07,
+      "precision": 9,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": -1.23e-07,
+    "referenceScale": 9
+  },
+  {
+    "id": "large-exponent-up-retain",
+    "inputs": {
+      "value": 1.2345e+21,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.2345e+21,
+    "referenceScale": 0
+  },
+  {
+    "id": "large-exponent-up-strip",
+    "inputs": {
+      "value": 1.2345e+21,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.2345e+21,
+    "referenceScale": -17
+  },
+  {
+    "id": "large-exponent-down-retain",
+    "inputs": {
+      "value": 1.2345e+21,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.2345e+21,
+    "referenceScale": 0
+  },
+  {
+    "id": "large-exponent-down-strip",
+    "inputs": {
+      "value": 1.2345e+21,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.2345e+21,
+    "referenceScale": -17
+  },
+  {
+    "id": "large-exponent-nearest-retain",
+    "inputs": {
+      "value": 1.2345e+21,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.2345e+21,
+    "referenceScale": 0
+  },
+  {
+    "id": "large-exponent-nearest-strip",
+    "inputs": {
+      "value": 1.2345e+21,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.2345e+21,
+    "referenceScale": -17
+  },
+  {
+    "id": "max-safe-integer-up-retain",
+    "inputs": {
+      "value": 9007199254740991,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 9007199254740991.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "max-safe-integer-up-strip",
+    "inputs": {
+      "value": 9007199254740991,
+      "precision": 2,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 9007199254740991.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "max-safe-integer-down-retain",
+    "inputs": {
+      "value": 9007199254740991,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 9007199254740991.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "max-safe-integer-down-strip",
+    "inputs": {
+      "value": 9007199254740991,
+      "precision": 2,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 9007199254740991.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "max-safe-integer-nearest-retain",
+    "inputs": {
+      "value": 9007199254740991,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 9007199254740991.0,
+    "referenceScale": 2
+  },
+  {
+    "id": "max-safe-integer-nearest-strip",
+    "inputs": {
+      "value": 9007199254740991,
+      "precision": 2,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 9007199254740991.0,
+    "referenceScale": 0
+  },
+  {
+    "id": "max-finite-up-retain",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceScale": 0
+  },
+  {
+    "id": "max-finite-up-strip",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "precision": 0,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceScale": -292
+  },
+  {
+    "id": "max-finite-down-retain",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceScale": 0
+  },
+  {
+    "id": "max-finite-down-strip",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "precision": 0,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceScale": -292
+  },
+  {
+    "id": "max-finite-nearest-retain",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceScale": 0
+  },
+  {
+    "id": "max-finite-nearest-strip",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "precision": 0,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceScale": -292
+  },
+  {
+    "id": "minimum-subnormal-up-retain",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 323,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "minimum-subnormal-up-strip",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 323,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "minimum-subnormal-down-retain",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 323,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 323
+  },
+  {
+    "id": "minimum-subnormal-down-strip",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 323,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "minimum-subnormal-nearest-retain",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 323,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "minimum-subnormal-nearest-strip",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 323,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "negative-subnormal-up-retain",
+    "inputs": {
+      "value": -5e-324,
+      "precision": 323,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": -1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "negative-subnormal-up-strip",
+    "inputs": {
+      "value": -5e-324,
+      "precision": 323,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": -1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "negative-subnormal-down-retain",
+    "inputs": {
+      "value": -5e-324,
+      "precision": 323,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 0,
+    "referenceScale": 323
+  },
+  {
+    "id": "negative-subnormal-down-strip",
+    "inputs": {
+      "value": -5e-324,
+      "precision": 323,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 0,
+    "referenceScale": 0
+  },
+  {
+    "id": "negative-subnormal-nearest-retain",
+    "inputs": {
+      "value": -5e-324,
+      "precision": 323,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": -1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "negative-subnormal-nearest-strip",
+    "inputs": {
+      "value": -5e-324,
+      "precision": 323,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": -1e-323,
+    "referenceScale": 323
+  },
+  {
+    "id": "exact-subnormal-up-retain",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 324,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 5e-324,
+    "referenceScale": 324
+  },
+  {
+    "id": "exact-subnormal-up-strip",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 324,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 5e-324,
+    "referenceScale": 324
+  },
+  {
+    "id": "exact-subnormal-down-retain",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 324,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 5e-324,
+    "referenceScale": 324
+  },
+  {
+    "id": "exact-subnormal-down-strip",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 324,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 5e-324,
+    "referenceScale": 324
+  },
+  {
+    "id": "exact-subnormal-nearest-retain",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 324,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 5e-324,
+    "referenceScale": 324
+  },
+  {
+    "id": "exact-subnormal-nearest-strip",
+    "inputs": {
+      "value": 5e-324,
+      "precision": 324,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 5e-324,
+    "referenceScale": 324
+  },
+  {
+    "id": "very-fine-up-retain",
+    "inputs": {
+      "value": 1.005,
+      "precision": 1000,
+      "roundingMode": "Up",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.005,
+    "referenceScale": 1000
+  },
+  {
+    "id": "very-fine-up-strip",
+    "inputs": {
+      "value": 1.005,
+      "precision": 1000,
+      "roundingMode": "Up",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.005,
+    "referenceScale": 3
+  },
+  {
+    "id": "very-fine-down-retain",
+    "inputs": {
+      "value": 1.005,
+      "precision": 1000,
+      "roundingMode": "Down",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.005,
+    "referenceScale": 1000
+  },
+  {
+    "id": "very-fine-down-strip",
+    "inputs": {
+      "value": 1.005,
+      "precision": 1000,
+      "roundingMode": "Down",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.005,
+    "referenceScale": 3
+  },
+  {
+    "id": "very-fine-nearest-retain",
+    "inputs": {
+      "value": 1.005,
+      "precision": 1000,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": false
+    },
+    "expected": 1.005,
+    "referenceScale": 1000
+  },
+  {
+    "id": "very-fine-nearest-strip",
+    "inputs": {
+      "value": 1.005,
+      "precision": 1000,
+      "roundingMode": "Nearest",
+      "removeTrailingZeros": true
+    },
+    "expected": 1.005,
+    "referenceScale": 3
+  }
+]

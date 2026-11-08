@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "entrypoint": "CdmRuntimeModule -> RoundToPrecisionImpl.evaluate",
+  "contract": "Pinned handwritten RoundToPrecisionImpl is the algorithm reference. Required nonnegative precision inputs follow Rune preconditions. Numeric expectations cover canonical finite-number decimal inputs, not arbitrary BigDecimal precision or scale retention. referenceScale separately records Java scale for both removeTrailingZeros flags; generated number/float outputs do not retain formatting.",
+  "artifacts": [
+    {
+      "name": "cdm-java-7.9.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0.jar",
+      "sha256": "599f44b92bf6f68b042dd358a5eee45d1d0b859537e624507ba805d5ab1c8fdc",
+      "runtime": true
+    },
+    {
+      "name": "rune-common-12.25.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/finos/rune-common/rune-common/12.25.0/rune-common-12.25.0.jar",
+      "sha256": "12adb0b87c7e30f3c3d4a90d78d8b645f1f1d2f96a8f67e2e7f70a66af18fe65",
+      "runtime": true
+    },
+    {
+      "name": "jackson-databind-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.18.12/jackson-databind-2.18.12.jar",
+      "sha256": "02b62d64819bc1dbad7f1195c805f950ab3dceef1a479d0e9c55d99b7a04c255",
+      "runtime": true
+    },
+    {
+      "name": "jackson-annotations-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.18.12/jackson-annotations-2.18.12.jar",
+      "sha256": "143b94dd8caa3d5eb4417672f7d00472cec33626cbcb0fd35f0616de0dbccabf",
+      "runtime": true
+    },
+    {
+      "name": "jackson-core-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.18.12/jackson-core-2.18.12.jar",
+      "sha256": "367afb4be3efa8a1636200b5faefb67d7d0a1b730f64ec55a971229cb673bc23",
+      "runtime": true
+    },
+    {
+      "name": "guava-33.3.1-jre.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-jre/guava-33.3.1-jre.jar",
+      "sha256": "4bf0e2c5af8e4525c96e8fde17a4f7307f97f8478f11c4c8e35a0e3298ae4e90",
+      "runtime": true
+    },
+    {
+      "name": "failureaccess-1.0.2.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar",
+      "sha256": "8a8f81cf9b359e3f6dfa691a1e776985c061ef2f223c9b2c80753e1b458e8064",
+      "runtime": true
+    },
+    {
+      "name": "guice-6.0.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/google/inject/guice/6.0.0/guice-6.0.0.jar",
+      "sha256": "b4d4f7ec5e8fc17b4f98dee9d3f6cf6ae3ae13e2e5ed4b2f7bbf09bc4bb675d5",
+      "runtime": true
+    },
+    {
+      "name": "javax.inject-1.jar",
+      "url": "https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.jar",
+      "sha256": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff",
+      "runtime": true
+    },
+    {
+      "name": "jakarta.inject-api-2.0.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/jakarta/inject/jakarta.inject-api/2.0.1/jakarta.inject-api-2.0.1.jar",
+      "sha256": "f7dc98062fccf14126abb751b64fab12c312566e8cbdc8483598bffcea93af7c",
+      "runtime": true
+    },
+    {
+      "name": "aopalliance-1.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/aopalliance/aopalliance/1.0/aopalliance-1.0.jar",
+      "sha256": "0addec670fedcd3f113c5c8091d783280d23f75e3acb841b61a9cdb079376a08",
+      "runtime": true
+    },
+    {
+      "name": "slf4j-api-2.0.20.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.jar",
+      "sha256": "7e1446499b359675d8aabe6af2de86b85e72ae8a2a932c0b40d0e5ba57097439",
+      "runtime": true
+    },
+    {
+      "name": "rune-runtime-10.15.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/finos/rune/rune-runtime/10.15.3/rune-runtime-10.15.3.jar",
+      "sha256": "105e704a9d69f782133b142170fbc0156408554c235a65e1e116005f2853c9dc",
+      "runtime": true
+    },
+    {
+      "name": "rosetta-source-3.13.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/regnosys/rune-fpml/rosetta-source/3.13.0/rosetta-source-3.13.0.jar",
+      "sha256": "54da642ac8fc2d837c72ae40a6c5f1328d8ddac506e766eb4580d1c369dd46a5",
+      "runtime": true
+    },
+    {
+      "name": "strata-basics-1.7.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0.jar",
+      "sha256": "cc4314a97657aa7600ee2cc8391349c5f246b53cd2860697edc4b52f9271ea9c",
+      "runtime": true
+    },
+    {
+      "name": "strata-collect-1.7.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-collect/1.7.0/strata-collect-1.7.0.jar",
+      "sha256": "22037b13868d9cb7c2eb23b1d10f871f44542321438588dc942c35c3e745cc1a",
+      "runtime": true
+    },
+    {
+      "name": "joda-beans-2.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-beans/2.1/joda-beans-2.1.jar",
+      "sha256": "d71b318d59accde8eeccaad40bdfdd7e1fffec8f22e64f85dee6692e73771a56",
+      "runtime": true
+    },
+    {
+      "name": "cdm-java-7.9.0-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar",
+      "sha256": "c68dc3e3546dcbf08096ab57124118bf368411cfdfc98164b3e50fe1fdfacbf7",
+      "runtime": false
+    }
+  ],
+  "files": [
+    {
+      "name": "java/RoundToPrecisionImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/math/functions/RoundToPrecisionImpl.java",
+      "sha256": "c50ed6beeea436c952e0f0c607fea770fd4a98409e78b461b86b6c82e693b5e7"
+    }
+  ]
+}

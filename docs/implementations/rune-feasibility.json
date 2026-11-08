@@ -205,7 +205,7 @@
       },
       "signatureSha256": "8f16e0a5ebde531901e7f01d51fe6088faa588c523209b0a5a4b9f501ebce4bf",
       "route": "primitive-backed",
-      "requirements": "Decimal scale and UP/DOWN/HALF_UP behavior; decide numeric versus trailing-zero representation explicitly."
+      "requirements": "Published TypeScript BigInt coefficient rounding and Python stdlib decimal preserve UP/DOWN/HALF_UP for canonical finite-number decimal inputs. Existing number/float outputs cannot retain scale; both trailing-zero flags share numeric results. Rune-only decimal/scale parity still needs a decimal primitive."
     },
     {
       "symbol": {

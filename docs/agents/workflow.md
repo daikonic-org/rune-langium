@@ -72,6 +72,27 @@ They share fixture installation and build steps; lint, corpus verification and
 inventory uploads run once in `lint-and-test`, while Codecov consumes only the
 coverage job's report. Both jobs must pass before merge. Test selection, coverage
 thresholds and per-test budgets are unchanged.
+The package suite runs one package at a time, leaving Vitest to manage the
+runner's CPU parallelism. The unchanged rename-cascade 100 ms guard runs first
+in a single-worker step. Only the subsequent recursive run sets
+`RUNE_CI_RENAME_GUARD_SEPARATE=1` to exclude that file in visual-editor; other
+package test commands, local defaults and root coverage remain unchanged.
+
+The pre-merge candidate UX suite runs on four `ubuntu-latest` jobs with one
+Playwright worker per runner. Each shard lists the full candidate plan, writes
+its own manifest/reports/traces, and sanitizes its evidence before upload. The
+aggregate gate requires every planned test exactly once, every required journey
+record (64 on the current suite) with a clean first-attempt verdict and budgets, matching run/head identity,
+and successful redaction for every shard. The stable `studio-ux-candidate`
+artifact keeps the original shard evidence and adds a combined Playwright JSON
+report, browsable HTML report, and a root `report/run-manifest.json`. The ordinary
+local `test:ux-candidate` command remains unsharded and retains its full-suite
+teardown.
+ZIP redaction preserves the original archive entry set; synthesized directory
+entries break Playwright's blob-report merger even when the ZIP can be read.
+Embedded report ZIPs are decoded and sanitized, then protected while surrounding
+HTML/JSON is redacted. Credential-shaped Base64 sequences must never be rewritten
+as raw text; structured token fields must still be removed before restoring payloads.
 
 The `studio-a11y` job removes the runner image's priority-1 Azure HTTP entry from
 `/etc/apt/apt-mirrors.txt` before Playwright installs Ubuntu dependencies. The
@@ -220,6 +241,10 @@ Gate errors name recorded operations that exceeded these budgets. Network
 cancellations remain separate evidence and do not establish the degradation cause.
 Blank-reference ready checkpoints require selected Inspector content, not only
 the declaration inventory or preview form.
+Reference-view changes require `project-reference-view` service/provider and
+parser-worker tests, including namespace overrides, concurrent publication,
+retry recovery and cancellation during scope preparation. J03 and J28 exercise
+the live Nightly closure; preserve their warning checks and the stable-release variant.
 To validate candidate assets against live endpoints without deploying, serve an
 owned optimized preview and set `PROD_UX_ASSET_ORIGIN=http://127.0.0.1:<port>`.
 The isolated checkout context substitutes only Studio static assets while retaining
@@ -498,6 +523,12 @@ with JDK 21+. Both oracle entrypoints reuse
 `scripts/lib/java_reference_oracle.py` to verify pinned artifact and source bytes;
 the Java binaries are test-only and are never packaged in curated targets.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
+`rounding.test.ts` in Codegen, project-runtime and Studio checks published native
+decimal precision rounding; the same browser suite exercises enum inputs and the
+Rune precondition at desktop/390px. `python3 scripts/verify-rounding.py --cache-dir
+/tmp/rune-rounding` independently checks 168 outputs and Java scales using the
+shared checksum-pinned oracle. The target number API does not retain scale;
+large no-op precisions are tested separately without allocating a huge Java scale.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.
 
@@ -623,6 +654,13 @@ unavailable until their implementation is supported.
 
 
 ## Deep-navigation runtime generation
+
+Complete effective export selections do not traverse declaration references just
+to compute an empty dependency-only provenance map. The fast path applies only
+when every effective root is already explicit; partial selections retain normal
+closure and provenance, including namespace overrides and dispatch families.
+Selection performance changes require the declaration-selection and preview-schema
+regressions, full Codegen tests and affected Studio export/preview journeys.
 
 Codegen builds regenerate `expr/generated/deep-runtime-source.ts` from the shared
 `expr/deep-paths.ts`. Edit the canonical traversal, then run

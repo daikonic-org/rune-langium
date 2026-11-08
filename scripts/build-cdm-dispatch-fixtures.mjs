@@ -23,6 +23,11 @@ if (JSON.stringify(inventory.sources) !== JSON.stringify(sources))
 const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-audit');
 const suites = [
   {
+    directory: 'cdm-rounding',
+    declarations: [{ namespace: 'cdm.base.math', name: 'RoundToPrecision', kind: 'RosettaFunction' }],
+    references: ['RoundToPrecision']
+  },
+  {
     directory: 'cdm-dispatch',
     declarations: ['DayCountBasis', 'YearFraction'].map((name) => ({
       namespace: 'cdm.base.datetime.daycount',

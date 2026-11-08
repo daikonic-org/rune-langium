@@ -16,7 +16,7 @@ import {
   setWorkspaceFilesDeps
 } from '../../../src/workspace/workspace-files.js';
 import { createOpfsRoot, writeBytes } from '../../setup/opfs-mock.js';
-import { createRuneDslServices, serializeRuneModel, type Data } from '@rune-langium/core';
+import { createRuneDslServices, serializeRuneModel, type Data, type RosettaModel } from '@rune-langium/core';
 import { EmptyFileSystem, URI } from 'langium';
 import { useEditorStore } from '@rune-langium/visual-editor';
 import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
@@ -266,6 +266,44 @@ it('rejects an invalid materialized document through the request and retains the
   await expect(hydrateProjectNamespaces('editing', ['pinned'])).rejects.toThrow('current verified view');
   expect(result.current.state.models).toEqual([]);
   expect(result.current.referenceView?.status).toBe('ready');
+});
+
+it.each([false, true])('retains concurrent namespace publications after an earlier failure=%s', async (failure) => {
+  const state = stateFor([]);
+  const services = createRuneDslServices(EmptyFileSystem);
+  const entries = ['alpha', 'beta'].map((namespace) => {
+    const path = `[cdm]/${namespace}.rosetta`;
+    const content = `namespace ${namespace}\ntype Item:`;
+    const document = services.shared.workspace.LangiumDocumentFactory.fromString<RosettaModel>(
+      content,
+      URI.parse(`file:///${path}`)
+    );
+    return {
+      file: {
+        ...file(path, content),
+        readOnly: true,
+        refOnly: true,
+        namespace,
+        serializedModelJson: serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, document.parseResult.value)
+      },
+      model: { ...document.parseResult.value, $textRegion: { documentURI: document.uri.toString() } }
+    };
+  });
+  vi.mocked(prepareProjectReferenceView).mockResolvedValue({ ...state, files: entries.map((entry) => entry.file) });
+  vi.mocked(linkDocument).mockImplementation(async (uri) => {
+    if (failure && uri.endsWith('/alpha.rosetta'))
+      return { linked: false, errors: ['First namespace failed'], newModels: [] };
+    const entry = entries.find((entry) => uri.endsWith(`/${entry.file.namespace}.rosetta`))!;
+    return { linked: true, errors: [], newModels: [entry.model] };
+  });
+  const { result } = renderHook(() => useProjectReferenceView(runtime, state));
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  await act(async () => {
+    const first = hydrateProjectNamespaces('editing', ['alpha'])!;
+    const second = hydrateProjectNamespaces('editing', ['beta'])!;
+    await Promise.all([failure ? expect(first).rejects.toThrow('First namespace failed') : first, second]);
+  });
+  expect(result.current.state.models.map((model) => model.name)).toEqual(failure ? ['beta'] : ['alpha', 'beta']);
 });
 
 it('retains linked ASTs for source edits only, and relinks unchanged A when its dependency B changes', async () => {

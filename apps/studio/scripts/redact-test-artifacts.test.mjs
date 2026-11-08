@@ -54,6 +54,24 @@ test('scrubs trace ZIP resources and embedded reports without altering binary ev
   }
 });
 
+test('preserves directory-free blob entries for Playwright report merging', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rune-redaction-'));
+  try {
+    const zip = new JSZip();
+    zip.file('report.jsonl', JSON.stringify({ method: 'onBegin' }));
+    zip.file('resources/session.json', JSON.stringify({ token: 'synthetic-secret' }), { createFolders: false });
+    const names = Object.keys(zip.files);
+    await writeFile(join(dir, 'report.zip'), await zip.generateAsync({ type: 'nodebuffer' }));
+
+    assert.equal(await redactTestArtifacts(dir), 1);
+    const redacted = await JSZip.loadAsync(await readFile(join(dir, 'report.zip')));
+    assert.deepEqual(Object.keys(redacted.files), names);
+    assert.equal(JSON.parse(await redacted.file('resources/session.json').async('string')).token, '[REDACTED]');
+  } finally {
+    await rm(dir, { recursive: true });
+  }
+});
+
 test('identifies an empty nested ZIP while refusing unchecked evidence', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'rune-redaction-'));
   try {
@@ -61,6 +79,52 @@ test('identifies an empty nested ZIP while refusing unchecked evidence', async (
     zip.file('attachments/empty.zip', Buffer.alloc(0));
     await writeFile(join(dir, 'report.zip'), await zip.generateAsync({ type: 'nodebuffer' }));
     await assert.rejects(redactTestArtifacts(dir), /report\.zip!attachments\/empty\.zip \(0 bytes\)/);
+  } finally {
+    await rm(dir, { recursive: true });
+  }
+});
+
+test('preserves credential-shaped Base64 inside an embedded ZIP while redacting surrounding text', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rune-redaction-'));
+  try {
+    let encoded;
+    for (let padding = 0; padding < 3; padding++) {
+      const zip = new JSZip();
+      zip.file('binary.bin', Buffer.concat([Buffer.alloc(padding), Buffer.from([255, 11, 63]), Buffer.alloc(64, 65)]));
+      const bytes = await zip.generateAsync({ type: 'nodebuffer' });
+      const candidate = bytes.toString('base64');
+      if (/\/ws\/[a-zA-Z0-9_.%~-]+/.test(candidate)) {
+        encoded = candidate;
+        break;
+      }
+    }
+    assert.ok(encoded, 'fixture must contain a credential-shaped Base64 sequence');
+    const file = join(dir, 'index.html');
+    await writeFile(
+      file,
+      `<p>wss://lsp.test/ws/synthetic-session.signature</p><script>const report="data:application/zip;base64,${encoded}";</script>`
+    );
+    const report = `data:application/zip;base64,${encoded}`;
+    await writeFile(
+      join(dir, 'manifest.json'),
+      JSON.stringify({
+        report,
+        token: 'synthetic-secret',
+        session_token: report,
+        body: JSON.stringify({ report, token: 'nested-secret' })
+      })
+    );
+    await redactTestArtifacts(dir);
+    const redacted = await readFile(file, 'utf8');
+    assert.ok(!redacted.includes('synthetic-session.signature'));
+    assert.ok(redacted.includes(`data:application/zip;base64,${encoded}`));
+    await JSZip.loadAsync(Buffer.from(/base64,([\w+/=]+)/.exec(redacted)[1], 'base64'));
+    const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.report, report);
+    assert.equal(manifest.token, '[REDACTED]');
+    assert.equal(manifest.session_token, '[REDACTED]');
+    assert.deepEqual(JSON.parse(manifest.body), { report, token: '[REDACTED]' });
+    assert.equal(await redactTestArtifacts(dir), 0);
   } finally {
     await rm(dir, { recursive: true });
   }

@@ -1215,6 +1215,8 @@ the locked current graph. Review identifies affected files. Broken portable
 bindings and schema changes remain explicit warnings; global graph errors block
 acceptance. Unavailable baseline or standalone preview contracts are reported,
 not treated as a compatibility success.
+When there are no saved bindings, review still validates the complete proposed
+graph and portable records, but does not build an unused comparison baseline.
 `ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
 selects a latest tag implicitly, and does not invoke the legacy model store.
 The same picker offers Nightly as `release: nightly`. Shared runtime
@@ -1249,6 +1251,13 @@ or retrying one clears that marker; actual failed writes remain Save barriers.
 `prepareProjectReferenceView`. Canonical batch AST hydration and Rune scope
 computation register a complete document set in the existing parser worker;
 read-only ownership and original source remain attached to each reference file.
+The UI's reconstructed materialized closure also prepares its own scopes through
+the canonical DocumentBuilder before publication. Namespace overrides revive
+references lazily, so worker linking alone cannot make that separate graph ready.
+Scope preparation retains lazy linking and skips validation; unrelated reference
+documents stay deferred. Publications are queued per capture so concurrent
+namespace requests retain each other's models. Abort checks discard late builds,
+and failed requests retain the last valid view without poisoning subsequent retries.
 Only configured local source paths participate in semantic hydration. The complete
 current editable file inventory remains available to source editors and autosave,
 including files outside those globs. Retained views contribute semantic models

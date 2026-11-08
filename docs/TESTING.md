@@ -130,6 +130,11 @@ documents. `formRender` is the selection-to-preview interval and includes
 namespace hydration; compare it with network and existing operation spans
 before attributing a slow result to rendering. `ENABLE_TELEMETRY=1` opts in via
 Settings before curated loading; no application environment flag is required.
+J20's cold source interval starts after reference loading, while its warm interval
+starts immediately after reload and includes workspace restoration. Those source
+durations measure different phases; they are not a direct cold/warm startup or
+cache-speed comparison. Artifact request reuse and preview readiness are checked
+separately.
 
 Cold curated Prototype preparation also has a hermetic browser regression:
 `pnpm --filter @rune-langium/studio exec playwright test test/e2e/prototype-curated.spec.ts --retries=0`.

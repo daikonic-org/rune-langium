@@ -20,6 +20,7 @@ import {
 import { createCuratedFrequencyProject } from '../../../../test/helpers/curated-frequency.js';
 import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
 import { strikeScheduleDirectory, strikeScheduleCaller } from '../../../../test/helpers/cdm-strike-schedule.js';
+import { roundingDirectory, roundingCaller } from '../../../../test/helpers/cdm-rounding.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -366,6 +367,63 @@ for (const width of [1440, 390])
     await result.scrollIntoViewIfNeeded();
     await info.attach('strike-schedule', {
       body: await page.screenshot({ path: info.outputPath('strike-schedule.png') }),
+      contentType: 'image/png'
+    });
+  });
+
+for (const width of [1440, 390])
+  test(`rounds decimal ties using published native bodies and Rune guards at ${width}px`, async ({ page }, info) => {
+    const project = await createCuratedRuneProject(roundingDirectory, roundingCaller);
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'rounding.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.rounding\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^RoundQuote.*example.rounding/ }).click();
+    const form = page.getByTestId('prototype-perspective').getByTestId('panel-formPreview');
+    const value = form.getByRole('spinbutton', { name: 'Value', exact: true });
+    const precision = form.getByRole('spinbutton', { name: 'Precision', exact: true });
+    const mode = form.getByRole('combobox', { name: 'Rounding Mode', exact: true });
+    await value.fill('1.005');
+    await precision.fill('2');
+    await mode.click();
+    await page.getByRole('option', { name: 'Nearest', exact: true }).click();
+    await form.getByRole('checkbox', { name: 'Remove Trailing Zeros', exact: true }).check();
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    const result = page.getByRole('region', { name: 'result output' });
+    await expect(result).toContainText('1.01');
+    await value.fill('-1.005');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(result).toContainText('-1.01');
+    await precision.fill('-1');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(result).toContainText('NonNegativePrecision');
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await result.scrollIntoViewIfNeeded();
+    await info.attach('decimal-rounding', {
+      body: await page.screenshot({ path: info.outputPath('decimal-rounding.png') }),
       contentType: 'image/png'
     });
   });

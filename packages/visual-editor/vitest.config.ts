@@ -16,7 +16,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
-    exclude: ['**/node_modules/**', '**/dist/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      ...(process.env.RUNE_CI_RENAME_GUARD_SEPARATE === '1' ? ['test/store/rename-cascade.test.ts'] : [])
+    ],
     setupFiles: ['./test/setup.ts']
   }
 });
