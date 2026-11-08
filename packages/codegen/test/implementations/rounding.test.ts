@@ -114,6 +114,38 @@ it('executes the same corpus in Python without changing the global decimal conte
   ]);
 });
 
+it('isolates Python rounding from mutable default traps, flags and exponent limits', () => {
+  const python = generatePythonModule(docs);
+  expect(python.diagnostics).toEqual([]);
+  const fn = python.bindings.get(roundingIdentity)!;
+  const hostileDefaults = `
+import decimal
+decimal.DefaultContext.prec = 1
+decimal.DefaultContext.rounding = decimal.ROUND_FLOOR
+decimal.DefaultContext.Emin = -1
+decimal.DefaultContext.Emax = 1
+decimal.DefaultContext.capitals = 0
+decimal.DefaultContext.clamp = 1
+for signal in decimal.DefaultContext.traps:
+    decimal.DefaultContext.traps[signal] = True
+    decimal.DefaultContext.flags[signal] = True
+decimal.setcontext(decimal.DefaultContext.copy())
+_rounding_default_before = repr(decimal.DefaultContext)
+_rounding_active_before = repr(decimal.getcontext())
+`;
+  expect(
+    runPython(
+      [
+        ...roundingCases.map((test) => ({ expression: `${fn}(data)`, data: test.inputs })),
+        { expression: `repr(decimal.DefaultContext) == _rounding_default_before` },
+        { expression: `repr(decimal.getcontext()) == _rounding_active_before` }
+      ],
+      python.code + hostileDefaults,
+      { includeRuntime: false }
+    )
+  ).toEqual([...roundingCases.map((test) => ({ value: test.expected })), { value: true }, { value: true }]);
+});
+
 it('requires the published payload and refuses signature drift in either target', async () => {
   const bare = await roundingDocuments(false);
   expect(

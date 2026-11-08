@@ -41,6 +41,9 @@ active; Java-only nullable inputs and negative-scale behavior are outside that
 required-input contract. Separate target tests cover invalid inputs, normalized
 negative zero, unchanged Python global context and huge no-op precisions without
 asking Java to allocate a huge scale.
+The Python context also pins its traps, flags, exponent limits and clamp settings.
+The full corpus runs with hostile `DefaultContext` settings, checking that both
+the defaults and caller's active context remain unchanged.
 
 Strict TypeScript tests exercise all three layouts, standalone Python uses the
 same corpus, publication tests round-trip the verified implementation payload,

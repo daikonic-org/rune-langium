@@ -12,7 +12,9 @@ export const roundToPrecision = {
         (lambda rounded: 0.0 if rounded == 0 else float(rounded))(
           decimal.Context(
             prec=max(1, len(number.as_tuple().digits), number.adjusted() + places + 2),
-            rounding={'Up': decimal.ROUND_UP, 'Down': decimal.ROUND_DOWN, 'Nearest': decimal.ROUND_HALF_UP}[mode]
+            rounding={'Up': decimal.ROUND_UP, 'Down': decimal.ROUND_DOWN, 'Nearest': decimal.ROUND_HALF_UP}[mode],
+            Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],
+            traps=[decimal.InvalidOperation, decimal.DivisionByZero, decimal.Overflow]
           ).quantize(number, decimal.Decimal((0, (1,), -places)))
         )
       )(decimal.Decimal(str(float(value))))
