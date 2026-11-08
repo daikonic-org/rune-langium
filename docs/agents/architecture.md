@@ -1215,6 +1215,8 @@ the locked current graph. Review identifies affected files. Broken portable
 bindings and schema changes remain explicit warnings; global graph errors block
 acceptance. Unavailable baseline or standalone preview contracts are reported,
 not treated as a compatibility success.
+When there are no saved bindings, review still validates the complete proposed
+graph and portable records, but does not build an unused comparison baseline.
 `ReferenceModelPicker` deduplicates artifact cohorts by release tag, never
 selects a latest tag implicitly, and does not invoke the legacy model store.
 The same picker offers Nightly as `release: nightly`. Shared runtime

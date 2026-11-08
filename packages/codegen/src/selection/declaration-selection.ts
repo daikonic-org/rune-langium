@@ -124,7 +124,12 @@ export function resolveExportSelection(docs: LangiumDocument[], selection: Expor
   for (const [key, family] of dispatchFamilies)
     if (!family.some((func) => func.dispatchAttribute)) dispatchFamilies.delete(key);
   const dependencies = new Map<TopLevel, readonly AstNode[]>();
-  const queue = [...roots];
+  // A complete effective selection cannot gain roots or dependency-only
+  // provenance. Avoid propagating every explicit root through the entire graph.
+  const hasUnselectedRoots = [...allRoots.keys()].some(
+    (root) => getEffectiveProjectDeclaration(root) === root && !roots.has(root)
+  );
+  const queue = hasUnselectedRoots ? [...roots] : [];
   while (queue.length) {
     const root = queue.pop()!;
     const rootsRequiringCurrent = requiredByRoot.get(root) ?? new Set<TopLevel>();

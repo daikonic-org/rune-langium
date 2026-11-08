@@ -652,6 +652,13 @@ unavailable until their implementation is supported.
 
 ## Deep-navigation runtime generation
 
+Complete effective export selections do not traverse declaration references just
+to compute an empty dependency-only provenance map. The fast path applies only
+when every effective root is already explicit; partial selections retain normal
+closure and provenance, including namespace overrides and dispatch families.
+Selection performance changes require the declaration-selection and preview-schema
+regressions, full Codegen tests and affected Studio export/preview journeys.
+
 Codegen builds regenerate `expr/generated/deep-runtime-source.ts` from the shared
 `expr/deep-paths.ts`. Edit the canonical traversal, then run
 `pnpm --filter @rune-langium/codegen run generate:deep-runtime`.

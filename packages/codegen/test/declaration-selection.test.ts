@@ -1,13 +1,62 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { describe, expect, it } from 'vitest';
-import { createRuneDslServices } from '@rune-langium/core';
+import { describe, expect, it, vi } from 'vitest';
+import { createRuneDslServices, isData, isRosettaModel, type RosettaModel } from '@rune-langium/core';
 import { URI } from 'langium';
 import { declarationKey, generate, generateSelected, resolveExportSelection } from '../src/export.js';
 import { compileGeneratedTypeScript } from './helpers/compiled-typescript.js';
 
 describe('declaration selection', () => {
+  it.each([false, true])(
+    'does not force references when all effective roots are explicit (override=%s)',
+    async (override) => {
+      const { shared } = createRuneDslServices();
+      await shared.workspace.WorkspaceManager.initializeWorkspace([]);
+      const documents = [
+        'namespace closed\ntype Dep:\n value string (1..1)\ntype Root:\n dep Dep (1..1)',
+        ...(override ? ['override namespace closed\ntype Dep:\n replacement boolean (1..1)'] : [])
+      ].map((source, index) =>
+        shared.workspace.LangiumDocumentFactory.fromString<RosettaModel>(
+          source,
+          URI.parse(`inmemory:///closed-${index}.rosetta`)
+        )
+      );
+      for (const document of documents) shared.workspace.LangiumDocuments.addDocument(document);
+      await shared.workspace.DocumentBuilder.build(documents, { validation: true, eagerLinking: true });
+      expect(documents.flatMap((document) => document.diagnostics ?? [])).toEqual([]);
+      const root = documents[0]!.parseResult.value.elements.find((node) => isData(node) && node.name === 'Root');
+      if (!isData(root)) throw new Error('Expected Root data');
+      const reference = root.attributes[0]!.typeCall.type;
+      const target = reference.ref;
+      const read = vi.fn(() => target);
+      Object.defineProperty(reference, 'ref', { get: read });
+
+      const complete = resolveExportSelection(documents, { namespaces: ['closed'], declarations: [] });
+      expect(complete.included).toHaveLength(2);
+      expect(complete.explicit).toEqual(complete.included);
+      expect(complete.requiredBy.size).toBe(0);
+      expect(
+        complete.documents.flatMap((document) => {
+          const model = document.parseResult.value;
+          return isRosettaModel(model) ? model.elements : [];
+        })
+      ).toContain(target);
+      expect(read).not.toHaveBeenCalled();
+
+      const partial = resolveExportSelection(documents, {
+        namespaces: [],
+        declarations: [{ namespace: 'closed', kind: 'Data', name: 'Root' }]
+      });
+      expect(partial.included).toEqual(expect.arrayContaining([...complete.included]));
+      expect(partial.included).toHaveLength(complete.included.length);
+      expect(partial.requiredBy.get(declarationKey({ namespace: 'closed', kind: 'Data', name: 'Dep' }))).toEqual([
+        declarationKey({ namespace: 'closed', kind: 'Data', name: 'Root' })
+      ]);
+      expect(read).toHaveBeenCalled();
+    }
+  );
+
   it('keeps effective transitive dispatch families and their dependencies after a complete namespace override', async () => {
     const { shared } = createRuneDslServices();
     await shared.workspace.WorkspaceManager.initializeWorkspace([]);

@@ -45,6 +45,18 @@ export async function reviewProjectCompatibility(
   ];
   if (!previous || projectDiagnosticsForTargets(graph.diagnostics).some((issue) => issue.severity === 'error'))
     return diagnostics;
+  const uses = [
+    ...examples.documents.map((entry) => ({ path: entry.descriptorPath, type: entry.descriptor.type })),
+    ...workflows.documents.flatMap(({ path, value }) =>
+      [value.function, ...Object.values(value.outputs).map((output) => output.type)].flatMap((type) =>
+        type ? [{ path, type }] : []
+      )
+    ),
+    ...presentations.documents.map(({ path, value }) => ({ path, type: value.type }))
+  ];
+  // The proposed graph and portable records are validated above. An old graph
+  // is needed only when a saved binding has a schema to compare.
+  if (!uses.length) return diagnostics;
   const before = await buildEffectiveProject(previous.snapshot, previous.referenceDocuments);
   if (projectDiagnosticsForTargets(before.diagnostics).some((issue) => issue.severity === 'error')) {
     diagnostics.push({
@@ -56,15 +68,6 @@ export async function reviewProjectCompatibility(
     });
     return diagnostics;
   }
-  const uses = [
-    ...examples.documents.map((entry) => ({ path: entry.descriptorPath, type: entry.descriptor.type })),
-    ...workflows.documents.flatMap(({ path, value }) =>
-      [value.function, ...Object.values(value.outputs).map((output) => output.type)].flatMap((type) =>
-        type ? [{ path, type }] : []
-      )
-    ),
-    ...presentations.documents.map(({ path, value }) => ({ path, type: value.type }))
-  ];
   const cache = new Map<EffectiveProject, Map<string, string | undefined>>();
   const shape = (project: EffectiveProject, type: SymbolIdentity) => {
     let schemas = cache.get(project);
