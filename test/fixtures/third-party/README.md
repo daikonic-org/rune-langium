@@ -17,6 +17,9 @@ source versions and integrity manifests alongside each cohort.
 - [CDM/Strata frequency contract](cdm-frequency/README.md): pinned CDM types and
   handwritten mapper, Strata 1.7.0 source/binary provenance and exact-count JVM
   oracle cases for the reusable Rune port and its CDM adapter.
+- [CDM strike schedule](cdm-strike-schedule/README.md): pinned CDM/FpML declarations,
+  handwritten Java mapper and published JVM oracle for positional mapping,
+  duplicate preservation and missing-date partial rows.
 
 - [CDM code lists](cdm-codelists/README.md): versioned option-type resource with upstream license, notice and integrity metadata.
 - [Currency list](currency-list/README.md): pinned code-to-label currency JSON, upstream license and integrity metadata, exercised through in-memory Rune enum materialization.

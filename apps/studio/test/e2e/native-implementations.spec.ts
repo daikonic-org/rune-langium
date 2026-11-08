@@ -18,6 +18,8 @@ import {
   calculationPeriodCalendars
 } from '../../../../test/helpers/cdm-calculation-period.js';
 import { createCuratedFrequencyProject } from '../../../../test/helpers/curated-frequency.js';
+import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
+import { strikeScheduleDirectory, strikeScheduleCaller } from '../../../../test/helpers/cdm-strike-schedule.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -301,6 +303,69 @@ for (const width of [1440, 390])
     expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
     await info.attach('strata-frequency', {
       body: await page.screenshot({ path: info.outputPath('strata-frequency.png') }),
+      contentType: 'image/png'
+    });
+  });
+
+for (const width of [1440, 390])
+  test(`maps strike prices and dates through the bundled Rune implementation at ${width}px`, async ({ page }, info) => {
+    const project = await createCuratedRuneProject(strikeScheduleDirectory, strikeScheduleCaller);
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'strike.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.strike\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/strike-schedule.rosetta'])
+      .toContain('override namespace cdm.ingest.fpml.confirmation.pricequantity');
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/strike-schedule-state.rosetta'])
+      .toContain('func StrikeDateAtPosition:');
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^StrikeSchedule.*example.strike/ }).click();
+    await page.getByRole('button', { name: 'StrikeSchedule node actions' }).click();
+    await page.getByRole('button', { name: 'Import input…' }).click();
+    await page.getByRole('textbox', { name: 'Import JSON data' }).fill(
+      JSON.stringify({
+        prices: [
+          { amount: 10, currency: { value: 'USD' } },
+          { amount: 10, currency: { value: 'EUR' } },
+          { amount: 30, currency: { value: 'USD' } }
+        ],
+        dates: ['2024-03-01', '2024-01-01', '2024-02-01', '2024-04-01']
+      })
+    );
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    const result = page.getByRole('region', { name: 'result output' });
+    for (const date of ['2024-03-01', '2024-01-01', '2024-02-01']) await expect(result).toContainText(date);
+    await expect(result).not.toContainText('2024-04-01');
+    const payload = result.getByTestId('instance-payload-output');
+    await payload.focus();
+    await expect(payload).toBeFocused();
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await result.scrollIntoViewIfNeeded();
+    await info.attach('strike-schedule', {
+      body: await page.screenshot({ path: info.outputPath('strike-schedule.png') }),
       contentType: 'image/png'
     });
   });

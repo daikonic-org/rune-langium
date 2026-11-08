@@ -970,7 +970,7 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "d427d868c0698881ec06ef8d7f982b717a42f648cfd4dd9f7b7a377204f5a03e"
+      "sha256": "ce6dda6c6a9b2931ca4a09d80c4d9bc0a988ac439573a50c422699018efe2dd3"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
@@ -1003,6 +1003,14 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
       "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
+      "sha256": "7662785cbec6479509d6fe3fd15719cbcabdebe4d8c030bac841c00e0699861f"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
+      "sha256": "c04f30ef599b9f825d58ce81e9dc6964180d3a438ca4759c4d1b8f4d8bb22be7"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
@@ -5116,7 +5124,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
+        "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.MapCommodityOptionStrikePriceSchedule",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -5129,10 +5140,17 @@
         "tests": []
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Construct dated values from positional pairs; prove list pairing and upstream missing-date/extra-date behavior.",
+        "route": "rune-source",
+        "requirements": "Owned Rune fold preserves positional pairs, duplicate/unsorted dates, ignored extra dates and explicit partial rows for missing dates, matching the pinned handwritten Java implementation/default runtime across 16 JVM-oracle/TS/Python/Prototype cases. Normal validation still flags missing required dates. Amounts are copied without arithmetic; current folds cost O(prices*dates + prices^2), not Java linear-time indexing.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/strike-schedule.test.ts",
+        "cases": "test/fixtures/third-party/cdm-strike-schedule/cases.json",
+        "casesSha256": "92dcb366044c3e1f91f97683e845eec38a3dfcab14fdea1e6617b848b6ec16f8",
+        "selectors": [],
+        "caseCount": 16
       }
     },
     {

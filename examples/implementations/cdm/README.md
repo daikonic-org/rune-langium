@@ -1,6 +1,6 @@
 # CDM functions in Rune
 
-These owned Rune sources implement four CDM 7.9.0 functions using the standard
+These owned Rune sources implement five CDM 7.9.0 functions using the standard
 `override namespace` syntax. They require the linked CDM model and its matching
 Rune standard library. They use no installed JavaScript callbacks.
 
@@ -10,6 +10,7 @@ Rune standard library. They use no installed JavaScript callbacks.
 | [event-common.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/event-common.rosetta) | `EmptyTransferHistory` | Returns an empty list. |
 | [date-list.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/date-list.rosetta) | `PopOffDateList` | Removes the last position, retaining earlier duplicate dates. |
 | [frequency.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/frequency.rosetta) | `PeriodsInYear` | Converts CDM frequency to the shared Rune Strata library and calls its exact `EventsPerYear` function. |
+| [strike-schedule.rosetta](../../../packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta) | `MapCommodityOptionStrikePriceSchedule` | Pairs FpML amounts and dates by position, preserving duplicates and partial rows when dates are missing. |
 
 Curated publication includes the canonical files from project-runtime. Reference
 installation copies them from that verified bundle into
@@ -29,6 +30,12 @@ For `PeriodsInYear`, also copy
 [`strata-frequency.rosetta`](../../../packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta)
 and its accompanying `strata-LICENSE.txt` / `strata-NOTICE.txt`. The library is in
 `com.opengamma.strata.basics.schedule`; CDM-specific constraints stay in its adapter.
+
+For the strike mapper, also copy
+[`strike-schedule-state.rosetta`](../../../packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta)
+and include the CDM cohort's matching FpML dependency. Required-date validation
+still applies to its partial results. The [reference contract](../../../test/fixtures/third-party/cdm-strike-schedule/README.md)
+records input ordering, numeric scope and the positional fold's performance limit.
 
 Open or build the project normally. Core links CDM callers to these declarations;
 TypeScript export, Python projection and Prototype then consume the same Rune

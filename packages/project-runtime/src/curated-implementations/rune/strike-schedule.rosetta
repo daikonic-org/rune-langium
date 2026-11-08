@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.ingest.fpml.confirmation.pricequantity
+version "1.0.0"
+
+import cdm.base.math.*
+import fpml.consolidated.shared.* as fpml
+import rune.cdm.implementations.*
+
+func MapCommodityOptionStrikePriceSchedule: <"Pair each FpML strike amount with the date at the same position, preserving the handwritten CDM 7.9.0 implementation. Extra dates are ignored; missing dates produce explicit partial DatedValue rows that remain subject to normal result validation.">
+    inputs:
+        fpmlStrikePricePerUnitStepList fpml.NonNegativeMoney (0..*)
+        fpmlCommodityStrikePriceDateList date (0..*)
+    output:
+        strikePriceSchedule DatedValue (0..*)
+    alias steps:
+        [StrikeScheduleState { position: 0 },
+         fpmlStrikePricePerUnitStepList extract [StrikeScheduleState { position: 0, price: item }]]
+    alias schedule:
+        steps reduce previous, next [
+            StrikeScheduleState {
+                position: previous -> position + 1,
+                rows: [previous -> rows, StrikeScheduleRow(
+                    next -> price,
+                    StrikeDateAtPosition(fpmlCommodityStrikePriceDateList, previous -> position)
+                )]
+            }
+        ]
+    set strikePriceSchedule: schedule -> rows

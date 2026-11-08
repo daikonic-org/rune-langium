@@ -4,13 +4,13 @@
 """Optional JVM oracle check; ordinary target tests use the pinned expectations offline."""
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
-import urllib.request
-import zipfile
+import sys
+sys.dont_write_bytecode = True
+from lib.java_reference_oracle import verified_classpath
 
 root = Path(__file__).resolve().parent.parent
 directory = root / "test/fixtures/third-party/cdm-frequency"
@@ -18,28 +18,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--cache-dir", type=Path, required=True)
 args = parser.parse_args()
 manifest = json.loads((directory / "strata.json").read_text())
-args.cache_dir.mkdir(parents=True, exist_ok=True)
-for artifact in manifest["artifacts"]:
-    path = args.cache_dir / artifact["name"]
-    if not path.exists():
-        path.write_bytes(urllib.request.urlopen(artifact["url"], timeout=30).read())
-    if hashlib.sha256(path.read_bytes()).hexdigest() != artifact["sha256"]:
-        raise SystemExit(f"Strata artifact checksum mismatch: {path.name}")
-for asset in manifest["files"]:
-    with zipfile.ZipFile(args.cache_dir / asset["artifact"]) as archive:
-        data = archive.read(asset["entry"])
-    if (
-        hashlib.sha256(data).hexdigest() != asset["sha256"]
-        or (directory / asset["name"]).read_bytes() != data
-    ):
-        raise SystemExit(f"Pinned Strata source changed: {asset['name']}")
+classpath = verified_classpath(directory, manifest, args.cache_dir)
 cases = json.loads((directory / "cases.json").read_text()) + json.loads(
     (directory / "strata-cases.json").read_text()
-)
-classpath = os.pathsep.join(
-    str(args.cache_dir / artifact["name"])
-    for artifact in manifest["artifacts"]
-    if artifact["runtime"]
 )
 result = subprocess.run(
     [

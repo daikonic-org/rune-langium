@@ -1,0 +1,1201 @@
+[
+  {
+    "id": "empty",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [],
+      "fpmlCommodityStrikePriceDateList": []
+    },
+    "expected": []
+  },
+  {
+    "id": "empty-prices-ignore-dates",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-02-01"
+      ]
+    },
+    "expected": []
+  },
+  {
+    "id": "single",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 125.5,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 125.5,
+        "date": "2024-01-01"
+      }
+    ]
+  },
+  {
+    "id": "zero-amount",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 0,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 0,
+        "date": "2024-01-01"
+      }
+    ]
+  },
+  {
+    "id": "ordered-pairs",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 100,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 105,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 99,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-02-01",
+        "2024-03-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 100,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 105,
+        "date": "2024-02-01"
+      },
+      {
+        "value": 99,
+        "date": "2024-03-01"
+      }
+    ]
+  },
+  {
+    "id": "duplicate-prices",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 42,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 42,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 42,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-01-02",
+        "2024-01-03"
+      ]
+    },
+    "expected": [
+      {
+        "value": 42,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 42,
+        "date": "2024-01-02"
+      },
+      {
+        "value": 42,
+        "date": "2024-01-03"
+      }
+    ]
+  },
+  {
+    "id": "duplicate-dates",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 10,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 20,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 30,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-01-01",
+        "2024-01-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 10,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 20,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 30,
+        "date": "2024-01-01"
+      }
+    ]
+  },
+  {
+    "id": "unordered-dates",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 1,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 2,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 3,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-03-01",
+        "2024-01-01",
+        "2024-02-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 1,
+        "date": "2024-03-01"
+      },
+      {
+        "value": 2,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 3,
+        "date": "2024-02-01"
+      }
+    ]
+  },
+  {
+    "id": "no-dates",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 10,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 20,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": []
+    },
+    "expected": [
+      {
+        "value": 10
+      },
+      {
+        "value": 20
+      }
+    ],
+    "missingDateRows": [
+      0,
+      1
+    ]
+  },
+  {
+    "id": "fewer-dates",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 100,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 200,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 300,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 100,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 200
+      },
+      {
+        "value": 300
+      }
+    ],
+    "missingDateRows": [
+      1,
+      2
+    ]
+  },
+  {
+    "id": "extra-dates",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 12,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-01-02",
+        "2024-01-03"
+      ]
+    },
+    "expected": [
+      {
+        "value": 12,
+        "date": "2024-01-01"
+      }
+    ]
+  },
+  {
+    "id": "no-currency-conversion",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 123.45,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 67.89,
+          "currency": {
+            "value": "EUR"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-02-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 123.45,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 67.89,
+        "date": "2024-02-01"
+      }
+    ]
+  },
+  {
+    "id": "decimal-copy",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 1e-07,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1.23456789012345,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1234567890.125,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-01-02",
+        "2024-01-03"
+      ]
+    },
+    "expected": [
+      {
+        "value": 1e-07,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 1.23456789012345,
+        "date": "2024-01-02"
+      },
+      {
+        "value": 1234567890.125,
+        "date": "2024-01-03"
+      }
+    ]
+  },
+  {
+    "id": "leap-day",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 0.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1.75,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-02-28",
+        "2024-02-29",
+        "2024-03-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 0,
+        "date": "2024-02-28"
+      },
+      {
+        "value": 0.25,
+        "date": "2024-02-29"
+      },
+      {
+        "value": 1.75,
+        "date": "2024-03-01"
+      }
+    ]
+  },
+  {
+    "id": "price-metadata-is-not-propagated",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 12.5,
+          "currency": {
+            "value": "USD",
+            "currencyScheme": "urn:iso:std:iso:4217"
+          },
+          "id": "source-step-1"
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01"
+      ]
+    },
+    "expected": [
+      {
+        "value": 12.5,
+        "date": "2024-01-01"
+      }
+    ]
+  },
+  {
+    "id": "sixty-four-steps",
+    "inputs": {
+      "fpmlStrikePricePerUnitStepList": [
+        {
+          "amount": 0.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 0.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 0.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 0.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 1.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 2.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 2.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 2.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 2.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 3.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 3.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 3.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 3.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 4.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 4.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 4.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 4.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 5.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 5.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 5.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 5.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 6.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 6.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 6.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 6.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 7.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 7.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 7.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 7.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 8.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 8.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 8.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 8.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 9.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 9.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 9.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 9.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 10.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 10.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 10.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 10.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 11.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 11.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 11.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 11.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 12.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 12.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 12.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 12.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 13.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 13.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 13.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 13.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 14.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 14.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 14.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 14.75,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 15.0,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 15.25,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 15.5,
+          "currency": {
+            "value": "USD"
+          }
+        },
+        {
+          "amount": 15.75,
+          "currency": {
+            "value": "USD"
+          }
+        }
+      ],
+      "fpmlCommodityStrikePriceDateList": [
+        "2024-01-01",
+        "2024-01-02",
+        "2024-01-03",
+        "2024-01-04",
+        "2024-01-05",
+        "2024-01-06",
+        "2024-01-07",
+        "2024-01-08",
+        "2024-01-09",
+        "2024-01-10",
+        "2024-01-11",
+        "2024-01-12",
+        "2024-01-13",
+        "2024-01-14",
+        "2024-01-15",
+        "2024-01-16",
+        "2024-01-17",
+        "2024-01-18",
+        "2024-01-19",
+        "2024-01-20",
+        "2024-01-21",
+        "2024-01-22",
+        "2024-01-23",
+        "2024-01-24",
+        "2024-01-25",
+        "2024-01-26",
+        "2024-01-27",
+        "2024-01-28",
+        "2024-01-29",
+        "2024-01-30",
+        "2024-01-31",
+        "2024-02-01",
+        "2024-02-02",
+        "2024-02-03",
+        "2024-02-04",
+        "2024-02-05",
+        "2024-02-06",
+        "2024-02-07",
+        "2024-02-08",
+        "2024-02-09",
+        "2024-02-10",
+        "2024-02-11",
+        "2024-02-12",
+        "2024-02-13",
+        "2024-02-14",
+        "2024-02-15",
+        "2024-02-16",
+        "2024-02-17",
+        "2024-02-18",
+        "2024-02-19",
+        "2024-02-20",
+        "2024-02-21",
+        "2024-02-22",
+        "2024-02-23",
+        "2024-02-24",
+        "2024-02-25",
+        "2024-02-26",
+        "2024-02-27",
+        "2024-02-28",
+        "2024-02-29",
+        "2024-03-01",
+        "2024-03-02",
+        "2024-03-03",
+        "2024-03-04"
+      ]
+    },
+    "expected": [
+      {
+        "value": 0.0,
+        "date": "2024-01-01"
+      },
+      {
+        "value": 0.25,
+        "date": "2024-01-02"
+      },
+      {
+        "value": 0.5,
+        "date": "2024-01-03"
+      },
+      {
+        "value": 0.75,
+        "date": "2024-01-04"
+      },
+      {
+        "value": 1.0,
+        "date": "2024-01-05"
+      },
+      {
+        "value": 1.25,
+        "date": "2024-01-06"
+      },
+      {
+        "value": 1.5,
+        "date": "2024-01-07"
+      },
+      {
+        "value": 1.75,
+        "date": "2024-01-08"
+      },
+      {
+        "value": 2.0,
+        "date": "2024-01-09"
+      },
+      {
+        "value": 2.25,
+        "date": "2024-01-10"
+      },
+      {
+        "value": 2.5,
+        "date": "2024-01-11"
+      },
+      {
+        "value": 2.75,
+        "date": "2024-01-12"
+      },
+      {
+        "value": 3.0,
+        "date": "2024-01-13"
+      },
+      {
+        "value": 3.25,
+        "date": "2024-01-14"
+      },
+      {
+        "value": 3.5,
+        "date": "2024-01-15"
+      },
+      {
+        "value": 3.75,
+        "date": "2024-01-16"
+      },
+      {
+        "value": 4.0,
+        "date": "2024-01-17"
+      },
+      {
+        "value": 4.25,
+        "date": "2024-01-18"
+      },
+      {
+        "value": 4.5,
+        "date": "2024-01-19"
+      },
+      {
+        "value": 4.75,
+        "date": "2024-01-20"
+      },
+      {
+        "value": 5.0,
+        "date": "2024-01-21"
+      },
+      {
+        "value": 5.25,
+        "date": "2024-01-22"
+      },
+      {
+        "value": 5.5,
+        "date": "2024-01-23"
+      },
+      {
+        "value": 5.75,
+        "date": "2024-01-24"
+      },
+      {
+        "value": 6.0,
+        "date": "2024-01-25"
+      },
+      {
+        "value": 6.25,
+        "date": "2024-01-26"
+      },
+      {
+        "value": 6.5,
+        "date": "2024-01-27"
+      },
+      {
+        "value": 6.75,
+        "date": "2024-01-28"
+      },
+      {
+        "value": 7.0,
+        "date": "2024-01-29"
+      },
+      {
+        "value": 7.25,
+        "date": "2024-01-30"
+      },
+      {
+        "value": 7.5,
+        "date": "2024-01-31"
+      },
+      {
+        "value": 7.75,
+        "date": "2024-02-01"
+      },
+      {
+        "value": 8.0,
+        "date": "2024-02-02"
+      },
+      {
+        "value": 8.25,
+        "date": "2024-02-03"
+      },
+      {
+        "value": 8.5,
+        "date": "2024-02-04"
+      },
+      {
+        "value": 8.75,
+        "date": "2024-02-05"
+      },
+      {
+        "value": 9.0,
+        "date": "2024-02-06"
+      },
+      {
+        "value": 9.25,
+        "date": "2024-02-07"
+      },
+      {
+        "value": 9.5,
+        "date": "2024-02-08"
+      },
+      {
+        "value": 9.75,
+        "date": "2024-02-09"
+      },
+      {
+        "value": 10.0,
+        "date": "2024-02-10"
+      },
+      {
+        "value": 10.25,
+        "date": "2024-02-11"
+      },
+      {
+        "value": 10.5,
+        "date": "2024-02-12"
+      },
+      {
+        "value": 10.75,
+        "date": "2024-02-13"
+      },
+      {
+        "value": 11.0,
+        "date": "2024-02-14"
+      },
+      {
+        "value": 11.25,
+        "date": "2024-02-15"
+      },
+      {
+        "value": 11.5,
+        "date": "2024-02-16"
+      },
+      {
+        "value": 11.75,
+        "date": "2024-02-17"
+      },
+      {
+        "value": 12.0,
+        "date": "2024-02-18"
+      },
+      {
+        "value": 12.25,
+        "date": "2024-02-19"
+      },
+      {
+        "value": 12.5,
+        "date": "2024-02-20"
+      },
+      {
+        "value": 12.75,
+        "date": "2024-02-21"
+      },
+      {
+        "value": 13.0,
+        "date": "2024-02-22"
+      },
+      {
+        "value": 13.25,
+        "date": "2024-02-23"
+      },
+      {
+        "value": 13.5,
+        "date": "2024-02-24"
+      },
+      {
+        "value": 13.75,
+        "date": "2024-02-25"
+      },
+      {
+        "value": 14.0,
+        "date": "2024-02-26"
+      },
+      {
+        "value": 14.25,
+        "date": "2024-02-27"
+      },
+      {
+        "value": 14.5,
+        "date": "2024-02-28"
+      },
+      {
+        "value": 14.75,
+        "date": "2024-02-29"
+      },
+      {
+        "value": 15.0,
+        "date": "2024-03-01"
+      },
+      {
+        "value": 15.25,
+        "date": "2024-03-02"
+      },
+      {
+        "value": 15.5,
+        "date": "2024-03-03"
+      },
+      {
+        "value": 15.75,
+        "date": "2024-03-04"
+      }
+    ]
+  }
+]

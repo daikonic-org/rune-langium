@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace rune.cdm.implementations
+version "1.0.0"
+
+import cdm.base.math.*
+import fpml.consolidated.shared.* as fpml
+
+type StrikeDateCursor:
+    position int (1..1)
+    current date (0..1)
+    selected date (0..1)
+
+func StrikeDateAtPosition:
+    inputs:
+        dates date (0..*)
+        position int (1..1)
+    output:
+        result date (0..1)
+    alias steps:
+        [StrikeDateCursor { position: 0 },
+         dates extract [StrikeDateCursor { position: 0, current: item }]]
+    alias cursor:
+        steps reduce previous, next [
+            StrikeDateCursor {
+                position: previous -> position + 1,
+                selected: if previous -> position = position
+                          then next -> current
+                          else previous -> selected
+            }
+        ]
+    set result: cursor -> selected
+
+type StrikeScheduleState:
+    position int (1..1)
+    price fpml.NonNegativeMoney (0..1)
+    rows DatedValue (0..*)
+
+func StrikeScheduleRow:
+    inputs:
+        price fpml.NonNegativeMoney (1..1)
+        strikeDate date (0..1)
+    output:
+        result DatedValue (1..1)
+    set result:
+        if strikeDate exists
+        then DatedValue { date: strikeDate, value: price -> amount }
+        else DatedValue { value: price -> amount, ... }

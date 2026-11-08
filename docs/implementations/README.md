@@ -14,8 +14,8 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **8
-language-specific implementations per target**. Eight catalog entries use Rune,
-including four owned overrides and four partially implemented upstream dispatch
+language-specific implementations per target**. Nine catalog entries use Rune,
+including five owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -104,6 +104,16 @@ This is a bounded library port; no direct upstream CDM `PeriodsInYear` Java bind
 was found. The catalog selects one Rune path with its library support file, with
 no parallel target-specific implementation.
 
+[`MapCommodityOptionStrikePriceSchedule`](../../packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta)
+is an ordinary Rune override of the handwritten CDM mapper. It pairs amounts and
+dates by position, keeps duplicates and ordering, ignores extra dates and returns
+explicit partial rows when dates run out. Normal result validation still reports
+the missing required dates. The [16-case reference cohort](../../test/fixtures/third-party/cdm-strike-schedule/README.md)
+matches the published CDM 7.9.0 JVM implementation, strict TypeScript layouts,
+Python and the managed Studio worker. Prices are copied without arithmetic or
+currency conversion. The fold-based positional lookup and row accumulation are
+quadratic for equally sized inputs; this is not Java's linear indexed loop.
+
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
@@ -155,8 +165,9 @@ Run Codegen's `test/implementations` and Python runtime suites, and Studio's rea
 worker suite. `test/e2e/native-implementations.spec.ts` executes AddDays and signed
 DateDifference from a publication-produced curated artifact through the real
 preview worker at desktop/390px with viewport and axe checks. The browser fixture
-is a minimal declaration cohort; standalone tests
-cover the other bundled utilities and exact signatures.
+also checks the installed frequency adapter and positional strike mapper. These
+are minimal declaration cohorts; standalone tests cover the other bundled
+utilities and exact signatures.
 
 CDM/Rune source references retain their upstream license and notice files. The inventory
 commits factual signatures/hashes, not copied source trees. Generated TypeScript

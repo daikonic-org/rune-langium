@@ -1413,8 +1413,19 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
       ? `${nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection)}.filter((value)${ctx.projection ? '' : ': value is typeof value & { value: NonNullable<typeof value.value> }'} => value.value != null)`
       : nativeCollection(arr, expr.argument, ctx.implicitMetadata?.many, usesNativeValues(ctx), ctx.projection);
   const initialName = freshLocal(ctx, '__initial');
+  const inputType = expressionType(expr.argument);
+  const resultType = expressionType(fn.body);
+  const valuesType =
+    usesNativeValues(ctx) &&
+    !ctx.projection &&
+    !inputKind &&
+    !resultKind &&
+    (isData(inputType) || isChoice(inputType)) &&
+    inputType === resultType
+      ? `: ${resolveFuncValueTypeTs(inputType, undefined, ctx.typeNameResolver)}[]`
+      : '';
   const accumulatorType = usesNativeValues(ctx) && !ctx.projection ? `<typeof ${initialName} | undefined>` : '';
-  const reduced = `((${values}) => { if (${values}.length === 0) return undefined; const ${initialName} = ${initial}; return ${values}.slice(1).reduce${accumulatorType}((${accName}, ${itemName}) => ${arrowBody(body)}, ${initialName}); })(${input})`;
+  const reduced = `((${values}${valuesType}) => { if (${values}.length === 0) return undefined; const ${initialName} = ${initial}; return ${values}.slice(1).reduce${accumulatorType}((${accName}, ${itemName}) => ${arrowBody(body)}, ${initialName}); })(${input})`;
   return resultKind && !ctx.preserveMetadata ? unwrapMetadata(reduced, false) : reduced;
 }
 

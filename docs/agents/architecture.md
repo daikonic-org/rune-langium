@@ -1379,6 +1379,19 @@ functions own Strata semantics; the CDM `PeriodsInYear` override owns conversion
 and CDM-specific constraints. Publication installs both source files and the
 named upstream license/notice files together. Target emitters share this Rune
 algorithm and never discover a Strata library during generation.
+The strike-schedule override pairs amounts and dates by position using ordinary
+Rune state reductions. An explicit partial `DatedValue { value: ..., ... }`
+preserves the handwritten Java mapper's missing-date rows; canonical result
+validation remains responsible for their required-date errors. It does not sort,
+deduplicate, convert currencies or acquire external data. Without indexed list
+access, the positional fold and accumulated prefix copies cost O(P*D + P^2).
+For native TypeScript values, reductions whose input and result share one Data
+or Choice type annotate the input array with that model's canonical shape.
+This prevents a partial constructor seed from erasing optional accumulator fields
+through literal inference. Metadata and projection reductions keep their existing
+paths; the correction requires no cast through `unknown` or `any`.
+Prototype's shared JSON payload panel remains keyboard-focusable with a visible
+focus indicator, allowing long input/result arrays to be scrolled without a mouse.
 Upstream dispatch bodies and execution coverage are distinct facts. Core dispatch
 scopes inherit base declarations, never aliases from sibling variants.
 The calculation-period regression closure preserves all upstream selectors and

@@ -476,6 +476,19 @@ use pinned offline expectations. For the independent JVM oracle, run
 `python3 scripts/verify-strata-frequency.py --cache-dir /tmp/rune-strata-frequency`:
 it checksum-verifies the published Strata 1.7.0 artifacts and executes 70 cases
 using Java 11+ source-file launching. No JVM is required in emitted artifacts.
+The same fixture builder verifies `cdm-strike-schedule`, including its original
+handwritten Java implementation and available upstream license/notice files. Codegen,
+project-runtime and Studio `strike-schedule.test.ts` suites cover 16 positional
+cases, explicit partial results and canonical required-date validation. The
+native-implementation browser suite imports and executes the installed mapper
+at desktop/390px. Runtime generated-module tests use the shared compilation
+budget. The shared `test/helpers/curated-rune-project.ts` fixture publishes,
+verifies and installs the pinned multi-model cohort through production paths.
+For the optional independent JVM check, run
+`python3 scripts/verify-strike-schedule.py --cache-dir /tmp/rune-strike-schedule`
+with JDK 21+. Both oracle entrypoints reuse
+`scripts/lib/java_reference_oracle.py` to verify pinned artifact and source bytes;
+the Java binaries are test-only and are never packaged in curated targets.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.

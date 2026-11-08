@@ -1766,6 +1766,23 @@ func Offset:
     }
   });
 
+  it('uses the Rune model shape when reducer constructors omit optional fields', async () => {
+    const funcs = await compile(`namespace test.reduceShape
+type State:
+ value number (0..1)
+ total number (0..1)
+func Total:
+ inputs: values number (0..*)
+ output: result number (1..1)
+ alias steps: [State {}, values extract [State { value: item }]]
+ alias accumulated: steps reduce previous, next [State { total: (previous -> total default 0) + next -> value }]
+ set result: accumulated -> total default 0
+`);
+    expect(funcs.Total!({ values: [] })).toBe(0);
+    expect(funcs.Total!({ values: [4] })).toBe(4);
+    expect(funcs.Total!({ values: [2, 3, 2] })).toBe(7);
+  });
+
   it('compares collection payloads while retaining selected metadata', async () => {
     const operations = [
       ['Sorted', 'int', '0..*', 'values sort'],

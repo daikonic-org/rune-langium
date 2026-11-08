@@ -47,6 +47,17 @@ const suites = [
     declarations: [{ namespace: 'cdm.product.common.schedule', name: 'PeriodsInYear', kind: 'RosettaFunction' }],
     references: [],
     supportReferences: ['rosetta-source/src/main/java/cdm/product/common/schedule/functions/CdmToStrataMapper.java']
+  },
+  {
+    directory: 'cdm-strike-schedule',
+    declarations: [
+      {
+        namespace: 'cdm.ingest.fpml.confirmation.pricequantity',
+        name: 'MapCommodityOptionStrikePriceSchedule',
+        kind: 'RosettaFunction'
+      }
+    ],
+    references: ['MapCommodityOptionStrikePriceSchedule']
   }
 ];
 const { RuneDsl } = createRuneDslServices();

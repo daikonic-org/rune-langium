@@ -55,7 +55,9 @@ export const InstancePayloadPanel = withInstrumentation(
           </div>
         </header>
         <pre
-          className="studio-scroll mt-2 max-h-56 overflow-auto text-2xs leading-5"
+          tabIndex={0}
+          aria-label={`${title} JSON`}
+          className="studio-scroll mt-2 max-h-56 overflow-auto text-2xs leading-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           data-testid="instance-payload-output"
         >
           {serialized}
