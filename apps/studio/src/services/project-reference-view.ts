@@ -17,6 +17,19 @@ import { pathToUri } from '../utils/uri.js';
 import { withInstrumentation } from './instrumentation/core.js';
 import { linkDocument, type WorkspaceFile } from './workspace.js';
 
+/** A reconstructed graph must have its own scopes before UI consumers read lazy references. */
+async function hydrateReferenceView(entries: ReadonlyArray<{ uri: string; json: string }>, signal?: AbortSignal) {
+  signal?.throwIfAborted();
+  const services = createRuneDslServices(EmptyFileSystem);
+  const hydrated = hydrateModelDocuments(services, entries);
+  await services.shared.workspace.DocumentBuilder.build(
+    hydrated.map((entry) => entry.document),
+    { validation: false, eagerLinking: false }
+  );
+  signal?.throwIfAborted();
+  return { services, hydrated };
+}
+
 /** Editable inventory stays live; only locked reference files come from a captured view. */
 export const mergeProjectReferenceFiles = withInstrumentation(
   function mergeProjectReferenceFiles(current: readonly WorkspaceFile[], references: readonly WorkspaceFile[]) {
@@ -70,14 +83,13 @@ export const prepareProjectReferenceView = withInstrumentation(
         return { file, json: serialized, uri: pathToUri(file.path) };
       });
     signal.throwIfAborted();
-    const services = createRuneDslServices(EmptyFileSystem);
     // Current worker-decoded publications already carry the canonical index. Only
     // legacy entries missing it require reconstruction here.
     const fallback = entries.filter((entry) => {
       const info = referenceInfo.get(entry.uri);
       return !info || !info.exports || !info.lsp;
     });
-    const hydrated = hydrateModelDocuments(services, fallback);
+    const { services, hydrated } = await hydrateReferenceView(fallback, signal);
     const roots = new Map(fallback.map((entry, index) => [entry.uri, hydrated[index]!]));
     const documents: HydrateRequest['documents'] = [];
     for (const entry of entries) {
@@ -133,7 +145,7 @@ export const prepareProjectReferenceView = withInstrumentation(
         throw new Error(result.errors.join('\n') || 'Local reference dependencies are unavailable: ' + entry.file.path);
       additions.push(...result.newModels);
     }
-    return materializeProjectReferenceView(view, additions);
+    return materializeProjectReferenceView(view, additions, signal);
   },
   {
     op: 'prepareProjectReferenceView',
@@ -142,12 +154,14 @@ export const prepareProjectReferenceView = withInstrumentation(
   }
 );
 
-/** UI consumers require linked ASTs; revive only the worker's materialized closure. */
+/** UI consumers require scope-ready ASTs; revive only the worker's materialized closure. */
 export const materializeProjectReferenceView = withInstrumentation(
-  function materializeProjectReferenceView(
+  async function materializeProjectReferenceView(
     view: WorkspaceState,
-    additions: readonly import('@rune-langium/core').RosettaModel[]
-  ): WorkspaceState {
+    additions: readonly import('@rune-langium/core').RosettaModel[],
+    signal?: AbortSignal
+  ): Promise<WorkspaceState> {
+    signal?.throwIfAborted();
     const canonical = (uri: string) => URI.parse(uri).toString();
     const files = new Map(view.files.map((file) => [canonical(pathToUri(file.path)), file]));
     const parsed = new Map(view.parsedModels.map((entry) => [entry.filePath, entry]));
@@ -177,7 +191,7 @@ export const materializeProjectReferenceView = withInstrumentation(
       if (!json) throw new Error('The current reference/source snapshot is unavailable: ' + path);
       return { file, json, uri: pathToUri(path) };
     });
-    const hydrated = hydrateModelDocuments(createRuneDslServices(EmptyFileSystem), entries);
+    const { hydrated } = await hydrateReferenceView(entries, signal);
     const parsedModels = entries.map((entry, index) => ({
       filePath: entry.file.path,
       source: entry.file.content,

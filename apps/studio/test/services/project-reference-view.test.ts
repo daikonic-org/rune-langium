@@ -216,10 +216,15 @@ it('publishes the complete index before materializing references and links selec
   expect(linked).toMatchObject({ linked: true, errors: [], newModels: [expect.objectContaining({ name: 'pinned' })] });
   expect(_testInternals().deferredModelJson.size).toBe(1);
   if (linked.type !== 'linkDocumentResult') throw new Error('Expected linked model');
-  const materialized = materializeProjectReferenceView(view, linked.newModels);
+  const abort = new AbortController();
+  const cancelled = materializeProjectReferenceView(view, linked.newModels, abort.signal);
+  abort.abort();
+  await expect(cancelled).rejects.toMatchObject({ name: 'AbortError' });
+  expect(view.models).toHaveLength(0);
+  const materialized = await materializeProjectReferenceView(view, linked.newModels);
   expect(materialized.models).toHaveLength(1);
   expect(materialized.models[0]!.elements[0]!.$container).toBe(materialized.models[0]);
-  expect(materializeProjectReferenceView(materialized, linked.newModels)).toBe(materialized);
+  expect(await materializeProjectReferenceView(materialized, linked.newModels)).toBe(materialized);
 });
 
 it('revives an immutable cross-document cycle without forcing name resolution or loading unrelated documents', async () => {
@@ -285,9 +290,13 @@ it('revives an immutable cross-document cycle without forcing name resolution or
   }
 });
 
-it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
-  'publishes local inheritance with its linked reference closure from %s, including repeated installs',
-  async (sourceUri) => {
+it.each(
+  ['file:///child.rosetta', pathToUri('child.rosetta')].flatMap((sourceUri) =>
+    [false, true].map((overridden) => ({ sourceUri, overridden }))
+  )
+)(
+  'publishes local inheritance from $sourceUri (namespace override=$overridden), including repeated installs',
+  async ({ sourceUri, overridden }) => {
     const warn = vi.spyOn(console, 'warn');
     const { prepareReferenceArtifact } = await import('../../src/services/reference-artifact-decoder.js');
     const { dispatchWorkerRequest, _testInternals } = await import('../../src/workers/parser-worker.js');
@@ -300,7 +309,11 @@ it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
     const signal = new AbortController().signal;
     const { lock } = await resolveProjectReferences(fixture.snapshot, transport, signal, cache);
     const loaded = await loadLockedReferences(lock!, transport, cache, signal);
-    const content = 'namespace local\nimport pinned.*\ntype Child extends Parent:\n own int (0..1)';
+    const namespace = overridden ? 'pinned' : 'local';
+    const content =
+      (overridden
+        ? 'override namespace pinned\nimport pinned.*\ntype Parent extends Grandparent:\n amount number (1..1)\n replacement string (0..1)\n'
+        : 'namespace local\nimport pinned.*\n') + 'type Child extends Parent:\n own int (0..1)';
     const services = createRuneDslServices(EmptyFileSystem);
     const referenceModels = hydrateModelDocuments(
       services,
@@ -315,7 +328,11 @@ it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
       validation: false,
       eagerLinking: true
     });
-    expect((local.parseResult.value as import('@rune-langium/core').RosettaModel).elements[0]).toMatchObject({
+    expect(
+      (local.parseResult.value as import('@rune-langium/core').RosettaModel).elements.find(
+        (element) => 'name' in element && element.name === 'Child'
+      )
+    ).toMatchObject({
       superType: { ref: { name: 'Parent' } }
     });
     const serializedModelJson = serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, local.parseResult.value);
@@ -354,14 +371,23 @@ it.each(['file:///child.rosetta', pathToUri('child.rosetta')])(
     };
     for (let round = 0; round < 2; round++) {
       const view = await prepareProjectReferenceView(input, state, install, signal, link);
-      const child = view.models.find((model) => model.name === 'local')!.elements[0] as Data;
+      const child = view.models
+        .find(
+          (model) =>
+            model.name === namespace && model.elements.some((element) => 'name' in element && element.name === 'Child')
+        )!
+        .elements.find((element) => 'name' in element && element.name === 'Child') as Data;
       const parent = child.superType?.ref as Data;
-      expect(parent).toMatchObject({ name: 'Parent', attributes: [expect.objectContaining({ name: 'amount' })] });
+      expect(parent).toMatchObject({
+        name: 'Parent',
+        attributes: expect.arrayContaining([expect.objectContaining({ name: 'amount' })])
+      });
+      if (overridden) expect(parent.attributes).toContainEqual(expect.objectContaining({ name: 'replacement' }));
       expect(parent.superType?.ref).toMatchObject({
         name: 'Grandparent',
         attributes: [expect.objectContaining({ name: 'code' })]
       });
-      expect(view.models.map((model) => model.name).sort()).toEqual(['local', 'pinned']);
+      expect(view.models.map((model) => model.name).sort()).toEqual([namespace, 'pinned'].sort());
       expect(_testInternals().deferredModelJson.size).toBe(1); // The unrelated support model stays deferred.
     }
     expect(warn.mock.calls.filter(([message]) => String(message).includes('ComputedScopes state'))).toEqual([]);

@@ -238,6 +238,10 @@ Gate errors name recorded operations that exceeded these budgets. Network
 cancellations remain separate evidence and do not establish the degradation cause.
 Blank-reference ready checkpoints require selected Inspector content, not only
 the declaration inventory or preview form.
+Reference-view changes require `project-reference-view` service/provider and
+parser-worker tests, including namespace overrides, concurrent publication,
+retry recovery and cancellation during scope preparation. J03 and J28 exercise
+the live Nightly closure; preserve their warning checks and the stable-release variant.
 To validate candidate assets against live endpoints without deploying, serve an
 owned optimized preview and set `PROD_UX_ASSET_ORIGIN=http://127.0.0.1:<port>`.
 The isolated checkout context substitutes only Studio static assets while retaining

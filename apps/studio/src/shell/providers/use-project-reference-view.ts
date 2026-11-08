@@ -43,6 +43,7 @@ export const useProjectReferenceView = withInstrumentation(
       const abort = new AbortController();
       const work = prepareProjectReferenceView(input, state, installProjectParserDocuments, abort.signal);
       let currentView: WorkspaceState | undefined;
+      let materialization = Promise.resolve();
       void work
         .then((view) => {
           currentView = view;
@@ -98,20 +99,30 @@ export const useProjectReferenceView = withInstrumentation(
             if ([...requested].some((namespace) => !view.files.some((file) => file.namespace === namespace)))
               throw new Error('Requested namespace is absent from the current verified reference inventory');
             const publish = (results: Awaited<ReturnType<typeof linkDocument>>[]) => {
-              abort.signal.throwIfAborted();
-              if (results.some((result) => !result.linked || result.errors.length))
-                throw new Error(
-                  results.flatMap((result) => result.errors).join('\n') || 'Reference namespace is unavailable'
+              // Each graph rebuild awaits scope computation. Serialize publication
+              // so concurrent namespace requests retain each other's additions.
+              const next = materialization.then(async () => {
+                abort.signal.throwIfAborted();
+                if (results.some((result) => !result.linked || result.errors.length))
+                  throw new Error(
+                    results.flatMap((result) => result.errors).join('\n') || 'Reference namespace is unavailable'
+                  );
+                // Fail through the request's error channel, outside React's updater.
+                const materialized = await materializeProjectReferenceView(
+                  currentView ?? view,
+                  results.flatMap((result) => result.newModels),
+                  abort.signal
                 );
-              // Materialization can fail: reject through the namespace request's
-              // normal error channel, rather than throwing inside React's updater.
-              currentView = materializeProjectReferenceView(
-                currentView ?? view,
-                results.flatMap((result) => result.newModels)
-              );
-              latestView.current = currentView;
-              const materialized = currentView;
-              setPublished((previous) => (previous?.input === input ? { ...previous, view: materialized } : previous));
+                abort.signal.throwIfAborted();
+                currentView = materialized;
+                latestView.current = materialized;
+                setPublished((previous) =>
+                  previous?.input === input ? { ...previous, view: materialized } : previous
+                );
+              });
+              // A rejected request must not poison later retries on this capture.
+              materialization = next.catch(() => undefined);
+              return next;
             };
             // The verified per-document declaration index identifies the selected
             // owner, including kind. Do not make its Inspector wait for unrelated
@@ -128,10 +139,10 @@ export const useProjectReferenceView = withInstrumentation(
             );
             const priority = owners.size === 1 ? targets.find((file) => owners.has(file.path)) : undefined;
             if (priority && targets.length > 1) {
-              publish([await linkDocument(pathToUri(priority.path), true)]);
+              await publish([await linkDocument(pathToUri(priority.path), true)]);
             }
             const remaining = priority && targets.length > 1 ? targets.filter((file) => file !== priority) : targets;
-            publish(await Promise.all(remaining.map((file) => linkDocument(pathToUri(file.path), true))));
+            await publish(await Promise.all(remaining.map((file) => linkDocument(pathToUri(file.path), true))));
             // The namespace promise resolves only after every file is linked.
             // App owns marking the whole namespace hydrated at that boundary.
           })
