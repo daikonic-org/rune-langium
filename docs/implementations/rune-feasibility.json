@@ -194,7 +194,7 @@
       },
       "signatureSha256": "d00a1f99fe0b016b9da8352113b54076d06b90fc7fc9ef8deac6deb0a6c5288d",
       "route": "primitive-backed",
-      "requirements": "Exact decimal division/rounding rules, negative values and division errors; no binary-float approximation."
+      "requirements": "Exact decimal division before UP/DOWN integer quantization. Bundled TypeScript/Python bodies preserve non-terminating-division errors within the finite-number profile; a pure-Rune port needs exact-decimal primitives. No parallel Rune implementation is selected."
     },
     {
       "symbol": {
@@ -216,7 +216,7 @@
       },
       "signatureSha256": "96572a19a535f4a3cda29a802c408fd15b3161712319105df2af941de4325d9b",
       "route": "primitive-backed",
-      "requirements": "Exact decimal precision/rounding; a shared decimal primitive may leave policy/composition in Rune."
+      "requirements": "Exact decimal significant-digit UP/DOWN/HALF_UP quantization and positive safe integer counts. Bundled TypeScript/Python bodies cover finite inputs/results; pure-Rune support requires exact-decimal primitives, with no approximate or nullable bypass."
     },
     {
       "symbol": {

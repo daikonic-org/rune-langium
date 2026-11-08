@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "coordinate": "org.finos.cdm:cdm-java:7.9.0",
-  "entrypoint": "CdmRuntimeModule -> RoundToPrecisionImpl.evaluate",
-  "contract": "Pinned handwritten RoundToPrecisionImpl is the algorithm reference. Required nonnegative precision inputs follow Rune preconditions. Numeric expectations cover canonical finite-number decimal inputs, not arbitrary BigDecimal precision or scale retention. referenceScale separately records Java scale for both removeTrailingZeros flags; generated number/float outputs do not retain formatting.",
+  "entrypoint": "CdmRuntimeModule -> RoundToPrecisionImpl / RoundToNearestImpl / RoundToSignificantFiguresImpl.evaluate",
+  "contract": "Pinned handwritten implementations define decimal precision, increment and significant-figure rounding. Required input conditions remain Rune-owned. Increment division must terminate exactly before rounding. Numeric target outputs use the finite number/float profile; referenceValue/referenceScale retain independent Java decimal observations, not target formatting. ArithmeticException cases retain reference division failures.",
   "artifacts": [
     {
       "name": "cdm-java-7.9.0.jar",
@@ -119,6 +119,18 @@
       "artifact": "cdm-java-7.9.0-sources.jar",
       "entry": "cdm/base/math/functions/RoundToPrecisionImpl.java",
       "sha256": "c50ed6beeea436c952e0f0c607fea770fd4a98409e78b461b86b6c82e693b5e7"
+    },
+    {
+      "name": "java/RoundToNearestImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/math/functions/RoundToNearestImpl.java",
+      "sha256": "692624b1f9fe0c791e3462c26bd8dc741db20ab109073698f59f2faf3c5f4c85"
+    },
+    {
+      "name": "java/RoundToSignificantFiguresImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/math/functions/RoundToSignificantFiguresImpl.java",
+      "sha256": "51e0eb93ca7cae5fd732895929a4588d589faf92f3152ea29ef4a2e5aa580666"
     }
   ]
 }

@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import cdm.base.math.RoundingDirectionEnum;
+import cdm.base.math.RoundingModeEnum;
 import cdm.base.math.functions.RoundToPrecision;
+import cdm.base.math.functions.RoundToNearest;
+import cdm.base.math.functions.RoundToSignificantFigures;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
@@ -17,7 +20,10 @@ class RoundingOracle {
     public static void main(String[] args) throws Exception {
         var mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         var cases = mapper.readTree(System.in);
-        var function = Guice.createInjector(new CdmRuntimeModule()).getInstance(RoundToPrecision.class);
+        var injector = Guice.createInjector(new CdmRuntimeModule());
+        var precision = injector.getInstance(RoundToPrecision.class);
+        var nearest = injector.getInstance(RoundToNearest.class);
+        var figures = injector.getInstance(RoundToSignificantFigures.class);
         var results = new ArrayList<Map<String, Object>>();
         for (var test : cases) {
             var inputs = test.get("inputs");
@@ -27,9 +33,25 @@ class RoundingOracle {
                 case "Nearest" -> RoundingDirectionEnum.NEAREST;
                 default -> throw new IllegalArgumentException("Unknown direction");
             };
-            var rounded = function.evaluate(new BigDecimal(inputs.get("value").asText()),
-                inputs.get("precision").intValue(), mode, inputs.get("removeTrailingZeros").booleanValue());
-            results.add(Map.of("id", test.get("id").asText(), "value", rounded, "scale", rounded.scale()));
+            var value = new BigDecimal(inputs.get("value").asText());
+            try {
+                var rounded = switch (test.path("function").asText("RoundToPrecision")) {
+                    case "RoundToPrecision" -> precision.evaluate(value, inputs.get("precision").intValue(),
+                        mode, inputs.get("removeTrailingZeros").booleanValue());
+                    case "RoundToNearest" -> nearest.evaluate(value, new BigDecimal(inputs.get("nearest").asText()),
+                        switch (mode) {
+                            case UP -> RoundingModeEnum.UP;
+                            case DOWN -> RoundingModeEnum.DOWN;
+                            default -> throw new IllegalArgumentException("Unsupported increment direction");
+                        });
+                    case "RoundToSignificantFigures" -> figures.evaluate(value,
+                        inputs.get("significantFigures").intValue(), mode);
+                    default -> throw new IllegalArgumentException("Unknown rounding function");
+                };
+                results.add(Map.of("id", test.get("id").asText(), "value", rounded, "scale", rounded.scale()));
+            } catch (ArithmeticException error) {
+                results.add(Map.of("id", test.get("id").asText(), "error", error.getClass().getSimpleName()));
+            }
         }
         System.out.println(mapper.writeValueAsString(results));
     }

@@ -970,11 +970,11 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "3541f306081fb53ca783086a42245d087cd6916795b02ceac77192c9ea9f641c"
+      "sha256": "1007a2afe9fedd6aa60756f9ff2cea2afde61aa26c8db9e4a58e37fff50fdc59"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/rounding.ts",
-      "sha256": "c3c2125ee483b941cae0cc27412f9c88eae87ba6d004ff4b2948ebb8c92729dc"
+      "sha256": "8c76449888a09341dd0bf8c201347e246310146e88d3c4ff536646526a1457e5"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
@@ -1018,7 +1018,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
-      "sha256": "7825aa203c53d2e2775f73ecf58fc28dc7e7da3c244a859e3165e8c140b62332"
+      "sha256": "5a37e77363c7284e5f6cea10315d6777b32b151b6be6a14505bfd4ee1edc8f40"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
@@ -3100,7 +3100,24 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.round-to-nearest",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
+            "entrypoint": "roundToNearest",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.round-to-nearest",
+            "path": "packages/project-runtime/src/curated-implementations/python/rounding.ts",
+            "entrypoint": "roundToNearest",
+            "dependencies": [
+              "decimal",
+              "fractions"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -3119,9 +3136,16 @@
       },
       "rune": {
         "route": "primitive-backed",
-        "requirements": "Exact decimal division/rounding rules, negative values and division errors; no binary-float approximation.",
+        "requirements": "Exact decimal division before UP/DOWN integer quantization. Bundled TypeScript/Python bodies preserve non-terminating-division errors within the finite-number profile; a pure-Rune port needs exact-decimal primitives. No parallel Rune implementation is selected.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/rounding.test.ts",
+        "cases": "test/fixtures/third-party/cdm-rounding/cases.json",
+        "casesSha256": "6f3206b08b1a3fec9ca1c932061b3289fd77e6ea5a410e3b63586bdc3ae92ee8",
+        "selectors": [],
+        "caseCount": 60
       }
     },
     {
@@ -3238,7 +3262,7 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/rounding.test.ts",
         "cases": "test/fixtures/third-party/cdm-rounding/cases.json",
-        "casesSha256": "d7d79cd16a773667fdc7658757336ddaa4d64169889ccfadd751ecbb185a6d68",
+        "casesSha256": "6f3206b08b1a3fec9ca1c932061b3289fd77e6ea5a410e3b63586bdc3ae92ee8",
         "selectors": [],
         "caseCount": 168
       }
@@ -3305,7 +3329,23 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.round-to-significant-figures",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
+            "entrypoint": "roundToSignificantFigures",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.round-to-significant-figures",
+            "path": "packages/project-runtime/src/curated-implementations/python/rounding.ts",
+            "entrypoint": "roundToSignificantFigures",
+            "dependencies": [
+              "decimal"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -3324,9 +3364,16 @@
       },
       "rune": {
         "route": "primitive-backed",
-        "requirements": "Exact decimal precision/rounding; a shared decimal primitive may leave policy/composition in Rune.",
+        "requirements": "Exact decimal significant-digit UP/DOWN/HALF_UP quantization and positive safe integer counts. Bundled TypeScript/Python bodies cover finite inputs/results; pure-Rune support requires exact-decimal primitives, with no approximate or nullable bypass.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/rounding.test.ts",
+        "cases": "test/fixtures/third-party/cdm-rounding/cases.json",
+        "casesSha256": "6f3206b08b1a3fec9ca1c932061b3289fd77e6ea5a410e3b63586bdc3ae92ee8",
+        "selectors": [],
+        "caseCount": 81
       }
     },
     {

@@ -3,7 +3,13 @@
 
 import { afterEach, expect, it, vi } from 'vitest';
 import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
-import { roundingDirectory, roundingCaller, roundingCases } from '../../../../test/helpers/cdm-rounding.js';
+import {
+  roundingDirectory,
+  roundingCaller,
+  roundingCases,
+  additionalRoundingCases,
+  additionalRoundingCallers
+} from '../../../../test/helpers/cdm-rounding.js';
 import { loadRealWorker } from './helpers/real-codegen-worker.js';
 import { captureProjectRuntimeInput } from '../../src/services/project-runtime-input.js';
 
@@ -56,6 +62,32 @@ it('executes published rounding with enum inputs through the managed worker and 
             requestId,
             type: 'preview:execute-result',
             output: test.expected
+          })
+        ),
+      { timeout: 15000 }
+    );
+  }
+  for (const test of additionalRoundingCases.filter((test) =>
+    /^(increment-(positive-tie|negative-tie|nonterminating-third)|figures-(positive-carry|minimum-subnormal))-/u.test(
+      test.id
+    )
+  )) {
+    const requestId = `rounding:${test.id}`;
+    worker.dispatch({
+      type: 'preview:execute',
+      funcName: `example.rounding.${additionalRoundingCallers[test.function]}`,
+      inputs: test.inputs,
+      requestId,
+      projectReceipt: input.receipt
+    });
+    await vi.waitFor(
+      () =>
+        expect(worker.scope.postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            requestId,
+            ...(test.error
+              ? { type: 'preview:execute-error', error: expect.stringContaining('Non-terminating decimal') }
+              : { type: 'preview:execute-result', output: test.expected })
           })
         ),
       { timeout: 15000 }

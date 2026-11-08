@@ -24,8 +24,12 @@ const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-a
 const suites = [
   {
     directory: 'cdm-rounding',
-    declarations: [{ namespace: 'cdm.base.math', name: 'RoundToPrecision', kind: 'RosettaFunction' }],
-    references: ['RoundToPrecision']
+    declarations: ['RoundToPrecision', 'RoundToNearest', 'RoundToSignificantFigures'].map((name) => ({
+      namespace: 'cdm.base.math',
+      name,
+      kind: 'RosettaFunction'
+    })),
+    references: ['RoundToPrecision', 'RoundToNearest', 'RoundToSignificantFigures']
   },
   {
     directory: 'cdm-dispatch',

@@ -29,7 +29,12 @@ result = subprocess.run(
 )
 if result.returncode:
     raise SystemExit(result.stderr)
-expected = [{"id": case["id"], "value": case["expected"], "scale": case["referenceScale"]} for case in cases]
+expected = [
+    {"id": case["id"], "error": case["error"]} if "error" in case else
+    {"id": case["id"], "value": Decimal(case["referenceValue"]) if "referenceValue" in case else case["expected"],
+     "scale": case["referenceScale"]}
+    for case in cases
+]
 actual_results = json.loads(result.stdout, parse_float=Decimal)
 if actual_results != expected:
     for actual, pinned in zip(actual_results, expected):

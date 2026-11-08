@@ -8,7 +8,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1023.12346,
-    "referenceScale": 5
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-five-digits-up-strip",
@@ -19,7 +20,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1023.12346,
-    "referenceScale": 5
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-five-digits-down-retain",
@@ -30,7 +32,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1023.12345,
-    "referenceScale": 5
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-five-digits-down-strip",
@@ -41,7 +44,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1023.12345,
-    "referenceScale": 5
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-five-digits-nearest-retain",
@@ -52,7 +56,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1023.12346,
-    "referenceScale": 5
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-five-digits-nearest-strip",
@@ -63,7 +68,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1023.12346,
-    "referenceScale": 5
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-whole-up-retain",
@@ -73,8 +79,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": 1024.0,
-    "referenceScale": 0
+    "expected": 1024,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-whole-up-strip",
@@ -84,8 +91,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": 1024.0,
-    "referenceScale": 0
+    "expected": 1024,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-whole-down-retain",
@@ -95,8 +103,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-whole-down-strip",
@@ -106,8 +115,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-whole-nearest-retain",
@@ -117,8 +127,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "upstream-whole-nearest-strip",
@@ -128,8 +139,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "retained-scale-up-retain",
@@ -140,7 +152,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1023.1,
-    "referenceScale": 7
+    "referenceScale": 7,
+    "function": "RoundToPrecision"
   },
   {
     "id": "retained-scale-up-strip",
@@ -151,7 +164,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1023.1,
-    "referenceScale": 1
+    "referenceScale": 1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "retained-scale-down-retain",
@@ -162,7 +176,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1023.1,
-    "referenceScale": 7
+    "referenceScale": 7,
+    "function": "RoundToPrecision"
   },
   {
     "id": "retained-scale-down-strip",
@@ -173,7 +188,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1023.1,
-    "referenceScale": 1
+    "referenceScale": 1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "retained-scale-nearest-retain",
@@ -184,7 +200,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1023.1,
-    "referenceScale": 7
+    "referenceScale": 7,
+    "function": "RoundToPrecision"
   },
   {
     "id": "retained-scale-nearest-strip",
@@ -195,7 +212,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1023.1,
-    "referenceScale": 1
+    "referenceScale": 1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "integer-scale-up-retain",
@@ -205,8 +223,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": 1023.0,
-    "referenceScale": 5
+    "expected": 1023,
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "integer-scale-up-strip",
@@ -216,8 +235,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "integer-scale-down-retain",
@@ -227,8 +247,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 1023.0,
-    "referenceScale": 5
+    "expected": 1023,
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "integer-scale-down-strip",
@@ -238,8 +259,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "integer-scale-nearest-retain",
@@ -249,8 +271,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 1023.0,
-    "referenceScale": 5
+    "expected": 1023,
+    "referenceScale": 5,
+    "function": "RoundToPrecision"
   },
   {
     "id": "integer-scale-nearest-strip",
@@ -260,8 +283,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 1023.0,
-    "referenceScale": 0
+    "expected": 1023,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-integer-scale-up-retain",
@@ -271,8 +295,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": 999999999.0,
-    "referenceScale": 4
+    "expected": 999999999,
+    "referenceScale": 4,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-integer-scale-up-strip",
@@ -282,8 +307,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": 999999999.0,
-    "referenceScale": 0
+    "expected": 999999999,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-integer-scale-down-retain",
@@ -293,8 +319,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 999999999.0,
-    "referenceScale": 4
+    "expected": 999999999,
+    "referenceScale": 4,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-integer-scale-down-strip",
@@ -304,8 +331,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 999999999.0,
-    "referenceScale": 0
+    "expected": 999999999,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-integer-scale-nearest-retain",
@@ -315,8 +343,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 999999999.0,
-    "referenceScale": 4
+    "expected": 999999999,
+    "referenceScale": 4,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-integer-scale-nearest-strip",
@@ -326,8 +355,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 999999999.0,
-    "referenceScale": 0
+    "expected": 999999999,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-tie-up-retain",
@@ -338,7 +368,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-tie-up-strip",
@@ -349,7 +380,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-tie-down-retain",
@@ -359,8 +391,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 1.0,
-    "referenceScale": 2
+    "expected": 1,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-tie-down-strip",
@@ -370,8 +403,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 1.0,
-    "referenceScale": 0
+    "expected": 1,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-tie-nearest-retain",
@@ -382,7 +416,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-tie-nearest-strip",
@@ -393,7 +428,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-tie-up-retain",
@@ -404,7 +440,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-tie-up-strip",
@@ -415,7 +452,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-tie-down-retain",
@@ -425,8 +463,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": -1.0,
-    "referenceScale": 2
+    "expected": -1,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-tie-down-strip",
@@ -436,8 +475,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": -1.0,
-    "referenceScale": 0
+    "expected": -1,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-tie-nearest-retain",
@@ -448,7 +488,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-tie-nearest-strip",
@@ -459,7 +500,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "binary-tie-up-retain",
@@ -470,7 +512,8 @@
       "removeTrailingZeros": false
     },
     "expected": 2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "binary-tie-up-strip",
@@ -481,7 +524,8 @@
       "removeTrailingZeros": true
     },
     "expected": 2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "binary-tie-down-retain",
@@ -492,7 +536,8 @@
       "removeTrailingZeros": false
     },
     "expected": 2.67,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "binary-tie-down-strip",
@@ -503,7 +548,8 @@
       "removeTrailingZeros": true
     },
     "expected": 2.67,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "binary-tie-nearest-retain",
@@ -514,7 +560,8 @@
       "removeTrailingZeros": false
     },
     "expected": 2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "binary-tie-nearest-strip",
@@ -525,7 +572,8 @@
       "removeTrailingZeros": true
     },
     "expected": 2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-binary-tie-up-retain",
@@ -536,7 +584,8 @@
       "removeTrailingZeros": false
     },
     "expected": -2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-binary-tie-up-strip",
@@ -547,7 +596,8 @@
       "removeTrailingZeros": true
     },
     "expected": -2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-binary-tie-down-retain",
@@ -558,7 +608,8 @@
       "removeTrailingZeros": false
     },
     "expected": -2.67,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-binary-tie-down-strip",
@@ -569,7 +620,8 @@
       "removeTrailingZeros": true
     },
     "expected": -2.67,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-binary-tie-nearest-retain",
@@ -580,7 +632,8 @@
       "removeTrailingZeros": false
     },
     "expected": -2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-binary-tie-nearest-strip",
@@ -591,7 +644,8 @@
       "removeTrailingZeros": true
     },
     "expected": -2.68,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "below-tie-up-retain",
@@ -602,7 +656,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "below-tie-up-strip",
@@ -613,7 +668,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "below-tie-down-retain",
@@ -623,8 +679,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 1.0,
-    "referenceScale": 2
+    "expected": 1,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "below-tie-down-strip",
@@ -634,8 +691,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 1.0,
-    "referenceScale": 0
+    "expected": 1,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "below-tie-nearest-retain",
@@ -645,8 +703,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 1.0,
-    "referenceScale": 2
+    "expected": 1,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "below-tie-nearest-strip",
@@ -656,8 +715,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 1.0,
-    "referenceScale": 0
+    "expected": 1,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "above-tie-up-retain",
@@ -668,7 +728,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "above-tie-up-strip",
@@ -679,7 +740,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "above-tie-down-retain",
@@ -689,8 +751,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 1.0,
-    "referenceScale": 2
+    "expected": 1,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "above-tie-down-strip",
@@ -700,8 +763,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 1.0,
-    "referenceScale": 0
+    "expected": 1,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "above-tie-nearest-retain",
@@ -712,7 +776,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "above-tie-nearest-strip",
@@ -723,7 +788,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "carry-up-retain",
@@ -733,8 +799,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": 10.0,
-    "referenceScale": 2
+    "expected": 10,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "carry-up-strip",
@@ -744,8 +811,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": 10.0,
-    "referenceScale": -1
+    "expected": 10,
+    "referenceScale": -1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "carry-down-retain",
@@ -756,7 +824,8 @@
       "removeTrailingZeros": false
     },
     "expected": 9.99,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "carry-down-strip",
@@ -767,7 +836,8 @@
       "removeTrailingZeros": true
     },
     "expected": 9.99,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "carry-nearest-retain",
@@ -777,8 +847,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 10.0,
-    "referenceScale": 2
+    "expected": 10,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "carry-nearest-strip",
@@ -788,8 +859,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 10.0,
-    "referenceScale": -1
+    "expected": 10,
+    "referenceScale": -1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-carry-up-retain",
@@ -799,8 +871,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": -10.0,
-    "referenceScale": 2
+    "expected": -10,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-carry-up-strip",
@@ -810,8 +883,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": -10.0,
-    "referenceScale": -1
+    "expected": -10,
+    "referenceScale": -1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-carry-down-retain",
@@ -822,7 +896,8 @@
       "removeTrailingZeros": false
     },
     "expected": -9.99,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-carry-down-strip",
@@ -833,7 +908,8 @@
       "removeTrailingZeros": true
     },
     "expected": -9.99,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-carry-nearest-retain",
@@ -843,8 +919,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": -10.0,
-    "referenceScale": 2
+    "expected": -10,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-carry-nearest-strip",
@@ -854,8 +931,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": -10.0,
-    "referenceScale": -1
+    "expected": -10,
+    "referenceScale": -1,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-half-up-retain",
@@ -865,8 +943,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": 3.0,
-    "referenceScale": 0
+    "expected": 3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-half-up-strip",
@@ -876,8 +955,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": 3.0,
-    "referenceScale": 0
+    "expected": 3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-half-down-retain",
@@ -887,8 +967,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 2.0,
-    "referenceScale": 0
+    "expected": 2,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-half-down-strip",
@@ -898,8 +979,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 2.0,
-    "referenceScale": 0
+    "expected": 2,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-half-nearest-retain",
@@ -909,8 +991,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 3.0,
-    "referenceScale": 0
+    "expected": 3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "positive-half-nearest-strip",
@@ -920,8 +1003,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 3.0,
-    "referenceScale": 0
+    "expected": 3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-half-up-retain",
@@ -931,8 +1015,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": -3.0,
-    "referenceScale": 0
+    "expected": -3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-half-up-strip",
@@ -942,8 +1027,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": -3.0,
-    "referenceScale": 0
+    "expected": -3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-half-down-retain",
@@ -953,8 +1039,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": -2.0,
-    "referenceScale": 0
+    "expected": -2,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-half-down-strip",
@@ -964,8 +1051,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": -2.0,
-    "referenceScale": 0
+    "expected": -2,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-half-nearest-retain",
@@ -975,8 +1063,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": -3.0,
-    "referenceScale": 0
+    "expected": -3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-half-nearest-strip",
@@ -986,8 +1075,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": -3.0,
-    "referenceScale": 0
+    "expected": -3,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "toward-zero-up-retain",
@@ -998,7 +1088,8 @@
       "removeTrailingZeros": false
     },
     "expected": -0.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "toward-zero-up-strip",
@@ -1009,7 +1100,8 @@
       "removeTrailingZeros": true
     },
     "expected": -0.01,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "toward-zero-down-retain",
@@ -1020,7 +1112,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "toward-zero-down-strip",
@@ -1031,7 +1124,8 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "toward-zero-nearest-retain",
@@ -1042,7 +1136,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "toward-zero-nearest-strip",
@@ -1053,7 +1148,8 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "zero-up-retain",
@@ -1064,7 +1160,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "zero-up-strip",
@@ -1075,7 +1172,8 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "zero-down-retain",
@@ -1086,7 +1184,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "zero-down-strip",
@@ -1097,7 +1196,8 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "zero-nearest-retain",
@@ -1108,7 +1208,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "zero-nearest-strip",
@@ -1119,73 +1220,80 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-zero-up-retain",
     "inputs": {
-      "value": -0.0,
+      "value": 0,
       "precision": 2,
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-zero-up-strip",
     "inputs": {
-      "value": -0.0,
+      "value": 0,
       "precision": 2,
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-zero-down-retain",
     "inputs": {
-      "value": -0.0,
+      "value": 0,
       "precision": 2,
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-zero-down-strip",
     "inputs": {
-      "value": -0.0,
+      "value": 0,
       "precision": 2,
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-zero-nearest-retain",
     "inputs": {
-      "value": -0.0,
+      "value": 0,
       "precision": 2,
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-zero-nearest-strip",
     "inputs": {
-      "value": -0.0,
+      "value": 0,
       "precision": 2,
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-up-retain",
@@ -1196,7 +1304,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.25,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-up-strip",
@@ -1207,7 +1316,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.25,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-down-retain",
@@ -1218,7 +1328,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.25,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-down-strip",
@@ -1229,7 +1340,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.25,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-nearest-retain",
@@ -1240,7 +1352,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.25,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-nearest-strip",
@@ -1251,7 +1364,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.25,
-    "referenceScale": 2
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "small-exponent-up-retain",
@@ -1262,7 +1376,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.24e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "small-exponent-up-strip",
@@ -1273,7 +1388,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.24e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "small-exponent-down-retain",
@@ -1284,7 +1400,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "small-exponent-down-strip",
@@ -1295,7 +1412,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "small-exponent-nearest-retain",
@@ -1306,7 +1424,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "small-exponent-nearest-strip",
@@ -1317,7 +1436,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-small-exponent-up-retain",
@@ -1328,7 +1448,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1.24e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-small-exponent-up-strip",
@@ -1339,7 +1460,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1.24e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-small-exponent-down-retain",
@@ -1350,7 +1472,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-small-exponent-down-strip",
@@ -1361,7 +1484,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-small-exponent-nearest-retain",
@@ -1372,7 +1496,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-small-exponent-nearest-strip",
@@ -1383,7 +1508,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1.23e-07,
-    "referenceScale": 9
+    "referenceScale": 9,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-exponent-up-retain",
@@ -1394,7 +1520,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.2345e+21,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-exponent-up-strip",
@@ -1405,7 +1532,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.2345e+21,
-    "referenceScale": -17
+    "referenceScale": -17,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-exponent-down-retain",
@@ -1416,7 +1544,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.2345e+21,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-exponent-down-strip",
@@ -1427,7 +1556,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.2345e+21,
-    "referenceScale": -17
+    "referenceScale": -17,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-exponent-nearest-retain",
@@ -1438,7 +1568,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.2345e+21,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "large-exponent-nearest-strip",
@@ -1449,7 +1580,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.2345e+21,
-    "referenceScale": -17
+    "referenceScale": -17,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-safe-integer-up-retain",
@@ -1459,8 +1591,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": false
     },
-    "expected": 9007199254740991.0,
-    "referenceScale": 2
+    "expected": 9007199254740991,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-safe-integer-up-strip",
@@ -1470,8 +1603,9 @@
       "roundingMode": "Up",
       "removeTrailingZeros": true
     },
-    "expected": 9007199254740991.0,
-    "referenceScale": 0
+    "expected": 9007199254740991,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-safe-integer-down-retain",
@@ -1481,8 +1615,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": false
     },
-    "expected": 9007199254740991.0,
-    "referenceScale": 2
+    "expected": 9007199254740991,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-safe-integer-down-strip",
@@ -1492,8 +1627,9 @@
       "roundingMode": "Down",
       "removeTrailingZeros": true
     },
-    "expected": 9007199254740991.0,
-    "referenceScale": 0
+    "expected": 9007199254740991,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-safe-integer-nearest-retain",
@@ -1503,8 +1639,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": false
     },
-    "expected": 9007199254740991.0,
-    "referenceScale": 2
+    "expected": 9007199254740991,
+    "referenceScale": 2,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-safe-integer-nearest-strip",
@@ -1514,8 +1651,9 @@
       "roundingMode": "Nearest",
       "removeTrailingZeros": true
     },
-    "expected": 9007199254740991.0,
-    "referenceScale": 0
+    "expected": 9007199254740991,
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-finite-up-retain",
@@ -1526,7 +1664,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.7976931348623157e+308,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-finite-up-strip",
@@ -1537,7 +1676,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.7976931348623157e+308,
-    "referenceScale": -292
+    "referenceScale": -292,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-finite-down-retain",
@@ -1548,7 +1688,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.7976931348623157e+308,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-finite-down-strip",
@@ -1559,7 +1700,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.7976931348623157e+308,
-    "referenceScale": -292
+    "referenceScale": -292,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-finite-nearest-retain",
@@ -1570,7 +1712,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.7976931348623157e+308,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "max-finite-nearest-strip",
@@ -1581,7 +1724,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.7976931348623157e+308,
-    "referenceScale": -292
+    "referenceScale": -292,
+    "function": "RoundToPrecision"
   },
   {
     "id": "minimum-subnormal-up-retain",
@@ -1592,7 +1736,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "minimum-subnormal-up-strip",
@@ -1603,7 +1748,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "minimum-subnormal-down-retain",
@@ -1614,7 +1760,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "minimum-subnormal-down-strip",
@@ -1625,7 +1772,8 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "minimum-subnormal-nearest-retain",
@@ -1636,7 +1784,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "minimum-subnormal-nearest-strip",
@@ -1647,7 +1796,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-subnormal-up-retain",
@@ -1658,7 +1808,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-subnormal-up-strip",
@@ -1669,7 +1820,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-subnormal-down-retain",
@@ -1680,7 +1832,8 @@
       "removeTrailingZeros": false
     },
     "expected": 0,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-subnormal-down-strip",
@@ -1691,7 +1844,8 @@
       "removeTrailingZeros": true
     },
     "expected": 0,
-    "referenceScale": 0
+    "referenceScale": 0,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-subnormal-nearest-retain",
@@ -1702,7 +1856,8 @@
       "removeTrailingZeros": false
     },
     "expected": -1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "negative-subnormal-nearest-strip",
@@ -1713,7 +1868,8 @@
       "removeTrailingZeros": true
     },
     "expected": -1e-323,
-    "referenceScale": 323
+    "referenceScale": 323,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-subnormal-up-retain",
@@ -1724,7 +1880,8 @@
       "removeTrailingZeros": false
     },
     "expected": 5e-324,
-    "referenceScale": 324
+    "referenceScale": 324,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-subnormal-up-strip",
@@ -1735,7 +1892,8 @@
       "removeTrailingZeros": true
     },
     "expected": 5e-324,
-    "referenceScale": 324
+    "referenceScale": 324,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-subnormal-down-retain",
@@ -1746,7 +1904,8 @@
       "removeTrailingZeros": false
     },
     "expected": 5e-324,
-    "referenceScale": 324
+    "referenceScale": 324,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-subnormal-down-strip",
@@ -1757,7 +1916,8 @@
       "removeTrailingZeros": true
     },
     "expected": 5e-324,
-    "referenceScale": 324
+    "referenceScale": 324,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-subnormal-nearest-retain",
@@ -1768,7 +1928,8 @@
       "removeTrailingZeros": false
     },
     "expected": 5e-324,
-    "referenceScale": 324
+    "referenceScale": 324,
+    "function": "RoundToPrecision"
   },
   {
     "id": "exact-subnormal-nearest-strip",
@@ -1779,7 +1940,8 @@
       "removeTrailingZeros": true
     },
     "expected": 5e-324,
-    "referenceScale": 324
+    "referenceScale": 324,
+    "function": "RoundToPrecision"
   },
   {
     "id": "very-fine-up-retain",
@@ -1790,7 +1952,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.005,
-    "referenceScale": 1000
+    "referenceScale": 1000,
+    "function": "RoundToPrecision"
   },
   {
     "id": "very-fine-up-strip",
@@ -1801,7 +1964,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.005,
-    "referenceScale": 3
+    "referenceScale": 3,
+    "function": "RoundToPrecision"
   },
   {
     "id": "very-fine-down-retain",
@@ -1812,7 +1976,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.005,
-    "referenceScale": 1000
+    "referenceScale": 1000,
+    "function": "RoundToPrecision"
   },
   {
     "id": "very-fine-down-strip",
@@ -1823,7 +1988,8 @@
       "removeTrailingZeros": true
     },
     "expected": 1.005,
-    "referenceScale": 3
+    "referenceScale": 3,
+    "function": "RoundToPrecision"
   },
   {
     "id": "very-fine-nearest-retain",
@@ -1834,7 +2000,8 @@
       "removeTrailingZeros": false
     },
     "expected": 1.005,
-    "referenceScale": 1000
+    "referenceScale": 1000,
+    "function": "RoundToPrecision"
   },
   {
     "id": "very-fine-nearest-strip",
@@ -1845,6 +2012,1675 @@
       "removeTrailingZeros": true
     },
     "expected": 1.005,
+    "referenceScale": 3,
+    "function": "RoundToPrecision"
+  },
+  {
+    "id": "increment-java-small-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 100.01,
+      "nearest": 100,
+      "roundingMode": "Up"
+    },
+    "expected": 200.0,
+    "referenceValue": "200",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-small-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 100.01,
+      "nearest": 100,
+      "roundingMode": "Down"
+    },
+    "expected": 100.0,
+    "referenceValue": "100",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-near-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 199.9,
+      "nearest": 100,
+      "roundingMode": "Up"
+    },
+    "expected": 200.0,
+    "referenceValue": "200",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-near-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 199.9,
+      "nearest": 100,
+      "roundingMode": "Down"
+    },
+    "expected": 100.0,
+    "referenceValue": "100",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-large-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 123456.789,
+      "nearest": 100,
+      "roundingMode": "Up"
+    },
+    "expected": 123500.0,
+    "referenceValue": "123500",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-large-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 123456.789,
+      "nearest": 100,
+      "roundingMode": "Down"
+    },
+    "expected": 123400.0,
+    "referenceValue": "123400",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-half-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 123456.789,
+      "nearest": 0.5,
+      "roundingMode": "Up"
+    },
+    "expected": 123457.0,
+    "referenceValue": "123457.0",
+    "referenceScale": 1
+  },
+  {
+    "id": "increment-java-half-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 123456.789,
+      "nearest": 0.5,
+      "roundingMode": "Down"
+    },
+    "expected": 123456.5,
+    "referenceValue": "123456.5",
+    "referenceScale": 1
+  },
+  {
+    "id": "increment-java-negative-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -166.5,
+      "nearest": 50,
+      "roundingMode": "Up"
+    },
+    "expected": -200.0,
+    "referenceValue": "-200",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-java-negative-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -166.5,
+      "nearest": 50,
+      "roundingMode": "Down"
+    },
+    "expected": -150.0,
+    "referenceValue": "-150",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-positive-tie-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1.005,
+      "nearest": 0.01,
+      "roundingMode": "Up"
+    },
+    "expected": 1.01,
+    "referenceValue": "1.01",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-positive-tie-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1.005,
+      "nearest": 0.01,
+      "roundingMode": "Down"
+    },
+    "expected": 1.0,
+    "referenceValue": "1.00",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-negative-tie-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -1.005,
+      "nearest": 0.01,
+      "roundingMode": "Up"
+    },
+    "expected": -1.01,
+    "referenceValue": "-1.01",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-negative-tie-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -1.005,
+      "nearest": 0.01,
+      "roundingMode": "Down"
+    },
+    "expected": -1.0,
+    "referenceValue": "-1.00",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-zero-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0,
+      "nearest": 0.25,
+      "roundingMode": "Up"
+    },
+    "expected": 0.0,
+    "referenceValue": "0.00",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-zero-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0,
+      "nearest": 0.25,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0.00",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-negative-zero-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0,
+      "nearest": 0.25,
+      "roundingMode": "Up"
+    },
+    "expected": 0.0,
+    "referenceValue": "0.00",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-negative-zero-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0,
+      "nearest": 0.25,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0.00",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-exact-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 100,
+      "nearest": 100,
+      "roundingMode": "Up"
+    },
+    "expected": 100.0,
+    "referenceValue": "100",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-exact-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 100,
+      "nearest": 100,
+      "roundingMode": "Down"
+    },
+    "expected": 100.0,
+    "referenceValue": "100",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-prime-cancel-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.6,
+      "nearest": 0.3,
+      "roundingMode": "Up"
+    },
+    "expected": 0.6,
+    "referenceValue": "0.6",
+    "referenceScale": 1
+  },
+  {
+    "id": "increment-prime-cancel-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.6,
+      "nearest": 0.3,
+      "roundingMode": "Down"
+    },
+    "expected": 0.6,
+    "referenceValue": "0.6",
+    "referenceScale": 1
+  },
+  {
+    "id": "increment-prime-cancel-seven-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.21,
+      "nearest": 0.07,
+      "roundingMode": "Up"
+    },
+    "expected": 0.21,
+    "referenceValue": "0.21",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-prime-cancel-seven-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.21,
+      "nearest": 0.07,
+      "roundingMode": "Down"
+    },
+    "expected": 0.21,
+    "referenceValue": "0.21",
+    "referenceScale": 2
+  },
+  {
+    "id": "increment-nonterminating-third-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1,
+      "nearest": 3,
+      "roundingMode": "Up"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-third-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1,
+      "nearest": 3,
+      "roundingMode": "Down"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-sixth-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 10,
+      "nearest": 6,
+      "roundingMode": "Up"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-sixth-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 10,
+      "nearest": 6,
+      "roundingMode": "Down"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-small-prime-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1,
+      "nearest": 0.03,
+      "roundingMode": "Up"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-small-prime-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1,
+      "nearest": 0.03,
+      "roundingMode": "Down"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-seven-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.3,
+      "nearest": 0.07,
+      "roundingMode": "Up"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-nonterminating-seven-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.3,
+      "nearest": 0.07,
+      "roundingMode": "Down"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-zero-prime-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0,
+      "nearest": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-zero-prime-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0,
+      "nearest": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-minimum-subnormal-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 5e-324,
+      "nearest": 1e-323,
+      "roundingMode": "Up"
+    },
+    "expected": 1e-323,
+    "referenceValue": "1E-323",
+    "referenceScale": 323
+  },
+  {
+    "id": "increment-minimum-subnormal-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 5e-324,
+      "nearest": 1e-323,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0E-323",
+    "referenceScale": 323
+  },
+  {
+    "id": "increment-minimum-increment-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e-320,
+      "nearest": 5e-324,
+      "roundingMode": "Up"
+    },
+    "expected": 1e-320,
+    "referenceValue": "1.0000E-320",
+    "referenceScale": 324
+  },
+  {
+    "id": "increment-minimum-increment-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e-320,
+      "nearest": 5e-324,
+      "roundingMode": "Down"
+    },
+    "expected": 1e-320,
+    "referenceValue": "1.0000E-320",
+    "referenceScale": 324
+  },
+  {
+    "id": "increment-same-minimum-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 5e-324,
+      "nearest": 5e-324,
+      "roundingMode": "Up"
+    },
+    "expected": 5e-324,
+    "referenceValue": "5E-324",
+    "referenceScale": 324
+  },
+  {
+    "id": "increment-same-minimum-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 5e-324,
+      "nearest": 5e-324,
+      "roundingMode": "Down"
+    },
+    "expected": 5e-324,
+    "referenceValue": "5E-324",
+    "referenceScale": 324
+  },
+  {
+    "id": "increment-large-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e+308,
+      "nearest": 2e+307,
+      "roundingMode": "Up"
+    },
+    "expected": 1e+308,
+    "referenceValue": "1.0E+308",
+    "referenceScale": -307
+  },
+  {
+    "id": "increment-large-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e+308,
+      "nearest": 2e+307,
+      "roundingMode": "Down"
+    },
+    "expected": 1e+308,
+    "referenceValue": "1.0E+308",
+    "referenceScale": -307
+  },
+  {
+    "id": "increment-large-ratio-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e+300,
+      "nearest": 1e-300,
+      "roundingMode": "Up"
+    },
+    "expected": 1e+300,
+    "referenceValue": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "referenceScale": 300
+  },
+  {
+    "id": "increment-large-ratio-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e+300,
+      "nearest": 1e-300,
+      "roundingMode": "Down"
+    },
+    "expected": 1e+300,
+    "referenceValue": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "referenceScale": 300
+  },
+  {
+    "id": "increment-small-ratio-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e-300,
+      "nearest": 1e+300,
+      "roundingMode": "Up"
+    },
+    "expected": 1e+300,
+    "referenceValue": "1E+300",
+    "referenceScale": -300
+  },
+  {
+    "id": "increment-small-ratio-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e-300,
+      "nearest": 1e+300,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0E+300",
+    "referenceScale": -300
+  },
+  {
+    "id": "increment-maximum-value-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "nearest": 5e-324,
+      "roundingMode": "Up"
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceValue": "179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "referenceScale": 324
+  },
+  {
+    "id": "increment-maximum-value-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "nearest": 5e-324,
+      "roundingMode": "Down"
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceValue": "179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "referenceScale": 324
+  },
+  {
+    "id": "increment-subunit-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.100065,
+      "nearest": 7e-05,
+      "roundingMode": "Up"
+    },
+    "expected": 0.1001,
+    "referenceValue": "0.10010",
+    "referenceScale": 5
+  },
+  {
+    "id": "increment-subunit-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 0.100065,
+      "nearest": 7e-05,
+      "roundingMode": "Down"
+    },
+    "expected": 0.10003,
+    "referenceValue": "0.10003",
+    "referenceScale": 5
+  },
+  {
+    "id": "increment-negative-subunit-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -0.100065,
+      "nearest": 7e-05,
+      "roundingMode": "Up"
+    },
+    "expected": -0.1001,
+    "referenceValue": "-0.10010",
+    "referenceScale": 5
+  },
+  {
+    "id": "increment-negative-subunit-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -0.100065,
+      "nearest": 7e-05,
+      "roundingMode": "Down"
+    },
+    "expected": -0.10003,
+    "referenceValue": "-0.10003",
+    "referenceScale": 5
+  },
+  {
+    "id": "increment-small-nearest-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 123.4567891234567,
+      "nearest": 1e-16,
+      "roundingMode": "Up"
+    },
+    "expected": 123.4567891234567,
+    "referenceValue": "123.4567891234567000",
+    "referenceScale": 16
+  },
+  {
+    "id": "increment-small-nearest-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 123.4567891234567,
+      "nearest": 1e-16,
+      "roundingMode": "Down"
+    },
+    "expected": 123.4567891234567,
+    "referenceValue": "123.4567891234567000",
+    "referenceScale": 16
+  },
+  {
+    "id": "increment-half-integer-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -0.5,
+      "nearest": 1,
+      "roundingMode": "Up"
+    },
+    "expected": -1.0,
+    "referenceValue": "-1",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-half-integer-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": -0.5,
+      "nearest": 1,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "increment-tiny-third-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e-300,
+      "nearest": 3e-300,
+      "roundingMode": "Up"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-tiny-third-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e-300,
+      "nearest": 3e-300,
+      "roundingMode": "Down"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-large-third-Up",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e+300,
+      "nearest": 3e+300,
+      "roundingMode": "Up"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "increment-large-third-Down",
+    "function": "RoundToNearest",
+    "inputs": {
+      "value": 1e+300,
+      "nearest": 3e+300,
+      "roundingMode": "Down"
+    },
+    "error": "ArithmeticException"
+  },
+  {
+    "id": "figures-java-five-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.123456789,
+      "significantFigures": 5,
+      "roundingMode": "Up"
+    },
+    "expected": 1023.2,
+    "referenceValue": "1023.2",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-java-five-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.123456789,
+      "significantFigures": 5,
+      "roundingMode": "Down"
+    },
+    "expected": 1023.1,
+    "referenceValue": "1023.1",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-java-five-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.123456789,
+      "significantFigures": 5,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1023.1,
+    "referenceValue": "1023.1",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-java-one-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.123456789,
+      "significantFigures": 1,
+      "roundingMode": "Up"
+    },
+    "expected": 2000.0,
+    "referenceValue": "2E+3",
+    "referenceScale": -3
+  },
+  {
+    "id": "figures-java-one-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.123456789,
+      "significantFigures": 1,
+      "roundingMode": "Down"
+    },
+    "expected": 1000.0,
+    "referenceValue": "1E+3",
+    "referenceScale": -3
+  },
+  {
+    "id": "figures-java-one-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.123456789,
+      "significantFigures": 1,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1000.0,
+    "referenceValue": "1E+3",
+    "referenceScale": -3
+  },
+  {
+    "id": "figures-java-noop-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.1,
+      "significantFigures": 7,
+      "roundingMode": "Up"
+    },
+    "expected": 1023.1,
+    "referenceValue": "1023.1",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-java-noop-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.1,
+      "significantFigures": 7,
+      "roundingMode": "Down"
+    },
+    "expected": 1023.1,
+    "referenceValue": "1023.1",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-java-noop-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1023.1,
+      "significantFigures": 7,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1023.1,
+    "referenceValue": "1023.1",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-positive-tie-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.25,
+      "significantFigures": 2,
+      "roundingMode": "Up"
+    },
+    "expected": 1.3,
+    "referenceValue": "1.3",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-positive-tie-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.25,
+      "significantFigures": 2,
+      "roundingMode": "Down"
+    },
+    "expected": 1.2,
+    "referenceValue": "1.2",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-positive-tie-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.25,
+      "significantFigures": 2,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.3,
+    "referenceValue": "1.3",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-negative-tie-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.25,
+      "significantFigures": 2,
+      "roundingMode": "Up"
+    },
+    "expected": -1.3,
+    "referenceValue": "-1.3",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-negative-tie-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.25,
+      "significantFigures": 2,
+      "roundingMode": "Down"
+    },
+    "expected": -1.2,
+    "referenceValue": "-1.2",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-negative-tie-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.25,
+      "significantFigures": 2,
+      "roundingMode": "Nearest"
+    },
+    "expected": -1.3,
+    "referenceValue": "-1.3",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-positive-carry-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9.99,
+      "significantFigures": 2,
+      "roundingMode": "Up"
+    },
+    "expected": 10.0,
+    "referenceValue": "10",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-positive-carry-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9.99,
+      "significantFigures": 2,
+      "roundingMode": "Down"
+    },
+    "expected": 9.9,
+    "referenceValue": "9.9",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-positive-carry-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9.99,
+      "significantFigures": 2,
+      "roundingMode": "Nearest"
+    },
+    "expected": 10.0,
+    "referenceValue": "10",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-negative-carry-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -9.99,
+      "significantFigures": 2,
+      "roundingMode": "Up"
+    },
+    "expected": -10.0,
+    "referenceValue": "-10",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-negative-carry-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -9.99,
+      "significantFigures": 2,
+      "roundingMode": "Down"
+    },
+    "expected": -9.9,
+    "referenceValue": "-9.9",
+    "referenceScale": 1
+  },
+  {
+    "id": "figures-negative-carry-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -9.99,
+      "significantFigures": 2,
+      "roundingMode": "Nearest"
+    },
+    "expected": -10.0,
+    "referenceValue": "-10",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-exponent-carry-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 99.5,
+      "significantFigures": 2,
+      "roundingMode": "Up"
+    },
+    "expected": 100.0,
+    "referenceValue": "1.0E+2",
+    "referenceScale": -1
+  },
+  {
+    "id": "figures-exponent-carry-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 99.5,
+      "significantFigures": 2,
+      "roundingMode": "Down"
+    },
+    "expected": 99.0,
+    "referenceValue": "99",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-exponent-carry-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 99.5,
+      "significantFigures": 2,
+      "roundingMode": "Nearest"
+    },
+    "expected": 100.0,
+    "referenceValue": "1.0E+2",
+    "referenceScale": -1
+  },
+  {
+    "id": "figures-zero-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 0,
+      "significantFigures": 5,
+      "roundingMode": "Up"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-zero-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 0,
+      "significantFigures": 5,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-zero-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 0,
+      "significantFigures": 5,
+      "roundingMode": "Nearest"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-negative-zero-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 0,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-negative-zero-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 0,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-negative-zero-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 0,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 0.0,
+    "referenceValue": "0",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-leading-zeroes-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.2345e-05,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 1.24e-05,
+    "referenceValue": "0.0000124",
+    "referenceScale": 7
+  },
+  {
+    "id": "figures-leading-zeroes-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.2345e-05,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 1.23e-05,
+    "referenceValue": "0.0000123",
+    "referenceScale": 7
+  },
+  {
+    "id": "figures-leading-zeroes-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.2345e-05,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.23e-05,
+    "referenceValue": "0.0000123",
+    "referenceScale": 7
+  },
+  {
+    "id": "figures-negative-leading-zeroes-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.2345e-05,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": -1.24e-05,
+    "referenceValue": "-0.0000124",
+    "referenceScale": 7
+  },
+  {
+    "id": "figures-negative-leading-zeroes-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.2345e-05,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": -1.23e-05,
+    "referenceValue": "-0.0000123",
+    "referenceScale": 7
+  },
+  {
+    "id": "figures-negative-leading-zeroes-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.2345e-05,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": -1.23e-05,
+    "referenceValue": "-0.0000123",
+    "referenceScale": 7
+  },
+  {
+    "id": "figures-exact-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1250,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 1250.0,
+    "referenceValue": "1.25E+3",
+    "referenceScale": -1
+  },
+  {
+    "id": "figures-exact-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1250,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 1250.0,
+    "referenceValue": "1.25E+3",
+    "referenceScale": -1
+  },
+  {
+    "id": "figures-exact-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1250,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1250.0,
+    "referenceValue": "1.25E+3",
+    "referenceScale": -1
+  },
+  {
+    "id": "figures-trailing-zeroes-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1000,
+      "significantFigures": 1,
+      "roundingMode": "Up"
+    },
+    "expected": 1000.0,
+    "referenceValue": "1E+3",
+    "referenceScale": -3
+  },
+  {
+    "id": "figures-trailing-zeroes-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1000,
+      "significantFigures": 1,
+      "roundingMode": "Down"
+    },
+    "expected": 1000.0,
+    "referenceValue": "1E+3",
+    "referenceScale": -3
+  },
+  {
+    "id": "figures-trailing-zeroes-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1000,
+      "significantFigures": 1,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1000.0,
+    "referenceValue": "1E+3",
+    "referenceScale": -3
+  },
+  {
+    "id": "figures-minimum-subnormal-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 5e-324,
+      "significantFigures": 1,
+      "roundingMode": "Up"
+    },
+    "expected": 5e-324,
+    "referenceValue": "5E-324",
+    "referenceScale": 324
+  },
+  {
+    "id": "figures-minimum-subnormal-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 5e-324,
+      "significantFigures": 1,
+      "roundingMode": "Down"
+    },
+    "expected": 5e-324,
+    "referenceValue": "5E-324",
+    "referenceScale": 324
+  },
+  {
+    "id": "figures-minimum-subnormal-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 5e-324,
+      "significantFigures": 1,
+      "roundingMode": "Nearest"
+    },
+    "expected": 5e-324,
+    "referenceValue": "5E-324",
+    "referenceScale": 324
+  },
+  {
+    "id": "figures-small-subnormal-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 2.5e-323,
+      "significantFigures": 1,
+      "roundingMode": "Up"
+    },
+    "expected": 3e-323,
+    "referenceValue": "3E-323",
+    "referenceScale": 323
+  },
+  {
+    "id": "figures-small-subnormal-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 2.5e-323,
+      "significantFigures": 1,
+      "roundingMode": "Down"
+    },
+    "expected": 2e-323,
+    "referenceValue": "2E-323",
+    "referenceScale": 323
+  },
+  {
+    "id": "figures-small-subnormal-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 2.5e-323,
+      "significantFigures": 1,
+      "roundingMode": "Nearest"
+    },
+    "expected": 3e-323,
+    "referenceValue": "3E-323",
+    "referenceScale": 323
+  },
+  {
+    "id": "figures-subnormal-digits-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.2347e-320,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 1.24e-320,
+    "referenceValue": "1.24E-320",
+    "referenceScale": 322
+  },
+  {
+    "id": "figures-subnormal-digits-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.2347e-320,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 1.23e-320,
+    "referenceValue": "1.23E-320",
+    "referenceScale": 322
+  },
+  {
+    "id": "figures-subnormal-digits-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.2347e-320,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.23e-320,
+    "referenceValue": "1.23E-320",
+    "referenceScale": 322
+  },
+  {
+    "id": "figures-large-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.23456789e+308,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 1.24e+308,
+    "referenceValue": "1.24E+308",
+    "referenceScale": -306
+  },
+  {
+    "id": "figures-large-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.23456789e+308,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 1.23e+308,
+    "referenceValue": "1.23E+308",
+    "referenceScale": -306
+  },
+  {
+    "id": "figures-large-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.23456789e+308,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.23e+308,
+    "referenceValue": "1.23E+308",
+    "referenceScale": -306
+  },
+  {
+    "id": "figures-large-negative-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.23456789e+308,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": -1.24e+308,
+    "referenceValue": "-1.24E+308",
+    "referenceScale": -306
+  },
+  {
+    "id": "figures-large-negative-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.23456789e+308,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": -1.23e+308,
+    "referenceValue": "-1.23E+308",
+    "referenceScale": -306
+  },
+  {
+    "id": "figures-large-negative-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": -1.23456789e+308,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": -1.23e+308,
+    "referenceValue": "-1.23E+308",
+    "referenceScale": -306
+  },
+  {
+    "id": "figures-maximum-noop-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "significantFigures": 17,
+      "roundingMode": "Up"
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceValue": "1.7976931348623157E+308",
+    "referenceScale": -292
+  },
+  {
+    "id": "figures-maximum-noop-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "significantFigures": 17,
+      "roundingMode": "Down"
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceValue": "1.7976931348623157E+308",
+    "referenceScale": -292
+  },
+  {
+    "id": "figures-maximum-noop-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.7976931348623157e+308,
+      "significantFigures": 17,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.7976931348623157e+308,
+    "referenceValue": "1.7976931348623157E+308",
+    "referenceScale": -292
+  },
+  {
+    "id": "figures-integer-boundary-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9007199254740991,
+      "significantFigures": 5,
+      "roundingMode": "Up"
+    },
+    "expected": 9007200000000000.0,
+    "referenceValue": "9.0072E+15",
+    "referenceScale": -11
+  },
+  {
+    "id": "figures-integer-boundary-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9007199254740991,
+      "significantFigures": 5,
+      "roundingMode": "Down"
+    },
+    "expected": 9007100000000000.0,
+    "referenceValue": "9.0071E+15",
+    "referenceScale": -11
+  },
+  {
+    "id": "figures-integer-boundary-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9007199254740991,
+      "significantFigures": 5,
+      "roundingMode": "Nearest"
+    },
+    "expected": 9007200000000000.0,
+    "referenceValue": "9.0072E+15",
+    "referenceScale": -11
+  },
+  {
+    "id": "figures-integer-noop-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9007199254740991,
+      "significantFigures": 17,
+      "roundingMode": "Up"
+    },
+    "expected": 9007199254740991.0,
+    "referenceValue": "9007199254740991",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-integer-noop-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9007199254740991,
+      "significantFigures": 17,
+      "roundingMode": "Down"
+    },
+    "expected": 9007199254740991.0,
+    "referenceValue": "9007199254740991",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-integer-noop-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9007199254740991,
+      "significantFigures": 17,
+      "roundingMode": "Nearest"
+    },
+    "expected": 9007199254740991.0,
+    "referenceValue": "9007199254740991",
+    "referenceScale": 0
+  },
+  {
+    "id": "figures-fraction-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.234567891234567,
+      "significantFigures": 10,
+      "roundingMode": "Up"
+    },
+    "expected": 1.234567892,
+    "referenceValue": "1.234567892",
+    "referenceScale": 9
+  },
+  {
+    "id": "figures-fraction-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.234567891234567,
+      "significantFigures": 10,
+      "roundingMode": "Down"
+    },
+    "expected": 1.234567891,
+    "referenceValue": "1.234567891",
+    "referenceScale": 9
+  },
+  {
+    "id": "figures-fraction-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.234567891234567,
+      "significantFigures": 10,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.234567891,
+    "referenceValue": "1.234567891",
+    "referenceScale": 9
+  },
+  {
+    "id": "figures-scientific-small-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005e-200,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 1.01e-200,
+    "referenceValue": "1.01E-200",
+    "referenceScale": 202
+  },
+  {
+    "id": "figures-scientific-small-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005e-200,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 1e-200,
+    "referenceValue": "1.00E-200",
+    "referenceScale": 202
+  },
+  {
+    "id": "figures-scientific-small-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005e-200,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.01e-200,
+    "referenceValue": "1.01E-200",
+    "referenceScale": 202
+  },
+  {
+    "id": "figures-scientific-large-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005e+200,
+      "significantFigures": 3,
+      "roundingMode": "Up"
+    },
+    "expected": 1.01e+200,
+    "referenceValue": "1.01E+200",
+    "referenceScale": -198
+  },
+  {
+    "id": "figures-scientific-large-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005e+200,
+      "significantFigures": 3,
+      "roundingMode": "Down"
+    },
+    "expected": 1e+200,
+    "referenceValue": "1.00E+200",
+    "referenceScale": -198
+  },
+  {
+    "id": "figures-scientific-large-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005e+200,
+      "significantFigures": 3,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.01e+200,
+    "referenceValue": "1.01E+200",
+    "referenceScale": -198
+  },
+  {
+    "id": "figures-huge-noop-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005,
+      "significantFigures": 1000,
+      "roundingMode": "Up"
+    },
+    "expected": 1.005,
+    "referenceValue": "1.005",
     "referenceScale": 3
+  },
+  {
+    "id": "figures-huge-noop-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005,
+      "significantFigures": 1000,
+      "roundingMode": "Down"
+    },
+    "expected": 1.005,
+    "referenceValue": "1.005",
+    "referenceScale": 3
+  },
+  {
+    "id": "figures-huge-noop-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 1.005,
+      "significantFigures": 1000,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1.005,
+    "referenceValue": "1.005",
+    "referenceScale": 3
+  },
+  {
+    "id": "figures-tiny-carry-Up",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9.999e-200,
+      "significantFigures": 1,
+      "roundingMode": "Up"
+    },
+    "expected": 1e-199,
+    "referenceValue": "1E-199",
+    "referenceScale": 199
+  },
+  {
+    "id": "figures-tiny-carry-Down",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9.999e-200,
+      "significantFigures": 1,
+      "roundingMode": "Down"
+    },
+    "expected": 9e-200,
+    "referenceValue": "9E-200",
+    "referenceScale": 200
+  },
+  {
+    "id": "figures-tiny-carry-Nearest",
+    "function": "RoundToSignificantFigures",
+    "inputs": {
+      "value": 9.999e-200,
+      "significantFigures": 1,
+      "roundingMode": "Nearest"
+    },
+    "expected": 1e-199,
+    "referenceValue": "1E-199",
+    "referenceScale": 199
   }
 ]
