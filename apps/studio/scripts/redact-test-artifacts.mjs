@@ -68,7 +68,8 @@ async function redactBytes(bytes, archive = false, location = 'artifact') {
       const original = await entry.async('nodebuffer');
       const redacted = await redactBytes(original, entry.name.endsWith('.zip'), `${location}!${entry.name}`);
       if (!original.equals(redacted)) {
-        zip.file(entry.name, redacted);
+        // Playwright blob merging expects the original entry set, without synthesized directories.
+        zip.file(entry.name, redacted, { createFolders: false });
         changed = true;
       }
     }

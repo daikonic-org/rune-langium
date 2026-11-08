@@ -54,6 +54,24 @@ test('scrubs trace ZIP resources and embedded reports without altering binary ev
   }
 });
 
+test('preserves directory-free blob entries for Playwright report merging', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rune-redaction-'));
+  try {
+    const zip = new JSZip();
+    zip.file('report.jsonl', JSON.stringify({ method: 'onBegin' }));
+    zip.file('resources/session.json', JSON.stringify({ token: 'synthetic-secret' }), { createFolders: false });
+    const names = Object.keys(zip.files);
+    await writeFile(join(dir, 'report.zip'), await zip.generateAsync({ type: 'nodebuffer' }));
+
+    assert.equal(await redactTestArtifacts(dir), 1);
+    const redacted = await JSZip.loadAsync(await readFile(join(dir, 'report.zip')));
+    assert.deepEqual(Object.keys(redacted.files), names);
+    assert.equal(JSON.parse(await redacted.file('resources/session.json').async('string')).token, '[REDACTED]');
+  } finally {
+    await rm(dir, { recursive: true });
+  }
+});
+
 test('identifies an empty nested ZIP while refusing unchecked evidence', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'rune-redaction-'));
   try {
