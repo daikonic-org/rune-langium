@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { escapeSingleQuotedString } from './string-literal.js';
+import { countedReductionPlans } from '../expr/counted-reduction.js';
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import { isTypeScriptNativeType, isTypeScriptNativeMapping, type TypeScriptNativeType } from './native-types.js';
@@ -12,6 +13,7 @@ import {
 import { renderSourceTypeScriptExpression } from '../projection/source-typescript-expression.js';
 import {
   getEnumValueLiteral,
+  getEffectiveProjectDeclaration,
   getEnumValues,
   isAsOperation,
   isSwitchCaseGuard,
@@ -28,6 +30,7 @@ import {
   isData,
   type Choice,
   type Condition,
+  type RosettaFunction,
   type Data,
   type RosettaEnumeration,
   type RosettaExpression,
@@ -506,6 +509,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       : undefined;
   }
 
+  private canInlineFunction = (callee: RosettaFunction): boolean =>
+    getEffectiveProjectDeclaration(callee) === callee && !this.projectBindings?.has(callee);
+
   emitFunctions(): void {
     const runeFuncs = extractFuncs(
       Array.from(this.model.docs),
@@ -529,6 +535,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       const funcCtx = {
         ...TsNamespaceEmitter.buildFuncBodyContext(func, callGraph, this.ctx.diagnostics),
         projectImplementation: this.projectImplementation(func),
+        canInlineFunction: this.canInlineFunction,
         callableName: this.callableName,
         typeNameResolver: this.typeName,
         onConditionProjection: (condition: Condition, code: string, predicate: string) =>
@@ -549,6 +556,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
                 const lines = TsNamespaceEmitter.emitFuncBody(variant, {
                   ...TsNamespaceEmitter.buildFuncBodyContext(variant, callGraph, this.ctx.diagnostics),
                   projectImplementation: this.projectImplementation(variant),
+                  canInlineFunction: this.canInlineFunction,
                   callableName: this.callableName,
                   typeNameResolver: this.typeName,
                   onConditionProjection: (condition: Condition, code: string, predicate: string) =>
@@ -1932,6 +1940,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
     return {
       selfName: parameterBindings.values().next().value ?? 'undefined',
+      countedReductions: countedReductionPlans(func.source),
       emitMode: 'ts-expression',
       conditionName: func.name,
       typeName: func.name,
@@ -2034,15 +2043,22 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private static emitFuncPrelude(func: RuneFunc, ctx: FuncBodyContext): string[] {
     return [
-      ...func.aliases.map((alias) =>
-        TsNamespaceEmitter.emitFuncAlias(
-          alias,
-          ctx,
-          func.assignments.some(
-            (assignment) => assignment.target === alias.name && (!assignment.path?.length || assignment.rootMany)
-          )
+      ...func.aliases
+        .filter(
+          (alias) =>
+            ctx.projection ||
+            ctx.nativeValues === false ||
+            ![...(ctx.countedReductions?.omittedAliases ?? [])].some((omitted) => omitted.expression === alias.exprNode)
         )
-      ),
+        .map((alias) =>
+          TsNamespaceEmitter.emitFuncAlias(
+            alias,
+            ctx,
+            func.assignments.some(
+              (assignment) => assignment.target === alias.name && (!assignment.path?.length || assignment.rootMany)
+            )
+          )
+        ),
       ...TsNamespaceEmitter.emitFuncConditions(func.preConditions, func, ctx)
     ];
   }

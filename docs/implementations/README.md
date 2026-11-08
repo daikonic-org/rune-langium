@@ -111,8 +111,11 @@ explicit partial rows when dates run out. Normal result validation still reports
 the missing required dates. The [16-case reference cohort](../../test/fixtures/third-party/cdm-strike-schedule/README.md)
 matches the published CDM 7.9.0 JVM implementation, strict TypeScript layouts,
 Python and the managed Studio worker. Prices are copied without arithmetic or
-currency conversion. The fold-based positional lookup and row accumulation are
-quadratic for equally sized inputs; this is not Java's linear indexed loop.
+currency conversion. Shared Codegen analysis recognizes the counted reductions
+and emits an indexed TypeScript pass when the whole lookup chain is pure and
+unbound. It prepares each captured input once, giving O(P+D) time/allocation.
+The source folds and fallback path remain quadratic; Python shares the local
+reduction optimization but retains per-call lookup input preparation.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |

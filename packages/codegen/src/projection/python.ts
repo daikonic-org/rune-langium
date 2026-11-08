@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { getEnumValueLiteral } from '@rune-langium/core';
+import { renderCountedReductionPython } from './counted-reduction-python.js';
 
 import { AstUtils } from 'langium';
 import {
   getEnumValues,
+  getEnumValueLiteral,
   getOperationArgument,
   getNodeSourceRegion,
   isAttribute,
@@ -84,6 +85,8 @@ export function projectPythonExpression(
 }
 
 export function renderPythonExpression(expression: RosettaExpression, context: PythonRenderContext): string {
+  const overridden = context.expressionOverrides?.get(expression);
+  if (overridden !== undefined) return overridden;
   const render = renderPythonExpression;
   const valueContext = { ...context, preserveMetadata: false };
   const arg = getOperationArgument(expression);
@@ -372,6 +375,8 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
       return context.preserveMetadata ? result : pythonUnwrap(result, kind, expression.$type === 'SortOperation');
     }
     case 'ReduceOperation': {
+      const counted = context.countedReductions?.reductions.get(expression);
+      if (counted) return renderCountedReductionPython(counted, context, render);
       const accumulator = pythonFresh(context, 'acc'),
         item = pythonFresh(context, 'item');
       const inputKind = expressionMetadataKind(arg),

@@ -7,11 +7,12 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { URI } from 'langium';
 import { Temporal } from '@js-temporal/polyfill';
-import { assertValidDocuments, createRuneDslServices } from '@rune-langium/core';
+import { assertValidDocuments, createRuneDslServices, isRosettaModel, isRosettaFunction } from '@rune-langium/core';
 import { generateSelected, generatePreviewSchemas } from '../../src/export.js';
 import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
+import { countedReductionPlans } from '../../src/expr/counted-reduction.js';
 import {
   strikeScheduleCases,
   strikeScheduleFiles,
@@ -53,6 +54,17 @@ it('pins the handwritten Java algorithm and retains its original source/license 
         .update(readFileSync(resolve(strikeScheduleDirectory, asset.name)))
         .digest('hex')
     ).toBe(asset.sha256);
+});
+
+it('uses shared counted-reduction plans without model-specific function matching', () => {
+  const plans = docs.flatMap((doc) =>
+    isRosettaModel(doc.parseResult.value)
+      ? doc.parseResult.value.elements
+          .filter(isRosettaFunction)
+          .flatMap((fn) => [...countedReductionPlans(fn).reductions.values()])
+      : []
+  );
+  expect(plans.map((plan) => plan.kind).toSorted()).toEqual(['collect', 'lookup']);
 });
 
 it.each(['single-file', 'per-namespace', 'barrel'] as const)(

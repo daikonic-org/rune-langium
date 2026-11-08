@@ -30,8 +30,12 @@ profile: this does not promise arbitrary Java BigDecimal precision.
 The ordinary Rune port uses reductions for positional lookup and prefix
 accumulation, costing O(P*D + P^2) for P prices and D dates. The handwritten Java
 implementation uses a linear indexed loop. This performance limitation remains
-until Rune has a shared indexed collection primitive; there is no target-specific
-alternative algorithm or recursion depth limit.
+in the ordinary fallback path. Codegen's shared AST analysis now recognizes these
+counted reductions and, for a proven pure/unbound call chain, emits one indexed
+TypeScript collection pass with captured inputs prepared once. That executable
+path is O(P+D) in time/allocation without changing the Rune source or selecting
+another implementation. Python shares local reduction optimization but retains
+per-call lookup input preparation. No recursion is introduced.
 
 Reproduce the independent reference check with Python and JDK 21+:
 

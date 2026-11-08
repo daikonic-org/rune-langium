@@ -22,6 +22,7 @@ import {
   type RuneFuncAssignment
 } from '../types/func.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
+import { countedReductionPlans } from '../expr/counted-reduction.js';
 import { declaredScalarKind } from '../expr/scalar-operators.js';
 import { collectionShape } from '../expr/collection-shape.js';
 import { expressionFitsCardinality } from '../expr/cardinality.js';
@@ -320,6 +321,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   }
   const renderContext: PythonRenderContext = {
     ...context,
+    countedReductions: countedReductionPlans(func),
     locals,
     name: (node) => {
       const global = context.name(node);
@@ -367,6 +369,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   const accumulatorType = outputMany || outputType.includes(' | None') ? outputType : `${outputType} | None`;
   lines.push(`${result}: ${accumulatorType} = ${outputMany ? '[]' : 'None'}`);
   for (const alias of func.shortcuts) {
+    if (renderContext.countedReductions?.omittedAliases.has(alias)) continue;
     const local = identifier(alias.name, used);
     const text = renderPythonExpression(alias.expression, { ...renderContext, preserveMetadata: true });
     lines.push(`${local} = ${text}`);

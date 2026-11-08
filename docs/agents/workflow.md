@@ -484,6 +484,14 @@ native-implementation browser suite imports and executes the installed mapper
 at desktop/390px. Runtime generated-module tests use the shared compilation
 budget. The shared `test/helpers/curated-rune-project.ts` fixture publishes,
 verifies and installs the pinned multi-model cohort through production paths.
+Codegen's `test/emit/counted-reduction.test.ts` compares the optimized counted folds
+with the original lowering, including empty/single/duplicate values, missing and
+sparse entries, fractional/out-of-range positions, temporary-name collisions,
+escaping accumulators and condition/binding barriers. Keep the recognizer based
+on linked declarations rather than CDM/function names. Run the full Codegen suite
+and rebuild its dist before checking the managed worker or optimized browser.
+Allocation/timing diagnostics measure generated modules after warmup, separately
+from generation, compilation and profiling; they are not CI timing thresholds.
 For the optional independent JVM check, run
 `python3 scripts/verify-strike-schedule.py --cache-dir /tmp/rune-strike-schedule`
 with JDK 21+. Both oracle entrypoints reuse

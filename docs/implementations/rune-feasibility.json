@@ -427,7 +427,7 @@
       },
       "signatureSha256": "2a1df416bec8c36a3a15d32377b8d055630c467dab205586c8fdb5ef305f5afd",
       "route": "rune-source",
-      "requirements": "Owned Rune fold preserves positional pairs, duplicate/unsorted dates, ignored extra dates and explicit partial rows for missing dates, matching the pinned handwritten Java implementation/default runtime across 16 JVM-oracle/TS/Python/Prototype cases. Normal validation still flags missing required dates. Amounts are copied without arithmetic; current folds cost O(prices*dates + prices^2), not Java linear-time indexing.",
+      "requirements": "Owned Rune source preserves positional pairs, duplicates/order, ignored extra dates and explicit partial rows for missing dates, matching 16 pinned JVM/TS/Python/Prototype cases. Normal validation flags required dates. Shared Codegen counted-reduction analysis emits a linear TypeScript pass for proven pure, unbound lookup chains; fallback source folds and Python lookup preparation retain their separate complexity. Amounts are copied without arithmetic.",
       "implementation": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta"
     },
     {

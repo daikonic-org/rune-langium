@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { usesNativeValues } from './value-representation.js';
+import type { CountedReductionPlans } from './counted-reduction.js';
+import { renderCountedReductionTs } from './counted-reduction-ts.js';
 import { patternLiteral, renderPatternLiteral } from './pattern.js';
 
 import {
@@ -68,6 +70,7 @@ import {
   isRosettaRecordType,
   isChoiceOption,
   type Attribute,
+  type RosettaFunction,
   type RosettaType,
   type Condition,
   type RosettaExpression,
@@ -152,6 +155,10 @@ const PRECEDENCE: Record<string, number> = {
  * Not exposed in the public API. Per data-model §7.
  */
 export interface ExpressionTranspilerContext {
+  canInlineFunction?: (func: RosettaFunction) => boolean;
+  countedReductions?: CountedReductionPlans;
+  expressionOverrides?: ReadonlyMap<RosettaExpression, string>;
+  reservedLocalNames?: ReadonlySet<string>;
   /** Native values may also be validated by Zod codecs. */
   nativeValues?: boolean;
   /** Display bodies assume validated, purpose-built Rune objects. Executable APIs retain boundary checks. */
@@ -1377,6 +1384,8 @@ export function transpileReduce(expr: RosettaExpression, ctx: ExpressionTranspil
   if (!isReduceOperation(expr)) {
     return diagnosticFallback('Invalid expression: not ReduceOperation');
   }
+  const counted = !ctx.projection && usesNativeValues(ctx) ? ctx.countedReductions?.reductions.get(expr) : undefined;
+  if (counted) return renderCountedReductionTs(counted, ctx, transpileExpression);
   const fn = expr.function;
   const argumentCtx = fn && usesNativeValues(ctx) ? { ...ctx, preserveMetadata: true } : ctx;
   const arr = expr.argument ? transpileExpression(expr.argument, argumentCtx) : ctx.selfName;
@@ -1700,6 +1709,8 @@ export function transpileExpression(
   if (!expr) {
     return diagnosticFallback(`Null expression in '${ctx.conditionName}'`);
   }
+  const overridden = ctx.expressionOverrides?.get(expr);
+  if (overridden !== undefined) return overridden;
 
   if (expr.$type === 'AsOperation') {
     const kind = expressionMetadataKind(expr);

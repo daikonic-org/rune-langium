@@ -1384,7 +1384,20 @@ Rune state reductions. An explicit partial `DatedValue { value: ..., ... }`
 preserves the handwritten Java mapper's missing-date rows; canonical result
 validation remains responsible for their required-date errors. It does not sort,
 deduplicate, convert currencies or acquire external data. Without indexed list
-access, the positional fold and accumulated prefix copies cost O(P*D + P^2).
+access, the source folds and their fallback lowering cost O(P*D + P^2).
+Codegen's shared counted-reduction analysis recognizes a bounded, linked AST
+shape: an adjacent single-use seed/extract alias, zero-based counter and a plain
+lookup or non-escaping collection accumulator. TypeScript and Python reuse that
+proof to remove temporary step records and prefix copying, preserving their
+existing collection admission. Unmatched shapes keep ordinary reduction semantics.
+TypeScript also fuses captured lookups when the complete append call chain is
+authored, single-result, condition-free Rune. Core's effective declaration targets
+and installed project bindings guard this transformation. Input mutation,
+external/native calls, dispatch, recursion and conditions prevent fusion. Captured
+inputs are prepared once, and the strike mapper then runs in O(P+D) with O(P+D)
+allocation. Standalone lookup calls and Python retain their own input preparation;
+this does not claim a linear Python caller closure. Editable source projections
+retain their readable Rune-like expression form.
 For native TypeScript values, reductions whose input and result share one Data
 or Choice type annotate the input array with that model's canonical shape.
 This prevents a partial constructor seed from erasing optional accumulator fields
