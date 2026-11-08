@@ -12,7 +12,13 @@ const context = (precision: string) => `decimal.Context(
 )`;
 
 /** Self-contained expressions use only Python's standard library and isolated decimal contexts. */
-function rounding(parameters: string, checks: string, operation: string, dependencies: string[] = []) {
+function rounding(
+  parameters: string,
+  checks: string,
+  operation: string,
+  admissionMessage: string,
+  dependencies: string[] = []
+) {
   return {
     call: true,
     dependencies: ['decimal', ...dependencies],
@@ -21,7 +27,7 @@ function rounding(parameters: string, checks: string, operation: string, depende
         (lambda number: (lambda value: value if abs(value) <= 1.7976931348623157e308 else
           (_ for _ in ()).throw(OverflowError('Rounding result exceeds the finite number profile.'))
         )(0.0 if number == 0 else float(number)))
-      ) if ${checks} else (_ for _ in ()).throw(TypeError('Rounding requires finite numbers, a valid safe integer count, supported direction and boolean removeTrailingZeros.'))
+      ) if ${checks} else (_ for _ in ()).throw(TypeError(${JSON.stringify(admissionMessage)}))
     )`
   } as const;
 }
@@ -31,7 +37,8 @@ export const roundToPrecision = rounding(
   `${finiteNumber('value')} and ${safeCount('precision')} and mode in ('Up', 'Down', 'Nearest') and isinstance(remove_trailing_zeros, bool)`,
   `(lambda number, places: result(number) if places >= -number.as_tuple().exponent else
     result(${context('max(1, len(number.as_tuple().digits), number.adjusted() + places + 2)')}.quantize(number, decimal.Decimal((0, (1,), -places))))
-  )(decimal.Decimal(str(float(value))), int(precision))`
+  )(decimal.Decimal(str(float(value))), int(precision))`,
+  'RoundToPrecision requires a finite value, nonnegative safe integer precision, roundingMode Up/Down/Nearest and boolean removeTrailingZeros.'
 );
 
 export const roundToSignificantFigures = rounding(
@@ -39,7 +46,8 @@ export const roundToSignificantFigures = rounding(
   `${finiteNumber('value')} and ${safeCount('significant_figures', 1)} and mode in ('Up', 'Down', 'Nearest')`,
   `(lambda number, figures: result(number) if figures >= len(number.as_tuple().digits) else
     result(${context('figures')}.create_decimal(number))
-  )(decimal.Decimal(str(float(value))), int(significant_figures))`
+  )(decimal.Decimal(str(float(value))), int(significant_figures))`,
+  'RoundToSignificantFigures requires a finite value, positive safe integer significantFigures and roundingMode Up/Down/Nearest.'
 );
 
 export const roundToNearest = rounding(
@@ -56,5 +64,6 @@ export const roundToNearest = rounding(
       )(Fraction(decimal.Decimal(str(float(value)))) / increment)
     )(Fraction(decimal.Decimal(str(float(nearest)))))
   )(__import__('fractions').Fraction)`,
+  'RoundToNearest requires finite value and nearest numbers, positive nearest and roundingMode Up/Down.',
   ['fractions']
 );

@@ -151,12 +151,12 @@ it('executes the same corpus in Python without changing the global decimal conte
   );
   expect(checks).toEqual([
     { error: expect.stringContaining('NonNegativePrecision') },
-    { error: expect.stringContaining('Rounding requires') },
+    { error: expect.stringContaining('RoundToPrecision requires') },
     { value: 1.005 },
     { value: 1.005 },
     { error: expect.any(String) },
-    { error: expect.stringContaining('Rounding requires') },
-    ...Array.from({ length: 5 }, () => ({ error: expect.stringContaining('Rounding requires') })),
+    { error: expect.stringContaining('RoundToPrecision requires') },
+    ...Array.from({ length: 5 }, () => ({ error: expect.stringContaining('RoundToPrecision requires') })),
     { value: 1 },
     { value: 3 },
     { value: true }
@@ -228,6 +228,52 @@ it('requires the published payload and refuses signature drift in either target'
   }
 });
 
+it('reports only the affected Python rounding function parameters in admission errors', () => {
+  const python = generatePythonModule(docs);
+  const cases = [
+    {
+      name: 'RoundToNearest',
+      inputs: { value: 1, nearest: 0.5, roundingMode: 'Nearest' },
+      required: ['RoundToNearest', 'finite', 'nearest', 'roundingMode', 'Up/Down'],
+      unrelated: ['safe integer', 'precision', 'significantFigures', 'removeTrailingZeros']
+    },
+    {
+      name: 'RoundToSignificantFigures',
+      inputs: { value: 1, significantFigures: 1.5, roundingMode: 'Nearest' },
+      required: ['RoundToSignificantFigures', 'finite', 'positive safe integer', 'significantFigures', 'roundingMode'],
+      unrelated: ['precision', 'removeTrailingZeros']
+    },
+    {
+      name: 'RoundToPrecision',
+      inputs: { value: 1, precision: 1.5, roundingMode: 'Nearest', removeTrailingZeros: false },
+      required: [
+        'RoundToPrecision',
+        'finite',
+        'nonnegative safe integer',
+        'precision',
+        'roundingMode',
+        'removeTrailingZeros'
+      ],
+      unrelated: ['significantFigures']
+    }
+  ];
+  const results = runPython(
+    cases.map((test) => ({
+      expression: `${python.bindings.get('cdm.base.math.' + test.name)}(data)`,
+      data: test.inputs
+    })),
+    python.code,
+    { includeRuntime: false }
+  );
+  expect(results).toHaveLength(cases.length);
+  for (const [index, result] of results.entries()) {
+    if (typeof result !== 'object' || result === null || !('error' in result) || typeof result.error !== 'string')
+      throw new Error('Expected a Python admission diagnostic for ' + cases[index]!.name);
+    for (const parameter of cases[index]!.unrelated) expect(result.error).not.toContain(parameter);
+    for (const parameter of cases[index]!.required) expect(result.error).toContain(parameter);
+  }
+});
+
 it('retains Python Rune guards, safe-count admission and finite result limits for both new functions', () => {
   const python = generatePythonModule(docs);
   const nearest = python.bindings.get('cdm.base.math.RoundToNearest')!;
@@ -268,9 +314,16 @@ it('retains Python Rune guards, safe-count admission and finite result limits fo
     { error: expect.stringContaining('PositiveNearest') },
     { error: expect.stringContaining('PositiveNearest') },
     { error: expect.stringContaining('NonZeroSignificantFigures') },
-    ...Array.from({ length: 2 }, () => ({ error: expect.stringContaining('Rounding requires') })),
+    ...Array.from({ length: 2 }, () => ({ error: expect.stringContaining('RoundToSignificantFigures requires') })),
     { value: 1.005 },
-    ...Array.from({ length: 6 }, () => ({ error: expect.stringContaining('Rounding requires') })),
+    ...[
+      'RoundToNearest',
+      'RoundToNearest',
+      'RoundToSignificantFigures',
+      'RoundToSignificantFigures',
+      'RoundToNearest',
+      'RoundToSignificantFigures'
+    ].map((name) => ({ error: expect.stringContaining(name + ' requires') })),
     { error: expect.stringContaining('finite') },
     { error: expect.stringContaining('float') },
     { value: 1 }
