@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "com.opengamma.strata:strata-basics:1.7.0",
+  "entrypoint": "com.opengamma.strata.basics.schedule.Frequency.parse(input).eventsPerYear()",
+  "contract": "Adapter chosen for CDM PeriodsInYear; CDM 7.9.0 pins Strata 1.7.0 and its handwritten CdmToStrataMapper uses Frequency.parse. No direct upstream PeriodsInYear binding was found. CDM positive/Term constraints also apply.",
+  "artifacts": [
+    {
+      "name": "strata-basics-1.7.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0.jar",
+      "sha256": "cc4314a97657aa7600ee2cc8391349c5f246b53cd2860697edc4b52f9271ea9c",
+      "runtime": true
+    },
+    {
+      "name": "strata-collect-1.7.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-collect/1.7.0/strata-collect-1.7.0.jar",
+      "sha256": "22037b13868d9cb7c2eb23b1d10f871f44542321438588dc942c35c3e745cc1a",
+      "runtime": true
+    },
+    {
+      "name": "guava-24.0-jre.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/google/guava/guava/24.0-jre/guava-24.0-jre.jar",
+      "sha256": "e0274470b16ba1154e926b5f54ef8ae159197fbc356406bda9b261ba67e3e599",
+      "runtime": true
+    },
+    {
+      "name": "joda-beans-2.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-beans/2.1/joda-beans-2.1.jar",
+      "sha256": "d71b318d59accde8eeccaad40bdfdd7e1fffec8f22e64f85dee6692e73771a56",
+      "runtime": true
+    },
+    {
+      "name": "joda-convert-2.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-convert/2.0/joda-convert-2.0.jar",
+      "sha256": "98080752aff1f3c56885b71afd475528e6fc52fe2d21d2450bd2573c93ed8e9e",
+      "runtime": true
+    },
+    {
+      "name": "strata-basics-1.7.0-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0-sources.jar",
+      "sha256": "82871315153e985b9c2e265c114158e99d984e473fd6d6826707327f1dabc657",
+      "runtime": false
+    }
+  ],
+  "files": [
+    {
+      "name": "java/Frequency.java",
+      "artifact": "strata-basics-1.7.0-sources.jar",
+      "entry": "com/opengamma/strata/basics/schedule/Frequency.java",
+      "sha256": "d5be987339efe25b2917b21d1de695a52766398eae322a27da4add9139ee5122"
+    },
+    {
+      "name": "strata-LICENSE.txt",
+      "artifact": "strata-basics-1.7.0-sources.jar",
+      "entry": "META-INF/LICENSE.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "strata-NOTICE.txt",
+      "artifact": "strata-basics-1.7.0-sources.jar",
+      "entry": "META-INF/NOTICE.txt",
+      "sha256": "7e051499a0b0987b1e0d8c242754e2c4e80b21f2b87e56057ad3d96b5cf0338b"
+    }
+  ]
+}

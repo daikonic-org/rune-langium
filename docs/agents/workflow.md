@@ -462,6 +462,41 @@ searches the CDM catalog. Include project-runtime's `curated-implementations` su
 and Studio's `project-references` Save/readback suite when changing this boundary.
 The pinned `cdm-dispatch` suite verifies all existing day-count selector bodies in
 strict TypeScript layouts and Python; retain documented upstream differences.
+The same fixture builder checks `cdm-calculation-period` and its handwritten Java
+test/helpers. Codegen's `calculation-period.test.ts` checks every original selector
+with an explicit finite Rune calendar provider; Studio's real-worker counterpart
+also removes that provider. The native-implementation browser suite executes the
+closure from a publication-produced multi-document bundle. Synthetic calendars
+are test data and must never enter the curated implementation catalog.
+`frequency.test.ts` covers the reusable Strata Rune port and CDM adapter in
+strict TypeScript layouts, Python, curated source installation and the managed
+Studio worker. The native-implementation browser suite checks fresh installation
+and valid/unsupported frequency execution at desktop/390px. The ordinary tests
+use pinned offline expectations. For the independent JVM oracle, run
+`python3 scripts/verify-strata-frequency.py --cache-dir /tmp/rune-strata-frequency`:
+it checksum-verifies the published Strata 1.7.0 artifacts and executes 70 cases
+using Java 11+ source-file launching. No JVM is required in emitted artifacts.
+The same fixture builder verifies `cdm-strike-schedule`, including its original
+handwritten Java implementation and available upstream license/notice files. Codegen,
+project-runtime and Studio `strike-schedule.test.ts` suites cover 16 positional
+cases, explicit partial results and canonical required-date validation. The
+native-implementation browser suite imports and executes the installed mapper
+at desktop/390px. Runtime generated-module tests use the shared compilation
+budget. The shared `test/helpers/curated-rune-project.ts` fixture publishes,
+verifies and installs the pinned multi-model cohort through production paths.
+Codegen's `test/emit/counted-reduction.test.ts` compares the optimized counted folds
+with the original lowering, including empty/single/duplicate values, missing and
+sparse entries, fractional/out-of-range positions, temporary-name collisions,
+escaping accumulators and condition/binding barriers. Keep the recognizer based
+on linked declarations rather than CDM/function names. Run the full Codegen suite
+and rebuild its dist before checking the managed worker or optimized browser.
+Allocation/timing diagnostics measure generated modules after warmup, separately
+from generation, compilation and profiling; they are not CI timing thresholds.
+For the optional independent JVM check, run
+`python3 scripts/verify-strike-schedule.py --cache-dir /tmp/rune-strike-schedule`
+with JDK 21+. Both oracle entrypoints reuse
+`scripts/lib/java_reference_oracle.py` to verify pinned artifact and source bytes;
+the Java binaries are test-only and are never packaged in curated targets.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.

@@ -21,7 +21,45 @@ const sources = JSON.parse(
 if (JSON.stringify(inventory.sources) !== JSON.stringify(sources))
   throw new Error('Dispatch fixtures require the audited cohort.');
 const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-audit');
-const destination = resolve(root, 'test/fixtures/third-party/cdm-dispatch');
+const suites = [
+  {
+    directory: 'cdm-dispatch',
+    declarations: ['DayCountBasis', 'YearFraction'].map((name) => ({
+      namespace: 'cdm.base.datetime.daycount',
+      name,
+      kind: 'RosettaFunction'
+    })),
+    references: ['DateDifference', 'LeapYearDateDifference']
+  },
+  {
+    directory: 'cdm-calculation-period',
+    declarations: [
+      { namespace: 'cdm.observable.asset.calculatedrate', name: 'ComputeCalculationPeriod', kind: 'RosettaFunction' }
+    ],
+    references: ['ComputeCalculationPeriod'],
+    supportReferences: [
+      'rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/CalculatedRateTestHelper.java',
+      'rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/FloatingRateTestHelper.java'
+    ]
+  },
+  {
+    directory: 'cdm-frequency',
+    declarations: [{ namespace: 'cdm.product.common.schedule', name: 'PeriodsInYear', kind: 'RosettaFunction' }],
+    references: [],
+    supportReferences: ['rosetta-source/src/main/java/cdm/product/common/schedule/functions/CdmToStrataMapper.java']
+  },
+  {
+    directory: 'cdm-strike-schedule',
+    declarations: [
+      {
+        namespace: 'cdm.ingest.fpml.confirmation.pricequantity',
+        name: 'MapCommodityOptionStrikePriceSchedule',
+        kind: 'RosettaFunction'
+      }
+    ],
+    references: ['MapCommodityOptionStrikePriceSchedule']
+  }
+];
 const { RuneDsl } = createRuneDslServices();
 const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
 const documents = [],
@@ -41,68 +79,75 @@ for (const file of inventory.files) {
   origins.set(uri.toString(), { ...file, sha256: createHash('sha256').update(content).digest('hex') });
 }
 await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { validation: false, eagerLinking: true });
-const declarations = ['DayCountBasis', 'YearFraction'].map((name) => ({
-  namespace: 'cdm.base.datetime.daycount',
-  name,
-  kind: 'RosettaFunction'
-}));
-const selection = resolveExportSelection(documents, { namespaces: [], declarations });
-if (selection.unknown.length || selection.unknownNamespaces.length)
-  throw new Error('Dispatch fixture roots are unresolved.');
-const files = [];
-if (values.write) await mkdir(destination, { recursive: true });
-for (const slice of referenceFixtureSlices(documents, selection.documents)) {
-  const origin = origins.get(slice.uri);
-  const path = resolve(destination, slice.name);
-  if (values.write) await writeFile(path, slice.content);
-  else if ((await readFile(path, 'utf8')) !== slice.content) throw new Error('Dispatch fixture changed: ' + slice.name);
-  files.push({ name: slice.name, upstream: origin, sha256: createHash('sha256').update(slice.content).digest('hex') });
-}
-const references = [];
-const javaPaths = new Set(
-  inventory.functions
-    .filter((entry) => ['DateDifference', 'LeapYearDateDifference'].includes(entry.symbol.name))
-    .flatMap((entry) =>
-      [...entry.referenceJava.implementations, ...entry.referenceJava.tests].map((reference) => reference.path)
+for (const suite of suites) {
+  const destination = resolve(root, 'test/fixtures/third-party', suite.directory);
+  const declarations = suite.declarations;
+  const selection = resolveExportSelection(documents, { namespaces: [], declarations });
+  if (selection.unknown.length || selection.unknownNamespaces.length)
+    throw new Error('Dispatch fixture roots are unresolved.');
+  const files = [];
+  if (values.write) await mkdir(destination, { recursive: true });
+  for (const slice of referenceFixtureSlices(documents, selection.documents)) {
+    const origin = origins.get(slice.uri);
+    const path = resolve(destination, slice.name);
+    if (values.write) await writeFile(path, slice.content);
+    else if ((await readFile(path, 'utf8')) !== slice.content)
+      throw new Error('Dispatch fixture changed: ' + slice.name);
+    files.push({
+      name: slice.name,
+      upstream: origin,
+      sha256: createHash('sha256').update(slice.content).digest('hex')
+    });
+  }
+  const references = [];
+  const javaPaths = new Set(
+    inventory.functions
+      .filter((entry) => suite.references.includes(entry.symbol.name))
+      .flatMap((entry) =>
+        [...entry.referenceJava.implementations, ...entry.referenceJava.tests].map((reference) => reference.path)
+      )
+  );
+  for (const path of suite.supportReferences ?? []) javaPaths.add(path);
+  const assets = [
+    ...inventory.notices.filter((entry) => files.some((file) => file.upstream.model === entry.model)),
+    ...inventory.referenceFiles.filter((entry) => javaPaths.has(entry.path))
+  ];
+  for (const asset of assets) {
+    const source = sources.find((entry) => entry.model === asset.model);
+    const content = await readFile(resolve(cache, source.model, source.commit, asset.path), 'utf8');
+    if (
+      nativeSourceBlobHash(content) !== asset.blob ||
+      createHash('sha256').update(content).digest('hex') !== asset.sha256
     )
-);
-const assets = [
-  ...inventory.notices.filter((entry) => ['cdm', 'rune-dsl'].includes(entry.model)),
-  ...inventory.referenceFiles.filter((entry) => javaPaths.has(entry.path))
-];
-for (const asset of assets) {
-  const source = sources.find((entry) => entry.model === asset.model);
-  const content = await readFile(resolve(cache, source.model, source.commit, asset.path), 'utf8');
-  if (
-    nativeSourceBlobHash(content) !== asset.blob ||
-    createHash('sha256').update(content).digest('hex') !== asset.sha256
-  )
-    throw new Error('Dispatch reference checksum mismatch: ' + asset.path);
-  const name = asset.path.endsWith('.java') ? 'java/' + basename(asset.path) : asset.model + '-' + basename(asset.path);
-  const path = resolve(destination, name);
-  if (values.write) {
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content);
-  } else if ((await readFile(path, 'utf8')) !== content) throw new Error('Dispatch reference changed: ' + name);
-  references.push({ name, upstream: asset, sha256: asset.sha256 });
+      throw new Error('Dispatch reference checksum mismatch: ' + asset.path);
+    const name = asset.path.endsWith('.java')
+      ? 'java/' + basename(asset.path)
+      : asset.model + '-' + basename(asset.path);
+    const path = resolve(destination, name);
+    if (values.write) {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, content);
+    } else if ((await readFile(path, 'utf8')) !== content) throw new Error('Dispatch reference changed: ' + name);
+    references.push({ name, upstream: asset, sha256: asset.sha256 });
+  }
+  const manifest =
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        sources,
+        declarations,
+        files,
+        references,
+        normalization:
+          'Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified.'
+      },
+      null,
+      2
+    ) + '\n';
+  const path = resolve(destination, 'sources.json');
+  if (values.write) await writeFile(path, manifest);
+  else if ((await readFile(path, 'utf8')) !== manifest) throw new Error('Dispatch fixture manifest changed.');
+  console.log(
+    `${values.write ? 'Wrote' : 'Verified'} ${suite.directory}: ${files.length} pinned dispatch files, ${selection.included.length} declaration identities.`
+  );
 }
-const manifest =
-  JSON.stringify(
-    {
-      schemaVersion: 1,
-      sources,
-      declarations,
-      files,
-      references,
-      normalization:
-        'Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified.'
-    },
-    null,
-    2
-  ) + '\n';
-const path = resolve(destination, 'sources.json');
-if (values.write) await writeFile(path, manifest);
-else if ((await readFile(path, 'utf8')) !== manifest) throw new Error('Dispatch fixture manifest changed.');
-console.log(
-  `${values.write ? 'Wrote' : 'Verified'} ${files.length} pinned dispatch files, ${selection.included.length} declaration identities.`
-);

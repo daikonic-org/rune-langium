@@ -14,8 +14,8 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **8
-language-specific implementations per target**. Seven catalog entries use Rune,
-including three owned overrides and four partially implemented upstream dispatch
+language-specific implementations per target**. Nine catalog entries use Rune,
+including five owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -86,10 +86,41 @@ under all three layouts and standalone Python. Missing defaults/selectors stay
 unavailable. These source regressions preserve documented upstream quirks and do
 not establish financial-standard or complete handwritten-Java parity.
 
+The [calculation-period closure](calculation-periods.md) also exercises all three
+`ComputeCalculationPeriod` bodies with explicit finite test calendars in strict
+TypeScript, standalone Python and the real Studio worker. The pinned handwritten
+Java test supplies its three baseline expectations. Production `FixingDate` still
+needs an actual holiday provider.
+
+[`PeriodsInYear`](../../packages/project-runtime/src/curated-implementations/rune/frequency.rosetta)
+is a thin CDM adapter over the owned Rune port of OpenGamma Strata 1.7.0's
+`Frequency` construction and `EventsPerYear`, in the original
+`com.opengamma.strata.basics.schedule` namespace. The library owns exact annual
+count rules; the adapter owns CDM multiplier/period constraints and conversion.
+The [frequency evidence](../../test/fixtures/third-party/cdm-frequency/README.md)
+checks 57 adapter and 13 library cases against the published JVM implementation,
+strict TypeScript layouts and Python, plus curated installation and Prototype.
+This is a bounded library port; no direct upstream CDM `PeriodsInYear` Java binding
+was found. The catalog selects one Rune path with its library support file, with
+no parallel target-specific implementation.
+
+[`MapCommodityOptionStrikePriceSchedule`](../../packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta)
+is an ordinary Rune override of the handwritten CDM mapper. It pairs amounts and
+dates by position, keeps duplicates and ordering, ignores extra dates and returns
+explicit partial rows when dates run out. Normal result validation still reports
+the missing required dates. The [16-case reference cohort](../../test/fixtures/third-party/cdm-strike-schedule/README.md)
+matches the published CDM 7.9.0 JVM implementation, strict TypeScript layouts,
+Python and the managed Studio worker. Prices are copied without arithmetic or
+currency conversion. Shared Codegen analysis recognizes the counted reductions
+and emits an indexed TypeScript pass when the whole lookup chain is pure and
+unbound. It prepares each captured input once, giving O(P+D) time/allocation.
+The source folds and fallback path remain quadratic; Python shares the local
+reduction optimization but retains per-call lookup input preparation.
+
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
-| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`, `PeriodsInYear`; explicit holiday data, roll/stub rules, model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`; explicit holiday data, roll/stub rules, model-version semantics |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`, `RoundToNearest/Precision/SignificantFigures`, `VectorOperation`, `VectorGrowthOperation`; financial rounding/precision and day-count parity, not approximate floating-point replacements |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |
@@ -137,8 +168,9 @@ Run Codegen's `test/implementations` and Python runtime suites, and Studio's rea
 worker suite. `test/e2e/native-implementations.spec.ts` executes AddDays and signed
 DateDifference from a publication-produced curated artifact through the real
 preview worker at desktop/390px with viewport and axe checks. The browser fixture
-is a minimal declaration cohort; standalone tests
-cover the other bundled utilities and exact signatures.
+also checks the installed frequency adapter and positional strike mapper. These
+are minimal declaration cohorts; standalone tests cover the other bundled
+utilities and exact signatures.
 
 CDM/Rune source references retain their upstream license and notice files. The inventory
 commits factual signatures/hashes, not copied source trees. Generated TypeScript

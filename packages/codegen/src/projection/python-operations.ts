@@ -16,8 +16,11 @@ import { collectionDepth, collectionShape } from '../expr/collection-shape.js';
 import { expressionIsPresent } from '../expr/scalar-operators.js';
 import type { PythonProjectionContext } from './context.js';
 import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
+import type { CountedReductionPlans } from '../expr/counted-reduction.js';
 
 export interface PythonRenderContext extends PythonProjectionContext {
+  countedReductions?: CountedReductionPlans;
+  expressionOverrides?: ReadonlyMap<RosettaExpression, string>;
   state: { next: number };
 }
 export type PythonRender = (expression: RosettaExpression, context: PythonRenderContext) => string;

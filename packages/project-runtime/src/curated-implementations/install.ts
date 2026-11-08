@@ -19,6 +19,8 @@ import {
 import type { ReferenceDocument } from '../references/types.js';
 
 export const IMPLEMENTATION_SOURCE_PROVENANCE = 'model/implementations/.curated-sources.json';
+const isSourceOrNotice = (path: string) =>
+  path.endsWith('.rosetta') || /(?:^|\/)(?:LICENSE|[a-z-]+-(?:LICENSE|NOTICE)\.txt)$/.test(path);
 const provenanceSchema = z.strictObject({
   schemaVersion: z.literal(1),
   files: z.record(
@@ -51,7 +53,7 @@ export async function prepareCuratedImplementationSources(
       throw new Error('Curated implementation source provenance differs from its verified reference bundle.');
     for (const file of pack.files) {
       const path = `model/implementations/${pack.model}/${file.path}`;
-      if (normalizeProjectPath(path) !== path || (!file.path.endsWith('.rosetta') && file.path !== 'LICENSE'))
+      if (normalizeProjectPath(path) !== path || !isSourceOrNotice(file.path))
         throw new Error('Unsafe Rune implementation source path.');
       if ((await projectFileRevision(file.content)) !== file.sha256)
         throw new Error('Curated implementation source checksum mismatch: ' + path);
@@ -98,11 +100,7 @@ export async function prepareCuratedImplementationSources(
     }
   }
   for (const [path, prior] of Object.entries(previous.files)) {
-    if (
-      normalizeProjectPath(path) !== path ||
-      !path.startsWith('model/implementations/') ||
-      (!path.endsWith('.rosetta') && !/^model\/implementations\/[^/]+\/LICENSE$/.test(path))
-    )
+    if (normalizeProjectPath(path) !== path || !path.startsWith('model/implementations/') || !isSourceOrNotice(path))
       throw new Error('Unsafe curated implementation provenance path.');
     if (desired.has(path) || !snapshot.files.has(path)) continue;
     if (prior.owned && (await projectFileRevision(snapshot.files.get(path)!)) === prior.sha256) changes.set(path, null);

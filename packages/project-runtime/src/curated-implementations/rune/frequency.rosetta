@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.product.common.schedule
+version "1.0.0"
+
+import cdm.base.datetime.*
+import com.opengamma.strata.basics.schedule.*
+
+func PeriodsInYear: <"Exact annual event count following OpenGamma Strata 1.7.0 Frequency.eventsPerYear, with CDM's positive multiplier and Term constraints. Day/week frequencies use 364 days/52 weeks; unsupported or non-dividing frequencies fail rather than rounding.">
+    inputs:
+        frequency CalculationPeriodFrequency (1..1)
+    output:
+        numberOfPeriods int (1..1)
+
+    alias period: frequency -> period
+    alias multiplier: frequency -> periodMultiplier
+    condition SupportedPeriod:
+        [PeriodExtendedEnum -> D, PeriodExtendedEnum -> W, PeriodExtendedEnum -> M,
+         PeriodExtendedEnum -> Y, PeriodExtendedEnum -> T] contains period
+    condition PositiveMultiplier:
+        multiplier > 0
+    condition TermMultiplier:
+        if period = PeriodExtendedEnum -> T then multiplier = 1
+
+    set numberOfPeriods:
+        EventsPerYear(
+            if period = PeriodExtendedEnum -> T then Term()
+            else OfPeriod(com.opengamma.strata.basics.schedule.Period {
+                years: if period = PeriodExtendedEnum -> Y then multiplier else 0,
+                months: if period = PeriodExtendedEnum -> M then multiplier else 0,
+                days: if period = PeriodExtendedEnum -> D then multiplier
+                      else if period = PeriodExtendedEnum -> W then multiplier * 7
+                      else 0
+            })
+        )

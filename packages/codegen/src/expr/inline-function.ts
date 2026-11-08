@@ -16,7 +16,11 @@ import { RUNE_HELPER_NAMES } from '../helpers.js';
 import type { ExpressionTranspilerContext } from './transpiler.js';
 
 export function freshLocal(ctx: ExpressionTranspilerContext, preferred: string): string {
-  const names = new Set<string>([...RUNE_HELPER_NAMES, ...(ctx.localBindings?.values() ?? [])]);
+  const names = new Set<string>([
+    ...RUNE_HELPER_NAMES,
+    ...(ctx.localBindings?.values() ?? []),
+    ...(ctx.reservedLocalNames ?? [])
+  ]);
   names.add(ctx.selfName);
   let name = preferred;
   for (let suffix = 1; names.has(name); suffix++) name = `${preferred}${suffix}`;

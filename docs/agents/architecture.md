@@ -1371,8 +1371,52 @@ and linked signatures. Explicit Rune implementation sources use ordinary
 reference signatures. Effective entries have exactly one implementation kind;
 Rune entries never contain language-specific target alternatives. Pinned handwritten
 Java algorithms, tests and empty providers are separate reference evidence.
+Handwritten dependency algorithms retain their own artifact identity and source
+hash in `referenceJava.dependencies`, separately from direct CDM implementations.
+The bounded Strata frequency port is a reusable Rune library under
+`com.opengamma.strata.basics.schedule`. Its `OfPeriod`, `Term` and `EventsPerYear`
+functions own Strata semantics; the CDM `PeriodsInYear` override owns conversion
+and CDM-specific constraints. Publication installs both source files and the
+named upstream license/notice files together. Target emitters share this Rune
+algorithm and never discover a Strata library during generation.
+The strike-schedule override pairs amounts and dates by position using ordinary
+Rune state reductions. An explicit partial `DatedValue { value: ..., ... }`
+preserves the handwritten Java mapper's missing-date rows; canonical result
+validation remains responsible for their required-date errors. It does not sort,
+deduplicate, convert currencies or acquire external data. Without indexed list
+access, the source folds and their fallback lowering cost O(P*D + P^2).
+Codegen's shared counted-reduction analysis recognizes a bounded, linked AST
+shape: an adjacent single-use seed/extract alias, zero-based counter and a plain
+lookup or non-escaping collection accumulator. TypeScript and Python reuse that
+proof to remove temporary step records and prefix copying, preserving their
+existing collection admission. Unmatched shapes keep ordinary reduction semantics.
+TypeScript also fuses captured lookups when the complete append call chain is
+authored, single-result, condition-free Rune. Core's effective declaration targets
+and installed project bindings guard this transformation. Input mutation,
+external/native calls, dispatch, recursion and conditions prevent fusion. Captured
+inputs are prepared once, and the strike mapper then runs in O(P+D) with O(P+D)
+allocation. Standalone lookup calls and Python retain their own input preparation;
+this does not claim a linear Python caller closure. Editable source projections
+retain their readable Rune-like expression form.
+For native TypeScript values, reductions whose input and result share one Data
+or Choice type annotate the input array with that model's canonical shape.
+This prevents a partial constructor seed from erasing optional accumulator fields
+through literal inference. Metadata and projection reductions keep their existing
+paths; the correction requires no cast through `unknown` or `any`.
+Prototype's shared JSON payload panel remains keyboard-focusable with a visible
+focus indicator, allowing long input/result arrays to be scrolled without a mouse.
 Upstream dispatch bodies and execution coverage are distinct facts. Core dispatch
 scopes inherit base declarations, never aliases from sibling variants.
+The calculation-period regression closure preserves all upstream selectors and
+supplies finite calendar data through an ordinary test-only Rune override. Missing
+calendar leaves remain unavailable; independent selectors do not acquire an
+invented calendar dependency. Declaration selection expands a transitive dispatch
+call to the complete effective family and traverses every selector's dependencies,
+using Core's override targets rather than retaining replaced bodies.
+Function-boundary built-in aliases reuse the target
+profile's native type mapping, including import tracking. Temporal constructors
+remain potentially absent in the shared expression-presence analysis, so list
+shaping narrows their values without assertions.
 The #646 issue table is rendered from that inventory rather than another target-status list.
 Source-only preview workers register the current user roots before building and
 initialize Core's shared resolution index. A later capture removes the preceding

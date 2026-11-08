@@ -8,6 +8,72 @@ import { declarationKey, generate, generateSelected, resolveExportSelection } fr
 import { compileGeneratedTypeScript } from './helpers/compiled-typescript.js';
 
 describe('declaration selection', () => {
+  it('keeps effective transitive dispatch families and their dependencies after a complete namespace override', async () => {
+    const { shared } = createRuneDslServices();
+    await shared.workspace.WorkspaceManager.initializeWorkspace([]);
+    const documents = [
+      `namespace dispatch
+enum Mode:
+ Fast
+ Slow
+func Compute:
+ inputs:
+  mode Mode (1..1)
+  amount number (1..1)
+ output: result number (1..1)
+func Compute(mode: Mode -> Fast):
+ set result: amount + 1
+func Compute(mode: Mode -> Slow):
+ set result: amount + 2
+func Caller:
+ inputs:
+  mode Mode (1..1)
+  amount number (1..1)
+ output: result number (1..1)
+ set result: Compute(mode, amount)`,
+      `override namespace dispatch
+import helpers.*
+func Compute:
+ inputs:
+  mode Mode (1..1)
+  amount number (1..1)
+ output: result number (1..1)
+func Compute(mode: Mode -> Fast):
+ set result: Multiply(amount)
+func Compute(mode: Mode -> Slow):
+ set result: Multiply(amount) + amount`,
+      `namespace helpers
+func Multiply:
+ inputs: amount number (1..1)
+ output: result number (1..1)
+ set result: amount * 2`,
+      `namespace unrelated
+func Compute:
+ output: result number (1..1)
+ set result: 999`
+    ].map((text, index) =>
+      shared.workspace.LangiumDocumentFactory.fromString(text, URI.parse(`inmemory:///dispatch-${index}.rosetta`))
+    );
+    for (const document of documents) shared.workspace.LangiumDocuments.addDocument(document);
+    await shared.workspace.DocumentBuilder.build(documents, { validation: true, eagerLinking: true });
+    expect(documents.flatMap((document) => document.diagnostics ?? [])).toEqual([]);
+    const result = await generateSelected(
+      documents,
+      { namespaces: [], declarations: [{ namespace: 'dispatch', kind: 'RosettaFunction', name: 'Caller' }] },
+      { target: 'typescript', strict: true }
+    );
+    const fn = result.outputs.flatMap((output) => output.funcs).find((fn) => fn.name === 'Caller')!;
+    const entry = result.outputs.find((output) => output.funcs.includes(fn))!.relativePath;
+    const compiled = compileGeneratedTypeScript(result.outputs, { entry });
+    expect(compiled[fn.exportName!]!('Fast', 10)).toBe(20);
+    expect(compiled[fn.exportName!]!('Slow', 10)).toBe(30);
+    expect(result.selection.included.some((root) => root.namespace === 'unrelated')).toBe(false);
+    expect(
+      result.selection.requiredBy.get(
+        declarationKey({ namespace: 'helpers', kind: 'RosettaFunction', name: 'Multiply' })
+      )
+    ).toEqual([declarationKey({ namespace: 'dispatch', kind: 'RosettaFunction', name: 'Caller' })]);
+  });
   it('compiles and executes a selected original caller through a same-namespace override', async () => {
     const { shared } = createRuneDslServices();
     await shared.workspace.WorkspaceManager.initializeWorkspace([]);
@@ -208,5 +274,8 @@ func Compute(kind: Kind -> Credit):`,
     expect(selection.included.filter((item) => item.name === 'Compute')).toEqual([
       { namespace: 'test', name: 'Compute', kind: 'RosettaFunction' }
     ]);
+    expect(
+      selection.requiredBy.get(declarationKey({ namespace: 'test', name: 'Kind', kind: 'RosettaEnumeration' }))
+    ).toEqual([declarationKey({ namespace: 'test', name: 'Compute', kind: 'RosettaFunction' })]);
   });
 });

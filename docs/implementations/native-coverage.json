@@ -970,7 +970,7 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "cbb12785848bbd8666c6824f3ff7c2e72209311717cdd2f915649e5165b0e0f0"
+      "sha256": "ce6dda6c6a9b2931ca4a09d80c4d9bc0a988ac439573a50c422699018efe2dd3"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
@@ -995,6 +995,22 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
       "sha256": "b52497b3e64ca23c2d3cb41275f4720206a15d8bff2033d31349a350b449c541"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+      "sha256": "1570701ba47b008e8c00e09127f10499c353946f8737ef8090510c23ed205271"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
+      "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
+      "sha256": "7662785cbec6479509d6fe3fd15719cbcabdebe4d8c030bac841c00e0699861f"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
+      "sha256": "c04f30ef599b9f825d58ce81e9dc6964180d3a438ca4759c4d1b8f4d8bb22be7"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
@@ -5108,7 +5124,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
+        "entrypoint": "cdm.ingest.fpml.confirmation.pricequantity.MapCommodityOptionStrikePriceSchedule",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -5121,10 +5140,17 @@
         "tests": []
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Construct dated values from positional pairs; prove list pairing and upstream missing-date/extra-date behavior.",
+        "route": "rune-source",
+        "requirements": "Owned Rune source preserves positional pairs, duplicates/order, ignored extra dates and explicit partial rows for missing dates, matching 16 pinned JVM/TS/Python/Prototype cases. Normal validation flags required dates. Shared Codegen counted-reduction analysis emits a linear TypeScript pass for proven pure, unbound lookup chains; fallback source folds and Python lookup preparation retain their separate complexity. Amounts are copied without arithmetic.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/strike-schedule.test.ts",
+        "cases": "test/fixtures/third-party/cdm-strike-schedule/cases.json",
+        "casesSha256": "92dcb366044c3e1f91f97683e845eec38a3dfcab14fdea1e6617b848b6ec16f8",
+        "selectors": [],
+        "caseCount": 16
       }
     },
     {
@@ -5293,7 +5319,7 @@
       },
       "rune": {
         "route": "upstream-variants",
-        "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies.",
+        "requirements": "Preserve all three upstream dispatch bodies. Pinned TS/Python and Prototype closure tests use explicit finite calendar data; production FixingDate still requires a real BusinessCenterHolidays provider. Missing default/prior/reset data must fail honestly.",
         "upstreamDefaultHasBody": false,
         "variants": [
           {
@@ -5309,6 +5335,17 @@
             "hasRuneBody": true
           }
         ]
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calculation-period.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calculation-period/cases.json",
+        "casesSha256": "455d0d419636989a135ed2780dc07a3a2e6b41c75d2425bbb1723a4b4dfd51db",
+        "selectors": [
+          "FixingDate",
+          "SetInAdvance",
+          "Standard"
+        ],
+        "caseCount": 18
       }
     },
     {
@@ -7423,19 +7460,37 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+        "entrypoint": "cdm.product.common.schedule.PeriodsInYear",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
         "providers": [],
         "tests": [],
-        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree.",
+        "dependencies": [
+          {
+            "path": "test/fixtures/third-party/cdm-frequency/java/Frequency.java",
+            "sha256": "d5be987339efe25b2917b21d1de695a52766398eae322a27da4add9139ee5122",
+            "entrypoint": "com.opengamma.strata.basics.schedule.Frequency.eventsPerYear",
+            "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0-sources.jar"
+          }
+        ]
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics.",
+        "route": "rune-source",
+        "requirements": "CDM adapter delegates to com.opengamma.strata.basics.schedule.EventsPerYear with its OfPeriod/Term constructors; one shared Rune algorithm follows Strata 1.7.0 exact 12/months or 364/days. CDM additionally requires positive multipliers and Term=1; H/C, non-divisors, mixed periods and overflow fail. JVM oracle, strict TS layouts, Python and Prototype cover the port. No direct upstream CDM binding was found.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/frequency.test.ts",
+        "cases": "test/fixtures/third-party/cdm-frequency/cases.json",
+        "casesSha256": "4481abac6a4b7f9bc0253044b14eb8f8a7cd074a9fe78ac7a7191e528a006fe9",
+        "selectors": [],
+        "caseCount": 57
       }
     }
   ]

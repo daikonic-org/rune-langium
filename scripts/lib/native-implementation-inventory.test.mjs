@@ -149,3 +149,40 @@ test('Git blob checksums include the exact UTF-8 byte length and trailing newlin
   assert.notEqual(nativeSourceBlobHash('hello'), nativeSourceBlobHash('hello\n'));
   assert.equal(nativeSourceBlobHash('😀'), createHash('sha1').update('blob 4\0😀').digest('hex'));
 });
+
+test('keeps pinned handwritten dependency algorithms separate from CDM production implementations', () => {
+  const dependency = {
+    path: 'test/fixtures/third-party/cdm-frequency/java/Frequency.java',
+    sha256: 'c'.repeat(64),
+    entrypoint: 'com.opengamma.strata.basics.schedule.Frequency.eventsPerYear',
+    sourceUrl:
+      'https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0-sources.jar'
+  };
+  const supplied = { ...entry, javaDependencies: [dependency] };
+  assert.equal(
+    runeFeasibilityIndex({ ...assessment(), functions: [supplied] }, sources).get(symbol, signature),
+    supplied
+  );
+  for (const changed of [
+    { ...dependency, path: '../Frequency.java' },
+    { ...dependency, sha256: 'invalid' },
+    { ...dependency, sourceUrl: 'file:///tmp/unverified.jar' }
+  ])
+    assert.throws(
+      () => runeFeasibilityIndex({ ...assessment(), functions: [{ ...entry, javaDependencies: [changed] }] }, sources),
+      /Invalid Rune feasibility/
+    );
+  const markdown = renderNativeImplementationInventory({
+    sources,
+    functions: [
+      {
+        symbol,
+        source: { path: 'model/functions.rosetta' },
+        implementation: { kind: 'unimplemented' },
+        referenceJava: { implementations: [], dependencies: [dependency] },
+        rune: { ...entry, variants: [] }
+      }
+    ]
+  });
+  assert.match(markdown, /Frequency.eventsPerYear.*\(dependency\)/);
+});

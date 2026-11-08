@@ -221,6 +221,49 @@ const signatures: Readonly<Record<string, NativeFunctionShape>> = {
       plain: true
     }
   },
+  PeriodsInYear: {
+    inputs: [
+      {
+        name: 'frequency',
+        type: 'cdm.base.datetime.CalculationPeriodFrequency',
+        kind: 'Data',
+        card: [1, 1],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'numberOfPeriods',
+      type: 'com.rosetta.model.int',
+      kind: 'RosettaTypeAlias',
+      card: [1, 1],
+      plain: true
+    }
+  },
+  MapCommodityOptionStrikePriceSchedule: {
+    inputs: [
+      {
+        name: 'fpmlStrikePricePerUnitStepList',
+        type: 'fpml.consolidated.shared.NonNegativeMoney',
+        kind: 'Data',
+        card: [0, '*'],
+        plain: true
+      },
+      {
+        name: 'fpmlCommodityStrikePriceDateList',
+        type: 'com.rosetta.model.date',
+        kind: 'RosettaRecordType',
+        card: [0, '*'],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'strikePriceSchedule',
+      type: 'cdm.base.math.DatedValue',
+      kind: 'Data',
+      card: [0, '*'],
+      plain: true
+    }
+  },
   StringContains: {
     inputs: [
       {
@@ -316,6 +359,22 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
     signature: signatures.PopOffDateList!,
     path: 'date-list.rosetta',
     files: ['date-list-state.rosetta', 'date-list.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.product.common.schedule',
+    name: 'PeriodsInYear',
+    signature: signatures.PeriodsInYear!,
+    path: 'frequency.rosetta',
+    files: ['strata-frequency.rosetta', 'frequency.rosetta', 'strata-LICENSE.txt', 'strata-NOTICE.txt']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.ingest.fpml.confirmation.pricequantity',
+    name: 'MapCommodityOptionStrikePriceSchedule',
+    signature: signatures.MapCommodityOptionStrikePriceSchedule!,
+    path: 'strike-schedule.rosetta',
+    files: ['strike-schedule-state.rosetta', 'strike-schedule.rosetta']
   }
 ];
 if (new Set(CDM_IMPLEMENTATIONS.map((entry) => `${entry.namespace}.${entry.name}`)).size !== CDM_IMPLEMENTATIONS.length)

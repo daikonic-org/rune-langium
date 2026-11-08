@@ -43,9 +43,29 @@ const { values } = parseArgs({
   }
 });
 const root = resolve(import.meta.dirname, '..');
-const dispatchCasesPath = 'test/fixtures/third-party/cdm-dispatch/cases.json';
-const dispatchCasesText = await readFile(resolve(root, dispatchCasesPath), 'utf8');
-const dispatchCases = JSON.parse(dispatchCasesText);
+const dispatchSuites = await Promise.all(
+  ['cdm-dispatch', 'cdm-calculation-period', 'cdm-frequency', 'cdm-strike-schedule'].map(async (directory) => {
+    const base = `test/fixtures/third-party/${directory}`;
+    const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
+    const casesPath = `${base}/cases.json`;
+    const casesText = await readFile(resolve(root, casesPath), 'utf8');
+    return {
+      declarations: manifest.declarations,
+      path:
+        'packages/codegen/test/implementations/' +
+        {
+          'cdm-dispatch': 'cdm-dispatch',
+          'cdm-calculation-period': 'calculation-period',
+          'cdm-frequency': 'frequency',
+          'cdm-strike-schedule': 'strike-schedule'
+        }[directory] +
+        '.test.ts',
+      casesPath,
+      casesText,
+      cases: JSON.parse(casesText)
+    };
+  })
+);
 const sources = JSON.parse(
   await readFile(resolve(root, values.sources ?? 'scripts/fixtures/native-implementation-sources.json'), 'utf8')
 );
@@ -227,6 +247,11 @@ for (const document of documents) {
     if (!symbol || symbol.model !== source.model)
       throw new Error('Inventory model ownership is missing or inconsistent.');
     const assessment = feasibility.get(symbol, signature);
+    for (const reference of assessment.javaDependencies ?? []) {
+      const bytes = await readFile(resolve(root, reference.path));
+      if (createHash('sha256').update(bytes).digest('hex') !== reference.sha256)
+        throw new Error('Handwritten Java dependency checksum mismatch: ' + reference.path);
+    }
     if (assessment.implementation) {
       const effective = getEffectiveProjectDeclaration(node);
       const path = effective && runeSources.get(AstUtils.getDocument(effective).uri.toString());
@@ -277,37 +302,60 @@ for (const document of documents) {
     )
       throw new Error('Published Rune selection differs from the reviewed effective implementation.');
     validateCatalogImplementation(implementation);
+    const suite = dispatchSuites.find((suite) =>
+      suite.declarations.some(
+        (declaration) =>
+          declaration.namespace === symbol.namespace &&
+          declaration.name === symbol.name &&
+          declaration.kind === symbol.kind
+      )
+    );
+    const cases =
+      suite?.cases.filter(
+        (entry) => entry.function === symbol.name || (!entry.function && suite.declarations.length === 1)
+      ) ?? [];
+    const dispatchAttribute = functions.find(
+      (candidate) =>
+        candidate.name === node.name &&
+        candidate.dispatchAttribute &&
+        getElementNamespace(candidate) === symbol.namespace
+    )?.dispatchAttribute?.$refText;
     rows.push({
       symbol,
       source,
       signature,
       implementation,
-      referenceJava: handwrittenJavaReferences(
-        javaFiles.filter((file) => file.model === symbol.model),
-        symbol.namespace,
-        symbol.name
-      ),
+      referenceJava: {
+        ...handwrittenJavaReferences(
+          javaFiles.filter((file) => file.model === symbol.model),
+          symbol.namespace,
+          symbol.name
+        ),
+        ...(assessment.javaDependencies ? { dependencies: assessment.javaDependencies } : {})
+      },
       rune: {
         route: assessment.route,
         requirements: assessment.requirements,
         upstreamDefaultHasBody: node.operations.length > 0,
         variants
       },
-      ...(symbol.namespace === 'cdm.base.datetime.daycount' &&
-      dispatchCases.some((entry) => entry.function === symbol.name)
+      ...(suite && cases.length
         ? {
             regressionSuite: {
-              path: 'packages/codegen/test/implementations/cdm-dispatch.test.ts',
-              cases: dispatchCasesPath,
-              casesSha256: createHash('sha256').update(dispatchCasesText).digest('hex'),
+              path: suite.path,
+              cases: suite.casesPath,
+              casesSha256: createHash('sha256').update(suite.casesText).digest('hex'),
               selectors: [
                 ...new Set(
-                  dispatchCases
-                    .filter((entry) => entry.function === symbol.name && !entry.expectedError)
-                    .map((entry) => entry.selector)
+                  cases
+                    .filter((entry) => !entry.expectedError)
+                    .flatMap((entry) => {
+                      const selector = entry.selector ?? entry.inputs?.[dispatchAttribute];
+                      return selector === undefined ? [] : [selector];
+                    })
                 )
               ].sort(),
-              caseCount: dispatchCases.filter((entry) => entry.function === symbol.name).length
+              caseCount: cases.length
             }
           }
         : {})

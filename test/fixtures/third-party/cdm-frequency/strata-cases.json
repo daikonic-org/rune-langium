@@ -1,0 +1,128 @@
+[
+  {
+    "id": "annual-months",
+    "period": {
+      "years": 0,
+      "months": 12,
+      "days": 0
+    },
+    "referenceInput": "P0Y12M0D",
+    "expected": 1
+  },
+  {
+    "id": "annual-years",
+    "period": {
+      "years": 1,
+      "months": 0,
+      "days": 0
+    },
+    "referenceInput": "P1Y0M0D",
+    "expected": 1
+  },
+  {
+    "id": "quarterly",
+    "period": {
+      "years": 0,
+      "months": 3,
+      "days": 0
+    },
+    "referenceInput": "P0Y3M0D",
+    "expected": 4
+  },
+  {
+    "id": "fortnightly-days",
+    "period": {
+      "years": 0,
+      "months": 0,
+      "days": 14
+    },
+    "referenceInput": "P0Y0M14D",
+    "expected": 26
+  },
+  {
+    "id": "zero",
+    "period": {
+      "years": 0,
+      "months": 0,
+      "days": 0
+    },
+    "referenceInput": "P0Y0M0D",
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "negative-years",
+    "period": {
+      "years": -1,
+      "months": 0,
+      "days": 0
+    },
+    "referenceInput": "P-1Y0M0D",
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "negative-months-with-positive-total",
+    "period": {
+      "years": 1,
+      "months": -1,
+      "days": 0
+    },
+    "referenceInput": "P1Y-1M0D",
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "mixed-month-days",
+    "period": {
+      "years": 0,
+      "months": 1,
+      "days": 1
+    },
+    "referenceInput": "P0Y1M1D",
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "mixed-year-months",
+    "period": {
+      "years": 1,
+      "months": 1,
+      "days": 0
+    },
+    "referenceInput": "P1Y1M0D",
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "thousand-year-limit",
+    "period": {
+      "years": 1000,
+      "months": 0,
+      "days": 0
+    },
+    "referenceInput": "P1000Y0M0D",
+    "expectedError": "SupportedFrequency"
+  },
+  {
+    "id": "over-thousand-years",
+    "period": {
+      "years": 1001,
+      "months": 0,
+      "days": 0
+    },
+    "referenceInput": "P1001Y0M0D",
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "term-via-ordinary-period",
+    "period": {
+      "years": 10000,
+      "months": 0,
+      "days": 0
+    },
+    "referenceInput": "P10000Y0M0D",
+    "expectedError": "ValidPeriod"
+  },
+  {
+    "id": "term-singleton",
+    "term": true,
+    "referenceInput": "Term",
+    "expected": 0
+  }
+]

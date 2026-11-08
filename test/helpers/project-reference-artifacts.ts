@@ -10,6 +10,7 @@ const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).
 export const repository = (id: string) => `https://github.com/org/${id}`;
 const cohort = (id: string, tag: string) => 'cohort-' + hash(id + tag);
 type ReleaseDefinition = readonly [string, string, ReferenceRelease['dependencies']];
+type ModelSource = string | readonly { path: string; content: string }[];
 const defaultReleases: readonly ReleaseDefinition[] = [
   ['rune-dsl', '1.0', {}],
   ['rune-dsl', '2.0', {}],
@@ -21,13 +22,19 @@ export async function createReferenceArtifacts(
     cdm: { repository: repository('cdm'), release: '1.0' }
   },
   definitions: readonly ReleaseDefinition[] = defaultReleases,
-  modelSources: Readonly<Record<string, string>> = {},
+  modelSources: Readonly<Record<string, ModelSource>> = {},
   baseUrl = 'https://mirror.example',
   publishImplementations = false
 ) {
   const mirrorOrigin = new URL(baseUrl).origin;
   const artifacts = new Map<string, Uint8Array>();
   const releases = new Map<string, ReferenceRelease[]>();
+  const sourcesByModel = new Map(
+    Object.entries(modelSources).map(([id, source]) => [
+      id,
+      typeof source === 'string' ? [{ path: 'model.rosetta', content: source }] : source
+    ])
+  );
   const serializedModels = new Map<string, string>();
   const parsedModels = new Map<string, RosettaModel>();
   if (Object.keys(modelSources).length) {
@@ -44,33 +51,42 @@ export async function createReferenceArtifacts(
     );
     const graph = await buildEffectiveProject(
       compilerSnapshot,
-      Object.entries(modelSources).map(([id, content]) => ({ uri: `${id}/model.rosetta`, content }))
+      [...sourcesByModel].flatMap(([id, files]) =>
+        files.map((file) => ({ uri: `${id}/${file.path}`, content: file.content }))
+      )
     );
     if (graph.diagnostics.length) throw new Error(graph.diagnostics.map((issue) => issue.message).join('\n'));
-    for (const id of Object.keys(modelSources)) {
-      const document = graph.documents.find(
-        (document) => document.uri.toString(true) === projectReferenceUri(`${id}/model.rosetta`)
-      );
-      if (!document) throw new Error('Missing linked fixture model: ' + id);
-      const { isRosettaModel } = await import('../../packages/core/src/index.js');
-      if (!isRosettaModel(document.parseResult.value)) throw new Error('Expected fixture model.');
-      parsedModels.set(id, document.parseResult.value);
-      serializedModels.set(
-        id,
-        serializeRuneModel(graph.services.serializer.JsonSerializer, document.parseResult.value)
-      );
-    }
+    for (const [id, files] of sourcesByModel)
+      for (const file of files) {
+        const key = `${id}/${file.path}`;
+        const document = graph.documents.find((document) => document.uri.toString(true) === projectReferenceUri(key));
+        if (!document) throw new Error('Missing linked fixture model: ' + id);
+        const { isRosettaModel } = await import('../../packages/core/src/index.js');
+        if (!isRosettaModel(document.parseResult.value)) throw new Error('Expected fixture model.');
+        parsedModels.set(key, document.parseResult.value);
+        serializedModels.set(
+          key,
+          serializeRuneModel(graph.services.serializer.JsonSerializer, document.parseResult.value)
+        );
+      }
   }
   for (const [id, tag, dependencies] of definitions) {
     const commit = createHash('sha1')
       .update(id + tag)
       .digest('hex');
-    const content = modelSources[id] ?? `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)`;
-    let modelJson = serializedModels.get(id) ?? JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
-    if (publishImplementations && parsedModels.has(id)) {
-      const { publishCuratedImplementations } =
-        await import('../../packages/project-runtime/src/curated-implementations/publication.js');
-      modelJson = await publishCuratedImplementations(parsedModels.get(id)!, modelJson, { model: id, commit });
+    const sourceFiles = sourcesByModel.get(id) ?? [
+      { path: 'model.rosetta', content: `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)` }
+    ];
+    const documents = [];
+    for (const { path, content } of sourceFiles) {
+      const key = `${id}/${path}`;
+      let modelJson = serializedModels.get(key) ?? JSON.stringify({ $type: 'RosettaModel', name: id, elements: [] });
+      if (publishImplementations && parsedModels.has(key)) {
+        const { publishCuratedImplementations } =
+          await import('../../packages/project-runtime/src/curated-implementations/publication.js');
+        modelJson = await publishCuratedImplementations(parsedModels.get(key)!, modelJson, { model: id, commit });
+      }
+      documents.push({ path, content, modelJson });
     }
     const bytes = gzipSync(
       JSON.stringify({
@@ -79,13 +95,7 @@ export async function createReferenceArtifacts(
         modelId: id,
         version: '2026-10-23',
         langiumVersion: '4.4.0',
-        documents: [
-          {
-            path: 'model.rosetta',
-            content,
-            modelJson
-          }
-        ]
+        documents
       })
     );
     const artifactUrl = `${mirrorOrigin}/curated/${id}/artifacts/2026-10-23-${hash(bytes).slice(0, 12)}.serialized.json.gz`;
@@ -113,7 +123,7 @@ export async function createReferenceArtifacts(
           url: artifactUrl,
           sha256: hash(bytes),
           sizeBytes: bytes.byteLength,
-          documentCount: 1,
+          documentCount: documents.length,
           langiumVersion: '4.4.0'
         }
       }

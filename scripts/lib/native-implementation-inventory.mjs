@@ -137,7 +137,17 @@ export function runeFeasibilityIndex(assessment, sources) {
       typeof entry.requirements !== 'string' ||
       !entry.requirements.trim() ||
       (entry.route === 'rune-source') !== (entry.implementation !== undefined) ||
-      (entry.implementation !== undefined && !files.has(entry.implementation))
+      (entry.implementation !== undefined && !files.has(entry.implementation)) ||
+      (entry.javaDependencies !== undefined &&
+        (!Array.isArray(entry.javaDependencies) ||
+          entry.javaDependencies.some(
+            (reference) =>
+              !/^test\/fixtures\/third-party\/[\w/-]+\.java$/.test(reference.path) ||
+              reference.path.split('/').includes('..') ||
+              !/^[a-f0-9]{64}$/.test(reference.sha256) ||
+              !/^[\w.$]+$/.test(reference.entrypoint) ||
+              !/^https:\/\/repo\.maven\.apache\.org\/maven2\/[\w./-]+\.jar$/.test(reference.sourceUrl)
+          )))
     )
       throw new Error('Invalid Rune feasibility entry.');
     const key = declarationKey(entry.symbol);
@@ -188,12 +198,15 @@ export function renderNativeImplementationInventory(inventory) {
               .join('<br>')
           : 'Unimplemented';
     const java =
-      entry.referenceJava.implementations
-        .map(
+      [
+        ...entry.referenceJava.implementations.map(
           (reference) =>
             `[\`${escape(reference.entrypoint)}\`](https://github.com/${source.repository}/blob/${source.commit}/${reference.path})`
+        ),
+        ...(entry.referenceJava.dependencies ?? []).map(
+          (reference) => `[\`${escape(reference.entrypoint)}\`](${reference.sourceUrl}) (dependency)`
         )
-        .join('<br>') ||
+      ].join('<br>') ||
       (entry.referenceJava.providers?.length
         ? 'Empty data provider only; no handwritten algorithm'
         : 'None in pinned handwritten tree');
@@ -204,7 +217,7 @@ export function renderNativeImplementationInventory(inventory) {
       notes += ` Upstream: ${bodies}/${rune.variants.length} selectors have bodies; default ${rune.upstreamDefaultHasBody ? 'has a body' : 'unimplemented'}. Execution evidence is separate.`;
     }
     if (entry.regressionSuite)
-      notes += ` Regression suite: ${entry.regressionSuite.selectors.length} body selectors, ${entry.regressionSuite.caseCount} cases (\`${entry.regressionSuite.path}\`).`;
+      notes += ` Regression suite: ${entry.regressionSuite.selectors.length ? entry.regressionSuite.selectors.length + ' body selectors, ' : ''}${entry.regressionSuite.caseCount} cases (\`${entry.regressionSuite.path}\`).`;
     lines.push(`| [\`${namespace}.${name}\`](${link}) | ${selected} | ${java} | ${escape(rune.route)} | ${notes} |`);
   }
   lines.push('<!-- native-implementation-inventory:end -->', '');

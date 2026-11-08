@@ -12,6 +12,14 @@ import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js
 import { seedProjectBackingFiles, projectBackingFiles } from '../helpers/project-backing.js';
 import { createReferenceArtifacts } from '../../../../test/helpers/project-reference-artifacts.js';
 import { resolveProjectReferences, createMemoryReferenceCache } from '@rune-langium/project-runtime/references';
+import {
+  calculationPeriodModelSources,
+  calculationPeriodCaller,
+  calculationPeriodCalendars
+} from '../../../../test/helpers/cdm-calculation-period.js';
+import { createCuratedFrequencyProject } from '../../../../test/helpers/curated-frequency.js';
+import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
+import { strikeScheduleDirectory, strikeScheduleCaller } from '../../../../test/helpers/cdm-strike-schedule.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -170,3 +178,194 @@ test('opening a locked bundle copies Rune overrides into editable project source
   await execute.click();
   await expect(page.getByRole('region', { name: 'result output' })).toContainText('true');
 });
+
+test('executes pinned FixingDate dispatch through published helpers and explicit calendar data in Prototype', async ({
+  page
+}, info) => {
+  const fixture = await createReferenceArtifacts(
+    undefined,
+    undefined,
+    calculationPeriodModelSources(),
+    'https://www.daikonic.dev/curated',
+    true
+  );
+  const resolved = await resolveProjectReferences(
+    fixture.snapshot,
+    fixture.transport,
+    new AbortController().signal,
+    createMemoryReferenceCache()
+  );
+  expect(resolved.diagnostics).toEqual([]);
+  await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+    const bytes = fixture.artifacts.get(route.request().url());
+    await route.fulfill({
+      status: bytes ? 200 : 404,
+      body: bytes ? Buffer.from(bytes) : '',
+      headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+  });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'calculation.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace example.calculation\n')
+  });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await seedProjectBackingFiles(page, {
+    ...Object.fromEntries(fixture.snapshot.files),
+    'build-config.lock.json': JSON.stringify(resolved.lock),
+    'model/calculation.rosetta': calculationPeriodCaller,
+    'model/test-calendars.rosetta': calculationPeriodCalendars.content
+  });
+  await page.getByTestId('rail-prototype').click();
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: /^FixingPeriod.*example.calculation/ }).click();
+  await page.getByLabel('Start', { exact: true }).fill('2024-03-01');
+  await page.getByLabel('End', { exact: true }).fill('2024-03-08');
+  await page.getByRole('spinbutton', { name: 'Offset', exact: true }).fill('1');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  const output = page.getByRole('region', { name: 'result output' });
+  await expect(output).toContainText('2024-03-06');
+  await expect(output).toContainText('2024-03-11');
+  await dismissLocalTransportNotices(page);
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+  ).toEqual([]);
+  await info.attach('calculation-period', {
+    body: await page.screenshot({ path: info.outputPath('calculation-period.png') }),
+    contentType: 'image/png'
+  });
+});
+
+for (const width of [1440, 390])
+  test(`installs the Strata Rune port and executes its CDM frequency adapter at ${width}px`, async ({ page }, info) => {
+    const project = await createCuratedFrequencyProject();
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'frequency.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.frequency\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/strata-frequency.rosetta'])
+      .toContain('namespace com.opengamma.strata.basics.schedule');
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/frequency.rosetta'])
+      .toContain('EventsPerYear(');
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^AnnualPeriods.*example.frequency/ }).click();
+    const form = page.getByTestId('prototype-perspective').getByTestId('panel-formPreview');
+    const period = form.getByRole('combobox', { name: 'Period', exact: true });
+    const roll = form.getByRole('button', { name: /^Roll Convention:/ });
+    await period.click();
+    await page.getByRole('option', { name: 'M', exact: true }).click();
+    await roll.click();
+    await page.getByRole('combobox', { name: 'Search Roll Convention', exact: true }).fill('EOM');
+    await page.getByRole('option', { name: 'EOM', exact: true }).click();
+    const multiplier = form.getByRole('spinbutton', { name: 'Period Multiplier', exact: true });
+    await multiplier.fill('3');
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText('4');
+    await multiplier.fill('5');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText('SupportedFrequency');
+    await period.click();
+    await page.getByRole('option', { name: 'T', exact: true }).click();
+    await roll.click();
+    await page.getByRole('combobox', { name: 'Search Roll Convention', exact: true }).fill('NONE');
+    await page.getByRole('option', { name: 'NONE', exact: true }).click();
+    await multiplier.fill('1');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'result output' })).toContainText('0');
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await info.attach('strata-frequency', {
+      body: await page.screenshot({ path: info.outputPath('strata-frequency.png') }),
+      contentType: 'image/png'
+    });
+  });
+
+for (const width of [1440, 390])
+  test(`maps strike prices and dates through the bundled Rune implementation at ${width}px`, async ({ page }, info) => {
+    const project = await createCuratedRuneProject(strikeScheduleDirectory, strikeScheduleCaller);
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'strike.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.strike\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/strike-schedule.rosetta'])
+      .toContain('override namespace cdm.ingest.fpml.confirmation.pricequantity');
+    await expect
+      .poll(async () => (await projectBackingFiles(page))['model/implementations/cdm/strike-schedule-state.rosetta'])
+      .toContain('func StrikeDateAtPosition:');
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^StrikeSchedule.*example.strike/ }).click();
+    await page.getByRole('button', { name: 'StrikeSchedule node actions' }).click();
+    await page.getByRole('button', { name: 'Import input…' }).click();
+    await page.getByRole('textbox', { name: 'Import JSON data' }).fill(
+      JSON.stringify({
+        prices: [
+          { amount: 10, currency: { value: 'USD' } },
+          { amount: 10, currency: { value: 'EUR' } },
+          { amount: 30, currency: { value: 'USD' } }
+        ],
+        dates: ['2024-03-01', '2024-01-01', '2024-02-01', '2024-04-01']
+      })
+    );
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    const result = page.getByRole('region', { name: 'result output' });
+    for (const date of ['2024-03-01', '2024-01-01', '2024-02-01']) await expect(result).toContainText(date);
+    await expect(result).not.toContainText('2024-04-01');
+    const payload = result.getByTestId('instance-payload-output');
+    await payload.focus();
+    await expect(payload).toBeFocused();
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await result.scrollIntoViewIfNeeded();
+    await info.attach('strike-schedule', {
+      body: await page.screenshot({ path: info.outputPath('strike-schedule.png') }),
+      contentType: 'image/png'
+    });
+  });

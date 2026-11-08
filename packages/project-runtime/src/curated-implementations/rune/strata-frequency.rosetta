@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace com.opengamma.strata.basics.schedule
+version "1.7.0"
+
+type Period: <"The year/month/day components of the java.time.Period held by a Strata Frequency. This port covers construction and exact annual event counts, not Strata's complete scheduling API.">
+    years int (1..1)
+    months int (1..1)
+    days int (1..1)
+
+type Frequency:
+    period Period (1..1)
+
+func OfPeriod: <"Strata 1.7.0 Frequency.of: construct a positive period no longer than 1000 years. Term is constructed separately.">
+    inputs:
+        period Period (1..1)
+    output:
+        result Frequency (1..1)
+    condition ValidPeriod:
+        period -> years >= 0 and period -> months >= 0 and period -> days >= 0
+        and period -> years <= 2147483647 and period -> months <= 2147483647 and period -> days <= 2147483647
+        and (period -> years > 0 or period -> months > 0 or period -> days > 0)
+        and period -> years * 12 + period -> months <= 12000
+    set result: Frequency { period: period }
+
+func Term: <"Strata's TERM singleton uses an artificial period of 10000 years.">
+    output:
+        result Frequency (1..1)
+    set result: Frequency { period: Period { years: 10000, months: 0, days: 0 } }
+
+func EventsPerYear: <"Port of Strata 1.7.0 Frequency.eventsPerYear and the exact-count calculation in its constructor. Month/year periods divide 12; day/week periods divide 364. Term returns zero. Mixed and non-dividing periods fail rather than estimating or rounding.">
+    inputs:
+        frequency Frequency (1..1)
+    output:
+        result int (1..1)
+    alias months: frequency -> period -> years * 12 + frequency -> period -> months
+    alias days: frequency -> period -> days
+    alias isTerm:
+        frequency -> period -> years = 10000 and frequency -> period -> months = 0 and days = 0
+    condition SupportedFrequency:
+        if isTerm then True
+        else frequency -> period -> years >= 0 and frequency -> period -> months >= 0
+            and (if months > 0 and days = 0
+                 then [1, 2, 3, 4, 6, 12] contains months
+                 else if months = 0
+                 then [1, 2, 4, 7, 13, 14, 26, 28, 52, 91, 182, 364] contains days
+                 else False)
+    set result:
+        if isTerm then 0
+        else if months > 0 then 12 / months
+        else 364 / days

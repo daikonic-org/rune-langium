@@ -23,7 +23,11 @@
   "files": [
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
-    "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta"
+    "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta"
   ],
   "functions": [
     {
@@ -422,8 +426,9 @@
         "name": "MapCommodityOptionStrikePriceSchedule"
       },
       "signatureSha256": "2a1df416bec8c36a3a15d32377b8d055630c467dab205586c8fdb5ef305f5afd",
-      "route": "candidate",
-      "requirements": "Construct dated values from positional pairs; prove list pairing and upstream missing-date/extra-date behavior."
+      "route": "rune-source",
+      "requirements": "Owned Rune source preserves positional pairs, duplicates/order, ignored extra dates and explicit partial rows for missing dates, matching 16 pinned JVM/TS/Python/Prototype cases. Normal validation flags required dates. Shared Codegen counted-reduction analysis emits a linear TypeScript pass for proven pure, unbound lookup chains; fallback source folds and Python lookup preparation retain their separate complexity. Amounts are copied without arithmetic.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta"
     },
     {
       "symbol": {
@@ -445,7 +450,7 @@
       },
       "signatureSha256": "8bcd355794fd81252ddf563d19bed6e92851e51103e42e923edcce9213f0e9c6",
       "route": "upstream-variants",
-      "requirements": "Three upstream dispatch bodies; preserve them. Fixing-date offsets need date/business-day dependencies."
+      "requirements": "Preserve all three upstream dispatch bodies. Pinned TS/Python and Prototype closure tests use explicit finite calendar data; production FixingDate still requires a real BusinessCenterHolidays provider. Missing default/prior/reset data must fail honestly."
     },
     {
       "symbol": {
@@ -565,8 +570,17 @@
         "name": "PeriodsInYear"
       },
       "signatureSha256": "de2c6615813e4a3ff5eaf85333aa9ef8836c5ee354e9a1a3cd5763158d954678",
-      "route": "candidate",
-      "requirements": "Frequency branching/arithmetic; verify unit, multiplier, term/irregular cases and integer-output semantics."
+      "route": "rune-source",
+      "requirements": "CDM adapter delegates to com.opengamma.strata.basics.schedule.EventsPerYear with its OfPeriod/Term constructors; one shared Rune algorithm follows Strata 1.7.0 exact 12/months or 364/days. CDM additionally requires positive multipliers and Term=1; H/C, non-divisors, mixed periods and overflow fail. JVM oracle, strict TS layouts, Python and Prototype cover the port. No direct upstream CDM binding was found.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-frequency/java/Frequency.java",
+          "sha256": "d5be987339efe25b2917b21d1de695a52766398eae322a27da4add9139ee5122",
+          "entrypoint": "com.opengamma.strata.basics.schedule.Frequency.eventsPerYear",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0-sources.jar"
+        }
+      ]
     }
   ]
 }
