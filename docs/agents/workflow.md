@@ -90,6 +90,9 @@ local `test:ux-candidate` command remains unsharded and retains its full-suite
 teardown.
 ZIP redaction preserves the original archive entry set; synthesized directory
 entries break Playwright's blob-report merger even when the ZIP can be read.
+Embedded report ZIPs are decoded and sanitized, then protected while surrounding
+HTML/JSON is redacted. Credential-shaped Base64 sequences must never be rewritten
+as raw text; structured token fields must still be removed before restoring payloads.
 
 The `studio-a11y` job removes the runner image's priority-1 Azure HTTP entry from
 `/etc/apt/apt-mirrors.txt` before Playwright installs Ubuntu dependencies. The

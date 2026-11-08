@@ -5,6 +5,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import JSZip from 'jszip';
+import { randomUUID } from 'node:crypto';
 
 /** Retain endpoint/status evidence without session credentials. */
 export function redactEvidenceText(text) {
@@ -83,14 +84,24 @@ async function redactBytes(bytes, archive = false, location = 'artifact') {
   }
   // Playwright embeds its report data (including errors) in a base64 ZIP.
   const replacements = [];
+  let prefix;
+  do {
+    prefix = `__rune_zip_${randomUUID()}_`;
+  } while (text.includes(prefix));
   for (const match of text.matchAll(/data:application\/zip;base64,([a-zA-Z0-9+/=]+)/g)) {
     const original = Buffer.from(match[1], 'base64');
     const redacted = await redactBytes(original, true, `${location}!embedded-report@${match.index}`);
-    if (!original.equals(redacted))
-      replacements.push([match[0], `data:application/zip;base64,${redacted.toString('base64')}`]);
+    const placeholder = `${prefix}${replacements.length}__`;
+    replacements.push([
+      placeholder,
+      original.equals(redacted) ? match[0] : `data:application/zip;base64,${redacted.toString('base64')}`
+    ]);
+    text = text.replace(match[0], placeholder);
   }
-  for (const [original, redacted] of replacements) text = text.replace(original, redacted);
-  return Buffer.from(redactStructuredText(text));
+  // Scan the surrounding structure without interpreting opaque Base64 as credentials.
+  text = redactStructuredText(text);
+  for (const [placeholder, redacted] of replacements) text = text.replaceAll(placeholder, redacted);
+  return Buffer.from(text);
 }
 
 /** Corrupt archives fail closed; callers must not upload unchecked evidence. */
