@@ -970,7 +970,11 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "ce6dda6c6a9b2931ca4a09d80c4d9bc0a988ac439573a50c422699018efe2dd3"
+      "sha256": "3541f306081fb53ca783086a42245d087cd6916795b02ceac77192c9ea9f641c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/rounding.ts",
+      "sha256": "900f5096e0e16db9abea45f1cb5eafe8acfd9ed77e2c51484eff79cbcad51500"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
@@ -1011,6 +1015,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
       "sha256": "c04f30ef599b9f825d58ce81e9dc6964180d3a438ca4759c4d1b8f4d8bb22be7"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
+      "sha256": "7825aa203c53d2e2775f73ecf58fc28dc7e7da3c244a859e3165e8c140b62332"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
@@ -3188,7 +3196,23 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.round-to-precision",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
+            "entrypoint": "roundToPrecision",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.round-to-precision",
+            "path": "packages/project-runtime/src/curated-implementations/python/rounding.ts",
+            "entrypoint": "roundToPrecision",
+            "dependencies": [
+              "decimal"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -3207,9 +3231,16 @@
       },
       "rune": {
         "route": "primitive-backed",
-        "requirements": "Decimal scale and UP/DOWN/HALF_UP behavior; decide numeric versus trailing-zero representation explicitly.",
+        "requirements": "Published TypeScript BigInt coefficient rounding and Python stdlib decimal preserve UP/DOWN/HALF_UP for canonical finite-number decimal inputs. Existing number/float outputs cannot retain scale; both trailing-zero flags share numeric results. Rune-only decimal/scale parity still needs a decimal primitive.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/rounding.test.ts",
+        "cases": "test/fixtures/third-party/cdm-rounding/cases.json",
+        "casesSha256": "d7d79cd16a773667fdc7658757336ddaa4d64169889ccfadd751ecbb185a6d68",
+        "selectors": [],
+        "caseCount": 168
       }
     },
     {

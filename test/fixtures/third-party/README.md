@@ -20,6 +20,8 @@ source versions and integrity manifests alongside each cohort.
 - [CDM strike schedule](cdm-strike-schedule/README.md): pinned CDM/FpML declarations,
   handwritten Java mapper and published JVM oracle for positional mapping,
   duplicate preservation and missing-date partial rows.
+- [CDM precision rounding](cdm-rounding/README.md): pinned handwritten Java
+  implementation and JVM numeric/scale oracle for curated TypeScript/Python bodies.
 
 - [CDM code lists](cdm-codelists/README.md): versioned option-type resource with upstream license, notice and integrity metadata.
 - [Currency list](currency-list/README.md): pinned code-to-label currency JSON, upstream license and integrity metadata, exercised through in-memory Rune enum materialization.

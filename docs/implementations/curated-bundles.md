@@ -48,6 +48,13 @@ It never searches a model-specific implementation registry or fetches code.
 Older bundles without implementation payloads remain readable, but do not acquire
 native implementations from the installed Codegen version.
 
+Native decimal precision rounding is self-contained in those payloads: TypeScript
+uses bounded BigInt coefficient arithmetic and Python imports its standard-library
+`decimal` locally. It does not add a CDM-specific Codegen runtime helper. Both
+retain the existing finite `number`/`float` API, so decimal scale formatting and
+arbitrary BigDecimal precision remain outside their contract. See the
+[pinned rounding corpus](../../test/fixtures/third-party/cdm-rounding/README.md).
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified
