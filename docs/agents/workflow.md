@@ -536,6 +536,14 @@ Java source bytes and the first 168 expectations remain unchanged.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.
 
+Vector implementations share that delivery boundary. `vectors.test.ts` in Codegen,
+project-runtime and Studio checks the 73-case pinned vector corpus, three strict
+TypeScript layouts, standalone Python under hostile decimal state, publication
+and authored Rune override precedence. `python3 scripts/verify-vectors.py
+--cache-dir /tmp/rune-vectors` reuses checksum-pinned JVM artifacts and verifies
+both handwritten implementations plus their arithmetic helper. The native browser
+suite exercises enum-based vector operations and cumulative growth at desktop/390px.
+
 ## Python projection checks
 
 Codegen builds regenerate the browser-safe runtime string from

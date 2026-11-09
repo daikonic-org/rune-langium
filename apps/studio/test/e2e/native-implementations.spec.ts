@@ -21,6 +21,7 @@ import { createCuratedFrequencyProject } from '../../../../test/helpers/curated-
 import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
 import { strikeScheduleDirectory, strikeScheduleCaller } from '../../../../test/helpers/cdm-strike-schedule.js';
 import { roundingDirectory, roundingCaller } from '../../../../test/helpers/cdm-rounding.js';
+import { vectorDirectory, vectorCaller } from '../../../../test/helpers/cdm-vectors.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -96,6 +97,68 @@ for (const width of [1440, 390])
     expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
     await info.attach('native-calendar-workflow', {
       body: await page.screenshot({ path: info.outputPath('native-calendar.png') }),
+      contentType: 'image/png'
+    });
+  });
+
+for (const width of [1440, 390])
+  test(`executes decimal vector operations and cumulative growth from a curated bundle at ${width}px`, async ({
+    page
+  }, info) => {
+    const project = await createCuratedRuneProject(vectorDirectory, vectorCaller);
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'vectors.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.vectors\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^VectorExample.*example.vectors/ }).click();
+    const form = page.getByTestId('prototype-perspective').getByTestId('panel-formPreview');
+    const mode = form.getByRole('combobox', { name: 'Arithmetic Op', exact: true });
+    await mode.click();
+    await page.getByRole('option', { name: 'Divide', exact: true }).click();
+    await form.getByRole('spinbutton', { name: 'Left Value', exact: true }).fill('1');
+    await form.getByRole('spinbutton', { name: 'Right Value', exact: true }).fill('3');
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    const result = page.getByRole('region', { name: 'result output' });
+    await expect(result).toContainText('0.3333333333');
+    await mode.click();
+    await page.getByRole('option', { name: 'Add', exact: true }).click();
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(result).toContainText('4');
+    await expect(result).toContainText('3');
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^GrowthExample.*example.vectors/ }).click();
+    await form.getByRole('spinbutton', { name: 'Base Value', exact: true }).fill('1');
+    await form.getByRole('spinbutton', { name: 'First Factor', exact: true }).fill('1.1');
+    await form.getByRole('spinbutton', { name: 'Second Factor', exact: true }).fill('1.1');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(result).toContainText('1.21');
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await result.scrollIntoViewIfNeeded();
+    await info.attach('decimal-vectors', {
+      body: await page.screenshot({ path: info.outputPath('decimal-vectors.png') }),
       contentType: 'image/png'
     });
   });

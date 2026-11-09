@@ -226,8 +226,8 @@
         "name": "VectorGrowthOperation"
       },
       "signatureSha256": "6632a82facb99c780c4f61ae3fd8a22a1a7a53b2eb1724147ae444596a813662",
-      "route": "candidate",
-      "requirements": "Cumulative products including the initial base; prove collection accumulation and decimal parity before choosing Rune or TS."
+      "route": "primitive-backed",
+      "requirements": "Exact cumulative decimal multiplication before finite-number output conversion, including the initial base; publication-supplied TypeScript/Python bodies, with optional factors normalized to the Rune empty list."
     },
     {
       "symbol": {
@@ -237,8 +237,16 @@
         "name": "VectorOperation"
       },
       "signatureSha256": "09049d3b917a3718651b3de30117242627a916c55f8623249b3238ea5939734c",
-      "route": "candidate",
-      "requirements": "Pairwise operations and zero-padding; prove positional pairing, decimal division and arithmetic-error policy."
+      "route": "primitive-backed",
+      "requirements": "Exact-decimal pairwise arithmetic, 10-place HALF_EVEN division and zero-padding/zero-divisor omission; publication-supplied TypeScript/Python bodies retain finite-number admission.",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-vectors/java/ArithmeticOpImpl.java",
+          "sha256": "78a6bb7f53adbc91bd440b209075c770bc28b5a4b5337ce557300d18c7923cd8",
+          "entrypoint": "cdm.base.math.functions.ArithmeticOpImpl.operation",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar"
+        }
+      ]
     },
     {
       "symbol": {

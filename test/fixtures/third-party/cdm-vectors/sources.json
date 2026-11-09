@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.base.math",
+      "name": "VectorOperation",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.math",
+      "name": "VectorGrowthOperation",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.base.math--base-math-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-enum.rosetta",
+        "blob": "82d5a2fea207da725d8cb619cf46a805fb609c59",
+        "sha256": "6860992b0213a5aa8b7616b937cf1915827f37d20cc6b7fbfed27804ac62b302"
+      },
+      "sha256": "6afb952f1d13ced2d2126128e330be9c41ec3052d24acdffa9d2c56d4fe3c416"
+    },
+    {
+      "name": "cdm.base.math--base-math-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-func.rosetta",
+        "blob": "dfdc46acd7563ccb3595fdd4458fca0f62594592",
+        "sha256": "fa216e47e854b0ba4a09e34c2014966b30a3fe6a2d9a56c9046f3d2bafa1f348"
+      },
+      "sha256": "359d79e2e02e2337d1657cb5bc4a295e44540bb6e68874ff000c96f275032ae8"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "44ea8350c67f22927d0a7533fd954f14b7b14ed23420fd285b9ab4bbfd9ef7aa"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "caea4403389c78c5e3d185a320b3c71a363c67eeb8ab055c65a001caa57e1298"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    },
+    {
+      "name": "java/ArithmeticOpImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/math/functions/ArithmeticOpImpl.java",
+        "blob": "446f811a8e96aaea78e4a5f5391a7eb4370af35a",
+        "sha256": "78a6bb7f53adbc91bd440b209075c770bc28b5a4b5337ce557300d18c7923cd8"
+      },
+      "sha256": "78a6bb7f53adbc91bd440b209075c770bc28b5a4b5337ce557300d18c7923cd8"
+    },
+    {
+      "name": "java/VectorGrowthOperationImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/math/functions/VectorGrowthOperationImpl.java",
+        "blob": "5ae64297e3a2d4d8578df3fb9f68dc3ee20f242a",
+        "sha256": "6b9b2e89fae54c4716dc39b6f44ad5e7ad96be15bf87ea8f484d352258a2a51a"
+      },
+      "sha256": "6b9b2e89fae54c4716dc39b6f44ad5e7ad96be15bf87ea8f484d352258a2a51a"
+    },
+    {
+      "name": "java/VectorOperationImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/math/functions/VectorOperationImpl.java",
+        "blob": "db46a5b17b5ca04f9252098c4ae4986264b17765",
+        "sha256": "839f9eddcdb4d269a9d8c98bcf2120463d13e0cb67a6c6f38cbce346f9d0049d"
+      },
+      "sha256": "839f9eddcdb4d269a9d8c98bcf2120463d13e0cb67a6c6f38cbce346f9d0049d"
+    },
+    {
+      "name": "java/VectorGrowthOperationImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorGrowthOperationImplTest.java",
+        "blob": "16bf5326aa9efde9a15fc6f8556cf9f59bfebfe6",
+        "sha256": "0a4e96867e31d6ad80325a469a6f02b582f9b0f165a02c9a86a3d0e20896a85f"
+      },
+      "sha256": "0a4e96867e31d6ad80325a469a6f02b582f9b0f165a02c9a86a3d0e20896a85f"
+    },
+    {
+      "name": "java/VectorOperationImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorOperationImplTest.java",
+        "blob": "81a77c2f1eddf9f6e036fc6c199908bc4249bbdc",
+        "sha256": "762886b57bb0784cd4bdc1b8dfaf2affb0da14763d96b6ec82b7fab80c2b27ba"
+      },
+      "sha256": "762886b57bb0784cd4bdc1b8dfaf2affb0da14763d96b6ec82b7fab80c2b27ba"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}

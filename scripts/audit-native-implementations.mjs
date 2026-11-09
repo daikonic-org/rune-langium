@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
@@ -44,7 +44,7 @@ const { values } = parseArgs({
 });
 const root = resolve(import.meta.dirname, '..');
 const dispatchSuites = await Promise.all(
-  ['cdm-dispatch', 'cdm-calculation-period', 'cdm-frequency', 'cdm-strike-schedule', 'cdm-rounding'].map(
+  ['cdm-dispatch', 'cdm-calculation-period', 'cdm-frequency', 'cdm-strike-schedule', 'cdm-rounding', 'cdm-vectors'].map(
     async (directory) => {
       const base = `test/fixtures/third-party/${directory}`;
       const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
@@ -59,7 +59,8 @@ const dispatchSuites = await Promise.all(
             'cdm-calculation-period': 'calculation-period',
             'cdm-frequency': 'frequency',
             'cdm-strike-schedule': 'strike-schedule',
-            'cdm-rounding': 'rounding'
+            'cdm-rounding': 'rounding',
+            'cdm-vectors': 'vectors'
           }[directory] +
           '.test.ts',
         casesPath,
@@ -379,6 +380,17 @@ const ownedPaths = new Set([
       : []
   )
 ]);
+// Include shared target helpers, which contribute to the self-contained published bodies.
+const targetDirectories = new Set(
+  rows.flatMap((row) =>
+    row.implementation.kind === 'language-specific'
+      ? Object.values(row.implementation.targets).map((target) => dirname(target.path))
+      : []
+  )
+);
+for (const directory of targetDirectories)
+  for (const file of await readdir(resolve(root, directory)))
+    if (file.endsWith('.ts')) ownedPaths.add(`${directory}/${file}`);
 for (const path of ownedPaths)
   if (!implementationFiles.some((file) => file.path === path)) {
     const content = await readFile(resolve(root, path), 'utf8');

@@ -1754,3 +1754,13 @@ parsing: failures within one branch belong together, while nested alternatives
 remain disjoint choices. Never flatten them into a list of simultaneous failures
 or expand a Cartesian product. Nested disclosures preserve this structure without
 increasing top-level issue counts or introducing a second validator.
+
+## Curated decimal vector bodies
+
+Publication selects `VectorOperation` and `VectorGrowthOperation` alongside the
+rounding entries; Codegen still consumes only supplied project bindings.
+TypeScript decimal storage/admission is shared with rounding; Python shares
+finite input/output admission and uses standard-library exact fractions. Vector
+division owns its distinct 10-place HALF_EVEN rule and skips zero-divisor pairs.
+Growth retains exact decimal state between public output conversions. The source
+inventory includes shared target helper files, not only catalog entry modules.
