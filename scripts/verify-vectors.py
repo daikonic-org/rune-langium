@@ -18,10 +18,6 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--cache-dir", type=Path, required=True)
 args = parser.parse_args()
 manifest = json.loads((directory / "java-oracle.json").read_text())
-shared = json.loads((directory / manifest["artifactManifest"]).read_text())
-if shared["coordinate"] != manifest["coordinate"]:
-    raise SystemExit("Vector and shared Java artifact cohorts differ")
-manifest["artifacts"] = shared["artifacts"]
 classpath = verified_classpath(directory, manifest, args.cache_dir)
 cases_text = (directory / "cases.json").read_text()
 cases = json.loads(cases_text)

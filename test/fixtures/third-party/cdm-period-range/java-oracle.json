@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "artifactManifest": "../cdm-rounding/java-oracle.json",
+  "entrypoint": "cdm.product.common.schedule.functions.CalculationPeriodRangeImpl",
+  "files": [
+    {
+      "name": "java/CalculationPeriodRangeImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/product/common/schedule/functions/CalculationPeriodRangeImpl.java",
+      "sha256": "7f225c9468688771a990622984fad5640e7fc25a9d570e2f7e80351543863a85"
+    }
+  ]
+}

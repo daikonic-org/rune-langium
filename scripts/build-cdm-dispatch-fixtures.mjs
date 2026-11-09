@@ -23,6 +23,19 @@ if (JSON.stringify(inventory.sources) !== JSON.stringify(sources))
 const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-audit');
 const suites = [
   {
+    directory: 'cdm-period-range',
+    declarations: [
+      { namespace: 'cdm.product.common.schedule', name: 'CalculationPeriodRange', kind: 'RosettaFunction' },
+      { namespace: 'cdm.product.asset.calculation', name: 'Create_CalculationPeriodBase', kind: 'RosettaFunction' },
+      ...['DateDifference', 'LeapYearDateDifference'].map((name) => ({
+        namespace: 'cdm.base.datetime',
+        name,
+        kind: 'RosettaFunction'
+      }))
+    ],
+    references: ['CalculationPeriodRange']
+  },
+  {
     directory: 'cdm-vectors',
     declarations: ['VectorOperation', 'VectorGrowthOperation'].map((name) => ({
       namespace: 'cdm.base.math',

@@ -970,7 +970,7 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "1d93f7e7af68c33cf45d92116364ab1b870f44ccd05c90d4216194a4d09bf502"
+      "sha256": "40d8af2787d7148433e8c7b163509f488aba9705726f316f472bd500033e5170"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/numbers.ts",
@@ -1011,6 +1011,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
       "sha256": "1570701ba47b008e8c00e09127f10499c353946f8737ef8090510c23ed205271"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
+      "sha256": "725dd8330dd3297256d717c3497d580a293bb6b789b7e6806e4ec666a5689909"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
@@ -7493,7 +7497,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
+        "entrypoint": "cdm.product.common.schedule.CalculationPeriodRange",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -7506,10 +7513,17 @@
         "tests": []
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Construct/adjust period boundaries in Rune; establish missing-date and calendar/convention behavior.",
+        "route": "rune-source",
+        "requirements": "Construct a half-open range from supplied dates using the existing DateDifference and LeapYearDateDifference helpers. Match the handwritten CDM constructor's missing/reversed-date rejection, false boundary flags and unused dateAdjustments parameter.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/period-range.test.ts",
+        "cases": "test/fixtures/third-party/cdm-period-range/cases.json",
+        "casesSha256": "8bfee2a09b0b6ac258fe82af23ae19f7fac12b3ebbd3d0fdceac0bc9fa660838",
+        "selectors": [],
+        "caseCount": 22
       }
     },
     {

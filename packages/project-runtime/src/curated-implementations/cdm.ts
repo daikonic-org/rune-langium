@@ -41,6 +41,26 @@ interface RuneImplementation {
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  CalculationPeriodRange: {
+    inputs: [
+      { name: 'startDate', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [0, 1], plain: true },
+      { name: 'endDate', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [0, 1], plain: true },
+      {
+        name: 'dateAdjustments',
+        type: 'cdm.base.datetime.BusinessDayAdjustments',
+        kind: 'Data',
+        card: [0, 1],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'result',
+      type: 'cdm.product.common.schedule.CalculationPeriodData',
+      kind: 'Data',
+      card: [1, 1],
+      plain: true
+    }
+  },
   VectorGrowthOperation: {
     inputs: [
       {
@@ -577,6 +597,14 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
     signature: signatures.PopOffDateList!,
     path: 'date-list.rosetta',
     files: ['date-list-state.rosetta', 'date-list.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.product.common.schedule',
+    name: 'CalculationPeriodRange',
+    signature: signatures.CalculationPeriodRange!,
+    path: 'period-range.rosetta',
+    files: ['period-range.rosetta']
   },
   {
     kind: 'rune',

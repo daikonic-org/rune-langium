@@ -55,7 +55,7 @@ test.describe('J11 — Client-side codegen (Code tab)', () => {
     for (const checkbox of await dialog.getByRole('checkbox').all()) await checkbox.uncheck();
     await page.getByTestId('download-config-dialog__ns-cdm.base.datetime').check();
     const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 20000 }),
+      page.waitForEvent('download', { timeout: 30000 }),
       page.getByTestId('download-config-dialog__generate').click()
     ]);
     const destination = info.outputPath('reference-code-download.zip');

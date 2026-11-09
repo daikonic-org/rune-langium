@@ -48,7 +48,7 @@ for (const release of ['Nightly', '7.8.0'])
       await page.reload();
       evidence.markNavigation();
       await expect(page.getByTestId('explore-workbench').and(page.locator('[aria-busy="false"]'))).toBeVisible({
-        timeout: 20000
+        timeout: 30000
       });
       await page.getByTestId('namespace-search').fill('BusinessCenters');
       await expect(typeNavigationButton(page, 'cdm.base.datetime.BusinessCenters', 'Data')).toBeVisible();

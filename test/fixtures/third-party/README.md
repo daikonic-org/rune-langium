@@ -34,3 +34,8 @@ source versions and integrity manifests alongside each cohort.
 implementations/tests, their shared arithmetic helper, original declaration slices
 and upstream notices. Its 73-case optional JVM oracle covers exact vector operations,
 half-even division, zero-divisor omission and cumulative growth.
+
+## CDM calculation period range
+
+The [range fixture](cdm-period-range/README.md) pins the handwritten constructor
+and 22 JVM-verified cases for the editable Rune override and its date helpers.

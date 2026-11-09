@@ -3,14 +3,21 @@
 """Checksum-pinned artifacts and source verification shared by optional JVM oracles."""
 
 import hashlib
+import json
 import os
 import urllib.request
 import zipfile
 
 
 def verified_classpath(directory, manifest, cache):
+    artifact_manifest = manifest
+    if "artifactManifest" in manifest:
+        artifact_manifest = json.loads((directory / manifest["artifactManifest"]).read_text())
+        if artifact_manifest["coordinate"] != manifest["coordinate"]:
+            raise SystemExit("Shared Java artifact manifest uses a different cohort")
+    artifacts = artifact_manifest["artifacts"]
     cache.mkdir(parents=True, exist_ok=True)
-    for artifact in manifest["artifacts"]:
+    for artifact in artifacts:
         path = cache / artifact["name"]
         if not path.exists():
             path.write_bytes(urllib.request.urlopen(artifact["url"], timeout=30).read())
@@ -26,6 +33,6 @@ def verified_classpath(directory, manifest, cache):
             raise SystemExit(f"Pinned Java source changed: {asset['name']}")
     return os.pathsep.join(
         str(cache / artifact["name"])
-        for artifact in manifest["artifacts"]
+        for artifact in artifacts
         if artifact["runtime"]
     )

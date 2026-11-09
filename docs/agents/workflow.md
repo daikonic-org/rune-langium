@@ -493,6 +493,12 @@ with an explicit finite Rune calendar provider; Studio's real-worker counterpart
 also removes that provider. The native-implementation browser suite executes the
 closure from a publication-produced multi-document bundle. Synthetic calendars
 are test data and must never enter the curated implementation catalog.
+Codegen's `period-range.test.ts` executes the workspace `CalculationPeriodRange`
+override and its date helpers in strict TypeScript and Python. Project Runtime's
+suite verifies installation, removal and local edits. The worker and
+desktop/390px Prototype cases exercise the range from a published fixture.
+Run `scripts/verify-period-range.py` with the shared JDK 21 artifact cache to
+verify the 22 handwritten Java reference cases.
 `frequency.test.ts` covers the reusable Strata Rune port and CDM adapter in
 strict TypeScript layouts, Python, curated source installation and the managed
 Studio worker. The native-implementation browser suite checks fresh installation

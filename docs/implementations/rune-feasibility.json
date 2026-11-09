@@ -25,6 +25,7 @@
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta"
@@ -556,8 +557,9 @@
         "name": "CalculationPeriodRange"
       },
       "signatureSha256": "5e0c258e25e6d5365596ba13c5fc0011025bdfdbfa7cb42664e5d00e296042bb",
-      "route": "data-backed",
-      "requirements": "Construct/adjust period boundaries in Rune; establish missing-date and calendar/convention behavior."
+      "route": "rune-source",
+      "requirements": "Construct a half-open range from supplied dates using the existing DateDifference and LeapYearDateDifference helpers. Match the handwritten CDM constructor's missing/reversed-date rejection, false boundary flags and unused dateAdjustments parameter.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta"
     },
     {
       "symbol": {

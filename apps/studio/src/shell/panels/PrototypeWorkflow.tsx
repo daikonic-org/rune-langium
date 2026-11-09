@@ -13,7 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent
 } from 'react';
 import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
-import { declarationKey } from '@rune-langium/core/project-contract';
+import { canonicalProjectJson, declarationKey } from '@rune-langium/core/project-contract';
 import type { WorkflowDescriptor } from '@rune-langium/project-config';
 import { FormPresentation } from '../../components/FormPresentation.js';
 import { WorkflowLibrary } from '../../components/WorkflowLibrary.js';
@@ -46,6 +46,7 @@ import { useProject } from '../providers/project-context.js';
 import { useWorkspaceOptional } from '../providers/workspace-context.js';
 import { isInstanceBindableToField } from '../../services/function-input-binding.js';
 import { resolveFunctionOutputTarget } from '../../services/function-output-target.js';
+import { projectRuntimeSources } from '../../services/project-runtime-input.js';
 import {
   workflowFieldSchema,
   workflowFieldType,
@@ -201,6 +202,7 @@ export const PrototypeWorkflow = withInstrumentation(
     const workspace = useWorkspaceOptional();
     const project = useProject();
     const projectRevision = project.snapshot?.revision;
+    const managedProject = project.runtime?.managed;
     const factory = usePreviewSessionFactory();
     const [session, setSession] = useState<FunctionSession>();
     const sessionRef = useRef<FunctionSession | undefined>(undefined);
@@ -491,21 +493,24 @@ export const PrototypeWorkflow = withInstrumentation(
       setSourceIds({});
       void session.selectFunction(record.typeFqn.split('#')[0]!, record.typeFqn);
     }, [record, mode, project.status, session, workspace, bindingRequestId, view.bindingSurface, prepare]);
-    // Hydrating a closure republishes models without changing editable source.
-    // Restart only for source/cohort changes, not while users fill the form.
-    const sourceRevision = useMemo(
-      () =>
-        JSON.stringify([
+    const sourceRevision = useMemo(() => {
+      // A managed revision already owns the locked references. Publishing the
+      // explorer's read-only view must leave a current execution running.
+      if (managedProject)
+        return canonicalProjectJson([
           projectRevision,
-          workspace?.files.filter((file) => !file.bundleId).map((file) => [file.path, file.content]),
-          [
-            ...new Set(
-              workspace?.files.filter((file) => file.bundleId).map((file) => `${file.bundleId}:${file.bundleVersion}`)
-            )
-          ].sort()
-        ]),
-      [workspace?.files, projectRevision]
-    );
+          Object.fromEntries(projectRuntimeSources(workspace?.files ?? []))
+        ]);
+      return JSON.stringify([
+        projectRevision,
+        workspace?.files.filter((file) => !file.bundleId).map((file) => [file.path, file.content]),
+        [
+          ...new Set(
+            workspace?.files.filter((file) => file.bundleId).map((file) => `${file.bundleId}:${file.bundleVersion}`)
+          )
+        ].sort()
+      ]);
+    }, [workspace?.files, projectRevision, managedProject]);
     const lastSourceRevision = useRef(sourceRevision);
     useEffect(() => {
       if (mode !== 'flow' || lastSourceRevision.current === sourceRevision) return;
