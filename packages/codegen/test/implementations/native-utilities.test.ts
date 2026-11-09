@@ -16,7 +16,10 @@ import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
 import { nativeFunctionShape, matchesNativeFunction } from '../../src/implementations/signature.js';
-import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
+import {
+  installPublishedNativeImplementations,
+  publishedRuneFiles
+} from '../../../../test/helpers/curated-implementations.js';
 const source = `namespace cdm.base.datetime
 enum DayOfWeekEnum:
  MON
@@ -72,12 +75,14 @@ let docs: LangiumDocument[],
   python: ReturnType<typeof generatePythonModule>;
 beforeAll(async () => {
   const { RuneDsl } = createRuneDslServices();
-  docs = [BASICTYPES_ROSETTA, ANNOTATIONS_ROSETTA, source, strings].map((text, index) =>
-    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
-      text,
-      URI.parse(`inmemory:///utilities-${index}.rosetta`)
-    )
-  );
+  docs = [
+    ...[BASICTYPES_ROSETTA, ANNOTATIONS_ROSETTA, source, strings].map((content, index) => ({
+      content,
+      uri: `file:///cdm-reference/utilities-${index}.rosetta`
+    })),
+    ...publishedRuneFiles('cdm.base.datetime', ['AddDays', 'DateDifference', 'LeapYearDateDifference', 'DayOfWeek'])
+  ].map(({ content, uri }) => RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(content, URI.parse(uri)));
+  for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
   assertValidDocuments(docs);
   installPublishedNativeImplementations(docs);
@@ -135,7 +140,7 @@ it('adds calendar days and computes signed Gregorian differences across leap/cen
       { includeRuntime: false }
     )
   ).toEqual(pairs.map((row) => ({ value: row[2] })));
-  expect(() => ts.AddDays!(date('2020-01-01'), 1.5)).toThrow(/integer/);
+  for (const invalid of [1.5, true, '1']) expect(() => ts.AddDays!(date('2020-01-01'), invalid)).toThrow(/WholeDays/);
 });
 it('counts whole days in leap years rather than only February 29 and keeps sign reversal', () => {
   const pairs = [
@@ -215,12 +220,13 @@ it('reports bundled availability in preview and refuses drifted enum/signature s
   );
 });
 
-it('keeps invalid component and fractional-day errors in standalone Python', () => {
+it('keeps invalid component and invalid day-offset errors in standalone Python', () => {
+  const invalidDays = ['1.5', 'True', '"1"'];
   const results = runPython(
     [
       { expression: call('ToTime', '24,0,0') },
       { expression: call('ToTime', '1.5,0,0') },
-      { expression: call('AddDays', '"2020-01-01",1.5') }
+      ...invalidDays.map((days) => ({ expression: call('AddDays', `"2020-01-01",${days}`) }))
     ],
     python.code,
     { includeRuntime: false }
@@ -228,16 +234,16 @@ it('keeps invalid component and fractional-day errors in standalone Python', () 
   expect(results).toEqual([
     { error: expect.stringContaining('hour') },
     { error: expect.stringContaining('integer') },
-    { error: expect.stringContaining('integer') }
+    ...invalidDays.map(() => ({ error: expect.stringContaining('WholeDays') }))
   ]);
 });
 
 it('passes actual positional values to explicit Python overrides before bundled defaults', () => {
   const code =
     python.code +
-    '\nrune_bind("cdm.base.datetime.AddDays", lambda base, days: "2001-01-02" if base == "2020-01-01" and days == 2 else "wrong")\n';
-  expect(runPython([{ expression: call('AddDays', '"2020-01-01",2') }], code, { includeRuntime: false })).toEqual([
-    { value: '2001-01-02' }
+    '\nrune_bind("cdm.base.datetime.ToTime", lambda hour, minute, second: "01:02:03" if (hour, minute, second) == (23, 59, 59) else "wrong")\n';
+  expect(runPython([{ expression: call('ToTime', '23,59,59') }], code, { includeRuntime: false })).toEqual([
+    { value: '01:02:03' }
   ]);
 });
 
@@ -247,12 +253,10 @@ it('executes a parameterized native utility in a strictly compiled per-namespace
     { namespaces: ['cdm.base.datetime'], declarations: [] },
     { target: 'typescript', strict: true, typescript: { layout: 'per-namespace' } }
   );
-  const func = generated.outputs.flatMap((file) => file.funcs).find((func) => func.name === 'AddDays')!;
+  const func = generated.outputs.flatMap((file) => file.funcs).find((func) => func.name === 'ToTime')!;
   const entry = generated.outputs.find((file) => file.funcs.includes(func))!.relativePath;
   const module = compileGeneratedTypeScript(generated.outputs, { entry });
-  expect(String((module[func.exportName!] as (...args: unknown[]) => unknown)(date('2020-02-28'), 1))).toBe(
-    '2020-02-29'
-  );
+  expect(String(module[func.exportName!]!(12, 0, 1))).toBe('12:00:01');
 });
 
 it('treats integral JSON numbers equally across executable targets', () => {

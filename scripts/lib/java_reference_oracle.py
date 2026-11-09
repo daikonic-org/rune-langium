@@ -16,6 +16,8 @@ def verified_classpath(directory, manifest, cache):
         if artifact_manifest["coordinate"] != manifest["coordinate"]:
             raise SystemExit("Shared Java artifact manifest uses a different cohort")
     artifacts = artifact_manifest["artifacts"]
+    if artifact_manifest is not manifest:
+        artifacts = [*artifacts, *manifest.get("artifacts", [])]
     cache.mkdir(parents=True, exist_ok=True)
     for artifact in artifacts:
         path = cache / artifact["name"]

@@ -35,6 +35,12 @@ implementations/tests, their shared arithmetic helper, original declaration slic
 and upstream notices. Its 73-case optional JVM oracle covers exact vector operations,
 half-even division, zero-divisor omission and cumulative growth.
 
+## CDM calendar helpers
+
+The [calendar fixture](cdm-calendar/README.md) pins the original date helper
+declarations, handwritten implementations and 69 JVM cases for the Rune ports
+and weekend-only `ResolveAdjustableDate`.
+
 ## CDM calculation period range
 
 The [range fixture](cdm-period-range/README.md) pins the handwritten constructor

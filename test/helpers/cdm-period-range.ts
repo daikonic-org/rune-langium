@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { referenceFiles } from '../../packages/codegen/test/helpers/cdm-reference.js';
+import { publishedRuneFiles } from './curated-implementations.js';
 
 export const periodRangeDirectory = resolve(import.meta.dirname, '../fixtures/third-party/cdm-period-range');
 export const periodRangeIdentity = 'cdm.product.common.schedule.CalculationPeriodRange';
@@ -59,15 +60,7 @@ export function periodRangeFiles() {
   return [
     ...referenceFiles(periodRangeDirectory),
     periodRangeCaller,
-    {
-      uri: `file:///${periodRangePath}`,
-      content: readFileSync(
-        resolve(
-          import.meta.dirname,
-          '../../packages/project-runtime/src/curated-implementations/rune/period-range.rosetta'
-        ),
-        'utf8'
-      )
-    }
+    ...publishedRuneFiles('cdm.base.datetime', ['DateDifference', 'LeapYearDateDifference']),
+    ...publishedRuneFiles('cdm.product.common.schedule', ['CalculationPeriodRange'])
   ];
 }

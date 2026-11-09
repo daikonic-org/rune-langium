@@ -6,7 +6,6 @@ import { Temporal } from '@js-temporal/polyfill';
 import { URI, type LangiumDocument } from 'langium';
 import { assertValidDocuments, createRuneDslServices } from '@rune-langium/core';
 import { periodRangeCases, periodRangeFiles } from '../../../../test/helpers/cdm-period-range.js';
-import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
 import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../../test/helpers/vitest-budget.js';
 import { generateSelected } from '../../src/export.js';
 import { generatePythonModule } from '../../src/projection/python-functions.js';
@@ -29,7 +28,6 @@ beforeAll(async () => {
   for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { eagerLinking: true });
   assertValidDocuments(docs);
-  installPublishedNativeImplementations(docs);
 });
 
 it.each(['single-file', 'per-namespace', 'barrel'] as const)(

@@ -18,6 +18,7 @@ import {
   calculationPeriodDirectory,
   calculationPeriodIdentity,
   calculationPeriodFiles,
+  calculationPeriodImplementations,
   calculationPeriodCaller
 } from '../../../../test/helpers/cdm-calculation-period.js';
 
@@ -26,6 +27,7 @@ async function documents(withCalendars = true) {
   await RuneDsl.shared.workspace.WorkspaceManager.initializeWorkspace([]);
   const docs = [
     ...calculationPeriodFiles(withCalendars),
+    ...calculationPeriodImplementations(),
     { uri: 'file:///model/calculation.rosetta', content: calculationPeriodCaller }
   ].map(({ uri, content }) => RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(content, URI.parse(uri)));
   for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);

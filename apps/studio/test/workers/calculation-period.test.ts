@@ -8,6 +8,7 @@ import {
   calculationPeriodCases,
   calculationPeriodIdentity,
   calculationPeriodFiles,
+  calculationPeriodImplementations,
   calculationPeriodCalendars,
   calculationPeriodCaller
 } from '../../../../test/helpers/cdm-calculation-period.js';
@@ -19,7 +20,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it('executes the pinned selectors with published native leaves and an ordinary calendar override', async () => {
+it('executes the pinned selectors with published Rune date helpers and an explicit holiday provider', async () => {
   const { RuneDsl } = createRuneDslServices();
   const references = calculationPeriodFiles(false);
   const documents = references.map((file) =>
@@ -28,11 +29,14 @@ it('executes the pinned selectors with published native leaves and an ordinary c
   await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { eagerLinking: true });
   assertValidDocuments(documents);
   installPublishedNativeImplementations(documents);
-  const files = references.map((file, index) => ({
-    uri: file.uri,
-    content: '',
-    serializedModelJson: serializeRuneModel(RuneDsl.serializer.JsonSerializer, documents[index]!.parseResult.value)
-  }));
+  const files = [
+    ...references.map((file, index) => ({
+      uri: file.uri,
+      content: '',
+      serializedModelJson: serializeRuneModel(RuneDsl.serializer.JsonSerializer, documents[index]!.parseResult.value)
+    })),
+    ...calculationPeriodImplementations()
+  ];
   const worker = await loadRealWorker();
   worker.dispatch({
     type: 'preview:setFiles',

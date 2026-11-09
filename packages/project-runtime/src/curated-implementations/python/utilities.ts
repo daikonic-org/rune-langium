@@ -2,27 +2,6 @@
 // Copyright (c) 2026 Pradeep Mouli
 /** Publication sources using the shared standalone Python runtime. */
 export const utilities = {
-  AddDays: {
-    call: true,
-    dependencies: ['rune_calendar_add_days'],
-    expression: 'lambda base, days: rune_calendar_add_days(base, days)'
-  },
-  DateDifference: {
-    call: true,
-    dependencies: ['rune_date_days'],
-    expression: 'lambda first, second: rune_date_days(second) - rune_date_days(first)'
-  },
-  LeapYearDateDifference: {
-    call: true,
-    dependencies: ['rune_leap_year_days'],
-    expression: 'lambda first, second: rune_leap_year_days(second) - rune_leap_year_days(first)'
-  },
-  DayOfWeek: {
-    call: true,
-    dependencies: ['rune_date_days'],
-    expression:
-      'lambda value: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"][(rune_date_days(value) - rune_date_days("1970-01-05")) % 7]'
-  },
   ToTime: {
     call: true,
     dependencies: ['rune_native_time'],

@@ -493,6 +493,11 @@ with an explicit finite Rune calendar provider; Studio's real-worker counterpart
 also removes that provider. The native-implementation browser suite executes the
 closure from a publication-produced multi-document bundle. Synthetic calendars
 are test data and must never enter the curated implementation catalog.
+The `cdm-calendar` cohort verifies the four Rune date helpers and
+`ResolveAdjustableDate` against 69 published handwritten Java cases via
+`scripts/verify-calendar.py`. Codegen checks all three strict TypeScript
+layouts and Python. The Project Runtime and desktop/390px Prototype tests
+verify the installed `impl.cdm.calendar` helpers and modified following.
 Codegen's `period-range.test.ts` executes the workspace `CalculationPeriodRange`
 override and its date helpers in strict TypeScript and Python. Project Runtime's
 suite verifies installation, removal and local edits. The worker and

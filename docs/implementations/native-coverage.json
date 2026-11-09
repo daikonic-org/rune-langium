@@ -970,7 +970,7 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "40d8af2787d7148433e8c7b163509f488aba9705726f316f472bd500033e5170"
+      "sha256": "4e5cdb350b9e6ee025672955dc93669a143f40e2dd9b8b41e42715299485cec8"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/numbers.ts",
@@ -986,7 +986,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
-      "sha256": "453bfadc5351ad63a2bbefb021ff24cf2bcc910d788a907c6fbdf0e36bf66083"
+      "sha256": "e65d8d6cb0547b3bd6e83e8a17dc1251cdf0aadc217ac46cbb238bb373974c82"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/vectors.ts",
@@ -997,12 +997,24 @@
       "sha256": "9a641e3fa68c7411926dc0fe6530d9e95988992f722fd91b71a811c52972e87a"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/add-days.rosetta",
+      "sha256": "880ca873e45e8b88de6d7547677584fcf06cf7dd945354ab01fafb30d2b06b06"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
+      "sha256": "31f54c6bf97fd2c6eabc347e8bf1f9592d67145c8d49fc41487ba2f922e415a8"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
       "sha256": "b815b28e75bd9a10fd626d1636c0bdf6f511c3ead3d1f538150f9236f5a8a7bc"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
       "sha256": "c3345f5cd93b411897e4116ddc33c42690b1375922ce92f5cf17aaabf47b64f2"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
+      "sha256": "1a6b60f945b80e18f868b4253a3c62e8b48c3f77a36462ed5a5b6e168c85b541"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
@@ -1013,8 +1025,20 @@
       "sha256": "1570701ba47b008e8c00e09127f10499c353946f8737ef8090510c23ed205271"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
+      "sha256": "5276c9db35db06f6d3f3faf0194d897414eff78357093d29d26f9749b128cb5c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
+      "sha256": "558d8009f0219c77f2af93f28581706f56d5b67bac6e40b8a0d3ce850cc76073"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
       "sha256": "725dd8330dd3297256d717c3497d580a293bb6b789b7e6806e4ec666a5689909"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
+      "sha256": "7d0cb03959085e4f3b75227d442cb9ccb02839356a6a09e9fa670b71571fdff9"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
@@ -1027,6 +1051,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
       "sha256": "c04f30ef599b9f825d58ce81e9dc6964180d3a438ca4759c4d1b8f4d8bb22be7"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta",
+      "sha256": "5abb2bca9eeea455fbee16b66d90caa7a6964d4d1da2adc8435a618e676ece9e"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/decimal.ts",
@@ -1042,7 +1070,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
-      "sha256": "a9353f374571a418b7147a3254b64b7304754e8720950d631dbabfc093a854ef"
+      "sha256": "b22a32931238db342e26916c61ebda541a7ad3ffe3a969b79e133b3cc66e4d34"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/vectors.ts",
@@ -1941,25 +1969,10 @@
         }
       },
       "implementation": {
-        "kind": "language-specific",
-        "targets": {
-          "typescript": {
-            "id": "cdm.AddDays",
-            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
-            "entrypoint": "utilities.AddDays",
-            "dependencies": [
-              "@js-temporal/polyfill"
-            ]
-          },
-          "python": {
-            "id": "cdm.AddDays",
-            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
-            "entrypoint": "utilities.AddDays",
-            "dependencies": [
-              "rune_calendar_add_days"
-            ]
-          }
-        }
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/add-days.rosetta",
+        "entrypoint": "cdm.base.datetime.AddDays",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -1977,10 +1990,17 @@
         ]
       },
       "rune": {
-        "route": "primitive-backed",
-        "requirements": "Date arithmetic; retain the verified Gregorian/Temporal contract or prove a Rune algorithm.",
+        "route": "rune-source",
+        "requirements": "Signed Gregorian calendar-day addition in Rune with bounded era inversion and the existing date constructor.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calendar.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
+        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "selectors": [],
+        "caseCount": 16
       }
     },
     {
@@ -2087,25 +2107,10 @@
         }
       },
       "implementation": {
-        "kind": "language-specific",
-        "targets": {
-          "typescript": {
-            "id": "cdm.DateDifference",
-            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
-            "entrypoint": "utilities.DateDifference",
-            "dependencies": [
-              "@js-temporal/polyfill"
-            ]
-          },
-          "python": {
-            "id": "cdm.DateDifference",
-            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
-            "entrypoint": "utilities.DateDifference",
-            "dependencies": [
-              "rune_date_days"
-            ]
-          }
-        }
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
+        "entrypoint": "cdm.base.datetime.DateDifference",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -2123,10 +2128,17 @@
         ]
       },
       "rune": {
-        "route": "primitive-backed",
-        "requirements": "Signed Gregorian calendar-day arithmetic; existing native primitive can support Rune callers.",
+        "route": "rune-source",
+        "requirements": "Use Rune date subtraction for the signed second-minus-first calendar-day count.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calendar.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
+        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "selectors": [],
+        "caseCount": 8
       }
     },
     {
@@ -2175,25 +2187,10 @@
         }
       },
       "implementation": {
-        "kind": "language-specific",
-        "targets": {
-          "typescript": {
-            "id": "cdm.DayOfWeek",
-            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
-            "entrypoint": "utilities.DayOfWeek",
-            "dependencies": [
-              "@js-temporal/polyfill"
-            ]
-          },
-          "python": {
-            "id": "cdm.DayOfWeek",
-            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
-            "entrypoint": "utilities.DayOfWeek",
-            "dependencies": [
-              "rune_date_days"
-            ]
-          }
-        }
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
+        "entrypoint": "cdm.base.datetime.DayOfWeek",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -2211,10 +2208,17 @@
         ]
       },
       "rune": {
-        "route": "primitive-backed",
-        "requirements": "Gregorian weekday calculation or a shared date primitive; no external data required.",
+        "route": "rune-source",
+        "requirements": "Derive MON through SUN using a signed Gregorian offset from a Monday and a nonnegative remainder.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calendar.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
+        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "selectors": [],
+        "caseCount": 12
       }
     },
     {
@@ -2264,25 +2268,10 @@
         }
       },
       "implementation": {
-        "kind": "language-specific",
-        "targets": {
-          "typescript": {
-            "id": "cdm.LeapYearDateDifference",
-            "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
-            "entrypoint": "utilities.LeapYearDateDifference",
-            "dependencies": [
-              "@js-temporal/polyfill"
-            ]
-          },
-          "python": {
-            "id": "cdm.LeapYearDateDifference",
-            "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
-            "entrypoint": "utilities.LeapYearDateDifference",
-            "dependencies": [
-              "rune_leap_year_days"
-            ]
-          }
-        }
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
+        "entrypoint": "cdm.base.datetime.LeapYearDateDifference",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -2300,10 +2289,17 @@
         ]
       },
       "rune": {
-        "route": "primitive-backed",
-        "requirements": "Count days falling in leap years, including signed ranges; prove a Rune algorithm or reuse the primitive.",
+        "route": "rune-source",
+        "requirements": "Subtract leap-year day prefixes, including every day in a leap year, with sign reversal.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calendar.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
+        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "selectors": [],
+        "caseCount": 14
       }
     },
     {
@@ -2470,7 +2466,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
+        "entrypoint": "cdm.base.datetime.ResolveAdjustableDate",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -2480,13 +2479,28 @@
           }
         ],
         "providers": [],
-        "tests": []
+        "tests": [],
+        "dependencies": [
+          {
+            "path": "test/fixtures/third-party/cdm-calendar/java/AdjustableDateUtils.java",
+            "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d",
+            "entrypoint": "cdm.product.common.schedule.functions.AdjustableDateUtils.adjustDate",
+            "sourceUrl": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar"
+          }
+        ]
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Adjustment/relative-date rules in Rune; supplied calendars and date primitives underneath.",
+        "route": "rune-source",
+        "requirements": "Preserve supplied adjusted values and apply the handwritten CDM adapter’s Saturday/Sunday conventions to explicit unadjusted dates. Relative offsets without an adjusted value remain unresolved.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calendar.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
+        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "selectors": [],
+        "caseCount": 19
       }
     },
     {

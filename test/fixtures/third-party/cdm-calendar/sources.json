@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.base.datetime",
+      "name": "AddDays",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.datetime",
+      "name": "DateDifference",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.datetime",
+      "name": "DayOfWeek",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.datetime",
+      "name": "LeapYearDateDifference",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.datetime",
+      "name": "ResolveAdjustableDate",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.base.datetime--base-datetime-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-enum.rosetta",
+        "blob": "13389135f8232fa5ad70d7a20cfbdcae06887c46",
+        "sha256": "1da44bf7af1690cf4fea2a69c93feb22122b190dec49a77caf2e6d091fd88789"
+      },
+      "sha256": "1aa22cc1c7f17ab1dc4f8056321fd58401485e4b6be7bf292f15d8f32479d04d"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-func.rosetta",
+        "blob": "91d652e9d15380e929d9ee6c1e3e2e99665355a9",
+        "sha256": "a8f16482be97fa0efe71ec470aef4d321198c71ec84cc1b174e4bd1edcd7ecc7"
+      },
+      "sha256": "0624c905447a3380ef5f98757070bd189129b197d1bf59e54ef56ed70f4d9ce3"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-type.rosetta",
+        "blob": "20739b21a9e6553e0a57a58e2d1e96346b2114a2",
+        "sha256": "2e13d9d22655573418bf13b1768ed362ca8bed89d8101b6f575653ebfaf628d1"
+      },
+      "sha256": "22072c737e952226202438309db6822b4888ecbe321b042b7efb6775a0182697"
+    },
+    {
+      "name": "cdm.base--base-desc.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-desc.rosetta",
+        "blob": "5df70126994d2c0f27c86c7aa5267eff74689f8b",
+        "sha256": "052fb5fd14bce300baedb2264e7d757b95556eb3cb1cf22985b33c47f7c86163"
+      },
+      "sha256": "82d93567221a78682065cce291eabea3d78821fbb74dd32682cd69e330d07566"
+    },
+    {
+      "name": "cdm.base.staticdata.codelist--base-staticdata-codelist-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-codelist-func.rosetta",
+        "blob": "7dfce92b2f9fcbcbe3dabcdb806d778bc6399499",
+        "sha256": "7891959b8c5dd2bceca4ac5871c4617b20e2cdac668550fb6f5a42193d4eba3b"
+      },
+      "sha256": "7891959b8c5dd2bceca4ac5871c4617b20e2cdac668550fb6f5a42193d4eba3b"
+    },
+    {
+      "name": "cdm.base.staticdata.codelist--base-staticdata-codelist-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-codelist-type.rosetta",
+        "blob": "271a545571121c3f7aa5c95f24d79684e0e31284",
+        "sha256": "af0d0edbe8b0975bdb9a93ef21ef19e5e641e1bab777e644d7c970588577551f"
+      },
+      "sha256": "bdbb7c739e9730a887f74071a7c265c0e86079777ab7091e29ebd3f144535497"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "4240ed9c574f8f9218dafa29748a4346acb6b9a1d911518f436ab2daaa1f5137"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "1cbb271c11f09ba1c9e42c721eef6d16e8cfd21f9092521fa7584966f2a35d65"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    },
+    {
+      "name": "java/AddDaysImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/AddDaysImpl.java",
+        "blob": "4b2cdec8eee254786315e322c1223c67bf31175d",
+        "sha256": "55d2432fcb59fa32a9558a1783187acd8583bf42870cfc7bc5e0d52936baeb39"
+      },
+      "sha256": "55d2432fcb59fa32a9558a1783187acd8583bf42870cfc7bc5e0d52936baeb39"
+    },
+    {
+      "name": "java/DateDifferenceImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DateDifferenceImpl.java",
+        "blob": "9e713ec24538d914867f5c890129901df6b90701",
+        "sha256": "cbe41dfd13f6728c999e5d94d91fae01a4973bfb2dd232855fb57cb643b7f937"
+      },
+      "sha256": "cbe41dfd13f6728c999e5d94d91fae01a4973bfb2dd232855fb57cb643b7f937"
+    },
+    {
+      "name": "java/DayOfWeekImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/DayOfWeekImpl.java",
+        "blob": "3215e0fc4af8ef7119b1ff3c06faf206f5f1b2ac",
+        "sha256": "7cbdd5f496fe2893f7c7fe1caefdd92830db8d0be83f05d0e7f4597aa2cc7ed6"
+      },
+      "sha256": "7cbdd5f496fe2893f7c7fe1caefdd92830db8d0be83f05d0e7f4597aa2cc7ed6"
+    },
+    {
+      "name": "java/LeapYearDateDifferenceImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpl.java",
+        "blob": "2459423c46d5fb14754825786aa03956f9095b91",
+        "sha256": "6f2872bb0102a43046dfcff23b41f59c5539c81a5a32fac4a7a0f739aa69c82d"
+      },
+      "sha256": "6f2872bb0102a43046dfcff23b41f59c5539c81a5a32fac4a7a0f739aa69c82d"
+    },
+    {
+      "name": "java/ResolveAdjustableDateImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ResolveAdjustableDateImpl.java",
+        "blob": "ac0028c8326de431e80562e965ea910f4ba67fd5",
+        "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
+      },
+      "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
+    },
+    {
+      "name": "java/AdjustableDateUtils.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/product/common/schedule/functions/AdjustableDateUtils.java",
+        "blob": "702fa80e1e083d0154bd4e48fb527097da9e85c5",
+        "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d"
+      },
+      "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d"
+    },
+    {
+      "name": "java/AddDaysImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/AddDaysImplTest.java",
+        "blob": "12cf25a68cc8f190b56be39eccd99291c8e1e541",
+        "sha256": "49239559a5e2ef7a5cbb5e0af02a6299e5cb8691066f4451dc9966766b1180ec"
+      },
+      "sha256": "49239559a5e2ef7a5cbb5e0af02a6299e5cb8691066f4451dc9966766b1180ec"
+    },
+    {
+      "name": "java/DateDifferenceImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DateDifferenceImplTest.java",
+        "blob": "db2ed9ac47f38f3641664ab9ea7254203d0c858c",
+        "sha256": "ff926b265c1815426d077bac445a1efab6a928d7de0d0d0caddb35c986dd577f"
+      },
+      "sha256": "ff926b265c1815426d077bac445a1efab6a928d7de0d0d0caddb35c986dd577f"
+    },
+    {
+      "name": "java/DayOfWeekImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/DayOfWeekImplTest.java",
+        "blob": "f13fbf7ad03dd9f1347b6f7b2b8058de48accb21",
+        "sha256": "82796cafa8b1fce635c77ff969bec76635a3fc69541a80156b59f69b355360ee"
+      },
+      "sha256": "82796cafa8b1fce635c77ff969bec76635a3fc69541a80156b59f69b355360ee"
+    },
+    {
+      "name": "java/LeapYearDateDifferenceImpTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/datetime/functions/LeapYearDateDifferenceImpTest.java",
+        "blob": "b3948ef35dc17768579b13215460e4f5073d70ee",
+        "sha256": "72d0a4b369b4266189c875cc1e86f253a5935839495cb0ec1b25504bd4979db8"
+      },
+      "sha256": "72d0a4b369b4266189c875cc1e86f253a5935839495cb0ec1b25504bd4979db8"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}

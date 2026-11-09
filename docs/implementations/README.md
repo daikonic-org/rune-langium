@@ -13,9 +13,9 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **13
-language-specific implementations per target**. Ten catalog entries use Rune,
-including six owned overrides and four partially implemented upstream dispatch
+There are **49 CDM native declarations**, no FpML native declarations, and **9
+language-specific implementations per target**. Fifteen catalog entries use Rune,
+including eleven owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -30,10 +30,6 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | --- | --- |
 | Today | Existing UTC current date |
 | Now | UTC current date/time, truncated to whole seconds |
-| AddDays | Signed calendar-day addition, safe integer counts, Gregorian leap days |
-| DateDifference | Signed second-minus-first calendar-day count |
-| LeapYearDateDifference | Count all included days in leap years, with sign reversal; this is not a count of February 29 occurrences |
-| DayOfWeek | MON–SUN using the Gregorian weekday |
 | ToTime | Integer components, invalid clock values rejected |
 | StringContains | Optional input returns false when absent; Java-compatible UTF-16 substring behavior, including empty needles and isolated surrogates |
 | RoundToPrecision | Decimal UP/DOWN/HALF_UP of canonical finite target-number inputs; numeric output does not retain scale or trailing-zero formatting |
@@ -62,12 +58,10 @@ implementations are excluded as production references. Implementations use the t
 Temporal date and numeric contracts; this is not a claim to support every Java
 LocalDate/BigDecimal value or external JVM behavior.
 
-## Remaining integrations
+## Rune implementations
 
-The **36 functions without language-specific implementations remain tracked**. Two now
-have explicit Rune source implementations: `EmptyExecutionDetails` and
-`EmptyTransferHistory`. Their empty results implement their actual clearing
-contracts; they are not generic fallbacks for missing business logic.
+`EmptyExecutionDetails` and `EmptyTransferHistory` return the empty values
+required by their clearing contracts.
 The [Rune source pack](../../examples/implementations/cdm/README.md) also includes
 the single duplicate-preserving `PopOffDateList` implementation. Installing a
 curated bundle copies those ordinary namespace overrides into the workspace,
@@ -139,13 +133,21 @@ Rune normalizes absent optional lists to empty; required inputs stay required.
 
 The [calculation period range](calculation-periods.md#range-construction-from-supplied-dates)
 uses an editable Rune override over the curated date helpers. Its 22 cases
-match the handwritten Java range constructor. **26 catalog entries** remain
-unimplemented.
+match the handwritten Java range constructor. The shared calendar helpers
+`AddDays`, `DateDifference`, `LeapYearDateDifference`, and `DayOfWeek` use Rune
+with arithmetic in `impl.cdm.calendar`. `ResolveAdjustableDate` uses those
+helpers for the Java adapter's Saturday/Sunday conventions. The
+[calendar fixture](../../test/fixtures/third-party/cdm-calendar/README.md) covers
+69 cases against CDM 7.9.0.
+
+## Remaining integrations
+
+**25 catalog entries** remain unimplemented.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
-| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDates`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

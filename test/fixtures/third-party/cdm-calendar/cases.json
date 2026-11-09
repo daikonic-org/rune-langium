@@ -1,0 +1,719 @@
+[
+  {
+    "id": "leap-day",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "2020-02-28",
+      "numDays": 1
+    },
+    "expected": "2020-02-29"
+  },
+  {
+    "id": "common-century",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "1900-02-28",
+      "numDays": 1
+    },
+    "expected": "1900-03-01"
+  },
+  {
+    "id": "leap-century-backward",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "2000-03-01",
+      "numDays": -1
+    },
+    "expected": "2000-02-29"
+  },
+  {
+    "id": "year-zero-backward",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "0000-01-01",
+      "numDays": -1
+    },
+    "expected": "-000001-12-31"
+  },
+  {
+    "id": "negative-era-leap",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "-000400-02-28",
+      "numDays": 1
+    },
+    "expected": "-000400-02-29"
+  },
+  {
+    "id": "negative-era-end",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "-000401-12-31",
+      "numDays": 1
+    },
+    "expected": "-000400-01-01"
+  },
+  {
+    "id": "positive-era-end",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "0399-12-31",
+      "numDays": 1
+    },
+    "expected": "0400-01-01"
+  },
+  {
+    "id": "zero-day-offset",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "2020-02-29",
+      "numDays": 0
+    },
+    "expected": "2020-02-29"
+  },
+  {
+    "id": "large-positive-offset",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "0000-03-01",
+      "numDays": 1000000
+    },
+    "expected": "2738-01-27"
+  },
+  {
+    "id": "large-negative-offset",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "0000-03-01",
+      "numDays": -1000000
+    },
+    "expected": "-002738-04-04"
+  },
+  {
+    "id": "temporal-last-date",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "1970-01-01",
+      "numDays": 100000000
+    },
+    "expected": "+275760-09-13"
+  },
+  {
+    "id": "temporal-first-epoch-bound",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "1970-01-01",
+      "numDays": -100000000
+    },
+    "expected": "-271821-04-20"
+  },
+  {
+    "id": "temporal-first-date",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "-271821-04-20",
+      "numDays": -1
+    },
+    "expected": "-271821-04-19"
+  },
+  {
+    "id": "temporal-previous-date",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "+275760-09-13",
+      "numDays": -1
+    },
+    "expected": "+275760-09-12"
+  },
+  {
+    "id": "exact-era-forward",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "0000-03-01",
+      "numDays": 146097
+    },
+    "expected": "0400-03-01"
+  },
+  {
+    "id": "exact-era-backward",
+    "function": "AddDays",
+    "inputs": {
+      "inputDate": "0000-03-01",
+      "numDays": -146097
+    },
+    "expected": "-000400-03-01"
+  },
+  {
+    "id": "signed-month",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "2021-05-12",
+      "secondDate": "2021-06-12"
+    },
+    "expected": 31
+  },
+  {
+    "id": "reverse-month",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "2021-06-12",
+      "secondDate": "2021-05-12"
+    },
+    "expected": -31
+  },
+  {
+    "id": "equal-endpoints",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "2024-02-29",
+      "secondDate": "2024-02-29"
+    },
+    "expected": 0
+  },
+  {
+    "id": "common-century-difference",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "1900-02-28",
+      "secondDate": "1900-03-01"
+    },
+    "expected": 1
+  },
+  {
+    "id": "leap-century-difference",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "2000-02-28",
+      "secondDate": "2000-03-01"
+    },
+    "expected": 2
+  },
+  {
+    "id": "across-zero",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "-000001-12-31",
+      "secondDate": "0000-01-01"
+    },
+    "expected": 1
+  },
+  {
+    "id": "whole-temporal-range",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "-271821-04-19",
+      "secondDate": "+275760-09-13"
+    },
+    "expected": 200000001
+  },
+  {
+    "id": "reverse-whole-temporal-range",
+    "function": "DateDifference",
+    "inputs": {
+      "firstDate": "+275760-09-13",
+      "secondDate": "-271821-04-19"
+    },
+    "expected": -200000001
+  },
+  {
+    "id": "all-leap-days",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2020-01-01",
+      "secondDate": "2021-01-01"
+    },
+    "expected": 366
+  },
+  {
+    "id": "all-leap-days-reversed",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2021-01-01",
+      "secondDate": "2020-01-01"
+    },
+    "expected": -366
+  },
+  {
+    "id": "only-non-leap-days",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2021-01-01",
+      "secondDate": "2022-01-01"
+    },
+    "expected": 0
+  },
+  {
+    "id": "equal-leap-endpoints",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2020-01-01",
+      "secondDate": "2020-01-01"
+    },
+    "expected": 0
+  },
+  {
+    "id": "leap-year-start",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2019-12-31",
+      "secondDate": "2020-01-02"
+    },
+    "expected": 1
+  },
+  {
+    "id": "reverse-leap-day",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2020-03-01",
+      "secondDate": "2020-02-28"
+    },
+    "expected": -2
+  },
+  {
+    "id": "common-century-leap-count",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "1900-01-01",
+      "secondDate": "1901-01-01"
+    },
+    "expected": 0
+  },
+  {
+    "id": "leap-century-leap-count",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "2000-01-01",
+      "secondDate": "2001-01-01"
+    },
+    "expected": 366
+  },
+  {
+    "id": "negative-leap-century",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "-000400-01-01",
+      "secondDate": "-000399-01-01"
+    },
+    "expected": 366
+  },
+  {
+    "id": "leap-year-zero",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "0000-01-01",
+      "secondDate": "0001-01-01"
+    },
+    "expected": 366
+  },
+  {
+    "id": "cross-negative-era",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "-000401-12-31",
+      "secondDate": "-000400-03-01"
+    },
+    "expected": 60
+  },
+  {
+    "id": "four-century-cycle",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "1800-01-01",
+      "secondDate": "2200-01-01"
+    },
+    "expected": 35502
+  },
+  {
+    "id": "first-temporal-year",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "-271821-04-19",
+      "secondDate": "-271820-01-02"
+    },
+    "expected": 1
+  },
+  {
+    "id": "last-temporal-year",
+    "function": "LeapYearDateDifference",
+    "inputs": {
+      "firstDate": "+275760-01-01",
+      "secondDate": "+275760-09-13"
+    },
+    "expected": 256
+  },
+  {
+    "id": "weekday-0",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-05"
+    },
+    "expected": "MON"
+  },
+  {
+    "id": "weekday-1",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-06"
+    },
+    "expected": "TUE"
+  },
+  {
+    "id": "weekday-2",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-07"
+    },
+    "expected": "WED"
+  },
+  {
+    "id": "weekday-3",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-08"
+    },
+    "expected": "THU"
+  },
+  {
+    "id": "weekday-4",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-09"
+    },
+    "expected": "FRI"
+  },
+  {
+    "id": "weekday-5",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-10"
+    },
+    "expected": "SAT"
+  },
+  {
+    "id": "weekday-6",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-11"
+    },
+    "expected": "SUN"
+  },
+  {
+    "id": "before-weekday-epoch",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "1970-01-04"
+    },
+    "expected": "SUN"
+  },
+  {
+    "id": "negative-leap-weekday",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "-000400-02-29"
+    },
+    "expected": "TUE"
+  },
+  {
+    "id": "zero-weekday",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "0000-01-01"
+    },
+    "expected": "SAT"
+  },
+  {
+    "id": "min-temporal-weekday",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "-271821-04-19"
+    },
+    "expected": "MON"
+  },
+  {
+    "id": "max-temporal-weekday",
+    "function": "DayOfWeek",
+    "inputs": {
+      "date": "+275760-09-13"
+    },
+    "expected": "SAT"
+  },
+  {
+    "id": "following-saturday",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "FOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": "2024-09-02"
+  },
+  {
+    "id": "following-sunday",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-09-01",
+          "dateAdjustments": {
+            "businessDayConvention": "FOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": "2024-09-02"
+  },
+  {
+    "id": "preceding-saturday",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "PRECEDING"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-30"
+  },
+  {
+    "id": "preceding-sunday",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-09-01",
+          "dateAdjustments": {
+            "businessDayConvention": "PRECEDING"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-30"
+  },
+  {
+    "id": "modified-following-month-crossing",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "MODFOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-30"
+  },
+  {
+    "id": "modified-following-same-month",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-10",
+          "dateAdjustments": {
+            "businessDayConvention": "MODFOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-12"
+  },
+  {
+    "id": "modified-preceding-month-crossing",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-09-01",
+          "dateAdjustments": {
+            "businessDayConvention": "MODPRECEDING"
+          }
+        }
+      }
+    },
+    "expected": "2024-09-02"
+  },
+  {
+    "id": "modified-preceding-same-month",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-09-08",
+          "dateAdjustments": {
+            "businessDayConvention": "MODPRECEDING"
+          }
+        }
+      }
+    },
+    "expected": "2024-09-06"
+  },
+  {
+    "id": "nearest-saturday",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "NEAREST"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-30"
+  },
+  {
+    "id": "nearest-sunday",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-09-01",
+          "dateAdjustments": {
+            "businessDayConvention": "NEAREST"
+          }
+        }
+      }
+    },
+    "expected": "2024-09-02"
+  },
+  {
+    "id": "weekday-unchanged",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-30",
+          "dateAdjustments": {
+            "businessDayConvention": "FOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-30"
+  },
+  {
+    "id": "none-weekend",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "NONE"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-31"
+  },
+  {
+    "id": "not-applicable-weekend",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "NotApplicable"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-31"
+  },
+  {
+    "id": "frn-default-weekend",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31",
+          "dateAdjustments": {
+            "businessDayConvention": "FRN"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-31"
+  },
+  {
+    "id": "missing-convention",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "unadjustedDate": "2024-08-31"
+        }
+      }
+    },
+    "expected": "2024-08-31"
+  },
+  {
+    "id": "preserve-adjusted-metadata-value",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {
+          "adjustedDate": {
+            "value": "2024-08-31"
+          },
+          "unadjustedDate": "2024-08-25",
+          "dateAdjustments": {
+            "businessDayConvention": "FOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": "2024-08-31"
+  },
+  {
+    "id": "preserve-relative-adjusted",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "relativeDate": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "businessDayConvention": "NONE",
+          "adjustedDate": "2024-08-31"
+        }
+      }
+    },
+    "expected": "2024-08-31"
+  },
+  {
+    "id": "unresolved-relative-date",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "relativeDate": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "businessDayConvention": "NONE"
+        }
+      }
+    },
+    "expected": null
+  },
+  {
+    "id": "empty-adjustable-date",
+    "function": "ResolveAdjustableDate",
+    "inputs": {
+      "adjustableOrRelativeDate": {
+        "adjustableDate": {}
+      }
+    },
+    "expected": null
+  }
+]
