@@ -13,10 +13,12 @@ func CalculationPeriodRange: <"Construct a half-open range from the supplied dat
     output:
         result CalculationPeriodData (1..1)
 
-    condition DatesPresent:
+    alias datesPresent:
         startDate exists and endDate exists
+    condition DatesPresent:
+        datesPresent
     condition OrderedDates:
-        startDate <= endDate
+        if datesPresent then startDate <= endDate else True
 
     set result: CalculationPeriodData {
         startDate: startDate,

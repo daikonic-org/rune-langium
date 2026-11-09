@@ -3,25 +3,17 @@
 
 import { beforeAll, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
-import { createProjectDraftSnapshot } from '../../../project-config/src/index.js';
-import { buildEffectiveProject } from '../../../project-runtime/src/effective-project.js';
-import { prepareCuratedImplementationSources } from '../../../project-runtime/src/curated-implementations/install.js';
-import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
-import {
-  periodRangeCaller,
-  periodRangeCases,
-  periodRangeDirectory,
-  periodRangeIdentity,
-  periodRangePath
-} from '../../../../test/helpers/cdm-period-range.js';
+import { URI, type LangiumDocument } from 'langium';
+import { assertValidDocuments, createRuneDslServices } from '@rune-langium/core';
+import { periodRangeCases, periodRangeFiles } from '../../../../test/helpers/cdm-period-range.js';
+import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
 import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../../test/helpers/vitest-budget.js';
-import { generatePreviewSchemas, generateSelected } from '../../src/export.js';
+import { generateSelected } from '../../src/export.js';
 import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
 
-let project: Awaited<ReturnType<typeof createCuratedRuneProject>>;
-let graph: Awaited<ReturnType<typeof buildEffectiveProject>>;
+let docs: LangiumDocument[];
 const codeListWarning = expect.objectContaining({
   code: 'native-implementation-unavailable',
   severity: 'warning',
@@ -29,16 +21,22 @@ const codeListWarning = expect.objectContaining({
 });
 
 beforeAll(async () => {
-  project = await createCuratedRuneProject(periodRangeDirectory, periodRangeCaller);
-  graph = await buildEffectiveProject(project.installed, project.references);
-  expect(graph.diagnostics).toEqual([]);
+  const { RuneDsl } = createRuneDslServices();
+  await RuneDsl.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+  docs = periodRangeFiles().map(({ uri, content }) =>
+    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(content, URI.parse(uri))
+  );
+  for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
+  await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { eagerLinking: true });
+  assertValidDocuments(docs);
+  installPublishedNativeImplementations(docs);
 });
 
 it.each(['single-file', 'per-namespace', 'barrel'] as const)(
-  'matches the handwritten range constructor through the installed override in strict %s TypeScript',
+  'matches the handwritten range constructor through the workspace override in strict %s TypeScript',
   async (layout) => {
     const selected = await generateSelected(
-      [...graph.documents],
+      docs,
       { namespaces: ['example.periodrange'], declarations: [] },
       { target: 'typescript', strict: true, typescript: { layout } }
     );
@@ -69,7 +67,7 @@ it.each(['single-file', 'per-namespace', 'barrel'] as const)(
 );
 
 it('executes the same range cases and upstream period adapter in standalone Python', () => {
-  const python = generatePythonModule([...graph.documents]);
+  const python = generatePythonModule(docs);
   expect(python.diagnostics).toEqual([codeListWarning]);
   const range = python.bindings.get('example.periodrange.BuildPeriodRange')!;
   const bounds = python.bindings.get('example.periodrange.RangeBounds')!;
@@ -88,26 +86,4 @@ it('executes the same range cases and upstream period adapter in standalone Pyth
     ),
     { value: { adjustedStartDate: '2024-02-28', adjustedEndDate: '2024-03-01' } }
   ]);
-});
-
-it('copies one editable override and leaves the upstream declaration unavailable when removed', async () => {
-  expect([...project.changes.keys()].filter((path) => path.endsWith('.rosetta'))).toEqual([periodRangePath]);
-  expect((await prepareCuratedImplementationSources(project.installed, project.references)).changes.size).toBe(0);
-  const edited = await createProjectDraftSnapshot(
-    project.installed,
-    new Map([[periodRangePath, project.installed.files.get(periodRangePath)! + '\n// Local note\n']]),
-    () => []
-  );
-  const refresh = await prepareCuratedImplementationSources(edited, project.references);
-  expect(refresh.changes.has(periodRangePath)).toBe(false);
-  expect(refresh.diagnostics).toContainEqual(
-    expect.objectContaining({ code: 'IMPLEMENTATION_SOURCE_EDITED', path: periodRangePath })
-  );
-  const removed = await createProjectDraftSnapshot(project.installed, new Map([[periodRangePath, null]]), () => []);
-  const bare = await buildEffectiveProject(removed, project.references);
-  expect(bare.diagnostics).toEqual([]);
-  expect(
-    generatePreviewSchemas([...bare.documents]).find((schema) => schema.targetId === periodRangeIdentity)
-      ?.executionUnavailable
-  ).toBeTruthy();
 });

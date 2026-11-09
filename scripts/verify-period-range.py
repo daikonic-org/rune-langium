@@ -35,6 +35,8 @@ expected = [
 ]
 actual = json.loads(result.stdout)
 if actual != expected:
+    if len(actual) != len(expected):
+        print(f"Expected {len(expected)} rows, received {len(actual)}", file=sys.stderr)
     for observed, pinned in zip(actual, expected):
         if observed != pinned:
             print(f"{pinned['id']}: expected {pinned}, actual {observed}", file=sys.stderr)

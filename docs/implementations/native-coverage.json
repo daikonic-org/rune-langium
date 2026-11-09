@@ -1014,7 +1014,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
-      "sha256": "4c75d97b7b74ce22c43cf7617e5b0821571d5b89893f2951e21d344ede6ac667"
+      "sha256": "725dd8330dd3297256d717c3497d580a293bb6b789b7e6806e4ec666a5689909"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",

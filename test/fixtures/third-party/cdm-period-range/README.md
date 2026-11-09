@@ -20,6 +20,10 @@ the range result. The export reports the unavailable `LoadCodeList` dependency
 from the optional adjustment type. Range execution uses the supplied dates and
 the curated date helpers.
 
+The pinned `ValidateFpMLCodingSchemeDomain` slice keeps the original CDM
+documentation and body. Its missing-list branch returns `False` despite the
+description of the output.
+
 Run the optional oracle with JDK 21 and the shared artifact cache.
 
 ```sh
