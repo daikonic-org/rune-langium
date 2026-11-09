@@ -372,7 +372,9 @@ for (const width of [1440, 390])
   });
 
 for (const width of [1440, 390])
-  test(`rounds decimal ties using published native bodies and Rune guards at ${width}px`, async ({ page }, info) => {
+  test(`rounds decimal ties, increments and significant figures using published native bodies at ${width}px`, async ({
+    page
+  }, info) => {
     const project = await createCuratedRuneProject(roundingDirectory, roundingCaller);
     await page.route('https://www.daikonic.dev/curated/**', async (route) => {
       const bytes = project.fixture.artifacts.get(route.request().url());
@@ -393,7 +395,7 @@ for (const width of [1440, 390])
     await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
     await page.getByTestId('rail-prototype').click();
     await page.getByRole('button', { name: /^Choose a function/ }).click();
-    await page.getByRole('option', { name: /^RoundQuote.*example.rounding/ }).click();
+    await page.getByRole('option', { name: /^RoundQuote(?!To).*example.rounding/ }).click();
     const form = page.getByTestId('prototype-perspective').getByTestId('panel-formPreview');
     const value = form.getByRole('spinbutton', { name: 'Value', exact: true });
     const precision = form.getByRole('spinbutton', { name: 'Precision', exact: true });
@@ -416,6 +418,39 @@ for (const width of [1440, 390])
     await expect(execute).toBeEnabled();
     await execute.click();
     await expect(result).toContainText('NonNegativePrecision');
+
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^RoundQuoteToNearest.*example.rounding/ }).click();
+    await value.fill('-166.5');
+    const increment = form.getByRole('spinbutton', { name: 'Nearest', exact: true });
+    await increment.fill('50');
+    await mode.click();
+    await expect(page.getByRole('option', { name: 'Nearest', exact: true })).toHaveCount(0);
+    await page.getByRole('option', { name: 'Up', exact: true }).click();
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(result).toContainText('-200');
+    await value.fill('1');
+    await increment.fill('3');
+    await execute.click();
+    await expect(result).toContainText('Non-terminating decimal');
+    await increment.fill('0');
+    await execute.click();
+    await expect(result).toContainText('PositiveNearest');
+
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^RoundQuoteToSignificantFigures.*example.rounding/ }).click();
+    await value.fill('1023.123456789');
+    const figures = form.getByRole('spinbutton', { name: 'Significant Figures', exact: true });
+    await figures.fill('5');
+    await mode.click();
+    await page.getByRole('option', { name: 'Up', exact: true }).click();
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(result).toContainText('1023.2');
+    await figures.fill('0');
+    await execute.click();
+    await expect(result).toContainText('NonZeroSignificantFigures');
     await dismissLocalTransportNotices(page);
     expect(
       (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations

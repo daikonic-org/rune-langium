@@ -1666,6 +1666,14 @@ source performs no documentation-range scan.
 
 ## Reference loading and derived caches
 
+Curated decimal precision, increment and significant-figure bodies share their
+target's decimal admission/rounding support in project-runtime. Increment rounding
+retains Java's exact-division failure policy; the published number/float profile
+rejects overflow and does not retain BigDecimal formatting. These remain exclusive
+language-specific catalog entries selected during publication. Their pinned
+handwritten-Java corpus, target execution and Rune override-precedence tests live
+under `cdm-rounding`; no model-specific lookup is added to Codegen.
+
 Managed browser opens retain full checksum, manifest, toolchain and closure
 verification. The optional `ReferenceTransport.decodeArtifact` port runs the
 shared project-runtime decoder in Studio's existing parser worker. Canonical metadata

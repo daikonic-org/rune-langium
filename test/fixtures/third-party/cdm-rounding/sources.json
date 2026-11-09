@@ -25,6 +25,16 @@
       "namespace": "cdm.base.math",
       "name": "RoundToPrecision",
       "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.math",
+      "name": "RoundToNearest",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.math",
+      "name": "RoundToSignificantFigures",
+      "kind": "RosettaFunction"
     }
   ],
   "files": [
@@ -36,7 +46,7 @@
         "blob": "82d5a2fea207da725d8cb619cf46a805fb609c59",
         "sha256": "6860992b0213a5aa8b7616b937cf1915827f37d20cc6b7fbfed27804ac62b302"
       },
-      "sha256": "b7e72ee97aa9dcf56b9d19204d73247b34f981de904422a70415d56146f04f25"
+      "sha256": "b7b3d4c61527cbe8ac346d9afc08045f7d4d7e397bb2a0958aa405d1fbbbae33"
     },
     {
       "name": "cdm.base.math--base-math-func.rosetta",
@@ -46,7 +56,7 @@
         "blob": "dfdc46acd7563ccb3595fdd4458fca0f62594592",
         "sha256": "fa216e47e854b0ba4a09e34c2014966b30a3fe6a2d9a56c9046f3d2bafa1f348"
       },
-      "sha256": "80f8f87b45d5fa2035c55f7bf915da05eb1b841aeeea92dbab5041308ee47dad"
+      "sha256": "f3df38876019c9cf54d731065d9e3ac4eff94985a12ee8734cc638a228c7c766"
     },
     {
       "name": "com.rosetta.model--annotations.rosetta",
@@ -111,6 +121,16 @@
       "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
     },
     {
+      "name": "java/RoundToNearestImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToNearestImpl.java",
+        "blob": "2cd1425b0ef9b487243dda46177852d60456c7f7",
+        "sha256": "692624b1f9fe0c791e3462c26bd8dc741db20ab109073698f59f2faf3c5f4c85"
+      },
+      "sha256": "692624b1f9fe0c791e3462c26bd8dc741db20ab109073698f59f2faf3c5f4c85"
+    },
+    {
       "name": "java/RoundToPrecisionImpl.java",
       "upstream": {
         "model": "cdm",
@@ -121,6 +141,26 @@
       "sha256": "c50ed6beeea436c952e0f0c607fea770fd4a98409e78b461b86b6c82e693b5e7"
     },
     {
+      "name": "java/RoundToSignificantFiguresImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/math/functions/RoundToSignificantFiguresImpl.java",
+        "blob": "cc1272effba40897524da85a30b9d1811e99457b",
+        "sha256": "51e0eb93ca7cae5fd732895929a4588d589faf92f3152ea29ef4a2e5aa580666"
+      },
+      "sha256": "51e0eb93ca7cae5fd732895929a4588d589faf92f3152ea29ef4a2e5aa580666"
+    },
+    {
+      "name": "java/RoundToNearestImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToNearestImplTest.java",
+        "blob": "82e1fb90f4817b9cd35192bb71b9d600ccad5c13",
+        "sha256": "712804d19879cc634c58e87516cbd2f0d097190cab7dad77a7fcc31bbf39e2df"
+      },
+      "sha256": "712804d19879cc634c58e87516cbd2f0d097190cab7dad77a7fcc31bbf39e2df"
+    },
+    {
       "name": "java/RoundToPrecisionImplTest.java",
       "upstream": {
         "model": "cdm",
@@ -129,6 +169,16 @@
         "sha256": "0bcc7e7ae957e1a7ed63100151aa3776d6590a56992749a36a9f067371242233"
       },
       "sha256": "0bcc7e7ae957e1a7ed63100151aa3776d6590a56992749a36a9f067371242233"
+    },
+    {
+      "name": "java/RoundToSignificantFiguresImplTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/base/math/functions/RoundToSignificantFiguresImplTest.java",
+        "blob": "139945be5f68224fce644285d1c31e0a281ac753",
+        "sha256": "f498b1c013916035a6f995fcf689159d40d6f4a3f1432c1ecb58a225654534b9"
+      },
+      "sha256": "f498b1c013916035a6f995fcf689159d40d6f4a3f1432c1ecb58a225654534b9"
     }
   ],
   "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."

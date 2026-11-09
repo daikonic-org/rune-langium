@@ -12,8 +12,8 @@ import {
 } from '@rune-langium/codegen/export';
 import { utilities as typescriptUtilities } from './typescript/utilities.js';
 import { utilities as pythonUtilities } from './python/utilities.js';
-import { roundToPrecision as typescriptRoundToPrecision } from './typescript/rounding.js';
-import { roundToPrecision as pythonRoundToPrecision } from './python/rounding.js';
+import * as typescriptRounding from './typescript/rounding.js';
+import * as pythonRounding from './python/rounding.js';
 import { today as typescriptToday } from './typescript/today.js';
 import { today as pythonToday } from './python/today.js';
 import { FunctionImplementationSchema, type FunctionImplementation } from '@rune-langium/core/project-contract';
@@ -39,6 +39,72 @@ interface RuneImplementation {
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  RoundToNearest: {
+    inputs: [
+      {
+        name: 'value',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [1, 1],
+        plain: true
+      },
+      {
+        name: 'nearest',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [1, 1],
+        plain: true
+      },
+      {
+        name: 'roundingMode',
+        type: 'cdm.base.math.RoundingModeEnum',
+        kind: 'RosettaEnumeration',
+        card: [1, 1],
+        plain: true,
+        enumValues: ['Down', 'Up']
+      }
+    ],
+    output: {
+      name: 'roundedValue',
+      type: 'com.rosetta.model.number',
+      kind: 'RosettaBasicType',
+      card: [1, 1],
+      plain: true
+    }
+  },
+  RoundToSignificantFigures: {
+    inputs: [
+      {
+        name: 'value',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [1, 1],
+        plain: true
+      },
+      {
+        name: 'significantFigures',
+        type: 'com.rosetta.model.int',
+        kind: 'RosettaTypeAlias',
+        card: [1, 1],
+        plain: true
+      },
+      {
+        name: 'roundingMode',
+        type: 'cdm.base.math.RoundingDirectionEnum',
+        kind: 'RosettaEnumeration',
+        card: [1, 1],
+        plain: true,
+        enumValues: ['Up', 'Down', 'Nearest']
+      }
+    ],
+    output: {
+      name: 'roundedValue',
+      type: 'com.rosetta.model.number',
+      kind: 'RosettaBasicType',
+      card: [1, 1],
+      plain: true
+    }
+  },
   RoundToPrecision: {
     inputs: [
       { name: 'value', type: 'com.rosetta.model.number', kind: 'RosettaBasicType', card: [1, 1], plain: true },
@@ -340,25 +406,49 @@ const utility = (name: keyof typeof typescriptUtilities, namespace = 'cdm.base.d
   }
 });
 export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplementation)[] = [
-  {
+  ...(
+    [
+      {
+        name: 'RoundToPrecision',
+        id: 'cdm.round-to-precision',
+        entrypoint: 'roundToPrecision',
+        typescript: typescriptRounding.roundToPrecision,
+        python: pythonRounding.roundToPrecision
+      },
+      {
+        name: 'RoundToNearest',
+        id: 'cdm.round-to-nearest',
+        entrypoint: 'roundToNearest',
+        typescript: typescriptRounding.roundToNearest,
+        python: pythonRounding.roundToNearest
+      },
+      {
+        name: 'RoundToSignificantFigures',
+        id: 'cdm.round-to-significant-figures',
+        entrypoint: 'roundToSignificantFigures',
+        typescript: typescriptRounding.roundToSignificantFigures,
+        python: pythonRounding.roundToSignificantFigures
+      }
+    ] as const
+  ).map(({ name, id, entrypoint, typescript, python }): NativeImplementation => ({
     kind: 'language-specific',
-    id: 'cdm.round-to-precision',
+    id,
     namespace: 'cdm.base.math',
-    name: 'RoundToPrecision',
-    signature: signatures.RoundToPrecision!,
+    name,
+    signature: signatures[name]!,
     targets: {
       typescript: {
-        ...typescriptRoundToPrecision,
+        ...typescript,
         path: 'packages/project-runtime/src/curated-implementations/typescript/rounding.ts',
-        entrypoint: 'roundToPrecision'
+        entrypoint
       },
       python: {
-        ...pythonRoundToPrecision,
+        ...python,
         path: 'packages/project-runtime/src/curated-implementations/python/rounding.ts',
-        entrypoint: 'roundToPrecision'
+        entrypoint
       }
     }
-  },
+  })),
   {
     kind: 'language-specific',
     id: 'cdm.utc-today',

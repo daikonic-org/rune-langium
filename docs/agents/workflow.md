@@ -524,11 +524,15 @@ with JDK 21+. Both oracle entrypoints reuse
 the Java binaries are test-only and are never packaged in curated targets.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
 `rounding.test.ts` in Codegen, project-runtime and Studio checks published native
-decimal precision rounding; the same browser suite exercises enum inputs and the
-Rune precondition at desktop/390px. `python3 scripts/verify-rounding.py --cache-dir
-/tmp/rune-rounding` independently checks 168 outputs and Java scales using the
+precision, increment and significant-figure rounding; the same browser suite
+exercises enum inputs, exact-division failures and Rune preconditions at
+desktop/390px. `python3 scripts/verify-rounding.py --cache-dir
+/tmp/rune-rounding` independently checks 309 numeric/error results and Java scales using the
 shared checksum-pinned oracle. The target number API does not retain scale;
-large no-op precisions are tested separately without allocating a huge Java scale.
+large no-op counts and nonfinite/overflow admission are tested separately without
+allocating a huge Java scale. New cases retain exact `referenceValue` decimal
+strings separately from their finite target-number expectations. Original pinned
+Java source bytes and the first 168 expectations remain unchanged.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.
 

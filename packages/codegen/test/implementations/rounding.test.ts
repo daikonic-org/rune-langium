@@ -9,7 +9,14 @@ import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { resolveNativeImplementation } from '../../src/implementations/index.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
-import { roundingCases, roundingFiles, roundingIdentity } from '../../../../test/helpers/cdm-rounding.js';
+import {
+  roundingCases,
+  roundingFiles,
+  roundingIdentity,
+  additionalRoundingCases,
+  additionalRoundingArguments,
+  additionalRoundingCallers
+} from '../../../../test/helpers/cdm-rounding.js';
 import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
 
 async function roundingDocuments(install = true) {
@@ -30,7 +37,7 @@ beforeAll(async () => {
 });
 
 it.each(['single-file', 'per-namespace', 'barrel'] as const)(
-  'preserves decimal ties and signed directions in strict %s TypeScript',
+  'preserves decimal ties, significant figures and exact increment division in strict %s TypeScript',
   async (layout) => {
     const { outputs } = await generateSelected(
       docs,
@@ -46,6 +53,34 @@ it.each(['single-file', 'per-namespace', 'barrel'] as const)(
       const { value, precision, roundingMode, removeTrailingZeros } = test.inputs;
       expect(round(value, precision, roundingMode, removeTrailingZeros), test.id).toBe(test.expected);
     }
+    const callers = Object.fromEntries(
+      Object.entries(additionalRoundingCallers).map(([name, caller]) => [
+        name,
+        module[output.funcs.find((fn) => fn.name === caller)!.exportName!]!
+      ])
+    );
+    for (const test of additionalRoundingCases) {
+      const execute = () => callers[test.function]!(...additionalRoundingArguments(test));
+      if (test.error) expect(execute, test.id).toThrow(/Non-terminating decimal/);
+      else expect(execute(), test.id).toBe(test.expected);
+    }
+    const nearest = callers.RoundToNearest!;
+    const figures = callers.RoundToSignificantFigures!;
+    expect(() => nearest(1, 0, 'Up')).toThrow(/PositiveNearest/);
+    expect(() => nearest(1, -1, 'Down')).toThrow(/PositiveNearest/);
+    expect(() => figures(1, 0, 'Nearest')).toThrow(/NonZeroSignificantFigures/);
+    for (const value of [NaN, Infinity, -Infinity, true, '1.25']) {
+      expect(() => nearest(value, 0.5, 'Up')).toThrow();
+      expect(() => figures(value, 2, 'Nearest')).toThrow();
+    }
+    for (const count of [1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])
+      expect(() => figures(1.25, count, 'Nearest')).toThrow();
+    expect(() => nearest(1, 0.5, 'Nearest')).toThrow();
+    expect(() => figures(1, 2, 'Other')).toThrow();
+    expect(() => figures(Number.MAX_VALUE, 1, 'Up')).toThrow(/finite/);
+    expect(() => nearest(Number.MAX_VALUE, 1e308, 'Up')).toThrow(/finite/);
+    expect(figures(1.005, Number.MAX_SAFE_INTEGER, 'Nearest')).toBe(1.005);
+    expect(Object.is(figures(-0, 2, 'Nearest'), -0)).toBe(false);
     for (const precision of [1_000_000, Number.MAX_SAFE_INTEGER])
       expect(round(1.005, precision, 'Nearest', false)).toBe(1.005);
     for (const args of [
@@ -79,6 +114,20 @@ it('executes the same corpus in Python without changing the global decimal conte
       { includeRuntime: false }
     )
   ).toEqual(roundingCases.map((test) => ({ value: test.expected })));
+  expect(
+    runPython(
+      additionalRoundingCases.map((test) => ({
+        expression: `${python.bindings.get('cdm.base.math.' + test.function)!}(data)`,
+        data: test.inputs
+      })),
+      python.code + prefix,
+      { includeRuntime: false }
+    )
+  ).toEqual(
+    additionalRoundingCases.map((test) =>
+      test.error ? { error: expect.stringContaining('Non-terminating decimal') } : { value: test.expected }
+    )
+  );
   const inputs = { value: 1.005, precision: -1, roundingMode: 'Nearest', removeTrailingZeros: false };
   const checks = runPython(
     [
@@ -102,12 +151,12 @@ it('executes the same corpus in Python without changing the global decimal conte
   );
   expect(checks).toEqual([
     { error: expect.stringContaining('NonNegativePrecision') },
-    { error: expect.stringContaining('Rounding requires') },
+    { error: expect.stringContaining('RoundToPrecision requires') },
     { value: 1.005 },
     { value: 1.005 },
     { error: expect.any(String) },
-    { error: expect.stringContaining('Rounding requires') },
-    ...Array.from({ length: 5 }, () => ({ error: expect.stringContaining('Rounding requires') })),
+    { error: expect.stringContaining('RoundToPrecision requires') },
+    ...Array.from({ length: 5 }, () => ({ error: expect.stringContaining('RoundToPrecision requires') })),
     { value: 1 },
     { value: 3 },
     { value: true }
@@ -137,32 +186,146 @@ _rounding_active_before = repr(decimal.getcontext())
     runPython(
       [
         ...roundingCases.map((test) => ({ expression: `${fn}(data)`, data: test.inputs })),
+        ...additionalRoundingCases.map((test) => ({
+          expression: `${python.bindings.get('cdm.base.math.' + test.function)!}(data)`,
+          data: test.inputs
+        })),
         { expression: `repr(decimal.DefaultContext) == _rounding_default_before` },
         { expression: `repr(decimal.getcontext()) == _rounding_active_before` }
       ],
       python.code + hostileDefaults,
       { includeRuntime: false }
     )
-  ).toEqual([...roundingCases.map((test) => ({ value: test.expected })), { value: true }, { value: true }]);
+  ).toEqual([
+    ...roundingCases.map((test) => ({ value: test.expected })),
+    ...additionalRoundingCases.map((test) =>
+      test.error ? { error: expect.stringContaining('Non-terminating decimal') } : { value: test.expected }
+    ),
+    { value: true },
+    { value: true }
+  ]);
 });
 
 it('requires the published payload and refuses signature drift in either target', async () => {
   const bare = await roundingDocuments(false);
-  expect(
-    generatePreviewSchemas(bare).find((schema) => schema.targetId === roundingIdentity)?.executionUnavailable
-  ).toBeTruthy();
-  const fn = docs
-    .flatMap((doc) =>
-      isRosettaModel(doc.parseResult.value) ? doc.parseResult.value.elements.filter(isRosettaFunction) : []
-    )
-    .find((fn) => fn.name === 'RoundToPrecision')!;
-  for (const target of ['typescript', 'python']) {
-    expect(resolveNativeImplementation(fn, target)).toMatchObject({
-      status: 'available',
-      id: 'cdm.round-to-precision'
-    });
-    expect(resolveNativeImplementation({ ...fn, inputs: fn.inputs.slice(0, -1) }, target)).toMatchObject({
-      status: 'unsupported'
-    });
+  const functions = docs.flatMap((doc) =>
+    isRosettaModel(doc.parseResult.value) ? doc.parseResult.value.elements.filter(isRosettaFunction) : []
+  );
+  const previews = generatePreviewSchemas(bare);
+  for (const [name, id] of [
+    ['RoundToPrecision', 'cdm.round-to-precision'],
+    ['RoundToNearest', 'cdm.round-to-nearest'],
+    ['RoundToSignificantFigures', 'cdm.round-to-significant-figures']
+  ]) {
+    expect(previews.find((schema) => schema.targetId === `cdm.base.math.${name}`)?.executionUnavailable).toBeTruthy();
+    const fn = functions.find((fn) => fn.name === name)!;
+    for (const target of ['typescript', 'python']) {
+      expect(resolveNativeImplementation(fn, target)).toMatchObject({ status: 'available', id });
+      expect(resolveNativeImplementation({ ...fn, inputs: fn.inputs.slice(0, -1) }, target)).toMatchObject({
+        status: 'unsupported'
+      });
+    }
   }
+});
+
+it('reports only the affected Python rounding function parameters in admission errors', () => {
+  const python = generatePythonModule(docs);
+  const cases = [
+    {
+      name: 'RoundToNearest',
+      inputs: { value: 1, nearest: 0.5, roundingMode: 'Nearest' },
+      required: ['RoundToNearest', 'finite', 'nearest', 'roundingMode', 'Up/Down'],
+      unrelated: ['safe integer', 'precision', 'significantFigures', 'removeTrailingZeros']
+    },
+    {
+      name: 'RoundToSignificantFigures',
+      inputs: { value: 1, significantFigures: 1.5, roundingMode: 'Nearest' },
+      required: ['RoundToSignificantFigures', 'finite', 'positive safe integer', 'significantFigures', 'roundingMode'],
+      unrelated: ['precision', 'removeTrailingZeros']
+    },
+    {
+      name: 'RoundToPrecision',
+      inputs: { value: 1, precision: 1.5, roundingMode: 'Nearest', removeTrailingZeros: false },
+      required: [
+        'RoundToPrecision',
+        'finite',
+        'nonnegative safe integer',
+        'precision',
+        'roundingMode',
+        'removeTrailingZeros'
+      ],
+      unrelated: ['significantFigures']
+    }
+  ];
+  const results = runPython(
+    cases.map((test) => ({
+      expression: `${python.bindings.get('cdm.base.math.' + test.name)}(data)`,
+      data: test.inputs
+    })),
+    python.code,
+    { includeRuntime: false }
+  );
+  expect(results).toHaveLength(cases.length);
+  for (const [index, result] of results.entries()) {
+    if (typeof result !== 'object' || result === null || !('error' in result) || typeof result.error !== 'string')
+      throw new Error('Expected a Python admission diagnostic for ' + cases[index]!.name);
+    for (const parameter of cases[index]!.unrelated) expect(result.error).not.toContain(parameter);
+    for (const parameter of cases[index]!.required) expect(result.error).toContain(parameter);
+  }
+});
+
+it('retains Python Rune guards, safe-count admission and finite result limits for both new functions', () => {
+  const python = generatePythonModule(docs);
+  const nearest = python.bindings.get('cdm.base.math.RoundToNearest')!;
+  const figures = python.bindings.get('cdm.base.math.RoundToSignificantFigures')!;
+  expect(
+    runPython(
+      [
+        { expression: `${nearest}(data)`, data: { value: 1, nearest: 0, roundingMode: 'Up' } },
+        { expression: `${nearest}(data)`, data: { value: 1, nearest: -1, roundingMode: 'Down' } },
+        { expression: `${figures}(data)`, data: { value: 1, significantFigures: 0, roundingMode: 'Nearest' } },
+        ...[1.5, Number.MAX_SAFE_INTEGER + 1].map((significantFigures) => ({
+          expression: `${figures}(data)`,
+          data: { value: 1.25, significantFigures, roundingMode: 'Nearest' }
+        })),
+        {
+          expression: `${figures}(data)`,
+          data: { value: 1.005, significantFigures: Number.MAX_SAFE_INTEGER, roundingMode: 'Nearest' }
+        },
+        { expression: `${nearest}({'value': float('nan'), 'nearest': 0.5, 'roundingMode': 'Up'})` },
+        { expression: `${nearest}({'value': 1, 'nearest': float('inf'), 'roundingMode': 'Up'})` },
+        { expression: `${figures}({'value': True, 'significantFigures': 2, 'roundingMode': 'Nearest'})` },
+        { expression: `${figures}({'value': 1, 'significantFigures': float('inf'), 'roundingMode': 'Nearest'})` },
+        { expression: `${nearest}(data)`, data: { value: 1, nearest: 0.5, roundingMode: 'Nearest' } },
+        { expression: `${figures}(data)`, data: { value: 1, significantFigures: 2, roundingMode: 'Other' } },
+        {
+          expression: `${figures}(data)`,
+          data: { value: Number.MAX_VALUE, significantFigures: 1, roundingMode: 'Up' }
+        },
+        { expression: `${nearest}(data)`, data: { value: Number.MAX_VALUE, nearest: 1e308, roundingMode: 'Up' } },
+        {
+          expression: `__import__('math').copysign(1, ${figures}({'value': -0.0, 'significantFigures': 2, 'roundingMode': 'Nearest'}))`
+        }
+      ],
+      python.code,
+      { includeRuntime: false }
+    )
+  ).toEqual([
+    { error: expect.stringContaining('PositiveNearest') },
+    { error: expect.stringContaining('PositiveNearest') },
+    { error: expect.stringContaining('NonZeroSignificantFigures') },
+    ...Array.from({ length: 2 }, () => ({ error: expect.stringContaining('RoundToSignificantFigures requires') })),
+    { value: 1.005 },
+    ...[
+      'RoundToNearest',
+      'RoundToNearest',
+      'RoundToSignificantFigures',
+      'RoundToSignificantFigures',
+      'RoundToNearest',
+      'RoundToSignificantFigures'
+    ].map((name) => ({ error: expect.stringContaining(name + ' requires') })),
+    { error: expect.stringContaining('finite') },
+    { error: expect.stringContaining('float') },
+    { value: 1 }
+  ]);
 });

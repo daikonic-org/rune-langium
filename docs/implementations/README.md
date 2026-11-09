@@ -13,7 +13,7 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **9
+There are **49 CDM native declarations**, no FpML native declarations, and **11
 language-specific implementations per target**. Nine catalog entries use Rune,
 including five owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
@@ -37,6 +37,8 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | ToTime | Integer components, invalid clock values rejected |
 | StringContains | Optional input returns false when absent; Java-compatible UTF-16 substring behavior, including empty needles and isolated surrogates |
 | RoundToPrecision | Decimal UP/DOWN/HALF_UP of canonical finite target-number inputs; numeric output does not retain scale or trailing-zero formatting |
+| RoundToNearest | Exact decimal division before UP/DOWN increment rounding; non-terminating quotients remain errors |
+| RoundToSignificantFigures | Decimal significant-digit UP/DOWN/HALF_UP rounding with a positive figure count and explicit finite-result limits |
 
 Implementation publication sources live under
 `packages/project-runtime/src/curated-implementations/`. They are selected during
@@ -118,18 +120,19 @@ unbound. It prepares each captured input once, giving O(P+D) time/allocation.
 The source folds and fallback path remain quadratic; Python shares the local
 reduction optimization but retains per-call lookup input preparation.
 
-[`RoundToPrecision`](../../test/fixtures/third-party/cdm-rounding/README.md) is
-published as TypeScript BigInt coefficient rounding and Python standard-library
-decimal quantization. Its 168-case JVM oracle checks the handwritten CDM numeric
-results and both trailing-zero scale modes separately. Generated numeric APIs
-preserve signed direction/ties and Rune preconditions, without claiming arbitrary
-BigDecimal precision or formatting. The implementation has no parallel Rune path.
+[The rounding family](../../test/fixtures/third-party/cdm-rounding/README.md) uses
+shared TypeScript BigInt coefficient rounding and Python standard-library decimal
+contexts/exact rational arithmetic. Its 309-case JVM oracle covers precision,
+increments and significant figures, including 12 non-terminating-division errors.
+Java decimal values/scales and target numeric results are recorded separately.
+The finite-number API retains signed direction/ties and Rune preconditions;
+overflow results fail explicitly. These catalog entries have no parallel Rune path.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
 | Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`; explicit holiday data, roll/stub rules, model-version semantics |
-| Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`, `RoundToNearest`, `RoundToSignificantFigures`, `VectorOperation`, `VectorGrowthOperation`; wider decimal representation and day-count parity |
+| Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`, `VectorOperation`, `VectorGrowthOperation`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |
 | Domain construction and execution | Portfolio, reset processing, payout, billing, key creation and commodity schedule functions; authoritative algorithms, explicit external dependencies and fixture workflows |
