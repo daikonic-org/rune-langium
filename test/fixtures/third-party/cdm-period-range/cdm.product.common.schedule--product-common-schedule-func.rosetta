@@ -1,0 +1,14 @@
+namespace cdm.product.common.schedule : <"Common product schedule concepts: calculation period, reset, fixing and payment dates, stub, notional schedule, roll convention.">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.product.template.*
+
+func CalculationPeriodRange:
+    [codeImplementation]
+    inputs:
+        startDate date (0..1) // should be AdjustableOrRelativeDate
+        endDate date (0..1) // should be AdjustableOrRelativeDate
+        dateAdjustments BusinessDayAdjustments (0..1)
+    output:
+        result CalculationPeriodData (1..1)

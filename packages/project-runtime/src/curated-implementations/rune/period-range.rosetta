@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.product.common.schedule
+version "1.0.0"
+
+import cdm.base.datetime.*
+
+func CalculationPeriodRange: <"Construct a half-open range from the supplied dates. The handwritten CDM 7.9.0 implementation leaves dateAdjustments unused.">
+    inputs:
+        startDate date (0..1)
+        endDate date (0..1)
+        dateAdjustments BusinessDayAdjustments (0..1)
+    output:
+        result CalculationPeriodData (1..1)
+
+    condition DatesPresent:
+        startDate exists and endDate exists
+    condition OrderedDates:
+        startDate <= endDate
+
+    set result: CalculationPeriodData {
+        startDate: startDate,
+        endDate: endDate,
+        daysInPeriod: DateDifference(startDate, endDate),
+        daysInLeapYearPeriod: LeapYearDateDifference(startDate, endDate),
+        isFirstPeriod: False,
+        isLastPeriod: False
+    }

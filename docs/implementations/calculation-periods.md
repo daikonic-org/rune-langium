@@ -49,6 +49,22 @@ imports for omitted built-ins; Temporal constructors can yield absence and must
 use ordinary presence/cardinality shaping when placed in a list. Both fixes reuse
 the existing profile and expression-presence machinery without casts.
 
+## Range construction from supplied dates
+
+`CalculationPeriodRange` installs as an ordinary Rune override. It calls
+`DateDifference` and `LeapYearDateDifference` for the half-open interval and
+sets both period flags to false. The original signature permits optional dates.
+The body checks that both dates are supplied and the end is at or after the
+start. The adjustment argument remains in the signature and is unused by the
+published Java constructor.
+
+The [range fixture](../../test/fixtures/third-party/cdm-period-range/README.md)
+compares 22 cases against the published CDM 7.9.0 handwritten implementation.
+Strict TypeScript layouts and standalone Python also exercise the upstream
+`Create_CalculationPeriodBase` adapter on the result. The export retains the
+`LoadCodeList` warning from the optional adjustment type. The managed worker and
+Prototype exercise the range with the curated date helpers.
+
 ## `PeriodsInYear` delegates to a Rune Strata port
 
 The pinned release has no direct handwritten Java `PeriodsInYear` implementation.

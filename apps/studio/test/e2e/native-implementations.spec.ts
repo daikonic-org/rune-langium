@@ -22,6 +22,7 @@ import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-
 import { strikeScheduleDirectory, strikeScheduleCaller } from '../../../../test/helpers/cdm-strike-schedule.js';
 import { roundingDirectory, roundingCaller } from '../../../../test/helpers/cdm-rounding.js';
 import { vectorDirectory, vectorCaller } from '../../../../test/helpers/cdm-vectors.js';
+import { periodRangeDirectory, periodRangeCaller } from '../../../../test/helpers/cdm-period-range.js';
 const content = `namespace cdm.base.datetime
 func AddDays:
  [codeImplementation]
@@ -303,6 +304,54 @@ test('executes pinned FixingDate dispatch through published helpers and explicit
     contentType: 'image/png'
   });
 });
+
+for (const width of [1440, 390])
+  test(`builds a calculation period range from a curated Rune override at ${width}px`, async ({ page }, info) => {
+    const project = await createCuratedRuneProject(periodRangeDirectory, periodRangeCaller);
+    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+      const bytes = project.fixture.artifacts.get(route.request().url());
+      await route.fulfill({
+        status: bytes ? 200 : 404,
+        body: bytes ? Buffer.from(bytes) : '',
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+    await page.setViewportSize({ width, height: 960 });
+    await page.goto('./');
+    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+      name: 'period-range.rosetta',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('namespace example.periodrange\n')
+    });
+    await expect(page.getByTestId('explore-workbench')).toBeVisible();
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+    await page.getByTestId('rail-prototype').click();
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^BuildPeriodRange.*example.periodrange/ }).click();
+    const form = page.getByTestId('prototype-perspective').getByTestId('panel-formPreview');
+    const startDate = form.getByLabel('Start Date', { exact: true });
+    await startDate.fill('2023-12-30');
+    await form.getByLabel('End Date', { exact: true }).fill('2024-01-02');
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    const output = page.getByRole('region', { name: 'result output' });
+    await expect(output).toContainText(/"daysInPeriod":\s*3/);
+    await expect(output).toContainText(/"daysInLeapYearPeriod":\s*1/);
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
+    await output.scrollIntoViewIfNeeded();
+    await info.attach('period-range', {
+      body: await page.screenshot({ path: info.outputPath('period-range.png') }),
+      contentType: 'image/png'
+    });
+    await startDate.fill('2024-01-03');
+    await execute.click();
+    await expect(output).toContainText('OrderedDates');
+  });
 
 for (const width of [1440, 390])
   test(`installs the Strata Rune port and executes its CDM frequency adapter at ${width}px`, async ({ page }, info) => {

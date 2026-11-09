@@ -14,8 +14,8 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **13
-language-specific implementations per target**. Nine catalog entries use Rune,
-including five owned overrides and four partially implemented upstream dispatch
+language-specific implementations per target**. Ten catalog entries use Rune,
+including six owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -136,12 +136,16 @@ overflow results fail explicitly. These catalog entries have no parallel Rune pa
 state. TypeScript shares decimal admission/storage with rounding; Python shares
 finite-number admission/output conversion and uses exact standard-library fractions.
 Rune normalizes absent optional lists to empty; required inputs stay required.
-These two exclusive native entries leave **27 unimplemented catalog entries**.
+
+The [calculation period range](calculation-periods.md#range-construction-from-supplied-dates)
+uses an editable Rune override over the curated date helpers. Its 22 cases
+match the handwritten Java range constructor. **26 catalog entries** remain
+unimplemented.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
-| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`; explicit holiday data, roll/stub rules, model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

@@ -44,31 +44,27 @@ const { values } = parseArgs({
 });
 const root = resolve(import.meta.dirname, '..');
 const dispatchSuites = await Promise.all(
-  ['cdm-dispatch', 'cdm-calculation-period', 'cdm-frequency', 'cdm-strike-schedule', 'cdm-rounding', 'cdm-vectors'].map(
-    async (directory) => {
-      const base = `test/fixtures/third-party/${directory}`;
-      const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
-      const casesPath = `${base}/cases.json`;
-      const casesText = await readFile(resolve(root, casesPath), 'utf8');
-      return {
-        declarations: manifest.declarations,
-        path:
-          'packages/codegen/test/implementations/' +
-          {
-            'cdm-dispatch': 'cdm-dispatch',
-            'cdm-calculation-period': 'calculation-period',
-            'cdm-frequency': 'frequency',
-            'cdm-strike-schedule': 'strike-schedule',
-            'cdm-rounding': 'rounding',
-            'cdm-vectors': 'vectors'
-          }[directory] +
-          '.test.ts',
-        casesPath,
-        casesText,
-        cases: JSON.parse(casesText)
-      };
-    }
-  )
+  Object.entries({
+    'cdm-dispatch': 'cdm-dispatch',
+    'cdm-calculation-period': 'calculation-period',
+    'cdm-frequency': 'frequency',
+    'cdm-strike-schedule': 'strike-schedule',
+    'cdm-rounding': 'rounding',
+    'cdm-vectors': 'vectors',
+    'cdm-period-range': 'period-range'
+  }).map(async ([directory, testName]) => {
+    const base = `test/fixtures/third-party/${directory}`;
+    const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
+    const casesPath = `${base}/cases.json`;
+    const casesText = await readFile(resolve(root, casesPath), 'utf8');
+    return {
+      declarations: manifest.declarations,
+      path: `packages/codegen/test/implementations/${testName}.test.ts`,
+      casesPath,
+      casesText,
+      cases: JSON.parse(casesText)
+    };
+  })
 );
 const sources = JSON.parse(
   await readFile(resolve(root, values.sources ?? 'scripts/fixtures/native-implementation-sources.json'), 'utf8')

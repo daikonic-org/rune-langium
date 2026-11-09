@@ -1,0 +1,24 @@
+namespace cdm.product.common.schedule : <"Common product schedule concepts: calculation period, reset, fixing and payment dates, stub, notional schedule, roll convention.">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.observable.asset.*
+import cdm.observable.common.*
+import cdm.observable.event.*
+import cdm.product.asset.*
+import cdm.product.template.*
+
+type CalculationPeriodData:
+    startDate date (1..1)
+    endDate date (1..1)
+    daysInPeriod int (1..1)
+    daysInLeapYearPeriod int (1..1)
+    isFirstPeriod boolean (1..1)
+    isLastPeriod boolean (1..1)
+
+type CalculationPeriodBase: <"The calculation period adjusted start and end dates, which are the baseline arguments needed to compute an interest accrual calculation.">
+    [metadata key]
+
+    adjustedStartDate date (0..1) <"The calculation period start date, adjusted according to any relevant business day convention.">
+    adjustedEndDate date (0..1) <"The calculation period end date, adjusted according to any relevant business day convention.">
