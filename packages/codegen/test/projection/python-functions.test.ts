@@ -985,6 +985,57 @@ func Child extends Parent:
     ).toEqual([{ value: 4 }, { value: 5 }, { value: 3 }, { value: 6 }]);
   });
 
+  it('normalizes primitive collections and enforces bounds before invoking native bindings', async () => {
+    const funcs = await linkedFunctions(`namespace python.native_collections
+func Required:
+ inputs: values number (2..3)
+ output: result number (1..1)
+func Flags:
+ inputs: values boolean (0..*)
+ output: result boolean (1..1)
+func Strings:
+ inputs: values string (0..*)
+ output: result string (1..1)
+`);
+    const module = generatePythonModule([AstUtils.getDocument(funcs[0]!)]);
+    const required = module.bindings.get('python.native_collections.Required')!;
+    const flags = module.bindings.get('python.native_collections.Flags')!;
+    const strings = module.bindings.get('python.native_collections.Strings')!;
+    const source =
+      module.code +
+      `
+rune_bind('python.native_collections.Required', lambda values: len(values))
+rune_bind('python.native_collections.Flags', lambda values: isinstance(values, list) and all(type(value) is bool for value in values))
+rune_bind('python.native_collections.Strings', lambda values: '|'.join(values))
+`;
+    const result = execute(source, [
+      { expression: `${required}(None)` },
+      { expression: `${required}([])` },
+      { expression: `${required}([1])` },
+      { expression: `${required}([1, 2])` },
+      { expression: `${required}([1, 2, 3, 4])` },
+      { expression: `${flags}()` },
+      { expression: `${flags}(None)` },
+      { expression: `${flags}([False, True])` },
+      { expression: `${strings}()` },
+      { expression: `${strings}(None)` },
+      { expression: `${strings}(['', 'A'])` }
+    ]);
+    expect(result).toEqual([
+      { error: expect.stringContaining("Argument 'values' has too few values") },
+      { error: expect.stringContaining("Argument 'values' has too few values") },
+      { error: expect.stringContaining("Argument 'values' has too few values") },
+      { value: 2 },
+      { error: expect.stringContaining("Argument 'values' has too many values") },
+      { value: true },
+      { value: true },
+      { value: true },
+      { value: '' },
+      { value: '' },
+      { value: '|A' }
+    ]);
+  });
+
   it('keeps a native binding contract visible and rejects execution when no implementation is bound', async () => {
     const funcs = await linkedFunctions(`namespace python.native
 func Native:

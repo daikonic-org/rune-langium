@@ -1764,3 +1764,7 @@ finite input/output admission and uses standard-library exact fractions. Vector
 division owns its distinct 10-place HALF_EVEN rule and skips zero-divisor pairs.
 Growth retains exact decimal state between public output conversions. The source
 inventory includes shared target helper files, not only catalog entry modules.
+Python native-call boundaries materialize primitive collections and enforce their
+declared bounds through the canonical cardinality helper before invoking installed
+fallbacks or user callbacks. Primitive elements retain their values for native
+admission checks; authored Rune function fast paths remain unchanged.

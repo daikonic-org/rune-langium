@@ -102,6 +102,42 @@ it('executes standalone Python vector math independently of hostile decimal stat
   for (const result of results) expect(result).toMatchObject({ error: expect.any(String) });
 });
 
+it('normalizes omitted and None collections in direct Python vector exports', () => {
+  const python = generatePythonModule(docs);
+  expect(python.diagnostics).toEqual([]);
+  const operation = python.bindings.get('cdm.base.math.VectorOperation')!;
+  const growth = python.bindings.get('cdm.base.math.VectorGrowthOperation')!;
+  expect(
+    runPython(
+      [
+        { expression: `${operation}('Add', None, [2])` },
+        { expression: `${operation}('Add', right=[2])` },
+        { expression: `${operation}('Add', [2], None)` },
+        { expression: `${operation}('Add', [2])` },
+        { expression: `${operation}('Add')` },
+        { expression: `${operation}('Divide', [1], None)` },
+        { expression: `${growth}(1)` },
+        { expression: `${growth}(1, None)` },
+        { expression: `${growth}(0, None)` },
+        { expression: `${growth}(1, [])` }
+      ],
+      python.code,
+      { includeRuntime: false }
+    )
+  ).toEqual([
+    { value: [2] },
+    { value: [2] },
+    { value: [2] },
+    { value: [2] },
+    { value: [] },
+    { value: [] },
+    { value: [1] },
+    { value: [1] },
+    { value: [0] },
+    { value: [1] }
+  ]);
+});
+
 it('keeps bare vectors unavailable and refuses native payload signature drift', async () => {
   const bare = await vectorDocuments(false);
   const previews = generatePreviewSchemas(bare);

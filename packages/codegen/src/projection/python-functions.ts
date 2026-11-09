@@ -358,8 +358,15 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   ) {
     return finish([`return ${renderPythonExpression(single.exprNode as RosettaExpression, renderContext)}`]);
   }
+  const native = resolveNativeImplementation(func, 'python');
+  // Native callbacks need collection materialization and bounds, without coercing primitive elements.
+  const checkedInputs = inputs.filter(
+    (input) =>
+      normalizedInputs.includes(input) ||
+      ((facts.isAbstract || native?.status === 'available') && (input.card.unbounded || (input.card.sup ?? 1) > 1))
+  );
   const lines: string[] = normalizeInputs(normalizedInputs, context, parameters);
-  for (const input of normalizedInputs)
+  for (const input of checkedInputs)
     lines.push(
       `${parameters.get(input)} = rune.cardinality(${parameters.get(input)}, ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
     );
@@ -394,7 +401,6 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     context.onConditionProjection?.(condition, guard.join('\n'), predicate);
   };
   func.conditions.forEach(check);
-  const native = resolveNativeImplementation(func, 'python');
   if (native?.status === 'available')
     lines.push(
       `${result} = rune.native(${pyString(qualified(func))}${inputs.map((input) => `, ${parameters.get(input)}`).join('')}, _rune_fallback=lambda *_rune_args: ${nativeImplementationExpression(

@@ -555,6 +555,10 @@ Python projection tests require Python >=3.13 and fail explicitly if it is absen
 Set `PYTHON_BINARY` to the supported interpreter when the shell's `python3` is older.
 The standard-library driver checks Python 3.13 syntax and compares runtime behavior
 with the shared TypeScript helpers; it does not run Python inside Studio.
+Direct-export regressions also call native functions with omitted/`None` primitive
+collections, bounded numeric lists and false/empty-string elements. Check the
+shared native-call cardinality boundary rather than adding per-function defaults;
+retain each native body's own element admission checks.
 
 The `Python Projections` workflow runs the grammar census, syntax/runtime tests,
 pinned CDM execution battery and both inverse round-trip suites on every PR; it
