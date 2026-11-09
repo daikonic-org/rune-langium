@@ -101,6 +101,16 @@
       "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
     },
     {
+      "name": "fpml-LICENCE",
+      "upstream": {
+        "model": "fpml",
+        "path": "LICENCE",
+        "blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
       "name": "rune-dsl-LICENSE",
       "upstream": {
         "model": "rune-dsl",

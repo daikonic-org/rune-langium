@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.base.datetime
+version "1.0.0"
+
+import impl.cdm.calendar.adjustments.*
+
+func ResolveAdjustableDates: <"Return supplied adjusted dates or adjust an explicit date list using the pinned Java adapter's Saturday/Sunday calendar.">
+    inputs: adjustableRelativeOrPeriodicDates AdjustableRelativeOrPeriodicDates (1..1)
+    output: adjustedDates date (0..*)
+
+    alias adjustable: adjustableRelativeOrPeriodicDates -> adjustableDates
+    alias supplied: adjustable -> adjustedDate
+    alias convention: adjustable -> dateAdjustments -> businessDayConvention default (BusinessDayConventionEnum -> NONE)
+
+    set adjustedDates:
+        if supplied exists then supplied
+        else (adjustable -> unadjustedDate extract unadjusted [AdjustWeekendDate(unadjusted, convention)])

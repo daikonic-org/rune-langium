@@ -13,18 +13,26 @@ sys.dont_write_bytecode = True
 from lib.java_reference_oracle import verified_classpath
 
 root = Path(__file__).resolve().parent.parent
-directory = root / "test/fixtures/third-party/cdm-calendar"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--cache-dir", type=Path, required=True)
+parser.add_argument("--suite", choices=("cdm-calendar", "cdm-commodity-periods"), default="cdm-calendar")
 args = parser.parse_args()
+directory = root / "test/fixtures/third-party" / args.suite
 manifest = json.loads((directory / "java-oracle.json").read_text())
 classpath = verified_classpath(directory, manifest, args.cache_dir)
-cases_text = (directory / "cases.json").read_text()
-expected = [{"id": case["id"], "value": case["expected"]} for case in json.loads(cases_text)]
+cases = [
+    case for case in json.loads((directory / "cases.json").read_text())
+    if case.get("reference", "java") == "java"
+]
+expected = [
+    {"id": case["id"], "error": case["referenceError"]} if "referenceError" in case
+    else {"id": case["id"], "value": case.get("referenceExpected", case.get("expected"))}
+    for case in cases
+]
 result = subprocess.run(
     [os.environ.get("JAVA_BINARY", "java"), "--class-path", classpath,
      str(root / "scripts/fixtures/CalendarOracle.java")],
-    input=cases_text, text=True, capture_output=True, timeout=60,
+    input=json.dumps(cases), text=True, capture_output=True, timeout=60,
 )
 if result.returncode:
     raise SystemExit(result.stderr)
@@ -36,4 +44,4 @@ if actual != expected:
         if observed != pinned:
             print(f"{pinned['id']}: expected {pinned}, actual {observed}", file=sys.stderr)
     raise SystemExit("CDM calendar oracle differs from the pinned cases")
-print(f"Verified {len(expected)} calendar cases against CDM 7.9.0 on the JVM.")
+print(f"Verified {len(expected)} {args.suite} cases against CDM 7.9.0 on the JVM.")

@@ -409,6 +409,51 @@ def rune_calendar_add_days(value, days):
     return rune_calendar_text(*rune_calendar_from_days(rune_date_days(value) + int(days)))
 
 
+def rune_calendar_period_boundaries(start, end, unit, multiplier, *, align_month_start=False):
+    """Advance from each preceding boundary, including the first boundary at or after end."""
+    if start is None or end is None:
+        raise TypeError("Period boundaries require both dates.")
+    if unit not in ("days", "weeks", "months", "years", "term"):
+        raise TypeError("Unsupported period unit.")
+    if (
+        isinstance(multiplier, bool)
+        or not isinstance(multiplier, (int, float))
+        or not 1 <= multiplier <= 2147483647
+        or int(multiplier) != multiplier
+        or (unit == "term" and multiplier != 1)
+    ):
+        raise ValueError("Period multiplier must be a positive 32-bit integer and 1 for term.")
+    current = rune_calendar_parts(start)
+    last = rune_calendar_parts(end)
+    minimum = (-271821, 4, 19)
+    maximum = (275760, 9, 13)
+    if not (minimum <= current <= maximum and minimum <= last <= maximum):
+        raise ValueError("Calendar date is outside of supported range.")
+    dates = [rune_calendar_text(*current)]
+    if unit == "term":
+        if current < last:
+            dates.append(rune_calendar_text(*last))
+        return dates
+    step = int(multiplier)
+    if unit == "weeks":
+        step *= 7
+    if unit == "years":
+        step *= 12
+    while current < last:
+        if unit in ("days", "weeks"):
+            current = rune_calendar_from_days(rune_date_days(dates[-1]) + step)
+        else:
+            year, month, day = current
+            year, month_index = divmod(year * 12 + month - 1 + step, 12)
+            month = month_index + 1
+            day = 1 if unit == "months" and align_month_start else min(day, calendar.monthrange(year, month)[1])
+            current = (year, month, day)
+        if current > maximum:
+            raise ValueError("Calendar date is outside of supported range.")
+        dates.append(rune_calendar_text(*current))
+    return dates
+
+
 def rune_leap_year_days(value):
     year, month, day = rune_calendar_parts(value)
     previous = year - 1

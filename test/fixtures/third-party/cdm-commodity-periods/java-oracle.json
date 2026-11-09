@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "artifactManifest": "../cdm-rounding/java-oracle.json",
+  "files": [
+    {
+      "name": "java/CalculateCommodityCalculationPeriodsImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/ingest/fpml/confirmation/pricequantity/functions/CalculateCommodityCalculationPeriodsImpl.java",
+      "sha256": "0919916948686956810cfba888869c61517d7408b3c2f09960081ce1da40aad6"
+    }
+  ]
+}

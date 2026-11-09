@@ -1,0 +1,402 @@
+[
+  {
+    "id": "missing-schedule",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {},
+    "expected": []
+  },
+  {
+    "id": "missing-unit",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "periodMultiplier": 1
+      }
+    },
+    "expected": []
+  },
+  {
+    "id": "missing-multiplier",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M"
+      }
+    },
+    "expected": []
+  },
+  {
+    "id": "day-exact-end",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "D",
+        "periodMultiplier": 2
+      },
+      "effectiveDate": "2024-02-27",
+      "terminationDate": "2024-03-02"
+    },
+    "expected": [
+      "2024-02-27",
+      "2024-02-29",
+      "2024-03-02"
+    ]
+  },
+  {
+    "id": "day-overshoot",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "D",
+        "periodMultiplier": 3,
+        "balanceOfFirstPeriod": true
+      },
+      "effectiveDate": "2024-06-01",
+      "terminationDate": "2024-06-05"
+    },
+    "expected": [
+      "2024-06-01",
+      "2024-06-04",
+      "2024-06-07"
+    ]
+  },
+  {
+    "id": "two-weeks",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "W",
+        "periodMultiplier": 2
+      },
+      "effectiveDate": "2023-12-29",
+      "terminationDate": "2024-01-24"
+    },
+    "expected": [
+      "2023-12-29",
+      "2024-01-12",
+      "2024-01-26"
+    ]
+  },
+  {
+    "id": "monthly-leap-clamp",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2024-01-31",
+      "terminationDate": "2024-04-01"
+    },
+    "expected": [
+      "2024-01-31",
+      "2024-02-29",
+      "2024-03-29",
+      "2024-04-29"
+    ]
+  },
+  {
+    "id": "monthly-common-clamp",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1,
+        "balanceOfFirstPeriod": false
+      },
+      "effectiveDate": "2023-01-31",
+      "terminationDate": "2023-04-01"
+    },
+    "expected": [
+      "2023-01-31",
+      "2023-02-28",
+      "2023-03-28",
+      "2023-04-28"
+    ]
+  },
+  {
+    "id": "monthly-balance",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1,
+        "balanceOfFirstPeriod": true
+      },
+      "effectiveDate": "2024-01-15",
+      "terminationDate": "2024-04-02"
+    },
+    "expected": [
+      "2024-01-15",
+      "2024-02-01",
+      "2024-03-01",
+      "2024-04-01",
+      "2024-05-01"
+    ]
+  },
+  {
+    "id": "multi-month-balance",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 2,
+        "balanceOfFirstPeriod": true
+      },
+      "effectiveDate": "2024-01-31",
+      "terminationDate": "2024-05-15"
+    },
+    "expected": [
+      "2024-01-31",
+      "2024-03-01",
+      "2024-05-01",
+      "2024-07-01"
+    ]
+  },
+  {
+    "id": "yearly-leap-clamp",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "Y",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2020-02-29",
+      "terminationDate": "2024-02-29"
+    },
+    "expected": [
+      "2020-02-29",
+      "2021-02-28",
+      "2022-02-28",
+      "2023-02-28",
+      "2024-02-28",
+      "2025-02-28"
+    ]
+  },
+  {
+    "id": "year-zero-boundary",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "D",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "-000001-12-31",
+      "terminationDate": "0000-01-02"
+    },
+    "expected": [
+      "-000001-12-31",
+      "0000-01-01",
+      "0000-01-02"
+    ]
+  },
+  {
+    "id": "equal-dates",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2024-01-31",
+      "terminationDate": "2024-01-31"
+    },
+    "expected": [
+      "2024-01-31"
+    ]
+  },
+  {
+    "id": "reversed-dates",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "W",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2024-01-31",
+      "terminationDate": "2024-01-30"
+    },
+    "expected": [
+      "2024-01-31"
+    ]
+  },
+  {
+    "id": "missing-effective",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1
+      },
+      "terminationDate": "2024-02-01"
+    },
+    "expectedError": "Period boundaries require both dates.",
+    "referenceError": "NullPointerException"
+  },
+  {
+    "id": "missing-termination",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2024-01-01"
+    },
+    "expectedError": "Period boundaries require both dates.",
+    "referenceError": "NullPointerException"
+  },
+  {
+    "id": "term-endpoints",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "T",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2024-01-31",
+      "terminationDate": "2025-01-15"
+    },
+    "expected": [
+      "2024-01-31",
+      "2025-01-15"
+    ],
+    "reference": "fpml"
+  },
+  {
+    "id": "term-same-endpoint",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "T",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "2024-02-29",
+      "terminationDate": "2024-02-29"
+    },
+    "expected": [
+      "2024-02-29"
+    ],
+    "reference": "fpml"
+  },
+  {
+    "id": "term-multiplier",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "T",
+        "periodMultiplier": 2
+      },
+      "effectiveDate": "2024-01-01",
+      "terminationDate": "2024-02-01"
+    },
+    "expectedError": "Period multiplier must be a positive 32-bit integer and 1 for term.",
+    "reference": "guard"
+  },
+  {
+    "id": "zero-multiplier",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "D",
+        "periodMultiplier": 0
+      },
+      "effectiveDate": "2024-01-01",
+      "terminationDate": "2024-02-01"
+    },
+    "expectedError": "Period multiplier must be a positive 32-bit integer and 1 for term.",
+    "reference": "guard"
+  },
+  {
+    "id": "negative-multiplier",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "W",
+        "periodMultiplier": -1
+      },
+      "effectiveDate": "2024-01-01",
+      "terminationDate": "2024-02-01"
+    },
+    "expectedError": "Period multiplier must be a positive 32-bit integer and 1 for term.",
+    "reference": "guard"
+  },
+  {
+    "id": "fractional-multiplier",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1.5
+      },
+      "effectiveDate": "2024-01-01",
+      "terminationDate": "2024-02-01"
+    },
+    "expectedError": "Period multiplier must be a positive 32-bit integer and 1 for term.",
+    "reference": "guard"
+  },
+  {
+    "id": "out-of-range-multiplier",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "Y",
+        "periodMultiplier": 2147483648
+      },
+      "effectiveDate": "2024-01-01",
+      "terminationDate": "2024-02-01"
+    },
+    "expectedError": "Period multiplier must be a positive 32-bit integer and 1 for term.",
+    "reference": "guard"
+  },
+  {
+    "id": "shared-minimum-boundary",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "D",
+        "periodMultiplier": 1
+      },
+      "effectiveDate": "-271821-04-19",
+      "terminationDate": "-271821-04-20"
+    },
+    "expected": [
+      "-271821-04-19",
+      "-271821-04-20"
+    ]
+  },
+  {
+    "id": "balanced-month-in-final-supported-month",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "M",
+        "periodMultiplier": 1,
+        "balanceOfFirstPeriod": true
+      },
+      "effectiveDate": "+275760-08-31",
+      "terminationDate": "+275760-09-01"
+    },
+    "expected": [
+      "+275760-08-31",
+      "+275760-09-01"
+    ]
+  },
+  {
+    "id": "overshoot-exceeds-shared-date-range",
+    "function": "CalculateCommodityCalculationPeriods",
+    "inputs": {
+      "fpmlCommodityCalculationPeriodsSchedule": {
+        "period": "D",
+        "periodMultiplier": 2
+      },
+      "effectiveDate": "+275760-09-12",
+      "terminationDate": "+275760-09-13"
+    },
+    "expectedError": "outside of supported range",
+    "referenceExpected": [
+      "+275760-09-12",
+      "+275760-09-14"
+    ]
+  }
+]

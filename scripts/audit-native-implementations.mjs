@@ -52,6 +52,7 @@ const dispatchSuites = await Promise.all(
     'cdm-rounding': 'rounding',
     'cdm-vectors': 'vectors',
     'cdm-calendar': 'calendar',
+    'cdm-commodity-periods': 'commodity-periods',
     'cdm-period-range': 'period-range'
   }).map(async ([directory, testName]) => {
     const base = `test/fixtures/third-party/${directory}`;
@@ -127,7 +128,7 @@ for (const source of sources) {
     (file) =>
       file.type === 'blob' &&
       (/^rosetta-source\/src\/(main|test)\/java\/.*\.java$/.test(file.path) ||
-        /^(LICENSE|NOTICE)(\.md|\.txt)?$/.test(file.path))
+        /^(LICEN[CS]E|NOTICE)(\.md|\.txt)?$/.test(file.path))
   );
   const inputs = [...entries, ...references].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   sourceBytes += entries.reduce((sum, file) => sum + (file.size ?? 0), 0);

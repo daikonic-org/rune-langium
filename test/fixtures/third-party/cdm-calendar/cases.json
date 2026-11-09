@@ -715,5 +715,150 @@
       }
     },
     "expected": null
+  },
+  {
+    "id": "adjusted-list-precedes-unadjusted",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "adjustableDates": {
+          "adjustedDate": [
+            {
+              "value": "2024-09-03",
+              "meta": {
+                "globalKey": "preserve-identity"
+              }
+            },
+            {
+              "value": "2024-08-30"
+            },
+            {
+              "value": "2024-09-03"
+            }
+          ],
+          "unadjustedDate": [
+            "2024-08-31"
+          ],
+          "dateAdjustments": {
+            "businessDayConvention": "FOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": [
+      "2024-09-03",
+      "2024-08-30",
+      "2024-09-03"
+    ]
+  },
+  {
+    "id": "adjust-explicit-dates-in-order",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "adjustableDates": {
+          "unadjustedDate": [
+            "2024-08-31",
+            "2024-08-30",
+            "2024-09-01",
+            "2024-08-31"
+          ],
+          "dateAdjustments": {
+            "businessDayConvention": "FOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": [
+      "2024-09-02",
+      "2024-08-30",
+      "2024-09-02",
+      "2024-09-02"
+    ]
+  },
+  {
+    "id": "empty-adjusted-list-falls-back",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "adjustableDates": {
+          "adjustedDate": [],
+          "unadjustedDate": [
+            "2024-08-31",
+            "2024-09-01"
+          ],
+          "dateAdjustments": {
+            "businessDayConvention": "MODFOLLOWING"
+          }
+        }
+      }
+    },
+    "expected": [
+      "2024-08-30",
+      "2024-09-02"
+    ]
+  },
+  {
+    "id": "modified-preceding-month-crossing",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "adjustableDates": {
+          "unadjustedDate": [
+            "2024-09-01",
+            "2024-09-07"
+          ],
+          "dateAdjustments": {
+            "businessDayConvention": "MODPRECEDING"
+          }
+        }
+      }
+    },
+    "expected": [
+      "2024-09-02",
+      "2024-09-06"
+    ]
+  },
+  {
+    "id": "unadjusted-list-defaults-to-none",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "adjustableDates": {
+          "unadjustedDate": [
+            "2024-08-31",
+            "2024-09-01"
+          ]
+        }
+      }
+    },
+    "expected": [
+      "2024-08-31",
+      "2024-09-01"
+    ]
+  },
+  {
+    "id": "unresolved-relative-date-list",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "relativeDates": {
+          "period": "D",
+          "periodMultiplier": 1,
+          "businessDayConvention": "NONE"
+        }
+      }
+    },
+    "expected": []
+  },
+  {
+    "id": "unresolved-periodic-date-list",
+    "function": "ResolveAdjustableDates",
+    "inputs": {
+      "adjustableRelativeOrPeriodicDates": {
+        "periodicDates": {}
+      }
+    },
+    "expected": []
   }
 ]

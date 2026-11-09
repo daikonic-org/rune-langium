@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/studio-test.js';
 import {
   cdmRuneImplementationSources,
@@ -24,29 +24,40 @@ import { roundingDirectory, roundingCaller } from '../../../../test/helpers/cdm-
 import { vectorDirectory, vectorCaller } from '../../../../test/helpers/cdm-vectors.js';
 import { periodRangeDirectory, periodRangeCaller } from '../../../../test/helpers/cdm-period-range.js';
 import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-calendar.js';
+import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
+
+async function openPublishedImplementationProject(
+  page: Page,
+  directory: string,
+  caller: { uri: string; content: string },
+  width: number
+) {
+  const project = await createCuratedRuneProject(directory, caller);
+  await page.route('https://www.daikonic.dev/curated/**', async (route) => {
+    const bytes = project.fixture.artifacts.get(route.request().url());
+    if (!bytes) return route.fulfill({ status: 404 });
+    await route.fulfill({
+      body: Buffer.from(bytes),
+      contentType: route.request().url().endsWith('.gz') ? 'application/gzip' : 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+  });
+  await page.setViewportSize({ width, height: 960 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: caller.uri.split('/').at(-1)!,
+    buffer: Buffer.from(caller.content.split('\n', 1)[0] + '\n'),
+    mimeType: 'text/plain'
+  });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
+  await page.getByTestId('rail-prototype').click();
+  return project;
+}
 
 for (const width of [1440, 390])
   test(`executes calendar implementations delivered with the curated bundle at ${width}px`, async ({ page }, info) => {
-    const project = await createCuratedRuneProject(calendarDirectory, calendarCaller);
-    await page.route('https://www.daikonic.dev/curated/**', async (route) => {
-      const bytes = project.fixture.artifacts.get(route.request().url());
-      if (!bytes) return route.fulfill({ status: 404 });
-      await route.fulfill({
-        body: Buffer.from(bytes),
-        contentType: route.request().url().endsWith('.gz') ? 'application/gzip' : 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' }
-      });
-    });
-    await page.setViewportSize({ width, height: 960 });
-    await page.goto('./');
-    await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
-      name: 'calendar-caller.rosetta',
-      buffer: Buffer.from('namespace example.calendar\n'),
-      mimeType: 'text/plain'
-    });
-    await expect(page.getByTestId('explore-workbench')).toBeVisible();
-    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
-    await page.getByTestId('rail-prototype').click();
+    await openPublishedImplementationProject(page, calendarDirectory, calendarCaller, width);
     await page.getByRole('button', { name: /^Choose a function/ }).click();
     await page.getByRole('option', { name: /^AddDays.*cdm.base.datetime/ }).click();
     await page.getByLabel('Input Date', { exact: true }).fill('2020-02-28');
@@ -63,13 +74,21 @@ for (const width of [1440, 390])
     await execute.click();
     await expect(page.getByRole('region', { name: 'difference output' })).toContainText('-2');
     await page.getByRole('button', { name: /^Choose a function:/ }).click();
-    await page.getByRole('option', { name: /^AdjustWeekend.*example.calendar/ }).click();
+    await page.getByRole('option', { name: 'AdjustWeekend — example.calendar', exact: true }).click();
     await page.getByLabel('Value', { exact: true }).fill('2024-08-31');
     await page.getByRole('combobox', { name: 'Convention', exact: true }).click();
     await page.getByRole('option', { name: 'MODFOLLOWING', exact: true }).click();
     await expect(execute).toBeEnabled();
     await execute.click();
     await expect(page.getByRole('region', { name: 'adjusted output' })).toContainText('2024-08-30');
+    await page.getByRole('button', { name: /^Choose a function:/ }).click();
+    await page.getByRole('option', { name: 'AdjustWeekendList — example.calendar', exact: true }).click();
+    await page.getByLabel('Value', { exact: true }).fill('2024-08-31');
+    await page.getByRole('combobox', { name: 'Convention', exact: true }).click();
+    await page.getByRole('option', { name: 'MODFOLLOWING', exact: true }).click();
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'adjusted output' })).toContainText('"2024-08-30"');
     await dismissLocalTransportNotices(page);
     expect(
       (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
@@ -80,6 +99,33 @@ for (const width of [1440, 390])
       contentType: 'image/png'
     });
   });
+
+test('executes a published commodity period implementation through Prototype', async ({ page }, info) => {
+  const project = await openPublishedImplementationProject(
+    page,
+    commodityPeriodsDirectory,
+    commodityPeriodsCaller,
+    1440
+  );
+  expect([...project.changes.keys()].filter((path) => path.endsWith('.rosetta'))).toEqual([]);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: /^MonthlyCommodityBoundaries.*example.commodity/ }).click();
+  await page.getByLabel('Start Date', { exact: true }).fill('2024-01-31');
+  await page.getByLabel('End Date', { exact: true }).fill('2024-04-01');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  const output = page.getByRole('region', { name: 'boundaries output' });
+  await expect(output).toContainText(/"2024-01-31"[\s\S]*"2024-02-29"[\s\S]*"2024-03-29"[\s\S]*"2024-04-29"/);
+  await dismissLocalTransportNotices(page);
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+  ).toEqual([]);
+  await info.attach('commodity-periods', {
+    body: await page.screenshot({ path: info.outputPath('commodity-periods.png') }),
+    contentType: 'image/png'
+  });
+});
 
 for (const width of [1440, 390])
   test(`executes decimal vector operations and cumulative growth from a curated bundle at ${width}px`, async ({
