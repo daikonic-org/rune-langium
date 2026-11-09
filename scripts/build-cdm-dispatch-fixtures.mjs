@@ -23,6 +23,16 @@ if (JSON.stringify(inventory.sources) !== JSON.stringify(sources))
 const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-audit');
 const suites = [
   {
+    directory: 'cdm-vectors',
+    declarations: ['VectorOperation', 'VectorGrowthOperation'].map((name) => ({
+      namespace: 'cdm.base.math',
+      name,
+      kind: 'RosettaFunction'
+    })),
+    references: ['VectorOperation', 'VectorGrowthOperation'],
+    supportReferences: ['rosetta-source/src/main/java/cdm/base/math/functions/ArithmeticOpImpl.java']
+  },
+  {
     directory: 'cdm-rounding',
     declarations: ['RoundToPrecision', 'RoundToNearest', 'RoundToSignificantFigures'].map((name) => ({
       namespace: 'cdm.base.math',

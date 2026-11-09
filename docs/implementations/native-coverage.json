@@ -970,11 +970,15 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "1007a2afe9fedd6aa60756f9ff2cea2afde61aa26c8db9e4a58e37fff50fdc59"
+      "sha256": "1d93f7e7af68c33cf45d92116364ab1b870f44ccd05c90d4216194a4d09bf502"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/numbers.ts",
+      "sha256": "e73dfb5e64acbf3876c76f801e225ee268611d034cd02b2e9c0d73c231b909d1"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/rounding.ts",
-      "sha256": "82930d0fc15efb52aff4eb8be6b0283102583dc71436aed14a805dc813d8ccb2"
+      "sha256": "6099a3255cb2703fdf5faf6ca5c7c56320ba133fefb1c920d870b2315d294f74"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/today.ts",
@@ -983,6 +987,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/python/utilities.ts",
       "sha256": "453bfadc5351ad63a2bbefb021ff24cf2bcc910d788a907c6fbdf0e36bf66083"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/vectors.ts",
+      "sha256": "7958e46c8a0cdb899a0be2af708f9881290dafcb7de1f37d2cff2858324b8720"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/LICENSE",
@@ -1017,8 +1025,12 @@
       "sha256": "c04f30ef599b9f825d58ce81e9dc6964180d3a438ca4759c4d1b8f4d8bb22be7"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/decimal.ts",
+      "sha256": "a13cacaec58e3064057b49f75e2b9ffd28d95a8f61b7992a3b3332ba25ee08ff"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
-      "sha256": "5a37e77363c7284e5f6cea10315d6777b32b151b6be6a14505bfd4ee1edc8f40"
+      "sha256": "e7d8dfe0fb0947c5b415e4b0bda2bff9cd47a73c906f121b3e776fc399cd4e6f"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/today.ts",
@@ -1027,6 +1039,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/utilities.ts",
       "sha256": "a9353f374571a418b7147a3254b64b7304754e8720950d631dbabfc093a854ef"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/vectors.ts",
+      "sha256": "f7616e192e82de3e848cd18026e9b0f33033d4301d91e485da37a59cfcf02ba1"
     }
   ],
   "referenceFiles": [
@@ -3423,7 +3439,24 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.vector-growth-operation",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/vectors.ts",
+            "entrypoint": "vectorGrowthOperation",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.vector-growth-operation",
+            "path": "packages/project-runtime/src/curated-implementations/python/vectors.ts",
+            "entrypoint": "vectorGrowthOperation",
+            "dependencies": [
+              "fractions",
+              "itertools"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -3441,10 +3474,17 @@
         ]
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Cumulative products including the initial base; prove collection accumulation and decimal parity before choosing Rune or TS.",
+        "route": "primitive-backed",
+        "requirements": "Exact cumulative decimal multiplication before finite-number output conversion, including the initial base; publication-supplied TypeScript/Python bodies, with optional factors normalized to the Rune empty list.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/vectors.test.ts",
+        "cases": "test/fixtures/third-party/cdm-vectors/cases.json",
+        "casesSha256": "4bf61d97e13ee570ea5b5b9e397010bd5e778c63b5038666300cb5a1a254f0cd",
+        "selectors": [],
+        "caseCount": 12
       }
     },
     {
@@ -3512,7 +3552,24 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.vector-operation",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/vectors.ts",
+            "entrypoint": "vectorOperation",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.vector-operation",
+            "path": "packages/project-runtime/src/curated-implementations/python/vectors.ts",
+            "entrypoint": "vectorOperation",
+            "dependencies": [
+              "fractions",
+              "itertools"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -3527,13 +3584,28 @@
             "path": "rosetta-source/src/test/java/cdm/base/math/functions/VectorOperationImplTest.java",
             "entrypoint": "cdm.base.math.functions.VectorOperationImplTest"
           }
+        ],
+        "dependencies": [
+          {
+            "path": "test/fixtures/third-party/cdm-vectors/java/ArithmeticOpImpl.java",
+            "sha256": "78a6bb7f53adbc91bd440b209075c770bc28b5a4b5337ce557300d18c7923cd8",
+            "entrypoint": "cdm.base.math.functions.ArithmeticOpImpl.operation",
+            "sourceUrl": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar"
+          }
         ]
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Pairwise operations and zero-padding; prove positional pairing, decimal division and arithmetic-error policy.",
+        "route": "primitive-backed",
+        "requirements": "Exact-decimal pairwise arithmetic, 10-place HALF_EVEN division and zero-padding/zero-divisor omission; publication-supplied TypeScript/Python bodies retain finite-number admission.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/vectors.test.ts",
+        "cases": "test/fixtures/third-party/cdm-vectors/cases.json",
+        "casesSha256": "4bf61d97e13ee570ea5b5b9e397010bd5e778c63b5038666300cb5a1a254f0cd",
+        "selectors": [],
+        "caseCount": 61
       }
     },
     {

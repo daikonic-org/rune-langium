@@ -27,3 +27,10 @@ source versions and integrity manifests alongside each cohort.
 - [Currency list](currency-list/README.md): pinned code-to-label currency JSON, upstream license and integrity metadata, exercised through in-memory Rune enum materialization.
 
 - [Complete reference import corpus](reference-example-corpus/README.md): checksum-pinned repository archives and complete discovery/import CI inventory.
+
+## CDM decimal vectors
+
+[`cdm-vectors`](cdm-vectors/README.md) retains CDM 7.9.0 handwritten vector
+implementations/tests, their shared arithmetic helper, original declaration slices
+and upstream notices. Its 73-case optional JVM oracle covers exact vector operations,
+half-even division, zero-divisor omission and cumulative growth.

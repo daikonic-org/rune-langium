@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-const finiteNumber = (name: string) =>
-  `isinstance(${name}, (int, float)) and not isinstance(${name}, bool) and abs(${name}) <= 1.7976931348623157e308`;
+import { finiteNumber, finiteResult } from './numbers.js';
+
 const safeCount = (name: string, minimum = 0) =>
   `isinstance(${name}, (int, float)) and not isinstance(${name}, bool) and ${minimum} <= ${name} <= 9007199254740991 and ${name} == int(${name})`;
 const context = (precision: string) => `decimal.Context(
@@ -23,11 +23,8 @@ function rounding(
     call: true,
     dependencies: ['decimal', ...dependencies],
     expression: `(lambda ${parameters}:
-      (lambda decimal, result: ${operation})(__import__('decimal'),
-        (lambda number: (lambda value: value if abs(value) <= 1.7976931348623157e308 else
-          (_ for _ in ()).throw(OverflowError('Rounding result exceeds the finite number profile.'))
-        )(0.0 if number == 0 else float(number)))
-      ) if ${checks} else (_ for _ in ()).throw(TypeError(${JSON.stringify(admissionMessage)}))
+        (lambda decimal, result: ${operation})(__import__('decimal'), ${finiteResult('Rounding')})
+        if ${checks} else (_ for _ in ()).throw(TypeError(${JSON.stringify(admissionMessage)}))
     )`
   } as const;
 }

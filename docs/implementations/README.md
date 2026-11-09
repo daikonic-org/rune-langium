@@ -13,7 +13,7 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **11
+There are **49 CDM native declarations**, no FpML native declarations, and **13
 language-specific implementations per target**. Nine catalog entries use Rune,
 including five owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
@@ -39,6 +39,8 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | RoundToPrecision | Decimal UP/DOWN/HALF_UP of canonical finite target-number inputs; numeric output does not retain scale or trailing-zero formatting |
 | RoundToNearest | Exact decimal division before UP/DOWN increment rounding; non-terminating quotients remain errors |
 | RoundToSignificantFigures | Decimal significant-digit UP/DOWN/HALF_UP rounding with a positive figure count and explicit finite-result limits |
+| VectorOperation | Pairwise exact decimal operations, zero-padding, 10-place half-even division and zero-divisor pair omission |
+| VectorGrowthOperation | Initial base followed by exact cumulative products, converted only at public output boundaries |
 
 Implementation publication sources live under
 `packages/project-runtime/src/curated-implementations/`. They are selected during
@@ -62,7 +64,7 @@ LocalDate/BigDecimal value or external JVM behavior.
 
 ## Remaining integrations
 
-The **40 functions without language-specific implementations remain tracked**. Two now
+The **36 functions without language-specific implementations remain tracked**. Two now
 have explicit Rune source implementations: `EmptyExecutionDetails` and
 `EmptyTransferHistory`. Their empty results implement their actual clearing
 contracts; they are not generic fallbacks for missing business logic.
@@ -128,11 +130,19 @@ Java decimal values/scales and target numeric results are recorded separately.
 The finite-number API retains signed direction/ties and Rune preconditions;
 overflow results fail explicitly. These catalog entries have no parallel Rune path.
 
+[The vector family](../../test/fixtures/third-party/cdm-vectors/README.md) has
+73 handwritten-Java reference cases. Both targets preserve positional zero-padding,
+10-place half-even division, zero-divisor pair omission and exact cumulative growth
+state. TypeScript shares decimal admission/storage with rounding; Python shares
+finite-number admission/output conversion and uses exact standard-library fractions.
+Rune normalizes absent optional lists to empty; required inputs stay required.
+These two exclusive native entries leave **27 unimplemented catalog entries**.
+
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
 | Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDate(s)`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `CalculationPeriodRange`, `ComputeCalculationPeriod`; explicit holiday data, roll/stub rules, model-version semantics |
-| Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`, `VectorOperation`, `VectorGrowthOperation`; wider decimal representation and day-count parity |
+| Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |
 | Domain construction and execution | Portfolio, reset processing, payout, billing, key creation and commodity schedule functions; authoritative algorithms, explicit external dependencies and fixture workflows |

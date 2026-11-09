@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "artifactManifest": "../cdm-rounding/java-oracle.json",
+  "entrypoint": "CdmRuntimeModule -> VectorOperationImpl / VectorGrowthOperationImpl.evaluate",
+  "files": [
+    {
+      "name": "java/VectorOperationImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/math/functions/VectorOperationImpl.java",
+      "sha256": "839f9eddcdb4d269a9d8c98bcf2120463d13e0cb67a6c6f38cbce346f9d0049d"
+    },
+    {
+      "name": "java/VectorGrowthOperationImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/math/functions/VectorGrowthOperationImpl.java",
+      "sha256": "6b9b2e89fae54c4716dc39b6f44ad5e7ad96be15bf87ea8f484d352258a2a51a"
+    },
+    {
+      "name": "java/ArithmeticOpImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/math/functions/ArithmeticOpImpl.java",
+      "sha256": "78a6bb7f53adbc91bd440b209075c770bc28b5a4b5337ce557300d18c7923cd8"
+    }
+  ]
+}

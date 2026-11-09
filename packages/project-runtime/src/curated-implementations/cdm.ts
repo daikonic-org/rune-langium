@@ -14,6 +14,8 @@ import { utilities as typescriptUtilities } from './typescript/utilities.js';
 import { utilities as pythonUtilities } from './python/utilities.js';
 import * as typescriptRounding from './typescript/rounding.js';
 import * as pythonRounding from './python/rounding.js';
+import * as typescriptVectors from './typescript/vectors.js';
+import * as pythonVectors from './python/vectors.js';
 import { today as typescriptToday } from './typescript/today.js';
 import { today as pythonToday } from './python/today.js';
 import { FunctionImplementationSchema, type FunctionImplementation } from '@rune-langium/core/project-contract';
@@ -39,6 +41,64 @@ interface RuneImplementation {
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  VectorGrowthOperation: {
+    inputs: [
+      {
+        name: 'baseValue',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [1, 1],
+        plain: true
+      },
+      {
+        name: 'factor',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [0, '*'],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'result',
+      type: 'com.rosetta.model.number',
+      kind: 'RosettaBasicType',
+      card: [0, '*'],
+      plain: true
+    }
+  },
+  VectorOperation: {
+    inputs: [
+      {
+        name: 'arithmeticOp',
+        type: 'cdm.base.math.ArithmeticOperationEnum',
+        kind: 'RosettaEnumeration',
+        card: [1, 1],
+        plain: true,
+        enumValues: ['Add', 'Subtract', 'Multiply', 'Divide', 'Max', 'Min']
+      },
+      {
+        name: 'left',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [0, '*'],
+        plain: true
+      },
+      {
+        name: 'right',
+        type: 'com.rosetta.model.number',
+        kind: 'RosettaBasicType',
+        card: [0, '*'],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'result',
+      type: 'com.rosetta.model.number',
+      kind: 'RosettaBasicType',
+      card: [0, '*'],
+      plain: true
+    }
+  },
   RoundToNearest: {
     inputs: [
       {
@@ -411,6 +471,7 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
       {
         name: 'RoundToPrecision',
         id: 'cdm.round-to-precision',
+        module: 'rounding',
         entrypoint: 'roundToPrecision',
         typescript: typescriptRounding.roundToPrecision,
         python: pythonRounding.roundToPrecision
@@ -418,6 +479,7 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
       {
         name: 'RoundToNearest',
         id: 'cdm.round-to-nearest',
+        module: 'rounding',
         entrypoint: 'roundToNearest',
         typescript: typescriptRounding.roundToNearest,
         python: pythonRounding.roundToNearest
@@ -425,12 +487,29 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
       {
         name: 'RoundToSignificantFigures',
         id: 'cdm.round-to-significant-figures',
+        module: 'rounding',
         entrypoint: 'roundToSignificantFigures',
         typescript: typescriptRounding.roundToSignificantFigures,
         python: pythonRounding.roundToSignificantFigures
+      },
+      {
+        name: 'VectorOperation',
+        id: 'cdm.vector-operation',
+        module: 'vectors',
+        entrypoint: 'vectorOperation',
+        typescript: typescriptVectors.vectorOperation,
+        python: pythonVectors.vectorOperation
+      },
+      {
+        name: 'VectorGrowthOperation',
+        id: 'cdm.vector-growth-operation',
+        module: 'vectors',
+        entrypoint: 'vectorGrowthOperation',
+        typescript: typescriptVectors.vectorGrowthOperation,
+        python: pythonVectors.vectorGrowthOperation
       }
     ] as const
-  ).map(({ name, id, entrypoint, typescript, python }): NativeImplementation => ({
+  ).map(({ name, id, module, entrypoint, typescript, python }): NativeImplementation => ({
     kind: 'language-specific',
     id,
     namespace: 'cdm.base.math',
@@ -439,12 +518,12 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
     targets: {
       typescript: {
         ...typescript,
-        path: 'packages/project-runtime/src/curated-implementations/typescript/rounding.ts',
+        path: `packages/project-runtime/src/curated-implementations/typescript/${module}.ts`,
         entrypoint
       },
       python: {
         ...python,
-        path: 'packages/project-runtime/src/curated-implementations/python/rounding.ts',
+        path: `packages/project-runtime/src/curated-implementations/python/${module}.ts`,
         entrypoint
       }
     }

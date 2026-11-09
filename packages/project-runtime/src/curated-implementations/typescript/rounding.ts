@@ -1,22 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-// One decimal admission/rounding policy supplies each self-contained published body.
-const decimalSupport = String.raw`
-    type DecimalNumber = { coefficient: bigint; scale: number; negative: boolean };
-    const decimal = (input: number): DecimalNumber => {
-      if (typeof input !== 'number' || !Number.isFinite(input)) throw new TypeError('Rounding value must be a finite number.');
-      const parts = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(input));
-      if (!parts?.[2]) throw new TypeError('Invalid decimal number.');
-      const fraction = parts[3] ?? '';
-      return { coefficient: BigInt(parts[2] + fraction), scale: fraction.length - Number(parts[4] ?? 0), negative: parts[1] === '-' };
-    };
-    const result = (number: DecimalNumber): number => {
-      if (number.coefficient === 0n) return 0;
-      const value = Number((number.negative ? '-' : '') + number.coefficient.toString() + 'e' + -number.scale);
-      if (!Number.isFinite(value)) throw new RangeError('Rounding result exceeds the finite number profile.');
-      return value;
-    };
+import { decimalSupport } from './decimal.js';
+
+const roundingSupport = String.raw`
     const direction = (mode: string, allowNearest = true): void => {
       if (mode !== 'Up' && mode !== 'Down' && !(allowNearest && mode === 'Nearest')) throw new TypeError('Unsupported rounding direction.');
     };
@@ -39,7 +26,7 @@ export const roundToPrecision = {
   call: true,
   dependencies: [],
   expression: `(value: number, precision: number, mode: 'Up' | 'Down' | 'Nearest', removeTrailingZeros: boolean): number => {
-    ${decimalSupport}${quantization}
+    ${decimalSupport('Rounding')}${roundingSupport}${quantization}
     if (!Number.isSafeInteger(precision) || precision < 0) throw new TypeError('Rounding precision must be a nonnegative safe integer.');
     direction(mode);
     if (typeof removeTrailingZeros !== 'boolean') throw new TypeError('removeTrailingZeros must be a boolean.');
@@ -51,7 +38,7 @@ export const roundToSignificantFigures = {
   call: true,
   dependencies: [],
   expression: `(value: number, significantFigures: number, mode: 'Up' | 'Down' | 'Nearest'): number => {
-    ${decimalSupport}${quantization}
+    ${decimalSupport('Rounding')}${roundingSupport}${quantization}
     if (!Number.isSafeInteger(significantFigures) || significantFigures <= 0) throw new TypeError('Significant figures must be a positive safe integer.');
     direction(mode);
     const number = decimal(value);
@@ -63,7 +50,7 @@ export const roundToNearest = {
   call: true,
   dependencies: [],
   expression: `(value: number, nearest: number, mode: 'Up' | 'Down'): number => {
-    ${decimalSupport}
+    ${decimalSupport('Rounding')}${roundingSupport}
     direction(mode, false);
     const number = decimal(value);
     const increment = decimal(nearest);
