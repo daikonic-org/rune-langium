@@ -51,6 +51,7 @@ const dispatchSuites = await Promise.all(
     'cdm-strike-schedule': 'strike-schedule',
     'cdm-rounding': 'rounding',
     'cdm-vectors': 'vectors',
+    'cdm-calendar': 'calendar',
     'cdm-period-range': 'period-range'
   }).map(async ([directory, testName]) => {
     const base = `test/fixtures/third-party/${directory}`;

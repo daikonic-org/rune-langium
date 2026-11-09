@@ -21,14 +21,21 @@
     }
   ],
   "files": [
+    "packages/project-runtime/src/curated-implementations/rune/add-days.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
-    "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta"
+    "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta"
   ],
   "functions": [
     {
@@ -39,8 +46,9 @@
         "name": "AddDays"
       },
       "signatureSha256": "5dc932980cd45a3d9f5f4b6464ad0a411836fec97a6addd77ed781293085c986",
-      "route": "primitive-backed",
-      "requirements": "Date arithmetic; retain the verified Gregorian/Temporal contract or prove a Rune algorithm."
+      "route": "rune-source",
+      "requirements": "Signed Gregorian calendar-day addition in Rune with bounded era inversion and the existing date constructor.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/add-days.rosetta"
     },
     {
       "symbol": {
@@ -61,8 +69,9 @@
         "name": "DateDifference"
       },
       "signatureSha256": "8ec569aaaf84f0f1038aed9065f705a17f509566afe2be72bb80117878328184",
-      "route": "primitive-backed",
-      "requirements": "Signed Gregorian calendar-day arithmetic; existing native primitive can support Rune callers."
+      "route": "rune-source",
+      "requirements": "Use Rune date subtraction for the signed second-minus-first calendar-day count.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta"
     },
     {
       "symbol": {
@@ -72,8 +81,9 @@
         "name": "DayOfWeek"
       },
       "signatureSha256": "16efe6a69807095cdc25f759e82a28cb65ffa21fc5d8091f67f476a6a2513b93",
-      "route": "primitive-backed",
-      "requirements": "Gregorian weekday calculation or a shared date primitive; no external data required."
+      "route": "rune-source",
+      "requirements": "Derive MON through SUN using a signed Gregorian offset from a Monday and a nonnegative remainder.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta"
     },
     {
       "symbol": {
@@ -83,8 +93,9 @@
         "name": "LeapYearDateDifference"
       },
       "signatureSha256": "8ec569aaaf84f0f1038aed9065f705a17f509566afe2be72bb80117878328184",
-      "route": "primitive-backed",
-      "requirements": "Count days falling in leap years, including signed ranges; prove a Rune algorithm or reuse the primitive."
+      "route": "rune-source",
+      "requirements": "Subtract leap-year day prefixes, including every day in a leap year, with sign reversal.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta"
     },
     {
       "symbol": {
@@ -117,8 +128,17 @@
         "name": "ResolveAdjustableDate"
       },
       "signatureSha256": "c6c99ec21405f999089a7da2ed903271c1b174498bd3c3e0a86b7f2643561ab9",
-      "route": "data-backed",
-      "requirements": "Adjustment/relative-date rules in Rune; supplied calendars and date primitives underneath."
+      "route": "rune-source",
+      "requirements": "Preserve supplied adjusted values and apply the handwritten CDM adapter’s Saturday/Sunday conventions to explicit unadjusted dates. Relative offsets without an adjusted value remain unresolved.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-calendar/java/AdjustableDateUtils.java",
+          "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d",
+          "entrypoint": "cdm.product.common.schedule.functions.AdjustableDateUtils.adjustDate",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar"
+        }
+      ]
     },
     {
       "symbol": {

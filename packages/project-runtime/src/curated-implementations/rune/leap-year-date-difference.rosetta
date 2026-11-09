@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.base.datetime
+version "1.0.0"
+
+import impl.cdm.calendar.*
+
+func LeapYearDateDifference:
+    inputs:
+        firstDate date (1..1)
+        secondDate date (1..1)
+    output: difference int (1..1)
+    set difference: GregorianLeapDayIndex(secondDate) - GregorianLeapDayIndex(firstDate)

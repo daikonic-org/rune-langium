@@ -41,6 +41,24 @@ interface RuneImplementation {
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  ResolveAdjustableDate: {
+    inputs: [
+      {
+        name: 'adjustableOrRelativeDate',
+        type: 'cdm.base.datetime.AdjustableOrRelativeDate',
+        kind: 'Data',
+        card: [1, 1],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'adjustedDate',
+      type: 'com.rosetta.model.date',
+      kind: 'RosettaRecordType',
+      card: [0, 1],
+      plain: true
+    }
+  },
   CalculationPeriodRange: {
     inputs: [
       { name: 'startDate', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [0, 1], plain: true },
@@ -567,13 +585,23 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
       }
     }
   },
-  utility('AddDays'),
-  utility('DateDifference'),
-  utility('LeapYearDateDifference'),
-  utility('DayOfWeek'),
   utility('ToTime'),
   utility('Now'),
   utility('StringContains', 'cdm.ingest.fpml.confirmation.common'),
+  ...[
+    { name: 'AddDays', path: 'add-days.rosetta', support: ['gregorian.rosetta'] },
+    { name: 'DateDifference', path: 'date-difference.rosetta', support: [] },
+    { name: 'LeapYearDateDifference', path: 'leap-year-date-difference.rosetta', support: ['gregorian.rosetta'] },
+    { name: 'DayOfWeek', path: 'day-of-week.rosetta', support: [] },
+    { name: 'ResolveAdjustableDate', path: 'resolve-adjustable-date.rosetta', support: ['weekend-adjustment.rosetta'] }
+  ].map(({ name, path, support }): RuneImplementation => ({
+    kind: 'rune',
+    namespace: 'cdm.base.datetime',
+    name,
+    signature: signatures[name]!,
+    path,
+    files: [...support, path]
+  })),
   {
     kind: 'rune',
     namespace: 'cdm.event.common',

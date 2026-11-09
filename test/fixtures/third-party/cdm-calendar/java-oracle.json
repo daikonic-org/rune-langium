@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "artifactManifest": "../cdm-rounding/java-oracle.json",
+  "artifacts": [
+    {
+      "name": "joda-convert-2.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-convert/2.0/joda-convert-2.0.jar",
+      "sha256": "98080752aff1f3c56885b71afd475528e6fc52fe2d21d2450bd2573c93ed8e9e",
+      "runtime": true
+    }
+  ],
+  "files": [
+    {
+      "name": "java/AddDaysImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/datetime/functions/AddDaysImpl.java",
+      "sha256": "55d2432fcb59fa32a9558a1783187acd8583bf42870cfc7bc5e0d52936baeb39"
+    },
+    {
+      "name": "java/DateDifferenceImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/datetime/functions/DateDifferenceImpl.java",
+      "sha256": "cbe41dfd13f6728c999e5d94d91fae01a4973bfb2dd232855fb57cb643b7f937"
+    },
+    {
+      "name": "java/DayOfWeekImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/datetime/functions/DayOfWeekImpl.java",
+      "sha256": "7cbdd5f496fe2893f7c7fe1caefdd92830db8d0be83f05d0e7f4597aa2cc7ed6"
+    },
+    {
+      "name": "java/LeapYearDateDifferenceImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/datetime/functions/LeapYearDateDifferenceImpl.java",
+      "sha256": "6f2872bb0102a43046dfcff23b41f59c5539c81a5a32fac4a7a0f739aa69c82d"
+    },
+    {
+      "name": "java/ResolveAdjustableDateImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/datetime/functions/ResolveAdjustableDateImpl.java",
+      "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
+    },
+    {
+      "name": "java/AdjustableDateUtils.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/product/common/schedule/functions/AdjustableDateUtils.java",
+      "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d"
+    }
+  ]
+}

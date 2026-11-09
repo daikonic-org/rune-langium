@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.calendar.adjustments
+version "1.0.0"
+
+import cdm.base.datetime.*
+
+func AdjustWeekendDate: <"Apply CDM's weekend-only date convention, matching the CDM 7.9.0 Java adapter's Saturday/Sunday calendar.">
+    inputs:
+        value date (1..1)
+        convention BusinessDayConventionEnum (1..1)
+    output: adjusted date (1..1)
+
+    alias weekday: DayOfWeek(value)
+    alias saturday: weekday = DayOfWeekEnum -> SAT
+    alias sunday: weekday = DayOfWeekEnum -> SUN
+    alias following: if saturday then 2 else if sunday then 1 else 0
+    alias preceding: if saturday then -1 else if sunday then -2 else 0
+    alias offset:
+        if convention = BusinessDayConventionEnum -> FOLLOWING or convention = BusinessDayConventionEnum -> MODFOLLOWING then following
+        else if convention = BusinessDayConventionEnum -> PRECEDING or convention = BusinessDayConventionEnum -> MODPRECEDING then preceding
+        else if convention = BusinessDayConventionEnum -> NEAREST then if saturday then preceding else following
+        else 0
+    alias candidate: if offset = 0 then value else AddDays(value, offset)
+    alias modified:
+        convention = BusinessDayConventionEnum -> MODFOLLOWING or convention = BusinessDayConventionEnum -> MODPRECEDING
+    set adjusted:
+        if modified and candidate -> month <> value -> month
+        then AddDays(value, if offset > 0 then preceding else following)
+        else candidate

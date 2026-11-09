@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.base.datetime
+version "1.0.0"
+
+import impl.cdm.calendar.*
+
+func AddDays:
+    inputs:
+        inputDate date (1..1)
+        numDays int (1..1)
+    output: resultDate date (1..1)
+
+    // A numeric spelling distinguishes booleans from integers in Python.
+    condition WholeDays:
+        numDays = (numDays to-string to-int)
+    set resultDate: GregorianShiftDate(inputDate, numDays)

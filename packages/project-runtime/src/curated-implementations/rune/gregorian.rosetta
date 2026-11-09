@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.calendar
+version "1.0.0"
+
+func GregorianFloorDivide: <"Integer floor division for a positive divisor and a numerator in the signed 30-bit range.">
+    inputs:
+        numerator int (1..1)
+        divisor int (1..1)
+    output: quotient int (1..1)
+
+    // For negative n, floor(n/d) is -1 - floor((-1-n)/d).
+    alias magnitude: if numerator >= 0 then numerator else -1 - numerator
+    alias positiveQuotient:
+        if magnitude < divisor then 0
+        else [0, 268435456, 134217728, 67108864, 33554432, 16777216, 8388608,
+            4194304, 2097152, 1048576, 524288, 262144, 131072, 65536, 32768,
+            16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1]
+            reduce total, step [if (total + step) * divisor <= magnitude then total + step else total]
+    condition CalendarIntegers:
+        numerator >= -536870912 and numerator < 536870912 and divisor > 0
+    set quotient: if numerator >= 0 then positiveQuotient else -1 - positiveQuotient
+
+func GregorianDayIndex: <"Signed days since March 1 of year zero in the proleptic Gregorian calendar.">
+    inputs: value date (1..1)
+    output: dayIndex int (1..1)
+    set dayIndex: value - date { year: 0, month: 3, day: 1 }
+
+func GregorianDateAt: <"Invert the March-based day index in 400-year Gregorian eras.">
+    inputs: dayIndex int (1..1)
+    output: value date (1..1)
+
+    alias era: GregorianFloorDivide(dayIndex, 146097)
+    alias dayInEra: dayIndex - era * 146097
+    alias yearInEra:
+        GregorianFloorDivide(dayInEra - GregorianFloorDivide(dayInEra, 1460)
+            + GregorianFloorDivide(dayInEra, 36524) - GregorianFloorDivide(dayInEra, 146096), 365)
+    alias marchYear: era * 400 + yearInEra
+    alias dayInYear: dayInEra - (365 * yearInEra + GregorianFloorDivide(yearInEra, 4) - GregorianFloorDivide(yearInEra, 100))
+    alias marchMonth: GregorianFloorDivide(5 * dayInYear + 2, 153)
+    alias monthNumber: if marchMonth < 10 then marchMonth + 3 else marchMonth - 9
+    condition SupportedDayIndex:
+        dayIndex >= -365242500 and dayIndex < 365242500
+    set value: date {
+        year: if monthNumber <= 2 then marchYear + 1 else marchYear,
+        month: monthNumber,
+        day: dayInYear - GregorianFloorDivide(153 * marchMonth + 2, 5) + 1
+    }
+
+func GregorianShiftDate: <"Shift a date by a signed whole number of days.">
+    inputs:
+        value date (1..1)
+        days int (1..1)
+    output: shifted date (1..1)
+
+    alias dayOfMonth: (value -> day) + days
+    // Days 1 through 28 are valid in every Gregorian month.
+    set shifted:
+        if dayOfMonth >= 1 and dayOfMonth <= 28
+        then date { year: value -> year, month: value -> month, day: dayOfMonth }
+        else GregorianDateAt(GregorianDayIndex(value) + days)
+
+func GregorianLeapDayIndex: <"Count all days in leap years preceding the supplied date, relative to the start of year one.">
+    inputs: value date (1..1)
+    output: leapDayIndex int (1..1)
+
+    alias yearNumber: value -> year
+    alias previousYear: yearNumber - 1
+    alias previousLeapYears:
+        GregorianFloorDivide(previousYear, 4) - GregorianFloorDivide(previousYear, 100) + GregorianFloorDivide(previousYear, 400)
+    alias leapYear:
+        (yearNumber / 4) to-int exists and ((yearNumber / 100) to-int is absent or (yearNumber / 400) to-int exists)
+    alias daysInCurrentYear:
+        if leapYear then value - date { year: yearNumber, month: 1, day: 1 } else 0
+    set leapDayIndex: 366 * previousLeapYears + daysInCurrentYear

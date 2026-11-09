@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.base.datetime
+version "1.0.0"
+
+func DayOfWeek:
+    inputs: date date (1..1)
+    output: dayOfWeek DayOfWeekEnum (1..1)
+
+    alias sinceMonday: date - date { year: 1970, month: 1, day: 5 }
+    // Exactly one residue gives an integer quotient, including before the anchor.
+    alias weekday:
+        [0, 1, 2, 3, 4, 5, 6]
+            filter remainder [((sinceMonday - remainder) / 7) to-int exists]
+            then only-element
+    set dayOfWeek: weekday switch
+        0 then DayOfWeekEnum -> MON,
+        1 then DayOfWeekEnum -> TUE,
+        2 then DayOfWeekEnum -> WED,
+        3 then DayOfWeekEnum -> THU,
+        4 then DayOfWeekEnum -> FRI,
+        5 then DayOfWeekEnum -> SAT,
+        default DayOfWeekEnum -> SUN

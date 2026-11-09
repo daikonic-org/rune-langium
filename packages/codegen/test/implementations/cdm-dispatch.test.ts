@@ -12,7 +12,7 @@ import { generatePythonModule } from '../../src/projection/python-functions.js';
 import { referenceFiles } from '../helpers/cdm-reference.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 import { runPython } from '../projection/python-test-utils.js';
-import { installPublishedNativeImplementations } from '../../../../test/helpers/curated-implementations.js';
+import { publishedRuneFiles } from '../../../../test/helpers/curated-implementations.js';
 
 const directory = resolve(import.meta.dirname, '../../../../test/fixtures/third-party/cdm-dispatch');
 interface Case {
@@ -31,12 +31,13 @@ const cases: Case[] = JSON.parse(readFileSync(resolve(directory, 'cases.json'), 
 let docs: LangiumDocument[];
 beforeAll(async () => {
   const { RuneDsl } = createRuneDslServices();
-  docs = referenceFiles(directory).map((file) =>
-    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(file.content, URI.parse(file.uri))
-  );
+  docs = [
+    ...referenceFiles(directory),
+    ...publishedRuneFiles('cdm.base.datetime', ['DateDifference', 'LeapYearDateDifference'])
+  ].map((file) => RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(file.content, URI.parse(file.uri)));
+  for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { eagerLinking: true });
   assertValidDocuments(docs);
-  installPublishedNativeImplementations(docs);
 });
 const args = (test: Case) =>
   test.function === 'DayCountBasis'

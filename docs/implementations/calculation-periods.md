@@ -34,7 +34,7 @@ and `TEST_B` are synthetic centers with explicitly listed dates. Its empty `GBLO
 branch is only for the finite dates in the upstream Java test; it is not a London
 holiday calendar. Unknown centers fail a named condition. Prototype's regression
 journey uses a verified, publication-produced multi-document bundle for the
-upstream closure and native date helpers, with the calendar supplied as editable
+upstream closure and Rune date helpers, with the calendar supplied as editable
 workspace Rune source.
 
 The managed Prototype journey also exposed a shared declaration-selection bug:
@@ -48,6 +48,24 @@ as `int` must use the target profile's native type at function boundaries and av
 imports for omitted built-ins; Temporal constructors can yield absence and must
 use ordinary presence/cardinality shaping when placed in a list. Both fixes reuse
 the existing profile and expression-presence machinery without casts.
+
+## Gregorian arithmetic and weekend adjustment
+
+The curated bundle installs four calendar overrides under the original
+`cdm.base.datetime` names. `DateDifference` uses Rune date subtraction.
+`impl.cdm.calendar` provides the bounded 400-year era calculation for
+`AddDays` and a signed leap-year day prefix. Same-month offsets that land
+on days 1–28 construct the date directly. `DayOfWeek` checks seven possible
+remainders from a known Monday. The original TypeScript/Python payloads remain
+readable in previously published bundles.
+
+`ResolveAdjustableDate` preserves an explicitly adjusted date and uses the
+weekend adapter under `impl.cdm.calendar.adjustments` for an unadjusted date.
+The pinned Java helper uses Saturday/Sunday holidays. Modified conventions
+reverse direction when the first adjustment crosses a month. Relative
+offsets without a supplied adjusted date return absence. The
+[calendar fixture](../../test/fixtures/third-party/cdm-calendar/README.md)
+compares both generated targets with the published handwritten Java bodies.
 
 ## Range construction from supplied dates
 

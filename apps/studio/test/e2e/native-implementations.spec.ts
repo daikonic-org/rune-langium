@@ -23,39 +23,13 @@ import { strikeScheduleDirectory, strikeScheduleCaller } from '../../../../test/
 import { roundingDirectory, roundingCaller } from '../../../../test/helpers/cdm-rounding.js';
 import { vectorDirectory, vectorCaller } from '../../../../test/helpers/cdm-vectors.js';
 import { periodRangeDirectory, periodRangeCaller } from '../../../../test/helpers/cdm-period-range.js';
-const content = `namespace cdm.base.datetime
-func AddDays:
- [codeImplementation]
- inputs:
-  inputDate date (1..1)
-  numDays int (1..1)
- output: resultDate date (1..1)
-func DateDifference:
- [codeImplementation]
- inputs:
-  firstDate date (1..1)
-  secondDate date (1..1)
- output: difference int (1..1)
-`;
+import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-calendar.js';
+
 for (const width of [1440, 390])
   test(`executes calendar implementations delivered with the curated bundle at ${width}px`, async ({ page }, info) => {
-    const fixture = await createReferenceArtifacts(
-      undefined,
-      undefined,
-      { cdm: content },
-      'https://www.daikonic.dev/curated',
-      true
-    );
-    const resolved = await resolveProjectReferences(
-      fixture.snapshot,
-      fixture.transport,
-      new AbortController().signal,
-      createMemoryReferenceCache()
-    );
-    expect(resolved.diagnostics).toEqual([]);
-    expect(resolved.lock).toBeDefined();
+    const project = await createCuratedRuneProject(calendarDirectory, calendarCaller);
     await page.route('https://www.daikonic.dev/curated/**', async (route) => {
-      const bytes = fixture.artifacts.get(route.request().url());
+      const bytes = project.fixture.artifacts.get(route.request().url());
       if (!bytes) return route.fulfill({ status: 404 });
       await route.fulfill({
         body: Buffer.from(bytes),
@@ -71,10 +45,7 @@ for (const width of [1440, 390])
       mimeType: 'text/plain'
     });
     await expect(page.getByTestId('explore-workbench')).toBeVisible();
-    await seedProjectBackingFiles(page, {
-      ...Object.fromEntries(fixture.snapshot.files),
-      'build-config.lock.json': JSON.stringify(resolved.lock, null, 2) + '\n'
-    });
+    await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
     await page.getByTestId('rail-prototype').click();
     await page.getByRole('button', { name: /^Choose a function/ }).click();
     await page.getByRole('option', { name: /^AddDays.*cdm.base.datetime/ }).click();
@@ -91,13 +62,21 @@ for (const width of [1440, 390])
     await expect(execute).toBeEnabled();
     await execute.click();
     await expect(page.getByRole('region', { name: 'difference output' })).toContainText('-2');
+    await page.getByRole('button', { name: /^Choose a function:/ }).click();
+    await page.getByRole('option', { name: /^AdjustWeekend.*example.calendar/ }).click();
+    await page.getByLabel('Value', { exact: true }).fill('2024-08-31');
+    await page.getByRole('combobox', { name: 'Convention', exact: true }).click();
+    await page.getByRole('option', { name: 'MODFOLLOWING', exact: true }).click();
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'adjusted output' })).toContainText('2024-08-30');
     await dismissLocalTransportNotices(page);
     expect(
       (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
     ).toEqual([]);
     expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(width);
-    await info.attach('native-calendar-workflow', {
-      body: await page.screenshot({ path: info.outputPath('native-calendar.png') }),
+    await info.attach('rune-calendar-workflow', {
+      body: await page.screenshot({ path: info.outputPath('rune-calendar.png') }),
       contentType: 'image/png'
     });
   });
