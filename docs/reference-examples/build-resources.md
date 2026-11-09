@@ -76,10 +76,11 @@ registry; historical values stay selectable. Empty lists retain the existing
 never-value bindings for TypeScript, Zod and JSON Schema; other resource targets
 remain explicitly unavailable for that case.
 
-The existing guard still rejects constrained/parameterized aliases. Materializing
-an enum does not erase a Rune condition, implement `LoadCodeList(domain)`, choose
-an upstream version, or publish additional curated artifacts. Those integrations
-remain open under #645.
+The existing guard still rejects constrained or parameterized aliases. An
+explicit mapping chooses the file and preserves its version and provenance.
+The [bundled CDM loader](../implementations/curated-bundles.md) separately supplies
+full `CodeList` values to the original Rune validator from the release archive.
+Automatic selection for constrained aliases remains open under #645.
 
 ## Explicit resource mapping
 

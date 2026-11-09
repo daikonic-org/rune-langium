@@ -1,0 +1,4 @@
+namespace com.rosetta.model
+version "${project.version}"
+
+annotation codeImplementation: <"Marks the function as statically implemented by model internal code, with no body defined in Rune.">

@@ -10,11 +10,16 @@ import {
   loadLockedReferences
 } from '../../packages/project-runtime/src/references/index.js';
 import { prepareCuratedImplementationSources } from '../../packages/project-runtime/src/curated-implementations/install.js';
+import type { CdmCodeListCatalog } from '../../packages/project-runtime/src/curated-implementations/code-list-resources.js';
 import { referenceModelSources } from '../../packages/codegen/test/helpers/cdm-reference.js';
 import { createReferenceArtifacts, repository } from './project-reference-artifacts.js';
 
 /** Shared fixture transport: publish, verify and install a pinned multi-model Rune implementation. */
-export async function createCuratedRuneProject(directory: string, caller: { uri: string; content: string }) {
+export async function createCuratedRuneProject(
+  directory: string,
+  caller: { uri: string; content: string },
+  codeLists?: CdmCodeListCatalog
+) {
   const modelSources = referenceModelSources(directory);
   const manifest: { sources: { model: string; release: string }[] } = JSON.parse(
     readFileSync(resolve(directory, 'sources.json'), 'utf8')
@@ -43,7 +48,8 @@ export async function createCuratedRuneProject(directory: string, caller: { uri:
     definitions,
     modelSources,
     'https://www.daikonic.dev/curated',
-    true
+    true,
+    codeLists
   );
   const cache = createMemoryReferenceCache();
   const signal = new AbortController().signal;

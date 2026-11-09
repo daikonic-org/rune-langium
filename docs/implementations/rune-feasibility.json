@@ -288,7 +288,7 @@
       },
       "signatureSha256": "b740a22b34402bd75006f6e55622427cd9629667ed9dcfc5787fb668fc4ab28d",
       "route": "data-backed",
-      "requirements": "Filter/construct CodeList from prepared resources; reuse #645 resolution instead of fetching a scheme URI."
+      "requirements": "Domain lookup and validation can use Rune once versioned data is supplied. Publication prepares the pinned CDM classpath resources for standalone targets; explicitly mapped code-list aliases remain Rune enums."
     },
     {
       "symbol": {

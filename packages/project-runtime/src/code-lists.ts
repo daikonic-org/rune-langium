@@ -14,29 +14,36 @@ const entry = z.object({
   effectiveDate: date.optional(),
   deprecatedDate: date.optional()
 });
-const cdm = z
-  .object({
-    identification: z
-      .object({
-        shortName: text,
-        version: text,
-        canonicalUri: text.regex(/^[a-zA-Z][a-zA-Z\d+.-]*:/),
-        canonicalVersionUri: text.optional()
-      })
-      .passthrough(),
-    codes: z.array(
-      z
-        .object({
-          value: text,
-          description: text.optional(),
-          source: text.optional(),
-          effectiveDate: date.optional(),
-          deprecatedDate: date.optional()
-        })
-        .passthrough()
-    )
-  })
-  .passthrough();
+const cdmCode = entry.omit({ label: true });
+const cdmIdentity = z.object({
+  shortName: text,
+  version: text,
+  canonicalUri: text.regex(/^[a-zA-Z][a-zA-Z\d+.-]*:/),
+  canonicalVersionUri: text.optional()
+});
+const cdm = z.object({
+  identification: cdmIdentity.passthrough(),
+  codes: z.array(cdmCode.passthrough())
+});
+const curatedCdm = z.object({
+  identification: cdmIdentity
+    .extend({
+      description: text.optional(),
+      publicationDate: text.optional(),
+      codeShortId: text.optional(),
+      locationUri: text.optional()
+    })
+    .partial({ shortName: true, canonicalUri: true, version: true }),
+  codes: z.array(cdmCode).default([])
+});
+
+/** Preserve the published object for function results, including metadata-only lists. */
+export function decodeCuratedCdmCodeList(content: string, filenameVersion: string) {
+  const { identification, codes } = curatedCdm.parse(JSON.parse(content));
+  const { shortName, canonicalUri, version = filenameVersion } = identification;
+  if (!shortName || !canonicalUri) return undefined;
+  return { identification: { ...identification, shortName, canonicalUri, version }, codes };
+}
 export interface CodeListExpectation {
   format: 'json' | 'cdm-json';
   canonicalUri?: string;

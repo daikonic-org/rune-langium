@@ -13,6 +13,7 @@ import { createProjectSnapshot } from '@rune-langium/project-config';
 import { isRosettaModel, isRosettaEnumeration } from '@rune-langium/core';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { decodeProjectCodeList, readReferenceCodeList } from '../src/code-lists.js';
+import { prepareCdmCodeLists } from '../src/curated-implementations/code-list-resources.js';
 import { resolveProjectResource } from '../src/resources.js';
 const base = new URL('../../../test/fixtures/third-party/cdm-codelists/', import.meta.url);
 const text = readFileSync(new URL('option-type-1-0.json', base), 'utf8');
@@ -101,6 +102,14 @@ it('decodes real CDM lists and retains descriptions, dates and distinct version 
   expect(() => decodeProjectCodeList(text, { ...expected, version: '2-0' })).toThrow(/version differs/);
   expect(() => decodeProjectCodeList(text, { ...expected, canonicalUri: 'urn:other' })).toThrow(/scheme URI differs/);
   expect(() => decodeProjectCodeList(text)).toThrow();
+});
+it('rejects competing published versions of a case-insensitive domain', () => {
+  const root = 'common-domain-model/rosetta-source/src/main/resources/codelist/json/';
+  const first = { path: root + 'option-type-1-0.json', content: text };
+  expect(prepareCdmCodeLists([first]).get('option-type')?.identification.version).toBe('1-0');
+  expect(() => prepareCdmCodeLists([first, { path: root + 'OPTION-TYPE-2-0.json', content: text }])).toThrow(
+    'Ambiguous CDM code-list domain: option-type'
+  );
 });
 it('retains deprecation metadata without silently dropping historical values and rejects duplicate/bad dates', () => {
   const value = { value: 'old', label: 'Old', deprecatedDate: '2020-01-01' };

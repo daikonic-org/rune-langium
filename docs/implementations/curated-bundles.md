@@ -57,6 +57,15 @@ retain the existing finite `number`/`float` API, so decimal scale formatting and
 arbitrary BigDecimal precision remain outside their contract. See the
 [pinned rounding corpus](../../test/fixtures/third-party/cdm-rounding/README.md).
 
+The CDM publisher also reads `codelist/json` from the same pinned source archive.
+It prepares a case-insensitive domain catalog before serializing the native
+`LoadCodeList` targets. Each target returns a fresh `CodeList` from those bytes.
+Scheme URIs are identifiers. No target dereferences them or needs access to the
+source archive at execution time. Duplicate domains fail publication. Source
+resource hashes and the original license and notice remain in the inventory and
+archive. See the [pinned code-list fixture](../../test/fixtures/third-party/cdm-code-list-loader/README.md)
+for the Java comparisons and the supported metadata-only case.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

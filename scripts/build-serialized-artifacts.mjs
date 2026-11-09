@@ -22,6 +22,10 @@ import { computeNamespaceGraph, nsArtifactSlug } from './lib/namespace-graph.mjs
 import { resolveCuratedSources } from './lib/curated-sources.mjs';
 import { isCuratedSourceFile } from '../packages/curated-schema/dist/index.js';
 import { publishCuratedImplementations } from '../packages/project-runtime/dist/curated-implementations/publication.js';
+import {
+  cdmCodeListResource,
+  prepareCdmCodeLists
+} from '../packages/project-runtime/dist/curated-implementations/code-list-resources.js';
 
 const corePkgDir = new URL('../packages/core/', import.meta.url);
 const langiumIndex = new URL('node_modules/langium/lib/index.js', corePkgDir);
@@ -86,10 +90,11 @@ function readTarString(block, start, end) {
   return new TextDecoder('utf-8').decode(sub.subarray(0, last));
 }
 
-function extractRosettaFiles(tarGzBytes) {
+function extractCuratedFiles(tarGzBytes, modelId) {
   const tar = new Uint8Array(gunzipSync(Buffer.from(tarGzBytes)));
   const decoder = new TextDecoder('utf-8');
-  const files = [];
+  const rosettaFiles = [];
+  const codeListFiles = [];
   const BLOCK = 512;
   let offset = 0;
 
@@ -109,14 +114,19 @@ function extractRosettaFiles(tarGzBytes) {
     offset += BLOCK;
     const dataBlocks = Math.ceil(size / BLOCK);
 
-    if ((typeflag === '0' || typeflag === '\0' || typeflag === '') && path.endsWith('.rosetta')) {
-      files.push({ path, content: decoder.decode(tar.subarray(offset, offset + size)) });
+    if (typeflag === '0' || typeflag === '\0' || typeflag === '') {
+      const files = isCuratedSourceFile(modelId, path)
+        ? rosettaFiles
+        : modelId === 'cdm' && cdmCodeListResource(path)
+          ? codeListFiles
+          : undefined;
+      if (files) files.push({ path, content: decoder.decode(tar.subarray(offset, offset + size)) });
     }
 
     offset += dataBlocks * BLOCK;
   }
 
-  return files;
+  return { rosettaFiles, codeListFiles };
 }
 
 function stampNamespacesIntoModelJson(modelJson, namespace, bigIntReplacer) {
@@ -133,11 +143,12 @@ function stampNamespacesIntoModelJson(modelJson, namespace, bigIntReplacer) {
   return JSON.stringify(parsed, bigIntReplacer);
 }
 
-async function buildArtifact(source, archiveBytes, RuneDsl, documentMap) {
+async function buildArtifact(source, files, RuneDsl, documentMap) {
   const { serializeRuneModel, runeBigIntReplacer, namespaceFromModelName } =
     await import('../packages/core/dist/index.js');
 
-  const rosettaFiles = extractRosettaFiles(archiveBytes).filter((file) => isCuratedSourceFile(source.id, file.path));
+  const { rosettaFiles, codeListFiles } = files;
+  const codeLists = source.id === 'cdm' ? prepareCdmCodeLists(codeListFiles) : undefined;
   console.log(`  Found ${rosettaFiles.length} .rosetta files`);
   if (rosettaFiles.length === 0) throw new Error(`${source.id}: no .rosetta files`);
 
@@ -185,10 +196,12 @@ async function buildArtifact(source, archiveBytes, RuneDsl, documentMap) {
           }
         }
         const ns = namespaceFromModelName(model.name);
-        const rawModelJson = await publishCuratedImplementations(model, serializeRuneModel(serializer, model), {
-          model: source.id,
-          commit: source.commit
-        });
+        const rawModelJson = await publishCuratedImplementations(
+          model,
+          serializeRuneModel(serializer, model),
+          { model: source.id, commit: source.commit },
+          codeLists
+        );
         return {
           path: rosettaFiles[i].path,
           content: rosettaFiles[i].content,
@@ -219,21 +232,22 @@ async function main() {
   const archives = new Map(
     await Promise.all(SOURCES.map(async (source) => [source.id, await downloadArchive(source)]))
   );
+  const filesByModel = new Map(
+    SOURCES.map((source) => [source.id, extractCuratedFiles(archives.get(source.id), source.id)])
+  );
   const { RuneDsl } = createRuneDslServices();
   const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
   const documentMap = new Map(
     SOURCES.flatMap((source) =>
-      extractRosettaFiles(archives.get(source.id))
-        .filter((file) => isCuratedSourceFile(source.id, file.path))
-        .map((file) => {
-          const document = factory.fromString(file.content, URI.parse(`[${source.id}]/${file.path}`));
-          return [
-            `${source.id}/${file.path}`,
-            source.id === 'rune-dsl' && file.path.endsWith('/annotations.rosetta')
-              ? addLegacyAnnotations(document, factory)
-              : document
-          ];
-        })
+      filesByModel.get(source.id).rosettaFiles.map((file) => {
+        const document = factory.fromString(file.content, URI.parse(`[${source.id}]/${file.path}`));
+        return [
+          `${source.id}/${file.path}`,
+          source.id === 'rune-dsl' && file.path.endsWith('/annotations.rosetta')
+            ? addLegacyAnnotations(document, factory)
+            : document
+        ];
+      })
     )
   );
   const documents = [...documentMap.values()];
@@ -253,7 +267,7 @@ async function main() {
       const archiveSha = sha256Hex(archiveBytes);
       console.log(`  Archive: ${archiveBytes.byteLength} bytes, SHA: ${archiveSha.slice(0, 16)}...`);
 
-      const result = await buildArtifact(source, archiveBytes, RuneDsl, documentMap);
+      const result = await buildArtifact(source, filesByModel.get(source.id), RuneDsl, documentMap);
       console.log(`  Artifact: ${result.sizeBytes} bytes, ${result.documentCount} documents`);
 
       await writeFile(`${outDir}/latest.serialized.json.gz`, result.bytes);

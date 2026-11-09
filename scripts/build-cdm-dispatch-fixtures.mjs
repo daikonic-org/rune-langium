@@ -52,6 +52,22 @@ const suites = [
     references: ['CalculateCommodityCalculationPeriods']
   },
   {
+    directory: 'cdm-code-list-loader',
+    declarations: ['LoadCodeList', 'ValidateFpMLCodingSchemeDomain'].map((name) => ({
+      namespace: 'cdm.base.staticdata.codelist',
+      name,
+      kind: 'RosettaFunction'
+    })),
+    references: ['LoadCodeList', 'ValidateFpMLCodingSchemeDomain'],
+    resources: [
+      'credit-event-type-1-0.json',
+      'currency-1-0.json',
+      'loan-legal-action-type-1-0.json',
+      'option-type-1-0.json',
+      'set-of-schemes-2-20.json'
+    ]
+  },
+  {
     directory: 'cdm-period-range',
     declarations: [
       { namespace: 'cdm.product.common.schedule', name: 'CalculationPeriodRange', kind: 'RosettaFunction' },
@@ -171,7 +187,12 @@ for (const suite of suites) {
   for (const path of suite.supportReferences ?? []) javaPaths.add(path);
   const assets = [
     ...inventory.notices.filter((entry) => files.some((file) => file.upstream.model === entry.model)),
-    ...inventory.referenceFiles.filter((entry) => javaPaths.has(entry.path))
+    ...inventory.referenceFiles.filter((entry) => javaPaths.has(entry.path)),
+    ...(suite.resources ?? []).map((name) => {
+      const asset = inventory.resourceFiles.find((entry) => basename(entry.path) === name);
+      if (!asset) throw new Error('Missing pinned fixture resource: ' + name);
+      return asset;
+    })
   ];
   for (const asset of assets) {
     const source = sources.find((entry) => entry.model === asset.model);
@@ -183,7 +204,9 @@ for (const suite of suites) {
       throw new Error('Dispatch reference checksum mismatch: ' + asset.path);
     const name = asset.path.endsWith('.java')
       ? 'java/' + basename(asset.path)
-      : asset.model + '-' + basename(asset.path);
+      : asset.path.endsWith('.json')
+        ? 'resources/' + basename(asset.path)
+        : asset.model + '-' + basename(asset.path);
     const path = resolve(destination, name);
     if (values.write) {
       await mkdir(dirname(path), { recursive: true });

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { createProjectSnapshot } from '../../packages/project-config/src/index.js';
 import type { ReferenceRelease } from '../../packages/curated-schema/src/index.js';
 import type { RosettaModel } from '../../packages/core/src/index.js';
+import type { CdmCodeListCatalog } from '../../packages/project-runtime/src/curated-implementations/code-list-resources.js';
 import { PROJECT_TOOLCHAIN } from '../../packages/project-runtime/src/project-build.js';
 const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 export const repository = (id: string) => `https://github.com/org/${id}`;
@@ -24,7 +25,8 @@ export async function createReferenceArtifacts(
   definitions: readonly ReleaseDefinition[] = defaultReleases,
   modelSources: Readonly<Record<string, ModelSource>> = {},
   baseUrl = 'https://mirror.example',
-  publishImplementations = false
+  publishImplementations = false,
+  codeLists?: CdmCodeListCatalog
 ) {
   const mirrorOrigin = new URL(baseUrl).origin;
   const artifacts = new Map<string, Uint8Array>();
@@ -84,7 +86,12 @@ export async function createReferenceArtifacts(
       if (publishImplementations && parsedModels.has(key)) {
         const { publishCuratedImplementations } =
           await import('../../packages/project-runtime/src/curated-implementations/publication.js');
-        modelJson = await publishCuratedImplementations(parsedModels.get(key)!, modelJson, { model: id, commit });
+        modelJson = await publishCuratedImplementations(
+          parsedModels.get(key)!,
+          modelJson,
+          { model: id, commit },
+          codeLists
+        );
       }
       documents.push({ path, content, modelJson });
     }

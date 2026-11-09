@@ -969,12 +969,24 @@
   ],
   "implementationFiles": [
     {
+      "path": "packages/project-runtime/src/code-lists.ts",
+      "sha256": "0b497dfc99184e27c742eeafac99f173bae06dc91ddcf796017703507f49eb78"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "5311cd4ae8cea3bf669e2b8288cee84d29993eec0df642d5cd0a05b50b2dc830"
+      "sha256": "437ab3e8975030e1afbdbe5604c687a640fbe5e11e09b7ac2ad45d4637847d9a"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
+      "sha256": "9385c847a6b409505874fc57c4da0bfa01cbc69775d0c3d667b4ce3e1b7c0210"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/commodity-periods.ts",
       "sha256": "8559f69b669812072fbbe6a69beffbb13f182c5f3fe5f4d90091554b685f459b"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/load-code-list.ts",
+      "sha256": "bfa92d26a2d4dbcf1f83d1b448a2d18c4190ee731b765b4270d0e66f36ae1472"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/numbers.ts",
@@ -1071,6 +1083,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/decimal.ts",
       "sha256": "a13cacaec58e3064057b49f75e2b9ffd28d95a8f61b7992a3b3332ba25ee08ff"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/load-code-list.ts",
+      "sha256": "ff669ccce7c4ab6fa9111b9fb05323c5cc736ec20431a1e4e0ff9bf55bdfe804"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/rounding.ts",
@@ -3699,7 +3715,25 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.load-code-list",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/load-code-list.ts",
+            "entrypoint": "loadCodeList",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.load-code-list",
+            "path": "packages/project-runtime/src/curated-implementations/python/load-code-list.ts",
+            "entrypoint": "loadCodeList",
+            "dependencies": [
+              "json"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -3713,9 +3747,16 @@
       },
       "rune": {
         "route": "data-backed",
-        "requirements": "Filter/construct CodeList from prepared resources; reuse #645 resolution instead of fetching a scheme URI.",
+        "requirements": "Domain lookup and validation can use Rune once versioned data is supplied. Publication prepares the pinned CDM classpath resources for standalone targets; explicitly mapped code-list aliases remain Rune enums.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/code-list-loader.test.ts",
+        "cases": "test/fixtures/third-party/cdm-code-list-loader/cases.json",
+        "casesSha256": "47a93ae272df1101e7277a94f591dc77e133ba6c348c6051641b5bc06fd0b560",
+        "selectors": [],
+        "caseCount": 8
       }
     },
     {
@@ -7731,6 +7772,1382 @@
         "selectors": [],
         "caseCount": 57
       }
+    }
+  ],
+  "resourceFiles": [
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/account-type-1-1.json",
+      "blob": "45b7e7e104e3d8936ddd7eed380697fcdc96da6d",
+      "sha256": "5dd9698d6a08f918df170480b6751a24526d129330083624b84bc3c426d148eb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/accruing-fee-type-1-0.json",
+      "blob": "74ad2b79b0924bcfbe4bb6564431286ccc86a7dd",
+      "sha256": "11b0f04ee9c241d676e82d2009345c09887055ad86ad09743d8b98a76c80b58e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/action-type-1-0.json",
+      "blob": "c240b473217ee113f90eeabb814c0f48d0d8db45",
+      "sha256": "6a3600b80cb5749a4361c2534adc92ecd803af62afab246c6f7341cac0fd0151"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/algorithm-role-1-0.json",
+      "blob": "d65bd4fb1dedbf21b92c4ad45ac431a341870bcf",
+      "sha256": "c3692b7b30b16121047da16249aff4f4d624cd13ee3fa1ddcb8e284ee0646187"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/allocation-reporting-status-1-0.json",
+      "blob": "49ecaa2598dceac22c1709b30c55858716be8707",
+      "sha256": "32789e1b60bb7eb0c4a0d188afca498d1b30fa136328cfafc670fec4d0ae6797"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/allocation-settlement-task-type-1-0.json",
+      "blob": "068777179de8775d592085b39bcb9340c97fe3c6",
+      "sha256": "4ce4e6e72dc9f75a9e339696ba928d8097d13c8bc38e0592d51d31f8f6885680"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/applicable-purpose-1-0.json",
+      "blob": "5301910f35d7355c41e44ee28952e99b345a4425",
+      "sha256": "05c2cb86208a1049a4229132405436059ab739b6def8d1800a1cc6576ac7f19c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/applicable-transaction-type-1-0.json",
+      "blob": "ec5ffd25360bd950d97773ffd429b8e1105ea679",
+      "sha256": "095028524b05f52226e0ef6d74bf295a87539a46198cdb617cf132e25d037905"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/approval-type-1-0.json",
+      "blob": "0e3dc0ef97bbb3b46f4825c5a73bfa983c31a517",
+      "sha256": "66ccffc75ac4ef7a06454479e0d261a5b44e7102fb1cd1053921801d1b4bfaeb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/asset-class-2-1.json",
+      "blob": "96152c01b04bc28f32279f3157355cab64245b68",
+      "sha256": "049e5ae3de627014d3ad24025301630febb5dbb3eddf22e5bae5972f1c1d236d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/asset-measure-5-9.json",
+      "blob": "a28e838af506e040f2b641afc6b6c1fb5498bdc1",
+      "sha256": "66f63012123734f882a7805ba992b4d601197eca354ab0c3af5c824ead5e3109"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/assignment-fee-rule-1-0.json",
+      "blob": "e4712f8f21534624e3b7655fc583869bbd5296ba",
+      "sha256": "8b690a4146aef27de37e7b62543bf18cb67f416ab65830bc89564b7693dd0552"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/benchmark-rate-1-3.json",
+      "blob": "27a7a04599023957da4b71f1926aa7b8673f8198",
+      "sha256": "4558732b56ee8fc82d5c34dedf821c0796656898db20ca9bb93e6cab81643a72"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/broker-confirmation-type-5-0.json",
+      "blob": "fab3c486fc059b51136bf56eb8a6d5b6b2d39661",
+      "sha256": "5eb104491372b09400fbe4be3912a66b0fbc1af7296b1ac2c436f13d3476b878"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/bullion-delivery-location-1-0.json",
+      "blob": "e940649f1009c12d4de988b12552f09bb5cb8bd8",
+      "sha256": "7650837f449c67ba7d769a1c58e381983292bb445c2a9dc75eabe7f5ba2c8387"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/business-center-9-3.json",
+      "blob": "d139a033e7200505b81ee326f452a1fc0850bada",
+      "sha256": "0a680954ea6d3157404c101a1a5d3ee60fbc4f69d2c52e74fad4d453c20813c5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/business-process-1-0.json",
+      "blob": "c470077f1cf5793a75a0b2cb062ec8a50d28ece7",
+      "sha256": "a29a15c680313c95764f151a358b4acb14c1accb71132b44910005a8fa3c36a7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/cashflow-type-2-0.json",
+      "blob": "d4ded304a1f4da9cd2f2dbb8a1d96dd869d426e3",
+      "sha256": "8afbd30f6cb9ff122508793690ebf48c6caa8e573c83186570a02bc4aac5b94d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/category-anonymous-execution-1-0.json",
+      "blob": "e970534fa957bcba953f45d726b28ff4ba6e4514",
+      "sha256": "b707b96863be22aceee8be68093164b4d1cb1bb7fee2e35afc81ee43b86071a7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/cdx-index-annex-source-1-0.json",
+      "blob": "c7a30deba4db0e143016ffd1b5f24ec97557d167",
+      "sha256": "d2d167d77b18f7b74737e2793aaa5a9767f05f10f4113e9330aac5cd066f4bc8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/cftc-clearing-exception-and-exemptions-1-1.json",
+      "blob": "630cb8fd9a0c85fd700ee6d0b19582c3bfa3c061",
+      "sha256": "6416f9de2516b5184554c4db307ad98603188d00eb6c8685ecf79e92329093ce"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/cftc-entity-classification-1-0.json",
+      "blob": "89a90663bfd882bc8270a93d829460c5d0e9fe8d",
+      "sha256": "52d11ceda2009ef71b69046cd773102c011f336899f45b6d69cbdda8fa027438"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/cftc-organization-type-2-0.json",
+      "blob": "9c24c0dee99f5f8081dcec67b09643c2af86329f",
+      "sha256": "a4b43e31110396441e3253811598ae44506d575d163204a240cbc8f9c87423a9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/clearance-system-1-0.json",
+      "blob": "34530b7f8872e1fdb0e51bf89d014ae7636860f9",
+      "sha256": "8e411ebad58a470542f82ef52f9ee1bd1153225fb2fc57166b98fb2fecc71054"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/clearing-exception-reason-1-1.json",
+      "blob": "5901d5b1a829387d5b124df2d365064b1c49875f",
+      "sha256": "6cb394869c13c315462d0c78e8ac264db764c70d22cc1d5fdf17dedbd1fcc10f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/clearing-status-1-1.json",
+      "blob": "6ff655195ef5e4ef4f72f857f26065ffb333228d",
+      "sha256": "130069ea3cd604a346409270316c84e29d52435cbd642b4e839c69e3a4653cdd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-arrangement-1-0.json",
+      "blob": "ea8940949a60ebe8cab644be7b63da5511e0138d",
+      "sha256": "0436d104e67e6c7e92ff985ca3b9c24b846b9fa872c220ae73029aca8f6de957"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-asset-definitions-1-0.json",
+      "blob": "9263a2ffea6f23bed117b27145827d59547c807a",
+      "sha256": "a8780b227dd585201ceb3d3f10d3bb2f7181bd2eb820419cff13589d3a26c099"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-dispute-resolution-method-reason-2-0.json",
+      "blob": "c9266d252fd666c7fd11a154e2a732aa8fb743d8",
+      "sha256": "58edea4cccef6749320d15beadab0970163b6a46940ce40e6c93a96f65669470"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-interest-response-reason-1-0.json",
+      "blob": "8b97dd40aef82a2bc99f30800b90778a373c5633",
+      "sha256": "abe1ebc4498b483abd276848e1f229ef6dda165bd0a36579ee72da4ebfacf732"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-margin-call-response-reason-1-0.json",
+      "blob": "f0d48624361cd8308d17de133f41bb95812e52bf",
+      "sha256": "9ed87d09b709019406e6ae001c8b5907cd7c7a194d47562e913d833a408ac58a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-response-reason-1-0.json",
+      "blob": "16b77a44a1883ab7dbdd3a8f6e3b62faa8dfdfb1",
+      "sha256": "bd86048564b7a931dadd8ceea2b430c7bb92884a641d8e25c526ea1bdaea91a5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-retraction-reason-1-1.json",
+      "blob": "5aa5ce015382b313ad9617e6d590aaafff8b77c6",
+      "sha256": "da9efc14e46ed348a09954224c78a157212b517d6ed489b20e4070ff732e93f0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-substitution-response-reason-1-0.json",
+      "blob": "1a5062b35d7541a3d54def000ac93369fd59bf79",
+      "sha256": "7b9c26c246a3704251e34f268ac468c24bf96bc538ef740d0481137e5972b079"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateral-type-1-0.json",
+      "blob": "dcea0b7b14c586c82e4adb296885191e97bc823f",
+      "sha256": "59e490101cfc6a3ee9358311b1475c94f5eb30aa4def78a0a833231083be04db"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/collateralized-exposure-grouping-1-0.json",
+      "blob": "ba451cc07910ca178479dd3b81f1dee38fd99d1e",
+      "sha256": "129119e94b0c57ee43704abd52c53d03afaae6fdbcfbb8b28a661ca5dedc84b6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-business-calendar-3-6.json",
+      "blob": "239d9465688bb48dcfacc5cee0a1c21f1ae7ff6e",
+      "sha256": "82d577360e77502a1f5cd16d99f0f087478f310c65c875475caf3622d9273245"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-coal-product-source-3-0.json",
+      "blob": "eb52ccd8318008a90a9b87e8f1c04471d0c43984",
+      "sha256": "fd6688f033d280513223ddb25ba61f84291ab1245434522a0cd063bef0a19de4"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-coal-product-type-2-0.json",
+      "blob": "10be053662b1b9a5de89ddcd0e3c354c08a63d31",
+      "sha256": "e81b29c3933e43308b497944801e278daf66fd2c1be5fbeadc87276278f1ab7d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-coal-quality-adjustments-2-0.json",
+      "blob": "2ccdf85323fd005b29ac72834f90241a9e31544b",
+      "sha256": "2178edb0353de547480e9e4027c1b97d1794a3038958214a1f40ccc537ee28b8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-coal-transportation-equipment-2-0.json",
+      "blob": "b21355531d22a3c5c52df26ebfea88a60c82e788",
+      "sha256": "2f1bf5c4aa0935112c72f9a8509a0eec0befea8fcbc862e948e7719f3ec4d6f2"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-delivery-risk-1-0.json",
+      "blob": "8431854944427987e279d1119c10211c7bd6caa4",
+      "sha256": "b0df10eb4df4a9d449e75760534f72ad21db03c2a71afe49aa64c442cba3611b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-environmental-tracking-system-1-0.json",
+      "blob": "e7a120b9e4dcacf32951e5703f9ed5336524eb84",
+      "sha256": "5f0877ae4d7eaead171675f35d0453e2ac1f323f691bf1b05d2642065125c3ae"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-expire-relative-to-event-2-0.json",
+      "blob": "71e54ca2238ca5051fb059dfb40ed7ada6a08936",
+      "sha256": "6039dfad492d0aad87762af76fd0b104f4f175a371c44bd336f7d75e21cfb879"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-floating-rate-index-1-0.json",
+      "blob": "ab0736d0db17e128db192a3cf1644ed195dfafd7",
+      "sha256": "ce3dec52d650368ca47f7a998416b107fcab67077273ad534e8ebd08cd543abc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-frequency-type-1-0.json",
+      "blob": "a6abf294d164bd8fecfea745a0d05f41469515da",
+      "sha256": "871b0975f4ff0de386b9923b2f94a7dd36f8c4e0861b2273f2748d0e675ff0f7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-fx-type-1-0.json",
+      "blob": "ec4038a8dff6cbb34029a5d7983d976bd5321947",
+      "sha256": "0e15ef8df31fead99dc8cafb756bbebfcdd15cb4a6337896703611b70e6d4004"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-information-provider-4-0.json",
+      "blob": "39956c77dccbd0ea88cc7d85638ec7b1397ca9db",
+      "sha256": "1dfaf23bc284c8bc001b309f618455a357110c88e91947d7a84b266221b3b518"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-market-disruption-1-0.json",
+      "blob": "f022b58fa47f9ab0d822d317a0b28b56005c5468",
+      "sha256": "770959152ba6c5d446782b0e3f2ca168b1f466b05f7a68726bd09e2b3c81c9b6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-market-disruption-fallback-1-0.json",
+      "blob": "25717446b879a608947bd23a263965b0145a16eb",
+      "sha256": "d4bd256c1454a09f2d744a9ad1d6ee35aadf74bfeea64117fa500e4f0377c588"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-metal-brand-manager-1-0.json",
+      "blob": "0393012487420ea2707073832181e3c358717c71",
+      "sha256": "42a7c3f94225953c900b28ab194e16018a1d9c246d1dc776d9d69299383f6437"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-metal-brand-name-1-0.json",
+      "blob": "9379834410077206b6ca2cf6e0922b3d853d5813",
+      "sha256": "79df3eb1591e438db5bebf1332c657510b01616fffdb90251fd38b6b0f5e335d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-metal-product-type-3-0.json",
+      "blob": "dcbeb0a42ab53d30e1595707f7ed816754b87422",
+      "sha256": "51d6faaf31b3e81f6064431da92f80e083f1772befc2e7198cb62e2527879bbd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-metal-shape-1-0.json",
+      "blob": "6a1218a03c683cf6d50f05f6564d5869d3e73cca",
+      "sha256": "71d5908f80779d6457d211f646001fe38259c2251fbfdd39e34960dec459b7d7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-oil-product-grade-1-0.json",
+      "blob": "fa2e04082f8075f1379b3c9f80b8ad4d4c226ba3",
+      "sha256": "26c583c5f842df3c877c98a4eb2b9bb2a8835f02ba15f3987326ebedcf6957a9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-oil-product-type-3-0.json",
+      "blob": "4e43a04d80f8d52932047a93d1c9626d4854e01d",
+      "sha256": "03832cac4ae5b88eadfae5b1cb580153e4ab627030ab2fe14bd0046b7b0e248c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-pay-relative-to-event-1-0.json",
+      "blob": "9e9c9594b7ad0d01e45be3bc2052474a8d8b9fc0",
+      "sha256": "27fc0b6f88d85f289cbebea39a63133c6516d981831ebdd6e0826d80994aba98"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-quantity-frequency-1-2.json",
+      "blob": "10ab103266f0c29511d9865cfa3e39b00584cb6e",
+      "sha256": "244ac8ab5d19de9969f6dd50d51569132f42e8c2945238dfa9c5b5c7d7eb7783"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/commodity-reference-price-4-0.json",
+      "blob": "5d7968037eba2d373b785a8768b02f34e3e60ff3",
+      "sha256": "2462c610a43c0ee5c84cb3e5cc8f9f7c8bbe8d2dfbb27f71183792590847963f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/compounding-frequency-1-0.json",
+      "blob": "bf8874ab919d51717fb35b8422e03e3563a4f469",
+      "sha256": "4241d50a2504ba1f8c2e2022da7ecd5e1bcba1de69150402df8a5b827770ea21"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/compression-type-1-0.json",
+      "blob": "038b60dc4899ef5c99a8c0a4dc683e1b0d5189c9",
+      "sha256": "0f8bb731970c4dcd2cda51d2facaef25fa9c19e1f853e10f2a4a57bd07d5df40"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/confirmation-method-1-1.json",
+      "blob": "e2fc6b97d9cf253866506b1b11e88d7cb8b27965",
+      "sha256": "e2550aa2cdfe0d6a62ba07234b3c8ff48355f28f323b98d32179b292b836776b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/contractual-supplement-8-0.json",
+      "blob": "17e407e592c5c2ccfcee74964ca74c89560d2118",
+      "sha256": "48a32bed8403158324fc20a9d04caae490a8bb75543d72f5304c17bd79df3813"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/corporate-action-1-1.json",
+      "blob": "bf65a2d8c84045efae3912da4ccb8dcf21592d70",
+      "sha256": "04a01b25bd0c58e543b61bfae3677405b4a213a38f6e979434e03c3cb990ccbf"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/coupon-type-1-0.json",
+      "blob": "b745a38b634a8a711357a8f43efa57f44224c850",
+      "sha256": "b3f95a541578c980da70625e8e1056a17bb89685f0eaeac1b615bfd53c10c7c7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-approval-model-1-0.json",
+      "blob": "86e474b1dfba1ab2c288fd2baa51ec56ce173fb0",
+      "sha256": "8c6afdcbd29c2cdf63e793545a960ee10ce293987db9e1a95d9688c3fe85238b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-document-1-0.json",
+      "blob": "a994118c73043a8a093ae6e0e6d1030069f2bfff",
+      "sha256": "27a64c19adf8cb60c961e821165e4377f0b320cdebd213830a0fd926b435e1b8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-event-type-1-0.json",
+      "blob": "0709585f086edd836ac0dda1bf10244bc869cce3",
+      "sha256": "344ec76ba28a05c5adcad7e51adb343ceb0eed2eaf2388676078f3424599d041"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-limit-check-reason-1-0.json",
+      "blob": "71b38707c1daf5dbdff7a5417e4104610282e8b6",
+      "sha256": "12e45ac2bc668e28aad59b954eba12cf4c58aeb0dee37bb5683c862ea612d99e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-limit-type-1-1.json",
+      "blob": "7439ee459b8dda5237540eaaae68922f0ac81ea1",
+      "sha256": "069a26f3e330bd9f3bff9f32cb9c63d0578bc216f8112ac81ee30a7b7f4e2edd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-matrix-transaction-type-3-12.json",
+      "blob": "c54b022a8c4e021e26d55fca671188cb97a85b9f",
+      "sha256": "0b5e536142af870b7ec5666ca2388a6fb57667b799a5e5a39961c893e7b9caa9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-rating-agency-1-0.json",
+      "blob": "2f5300464f8fc8b21f76f1c30063c13572841889",
+      "sha256": "dfe4a87b87b6ac10ccfe70ae6c4dd17f7240b48b3b432ccb6cb2c78c4f3b403c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-seniority-2-3.json",
+      "blob": "8c3cd2ac6517ab216d85051bc38638deef438826",
+      "sha256": "83bcc8ceaba9bf7eaf5bb0f9035cbb8f4ec496b5885c1b8ebc9fc1e04d796fe6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-seniority-trading-1-1.json",
+      "blob": "3aa99ef24bc21618bf027c33d0f02da52b3434cc",
+      "sha256": "61f0c6e63bb4ab2a461f9ee3fa442b869b0384c280bcbdd39ef2dd17a28407df"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/credit-support-agreement-type-1-1.json",
+      "blob": "766578a8df0d82f78c1c429987a70930961d8fc4",
+      "sha256": "8d00682d7064facfd19d1d50e98247ff5ec179ae7c425257f4732079d1a31bc4"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/csa-clearing-exception-and-exemptions-1-0.json",
+      "blob": "7e03729134cc7b67388b58b7d3499f39f0ea9c51",
+      "sha256": "a15214cbe6e8ababbe15d5d8e70de50fab7afa36823164617e8884dc17bf1979"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/csa-dealer-status-entity-classification-2-0.json",
+      "blob": "70934a08e9b9488fbf9c7349447a4831f4654316",
+      "sha256": "a0a2f73b6f894445f3c56ce450cfe3cc77b8f6173bf72f367368cda98e51a127"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/csa-local-party-status-entity-classification-2-0.json",
+      "blob": "bd99387aaa56c6f65463f37462790be71790b9c6",
+      "sha256": "2d117f45960c81c491feecbe58b1fe0ea9cf5ab1c347728cf954ae19f85e64ca"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/currency-1-0.json",
+      "blob": "c739dc9702e86638e9fd6c0b6af497002fd16b6a",
+      "sha256": "8e8f1294fc638234e13f70b75d768fe43775a8ed656d9215fb55180223430e6e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/cut-name-1-0.json",
+      "blob": "4bee01db133f6bf90c8061f1b509357d29492c96",
+      "sha256": "bb4510463310d63693a2b8be0ac9d6a3f79a268ba2603d33da2cc440059e66ff"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/date-adjustment-type-1-0.json",
+      "blob": "e33718bbc46bfac4100c2f4487ba0a8f1607ab1a",
+      "sha256": "bf96d1fa9c878ce3a1e60f11f0161850be87b991ec7b21b81541cceed6dd7369"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/day-count-1-0.json",
+      "blob": "be7dba96c750c7ab71b420fadd6e9b74ca0de31f",
+      "sha256": "a68ae952d914151996d36cfb7606c5bf511386f2071184ccdab98b2c99eb9ff9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/declear-reason-1-0.json",
+      "blob": "b800d06dfc7d0674a86b51b891e9510896d68694",
+      "sha256": "f4a8f499f236e7d6092b03637f7b75a02e1d83a54350bc0234e24dd37e0e2a18"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/delivery-method-1-0.json",
+      "blob": "53f179022adb48640231ef17710a442f9ae9c3db",
+      "sha256": "ead0289c24b6ccc13f87c0741ec7373ab1d904ca10a64103c7118c0751afe9ba"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/derivative-calculation-method-1-0.json",
+      "blob": "db50e07eed31274249b2fcb3292c7e37505af5a4",
+      "sha256": "fe35b7c9747e9fd88175e4aa88ce2e1b44c2beabe09362ce8186e885311e7359"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/designated-priority-1-0.json",
+      "blob": "b98215c1c245869372210886926bd4d9d109c402",
+      "sha256": "9492c6af529c71231f8fd7c0116c9f47bd1c58ae1ad0d80d6a52305f4aa524f5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/determination-method-3-4.json",
+      "blob": "a838a169018c168438cf6682760ad96643cb7930",
+      "sha256": "0cf9996f2d1cd13ab2ebc11ecbe83268e18bea3f1bef3e885e09e354289782cc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/embedded-option-type-1-0.json",
+      "blob": "6bbcdbaecd946b5ef9fe4392c7669ecc6c189f40",
+      "sha256": "ba0c57d911b550224c66554ff1a59f96c81b7278ffa1ae082b7a803e4d0cfd7b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/entity-classification-2-0.json",
+      "blob": "8da3bd2be74e9dfb1a249184aeb490e38d1aab32",
+      "sha256": "5ad18665d775383b6ee25c06e13b41ec811766a6b17813abe927a978b9e2afdb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/entity-type-1-0.json",
+      "blob": "6f85d3ef5c359dac99f6a6fd755ae694424e0e01",
+      "sha256": "44f77ec2c8de53404af996f300d3289f452319036be5b953a2caeb4bdc1e07e3"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/equity-matrix-transaction-type-1-0.json",
+      "blob": "ff922473760a2f63e0fd4ff32b35b1209b5e4d90",
+      "sha256": "9f6cafbca449488e5a05857a9f40b219761436bd0edaab3ca6a37e19430cb081"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-currency-pair-classification-1-0.json",
+      "blob": "26d14d859537be3824fffa205ebbe60f012d57d9",
+      "sha256": "6429489721064e0eae737e0905e1bce6479dc94e581930fac03c9b02d71c1529"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-action-type-1-0.json",
+      "blob": "5e66eee9e671772e403473a0ccbe0404b552eb75",
+      "sha256": "292bcc0a41ecad004e0a84278ee440d7a1d67747caf022f661a30edde4c6ce56"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-contract-type-1-0.json",
+      "blob": "9069c83257258cd62fc8c772a02f3fea79f1aef9",
+      "sha256": "f76fb4af380cbadbc2cab05225cf664f64054aee9063efd83302bcbc728d1ad9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-crypto-asset-indicator-1-0.json",
+      "blob": "90ca8e0e850b5909aebc0beb9073397f03c0c62c",
+      "sha256": "6efda415524ce77044476bf3c61c64d745719de45b35e37b24838daeb856502c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-layer-1-commodity-classification-1-0.json",
+      "blob": "6f83498143cc3f7039b1e488ad504b690362d44a",
+      "sha256": "b2527101c978c5f8aaf93023e81c53c356b09c45db88a1e6b0e60e5c0b4545c4"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-layer-2-commodity-classification-1-0.json",
+      "blob": "759f241b9251903c125fcc91bdd66c1f95997c6f",
+      "sha256": "f2cfee58424dcf876036a5da90fde65b17f5344262377b75a4b0210e11f42639"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-layer-3-commodity-classification-1-0.json",
+      "blob": "df2a8b2aea862ffc1b2f2a026b29f46f124e6c05",
+      "sha256": "e74a5b0a4c7fde9df2985953d56eb16545fd87c1a9d935cdee588d69572b4226"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-emir-refit-regulatory-corporate-sector-1-0.json",
+      "blob": "8efe0296c2fcdebffdf63a491988d1591a0e53b5",
+      "sha256": "e82dac1b59f2c935231f28f6a42ee8c8e8dab9dec0ccb7eea12e8c210c321590"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-entity-classification-2-0.json",
+      "blob": "7ed6dd4f6cff907b27f8a3231ff973280cdea31d",
+      "sha256": "33b2d23f55096ff36be5eee562eec70cf4e315d09b42994837296b3db8d56f10"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-mifir-otc-classification-2-0.json",
+      "blob": "be18967777956f11d054dc2e41d2320ff9b9313e",
+      "sha256": "c70f83a278c60d633616c9b70f94e627bc6bfb575430118bef8231e8a4531b1b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-mifir-short-sale-2-1.json",
+      "blob": "1280d290bf1b550d74748e60e9ad864da21f13eb",
+      "sha256": "0e1d29c9e112456c2cfe7a41472ee2f20a1de34cd244e122e94bdbc4c3587a78"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-mifir-trading-capacity-1-0.json",
+      "blob": "b731e2a0d3cda17f506124b1a11e2d23ec498600",
+      "sha256": "22d56eeed538039e9283b2393e3b7621a142b9b4731a2d02965bdcab2032bb96"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-mifir-trading-waiver-2-0.json",
+      "blob": "6dd7c362839a5c57d2a4c8f837544838e4629e36",
+      "sha256": "3ed1cba98c18406d950fdbbe73fb549a52c36f645cb24b6aac6cefd7211b3fbf"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-product-classification-1-0.json",
+      "blob": "9d97c2a73539be85e40440b6d14587396b305133",
+      "sha256": "53b96b49ab4ccabe51ce9d868e88ce861a02157212f26ad04330c715a8a2f28a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/esma-reporting-boolean-2-0.json",
+      "blob": "f2ea42deef42dd2f133206d44e0c9f51fccb15a3",
+      "sha256": "e9c96521c5e3f82c9fdb8d4a941ab5f0285f8dc5c989f6c87c7bf4f0b69e5cfe"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/event-status-1-1.json",
+      "blob": "ce9450e23925748d6d3140d60df469d770a4b6d4",
+      "sha256": "7a225bf97bb775fc3e47d864886fb661b51e465a368b2e66c398be9284c87d08"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/event-type-2-1.json",
+      "blob": "28d912c04dbd3e46eee2b1c86caf8ef93cf23284",
+      "sha256": "b8399afc039b73b4b7e54adcb06db7bc2b414b40be98584371b454df00ae15ae"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/exchange-date-2-0.json",
+      "blob": "a0e9f52fa973f8f722f9075cab5614deeb30fe79",
+      "sha256": "c0c1d45e1fb50ff09a1a62d00897c27b554ccaa29b6df70e771e956fd531c0ca"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/execution-type-1-0.json",
+      "blob": "8a38bde1ceb955265c6fc18477b0a7a0b0c5e0de",
+      "sha256": "188246b9c4dbd07458cf09d1ab0b2d9b22cc6e3eeafb3712b741b8d8a9f2ebcc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/execution-venue-type-1-2.json",
+      "blob": "b0910ef59b5045b44d6c6e43f1f2044d4a21009d",
+      "sha256": "a46c9d74ac15a97b74df7510f8ac76c1eef86e088e8e28a201d2ed2e72e48260"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/exposure-type-1-0.json",
+      "blob": "da58e98f6fab323007ada5e9e510d6e611326b16",
+      "sha256": "e71961c392f5a29a023ff554e4c3da59c85f9fc68d1132187577a6639eee0524"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/facility-feature-1-1.json",
+      "blob": "a4661905d8a5d85cf26b13c7781555e43a658369",
+      "sha256": "f8513524be4ccf425528a9552a2b9f9c40db9197319f2a41e5e2db0bda913ed1"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/facility-type-2-0.json",
+      "blob": "8b5233334d9ec28fc878d5c454b30f4bebc5de50",
+      "sha256": "c3050603097f71e4ba5d5eb358ddfdca45fe4d2f9b00c8814478c55956e98856"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/floating-rate-index-3-10.json",
+      "blob": "20d37f6b83de94b01b0701e2a1385adb0d58fffd",
+      "sha256": "ff1ff9aa7290c8aed0da429f662935724ba6eca8ae2f80417078f9b70ce72de9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/fx-template-terms-1-0.json",
+      "blob": "199089029dba495d1af16be8bcafda208770893f",
+      "sha256": "d12883fc57ac296cc29f759bcf0567a0cbb4612eb0cba5f68d92bfca01c72b90"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/generic-exercise-style-1-1.json",
+      "blob": "2f3f9c02b5c1c3ac2e06aca80a76f79ecb5060f7",
+      "sha256": "8432cc9fe4869562e83121fd89e428b61755d96c24d3baa8c875b3d5341547ec"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/governing-law-1-2.json",
+      "blob": "858bbebbf553cfbea6f2c9a9163532d1f3f6d462",
+      "sha256": "87bd0f8ad9c40d7469860ad450b68b7105ebaabb5335f851c49019e2f8173f41"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/hedge-type-1-0.json",
+      "blob": "266692049f37ef415492c4d86e08410845fc8792",
+      "sha256": "e0b8bba93e8f8cc3a20693b249bd6e0937d07ce60935cb6cdf75135aa47dff05"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/holding-posted-collateral-1-0.json",
+      "blob": "217c0976fccb362604940ae69cb12564c88e67e2",
+      "sha256": "ae3bf8b31e5a14366959c92000445074d4270efc765fd76f44022faeb8e645eb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/independent-amount-determination-1-0.json",
+      "blob": "dba7ce025f66178b97c90e102ce8ba9c4807a8a6",
+      "sha256": "d88ef37ca5367e2a6d81e983d941628930103be5700ed2a8e4f9dd1c8de67809"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/independent-amount-eligibility-1-0.json",
+      "blob": "b5a70f20de406381197d7df75bdbe65b72e5293b",
+      "sha256": "37d76eda3bea355374e2598fe7c23c67cfd2756f8bfd7b814bfe2159d3ee3881"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/ineligible-party-reason-type-1-0.json",
+      "blob": "e22caff4d052dafd24d635f8830a99cbc1a67d15",
+      "sha256": "a1b14b65b19141890dab8e16f545e5933b542c020658dee83f6c9d9256eabfed"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/inflation-index-description-2-3.json",
+      "blob": "abd3a7926efc1652dbf8cc7e849e752c6e47fda8",
+      "sha256": "05f2b81242f221ba206de7c23940317f196cd085459f43379da417f24f2f1785"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/inflation-index-source-2-4.json",
+      "blob": "4fe25ea5798f2c5f0ce3b373dbbc10396563cde8",
+      "sha256": "85989c987c917c32e092afbefefe8027c0d432a07438f095e2abf28f1bb8f900"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/inflation-main-publication-1-1.json",
+      "blob": "a7ecf4163acc9dbdfe1fe3693bed2ec17f12be94",
+      "sha256": "ef47bccb4d14793925852446b79ca89b9985acc7692905317935391d0696fd37"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/information-provider-2-4.json",
+      "blob": "8daf17c423f9e33b6af2184eff168d0051210b5c",
+      "sha256": "e539496ca43e8772c47aecfaedb2efec94b70bac6e451a7b07d0171477105983"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/initial-margin-interest-rate-terms-1-0.json",
+      "blob": "1cf6ee259da680aa613b1073947f7fb430785d3a",
+      "sha256": "f26b2b65d7856ce4c1b9b97d404eb67304a22acdf3bfdcf235db193ce1b42fd3"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/interpolation-method-1-2.json",
+      "blob": "052ccd5fc9d7480300359f7580d83c367d25b242",
+      "sha256": "a338022a186edeab259362bb688fcc16e716a0e9bb627627fcfb8f21defe9384"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/isda-layer-1-commodity-classification-1-0.json",
+      "blob": "12a808a36cc24b9f22092aec02d23f9daa3ca297",
+      "sha256": "ce06b9e39cb5c0e891b22d07f33cd42ca4885699e12838b1191480e5f2e6f5de"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/isda-layer-2-commodity-classification-1-0.json",
+      "blob": "40f951580ab98fa55758999190fe7c923a42c2cc",
+      "sha256": "983558800288e9bea26d90c7bae43c432bdf040009c4f940d769f7f82273373e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/isda-layer-3-commodity-classification-1-0.json",
+      "blob": "c76a80a8983ee2bbddf157ab195de7fbf9819449",
+      "sha256": "121f58e6865b46fe0f07dfc8050670be1b3a1432c3528485756b83557daa70e0"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/lc-purpose-1-0.json",
+      "blob": "956d8512e0d7f95e7ce18b84c050337828cdecf7",
+      "sha256": "80f7cec5cf79501eda9b213bf2da9657d20c05cc2aaec7faba8a43ca6aa708a5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/lc-type-1-0.json",
+      "blob": "43196ca9378163702dc984a8c631ad45d4744aae",
+      "sha256": "26433d9ce37c84b919467b45430f3ccec5e5bb84d63ac33d7ffd7d0cecd61473"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/legal-document-name-1-0.json",
+      "blob": "06c7ec2e44c90a3d02b0d2d265783dec5f5a27b1",
+      "sha256": "cc7c2949a022267ef2bdd40a65624fcb230ee2255299107145df0d735017cffa"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/legal-document-publisher-1-0.json",
+      "blob": "4ff7db9607cc952fd8fd595ce7b2b5ddb3b59ca4",
+      "sha256": "708f04f625048a6747f26512d62d924ee34cbf83a0bfbd0429749f38ac5f7fde"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/legal-document-style-2-1.json",
+      "blob": "c03e249af3ffdd1c91c28926921c7ef7b118a855",
+      "sha256": "5672c3d0a6b3e5ede1114ada3b460aae23ba912b8cfa7ca87b0ee78dc18860fd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/lender-classification-1-0.json",
+      "blob": "caf97c949f52670870d616dc579804420184553c",
+      "sha256": "240a07d3ab412a2ca21d1ebc23c744530a29da717cbb7d58898d83ace547a94c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/link-type-1-0.json",
+      "blob": "71e39509da90b668e143b0c90b00ecf180e59fe1",
+      "sha256": "4332bf0b1ee10facc4c592d9f56f590b0708f45fa112da5b0ce795bb8681a993"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-covenant-obligation-category-type-1-0.json",
+      "blob": "4245cea00b360b628e270b87329b0e8650778bd6",
+      "sha256": "8cacb6ca3502d9ed77fbddb10f0f478eba0c62e98f74dc2c1fb591005185c903"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-covenant-obligation-metric-adjustment-type-1-0.json",
+      "blob": "f2c2c6266698ff4c5ee18cff71236db21d209ba0",
+      "sha256": "de4f5a234958497482955666c31b4e8543513de6ec4462dce57d4d5df40b4cbc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-covenant-obligation-metric-type-1-0.json",
+      "blob": "8d31aacb7cc47fee63ef83560497f7b3d4647927",
+      "sha256": "7d1c89d1a1f3d3f5a3beefa2b88467b1d442a0cbe1ae77a6a6ec30ac7c790762"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-covenant-obligation-numerator-denominator-type-1-0.json",
+      "blob": "278c4e69f00a85e6b6870470ceaca2862ef2fbe2",
+      "sha256": "bed5f06cd94da23e593b9f0b026ed45529430d1b4883cda705f26edfe126eea9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-covenant-obligation-task-type-1-0.json",
+      "blob": "70c10d47725d94737389cb337ed05f62efcedfda",
+      "sha256": "7cab8501d691a80900859115c1397814882cb990b71970fd3044fccc9c62b031"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-covenant-obligation-type-1-0.json",
+      "blob": "8a1fc14ad77298a2a0dc19d90f2709e360727af9",
+      "sha256": "4e90085be885464be82efece5e54651de36736fa9d50322151cf50406fa18bad"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-legal-action-approval-status-type-1-0.json",
+      "blob": "5c879896b0a174a05aec96329dad2db2d26347c6",
+      "sha256": "faaf041d45762e55799fe366fcd8f1800c429ef0fac765c5a1327fbb864fb4fb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-legal-action-status-type-1-0.json",
+      "blob": "fdeae7bd17fe02c7301fe94ec8e985aee7f636ff",
+      "sha256": "56f44e55b0dd7b919dd2f9cd0b8beaf69b5cfbe73a7bba60e22f3c7c5a92fef8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-legal-action-task-type-1-0.json",
+      "blob": "a8ad8a58291dc7493dd58aabb9bc80e357aae7f7",
+      "sha256": "a29aa93596b3f896ba7bb2cfe0260530b34a7e07e2008d16a3e8e90fb42ab1a7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/loan-legal-action-type-1-0.json",
+      "blob": "a986a1ddf67c590409dc40b6a6c79fa36b7cc321",
+      "sha256": "7567e221b8bd6e66279b1440e5838898d044ec95059fd55edd9248d7c0cbb167"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/local-jurisdiction-1-1.json",
+      "blob": "8171706204f799666e5daa59231ac1f5269313a5",
+      "sha256": "f4c1802c589e07a2c7cdf66716bf2e733cb3e3f4059a12264cb3757a9efe2daa"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/margin-quote-type-1-0.json",
+      "blob": "3becf1a7854ed3dbf6f4dcccb5d0f706d764a127",
+      "sha256": "ef908a5123358911a246012c865344cae25933b6cbe1d4fb3045e7a07389eaab"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/market-disruption-1-0.json",
+      "blob": "a73bb0e79c396f292fd01a0deda93f2ed412df18",
+      "sha256": "878d1767ec048d92abc25e3a31e536d4568df108797b28269a276d2648b8cb9a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/master-agreement-type-3-2.json",
+      "blob": "afa3e494e91a5a9cf659cc837c858bd7373af2fd",
+      "sha256": "d0291b193ec2f2e2f95e445683a34c000f4b59cb7f5cd8d30e55c8e9e5716258"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/master-agreement-version-1-4.json",
+      "blob": "3743d3cfe396bfbaab5cd974b8e29f2d1a69a8f2",
+      "sha256": "f1b7f0a935abdb54dfb64bbd779f3429dbc70b2264eea1a4c81d3533c5f0b5cd"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/master-confirmation-annex-type-2-6.json",
+      "blob": "49551c0c1d6cb8bb8edad181bb696be30e3b66b4",
+      "sha256": "1f1afa8e850ee98e8941238989ab9165ca76bc60e05768e6a260aa9ec99ffce5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/master-confirmation-type-7-7.json",
+      "blob": "8cd9ba982f5fa6b04a2f26305a155a6bdc3fd1aa",
+      "sha256": "82f51cc7685e0efb76998440f0465a1594df52120084b8b31e92d88ee3042d4f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/matrix-type-1-1.json",
+      "blob": "f2979f55851daa724910434f4b3bfbe8ab9d93bd",
+      "sha256": "ed16efcdb019b4a64937a7a9b3abff52f55d75bd88fead078f5d9dbdf5c3f652"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/mortgage-sector-1-0.json",
+      "blob": "966453cc800e619060bd7d9389518310832e0a72",
+      "sha256": "35dfcd0c24a328ba7e3453dbf7c731cd505493cec6074da114e7c468132bcd1a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/no-settle-period-type-1-0.json",
+      "blob": "58c745bac1852ad96f7abbb859e8ce757671e248",
+      "sha256": "177d572290ce50b0bc6dda7c2874ee511f532724881a81b08c8d7d3071403225"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/non-iso-currency-1-1.json",
+      "blob": "30b0e633303d3540a1f56e2b43934bb29e376c06",
+      "sha256": "4071c727098ea2b83382386cae9f9f539e150cda87bc2d12a0bbc3beb1c2e9cf"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/option-type-1-0.json",
+      "blob": "212cf17bd79ca6347b97b3d3dde0ead6a02436a2",
+      "sha256": "3cf3c9e5de99e642319cdb910cb38c27cc9f30fb5fbc2e6c120910ba95505063"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/org-type-category-1-0.json",
+      "blob": "24964577fedb5610dd91e8c81ad42e67d8fb1d4e",
+      "sha256": "56e7414b1616e7823f5f93a97d53142fe5bc7c654472e8b15f6f27c490c3211e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/organization-characteristic-1-0.json",
+      "blob": "720a9019f3713660cf81bbc703be5586f42f53e3",
+      "sha256": "229a662bd38e50e561d80a61247a151e1262f600f7c5e23fce50cf7beef2aea6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/organization-type-2-0.json",
+      "blob": "3e5eb9e4a8d5a54f24f06468dda5e361cfa4a3c3",
+      "sha256": "ff779fa9f0e7d3b0fc5157d8a431465b7aa431e86d13f4018293daf30925759c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/originating-event-1-4.json",
+      "blob": "00d093090217d81e35d7d74b70974344fa9e9c00",
+      "sha256": "5023596f1728f080654b98f9197603c153a3b343372ad1b60a689dd97d3e383d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/package-type-1-0.json",
+      "blob": "9113f3e493e92950d67950180049524c57f329ba",
+      "sha256": "2120310d717c2f0c631227cbaf7f05fc9c1042a09b68c735289ca5e4a69f7329"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/party-group-type-1-0.json",
+      "blob": "067dc5e5e4a54f395a13ef4116282a93957df099",
+      "sha256": "05836f4838a8dfcec503c24cb00f2e58f18ceada02a14a6a650ea82e3558388a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/party-relationship-type-1-1.json",
+      "blob": "7d8430130af15dccf6158069346fb7edd313b65d",
+      "sha256": "8b2b9e96ba3979070bd85674f24a9d57e2faf8cd366a717839595c7888f88449"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/party-role-4-0.json",
+      "blob": "aaae50bd206cc0b51dbefaa3a9fcddea2b997f40",
+      "sha256": "d74655195814023dc6f608f110add4c62602326fb131a0d19c43bd9728726594"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/party-role-type-1-0.json",
+      "blob": "cd2012bd0642aec36abfd28235b09b3c7fab4749",
+      "sha256": "ca1893c79311ce250eb5e4713ed2fe77d9e0603eefab9e228a3c2c949943a255"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/person-role-1-3.json",
+      "blob": "6d849f314c0d4a84759b161d76856779efbfd2cc",
+      "sha256": "ad91cfee030f88b309799847151f23b822361e461336f34813ed3d52fc2fb92d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/perturbation-type-1-0.json",
+      "blob": "27aaf59d362f454b62c5bf3bfc6032c5db4e0570",
+      "sha256": "f3644008ca74aaafb23f6b71ab0e940be7489a87e38fd4f728932b7a303ca367"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/position-change-type-1-0.json",
+      "blob": "1224526c24e23943ae1d9453dc81164747160f0b",
+      "sha256": "077fa94f9b7544faf732680b827c35d13c420c3657e081dade5ba037b043a9c9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/position-status-1-0.json",
+      "blob": "947486e9b9726c938ed7ec51be7b98c7c1d5a3e3",
+      "sha256": "4a707a03b7af56273a2f5fa43eb55eb00e0ce17c8180e50ec79c92cb6bfdf934"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/position-update-reason-code-1-1.json",
+      "blob": "8398fd9b48674797ad9b0d533f4cf3f5380acf28",
+      "sha256": "b3024e6f5c4d0e56c7edfd93ad1932ff7aab5adf56c1096f13fab0ead86931e9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/pretrade-party-role-1-0.json",
+      "blob": "505e5d6bf339d3c864c1a64f75609423ed581b3c",
+      "sha256": "de45da6b6e09b31378a5d3340cfed0964e392ee8966ed4a460201dcf5988e304"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/pricing-context-2-0.json",
+      "blob": "521a10b3f48692ae0501aac85fe89cc1f45700a1",
+      "sha256": "325199c4d9f973589b4f43a974f4ba1340e44da5757af08d4b23f8cbc260c98e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/pricing-input-type-1-0.json",
+      "blob": "1122e16e1caf044d9564e03a47e8ff7731f4ac40",
+      "sha256": "38b3ae2c1dcdebba118805a671b62e1e2df6a461dc86644fde58c86d412ebea1"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/pricing-model-1-1.json",
+      "blob": "6ea006da6db153d1999b009a51d2f3721b66358b",
+      "sha256": "21f4e31f1cf75844250c43d60a187e3896b96a91dd2820f7e26395dafca41dbc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/product-taxonomy-4-0.json",
+      "blob": "dc098ff40f1dd93a393cfb9df15e57d19979eb40",
+      "sha256": "8d906a5d47fe5d5ca9f7a44139515a85de81aef2e19581c54a9eee08545d6690"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/product-type-simple-1-7.json",
+      "blob": "796f863fe569184564668df6cb69f24829aac796",
+      "sha256": "ff018bbfbdeccfd4a67eca38938937a8e883b0d993110719c1eaa443455ed5e1"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/query-parameter-operator-1-0.json",
+      "blob": "e14c9ea0984f4daf89121a3ebd2b37fc922775e4",
+      "sha256": "f21982265a3f53781b7f0661dd6c1d92e930d8e602028eb3f8198371eb12ec53"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/quote-timing-1-2.json",
+      "blob": "090d2fb6aabf2ee3971cf61407265c7e786f4d60",
+      "sha256": "ca7e49dae43a392db27610fe93ea681eca920b39446bd57c33a66e0c6f5bcffc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reason-code-1-0.json",
+      "blob": "214c4e971c6fc6438aa618716ede39e5ebd0afb4",
+      "sha256": "e28f93a7a711a35f598f6eb01283f300e5ca1afe81bfe0418e41900ce23817cc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/region-1-0.json",
+      "blob": "1c15a5f119b520c32a9b833a539b6ab6ab22c8ad",
+      "sha256": "c443b014c9e7a28a32b59746a7d3331d5fbc5f44e9759d7ceba85bfec2c5ea99"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/regulatory-corporate-sector-1-2.json",
+      "blob": "e9e98ab2defc6d8b2772442ab1170f8595643bbc",
+      "sha256": "47517e53de00bc08ccf7bcfd73e250168174a3393b570acc232179ef7af11b9f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reporting-boolean-1-0.json",
+      "blob": "f25a4620dbe5d9bdcc55f64125d4dff4fca962e0",
+      "sha256": "f5823992d648ab33112d49a7c75f954695c56456c09fa813b27333e5c81317fc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reporting-currency-type-1-0.json",
+      "blob": "1fade5efc2901de51c39c77e7f9b24637a61ca8c",
+      "sha256": "4c13c39b4a7ce858e419f9ebf1ee6ff05e478360fa788f19edb31ee52a7dccc9"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reporting-level-1-0.json",
+      "blob": "2d0a02c1df9db5c4f45864580a2d76afe8809003",
+      "sha256": "17f25d01bb9b318250d935491aa4fea2796d5b15fe6dadc4fe2829c30b26829a"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reporting-purpose-1-2.json",
+      "blob": "6a2779091a1749ad9f446f3b8c6177eb53e62ff3",
+      "sha256": "40b41d64ee01dfd12b3f793d41ce9f972da39a9a12d7c50a9c802c784e808676"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reporting-regime-1-7.json",
+      "blob": "28e3a609eda75e14a7e461c357a12ef16317f8fc",
+      "sha256": "4450cf4845ad9b06cc636229d586be342d98b0d0039ee0475ba32a86e9e869ca"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/reporting-role-2-1.json",
+      "blob": "b6dc1cad9c30f9b5fe1310ad9299d9af2a4ff4f7",
+      "sha256": "94bfa1a3780e09d92547184ca9e6915f4cc455a6887b18daa63ac1b522dc3826"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/requested-action-1-0.json",
+      "blob": "cab392b5f97893483592699296951e345e686cdd",
+      "sha256": "2e90c74f3ca310154a4ee1a55cbfac1e92ef9385a746e4c7e028ed72708986ca"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/requested-collateral-allocation-action-1-0.json",
+      "blob": "47ba5846130bdd35f2a13fdaa11bcb8d9d4a67be",
+      "sha256": "33d7dc5f743dcff5411d4b52ac758fdffaca8da7848672590b49c2080d847b05"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/requested-withdrawal-action-1-0.json",
+      "blob": "ba4b5530e8e08aa68dc6e84072389e0dc684dd30",
+      "sha256": "956c4fe2fd58f2f00f019f6eea54accf43fefdd72c737bf09b53a3edee02b031"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/resource-type-1-1.json",
+      "blob": "67560bce7077ba36c601ecb7a621a84dc09d6ecb",
+      "sha256": "395dc8d469db7cec8a0593e072f01d584a65e009ae90caf9f338f37929a19ef5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/restructuring-1-1.json",
+      "blob": "f9efd663a8a3a0d7529b97a05bf3065f1c54c702",
+      "sha256": "15fc866f8be5e929ddafa704d2e2cf3027ff0b6a9892ee0f4e0878102bdd52ea"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/scheduled-date-type-1-0.json",
+      "blob": "997c25a8a0296cb83a89d4bb2640166c61079109",
+      "sha256": "febc94bb6402933788a30e7fe99b82cc3835e4c10211a642049a232674cafed5"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/sec-entity-classification-2-0.json",
+      "blob": "a26c06a1f88ab2bad04ed470a563a68bfafbded3",
+      "sha256": "96dbc2018f0da47c38a97b5ba4537470b0cf7d4ddcea2a1f370be96588db7d6f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/service-advisory-category-1-0.json",
+      "blob": "236bdd8cb82ace8b4cd3e922139c9bc5904be4cb",
+      "sha256": "bb0b15b8c9239d97adff0874f1b8c100d3a96b7127dd6fa8a74558fa130a9d5f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/service-processing-cycle-1-0.json",
+      "blob": "24b094838e0f767464038e3dc8dc05b35fb4214c",
+      "sha256": "93d1ed3ce1498d090b501f5ebd830aa2164eca281b3c107ef5d0521473f4cad8"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/service-processing-event-1-0.json",
+      "blob": "91d86bef0360e1c36a16dd10e39305a3b24a4f81",
+      "sha256": "df919445afea23999deb252977c0afa093d14b3448e4153e17bb286744f19946"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/service-processing-step-1-0.json",
+      "blob": "d5fea61809761ba5766651f386faaaf75c58d5ef",
+      "sha256": "5bc148c9686294ed2c3c22c8e752c72bd924c5cc208ba3da6f92700b3adb0b7c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/service-status-1-0.json",
+      "blob": "bb1b1ae0674b5708f02000e0452ba4b68b331562",
+      "sha256": "facd02a54e6508db7ad7c9e9ecda5d58efd5bd2c194fd45a6cea6c1fb8212bfa"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/set-of-schemes-2-20.json",
+      "blob": "6639125366ecaa15224ca46237b9292b90c8818a",
+      "sha256": "fe5b7d698255d74a3a29a8326e3b9fb056559aca380b527a429af82cc6abd3ef"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/settled-entity-matrix-source-1-0.json",
+      "blob": "0d219413ca1a2ddf5b2bbc52ac709312df78dfc1",
+      "sha256": "6d1c9e45da6852a51a3a2d2b56216c8ce45b71ea5d36fdc8913a907fcc750208"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/settlement-date-1-0.json",
+      "blob": "48423ce49b2cb0201df46881b6be31861e17e59c",
+      "sha256": "28f2de24838fda7a8edcaaf9b7485ebc4d60d5ba8d36dee6dcdbd5eeeecf6caf"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/settlement-method-1-0.json",
+      "blob": "834b482d32f0352e1326de9a141f06af6e0594a3",
+      "sha256": "1439a3d49ed8b8f81bc886e2cf33e487e76bec5cd1f02435b330a5994c2d5235"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/settlement-price-default-election-1-0.json",
+      "blob": "92344ac7f71cec6b48fcb42ce7c6caa684886dad",
+      "sha256": "9454c297f8adc3852380826c3e5e7ee545cfd2277b3efb45abe5d1ce7b6a8df7"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/settlement-price-source-1-0.json",
+      "blob": "5e4dca423026f74a8ce9598baaabc019ef084e91",
+      "sha256": "32c8a5322fa4738ed14ce100cef899c45a2871c7232af2bbe28196bec7536dcc"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/settlement-rate-option-2-11.json",
+      "blob": "a93a9ef60c502c94a01a51dc6bfeef1cbd19626c",
+      "sha256": "77c3c22fccaa5a1282e4d8bef06a2a7502931d09799fc5f90e6abed90d63228c"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/sftr-action-type-1-0.json",
+      "blob": "7acc7475a14513ddb345601b37e54b3c6e8f5bd0",
+      "sha256": "00a5fe82e63d19825ef711bd9f7e09babf3a46efbd161733cd8279a3e5ff450f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/sftr-credit-quality-1-0.json",
+      "blob": "9d184e2f0eeba30d05f934e3e36968cf85e23910",
+      "sha256": "8e148b6883944f6fcf3b9dcd596ed81064486b668ad5de0b90ec1b887d7d29a6"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/spread-schedule-type-1-0.json",
+      "blob": "45071a23fdcc27c940b0005a6b7c3f85ec3af3ad",
+      "sha256": "7a43bee93778f4caf91ff895f5df468d3fd7e928af3ae4fe95bfb0d8991d9345"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/supervisory-body-2-1.json",
+      "blob": "6ad2c8097d96116e6cb62ff70beaeaae7f92c4e2",
+      "sha256": "4bbe6a335f13e46fba92edd03b2c29ec0335a2666c1d7ac2a52a936702120f21"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/tax-form-type-1-0.json",
+      "blob": "91bf32afc85bdaa6e07d47fc1209b6dc6efc1466",
+      "sha256": "c44a65d0c3dd1773eb51c7434e8a2993eeeb5729b53eb7a5c5b599c250420273"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/terminating-event-1-2.json",
+      "blob": "37f29b7c70f5260e306f5f3e5df2dabafc109f95",
+      "sha256": "ed5ffba43bc6f05eebad8694dae58203be045772c3d59e6f5aee86fc498136fa"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/trade-cashflows-status-1-0.json",
+      "blob": "77cb9a9c580e4a3ddfb7bebab734c2d7e7568f14",
+      "sha256": "fbc6a64eefa9fdf8be06a9f1e119aa9868e4420fbfbdca710f5573ac7451eaeb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/trade-settlement-task-type-1-0.json",
+      "blob": "2c7e96ac6e26149b25eea95e9bffdbbc7fd287dc",
+      "sha256": "795dd600576bad7ff0aaec7c5b7cb5c0f1b4cab1098627d51e6812d858f0f082"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/trading-party-role-1-0.json",
+      "blob": "5fbe1a8f2aa396932d622f755f30d8d614889e3a",
+      "sha256": "2f67b031a921d5eda55818f75c508f2dd070e4d307bde89f97a7e230a071fd0f"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/transaction-characteristic-1-0.json",
+      "blob": "1db60e4e0cb57e6a1b53bee6be2c8e0e04df141f",
+      "sha256": "5e9d19841fbb9d6bd48ae42d74029bde37d3f031b94c758334133c45b379c52b"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/transport-currency-1-0.json",
+      "blob": "4131b5b3740a925607732b2ab042cbe88e57e0e6",
+      "sha256": "dd60675f443e93726a5ab52a3aa4620cc9aa16ca62eb2aa1e0d8ee3e27323da3"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/unit-role-2-1.json",
+      "blob": "2de704edae5366994ab521907f7617fb5bf5471b",
+      "sha256": "9544d846b1f5961a10ada606e8eb1b0dfb07c23622d9e117d47ceeccd5ca339d"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/verification-method-1-0.json",
+      "blob": "931da122ac8f1de30e8b537fdfcd7425076c3b1e",
+      "sha256": "651b29f163ad58cdaaff1821a971cf77a898738bb7dfbe3d3073506ac19e520e"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/verification-status-1-0.json",
+      "blob": "d367bab3557a9cd482a70363be2d0c6dbac40964",
+      "sha256": "abbaab2913602c3ab977726ddde5253aae3624d6df03fa546093eca67afacabb"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/weather-data-provider-1-0.json",
+      "blob": "c122db8b1ca872b8f81bd4f1133895e905d6b688",
+      "sha256": "f4f08e4a052f4d93ca64ea45fe61300dd757403f9f4bc45624751b56a2e0e874"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/weather-index-reference-level-1-0.json",
+      "blob": "c445ac13964dae84c9a2adac8c3aba3410b9c531",
+      "sha256": "9bc4d65cff59ca028ba674ebe7b1281a4cada70e93b857abbb01a935919c1df3"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/withdrawal-reason-1-1.json",
+      "blob": "a2713c6dd5cfc3867880a33b4e09ac465a617d4a",
+      "sha256": "e0961e776a0268fec6c361ab542742b14e3aacdc16d5d809ef5d41eff2cf2f52"
+    },
+    {
+      "model": "cdm",
+      "path": "rosetta-source/src/main/resources/codelist/json/withholding-tax-reason-1-0.json",
+      "blob": "e1458040c989a02a69d01c0f2c97db8eedc88644",
+      "sha256": "ce8780901ab181b057cb5a4fbd137a0a357936ea06d7731b491bb183a37c2a9f"
     }
   ]
 }
