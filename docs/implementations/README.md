@@ -14,8 +14,8 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **11
-language-specific implementations per target**. Sixteen catalog entries use Rune,
-including twelve owned overrides and four partially implemented upstream dispatch
+language-specific implementations per target**. Eighteen catalog entries use Rune,
+including fourteen owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -154,13 +154,18 @@ checks the bundled `LoadCodeList` implementation and the preserved Rune
 `ValidateFpMLCodingSchemeDomain` caller. Selected code lists still materialize as
 ordinary Rune enums in the project graph.
 
+The [Strata schedule fixture](../../test/fixtures/third-party/cdm-strata-schedules/README.md)
+compares the paired `CalculationPeriod` and `CalculationPeriods` Rune overrides
+with the handwritten CDM implementations. Both use the same Strata frequency,
+roll, and stub engine and reuse the curated calendar arithmetic.
+
 ## Remaining integrations
 
-**22 catalog entries** remain unimplemented.
+**20 catalog entries** remain unimplemented.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
-| Calendars and schedules | `BusinessCenterHolidays`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `GetNonBusinessDates`, and the remaining calendar-dependent execution of `ComputeCalculationPeriod` |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

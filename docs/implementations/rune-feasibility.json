@@ -22,6 +22,9 @@
   ],
   "files": [
     "packages/project-runtime/src/curated-implementations/rune/add-days.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/cdm-schedule-adapter.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/cdm-strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
@@ -34,6 +37,8 @@
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-periodic-schedule.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-rolls.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta"
@@ -576,8 +581,9 @@
         "name": "CalculationPeriod"
       },
       "signatureSha256": "fd7a4d383f11b06e72005ea161072f07f3856ebe710cb672ba4984ec042ff95f",
-      "route": "data-backed",
-      "requirements": "Select a period from a proven schedule; supplied calendars/date primitives and conventions may be required."
+      "route": "rune-source",
+      "requirements": "Reuse the pinned Strata roll and stub engine in Rune, then select a half-open interval. Preserve the handwritten lookup's date admission and empty result.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta"
     },
     {
       "symbol": {
@@ -599,8 +605,9 @@
         "name": "CalculationPeriods"
       },
       "signatureSha256": "a40f580b93d908280134155543ecb6e9456a9f987a85da619f2db1a6975d6da4",
-      "route": "data-backed",
-      "requirements": "Generate schedules in Rune using supplied calendars and proven roll/stub/date primitives."
+      "route": "rune-source",
+      "requirements": "Adjust endpoints with the pinned weekend adapter, then use the shared Strata schedule engine without stubs.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta"
     },
     {
       "symbol": {

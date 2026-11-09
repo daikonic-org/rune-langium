@@ -1,0 +1,55 @@
+namespace cdm.product.common.schedule : <"Common product schedule concepts: calculation period, reset, fixing and payment dates, stub, notional schedule, roll convention.">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.observable.asset.*
+import cdm.observable.common.*
+import cdm.observable.event.*
+import cdm.product.asset.*
+import cdm.product.template.*
+
+type CalculationPeriodData:
+    startDate date (1..1)
+    endDate date (1..1)
+    daysInPeriod int (1..1)
+    daysInLeapYearPeriod int (1..1)
+    isFirstPeriod boolean (1..1)
+    isLastPeriod boolean (1..1)
+
+type CalculationPeriodDates: <"A data for:  defining the parameters used to generate the calculation period dates schedule, including the specification of any initial or final stub calculation periods. A calculation period schedule consists of an optional initial stub calculation period, one or more regular calculation periods and an optional final stub calculation period. In the absence of any initial or final stub calculation periods, the regular part of the calculation period schedule is assumed to be between the effective date and the termination date. No implicit stubs are allowed, i.e. stubs must be explicitly specified using an appropriate combination of firstPeriodStartDate, firstRegularPeriodStartDate and lastRegularPeriodEndDate.">
+    [metadata key]
+
+    effectiveDate AdjustableOrRelativeDate (0..1) <"The first day of the terms of the trade. This day may be subject to adjustment in accordance with a business day convention.">
+    terminationDate AdjustableOrRelativeDate (0..1) <"The last day of the terms of the trade. This date may be subject to adjustments in accordance with the business day convention. It can also be specified in relation to another scheduled date (e.g. the last payment date).">
+    calculationPeriodDatesAdjustments BusinessDayAdjustments (0..1) <"The specification of the business day convention and financial business centers used for adjusting any calculation period date if it would otherwise fall on a day that is not a business day in the specified business center.">
+    firstPeriodStartDate AdjustableOrRelativeDate (0..1) <"The start date of the calculation period. FpML specifies that for interest rate swaps this date must only be specified if it is not equal to the effective date. It is always specified in the case of equity swaps and credit default swaps with periodic payments. This date may be subject to adjustment in accordance with a business day convention.">
+    firstRegularPeriodStartDate date (0..1) <"The start date of the regular part of the calculation period schedule. It must only be specified if there is an initial stub calculation period. This day may be subject to adjustment in accordance with any adjustments specified in calculationPeriodDatesAdjustments.">
+    firstCompoundingPeriodEndDate date (0..1) <"The end date of the initial compounding period when compounding is applicable. It must only be specified when the compoundingMethod element is present and not equal to a value of None. This date may be subject to adjustment in accordance with any adjustments specified in calculationPeriodDatesAdjustments.">
+    lastRegularPeriodEndDate date (0..1) <"The end date of the regular part of the calculation period schedule. It must only be specified if there is a final stub calculation period. This day may be subject to adjustment in accordance with any adjustments specified in calculationPeriodDatesAdjustments.">
+    stubPeriodType StubPeriodTypeEnum (0..2) <"Method to allocate any irregular period remaining after regular periods have been allocated between the effective and termination date. The multiplicity of 2 allows the possibility of expressing the type for both an initial and final stub at the same time.">
+    calculationPeriodFrequency CalculationPeriodFrequency (0..1) <"The frequency at which calculation period end dates occur with the regular part of the calculation period schedule and their roll date convention.">
+
+    condition FpML_ird_16: <"FpML validation rule ird-16 - If firstRegularPeriodStartDate exists within any element of type CalculationPeriodDates, then terminationDate/unadjustedDate must be after firstRegularPeriodStartDate. This data rule applies within a given interest rate payout component.">
+        if firstRegularPeriodStartDate exists
+        then terminationDate -> adjustableDate -> unadjustedDate > firstRegularPeriodStartDate
+
+    condition FpML_ird_17: <"FpML validation rule ird-17 - If lastRegularPeriodEndDate exists, then terminationDate/unadjustedDate must be after lastRegularPeriodEndDate. This data rule applies within a given interest rate payout component.">
+        if lastRegularPeriodEndDate exists
+        then terminationDate -> adjustableDate -> unadjustedDate > lastRegularPeriodEndDate
+
+    condition FpML_ird_18: <"FpML validation rule ird-18 - If firstRegularPeriodStartDate exists, and if lastRegularPeriodEndDate exists, then lastRegularPeriodEndDate must be after firstRegularPeriodStartDate. This data rule applies within a given interest rate payout component.">
+        if firstRegularPeriodStartDate exists and lastRegularPeriodEndDate exists
+        then lastRegularPeriodEndDate > firstRegularPeriodStartDate
+
+    condition FpML_ird_20: <"FpML validation rule ird-20 - If lastRegularPeriodEndDate exists, then lastRegularPeriodEndDate must be after effectiveDate/unadjustedDate. This data rule applies within a given interest rate payout component.">
+        if lastRegularPeriodEndDate exists
+        then lastRegularPeriodEndDate > effectiveDate -> adjustableDate -> unadjustedDate
+
+    condition FpML_ird_21: <"FpML validation rule ird-21 - If firstPeriodStartDate exists, then firstPeriodStartDate/unadjustedDate must be before effectiveDate/unadjustedDate. This data rule applies within a given interest rate payout component.">
+        if firstPeriodStartDate exists and effectiveDate exists
+        then firstPeriodStartDate -> adjustableDate -> unadjustedDate < effectiveDate -> adjustableDate -> unadjustedDate
+
+    condition FpML_ird_22: <"FpML validation rule ird-22 - If firstPeriodStartDate exists, and if firstRegularPeriodStartDate exists, then firstPeriodStartDate/unadjustedDate must be before firstRegularPeriodStartDate. This data rule applies within a given interest rate payout component.">
+        if firstPeriodStartDate exists and firstRegularPeriodStartDate exists
+        then firstPeriodStartDate -> adjustableDate -> unadjustedDate < firstRegularPeriodStartDate

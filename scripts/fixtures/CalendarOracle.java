@@ -8,7 +8,9 @@ import cdm.base.datetime.AdjustableRelativeOrPeriodicDates;
 import cdm.base.datetime.AdjustedRelativeDateOffset;
 import cdm.base.datetime.BusinessDayAdjustments;
 import cdm.base.datetime.BusinessDayConventionEnum;
+import cdm.base.datetime.CalculationPeriodFrequency;
 import cdm.base.datetime.PeriodicDates;
+import cdm.base.datetime.RollConventionEnum;
 import cdm.base.datetime.RelativeDates;
 import cdm.base.datetime.functions.AddDays;
 import cdm.base.datetime.functions.DateDifference;
@@ -17,15 +19,22 @@ import cdm.base.datetime.functions.LeapYearDateDifference;
 import cdm.base.datetime.functions.ResolveAdjustableDate;
 import cdm.base.datetime.functions.ResolveAdjustableDates;
 import cdm.ingest.fpml.confirmation.product.commodityoption.functions.CalculateCommodityCalculationPeriods;
+import cdm.product.common.schedule.CalculationPeriodData;
+import cdm.product.common.schedule.CalculationPeriodDates;
+import cdm.product.common.schedule.StubPeriodTypeEnum;
+import cdm.product.common.schedule.functions.CalculationPeriod;
+import cdm.product.common.schedule.functions.CalculationPeriods;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
+import com.opengamma.strata.basics.schedule.RollConventions;
 import com.rosetta.model.lib.records.Date;
 import fpml.consolidated.com.CommodityCalculationPeriodsSchedule;
 import fpml.consolidated.fpmlenum.PeriodExtendedEnum;
 import org.finos.cdm.CdmRuntimeModule;
 
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -103,6 +112,52 @@ class CalendarOracle {
         return schedule.build();
     }
 
+    private static CalculationPeriodDates schedule(JsonNode value) {
+        if (value.isMissingNode() || value.isNull()) return null;
+        var dates = CalculationPeriodDates.builder();
+        if (value.hasNonNull("effectiveDate")) dates.setEffectiveDate(adjustment(value.get("effectiveDate")));
+        if (value.hasNonNull("terminationDate")) dates.setTerminationDate(adjustment(value.get("terminationDate")));
+        dates.setFirstRegularPeriodStartDate(date(value.path("firstRegularPeriodStartDate")));
+        dates.setLastRegularPeriodEndDate(date(value.path("lastRegularPeriodEndDate")));
+        for (var stub : value.path("stubPeriodType")) {
+            dates.addStubPeriodType(StubPeriodTypeEnum.fromDisplayName(stub.asText()));
+        }
+        if (value.hasNonNull("calculationPeriodFrequency")) {
+            var fields = value.get("calculationPeriodFrequency");
+            var frequency = CalculationPeriodFrequency.builder();
+            if (fields.hasNonNull("period")) frequency.setPeriod(cdm.base.datetime.PeriodExtendedEnum.valueOf(fields.get("period").asText()));
+            if (fields.hasNonNull("periodMultiplier")) frequency.setPeriodMultiplier(fields.get("periodMultiplier").intValue());
+            if (fields.hasNonNull("rollConvention")) frequency.setRollConvention(RollConventionEnum.valueOf(fields.get("rollConvention").asText()));
+            dates.setCalculationPeriodFrequency(frequency.build());
+        }
+        return dates.build();
+    }
+
+    private static Map<String, Object> periodData(CalculationPeriodData value) {
+        if (value.getStartDate() == null) return Map.of();
+        return Map.of(
+            "startDate", dateText(value.getStartDate()),
+            "endDate", dateText(value.getEndDate()),
+            "daysInPeriod", value.getDaysInPeriod(),
+            "daysInLeapYearPeriod", value.getDaysInLeapYearPeriod(),
+            "isFirstPeriod", value.getIsFirstPeriod(),
+            "isLastPeriod", value.getIsLastPeriod()
+        );
+    }
+
+    private static void verifySydneyRoll() {
+        // Check every month in Strata's accepted AUSY date range against the packed calendar.
+        for (int year = 0; year < 10000; year++) {
+            for (int month = 1; month <= 12; month++) {
+                LocalDate date = LocalDate.of(year, month, 8);
+                LocalDate expected = date.with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.FRIDAY)).minusDays(1);
+                if (!RollConventions.IMMAUD.adjust(date).equals(expected)) {
+                    throw new AssertionError("IMMAUD Sydney roll differs for " + date);
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         var mapper = new ObjectMapper();
         var cases = mapper.readTree(System.in);
@@ -114,6 +169,7 @@ class CalendarOracle {
         var resolve = bindings.getInstance(ResolveAdjustableDate.class);
         var resolveList = bindings.getInstance(ResolveAdjustableDates.class);
         var commodityPeriods = bindings.getInstance(CalculateCommodityCalculationPeriods.class);
+        if (!cases.isEmpty() && cases.get(0).path("function").asText().startsWith("CalculationPeriod")) verifySydneyRoll();
         var results = new ArrayList<Map<String, JsonNode>>();
         for (var test : cases) {
             var input = test.get("inputs");
@@ -128,11 +184,15 @@ class CalendarOracle {
                     case "CalculateCommodityCalculationPeriods" -> dateTexts(commodityPeriods.evaluate(
                         commoditySchedule(input.path("fpmlCommodityCalculationPeriodsSchedule")),
                         date(input.path("effectiveDate")), date(input.path("terminationDate"))));
+                    case "CalculationPeriod" -> periodData(bindings.getInstance(CalculationPeriod.class).evaluate(
+                        schedule(input.path("calculationPeriodDates")), date(input.path("date"))));
+                    case "CalculationPeriods" -> bindings.getInstance(CalculationPeriods.class).evaluate(
+                        schedule(input.path("calculationPeriodDates"))).stream().map(CalendarOracle::periodData).toList();
                     default -> throw new IllegalArgumentException(test.toString());
                 };
                 if (value instanceof Date date) value = dateText(date);
                 results.add(Map.of("id", test.get("id"), "value", mapper.valueToTree(value)));
-            } catch (NullPointerException error) {
+            } catch (RuntimeException error) {
                 if (!test.has("referenceError")) throw error;
                 results.add(Map.of("id", test.get("id"), "error", mapper.valueToTree(error.getClass().getSimpleName())));
             }

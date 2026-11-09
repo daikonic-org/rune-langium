@@ -21,9 +21,10 @@ separate from implementation kind. Handwritten Java implementations, tests and
 empty data providers are reference evidence, never target implementations.
 
 Reusable library ports retain their library namespace. The owned Strata frequency
-port lives in `com.opengamma.strata.basics.schedule`; CDM's `PeriodsInYear` is a
-thin adapter over it. Its one Rune catalog path includes the library source and
-Apache license/notice as support files, not alternative target implementations.
+and periodic schedule ports live in `com.opengamma.strata.basics.schedule`.
+CDM's `PeriodsInYear`, `CalculationPeriod`, and `CalculationPeriods` reuse the
+same CDM-to-Strata frequency conversion. Their Rune catalog paths include the
+library sources and Apache license and notice as support files.
 
 ## Publication and loading
 

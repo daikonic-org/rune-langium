@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.calendar.schedule
+version "1.0.0"
+
+import cdm.base.datetime.*
+import cdm.product.common.schedule.*
+import com.opengamma.strata.basics.schedule.*
+import impl.cdm.calendar.frequency.*
+
+func HasScheduleFrequency:
+    inputs: value CalculationPeriodFrequency (0..1)
+    output: present boolean (1..1)
+    set present:
+        value exists and value -> period exists and value -> periodMultiplier exists and value -> rollConvention exists
+
+func ScheduleFrequency:
+    inputs: value CalculationPeriodFrequency (0..1)
+    output: frequency com.opengamma.strata.basics.schedule.Frequency (1..1)
+    condition RequiredFrequency: HasScheduleFrequency(value)
+    set frequency: ToStrataFrequency(value -> period, value -> periodMultiplier)
+
+func MonthRollDay:
+    inputs: value RollConventionEnum (0..1)
+    output: day int (0..1)
+    set day: value switch
+        _1 then 1,
+        _2 then 2,
+        _3 then 3,
+        _4 then 4,
+        _5 then 5,
+        _6 then 6,
+        _7 then 7,
+        _8 then 8,
+        _9 then 9,
+        _10 then 10,
+        _11 then 11,
+        _12 then 12,
+        _13 then 13,
+        _14 then 14,
+        _15 then 15,
+        _16 then 16,
+        _17 then 17,
+        _18 then 18,
+        _19 then 19,
+        _20 then 20,
+        _21 then 21,
+        _22 then 22,
+        _23 then 23,
+        _24 then 24,
+        _25 then 25,
+        _26 then 26,
+        _27 then 27,
+        _28 then 28,
+        _29 then 29,
+        _30 then 30,
+        default empty
+
+func WeekRollDay:
+    inputs: value RollConventionEnum (0..1)
+    output: day int (0..1)
+    set day: value switch
+        MON then 1,
+        TUE then 2,
+        WED then 3,
+        THU then 4,
+        FRI then 5,
+        SAT then 6,
+        SUN then 7,
+        default empty
+
+func FpmlRoll: <"Map through the external FpML names available in Strata 1.7.0.">
+    inputs: value RollConventionEnum (0..1)
+    output: roll Roll (1..1)
+    alias monthDay: MonthRollDay(value)
+    alias weekday: WeekRollDay(value)
+    condition SupportedFpmlRoll:
+        monthDay exists or weekday exists or
+        [RollConventionEnum -> NONE, RollConventionEnum -> EOM, RollConventionEnum -> IMM,
+         RollConventionEnum -> IMMAUD, RollConventionEnum -> IMMNZD, RollConventionEnum -> SFE] contains value
+    set roll:
+        if monthDay exists then Roll { kind: RollKind -> MonthDay, day: monthDay }
+        else if weekday exists then Roll { kind: RollKind -> WeekDay, day: weekday }
+        else value switch
+            EOM then Roll { kind: RollKind -> EndOfMonth },
+            IMM then Roll { kind: RollKind -> Imm },
+            IMMAUD then Roll { kind: RollKind -> ImmAud },
+            IMMNZD then Roll { kind: RollKind -> ImmNzd },
+            SFE then Roll { kind: RollKind -> Sfe },
+            default Roll { kind: RollKind -> NoRoll }
+
+func StrictScheduleDate: <"The single-period adapter requires exactly one adjusted or unadjusted date and does not adjust it.">
+    inputs: choiceDate AdjustableOrRelativeDate (0..1)
+    output: value date (1..1)
+    alias adjustable: choiceDate -> adjustableDate
+    alias supplied: adjustable -> unadjustedDate
+    alias adjusted: adjustable -> adjustedDate
+    condition SingleBoundaryDate:
+        if supplied exists then adjusted is absent else adjusted exists
+    set value: supplied default adjusted
+
+func LookupStubRule:
+    inputs:
+        dates CalculationPeriodDates (1..1)
+        startDate date (1..1)
+        endDate date (1..1)
+        roll Roll (1..1)
+    output: stub StubRule (0..1)
+    alias stubs: dates -> stubPeriodType
+    alias startOnRoll: RollDate(startDate, roll) = startDate
+    alias endOnRoll: RollDate(endDate, roll) = endDate
+    alias shortInitial: stubs contains (StubPeriodTypeEnum -> ShortInitial)
+    alias longInitial: stubs contains (StubPeriodTypeEnum -> LongInitial)
+    alias shortFinal: stubs contains (StubPeriodTypeEnum -> ShortFinal)
+    alias longFinal: stubs contains (StubPeriodTypeEnum -> LongFinal)
+    condition StubCount: stubs count <= 2
+    condition InitialStubTypes: (startOnRoll and endOnRoll) or shortInitial = False or longInitial = False
+    condition FinalStubTypes: (startOnRoll and endOnRoll) or shortFinal = False or longFinal = False
+    condition InitialStubRequired:
+        startOnRoll or shortInitial or longInitial or dates -> firstRegularPeriodStartDate exists
+    condition FinalStubRequired:
+        endOnRoll or shortFinal or longFinal or dates -> lastRegularPeriodEndDate exists
+    set stub:
+        if stubs count = 2 then StubRule -> Both
+        else if shortInitial then StubRule -> ShortInitial
+        else if longInitial then StubRule -> LongInitial
+        else if shortFinal then StubRule -> ShortFinal
+        else if longFinal then StubRule -> LongFinal
+        else empty
+
+func DeriveRegularBoundary:
+    inputs:
+        boundary date (1..1)
+        frequency com.opengamma.strata.basics.schedule.Frequency (1..1)
+        roll Roll (1..1)
+        direction int (1..1)
+        longStub boolean (1..1)
+    output: result date (1..1)
+    alias nearest: RollStep(boundary, frequency, roll, direction)
+    set result: if longStub then RollStep(nearest, frequency, roll, direction) else nearest
+
+func LookupScheduleWithStub:
+    inputs:
+        dates CalculationPeriodDates (1..1)
+        startDate date (1..1)
+        endDate date (1..1)
+        frequency com.opengamma.strata.basics.schedule.Frequency (1..1)
+        roll Roll (1..1)
+        stub StubRule (0..1)
+    output: intervals ScheduleInterval (1..*)
+    alias stubs: dates -> stubPeriodType
+    alias firstRegular: dates -> firstRegularPeriodStartDate
+    alias lastRegular: dates -> lastRegularPeriodEndDate
+    alias autoBoundaries: stub = StubRule -> Both
+    set intervals: PeriodicSchedule(
+        startDate, endDate, frequency, roll, stub,
+        if firstRegular is absent and autoBoundaries and RollDate(startDate, roll) <> startDate
+        then DeriveRegularBoundary(startDate, frequency, roll, 1, stubs contains (StubPeriodTypeEnum -> LongInitial))
+        else firstRegular,
+        if lastRegular is absent and autoBoundaries and RollDate(endDate, roll) <> endDate
+        then DeriveRegularBoundary(endDate, frequency, roll, -1, stubs contains (StubPeriodTypeEnum -> LongFinal))
+        else lastRegular
+    )
+
+func LookupSchedule:
+    inputs:
+        dates CalculationPeriodDates (1..1)
+        startDate date (1..1)
+        endDate date (1..1)
+    output: intervals ScheduleInterval (1..*)
+    alias frequency: ScheduleFrequency(dates -> calculationPeriodFrequency)
+    alias roll: FpmlRoll(dates -> calculationPeriodFrequency -> rollConvention)
+    set intervals: LookupScheduleWithStub(
+        dates, startDate, endDate, frequency, roll, LookupStubRule(dates, startDate, endDate, roll)
+    )
+
+func DescribeSchedulePeriod:
+    inputs:
+        interval ScheduleInterval (1..1)
+        startDate date (1..1)
+        endDate date (1..1)
+    output: result CalculationPeriodData (1..1)
+    set result: CalculationPeriodRange(interval -> startDate, interval -> endDate, empty)
+    set result -> isFirstPeriod: interval -> startDate = startDate
+    set result -> isLastPeriod: interval -> endDate = endDate
+
+func PeriodInSchedule:
+    inputs:
+        dates CalculationPeriodDates (1..1)
+        targetDate date (1..1)
+        startDate date (1..1)
+        endDate date (1..1)
+    output: result CalculationPeriodData (1..1)
+    condition OrderedScheduleDates: startDate <= endDate
+    set result:
+        if targetDate < startDate or targetDate >= endDate then CalculationPeriodData { ... }
+        else DescribeSchedulePeriod(
+            LookupSchedule(dates, startDate, endDate)
+                filter [item -> startDate <= targetDate and item -> endDate > targetDate]
+                then only-element,
+            startDate, endDate
+        )
+
+func PeriodsFromAdjustedDates:
+    inputs:
+        dates CalculationPeriodDates (1..1)
+        startDate date (1..1)
+        endDate date (1..1)
+    output: result CalculationPeriodData (0..*)
+    alias frequency: ScheduleFrequency(dates -> calculationPeriodFrequency)
+    alias roll: FpmlRoll(dates -> calculationPeriodFrequency -> rollConvention)
+    set result:
+        PeriodicSchedule(startDate, endDate, frequency, roll, StubRule -> NoStubs, empty, empty)
+            extract [CalculationPeriodRange(item -> startDate, item -> endDate, empty)]

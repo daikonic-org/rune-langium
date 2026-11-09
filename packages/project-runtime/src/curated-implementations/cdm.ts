@@ -45,8 +45,40 @@ interface RuneImplementation {
   readonly files: readonly string[];
 }
 
+const calculationPeriodDates = {
+  name: 'calculationPeriodDates',
+  type: 'cdm.product.common.schedule.CalculationPeriodDates',
+  kind: 'Data',
+  card: [1, 1],
+  plain: true
+} as const;
+const calculationPeriodResult = {
+  name: 'result',
+  type: 'cdm.product.common.schedule.CalculationPeriodData',
+  kind: 'Data',
+  card: [1, 1],
+  plain: true
+} as const;
+const strataFrequencySources = [
+  'strata-frequency.rosetta',
+  'cdm-strata-frequency.rosetta',
+  'strata-LICENSE.txt',
+  'strata-NOTICE.txt'
+];
+
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  CalculationPeriod: {
+    inputs: [
+      calculationPeriodDates,
+      { name: 'date', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [1, 1], plain: true }
+    ],
+    output: calculationPeriodResult
+  },
+  CalculationPeriods: {
+    inputs: [calculationPeriodDates],
+    output: { ...calculationPeriodResult, card: [0, '*'] }
+  },
   LoadCodeList: {
     inputs: [{ name: 'domain', type: 'com.rosetta.model.string', kind: 'RosettaBasicType', card: [1, 1], plain: true }],
     output: { name: 'codelist', type: 'cdm.base.staticdata.codelist.CodeList', kind: 'Data', card: [0, 1], plain: true }
@@ -731,8 +763,30 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
     name: 'PeriodsInYear',
     signature: signatures.PeriodsInYear!,
     path: 'frequency.rosetta',
-    files: ['strata-frequency.rosetta', 'frequency.rosetta', 'strata-LICENSE.txt', 'strata-NOTICE.txt']
+    files: [...strataFrequencySources, 'frequency.rosetta']
   },
+  ...['CalculationPeriod', 'CalculationPeriods'].map((name): RuneImplementation => ({
+    kind: 'rune',
+    namespace: 'cdm.product.common.schedule',
+    name,
+    signature: signatures[name]!,
+    path: 'calculation-schedules.rosetta',
+    files: [
+      ...strataFrequencySources,
+      'strata-rolls.rosetta',
+      'strata-periodic-schedule.rosetta',
+      'cdm-schedule-adapter.rosetta',
+      'calculation-schedules.rosetta',
+      'period-range.rosetta',
+      'date-difference.rosetta',
+      'leap-year-date-difference.rosetta',
+      'gregorian.rosetta',
+      'resolve-adjustable-date.rosetta',
+      'weekend-adjustment.rosetta',
+      'add-days.rosetta',
+      'day-of-week.rosetta'
+    ]
+  })),
   {
     kind: 'rune',
     namespace: 'cdm.ingest.fpml.confirmation.pricequantity',

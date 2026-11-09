@@ -16,6 +16,7 @@ it(
   async () => {
     const project = await createCuratedFrequencyProject();
     expect([...project.changes.keys()].filter((path) => path.endsWith('.rosetta'))).toEqual([
+      'model/implementations/cdm/cdm-strata-frequency.rosetta',
       'model/implementations/cdm/frequency.rosetta',
       'model/implementations/cdm/strata-frequency.rosetta'
     ]);

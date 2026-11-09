@@ -974,7 +974,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "437ab3e8975030e1afbdbe5604c687a640fbe5e11e09b7ac2ad45d4637847d9a"
+      "sha256": "d0328754438d5e4b1df6f7a9a874aed380ff3a7335eaf6d290c28c638264200b"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1017,6 +1017,18 @@
       "sha256": "880ca873e45e8b88de6d7547677584fcf06cf7dd945354ab01fafb30d2b06b06"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta",
+      "sha256": "75b20322d1882e97ab72fbee6930022e29ed17482e63e196a430854db542b36e"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/cdm-schedule-adapter.rosetta",
+      "sha256": "6d63e647238bf3eee589dd4d3535bf0b403563097f205800a61a356fd92c5474"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/cdm-strata-frequency.rosetta",
+      "sha256": "05b3f6546b3ca723f16aaff0619d285ad18bde737f1d192710fe3942372898ce"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
       "sha256": "31f54c6bf97fd2c6eabc347e8bf1f9592d67145c8d49fc41487ba2f922e415a8"
     },
@@ -1038,7 +1050,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
-      "sha256": "1570701ba47b008e8c00e09127f10499c353946f8737ef8090510c23ed205271"
+      "sha256": "927f7559f3c30e7f600b8b28af9b489347818407ba47bdc12f78312f0674e467"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
@@ -1063,6 +1075,14 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
       "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-periodic-schedule.rosetta",
+      "sha256": "d6ac202558f7d1cff042ae99f231515fd2f325b4f7fd204dcd6f70c8574c0d19"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-rolls.rosetta",
+      "sha256": "1a88dbac95c472ab531e6422156d2306e9ca683a21e59ad6e6c7673977e90000"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
@@ -7516,7 +7536,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta",
+        "entrypoint": "cdm.product.common.schedule.CalculationPeriod",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -7550,10 +7573,17 @@
         ]
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Select a period from a proven schedule; supplied calendars/date primitives and conventions may be required.",
+        "route": "rune-source",
+        "requirements": "Reuse the pinned Strata roll and stub engine in Rune, then select a half-open interval. Preserve the handwritten lookup's date admission and empty result.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/strata-schedules.test.ts",
+        "cases": "test/fixtures/third-party/cdm-strata-schedules/cases.json",
+        "casesSha256": "9a61a38169bbfbbcd25448e613beb3e5e40efb17d73d417e78a02c424ba24c2f",
+        "selectors": [],
+        "caseCount": 69
       }
     },
     {
@@ -7679,7 +7709,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta",
+        "entrypoint": "cdm.product.common.schedule.CalculationPeriods",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -7697,10 +7730,17 @@
         ]
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Generate schedules in Rune using supplied calendars and proven roll/stub/date primitives.",
+        "route": "rune-source",
+        "requirements": "Adjust endpoints with the pinned weekend adapter, then use the shared Strata schedule engine without stubs.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/strata-schedules.test.ts",
+        "cases": "test/fixtures/third-party/cdm-strata-schedules/cases.json",
+        "casesSha256": "9a61a38169bbfbbcd25448e613beb3e5e40efb17d73d417e78a02c424ba24c2f",
+        "selectors": [],
+        "caseCount": 5
       }
     },
     {

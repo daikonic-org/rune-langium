@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.product.common.schedule
+version "1.0.0"
+
+import cdm.base.datetime.*
+import impl.cdm.calendar.schedule.*
+
+func CalculationPeriod: <"Select the half-open period containing the target date, using the handwritten CDM 7.9.0 input and stub conventions.">
+    inputs:
+        calculationPeriodDates CalculationPeriodDates (1..1)
+        date date (1..1)
+    output: result CalculationPeriodData (1..1)
+    alias frequency: calculationPeriodDates -> calculationPeriodFrequency
+    condition RequiredScheduleInput:
+        calculationPeriodDates exists and date exists and HasScheduleFrequency(frequency)
+    set result: PeriodInSchedule(
+        calculationPeriodDates, date,
+        StrictScheduleDate(calculationPeriodDates -> effectiveDate),
+        StrictScheduleDate(calculationPeriodDates -> terminationDate)
+    )
+
+func CalculationPeriods: <"Generate the handwritten CDM 7.9.0 schedule from adjusted endpoints without stubs.">
+    inputs: calculationPeriodDates CalculationPeriodDates (1..1)
+    output: result CalculationPeriodData (0..*)
+    alias effective: calculationPeriodDates -> effectiveDate
+    alias termination: calculationPeriodDates -> terminationDate
+    alias startDate: if effective exists then ResolveAdjustableDate(effective)
+    alias endDate: if termination exists then ResolveAdjustableDate(termination)
+    condition RequiredScheduleDates: calculationPeriodDates exists
+    set result:
+        if startDate exists and endDate exists
+        then PeriodsFromAdjustedDates(calculationPeriodDates, startDate, endDate)
+        else []

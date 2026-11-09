@@ -68,6 +68,28 @@ const suites = [
     ]
   },
   {
+    directory: 'cdm-strata-schedules',
+    declarations: ['CalculationPeriod', 'CalculationPeriods'].map((name) => ({
+      namespace: 'cdm.product.common.schedule',
+      name,
+      kind: 'RosettaFunction'
+    })),
+    supportDeclarations: [
+      { namespace: 'cdm.product.common.schedule', name: 'CalculationPeriodRange', kind: 'RosettaFunction' },
+      ...['AddDays', 'DateDifference', 'DayOfWeek', 'LeapYearDateDifference', 'ResolveAdjustableDate'].map((name) => ({
+        namespace: 'cdm.base.datetime',
+        name,
+        kind: 'RosettaFunction'
+      }))
+    ],
+    references: ['CalculationPeriod', 'CalculationPeriods'],
+    supportReferences: [
+      'rosetta-source/src/main/java/cdm/product/common/schedule/functions/AdjustableDateUtils.java',
+      'rosetta-source/src/main/java/cdm/product/common/schedule/functions/CdmToStrataMapper.java'
+    ],
+    resources: ['business-center-9-3.json']
+  },
+  {
     directory: 'cdm-period-range',
     declarations: [
       { namespace: 'cdm.product.common.schedule', name: 'CalculationPeriodRange', kind: 'RosettaFunction' },
@@ -159,7 +181,10 @@ await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { validation: fa
 for (const suite of suites) {
   const destination = resolve(root, 'test/fixtures/third-party', suite.directory);
   const declarations = suite.declarations;
-  const selection = resolveExportSelection(documents, { namespaces: [], declarations });
+  const selection = resolveExportSelection(documents, {
+    namespaces: [],
+    declarations: [...declarations, ...(suite.supportDeclarations ?? [])]
+  });
   if (selection.unknown.length || selection.unknownNamespaces.length)
     throw new Error('Dispatch fixture roots are unresolved.');
   const files = [];

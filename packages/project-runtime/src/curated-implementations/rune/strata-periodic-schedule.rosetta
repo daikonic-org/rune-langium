@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace com.opengamma.strata.basics.schedule
+version "1.7.0"
+
+import impl.cdm.calendar.*
+
+enum StubRule:
+    NoStubs
+    ShortInitial
+    LongInitial
+    ShortFinal
+    LongFinal
+    Both
+
+type ScheduleInterval:
+    startDate date (1..1)
+    endDate date (1..1)
+
+func IsInitialStub:
+    inputs: stub StubRule (0..1)
+    output: initial boolean (1..1)
+    set initial: stub = StubRule -> ShortInitial or stub = StubRule -> LongInitial
+
+func ImplicitStubRule:
+    inputs:
+        declared StubRule (0..1)
+        explicitInitial boolean (1..1)
+        explicitFinal boolean (1..1)
+    output: stub StubRule (1..1)
+    condition ExplicitStubDates:
+        if declared is absent then True
+        else if declared = StubRule -> Both then explicitInitial and explicitFinal
+        else if declared = StubRule -> NoStubs then explicitInitial = False and explicitFinal = False
+        else if IsInitialStub(declared) then explicitFinal = False
+        else explicitInitial = False
+    set stub:
+        if explicitInitial or explicitFinal then StubRule -> NoStubs
+        else declared default (StubRule -> NoStubs)
+
+func EffectiveScheduleRoll: <"Resolve an advisory EOM or NONE using the regular endpoints, frequency and declared stub direction.">
+    inputs:
+        requested Roll (1..1)
+        frequency Frequency (1..1)
+        firstDate date (1..1)
+        lastDate date (1..1)
+        declared StubRule (0..1)
+    output: roll Roll (1..1)
+    alias advisoryEom: requested -> kind = RollKind -> EndOfMonth
+    alias period: frequency -> period
+    alias monthly: (period -> years > 0 or period -> months > 0) and period -> days = 0
+    alias weekly:
+        period -> years = 0 and period -> months = 0 and ((period -> days) / 7) to-int exists
+    alias anchor: if IsInitialStub(declared) then lastDate else firstDate
+    alias firstDay: firstDate -> day
+    alias lastDay: lastDate -> day
+    alias eomEndpoint:
+        firstDay = MonthLength(firstDate -> year, firstDate -> month)
+        or lastDay = MonthLength(lastDate -> year, lastDate -> month)
+    alias differentMonths: firstDate -> year <> lastDate -> year or firstDate -> month <> lastDate -> month
+    alias chooseLaterDay:
+        (declared is absent or declared = StubRule -> NoStubs)
+        and firstDay <> lastDay and differentMonths and eomEndpoint
+    set roll:
+        if requested -> kind <> RollKind -> NoRoll and advisoryEom = False then requested
+        else if monthly then
+            if advisoryEom and (chooseLaterDay or anchor -> day = MonthLength(anchor -> year, anchor -> month))
+            then Roll { kind: RollKind -> EndOfMonth }
+            else Roll {
+                kind: RollKind -> MonthDay,
+                day: if chooseLaterDay then (if firstDay > lastDay then firstDay else lastDay) else anchor -> day
+            }
+        else if weekly then Roll { kind: RollKind -> WeekDay, day: IsoWeekday(anchor) }
+        else requested
+
+func RollIntervals: <"Produce successive directed intervals through the first boundary at or beyond the limit. The day-distance budget is split to keep the call stack logarithmic.">
+    inputs:
+        start date (1..1)
+        limit date (1..1)
+        frequency Frequency (1..1)
+        roll Roll (1..1)
+        direction int (1..1)
+        budget int (1..1)
+    output: intervals ScheduleInterval (0..*)
+    alias half: GregorianFloorDivide(budget, 2)
+    set intervals:
+        if budget <= 0 or direction * (limit - start) <= 0 then []
+        else if budget = 1 then [ScheduleInterval {
+            startDate: start,
+            endDate: RollStep(start, frequency, roll, direction)
+        }]
+        else ContinueRollIntervals(
+            RollIntervals(start, limit, frequency, roll, direction, half),
+            limit, frequency, roll, direction, budget - half
+        )
+
+func ContinueRollIntervals:
+    inputs:
+        earlierIntervals ScheduleInterval (0..*)
+        limit date (1..1)
+        frequency Frequency (1..1)
+        roll Roll (1..1)
+        direction int (1..1)
+        budget int (1..1)
+    output: intervals ScheduleInterval (0..*)
+    alias boundary: (earlierIntervals last) -> endDate
+    set intervals: [earlierIntervals,
+        if boundary exists then RollIntervals(boundary, limit, frequency, roll, direction, budget) else []]
+
+func RequireRollAnchor:
+    inputs:
+        value date (1..1)
+        roll Roll (1..1)
+    output: anchor date (1..1)
+    condition RegularRollAnchor: RollDate(value, roll) = value
+    set anchor: value
+
+func CompleteDirectedSchedule: <"Build the schedule in its roll direction and merge a long remainder with the preceding interval.">
+    inputs:
+        outerStart date (1..1)
+        regularStart date (1..1)
+        regularEnd date (1..1)
+        outerEnd date (1..1)
+        frequency Frequency (1..1)
+        roll Roll (1..1)
+        stub StubRule (1..1)
+        direction int (1..1)
+    output: intervals ScheduleInterval (1..*)
+    alias steps: direction * (regularEnd - regularStart)
+    alias runs: RollIntervals(RequireRollAnchor(regularStart, roll), regularEnd, frequency, roll, direction, steps)
+    alias boundary: (runs last) -> endDate
+    alias interior: runs filter [direction * (item -> endDate - regularEnd) < 0]
+    alias earlier: [
+        if outerStart <> regularStart then ScheduleInterval { startDate: outerStart, endDate: regularStart },
+        interior
+    ]
+    alias prior: earlier last
+    alias hasStub: boundary <> regularEnd
+    alias mergeStub: hasStub and prior exists and (stub = StubRule -> LongInitial or stub = StubRule -> LongFinal)
+    alias finalStart: if mergeStub then prior -> startDate else (runs last) -> startDate
+    condition DisallowedStub: hasStub = False or stub <> StubRule -> NoStubs or prior is absent
+    set intervals: [
+        if mergeStub then (earlier filter [item -> startDate <> prior -> startDate]) else earlier,
+        ScheduleInterval { startDate: finalStart default regularStart, endDate: regularEnd },
+        if outerEnd <> regularEnd then ScheduleInterval { startDate: regularEnd, endDate: outerEnd }
+    ]
+
+func OrderSchedule:
+    inputs:
+        firstDate date (1..1)
+        regularStart date (1..1)
+        regularEnd date (1..1)
+        lastDate date (1..1)
+        frequency Frequency (1..1)
+        roll Roll (1..1)
+        stub StubRule (1..1)
+    output: intervals ScheduleInterval (1..*)
+    set intervals:
+        if IsInitialStub(stub)
+        then CompleteDirectedSchedule(lastDate, regularEnd, regularStart, firstDate, frequency, roll, stub, -1)
+            reverse extract [ScheduleInterval { startDate: item -> endDate, endDate: item -> startDate }]
+        else CompleteDirectedSchedule(firstDate, regularStart, regularEnd, lastDate, frequency, roll, stub, 1)
+
+func TermSchedule:
+    inputs:
+        firstDate date (1..1)
+        lastDate date (1..1)
+        regularStart date (1..1)
+        regularEnd date (1..1)
+    output: intervals ScheduleInterval (1..*)
+    condition NoTermStubs: firstDate = regularStart and lastDate = regularEnd
+    set intervals: [ScheduleInterval { startDate: firstDate, endDate: lastDate }]
+
+func PeriodicSchedule: <"Build adjacent, unadjusted Strata 1.7.0 schedule intervals for the CDM adapters.">
+    inputs:
+        firstDate date (1..1)
+        lastDate date (1..1)
+        frequency Frequency (1..1)
+        roll Roll (1..1)
+        stub StubRule (0..1)
+        firstRegular date (0..1)
+        lastRegular date (0..1)
+    output: intervals ScheduleInterval (1..*)
+    alias regularStart: firstRegular default firstDate
+    alias regularEnd: lastRegular default lastDate
+    alias term: frequency -> period -> years = 10000 and frequency -> period -> months = 0 and frequency -> period -> days = 0
+    condition ScheduleDateOrder: firstDate < lastDate and firstDate <= regularStart and regularEnd <= lastDate
+        and (if firstRegular exists and lastRegular exists then regularStart < regularEnd else regularStart <= regularEnd)
+    set intervals:
+        if regularStart = lastDate or regularEnd = firstDate then [ScheduleInterval { startDate: firstDate, endDate: lastDate }]
+        else if term then TermSchedule(firstDate, lastDate, regularStart, regularEnd)
+        else OrderSchedule(
+            firstDate, regularStart, regularEnd, lastDate, frequency,
+            EffectiveScheduleRoll(roll, frequency, regularStart, regularEnd, stub),
+            ImplicitStubRule(stub, regularStart <> firstDate, regularEnd <> lastDate)
+        )

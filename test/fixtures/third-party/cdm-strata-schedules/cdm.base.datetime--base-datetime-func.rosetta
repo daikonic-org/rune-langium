@@ -1,0 +1,43 @@
+namespace cdm.base.datetime: <"Basic date and time concepts: relative date, date range, offset, business centre etc.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.base.staticdata.codelist.*
+
+func ResolveAdjustableDate:
+    [codeImplementation]
+    inputs:
+        adjustableOrRelativeDate AdjustableOrRelativeDate (1..1)
+    output:
+        adjustedDate date (0..1)
+
+func DayOfWeek: <"Returns the day of week corresponding to the supplied date.">
+    [codeImplementation]
+    inputs:
+        date date (1..1) <"The date for which the weekday is needed.">
+    output:
+        dayOfWeek DayOfWeekEnum (1..1) <"The day of the week as an enumerated value.">
+
+func AddDays: <"Adds the specified number of calendar days to the supplied date.  A negative number will generate a date before the supplied date.">
+    [codeImplementation]
+    inputs:
+        inputDate date (1..1) <"The base date for the calculation.">
+        numDays int (1..1) <"The number of days to add.">
+    output:
+        resultDate date (1..1) <"The date shifted by the specified number of days.">
+
+func DateDifference: <"Subtracts the two supplied dates to return the number of calendar days between them.  A negative number implies first is after second.">
+    [codeImplementation]
+    inputs:
+        firstDate date (1..1) <"The earlier date.">
+        secondDate date (1..1) <"The later date.">
+    output:
+        difference int (1..1) <"The number of calendar days second date is after firstDate. Negative means secondDate is before firstDate.">
+
+func LeapYearDateDifference: <"Subtracts the two supplied dates to return the number of leap year calendar days between them. A negative number implies firstDate is after secondDate.">
+    [codeImplementation]
+    inputs:
+        firstDate date (1..1) <"The left side of the subtraction.">
+        secondDate date (1..1) <"The right side of the subtraction.">
+    output:
+        difference int (1..1) <"The number of leap year calendar days secondDate is after firstDate. Negative means secondDate is before firstDate.">
