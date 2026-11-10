@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createProjectDraftSnapshot } from '../../packages/project-config/src/index.js';
+import { createProjectDraftSnapshot, type ProjectSnapshot } from '../../packages/project-config/src/index.js';
 import {
   resolveProjectReferences,
   createMemoryReferenceCache,
@@ -77,6 +77,22 @@ export async function createCuratedRuneProject(
   if (prepared.diagnostics.length) throw new Error(JSON.stringify(prepared.diagnostics));
   const installed = await createProjectDraftSnapshot(snapshot, prepared.changes, () => []);
   return { fixture, references: loaded.documents, snapshot, installed, changes: prepared.changes };
+}
+
+/** Bind a provider in both the pre-install and installed view of the fixture. */
+export async function withCuratedFixtureOverride(
+  project: Awaited<ReturnType<typeof createCuratedRuneProject>>,
+  override: NonNullable<ProjectSnapshot['project']['build']['overrides']>[number]
+) {
+  const bind = (snapshot: ProjectSnapshot) => {
+    const build = {
+      ...snapshot.project.build,
+      overrides: [...(snapshot.project.build.overrides ?? []), override]
+    };
+    return createProjectDraftSnapshot(snapshot, new Map([['build-config.yml', JSON.stringify(build)]]), () => []);
+  };
+  const [snapshot, installed] = await Promise.all([bind(project.snapshot), bind(project.installed)]);
+  return { ...project, snapshot, installed };
 }
 
 /** Read the exact upstream resource bytes used when publishing a fixture bundle. */

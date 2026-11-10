@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.observable.asset.fro
+version "1.0.0"
+
+import cdm.base.staticdata.asset.rates.FloatingRateIndexEnum
+import impl.cdm.fro.*
+
+func FloatingRateIndexMetadata:
+    inputs:
+        floatingRateIndexName FloatingRateIndexEnum (1..1)
+    output:
+        floatingRateIndexDescription FloatingRateIndexDefinition (0..1)
+
+    alias matrix: ReadFloatingRateIndexMatrix(floatingRateIndexName)
+    set floatingRateIndexDescription:
+        SelectFloatingRateIndexDefinition(matrix -> versions, matrix -> metadataDate, floatingRateIndexName)

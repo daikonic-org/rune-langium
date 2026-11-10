@@ -33,7 +33,7 @@ async function documents(withCalendars = true) {
   for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { eagerLinking: true });
   assertValidDocuments(docs);
-  installPublishedNativeImplementations(docs);
+  await installPublishedNativeImplementations(docs);
   return docs;
 }
 

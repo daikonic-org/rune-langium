@@ -42,7 +42,7 @@ async function documents(source = nativeSource): Promise<LangiumDocument[]> {
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
   expect(docs.flatMap((doc) => doc.parseResult.parserErrors)).toEqual([]);
   assertValidDocuments(docs);
-  installPublishedNativeImplementations(docs);
+  await installPublishedNativeImplementations(docs);
   return docs;
 }
 

@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.instructioncomposition.reset
+version "1.0.0"
+
+import cdm.base.staticdata.asset.rates.FloatingRateIndexEnum
+import cdm.observable.asset.fro.FloatingRateIndexDefinition
+import impl.cdm.fro.*
+
+func ExtractFloatingRateOptionData:
+    inputs:
+        tradeDate date (1..1)
+        floatingRateIndex FloatingRateIndexEnum (1..1)
+    output:
+        floatingRateIndexData FloatingRateIndexDefinition (1..1)
+
+    alias matrix: ReadFloatingRateIndexMatrix(floatingRateIndex)
+    alias definition: SelectFloatingRateIndexDefinition(matrix -> versions, tradeDate, floatingRateIndex)
+    condition FloatingRateIndexDefinitionMissing:
+        definition exists
+    set floatingRateIndexData: definition

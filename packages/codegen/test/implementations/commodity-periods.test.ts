@@ -28,7 +28,7 @@ beforeAll(async () => {
   for (const doc of docs) workspace.LangiumDocuments.addDocument(doc);
   await workspace.DocumentBuilder.build(docs, { eagerLinking: true });
   assertValidDocuments(docs);
-  installPublishedNativeImplementations(docs);
+  await installPublishedNativeImplementations(docs);
 });
 
 it.each(['single-file', 'per-namespace', 'barrel'] as const)(

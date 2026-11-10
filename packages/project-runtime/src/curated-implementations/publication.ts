@@ -50,7 +50,7 @@ export async function publishCuratedImplementations(
   codeLists?: CdmCodeListCatalog
 ): Promise<string> {
   if (origin.model !== 'cdm') return json;
-  const selected = curatedModelImplementations(model, codeLists);
+  const selected = await curatedModelImplementations(model, codeLists);
   if (!selected.size) return json;
   const paths = [...curatedRuneSourceFiles(selected.values()), 'LICENSE'];
   const files = await Promise.all(

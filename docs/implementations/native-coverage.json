@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "dfc9a7b0772c85bbe8385283a18364b312c97404d35ecfab5ac69c6493827cc9"
+      "sha256": "39a4a68f4cadee175ea5bc38280247ce25900677027f686e7f9c0ffda963aa71"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1063,6 +1063,18 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
       "sha256": "b52497b3e64ca23c2d3cb41275f4720206a15d8bff2033d31349a350b449c541"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta",
+      "sha256": "dd9cba40fddf581d37ae15264052ba3bd0cc38712415285114a1b63ef6c76e23"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-matrix.rosetta",
+      "sha256": "99e50ff97522d509cd79a73983a670691a02523453d42118d55a6a1ff06e14f7"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-metadata.rosetta",
+      "sha256": "9def1e6b1fe52400f921221451404a05897b2706ab9e666899821efaefc5f210"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
@@ -4880,7 +4892,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta",
+        "entrypoint": "cdm.event.instructioncomposition.reset.ExtractFloatingRateOptionData",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -4889,10 +4904,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Select FRO metadata by trade date and index from a supplied versioned matrix.",
+        "route": "rune-source",
+        "requirements": "Editable Rune override selects the supplied matrix version on the trade date, then the requested index. A missing definition fails explicitly. The project provides the versioned matrix.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/floating-rate-metadata.test.ts",
+        "cases": "test/fixtures/third-party/cdm-floating-rate-metadata/cases.json",
+        "casesSha256": "91f2e4348f70f70af00cb27e22d87f317d9c6931b7ca4c148cca7cf286c27221",
+        "selectors": [],
+        "caseCount": 5
       }
     },
     {
@@ -6553,7 +6575,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-metadata.rosetta",
+        "entrypoint": "cdm.observable.asset.fro.FloatingRateIndexMetadata",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -6562,10 +6587,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Select from supplied, versioned FRO metadata; missing data remains explicit.",
+        "route": "rune-source",
+        "requirements": "Editable Rune override uses the nominated metadata date in a project-supplied matrix. Missing index metadata returns empty. Overlapping versions and duplicate definitions fail explicitly.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/floating-rate-metadata.test.ts",
+        "cases": "test/fixtures/third-party/cdm-floating-rate-metadata/cases.json",
+        "casesSha256": "91f2e4348f70f70af00cb27e22d87f317d9c6931b7ca4c148cca7cf286c27221",
+        "selectors": [],
+        "caseCount": 5
       }
     },
     {
