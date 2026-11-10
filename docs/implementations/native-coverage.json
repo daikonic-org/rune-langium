@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "39a4a68f4cadee175ea5bc38280247ce25900677027f686e7f9c0ffda963aa71"
+      "sha256": "5e7f00fb7c369bdab29d55afd55f61550df3e863206f8fbca63f0bad22856e3b"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
