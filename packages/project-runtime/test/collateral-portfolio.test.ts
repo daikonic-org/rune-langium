@@ -148,7 +148,8 @@ it(
       }
     }
   },
-  GENERATED_MODULE_TEST_TIMEOUT
+  // The strict compile includes both linked model closures under root coverage.
+  120_000
 );
 
 it(
