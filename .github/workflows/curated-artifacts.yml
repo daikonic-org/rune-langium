@@ -1,10 +1,10 @@
 name: Curated Serialized Artifacts
-run-name: ${{ inputs.cdm_release && format('Curated release — CDM {0}', inputs.cdm_release) || 'Curated Nightly — CDM master' }}
+run-name: ${{ github.event_name == 'push' && 'Curated release — audited implementations' || inputs.cdm_release && format('Curated release — CDM {0}', inputs.cdm_release) || 'Curated Nightly — CDM master' }}
 
 # Catalog read/modify/write and moving pointers must not race another publisher.
 concurrency:
   group: curated-publication
-  cancel-in-progress: false
+  queue: max
 
 # Build pre-parsed Langium artifacts for curated models (CDM, FpML, rune-dsl).
 #
@@ -20,8 +20,20 @@ concurrency:
 # Triggers:
 #   - Nightly at 04:00 UTC
 #   - Manual dispatch
+#   - Audited implementation or publisher changes on master
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/curated-artifacts.yml'
+      - 'packages/project-runtime/src/curated-implementations/**'
+      - 'packages/project-runtime/src/code-lists.ts'
+      - 'scripts/fixtures/native-implementation-sources.json'
+      - 'scripts/build-serialized-artifacts.mjs'
+      - 'scripts/lib/curated-sources.mjs'
+      - 'scripts/lib/curated-releases.mjs'
+      - 'scripts/upload-serialized-artifacts.sh'
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
@@ -38,6 +50,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Queued or retried push runs should publish the latest merged implementations.
+          ref: ${{ github.event_name == 'push' && github.ref || github.sha }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -58,7 +73,7 @@ jobs:
         run: pnpm --filter '@rune-langium/project-runtime...' run build
 
       - name: Reconcile newly published CDM releases
-        if: ${{ !inputs.cdm_release }}
+        if: ${{ github.event_name != 'push' && !inputs.cdm_release }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -74,7 +89,9 @@ jobs:
           CDM_RELEASE: ${{ inputs.cdm_release }}
         run: |
           set -e
-          if [[ -n "$CDM_RELEASE" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs --release-pins scripts/fixtures/native-implementation-sources.json
+          elif [[ -n "$CDM_RELEASE" ]]; then
             node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs --release "$CDM_RELEASE"
           else
             node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs

@@ -46,8 +46,11 @@ Reference loading verifies the existing manifest, artifact checksum and cohort.
 Generation checks the supplied binding's identity, annotation and linked signature
 before emission, and retains authored Rune and explicit project-binding precedence.
 It never searches a model-specific implementation registry or fetches code.
-Older bundles without implementation payloads remain readable, but do not acquire
-native implementations from the installed Codegen version.
+Older bundles without implementation payloads remain readable. When a curated
+implementation change lands on `master`, the publisher verifies the audited release
+pins and builds a new immutable cohort. A fresh resolution can select the new
+cohort while existing project locks continue to load their original checksummed
+artifacts.
 
 Native precision, increment and significant-figure rounding is self-contained in
 those payloads: TypeScript shares bounded BigInt coefficient arithmetic and Python

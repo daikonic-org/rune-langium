@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCuratedSources } from './curated-sources.mjs';
+import { resolveAuditedCuratedSources, resolveCuratedSources } from './curated-sources.mjs';
 
 function fixture({ cdmRune = '10.10.0', fpmlRune = cdmRune, failedTag = false } = {}) {
   const calls = [];
@@ -106,7 +106,17 @@ for (const annotated of [false, true])
       sources.map((source) => source.release),
       Object.values(tags).map(([tag, commit]) => ({ tag, commit }))
     );
+    const pins = sources.map(({ id, owner, repo, ref, commit }) => ({
+      model: id,
+      repository: `${owner}/${repo}`,
+      release: ref,
+      commit
+    }));
+    assert.deepEqual(await resolveAuditedCuratedSources(pins, fetch), sources);
     assert.ok(seen.every((path) => !path.includes('/commits/')));
+    const changedDependency = pins.map((pin) => (pin.model === 'fpml' ? { ...pin, commit: 'd'.repeat(40) } : pin));
+    await assert.rejects(resolveAuditedCuratedSources(changedDependency, fetch), /release changed for fpml@3\.5\.0/);
+    await assert.rejects(resolveAuditedCuratedSources(pins.slice(1), fetch), /one audited implementation pin/);
     await assert.rejects(
       resolveCuratedSources(async () => new Response('', { status: 404 }), { cdmRelease: 'missing' }),
       /GitHub HTTP 404/

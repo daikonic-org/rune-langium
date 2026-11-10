@@ -70,3 +70,30 @@ export async function resolveCuratedSources(fetchImpl = fetch, { cdmRelease } = 
     throw new Error(`Incompatible Rune dependencies: CDM requires ${runeVersion}, FpML requires ${fpmlRuneVersion}`);
   return [cdm, fpml, rune];
 }
+
+/** Resolve the audited release and fail if any tag or dependency has drifted. */
+export async function resolveAuditedCuratedSources(pins, fetchImpl = fetch) {
+  if (!Array.isArray(pins)) throw new Error('Expected an audited implementation source array');
+  const byModel = new Map(pins.map((pin) => [pin?.model, pin]));
+  const repositories = Object.entries(REPOSITORIES);
+  if (pins.length !== repositories.length || byModel.size !== pins.length)
+    throw new Error('Expected one audited implementation pin for each curated model');
+  for (const [id, { owner, repo }] of repositories) {
+    const pin = byModel.get(id);
+    if (
+      pin?.repository !== `${owner}/${repo}` ||
+      !/^[a-f0-9]{40}$/.test(pin.commit) ||
+      typeof pin.release !== 'string' ||
+      !pin.release.trim()
+    )
+      throw new Error('Invalid audited implementation pin for ' + id);
+  }
+
+  const resolved = await resolveCuratedSources(fetchImpl, { cdmRelease: byModel.get('cdm').release });
+  for (const { id, ref, commit } of resolved) {
+    const pin = byModel.get(id);
+    if (pin.release !== ref || pin.commit !== commit)
+      throw new Error(`Audited implementation release changed for ${id}@${pin.release}`);
+  }
+  return resolved;
+}
