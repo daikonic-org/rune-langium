@@ -68,6 +68,9 @@ export const RUNE_VALUE_NAMES = [
   'Reflect',
   'Proxy',
   'RuneValue',
+  'RuneListOwner',
+  'RuneNumberTextSlot',
+  'runeMutateNumberTextList',
   'RuneView',
   'RuneArray',
   'RuneFlatElement',
@@ -119,7 +122,7 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, parseNumberText: parseJsonNumberText, retainNumberText: retainJsonNumberText, restoreNumberText: restoreJsonNumberText, clearNumberText: clearJsonNumberText, numberTextField: RUNE_JSON_NUMBER_TEXT_FIELD, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
+return { decode: decodeRuneJson, encode: encodeRuneJson, parseNumberText: parseJsonNumberText, retainNumberText: retainJsonNumberText, restoreNumberText: restoreJsonNumberText, clearNumberText: clearJsonNumberText, listNumberText: jsonListNumberText, replaceListNumberText: replaceJsonListNumberText, numberTextField: RUNE_JSON_NUMBER_TEXT_FIELD, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON'; preserveNumberText?: boolean };
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
@@ -296,6 +299,10 @@ const runeValueOrder = (left: unknown, right: unknown): number => {
   if (Object.prototype.toString.call(left) === '[object Temporal.ZonedDateTime]' && Object.prototype.toString.call(right) === '[object Temporal.ZonedDateTime]') return Temporal.ZonedDateTime.compare(Temporal.ZonedDateTime.from(String(left)), Temporal.ZonedDateTime.from(String(right)));
   throw new TypeError('Rune ordering requires comparable values or a key selector');
 };
+interface RuneListOwner<T> {
+  numberText(): Record<string, unknown> | undefined;
+  write(items: T[], numberText?: Record<string, unknown>): void;
+}
 class RuneValue<T, Min extends number = 0, Max extends number | null = null, Model extends RuneValueType = RuneEmptyType> implements Iterable<T> {
   declare readonly $rune$cardinality?: readonly [T, Min, Max];
   private readonly $list: RuneList<T>;
@@ -303,14 +310,14 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   private readonly $min: Min;
   private readonly $max: Max;
   private readonly $check?: (value: unknown) => boolean;
-  private readonly $write?: (items: T[]) => void;
+  private readonly $owner?: RuneListOwner<T>;
   private $deep?: RuneDeepView<Model, Min, Max>;
-  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max, $check?: (value: unknown) => boolean, $write?: (items: T[]) => void) {
+  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max, $check?: (value: unknown) => boolean, $owner?: RuneListOwner<T>) {
     this.$type = $type;
     this.$min = $min;
     this.$max = $max;
     this.$check = $check;
-    this.$write = $write;
+    this.$owner = $owner;
     this.$list = new RuneList(items);
     runeValueBounds(this.$list.count(), $min, $max, 'Rune value');
     const choice = $type?.().choice;
@@ -330,13 +337,14 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   [Symbol.iterator]() { return this.$list[Symbol.iterator](); }
   [runeValueProtocol]() { return this.$list.toArray(); }
   $array(): T[] { return this.$list[runeListStorage](); }
-  $replace(items: readonly T[]): void {
+  $numberText(): Record<string, unknown> | undefined { return this.$owner?.numberText(); }
+  $replace(items: readonly T[], numberText?: Record<string, unknown>): void {
     runeValueBounds(items.length, this.$min, this.$max, 'Rune value');
     const values = Array.from(items, value => this.$type ? runeValueMaterialize(value, this.$type()) : value);
     if (this.$check && values.some(value => !this.$check!(value))) throw new TypeError('Invalid Rune collection item');
     const array = this.$array();
     Reflect.apply(Array.prototype.splice, array, [0, array.length, ...values]);
-    this.$write?.(array);
+    this.$owner?.write(array, numberText);
   }
   count() { return this.$list.count(); }
   exists() { return this.count() > 0; }
@@ -421,6 +429,35 @@ ${e}function runeValue(input: unknown, type: () => RuneValueType): RuneValue<unk
   return new RuneValue(values, type, values.length, values.length);
 }
 const runeProjectedDeep = (view: { readonly _: object }): object => new Proxy(Object.create(null), { get: (_target, key) => typeof key === 'string' ? runeProjectValue(Reflect.get(view._, key)) : undefined });
+type RuneNumberTextSlot = { value: unknown; text?: unknown };
+const runeMutateNumberTextList = (draft: unknown[], key: PropertyKey, args: unknown[], numberText: Record<string, unknown>, receiver: unknown) => {
+  const slots: RuneNumberTextSlot[] = draft.map((value, index) => ({ value, text: numberText[index] }));
+  const fresh = (value: unknown): RuneNumberTextSlot => ({ value });
+  if (key === 'push' || key === 'unshift') args = args.map(fresh);
+  if (key === 'splice') args = [...args.slice(0, 2), ...args.slice(2).map(fresh)];
+  if (key === 'fill') args = [fresh(args[0]), ...args.slice(1)];
+  if (key === 'sort') {
+    const compare = args[0];
+    if (compare === undefined || typeof compare === 'function') args = [(left: RuneNumberTextSlot, right: RuneNumberTextSlot) => {
+      if (left.value === undefined) return right.value === undefined ? 0 : 1;
+      if (right.value === undefined) return -1;
+      if (typeof compare === 'function') return Reflect.apply(compare, undefined, [left.value, right.value]);
+      const a: string = Reflect.apply(String.prototype.concat, '', [left.value]);
+      const b: string = Reflect.apply(String.prototype.concat, '', [right.value]);
+      return a < b ? -1 : a > b ? 1 : 0;
+    }];
+  }
+  const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), slots, args);
+  let response = result;
+  if (result === slots) response = receiver;
+  else if (Array.isArray(result)) response = result.map((slot: RuneNumberTextSlot) => slot.value);
+  else if (result && typeof result === 'object' && 'value' in result) response = result.value;
+  return {
+    values: slots.map(slot => slot.value),
+    numberText: Object.fromEntries(slots.flatMap((slot, index) => slot.text === undefined ? [] : [[String(index), slot.text]])),
+    result: response
+  };
+};
 const runeProjectedLists = new WeakMap<object, object>();
 const runeProjectValue = (input: unknown, keepList = false): unknown => {
   if (!(input instanceof RuneValue)) return input;
@@ -443,6 +480,12 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
         if (callback === undefined && args.length > 1) args = [args[1]];
       }
       const draft = input.toArray();
+      const numberText = input.$numberText();
+      if (numberText) {
+        const edit = runeMutateNumberTextList(draft, key, args, numberText, receiver);
+        input.$replace(edit.values, edit.numberText);
+        return edit.result;
+      }
       const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), draft, args);
       input.$replace(draft);
       return result === draft ? receiver : result;
@@ -467,7 +510,11 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (key === 'length' || typeof key === 'string' && /^(0|[1-9][0-9]*)$/.test(key)) {
       const draft = input.toArray();
       if (!Reflect.set(draft, key, value)) return false;
-      input.$replace(draft);
+      const numberText = input.$numberText();
+      const retained = numberText && Object.fromEntries(Object.entries(numberText).filter(([index]) =>
+        index !== key && Number(index) < draft.length
+      ));
+      input.$replace(draft, retained);
       return true;
     }
     return Reflect.set(array, key, value);
