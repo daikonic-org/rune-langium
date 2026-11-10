@@ -1,0 +1,172 @@
+namespace cdm.product.asset.floatingrate : <"Product-related, asset class-specific floating-rate index concepts, such as rate definitions .">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.observable.asset.*
+import cdm.observable.asset.calculatedrate.*
+import cdm.observable.asset.fro.*
+import cdm.product.asset.*
+import cdm.product.asset.calculation.*
+import cdm.product.common.schedule.*
+
+//-------------------------------------------------------
+// The following functions determine the type of rate and what to do for each
+//-------------------------------------------------------
+func ProcessFloatingRateReset: <"Entry point for the function that performs the floating rate resetting operation.  There are different variations depending on the processing type (e.g. screen rate, OIS, modular calculated rate. .">
+    [codeImplementation]
+    inputs:
+        interestRatePayout InterestRatePayout (1..1) <"Floating rate stream definition.">
+        calcPeriod CalculationPeriodBase (1..1) <"The calculation period for which you want the rate.">
+        processingType FloatingRateIndexProcessingTypeEnum (1..1) <"The rate processing type (e.g. Screen Rate, OIS); this drives how the resetting calculation is done. .">
+    output:
+        floatingRate FloatingRateSettingDetails (1..1) <"Details of the rate observation/calculation.">
+
+func ProcessFloatingRateReset(processingType: FloatingRateIndexProcessingTypeEnum -> Screen): <"Evaluate the rate for a screen rate - call logic to determine how to observe the screen rate.">
+    [calculation]
+    // set up convenience aliases
+    alias resetDates: interestRatePayout -> resetDates
+    alias rateDef: interestRatePayout -> rateSpecification as FloatingRateSpecification
+    set floatingRate: EvaluateScreenRate(rateDef, resetDates, calcPeriod)
+
+func ProcessFloatingRateReset(processingType: FloatingRateIndexProcessingTypeEnum -> Modular): <"Evaluate the rate for a modular calculated rate.  Call the calculated rate calculation logic to determine the value of the reset.">
+    [calculation]
+    // set up convenience aliases
+    alias rateDef: interestRatePayout -> rateSpecification as FloatingRateSpecification
+    alias resetDates: interestRatePayout -> resetDates
+    alias dayCount: interestRatePayout -> dayCountFraction
+    alias fro: rateDef -> rateOption
+    alias calcParams: rateDef -> calculationParameters
+
+    // determine the prior calculation period corresponding to this period, in case needed.  (used for set-in-advance calculated rates and some fallback rates.)
+    alias priorCalculationPeriod:
+        Create_CalculationPeriodBase(
+                CalculationPeriod(
+                        interestRatePayout -> calculationPeriodDates,
+                        calcPeriod -> adjustedStartDate
+                    )
+            )
+
+    // call the calculated rate evaluation logic
+    set floatingRate:
+        EvaluateCalculatedRate(
+                fro,
+                calcParams,
+                resetDates,
+                calcPeriod,
+                priorCalculationPeriod,
+                dayCount
+            )
+
+func ProcessFloatingRateReset(processingType: FloatingRateIndexProcessingTypeEnum -> OIS): <"Evaluate the rate for an OIS calculated rate. Call the calculated rate calculation logic to determine the value of the reset.  See the 2021 ISDA Definitions Section 6.6.3.">
+    [calculation]
+    // set up convenience aliases
+    alias rateDef: interestRatePayout -> rateSpecification as FloatingRateSpecification
+    alias resetDates: interestRatePayout -> resetDates
+    alias dayCount: interestRatePayout -> dayCountFraction
+    alias fro: rateDef -> rateOption
+    // create a pseudo calculation parameters block to drive the OIS calculation
+    alias calcParams:
+        GetCalculatedFROCalculationParameters(
+                resetDates,
+                CalculationMethodEnum -> Compounding
+            )
+
+    // call the calculated rate evaluation logic to evaluate the OIS rate
+    set floatingRate:
+        EvaluateCalculatedRate(
+                fro,
+                calcParams,
+                resetDates,
+                calcPeriod,
+                calcPeriod,
+                dayCount
+            )
+
+func ProcessFloatingRateReset(processingType: FloatingRateIndexProcessingTypeEnum -> OvernightAvg): <"Evaluate the rate for a daily average calculated FRO. Call the calculated rate calculation logic to determine the value of the reset. See the 2021 ISDA Definitions Section 6.6.3.">
+    [calculation]
+    // set up convenience aliases
+    alias rateDef: interestRatePayout -> rateSpecification as FloatingRateSpecification
+    alias resetDates: interestRatePayout -> resetDates
+    alias dayCount: interestRatePayout -> dayCountFraction
+    alias rateOption: rateDef -> rateOption
+    // create a pseudo calculation parameters block to drive the averaging calculation
+    alias calcParams:
+        GetCalculatedFROCalculationParameters(
+                resetDates,
+                CalculationMethodEnum -> Averaging
+            )
+
+    // call the calculated rate evaluation logic to evaluate the daily average rate
+    set floatingRate:
+        EvaluateCalculatedRate(
+                rateOption,
+                calcParams,
+                resetDates,
+                calcPeriod,
+                calcPeriod,
+                dayCount
+            )
+
+func GetCalculatedFROCalculationParameters: <"Initialize a calculation parameters block for an OIS or a daily average rate. Used to support FROs that include an embedded calculation.">
+    inputs:
+        resetDates ResetDates (1..1) <"The reset dates for the interest rate payout for which the calculated rate is being computed.">
+        calcMethod CalculationMethodEnum (1..1) <"Whether the rate is a compound (OIS) or daily average rate.">
+    output:
+        calcParams FloatingRateCalculationParameters (1..1) <"A calculation parameters block.">
+
+    // generate and output the required type
+    set calcParams -> calculationMethod: calcMethod
+    set calcParams -> applicableBusinessDays: resetDates -> fixingDates -> businessCenters
+
+func ProcessFloatingRateReset(processingType: FloatingRateIndexProcessingTypeEnum -> CompoundIndex): <"Call the compounded index processing logic to calculate the reset.">
+
+func EvaluateScreenRate: <"Evaluate/lookup the value of a screen rate.">
+    inputs:
+        rateDef FloatingRate (1..1) <"Floating rate definition.">
+        resetDates ResetDates (1..1) <"Reset dates for observing the rate.">
+        calculationPeriod CalculationPeriodBase (1..1) <"Calculation period for which you want the rate.">
+    output:
+        details FloatingRateSettingDetails (1..1) <"Resulting details of the rate setting .">
+
+    // figure out the date for which the rate is needed
+    alias resetDate: DetermineResetDate(resetDates, calculationPeriod)
+    alias fixingDate: DetermineFixingDate(resetDates, resetDate)
+
+    // look up the rate on that date
+    alias observedRate: IndexValueObservation(fixingDate, rateDef -> rateOption)
+    // record relevant dates and observed rate
+    set details -> resetDate: resetDate
+    set details -> observationDate: fixingDate
+    set details -> floatingRate: observedRate
+
+func DetermineResetDate: <"Determine the value of the reset date given a reset dates structure and a calculation paeriod for which it's needed. Reset dates are defined in the 2021 ISDA Definition in Section 6.5.5.">
+    inputs:
+        resetDates ResetDates (1..1) <"Reset dates for observing the rate.">
+        calculationPeriod CalculationPeriodBase (1..1) <"Calculation period for which you want the rate.">
+    output:
+        resetDate date (1..1) <"The date upon which the rate should be observed. .">
+
+    // figure out the date for which the rate is needed
+    alias resetRelativeTo: resetDates -> resetRelativeTo
+    alias isStart: resetRelativeTo = ResetRelativeToEnum -> CalculationPeriodStartDate
+    alias reset:
+        if (isStart)
+        then calculationPeriod -> adjustedStartDate
+        else calculationPeriod -> adjustedEndDate
+
+    set resetDate: reset
+
+func DetermineFixingDate: <"Determine the observation (fixing) date needed given a reset dates structure and a reset date.">
+    inputs:
+        resetDates ResetDates (1..1) <"Reset date parameters for observing the rate.">
+        resetDate date (1..1) <"The date that the rate is needed for.">
+    output:
+        fixingDate date (1..1) <"The date upon which the rate should be observed. .">
+
+    alias fixingOffsetDays: resetDates -> fixingDates -> periodMultiplier
+    alias businessCenters:
+        GetAllBusinessCenters(resetDates -> fixingDates -> businessCenters)
+    alias fixDate: AddBusinessDays(resetDate, fixingOffsetDays, businessCenters)
+
+    set fixingDate: fixDate

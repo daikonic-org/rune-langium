@@ -16,6 +16,7 @@ import { isCuratedSourceFile, CuratedModelIdSchema } from '../packages/curated-s
 import { AstUtils, URI } from '../packages/core/node_modules/langium/lib/index.js';
 import {
   createRuneDslServices,
+  declarationDispatch,
   addLegacyAnnotations,
   isRosettaFunction,
   isRosettaModel,
@@ -72,7 +73,8 @@ const testSuites = {
     'cdm-reset-forward-rates': 'reset-forward-rates',
     'cdm-equity-settlement': 'equity-settlement',
     'cdm-collateral-portfolio': 'collateral-portfolio',
-    'cdm-fpml-keys': 'fpml-keys'
+    'cdm-fpml-keys': 'fpml-keys',
+    'cdm-floating-rate-reset': 'floating-rate-reset'
   }
 };
 const dispatchSuites = await Promise.all(
@@ -299,7 +301,18 @@ for (const document of documents) {
         throw new Error('Handwritten Java dependency checksum mismatch: ' + reference.path);
     }
     if (assessment.implementation) {
-      const effective = getEffectiveProjectDeclaration(node);
+      const selector = assessment.implementationDispatch && JSON.stringify(assessment.implementationDispatch);
+      const replaced = selector
+        ? model.elements.find(
+            (candidate) =>
+              isRosettaFunction(candidate) &&
+              candidate.name === node.name &&
+              declarationDispatch(candidate) === selector
+          )
+        : node;
+      if (!isRosettaFunction(replaced) || replaced.operations.length)
+        throw new Error(`Rune implementation must fill an upstream placeholder: ${symbol.namespace}.${symbol.name}`);
+      const effective = getEffectiveProjectDeclaration(replaced);
       const path = effective && runeSources.get(AstUtils.getDocument(effective).uri.toString());
       if (!isRosettaFunction(effective) || !effective.operations.length || path !== assessment.implementation)
         throw new Error(`Rune implementation is not the linked override: ${symbol.namespace}.${symbol.name}`);
@@ -383,6 +396,7 @@ for (const document of documents) {
         route: assessment.route,
         requirements: assessment.requirements,
         upstreamDefaultHasBody: node.operations.length > 0,
+        ...(assessment.implementationDispatch ? { implementationDispatch: assessment.implementationDispatch } : {}),
         variants
       },
       ...(suite && cases.length

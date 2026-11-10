@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { AstNode } from 'langium';
+import { AstUtils, type AstNode } from 'langium';
 import { typescriptProfile } from '../emit/typescript-profile.js';
 import { isMetadataFeature, fieldMetadataKind, type FieldMetadataKind } from '../expr/metadata-runtime.js';
 import { expressionIsMany, featureName } from '../expr/navigation.js';
@@ -10,8 +10,10 @@ import {
   getFunctionSignature as functionSignature,
   getFunctionInputs as functionInputs,
   getFunctionOutput,
+  getElementNamespace,
   isRosettaModel,
   isRosettaFunction,
+  isRosettaSymbolReference,
   isAttribute,
   isShortcutDeclaration,
   isData,
@@ -141,11 +143,36 @@ export interface FuncBodyContext extends ExpressionTranspilerContext {
    * name shadows an input parameter.
    */
   aliasBindings: Map<string, string>;
+  deferredAliases?: ReadonlySet<string>;
   /**
    * Full call graph for the namespace: funcName → Set<funcName>.
    * Shared across all FuncBodyContext instances for the same namespace.
    */
   callGraph: Map<string, Set<string>>;
+}
+
+/** Preserve guarded self-recursion by evaluating its read-only aliases at their use sites. */
+export function deferredRecursiveAliases(func: RosettaFunction | undefined): ReadonlySet<string> {
+  const deferred = new Set<string>();
+  if (!func?.shortcuts.length) return deferred;
+  const recursive = func.shortcuts.some(({ expression }) =>
+    AstUtils.streamAst(expression)
+      .filter(isRosettaSymbolReference)
+      .some(({ symbol }) => {
+        const target = symbol.ref;
+        return (
+          target === func ||
+          (!!func.dispatchAttribute &&
+            isRosettaFunction(target) &&
+            target.name === func.name &&
+            getElementNamespace(target) === getElementNamespace(func))
+        );
+      })
+  );
+  if (!recursive) return deferred;
+  const assigned = new Set(func.operations.map(({ assignRoot }) => assignRoot.ref));
+  for (const alias of func.shortcuts) if (!assigned.has(alias)) deferred.add(alias.name);
+  return deferred;
 }
 
 // ---------------------------------------------------------------------------

@@ -15,8 +15,8 @@ no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **15
 language-specific implementations per target**. Thirty-four catalog entries use
-Rune, including thirty owned overrides and four partially implemented
-upstream dispatch families. Selector coverage
+Rune, including thirty-one installed overrides and three families implemented
+solely by upstream dispatch bodies. Selector coverage
 is measured separately. The audit parses and links
 189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -82,8 +82,8 @@ string/collection primitive limits are recorded separately from business logic.
 
 Existing Rune dispatch families such as `DayCountBasis`, `YearFraction`,
 `ComputeCalculationPeriod` and `ProcessFloatingRateReset` must retain their upstream
-bodies. Missing selectors and transitive dependencies still need execution evidence;
-the latter family includes an empty `CompoundIndex` branch. The pinned
+bodies. Selector coverage and transitive dependencies need their own evidence.
+The pinned
 [day-count closure](../../test/fixtures/third-party/cdm-dispatch/README.md) now
 executes all 9 and 11 existing selector bodies respectively, in strict TypeScript
 under all three layouts and standalone Python. Missing defaults/selectors stay
@@ -95,6 +95,12 @@ The [calculation-period closure](calculation-periods.md) also exercises all thre
 TypeScript, standalone Python and the real Studio worker. The pinned handwritten
 Java test supplies its three baseline expectations. Production `FixingDate` still
 needs an actual holiday provider.
+
+The [floating-rate reset suite](../../test/fixtures/third-party/cdm-floating-rate-reset/README.md)
+executes Screen, OIS, OvernightAvg and Modular through the original bodies in
+both targets. A curated Rune override fills the empty CompoundIndex selector
+using the upstream index formula and explicit endpoint observations. The base
+and other selectors keep their source. RefBanks requires a manual determination.
 
 [`PeriodsInYear`](../../packages/project-runtime/src/curated-implementations/rune/frequency.rosetta)
 is a thin CDM adapter over the owned Rune port of OpenGamma Strata 1.7.0's

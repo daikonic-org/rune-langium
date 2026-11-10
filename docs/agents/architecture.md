@@ -1392,6 +1392,15 @@ and linked signatures. Explicit Rune implementation sources use ordinary
 reference signatures. Effective entries have exactly one implementation kind;
 Rune entries never contain language-specific target alternatives. Pinned handwritten
 Java algorithms, tests and empty providers are separate reference evidence.
+An override may replace existing selectors while keeping the original dispatch
+base and other selectors. An override that replaces the base must retain the
+complete family. Bundled selector overrides are selected only for empty upstream
+branches, and their catalog rows distinguish those additions from upstream bodies.
+Executable TypeScript and Python defer read-only aliases in functions with a
+self-recursive alias. Each invocation computes a deferred alias on its first
+read, so recursive calls stay behind the authored guard and repeated reads
+share the result. Python pipeline operators use the bound value of the preceding
+stage, with the original expression retained for type and cardinality analysis.
 Handwritten dependency algorithms retain their own artifact identity and source
 hash in `referenceJava.dependencies`, separately from direct CDM implementations.
 The bounded Strata frequency port is a reusable Rune library under

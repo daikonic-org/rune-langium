@@ -1,0 +1,32 @@
+namespace cdm.product.template : <"Template feature concepts to define payouts.">
+version "${project.version}"
+
+import cdm.base.*
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.codelist.*
+import cdm.base.staticdata.identifier.*
+import cdm.base.staticdata.party.*
+import cdm.event.common.*
+import cdm.observable.asset.*
+import cdm.observable.common.*
+import cdm.observable.event.*
+import cdm.product.asset.*
+import cdm.product.collateral.*
+import cdm.product.common.*
+import cdm.product.common.schedule.*
+import cdm.product.common.settlement.*
+import cdm.product.qualification.*
+
+type Strike: <"A class describing a single cap or floor rate.">
+    [metadata key]
+
+    strikeRate number (1..1) <"The rate for a cap or floor.">
+    buyer PayerReceiverEnum (0..1) <"The buyer of the option.">
+    seller PayerReceiverEnum (0..1) <"The party that has sold.">
+
+type StrikeSchedule extends RateSchedule: <"A class describing a schedule of cap or floor rates.">
+
+    buyer PayerReceiverEnum (0..1) <"The buyer of the option.">
+    seller PayerReceiverEnum (0..1) <"The party that has sold.">

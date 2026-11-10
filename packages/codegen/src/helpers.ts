@@ -61,6 +61,10 @@ export function runtimeHelperSource(typescript: boolean, exported = false, metad
   typeof v === 'string' && /${pattern}/.test(v) ? v : undefined;`
     )
   ].join('\n\n');
+  const memoAlias = `${prefix}const runeMemoAlias = <T>(compute: () => T) => {
+  let result: { value: T } | undefined;
+  return () => (result ??= { value: compute() }).value;
+};`;
   return [
     '// --- rune-codegen runtime helpers (inlined) ---',
     temporalRuntimeSource(typescript, exported),
@@ -69,10 +73,11 @@ export function runtimeHelperSource(typescript: boolean, exported = false, metad
     collectionRuntimeSource(typescript, exported),
     scalar,
     runeListRuntimeSource(typescript, exported),
-    ...(typescript && values ? [runeValueRuntimeSource(exported)] : []),
+    ...(typescript && values ? [memoAlias, runeValueRuntimeSource(exported)] : []),
     ...(metadata ? [metadataRuntimeSource(typescript, exported)] : []),
     valueEqualitySource(typescript, exported, {
       ...RUNTIME_NAMESPACE_MEMBERS,
+      ...(typescript && values ? { memoAlias: 'runeMemoAlias' } : {}),
       ...(metadata ? METADATA_NAMESPACE_MEMBERS : {})
     }),
     '// --- end runtime helpers ---'
@@ -152,7 +157,7 @@ export const runeToZonedDateTime = (v: unknown): string | undefined =>
  * the runtime import boundary. Implementation exports remain available
  * for existing runtime consumers.
  */
-export const RUNE_HELPER_NAMES = ['rune', ...Object.values(RUNTIME_NAMESPACE_MEMBERS)] as const;
+export const RUNE_HELPER_NAMES = ['rune', ...Object.values(RUNTIME_NAMESPACE_MEMBERS), 'runeMemoAlias'] as const;
 
 /** Core sidecar declarations; target-specific helpers follow this block. */
 export const RUNTIME_SIDECAR_HELPER_LINES: readonly string[] = runtimeHelperSource(true, true).split('\n');

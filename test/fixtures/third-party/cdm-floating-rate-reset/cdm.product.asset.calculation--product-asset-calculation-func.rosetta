@@ -1,0 +1,26 @@
+namespace cdm.product.asset.calculation: <"Product-related, asset class-specific calculation concepts, such as day counting and calculating accruals.">
+version "${project.version}"
+
+import cdm.base.datetime.daycount.*
+import cdm.base.math.*
+import cdm.observable.asset.*
+import cdm.product.asset.*
+import cdm.product.asset.floatingrate.*
+import cdm.product.common.schedule.*
+
+// =====================================================================
+//
+// Fixed Amount Calculation definitions
+//
+// These functions return the calculated fixed amount.
+//
+// ======================================================================
+// TODO: should this be enhanced to support spreads and do spread-exclusive calculations for compounding?
+func Create_CalculationPeriodBase: <"Create a CalculationPeriodBase type from CalculationPeriodData type.">
+    inputs:
+        calcPeriodData CalculationPeriodData (1..1) <"A supplied CalculationPeriodData structure.">
+    output:
+        calcPeriod CalculationPeriodBase (1..1) <"The corresponding CalculationPeriodBase structure.">
+
+    set calcPeriod -> adjustedStartDate: calcPeriodData -> startDate
+    set calcPeriod -> adjustedEndDate: calcPeriodData -> endDate

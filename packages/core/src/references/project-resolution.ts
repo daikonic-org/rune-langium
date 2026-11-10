@@ -135,6 +135,12 @@ export function resolveNamespaceOverrides(models: readonly NamespaceModel[]) {
     if (!replacements.length || !originals.some((node) => declarationDispatch(node))) continue;
     const originalKeys = new Set(originals.map((node) => namespaceKey(node, owners.get(node)!)));
     const replacementKeys = new Set(replacements.map((node) => namespaceKey(node, owners.get(node)!)));
+    const existingSelectorsOnly =
+      originals.filter((node) => !declarationDispatch(node)).length === 1 &&
+      replacements.every(
+        (node) => declarationDispatch(node) && originalKeys.has(namespaceKey(node, owners.get(node)!))
+      );
+    if (existingSelectorsOnly) continue;
     if (originalKeys.size === replacementKeys.size && [...originalKeys].every((key) => replacementKeys.has(key)))
       continue;
     for (const node of family) targets.set(node, undefined);
@@ -143,7 +149,7 @@ export function resolveNamespaceOverrides(models: readonly NamespaceModel[]) {
         node,
         model: owners.get(node)!,
         code: 'NAMESPACE_OVERRIDE_DISPATCH',
-        message: 'A namespace override must retain the complete dispatch family.'
+        message: 'A namespace override must replace existing selectors or retain the complete dispatch family.'
       });
   }
   return { targets, diagnostics };

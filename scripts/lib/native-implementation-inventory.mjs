@@ -138,6 +138,11 @@ export function runeFeasibilityIndex(assessment, sources) {
       !entry.requirements.trim() ||
       (entry.route === 'rune-source') !== (entry.implementation !== undefined) ||
       (entry.implementation !== undefined && !files.has(entry.implementation)) ||
+      (entry.implementationDispatch !== undefined &&
+        (!entry.implementation ||
+          !Array.isArray(entry.implementationDispatch) ||
+          entry.implementationDispatch.length !== 3 ||
+          !entry.implementationDispatch.every((part) => typeof part === 'string' && part.length > 0))) ||
       (entry.javaDependencies !== undefined &&
         (!Array.isArray(entry.javaDependencies) ||
           entry.javaDependencies.some(

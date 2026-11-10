@@ -123,6 +123,17 @@ const suites = [
     references: []
   },
   {
+    directory: 'cdm-floating-rate-reset',
+    sharedFixture: 'cdm-billing-summary',
+    declarations: [
+      { namespace: 'cdm.product.asset.floatingrate', name: 'ProcessFloatingRateReset', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.observable.asset.calculatedrate', name: 'ApplyCompoundedIndexFormula', kind: 'RosettaFunction' }
+    ],
+    references: []
+  },
+  {
     directory: 'cdm-collateral-portfolio',
     sharedFixture: 'cdm-billing-summary',
     declarations: [

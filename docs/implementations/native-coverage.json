@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "219655a4e444b7192305946fc2242b3c8074e9e49194fb778c426105b6648f15"
+      "sha256": "fda31fe0827aaf1361ebf9a556a7c5df73094f54a009aa503fed7824817a6487"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1155,6 +1155,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/portfolio-aggregation-inputs.rosetta",
       "sha256": "9b0ad7186347f0ce9b231ed7581a033038c692f095b9b0666d4ea3deaa932355"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/process-compound-index-reset.rosetta",
+      "sha256": "ae3676c526d871eca98be35190d3b824fad0733996f988d537d75ece095bb0e8"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
@@ -7810,9 +7814,9 @@
       },
       "implementation": {
         "kind": "rune",
-        "path": "rosetta-source/src/main/rosetta/product-asset-floatingrate-func.rosetta",
+        "path": "packages/project-runtime/src/curated-implementations/rune/process-compound-index-reset.rosetta",
         "entrypoint": "cdm.product.asset.floatingrate.ProcessFloatingRateReset",
-        "origin": "upstream"
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -7821,9 +7825,14 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "upstream-variants",
-        "requirements": "Five selectors, four with bodies; CompoundIndex has no body. Follow rate/metadata/calendar/vector dependencies.",
+        "route": "rune-source",
+        "requirements": "Four preserved upstream selectors plus an owned CompoundIndex selector. The added branch reuses the original index formula with observations at the adjusted period endpoints. RefBanks requires a separate manual determination.",
         "upstreamDefaultHasBody": false,
+        "implementationDispatch": [
+          "processingType",
+          "FloatingRateIndexProcessingTypeEnum",
+          "CompoundIndex"
+        ],
         "variants": [
           {
             "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"Screen\"]",
@@ -7846,6 +7855,19 @@
             "hasRuneBody": false
           }
         ]
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/floating-rate-reset.test.ts",
+        "cases": "test/fixtures/third-party/cdm-floating-rate-reset/cases.json",
+        "casesSha256": "efff0f66b78c63da243aeabd891b05dbfbdfbaf173015d0039476f700e1c8ca8",
+        "selectors": [
+          "CompoundIndex",
+          "Modular",
+          "OIS",
+          "OvernightAvg",
+          "Screen"
+        ],
+        "caseCount": 8
       }
     },
     {

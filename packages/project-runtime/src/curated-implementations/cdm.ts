@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { getElementNamespace, isRosettaFunction, type RosettaFunction, type RosettaModel } from '@rune-langium/core';
+import {
+  declarationDispatch,
+  getElementNamespace,
+  isRosettaFunction,
+  type RosettaFunction,
+  type RosettaModel
+} from '@rune-langium/core';
 import {
   nativeFunctionShape,
   matchesNativeFunction,
@@ -65,6 +71,7 @@ type RuneImplementation = {
   readonly name: string;
   readonly path: string;
   readonly files: readonly string[];
+  readonly dispatch?: readonly [input: string, enumeration: string, value: string];
 } & ({ readonly signature: NativeFunctionShape } | { readonly signatureSha256: string });
 
 const businessCenter = {
@@ -810,6 +817,15 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   },
   {
     kind: 'rune',
+    namespace: 'cdm.product.asset.floatingrate',
+    name: 'ProcessFloatingRateReset',
+    signatureSha256: '71b60e3b112027ce69e1a59d2b354c86f6cbc6e17430918164f3384eb8788798',
+    dispatch: ['processingType', 'FloatingRateIndexProcessingTypeEnum', 'CompoundIndex'],
+    path: 'process-compound-index-reset.rosetta',
+    files: ['process-compound-index-reset.rosetta']
+  },
+  {
+    kind: 'rune',
     namespace: 'cdm.event.instructioncomposition.reset',
     name: 'ExtractFloatingRateOptionData',
     signatureSha256: '84e680570f4e3446a280979cb3756c88557f1930e33f2eea4bc0fdc23fa0d241',
@@ -1127,7 +1143,14 @@ export async function selectCdmImplementation(
     const digest = await sha256Hex(new TextEncoder().encode(JSON.stringify(signature)));
     if (digest !== entry.signatureSha256) return undefined;
   }
-  if (entry.kind === 'rune')
+  if (entry.kind === 'rune') {
+    if (entry.dispatch) {
+      const selector = JSON.stringify(entry.dispatch);
+      const original = func.$container.elements.find(
+        (node) => isRosettaFunction(node) && node.name === func.name && declarationDispatch(node) === selector
+      );
+      if (!isRosettaFunction(original) || original.operations.length) return undefined;
+    }
     return FunctionImplementationSchema.parse({
       kind: 'rune',
       namespace,
@@ -1135,6 +1158,7 @@ export async function selectCdmImplementation(
       signature,
       path: entry.path
     });
+  }
   const targets = (['typescript', 'python'] as const).flatMap((language) => {
     const target = entry.targets[language];
     if (!target) return [];
