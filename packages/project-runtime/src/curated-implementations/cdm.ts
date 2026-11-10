@@ -673,6 +673,22 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   {
     kind: 'rune',
     namespace: 'cdm.event.common',
+    name: 'NewFloatingPayout',
+    signatureSha256: '675ee47cd3be6affb7e9595944f43f1af2a33e08d4a9015fb3ee27f59ca2ce3f',
+    path: 'new-floating-payout.rosetta',
+    files: ['new-floating-payout.rosetta', 'equity-settlement-inputs.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.common',
+    name: 'ResolveCashSettlementDate',
+    signatureSha256: '17f6cd99af6d189b7d63d10c30e4813cb62530614dc21cc239171bb92ae39541',
+    path: 'resolve-cash-settlement-date.rosetta',
+    files: ['resolve-cash-settlement-date.rosetta', 'equity-settlement-inputs.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.common',
     name: 'ResolveReset',
     signatureSha256: 'd7b5c147c5f32f024e1324d5d30398c26f5291c64e3e6a6f3add1cda2498aaec',
     path: 'resolve-reset.rosetta',

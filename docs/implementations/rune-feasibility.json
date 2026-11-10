@@ -31,6 +31,7 @@
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/equity-settlement-inputs.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-matrix.rosetta",
@@ -45,10 +46,12 @@
     "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/market-observations.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/market-snapshot.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/new-floating-payout.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/observation-averages.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-cash-settlement-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-rate-index.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-reset.rosetta",
@@ -371,8 +374,9 @@
         "name": "NewFloatingPayout"
       },
       "signatureSha256": "675ee47cd3be6affb7e9595944f43f1af2a33e08d4a9015fb3ee27f59ca2ce3f",
-      "route": "candidate",
-      "requirements": "Construct from supplied confirmation terms; verify template/default rules and the 7.9.0 qualified input type."
+      "route": "rune-source",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/new-floating-payout.rosetta",
+      "requirements": "Owned Rune body constructs the funding leg from supplied transaction economics. A master confirmation's equity payment schedule takes precedence and suppresses the single payment date."
     },
     {
       "symbol": {
@@ -382,8 +386,9 @@
         "name": "ResolveCashSettlementDate"
       },
       "signatureSha256": "17f6cd99af6d189b7d63d10c30e4813cb62530614dc21cc239171bb92ae39541",
-      "route": "data-backed",
-      "requirements": "Product-specific settlement selection in Rune, with calendar/date services where required; establish authoritative rules."
+      "route": "rune-source",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-cash-settlement-date.rosetta",
+      "requirements": "Owned Rune body requires one date for the selected period end. The project supplies the chosen payout, period context and calendar-resolved settlement schedule through a typed provider."
     },
     {
       "symbol": {

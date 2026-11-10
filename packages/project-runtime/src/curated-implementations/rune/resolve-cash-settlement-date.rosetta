@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.common
+version "1.0.0"
+
+import impl.cdm.settlement.ReadCashSettlementSchedule
+
+func ResolveCashSettlementDate:
+    inputs: tradeState TradeState (1..1)
+    output: date date (1..1)
+
+    alias schedule: ReadCashSettlementSchedule(tradeState)
+    alias matches: schedule -> periods filter [item -> periodEndDate = schedule -> currentPeriodEndDate]
+
+    condition CashSettlementPeriodMissing:
+        matches exists
+    condition CashSettlementPeriodAmbiguous:
+        matches count <= 1
+    set date: matches only-element -> settlementDate

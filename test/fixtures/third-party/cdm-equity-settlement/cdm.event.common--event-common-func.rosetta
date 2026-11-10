@@ -1,0 +1,201 @@
+namespace cdm.event.common: <"Business event concepts: primitives, contract state and associated state transition function specifications.">
+version "${project.version}"
+
+import cdm.base.*
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.identifier.*
+import cdm.base.staticdata.party.*
+import cdm.event.position.*
+import cdm.event.workflow.*
+import cdm.legaldocumentation.*
+import cdm.legaldocumentation.common.*
+import cdm.legaldocumentation.csa.*
+import cdm.legaldocumentation.transaction.*
+import cdm.observable.asset.*
+import cdm.observable.common.*
+import cdm.observable.event.*
+import cdm.product.asset.*
+import cdm.product.common.schedule.*
+import cdm.product.common.settlement.*
+import cdm.product.qualification.*
+import cdm.product.template.*
+
+func AdjustedValuationDates:
+    inputs:
+        valuationDates ValuationDates (1..1)
+    output:
+        adjustedValuationDates date (0..*)
+    set adjustedValuationDates: <"Build sorted list of adjusted valuation dates.">
+        [
+            ResolveAdjustableDates(valuationDates -> interimValuationDate -> valuationDates),
+            ResolveAdjustableDate(valuationDates -> finalValuationDate -> valuationDate)
+        ]
+            sort
+
+func EquityCashSettlementAmount: <"Represents Part 1 Section 12 of the 2018 ISDA CDM Equity Confirmation for Security Equity Swap, Para 72. 'Equity Cash Settlement Amount' means, in respect of an Equity Cash Settlement Date, an amount in the Settlement Currency determined by the Calculation Agent as of the Equity Valuation Date to which the Equity Cash Settlement Amount relates, pursuant to the following formula: Equity Cash Settlement Amount = ABS(Rate Of Return) * Equity Notional Amount.">
+    inputs:
+        tradeState TradeState (1..1)
+        date date (1..1)
+    output:
+        equityCashSettlementAmount Transfer (1..1)
+
+    alias payout:
+        tradeState -> trade -> product -> economicTerms -> payout
+            filter PerformancePayout exists
+            then only-element
+    alias equityPerformancePayout: payout as PerformancePayout
+    alias equityPerformance:
+        EquityPerformance(
+                tradeState -> trade,
+                tradeState -> resetHistory only-element -> resetValue,
+                date
+            )
+    alias payer:
+        ExtractCounterpartyByRole(
+                tradeState -> trade -> counterparty,
+                equityPerformancePayout -> payerReceiver -> payer
+            ) -> partyReference
+    alias receiver:
+        ExtractCounterpartyByRole(
+                tradeState -> trade -> counterparty,
+                equityPerformancePayout -> payerReceiver -> receiver
+            ) -> partyReference
+
+    set equityCashSettlementAmount -> ScheduledTransfer -> quantity -> value: <"Equity Cash Settlement Amount is defined here as Abs( Equity Performance ). Per the ISDA Definitions: Equity Performance = (Rate Of Return)  Equity Notional Amount and Equity Cash Settlement Amount = ABS(Rate Of Return)  Equity Notional Amount; so the calculation for Equity Cash Settlement Amount in the CDM is mathematically equivalent, with the added benefit that Rate of Return does not need to be recomputed, since it was already computed in the Reset Event.">
+        Abs(equityPerformance)
+    set equityCashSettlementAmount -> ScheduledTransfer -> quantity -> unit -> currency: <"Does not handle the cross currency case. Only works in the case of a single trade lot.">
+        ResolveEquityInitialPrice(
+                tradeState -> trade -> tradeLot only-element -> priceQuantity -> price
+            ) -> unit -> currency
+    set equityCashSettlementAmount -> ScheduledTransfer -> payerReceiver -> payerPartyReference:
+        if equityPerformance >= 0 then payer else receiver
+    set equityCashSettlementAmount -> ScheduledTransfer -> payerReceiver -> receiverPartyReference:
+        if equityPerformance >= 0 then receiver else payer
+    set equityCashSettlementAmount -> ScheduledTransfer -> settlementDate -> adjustedDate:
+        ResolveCashSettlementDate(tradeState)
+    set equityCashSettlementAmount -> ScheduledTransfer -> payoutReference: payout as-key
+
+func EquityPerformance: <"Part 1 Section 12 of the 2018 ISDA CDM Equity Confirmation for Security Equity Swap, Para 75. 'Equity Performance' means, in respect of an Equity Cash Settlement Date, an amount in the Settlement Currency determined by the Calculation Agent as of the Equity Valuation Date to which the Equity Cash Settlement Amount relates, pursuant to the following formula: Equity Performance = (Rate Of Return)  Equity Notional Amount.">
+    inputs:
+        trade Trade (1..1)
+        observation Price (1..1)
+        date date (1..1)
+    output:
+        equityPerformance number (1..1)
+
+    alias performancePayout:
+        trade -> product -> economicTerms -> payout as PerformancePayout only-element
+    alias periodStartPrice: <"Only works in the case of a single trade lot.">
+        ResolvePerformancePeriodStartPrice(
+                performancePayout,
+                trade -> tradeLot only-element -> priceQuantity -> price,
+                trade -> tradeLot -> priceQuantity -> observable only-element,
+                date
+            )
+    alias periodEndPrice: observation
+    alias numberOfSecurities:
+        performancePayout -> priceQuantity -> quantitySchedule -> value / periodStartPrice -> value
+    alias rateOfReturn: RateOfReturn(periodStartPrice, periodEndPrice)
+    alias notionalAmount: EquityNotionalAmount(numberOfSecurities, periodEndPrice)
+
+    condition PriceReturnTermsExists:
+        trade -> product -> economicTerms -> payout as PerformancePayout -> returnTerms -> priceReturnTerms exists
+
+    set equityPerformance: rateOfReturn * notionalAmount
+
+func RateOfReturn: <"Part 1 Section 12 of the 2018 ISDA CDM Equity Confirmation for Security Equity Swap, Para 139. 'Rate Of Return' means, in respect of any Equity Valuation Date, the amount determined pursuant to the following formula: Rate Of Return = (Final Price - Initial Price) / Initial Price.">
+    inputs:
+        initialPrice PriceSchedule (1..1)
+        finalPrice PriceSchedule (1..1)
+    output:
+        rateOfReturn number (1..1)
+
+    alias initialPriceValue: initialPrice -> value
+    alias finalPriceValue: finalPrice -> value
+    set rateOfReturn:
+        if finalPriceValue exists and initialPriceValue exists and initialPriceValue > 0
+        then (finalPriceValue - initialPriceValue) / initialPriceValue
+
+func EquityNotionalAmount: <"Part 1 Section 12 of the 2018 ISDA CDM Equity Confirmation for Security Equity Swap, Para 74. 'Equity Notional Amount' means the Number Of Securities times the Initial Price, adjusted, if applicable, as provided in Part 1 Section 2.2, 'Equity Notional Reset'. If 'With Reset' is the Equity Notional Reset Election, then in respect of each Equity Cash Settlement Date: (i) the Equity Notional Amount applicable in respect of the first Equity Cash Settlement Date will be the amount specified as such in the definition of Equity Notional Amount; (ii) the Equity Notional Amount applicable in respect of each subsequent Equity Cash Settlement Date will be the sum of (a) the Equity Notional Amount in respect of the prior Equity Cash Settlement Date and (b) the Equity Performance, whether positive or negative, in respect of the prior Equity Cash Settlement Date; and (iii)	the Floating Notional Amount will be adjusted as provided in sub-clauses (i) and (ii) above as though it were an Equity Notional Amount.">
+    inputs:
+        numberOfSecurities number (1..1)
+        price Price (1..1)
+    output:
+        equityNotionalAmount number (1..1)
+    alias priceValue: price -> value
+    set equityNotionalAmount: numberOfSecurities * priceValue
+
+func ResolveCashSettlementDate: <"A product agnostic function that resolves the settlement date of the payout for the period in question">
+    [codeImplementation]
+    inputs:
+        tradeState TradeState (1..1)
+    output:
+        date date (1..1)
+
+func NewEquitySwapProduct: <"Function specification to create an Equity Swap according to the 2018 ISDA CDM Equity Confirmation Template, based on a minimum set of inputs which can (optionally) include a Master Confirmation Agreement. The inputs represent the minimum set of inputs required to create an Equity Swap, either based on an existing Master Confirmation Agreement or as a stand-alone Equity Swap">
+    inputs:
+        security Security (1..1) <"The underlying Equity asset for the swap.">
+        masterConfirmation EquitySwapMasterConfirmation2018 (0..1) <"An (optional) pointer to the Master Confirmation Agreement, if any, that holds further inputs to the Equity Swap">
+    output:
+        product NonTransferableProduct (1..1)
+
+    condition EquitySecurityType: <"Security must be equity (single name).">
+        security -> securityType = Equity
+
+    add product -> economicTerms -> payout:
+        Payout {
+            PerformancePayout: NewSingleNameEquityPerformancePayout(
+                        security,
+                        masterConfirmation
+                    ),
+            ...
+        }
+
+    add product -> economicTerms -> payout: <"Equity and interest rate payouts must be set-up according to their corresponding payout specifications">
+        if masterConfirmation exists
+        then Payout {
+                InterestRatePayout: NewFloatingPayout(masterConfirmation),
+                ...
+            }
+
+    post-condition PayoutType: <"Other payout types must be absent.">
+        if masterConfirmation is absent
+        then (product -> economicTerms -> payout
+            extract PerformancePayout exists
+            then all = True)
+
+func NewSingleNameEquityPerformancePayout: <"Function specification to create the equity payout part of an Equity Swap according to the 2018 ISDA CDM Equity Confirmation template.">
+    inputs:
+        security Security (1..1)
+        masterConfirmation EquitySwapMasterConfirmation2018 (0..1)
+    output:
+        performancePayout PerformancePayout (1..1)
+
+    condition EquitySecurityType: <"Security must be equity (single name).">
+        security -> securityType = Equity
+
+    set performancePayout -> returnTerms -> priceReturnTerms -> returnType: <"Equity payout must inherit terms from the Master Confirmation Agreement.">
+        // if masterConfirmation -> typeOfSwapElection -> Price exists
+        // or masterConfirmation -> typeOfSwapElection -> Total exists then
+        masterConfirmation -> typeOfSwapElection
+
+    set performancePayout -> valuationDates: <"Equity payout must inherit terms from the Master Confirmation Agreement.">
+        masterConfirmation -> valuationDates
+    set performancePayout -> paymentDates: <"Equity payout must inherit terms from the Master Confirmation Agreement.">
+        masterConfirmation -> equityCashSettlementDates
+    set performancePayout -> settlementTerms: <"Equity payout must inherit terms from the Master Confirmation Agreement.">
+        masterConfirmation -> settlementTerms
+
+func NewFloatingPayout: <"Function specification to create the interest rate (floating) payout part of an Equity Swap according to the 2018 ISDA CDM Equity Confirmation template.">
+    [codeImplementation]
+    inputs:
+        masterConfirmation EquitySwapMasterConfirmation2018 (0..1)
+    output:
+        interestRatePayout InterestRatePayout (1..1)
+
+    post-condition InterestRatePayoutTerms: <"Interest rate payout must inherit terms from the Master Confirmation Agreement when it exists.">
+        if masterConfirmation exists
+        then // interestRatePayout -> calculationPeriodDates = masterConfirmation -> equityCalculationPeriod and
+            interestRatePayout -> paymentDates = masterConfirmation -> equityCashSettlementDates

@@ -1,0 +1,39 @@
+[
+  {
+    "id": "confirmation-payment-dates-take-precedence",
+    "function": "NewFloatingPayout",
+    "confirmationFirstPayment": "2024-06-03",
+    "expectedPayment": "2024-06-03",
+    "periodic": true
+  },
+  {
+    "id": "standalone-transaction-uses-supplied-single-date",
+    "function": "NewFloatingPayout",
+    "expectedPayment": "2024-06-10",
+    "periodic": false
+  },
+  {
+    "id": "leap-day-period-selects-its-settlement-date",
+    "function": "ResolveCashSettlementDate",
+    "periodEnd": "2024-02-29",
+    "expectedPayment": "2024-03-04"
+  },
+  {
+    "id": "period-selects-settlement-in-the-next-month",
+    "function": "ResolveCashSettlementDate",
+    "periodEnd": "2024-03-29",
+    "expectedPayment": "2024-04-03"
+  },
+  {
+    "id": "missing-period-remains-unresolved",
+    "function": "ResolveCashSettlementDate",
+    "periodEnd": "2024-03-28",
+    "error": "CashSettlementPeriodMissing"
+  },
+  {
+    "id": "ambiguous-period-does-not-pick-first",
+    "function": "ResolveCashSettlementDate",
+    "periodEnd": "2024-04-30",
+    "error": "CashSettlementPeriodAmbiguous"
+  }
+]

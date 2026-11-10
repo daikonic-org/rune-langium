@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "79fdecdd5706ebf3a26c875930b2b13c095ae47ae634c5ee1404d4864f750e47"
+      "sha256": "24ad21a7e819c28c9c85c96b0174259d6b0bf258ef6c6a9553c97f03bed85863"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1061,6 +1061,10 @@
       "sha256": "1a6b60f945b80e18f868b4253a3c62e8b48c3f77a36462ed5a5b6e168c85b541"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/equity-settlement-inputs.rosetta",
+      "sha256": "298aefcb943823e72994496b005a0a2c4c8a3debab28a6eae71397a36bae2f6c"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
       "sha256": "b52497b3e64ca23c2d3cb41275f4720206a15d8bff2033d31349a350b449c541"
     },
@@ -1117,6 +1121,10 @@
       "sha256": "502f5ceb7ab860e43d90c1427e851626d6a558bc214f59b7b6cad55a28088c23"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/new-floating-payout.rosetta",
+      "sha256": "54b0ffa24d1039586cb8ccb2cf121513a62f44294b3f1a10c44adebc80b0e8ec"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/observation-averages.rosetta",
       "sha256": "712818012aa493061585ad504cc1c8ae77ce46547dd81d9e27260f685a2c8b7c"
     },
@@ -1131,6 +1139,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
       "sha256": "7f04c51d4fef398397dc1cf7ad26fa0ee9e80d66ef99f833ce59e3020f7abfd8"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-cash-settlement-date.rosetta",
+      "sha256": "7aa93d146a835b96da9ce4f00b18c3f3e1905c344148105c3aa887ce56671cfe"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta",
@@ -4112,7 +4124,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/new-floating-payout.rosetta",
+        "entrypoint": "cdm.event.common.NewFloatingPayout",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -4121,10 +4136,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Construct from supplied confirmation terms; verify template/default rules and the 7.9.0 qualified input type.",
+        "route": "rune-source",
+        "requirements": "Owned Rune body constructs the funding leg from supplied transaction economics. A master confirmation's equity payment schedule takes precedence and suppresses the single payment date.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/equity-settlement.test.ts",
+        "cases": "test/fixtures/third-party/cdm-equity-settlement/cases.json",
+        "casesSha256": "22c4f95ac0ea484becb06199242d32dde8c3ee314ad2374d0e1a86e748de0d5f",
+        "selectors": [],
+        "caseCount": 2
       }
     },
     {
@@ -4164,7 +4186,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-cash-settlement-date.rosetta",
+        "entrypoint": "cdm.event.common.ResolveCashSettlementDate",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -4173,10 +4198,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Product-specific settlement selection in Rune, with calendar/date services where required; establish authoritative rules.",
+        "route": "rune-source",
+        "requirements": "Owned Rune body requires one date for the selected period end. The project supplies the chosen payout, period context and calendar-resolved settlement schedule through a typed provider.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/equity-settlement.test.ts",
+        "cases": "test/fixtures/third-party/cdm-equity-settlement/cases.json",
+        "casesSha256": "22c4f95ac0ea484becb06199242d32dde8c3ee314ad2374d0e1a86e748de0d5f",
+        "selectors": [],
+        "caseCount": 4
       }
     },
     {
