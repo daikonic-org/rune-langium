@@ -11,6 +11,7 @@ import {
 import { expressionIsMany, expressionType, typeFeatures, featureName, featureIsMany } from '../expr/navigation.js';
 import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { fieldMetadataKind, type FieldMetadataKind } from '../expr/metadata-runtime.js';
+import { choiceReferencePaths } from '../expr/presence.js';
 import { expressionFitsCardinality } from '../expr/cardinality.js';
 import { collectionDepth, collectionShape } from '../expr/collection-shape.js';
 import { expressionIsPresent } from '../expr/scalar-operators.js';
@@ -119,13 +120,19 @@ export function pythonPrimitiveKey(value: string, kind: string): string {
 export function pythonReadField(
   receiver: string,
   field: ReturnType<typeof typeFeatures>[number],
-  binding?: string
+  binding?: string,
+  choice = false
 ): string {
-  return pythonUnwrap(
-    binding ?? pythonRead(receiver, [featureName(field)]),
-    'annotations' in field ? fieldMetadataKind(field) : undefined,
-    featureIsMany(field)
-  );
+  const value = binding ?? pythonRead(receiver, [featureName(field)]);
+  const kind = 'annotations' in field ? fieldMetadataKind(field) : undefined;
+  const many = featureIsMany(field);
+  if (choice && kind === 'reference') {
+    const present = pythonCoalesce(choiceReferencePaths.map((path) => pythonRead('_rune_field', path)));
+    return many
+      ? `[entry for _rune_field in ${pythonCollection(value)} for entry in [${present}] if entry is not None]`
+      : pythonBind(value, '_rune_field', present);
+  }
+  return pythonUnwrap(value, kind, many);
 }
 export function pythonComparison(left: string, right: string, operator: string, strings = false): string {
   const key = (value: string) => (strings ? `(${value}).encode("utf-16-be", "surrogatepass")` : value);

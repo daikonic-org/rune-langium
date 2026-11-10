@@ -24,6 +24,7 @@ import { createRuneDslServices, assertValidDocuments } from '@rune-langium/core'
 import { URI } from 'langium';
 import { z } from 'zod';
 import { generate } from '../../src/export.js';
+import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
 const SOURCE_A = `namespace foo
 
@@ -49,6 +50,41 @@ async function parseTwoNamespaces() {
 }
 
 describe('Zod LanguageProfile (019 Phase 0.5.2)', () => {
+  it('strictly compiles a child schema that narrows an inherited list to a scalar', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    await RuneDsl.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+    const docs = [
+      `namespace labels
+type Label:
+  text string (1..1)`,
+      `namespace base
+import labels.*
+type Parent:
+  amounts number (0..*)
+  description Label (1..1)
+  condition HasAmount: amounts exists`,
+      `namespace derived
+import base.*
+type Child extends Parent:
+  override amounts number (0..1)`
+    ].map((source, index) =>
+      RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+        source,
+        URI.parse(`inmemory:///narrow-${index}.rosetta`)
+      )
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { validation: true });
+    assertValidDocuments(docs);
+    const outputs = await generate(docs, { target: 'zod', zod: { layout: 'barrel' } });
+    const { ChildSchema } = compileGeneratedTypeScript<{ ChildSchema: z.ZodType }>(outputs, {
+      entry: 'derived.zod.ts'
+    });
+    const description = { text: 'principal' };
+    expect(ChildSchema.parse({ amounts: 5, description })).toEqual({ amounts: 5, description });
+    expect(ChildSchema.safeParse({ amounts: [5], description }).success).toBe(false);
+    expect(ChildSchema.safeParse({ description }).success).toBe(false);
+  });
+
   it('per-namespace layout (library default) is unchanged: one file per namespace, inlined helpers', async () => {
     const docs = await parseTwoNamespaces();
     const outputs = await generate(docs, { target: 'zod' });

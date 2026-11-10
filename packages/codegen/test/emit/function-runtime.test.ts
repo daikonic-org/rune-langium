@@ -37,6 +37,23 @@ async function compile(
 }
 
 describe('generated TypeScript function execution', () => {
+  it('tests presence on the result of a pipeline filter', async () => {
+    const funcs = await compile(`namespace test.pipePresence
+func HasPositive:
+  inputs: values number (0..*)
+  output: result boolean (1..1)
+  set result: values filter [item > 0] then exists
+func HasNoPositive:
+  inputs: values number (0..*)
+  output: result boolean (1..1)
+  set result: values filter [item > 0] then is absent
+`);
+    expect(funcs.HasPositive!({ values: [0, -1] })).toBe(false);
+    expect(funcs.HasPositive!({ values: [0, 1] })).toBe(true);
+    expect(funcs.HasNoPositive!({ values: [] })).toBe(true);
+    expect(funcs.HasNoPositive!({ values: [1] })).toBe(false);
+  });
+
   it('owns SET collections before ADD and preserves extraction groups', async () => {
     const funcs = await compile(sourceProjectionCollections);
     const values = Object.freeze([1, 2]);

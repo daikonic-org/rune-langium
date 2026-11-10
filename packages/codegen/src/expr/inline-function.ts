@@ -61,15 +61,19 @@ export function inlineContext(
     bindings.set(parameter.name, names[index] ?? names[0]!);
     localMetadata.set(parameter.name, implicitMetadata);
   });
-  const result = { ...ctx, selfName: names[0]!, localBindings: bindings, localMetadata, implicitMetadata };
-  if (fn.parameters.length === 0 && isRosettaExpression(fn.$container)) {
-    const argument = getOperationArgument(fn.$container);
-    return bindImplicitFeatures(
-      result,
-      expressionType(argument),
-      fn.$container.$type === 'ThenOperation' && expressionIsMany(argument)
-    );
-  }
+  const operation = isRosettaExpression(fn.$container) ? fn.$container : undefined;
+  const argument = operation ? getOperationArgument(operation) : undefined;
+  const implicitMany = operation?.$type === 'ThenOperation' && expressionIsMany(argument);
+  const result = {
+    ...ctx,
+    selfName: names[0]!,
+    localBindings: bindings,
+    localMetadata,
+    implicitMetadata,
+    implicitMany
+  };
+  if (fn.parameters.length === 0 && operation)
+    return bindImplicitFeatures(result, expressionType(argument), implicitMany);
   return result;
 }
 

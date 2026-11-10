@@ -364,6 +364,42 @@ func Run:
     );
   });
 
+  skipIfNodeLt22('validates metadata on a nested Choice option in function inputs', async () => {
+    const docs = await parseModels([
+      `
+namespace located
+type Quote:
+  amount number (1..1)
+choice Inner:
+  Quote
+choice Outer:
+  Inner
+    [metadata location]
+func Read:
+  inputs: selection Outer (1..1)
+  output: result boolean (1..1)
+  set result: True
+`
+    ]);
+    const { z } = await import('zod');
+    const { adaptPreviewData } = await import('../../src/export.js');
+    const { decodeRuneJson } = await import('@rune-langium/core/serialization');
+    const result = emitStandaloneZodSchema(docs, 'located.Read', { functionInputs: true });
+    expect(result.diagnostics).toEqual([]);
+    const validator = new Function('z', `${await toEvaluableJs(result.code)}\nreturn ${result.schemaName};`)(z);
+    const data = decodeRuneJson({
+      selection: {
+        '@type': 'located.Inner',
+        '@key:scoped': 'quote-1',
+        '@data': { '@type': 'located.Quote', amount: 5 }
+      }
+    });
+    expect(validator.parse(adaptPreviewData(docs, 'located.Read#RosettaFunction', data).data)).toMatchObject({
+      selection: { inner: { value: { quote: { amount: 5 } }, meta: { scopedKey: 'quote-1' } } }
+    });
+    expect(validator.safeParse({ selection: { inner: { quote: { amount: 5 } } } }).success).toBe(false);
+  });
+
   skipIfNodeLt22('produces a self-contained script with no cross-namespace import statements', async () => {
     const docs = await parseModels([
       `

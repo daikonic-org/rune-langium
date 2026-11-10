@@ -191,6 +191,9 @@ explicitly selected original roots. It emits the replacement's canonical
 namespace, excludes overridden original bodies and retains linked originals for
 inspection. Preview schemas and Python module bindings share this selection
 boundary. Kind-qualified direct function requests resolve through that same port.
+Native TypeScript builds and managed Studio generation use the same linked
+standard library in their dependency closure. Named targets still select their
+roots from the project namespaces.
 
 Studio's source-sync fingerprint covers only namespaces with a writable source
 baseline, including their outgoing inheritance edges. Read-only reference ASTs
@@ -645,11 +648,23 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - `walkNamespace` gathers declarations and computes the type-reference graph, cycles, and emission order once per namespace. Emitters consume the readonly `NamespaceWalkResult` and own their diagnostics/source maps.
 - `getTargetRelativePath` centralizes output paths. TypeScript and Python function emitters consume the shared extraction facts in `types/func.ts`; target syntax and runtime remain separate.
 - Studio function forms use resolved inherited/dispatch signatures. Codegen `normalizePreviewInputs` adapts plain form values using the shared type resolver and metadata runtime helpers, traversing actual input values independently of form expansion depth. Python input normalization and this adapter share declaration-derived metadata payload shapes from `expr/metadata-input.ts`, including aliases, inherited Data/Choice fields and own/inherited key or template metadata. JSON envelopes retain their metadata and normalize only their payload; records matching declared payload fields take precedence where the two shapes are ambiguous. Python marks runtime-created wrappers with an internal dictionary subclass so repeated function-input normalization preserves their representation without adding JSON keys. Metadata conversion preserves absence before wrapping, including call and constructor boundaries; required cardinality checks still reject missing values.
+- UI adapters use Core's `getLinkedReferenceTarget` to read restored reference
+  targets directly and defer lazy getters until document scopes exist. Annotation
+  identity and function-output bindings use this same rule for parsed and
+  serialized models.
 - Studio function preview and standalone schema compilation share the Sucrase TypeScript compiler. Function preview transpiles complete generated modules and resolves imports among generated outputs plus the explicit `@js-temporal/polyfill` runtime dependency. Keep private evaluator binding names outside the Rune identifier alphabet (use `$`). Keep the worker execution restrictions and test real parsed/emitted functions when changing this path.
 - Zod schema references follow the actual declaration order, including acyclic
   targets copied into children of cyclic parents. Defer forward references with
   the emitter's shared lazy-reference helper; exported validators and Prototype
   selection must validate inherited arrays without capturing undefined item schemas.
+- A Rune override that narrows a list to a scalar rebuilds the Zod child shape.
+  Inherited conditions receive the declaring type's list representation.
+  Metadata-aware schemas validate the same envelopes for attributes and Choice
+  options. The linked input adapter accepts unambiguous upstream enum display
+  names and retains canonical values and materialized code-list codes.
+- A required choice accepts a populated reference field before its target is
+  resolved. Conditions that delegate to optional functions accept an empty
+  result and still reject an explicit false.
 - Standalone schemas expose linked condition-function dependencies. The shared
   generated preview runtime loads their selected TypeScript module closure and
   reuses canonical argument adaptation and function-input validators, including
@@ -1144,9 +1159,11 @@ Studio's `example-repository` adapts these records to the existing instance stor
 WorkspaceProvider binds it to the active ProjectController, while App supplies only
 limited typed legacy storage. Before publishing reopened Rune JSON records, the repository
 uses the existing linked preview-worker decoder to restore form Choice slots. Worker
-registration uses the existing preparation bound; workspace epochs and controller revisions
-reject stale loads. Decode failures retain the original files and block semantic writes
-until a successful reload. Example saves serialize across records and use shared
+registration uses the existing preparation bound. A changed project revision
+retries decoding once against the latest snapshot. Decode failures retain the
+original files and block semantic writes until a successful reload, which
+replaces the empty placeholder without overwriting active edits. Example saves
+serialize across records and use shared
 project Save/readback, including explicit CAS removals for deletion. Late completion
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
@@ -1177,9 +1194,10 @@ Save-as-example path.
 
 ### Editable starter copies and bound folders
 
-The starter catalog describes projects; checked source adapters provide their
-actual files and exact commit. `createStarterOpener` validates the copy boundary,
-then `createStarterWorkingCopy` uses the existing ProjectController before host
+The starter catalog describes projects. Checked source adapters verify the commit,
+read the Git tree, and verify the raw file contents against their blob IDs.
+Only the commit and tree use the GitHub REST quota. `createStarterOpener` validates
+the copy boundary, then `createStarterWorkingCopy` uses the existing ProjectController before host
 activation. Starter provenance lives on WorkspaceRecord without GitBacking,
 credentials or reference-only flags. Unpublished catalog proposals stay disabled.
 Workspace opening and reference dependencies occupy separate launcher sections.
@@ -1187,10 +1205,10 @@ The published `daikonic-org/rune-starter` is a GitHub template; `rune-cdm-exampl
 was generated from it and retains the same workflow checker and CI. The launcher
 catalog pins verified public commits rather than floating branches. Both are
 ordinary editable starter copies, without an inherited writable remote. The CDM
-sample locks release 7.8.0 and its dependencies and calls the upstream Rune
-`UpdateAmount` through an original local wrapper; it does not provide financial
-payment scheduling. Template-generated repositories do not automatically pull
-future template changes.
+workspace pins 7.9.0 and demonstrates structural trade validation and product
+qualification, accrual schedule generation, and fixed-leg coupons on the same
+published vanilla-swap data. Quote uses a materialized Rune currency enum.
+Template-generated repositories do not automatically pull future template changes.
 View example opens that verified local copy. Fork example uses GitHub sign-in,
 verifies or creates the user's own fork, and enters the shared GitHub clone and
 project-initialization review flow. A clone retry reuses the verified fork; it
@@ -1758,7 +1776,10 @@ before their scopes exist.
 Concrete local source models publish only after their reference dependencies have
 been linked and included in that same Core hydration batch. Repeated worker
 snapshot requests return the complete linked closure, including dependencies
-already materialized by a previous consumer. Inventory-only placeholders are an
+already materialized by a previous consumer. Reference activation links configured
+local roots in one worker request, traversing and serializing their union once;
+shared dependencies never require a separate snapshot transfer per implementation.
+Inventory-only placeholders are an
 intentional deferral and do not count as stripped concrete models in the graph's
 degraded-reparse guard; concrete source peers retain that corruption protection.
 HTTP-parser source URI aliases are accepted only from the current capture's

@@ -223,7 +223,9 @@ it('does not package selected native callers without a provider, while pure sele
     new AbortController().signal
   );
   expect(artifact.manifest.projectReceipt).toEqual(project.receipt);
-  expect(artifact.manifest.resolvedSelection?.included).toEqual([{ namespace: 'native', name: 'Quote', kind: 'Data' }]);
+  expect(artifact.manifest.resolvedSelection?.included.filter((entry) => entry.namespace === 'native')).toEqual([
+    { namespace: 'native', name: 'Quote', kind: 'Data' }
+  ]);
 });
 
 it('packages project code-list constraints through the real managed download handler', async () => {

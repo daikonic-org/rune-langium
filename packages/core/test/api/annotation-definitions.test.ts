@@ -1,8 +1,25 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { it, expect } from 'vitest';
+import { it, expect, vi } from 'vitest';
 import { parseWorkspace } from '../../src/api/parse.js';
 import { getAnnotationDefinitions } from '../../src/api/annotation-definitions.js';
+import { createRuneDslServices } from '../../src/services/rune-dsl-module.js';
+import { URI } from 'langium';
+
+it('leaves references untouched while a new source is still unlinked', () => {
+  const { RuneDsl } = createRuneDslServices();
+  const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+    'namespace example\ntype Owner:\n  name string (1..1) [metadata scheme]\n',
+    URI.parse('memory:///unlinked.rosetta')
+  );
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  try {
+    expect(getAnnotationDefinitions(document.parseResult.value)).toEqual({});
+    expect(warn).not.toHaveBeenCalled();
+  } finally {
+    warn.mockRestore();
+  }
+});
 
 it('uses the actual imported annotation target when another namespace defines the same name', async () => {
   const entries = [

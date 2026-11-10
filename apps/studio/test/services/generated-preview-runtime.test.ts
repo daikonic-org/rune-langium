@@ -74,3 +74,38 @@ type Child extends Parent:
   expect(new Child({ amount: 2 })).toBeInstanceOf(Parent);
   expect(modules.load('types/a.ts').Parent).toBe(Parent);
 });
+
+it('validates reference-only choices and optional condition calls', async () => {
+  const { shared } = createRuneDslServices();
+  await shared.workspace.WorkspaceManager.initializeWorkspace([]);
+  const document = shared.workspace.LangiumDocumentFactory.fromString(
+    `namespace predicates
+type Party:
+  name string (1..1)
+type Identifier:
+  issuerReference Party (0..1)
+    [metadata reference]
+  issuer string (0..1)
+  condition IssuerChoice: required choice issuerReference, issuer
+type Trade extends Identifier:
+  amount number (0..1)
+  condition AmountCheck: CheckAmount
+func CheckAmount:
+  inputs: trade Trade (1..1)
+  output: valid boolean (0..1)
+  set valid: if trade -> amount exists then trade -> amount > 0`,
+    URI.parse('file:///trade-predicates.rosetta')
+  );
+  shared.workspace.LangiumDocuments.addDocument(document);
+  await shared.workspace.DocumentBuilder.build([document], { validation: true });
+  expect(document.parseResult.parserErrors).toEqual([]);
+  const documents = shared.workspace.LangiumDocuments.all.toArray();
+  const compiled = await compileStandaloneValidator(documents, 'predicates.Trade', 'metadata');
+  expect(compiled.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);
+  const issuerReference = { externalReference: 'party-a' };
+  expect(compiled.validator?.safeParse({ issuerReference }).success).toBe(true);
+  expect(compiled.validator?.safeParse({ issuerReference, issuer: 'party-b' }).success).toBe(false);
+  expect(compiled.validator?.safeParse({ issuerReference, amount: -1 }).success).toBe(false);
+  const identifier = await compileStandaloneValidator(documents, 'predicates.Identifier', 'metadata');
+  expect(identifier.validator?.safeParse({ issuerReference: {} }).success).toBe(false);
+});

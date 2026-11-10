@@ -797,10 +797,11 @@ export const handleCodegenDownload = withInstrumentation(
       let releaseDocumentCacheConsumer: (() => void) | undefined;
       try {
         if (project) {
-          const { applyEffectiveProject } = await import('@rune-langium/project-runtime/effective');
+          const { applyEffectiveProject, linkedProjectDocuments } =
+            await import('@rune-langium/project-runtime/effective');
           const graph = await applyEffectiveProject(project);
           projectGraph = graph;
-          documents = [...graph.documents];
+          documents = body.target === 'typescript' ? linkedProjectDocuments(graph) : [...graph.documents];
           resolvedCohorts = Object.fromEntries(
             Object.entries(project.snapshot.lock?.references ?? {}).map(([id, entry]) => [id, entry.cohort])
           );
@@ -808,7 +809,7 @@ export const handleCodegenDownload = withInstrumentation(
             const { projectTargetNamespaces } = await import('@rune-langium/project-runtime/browser');
             const { namespaceFromModelName, isRosettaModel } = await import('@rune-langium/core');
             const available = new Set(
-              documents.flatMap((document) =>
+              graph.documents.flatMap((document) =>
                 isRosettaModel(document.parseResult.value)
                   ? [namespaceFromModelName(document.parseResult.value.name)].filter((name): name is string =>
                       Boolean(name)

@@ -29,6 +29,7 @@ import { declaredScalarKind } from '../expr/scalar-operators.js';
 import { collectionShape } from '../expr/collection-shape.js';
 import { expressionFitsCardinality } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataPropertyPath } from '../expr/metadata-runtime.js';
+import { isOptionalConditionCall } from '../expr/presence.js';
 import { typeFeatures, featureName, resolveType, type ExpressionType } from '../expr/navigation.js';
 import { PY_RESERVED_WORDS } from '../lens/reserved-words.js';
 import { recordedProjection, findProjectionFragment } from './provenance.js';
@@ -36,6 +37,7 @@ import { renderPythonExpression } from './python.js';
 import {
   pythonRead,
   pythonArrayBoundary,
+  pythonCoalesce,
   pythonUnwrap,
   pythonCollection,
   pythonNormalize,
@@ -394,7 +396,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   }
   const check = (condition: Condition) => {
     const predicate = qualifyBuiltinCalls(
-      renderPythonExpression(condition.expression, {
+      renderPythonPredicate(condition, {
         ...renderContext,
         preserveMetadata: false,
         resultMode: 'condition'
@@ -435,6 +437,11 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
   return finish(lines, body);
 }
 
+function renderPythonPredicate(condition: Condition, context: PythonRenderContext): string {
+  const value = renderPythonExpression(condition.expression, context);
+  return isOptionalConditionCall(condition.expression) ? pythonCoalesce([value, 'True']) : value;
+}
+
 function pythonDataContext(context: PythonProjectionContext, type: ExpressionType | undefined): PythonRenderContext {
   const locals = new Map(context.locals);
   for (const field of typeFeatures(type)) locals.set(field, pythonRead('data', [featureName(field)]));
@@ -465,7 +472,7 @@ export function projectPythonCondition(condition: Condition, context: PythonProj
     return projection(condition, context, guard, 'condition', predicate);
   }
   if (!isData(owner) && !isChoice(owner)) throw new Error(`Unsupported Python condition owner '${owner.$type}'.`);
-  const code = renderPythonExpression(condition.expression, pythonDataContext(context, owner));
+  const code = renderPythonPredicate(condition, pythonDataContext(context, owner));
   const name = context.name(condition);
   return projection(
     condition,

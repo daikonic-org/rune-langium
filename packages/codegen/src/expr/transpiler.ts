@@ -98,7 +98,7 @@ import { renderOnlyExists } from './only-exists.js';
 import { arrowBody, freshLocal, inlineContext, bindImplicitFeatures } from './inline-function.js';
 import { renderCardinalityOperation } from './cardinality-operations.js';
 import { methodEqualityPredicate } from './value-equality.js';
-import { renderPresence, renderPresenceCount } from './presence.js';
+import { choiceReferencePaths, isOptionalConditionCall, renderPresence, renderPresenceCount } from './presence.js';
 import { parenthesizeReceiver } from './syntax.js';
 import { nativeCollection, nativeCount } from './collection-shape.js';
 import { singletonBinaryResult, cartesianComparison } from './binary-runtime.js';
@@ -177,6 +177,7 @@ export interface ExpressionTranspilerContext {
    * In ts-method mode: `this` (the class instance).
    */
   selfName: string;
+  implicitMany?: boolean;
   implicitMetadata?: { kind: FieldMetadataKind; many: boolean };
   localMetadata?: ReadonlyMap<string, { kind: FieldMetadataKind; many: boolean } | undefined>;
   metadataAttributes?: ReadonlySet<string>;
@@ -313,7 +314,7 @@ function transpilePresence(
         ? undefined
         : argument
           ? declared?.includes('[]') || expressionIsMany(argument)
-          : (ctx.implicitMetadata?.many ?? false);
+          : (ctx.implicitMany ?? ctx.implicitMetadata?.many ?? false);
   return renderPresence(value, many, metadata, absent, usesNativeValues(ctx));
 }
 
@@ -401,9 +402,12 @@ function validateAttr(attrName: string, ctx: ExpressionTranspilerContext): boole
  *
  * T053.
  */
-export function emitOneOf(attrNames: string[], ctx: ExpressionTranspilerContext): string {
-  const values = attrNames.map((name) => attrAccessExpr(name, ctx)).join(', ');
-  const predicate = `${renderPresenceCount(`[${values}]`, usesNativeValues(ctx))} === 1`;
+export function emitOneOf(
+  attrNames: string[],
+  ctx: ExpressionTranspilerContext,
+  values = attrNames.map((name) => attrAccessExpr(name, ctx))
+): string {
+  const predicate = `${renderPresenceCount(`[${values.join(', ')}]`, usesNativeValues(ctx))} === 1`;
   const message = `${ctx.conditionName}: exactly one of [${attrNames.join(', ')}] must be present in ${ctx.typeName}`;
 
   if (ctx.emitMode === 'zod-refine' || ctx.emitMode === 'ts-expression') {
@@ -433,7 +437,22 @@ export function emitOneOf(attrNames: string[], ctx: ExpressionTranspilerContext)
  * T053.
  */
 export function emitChoice(attrNames: string[], ctx: ExpressionTranspilerContext): string {
-  return emitOneOf(attrNames, ctx);
+  return emitOneOf(
+    attrNames,
+    ctx,
+    attrNames.map((name) => choiceFieldValue(name, ctx))
+  );
+}
+
+/** A reference can select a field even before the referenced value is resolved. */
+function choiceFieldValue(name: string, ctx: ExpressionTranspilerContext): string {
+  const metadata = ctx.localMetadata?.get(name);
+  if (metadata?.kind !== 'reference') return attrAccessExpr(name, ctx);
+  const receiver = attrAccessExpr(name, { ...ctx, preserveMetadata: true });
+  const value = choiceReferencePaths.map((path) => 'field?.' + path.join('?.')).join(' ?? ');
+  return metadata.many
+    ? `rune.list(${receiver}).map((field) => ${value}).filter((value) => value != null)`
+    : `((field) => ${value})(${receiver})`;
 }
 
 /**
@@ -801,7 +820,8 @@ export function transpileCondition(cond: Condition, ctx: ExpressionTranspilerCon
   // Other conditions use the shared expression dispatcher.
   // transpileExpression returns a boolean JS expression string.
   const boolExpr = transpileExpression(expr, ctx);
-  return wrapBoolExprForMode(boolExpr, ctx);
+  // A condition call with no applicable result passes. Explicit false still fails.
+  return wrapBoolExprForMode(isOptionalConditionCall(expr) ? `(${boolExpr} ?? true)` : boolExpr, ctx);
 }
 
 /**
@@ -1860,7 +1880,7 @@ export function transpileExpression(
       .filter((name): name is string => name !== undefined);
     const value = expr.argument ? transpileExpression(expr.argument, valueCtx) : undefined;
     const values = names
-      .map((name) => (value ? `__choice[${JSON.stringify(name)}]` : attrAccessExpr(name, valueCtx)))
+      .map((name) => (value ? `__choice[${JSON.stringify(name)}]` : choiceFieldValue(name, valueCtx)))
       .join(', ');
     const predicate =
       expr.necessity === 'optional'

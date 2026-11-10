@@ -203,6 +203,78 @@ export const createExampleRepository = withInstrumentation(
       input.controller.diagnostics().some((issue) => ['SAVE_CONFLICT', 'SAVE_UNAVAILABLE'].includes(issue.code))
         ? input.controller.recover()
         : (input.controller.current() ?? input.controller.load());
+
+    // Reference installation can advance the revision while linked examples decode.
+    async function readPortable(retryOnChange = true): Promise<{
+      records: Map<string, InstanceRecord>;
+      diagnostics: ProjectDiagnostic[];
+      failures: Record<string, string>;
+    }> {
+      const current = await snapshot();
+      const read = readExamples(current, undefined, { preserveNumberText: 'auto' });
+      const diagnostics = [...read.diagnostics];
+      const failures: Record<string, string> = {};
+      const failedDecodes = new Set<string>();
+      const records = new Map<string, InstanceRecord>();
+      for (const entry of read.documents) {
+        const descriptor = entry.descriptor;
+        const type = descriptor.type;
+        const typeFqn = type.namespace + '.' + type.name + (type.kind === 'RosettaFunction' ? '#RosettaFunction' : '');
+        let data = entry.payload;
+        if (data !== undefined && descriptor.codec === 'RUNE_JSON' && input.decode) {
+          try {
+            data = await input.decode(current, descriptor, data);
+          } catch (error) {
+            data = undefined;
+            failedDecodes.add(descriptor.id);
+            const message = error instanceof Error ? error.message : 'The example could not be decoded.';
+            failures[descriptor.id] = `${message} Reload after its type is available. Its original bytes are retained.`;
+            diagnostics.push({
+              code: 'EXAMPLE_DECODE_UNAVAILABLE',
+              severity: 'warning',
+              path: entry.descriptorPath,
+              message: failures[descriptor.id]!
+            });
+          }
+          if (input.controller.current()?.revision !== current.revision) {
+            if (retryOnChange) return readPortable(false);
+            throw new Error('Project files changed again while loading examples. Reload to retry.');
+          }
+        }
+        const record: InstanceRecord = {
+          id: descriptor.id,
+          name: descriptor.name,
+          typeFqn,
+          typeIdentity: type,
+          data,
+          createdAt: 0,
+          modifiedAt: 0,
+          ...(descriptor.provenance
+            ? {
+                provenance: {
+                  codec: descriptor.codec,
+                  source: descriptor.provenance.source,
+                  importedAt: 0,
+                  ...(descriptor.provenance.reference ? { reference: descriptor.provenance.reference } : {})
+                }
+              }
+            : {})
+        };
+        if (entry.payload === undefined)
+          failures[record.id] =
+            'Repair or restore this example payload before saving. Its original bytes are retained.';
+        // Portable descriptors already carry an exact identity. The shared
+        // instance preparation/worker validates its availability after model
+        // readiness; the UI inventory may still be empty during restoration.
+        if (!records.has(record.id)) records.set(record.id, record);
+        else failures[record.id] = 'Repair duplicate example IDs before saving.';
+      }
+      for (const id of records.keys()) {
+        if (failedDecodes.has(id)) unreadable.add(id);
+        else unreadable.delete(id);
+      }
+      return { records, diagnostics, failures };
+    }
     return {
       workspaceId: input.workspaceId,
       write: (record) =>
@@ -251,7 +323,6 @@ export const createExampleRepository = withInstrumentation(
         enqueue(async () => {
           await input.controller.recover();
           const diagnostics: ProjectDiagnostic[] = [];
-          const failures: Record<string, string> = {};
           let legacyRecords: InstanceRecord[] = [];
           let migratedIds: ReadonlySet<string> = new Set();
           if (input.legacy) {
@@ -276,64 +347,8 @@ export const createExampleRepository = withInstrumentation(
               });
             }
           }
-          const current = await snapshot();
-          const read = readExamples(current, undefined, { preserveNumberText: 'auto' });
-          diagnostics.push(...read.diagnostics);
-          const records = new Map<string, InstanceRecord>();
-          for (const entry of read.documents) {
-            const descriptor = entry.descriptor;
-            const type = descriptor.type;
-            const typeFqn =
-              type.namespace + '.' + type.name + (type.kind === 'RosettaFunction' ? '#RosettaFunction' : '');
-            let data = entry.payload;
-            unreadable.delete(descriptor.id);
-            if (data !== undefined && descriptor.codec === 'RUNE_JSON' && input.decode) {
-              try {
-                data = await input.decode(current, descriptor, data);
-                if (input.controller.current()?.revision !== current.revision)
-                  throw new Error('Project files changed while loading this example. Reload to retry.');
-              } catch (error) {
-                data = undefined;
-                unreadable.add(descriptor.id);
-                const message = error instanceof Error ? error.message : 'The example could not be decoded.';
-                failures[descriptor.id] =
-                  `${message} Reload after its type is available. Its original bytes are retained.`;
-                diagnostics.push({
-                  code: 'EXAMPLE_DECODE_UNAVAILABLE',
-                  severity: 'warning',
-                  path: entry.descriptorPath,
-                  message: failures[descriptor.id]!
-                });
-              }
-            }
-            const record: InstanceRecord = {
-              id: descriptor.id,
-              name: descriptor.name,
-              typeFqn,
-              typeIdentity: type,
-              data,
-              createdAt: 0,
-              modifiedAt: 0,
-              ...(descriptor.provenance
-                ? {
-                    provenance: {
-                      codec: descriptor.codec,
-                      source: descriptor.provenance.source,
-                      importedAt: 0,
-                      ...(descriptor.provenance.reference ? { reference: descriptor.provenance.reference } : {})
-                    }
-                  }
-                : {})
-            };
-            if (entry.payload === undefined)
-              failures[record.id] =
-                'Repair or restore this example payload before saving. Its original bytes are retained.';
-            // Portable descriptors already carry an exact identity. The shared
-            // instance preparation/worker validates its availability after model
-            // readiness; the UI inventory may still be empty during restoration.
-            if (!records.has(record.id)) records.set(record.id, record);
-            else failures[record.id] = 'Repair duplicate example IDs before saving.';
-          }
+          const { records, diagnostics: portableDiagnostics, failures } = await readPortable();
+          diagnostics.push(...portableDiagnostics);
           for (const record of legacyRecords) {
             if (migratedIds.has(record.id)) continue;
             if (!records.has(record.id)) records.set(record.id, record);

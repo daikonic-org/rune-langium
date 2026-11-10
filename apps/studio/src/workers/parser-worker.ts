@@ -83,7 +83,9 @@ export interface LinkDocumentRequest {
   type: 'linkDocument';
   id: string;
   uri: string;
-  /** Return the root and its linked closure, including already materialized dependencies. */
+  /** Additional roots share one scope build and dependency snapshot. */
+  additionalUris?: readonly string[];
+  /** Return the roots and their linked closure, including already materialized dependencies. */
   snapshot?: boolean;
 }
 
@@ -574,21 +576,23 @@ const handleLinkDocument = withInstrumentation(
     invalidArtifactKeys.clear();
     let targetArtifactKey: string | undefined;
     try {
-      const targetUri = URI.parse(req.uri);
-      targetArtifactKey = deferredArtifactKeys.get(targetUri.toString());
-      let doc: LangiumDocument<AstNode> | undefined;
-
-      // Corpus documents are stored as raw JSON until first link request.
-      // Materialize the target document now if it hasn't been deserialized yet.
-      if (deferredModelJson.has(targetUri.toString())) {
-        deferredProvider.getModel(targetUri.toString());
-        doc = activeLangiumDocs.getDocument(targetUri);
-      } else if (activeLangiumDocs.hasDocument(targetUri)) {
-        doc = activeLangiumDocs.getDocument(targetUri);
-      }
-
-      if (!doc) {
-        return { type: 'linkDocumentResult', id: req.id, linked: false, errors: [], newModels: [] };
+      const roots: LangiumDocument<AstNode>[] = [];
+      const uris = new Set([req.uri, ...(req.additionalUris ?? [])].map((uri) => URI.parse(uri).toString()));
+      for (const uri of uris) {
+        const targetUri = URI.parse(uri);
+        targetArtifactKey = deferredArtifactKeys.get(uri);
+        // Materialize every requested root before building their shared scopes.
+        let doc: LangiumDocument<AstNode> | undefined;
+        if (deferredModelJson.has(uri)) {
+          deferredProvider.getModel(uri);
+          doc = activeLangiumDocs.getDocument(targetUri);
+        } else if (activeLangiumDocs.hasDocument(targetUri)) {
+          doc = activeLangiumDocs.getDocument(targetUri);
+        }
+        if (!doc) {
+          return { type: 'linkDocumentResult', id: req.id, linked: false, errors: [], newModels: [] };
+        }
+        roots.push(doc);
       }
 
       // eagerLinking: true runs Langium's linker immediately.
@@ -597,18 +601,18 @@ const handleLinkDocument = withInstrumentation(
       // Only already-materialized documents participate. Compute their scopes
       // together before linking or serializing a newly captured dependency closure.
       // Deferred corpus entries remain lazy and do not enter this batch.
-      const linkMaterialized = async (requested?: LangiumDocument) => {
+      const linkMaterialized = async (requested: readonly LangiumDocument[] = []) => {
         const unlinked = () => activeLangiumDocs.all.toArray().filter((entry) => entry.state < DocumentState.Linked);
-        let pending = [...new Set([...(requested ? [requested] : []), ...unlinked()])];
+        let pending = [...new Set([...requested, ...unlinked()])];
         while (pending.length) {
           await activeBuilder.build(pending, { validation: false, eagerLinking: true });
           pending = unlinked();
         }
       };
-      await linkMaterialized(doc);
+      await linkMaterialized(roots);
 
       const errors: string[] = [];
-      for (const diag of doc.diagnostics ?? []) {
+      for (const diag of roots.flatMap((doc) => doc.diagnostics ?? [])) {
         // `Diagnostic.message` widened to `string | MarkupContent` in newer LSP types.
         errors.push(typeof diag.message === 'string' ? diag.message : diag.message.value);
       }
@@ -616,7 +620,7 @@ const handleLinkDocument = withInstrumentation(
       if (req.snapshot) {
         // A repeated request still needs the whole linked closure, even when
         // these dependencies were materialized by an earlier consumer/install.
-        const pending = [doc];
+        const pending = [...roots];
         const visited = new Set<string>();
         const installed =
           installedProjectDocuments &&
@@ -626,7 +630,7 @@ const handleLinkDocument = withInstrumentation(
           const uri = current.uri.toString();
           if (visited.has(uri)) continue;
           visited.add(uri);
-          if (current.state < DocumentState.Linked) await linkMaterialized(current);
+          if (current.state < DocumentState.Linked) await linkMaterialized([current]);
           const model = current.parseResult.value;
           if (!isRosettaModel(model)) continue;
           snapshots.add(model);

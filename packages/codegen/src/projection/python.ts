@@ -533,7 +533,7 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
               .map((name) => {
                 const field = bindings.get(name);
                 return !arg && field
-                  ? pythonReadField(root, field, context.locals.get(field))
+                  ? pythonReadField(root, field, context.locals.get(field), expression.$type === 'ChoiceOperation')
                   : pythonRead(root, [name]);
               })
               .join(', ')}]`

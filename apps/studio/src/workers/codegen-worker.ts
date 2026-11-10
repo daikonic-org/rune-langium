@@ -85,6 +85,7 @@ import type { PreviewWorkerRequest, ProjectionRequest, PreviewFileEntry } from '
 import {
   applyEffectiveProject,
   assertProjectGenerationCapabilities,
+  linkedProjectDocuments,
   type EffectiveProject
 } from '@rune-langium/project-runtime/effective';
 import { createProjectReceipt, projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
@@ -570,7 +571,7 @@ async function buildDocuments(includeInvalid = false): Promise<VersionedEntry<La
   if (generation) {
     const version = previewFilesVersion;
     const graph = await generation.ready;
-    return { version, value: [...graph.documents] };
+    return { version, value: linkedProjectDocuments(graph) };
   }
   const version = previewFilesVersion;
   const files = currentPreviewFiles;

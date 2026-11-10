@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import {
+  getLinkedReferenceTarget,
   isInlineFunction,
   isRosettaExpression,
   isRosettaSymbolReference,
@@ -24,7 +25,7 @@ export function rememberFunctionOutputBindings(source: Dehydrated<RosettaFunctio
       implicit = ast.parameters.length === 0;
     }
     if (isRosettaSymbolReference(ast) && ast.symbol?.$refText && ast.symbol.$refText === linked.output?.name) {
-      const target = ast.symbol.ref;
+      const target = getLinkedReferenceTarget(ast, ast.symbol);
       if (target) outputBindings.set(value, { output: target === linked.output, captures, implicit });
     }
     for (const [key, child] of Object.entries(value)) {

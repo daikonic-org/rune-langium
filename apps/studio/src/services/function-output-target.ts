@@ -3,13 +3,13 @@
 
 import {
   getFunctionOutput,
+  hasComputedScopes,
   isChoice,
   isData,
   isRosettaFunction,
   selectNamespaceOverrideModels,
   type RosettaModel
 } from '@rune-langium/core';
-import { DocumentState } from 'langium';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
 import { withInstrumentation } from './instrumentation/core.js';
@@ -51,8 +51,7 @@ export const resolveFunctionOutputTarget = withInstrumentation(
     if (!functionNode || !isRosettaFunction(functionNode)) return undefined;
     // UI snapshots may arrive before their local scopes. The worker's schema
     // above is authoritative; only linked/ready declarations support this fallback.
-    const document = functionNode.$container.$document;
-    if (!document || document.state < DocumentState.ComputedScopes) return undefined;
+    if (!hasComputedScopes(functionNode)) return undefined;
     const output = getFunctionOutput(functionNode);
     const target = output?.typeCall.type.ref;
     if (!output || !target || !isSingular(output.card) || (!isData(target) && !isChoice(target))) return undefined;

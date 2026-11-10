@@ -47,7 +47,10 @@ export async function openGitHubRepository(
   ref: string,
   signal: AbortSignal,
   fetcher: typeof fetch = fetch,
-  limits = { entries: 50_000, treeBytes: 16 * 1024 * 1024 }
+  options: { entries: number; treeBytes: number; rawContents?: boolean } = {
+    entries: 50_000,
+    treeBytes: 16 * 1024 * 1024
+  }
 ): Promise<{
   commit: string;
   files: readonly RepositoryFile[];
@@ -55,12 +58,12 @@ export async function openGitHubRepository(
 }> {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error('Invalid repository.');
   const base = `https://api.github.com/repos/${repository}`;
-  const request = (url: string, raw = false) =>
+  const request = (url: string, accept = 'application/vnd.github+json') =>
     fetcher(url, {
       signal,
       credentials: 'omit',
       redirect: 'error',
-      headers: { Accept: raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json' }
+      headers: { Accept: accept }
     });
   const json = async (url: string, limit: number): Promise<unknown> =>
     JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readBytes(await request(url), limit)));
@@ -78,8 +81,8 @@ export async function openGitHubRepository(
     throw new Error('GitHub returned an invalid commit.');
   if (shaPattern.test(ref) && commit.sha !== ref)
     throw new Error('GitHub source commit differs from the active model.');
-  const tree = await json(`${base}/git/trees/${commit.commit.tree.sha}?recursive=1`, limits.treeBytes);
-  if (!object(tree) || tree.truncated !== false || !Array.isArray(tree.tree) || tree.tree.length > limits.entries)
+  const tree = await json(`${base}/git/trees/${commit.commit.tree.sha}?recursive=1`, options.treeBytes);
+  if (!object(tree) || tree.truncated !== false || !Array.isArray(tree.tree) || tree.tree.length > options.entries)
     throw new Error('The repository source tree is invalid or truncated. No partial copy was created.');
   const seen = new Set<string>();
   const files = tree.tree.map((entry): RepositoryFile => {
@@ -116,7 +119,15 @@ export async function openGitHubRepository(
         throw new Error('Repository symlinks, submodules and foreign entries are unsupported.');
       if (file.size === undefined || file.size > limit)
         throw new Error('The repository source exceeds its size limit.');
-      const bytes = await readBytes(await request(`${base}/git/blobs/${file.sha}`, true), limit);
+      // Starter copies fetch every file. Raw contents preserve the REST quota
+      // while the admitted Git tree still supplies the expected blob hash.
+      const response = options.rawContents
+        ? await request(
+            `https://raw.githubusercontent.com/${repository}/${commit.sha}/${file.path.split('/').map(encodeURIComponent).join('/')}`,
+            'application/octet-stream'
+          )
+        : await request(`${base}/git/blobs/${file.sha}`, 'application/vnd.github.raw+json');
+      const bytes = await readBytes(response, limit);
       if (bytes.length !== file.size) throw new Error('Repository source size changed.');
       const header = new TextEncoder().encode(`blob ${bytes.length}\0`),
         data = new Uint8Array(header.length + bytes.length);
