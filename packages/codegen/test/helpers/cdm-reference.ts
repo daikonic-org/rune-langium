@@ -21,11 +21,12 @@ export const referenceCases: ReferenceCase[] = JSON.parse(readFileSync(resolve(d
 
 /** Read pinned upstream slices with their recorded integrity checks. */
 export function referenceFiles(fixtureDirectory = directory) {
-  const manifest: { files: { name: string; sha256: string }[] } = JSON.parse(
+  const manifest: { files: { name: string; sha256: string; sharedFixture?: string }[] } = JSON.parse(
     readFileSync(resolve(fixtureDirectory, 'sources.json'), 'utf8')
   );
-  return manifest.files.map(({ name, sha256 }) => {
-    const content = readFileSync(resolve(fixtureDirectory, name), 'utf8');
+  return manifest.files.map(({ name, sha256, sharedFixture }) => {
+    const sourceDirectory = sharedFixture ? resolve(fixtureDirectory, '..', sharedFixture) : fixtureDirectory;
+    const content = readFileSync(resolve(sourceDirectory, name), 'utf8');
     if (createHash('sha256').update(content).digest('hex') !== sha256) throw new Error(`CDM fixture changed: ${name}`);
     return { uri: `file:///cdm-reference/${name}`, content };
   });

@@ -80,6 +80,16 @@ workspace and namespace artifacts. Core links their wire-value synonyms to the
 shared `rune.resources.CodeList` source. Projects can import those enum types
 directly, and existing local resource mappings can use the same synonym source.
 
+`ResolveReset` selects the single recorded reset matching the requested
+`resetDate` from `TradeState.resetHistory`. It returns that record with its
+observations and optional `rateRecordDate`.
+
+`InterpolateForwardRate` calls the project's `impl.cdm.market.ReadForwardRateSnapshot`
+binding. The provider supplies the resolved settlement maturity and dated forward
+quotes from one snapshot in the payout's quote convention. The Rune body returns
+an exact quote or applies Strata's linear interpolation to the closest dates on
+each side. Duplicate quote dates and dates outside the supplied curve fail.
+
 The installed `IndexValueObservation` and `GetMarketRates` Rune overrides call
 `impl.cdm.market.ReadMarketObservations` with the full CDM interest-rate index
 and requested dates. Bind this function to a project declaration with the same

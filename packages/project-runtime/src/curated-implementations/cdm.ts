@@ -672,6 +672,28 @@ const utility = (name: keyof typeof typescriptUtilities, namespace = 'cdm.base.d
 export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplementation)[] = [
   {
     kind: 'rune',
+    namespace: 'cdm.event.common',
+    name: 'ResolveReset',
+    signatureSha256: 'd7b5c147c5f32f024e1324d5d30398c26f5291c64e3e6a6f3add1cda2498aaec',
+    path: 'resolve-reset.rosetta',
+    files: ['resolve-reset.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.position',
+    name: 'InterpolateForwardRate',
+    signatureSha256: 'bc888c626bc77f5080605834f1dbefd64a382ce31d629c20f12675a257af939a',
+    path: 'interpolate-forward-rate.rosetta',
+    files: [
+      'interpolate-forward-rate.rosetta',
+      'forward-rate-curve.rosetta',
+      'strata-linear-interpolation.rosetta',
+      'strata-LICENSE.txt',
+      'strata-NOTICE.txt'
+    ]
+  },
+  {
+    kind: 'rune',
     namespace: 'cdm.observable.event',
     name: 'ResolveObservation',
     signatureSha256: '9740cc677ca53ee575d9c416e4a958e19a6c0f55cda5e7398a4d5cbaeb31dce3',

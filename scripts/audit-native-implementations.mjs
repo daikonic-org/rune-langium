@@ -67,7 +67,8 @@ const testSuites = {
     'cdm-market-observations': 'market-observations',
     'cdm-floating-rate-metadata': 'floating-rate-metadata',
     'cdm-valuation-times': 'valuation-times',
-    'cdm-observation-resolution': 'observation-resolution'
+    'cdm-observation-resolution': 'observation-resolution',
+    'cdm-reset-forward-rates': 'reset-forward-rates'
   }
 };
 const dispatchSuites = await Promise.all(

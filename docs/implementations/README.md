@@ -14,8 +14,8 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **12
-language-specific implementations per target**. Twenty-eight catalog entries use Rune,
-including twenty-four owned overrides and four partially implemented upstream dispatch
+language-specific implementations per target**. Thirty catalog entries use Rune,
+including twenty-six owned overrides and four partially implemented upstream dispatch
 families. Selector coverage is measured separately. The audit parses and links
 189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -191,16 +191,20 @@ exercises `ResolveObservation` with exact observation identities and the
 three CDM means, including their weighted forms. `ResolveRateIndex` selects
 the requested index in an explicit rate snapshot.
 
+The [reset and forward-rate fixture](../../test/fixtures/third-party/cdm-reset-forward-rates/README.md)
+checks recorded reset selection, interpolation of a supplied dated curve and
+the original `FxMarkToMarket` caller in both generated targets.
+
 ## Remaining integrations
 
-**9 catalog entries** remain unimplemented. Calendar coverage and data-provider
+**7 catalog entries** remain unimplemented. Calendar coverage and data-provider
 availability are tracked separately.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Calendars and schedules | Calendar sources for the remaining business centers and broader `ComputeCalculationPeriod` calendar coverage |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
-| Market/reference data | `ResolveReset`, `InterpolateForwardRate`; explicit reset records or curves and versioned identities |
+| Market/reference data | Project-supplied reset records, dated forward curves and versioned identities for the installed Rune bodies |
 | Domain construction and execution | Portfolio aggregation, reset processing, payouts, key creation and collateral eligibility; authoritative algorithms, explicit external dependencies and fixture workflows |
 
 Several functions require integrations that cannot be inferred from their input

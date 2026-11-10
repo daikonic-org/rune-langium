@@ -35,11 +35,13 @@
     "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-matrix.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-metadata.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/forward-rate-curve.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/interpolate-forward-rate.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/market-observations.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/market-snapshot.rosetta",
@@ -49,11 +51,13 @@
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-rate-index.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-reset.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/rune-math.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-calendar.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-linear-interpolation.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-periodic-schedule.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-rolls.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
@@ -389,8 +393,9 @@
         "name": "ResolveReset"
       },
       "signatureSha256": "d7b5c147c5f32f024e1324d5d30398c26f5291c64e3e6a6f3add1cda2498aaec",
-      "route": "data-backed",
-      "requirements": "Adopter-defined lookup from supplied reset state/data; retain the CDM public signature via a bound helper."
+      "route": "rune-source",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-reset.rosetta",
+      "requirements": "Owned Rune body selects the unique recorded reset for the requested reset date and preserves its value, observations and rate record date. Callers supply the trade's recorded resets."
     },
     {
       "symbol": {
@@ -455,8 +460,9 @@
         "name": "InterpolateForwardRate"
       },
       "signatureSha256": "bc888c626bc77f5080605834f1dbefd64a382ce31d629c20f12675a257af939a",
-      "route": "data-backed",
-      "requirements": "Supply the required curve/quotes and establish interpolation/extrapolation rules; numeric primitives may be needed."
+      "route": "rune-source",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/interpolate-forward-rate.rosetta",
+      "requirements": "Owned Rune body selects exact or bracketing quotes by settlement maturity and uses the Strata 1.7.0 linear formula. A project provider supplies the resolved maturity and dated quotes; duplicate dates and extrapolation are rejected."
     },
     {
       "symbol": {

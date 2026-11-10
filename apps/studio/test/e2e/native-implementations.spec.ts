@@ -29,6 +29,10 @@ import { billingCaller, createCuratedBillingProject } from '../../../../test/hel
 import { createCuratedMarketProject, marketCaller } from '../../../../test/helpers/cdm-market-observations.js';
 import { createCuratedFroProject, froCaller } from '../../../../test/helpers/cdm-floating-rate-metadata.js';
 import {
+  createCuratedResetForwardProject,
+  resetForwardCaller
+} from '../../../../test/helpers/cdm-reset-forward-rates.js';
+import {
   createCuratedValuationTimeProject,
   valuationTimeCaller
 } from '../../../../test/helpers/cdm-valuation-times.js';
@@ -254,6 +258,21 @@ test('resolves a published observation and a rate selected from the Rune codelis
   await day.fill('20');
   await execute.click();
   await expect(page.getByRole('alert').filter({ hasText: 'ObservationMissing' })).toBeVisible();
+});
+
+test('interpolates a published forward curve and reports a missing bracket', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedResetForwardProject(), resetForwardCaller, 1440);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: 'PublishedForwardRate — example.resetforward', exact: true }).click();
+  const maturity = page.getByLabel('Maturity', { exact: true });
+  await maturity.fill('2024-02-29');
+  await page.getByLabel('Curve', { exact: true }).fill('leap');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await execute.click();
+  await expect(page.getByRole('region', { name: 'result output' })).toContainText('1.162');
+  await maturity.fill('2024-04-01');
+  await execute.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'BracketingQuotes' })).toBeVisible();
 });
 
 test('resolves published CDM valuation times using a Rune business-center enum', async ({ page }) => {

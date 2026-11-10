@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.common
+version "1.0.0"
+
+func ResolveReset:
+    inputs:
+        tradeState TradeState (1..1)
+        date date (1..1)
+    output: reset Reset (1..1)
+
+    alias matches: tradeState -> resetHistory filter [item -> resetDate = date]
+    condition ResetMissing:
+        matches exists
+    condition ResetAmbiguous:
+        matches count <= 1
+    set reset: matches only-element

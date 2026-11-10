@@ -546,6 +546,11 @@ with JDK 21+. Both oracle entrypoints reuse
 `scripts/lib/java_reference_oracle.py` to verify pinned artifact and source bytes;
 the Java binaries are test-only and are never packaged in curated targets.
 `--issue-markdown` on the audit writes #646's generated table for review/publication.
+Project Runtime's `reset-forward-rates.test.ts` exercises the installed reset
+and interpolation bodies, missing provider diagnostics and the original FX
+caller. The optimized Prototype suite uses a curated forward curve fixture and
+checks the out-of-range diagnostic. The fixture builder reuses byte-identical
+source slices from the billing cohort and verifies each pinned checksum.
 `rounding.test.ts` in Codegen, project-runtime and Studio checks published native
 precision, increment and significant-figure rounding; the same browser suite
 exercises enum inputs, exact-division failures and Rune preconditions at

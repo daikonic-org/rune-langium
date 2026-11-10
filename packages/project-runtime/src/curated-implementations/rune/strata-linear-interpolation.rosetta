@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace com.opengamma.strata.market.curve.interpolator
+version "1.7.0"
+
+// LinearCurveInterpolator evaluates the lower value plus the interval gradient times the offset.
+func InterpolateLinear:
+    inputs:
+        lowerX number (1..1)
+        upperX number (1..1)
+        lowerY number (1..1)
+        upperY number (1..1)
+        x number (1..1)
+    output: y number (1..1)
+
+    condition OrderedBracket:
+        lowerX < upperX and x >= lowerX and x <= upperX
+    set y: lowerY + (x - lowerX) * ((upperY - lowerY) / (upperX - lowerX))

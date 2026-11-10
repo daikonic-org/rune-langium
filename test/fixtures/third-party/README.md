@@ -4,6 +4,9 @@ This area contains pinned upstream corpora used as test inputs. These fixtures
 retain their upstream licenses rather than the MIT/FSL licenses of authored
 Rune-langium and Studio code. Keep upstream headers, license and notice files,
 source versions and integrity manifests alongside each cohort.
+When two dispatch fixtures include an identical source slice, a manifest can
+name the other cohort in `sharedFixture`. The fixture builder compares the
+expected source bytes, and the loader still checks the consuming cohort's hash.
 
 - [CDM expression editor cohort](cdm-expression/README.md): the ten-operation
   function and linked declarations used by Studio's browser and scope tests.
@@ -79,3 +82,9 @@ providers.
 
 The [range fixture](cdm-period-range/README.md) pins the handwritten constructor
 and 22 JVM-verified cases for the editable Rune override and its date helpers.
+
+## CDM reset history and forward curves
+
+The [reset and forward-rate fixture](cdm-reset-forward-rates/README.md) reuses
+the matching pinned trade-model slices from the billing fixture. It checks the
+original FX caller against a Rune port of Strata's linear interpolation.

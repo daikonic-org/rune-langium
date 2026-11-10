@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "b32a49e1d93a92e56b8b906518b61c63f52f53cfaa5bfe006c8201e094b08f53"
+      "sha256": "79fdecdd5706ebf3a26c875930b2b13c095ae47ae634c5ee1404d4864f750e47"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1077,6 +1077,10 @@
       "sha256": "9def1e6b1fe52400f921221451404a05897b2706ab9e666899821efaefc5f210"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/forward-rate-curve.rosetta",
+      "sha256": "b38936062e4048df16f407d80a7095c75825bfdc48e582f2727b88fc88e6935c"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
       "sha256": "927f7559f3c30e7f600b8b28af9b489347818407ba47bdc12f78312f0674e467"
     },
@@ -1095,6 +1099,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
       "sha256": "7084dd44e9242104156196c742920127ed41f8dee6fea144e33ae9360d3d675c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/interpolate-forward-rate.rosetta",
+      "sha256": "e7f5f36d1461d9c54dcfb5f532d119c2ce80436a8301a825e37c1b403a7202a2"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
@@ -1133,6 +1141,10 @@
       "sha256": "1492ffb17954b6633d0b028cea4c07b3058f2c8c4f852c8449fc671662936a23"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-reset.rosetta",
+      "sha256": "b0c7007519fe9fe875a5a765e8941fdbc69e8250fb615bb76c660fc58ac06978"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
       "sha256": "809196e5173de09406e0a7cac3f9127ad7e6fe1a78baae29f460f1280b73efd4"
     },
@@ -1151,6 +1163,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
       "sha256": "781aa7a27c0d7c92b4f1c1dca838bce2036809eefb981be35379a00db061755f"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-linear-interpolation.rosetta",
+      "sha256": "9152ef264a52ec606062f92b3b86a9bccc1a8cbcd309193078ed8ee1573d018c"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-periodic-schedule.rosetta",
@@ -4210,7 +4226,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-reset.rosetta",
+        "entrypoint": "cdm.event.common.ResolveReset",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -4219,10 +4238,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Adopter-defined lookup from supplied reset state/data; retain the CDM public signature via a bound helper.",
+        "route": "rune-source",
+        "requirements": "Owned Rune body selects the unique recorded reset for the requested reset date and preserves its value, observations and rate record date. Callers supply the trade's recorded resets.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/reset-forward-rates.test.ts",
+        "cases": "test/fixtures/third-party/cdm-reset-forward-rates/cases.json",
+        "casesSha256": "6d3544b40c45bd9a06812f875d3e22427ef90ba75ff0a0a795df12c8852bff1e",
+        "selectors": [],
+        "caseCount": 5
       }
     },
     {
@@ -5210,7 +5236,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/interpolate-forward-rate.rosetta",
+        "entrypoint": "cdm.event.position.InterpolateForwardRate",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -5224,10 +5253,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Supply the required curve/quotes and establish interpolation/extrapolation rules; numeric primitives may be needed.",
+        "route": "rune-source",
+        "requirements": "Owned Rune body selects exact or bracketing quotes by settlement maturity and uses the Strata 1.7.0 linear formula. A project provider supplies the resolved maturity and dated quotes; duplicate dates and extrapolation are rejected.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/reset-forward-rates.test.ts",
+        "cases": "test/fixtures/third-party/cdm-reset-forward-rates/cases.json",
+        "casesSha256": "6d3544b40c45bd9a06812f875d3e22427ef90ba75ff0a0a795df12c8852bff1e",
+        "selectors": [],
+        "caseCount": 12
       }
     },
     {

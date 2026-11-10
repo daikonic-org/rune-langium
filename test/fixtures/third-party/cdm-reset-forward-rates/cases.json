@@ -1,0 +1,127 @@
+[
+  {
+    "id": "reset-date-selects-the-original-record",
+    "function": "ResolveReset",
+    "date": "2024-03-04",
+    "history": [
+      ["2024-03-05", "2024-03-04", 1.17],
+      ["2024-03-04", "2024-02-29", 1.16],
+      ["2024-03-01", null, 1.12]
+    ],
+    "value": 1.16,
+    "recordDate": "2024-02-29"
+  },
+  {
+    "id": "zero-reset-is-present",
+    "function": "ResolveReset",
+    "date": "2024-02-29",
+    "history": [["2024-02-29", null, 0]],
+    "value": 0
+  },
+  {
+    "id": "rate-record-date-is-not-reset-date",
+    "function": "ResolveReset",
+    "date": "2024-02-29",
+    "history": [["2024-03-04", "2024-02-29", 1.16]],
+    "error": "ResetMissing"
+  },
+  {
+    "id": "empty-reset-history",
+    "function": "ResolveReset",
+    "date": "2024-02-29",
+    "history": [],
+    "error": "ResetMissing"
+  },
+  {
+    "id": "ambiguous-reset",
+    "function": "ResolveReset",
+    "date": "2024-02-29",
+    "history": [["2024-02-29", null, 0.2], ["2024-02-29", null, 0.21]],
+    "error": "ResetAmbiguous"
+  },
+  {
+    "id": "leap-day-uses-calendar-days",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-02-29",
+    "value": 1.162,
+    "markToMarket": 3.8
+  },
+  {
+    "id": "first-quote",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-02-28",
+    "value": 1.16
+  },
+  {
+    "id": "interior-quote",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-03-04",
+    "value": 1.17
+  },
+  {
+    "id": "last-quote",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-03-31",
+    "value": 1.23
+  },
+  {
+    "id": "nearest-bracket",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-03-16",
+    "value": 1.1966666666666665
+  },
+  {
+    "id": "falling-curve",
+    "function": "InterpolateForwardRate",
+    "curve": "falling",
+    "date": "2024-04-02",
+    "value": 1.14
+  },
+  {
+    "id": "single-exact-quote",
+    "function": "InterpolateForwardRate",
+    "curve": "single",
+    "date": "2024-04-01",
+    "value": 1.2
+  },
+  {
+    "id": "one-quote-cannot-interpolate",
+    "function": "InterpolateForwardRate",
+    "curve": "single",
+    "date": "2024-04-02",
+    "error": "BracketingQuotes"
+  },
+  {
+    "id": "before-first-quote",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-02-27",
+    "error": "BracketingQuotes"
+  },
+  {
+    "id": "after-last-quote",
+    "function": "InterpolateForwardRate",
+    "curve": "leap",
+    "date": "2024-04-01",
+    "error": "BracketingQuotes"
+  },
+  {
+    "id": "duplicate-exact-quotes",
+    "function": "InterpolateForwardRate",
+    "curve": "duplicate",
+    "date": "2024-02-28",
+    "error": "DistinctQuoteDates"
+  },
+  {
+    "id": "duplicate-bracket-quotes",
+    "function": "InterpolateForwardRate",
+    "curve": "duplicate",
+    "date": "2024-02-29",
+    "error": "DistinctQuoteDates"
+  }
+]
