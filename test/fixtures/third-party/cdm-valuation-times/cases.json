@@ -1,0 +1,140 @@
+[
+  {
+    "id": "london-wall-clock",
+    "function": "TimeZoneFromBusinessCenterTime",
+    "center": "GBLO",
+    "wallTime": "11:00:00",
+    "expectedTime": "11:00:00",
+    "expectedLocation": "Europe/London"
+  },
+  {
+    "id": "new-york-wall-clock",
+    "function": "TimeZoneFromBusinessCenterTime",
+    "center": "USNY",
+    "wallTime": "15:25:00",
+    "expectedTime": "15:25:00",
+    "expectedLocation": "America/New_York"
+  },
+  {
+    "id": "center-scheme-is-part-of-key",
+    "function": "TimeZoneFromBusinessCenterTime",
+    "center": "GBLO",
+    "centerScheme": "urn:fixture:alternate",
+    "wallTime": "12:35:00",
+    "expectedTime": "12:35:00",
+    "expectedLocation": "Europe/Paris"
+  },
+  {
+    "id": "unsupported-center-scheme",
+    "function": "TimeZoneFromBusinessCenterTime",
+    "center": "GBLO",
+    "centerScheme": "urn:fixture:unknown",
+    "wallTime": "11:00:00",
+    "error": "BusinessCenterZoneMissing"
+  },
+  {
+    "id": "unknown-business-center",
+    "function": "TimeZoneFromBusinessCenterTime",
+    "center": "ZZZZ",
+    "wallTime": "11:00:00",
+    "error": "BusinessCenterZoneMissing"
+  },
+  {
+    "id": "ambiguous-center-zone",
+    "function": "TimeZoneFromBusinessCenterTime",
+    "center": "GBLO",
+    "centerScheme": "urn:fixture:duplicate",
+    "wallTime": "11:00:00",
+    "error": "BusinessCenterZoneAmbiguous"
+  },
+  {
+    "id": "same-identifier-different-scheme",
+    "function": "ResolveTimeZoneFromTimeType",
+    "identifierScheme": "urn:fixture:new-york",
+    "expectedTime": "16:00:00",
+    "expectedLocation": "America/New_York"
+  },
+  {
+    "id": "same-identifier-different-identifier-type",
+    "function": "ResolveTimeZoneFromTimeType",
+    "identifierType": "ISIN",
+    "expectedTime": "17:30:00",
+    "expectedLocation": "Europe/Paris"
+  },
+  {
+    "id": "official-close",
+    "function": "ResolveTimeZoneFromTimeType",
+    "expectedTime": "16:30:00",
+    "expectedLocation": "Europe/London"
+  },
+  {
+    "id": "calculation-agent-time",
+    "function": "ResolveTimeZoneFromTimeType",
+    "determinationMethod": "CalculationAgent",
+    "expectedTime": "16:15:00",
+    "expectedLocation": "Europe/London"
+  },
+  {
+    "id": "opening-time",
+    "function": "ResolveTimeZoneFromTimeType",
+    "timeType": "Open",
+    "determinationMethod": "OpenPrice",
+    "expectedTime": "08:00:00",
+    "expectedLocation": "Europe/London"
+  },
+  {
+    "id": "optional-zone-absent",
+    "function": "ResolveTimeZoneFromTimeType",
+    "timeType": "SpecificTime",
+    "determinationMethod": "CalculationAgent",
+    "expectedTime": "09:30:00"
+  },
+  {
+    "id": "method-missing",
+    "function": "ResolveTimeZoneFromTimeType",
+    "determinationMethod": "NAV",
+    "error": "AssetValuationTimeMissing"
+  },
+  {
+    "id": "scheme-missing-from-catalog",
+    "function": "ResolveTimeZoneFromTimeType",
+    "identifierScheme": "urn:fixture:missing",
+    "error": "AssetValuationTimeMissing"
+  },
+  {
+    "id": "ambiguous-asset-time",
+    "function": "ResolveTimeZoneFromTimeType",
+    "identifier": "DUP",
+    "error": "AssetValuationTimeAmbiguous"
+  },
+  {
+    "id": "upstream-caller-explicit-only-result-is-cleared",
+    "function": "ResolvePerformanceValuationTime",
+    "center": "GBLO",
+    "wallTime": "11:45:00",
+    "error": "ResolvePerformanceValuationTime' produced"
+  },
+  {
+    "id": "upstream-caller-catalog-branch",
+    "function": "ResolvePerformanceValuationTime",
+    "timeType": "Close",
+    "expectedTime": "16:30:00",
+    "expectedLocation": "Europe/London"
+  },
+  {
+    "id": "upstream-caller-uses-last-assignment",
+    "function": "ResolvePerformanceValuationTime",
+    "center": "USNY",
+    "wallTime": "11:45:00",
+    "timeType": "Close",
+    "expectedTime": "16:30:00",
+    "expectedLocation": "Europe/London"
+  },
+  {
+    "id": "published-business-center-enum",
+    "function": "PublishedBusinessCenterTime",
+    "center": "GBLO",
+    "expectedTime": "11:00:00",
+    "expectedLocation": "Europe/London"
+  }
+]

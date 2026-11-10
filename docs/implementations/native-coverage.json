@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "5e7f00fb7c369bdab29d55afd55f61550df3e863206f8fbca63f0bad22856e3b"
+      "sha256": "c149227df62fd800af15ced668808475f5fba958b8ca35c18d79d7c1f9b2ecee"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1117,6 +1117,10 @@
       "sha256": "7f04c51d4fef398397dc1cf7ad26fa0ee9e80d66ef99f833ce59e3020f7abfd8"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
+      "sha256": "809196e5173de09406e0a7cac3f9127ad7e6fe1a78baae29f460f1280b73efd4"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
       "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
     },
@@ -1143,6 +1147,14 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
       "sha256": "c04f30ef599b9f825d58ce81e9dc6964180d3a438ca4759c4d1b8f4d8bb22be7"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/time-zone-from-business-center-time.rosetta",
+      "sha256": "8603d26c68e382f9582f839f048614e767d55a4484b7a4901c9f9e21f3af2c21"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/valuation-times.rosetta",
+      "sha256": "93f3b5df135b6f058986e20a66d65772c14ac77d2497a7ee11e219995474ce44"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta",
@@ -2742,7 +2754,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/time-zone-from-business-center-time.rosetta",
+        "entrypoint": "cdm.base.datetime.TimeZoneFromBusinessCenterTime",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -2751,10 +2766,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Business-center/time-zone mapping can be supplied data; named-zone/DST behavior needs a proven boundary.",
+        "route": "rune-source",
+        "requirements": "Select exactly one supplied zone by the business-center code and optional scheme. Preserve wall time and zone metadata. This contract has no date or offset conversion.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/valuation-times.test.ts",
+        "cases": "test/fixtures/third-party/cdm-valuation-times/cases.json",
+        "casesSha256": "4445cb2575fd765e02c45dd8954b6ea352179cf019c2642675e5a4332157ce91",
+        "selectors": [],
+        "caseCount": 6
       }
     },
     {
@@ -6688,7 +6710,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
+        "entrypoint": "cdm.observable.common.ResolveTimeZoneFromTimeType",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -6697,10 +6722,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Select supplied asset/time-type mappings; zone/DST resolution stays behind a proven primitive if needed.",
+        "route": "rune-source",
+        "requirements": "Select exactly one supplied valuation time by identifier value, type and optional scheme, requested time type and determination method. Preserve the supplied time and optional zone.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/valuation-times.test.ts",
+        "cases": "test/fixtures/third-party/cdm-valuation-times/cases.json",
+        "casesSha256": "4445cb2575fd765e02c45dd8954b6ea352179cf019c2642675e5a4332157ce91",
+        "selectors": [],
+        "caseCount": 9
       }
     },
     {

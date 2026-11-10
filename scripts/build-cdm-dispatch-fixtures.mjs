@@ -31,6 +31,18 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-valuation-times',
+    declarations: [
+      { namespace: 'cdm.base.datetime', name: 'TimeZoneFromBusinessCenterTime', kind: 'RosettaFunction' },
+      { namespace: 'cdm.observable.common', name: 'ResolveTimeZoneFromTimeType', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.event.common', name: 'ResolvePerformanceValuationTime', kind: 'RosettaFunction' },
+      { namespace: 'cdm.base.datetime', name: 'ToTime', kind: 'RosettaFunction' }
+    ],
+    references: []
+  },
+  {
     directory: 'cdm-floating-rate-metadata',
     declarations: [
       { namespace: 'cdm.observable.asset.fro', name: 'FloatingRateIndexMetadata', kind: 'RosettaFunction' },

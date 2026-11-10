@@ -28,6 +28,10 @@ import { codeListCaller, createCuratedCodeListProject } from '../../../../test/h
 import { billingCaller, createCuratedBillingProject } from '../../../../test/helpers/cdm-billing-summary.js';
 import { createCuratedMarketProject, marketCaller } from '../../../../test/helpers/cdm-market-observations.js';
 import { createCuratedFroProject, froCaller } from '../../../../test/helpers/cdm-floating-rate-metadata.js';
+import {
+  createCuratedValuationTimeProject,
+  valuationTimeCaller
+} from '../../../../test/helpers/cdm-valuation-times.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 import {
   businessCalendarCaller,
@@ -215,6 +219,35 @@ test('selects the supplied FRO matrix version for the trade date in Prototype', 
   await tradeDate.fill('2024-07-01');
   await execute.click();
   await expect(output).toContainText('"definitionalSource": "fixture-v2"');
+});
+
+test('resolves published CDM valuation times using a Rune business-center enum', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedValuationTimeProject(), valuationTimeCaller, 1440);
+  const choose = page.getByRole('button', { name: /^Choose a function/ });
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  const output = page.getByRole('region', { name: 'result output' });
+
+  await choose.click();
+  await page.getByRole('option', { name: 'PublishedBusinessCenterTime — example.valuation', exact: true }).click();
+  const center = page.getByRole('button', { name: /^Center\b/ });
+  await center.click();
+  await page.getByRole('combobox', { name: 'Search Center' }).fill('GBLO');
+  await page.getByRole('option', { name: 'GBLO', exact: true }).click();
+  await expect(center).toContainText('GBLO');
+  await execute.click();
+  await expect(output).toContainText('"time": "11:00:00"');
+  await expect(output).toContainText('"value": "Europe/London"');
+
+  await choose.click();
+  await page.getByRole('option', { name: 'PublishedAssetCloseTime — example.valuation', exact: true }).click();
+  const identifier = page.getByLabel('Identifier', { exact: true });
+  await identifier.fill('SAMPLE');
+  await execute.click();
+  await expect(output).toContainText('"time": "16:30:00"');
+  await expect(output).toContainText('"value": "Europe/London"');
+  await identifier.fill('ABSENT');
+  await execute.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'AssetValuationTimeMissing' })).toBeVisible();
 });
 
 test('selects a period and lists the schedule using the bundled Strata Rune port', async ({ page }, info) => {

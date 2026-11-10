@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.observable.common
+version "1.0.0"
+
+import cdm.base.datetime.TimeZone
+import cdm.base.staticdata.asset.common.AssetIdentifier
+import impl.cdm.time.*
+
+func ResolveTimeZoneFromTimeType:
+    inputs:
+        assetIdentifier AssetIdentifier (1..1)
+        timeType TimeTypeEnum (1..1)
+        determinationMethod DeterminationMethodEnum (1..1)
+    output:
+        time TimeZone (1..1)
+
+    alias identifier: assetIdentifier -> identifier
+    alias identifierType: assetIdentifier -> identifierType
+    alias scheme: assetIdentifier -> identifier -> scheme
+    alias requestedTimeType: timeType
+    alias requestedDeterminationMethod: determinationMethod
+    alias times: ReadAssetValuationTimes(assetIdentifier, timeType, determinationMethod)
+    alias matches: times filter [
+        item -> assetIdentifier -> identifier = identifier
+        and item -> assetIdentifier -> identifierType = identifierType
+        and MatchTimeScheme(scheme, item -> assetIdentifier -> identifier -> scheme)
+        and item -> timeType = requestedTimeType
+        and item -> determinationMethod = requestedDeterminationMethod
+    ]
+    alias selected: matches only-element
+    condition AssetValuationTimeMissing:
+        matches exists
+    condition AssetValuationTimeAmbiguous:
+        matches count = 1
+    set time: selected -> valuationTime
