@@ -497,8 +497,10 @@ suite. Curated publication carries selected implementation payloads; reference
 installation copies Rune overrides into normal project sources. Codegen never
 searches the CDM catalog. Include project-runtime's `curated-implementations` suite
 and Studio's `project-references` Save/readback suite when changing this boundary.
-The pinned `cdm-dispatch` suite verifies all existing day-count selector bodies in
-strict TypeScript layouts and Python; retain documented upstream differences.
+The pinned `cdm-dispatch` suite verifies the upstream and curated day-count
+selectors in strict TypeScript layouts and Python. Keep documented upstream
+differences and verify Actual/Actual AFB against Strata 1.7.0's
+`DayCounts.ACT_ACT_AFB.relativeYearFraction`.
 The same fixture builder checks `cdm-calculation-period` and its handwritten Java
 test/helpers. Codegen's `calculation-period.test.ts` checks every original selector
 with an explicit finite Rune calendar provider; Studio's real-worker counterpart

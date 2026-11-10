@@ -131,7 +131,18 @@ export async function readReferenceManifest(
 
 /** Canonical decoder shared by native hosts and browser workers. */
 export function decodeReferenceArtifact(bytes: Uint8Array) {
-  return CuratedSerializedWorkspaceArtifactSchema.parse(JSON.parse(new TextDecoder().decode(inflate(bytes))));
+  return parseReferenceArtifact(new TextDecoder().decode(inflate(bytes)));
+}
+
+/** Use the host's gzip implementation without changing artifact validation. */
+export async function decodeReferenceArtifactAsync(bytes: Uint8Array) {
+  if (typeof DecompressionStream === 'undefined') return decodeReferenceArtifact(bytes);
+  const stream = new Response(Uint8Array.from(bytes)).body!.pipeThrough(new DecompressionStream('gzip'));
+  return parseReferenceArtifact(await new Response(stream).text());
+}
+
+function parseReferenceArtifact(text: string) {
+  return CuratedSerializedWorkspaceArtifactSchema.parse(JSON.parse(text));
 }
 
 /** Shared bundle, checksum, format and document-path validation for tagged and moving references. */

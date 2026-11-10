@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace cdm.base.datetime.daycount
+version "1.0.0"
+
+func DayCountBasis(dcf: DayCountFractionEnum -> ACT_364):
+    set basis: 364
+
+func DayCountBasis(dcf: DayCountFractionEnum -> _1_1):
+    set basis: 1
+
+func DayCountBasis(dcf: DayCountFractionEnum -> _30E_360_ISDA):
+    set basis: 360
+
+func DayCountBasis(dcf: DayCountFractionEnum -> ACT_ACT_ISMA): <"Use the same nominal basis as the existing ACT/ACT.ICMA branch. The coupon-dependent year fraction is a separate calculation.">
+    set basis: 365

@@ -30,7 +30,8 @@ import {
 import { nativeFunctionShape } from '../packages/codegen/dist/src/export.js';
 import {
   selectCdmImplementation,
-  NATIVE_IMPLEMENTATIONS
+  NATIVE_IMPLEMENTATIONS,
+  RUNE_IMPLEMENTATIONS
 } from '../packages/project-runtime/dist/curated-implementations/cdm.js';
 import {
   cdmCodeListResource,
@@ -259,10 +260,14 @@ for (const document of runeDocuments) {
   if ([...document.references].some((reference) => reference.error))
     throw new Error(`Unresolved Rune implementation reference: ${document.uri}`);
 }
-const functions = documents.flatMap((document) => {
-  const model = document.parseResult.value;
-  return isRosettaModel(model) ? model.elements.filter(isRosettaFunction) : [];
-});
+const sourceModels = documents.map((document) => document.parseResult.value).filter(isRosettaModel);
+const functions = sourceModels.flatMap((model) => model.elements.filter(isRosettaFunction));
+const ownedFunctions = new Map(
+  runeDocuments.map((document) => [
+    runeSources.get(document.uri.toString()),
+    document.parseResult.value.elements.filter(isRosettaFunction)
+  ])
+);
 const fpmlHashLayout = await prepareFpmlHashLayout(
   sources,
   documents
@@ -300,35 +305,47 @@ for (const document of documents) {
       if (createHash('sha256').update(bytes).digest('hex') !== reference.sha256)
         throw new Error('Handwritten Java dependency checksum mismatch: ' + reference.path);
     }
+    const upstreamVariants = functions.filter(
+      (candidate) =>
+        candidate.name === node.name &&
+        candidate.dispatchAttribute &&
+        getElementNamespace(candidate) === symbol.namespace
+    );
+    const dispatch = RUNE_IMPLEMENTATIONS.find(
+      (entry) => entry.namespace === symbol.namespace && entry.name === symbol.name
+    )?.dispatch;
     if (assessment.implementation) {
-      const selector = assessment.implementationDispatch && JSON.stringify(assessment.implementationDispatch);
-      const replaced = selector
-        ? model.elements.find(
-            (candidate) =>
-              isRosettaFunction(candidate) &&
-              candidate.name === node.name &&
-              declarationDispatch(candidate) === selector
+      const qualifiedName = `${symbol.namespace}.${symbol.name}`;
+      if (dispatch) {
+        const [input, enumeration, ...values] = dispatch.selectors;
+        const owned = (ownedFunctions.get(assessment.implementation) ?? []).filter(
+          (candidate) => candidate.name === symbol.name && getElementNamespace(candidate) === symbol.namespace
+        );
+        if (owned.length !== values.length) throw new Error(`Unexpected Rune selector count: ${qualifiedName}`);
+        for (const value of values) {
+          const selector = JSON.stringify([input, enumeration, value]);
+          const implementation = owned.find((candidate) => declarationDispatch(candidate) === selector);
+          const original = upstreamVariants.find((candidate) => declarationDispatch(candidate) === selector);
+          if (
+            !implementation?.operations.length ||
+            getEffectiveProjectDeclaration(original ?? implementation) !== implementation
           )
-        : node;
-      if (!isRosettaFunction(replaced) || replaced.operations.length)
-        throw new Error(`Rune implementation must fill an upstream placeholder: ${symbol.namespace}.${symbol.name}`);
-      const effective = getEffectiveProjectDeclaration(replaced);
-      const path = effective && runeSources.get(AstUtils.getDocument(effective).uri.toString());
-      if (!isRosettaFunction(effective) || !effective.operations.length || path !== assessment.implementation)
-        throw new Error(`Rune implementation is not the linked override: ${symbol.namespace}.${symbol.name}`);
+            throw new Error(`Rune selector is not the effective implementation: ${qualifiedName} ${selector}`);
+        }
+      } else {
+        if (node.operations.length)
+          throw new Error(`Rune implementation must fill an upstream placeholder: ${qualifiedName}`);
+        const effective = getEffectiveProjectDeclaration(node);
+        const path = effective && runeSources.get(AstUtils.getDocument(effective).uri.toString());
+        if (!isRosettaFunction(effective) || !effective.operations.length || path !== assessment.implementation)
+          throw new Error(`Rune implementation is not the linked override: ${qualifiedName}`);
+      }
     }
-    const variants = functions
-      .filter(
-        (candidate) =>
-          candidate.name === node.name &&
-          candidate.dispatchAttribute &&
-          getElementNamespace(candidate) === symbol.namespace
-      )
-      .map((candidate) => ({
-        selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
-        hasRuneBody: candidate.operations.length > 0
-      }));
-    const selected = await selectCdmImplementation(node, { codeLists: cdmCodeLists, fpmlHashLayout });
+    const variants = upstreamVariants.map((candidate) => ({
+      selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
+      hasRuneBody: candidate.operations.length > 0
+    }));
+    const selected = await selectCdmImplementation(node, { codeLists: cdmCodeLists, fpmlHashLayout, sourceModels });
     const hasRuneBody = node.operations.length > 0 || variants.some((variant) => variant.hasRuneBody);
     const implementation = assessment.implementation
       ? {
@@ -396,7 +413,7 @@ for (const document of documents) {
         route: assessment.route,
         requirements: assessment.requirements,
         upstreamDefaultHasBody: node.operations.length > 0,
-        ...(assessment.implementationDispatch ? { implementationDispatch: assessment.implementationDispatch } : {}),
+        ...(dispatch ? { implementationDispatch: dispatch } : {}),
         variants
       },
       ...(suite && cases.length

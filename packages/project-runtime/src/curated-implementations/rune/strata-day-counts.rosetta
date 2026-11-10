@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace com.opengamma.strata.basics.date
+version "1.7.0"
+
+import com.opengamma.strata.basics.schedule.MonthLength
+import com.opengamma.strata.basics.schedule.ShiftMonths
+
+func ActualActualAfb: <"Actual/Actual AFB using the Strata 1.7.0 relative year fraction and its February anniversary rule.">
+    inputs:
+        startDate date (1..1)
+        endDate date (1..1)
+    output:
+        fraction number (1..1)
+
+    alias reversed: startDate > endDate
+    alias earlierDate: if reversed then endDate else startDate
+    alias laterDate: if reversed then startDate else endDate
+    alias earlierYear: earlierDate -> year
+    alias earlierMonth: earlierDate -> month
+    alias laterMonth: laterDate -> month
+
+    // Count whole years back from the end. Clamping the anniversary day cannot
+    // move it before an earlier date that already lies in the destination month.
+    alias beforeAnniversary:
+        laterMonth < earlierMonth
+        or (laterMonth = earlierMonth and laterDate -> day < earlierDate -> day)
+    alias wholeYears:
+        (laterDate -> year) - earlierYear - (if beforeAnniversary then 1 else 0)
+    alias remainderEnd: ShiftMonths(laterDate, 0 - wholeYears * 12)
+    alias remainderEndYear: remainderEnd -> year
+    alias remainderEndMonth: remainderEnd -> month
+
+    // The half-open remainder spans at most two calendar years.
+    alias leapDayInStartYear:
+        earlierMonth <= 2 and MonthLength(earlierYear, 2) = 29
+        and (remainderEndYear > earlierYear or remainderEndMonth > 2)
+    alias leapDayInEndYear:
+        remainderEndYear > earlierYear and remainderEndMonth > 2
+        and MonthLength(remainderEndYear, 2) = 29
+    alias denominator: if leapDayInStartYear or leapDayInEndYear then 366 else 365
+    alias magnitude: wholeYears + (remainderEnd - earlierDate) / denominator
+    set fraction: if reversed then 0 - magnitude else magnitude

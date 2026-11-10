@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "fda31fe0827aaf1361ebf9a556a7c5df73094f54a009aa503fed7824817a6487"
+      "sha256": "7fc1857d1a86d202d0c761fc23cd604e394f1a209ebe050594068bb5bad1702d"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1071,6 +1071,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
       "sha256": "c3345f5cd93b411897e4116ddc33c42690b1375922ce92f5cf17aaabf47b64f2"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/day-count-basis.rosetta",
+      "sha256": "65e07b856044939d21da4a7bc9ab520dd6688347d960362baa15f19dce5ea11e"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
@@ -1193,6 +1197,10 @@
       "sha256": "48f1ac4cb42ed71037baba4e7065659e8bb57ba97b263c2fc0d7506954e4775b"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-day-counts.rosetta",
+      "sha256": "caa926b3839a6ac77f0a3b1633386cb20402618aeb0a35a8bc258b3ffde21eb0"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
       "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
     },
@@ -1235,6 +1243,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta",
       "sha256": "5abb2bca9eeea455fbee16b66d90caa7a6964d4d1da2adc8435a618e676ece9e"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/year-fraction.rosetta",
+      "sha256": "103d8886e4b207bbef9e8e39aa571f88fbc0ecc4c4cabdd7502c78ba34c874d6"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/billing-summary.ts",
@@ -3075,9 +3087,9 @@
       },
       "implementation": {
         "kind": "rune",
-        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-func.rosetta",
+        "path": "packages/project-runtime/src/curated-implementations/rune/day-count-basis.rosetta",
         "entrypoint": "cdm.base.datetime.daycount.DayCountBasis",
-        "origin": "upstream"
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -3086,9 +3098,20 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "upstream-variants",
-        "requirements": "Nine preserved upstream selectors execute in strict TypeScript layouts and Python. Five enum values still require an unavailable default.",
+        "route": "rune-source",
+        "requirements": "Preserve nine upstream branches and add ACT/364, 1/1, 30E/360.ISDA and the nominal 365 basis for ACT/ACT.ISMA, consistent with ICMA. RBA Bond Basis has no schedule-independent denominator.",
         "upstreamDefaultHasBody": false,
+        "implementationDispatch": {
+          "upstream": "absent",
+          "selectors": [
+            "dcf",
+            "DayCountFractionEnum",
+            "ACT_364",
+            "_1_1",
+            "_30E_360_ISDA",
+            "ACT_ACT_ISMA"
+          ]
+        },
         "variants": [
           {
             "selector": "[\"dcf\",\"DayCountFractionEnum\",\"ACT_360\"]",
@@ -3131,16 +3154,20 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/cdm-dispatch.test.ts",
         "cases": "test/fixtures/third-party/cdm-dispatch/cases.json",
-        "casesSha256": "8638f40bbc7382f6b7aa046d84f74dcd6a0e1b7ef887636c09a5b3e87a1ce470",
+        "casesSha256": "d76767d6a32e6af8a749b5a8d1468f866211a26341c8069016af5484f4a45fc1",
         "selectors": [
           "ACT_360",
+          "ACT_364",
           "ACT_365L",
           "ACT_365_FIXED",
           "ACT_ACT_AFB",
           "ACT_ACT_ICMA",
           "ACT_ACT_ISDA",
+          "ACT_ACT_ISMA",
           "CAL_252",
+          "_1_1",
           "_30E_360",
+          "_30E_360_ISDA",
           "_30_360"
         ],
         "caseCount": 14
@@ -3240,9 +3267,9 @@
       },
       "implementation": {
         "kind": "rune",
-        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-func.rosetta",
+        "path": "packages/project-runtime/src/curated-implementations/rune/year-fraction.rosetta",
         "entrypoint": "cdm.base.datetime.daycount.YearFraction",
-        "origin": "upstream"
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -3251,9 +3278,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "upstream-variants",
-        "requirements": "Eleven preserved upstream selectors and date-helper closure execute in TypeScript and Python. Three enum values lack defaults; documented formula quirks remain unchanged.",
+        "route": "rune-source",
+        "requirements": "Preserve eleven upstream branches and add ACT/ACT.AFB from Strata 1.7.0 relativeYearFraction. ACT/ACT.ISMA needs reference coupon periods; RBA Bond Basis needs the regular frequency and first/final stub context.",
         "upstreamDefaultHasBody": false,
+        "implementationDispatch": {
+          "upstream": "absent",
+          "selectors": [
+            "dayCountFractionEnum",
+            "DayCountFractionEnum",
+            "ACT_ACT_AFB"
+          ]
+        },
         "variants": [
           {
             "selector": "[\"dayCountFractionEnum\",\"DayCountFractionEnum\",\"_1_1\"]",
@@ -3304,12 +3339,13 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/cdm-dispatch.test.ts",
         "cases": "test/fixtures/third-party/cdm-dispatch/cases.json",
-        "casesSha256": "8638f40bbc7382f6b7aa046d84f74dcd6a0e1b7ef887636c09a5b3e87a1ce470",
+        "casesSha256": "d76767d6a32e6af8a749b5a8d1468f866211a26341c8069016af5484f4a45fc1",
         "selectors": [
           "ACT_360",
           "ACT_364",
           "ACT_365L",
           "ACT_365_FIXED",
+          "ACT_ACT_AFB",
           "ACT_ACT_ICMA",
           "ACT_ACT_ISDA",
           "CAL_252",
@@ -3318,7 +3354,7 @@
           "_30E_360_ISDA",
           "_30_360"
         ],
-        "caseCount": 26
+        "caseCount": 40
       }
     },
     {
@@ -7828,11 +7864,14 @@
         "route": "rune-source",
         "requirements": "Four preserved upstream selectors plus an owned CompoundIndex selector. The added branch reuses the original index formula with observations at the adjusted period endpoints. RefBanks requires a separate manual determination.",
         "upstreamDefaultHasBody": false,
-        "implementationDispatch": [
-          "processingType",
-          "FloatingRateIndexProcessingTypeEnum",
-          "CompoundIndex"
-        ],
+        "implementationDispatch": {
+          "upstream": "empty",
+          "selectors": [
+            "processingType",
+            "FloatingRateIndexProcessingTypeEnum",
+            "CompoundIndex"
+          ]
+        },
         "variants": [
           {
             "selector": "[\"processingType\",\"FloatingRateIndexProcessingTypeEnum\",\"Screen\"]",

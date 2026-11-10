@@ -1413,7 +1413,9 @@ Java algorithms, tests and empty providers are separate reference evidence.
 An override may replace existing selectors while keeping the original dispatch
 base and other selectors. An override that replaces the base must retain the
 complete family. Bundled selector overrides are selected only for empty upstream
-branches, and their catalog rows distinguish those additions from upstream bodies.
+branches. Same-namespace Rune sources can add absent selectors. Publication checks
+the whole upstream model for collisions before attaching such a source, and the
+catalog distinguishes those additions from upstream bodies.
 Executable TypeScript and Python defer read-only aliases in functions with a
 self-recursive alias. Each invocation computes a deferred alias on its first
 read, so recursive calls stay behind the authored guard and repeated reads
@@ -1744,7 +1746,10 @@ are misses. Native/older transports retain the canonical JSON fallback and the
 installer still reads present packs from verified serialized documents and validates
 source hashes and publication provenance. Compatibility
 review uses the same worker and canonical runtime implementation without adopting
-the proposed graph. Native hosts retain the synchronous decoder fallback.
+the proposed graph. Studio uses the shared asynchronous decoder's native gzip
+stream when available; synchronous hosts and older browsers retain the existing
+decoder. Both paths apply the same canonical artifact schema after decompression;
+cached bytes still pass checksum verification before either path runs.
 
 Studio deduplicates concurrent immutable-artifact decodes by verified checksum in
 a bounded LRU (192 MiB, conservative UTF-16 payload accounting). Cancellation

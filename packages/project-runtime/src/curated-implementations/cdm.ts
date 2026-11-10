@@ -41,6 +41,8 @@ import { FunctionImplementationSchema, type FunctionImplementation } from '@rune
 export interface CdmImplementationResources {
   readonly codeLists?: CdmCodeListCatalog;
   readonly fpmlHashLayout?: FpmlHashLayout;
+  /** The linked upstream cohort, including selectors in files other than the base declaration. */
+  readonly sourceModels?: readonly RosettaModel[];
 }
 
 type NativeTarget = ImplementationLocation &
@@ -71,7 +73,10 @@ type RuneImplementation = {
   readonly name: string;
   readonly path: string;
   readonly files: readonly string[];
-  readonly dispatch?: readonly [input: string, enumeration: string, value: string];
+  readonly dispatch?: {
+    readonly upstream: 'absent' | 'empty';
+    readonly selectors: readonly [input: string, enumeration: string, value: string, ...otherValues: string[]];
+  };
 } & ({ readonly signature: NativeFunctionShape } | { readonly signatureSha256: string });
 
 const businessCenter = {
@@ -699,6 +704,38 @@ const utility = (name: keyof typeof typescriptUtilities, namespace = 'cdm.base.d
 export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplementation)[] = [
   {
     kind: 'rune',
+    namespace: 'cdm.base.datetime.daycount',
+    name: 'DayCountBasis',
+    signatureSha256: 'd4825945990395f3462abb5aa36ecb0d0542f3b6a859e3566b30a6380781fd5a',
+    dispatch: {
+      upstream: 'absent',
+      selectors: ['dcf', 'DayCountFractionEnum', 'ACT_364', '_1_1', '_30E_360_ISDA', 'ACT_ACT_ISMA']
+    },
+    path: 'day-count-basis.rosetta',
+    files: ['day-count-basis.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.base.datetime.daycount',
+    name: 'YearFraction',
+    signatureSha256: '4faee30755cd3528b774f662507c18a1a18ff3daa7271ac8bb4e69fd2ef625a9',
+    dispatch: {
+      upstream: 'absent',
+      selectors: ['dayCountFractionEnum', 'DayCountFractionEnum', 'ACT_ACT_AFB']
+    },
+    path: 'year-fraction.rosetta',
+    files: [
+      'year-fraction.rosetta',
+      'strata-day-counts.rosetta',
+      'strata-rolls.rosetta',
+      'strata-frequency.rosetta',
+      'gregorian.rosetta',
+      'strata-LICENSE.txt',
+      'strata-NOTICE.txt'
+    ]
+  },
+  {
+    kind: 'rune',
     namespace: 'cdm.event.common',
     name: 'NewFloatingPayout',
     signatureSha256: '675ee47cd3be6affb7e9595944f43f1af2a33e08d4a9015fb3ee27f59ca2ce3f',
@@ -820,7 +857,10 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
     namespace: 'cdm.product.asset.floatingrate',
     name: 'ProcessFloatingRateReset',
     signatureSha256: '71b60e3b112027ce69e1a59d2b354c86f6cbc6e17430918164f3384eb8788798',
-    dispatch: ['processingType', 'FloatingRateIndexProcessingTypeEnum', 'CompoundIndex'],
+    dispatch: {
+      upstream: 'empty',
+      selectors: ['processingType', 'FloatingRateIndexProcessingTypeEnum', 'CompoundIndex']
+    },
     path: 'process-compound-index-reset.rosetta',
     files: ['process-compound-index-reset.rosetta']
   },
@@ -1126,6 +1166,7 @@ export async function selectCdmImplementation(
 ): Promise<FunctionImplementation | undefined> {
   if (
     func.operations.length ||
+    func.dispatchAttribute ||
     !func.annotations.some(
       (ref) =>
         ref.annotation.ref?.name === 'codeImplementation' &&
@@ -1144,12 +1185,20 @@ export async function selectCdmImplementation(
     if (digest !== entry.signatureSha256) return undefined;
   }
   if (entry.kind === 'rune') {
-    if (entry.dispatch) {
-      const selector = JSON.stringify(entry.dispatch);
-      const original = func.$container.elements.find(
-        (node) => isRosettaFunction(node) && node.name === func.name && declarationDispatch(node) === selector
-      );
-      if (!isRosettaFunction(original) || original.operations.length) return undefined;
+    const dispatch = entry.dispatch;
+    if (dispatch) {
+      const [input, enumeration, ...values] = dispatch.selectors;
+      const originals = (resources.sourceModels ?? [func.$container])
+        .flatMap((model) => model.elements.filter(isRosettaFunction))
+        .filter((node) => node.name === func.name && getElementNamespace(node) === namespace);
+      const eligible = values.every((value) => {
+        const selector = JSON.stringify([input, enumeration, value]);
+        const matches = originals.filter((node) => declarationDispatch(node) === selector);
+        return dispatch.upstream === 'absent'
+          ? matches.length === 0
+          : matches.length === 1 && !matches[0]!.operations.length;
+      });
+      if (!eligible) return undefined;
     }
     return FunctionImplementationSchema.parse({
       kind: 'rune',
