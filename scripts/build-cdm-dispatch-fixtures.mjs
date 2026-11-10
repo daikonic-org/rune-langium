@@ -100,6 +100,20 @@ const suites = [
     references: []
   },
   {
+    directory: 'cdm-equity-settlement',
+    sharedFixture: 'cdm-billing-summary',
+    declarations: [
+      { namespace: 'cdm.event.common', name: 'NewFloatingPayout', kind: 'RosettaFunction' },
+      { namespace: 'cdm.event.common', name: 'ResolveCashSettlementDate', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.event.common', name: 'NewEquitySwapProduct', kind: 'RosettaFunction' },
+      { namespace: 'cdm.event.common', name: 'EquityCashSettlementAmount', kind: 'RosettaFunction' },
+      ...['DayOfWeek', 'AddDays'].map((name) => ({ namespace: 'cdm.base.datetime', name, kind: 'RosettaFunction' }))
+    ],
+    references: []
+  },
+  {
     directory: 'cdm-reset-forward-rates',
     sharedFixture: 'cdm-billing-summary',
     declarations: [

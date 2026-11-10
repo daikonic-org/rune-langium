@@ -14,9 +14,10 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **12
-language-specific implementations per target**. Thirty catalog entries use Rune,
-including twenty-six owned overrides and four partially implemented upstream dispatch
-families. Selector coverage is measured separately. The audit parses and links
+language-specific implementations per target**. Thirty-two catalog entries use
+Rune, including twenty-eight owned overrides and four partially implemented
+upstream dispatch families. Five entries remain unimplemented. Selector coverage
+is measured separately. The audit parses and links
 189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
 
@@ -194,6 +195,11 @@ the requested index in an explicit rate snapshot.
 The [reset and forward-rate fixture](../../test/fixtures/third-party/cdm-reset-forward-rates/README.md)
 checks recorded reset selection, interpolation of a supplied dated curve and
 the original `FxMarkToMarket` caller in both generated targets.
+
+The [equity settlement fixture](../../test/fixtures/third-party/cdm-equity-settlement/README.md)
+exercises `NewFloatingPayout` and `ResolveCashSettlementDate` with project-supplied
+transaction economics and resolved payment dates. It also runs the original
+`NewEquitySwapProduct` and `EquityCashSettlementAmount` bodies through both targets.
 
 ## Remaining integrations
 

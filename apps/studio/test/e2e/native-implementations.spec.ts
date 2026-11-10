@@ -40,6 +40,10 @@ import {
   createCuratedObservationResolutionProject,
   observationResolutionCaller
 } from '../../../../test/helpers/cdm-observation-resolution.js';
+import {
+  createCuratedEquitySettlementProject,
+  equitySettlementCaller
+} from '../../../../test/helpers/cdm-equity-settlement.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 import {
   businessCalendarCaller,
@@ -273,6 +277,25 @@ test('interpolates a published forward curve and reports a missing bracket', asy
   await maturity.fill('2024-04-01');
   await execute.click();
   await expect(page.getByRole('alert').filter({ hasText: 'BracketingQuotes' })).toBeVisible();
+});
+
+test('builds the published equity funding leg using the confirmation payment schedule', async ({ page }) => {
+  await openPublishedImplementationProject(
+    page,
+    await createCuratedEquitySettlementProject(),
+    equitySettlementCaller,
+    1440
+  );
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page
+    .getByRole('option', { name: 'PublishedEquitySwapFundingPayout — example.equitysettlement', exact: true })
+    .click();
+  await page.getByLabel('Confirmation First Payment', { exact: true }).fill('2024-06-03');
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  const output = page.getByRole('region', { name: 'result output' });
+  await expect(output).toContainText('"firstPaymentDate": "2024-06-03"');
+  await expect(output).toContainText('"payer": "Party2"');
+  await expect(output).toContainText('"value": 1000');
 });
 
 test('resolves published CDM valuation times using a Rune business-center enum', async ({ page }) => {

@@ -128,6 +128,14 @@ Geometric averaging uses the bundled `rune.math.Log` and `Exp` declarations.
 Bind the second provider to a nominated rate snapshot. Rune selects exactly
 one quote for the requested index, including zero or negative rates.
 
+The equity settlement overrides use `impl.cdm.settlement.ReadEquityFloatingTerms`
+and `impl.cdm.settlement.ReadCashSettlementSchedule`. Bind the first to the
+transaction's payer and receiver, price/quantity and rate terms, with any
+applicable payment, calculation, reset and accrual fields. A master
+confirmation supplies its own equity payment schedule. Bind the second to
+the selected payout's calendar-resolved settlement schedule and current period
+end. Rune requires a unique schedule entry for that period.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

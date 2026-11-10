@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.settlement
+version "1.0.0"
+
+import cdm.base.datetime.AdjustableDate
+import cdm.base.datetime.daycount.DayCountFractionEnum
+import cdm.event.common.TradeState
+import cdm.legaldocumentation.transaction.EquitySwapMasterConfirmation2018
+import cdm.product.asset.*
+import cdm.product.common.schedule.*
+import cdm.product.common.settlement.*
+
+type EquityFloatingTerms extends PayoutBase:
+    override priceQuantity ResolvablePriceQuantity (1..1)
+    floatingRate FloatingRateSpecification (1..1)
+    dayCountFraction DayCountFractionEnum (0..1)
+        [metadata scheme]
+    calculationPeriodDates CalculationPeriodDates (0..1)
+    paymentDates PaymentDates (0..1)
+    paymentDate AdjustableDate (0..1)
+    paymentDelay boolean (0..1)
+    resetDates ResetDates (0..1)
+    discountingMethod DiscountingMethod (0..1)
+    compoundingMethod CompoundingMethodEnum (0..1)
+    cashflowRepresentation CashflowRepresentation (0..1)
+    stubPeriod StubPeriod (0..1)
+    spreadCalculationMethod SpreadCalculationMethodEnum (0..1)
+
+    condition PaymentDateChoice:
+        optional choice paymentDates, paymentDate
+
+func ReadEquityFloatingTerms: <"Supply the negotiated floating-leg facts for this transaction and its applicable elections.">
+    [codeImplementation]
+    inputs: masterConfirmation EquitySwapMasterConfirmation2018 (0..1)
+    output: terms EquityFloatingTerms (1..1)
+
+type CashSettlementPeriod:
+    periodEndDate date (1..1)
+    settlementDate date (1..1) <"The payment date resolved using the contract's settlement calendar.">
+
+type CashSettlementSchedule:
+    currentPeriodEndDate date (1..1) <"The end of the period selected by the settlement workflow.">
+    periods CashSettlementPeriod (0..*) <"Scheduled cash settlement dates for the selected payout.">
+
+func ReadCashSettlementSchedule: <"Supply the selected payout's payment schedule and current period from the trade context.">
+    [codeImplementation]
+    inputs: tradeState TradeState (1..1)
+    output: schedule CashSettlementSchedule (1..1)

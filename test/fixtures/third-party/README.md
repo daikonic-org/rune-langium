@@ -88,3 +88,6 @@ and 22 JVM-verified cases for the editable Rune override and its date helpers.
 The [reset and forward-rate fixture](cdm-reset-forward-rates/README.md) reuses
 the matching pinned trade-model slices from the billing fixture. It checks the
 original FX caller against a Rune port of Strata's linear interpolation.
+
+The [equity settlement fixture](cdm-equity-settlement/README.md) reuses pinned
+CDM slices and adds the original equity swap and cash transfer callers.

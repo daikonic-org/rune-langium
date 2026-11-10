@@ -567,6 +567,11 @@ Java source bytes and the first 168 expectations remain unchanged.
 The worker suites also cover overlapping schema/input-validation requests, queued
 source/curated replacement, signature drift and recovery after corrected imports.
 
+Project Runtime's `equity-settlement.test.ts` covers provider prerequisites,
+payment-schedule precedence and original CDM callers in generated TypeScript
+and Python. The optimized Prototype suite executes a bundled funding leg with
+a master confirmation's payment date.
+
 Vector implementations share that delivery boundary. `vectors.test.ts` in Codegen,
 project-runtime and Studio checks the 73-case pinned vector corpus, three strict
 TypeScript layouts, standalone Python under hostile decimal state, publication

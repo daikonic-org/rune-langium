@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.common
+version "1.0.0"
+
+import cdm.legaldocumentation.transaction.EquitySwapMasterConfirmation2018
+import cdm.product.asset.*
+import impl.cdm.settlement.ReadEquityFloatingTerms
+
+func NewFloatingPayout:
+    inputs: masterConfirmation EquitySwapMasterConfirmation2018 (0..1)
+    output: interestRatePayout InterestRatePayout (1..1)
+
+    alias terms: ReadEquityFloatingTerms(masterConfirmation)
+
+    set interestRatePayout: InterestRatePayout {
+        payerReceiver: terms -> payerReceiver,
+        priceQuantity: terms -> priceQuantity,
+        principalPayment: terms -> principalPayment,
+        settlementTerms: terms -> settlementTerms,
+        rateSpecification: RateSpecification { FloatingRateSpecification: terms -> floatingRate },
+        dayCountFraction: terms -> dayCountFraction,
+        calculationPeriodDates: terms -> calculationPeriodDates,
+        paymentDates: if masterConfirmation exists
+            then masterConfirmation -> equityCashSettlementDates
+            else terms -> paymentDates,
+        paymentDate: if masterConfirmation is absent then terms -> paymentDate,
+        paymentDelay: terms -> paymentDelay,
+        resetDates: terms -> resetDates,
+        discountingMethod: terms -> discountingMethod,
+        compoundingMethod: terms -> compoundingMethod,
+        cashflowRepresentation: terms -> cashflowRepresentation,
+        stubPeriod: terms -> stubPeriod,
+        spreadCalculationMethod: terms -> spreadCalculationMethod
+    }
+
+    post-condition InterestRatePayoutTerms:
+        if masterConfirmation exists
+        then interestRatePayout -> paymentDates = masterConfirmation -> equityCashSettlementDates

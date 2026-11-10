@@ -1,0 +1,23 @@
+namespace cdm.base.staticdata.party : <"Basic party concepts: legal entity, natural person, contact details, buyer / payer and all related enums.">
+version "${project.version}"
+
+func ExtractCounterpartyByRole: <"Extracts from a list of Counterparty data types, the Counterparty that corresponds to the role i.e. Party1 or Party2.">
+    inputs:
+        counterparties Counterparty (1..*) <"The list of counterparties to filter.">
+        roleEnumToExtract CounterpartyRoleEnum (1..1) <"The counterparty role enum to filter by.">
+    output:
+        counterparty Counterparty (0..1) <"The counterparty with specified counterparty role.">
+
+    set counterparty:
+        counterparties
+            filter role = roleEnumToExtract
+            then only-element
+
+func FilterPartyRole: <"Filters the list of partyRoles based on the provided partyRoleEnum.">
+    inputs:
+        partyRoles PartyRole (0..*)
+        partyRoleEnum PartyRoleEnum (1..1)
+    output:
+        filteredPartyRoles PartyRole (0..*)
+
+    add filteredPartyRoles: partyRoles filter role = partyRoleEnum
