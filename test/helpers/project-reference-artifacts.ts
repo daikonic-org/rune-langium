@@ -90,7 +90,7 @@ export async function createReferenceArtifacts(
           parsedModels.get(key)!,
           modelJson,
           { model: id, commit },
-          codeLists
+          { codeLists }
         );
       }
       documents.push({ path, content, modelJson });

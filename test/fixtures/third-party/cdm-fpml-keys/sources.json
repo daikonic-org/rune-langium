@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+      "name": "CreateAssetKey",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+      "name": "CreateKey",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.ingest.fpml.confirmation.pricequantity",
+      "name": "CreateKeyForQuotedCurrencyPair",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.ingest.fpml.confirmation.pricequantity--ingest-fpml-confirmation-pricequantity-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/ingest-fpml-confirmation-pricequantity-func.rosetta",
+        "blob": "f3861ec1028c9d616ca9fafbd85f342fc1caa967",
+        "sha256": "ed685fc5c136e3fd18efe5e5e751b29eebb25022a93fe13a746271f09d99e27b"
+      },
+      "sha256": "0b9a88a7c7d0852fbdbabdbbe502ce1fd67cdb1903eeabac2b571170e01ac9ce"
+    },
+    {
+      "name": "fpml.consolidated.asset--consolidated-asset-type.rosetta",
+      "upstream": {
+        "model": "fpml",
+        "path": "rosetta-source/src/main/rosetta/consolidated-asset-type.rosetta",
+        "blob": "e725a641bfb75126a9b5bbae600b1ce2a13052f3",
+        "sha256": "9b1a4906ae015e70a4ab8d27d7d25e1caa14622e18816a9fd3a3e53377c07652"
+      },
+      "sha256": "853af40cddb69970d82b4697799616d80e8373af22be24363693452189928b16"
+    },
+    {
+      "name": "fpml.consolidated.com--consolidated-com-type.rosetta",
+      "upstream": {
+        "model": "fpml",
+        "path": "rosetta-source/src/main/rosetta/consolidated-com-type.rosetta",
+        "blob": "86d51ab1216f7b259cfc211f0630b600c3bfb1b0",
+        "sha256": "387e38c3ababfd541a6288f862727ecfa1f5301aeefc3e2f2bded71876140128"
+      },
+      "sha256": "028854702da1d99ac6184cd67b9cb2cf44a81cc09e73d705c62a7ceda37e8c14"
+    },
+    {
+      "name": "fpml.consolidated.fpmlenum--consolidated-fpmlenum-enum.rosetta",
+      "upstream": {
+        "model": "fpml",
+        "path": "rosetta-source/src/main/rosetta/consolidated-fpmlenum-enum.rosetta",
+        "blob": "b23866ebea0c608d682cb535cf59766bb94056d4",
+        "sha256": "d85bb45747233c13c24cec6377e3901d3743f03dab439501a10297c07b187444"
+      },
+      "sha256": "6db82b3ffcfeed4d49a2530628af9df7a0d07d92f84d3ec3562d6b3ae8ae63cb"
+    },
+    {
+      "name": "fpml.consolidated.fx--consolidated-fx-type.rosetta",
+      "upstream": {
+        "model": "fpml",
+        "path": "rosetta-source/src/main/rosetta/consolidated-fx-type.rosetta",
+        "blob": "3c2708b7ae18a85f1b2fbac9db4edae3e8460f82",
+        "sha256": "4da3184ed779277636625a54a5c9cf8e32c36d3e3f57f37133ddb30a0d8b0f0d"
+      },
+      "sha256": "c20324f4b4b21714cd8eea5ef708c6191623743b824e3f29278c90c830daaee4"
+    },
+    {
+      "name": "fpml.consolidated.shared--consolidated-shared-type.rosetta",
+      "upstream": {
+        "model": "fpml",
+        "path": "rosetta-source/src/main/rosetta/consolidated-shared-type.rosetta",
+        "blob": "db0f50d37ae938c77f7677421bc579bd68c31ff7",
+        "sha256": "02accdb791be7feee6b692b7c871d4bab784eaee387fbd3666da98342e0ee203"
+      },
+      "sha256": "00e735ec8563c37a64a9fea278152c1ac2bdd4cc8e49e344823392a9f27d439f"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "44ea8350c67f22927d0a7533fd954f14b7b14ed23420fd285b9ab4bbfd9ef7aa"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "8da18996fcb287e6176619d96904970747b82d0f9b4aa5003a8eb67d8072c215"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "fpml-LICENCE",
+      "upstream": {
+        "model": "fpml",
+        "path": "LICENCE",
+        "blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    },
+    {
+      "name": "java/CreateAssetKeyImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateAssetKeyImpl.java",
+        "blob": "e4cdb5a434c852118b6813ad9357c04c7286172b",
+        "sha256": "30492e32294873389cdaa49aa77075bef8e429378ab2d4aa066583e33c365c4b"
+      },
+      "sha256": "30492e32294873389cdaa49aa77075bef8e429378ab2d4aa066583e33c365c4b"
+    },
+    {
+      "name": "java/CreateKeyForQuotedCurrencyPairImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateKeyForQuotedCurrencyPairImpl.java",
+        "blob": "1d447bc53cf0d595eb4264bc3c83c5f3f6d483e7",
+        "sha256": "3dcad50ca3fb455c52464f782db39b329da959f3a0a3b4994adb8cbd8e929b41"
+      },
+      "sha256": "3dcad50ca3fb455c52464f782db39b329da959f3a0a3b4994adb8cbd8e929b41"
+    },
+    {
+      "name": "java/CreateKeyImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/ingest/fpml/confirmation/pricequantity/functions/CreateKeyImpl.java",
+        "blob": "66290bb4848c1b1fd0549e8eddf6da7b75c7cbc9",
+        "sha256": "822933345862b2ad1dd27fb5b17b993eac02b036f8dc7398061fb39189093cad"
+      },
+      "sha256": "822933345862b2ad1dd27fb5b17b993eac02b036f8dc7398061fb39189093cad"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}

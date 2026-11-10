@@ -31,6 +31,29 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-fpml-keys',
+    declarations: ['CreateAssetKey', 'CreateKey', 'CreateKeyForQuotedCurrencyPair'].map((name) => ({
+      namespace: 'cdm.ingest.fpml.confirmation.pricequantity',
+      name,
+      kind: 'RosettaFunction'
+    })),
+    supportDeclarations: [
+      ...['CreateQuantityKey', 'CreateQuotedCurrencyPairKey'].map((name) => ({
+        namespace: 'cdm.ingest.fpml.confirmation.pricequantity',
+        name,
+        kind: 'RosettaFunction'
+      })),
+      ...['IdentifiedAsset', 'Cash', 'Security'].map((name) => ({
+        namespace: 'fpml.consolidated.asset',
+        name,
+        kind: 'Data'
+      })),
+      { namespace: 'fpml.consolidated.com', name: 'CommodityLeg', kind: 'Data' },
+      { namespace: 'fpml.consolidated.fx', name: 'CrossRate', kind: 'Data' }
+    ],
+    references: ['CreateAssetKey', 'CreateKey', 'CreateKeyForQuotedCurrencyPair']
+  },
+  {
     directory: 'cdm-observation-resolution',
     declarations: [
       { namespace: 'cdm.observable.event', name: 'ResolveObservation', kind: 'RosettaFunction' },

@@ -93,7 +93,8 @@ export const FunctionImplementationTargetSchema = z.strictObject({
   entrypoint: text,
   expression: text,
   call: z.boolean().optional(),
-  dependencies: z.array(text).readonly()
+  dependencies: z.array(text).readonly(),
+  moduleSource: text.optional()
 });
 export type FunctionImplementationTarget = z.infer<typeof FunctionImplementationTargetSchema>;
 /** Publication selects one implementation kind. Rune entries cannot carry native targets. */

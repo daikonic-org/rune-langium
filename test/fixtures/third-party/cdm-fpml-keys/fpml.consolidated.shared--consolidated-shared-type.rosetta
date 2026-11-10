@@ -1,0 +1,53 @@
+namespace fpml.consolidated.shared : < "fpml definition" >
+version "${project.version}"
+
+import fpml.consolidated.fpmlenum.*
+import fpml.consolidated.ird.*
+
+typeAlias NonEmptyNormalizedString: <"A non empty normalized string. At least one character must be provided. FpML may define lenght restrictions in some views.">
+    string(minLength: 1)
+
+typeAlias NonEmptyScheme: <"The base class for all types which define coding schemes that must be populated.">
+    NormalizedString
+
+typeAlias NonEmptyURI: <"A URI that cannot be empty.">
+    string(pattern: "\\w+:(\\/?\\/?)[^\\s]+", minLength: 1)
+
+typeAlias NormalizedString: <"A normalized string">
+    string
+
+typeAlias PositiveDecimal: <"A type defining a number specified as positive decimal greater than 0 exclusive.">
+    number(min: 0)
+
+typeAlias Scheme: <"The base class for all types which define coding schemes that are allowed to be empty.">
+    NormalizedString
+
+type Currency: <"The code representation of a currency or fund. By default it is a valid currency code as defined by the ISO standard 4217 - Codes for representation of currencies and funds http://www.iso.org/iso/en/prods-services/popstds/currencycodeslist.html.">
+
+    value Scheme (1..1)
+    currencyScheme NonEmptyURI (0..1)
+
+type IdentifiedCurrency extends Currency: <"Specifies Currency with ID attribute.">
+
+    id string (0..1)
+
+type InstrumentId: <"A short form unique identifier for a security.">
+
+    value NonEmptyScheme (1..1)
+    instrumentIdScheme NonEmptyURI (1..1)
+
+type Leg: <"A supertype of leg. All swap legs extend this type.">
+
+    id string (0..1)
+
+type PartyReference extends Reference: <"Reference to a party.">
+
+    href string (1..1)
+
+type QuotedCurrencyPair: <"A type that describes the composition of a rate that has been quoted or is to be quoted. This includes the two currencies and the quotation relationship between the two currencies and is used as a building block throughout the FX specification.">
+
+    currency1 Currency (1..1) <"The first currency specified when a pair of currencies is to be evaluated.">
+    currency2 Currency (1..1) <"The second currency specified when a pair of currencies is to be evaluated.">
+    quoteBasis QuoteBasisEnum (0..1) <"The method by which the exchange rate is quoted.">
+
+type Reference: <"The abstract base class for all types which define intra-document pointers.">

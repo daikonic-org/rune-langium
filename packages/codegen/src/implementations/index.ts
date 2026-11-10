@@ -7,7 +7,10 @@ export { nativeFunctionShape, matchesNativeFunction, describeNativeFunction } fr
 export type { NativeFunctionShape, NativeParameterShape } from './signature.js';
 export type ImplementationLanguage = 'typescript' | 'python';
 export type ImplementationLocation = Pick<FunctionImplementationTarget, 'path' | 'entrypoint'>;
-export type NativeImplementationBody = Pick<FunctionImplementationTarget, 'expression' | 'call' | 'dependencies'>;
+export type NativeImplementationBody = Pick<
+  FunctionImplementationTarget,
+  'expression' | 'call' | 'dependencies' | 'moduleSource'
+>;
 export type NativeImplementationResolution =
   | { status: 'available'; id: string; body: NativeImplementationBody; location: ImplementationLocation }
   | { status: 'unsupported'; reason: string };
@@ -49,4 +52,15 @@ export function resolveNativeImplementation(
 /** Bind a supplied expression to allocated parameter names without textual substitution. */
 export function nativeImplementationExpression(body: NativeImplementationBody, args: readonly string[]): string {
   return body.call ? `(${body.expression})(${args.join(', ')})` : body.expression;
+}
+
+/** Shared private definitions supplied by selected bindings in this module. */
+export function nativeModuleSources(functions: Iterable<RosettaFunction>, language: ImplementationLanguage): string[] {
+  const sources = new Set<string>();
+  for (const func of functions) {
+    const implementation = resolveNativeImplementation(func, language);
+    if (implementation?.status === 'available' && implementation.body.moduleSource)
+      sources.add(implementation.body.moduleSource);
+  }
+  return [...sources];
 }

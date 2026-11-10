@@ -1,0 +1,7 @@
+namespace fpml.consolidated.fpmlenum : < "fpml definition" >
+version "${project.version}"
+
+enum QuoteBasisEnum:
+
+    Currency1PerCurrency2
+    Currency2PerCurrency1

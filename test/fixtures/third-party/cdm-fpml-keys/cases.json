@@ -1,0 +1,125 @@
+[
+  {
+    "id": "asset absent",
+    "function": "CreateAssetKey",
+    "prefix": "𐐷",
+    "json": "null",
+    "expected": "𐐷-$2"
+  },
+  {
+    "id": "asset only has its inherited id",
+    "function": "CreateAssetKey",
+    "prefix": "observable",
+    "json": "{\"@type\":\"fpml.consolidated.asset.Asset\",\"id\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"}",
+    "expected": "observable-$8960"
+  },
+  {
+    "id": "asset prefix and value use UTF-16",
+    "function": "CreateAssetKey",
+    "prefix": "𐐷 Key",
+    "json": "{\"@type\":\"fpml.consolidated.asset.Asset\",\"id\":\"-$a\"}",
+    "expected": "𐐷 Key-$4458"
+  },
+  {
+    "id": "empty prefix is present",
+    "function": "CreateAssetKey",
+    "prefix": "",
+    "json": "{\"@type\":\"fpml.consolidated.asset.Asset\",\"id\":\"𐐷 € é 金\"}",
+    "expected": "-$6965"
+  },
+  {
+    "id": "cash subtype",
+    "function": "CreateAssetKey",
+    "prefix": "observable",
+    "json": "{\"@type\":\"fpml.consolidated.asset.Cash\",\"id\":\"-$a\",\"instrumentId\":[{\"@type\":\"fpml.consolidated.shared.InstrumentId\",\"value\":\"𐐷 € é 金\"},{\"@type\":\"fpml.consolidated.shared.InstrumentId\",\"value\":\"\"}],\"description\":\"\",\"currency\":{\"@type\":\"fpml.consolidated.shared.Currency\",\"value\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"}}",
+    "expected": "observable-$5454"
+  },
+  {
+    "id": "identified asset has ordered identifiers",
+    "function": "CreateAssetKey",
+    "prefix": "𐐷 Key",
+    "json": "{\"@type\":\"fpml.consolidated.asset.IdentifiedAsset\",\"id\":\"𐐷 € é 金\",\"instrumentId\":[{\"@type\":\"fpml.consolidated.shared.InstrumentId\",\"value\":\"\"},{\"@type\":\"fpml.consolidated.shared.InstrumentId\",\"value\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"}],\"instrumentType\":[],\"description\":\"-$a\"}",
+    "expected": "𐐷 Key-$5296"
+  },
+  {
+    "id": "identified asset with no identifiers",
+    "function": "CreateAssetKey",
+    "prefix": "",
+    "json": "{\"@type\":\"fpml.consolidated.asset.IdentifiedAsset\",\"id\":\"\",\"instrumentId\":[],\"instrumentType\":[{\"@type\":\"fpml.consolidated.asset.InstrumentType\",\"value\":\"-$a\"},{\"@type\":\"fpml.consolidated.asset.InstrumentType\",\"value\":\"𐐷 € é 金\"}],\"description\":\"𐐷 € é 金\"}",
+    "expected": "-$8805"
+  },
+  {
+    "id": "security includes a zoned nanosecond timestamp",
+    "function": "CreateAssetKey",
+    "prefix": "",
+    "json": "{\"@type\":\"fpml.consolidated.asset.Security\",\"id\":\"XXXXXXXXXXXXXXXXXXXXXXXX\",\"instrumentId\":[],\"instrumentType\":[{\"@type\":\"fpml.consolidated.asset.InstrumentType\",\"value\":\"𐐷 € é 金\"},{\"@type\":\"fpml.consolidated.asset.InstrumentType\",\"value\":\"\"}],\"description\":\"\",\"currency\":{\"@type\":\"fpml.consolidated.shared.IdentifiedCurrency\",\"value\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"},\"issuerPartyReference\":{\"@type\":\"fpml.consolidated.shared.PartyReference\",\"href\":\"-$a\"},\"creditQuality\":[{\"@type\":\"fpml.consolidated.asset.CreditQuality\",\"value\":\"𐐷 € é 金\"},{\"@type\":\"fpml.consolidated.asset.CreditQuality\",\"value\":\"\"}],\"maturity\":\"2024-03-12T02:00:00.100-05:00[America/New_York]\"}",
+    "expected": "-$1957"
+  },
+  {
+    "id": "leg absent with supplementary Unicode identifier",
+    "function": "CreateKey",
+    "prefix": "𐐷",
+    "keyId": "negative hash 𐐷",
+    "json": "null",
+    "expected": "𐐷-$2631"
+  },
+  {
+    "id": "commodity leg subtype",
+    "function": "CreateKey",
+    "prefix": "",
+    "keyId": "negative hash 𐐷",
+    "json": "{\"@type\":\"fpml.consolidated.com.CommodityLeg\",\"id\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"}",
+    "expected": "-$3085"
+  },
+  {
+    "id": "leg and identifier contribute to the key",
+    "function": "CreateKey",
+    "prefix": "observable",
+    "keyId": "negative hash 𐐷",
+    "json": "{\"@type\":\"fpml.consolidated.shared.Leg\",\"id\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"}",
+    "expected": "observable-$2496"
+  },
+  {
+    "id": "leg and Unicode key",
+    "function": "CreateKey",
+    "prefix": "",
+    "keyId": "negative hash 𐐷",
+    "json": "{\"@type\":\"fpml.consolidated.shared.Leg\",\"id\":\"𐐷 € é 金\"}",
+    "expected": "-$4920"
+  },
+  {
+    "id": "quoted pair absent",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "𐐷",
+    "json": "null",
+    "expected": "𐐷-$585"
+  },
+  {
+    "id": "cross rate with a large decimal coefficient",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "observable",
+    "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"currency1\":{\"@type\":\"fpml.consolidated.shared.Currency\",\"value\":\"𐐷 € é 金\"},\"currency2\":{\"@type\":\"fpml.consolidated.shared.Currency\",\"value\":\"\"},\"quoteBasis\":\"Currency1PerCurrency2\",\"rate\":-0.000,\"spotRate\":99.99999999999999999999999999999999999999,\"forwardPoints\":-1.230000E+36}",
+    "expected": "observable-$353"
+  },
+  {
+    "id": "quoted pair nested currencies and enum",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "observable",
+    "json": "{\"@type\":\"fpml.consolidated.shared.QuotedCurrencyPair\",\"currency1\":{\"@type\":\"fpml.consolidated.shared.Currency\",\"value\":\"XXXXXXXXXXXXXXXXXXXXXXXX\"},\"currency2\":{\"@type\":\"fpml.consolidated.shared.Currency\",\"value\":\"-$a\"},\"quoteBasis\":\"Currency1PerCurrency2\"}",
+    "expected": "observable-$806"
+  },
+  {
+    "id": "cross rate scale one",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "observable",
+    "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"rate\":1.0,\"currency1\":{\"value\":\"USD\"},\"currency2\":{\"value\":\"EUR\"}}",
+    "expected": "observable-$254"
+  },
+  {
+    "id": "cross rate scale two",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "observable",
+    "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"rate\":1.00,\"currency1\":{\"value\":\"USD\"},\"currency2\":{\"value\":\"EUR\"}}",
+    "expected": "observable-$405"
+  }
+]

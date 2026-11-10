@@ -13,10 +13,10 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **12
+There are **49 CDM native declarations**, no FpML native declarations, and **15
 language-specific implementations per target**. Thirty-four catalog entries use
 Rune, including thirty owned overrides and four partially implemented
-upstream dispatch families. Three entries remain unimplemented. Selector coverage
+upstream dispatch families. Selector coverage
 is measured separately. The audit parses and links
 189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -41,6 +41,7 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | CalculateCommodityCalculationPeriods | Recurring day, week, month and year boundaries with the original clamping and final overshoot. Term follows the pinned FpML endpoint rule. |
 | LoadCodeList | Return the full records from the pinned CDM code-list catalog, including scheme and date metadata |
 | Create_BillingSummary | Sum one compatible settlement group of complete billing records into a ParentTotal, with finite decimal arithmetic and preserved parent-party references |
+| CreateAssetKey, CreateKey, CreateKeyForQuotedCurrencyPair | Pinned Java keys over FpML asset, leg and quoted currency pair values, including concrete subtypes and exact wire decimals |
 
 Implementation publication sources live under
 `packages/project-runtime/src/curated-implementations/`. They are selected during
@@ -206,17 +207,20 @@ uses the original eligibility evaluator and folds selected, same-unit event
 contributions into positions with the supplied CDM lineage. Prototype executes
 the eligibility check with a currency from a mapped Rune enum.
 
+The [FpML key fixture](../../test/fixtures/third-party/cdm-fpml-keys/README.md)
+checks the three handwritten CDM key algorithms in generated TypeScript and Python.
+The layout fingerprint covers all 662 reachable FpML data types in the pinned cohort.
+
 ## Remaining integrations
 
-**7 catalog entries** remain unimplemented. Calendar coverage and data-provider
-availability are tracked separately.
+All 49 declarations have a cataloged implementation. Dispatch selector coverage,
+calendar coverage and data-provider availability are tracked separately.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Calendars and schedules | Calendar sources for the remaining business centers and broader `ComputeCalculationPeriod` calendar coverage |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | Project-supplied reset records, dated forward curves and versioned identities for the installed Rune bodies |
-| FpML key compatibility | Exact Java hash semantics across inherited asset, leg and quoted currency pair values, including decimal scale |
 
 Several functions require integrations that cannot be inferred from their input
 shapes. Before marking a family available, provide target implementations,

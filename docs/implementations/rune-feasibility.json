@@ -494,7 +494,7 @@
       },
       "signatureSha256": "a770523846f59e001b8a1c2705f3c68d544121d66baad418e55f276c62f2f8d4",
       "route": "primitive-backed",
-      "requirements": "Rune can compose key fields; verify canonicalization/hash/collision rules before choosing a string/hash primitive."
+      "requirements": "Rune can compose the key. Exact Java hashing of the inherited FpML asset, signed int32 arithmetic and UTF-16 require a primitive. The pinned target ports verify the linked model layout."
     },
     {
       "symbol": {
@@ -505,7 +505,7 @@
       },
       "signatureSha256": "f465cd4761a9ee7956ab41ff18960aa4ddf8b23372f7fdb0bc633593130065b3",
       "route": "primitive-backed",
-      "requirements": "Verify optional ID/leg handling and exact key policy; avoid inventing a replacement identifier scheme."
+      "requirements": "Rune can compose the key. Exact Java UTF-16 hashes, signed int32 accumulation and dynamic FpML leg hashing require a primitive. The pinned ports preserve the optional ID and leg rules."
     },
     {
       "symbol": {
@@ -516,7 +516,7 @@
       },
       "signatureSha256": "db5344ab6504f86e847e4d0d1e81ca8bf8d668c034c6bf886159ad7387a79958",
       "route": "primitive-backed",
-      "requirements": "Verify quote-pair canonicalization and key policy; reuse any shared key primitive."
+      "requirements": "Rune can compose the key. Java hashing of the concrete FpML pair requires a primitive and scale-preserving decimal input. The pinned ports share the same hash layout."
     },
     {
       "symbol": {

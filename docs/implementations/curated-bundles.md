@@ -35,7 +35,8 @@ formatter-stable runtime-source writer.
 
 The CI publisher stamps `$implementation` onto the serialized function copy,
 carrying its exact signature and selected target expression/dependencies or Rune
-path. It stamps `$implementationSources` onto the serialized model copy with
+path. A target can also carry private module definitions that the emitter
+includes once with its selected calls. It stamps `$implementationSources` onto the serialized model copy with
 source bytes, SHA-256 hashes, model and upstream commit, plus the owned MIT license
 and any named third-party license/notice files.
 Original upstream archives, source text and Rune bodies remain unchanged. The
@@ -63,6 +64,15 @@ runtime helper. Both targets
 retain the existing finite `number`/`float` API, so decimal scale formatting and
 arbitrary BigDecimal precision remain outside their contract. See the
 [pinned rounding corpus](../../test/fixtures/third-party/cdm-rounding/README.md).
+
+The three FpML key targets share a hash layout derived from the linked FpML
+model at publication. The CDM 7.9.0, FpML 3.13.0 and Rune 10.15.3 cohort is
+admitted after its layout matches the pinned Java fingerprint. Keep the concrete
+type on a subtype input using a generated class or its qualified `@type`.
+For scale-sensitive keys, load JSON text with `preserveNumberText: true` in
+`parseProjectPayload` or the generated TypeScript `fromJSON` method. Python can
+load numbers as `Decimal` or consume the same normalized number metadata.
+Ordinary target numbers use their canonical spelling.
 
 The CDM publisher also reads `codelist/json` from the same pinned source archive.
 It prepares a case-insensitive domain catalog before serializing the native

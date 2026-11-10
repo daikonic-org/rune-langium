@@ -27,6 +27,7 @@ import {
   prepareCdmCodeLists
 } from '../packages/project-runtime/dist/curated-implementations/code-list-resources.js';
 import { curatedCdmCodeListSources } from '../packages/project-runtime/dist/curated-implementations/code-list-enums.js';
+import { prepareFpmlHashLayout } from '../packages/project-runtime/dist/curated-implementations/fpml-keys.js';
 
 const corePkgDir = new URL('../packages/core/', import.meta.url);
 const langiumIndex = new URL('node_modules/langium/lib/index.js', corePkgDir);
@@ -150,11 +151,21 @@ function stampNamespacesIntoModelJson(modelJson, namespace, bigIntReplacer) {
 }
 
 async function buildArtifact(source, files, RuneDsl, documentMap) {
-  const { assertValidDocuments, serializeRuneModel, runeBigIntReplacer, namespaceFromModelName } =
+  const { assertValidDocuments, isRosettaModel, serializeRuneModel, runeBigIntReplacer, namespaceFromModelName } =
     await import('../packages/core/dist/index.js');
 
   const { rosettaFiles, codeListFiles } = files;
   const codeLists = source.id === 'cdm' ? prepareCdmCodeLists(codeListFiles) : undefined;
+  const fpmlHashLayout =
+    source.id === 'cdm'
+      ? await prepareFpmlHashLayout(
+          SOURCES.map(({ id, commit }) => ({ model: id, commit })),
+          [...documentMap]
+            .filter(([key]) => key.startsWith('fpml/'))
+            .map(([, document]) => document.parseResult.value)
+            .filter(isRosettaModel)
+        )
+      : undefined;
   console.log(`  Found ${rosettaFiles.length} .rosetta files`);
   if (rosettaFiles.length === 0) throw new Error(`${source.id}: no .rosetta files`);
 
@@ -219,7 +230,7 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
           model,
           serializeRuneModel(serializer, model),
           { model: source.id, commit: source.commit },
-          codeLists
+          { codeLists, fpmlHashLayout }
         );
         return {
           path: file.path,

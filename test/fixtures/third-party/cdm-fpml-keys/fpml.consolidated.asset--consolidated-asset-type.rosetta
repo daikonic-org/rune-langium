@@ -1,0 +1,42 @@
+namespace fpml.consolidated.asset : < "fpml definition" >
+version "${project.version}"
+
+import fpml.consolidated.fpmlenum.*
+import fpml.consolidated.shared.*
+
+type Cash extends Asset: <"Identifies a simple underlying asset type that is a cash payment. Used for specifying discounting factors for future cash flows in the pricing and risk model. A cash asset as a financial instrument. It extends the Asset type and includes identifiers, a description, and the currency in which the cash is denominated. It is used to specify cash holdings or cash components in financial transactions, portfolios, or structured products.">
+
+    instrumentId InstrumentId (0..*) <"Identification of the underlying asset, using public and/or private identifiers.">
+    description NonEmptyNormalizedString (0..1) <"Long name of the underlying asset.">
+    currency Currency (0..1) <"The currency in which an amount is denominated.">
+
+type Security extends GenericSecurity: <"Identifies a security of implicit type (derivable from the security reference data).">
+
+type Asset: <"Abstract base class for all underlying assets.">
+
+    id string (0..1)
+
+type CreditQuality: <"A standardized classification of an entity\'s creditworthiness. It includes the creditQualityScheme attribute, which specifies the identification scheme used to define credit quality ratings. This allows for consistent representation of credit risk assessments, aligning with industry standards such as those used in credit rating agencies.">
+
+    value Scheme (1..1)
+    creditQualityScheme NonEmptyURI (0..1)
+
+type GenericAsset extends IdentifiedAsset: <"Concrete type to support public/private identifiers and classification (ISIN, CFI, ...) for an instrument of unspecified type. Derived as no-operation extension on IdentifedAsset (abstract base type).">
+
+type GenericSecurity extends GenericAsset: <"Concrete type to support public/private identifiers and classification (ISIN, CFI, ...) for a security of unspecified type. Derived as no-operation extension on IdentifiedAsset (abstract base type)">
+
+    currency IdentifiedCurrency (0..1) <"Trading currency of the underlyer when transacted as a cash instrument.">
+    issuerPartyReference PartyReference (0..1) <"Specifies the issuer name of a fixed income security or convertible bond. The name is specified as an href into one of the party blocks.">
+    creditQuality CreditQuality (0..*) <"Credit quality type (e.g. SFTR specified types: \'INVG\' - Investment grade; \'NIVG\' - Non-investment grade; \'NOTR\' - Non-rated). Classifies the risk of the security. Note: \'NOAP\' - Not applicable value is indicated by the absence of the \'creditQuality\' element.">
+    maturity zonedDateTime (0..1) <"Credit maturity. The date when the principal amount of a security becomes due and payable.">
+
+type IdentifiedAsset extends Asset: <"A generic type describing an identified asset.">
+
+    instrumentId InstrumentId (1..*) <"Identification of the underlying asset, using public and/or private identifiers.">
+    instrumentType InstrumentType (0..*) <"Classification of the asset, using public and/or private typologies e.g. ISO 10962 CFI code.">
+    description NonEmptyNormalizedString (0..1) <"Long name of the underlying asset.">
+
+type InstrumentType: <"A taxonomic classification, or typology, for a security (e.g. ISO 10962 CFI code).">
+
+    value NonEmptyScheme (1..1)
+    instrumentTypeScheme NonEmptyURI (0..1)

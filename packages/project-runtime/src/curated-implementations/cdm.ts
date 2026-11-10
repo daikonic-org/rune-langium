@@ -6,6 +6,7 @@ import {
   nativeFunctionShape,
   matchesNativeFunction,
   type NativeFunctionShape,
+  type NativeParameterShape,
   type NativeImplementationBody,
   type ImplementationLanguage,
   type ImplementationLocation
@@ -25,11 +26,30 @@ import { loadCodeList as typescriptLoadCodeList } from './typescript/load-code-l
 import { loadCodeList as pythonLoadCodeList } from './python/load-code-list.js';
 import { createBillingSummary as typescriptBillingSummary } from './typescript/billing-summary.js';
 import { createBillingSummary as pythonBillingSummary } from './python/billing-summary.js';
+import { fpmlKey as typescriptFpmlKey } from './typescript/fpml-keys.js';
+import { fpmlKey as pythonFpmlKey } from './python/fpml-keys.js';
+import { fpmlKeyRecipes, type FpmlHashLayout } from './fpml-keys.js';
 import type { CdmCodeListCatalog } from './code-list-resources.js';
 import { FunctionImplementationSchema, type FunctionImplementation } from '@rune-langium/core/project-contract';
 
+export interface CdmImplementationResources {
+  readonly codeLists?: CdmCodeListCatalog;
+  readonly fpmlHashLayout?: FpmlHashLayout;
+}
+
 type NativeTarget = ImplementationLocation &
-  (NativeImplementationBody | { bindCodeLists: (catalog: CdmCodeListCatalog) => NativeImplementationBody });
+  (
+    | NativeImplementationBody
+    | { bind: (resources: CdmImplementationResources) => NativeImplementationBody | undefined }
+  );
+
+const stringParameter = (name: string, minimum: 0 | 1): NativeParameterShape => ({
+  name,
+  type: 'com.rosetta.model.string',
+  kind: 'RosettaBasicType',
+  card: [minimum, 1],
+  plain: true
+});
 
 export interface NativeImplementation {
   readonly kind: 'language-specific';
@@ -912,6 +932,32 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   utility('ToTime'),
   utility('Now'),
   utility('StringContains', 'cdm.ingest.fpml.confirmation.common'),
+  ...Object.entries(fpmlKeyRecipes).map(([name, recipe]): NativeImplementation => ({
+    kind: 'language-specific',
+    id: 'cdm.fpml-key.' + name,
+    namespace: 'cdm.ingest.fpml.confirmation.pricequantity',
+    name,
+    signature: {
+      inputs: [
+        stringParameter('keyPrefix', 1),
+        ...(recipe.includeId ? [stringParameter('id', 0)] : []),
+        { name: recipe.parameter, type: recipe.type, kind: 'Data', card: [0, 1], plain: true }
+      ],
+      output: stringParameter(recipe.output, recipe.required)
+    },
+    targets: {
+      typescript: {
+        bind: ({ fpmlHashLayout }) => fpmlHashLayout && typescriptFpmlKey(recipe, fpmlHashLayout),
+        path: 'packages/project-runtime/src/curated-implementations/typescript/fpml-keys.ts',
+        entrypoint: 'fpmlKey'
+      },
+      python: {
+        bind: ({ fpmlHashLayout }) => fpmlHashLayout && pythonFpmlKey(recipe, fpmlHashLayout),
+        path: 'packages/project-runtime/src/curated-implementations/python/fpml-keys.ts',
+        entrypoint: 'fpmlKey'
+      }
+    }
+  })),
   {
     kind: 'language-specific',
     id: 'cdm.load-code-list',
@@ -920,12 +966,12 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
     signature: signatures.LoadCodeList!,
     targets: {
       typescript: {
-        bindCodeLists: typescriptLoadCodeList,
+        bind: ({ codeLists }) => (codeLists?.size ? typescriptLoadCodeList(codeLists) : undefined),
         path: 'packages/project-runtime/src/curated-implementations/typescript/load-code-list.ts',
         entrypoint: 'loadCodeList'
       },
       python: {
-        bindCodeLists: pythonLoadCodeList,
+        bind: ({ codeLists }) => (codeLists?.size ? pythonLoadCodeList(codeLists) : undefined),
         path: 'packages/project-runtime/src/curated-implementations/python/load-code-list.ts',
         entrypoint: 'loadCodeList'
       }
@@ -1047,12 +1093,12 @@ export const RUNE_IMPLEMENTATIONS = CDM_IMPLEMENTATIONS.filter((entry) => entry.
 /** Pure publication selection, shared with the audit and generator fixtures without storage dependencies. */
 export async function curatedModelImplementations(
   model: RosettaModel,
-  codeLists?: CdmCodeListCatalog
+  resources?: CdmImplementationResources
 ): Promise<ReadonlyMap<number, FunctionImplementation>> {
   const result = new Map<number, FunctionImplementation>();
   for (const [index, node] of model.elements.entries()) {
     if (!isRosettaFunction(node)) continue;
-    const selected = await selectCdmImplementation(node, codeLists);
+    const selected = await selectCdmImplementation(node, resources);
     if (selected) result.set(index, selected);
   }
   return result;
@@ -1060,7 +1106,7 @@ export async function curatedModelImplementations(
 /** Called by curated publication and its audit, never by a generator. */
 export async function selectCdmImplementation(
   func: RosettaFunction,
-  codeLists?: CdmCodeListCatalog
+  resources: CdmImplementationResources = {}
 ): Promise<FunctionImplementation | undefined> {
   if (
     func.operations.length ||
@@ -1093,7 +1139,7 @@ export async function selectCdmImplementation(
     const target = entry.targets[language];
     if (!target) return [];
     const { path, entrypoint } = target;
-    const body = 'bindCodeLists' in target ? (codeLists?.size ? target.bindCodeLists(codeLists) : undefined) : target;
+    const body = 'bind' in target ? target.bind(resources) : target;
     return body ? [[language, { path, entrypoint, ...body, dependencies: [...body.dependencies] }]] : [];
   });
   if (!targets.length) return undefined;
