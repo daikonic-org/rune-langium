@@ -191,6 +191,8 @@ explicitly selected original roots. It emits the replacement's canonical
 namespace, excludes overridden original bodies and retains linked originals for
 inspection. Preview schemas and Python module bindings share this selection
 boundary. Kind-qualified direct function requests resolve through that same port.
+Native TypeScript builds select project namespace roots and include the linked
+standard library in their dependency closure.
 
 Studio's source-sync fingerprint covers only namespaces with a writable source
 baseline, including their outgoing inheritance edges. Read-only reference ASTs
@@ -650,6 +652,11 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
   targets copied into children of cyclic parents. Defer forward references with
   the emitter's shared lazy-reference helper; exported validators and Prototype
   selection must validate inherited arrays without capturing undefined item schemas.
+- A Rune override that narrows a list to a scalar rebuilds the Zod child shape.
+  Inherited conditions receive the declaring type's list representation.
+  Metadata-aware schemas validate the same envelopes for attributes and Choice
+  options. The linked input adapter accepts unambiguous upstream enum display
+  names and retains canonical values and materialized code-list codes.
 - Standalone schemas expose linked condition-function dependencies. The shared
   generated preview runtime loads their selected TypeScript module closure and
   reuses canonical argument adaptation and function-input validators, including
@@ -1177,20 +1184,18 @@ Save-as-example path.
 
 ### Editable starter copies and bound folders
 
-The starter catalog describes projects; checked source adapters provide their
-actual files and exact commit. `createStarterOpener` validates the copy boundary,
-then `createStarterWorkingCopy` uses the existing ProjectController before host
+The starter catalog describes projects. Checked source adapters verify the commit,
+read the Git tree, and verify the raw file contents against their blob IDs.
+Only the commit and tree use the GitHub REST quota. `createStarterOpener` validates
+the copy boundary, then `createStarterWorkingCopy` uses the existing ProjectController before host
 activation. Starter provenance lives on WorkspaceRecord without GitBacking,
 credentials or reference-only flags. Unpublished catalog proposals stay disabled.
 Workspace opening and reference dependencies occupy separate launcher sections.
 The published `daikonic-org/rune-starter` is a GitHub template; `rune-cdm-example`
 was generated from it and retains the same workflow checker and CI. The launcher
 catalog pins verified public commits rather than floating branches. Both are
-ordinary editable starter copies, without an inherited writable remote. The CDM
-sample locks release 7.8.0 and its dependencies and calls the upstream Rune
-`UpdateAmount` through an original local wrapper; it does not provide financial
-payment scheduling. Template-generated repositories do not automatically pull
-future template changes.
+ordinary editable starter copies, without an inherited writable remote.
+Template-generated repositories do not automatically pull future template changes.
 View example opens that verified local copy. Fork example uses GitHub sign-in,
 verifies or creates the user's own fork, and enters the shared GitHub clone and
 project-initialization review flow. A clone retry reuses the verified fork; it

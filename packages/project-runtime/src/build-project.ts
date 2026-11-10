@@ -106,7 +106,11 @@ export async function buildProject(
         strict: true,
         [target.generator]: validated.value
       };
-      return (await generateSelected(documents, selection, options)).outputs;
+      // Keep project namespaces as the roots, while allowing the TypeScript
+      // closure to emit library functions linked by the workspace manager.
+      const linkedDocuments =
+        target.generator === 'typescript' ? graph.services.shared.workspace.LangiumDocuments.all.toArray() : documents;
+      return (await generateSelected(linkedDocuments, selection, options)).outputs;
     }
   );
   return { ...result, diagnostics: [...installed.diagnostics, ...result.diagnostics] };

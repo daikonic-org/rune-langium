@@ -177,6 +177,7 @@ export interface ExpressionTranspilerContext {
    * In ts-method mode: `this` (the class instance).
    */
   selfName: string;
+  implicitMany?: boolean;
   implicitMetadata?: { kind: FieldMetadataKind; many: boolean };
   localMetadata?: ReadonlyMap<string, { kind: FieldMetadataKind; many: boolean } | undefined>;
   metadataAttributes?: ReadonlySet<string>;
@@ -313,7 +314,7 @@ function transpilePresence(
         ? undefined
         : argument
           ? declared?.includes('[]') || expressionIsMany(argument)
-          : (ctx.implicitMetadata?.many ?? false);
+          : (ctx.implicitMany ?? ctx.implicitMetadata?.many ?? false);
   return renderPresence(value, many, metadata, absent, usesNativeValues(ctx));
 }
 

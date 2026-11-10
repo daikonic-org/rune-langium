@@ -14,7 +14,8 @@ export const readStarterSource = withInstrumentation(
   ): Promise<StarterSource> {
     const source = await openGitHubRepository(starter.repository, starter.ref, signal, fetcher, {
       entries: 512,
-      treeBytes: 2 * 1024 * 1024
+      treeBytes: 2 * 1024 * 1024,
+      rawContents: true
     });
     const files = new Map<string, string>();
     let total = 0;

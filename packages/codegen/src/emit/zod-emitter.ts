@@ -21,6 +21,7 @@ import {
   isAttribute,
   isData,
   type Choice,
+  type ChoiceOption,
   type Data,
   type Attribute,
   type RosettaEnumeration,
@@ -47,7 +48,7 @@ import {
 } from './base-namespace-emitter.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { resolveTypeCallTarget, toTypeIndexLookup, type TypeIndexLookup } from './type-ref-resolver.js';
-import { typeFeatures } from '../expr/navigation.js';
+import { featureIsMany, featureName, typeFeatures } from '../expr/navigation.js';
 import { fieldMetadataKind, metadataObjectType } from '../expr/metadata-runtime.js';
 import { zodProfile } from './zod-profile.js';
 import { typescriptProfile } from './typescript-profile.js';
@@ -469,7 +470,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
               trackTypeCallImport(attr.typeCall);
             }
           }
-        } else if (this.isLazyData(parentRef)) {
+        } else if (this.shouldInlineDataParent(data, parentRef)) {
           for (const link of ZodNamespaceEmitter.collectDataAncestryChain(parentRef)) {
             for (const attr of link.attributes) trackTypeCallImport(attr.typeCall);
           }
@@ -653,7 +654,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       // .strict(): non-strict objects allow unknown keys, so {cash, commodity}
       // would satisfy the first arm — strict arms make multi-option objects
       // fail every arm, enforcing the exactly-one-of Choice semantics.
-      return `z.${this.codecs ? 'looseObject' : 'strictObject'}({ ${fieldName}: ${optionSchemaExpr} })`;
+      return `z.${this.codecs ? 'looseObject' : 'strictObject'}({ ${fieldName}: ${this.wrapMetadataSchema(optionSchemaExpr, option)} })`;
     });
 
     if (optionSchemas.length === 0) {
@@ -675,17 +676,19 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     return `.refine(data => [${keys.map((key) => `(${JSON.stringify(key)} in data ? data.${key} : undefined)`).join(', ')}].filter(value => value != null).length === 1, 'Expected exactly one Choice option')`;
   }
 
+  private wrapMetadataSchema(baseTypeExpr: string, feature: Attribute | ChoiceOption): string {
+    const kind = this.metadataInputs ? fieldMetadataKind(feature) : undefined;
+    if (!kind) return baseTypeExpr;
+    const metadata = 'z.record(z.string(), z.unknown())';
+    const numberText = this.functionInputs ? `, ${inputNumberText}` : '';
+    const object = this.codecs ? 'looseObject' : 'object';
+    return kind === 'field'
+      ? `z.${object}({ value: ${baseTypeExpr}, meta: ${metadata}${numberText} })`
+      : `z.${object}({ value: ${baseTypeExpr}.optional(), meta: ${metadata}.optional(), reference: z.object({ reference: z.unknown().optional(), scope: z.unknown().optional(), pointsTo: z.unknown().optional() }).optional(), externalReference: z.unknown().optional(), globalReference: z.unknown().optional()${numberText} })`;
+  }
+
   private emitAttribute(attr: Attribute, ownerName: string): string {
-    let baseTypeExpr = this.resolveTypeExpr(attr, ownerName);
-    const kind = this.metadataInputs ? fieldMetadataKind(attr) : undefined;
-    if (kind) {
-      const metadata = 'z.record(z.string(), z.unknown())';
-      const numberText = this.functionInputs ? `, ${inputNumberText}` : '';
-      baseTypeExpr =
-        kind === 'field'
-          ? `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}, meta: ${metadata}${numberText} })`
-          : `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}.optional(), meta: ${metadata}.optional(), reference: z.object({ reference: z.unknown().optional(), scope: z.unknown().optional(), pointsTo: z.unknown().optional() }).optional(), externalReference: z.unknown().optional(), globalReference: z.unknown().optional()${numberText} })`;
-    }
+    const baseTypeExpr = this.wrapMetadataSchema(this.resolveTypeExpr(attr, ownerName), attr);
     const card = attr.card;
     let zodExpr = ZodNamespaceEmitter.applyCardinality(card, baseTypeExpr);
     if (this.metadataInputs && card.inf === 0 && (card.unbounded || (card.sup ?? 1) > 1)) {
@@ -778,6 +781,20 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       : this.ctx.lazyTypes.has(data.name);
   }
 
+  private static narrowedListFields(data: Data, parent: Data): string[] {
+    const lists = new Set(typeFeatures(parent).filter(featureIsMany).map(featureName));
+    return typeFeatures(data)
+      .filter((feature) => !featureIsMany(feature) && lists.has(featureName(feature)))
+      .map(featureName);
+  }
+
+  private shouldInlineDataParent(data: Data, parent: Data): boolean {
+    return (
+      this.isLazyData(parent) ||
+      (data.attributes.length > 0 && ZodNamespaceEmitter.narrowedListFields(data, parent).length > 0)
+    );
+  }
+
   /**
    * Build the base (pre-condition, pre-lazy) schema expression for a Data
    * type's superType chain, at a given attribute-line indentation.
@@ -798,7 +815,8 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    *    unguarded bug for BOTH the single-level and multi-level cases).
    *  - No Choice ancestor, but `data.superType?.ref` is a Data:
    *    `${ParentSchema}.safeExtend({...})`, retaining refinements when
-   *    the child overrides inherited fields.
+   *    the child overrides inherited fields. Inline the ancestry if the
+   *    parent is lazy or an override changes the scalar/array representation.
    *  - No superType: a plain `z.object({...})` body (emitObjectBody).
    *
    * `attrIndent` controls the object-body indentation for own attributes,
@@ -834,33 +852,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         );
       }
 
-      // When the parent is cyclic, `.extend()` cannot be used at all — a
-      // cyclic type's own declaration is `z.lazy(() => ...)` (per
-      // emitTypeSchema's `isLazy` branch above), and `ZodLazy` has no
-      // `.extend()` method, at either the type OR runtime level (confirmed:
-      // `NodeSchema.extend is not a function` at actual runtime, not just a
-      // TS type error — z.lazy() wrapping the WHOLE `.extend(...)` call
-      // still fails, since the call itself is illegal regardless of when it
-      // runs). Fold the parent's own attributes inline into a flat
-      // `z.object({...})` instead — the same technique
-      // `buildRuneExtendChoiceExpr` already uses for the Choice-ancestor
-      // case — so this never needs `.extend()` on the cyclic parent at all.
-      // Each folded attribute still goes through `emitAttribute` →
-      // `resolveTypeExpr`, so a folded attribute that itself references the
-      // cyclic type (e.g. the parent's own self-referencing field) is still
-      // correctly wrapped via `schemaRefExpr`.
-      //
-      // `superRef` may itself extend a FURTHER Data ancestor (e.g.
-      // `Grandparent <- Node <- Special` where `Node` is self-referential)
-      // — folding only `superRef`'s own attributes would silently omit
-      // `Grandparent`'s. `collectDataAncestryChain(superRef)` walks the
-      // full remaining chain (already known Choice-free — `choiceAncestor`
-      // above already ruled that out), so every ancestor's own attributes
-      // are folded in, nearest-declared-first (`data`, then `superRef`,
-      // then each further ancestor) — matching `buildRuneExtendChoiceExpr`'s
-      // own documented "nearest-declared wins" convention.
+      // ZodLazy cannot extend, and safeExtend requires the new field to be
+      // assignable to the inherited one. Rebuild the full shape nearest-first
+      // for Rune overrides that change between array and scalar storage.
       const parentSchema = this.nodeLocal ? `${superRef.name}Codec.node` : `${superRef.name}Schema`;
-      if (this.isLazyData(superRef)) {
+      if (this.shouldInlineDataParent(data, superRef)) {
         const seen = new Set<string>();
         const attrLines = this.functionInputs ? [...inputMetadataFields] : [];
         const ancestors = ZodNamespaceEmitter.collectDataAncestryChain(superRef);
@@ -875,7 +871,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
         const reindented =
           attrIndent === '' ? attrLines.join(',\n') : attrLines.map((a) => `${attrIndent}${a}`).join(',\n');
         const conditions = ancestors
-          .map((ancestor) => this.emitConditionBlock(ancestor))
+          .map((ancestor) => this.emitConditionBlock(ancestor, data))
           .filter(Boolean)
           .join('\n');
         return `z.${this.codecs ? 'looseObject' : 'object'}({\n${reindented}\n})${conditions ? `\n${conditions}` : ''}`;
@@ -1139,18 +1135,29 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * Returns a string like `.refine(...)` or `.superRefine(...)` to be appended
    * to the schema expression. Returns empty string if no conditions.
    */
-  private emitConditionBlock(data: Data): string {
+  private emitConditionBlock(data: Data, child?: Data): string {
     if (this.functionInputs) return '';
     // Filter out conditions that have no expression or are unsupported
     const activeConds = activeConditions(data);
     if (activeConds.length === 0) return '';
 
+    // The inherited expression is linked against its declaring type, so
+    // present any narrowed fields in the ancestor's original list shape.
+    const lists = child ? ZodNamespaceEmitter.narrowedListFields(child, data) : [];
+    const inherited = lists.length
+      ? `  const inherited = { ...data, ${lists.map((key) => `${JSON.stringify(key)}: rune.list(data[${JSON.stringify(key)}])`).join(', ')} };`
+      : undefined;
+
     if (activeConds.length === 1) {
       const cond = activeConds[0]!;
       const condName = cond.name ?? 'Condition';
       const transpilerCtx = this.buildTranspilerContext(data, 'zod-refine', condName);
+      if (inherited) transpilerCtx.selfName = 'inherited';
       const predicate = transpileCondition(cond, transpilerCtx);
       const message = buildConditionMessage(cond, transpilerCtx);
+      if (inherited) {
+        return [`.refine((data) => {`, inherited, `  return ${predicate};`, `}, '${message}')`].join('\n');
+      }
       // Use inline form when the full chained line fits within 100 chars (oxfmt printWidth).
       // The chain is indented 2 spaces in emitTypeSchema, so the full line is:
       //   "  .refine((data) => <pred>, '<msg>');"
@@ -1164,9 +1171,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
 
     // ≥ 2 conditions → single .superRefine() per FR-011
     const lines: string[] = ['.superRefine((data, ctx) => {'];
+    if (inherited) lines.push(inherited);
     for (const cond of activeConds) {
       const condName = cond.name ?? 'Condition';
       const transpilerCtx = this.buildTranspilerContext(data, 'zod-superRefine', condName);
+      if (inherited) transpilerCtx.selfName = 'inherited';
       const body = transpileCondition(cond, transpilerCtx);
       // Indent each line of the body by 2 spaces.
       // emitTypeSchema will then add 2 more via condIndented = total 4 spaces.

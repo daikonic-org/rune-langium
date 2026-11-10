@@ -150,7 +150,12 @@ test('opens checked public starter source as an editable copy with examples and 
           }))
         }
       });
-    const blob = blobs.get(url.split('/').pop()!);
+    throw new Error('Unexpected source metadata request');
+  });
+  await page.route(`https://raw.githubusercontent.com/fixture/starter/${commit}/**`, (route) => {
+    expect(route.request().headers()).not.toHaveProperty('authorization');
+    const path = new URL(route.request().url()).pathname.split('/').slice(4).join('/');
+    const blob = [...blobs.values()].find((file) => file.path === path);
     if (!blob) throw new Error('Unexpected source request');
     return route.fulfill({ body: blob.text, contentType: 'text/plain' });
   });

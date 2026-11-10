@@ -17,6 +17,8 @@ import { AstUtils, type LangiumDocument } from 'langium';
 import {
   getEnumValueLiteral,
   getEnumValues,
+  getElementNamespace,
+  CODE_LIST_ENUM_NAMESPACE,
   isChoice,
   isData,
   isRosettaEnumeration,
@@ -1845,7 +1847,16 @@ function createPreviewValueAdapter(
       typeIndex,
       {
         onPrimitive: () => value,
-        onEnum: () => value,
+        onEnum: (enumeration) => {
+          if (typeof value !== 'string' || getElementNamespace(enumeration) === CODE_LIST_ENUM_NAMESPACE) return value;
+          const members = getEnumValues(enumeration);
+          const aliases = members.filter((member) => member.display === value);
+          // Upstream Rune JSON may use the display name. Prefer exact
+          // canonical values, and let validation reject ambiguous aliases.
+          return aliases.length === 1 && !members.some((member) => getEnumValueLiteral(member) === value)
+            ? getEnumValueLiteral(aliases[0]!)
+            : value;
+        },
         onData: (node) => normalizeNode(node, value, path),
         onChoice: (node) => normalizeNode(node, value, path),
         onUnresolved: (name) => {

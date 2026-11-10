@@ -98,6 +98,9 @@ it('checks the exact public source bytes, refuses truncated trees and keeps auth
   const result = await readStarterSource(starter, new AbortController().signal, fetcher);
   expect(result.commit).toBe(commit);
   expect(result.files.get('model/example.rosetta')).toContain('type Money');
+  expect(fetcher.mock.calls[2]?.[0]).toBe(
+    `https://raw.githubusercontent.com/${starter.repository}/${commit}/model/example.rosetta`
+  );
   for (const [, options] of fetcher.mock.calls) {
     expect(options.credentials).toBe('omit');
     expect(options.headers).not.toHaveProperty('Authorization');
@@ -116,6 +119,6 @@ it('checks the exact public source bytes, refuses truncated trees and keeps auth
         tree: [{ path: 'model/example.rosetta', type: 'blob', mode: '100644', sha: hash, size: bytes.length }]
       })
     )
-    .mockResolvedValueOnce(new Response('changed'));
-  await expect(readStarterSource(starter, new AbortController().signal, corrupted)).rejects.toThrow(/checksum|size/i);
+    .mockResolvedValueOnce(new Response(new Uint8Array(bytes.length)));
+  await expect(readStarterSource(starter, new AbortController().signal, corrupted)).rejects.toThrow(/checksum/i);
 });

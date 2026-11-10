@@ -2384,6 +2384,23 @@ type Trade:
   );
 });
 
+it('normalizes unique enum display names from saved Rune data without replacing canonical values', async () => {
+  const doc = await parseModel(`namespace imported
+enum BaseRoll:
+  _6 displayName "6"
+  Unknown displayName "shared"
+enum Roll extends BaseRoll:
+  EOM
+  EndOfMonth displayName "EOM"
+  Other displayName "shared"
+type Schedule:
+  roll Roll (1..1)`);
+  const adapt = (roll: string) => adaptPreviewData([doc], 'imported.Schedule', { roll }).data;
+  expect(adapt('6')).toEqual({ roll: '_6' });
+  expect(adapt('EOM')).toEqual({ roll: 'EOM' });
+  expect(adapt('shared')).toEqual({ roll: 'shared' });
+});
+
 it('preserves declared field identity through metadata and deferred nested bodies', () => {
   const field: PreviewField = {
     kind: 'object',

@@ -239,6 +239,38 @@ describe('explicit project builds', () => {
     expect(content).toContain('Money');
     expect(content).toContain('Trade');
   });
+  it('includes linked standard library calls in a scoped TypeScript build', async () => {
+    const { root, snapshot, adapter } = await setup(
+      {
+        targets: {
+          ts: {
+            generator: 'typescript',
+            output: 'generated/ts',
+            namespaces: ['example'],
+            options: { layout: 'single-file', decorators: false }
+          }
+        }
+      },
+      `namespace example
+func CheckLeapYear:
+  inputs: year number (1..1)
+  output: result boolean (1..1)
+  set result: IsLeapYear(Min(year, 2024))
+`
+    );
+    const result = await buildProject(snapshot, { targets: ['ts'] }, adapter);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.status).toBe('success');
+    const source = (await readFile(join(root, 'generated/ts/model.ts'), 'utf8')).replaceAll(
+      "'@js-temporal/polyfill'",
+      JSON.stringify(import.meta.resolve('@js-temporal/polyfill'))
+    );
+    const path = join(root, 'generated/ts/model.mjs');
+    await writeFile(path, stripTypeScriptTypes(source, { mode: 'strip' }));
+    const emitted = await import(/* @vite-ignore */ pathToFileURL(path).href);
+    expect(emitted.CheckLeapYear(2023)).toBe(false);
+    expect(emitted.CheckLeapYear(2025)).toBe(true);
+  });
   it('rejects output symlinks that escape the project', async () => {
     const { root, parent, snapshot, adapter } = await setup();
     const outside = join(parent, 'outside');
