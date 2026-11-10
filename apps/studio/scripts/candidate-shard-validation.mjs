@@ -88,6 +88,9 @@ export function validateCandidateShards({
     throw new Error('Candidate shard count must be a positive integer.');
   if (![expectedHeadSha, expectedRunId, expectedRunAttempt].every((value) => String(value ?? '').length > 0))
     throw new Error('Candidate validation requires expected head, run and attempt identities.');
+  const latestAttempt = Number(expectedRunAttempt);
+  if (!Number.isSafeInteger(latestAttempt) || latestAttempt < 1)
+    throw new Error('Candidate run attempt must be a positive integer.');
   const errors = [];
   if (candidateJobResult !== 'success')
     errors.push(`candidate shard matrix concluded ${candidateJobResult ?? 'with no result'}`);
@@ -112,8 +115,11 @@ export function validateCandidateShards({
       errors.push(`shard ${meta.shard} head ${meta.headSha} does not match ${expectedHeadSha}`);
     if (String(meta.runId) !== String(expectedRunId))
       errors.push(`shard ${meta.shard} belongs to run ${meta.runId}, expected ${expectedRunId}`);
-    if (String(meta.runAttempt) !== String(expectedRunAttempt))
-      errors.push(`shard ${meta.shard} belongs to attempt ${meta.runAttempt}, expected ${expectedRunAttempt}`);
+    // GitHub reuses successful jobs during a failed-job rerun. The downloader
+    // supplies the latest artifact for each stable shard name in this run.
+    const attempt = Number(meta.runAttempt);
+    if (!/^[1-9]\d*$/.test(String(meta.runAttempt)) || attempt > latestAttempt)
+      errors.push(`shard ${meta.shard} belongs to attempt ${meta.runAttempt}, expected 1 through ${latestAttempt}`);
     if (meta.testOutcome !== 'success')
       errors.push(`shard ${meta.shard} test step concluded ${meta.testOutcome ?? 'without a result'}`);
     if (meta.redactionOutcome !== 'success')
@@ -196,6 +202,7 @@ export function validateCandidateShards({
     journeys: journeys.length,
     manifest: {
       runId: `candidate-${expectedRunId}-${expectedRunAttempt}`,
+      shardAttempts: Object.fromEntries(orderedShards.map(({ meta }) => [meta.shard, Number(meta.runAttempt)])),
       journeys,
       timings: buildTimingsRollup(journeys.map((journey) => ({ opLog: journey.opLog ?? [] })))
     }
