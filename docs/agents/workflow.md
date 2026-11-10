@@ -86,8 +86,11 @@ The pre-merge candidate UX suite runs on four `ubuntu-latest` jobs with one
 Playwright worker per runner. Each shard lists the full candidate plan, writes
 its own manifest/reports/traces, and sanitizes its evidence before upload. The
 aggregate gate requires every planned test exactly once, every required journey
-record (64 on the current suite) with a clean first-attempt verdict and budgets, matching run/head identity,
-and successful redaction for every shard. The stable `studio-ux-candidate`
+record (64 on the current suite) with a clean first-attempt verdict and budgets,
+matching run/head identity, and successful redaction for every shard. On a
+failed-job rerun, GitHub reuses successful jobs. The downloader selects the
+latest artifact by shard name within the run, and the aggregate manifest
+records the attempt that produced each shard. The stable `studio-ux-candidate`
 artifact keeps the original shard evidence and adds a combined Playwright JSON
 report, browsable HTML report, and a root `report/run-manifest.json`. The ordinary
 local `test:ux-candidate` command remains unsharded and retains its full-suite
