@@ -31,10 +31,16 @@ const cases: Case[] = JSON.parse(readFileSync(resolve(directory, 'cases.json'), 
 let docs: LangiumDocument[];
 beforeAll(async () => {
   const { RuneDsl } = createRuneDslServices();
-  docs = [
-    ...referenceFiles(directory),
-    ...publishedRuneFiles('cdm.base.datetime', ['DateDifference', 'LeapYearDateDifference'])
-  ].map((file) => RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(file.content, URI.parse(file.uri)));
+  const files = new Map(
+    [
+      ...referenceFiles(directory),
+      ...publishedRuneFiles('cdm.base.datetime.daycount', ['DayCountBasis', 'YearFraction']),
+      ...publishedRuneFiles('cdm.base.datetime', ['DateDifference', 'LeapYearDateDifference'])
+    ].map((file) => [file.uri, file.content])
+  );
+  docs = [...files].map(([uri, content]) =>
+    RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(content, URI.parse(uri))
+  );
   for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { eagerLinking: true });
   assertValidDocuments(docs);
@@ -50,7 +56,7 @@ const args = (test: Case) =>
         test.periodsInYear
       ];
 
-it('covers every pinned selector body and verifies the preserved handwritten Java reference bytes', () => {
+it('covers every upstream and installed selector and verifies the preserved handwritten Java reference bytes', () => {
   for (const name of ['DayCountBasis', 'YearFraction']) {
     const selectors = docs
       .flatMap((doc) =>

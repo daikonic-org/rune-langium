@@ -138,11 +138,6 @@ export function runeFeasibilityIndex(assessment, sources) {
       !entry.requirements.trim() ||
       (entry.route === 'rune-source') !== (entry.implementation !== undefined) ||
       (entry.implementation !== undefined && !files.has(entry.implementation)) ||
-      (entry.implementationDispatch !== undefined &&
-        (!entry.implementation ||
-          !Array.isArray(entry.implementationDispatch) ||
-          entry.implementationDispatch.length !== 3 ||
-          !entry.implementationDispatch.every((part) => typeof part === 'string' && part.length > 0))) ||
       (entry.javaDependencies !== undefined &&
         (!Array.isArray(entry.javaDependencies) ||
           entry.javaDependencies.some(
@@ -194,9 +189,11 @@ export function renderNativeImplementationInventory(inventory) {
     const link = `https://github.com/${source.repository}/blob/${source.commit}/${entry.source.path}`;
     validateCatalogImplementation(entry.implementation);
     const implementation = entry.implementation;
+    const workspaceOrigin =
+      entry.rune.implementationDispatch?.upstream === 'absent' ? 'added selectors' : 'explicit override';
     const selected =
       implementation.kind === 'rune'
-        ? `Rune: \`${escape(implementation.path)}\`${implementation.origin === 'workspace' ? ' (explicit override)' : ''}`
+        ? `Rune: \`${escape(implementation.path)}\`${implementation.origin === 'workspace' ? ` (${workspaceOrigin})` : ''}`
         : implementation.kind === 'language-specific'
           ? Object.entries(implementation.targets)
               .map(([language, target]) => `${language}: \`${escape(target.path)}#${escape(target.entrypoint)}\``)

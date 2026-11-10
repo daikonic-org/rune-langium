@@ -79,6 +79,10 @@ export async function createReferenceArtifacts(
     const sourceFiles = sourcesByModel.get(id) ?? [
       { path: 'model.rosetta', content: `namespace ${id.replace('-', '_')}\ntype Example:\n name string (1..1)` }
     ];
+    const sourceModels = sourceFiles.flatMap(({ path }) => {
+      const model = parsedModels.get(`${id}/${path}`);
+      return model ? [model] : [];
+    });
     const documents = [];
     for (const { path, content } of sourceFiles) {
       const key = `${id}/${path}`;
@@ -90,7 +94,7 @@ export async function createReferenceArtifacts(
           parsedModels.get(key)!,
           modelJson,
           { model: id, commit },
-          { codeLists }
+          { codeLists, sourceModels }
         );
       }
       documents.push({ path, content, modelJson });

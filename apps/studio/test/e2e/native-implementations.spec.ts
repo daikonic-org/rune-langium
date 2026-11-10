@@ -23,6 +23,7 @@ import { roundingDirectory, roundingCaller } from '../../../../test/helpers/cdm-
 import { vectorDirectory, vectorCaller } from '../../../../test/helpers/cdm-vectors.js';
 import { periodRangeDirectory, periodRangeCaller } from '../../../../test/helpers/cdm-period-range.js';
 import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-calendar.js';
+import { dayCountCaller, dayCountDirectory } from '../../../../test/helpers/cdm-day-count.js';
 import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
 import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
 import { billingCaller, createCuratedBillingProject } from '../../../../test/helpers/cdm-billing-summary.js';
@@ -81,6 +82,24 @@ async function openPublishedImplementationProject(
   await page.getByTestId('rail-prototype').click();
   return project;
 }
+
+for (const width of [1440, 390])
+  test(`executes published AFB year fractions at ${width}px`, async ({ page }) => {
+    await openPublishedImplementationProject(
+      page,
+      await createCuratedRuneProject(dayCountDirectory, dayCountCaller),
+      dayCountCaller,
+      width
+    );
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: 'AfbAccrual — example.daycount', exact: true }).click();
+    await page.getByLabel('Start Date', { exact: true }).fill('2024-02-29');
+    await page.getByLabel('End Date', { exact: true }).fill('2025-02-28');
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(page.getByRole('region', { name: 'fraction output' })).toContainText('0.9972677595');
+  });
 
 for (const width of [1440, 390])
   test(`executes calendar implementations delivered with the curated bundle at ${width}px`, async ({ page }, info) => {

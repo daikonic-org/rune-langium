@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace cdm.base.datetime.daycount
+version "1.0.0"
+
+import com.opengamma.strata.basics.date.ActualActualAfb
+
+func YearFraction(dayCountFractionEnum: DayCountFractionEnum -> ACT_ACT_AFB):
+    set result: ActualActualAfb(startDate, endDate)

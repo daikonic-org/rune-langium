@@ -15,9 +15,9 @@ no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **15
 language-specific implementations per target**. Thirty-four catalog entries use
-Rune, including thirty-one installed overrides and three families implemented
-solely by upstream dispatch bodies. Selector coverage
-is measured separately. The audit parses and links
+Rune, including thirty-three entries with installed sources and one family
+implemented solely by upstream dispatch bodies. Selector coverage is measured
+separately. The audit parses and links
 189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
 
@@ -84,11 +84,13 @@ Existing Rune dispatch families such as `DayCountBasis`, `YearFraction`,
 `ComputeCalculationPeriod` and `ProcessFloatingRateReset` must retain their upstream
 bodies. Selector coverage and transitive dependencies need their own evidence.
 The pinned
-[day-count closure](../../test/fixtures/third-party/cdm-dispatch/README.md) now
-executes all 9 and 11 existing selector bodies respectively, in strict TypeScript
-under all three layouts and standalone Python. Missing defaults/selectors stay
-unavailable. These source regressions preserve documented upstream quirks and do
-not establish financial-standard or complete handwritten-Java parity.
+[day-count closure](../../test/fixtures/third-party/cdm-dispatch/README.md)
+executes all 9 upstream `DayCountBasis` and 11 upstream `YearFraction` bodies
+in strict TypeScript under all three layouts and standalone Python. Curated
+sources add four basis selectors and the Strata 1.7.0 Actual/Actual AFB year
+fraction. RBA Bond Basis has no constant basis. The ISMA and RBA year fractions
+require coupon schedule context absent from the CDM signature. The fixtures
+retain the documented behavior of existing upstream selectors.
 
 The [calculation-period closure](calculation-periods.md) also exercises all three
 `ComputeCalculationPeriod` bodies with explicit finite test calendars in strict
@@ -225,7 +227,7 @@ calendar coverage and data-provider availability are tracked separately.
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Calendars and schedules | Calendar sources for the remaining business centers and broader `ComputeCalculationPeriod` calendar coverage |
-| Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
+| Day counts and decimal mathematics | Schedule-aware ISMA and RBA year fractions, day-count parity, and wider decimal representation |
 | Market/reference data | Project-supplied reset records, dated forward curves and versioned identities for the installed Rune bodies |
 
 Several functions require integrations that cannot be inferred from their input

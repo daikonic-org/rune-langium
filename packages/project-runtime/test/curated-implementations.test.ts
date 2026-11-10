@@ -7,11 +7,15 @@ import { FunctionImplementationSchema, ImplementationSourcePackSchema } from '@r
 import { createProjectSnapshot, createProjectDraftSnapshot, projectFileRevision } from '@rune-langium/project-config';
 import { generate, resolveNativeImplementation } from '@rune-langium/codegen/export';
 import { cdmRuneReferenceDocuments } from '../../../test/helpers/cdm-rune-implementations.js';
+import { dayCountCaller, dayCountDirectory } from '../../../test/helpers/cdm-day-count.js';
+import { createCuratedRuneProject } from '../../../test/helpers/curated-rune-project.js';
+import { referenceModelSources } from '../../codegen/test/helpers/cdm-reference.js';
 import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../test/helpers/vitest-budget.js';
 import { compileGeneratedTypeScript } from '../../codegen/test/helpers/compiled-typescript.js';
 import { buildEffectiveProject } from '../src/effective-project.js';
 import { projectReferenceUri } from '../src/project-uri.js';
 import { publishCuratedImplementations } from '../src/curated-implementations/publication.js';
+import { selectCdmImplementation } from '../src/curated-implementations/cdm.js';
 import {
   prepareCuratedImplementationSources,
   IMPLEMENTATION_SOURCE_PROVENANCE
@@ -61,6 +65,51 @@ beforeAll(async () => {
     })
   );
 });
+it(
+  'installs day-count additions while retaining the original upstream dispatch',
+  async () => {
+    const project = await createCuratedRuneProject(dayCountDirectory, dayCountCaller);
+    expect(project.changes.has('model/implementations/cdm/day-count-basis.rosetta')).toBe(true);
+    expect(project.changes.has('model/implementations/cdm/year-fraction.rosetta')).toBe(true);
+    expect(project.changes.has('model/implementations/cdm/strata-LICENSE.txt')).toBe(true);
+    const graph = await buildEffectiveProject(project.installed, project.references);
+    expect(graph.diagnostics).toEqual([]);
+    const outputs = await generate([...graph.documents], {
+      target: 'typescript',
+      typescript: { layout: 'single-file' }
+    });
+    expect(outputs.flatMap((output) => output.diagnostics).filter((issue) => issue.severity === 'error')).toEqual([]);
+    const module = compileGeneratedTypeScript(outputs);
+    const basis = outputs.flatMap((output) => output.funcs).find((fn) => fn.name === 'DayCountBasis')!;
+    expect(module[basis.exportName!]!('ACT_364')).toBe(364);
+    expect(module[basis.exportName!]!('ACT_360')).toBe(360);
+    expect(() => module[basis.exportName!]!('RBA_BOND_BASIS')).toThrow(/not_implemented/);
+  },
+  GENERATED_MODULE_TEST_TIMEOUT
+);
+
+it('leaves a selector in another upstream file to its author', async () => {
+  const sources = Object.entries(referenceModelSources(dayCountDirectory)).flatMap(([model, documents]) =>
+    documents.map(({ path, content }) => ({ uri: `${model}/${path}`, content }))
+  );
+  sources.push({
+    uri: 'cdm/day-count-addition.rosetta',
+    content: `namespace cdm.base.datetime.daycount
+func DayCountBasis(dcf: DayCountFractionEnum -> ACT_364):
+    set basis: 364
+`
+  });
+  const snapshot = await createProjectSnapshot('new-upstream-selector', files, () => []);
+  const graph = await buildEffectiveProject(snapshot, sources);
+  expect(graph.diagnostics).toEqual([]);
+  const sourceModels = graph.documents.map((document) => document.parseResult.value).filter(isRosettaModel);
+  const base = sourceModels.flatMap((model) => model.elements.filter(isRosettaFunction));
+  const basis = base.find((fn) => fn.name === 'DayCountBasis' && !fn.dispatchAttribute)!;
+  const fraction = base.find((fn) => fn.name === 'YearFraction' && !fn.dispatchAttribute)!;
+  expect(await selectCdmImplementation(basis, { sourceModels })).toBeUndefined();
+  expect(await selectCdmImplementation(fraction, { sourceModels })).toMatchObject({ kind: 'rune' });
+});
+
 const apply = async (
   snapshot: Awaited<ReturnType<typeof createProjectSnapshot>>,
   changes: ReadonlyMap<string, string | null>

@@ -32,6 +32,7 @@
     "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/day-count-basis.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/equity-settlement-inputs.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/evaluate-portfolio-state.rosetta",
@@ -62,6 +63,7 @@
     "packages/project-runtime/src/curated-implementations/rune/resolve-reset.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/rune-math.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-day-counts.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-calendar.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
@@ -72,7 +74,8 @@
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/time-zone-from-business-center-time.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/valuation-times.rosetta",
-    "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta"
+    "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/year-fraction.rosetta"
   ],
   "functions": [
     {
@@ -248,8 +251,9 @@
         "name": "DayCountBasis"
       },
       "signatureSha256": "d4825945990395f3462abb5aa36ecb0d0542f3b6a859e3566b30a6380781fd5a",
-      "route": "upstream-variants",
-      "requirements": "Nine preserved upstream selectors execute in strict TypeScript layouts and Python. Five enum values still require an unavailable default."
+      "route": "rune-source",
+      "requirements": "Preserve nine upstream branches and add ACT/364, 1/1, 30E/360.ISDA and the nominal 365 basis for ACT/ACT.ISMA, consistent with ICMA. RBA Bond Basis has no schedule-independent denominator.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/day-count-basis.rosetta"
     },
     {
       "symbol": {
@@ -259,8 +263,9 @@
         "name": "YearFraction"
       },
       "signatureSha256": "4faee30755cd3528b774f662507c18a1a18ff3daa7271ac8bb4e69fd2ef625a9",
-      "route": "upstream-variants",
-      "requirements": "Eleven preserved upstream selectors and date-helper closure execute in TypeScript and Python. Three enum values lack defaults; documented formula quirks remain unchanged."
+      "route": "rune-source",
+      "requirements": "Preserve eleven upstream branches and add ACT/ACT.AFB from Strata 1.7.0 relativeYearFraction. ACT/ACT.ISMA needs reference coupon periods; RBA Bond Basis needs the regular frequency and first/final stub context.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/year-fraction.rosetta"
     },
     {
       "symbol": {
@@ -623,8 +628,7 @@
       "signatureSha256": "71b60e3b112027ce69e1a59d2b354c86f6cbc6e17430918164f3384eb8788798",
       "route": "rune-source",
       "requirements": "Four preserved upstream selectors plus an owned CompoundIndex selector. The added branch reuses the original index formula with observations at the adjusted period endpoints. RefBanks requires a separate manual determination.",
-      "implementation": "packages/project-runtime/src/curated-implementations/rune/process-compound-index-reset.rosetta",
-      "implementationDispatch": ["processingType", "FloatingRateIndexProcessingTypeEnum", "CompoundIndex"]
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/process-compound-index-reset.rosetta"
     },
     {
       "symbol": {

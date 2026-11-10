@@ -176,6 +176,10 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
     if (!document) throw new Error(`Missing parsed document: ${file.path}`);
     return { file, document };
   });
+  const sourceModels =
+    source.id === 'cdm'
+      ? documents.map(({ document }) => document.parseResult.value).filter(isRosettaModel)
+      : undefined;
   const enumSources = codeLists ? curatedCdmCodeListSources(codeLists, source.commit) : [];
   if (enumSources.length) {
     const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
@@ -230,7 +234,7 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
           model,
           serializeRuneModel(serializer, model),
           { model: source.id, commit: source.commit },
-          { codeLists, fpmlHashLayout }
+          { codeLists, fpmlHashLayout, sourceModels }
         );
         return {
           path: file.path,
