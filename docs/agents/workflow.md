@@ -10,7 +10,9 @@ Root `tsconfig.json` owns the ESNext target; active workspace packages inherit i
 Explicit standard-library lists also use ESNext, retaining each host's DOM/worker
 types. Studio's Vite bundle and generated/projection TypeScript checks target
 ESNext as well. The generated-module test compiler loads only the ESNext standard
-library, avoiding browser-library work in strict server-module checks.
+library, avoiding browser-library work in strict server-module checks. The
+billing fixture uses the workspace TypeScript compiler for strict ESNext
+diagnostics on its large closure and the same runtime transpilation path.
 Generated-module oracle tests reuse `generatedTypeScriptCompilerOptions` from
 codegen's `test/helpers/compiled-typescript.ts`; NodeNext checks retain their module
 resolution settings. This keeps strict diagnostics while avoiding default DOM

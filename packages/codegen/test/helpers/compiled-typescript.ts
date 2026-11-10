@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import ts from 'typescript-classic';
 import { expect } from 'vitest';
 import type { GeneratorOutput } from '../../src/types.js';
@@ -36,12 +37,44 @@ export function transpileGeneratedTypeScript(source: string, module = ts.ModuleK
   }).outputText;
 }
 
+/** Use the workspace compiler for strict checks of large generated dependency closures. */
+function checkWithWorkspaceCompiler(directory: string, files: readonly string[], options: ts.CompilerOptions): void {
+  const config = join(directory, 'tsconfig.json');
+  const { strict, skipLibCheck, types, erasableSyntaxOnly } = options;
+  writeFileSync(
+    config,
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ESNext',
+        module: 'Node16',
+        lib: ['ESNext'],
+        strict,
+        skipLibCheck,
+        types,
+        erasableSyntaxOnly,
+        noEmit: true
+      },
+      files
+    })
+  );
+  const compilerPackage = createRequire(import.meta.url).resolve('typescript/package.json');
+  const compiler = join(dirname(compilerPackage), 'bin', 'tsc');
+  const result = spawnSync(process.execPath, [compiler, '-p', config], { encoding: 'utf8' });
+  if (result.error) throw result.error;
+  expect(result.status, result.stdout + result.stderr).toBe(0);
+}
+
 /** Compile the emitted file set and let Node resolve its actual module imports. */
 export function compileGeneratedTypeScript<
   T extends Record<string, unknown> = Record<string, (...args: unknown[]) => unknown>
 >(
   outputs: readonly GeneratorOutput[],
-  options: { assertions?: string; entry?: string; checkTypes?: boolean; erasableSyntaxOnly?: boolean } = {}
+  options: {
+    assertions?: string;
+    entry?: string;
+    checkTypes?: boolean | 'workspace';
+    erasableSyntaxOnly?: boolean;
+  } = {}
 ): T {
   const directory = generatedDirectory(join(tmpdir(), 'rune-generated-ts-'));
   const entry = options.entry ?? outputs[0]!.relativePath;
@@ -57,7 +90,13 @@ export function compileGeneratedTypeScript<
       writeFileSync(path, output.content + (output.relativePath === entry ? '\n' + (options.assertions ?? '') : ''));
       writeFileSync(path.replace(/\.ts$/, '.js'), transpileGeneratedTypeScript(output.content));
     }
-    if (options.checkTypes !== false) {
+    if (options.checkTypes === 'workspace') {
+      checkWithWorkspaceCompiler(
+        directory,
+        outputs.map((output) => output.relativePath),
+        compilerOptions
+      );
+    } else if (options.checkTypes !== false) {
       const program = ts.createProgram(
         outputs.map((output) => join(directory, output.relativePath)),
         compilerOptions
