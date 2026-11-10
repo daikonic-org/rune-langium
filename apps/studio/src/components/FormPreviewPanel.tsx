@@ -372,7 +372,6 @@ export const FormPreviewPanel = withInstrumentation(
         if (!schema || !activeSample) return;
         const segments = pathToSegments(field.path, arrayIndices);
         const current = getValueAtPath(activeSample.values, segments);
-        const items = Array.isArray(current) ? [...current] : [];
         if (field.kind !== 'array') {
           return;
         }
@@ -380,8 +379,12 @@ export const FormPreviewPanel = withInstrumentation(
         if (!child) {
           return;
         }
-        items.push(buildDefaultValue(child));
-        const nextValues = setValueAtPath(activeSample.values, segments, items) as Record<string, unknown>;
+        const index = Array.isArray(current) ? current.length : 0;
+        const nextValues = setValueAtPath(
+          activeSample.values,
+          [...segments, index],
+          buildDefaultValue(child)
+        ) as Record<string, unknown>;
         applyValidation(nextValues, true);
       },
       [activeSample, applyValidation, schema]
@@ -392,8 +395,7 @@ export const FormPreviewPanel = withInstrumentation(
         if (!schema || !activeSample) return;
         const segments = pathToSegments(field.path, arrayIndices);
         const current = getValueAtPath(activeSample.values, segments);
-        const items = Array.isArray(current) ? [...current] : [];
-        items.splice(index, 1);
+        if (!Array.isArray(current) || index < 0 || index >= current.length) return;
         const arrayPath = formatFieldPath(field.path, arrayIndices);
         setDetailState((current) => {
           const affected = current.stack.findIndex((entry) => {
@@ -403,7 +405,7 @@ export const FormPreviewPanel = withInstrumentation(
           });
           return affected < 0 ? current : { ...current, stack: current.stack.slice(0, affected) };
         });
-        const nextValues = setValueAtPath(activeSample.values, segments, items) as Record<string, unknown>;
+        const nextValues = removeValueAtPath(activeSample.values, [...segments, index]) as Record<string, unknown>;
         applyValidation(nextValues, true);
       },
       [activeSample, applyValidation, schema]
@@ -1632,14 +1634,15 @@ function setValueAtPath(value: unknown, segments: Array<string | number>, nextVa
   }
 
   if (typeof head === 'number') {
-    const array = Array.isArray(value) ? [...value] : [];
+    const array = Array.isArray(value) ? Object.assign([...value], value) : [];
+    clearJsonNumberText(array, segments);
     array[head] = setValueAtPath(array[head], rest, nextValue);
     return array;
   }
 
   const record =
     value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
-  clearJsonNumberText(record, head);
+  clearJsonNumberText(record, segments);
   record[head] = setValueAtPath(record[head], rest, nextValue);
   return record;
 }
@@ -1655,7 +1658,8 @@ function removeValueAtPath(value: unknown, segments: Array<string | number>): un
 
   if (typeof head === 'number') {
     if (!Array.isArray(value)) return value;
-    const next = [...value];
+    const next = Object.assign([...value], value);
+    clearJsonNumberText(next, segments, true);
     if (rest.length === 0) {
       next.splice(head, 1);
       return next;
@@ -1668,7 +1672,7 @@ function removeValueAtPath(value: unknown, segments: Array<string | number>): un
     return value;
   }
   const record = { ...(value as Record<string, unknown>) };
-  clearJsonNumberText(record, head);
+  clearJsonNumberText(record, segments, true);
   if (rest.length === 0) {
     delete record[head];
     return record;

@@ -666,7 +666,8 @@ def rune_value_key(value):
         return ("string", rune_string_key(value))
     if isinstance(value, list):
         return ("array", tuple(rune_value_key(item) for item in value))
-    return ("object", tuple((key, rune_value_key(value[key])) for key in sorted(value) if value[key] is not None))
+    return ("object", tuple((key, rune_value_key(value[key])) for key in sorted(value)
+                            if key != "@numberText" and value[key] is not None))
 
 
 def rune_divide(left, right):

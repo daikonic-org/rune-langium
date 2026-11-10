@@ -13,7 +13,7 @@ const references = {
   '@ref:external': 'externalReference'
 } as const;
 const own = (value: object, key: PropertyKey) => Object.prototype.hasOwnProperty.call(value, key);
-const numberTextField = '@numberText';
+export const RUNE_JSON_NUMBER_TEXT_FIELD = '@numberText';
 const jsonNumberPattern = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$/;
 function rawJsonText(value: unknown): string | undefined {
   if (
@@ -68,8 +68,9 @@ export function retainJsonNumberText(input: unknown): unknown {
     if (Array.isArray(value)) {
       return { value: entries.map(([, item]) => item), ...(text.length ? { text: Object.fromEntries(text) } : {}) };
     }
-    if (text.length && own(value, numberTextField)) throw new Error('Exact JSON number metadata conflicts with input.');
-    if (text.length) entries.push([numberTextField, Object.fromEntries(text)]);
+    if (text.length && own(value, RUNE_JSON_NUMBER_TEXT_FIELD))
+      throw new Error('Exact JSON number metadata conflicts with input.');
+    if (text.length) entries.push([RUNE_JSON_NUMBER_TEXT_FIELD, Object.fromEntries(text)]);
     const result = Object.fromEntries(entries);
     const kind = encodingKinds.get(value);
     return { value: kind ? withRuneJsonEncoding(result, kind) : result };
@@ -78,17 +79,56 @@ export function retainJsonNumberText(input: unknown): unknown {
   if (typeof captured.text === 'string')
     throw new TypeError('Exact JSON number text requires a containing object or array.');
   if (Array.isArray(captured.value) && captured.text !== undefined)
-    Object.defineProperty(captured.value, numberTextField, { value: captured.text, enumerable: true });
+    Object.defineProperty(captured.value, RUNE_JSON_NUMBER_TEXT_FIELD, {
+      value: captured.text,
+      enumerable: true,
+      writable: true,
+      configurable: true
+    });
   return captured.value;
 }
 
-/** Assignments replace a field's lexical provenance along with its value. */
-export function clearJsonNumberText(value: object, key: string): void {
-  const text: unknown = own(value, numberTextField) ? Reflect.get(value, numberTextField) : undefined;
-  if (!plainJsonRecord(text) || !own(text, key)) return;
-  const remaining = Object.entries(text).filter(([field]) => field !== key);
-  if (remaining.length) Reflect.set(value, numberTextField, Object.fromEntries(remaining));
-  else Reflect.deleteProperty(value, numberTextField);
+/** Invalidate a replaced value's text and shift surviving tokens after array removal. */
+export function clearJsonNumberText(
+  value: object,
+  path: string | readonly (string | number)[],
+  removeIndex = false
+): void {
+  const text: unknown = own(value, RUNE_JSON_NUMBER_TEXT_FIELD)
+    ? Reflect.get(value, RUNE_JSON_NUMBER_TEXT_FIELD)
+    : undefined;
+  if (!plainJsonRecord(text)) return;
+  const edit = (
+    tokens: Record<string, unknown>,
+    [field, ...rest]: readonly (string | number)[]
+  ): Record<string, unknown> => {
+    if (field === undefined) return tokens;
+    const key = String(field);
+    if (rest.length) {
+      const child = own(tokens, key) ? tokens[key] : undefined;
+      if (!plainJsonRecord(child)) return tokens;
+      const updated = edit(child, rest);
+      if (updated === child) return tokens;
+      const remaining = { ...tokens, [key]: updated };
+      if (!Object.keys(updated).length) Reflect.deleteProperty(remaining, key);
+      return remaining;
+    }
+    const shift = removeIndex && typeof field === 'number';
+    if (!shift && !own(tokens, key)) return tokens;
+    return Object.fromEntries(
+      Object.entries(tokens)
+        .filter(([name]) => name !== key)
+        .map(([name, token]) => {
+          const index = Number(name);
+          const moved = shift && Number.isSafeInteger(index) && String(index) === name && index > field;
+          return [moved ? String(index - 1) : name, token];
+        })
+    );
+  };
+  const remaining = edit(text, typeof path === 'string' ? [path] : path);
+  if (remaining === text) return;
+  if (Object.keys(remaining).length) Reflect.set(value, RUNE_JSON_NUMBER_TEXT_FIELD, remaining);
+  else Reflect.deleteProperty(value, RUNE_JSON_NUMBER_TEXT_FIELD);
 }
 
 /** Emit original tokens only when the associated number is still current. */
@@ -106,12 +146,14 @@ export function restoreJsonNumberText(input: unknown): unknown {
     if (active.has(value)) throw new TypeError('Cannot serialize a cyclic JSON value');
     active.add(value);
     try {
-      const ownText: unknown = own(value, numberTextField) ? Reflect.get(value, numberTextField) : hint;
+      const ownText: unknown = own(value, RUNE_JSON_NUMBER_TEXT_FIELD)
+        ? Reflect.get(value, RUNE_JSON_NUMBER_TEXT_FIELD)
+        : hint;
       const fieldText = (key: string) => (plainJsonRecord(ownText) && own(ownText, key) ? ownText[key] : undefined);
       if (Array.isArray(value)) return value.map((child, index) => restore(child, fieldText(String(index))));
       const result = Object.fromEntries(
         Object.entries(value)
-          .filter(([key]) => key !== numberTextField)
+          .filter(([key]) => key !== RUNE_JSON_NUMBER_TEXT_FIELD)
           .map(([key, child]) => [key, restore(child, fieldText(key))])
       );
       const kind = encodingKinds.get(value);

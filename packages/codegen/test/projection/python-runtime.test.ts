@@ -34,6 +34,10 @@ const cases = [
   ['rune.compare([1, 3], [2], lambda a, b: a < b, "all")', 'rune.compare([1, 3], [2], (a, b) => a < b, "all")'],
   ['rune.equals(False, 0)', 'rune.equals(false, 0)'],
   ['rune.equals({"a": 1, "missing": None}, {"a": 1})', 'rune.equals({a: 1, missing: null}, {a: 1})'],
+  [
+    'rune.equals({"a": 1, "@numberText": {"a": "1.00"}}, {"a": 1})',
+    'rune.equals({a: 1, "@numberText": {a: "1.00"}}, {a: 1})'
+  ],
   ['rune.equals({"value": False}, {"value": 0})', 'rune.equals({value: false}, {value: 0})'],
   ['rune.equals([1, 2], [2, 1])', 'rune.equals([1, 2], [2, 1])'],
   ...['all', 'any'].flatMap((quantifier) =>

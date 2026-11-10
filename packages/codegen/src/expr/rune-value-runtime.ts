@@ -119,7 +119,7 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, parseNumberText: parseJsonNumberText, retainNumberText: retainJsonNumberText, restoreNumberText: restoreJsonNumberText, clearNumberText: clearJsonNumberText, numberTextField, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
+return { decode: decodeRuneJson, encode: encodeRuneJson, parseNumberText: parseJsonNumberText, retainNumberText: retainJsonNumberText, restoreNumberText: restoreJsonNumberText, clearNumberText: clearJsonNumberText, numberTextField: RUNE_JSON_NUMBER_TEXT_FIELD, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
 ${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON'; preserveNumberText?: boolean };
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
