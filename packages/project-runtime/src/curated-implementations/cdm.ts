@@ -10,6 +10,7 @@ import {
   type ImplementationLanguage,
   type ImplementationLocation
 } from '@rune-langium/codegen/export';
+import { sha256Hex } from '@rune-langium/codegen/instances';
 import { utilities as typescriptUtilities } from './typescript/utilities.js';
 import { utilities as pythonUtilities } from './python/utilities.js';
 import * as typescriptRounding from './typescript/rounding.js';
@@ -26,7 +27,6 @@ import { createBillingSummary as typescriptBillingSummary } from './typescript/b
 import { createBillingSummary as pythonBillingSummary } from './python/billing-summary.js';
 import type { CdmCodeListCatalog } from './code-list-resources.js';
 import { FunctionImplementationSchema, type FunctionImplementation } from '@rune-langium/core/project-contract';
-import { projectFileRevision } from '@rune-langium/project-config';
 
 type NativeTarget = ImplementationLocation &
   (NativeImplementationBody | { bindCodeLists: (catalog: CdmCodeListCatalog) => NativeImplementationBody });
@@ -986,8 +986,10 @@ export async function selectCdmImplementation(
   // A hash retains exact admission for large enumerations without copying their members into the catalog.
   const signature = 'signatureSha256' in entry ? nativeFunctionShape(func) : entry.signature;
   if (!matchesNativeFunction(func, signature)) return undefined;
-  if ('signatureSha256' in entry && (await projectFileRevision(JSON.stringify(signature))) !== entry.signatureSha256)
-    return undefined;
+  if ('signatureSha256' in entry) {
+    const digest = await sha256Hex(new TextEncoder().encode(JSON.stringify(signature)));
+    if (digest !== entry.signatureSha256) return undefined;
+  }
   if (entry.kind === 'rune')
     return FunctionImplementationSchema.parse({
       kind: 'rune',
