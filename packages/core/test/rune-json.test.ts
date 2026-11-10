@@ -8,7 +8,9 @@ import {
   normalizeRuneJsonChoiceWrapper,
   projectRuneJsonChoice,
   acceptsRuneJsonChoice,
-  selectRuneJsonChoiceCandidates
+  selectRuneJsonChoiceCandidates,
+  parseProjectPayload,
+  serializeProjectPayload
 } from '../src/serialization/rune-json.js';
 
 it('shares recursive Choice acceptance and terminates cyclic alternatives without hiding valid siblings', () => {
@@ -166,4 +168,46 @@ it('round-trips typed Choice @data envelopes, preserving nested metadata and rej
 it('retains context on an inline reference containing a single typed field', () => {
   const wire = { '@ref:scoped': 'basket', basket: { '@type': 'example.Basket', amount: 1 } };
   expect(encodeRuneJson(decodeRuneJson(wire))).toEqual(wire);
+});
+
+it('round-trips exact JSON number spellings through cloned data and leaves fields numeric', () => {
+  const input = '{"value":1.00,"large":9007199254740993,"rates":[-0,0.0100,2]}';
+  const options = { preserveNumberText: true };
+  expect(parseProjectPayload(input, 'JSON')).toEqual({
+    value: 1,
+    large: 9007199254740992,
+    rates: [-0, 0.01, 2]
+  });
+  const parsed = parseProjectPayload(input, 'JSON', options);
+  expect(parsed).toMatchObject({
+    value: 1,
+    large: 9007199254740992,
+    rates: [-0, 0.01, 2]
+  });
+  const output = serializeProjectPayload(structuredClone(parsed), 'JSON', options);
+  expect(output.replaceAll(/\s/g, '')).toBe(input);
+  const edited = structuredClone(parsed);
+  if (!edited || typeof edited !== 'object') throw new TypeError('Expected a JSON object');
+  expect(serializeProjectPayload(Object.assign(edited, { value: 2 }), 'JSON', options)).toContain('"value": 2');
+});
+
+it('keeps exact number text with its canonical Rune JSON metadata value', () => {
+  const input = '{"@data":1.00,"@scheme":"urn:price"}';
+  const options = { preserveNumberText: true };
+  const parsed = parseProjectPayload(input, 'RUNE_JSON', options);
+  expect(parsed).toMatchObject({ value: 1, meta: { scheme: 'urn:price' } });
+  expect(serializeProjectPayload(parsed, 'RUNE_JSON', options).replaceAll(/\s/g, '')).toBe(input);
+});
+
+it('rejects exact scalar spellings without an owner and preserves exact root arrays', () => {
+  const options = { preserveNumberText: true };
+  expect(parseProjectPayload('42', 'JSON', options)).toBe(42);
+  expect(() => parseProjectPayload('1.00', 'JSON', options)).toThrow('requires a containing object or array');
+  expect(() => parseProjectPayload('9007199254740993', 'RUNE_JSON', options)).toThrow(
+    'requires a containing object or array'
+  );
+  const data = parseProjectPayload('[1.00,9007199254740993]', 'JSON', options);
+  expect(serializeProjectPayload(structuredClone(data), 'JSON', options).replaceAll(/\s/g, '')).toBe(
+    '[1.00,9007199254740993]'
+  );
 });

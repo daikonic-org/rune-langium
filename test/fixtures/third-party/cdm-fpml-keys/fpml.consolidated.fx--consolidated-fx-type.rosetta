@@ -1,0 +1,12 @@
+namespace fpml.consolidated.fx : < "fpml definition" >
+version "${project.version}"
+
+import fpml.consolidated.fpmlenum.*
+import fpml.consolidated.option.shared.*
+import fpml.consolidated.shared.*
+
+type CrossRate extends QuotedCurrencyPair: <"A type that is used for including the currency exchange rates used to cross between the traded currencies for non-base currency FX contracts.">
+
+    rate PositiveDecimal (0..1) <"The exchange rate used to cross between the traded currencies.">
+    spotRate PositiveDecimal (0..1) <"An optional element used for FX forwards and certain types of FX OTC options. For deals consumated in the FX Forwards Market, this represents the current market rate for a particular currency pair.">
+    forwardPoints number (0..1) <"An optional element used for deals consumated in the FX Forwards market. Forward points represent the interest rate differential between the two currencies traded and are quoted as a preminum or a discount. Forward points are added to, or subtracted from, the spot rate to create the rate of the forward trade.">

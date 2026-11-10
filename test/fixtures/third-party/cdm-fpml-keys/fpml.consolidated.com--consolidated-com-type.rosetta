@@ -1,0 +1,9 @@
+namespace fpml.consolidated.com : < "fpml definition" >
+version "${project.version}"
+
+import fpml.consolidated.asset.*
+import fpml.consolidated.fpmlenum.*
+import fpml.consolidated.option.shared.*
+import fpml.consolidated.shared.*
+
+type CommodityLeg extends Leg: <"Abstract base class for all commodity legs">

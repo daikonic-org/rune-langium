@@ -35,7 +35,8 @@ formatter-stable runtime-source writer.
 
 The CI publisher stamps `$implementation` onto the serialized function copy,
 carrying its exact signature and selected target expression/dependencies or Rune
-path. It stamps `$implementationSources` onto the serialized model copy with
+path. A target can also carry private module definitions that the emitter
+includes once with its selected calls. It stamps `$implementationSources` onto the serialized model copy with
 source bytes, SHA-256 hashes, model and upstream commit, plus the owned MIT license
 and any named third-party license/notice files.
 Original upstream archives, source text and Rune bodies remain unchanged. The
@@ -63,6 +64,22 @@ runtime helper. Both targets
 retain the existing finite `number`/`float` API, so decimal scale formatting and
 arbitrary BigDecimal precision remain outside their contract. See the
 [pinned rounding corpus](../../test/fixtures/third-party/cdm-rounding/README.md).
+
+The three FpML key targets share a hash layout derived from the linked FpML
+model at publication. The CDM 7.9.0, FpML 3.13.0 and Rune 10.15.3 cohort is
+admitted after its layout matches the pinned Java fingerprint. Keep the concrete
+type on a subtype input using a generated class or its qualified `@type`.
+For scale-sensitive keys, load JSON text with `preserveNumberText: true` in
+`parseProjectPayload` or the generated TypeScript `fromJSON` method. Python can
+load numbers as `Decimal` or consume the same normalized number metadata.
+Prototype's JSON and Rune JSON object imports preserve number text on browsers
+with exact JSON number support. Function input validation selects the linked
+concrete type and retains number text when converting inputs for execution.
+Edits discard the changed value's original spelling and retain untouched
+list items' text. Rune value equality compares the numeric values.
+Ordinary target numbers use their canonical spelling.
+Exact text requires a JSON object or array when the scalar's spelling differs
+from its ordinary numeric representation.
 
 The CDM publisher also reads `codelist/json` from the same pinned source archive.
 It prepares a case-insensitive domain catalog before serializing the native

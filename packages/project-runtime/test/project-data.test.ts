@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, it } from 'vitest';
+import { parseProjectPayload } from '@rune-langium/core/serialization';
 import { createProjectSnapshot } from '@rune-langium/project-config';
 import { serializeProjectData } from '../src/capabilities.js';
 it('does not save an explicitly requested unsupported example codec as plain JSON', async () => {
@@ -149,6 +150,8 @@ it('rejects linked Rune JSON exports with unsupported envelope siblings while re
   const plain = { amount: { value: 21, meta: { scheme: 'USD' } } };
   const output = JSON.parse(serializeProjectData(snapshot, plain, 'RUNE_JSON', linked));
   expect(output).toEqual({ '@type': 'example.Cash', amount: { '@data': 21, '@scheme': 'USD' } });
+  const exact = parseProjectPayload('{"amount":21.00}', 'JSON', { preserveNumberText: true });
+  expect(serializeProjectData(snapshot, exact, 'RUNE_JSON', linked)).toContain('"@data": 21.00');
   expect(
     JSON.parse(serializeProjectData(snapshot, { ...plain, '@model': 'original', '@version': '7' }, 'RUNE_JSON', linked))
   ).toMatchObject({ '@model': 'original', '@version': '7' });

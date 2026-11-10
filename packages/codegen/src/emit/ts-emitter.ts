@@ -5,7 +5,11 @@ import { countedReductionPlans } from '../expr/counted-reduction.js';
 
 import { resolveProjectTypeCall, projectTsCodeList } from './project-resource-binding.js';
 import { isTypeScriptNativeType, isTypeScriptNativeMapping, type TypeScriptNativeType } from './native-types.js';
-import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
+import {
+  resolveNativeImplementation,
+  nativeImplementationExpression,
+  nativeModuleSources
+} from '../implementations/index.js';
 import {
   renderSourceTypeScriptFunction,
   type SourceFunctionProjection
@@ -558,6 +562,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       groups.map((group) => group.find((func) => !func.dispatchAttribute) ?? group[0]!),
       callGraph
     );
+
+    for (const source of nativeModuleSources(
+      runeFuncs.flatMap((func) => (func.source && !this.projectImplementation(func) ? [func.source] : [])),
+      'typescript'
+    ))
+      this.sections.push('', source);
 
     for (const func of sortedFuncs) {
       const bodies = new Map<RuneFunc, SourceFunctionProjection>();

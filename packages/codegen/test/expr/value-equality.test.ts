@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
 import ts from 'typescript-classic';
 import { valueEqualitySource } from '../../src/expr/value-equality.js';
+import { parseProjectPayload } from '@rune-langium/core/serialization';
 
 describe.each([false, true])('value equality (TypeScript=%s)', (typescript) => {
   const source = valueEqualitySource(typescript);
@@ -71,5 +72,12 @@ describe.each([false, true])('value equality (TypeScript=%s)', (typescript) => {
     }
     expect(equal(new RecordValue(1), new RecordValue(2))).toBe(false);
     expect(equal(new RecordValue(1), { amount: 1 })).toBe(true);
+  });
+
+  it('excludes exact number text from nested object equality and keys', () => {
+    const exact = parseProjectPayload('{"amounts":[{"value":1.00}]}', 'JSON', { preserveNumberText: true });
+    const ordinary = { amounts: [{ value: 1 }] };
+    expect(equal(exact, ordinary)).toBe(true);
+    expect(key(exact)).toBe(key(ordinary));
   });
 });

@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { jsonCodec, runeJsonCodec } from '@rune-langium/codegen/instances';
+import { serializeProjectPayload } from '@rune-langium/core/serialization';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { Upload } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -37,7 +38,7 @@ export const WorkflowImport = withInstrumentation(
       [text, setText] = useState(''),
       [error, setError] = useState('');
     const importData = async () => {
-      const result = jsonCodec.import(text, effectiveType ?? '');
+      const result = jsonCodec.import(text, effectiveType ?? '', { preserveNumberText: 'auto' });
       if (result.diagnostics.length || result.data === undefined) {
         setError(result.diagnostics.map((d) => d.message).join(' ') || 'Enter JSON data.');
         return;
@@ -66,8 +67,9 @@ export const WorkflowImport = withInstrumentation(
             value && typeof value === 'object' && !Object.prototype.hasOwnProperty.call(value, '@data')
           );
           const converted = runeJsonCodec.import(
-            JSON.stringify(value),
-            objectPayload && session?.decode && effectiveType ? '' : (effectiveType ?? '')
+            serializeProjectPayload(value, 'JSON', { preserveNumberText: true }),
+            objectPayload && session?.decode && effectiveType ? '' : (effectiveType ?? ''),
+            { preserveNumberText: 'auto' }
           );
           if (converted.diagnostics.length)
             throw new Error(converted.diagnostics.map((diagnostic) => diagnostic.message).join(' '));

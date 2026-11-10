@@ -1,0 +1,70 @@
+namespace cdm.ingest.fpml.confirmation.pricequantity
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.asset.rates.*
+import cdm.base.staticdata.party.*
+import cdm.ingest.fpml.confirmation.common.*
+import cdm.ingest.fpml.confirmation.datetime.*
+import cdm.ingest.fpml.confirmation.other.*
+import cdm.ingest.fpml.confirmation.party.*
+import cdm.observable.asset.*
+import cdm.product.asset.*
+import cdm.product.template.*
+
+import fpml.consolidated.* as fpml
+import fpml.consolidated.asset.* as fpml
+import fpml.consolidated.bond.option.* as fpml
+import fpml.consolidated.cd.* as fpml
+import fpml.consolidated.com.* as fpml
+import fpml.consolidated.eq.shared.* as fpml
+import fpml.consolidated.eqd.* as fpml
+import fpml.consolidated.fx.* as fpml
+import fpml.consolidated.ird.* as fpml
+import fpml.consolidated.option.shared.* as fpml
+import fpml.consolidated.shared.* as fpml
+
+func CreateKey:
+    [codeImplementation]
+    inputs:
+        keyPrefix string (1..1)
+        id string (0..1)
+        fpmlLeg fpml.Leg (0..1)
+    output:
+        keyValueWithIndex string (0..1)
+
+func CreateKeyForQuotedCurrencyPair:
+    [codeImplementation]
+    inputs:
+        keyPrefix string (1..1)
+        fpmlQuotedCurrencyPair fpml.QuotedCurrencyPair (0..1)
+    output:
+        keyValueWithIndex string (0..1)
+
+func CreateQuotedCurrencyPairKey:
+    inputs:
+        fpmlQuotedCurrencyPair fpml.QuotedCurrencyPair (0..1)
+    output:
+        keyValueWithIndex string (0..1)
+
+    set keyValueWithIndex:
+        CreateKeyForQuotedCurrencyPair("quotedCurrencyPair", fpmlQuotedCurrencyPair)
+
+func CreateQuantityKey:
+    inputs:
+        id string (0..1)
+        fpmlLeg fpml.Leg (0..1)
+    output:
+        keyValueWithIndex string (0..1)
+
+    set keyValueWithIndex: CreateKey("quantity", id, fpmlLeg)
+
+func CreateAssetKey:
+    [codeImplementation]
+    inputs:
+        keyPrefix string (1..1)
+        fpmlAsset fpml.Asset (0..1)
+    output:
+        keyValue string (1..1)

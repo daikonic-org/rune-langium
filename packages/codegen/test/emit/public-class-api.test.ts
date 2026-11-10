@@ -3,11 +3,13 @@
 
 import { expect, it } from 'vitest';
 import { createRuneDslServices, BASICTYPES_ROSETTA, assertValidDocuments } from '@rune-langium/core';
+import { parseProjectPayload } from '@rune-langium/core/serialization';
 import { URI } from 'langium';
 import { generate } from '../../src/export.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
-type JsonOptions = { format: 'RUNE_JSON' };
+type JsonOptions = { format?: 'RUNE_JSON'; preserveNumberText?: boolean };
+type ProjectedNumberList = number[] & { toJSON(options?: JsonOptions): unknown };
 interface ModelView extends Record<'quote' | 'selected' | 'amount', ModelView> {
   field(name: string): ModelView;
   toJSON(options?: JsonOptions): unknown;
@@ -23,6 +25,13 @@ type PublicApi = Record<
   ModelClass
 > & {
   is: Record<'Quote' | 'Base', (value: unknown) => boolean>;
+  serializeListForTest(value: unknown, type?: undefined, options?: JsonOptions): unknown;
+  Series: {
+    fromJSON(
+      input: string,
+      options?: JsonOptions
+    ): { amounts: number | ProjectedNumberList; toJSON(options?: JsonOptions): unknown };
+  };
 };
 
 const source = `namespace publicApi
@@ -34,6 +43,8 @@ type Quote:
  currency string (1..1)
 type Portfolio:
  quotes Quote (1..*)
+type Series:
+ amounts number (1..*)
 type Lookalike:
  amount number (1..1)
  currency string (1..1)
@@ -82,7 +93,12 @@ it.each(['per-namespace', 'barrel', 'single-file', 'inline'] as const)(
     expect(model.content).toContain('Copy(quote: Quote.Shape): Quote.Shape');
     expect(model.content.includes('runtime helpers (inlined)')).toBe(layout === 'inline');
     if (layout !== 'inline') expect(outputs.some((output) => /helpers.*\.ts$/.test(output.relativePath))).toBe(true);
-    const api = compileGeneratedTypeScript<PublicApi>(outputs, {
+    const runtimeExports = outputs.map((output) =>
+      output === model
+        ? { ...output, content: output.content + '\nexport { runeValueJSON as serializeListForTest };' }
+        : output
+    );
+    const api = compileGeneratedTypeScript<PublicApi>(runtimeExports, {
       entry: model.relativePath,
       erasableSyntaxOnly: true,
       assertions: `
@@ -130,6 +146,53 @@ Child.from({ value: 1 });
     const wire = quote.toJSON({ format: 'RUNE_JSON' });
     expect(wire).toEqual({ '@type': 'publicApi.Quote', ...input });
     expect(api.Quote.fromJSON(JSON.stringify(wire), { format: 'RUNE_JSON' }).toJSON()).toMatchObject(input);
+    const exact = api.Quote.fromJSON('{"@type":"publicApi.Quote","amount":5.00,"currency":"USD"}', {
+      format: 'RUNE_JSON',
+      preserveNumberText: true
+    });
+    expect(exact.amount).toBe(5);
+    expect(exact.toJSON()).toMatchObject(input);
+    expect(exact.toJSON()).not.toHaveProperty('@numberText');
+    expect(JSON.stringify(exact.toJSON({ format: 'RUNE_JSON', preserveNumberText: true }))).toContain('"amount":5.00');
+    expect(Reflect.set(exact, 'amount', 5)).toBe(true);
+    expect(JSON.stringify(exact.toJSON({ preserveNumberText: true }))).not.toContain('5.00');
+    const numberOptions = { preserveNumberText: true };
+    const rootNumbers = '[1.0,9007199254740993,1.00]';
+    const original = `{"amounts":${rootNumbers}}`;
+    const exactList = parseProjectPayload(rootNumbers, 'JSON', numberOptions);
+    expect(JSON.stringify(api.serializeListForTest(exactList, undefined, numberOptions))).toBe(rootNumbers);
+    const edits: [string, (items: number[]) => unknown, string][] = [
+      ['index', (items) => (items[0] = 2), '[2,9007199254740993,1.00]'],
+      ['push', (items) => items.push(2), '[1.0,9007199254740993,1.00,2]'],
+      ['pop', (items) => items.pop(), '[1.0,9007199254740993]'],
+      ['shift', (items) => items.shift(), '[9007199254740993,1.00]'],
+      ['unshift', (items) => items.unshift(2), '[2,1.0,9007199254740993,1.00]'],
+      ['splice', (items) => items.splice(0, 1, 1, 2), '[1,2,9007199254740993,1.00]'],
+      ['fill', (items) => items.fill(1, 0, 1), '[1,9007199254740993,1.00]'],
+      ['copyWithin', (items) => items.copyWithin(1, 0, 1), '[1.0,1.0,1.00]'],
+      ['reverse', (items) => items.reverse(), '[1.00,9007199254740993,1.0]'],
+      ['sort', (items) => items.sort((a, b) => a - b), '[1.0,1.00,9007199254740993]'],
+      ['default sort', (items) => items.sort(), '[1.0,1.00,9007199254740993]'],
+      ['length', (items) => (items.length = 2), '[1.0,9007199254740993]']
+    ];
+    for (const [name, edit, expected] of edits) {
+      const series = api.Series.fromJSON(original, numberOptions);
+      const items = series.amounts;
+      if (!Array.isArray(items)) throw new Error('Expected a projected list');
+      edit(items);
+      expect(JSON.stringify(series.toJSON(numberOptions)), name).toBe(`{"amounts":${expected}}`);
+      expect(JSON.stringify(api.serializeListForTest(items, undefined, numberOptions)), name).toBe(expected);
+      expect(JSON.stringify(items.toJSON({ ...numberOptions, format: 'RUNE_JSON' })), name).toBe(expected);
+    }
+    const bounded = api.Series.fromJSON(original, numberOptions);
+    const amounts = bounded.amounts;
+    if (!Array.isArray(amounts)) throw new Error('Expected a projected list');
+    expect(() => amounts.splice(0)).toThrow(/expected 1/);
+    expect(JSON.stringify(bounded.toJSON(numberOptions))).toBe(original);
+    expect(JSON.stringify(amounts)).toBe('[1,9007199254740992,1]');
+    Reflect.set(bounded, 'amounts', [1, 2]);
+    expect(JSON.stringify(bounded.toJSON(numberOptions))).toBe('{"amounts":[1,2]}');
+    expect(JSON.stringify(amounts.toJSON(numberOptions))).toBe(rootNumbers);
     expect(() => api.Quote.fromJSON({ '@type': 'other.Quote', ...input }, { format: 'RUNE_JSON' })).toThrow(
       /not assignable/
     );

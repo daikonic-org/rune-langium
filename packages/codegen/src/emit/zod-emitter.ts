@@ -32,6 +32,7 @@ import {
   type RosettaExternalFunction,
   type TypeCall
 } from '@rune-langium/core';
+import { isRuneJsonAssignableType, RUNE_JSON_NUMBER_TEXT_FIELD } from '@rune-langium/core/serialization';
 import { resolveImportPath, type NamespaceRegistry } from './namespace-registry.js';
 import { emitNamespaceWithContract, type NamespaceEmitterOptions } from './namespace-emitter.js';
 import {
@@ -100,6 +101,9 @@ interface EmissionContext {
   /** Merged builtin type map from the profile (basicTypeMap ∪ recordTypeMap ∪ typeAliasMap). */
   builtinTypeMap: Readonly<Record<string, string>>;
 }
+
+const inputNumberText = `${JSON.stringify(RUNE_JSON_NUMBER_TEXT_FIELD)}: z.unknown().optional()`;
+const inputMetadataFields = ["  '@type': z.string().optional()", `  ${inputNumberText}`];
 
 /**
  * TypeScript/JavaScript reserved words that must be quoted when used as property keys.
@@ -226,6 +230,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly codecs: boolean;
   private nodeLocal = false;
   private readonly metadataInputs: boolean;
+  private readonly concreteInputTypes: NamespaceEmitterOptions['concreteInputTypes'];
   private readonly emissionPositions: ReadonlyMap<string, number>;
   private readonly conditionFunctionName: NamespaceEmitterOptions['conditionFunctionName'];
 
@@ -238,6 +243,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     this.functionInputs = options.functionInputs ?? false;
     this.codecs = options.zod?.codecs ?? false;
     this.metadataInputs = this.functionInputs || this.codecs || (options.metadataInputs ?? false);
+    this.concreteInputTypes = this.functionInputs ? options.concreteInputTypes : undefined;
     this.ctx = buildEmissionContext(model, registry, this.diagnostics);
     this.emissionPositions = new Map(model.emitOrder.map((name, index) => [name, index]));
     this.conditionFunctionName = options.conditionFunctionName;
@@ -296,6 +302,12 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   emitDataPrelude(): void {
+    if (this.concreteInputTypes?.size) {
+      this.sections.push(
+        `const runeInputTag = (value: unknown) => value != null && typeof value === 'object' && '@type' in value ? value['@type'] : undefined;`,
+        ''
+      );
+    }
     const cyclicDataNames = Array.from(this.ctx.lazyTypes)
       .filter((name) => this.ctx.dataByName.has(name))
       .sort();
@@ -512,6 +524,28 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       : `${name}Schema`;
   }
 
+  /** Select the concrete schema only when the adapter accepted that input tag. */
+  private inputDataSchemaRef(node: Data, ownerName: string): string {
+    if (!this.concreteInputTypes?.size) return this.schemaRefExpr(node.name, ownerName);
+    const variants = [...this.concreteInputTypes].filter(
+      ([, actual]) =>
+        actual !== node &&
+        isRuneJsonAssignableType<Data | Choice>(actual, node, (type) =>
+          isData(type) ? type.superType?.ref : undefined
+        )
+    );
+    if (!variants.length) return this.schemaRefExpr(node.name, ownerName);
+    const branch = (check: string, name: string) => `z.custom(value => ${check}).pipe(z.lazy(() => ${name}Schema))`;
+    const alternatives = variants.map(([tag, actual]) =>
+      branch(`runeInputTag(value) === ${JSON.stringify(tag)}`, actual.name)
+    );
+    const base = branch(
+      variants.map(([tag]) => `runeInputTag(value) !== ${JSON.stringify(tag)}`).join(' && '),
+      node.name
+    );
+    return `z.union([${[...alternatives, base].join(', ')}])`;
+  }
+
   /**
    * Resolve the Zod type expression for an attribute's type reference.
    * Handles built-ins (RosettaBasicType), Data (object refs), Enumerations.
@@ -535,7 +569,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           return 'z.unknown()';
         },
         onEnum: (node) => `${node.name}Schema`,
-        onData: (node) => this.schemaRefExpr(node.name, ownerName),
+        onData: (node) => this.inputDataSchemaRef(node, ownerName),
         onChoice: (node) => this.schemaRefExpr(node.name, ownerName),
         onUnresolved: (refText) => {
           if (refText) {
@@ -594,7 +628,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
           // needs wrapping when its target is cyclic, with no "already
           // inside my own lazy closure" exemption to apply. '' can never
           // match a real type name in lazyTypes.
-          onData: (node) => this.schemaRefExpr(node.name, ''),
+          onData: (node) => this.inputDataSchemaRef(node, ''),
           onChoice: (node) => this.schemaRefExpr(node.name, ''),
           // Mirrors resolveTypeExpr's onUnresolved (attribute side): an
           // unresolved Choice-option reference previously fell back to a
@@ -646,10 +680,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     const kind = this.metadataInputs ? fieldMetadataKind(attr) : undefined;
     if (kind) {
       const metadata = 'z.record(z.string(), z.unknown())';
+      const numberText = this.functionInputs ? `, ${inputNumberText}` : '';
       baseTypeExpr =
         kind === 'field'
-          ? `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}, meta: ${metadata} })`
-          : `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}.optional(), meta: ${metadata}.optional(), reference: z.object({ reference: z.unknown().optional(), scope: z.unknown().optional(), pointsTo: z.unknown().optional() }).optional(), externalReference: z.unknown().optional(), globalReference: z.unknown().optional() })`;
+          ? `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}, meta: ${metadata}${numberText} })`
+          : `z.${this.codecs ? 'looseObject' : 'object'}({ value: ${baseTypeExpr}.optional(), meta: ${metadata}.optional(), reference: z.object({ reference: z.unknown().optional(), scope: z.unknown().optional(), pointsTo: z.unknown().optional() }).optional(), externalReference: z.unknown().optional(), globalReference: z.unknown().optional()${numberText} })`;
     }
     const card = attr.card;
     let zodExpr = ZodNamespaceEmitter.applyCardinality(card, baseTypeExpr);
@@ -665,10 +700,11 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
    * Returns the Zod expression for the body (without the schema name assignment).
    */
   private emitObjectBody(data: Data): string {
-    if (data.attributes.length === 0) {
+    const attrs = this.functionInputs ? [...inputMetadataFields] : [];
+    for (const attr of data.attributes) attrs.push(this.emitAttribute(attr, data.name));
+    if (!attrs.length) {
       return this.codecs ? 'z.looseObject({})' : 'z.object({})'; // FR-008
     }
-    const attrs = data.attributes.map((attr) => this.emitAttribute(attr, data.name));
     // Join with comma+newline between entries; no trailing comma (linter rule: trailingComma: "none")
     return `z.${this.codecs ? 'looseObject' : 'object'}({\n${attrs.join(',\n')}\n})`;
   }
@@ -826,7 +862,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
       const parentSchema = this.nodeLocal ? `${superRef.name}Codec.node` : `${superRef.name}Schema`;
       if (this.isLazyData(superRef)) {
         const seen = new Set<string>();
-        const attrLines: string[] = [];
+        const attrLines = this.functionInputs ? [...inputMetadataFields] : [];
         const ancestors = ZodNamespaceEmitter.collectDataAncestryChain(superRef);
         for (const attr of [...data.attributes, ...ancestors.flatMap((ancestor) => ancestor.attributes)]) {
           if (seen.has(attr.name)) continue;
@@ -873,7 +909,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     };
 
     const seen = new Set<string>();
-    const attrLines: string[] = [];
+    const attrLines = this.functionInputs ? [...inputMetadataFields] : [];
     for (const link of dataChain) {
       for (const attr of link.attributes) {
         if (seen.has(attr.name)) continue;
@@ -909,7 +945,7 @@ export class ZodNamespaceEmitter extends BaseNamespaceEmitter {
     const isLazy = this.ctx.lazyTypes.has(name);
     const emit = (expression: string) =>
       declaration ? `export const ${schemaName}${isLazy ? `: z.ZodType<${name}>` : ''} = ${expression};` : expression;
-    const hasConditions = activeConditions(data).length > 0;
+    const hasConditions = !this.functionInputs && activeConditions(data).length > 0;
 
     const schemaExpr = this.buildSuperTypeSchemaExpr(data, '');
 

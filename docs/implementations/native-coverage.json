@@ -978,11 +978,15 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "0747936eb176a99a97a14adfd734167ad9de5be54f6f92ec801e4ed6d150cb24"
+      "sha256": "219655a4e444b7192305946fc2242b3c8074e9e49194fb778c426105b6648f15"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
       "sha256": "00c22f09d3cf63ab14015c6c275f55dae7d2a48a6fb2fd18f0f3a2d345165015"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/fpml-keys.ts",
+      "sha256": "6fccfdaa8153db4ed6b70d64f77b7b384ca6f4942b0698f8ef0b30caea292f83"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/billing-summary.ts",
@@ -991,6 +995,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/python/commodity-periods.ts",
       "sha256": "8559f69b669812072fbbe6a69beffbb13f182c5f3fe5f4d90091554b685f459b"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/fpml-keys.ts",
+      "sha256": "57a48fe5fc8481b8a85d8f33fbe27afbe5b670b2adbccf2f6235ae69d9b5d06a"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/load-code-list.ts",
@@ -1235,6 +1243,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/decimal.ts",
       "sha256": "a13cacaec58e3064057b49f75e2b9ffd28d95a8f61b7992a3b3332ba25ee08ff"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/fpml-keys.ts",
+      "sha256": "a7d07bbd93bbb83c69f33e153a2325b96ae16925a356225b9e6ca366f34d3815"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/load-code-list.ts",
@@ -5453,7 +5465,29 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.fpml-key.CreateAssetKey",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/fpml-keys.ts",
+            "entrypoint": "fpmlKey",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.fpml-key.CreateAssetKey",
+            "path": "packages/project-runtime/src/curated-implementations/python/fpml-keys.ts",
+            "entrypoint": "fpmlKey",
+            "dependencies": [
+              "datetime",
+              "decimal",
+              "json",
+              "re",
+              "zoneinfo"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -5467,9 +5501,16 @@
       },
       "rune": {
         "route": "primitive-backed",
-        "requirements": "Rune can compose key fields; verify canonicalization/hash/collision rules before choosing a string/hash primitive.",
+        "requirements": "Rune can compose the key. Exact Java hashing of the inherited FpML asset, signed int32 arithmetic and UTF-16 require a primitive. The pinned target ports verify the linked model layout.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/fpml-keys.test.ts",
+        "cases": "test/fixtures/third-party/cdm-fpml-keys/cases.json",
+        "casesSha256": "2ea9885fe1fb5a97d729a1125c617549467e78b3120b35aa1c31f172076e2d34",
+        "selectors": [],
+        "caseCount": 8
       }
     },
     {
@@ -5529,7 +5570,29 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.fpml-key.CreateKey",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/fpml-keys.ts",
+            "entrypoint": "fpmlKey",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.fpml-key.CreateKey",
+            "path": "packages/project-runtime/src/curated-implementations/python/fpml-keys.ts",
+            "entrypoint": "fpmlKey",
+            "dependencies": [
+              "datetime",
+              "decimal",
+              "json",
+              "re",
+              "zoneinfo"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -5543,9 +5606,16 @@
       },
       "rune": {
         "route": "primitive-backed",
-        "requirements": "Verify optional ID/leg handling and exact key policy; avoid inventing a replacement identifier scheme.",
+        "requirements": "Rune can compose the key. Exact Java UTF-16 hashes, signed int32 accumulation and dynamic FpML leg hashing require a primitive. The pinned ports preserve the optional ID and leg rules.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/fpml-keys.test.ts",
+        "cases": "test/fixtures/third-party/cdm-fpml-keys/cases.json",
+        "casesSha256": "2ea9885fe1fb5a97d729a1125c617549467e78b3120b35aa1c31f172076e2d34",
+        "selectors": [],
+        "caseCount": 4
       }
     },
     {
@@ -5595,7 +5665,29 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.fpml-key.CreateKeyForQuotedCurrencyPair",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/fpml-keys.ts",
+            "entrypoint": "fpmlKey",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.fpml-key.CreateKeyForQuotedCurrencyPair",
+            "path": "packages/project-runtime/src/curated-implementations/python/fpml-keys.ts",
+            "entrypoint": "fpmlKey",
+            "dependencies": [
+              "datetime",
+              "decimal",
+              "json",
+              "re",
+              "zoneinfo"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -5609,9 +5701,16 @@
       },
       "rune": {
         "route": "primitive-backed",
-        "requirements": "Verify quote-pair canonicalization and key policy; reuse any shared key primitive.",
+        "requirements": "Rune can compose the key. Java hashing of the concrete FpML pair requires a primitive and scale-preserving decimal input. The pinned ports share the same hash layout.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/fpml-keys.test.ts",
+        "cases": "test/fixtures/third-party/cdm-fpml-keys/cases.json",
+        "casesSha256": "2ea9885fe1fb5a97d729a1125c617549467e78b3120b35aa1c31f172076e2d34",
+        "selectors": [],
+        "caseCount": 8
       }
     },
     {

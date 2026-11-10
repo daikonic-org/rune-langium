@@ -124,7 +124,11 @@ type FrontierNode = Data | Choice | RosettaTypeAlias;
  * an alias reached via an attribute/option reference is never enqueued —
  * only the initial seed can ever land in typeAliasByName.
  */
-export function computeStandaloneClosure(target: ResolvedTarget, globalIndex: TypeIndexLookup): StandaloneClosure {
+export function computeStandaloneClosure(
+  target: ResolvedTarget,
+  globalIndex: TypeIndexLookup,
+  concreteInputTypes?: Iterable<Data>
+): StandaloneClosure {
   const dataByName = new Map<string, Data>();
   const choiceByName = new Map<string, Choice>();
   const enumByName = new Map<string, RosettaEnumeration>();
@@ -211,6 +215,7 @@ export function computeStandaloneClosure(target: ResolvedTarget, globalIndex: Ty
   };
 
   enqueue(target.node);
+  if (concreteInputTypes) for (const node of concreteInputTypes) enqueue(node);
 
   while (frontier.length > 0) {
     const node = frontier.shift()!;
@@ -405,7 +410,7 @@ const CROSS_NAMESPACE_IMPORT_LINE = /^import \{[^}]*\} from '[^']*\.zod\.js';(\r
 export function emitStandaloneZodSchema(
   documents: LangiumDocument[],
   targetId: string,
-  options: { functionInputs?: boolean; metadataInputs?: boolean } = {}
+  options: Pick<NamespaceEmitterOptions, 'functionInputs' | 'metadataInputs' | 'concreteInputTypes'> = {}
 ): {
   code: string;
   diagnostics: GeneratorDiagnostic[];
@@ -463,7 +468,7 @@ export function emitStandaloneZodSchema(
   }
 
   const globalIndex = buildGlobalTypeIndex(namespaceIndexes);
-  const closure = computeStandaloneClosure(target, globalIndex);
+  const closure = computeStandaloneClosure(target, globalIndex, options.concreteInputTypes?.values());
 
   // An error-severity closure diagnostic (currently only `name-collision`)
   // means the closure itself is unsound — e.g. two different namespaces
@@ -531,6 +536,7 @@ export function emitStandaloneZodSchema(
     suppressBoilerplate: true,
     functionInputs: options.functionInputs,
     metadataInputs: options.metadataInputs,
+    concreteInputTypes: options.concreteInputTypes,
     conditionFunctionName: (declaration) =>
       (isRosettaFunction(declaration) ? functions.get(declaration)?.bindingName : undefined) ??
       callableExportName(declaration)

@@ -39,6 +39,8 @@ export interface NamespaceEmitterOptions extends GeneratorOptions {
   suppressBoilerplate?: boolean;
   /** Validate the adapted function input structure without evaluating Data conditions. */
   functionInputs?: boolean;
+  /** Assignable concrete Data declarations observed in the current function inputs. */
+  concreteInputTypes?: ReadonlyMap<string, Data>;
   /** Preserve metadata envelopes while retaining ordinary Data condition validation. */
   metadataInputs?: boolean;
   /** Host bindings for condition callables in a standalone schema. */

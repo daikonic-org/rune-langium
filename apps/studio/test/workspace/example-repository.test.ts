@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, it, vi } from 'vitest';
+import { parseProjectPayload } from '@rune-langium/core/serialization';
 import { readExamples, type ExampleDescriptor } from '@rune-langium/project-config';
 import { createOpfsRoot } from '../setup/opfs-mock.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
@@ -31,7 +32,8 @@ async function setup() {
 it('saves stable IDs, full type identities and exact data through repository files across a clone', async () => {
   const { controller } = await setup();
   await saveExample(controller, example('one'), { amount: 10.123456789 });
-  await saveExample(controller, example('two'), { amount: 20 });
+  const imported = parseProjectPayload('{"amount":20.00}', 'JSON', { preserveNumberText: true });
+  await saveExample(controller, example('two'), imported);
   const clone = await setup();
   for (const [path, text] of controller.current()!.files) {
     const current = await clone.adapter.read(path);
@@ -41,6 +43,17 @@ it('saves stable IDs, full type identities and exact data through repository fil
   expect(read.examples.map((entry) => entry.id)).toEqual(['one', 'two']);
   expect(read.examples[0]?.type).toEqual(type);
   expect(read.documents.map((entry) => entry.payload)).toEqual([{ amount: 10.123456789 }, { amount: 20 }]);
+  const { createExampleRepository } = await import('../../src/workspace/example-repository.js');
+  const repository = createExampleRepository({
+    workspaceId: 'examples',
+    controller: clone.controller,
+    resolveType: () => type
+  });
+  const loaded = (await repository.load()).records.find((record) => record.id === 'two')!;
+  await repository.write({ ...loaded, name: 'Renamed' });
+  const saved = (await clone.adapter.read('examples/two.json'))!.text;
+  expect(saved).toContain('"amount": 20.00');
+  expect(saved).not.toContain('@numberText');
 });
 it('refuses descriptor codec mismatch and unavailable Rune default serialization without writing a false JSON success', async () => {
   const { adapter, controller } = await setup();
@@ -283,12 +296,7 @@ it('resaves cloned Rune JSON examples through linked declaration context without
   await adapter.write('examples/wire.example.json', JSON.stringify({ ...example('wire'), codec: 'RUNE_JSON' }), null);
   await adapter.write(
     'examples/wire.json',
-    JSON.stringify({
-      '@model': 'source-model',
-      '@type': 'example.Trade',
-      '@version': '7',
-      amount: { '@data': 21, '@scheme': 'USD' }
-    }),
+    '{"@model":"source-model","@type":"example.Trade","@version":"7","amount":{"@data":21.00,"@scheme":"USD"}}',
     null
   );
   await controller.load();
@@ -312,7 +320,10 @@ it('resaves cloned Rune JSON examples through linked declaration context without
   expect(serialize).toHaveBeenCalledOnce();
   const reopened = readExamples(await controller.load()).documents[0]!;
   expect(reopened.descriptor).toMatchObject({ id: 'wire', name: 'Renamed', codec: 'RUNE_JSON' });
-  expect(JSON.parse((await adapter.read('examples/wire.json'))!.text)).toMatchObject({
+  const saved = (await adapter.read('examples/wire.json'))!.text;
+  expect(saved).toContain('"@data": 21.00');
+  expect(saved).not.toContain('@numberText');
+  expect(JSON.parse(saved)).toMatchObject({
     '@model': 'source-model',
     '@type': 'example.Trade',
     '@version': '7',

@@ -49,7 +49,11 @@ import { mathLibraryFunction } from '../emit/math-library.js';
 import type { PythonProjectionContext } from './context.js';
 import type { EmittedProjection, GeneratedProjection, ProjectionSubject } from './types.js';
 import { selectEffectiveProjectDocuments } from '../selection/declaration-selection.js';
-import { resolveNativeImplementation, nativeImplementationExpression } from '../implementations/index.js';
+import {
+  resolveNativeImplementation,
+  nativeImplementationExpression,
+  nativeModuleSources
+} from '../implementations/index.js';
 import type { GeneratorDiagnostic } from '../types.js';
 
 export interface PythonModule {
@@ -499,6 +503,7 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
   };
   const funcs = elements.filter(isRosettaFunction),
     grouped = new Map<string, RosettaFunction[]>();
+  sections.push(...nativeModuleSources(funcs, 'python'));
   for (const func of funcs) {
     const key = qualified(func);
     grouped.set(key, [...(grouped.get(key) ?? []), func]);

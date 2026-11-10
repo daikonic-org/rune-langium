@@ -35,6 +35,7 @@ import {
   cdmCodeListResource,
   prepareCdmCodeLists
 } from '../packages/project-runtime/dist/curated-implementations/code-list-resources.js';
+import { prepareFpmlHashLayout } from '../packages/project-runtime/dist/curated-implementations/fpml-keys.js';
 import { openGitHubRepository } from '../packages/project-runtime/dist/repository-source.js';
 const { values } = parseArgs({
   options: {
@@ -70,7 +71,8 @@ const testSuites = {
     'cdm-observation-resolution': 'observation-resolution',
     'cdm-reset-forward-rates': 'reset-forward-rates',
     'cdm-equity-settlement': 'equity-settlement',
-    'cdm-collateral-portfolio': 'collateral-portfolio'
+    'cdm-collateral-portfolio': 'collateral-portfolio',
+    'cdm-fpml-keys': 'fpml-keys'
   }
 };
 const dispatchSuites = await Promise.all(
@@ -259,6 +261,13 @@ const functions = documents.flatMap((document) => {
   const model = document.parseResult.value;
   return isRosettaModel(model) ? model.elements.filter(isRosettaFunction) : [];
 });
+const fpmlHashLayout = await prepareFpmlHashLayout(
+  sources,
+  documents
+    .filter((document) => origins.get(document.uri.toString())?.model === 'fpml')
+    .map((document) => document.parseResult.value)
+    .filter(isRosettaModel)
+);
 const rows = [];
 for (const document of documents) {
   const model = document.parseResult.value;
@@ -306,7 +315,7 @@ for (const document of documents) {
         selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
         hasRuneBody: candidate.operations.length > 0
       }));
-    const selected = await selectCdmImplementation(node, cdmCodeLists);
+    const selected = await selectCdmImplementation(node, { codeLists: cdmCodeLists, fpmlHashLayout });
     const hasRuneBody = node.operations.length > 0 || variants.some((variant) => variant.hasRuneBody);
     const implementation = assessment.implementation
       ? {
@@ -408,6 +417,7 @@ const ownedPaths = new Set([
   'packages/project-runtime/src/curated-implementations/cdm.ts',
   'packages/project-runtime/src/curated-implementations/billing-summary.ts',
   'packages/project-runtime/src/curated-implementations/code-list-resources.ts',
+  'packages/project-runtime/src/curated-implementations/fpml-keys.ts',
   'packages/project-runtime/src/code-lists.ts',
   'packages/project-runtime/src/curated-implementations/rune/LICENSE',
   ...rows.flatMap((row) =>

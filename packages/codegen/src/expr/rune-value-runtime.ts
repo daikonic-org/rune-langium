@@ -68,6 +68,10 @@ export const RUNE_VALUE_NAMES = [
   'Reflect',
   'Proxy',
   'RuneValue',
+  'RuneListOwner',
+  'runeListNumberText',
+  'RuneNumberTextSlot',
+  'runeMutateNumberTextList',
   'RuneView',
   'RuneArray',
   'RuneFlatElement',
@@ -119,8 +123,8 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
-${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
+return { decode: decodeRuneJson, encode: encodeRuneJson, parseNumberText: parseJsonNumberText, retainNumberText: retainJsonNumberText, restoreNumberText: restoreJsonNumberText, readNumberText, writeNumberText, clearNumberText: clearJsonNumberText, listNumberText: jsonListNumberText, replaceListNumberText: replaceJsonListNumberText, numberTextField: RUNE_JSON_NUMBER_TEXT_FIELD, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
+${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON'; preserveNumberText?: boolean };
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
 ${e}type RuneBounded<T, Min extends number, Max extends number, A extends T[] = RuneTuple<T, Min>, Result = never, Bare extends boolean = false> = number extends A['length'] ? T | T[] | undefined : A['length'] extends Max ? Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : Bare extends true ? A : RuneList<T, A['length'], A['length']> & A) : A['length'] extends 32 ? T | T[] | undefined : RuneBounded<T, Min, Max, [...A, T], Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : Bare extends true ? A : RuneList<T, A['length'], A['length']> & A), Bare>;
@@ -296,6 +300,11 @@ const runeValueOrder = (left: unknown, right: unknown): number => {
   if (Object.prototype.toString.call(left) === '[object Temporal.ZonedDateTime]' && Object.prototype.toString.call(right) === '[object Temporal.ZonedDateTime]') return Temporal.ZonedDateTime.compare(Temporal.ZonedDateTime.from(String(left)), Temporal.ZonedDateTime.from(String(right)));
   throw new TypeError('Rune ordering requires comparable values or a key selector');
 };
+const runeListNumberText = new WeakMap<unknown[], Record<string, unknown>>();
+interface RuneListOwner<T> {
+  numberText(): Record<string, unknown> | undefined;
+  write(items: T[], numberText?: Record<string, unknown>): void;
+}
 class RuneValue<T, Min extends number = 0, Max extends number | null = null, Model extends RuneValueType = RuneEmptyType> implements Iterable<T> {
   declare readonly $rune$cardinality?: readonly [T, Min, Max];
   private readonly $list: RuneList<T>;
@@ -303,15 +312,17 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   private readonly $min: Min;
   private readonly $max: Max;
   private readonly $check?: (value: unknown) => boolean;
-  private readonly $write?: (items: T[]) => void;
+  private readonly $owner?: RuneListOwner<T>;
   private $deep?: RuneDeepView<Model, Min, Max>;
-  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max, $check?: (value: unknown) => boolean, $write?: (items: T[]) => void) {
+  constructor(items: readonly T[], $type: (() => Model) | undefined, $min: Min, $max: Max, $check?: (value: unknown) => boolean, $owner?: RuneListOwner<T>) {
     this.$type = $type;
     this.$min = $min;
     this.$max = $max;
     this.$check = $check;
-    this.$write = $write;
+    this.$owner = $owner;
     this.$list = new RuneList(items);
+    const numberText = $owner?.numberText();
+    if (numberText) runeListNumberText.set(this.$array(), numberText);
     runeValueBounds(this.$list.count(), $min, $max, 'Rune value');
     const choice = $type?.().choice;
     if (choice) for (const item of this.$list) {
@@ -330,19 +341,24 @@ class RuneValue<T, Min extends number = 0, Max extends number | null = null, Mod
   [Symbol.iterator]() { return this.$list[Symbol.iterator](); }
   [runeValueProtocol]() { return this.$list.toArray(); }
   $array(): T[] { return this.$list[runeListStorage](); }
-  $replace(items: readonly T[]): void {
+  $numberText(): Record<string, unknown> | undefined { return runeListNumberText.get(this.$array()); }
+  $replace(items: readonly T[], numberText?: Record<string, unknown>): void {
     runeValueBounds(items.length, this.$min, this.$max, 'Rune value');
     const values = Array.from(items, value => this.$type ? runeValueMaterialize(value, this.$type()) : value);
     if (this.$check && values.some(value => !this.$check!(value))) throw new TypeError('Invalid Rune collection item');
     const array = this.$array();
     Reflect.apply(Array.prototype.splice, array, [0, array.length, ...values]);
-    this.$write?.(array);
+    if (numberText && Object.keys(numberText).length) runeListNumberText.set(array, numberText);
+    else runeListNumberText.delete(array);
+    this.$owner?.write(array, numberText);
   }
   count() { return this.$list.count(); }
   exists() { return this.count() > 0; }
   unwrap(): RunePayload<T, Min, Max> { const values = this.$list.toArray(); return (values.length === 0 ? undefined : values.length === 1 ? values[0] : values) as RunePayload<T, Min, Max>; }
   toArray(): 0 extends Min ? T[] : [T, ...T[]] { return this.$list.toArray() as 0 extends Min ? T[] : [T, ...T[]]; }
-  toJSON(options?: RuneJsonOptions | string, array = false): unknown { const value = array ? this.toArray() : this.unwrap(); return runeValueJSON(value, this.$type, options); }
+  toJSON(options?: RuneJsonOptions | string, array = false): unknown {
+    return runeValueJSON(array || this.count() > 1 ? this.$array() : this.unwrap(), this.$type, options);
+  }
   first(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.first(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   last(): RuneView<T, RuneFirstMin<Min>, 1, Model> { const value = this.$list.last(); return new RuneValue<T, RuneFirstMin<Min>, 1, Model>(value == null ? [] : [value], this.$type, (this.$min > 0 ? 1 : 0) as RuneFirstMin<Min>, 1) as RuneView<T, RuneFirstMin<Min>, 1, Model>; }
   onlyElement(): RuneView<T, 0, 1, Model> { const value = this.$list.onlyElement(); return new RuneValue(value == null ? [] : [value], this.$type, 0, 1) as RuneView<T, 0, 1, Model>; }
@@ -421,6 +437,35 @@ ${e}function runeValue(input: unknown, type: () => RuneValueType): RuneValue<unk
   return new RuneValue(values, type, values.length, values.length);
 }
 const runeProjectedDeep = (view: { readonly _: object }): object => new Proxy(Object.create(null), { get: (_target, key) => typeof key === 'string' ? runeProjectValue(Reflect.get(view._, key)) : undefined });
+type RuneNumberTextSlot = { value: unknown; text?: unknown };
+const runeMutateNumberTextList = (draft: unknown[], key: PropertyKey, args: unknown[], numberText: Record<string, unknown>, receiver: unknown) => {
+  const slots: RuneNumberTextSlot[] = draft.map((value, index) => ({ value, text: numberText[index] }));
+  const fresh = (value: unknown): RuneNumberTextSlot => ({ value });
+  if (key === 'push' || key === 'unshift') args = args.map(fresh);
+  if (key === 'splice') args = [...args.slice(0, 2), ...args.slice(2).map(fresh)];
+  if (key === 'fill') args = [fresh(args[0]), ...args.slice(1)];
+  if (key === 'sort') {
+    const compare = args[0];
+    if (compare === undefined || typeof compare === 'function') args = [(left: RuneNumberTextSlot, right: RuneNumberTextSlot) => {
+      if (left.value === undefined) return right.value === undefined ? 0 : 1;
+      if (right.value === undefined) return -1;
+      if (typeof compare === 'function') return Reflect.apply(compare, undefined, [left.value, right.value]);
+      const a: string = Reflect.apply(String.prototype.concat, '', [left.value]);
+      const b: string = Reflect.apply(String.prototype.concat, '', [right.value]);
+      return a < b ? -1 : a > b ? 1 : 0;
+    }];
+  }
+  const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), slots, args);
+  let response = result;
+  if (result === slots) response = receiver;
+  else if (Array.isArray(result)) response = result.map((slot: RuneNumberTextSlot) => slot.value);
+  else if (result && typeof result === 'object' && 'value' in result) response = result.value;
+  return {
+    values: slots.map(slot => slot.value),
+    numberText: Object.fromEntries(slots.flatMap((slot, index) => slot.text === undefined ? [] : [[String(index), slot.text]])),
+    result: response
+  };
+};
 const runeProjectedLists = new WeakMap<object, object>();
 const runeProjectValue = (input: unknown, keepList = false): unknown => {
   if (!(input instanceof RuneValue)) return input;
@@ -443,6 +488,12 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
         if (callback === undefined && args.length > 1) args = [args[1]];
       }
       const draft = input.toArray();
+      const numberText = input.$numberText();
+      if (numberText) {
+        const edit = runeMutateNumberTextList(draft, key, args, numberText, receiver);
+        input.$replace(edit.values, edit.numberText);
+        return edit.result;
+      }
       const result: unknown = Reflect.apply(Reflect.get(Array.prototype, key), draft, args);
       input.$replace(draft);
       return result === draft ? receiver : result;
@@ -467,7 +518,11 @@ const runeProjectValue = (input: unknown, keepList = false): unknown => {
     if (key === 'length' || typeof key === 'string' && /^(0|[1-9][0-9]*)$/.test(key)) {
       const draft = input.toArray();
       if (!Reflect.set(draft, key, value)) return false;
-      input.$replace(draft);
+      const numberText = input.$numberText();
+      const retained = numberText && Object.fromEntries(Object.entries(numberText).filter(([index]) =>
+        index !== key && Number(index) < draft.length
+      ));
+      input.$replace(draft, retained);
       return true;
     }
     return Reflect.set(array, key, value);
@@ -483,6 +538,16 @@ ${e}function runeProjectedJSON(input: unknown, type: () => RuneValueType, option
 ${runeCodecRuntimeSource()}
 ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
+  const preserveNumberText = typeof options === 'object' && options?.preserveNumberText;
+  const includeField = (key: string) => preserveNumberText || key !== runeJson.numberTextField;
+  const mapList = (value: unknown[], project: (item: unknown) => unknown): unknown[] => {
+    if (!preserveNumberText) return value.map(project);
+    const backing = value instanceof RuneList ? value[runeListStorage]() : value;
+    const numberText = runeListNumberText.get(backing) ?? runeJson.readNumberText(value);
+    const mapped = Array.from(value, project);
+    if (numberText) runeJson.writeNumberText(mapped, numberText);
+    return mapped;
+  };
   const active = new WeakSet<object>();
   const encodedModels = new WeakMap<object, RuneValueType>();
   let codecProjection = false;
@@ -495,18 +560,18 @@ ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?:
     const model = declaredModel ? runeValueConcreteType(value, declaredModel) : encodedModels.get(value) ?? runeObjectInstanceModel(value);
     active.add(value);
     try {
-      if (Array.isArray(value)) return value.map(item => visit(item, model));
-      const result = Object.fromEntries(Object.entries(value).filter(([key, item]) => typeof item !== 'function' && !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
+      if (Array.isArray(value)) return mapList(value, item => visit(item, model));
+      const result = Object.fromEntries(Object.entries(value).filter(([key, item]) => includeField(key) && typeof item !== 'function' && !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
       for (const field of Object.values(model?.fields ?? {})) {
         const raw = (value as Record<string, unknown>)[field.key];
         const item = (child: unknown): unknown => {
           if (!field.metadata || child == null) return visit(child, runeValueType(field)?.());
           if (typeof child !== 'object' || Array.isArray(child)) throw new TypeError('Expected a Rune metadata envelope');
-          const envelope = Object.fromEntries(Object.entries(child));
+          const envelope = Object.fromEntries(Object.entries(child).filter(([key]) => includeField(key)));
           if (Object.hasOwn(envelope, 'value')) envelope.value = visit(envelope.value, runeValueType(field)?.());
           return runeJson.context(envelope, 'envelope');
         };
-        if (Object.hasOwn(value, field.key)) result[field.key] = Array.isArray(raw) ? raw.map(item) : item(raw);
+        if (Object.hasOwn(value, field.key)) result[field.key] = Array.isArray(raw) ? mapList(raw, item) : item(raw);
       }
       if (model?.kind === 'choice' && model.choice) {
         if (codecProjection || !runeFormat) return result;
@@ -524,7 +589,7 @@ ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?:
     if (active.has(value)) throw new TypeError('Cannot serialize a cyclic Rune value');
     active.add(value);
     try {
-      if (Array.isArray(value)) return value.map(item => encode(item, declaredModel));
+      if (Array.isArray(value)) return mapList(value, item => encode(item, declaredModel));
       const model = declaredModel ? runeValueConcreteType(value, declaredModel) : runeObjectInstanceModel(value);
       if (!model) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encode(item)]));
       const codec = model.codec?.();
@@ -547,10 +612,14 @@ ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?:
   };
   const declaredModel = type?.();
   const encoded = encode(input, declaredModel);
-  return runeFormat ? runeJson.encode(visit(encoded, declaredModel)) : visit(encoded);
+  const plain = visit(encoded, runeFormat ? declaredModel : undefined);
+  const restored = preserveNumberText ? runeJson.restoreNumberText(plain) : plain;
+  return runeFormat ? runeJson.encode(restored) : restored;
 };
 ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, options: RuneJsonOptions = {}): unknown => {
-  const parsed: unknown = typeof input === 'string' ? JSON.parse(input) : input;
+  const captureText = typeof input === 'string' && options.preserveNumberText;
+  const parsed: unknown = typeof input === 'string' ? captureText ? runeJson.parseNumberText(input) : JSON.parse(input) : input;
+  const retain = (value: unknown) => captureText ? runeJson.retainNumberText(value) : value;
   const decode = (value: unknown): unknown => {
     if (value == null) return value;
     if (Array.isArray(value)) return value.map(decode);
@@ -562,7 +631,7 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     }
     return codec?.decode(value) ?? value;
   };
-  if (options.format !== 'RUNE_JSON') return decode(parsed);
+  if (options.format !== 'RUNE_JSON') return decode(retain(parsed));
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
     if (Array.isArray(value)) return value.map(item => visit(item, declaredModel));
     if (!value || typeof value !== 'object' || !declaredModel) return value;
@@ -597,7 +666,7 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     }
     return result;
   };
-  return decode(visit(runeJson.decode(parsed), type()));
+  return decode(visit(retain(runeJson.decode(parsed)), type()));
 };
 ${runeObjectRuntimeSource(exported)}`;
 }
