@@ -143,7 +143,7 @@ export interface FuncBodyContext extends ExpressionTranspilerContext {
    * name shadows an input parameter.
    */
   aliasBindings: Map<string, string>;
-  deferredAliases: ReadonlySet<string>;
+  deferredAliases?: ReadonlySet<string>;
   /**
    * Full call graph for the namespace: funcName → Set<funcName>.
    * Shared across all FuncBodyContext instances for the same namespace.
