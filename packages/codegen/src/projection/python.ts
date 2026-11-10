@@ -90,9 +90,12 @@ export function renderPythonExpression(expression: RosettaExpression, context: P
   const render = renderPythonExpression;
   const valueContext = { ...context, preserveMetadata: false };
   const arg = getOperationArgument(expression);
+  // The inherited argument supplies type information. Its value was already
+  // evaluated when the enclosing inline function bound its input.
+  const explicitArgument = 'argument' in expression ? expression.argument : undefined;
   const argument = (preserve = context.preserveMetadata) =>
-    arg
-      ? render(arg, { ...context, preserveMetadata: preserve })
+    explicitArgument
+      ? render(explicitArgument, { ...context, preserveMetadata: preserve })
       : pythonUnwrap(context.self, preserve ? undefined : context.implicit?.metadata, context.implicit?.many);
   const branch = (child: RosettaExpression, childContext = context) => {
     const target = context.preserveMetadata ? expressionMetadataKind(expression) : undefined;

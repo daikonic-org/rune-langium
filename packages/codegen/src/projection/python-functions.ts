@@ -388,7 +388,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     const local = identifier(alias.name, used);
     const text = renderPythonExpression(alias.expression, { ...renderContext, preserveMetadata: true });
     const deferred = deferredAliases.has(alias.name);
-    lines.push(`${local} = ${deferred ? 'lambda: ' : ''}${text}`);
+    lines.push(`${local} = ${deferred ? `rune.memoAlias(lambda: ${text})` : text}`);
     locals.set(alias, deferred ? `${local}()` : local);
     roots.set(alias.name, local);
   }

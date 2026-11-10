@@ -2029,7 +2029,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ...ctx,
       preserveMetadata: !!ctx.localMetadata?.get(alias.name)
     });
-    if (ctx.deferredAliases?.has(alias.name)) return `  const ${localName} = () => (${exprStr});`;
+    if (ctx.deferredAliases?.has(alias.name)) return `  const ${localName} = rune.memoAlias(() => (${exprStr}));`;
     return `  ${mutable ? 'let' : 'const'} ${localName} = ${exprStr};`;
   }
 

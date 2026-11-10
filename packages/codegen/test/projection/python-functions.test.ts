@@ -59,6 +59,56 @@ async function executableFunctions<T extends Record<string, unknown> = Record<st
 const inheritedMetadataPredicates = ['one-of', 'required choice scalar, many, flag', 'flag only exists'] as const;
 
 describe('complete Python function projections', () => {
+  it('consumes the bound value in argumentless pipeline operations', async () => {
+    const functions = await linkedFunctions(`namespace python.pipeline
+func Supply:
+  output: result int (0..*)
+  set result: [3, 1, 3, 2]
+func Probe:
+  output: result int (0..*)
+  set result: Supply() then distinct then sort
+`);
+    const projection = generatePythonModule([AstUtils.getDocument(functions[0]!)]);
+    expect(projection.diagnostics).toEqual([]);
+    const supply = projection.bindings.get('python.pipeline.Supply');
+    const probe = projection.bindings.get('python.pipeline.Probe');
+    const observed = `${projection.code}
+_fixture_calls = 0
+_fixture_supply = ${supply}
+def ${supply}():
+    global _fixture_calls
+    _fixture_calls += 1
+    return _fixture_supply()
+`;
+    expect(execute(observed, [{ expression: `[${probe}(), _fixture_calls]` }])).toEqual([{ value: [[1, 2, 3], 1] }]);
+  });
+
+  it('defers recursive aliases and reuses their result within a function call', async () => {
+    const functions = await linkedFunctions(`namespace python.recursiveAlias
+func Leaf:
+  output: result int (1..1)
+  set result: 1
+func Branch:
+  inputs: depth int (1..1)
+  output: result int (1..1)
+  alias child: Branch(depth - 1)
+  set result: if depth > 0 then child + child else Leaf()
+`);
+    const projection = generatePythonModule([AstUtils.getDocument(functions[0]!)]);
+    expect(projection.diagnostics).toEqual([]);
+    const leaf = projection.bindings.get('python.recursiveAlias.Leaf');
+    const branch = projection.bindings.get('python.recursiveAlias.Branch');
+    const observed = `${projection.code}
+_fixture_calls = 0
+_fixture_leaf = ${leaf}
+def ${leaf}():
+    global _fixture_calls
+    _fixture_calls += 1
+    return _fixture_leaf()
+`;
+    expect(execute(observed, [{ expression: `[${branch}(12), _fixture_calls]` }])).toEqual([{ value: [4096, 1] }]);
+  });
+
   it.each(
     ['eligibility', 'reporting'].flatMap((kind) =>
       inheritedMetadataPredicates.map((predicate) => ({ kind, predicate }))

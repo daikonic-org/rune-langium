@@ -162,6 +162,17 @@ def rune_unwrap(value, many=False):
     return value.get("value") if isinstance(value, dict) else None
 
 
+def rune_memo_alias(compute):
+    result = []
+
+    def read():
+        if not result:
+            result.append(compute())
+        return result[0]
+
+    return read
+
+
 def rune_contains(left, right):
     l, r = rune_list(left), rune_list(right)
     keys = set(map(rune_value_key, l))
@@ -775,6 +786,7 @@ class rune:
     contains = staticmethod(rune_contains)
     disjoint = staticmethod(rune_disjoint)
     distinct = staticmethod(rune_distinct)
+    memoAlias = staticmethod(rune_memo_alias)
     stringKey = staticmethod(rune_string_key)
     order = staticmethod(rune_order)
     ordered = staticmethod(rune_ordered)
