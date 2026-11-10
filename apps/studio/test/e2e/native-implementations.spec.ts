@@ -32,6 +32,10 @@ import {
   createCuratedValuationTimeProject,
   valuationTimeCaller
 } from '../../../../test/helpers/cdm-valuation-times.js';
+import {
+  createCuratedObservationResolutionProject,
+  observationResolutionCaller
+} from '../../../../test/helpers/cdm-observation-resolution.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 import {
   businessCalendarCaller,
@@ -219,6 +223,37 @@ test('selects the supplied FRO matrix version for the trade date in Prototype', 
   await tradeDate.fill('2024-07-01');
   await execute.click();
   await expect(output).toContainText('"definitionalSource": "fixture-v2"');
+});
+
+test('resolves a published observation and a rate selected from the Rune codelist', async ({ page }) => {
+  await openPublishedImplementationProject(
+    page,
+    await createCuratedObservationResolutionProject(),
+    observationResolutionCaller,
+    1440
+  );
+  const choose = page.getByRole('button', { name: /^Choose a function/ });
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+
+  await choose.click();
+  await page.getByRole('option', { name: 'PublishedIndexRate — example.observation', exact: true }).click();
+  await page.getByRole('button', { name: /^Code:/ }).click();
+  await page.getByRole('combobox', { name: 'Search Code' }).fill('EUR-EURIBOR');
+  await page.getByRole('option', { name: 'EUR-EURIBOR', exact: true }).click();
+  await execute.click();
+  await expect(page.getByRole('region', { name: 'rate output' })).toContainText('0.0875');
+
+  await choose.click();
+  await page.getByRole('option', { name: 'PublishedObservation — example.observation', exact: true }).click();
+  const day = page.getByLabel('Day', { exact: true });
+  await day.fill('1');
+  await execute.click();
+  const result = page.getByRole('region', { name: 'result output' });
+  await expect(result).toContainText('"value": 37');
+  await expect(result).toContainText('"observationDate": "2024-10-01"');
+  await day.fill('20');
+  await execute.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'ObservationMissing' })).toBeVisible();
 });
 
 test('resolves published CDM valuation times using a Rune business-center enum', async ({ page }) => {

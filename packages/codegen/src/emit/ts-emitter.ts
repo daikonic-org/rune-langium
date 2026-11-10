@@ -60,6 +60,7 @@ import { expressionMetadataKind } from '../expr/metadata-type.js';
 import { groupFuncDispatches, renderFuncDispatchGroup } from './func-dispatch.js';
 import { AstUtils, isMultiReference, type AstNode } from 'langium';
 import { renderFuncAssignment } from './func-assignment.js';
+import { mathLibraryFunction } from './math-library.js';
 import { expressionFitsCardinality, renderCardinalityChecks } from '../expr/cardinality.js';
 import { fieldMetadataKind, metadataType, hasFieldMetadata, hasTypeMetadata } from '../expr/metadata-runtime.js';
 
@@ -1591,11 +1592,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         `${parameter.name}: ${resolveFuncValueTypeTs(parameter, undefined, this.typeName)}${parameter.isArray ? '[]' : ''}`
     );
     const returnType = resolveFuncValueTypeTs(func, undefined, this.typeName);
-    const binding = typescriptProfile.libraryFuncMap[func.name];
-    if (binding?.expr) {
+    const math = mathLibraryFunction(func);
+    const expression = math ? `globalThis.Math.${math}` : typescriptProfile.libraryFuncMap[func.name]?.expr;
+    if (expression) {
       return [
         `export type ${name} = (${params.join(', ')}) => ${returnType};`,
-        `export const ${name}: ${name} = ${binding.expr};`
+        `export const ${name}: ${name} = ${expression};`
       ].join('\n');
     }
 

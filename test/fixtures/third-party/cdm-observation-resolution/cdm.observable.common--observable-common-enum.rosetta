@@ -1,0 +1,28 @@
+namespace cdm.observable.common
+version "${project.version}"
+
+import cdm.base.*
+
+enum DeterminationMethodEnum: <"The enumerated values to specify the method according to which an amount or a date is determined.">
+    [docReference ISDA FpML_Coding_Scheme schemeLocation "http://www.fpml.org/coding-scheme/determination-method"]
+
+    AgreedInitialPrice <"Agreed separately between the parties.">
+    AsSpecifiedInMasterConfirmation <"As specified in Master Confirmation.">
+    CalculationAgent <"Determined by the Calculation Agent.">
+    ClosingPrice <"Official Closing Price.">
+    DividendCurrency <"Determined by the Currency of Equity Dividends.">
+    ExpiringContractLevel <"The initial Index Level is the level of the Expiring Contract as provided in the Master Confirmation.">
+    HedgeExecution <"Determined by the Hedging Party.">
+    IssuerPaymentCurrency <"Issuer Payment Currency.">
+    NAV <"Net Asset Value.">
+    OpenPrice <"Opening Price of the Market.">
+    OSPPrice <"OSP Price.">
+    SettlementCurrency <"Settlement Currency.">
+    StrikeDateDetermination <"Date on which the strike is determined in respect of a forward starting swap.">
+    TWAPPrice <"Official TWAP Price.">
+    TWAPVE <"TWAP VE Price.">
+    TWAPVEExcludingClose <"TWAP VE Calculated by Excluding Closing price.">
+    ValuationTime <"Price determined at valuation time.">
+    VWAPPrice <"Official VWAP Price.">
+    VWAPVE <"VWAP VE Price.">
+    VWAPVEExcludingClose <"VWAP VE Calculated by Excluding Closing price.">

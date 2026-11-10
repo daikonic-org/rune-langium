@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.market
+version "1.0.0"
+
+import cdm.base.math.AveragingCalculationMethod
+import cdm.base.math.AveragingCalculationMethodEnum
+import cdm.observable.asset.Price
+import cdm.observable.event.ResolveObservationAverage
+import rune.math.*
+
+type WeightedObservationValue:
+    value number (1..1)
+    weight number (1..1)
+
+func HarmonicObservationMean:
+    inputs: values WeightedObservationValue (1..*)
+    output: mean number (1..1)
+
+    alias magnitudes: values extract [if item -> value < 0 then 0 - item -> value else item -> value]
+    alias scale: magnitudes min
+    alias reciprocal: (values extract [item -> weight * (scale / item -> value)]) sum
+    condition NonZeroObservations:
+        values -> value all <> 0
+    condition NonZeroReciprocal:
+        reciprocal <> 0
+    set mean: scale / reciprocal
+
+func WeightedObservationMean:
+    inputs:
+        values WeightedObservationValue (1..*)
+        method AveragingCalculationMethodEnum (1..1)
+    output: mean number (1..1)
+
+    alias active: values filter [item -> weight > 0]
+    alias maxWeight: active -> weight max
+    alias scaled: active extract [
+        WeightedObservationValue { value: item -> value, weight: item -> weight / maxWeight }
+    ]
+    alias totalWeight: scaled -> weight sum
+    alias normalized: scaled extract [
+        WeightedObservationValue { value: item -> value, weight: item -> weight / totalWeight }
+    ]
+    condition NonNegativeWeights:
+        values -> weight all >= 0
+    condition PositiveWeight:
+        active exists
+    condition GeometricDomain:
+        if method = AveragingCalculationMethodEnum -> Geometric
+        then active -> value all >= 0
+    set mean:
+        if method = AveragingCalculationMethodEnum -> Arithmetic
+        then (normalized extract [item -> value * item -> weight]) sum
+        else if method = AveragingCalculationMethodEnum -> Geometric
+        then if active -> value any = 0
+            then 0
+            else Exp((normalized extract [Log(item -> value) * item -> weight]) sum)
+        else HarmonicObservationMean(normalized)
+
+func ObservationAveragePrice:
+    inputs:
+        readings ObservationReading (1..*)
+        method AveragingCalculationMethod (1..1)
+    output: price Price (1..1)
+
+    alias observations: readings -> observation
+    alias firstPrice: observations -> observedValue first
+    alias weighted: method -> isWeighted
+    alias calculation: method -> calculationMethod
+    condition UnitsMatch:
+        observations -> observedValue -> unit all = firstPrice -> unit
+    condition WeightsSupplied:
+        if weighted
+        then (readings extract [item -> weight exists]) all = True
+    set price:
+        if weighted = False and calculation = AveragingCalculationMethodEnum -> Arithmetic
+        then ResolveObservationAverage(observations)
+        else Price {
+            value: WeightedObservationMean(
+                readings extract [WeightedObservationValue {
+                    value: item -> observation -> observedValue -> value,
+                    weight: if weighted then item -> weight else 1
+                }],
+                calculation
+            ),
+            unit: firstPrice -> unit,
+            perUnitOf: firstPrice -> perUnitOf,
+            priceExpression: firstPrice -> priceExpression,
+            priceType: firstPrice -> priceType
+        }

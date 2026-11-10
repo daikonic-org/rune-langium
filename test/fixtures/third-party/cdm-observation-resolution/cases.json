@@ -1,0 +1,273 @@
+[
+  {
+    "id": "upstream-arithmetic-price",
+    "function": "ResolveObservation",
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "calculation": "Arithmetic",
+    "value": 37.4
+  },
+  {
+    "id": "single-observation",
+    "function": "ResolveObservation",
+    "days": [
+      1
+    ],
+    "value": 37
+  },
+  {
+    "id": "full-identity-same-page-different-scheme",
+    "function": "ResolveObservation",
+    "days": [
+      1
+    ],
+    "scheme": "urn:fixture:alternate",
+    "value": 38.5
+  },
+  {
+    "id": "full-identity-different-page",
+    "function": "ResolveObservation",
+    "days": [
+      1
+    ],
+    "page": "Intraday",
+    "value": 39
+  },
+  {
+    "id": "repeat-identifier-counts-per-request",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      6,
+      7
+    ],
+    "calculation": "Arithmetic",
+    "value": 8
+  },
+  {
+    "id": "weighted-arithmetic",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      7
+    ],
+    "calculation": "Arithmetic",
+    "weighted": true,
+    "value": 13
+  },
+  {
+    "id": "geometric",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      7
+    ],
+    "calculation": "Geometric",
+    "value": 8
+  },
+  {
+    "id": "weighted-geometric",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      7
+    ],
+    "calculation": "Geometric",
+    "weighted": true,
+    "value": 11.313708498984761
+  },
+  {
+    "id": "harmonic",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      7
+    ],
+    "calculation": "Harmonic",
+    "value": 6.4
+  },
+  {
+    "id": "weighted-harmonic",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      7
+    ],
+    "calculation": "Harmonic",
+    "weighted": true,
+    "value": 9.142857142857142
+  },
+  {
+    "id": "geometric-zero",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      8
+    ],
+    "calculation": "Geometric",
+    "value": 0
+  },
+  {
+    "id": "geometric-negative",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      9
+    ],
+    "calculation": "Geometric",
+    "error": "GeometricDomain"
+  },
+  {
+    "id": "zero-weight-excluded",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      11
+    ],
+    "calculation": "Geometric",
+    "weighted": true,
+    "value": 4
+  },
+  {
+    "id": "harmonic-zero",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      8
+    ],
+    "calculation": "Harmonic",
+    "error": "NonZeroObservations"
+  },
+  {
+    "id": "harmonic-zero-denominator",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      9
+    ],
+    "calculation": "Harmonic",
+    "error": "NonZeroReciprocal"
+  },
+  {
+    "id": "negative-harmonic",
+    "function": "ResolveObservation",
+    "days": [
+      9
+    ],
+    "calculation": "Harmonic",
+    "value": -4
+  },
+  {
+    "id": "missing-weight",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      10
+    ],
+    "calculation": "Arithmetic",
+    "weighted": true,
+    "error": "WeightsSupplied"
+  },
+  {
+    "id": "no-positive-weight",
+    "function": "ResolveObservation",
+    "days": [
+      11
+    ],
+    "calculation": "Arithmetic",
+    "weighted": true,
+    "error": "PositiveWeight"
+  },
+  {
+    "id": "negative-weight",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      14
+    ],
+    "calculation": "Arithmetic",
+    "weighted": true,
+    "error": "NonNegativeWeights"
+  },
+  {
+    "id": "mismatched-unit",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      15
+    ],
+    "calculation": "Arithmetic",
+    "error": "UnitsMatch"
+  },
+  {
+    "id": "unknown-identity",
+    "function": "ResolveObservation",
+    "days": [
+      1
+    ],
+    "scheme": "urn:fixture:unknown",
+    "error": "ObservationMissing"
+  },
+  {
+    "id": "duplicate-observation",
+    "function": "ResolveObservation",
+    "days": [
+      12
+    ],
+    "error": "ObservationAmbiguous"
+  },
+  {
+    "id": "missing-averaging-method",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      7
+    ],
+    "error": "AveragingMethodRequired"
+  },
+  {
+    "id": "missing-aggregate-identity",
+    "function": "ResolveObservation",
+    "days": [
+      6,
+      13
+    ],
+    "calculation": "Arithmetic",
+    "error": "AggregateIdentifierRequired"
+  },
+  {
+    "id": "upstream-fixture-rate",
+    "function": "ResolveRateIndex",
+    "index": "EUR-EURIBOR",
+    "value": 0.0875
+  },
+  {
+    "id": "negative-rate",
+    "function": "ResolveRateIndex",
+    "index": "USD-SOFR",
+    "value": -0.01
+  },
+  {
+    "id": "zero-rate",
+    "function": "ResolveRateIndex",
+    "index": "GBP-SONIA",
+    "value": 0
+  },
+  {
+    "id": "unavailable-index",
+    "function": "ResolveRateIndex",
+    "index": "EUR-EuroSTR",
+    "error": "RateIndexMissing"
+  },
+  {
+    "id": "duplicate-index",
+    "function": "ResolveRateIndex",
+    "index": "USD-LIBOR",
+    "error": "RateIndexAmbiguous"
+  }
+]

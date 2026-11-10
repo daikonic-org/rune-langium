@@ -19,14 +19,22 @@ describe('TypeScript library function runtime', () => {
     async (layout) => {
       const { RuneDsl } = createRuneDslServices();
       const sources = [
+        `namespace com.rosetta.model
+basicType number
+`,
         `namespace builtin.helpers
 library function Min(left number, right number) number
 library function Max(left number, right number) number
 library function IsLeapYear(year int) boolean
 library function Custom(value int) int
 `,
+        `namespace rune.math
+library function Log(value number) number
+library function Exp(value number) number
+`,
         `namespace builtin.consumer
 import builtin.helpers.*
+import rune.math.*
 func Minimum:
  inputs:
   left number (1..1)
@@ -47,6 +55,12 @@ func External:
  inputs: value int (1..1)
  output: result int (1..1)
  set result: Custom(value)
+func GeometricMidpoint:
+ inputs:
+  left number (1..1)
+  right number (1..1)
+ output: result number (1..1)
+ set result: Exp((Log(left) + Log(right)) / 2)
 `
       ];
       const docs = sources.map((source, index) =>
@@ -86,6 +100,7 @@ func External:
         const library = layout === 'per-namespace' ? require('./builtin/helpers.js') : funcs;
         expect(funcs.Minimum({ left: 4, right: -2 })).toBe(-2);
         expect(funcs.Maximum({ left: 4, right: -2 })).toBe(4);
+        expect(funcs.GeometricMidpoint({ left: 4, right: 16 })).toBeCloseTo(8);
         for (const [year, expected] of [
           [1900, false],
           [2000, true],

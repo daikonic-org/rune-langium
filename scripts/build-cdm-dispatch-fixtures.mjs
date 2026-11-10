@@ -31,6 +31,21 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-observation-resolution',
+    declarations: [
+      { namespace: 'cdm.observable.event', name: 'ResolveObservation', kind: 'RosettaFunction' },
+      { namespace: 'cdm.product.asset', name: 'ResolveRateIndex', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.observable.event', name: 'ResolveObservationAverage', kind: 'RosettaFunction' }
+    ],
+    references: ['ResolveRateIndex'],
+    supportReferences: [
+      'rosetta-source/src/test/java/cdm/observable/event/functions/ResolveObservationAverageTest.java',
+      'rosetta-source/src/test/java/cdm/product/common/schedule/functions/ResolveRateIndexImpl.java'
+    ]
+  },
+  {
     directory: 'cdm-valuation-times',
     declarations: [
       { namespace: 'cdm.base.datetime', name: 'TimeZoneFromBusinessCenterTime', kind: 'RosettaFunction' },

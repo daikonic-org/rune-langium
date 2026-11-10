@@ -1,0 +1,25 @@
+namespace cdm.product.asset : <"Product concepts applicable to specific asset classes.">
+version "${project.version}"
+
+import cdm.base.*
+
+enum IndexAnnexSourceEnum: <"The enumerated values to specify the CDX index annex source.">
+    MasterConfirmation <"As defined in the relevant form of Master Confirmation applicable to the confirmation of Dow Jones CDX indices.">
+    Publisher <"As defined in the relevant form of Master Confirmation applicable to the confirmation of Dow Jones CDX indices.">
+
+enum SettledEntityMatrixSourceEnum: <"The enumerated values to specify the relevant settled entity matrix source.">
+    ConfirmationAnnex <"The Relevant Settled Entity Matrix shall be the list agreed for this purpose by the parties. The list is not included as part of the electronic confirmation.">
+    NotApplicable <"The term is not applicable.">
+    Publisher <"The Settled Entity Matrix published by the Index Publisher.">
+
+enum CreditSeniorityEnum: <"Seniority of debt instruments comprising the index.">
+    [docReference ISDA FpML_Coding_Scheme schemeLocation "http://www.fpml.org/coding-scheme/credit-seniority"]
+
+    Other <"Other as defined under EMIR.">
+    SeniorLossAbsorbingCapacity <"Senior Loss Absorbing Capacity (RED Tier Code: SNRLAC).">
+    SeniorSec <"Senior domestic (RED Tier Code: SECDOM).">
+    SeniorUnSec <"Senior foreign (RED Tier Code: SNRFOR).">
+    SubLowerTier2 <"Subordinate, Lower Tier 2 (RED Tier Code: SUBLT2).">
+    SubTier1 <"Subordinate Tier 1 (RED Tier Code: PREFT1).">
+    SubTier3 <"Subordinate, Tier 3.">
+    SubUpperTier2 <"Subordinate, Upper Tier 2 (RED Tier Code: JRSUBUT2).">

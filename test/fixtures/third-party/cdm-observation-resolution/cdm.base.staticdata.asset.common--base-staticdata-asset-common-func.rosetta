@@ -1,0 +1,11 @@
+namespace cdm.base.staticdata.asset.common
+version "${project.version}"
+
+func AssetIdentifierByType: <"Returns all the Asset Identifiers of a certain Identifier Type.">
+    inputs:
+        identifiers AssetIdentifier (0..*)
+        idType AssetIdTypeEnum (1..1)
+    output:
+        filteredIdentifier AssetIdentifier (0..*)
+
+    add filteredIdentifier: identifiers filter item -> identifierType = idType

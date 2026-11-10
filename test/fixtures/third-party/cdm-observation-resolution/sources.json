@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.observable.event",
+      "name": "ResolveObservation",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.product.asset",
+      "name": "ResolveRateIndex",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.base.datetime--base-datetime-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-enum.rosetta",
+        "blob": "13389135f8232fa5ad70d7a20cfbdcae06887c46",
+        "sha256": "1da44bf7af1690cf4fea2a69c93feb22122b190dec49a77caf2e6d091fd88789"
+      },
+      "sha256": "59b9108d93cd67e890f2f2f43ff66321bd9b12c6ab43dd1b56d8658952d79382"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-type.rosetta",
+        "blob": "20739b21a9e6553e0a57a58e2d1e96346b2114a2",
+        "sha256": "2e13d9d22655573418bf13b1768ed362ca8bed89d8101b6f575653ebfaf628d1"
+      },
+      "sha256": "7ce6fd960de034aef477465182069c6317811d3cb7f8aa94c3a4717c639ab25b"
+    },
+    {
+      "name": "cdm.base--base-desc.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-desc.rosetta",
+        "blob": "5df70126994d2c0f27c86c7aa5267eff74689f8b",
+        "sha256": "052fb5fd14bce300baedb2264e7d757b95556eb3cb1cf22985b33c47f7c86163"
+      },
+      "sha256": "9a858ca49222e05c16f5f95c18dba4628624cf1e38c9809034905a852ccea598"
+    },
+    {
+      "name": "cdm.base.math--base-math-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-enum.rosetta",
+        "blob": "82d5a2fea207da725d8cb619cf46a805fb609c59",
+        "sha256": "6860992b0213a5aa8b7616b937cf1915827f37d20cc6b7fbfed27804ac62b302"
+      },
+      "sha256": "75e8969f6d3a7b27223241d876100c98b1868b79cd032447cc18f5d568331d9a"
+    },
+    {
+      "name": "cdm.base.math--base-math-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-type.rosetta",
+        "blob": "52f3e7d78c5d44bce7d2286055dc9e9106412460",
+        "sha256": "7f63e590725e3a9c069cf1229fb9369c30ede17389625d8541701ada7e7984d7"
+      },
+      "sha256": "0b9980ee5c0d550c3b2b48f7b26b3fc0b0a95487954c6511e7e4fa4dda74d1c1"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-enum.rosetta",
+        "blob": "bbd44addaab019b2b824a02a453a4b052db21727",
+        "sha256": "abee256ee5b1cad6de0e1a391b7597c245062c78af0f1f10875893c166977d71"
+      },
+      "sha256": "ad0d2ab3186fd25071c12792c126852716e5ad39d85abd594dfdb6313fb9ad4a"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-func.rosetta",
+        "blob": "fdb4492b1d34ca6df52fda89bca8ca4d785f06c0",
+        "sha256": "dbd8a33c5b38413f40bb284c776b4985161efab8d37dbb09c8cbd32d356f1029"
+      },
+      "sha256": "8b36dc4f4d639872c8409c7f3b08c14caa438dfb236d923a1b4cc9f63071c4e3"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-type.rosetta",
+        "blob": "8392a5a6853059d1d8d17b95dc9ff6d769fc5d7e",
+        "sha256": "083dbd053d759318a8fe5861c456304238e2240a8aa210247ae6ae18930860ca"
+      },
+      "sha256": "e2adf42ad5f6c373faa72922e4564be5eecde4c1271dd157eb8147e380a03061"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.rates--base-staticdata-asset-rates-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-rates-enum.rosetta",
+        "blob": "d0e10da5c54d5e8a69f612fedc0f61249800a661",
+        "sha256": "5b6a25630071f1c9644a298b931b8de9a264a8b13054eb130243fee928119963"
+      },
+      "sha256": "5b6a25630071f1c9644a298b931b8de9a264a8b13054eb130243fee928119963"
+    },
+    {
+      "name": "cdm.base.staticdata.codelist--base-staticdata-codelist-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-codelist-func.rosetta",
+        "blob": "7dfce92b2f9fcbcbe3dabcdb806d778bc6399499",
+        "sha256": "7891959b8c5dd2bceca4ac5871c4617b20e2cdac668550fb6f5a42193d4eba3b"
+      },
+      "sha256": "7891959b8c5dd2bceca4ac5871c4617b20e2cdac668550fb6f5a42193d4eba3b"
+    },
+    {
+      "name": "cdm.base.staticdata.codelist--base-staticdata-codelist-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-codelist-type.rosetta",
+        "blob": "271a545571121c3f7aa5c95f24d79684e0e31284",
+        "sha256": "af0d0edbe8b0975bdb9a93ef21ef19e5e641e1bab777e644d7c970588577551f"
+      },
+      "sha256": "bdbb7c739e9730a887f74071a7c265c0e86079777ab7091e29ebd3f144535497"
+    },
+    {
+      "name": "cdm.base.staticdata.identifier--base-staticdata-identifier-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-identifier-type.rosetta",
+        "blob": "80351a055b4f5409424a254e6a0c8dc15d092ff3",
+        "sha256": "45e35334685f59a8f493867d90c7d266ea8d9aad8324fca475a134fda8afd8d7"
+      },
+      "sha256": "a21e3c1fb87cecf387a00eaca5b99d4984b231535ac906f2e9f03ebe3265b909"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-enum.rosetta",
+        "blob": "03a5f521cef70b6a6f0549b84d988459fb0734b1",
+        "sha256": "7b3dd0073e70fb1fd2426a02e1a48152f4faa7f9bfd6dee7b045925f11a88294"
+      },
+      "sha256": "238363b2a28e8b522d44f0b264951da4f4dffd123f1f0e1dded0f291f5602458"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-type.rosetta",
+        "blob": "127bc94f10fecf4fa597497eae2ec752d25c0dec",
+        "sha256": "dd5b6377f0130d0fbe810e072006006c660e087fc10035857fa975556ad94ddf"
+      },
+      "sha256": "6a4b5c76511ee0b43175e7e8e266207e72808deaed5e6247493839dfcbf3a0ba"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-enum.rosetta",
+        "blob": "c88140d3db6451028864e9f69c972a4cb23a5581",
+        "sha256": "eb0b99200eba69e541720a669d0c46aa839389c70a5d2c190bceefb6cdd67e64"
+      },
+      "sha256": "b3d8b8da81ff090e8839997b8b4e5228106658d914ad3d4bfea9127249e63465"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-func.rosetta",
+        "blob": "193f25a411045f8a58af174b90cd34a2a510a882",
+        "sha256": "5f41f1efd9cca8124259d73be261c9e6461ae822e04bec28779aedb75430c66e"
+      },
+      "sha256": "d765baf62c4ec896309a7debb794bc2d8bebcc7282b6ebb039b14ac2c4eb4838"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-type.rosetta",
+        "blob": "5603a1b688ba344edf9238610a621ab2ee5a885b",
+        "sha256": "806777ddb6393579bb0b66f5d15b26bc280ee120e447aa535a49bc4a077ebe64"
+      },
+      "sha256": "d023905ffb088e1a2649384f83d8d3998e5cab0ff2553f65b202aadcf63f5a84"
+    },
+    {
+      "name": "cdm.observable.common--observable-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-common-enum.rosetta",
+        "blob": "a5c9151176a21f559c5063373891d05c8615b4c4",
+        "sha256": "2de25d065d98ec3afe39bed5c2b7ca9fc90c71f0d3e8873fb5a669fb9346d92f"
+      },
+      "sha256": "0f963010db3782702d950b38710739430b833191569f3d8c858a640edc7765a2"
+    },
+    {
+      "name": "cdm.observable.common--observable-common-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-common-func.rosetta",
+        "blob": "42c73bc4c8e62cd3688b55120ae956c150feb5b4",
+        "sha256": "428f4c74bed989cada3e13c00e0d41b90a4bcbf52a449dc54d032e5c536d0e02"
+      },
+      "sha256": "5a291f7913943971aec0e5ebb286f06b3a0189cc3235599f5c0a5afdd1302bf0"
+    },
+    {
+      "name": "cdm.observable.event--observable-event-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-event-func.rosetta",
+        "blob": "68887c2fbd9c255e460d01b03744211809d51cdb",
+        "sha256": "344ba88d3cf4afd49057cf9ed5a57b985bb016f735747b91a9e1b3a114935cc7"
+      },
+      "sha256": "a719db037e34b0be7315168cf0300fea17a4ad70c63b5a478aae0879940a7ed4"
+    },
+    {
+      "name": "cdm.observable.event--observable-event-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-event-type.rosetta",
+        "blob": "26e06278fa6433d54fed41a164e254c41ad99dbf",
+        "sha256": "4cd4da21581c96dd52372a3beed75fd17b990b08ba81ce08f265a501438599bd"
+      },
+      "sha256": "4f52859a7f6162622466ffc95bd72789f8ed049258aca38733c9e2cb97bbcc6c"
+    },
+    {
+      "name": "cdm.product.asset--product-asset-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-asset-enum.rosetta",
+        "blob": "abf851952d2f148baf349944df0e6a705720d665",
+        "sha256": "473e00c1fadec9feb0b23905488435f9d8e35dfaecdc3cca9f250d1edea08844"
+      },
+      "sha256": "7a5d992f78da52cb672af24e621958ad85029670cb897e7336fe4fb42d7e1fe2"
+    },
+    {
+      "name": "cdm.product.asset--product-asset-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-asset-func.rosetta",
+        "blob": "997059a1b321af217a75fb2028ff03444983a9a6",
+        "sha256": "dbcb2577e4536b62bd79fb84fd9362e0f592156bc63101a4e534ac706d0bb274"
+      },
+      "sha256": "3bf49c91698ff76e36079610eaef1dfbdc6ce73cee8c2a0ce7ce14292f54101a"
+    },
+    {
+      "name": "cdm.product.asset--product-asset-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-asset-type.rosetta",
+        "blob": "089ea7351c82bc29a40ac5d99d8764c99792ad82",
+        "sha256": "c713c5f1b5cdc7812a217c57f17fd05e7912211c3485481b2cbac2af1fe0a340"
+      },
+      "sha256": "9f8c63c9184484bc2c00d07c5c7ec23c8700209e4f52bd58a29a55b6c1d1a714"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "42788fdb1515561d3ef09be3ef98e1c7cfd137121dba7d07b670b83802c34912"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "bd3c64434770273231cba01d2605ce8fd341ead116b908f6fc97fbe99d6fea84"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    },
+    {
+      "name": "java/ResolveObservationAverageTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/observable/event/functions/ResolveObservationAverageTest.java",
+        "blob": "d20996b29b406ef553c3311a2f8201306e19d973",
+        "sha256": "c68ca5db5ee180b7c12807d0a20ed11fa0b8df50f6d66d0c8719086b34593e66"
+      },
+      "sha256": "c68ca5db5ee180b7c12807d0a20ed11fa0b8df50f6d66d0c8719086b34593e66"
+    },
+    {
+      "name": "java/ResolveRateIndexImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/product/common/schedule/functions/ResolveRateIndexImpl.java",
+        "blob": "76ff7b0ca3fd4d6f04ebdc008548c184bdaac6e6",
+        "sha256": "5c6db14bce3aaed1cd2fce4fbb12d9c43be529c12ae4c068cc6d14eb32adcfaa"
+      },
+      "sha256": "5c6db14bce3aaed1cd2fce4fbb12d9c43be529c12ae4c068cc6d14eb32adcfaa"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}

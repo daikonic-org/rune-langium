@@ -1447,6 +1447,14 @@ preview-based generation and execution until corrected. Worker tests externalize
 Core alongside Codegen/project-runtime so these consumers share Core's
 generation-local declaration identity registry.
 
+### Portable math library
+
+The Rune math library supplies `rune.math.Log` and `rune.math.Exp` as scalar
+`number` library declarations. The TypeScript and Python emitters share the
+qualified signature check and call the target's standard math implementation.
+Curated observation averaging carries those declarations with its editable
+Rune source. The provider bindings supply the observations and weights.
+
 ### Materialized code-list enums
 
 Curated publication renders populated CDM lists as Rune sources in

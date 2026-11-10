@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.market
+version "1.0.0"
+
+import cdm.base.math.AveragingCalculationMethod
+import cdm.base.staticdata.asset.rates.FloatingRateIndexEnum
+import cdm.observable.event.Observation
+import cdm.observable.event.ObservationIdentifier
+
+type RateIndexQuote:
+    index FloatingRateIndexEnum (1..1)
+    rate number (1..1)
+
+func ReadRateIndexSnapshot: <"Supply quotes from the project's nominated snapshot for this index.">
+    [codeImplementation]
+    inputs: index FloatingRateIndexEnum (1..1)
+    output: quotes RateIndexQuote (0..*)
+
+type ObservationReading:
+    observation Observation (1..1)
+    weight number (0..1) <"The weight of this identified observation when the requested mean is weighted.">
+
+type ObservationInputs:
+    readings ObservationReading (0..*)
+    aggregateIdentifier ObservationIdentifier (0..1) <"The identity assigned to an aggregate of multiple observations.">
+
+func ReadObservationInputs: <"Supply candidate readings and their weights for these exact identifiers.">
+    [codeImplementation]
+    inputs:
+        identifiers ObservationIdentifier (1..*)
+        averagingMethod AveragingCalculationMethod (0..1)
+    output: dataset ObservationInputs (1..1)
+
+func SelectObservationReading:
+    inputs:
+        readings ObservationReading (0..*)
+        requested ObservationIdentifier (1..1)
+    output: reading ObservationReading (1..1)
+    alias matches: readings filter [item -> observation -> observationIdentifier = requested]
+    condition ObservationMissing:
+        matches exists
+    condition ObservationAmbiguous:
+        matches count = 1
+    set reading: matches only-element

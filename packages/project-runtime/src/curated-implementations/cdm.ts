@@ -671,6 +671,27 @@ const utility = (name: keyof typeof typescriptUtilities, namespace = 'cdm.base.d
 });
 export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplementation)[] = [
   {
+    kind: 'rune',
+    namespace: 'cdm.observable.event',
+    name: 'ResolveObservation',
+    signatureSha256: '9740cc677ca53ee575d9c416e4a958e19a6c0f55cda5e7398a4d5cbaeb31dce3',
+    path: 'resolve-observation.rosetta',
+    files: [
+      'resolve-observation.rosetta',
+      'market-snapshot.rosetta',
+      'observation-averages.rosetta',
+      'rune-math.rosetta'
+    ]
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.product.asset',
+    name: 'ResolveRateIndex',
+    signatureSha256: '80e17f86edb11c1b502c91de7f336540d9e4dc3fe2af868de02208c72b7545cf',
+    path: 'resolve-rate-index.rosetta',
+    files: ['resolve-rate-index.rosetta', 'market-snapshot.rosetta']
+  },
+  {
     kind: 'language-specific',
     id: 'cdm.create-billing-summary',
     namespace: 'cdm.event.common',

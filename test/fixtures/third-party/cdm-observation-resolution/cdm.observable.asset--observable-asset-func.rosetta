@@ -1,0 +1,18 @@
+namespace cdm.observable.asset : <"Observable concepts applicable to assets: price, reference price, valuation method etc.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.observable.asset.*
+
+func InterestRateObservableCondition: <"Implementation for PriceQuantity.InterestRateObservable condition.">
+    inputs:
+        pq PriceQuantity (1..1)
+    output:
+        valid boolean (0..1)
+
+    set valid:
+        if pq -> observable as InterestRateIndex exists and pq -> price exists
+        then pq -> price
+                extract [
+                    priceType = PriceTypeEnum -> InterestRate and arithmeticOperator exists
+                ] all = True

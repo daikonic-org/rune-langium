@@ -1,0 +1,17 @@
+namespace cdm.product.asset : <"Product concepts applicable to specific asset classes.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.base.staticdata.asset.rates.*
+import cdm.event.common.*
+import cdm.observable.asset.*
+import cdm.product.asset.calculation.*
+import cdm.product.common.schedule.*
+import cdm.product.template.*
+
+func ResolveRateIndex: <"The function to specify that the floating rate index enumeration will be expressed as a number once the rate is observed.">
+    [codeImplementation]
+    inputs:
+        index FloatingRateIndexEnum (1..1)
+    output:
+        rate number (1..1)

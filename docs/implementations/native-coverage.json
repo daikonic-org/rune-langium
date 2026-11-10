@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "c149227df62fd800af15ced668808475f5fba958b8ca35c18d79d7c1f9b2ecee"
+      "sha256": "b32a49e1d93a92e56b8b906518b61c63f52f53cfaa5bfe006c8201e094b08f53"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1105,6 +1105,14 @@
       "sha256": "aef94920a4705c7626a2fd8007e46a560593ff8fe53cb700bb3c8973f253c903"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/market-snapshot.rosetta",
+      "sha256": "502f5ceb7ab860e43d90c1427e851626d6a558bc214f59b7b6cad55a28088c23"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/observation-averages.rosetta",
+      "sha256": "712818012aa493061585ad504cc1c8ae77ce46547dd81d9e27260f685a2c8b7c"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
       "sha256": "725dd8330dd3297256d717c3497d580a293bb6b789b7e6806e4ec666a5689909"
     },
@@ -1117,8 +1125,20 @@
       "sha256": "7f04c51d4fef398397dc1cf7ad26fa0ee9e80d66ef99f833ce59e3020f7abfd8"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta",
+      "sha256": "db85aaa9de1e83f8fc6d30294db6d858b7ccfbc818acae823fddd1a4bc89c7dc"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-rate-index.rosetta",
+      "sha256": "1492ffb17954b6633d0b028cea4c07b3058f2c8c4f852c8449fc671662936a23"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
       "sha256": "809196e5173de09406e0a7cac3f9127ad7e6fe1a78baae29f460f1280b73efd4"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/rune-math.rosetta",
+      "sha256": "48f1ac4cb42ed71037baba4e7065659e8bb57ba97b263c2fc0d7506954e4775b"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
@@ -6782,7 +6802,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta",
+        "entrypoint": "cdm.observable.event.ResolveObservation",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -6791,10 +6814,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Resolve supplied observations and apply averaging in Rune; establish identity, missing-value and numeric contracts.",
+        "route": "rune-source",
+        "requirements": "Match complete observation identifiers and apply the six weighted or unweighted means in Rune. Supply readings, applicable weights and aggregate identity. The geometric mean uses portable log and exp primitives.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/observation-resolution.test.ts",
+        "cases": "test/fixtures/third-party/cdm-observation-resolution/cases.json",
+        "casesSha256": "88502cf6edcb21749259b49c760f09c8273cdb974d21caacf0d664f4cee7d42d",
+        "selectors": [],
+        "caseCount": 24
       }
     },
     {
@@ -7496,7 +7526,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-rate-index.rosetta",
+        "entrypoint": "cdm.product.asset.ResolveRateIndex",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -7505,10 +7538,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Lookup a supplied index value; a constant/no-op implementation is not a general rate resolver.",
+        "route": "rune-source",
+        "requirements": "Select exactly one rate for the requested index in a project-nominated snapshot. Preserve zero and negative rates and reject missing or ambiguous quotes.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/observation-resolution.test.ts",
+        "cases": "test/fixtures/third-party/cdm-observation-resolution/cases.json",
+        "casesSha256": "88502cf6edcb21749259b49c760f09c8273cdb974d21caacf0d664f4cee7d42d",
+        "selectors": [],
+        "caseCount": 5
       }
     },
     {
