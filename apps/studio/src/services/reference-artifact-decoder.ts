@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { withInstrumentation } from './instrumentation/core.js';
-import { decodeReferenceArtifact, type DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
+import { decodeReferenceArtifactAsync, type DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { projectFileRevision } from '@rune-langium/project-config';
 import { projectReferenceUri } from '@rune-langium/project-runtime/context';
 import {
@@ -16,7 +16,7 @@ import { curatedArtifactCache } from './curated-artifact-cache.js';
 /** Runs in the parser worker. All derived data comes from canonical Core services. */
 export const prepareReferenceArtifact = withInstrumentation(
   async function prepareReferenceArtifact(bytes: Uint8Array): Promise<DecodedReferenceArtifact> {
-    const bundle: DecodedReferenceArtifact = decodeReferenceArtifact(bytes);
+    const bundle: DecodedReferenceArtifact = await decodeReferenceArtifactAsync(bytes);
     // Hashing and IndexedDB waits are independent; bound the live Core graphs while overlapping those waits.
     const documents = bundle.documents.values();
     await Promise.all(

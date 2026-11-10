@@ -1732,7 +1732,10 @@ are misses. Native/older transports retain the canonical JSON fallback and the
 installer still reads present packs from verified serialized documents and validates
 source hashes and publication provenance. Compatibility
 review uses the same worker and canonical runtime implementation without adopting
-the proposed graph. Native hosts retain the synchronous decoder fallback.
+the proposed graph. Studio uses the shared asynchronous decoder's native gzip
+stream when available; synchronous hosts and older browsers retain the existing
+decoder. Both paths apply the same canonical artifact schema after decompression;
+cached bytes still pass checksum verification before either path runs.
 
 Studio deduplicates concurrent immutable-artifact decodes by verified checksum in
 a bounded LRU (192 MiB, conservative UTF-16 payload accounting). Cancellation
