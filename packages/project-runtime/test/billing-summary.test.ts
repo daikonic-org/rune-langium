@@ -64,7 +64,10 @@ it(
     expect(outputs.flatMap((output) => output.diagnostics.filter((item) => item.severity === 'error'))).toEqual([]);
     const entry = outputs.find((output) => output.funcs.some((fn) => fn.name === billingDeclaration.name))!;
     const name = entry.funcs.find((fn) => fn.name === billingDeclaration.name)!.exportName!;
-    const execute = compileGeneratedTypeScript(outputs, { entry: entry.relativePath })[name]!;
+    const execute = compileGeneratedTypeScript(outputs, {
+      entry: entry.relativePath,
+      checkTypes: 'workspace'
+    })[name]!;
     for (const test of billingCases) {
       const run = () => execute(nativeDates(billingRecords(test.inputs)));
       if (test.expectedError) expect(run, test.id).toThrow(new RegExp(test.expectedError));
