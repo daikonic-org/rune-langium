@@ -1,0 +1,11 @@
+namespace fpml.consolidated.shared : < "fpml definition" >
+version "${project.version}"
+
+import fpml.consolidated.fpmlenum.*
+import fpml.consolidated.ird.*
+
+type Frequency: <"A type defining a time frequency, e.g. one day, three months. Used for specifying payment or calculation frequencies at which the value T (Term) is applicable.">
+
+    id string (0..1)
+    periodMultiplier int(min: 1) (0..1) <"A time period multiplier, e.g. 1, 2 or 3 etc. If the period value is T (Term) then periodMultiplier must contain the value 1.">
+    period PeriodExtendedEnum (0..1) <"A time period, e.g. a day, week, month, year or term of the stream.">

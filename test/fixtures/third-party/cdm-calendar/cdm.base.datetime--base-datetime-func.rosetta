@@ -11,6 +11,13 @@ func ResolveAdjustableDate:
     output:
         adjustedDate date (0..1)
 
+func ResolveAdjustableDates:
+    [codeImplementation]
+    inputs:
+        adjustableRelativeOrPeriodicDates AdjustableRelativeOrPeriodicDates (1..1)
+    output:
+        adjustedDates date (0..*)
+
 func DayOfWeek: <"Returns the day of week corresponding to the supplied date.">
     [codeImplementation]
     inputs:

@@ -1,0 +1,10 @@
+namespace fpml.consolidated.fpmlenum : < "fpml definition" >
+version "${project.version}"
+
+enum PeriodExtendedEnum:
+
+    D
+    W
+    M
+    Y
+    T

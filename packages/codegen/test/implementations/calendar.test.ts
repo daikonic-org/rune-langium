@@ -37,6 +37,7 @@ const codelistWarning = expect.objectContaining({
 
 function nativeInput(value: unknown): unknown {
   if (typeof value === 'string' && /^(?:\d{4}|[+-]\d{6})-\d\d-\d\d$/.test(value)) return Temporal.PlainDate.from(value);
+  if (Array.isArray(value)) return value.map(nativeInput);
   if (typeof value === 'object' && value !== null)
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, nativeInput(child)]));
   return value;

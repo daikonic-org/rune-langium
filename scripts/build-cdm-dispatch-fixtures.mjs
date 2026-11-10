@@ -21,7 +21,14 @@ const sources = JSON.parse(
 if (JSON.stringify(inventory.sources) !== JSON.stringify(sources))
   throw new Error('Dispatch fixtures require the audited cohort.');
 const cache = resolve(root, values['cache-dir'] ?? 'dist/native-implementation-audit');
-const calendarFunctions = ['AddDays', 'DateDifference', 'DayOfWeek', 'LeapYearDateDifference', 'ResolveAdjustableDate'];
+const calendarFunctions = [
+  'AddDays',
+  'DateDifference',
+  'DayOfWeek',
+  'LeapYearDateDifference',
+  'ResolveAdjustableDate',
+  'ResolveAdjustableDates'
+];
 const suites = [
   {
     directory: 'cdm-calendar',
@@ -32,6 +39,17 @@ const suites = [
     })),
     references: calendarFunctions,
     supportReferences: ['rosetta-source/src/main/java/cdm/product/common/schedule/functions/AdjustableDateUtils.java']
+  },
+  {
+    directory: 'cdm-commodity-periods',
+    declarations: [
+      {
+        namespace: 'cdm.ingest.fpml.confirmation.product.commodityoption',
+        name: 'CalculateCommodityCalculationPeriods',
+        kind: 'RosettaFunction'
+      }
+    ],
+    references: ['CalculateCommodityCalculationPeriods']
   },
   {
     directory: 'cdm-period-range',

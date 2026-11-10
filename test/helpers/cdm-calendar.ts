@@ -13,14 +13,15 @@ export const calendarFunctions = [
   'DateDifference',
   'DayOfWeek',
   'LeapYearDateDifference',
-  'ResolveAdjustableDate'
+  'ResolveAdjustableDate',
+  'ResolveAdjustableDates'
 ] as const;
 
 export interface CalendarCase {
   id: string;
   function: (typeof calendarFunctions)[number];
   inputs: Record<string, unknown>;
-  expected: string | number | null;
+  expected: string | number | string[] | null;
 }
 
 export const calendarCases: CalendarCase[] = JSON.parse(readFileSync(resolve(calendarDirectory, 'cases.json'), 'utf8'));
@@ -38,6 +39,18 @@ func AdjustWeekend:
     set adjusted: ResolveAdjustableDate(AdjustableOrRelativeDate {
         adjustableDate: AdjustableDate {
             unadjustedDate: value,
+            dateAdjustments: BusinessDayAdjustments { businessDayConvention: convention }
+        }
+    })
+
+func AdjustWeekendList:
+    inputs:
+        value date (1..1)
+        convention BusinessDayConventionEnum (1..1)
+    output: adjusted date (0..*)
+    set adjusted: ResolveAdjustableDates(AdjustableRelativeOrPeriodicDates {
+        adjustableDates: AdjustableDates {
+            unadjustedDate: [value],
             dateAdjustments: BusinessDayAdjustments { businessDayConvention: convention }
         }
     })

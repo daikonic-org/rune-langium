@@ -23,6 +23,7 @@ it('installs one editable source per calendar override with shared support files
       'gregorian',
       'leap-year-date-difference',
       'resolve-adjustable-date',
+      'resolve-adjustable-dates',
       'weekend-adjustment'
     ].map((name) => `model/implementations/cdm/${name}.rosetta`)
   );
@@ -32,7 +33,8 @@ it('installs one editable source per calendar override with shared support files
   const schemas = generatePreviewSchemas([...graph.documents]);
   for (const targetId of [
     ...calendarFunctions.map((name) => `${calendarNamespace}.${name}`),
-    'example.calendar.AdjustWeekend'
+    'example.calendar.AdjustWeekend',
+    'example.calendar.AdjustWeekendList'
   ]) {
     const schema = schemas.find((entry) => entry.targetId === targetId);
     expect(schema, targetId).toBeDefined();

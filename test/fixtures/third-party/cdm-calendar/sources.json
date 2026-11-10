@@ -45,6 +45,11 @@
       "namespace": "cdm.base.datetime",
       "name": "ResolveAdjustableDate",
       "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.base.datetime",
+      "name": "ResolveAdjustableDates",
+      "kind": "RosettaFunction"
     }
   ],
   "files": [
@@ -56,7 +61,7 @@
         "blob": "13389135f8232fa5ad70d7a20cfbdcae06887c46",
         "sha256": "1da44bf7af1690cf4fea2a69c93feb22122b190dec49a77caf2e6d091fd88789"
       },
-      "sha256": "1aa22cc1c7f17ab1dc4f8056321fd58401485e4b6be7bf292f15d8f32479d04d"
+      "sha256": "811679d79070ca82fc48a05e3fac0ed77f86df6e60dc763918bb69399c896c6a"
     },
     {
       "name": "cdm.base.datetime--base-datetime-func.rosetta",
@@ -66,7 +71,7 @@
         "blob": "91d652e9d15380e929d9ee6c1e3e2e99665355a9",
         "sha256": "a8f16482be97fa0efe71ec470aef4d321198c71ec84cc1b174e4bd1edcd7ecc7"
       },
-      "sha256": "0624c905447a3380ef5f98757070bd189129b197d1bf59e54ef56ed70f4d9ce3"
+      "sha256": "8261c485fd5a98db22b82b9ac67064f8a5178a22fb90ba10a43b56c93851a6c4"
     },
     {
       "name": "cdm.base.datetime--base-datetime-type.rosetta",
@@ -76,7 +81,7 @@
         "blob": "20739b21a9e6553e0a57a58e2d1e96346b2114a2",
         "sha256": "2e13d9d22655573418bf13b1768ed362ca8bed89d8101b6f575653ebfaf628d1"
       },
-      "sha256": "22072c737e952226202438309db6822b4888ecbe321b042b7efb6775a0182697"
+      "sha256": "1b14d380a3a9ccd45667de9f6151af1fd00a69264d4fa752c615dbee6f43f45e"
     },
     {
       "name": "cdm.base--base-desc.rosetta",
@@ -219,6 +224,16 @@
         "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
       },
       "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
+    },
+    {
+      "name": "java/ResolveAdjustableDatesImpl.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/base/datetime/functions/ResolveAdjustableDatesImpl.java",
+        "blob": "154279af42d4c955a5e5d06d2dfb829c231e65af",
+        "sha256": "1349ba7738cb404ace087e747c4d6f67ecb140a76622b3b4792802479f905f5f"
+      },
+      "sha256": "1349ba7738cb404ace087e747c4d6f67ecb140a76622b3b4792802479f905f5f"
     },
     {
       "name": "java/AdjustableDateUtils.java",

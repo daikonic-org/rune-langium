@@ -13,9 +13,9 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **9
-language-specific implementations per target**. Fifteen catalog entries use Rune,
-including eleven owned overrides and four partially implemented upstream dispatch
+There are **49 CDM native declarations**, no FpML native declarations, and **10
+language-specific implementations per target**. Sixteen catalog entries use Rune,
+including twelve owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -37,6 +37,7 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | RoundToSignificantFigures | Decimal significant-digit UP/DOWN/HALF_UP rounding with a positive figure count and explicit finite-result limits |
 | VectorOperation | Pairwise exact decimal operations, zero-padding, 10-place half-even division and zero-divisor pair omission |
 | VectorGrowthOperation | Initial base followed by exact cumulative products, converted only at public output boundaries |
+| CalculateCommodityCalculationPeriods | Recurring day, week, month and year boundaries with the original clamping and final overshoot. Term follows the pinned FpML endpoint rule. |
 
 Implementation publication sources live under
 `packages/project-runtime/src/curated-implementations/`. They are selected during
@@ -135,19 +136,27 @@ The [calculation period range](calculation-periods.md#range-construction-from-su
 uses an editable Rune override over the curated date helpers. Its 22 cases
 match the handwritten Java range constructor. The shared calendar helpers
 `AddDays`, `DateDifference`, `LeapYearDateDifference`, and `DayOfWeek` use Rune
-with arithmetic in `impl.cdm.calendar`. `ResolveAdjustableDate` uses those
-helpers for the Java adapter's Saturday/Sunday conventions. The
+with arithmetic in `impl.cdm.calendar`. `ResolveAdjustableDate` and
+`ResolveAdjustableDates` use those helpers for the Java adapter's
+Saturday/Sunday conventions. The plural resolver preserves explicit adjusted
+dates and their order, and returns an empty list for unresolved relative or
+periodic dates. The
 [calendar fixture](../../test/fixtures/third-party/cdm-calendar/README.md) covers
-69 cases against CDM 7.9.0.
+76 cases against CDM 7.9.0.
+
+The [commodity periods fixture](../../test/fixtures/third-party/cdm-commodity-periods/README.md)
+checks 19 cases against the handwritten Java implementation. The valid term
+frequency follows the pinned FpML endpoint contract. Both executable targets
+reject invalid multipliers and boundaries outside their shared date range.
 
 ## Remaining integrations
 
-**25 catalog entries** remain unimplemented.
+**23 catalog entries** remain unimplemented.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
 | Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
-| Calendars and schedules | `BusinessCenterHolidays`, `ResolveAdjustableDates`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

@@ -38,8 +38,12 @@ half-even division, zero-divisor omission and cumulative growth.
 ## CDM calendar helpers
 
 The [calendar fixture](cdm-calendar/README.md) pins the original date helper
-declarations, handwritten implementations and 69 JVM cases for the Rune ports
-and weekend-only `ResolveAdjustableDate`.
+declarations, handwritten implementations and 76 JVM cases for the Rune ports
+and weekend-only adjustable-date resolvers.
+
+The [commodity period fixture](cdm-commodity-periods/README.md) retains the
+handwritten CDM 7.9.0 recurrence and its FpML 3.13.0 input declarations, along
+with JVM comparisons and separate term/admission cases.
 
 ## CDM calculation period range
 

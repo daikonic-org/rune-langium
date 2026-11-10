@@ -18,6 +18,8 @@ import * as typescriptVectors from './typescript/vectors.js';
 import * as pythonVectors from './python/vectors.js';
 import { today as typescriptToday } from './typescript/today.js';
 import { today as pythonToday } from './python/today.js';
+import { commodityCalculationPeriods as typescriptCommodityPeriods } from './typescript/commodity-periods.js';
+import { commodityCalculationPeriods as pythonCommodityPeriods } from './python/commodity-periods.js';
 import { FunctionImplementationSchema, type FunctionImplementation } from '@rune-langium/core/project-contract';
 
 export interface NativeImplementation {
@@ -41,6 +43,44 @@ interface RuneImplementation {
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  CalculateCommodityCalculationPeriods: {
+    inputs: [
+      {
+        name: 'fpmlCommodityCalculationPeriodsSchedule',
+        type: 'fpml.consolidated.com.CommodityCalculationPeriodsSchedule',
+        kind: 'Data',
+        card: [0, 1],
+        plain: true
+      },
+      { name: 'effectiveDate', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [0, 1], plain: true },
+      { name: 'terminationDate', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [0, 1], plain: true }
+    ],
+    output: {
+      name: 'commodityCalculationPeriods',
+      type: 'com.rosetta.model.date',
+      kind: 'RosettaRecordType',
+      card: [0, '*'],
+      plain: true
+    }
+  },
+  ResolveAdjustableDates: {
+    inputs: [
+      {
+        name: 'adjustableRelativeOrPeriodicDates',
+        type: 'cdm.base.datetime.AdjustableRelativeOrPeriodicDates',
+        kind: 'Data',
+        card: [1, 1],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'adjustedDates',
+      type: 'com.rosetta.model.date',
+      kind: 'RosettaRecordType',
+      card: [0, '*'],
+      plain: true
+    }
+  },
   ResolveAdjustableDate: {
     inputs: [
       {
@@ -588,12 +628,36 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   utility('ToTime'),
   utility('Now'),
   utility('StringContains', 'cdm.ingest.fpml.confirmation.common'),
+  {
+    kind: 'language-specific',
+    id: 'cdm.commodity-calculation-periods',
+    namespace: 'cdm.ingest.fpml.confirmation.product.commodityoption',
+    name: 'CalculateCommodityCalculationPeriods',
+    signature: signatures.CalculateCommodityCalculationPeriods!,
+    targets: {
+      typescript: {
+        ...typescriptCommodityPeriods,
+        path: 'packages/project-runtime/src/curated-implementations/typescript/commodity-periods.ts',
+        entrypoint: 'commodityCalculationPeriods'
+      },
+      python: {
+        ...pythonCommodityPeriods,
+        path: 'packages/project-runtime/src/curated-implementations/python/commodity-periods.ts',
+        entrypoint: 'commodityCalculationPeriods'
+      }
+    }
+  },
   ...[
     { name: 'AddDays', path: 'add-days.rosetta', support: ['gregorian.rosetta'] },
     { name: 'DateDifference', path: 'date-difference.rosetta', support: [] },
     { name: 'LeapYearDateDifference', path: 'leap-year-date-difference.rosetta', support: ['gregorian.rosetta'] },
     { name: 'DayOfWeek', path: 'day-of-week.rosetta', support: [] },
-    { name: 'ResolveAdjustableDate', path: 'resolve-adjustable-date.rosetta', support: ['weekend-adjustment.rosetta'] }
+    { name: 'ResolveAdjustableDate', path: 'resolve-adjustable-date.rosetta', support: ['weekend-adjustment.rosetta'] },
+    {
+      name: 'ResolveAdjustableDates',
+      path: 'resolve-adjustable-dates.rosetta',
+      support: ['weekend-adjustment.rosetta']
+    }
   ].map(({ name, path, support }): RuneImplementation => ({
     kind: 'rune',
     namespace: 'cdm.base.datetime',

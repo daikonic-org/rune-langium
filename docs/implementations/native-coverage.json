@@ -970,7 +970,11 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "4e5cdb350b9e6ee025672955dc93669a143f40e2dd9b8b41e42715299485cec8"
+      "sha256": "5311cd4ae8cea3bf669e2b8288cee84d29993eec0df642d5cd0a05b50b2dc830"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/commodity-periods.ts",
+      "sha256": "8559f69b669812072fbbe6a69beffbb13f182c5f3fe5f4d90091554b685f459b"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/numbers.ts",
@@ -1041,6 +1045,10 @@
       "sha256": "7d0cb03959085e4f3b75227d442cb9ccb02839356a6a09e9fa670b71571fdff9"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
+      "sha256": "7f04c51d4fef398397dc1cf7ad26fa0ee9e80d66ef99f833ce59e3020f7abfd8"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
       "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
     },
@@ -1055,6 +1063,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta",
       "sha256": "5abb2bca9eeea455fbee16b66d90caa7a6964d4d1da2adc8435a618e676ece9e"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/commodity-periods.ts",
+      "sha256": "bfce5a358fec453bf18e895575bda3f9f2cf9a45112f9e6fa13bf6a34ae0747a"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/decimal.ts",
@@ -1909,6 +1921,12 @@
       "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
     },
     {
+      "model": "fpml",
+      "path": "LICENCE",
+      "blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
       "model": "rune-dsl",
       "path": "LICENSE",
       "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
@@ -1998,7 +2016,7 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/calendar.test.ts",
         "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
-        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "casesSha256": "f41c59324ac1ab43f20e3bf25eb7677469be085839751b883e1f4bd6dec1a806",
         "selectors": [],
         "caseCount": 16
       }
@@ -2136,7 +2154,7 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/calendar.test.ts",
         "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
-        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "casesSha256": "f41c59324ac1ab43f20e3bf25eb7677469be085839751b883e1f4bd6dec1a806",
         "selectors": [],
         "caseCount": 8
       }
@@ -2216,7 +2234,7 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/calendar.test.ts",
         "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
-        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "casesSha256": "f41c59324ac1ab43f20e3bf25eb7677469be085839751b883e1f4bd6dec1a806",
         "selectors": [],
         "caseCount": 12
       }
@@ -2297,7 +2315,7 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/calendar.test.ts",
         "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
-        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "casesSha256": "f41c59324ac1ab43f20e3bf25eb7677469be085839751b883e1f4bd6dec1a806",
         "selectors": [],
         "caseCount": 14
       }
@@ -2498,7 +2516,7 @@
       "regressionSuite": {
         "path": "packages/codegen/test/implementations/calendar.test.ts",
         "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
-        "casesSha256": "d237996f37cc0ab0d5bc9a9f77f69cac6d093b508fc7e04d4f4aecaf98e3f9ee",
+        "casesSha256": "f41c59324ac1ab43f20e3bf25eb7677469be085839751b883e1f4bd6dec1a806",
         "selectors": [],
         "caseCount": 19
       }
@@ -2540,7 +2558,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
+        "entrypoint": "cdm.base.datetime.ResolveAdjustableDates",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [
@@ -2550,13 +2571,28 @@
           }
         ],
         "providers": [],
-        "tests": []
+        "tests": [],
+        "dependencies": [
+          {
+            "path": "test/fixtures/third-party/cdm-calendar/java/AdjustableDateUtils.java",
+            "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d",
+            "entrypoint": "cdm.product.common.schedule.functions.AdjustableDateUtils.adjustDates",
+            "sourceUrl": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar"
+          }
+        ]
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Resolve collections/periodic dates in Rune using the same calendar and date contracts.",
+        "route": "rune-source",
+        "requirements": "Preserve supplied adjusted dates in order or apply the handwritten adapter’s Saturday/Sunday adjustment to an explicit date list. Relative and periodic dates remain unresolved.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/calendar.test.ts",
+        "cases": "test/fixtures/third-party/cdm-calendar/cases.json",
+        "casesSha256": "f41c59324ac1ab43f20e3bf25eb7677469be085839751b883e1f4bd6dec1a806",
+        "selectors": [],
+        "caseCount": 7
       }
     },
     {
@@ -5378,7 +5414,25 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.commodity-calculation-periods",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/commodity-periods.ts",
+            "entrypoint": "commodityCalculationPeriods",
+            "dependencies": [
+              "@js-temporal/polyfill"
+            ]
+          },
+          "python": {
+            "id": "cdm.commodity-calculation-periods",
+            "path": "packages/project-runtime/src/curated-implementations/python/commodity-periods.ts",
+            "entrypoint": "commodityCalculationPeriods",
+            "dependencies": [
+              "rune_calendar_period_boundaries"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [
@@ -5391,10 +5445,17 @@
         "tests": []
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Schedule rules can be Rune; date/calendar primitives, schedule conventions and stub behavior need parity evidence.",
+        "route": "primitive-backed",
+        "requirements": "Advance each boundary from the previous one using Gregorian day, week, month or year arithmetic until termination is reached or crossed. Target loops preserve month clamping and the balance flag. Term uses the pinned FpML endpoints.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/commodity-periods.test.ts",
+        "cases": "test/fixtures/third-party/cdm-commodity-periods/cases.json",
+        "casesSha256": "bc57d282152177142506c492db43b89e06866a60ed266a612fbc801e4189757a",
+        "selectors": [],
+        "caseCount": 26
       }
     },
     {

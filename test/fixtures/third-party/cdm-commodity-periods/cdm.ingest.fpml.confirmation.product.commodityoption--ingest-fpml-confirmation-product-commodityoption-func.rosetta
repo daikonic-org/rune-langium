@@ -1,0 +1,29 @@
+namespace cdm.ingest.fpml.confirmation.product.commodityoption: <"FpML CommodityOption product mapping functions.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.base.staticdata.party.*
+import cdm.ingest.fpml.confirmation.common.*
+import cdm.ingest.fpml.confirmation.datetime.*
+import cdm.ingest.fpml.confirmation.other.*
+import cdm.ingest.fpml.confirmation.party.*
+import cdm.ingest.fpml.confirmation.pricequantity.*
+import cdm.ingest.fpml.confirmation.settlement.*
+import cdm.observable.asset.*
+import cdm.product.asset.*
+import cdm.product.common.schedule.*
+import cdm.product.common.settlement.*
+import cdm.product.template.*
+
+import fpml.consolidated.* as fpml
+import fpml.consolidated.com.* as fpml
+import fpml.consolidated.shared.* as fpml
+
+func CalculateCommodityCalculationPeriods:
+    [codeImplementation]
+    inputs:
+        fpmlCommodityCalculationPeriodsSchedule fpml.CommodityCalculationPeriodsSchedule (0..1)
+        effectiveDate date (0..1)
+        terminationDate date (0..1)
+    output:
+        commodityCalculationPeriods date (0..*)

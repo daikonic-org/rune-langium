@@ -32,6 +32,7 @@
     "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
@@ -148,8 +149,17 @@
         "name": "ResolveAdjustableDates"
       },
       "signatureSha256": "fbad00f8c027526be3fd2a5cdcf6ccc2fee5048160ddd318c4e7adaed177201b",
-      "route": "data-backed",
-      "requirements": "Resolve collections/periodic dates in Rune using the same calendar and date contracts."
+      "route": "rune-source",
+      "requirements": "Preserve supplied adjusted dates in order or apply the handwritten adapter’s Saturday/Sunday adjustment to an explicit date list. Relative and periodic dates remain unresolved.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-calendar/java/AdjustableDateUtils.java",
+          "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d",
+          "entrypoint": "cdm.product.common.schedule.functions.AdjustableDateUtils.adjustDates",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/org/finos/cdm/cdm-java/7.9.0/cdm-java-7.9.0-sources.jar"
+        }
+      ]
     },
     {
       "symbol": {
@@ -467,8 +477,8 @@
         "name": "CalculateCommodityCalculationPeriods"
       },
       "signatureSha256": "4527dbb259ec8516a40bfa45a6284dd30f037a742a90191c8a748df740656646",
-      "route": "data-backed",
-      "requirements": "Schedule rules can be Rune; date/calendar primitives, schedule conventions and stub behavior need parity evidence."
+      "route": "primitive-backed",
+      "requirements": "Advance each boundary from the previous one using Gregorian day, week, month or year arithmetic until termination is reached or crossed. Target loops preserve month clamping and the balance flag. Term uses the pinned FpML endpoints."
     },
     {
       "symbol": {

@@ -34,8 +34,13 @@ export async function projectBackingFiles(
     const root = await navigator.storage.getDirectory();
     async function read(dir: FileSystemDirectoryHandle, prefix = '', result: Record<string, string> = {}) {
       for await (const [name, entry] of dir.entries()) {
-        if (entry.kind === 'directory') await read(entry, prefix + name + '/', result);
-        else result[prefix + name] = await (await entry.getFile()).text();
+        try {
+          if (entry.kind === 'directory') await read(entry, prefix + name + '/', result);
+          else result[prefix + name] = await (await entry.getFile()).text();
+        } catch (error) {
+          // Studio can remove an entry between enumeration and reading it while saving.
+          if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+        }
       }
       return result;
     }

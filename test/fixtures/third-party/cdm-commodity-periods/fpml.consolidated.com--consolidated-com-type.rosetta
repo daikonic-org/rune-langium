@@ -1,0 +1,11 @@
+namespace fpml.consolidated.com : < "fpml definition" >
+version "${project.version}"
+
+import fpml.consolidated.asset.*
+import fpml.consolidated.fpmlenum.*
+import fpml.consolidated.option.shared.*
+import fpml.consolidated.shared.*
+
+type CommodityCalculationPeriodsSchedule extends Frequency: <"A parametric representation of the Calculation Periods for on Asian option or a leg of a swap. In case the calculation frequency is of value T (term), the period is defined by the commoditySwap\\effectiveDate and the commoditySwap\\terminationDate.">
+
+    balanceOfFirstPeriod boolean (0..1) <"If true, indicates that that the first Calculation Period should run from the Effective Date to the end of the calendar period in which the Effective Date falls, e.g. Jan 15 - Jan 31 if the calculation periods are one month long and Effective Date is Jan 15. If false, the first Calculation Period should run from the Effective Date for one whole period, e.g. Jan 15 to Feb 14 if the calculation periods are one month long and Effective Date is Jan 15.">

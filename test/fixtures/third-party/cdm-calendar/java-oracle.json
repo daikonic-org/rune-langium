@@ -42,6 +42,12 @@
       "sha256": "4b0c41055321cb5b20978eaedd0caa154b0f8d60d6aaf75fc4cebf4f1c63874d"
     },
     {
+      "name": "java/ResolveAdjustableDatesImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/datetime/functions/ResolveAdjustableDatesImpl.java",
+      "sha256": "1349ba7738cb404ace087e747c4d6f67ecb140a76622b3b4792802479f905f5f"
+    },
+    {
       "name": "java/AdjustableDateUtils.java",
       "artifact": "cdm-java-7.9.0-sources.jar",
       "entry": "cdm/product/common/schedule/functions/AdjustableDateUtils.java",
