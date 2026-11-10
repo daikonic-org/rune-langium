@@ -5,6 +5,7 @@ import { usesNativeValues } from './value-representation.js';
 import type { CountedReductionPlans } from './counted-reduction.js';
 import { renderCountedReductionTs } from './counted-reduction-ts.js';
 import { patternLiteral, renderPatternLiteral } from './pattern.js';
+import { renderTypeScriptNumberLiteral } from './number-literal.js';
 
 import {
   getEnumValueLiteral,
@@ -889,7 +890,7 @@ export function transpileLiteral(expr: RosettaExpression, ctx: ExpressionTranspi
     return String(Number(expr.value));
   }
   if (isRosettaNumberLiteral(expr)) {
-    return String(expr.value);
+    return renderTypeScriptNumberLiteral(expr.value);
   }
   if (isRosettaStringLiteral(expr)) {
     if (usesNativeValues(ctx) && patternLiteral(expr) !== undefined) return renderPatternLiteral(expr.value);

@@ -16,6 +16,7 @@ import { RuneDslScopeProvider } from './rune-dsl-scope-provider.js';
 import { RuneDslScopeComputation } from './rune-dsl-scope-computation.js';
 import { RuneDslValidator } from './rune-dsl-validator.js';
 import { createRuneDslParser } from './rune-dsl-parser.js';
+import { RuneValueConverter } from './rune-value-converter.js';
 import { RuneWorkspaceManager } from './rune-workspace-manager.js';
 import { RuneDslIndexManager } from './rune-dsl-index-manager.js';
 import { RuneDslLinker, type DeferredModelProvider } from './rune-dsl-linker.js';
@@ -79,7 +80,8 @@ export type RuneDslServices = LangiumCoreServices & {
 export const RuneDslModule = {
   serializer: { JsonSerializer: (services) => new RuneJsonSerializer(services) },
   parser: {
-    LangiumParser: (services) => createRuneDslParser(services)
+    LangiumParser: (services) => createRuneDslParser(services),
+    ValueConverter: () => new RuneValueConverter()
   },
   references: {
     Linker: (services) => new RuneDslLinker(services),
