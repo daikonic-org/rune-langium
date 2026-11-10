@@ -108,6 +108,16 @@ provider's time with its optional location. Both require exactly one match.
 Projects can import `rune.resources.cdm.BusinessCenter` for their inputs and
 use `to-string` at the original CDM signature boundary.
 
+The observation overrides use `impl.cdm.market.ReadObservationInputs` and
+`impl.cdm.market.ReadRateIndexSnapshot`. Bind the first to a provider of
+candidate readings, any requested weights and an aggregate identity when
+multiple observations are combined. Rune selects a unique reading for each
+requested identity, preserving duplicate requests, and applies the chosen
+mean. Arithmetic reuses the original CDM helper for unweighted inputs.
+Geometric averaging uses the bundled `rune.math.Log` and `Exp` declarations.
+Bind the second provider to a nominated rate snapshot. Rune selects exactly
+one quote for the requested index, including zero or negative rates.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

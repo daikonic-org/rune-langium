@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.observable.event
+version "1.0.0"
+
+import cdm.base.math.AveragingCalculationMethod
+import impl.cdm.market.*
+
+func ResolveObservation:
+    inputs:
+        identifiers ObservationIdentifier (1..*)
+        averagingMethod AveragingCalculationMethod (0..1)
+    output: observation Observation (1..1)
+
+    alias supplied: ReadObservationInputs(identifiers, averagingMethod)
+    alias readings: identifiers extract [SelectObservationReading(supplied -> readings, item)]
+    alias firstObservation: readings -> observation first
+    condition AveragingMethodRequired:
+        identifiers count = 1 or averagingMethod exists
+    condition AggregateIdentifierRequired:
+        if identifiers count > 1 then supplied -> aggregateIdentifier exists
+    set observation:
+        if averagingMethod is absent
+        then firstObservation
+        else Observation {
+            observedValue: ObservationAveragePrice(readings, averagingMethod),
+            observationIdentifier: if identifiers count = 1
+                then firstObservation -> observationIdentifier
+                else supplied -> aggregateIdentifier
+        }

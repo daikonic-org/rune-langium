@@ -1,0 +1,24 @@
+namespace cdm.observable.event : <"Observable event concepts: extraordinary event, trigger event, disruption event etc.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.event.common.*
+import cdm.observable.asset.*
+import cdm.product.template.*
+
+func ResolveObservationAverage: <"Specifies the interface that should be used by implementors to resolve a single observation when provided many, applying the averaging method, if one is provided.">
+    inputs:
+        observations Observation (1..*)
+    output:
+        resetValue Price (1..1)
+
+    alias firstObservedValue: observations -> observedValue first
+
+    condition UnitsMatch:
+        observations -> observedValue -> unit all = firstObservedValue -> unit
+
+    set resetValue -> value: observations -> observedValue -> value sum / observations count
+    set resetValue -> unit: firstObservedValue -> unit
+    set resetValue -> perUnitOf: firstObservedValue -> perUnitOf
+    set resetValue -> priceExpression: firstObservedValue -> priceExpression
+    set resetValue -> priceType: firstObservedValue -> priceType

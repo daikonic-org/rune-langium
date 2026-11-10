@@ -8,6 +8,7 @@ import {
   isChoice,
   isRosettaEnumeration,
   isRosettaModel,
+  isRosettaExternalFunction,
   isRosettaFunction,
   type RosettaFunction,
   type Condition,
@@ -44,6 +45,7 @@ import {
 } from './python-operations.js';
 import { pythonFieldType, pythonFieldNormalizer, pythonTypeDeclarations } from './python-types.js';
 import { PYTHON_RUNTIME_SOURCE } from './python-runtime.js';
+import { mathLibraryFunction } from '../emit/math-library.js';
 import type { PythonProjectionContext } from './context.js';
 import type { EmittedProjection, GeneratedProjection, ProjectionSubject } from './types.js';
 import { selectEffectiveProjectDocuments } from '../selection/declaration-selection.js';
@@ -479,6 +481,9 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
     PYTHON_RUNTIME_SOURCE,
     'from typing import Literal',
     'import builtins as _rune_builtins',
+    ...(elements.some((node) => isRosettaExternalFunction(node) && mathLibraryFunction(node))
+      ? ['import math as _rune_math']
+      : []),
     '_rune_globals = globals()',
     ...pythonTypeDeclarations(types, context)
   ];
@@ -567,8 +572,10 @@ export function generatePythonModule(documents: readonly LangiumDocument[]): Pyt
         !node.parameters[0]!.isArray &&
         node.parameters[0]!.typeCall.type.ref?.name === 'number' &&
         node.typeCall.type.ref?.name === 'boolean';
+      const math = mathLibraryFunction(node);
+      const fallback = math ? `_rune_math.${math}` : leapYear ? 'calendar.isleap' : undefined;
       sections.push(
-        `def ${context.name(node)}(*args):\n    return rune.native(${pyString(qualified(node))}, *args${leapYear ? ', _rune_fallback=calendar.isleap' : ''})\n`
+        `def ${context.name(node)}(*args):\n    return rune.native(${pyString(qualified(node))}, *args${fallback ? ', _rune_fallback=' + fallback : ''})\n`
       );
     }
   }

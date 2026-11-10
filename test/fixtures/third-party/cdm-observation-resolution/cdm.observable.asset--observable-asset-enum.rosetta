@@ -1,0 +1,89 @@
+namespace cdm.observable.asset : <"Observable asset concepts: schedule, settlement, price and quantity notation etc.">
+version "${project.version}"
+
+import cdm.base.*
+
+enum InformationProviderEnum: <"The enumerated values to specify the list of information providers.">
+    [docReference ISDA FpML_Coding_Scheme schemeLocation "http://www.fpml.org/coding-scheme/information-provider"]
+
+    AssocBanksSingapore <"The Association of Banks in Singapore.">
+    BancoCentralChile <"The central bank of Chile.">
+    BankOfCanada <"The central bank of Canada.">
+    BankOfEngland <"The Bank Of England.">
+    BankOfJapan <"The central bank of Japan.">
+    Bloomberg <"Bloomberg LP.">
+    EuroCentralBank <"The European Central Bank.">
+    FederalReserve <"The Federal Reserve, the central bank of the United States.">
+    FHLBSF <"The Federal Home Loan Bank of San Francisco, or its successor.">
+    ICESWAP <"ICESWAP Rate Administrator which means ICE Benchmark Administration, or any successor thereto, as administrator of the ICE Swap Rate.">
+    ISDA <"International Swaps and Derivatives Association, Inc.">
+    Refinitiv <"Refinitiv, formerly Thomson Reuters Financial & Risk.">
+    ReserveBankAustralia <"The Reserve Bank of Australia.">
+    ReserveBankNewZealand <"The Reserve Bank of New Zealand.">
+    Reuters <"Reuters Group Plc.">
+    SAFEX <"South African Futures Exchange, or its successor.">
+    Telerate <"Telerate, Inc.">
+    TOKYOSWAP <"The Tokyo Swap Reference Rate (or TSR) Administrator, which means Refinitiv Asia Pacific Limited, or any successor thereto, as administrator of the TSR.">
+
+enum PriceExpressionEnum: <"Enumerated values to specify whether the price is expressed in absolute or relative terms.">
+    AbsoluteTerms <"The price is expressed as an absolute amount.">
+    PercentageOfNotional <"The price is expressed in percentage of the notional amount.">
+    ParValueFraction <"Denotes a price expressed in percentage of face value with fractions which is used for quoting bonds, e.g. 101 3/8 indicates that the buyer will pay 101.375 of the face value.">
+    PerOption <"Denotes a price expressed per number of options.">
+
+enum QuotationSideEnum: <"The enumerated values to specify the side from which perspective a value is quoted.">
+    Afternoon <"Denotes a value as the Afternoon fixing reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Ask <"Denotes a value 'asked' by a seller for an asset, i.e. the value at which a seller is willing to sell.">
+    Bid <"Denotes a value 'bid' by a buyer for an asset, i.e. the value a buyer is willing to pay.">
+    Closing <"Denotes a value as the Closing price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    High <"Denotes a value as the High price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Index <"Denotes a value as the Index price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    MeanOfBidAndAsk <"Denotes a value as the Average of the Bid and Ask prices reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    LocationalMarginal <"Denotes a value as the Locational Marginal price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Low <"Denotes a value as the Low price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    MarginalHourly <"Denotes a value as the Marginal Hourly price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    MarketClearing <"Denotes a value as the Market Clearing price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    MeanOfHighAndLow <"Denotes a value as the Average of the High and Low prices reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Morning <"Denotes a value as the Morning fixing reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Official <"Denotes a value as the Official price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Opening <"Denotes a value as the Opening price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    OSP <"Denotes a value as the Official Settlement Price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Settlement <"Denotes a value as the Settlement price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Spot <"Denotes a value as the Spot price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    Mid <"Denotes a value as the Average of the Midpoint of prices reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    NationalSingle <"Denotes a value as the National Single price reported in or by the relevant Price Source as specified in the relevant Confirmation.">
+    WeightedAverage <"Denotes a value as the Volume Weighted Average of prices effective on the Pricing Date.">
+    UnWeightedAverage <"Denotes a value as the Non-volume Weighted Average of prices effective on the Pricing Date.">
+
+enum QuoteBasisEnum: <"The enumerated values to specify how an exchange rate is quoted.">
+    Currency1PerCurrency2 <"The amount of currency1 for one unit of currency2">
+    Currency2PerCurrency1 <"The amount of currency2 for one unit of currency1">
+
+enum PriceTypeEnum: <"Provides enumerated values for types of prices in the Price data type in order to explain how to interpret the amount and use it in calculations.">
+    AssetPrice <"Denotes a price expressed as a cash amount in a given currency to purchase a unit of an asset (e.g. a security or a commodity).">
+    Premium <"Denotes the amount payable by the buyer to the seller for an option. The premium is paid on the specified premium payment date or on each premium payment date if specified.">
+    Correlation <"Denotes a price expressed as the weighted average of all pairwise correlation coefficients.">
+    Dividend <"Denotes a price expressed as the dividend payment from a index or share.">
+    ExchangeRate <"Denotes a rate to convert one currency or other measure of value to another. Foreign Exchange rates are represented in decimals, e.g. {amount, unitOfAmount, PerUnitOfAmount} = [1.23, USD, GBP] = USD 1.23 for every 1 GBP.">
+    InterestRate <"Denotes a price expressed as a rate to be applied to quantity/notional amount and represented as decimal, e.g. {amount, unitOfAmount, PerUnitOfAmount} = [0.08, EUR, EUR] = 8%  of the EUR notional quantity/amount or 8 cents for every EUR of notional amount.">
+        [docReference ICMA GMRA namingConvention "Pricing Rate"
+            provision "As defined in the GMRA, paragraph 2(ll) The pricing rate is the per annum percentage rate for calculation of the Price Differential agreed to by Buyer and Seller in relation to that Transaction."]
+        [docReference ICMA ERCCBestPractice namingConvention "Pricing Rate"
+            provision "ERCC Guide: Annex II  Glossary of repo terminology. Repo rate is the market term for the annualised percentage rate of interest on the cash in a repo. Legally-speaking, however, the term is a misnomer, as the legal form of a repo is not an interest-paying loan or deposit. Rather, the return is just the difference between two securities prices. In the GMRA, the repo rate is called the Pricing Rate. Traditionally, the repo rate was the price of a Repurchase Transaction but Buy/Sell-Backs are now often quoted in the same way."]
+    Variance <"Denotes a price expressed as the the arithmetic average of the squared differences from the mean value of an observable price.">
+    Volatility <"Denotes a price expressed as the the square root of the arithmetic average of the squared differences from the mean value of an observable price.">
+
+enum PriceSubTypeEnum: <"Provides a list of possible sub types of the chosen price type, used in conjunction with the PriceTypeEnum.">
+    Fee <"The lending fee associated with borrowing a security.">
+    Rebate <"Denotes any rebate that is attributed to the cashflow. For example, where a lender will provide a rebate on the cash given to them by the borrower as collateral on a securities lending trade. ">
+
+enum PremiumTypeEnum: <"The enumerated values to specify the premium type for forward start options.">
+    PrePaid
+    PostPaid
+    Variable
+    Fixed
+
+enum PriceOperandEnum:
+    AccruedInterest
+    Commission
+    ForwardPoint

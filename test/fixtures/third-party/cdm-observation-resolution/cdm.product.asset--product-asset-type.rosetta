@@ -1,0 +1,73 @@
+namespace cdm.product.asset : <"Product concepts applicable to specific asset classes.">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.datetime.daycount.*
+import cdm.base.math.*
+import cdm.base.staticdata.asset.commodity.*
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.asset.credit.*
+import cdm.base.staticdata.asset.rates.*
+import cdm.base.staticdata.identifier.*
+import cdm.base.staticdata.party.*
+import cdm.observable.asset.*
+import cdm.observable.asset.calculatedrate.*
+import cdm.observable.common.*
+import cdm.observable.event.*
+import cdm.product.common.schedule.*
+import cdm.product.common.settlement.*
+import cdm.product.template.*
+
+type ReferenceInformation: <"A class specifying the Credit Default Swap Reference Information.">
+
+    referenceEntity LegalEntity (1..1) <"The corporate or sovereign entity which is subject to the swap transaction and any successor that assumes all or substantially all of its contractual and other obligations. Reference Entities cannot be senior or subordinated. It is the obligations of the Reference Entities that can be senior or subordinated. ISDA 2014 Credit definitions article II section 2.1: `Reference Entity` means the entity specified as such in the related Confirmation.">
+    referenceObligation ReferenceObligation (0..*) <"The Reference Obligation is a financial instrument that is either issued or guaranteed by the reference entity. It serves to clarify the precise reference entity protection is being offered upon, and its legal position with regard to other related firms (parents/subsidiaries). Furthermore the Reference Obligation is ALWAYS deliverable and establishes the Pari Passu ranking (as the deliverable bonds must rank equal to the reference obligation). ISDA 2003 Term: Reference Obligation.">
+    noReferenceObligation boolean (0..1) <"Used to indicate that there is no Reference Obligation associated with this Credit Default Swap and that there will never be one.">
+    unknownReferenceObligation boolean (0..1) <"Used to indicate that the Reference obligation associated with the Credit Default Swap is currently not known. This is not valid for Legal Confirmation purposes, but is valid for earlier stages in the trade life cycle (e.g. Broker Confirmation).">
+    allGuarantees boolean (0..1) <"Indicates whether an obligation of the Reference Entity, guaranteed by the Reference Entity on behalf of a non-Affiliate, is to be considered an Obligation for the purpose of the transaction. It will be considered an obligation if allGuarantees is applicable (true) and not if allGuarantees is inapplicable (false). ISDA 2003 Term: All Guarantees.">
+    referencePrice Price (0..1) <"Used to determine (a) for physically settled trades, the Physical Settlement Amount, which equals the Floating Rate Payer Calculation Amount times the Reference Price and (b) for cash settled trades, the Cash Settlement Amount, which equals the greater of (i) the difference between the Reference Price and the Final Price and (ii) zero. ISDA 2003 Term: Reference Price.">
+    referencePolicy boolean (0..1) <"Applicable to the transactions on mortgage-backed security, which can make use of a reference policy. Presence of the element with value set to 'true' indicates that the reference policy is applicable; absence implies that it is not.">
+    securedList boolean (0..1) <"With respect to any day, the list of Syndicated Secured Obligations of the Designated Priority of the Reference Entity published by Markit Group Limited or any successor thereto appointed by the Specified Dealers (the 'Secured List Publisher') on or most recently before such day, which list is currently available at [http://www.markit.com]. ISDA 2003 Term: Relevant Secured List.">
+
+    condition ReferenceInformationChoice: <"Choice rule to represent an FpML choice construct.">
+        required choice referenceObligation, noReferenceObligation, unknownReferenceObligation
+
+type ReferenceObligation: <"A class to specify the reference obligation that is associated with a credit derivative instrument.">
+    security Security (0..1) <"Identifies the underlying asset when it is a security, such as a bond or convertible bond. The security data type requires one or more productIdentifiers, specificaiton of the security type (e.g. debt), and includes optional attributes to specify a debt class, such as asset-backed, as well as seniority.">
+    loan Loan (0..1) <"Identifies the underlying asset when it is a loan.">
+    primaryObligor LegalEntity (0..1) <"The entity primarily responsible for repaying debt to a creditor as a result of borrowing or issuing bonds. ISDA 2003 Term: Primary Obligor.">
+    primaryObligorReference LegalEntity (0..1) <"A pointer style reference to a reference entity defined elsewhere in the document. Used when the reference entity is the primary obligor.">
+        [metadata reference]
+    guarantor LegalEntity (0..1) <"The party that guarantees by way of a contractual arrangement to pay the debts of an obligor if the obligor is unable to make the required payments itself. ISDA 2003 Term: Guarantor.">
+    guarantorReference string (0..1) <"A pointer style reference to a reference entity defined elsewhere in the document. Used when the reference entity is the guarantor.">
+    standardReferenceObligation boolean (0..1) <"Indicates if the reference obligation is a Standard Reference Obligation. ISDA 2014 Term: Standard Reference Obligation.">
+
+    condition AssetChoice: <"Represents the choice in a CDS contract.">
+        required choice security, loan
+
+    condition MustBeDebtSecurity: <"Only debt securities can be used as the reference obligation for a credit derivative.">
+        if security exists then security -> securityType = Debt
+
+    condition LegalEntityChoice: <"Represents the choice in a CDS contract..">
+        optional choice primaryObligor, primaryObligorReference
+
+type SettledEntityMatrix: <"A class to specify the Relevant Settled Entity Matrix.">
+
+    matrixSource SettledEntityMatrixSourceEnum (1..1) <"Relevant settled entity matrix source.">
+        [metadata scheme]
+    publicationDate date (0..1) <"Specifies the publication date of the applicable version of the matrix. When this element is omitted, the Standard Terms Supplement defines rules for which version of the matrix is applicable.">
+
+type Tranche: <"The class to represent a CDS Tranche.">
+
+    attachmentPoint number (1..1) <"Lower bound percentage of the loss that the Tranche can endure, expressed as a decimal. An attachment point of 5% would be represented as 0.05. The difference between Attachment and Exhaustion points is called the width of the Tranche.">
+    exhaustionPoint number (1..1) <"Upper bound percentage of the loss that the Tranche can endure, expressed as a decimal. An exhaustion point of 5% would be represented as 0.05. The difference between Attachment and Exhaustion points is call the width of the Tranche.">
+    incurredRecoveryApplicable boolean (0..1) <"Outstanding Swap Notional Amount is defined at any time on any day, as the greater of: (a) Zero; If Incurred Recovery Amount Applicable: (b) The Original Swap Notional Amount minus the sum of all Incurred Loss Amounts and all Incurred Recovery Amounts (if any) determined under this Confirmation at or prior to such time.Incurred Recovery Amount not populated: (b) The Original Swap Notional Amount minus the sum of all Incurred Loss Amounts determined under this Confirmation at or prior to such time.">
+
+    condition AttachmentPoint: <"FpML definition associated with the attachmentPoint element specifies that a schema facet to constraint the value between 0 to 1 will be introduced in FpML 4.3.">
+        attachmentPoint >= 0.0 and attachmentPoint <= 1.0
+
+    condition ExhaustionPoint: <"FpML definition associated with the exhaustionPoint element specifies that a schema facet to constraint the value between 0 to 1 will be introduced in FpML 4.3.">
+        exhaustionPoint >= 0.0 and exhaustionPoint <= 1.0
+
+    condition AttachmentPointLessThanExhaustionPoint: <"FpML validation rule cd-40 - Context: Tranche (complex type) attachmentPoint must be less or equal to exhaustionPoint.">
+        attachmentPoint <= exhaustionPoint

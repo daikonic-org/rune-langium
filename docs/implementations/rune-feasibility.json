@@ -42,10 +42,15 @@
     "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/market-observations.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/market-snapshot.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/observation-averages.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-rate-index.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/rune-math.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-calendar.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
@@ -575,8 +580,9 @@
         "name": "ResolveObservation"
       },
       "signatureSha256": "9740cc677ca53ee575d9c416e4a958e19a6c0f55cda5e7398a4d5cbaeb31dce3",
-      "route": "data-backed",
-      "requirements": "Resolve supplied observations and apply averaging in Rune; establish identity, missing-value and numeric contracts."
+      "route": "rune-source",
+      "requirements": "Match complete observation identifiers and apply the six weighted or unweighted means in Rune. Supply readings, applicable weights and aggregate identity. The geometric mean uses portable log and exp primitives.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-observation.rosetta"
     },
     {
       "symbol": {
@@ -586,8 +592,9 @@
         "name": "ResolveRateIndex"
       },
       "signatureSha256": "80e17f86edb11c1b502c91de7f336540d9e4dc3fe2af868de02208c72b7545cf",
-      "route": "data-backed",
-      "requirements": "Lookup a supplied index value; a constant/no-op implementation is not a general rate resolver."
+      "route": "rune-source",
+      "requirements": "Select exactly one rate for the requested index in a project-nominated snapshot. Preserve zero and negative rates and reject missing or ambiguous quotes.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-rate-index.rosetta"
     },
     {
       "symbol": {

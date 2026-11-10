@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.product.asset
+version "1.0.0"
+
+import cdm.base.staticdata.asset.rates.FloatingRateIndexEnum
+import impl.cdm.market.ReadRateIndexSnapshot
+
+func ResolveRateIndex:
+    inputs: index FloatingRateIndexEnum (1..1)
+    output: rate number (1..1)
+
+    alias requestedIndex: index
+    alias matches: ReadRateIndexSnapshot(index) filter [item -> index = requestedIndex]
+    condition RateIndexMissing:
+        matches exists
+    condition RateIndexAmbiguous:
+        matches count = 1
+    set rate: matches only-element then item -> rate

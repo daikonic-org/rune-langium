@@ -1,0 +1,29 @@
+namespace cdm.observable.common
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.math.*
+import cdm.base.staticdata.asset.common.*
+import cdm.observable.asset.*
+
+func PriceQuantityTriangulation: <"Checks the relationship between price, multiplier, notional and number of units, and validates the result of their product.">
+    inputs:
+        price PriceSchedule (0..*)
+        quantity NonNegativeQuantitySchedule (0..1)
+    output:
+        success boolean (1..1)
+
+    alias noOfUnits:
+        quantity
+            extract
+                if multiplier exists
+                then value * multiplier -> value
+                else value
+
+    set success:
+        price
+            filter priceType = AssetPrice or priceType = ExchangeRate
+            then extract
+                if value exists and noOfUnits exists and derivedQuantity -> value exists
+                then value * noOfUnits = derivedQuantity -> value
+            then if any = False then False else True
