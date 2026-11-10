@@ -89,7 +89,7 @@ test.describe('J9 — Form preview & function execution', () => {
       await page.getByLabel('S1', { exact: true }).fill('hello');
       await page.getByLabel('S2', { exact: true }).fill('hello');
       const executionStartedAt = Date.now();
-      await page.getByRole('button', { name: 'Run' }).click();
+      await page.getByRole('button', { name: 'Run', exact: true }).click();
       // The function-execution output and the (unrelated) "Sample data"
       // preview share the SAME class, `preview-panel__sample-output`
       // (FormPreviewPanel.tsx — the execution-result `<pre>` and the
@@ -124,7 +124,7 @@ test.describe('J9 — Form preview & function execution', () => {
       // unrelated chrome.
       await page.getByLabel('X', { exact: true }).fill('5');
       const scratchExecutionStartedAt = Date.now();
-      await page.getByRole('button', { name: 'Run' }).click();
+      await page.getByRole('button', { name: 'Run', exact: true }).click();
       const scratchOutput = page.locator('.execution-result .preview-panel__sample-output');
       await expect(scratchOutput).toBeVisible({ timeout: 20000 });
       await expect(scratchOutput).toHaveText('10');

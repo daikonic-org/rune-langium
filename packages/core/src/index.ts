@@ -22,7 +22,7 @@
 export * from './generated/domain.js';
 
 // Parse API
-export { parse, parseWorkspace, hasComputedScopes } from './api/parse.js';
+export { parse, parseWorkspace, hasComputedScopes, getLinkedReferenceTarget } from './api/parse.js';
 export type { ParseResult } from './api/parse.js';
 export { parseExpression } from './api/parse-expression.js';
 export type { ExpressionParseResult } from './api/parse-expression.js';

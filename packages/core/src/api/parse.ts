@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { AstUtils, DocumentState, URI, type AstNode, type LangiumDocument } from 'langium';
+import { AstUtils, DocumentState, URI, type AstNode, type LangiumDocument, type Reference } from 'langium';
 import type { RosettaModel } from '../generated/ast.js';
 import { getSharedServices } from './shared-services.js';
 
@@ -9,6 +9,15 @@ import { getSharedServices } from './shared-services.js';
 export function hasComputedScopes(node: AstNode): boolean {
   const document = AstUtils.findRootNode(node).$document;
   return document !== undefined && document.state >= DocumentState.ComputedScopes;
+}
+
+/** Read restored targets directly; resolve lazy references only after their document scopes exist. */
+export function getLinkedReferenceTarget<T extends AstNode>(owner: AstNode, reference: Reference<T>): T | undefined {
+  if (!hasComputedScopes(owner)) {
+    const property = Object.getOwnPropertyDescriptor(reference, 'ref');
+    if (!property || !('value' in property)) return undefined;
+  }
+  return reference.ref;
 }
 
 /**

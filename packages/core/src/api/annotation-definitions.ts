@@ -3,7 +3,7 @@
 
 import { AstUtils, type AstNode } from 'langium';
 import { isAnnotationRef, isRosettaModel } from '../generated/ast.js';
-import { hasComputedScopes } from './parse.js';
+import { getLinkedReferenceTarget } from './parse.js';
 
 export interface AnnotationDefinitionIdentity {
   name: string;
@@ -13,10 +13,9 @@ export interface AnnotationDefinitionIdentity {
 /** Scope facts from the actual linked references, without rebuilding import/name resolution. */
 export function getAnnotationDefinitions(owner: AstNode): Readonly<Record<string, AnnotationDefinitionIdentity>> {
   const definitions: Record<string, AnnotationDefinitionIdentity> = Object.create(null);
-  if (!hasComputedScopes(owner)) return definitions;
   for (const node of AstUtils.streamAst(owner)) {
     if (!isAnnotationRef(node)) continue;
-    const target = node.annotation.ref;
+    const target = getLinkedReferenceTarget(node, node.annotation);
     const model = target?.$container;
     if (target && isRosettaModel(model) && typeof model.name === 'string')
       definitions[node.annotation.$refText] = { name: target.name, namespace: model.name };

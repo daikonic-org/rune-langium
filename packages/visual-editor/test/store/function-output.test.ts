@@ -2,7 +2,14 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, expect, it } from 'vitest';
-import { parse, isRosettaFunction, isMapOperation, isRosettaSymbolReference } from '@rune-langium/core';
+import {
+  parse,
+  createRuneDslServices,
+  serializeRuneModel,
+  isRosettaFunction,
+  isMapOperation,
+  isRosettaSymbolReference
+} from '@rune-langium/core';
 import { renderModel } from '@rune-langium/codegen/rosetta';
 import { createEditorStore } from '../../src/store/editor-store.js';
 import { modelsToAst } from '../../src/adapters/model-to-ast.js';
@@ -19,11 +26,17 @@ func Example:
   post-condition Nonnegative: result count >= 0
 `;
 
-async function fixture(source = SOURCE) {
+async function fixture(source = SOURCE, restored = false) {
   const parsed = await parse(source);
   expect(parsed.hasErrors, JSON.stringify(parsed.parserErrors)).toBe(false);
   const store = createEditorStore();
-  store.getState().loadModels(parsed.value);
+  const { RuneDsl } = createRuneDslServices();
+  const model = restored
+    ? RuneDsl.serializer.JsonSerializer.deserialize<typeof parsed.value>(
+        serializeRuneModel(RuneDsl.serializer.JsonSerializer, parsed.value)
+      )
+    : parsed.value;
+  store.getState().loadModels(model);
   const id = store.getState().nodes.find((node) => node.data.name === 'Example')!.id;
   const text = () => {
     const state = store.getState();
@@ -62,8 +75,11 @@ describe('function output signature', () => {
     expect(text()).toBe(edited);
   });
 
-  it('preserves implicitly scoped inherited fields while renaming the output', async () => {
-    const { store, id, text } = await fixture(`namespace signature.edit
+  it.each([false, true])(
+    'preserves implicitly scoped inherited fields while renaming the output, restored=%s',
+    async (restored) => {
+      const { store, id, text } = await fixture(
+        `namespace signature.edit
       type Parent:
         result number (1..1)
       type Entry extends Parent:
@@ -73,20 +89,23 @@ describe('function output signature', () => {
         output: result number (0..*)
         set result: values extract [result]
         post-condition Valid: result count >= 0
-    `);
-    store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(0..*)');
-    expect(text()).toContain('values extract [result]');
-    expect(text()).toContain('adjusted count >= 0');
-    const reparsed = await parse(text());
-    const fn = reparsed.value.elements.find(isRosettaFunction)!;
-    const map = fn.operations[0]!.expression;
-    if (!isMapOperation(map) || !map.function || !isRosettaSymbolReference(map.function.body))
-      throw new Error('Expected the implicit extraction');
-    expect(map.function.body.symbol.ref?.$container).toBe(
-      reparsed.value.elements.find((node) => node.name === 'Parent')
-    );
-    expect(fn.operations[0]!.assignRoot.ref).toBe(fn.output);
-  });
+    `,
+        restored
+      );
+      store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(0..*)');
+      expect(text()).toContain('values extract [result]');
+      expect(text()).toContain('adjusted count >= 0');
+      const reparsed = await parse(text());
+      const fn = reparsed.value.elements.find(isRosettaFunction)!;
+      const map = fn.operations[0]!.expression;
+      if (!isMapOperation(map) || !map.function || !isRosettaSymbolReference(map.function.body))
+        throw new Error('Expected the implicit extraction');
+      expect(map.function.body.symbol.ref?.$container).toBe(
+        reparsed.value.elements.find((node) => node.name === 'Parent')
+      );
+      expect(fn.operations[0]!.assignRoot.ref).toBe(fn.output);
+    }
+  );
 
   it('leaves a same-named callable bound to its function declaration', async () => {
     const { store, id, text } = await fixture(`namespace signature.edit
